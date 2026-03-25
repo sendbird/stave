@@ -504,6 +504,7 @@ interface WindowApi {
       featureStatus: Record<string, string>;
     }>;
     subscribeZoomChanges?: (listener: (payload: { factor: number; percent: number }) => void) => () => void;
+    subscribeCloseShortcut?: (listener: () => void) => () => void;
   };
   shell?: {
     openExternal?: (args: { url: string }) => Promise<{ ok: boolean; stderr?: string }>;
