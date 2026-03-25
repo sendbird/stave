@@ -218,10 +218,11 @@ const DraftTextarea = memo(function DraftTextarea(args: DraftTextareaProps) {
 });
 
 function GeneralSection() {
-  const [language, newWorkspaceInitCommand] = useAppStore(
+  const [language, newWorkspaceInitCommand, confirmBeforeClose] = useAppStore(
     useShallow((state) => [
       state.settings.language,
       state.settings.newWorkspaceInitCommand,
+      state.settings.confirmBeforeClose,
     ] as const),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
@@ -250,6 +251,24 @@ function GeneralSection() {
               value={newWorkspaceInitCommand}
               onCommit={(nextValue) => updateSettings({ patch: { newWorkspaceInitCommand: nextValue } })}
               placeholder="bun install"
+            />
+          </LabeledField>
+        </SettingsCard>
+        <SettingsCard
+          title="Window Behavior"
+          description="Control how the app handles the close shortcut."
+        >
+          <LabeledField
+            title="Confirm Before Close"
+            description="Show a confirmation dialog before closing the app with ⌘W / Ctrl+W when no tabs or tasks are open."
+          >
+            <ChoiceButtons
+              value={confirmBeforeClose ? "on" : "off"}
+              onChange={(value) => updateSettings({ patch: { confirmBeforeClose: value === "on" } })}
+              options={[
+                { value: "on", label: "On" },
+                { value: "off", label: "Off" },
+              ]}
             />
           </LabeledField>
         </SettingsCard>

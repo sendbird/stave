@@ -4,6 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { Card, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
 import { TopBarBranchDropdown } from "@/components/layout/TopBarBranchDropdown";
+import { TopBarFileSearch } from "@/components/layout/TopBarFileSearch";
 import { TopBarOpenPR } from "@/components/layout/TopBarOpenPR";
 import { TopBarUtilityActions } from "@/components/layout/TopBarUtilityActions";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
@@ -128,10 +129,10 @@ export function TopBar() {
     <>
       <header
         data-testid="top-bar"
-        className="relative z-30 flex h-12 items-center justify-between border-b border-border/70 bg-card px-3.5"
+        className="relative z-30 flex h-12 items-center justify-between gap-3 border-b border-border/70 bg-card px-3.5"
         style={TOP_BAR_DRAG_STYLE}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2 pr-[18rem]">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <TooltipProvider>
             <TopBarBranchDropdown noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
             {activeWorkspacePath ? (
@@ -152,24 +153,23 @@ export function TopBar() {
           </TooltipProvider>
         </div>
         <div
-          className="absolute right-0 top-0 z-20 flex h-12 shrink-0 items-center"
-          style={{
-            right: "8px",
-          }}
+          className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
+          style={TOP_BAR_NO_DRAG_STYLE}
         >
-          <div className="flex shrink-0 items-center gap-1.5">
-            <TopBarUtilityActions
-              isDarkMode={isDarkMode}
-              noDragStyle={TOP_BAR_NO_DRAG_STYLE}
-              onRefresh={handleRefreshProjectFiles}
-              onToggleTheme={handleToggleTheme}
-              onOpenShortcuts={handleOpenShortcuts}
-              onOpenSettings={handleOpenSettings}
-              onPreloadShortcuts={handlePreloadShortcuts}
-              onPreloadSettings={handlePreloadSettings}
-            />
-            <TopBarWindowControls noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
-          </div>
+          <TopBarFileSearch noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5" style={TOP_BAR_NO_DRAG_STYLE}>
+          <TopBarUtilityActions
+            isDarkMode={isDarkMode}
+            noDragStyle={TOP_BAR_NO_DRAG_STYLE}
+            onRefresh={handleRefreshProjectFiles}
+            onToggleTheme={handleToggleTheme}
+            onOpenShortcuts={handleOpenShortcuts}
+            onOpenSettings={handleOpenSettings}
+            onPreloadShortcuts={handlePreloadShortcuts}
+            onPreloadSettings={handlePreloadSettings}
+          />
+          <TopBarWindowControls noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         </div>
       </header>
       {shortcutsOpen ? (

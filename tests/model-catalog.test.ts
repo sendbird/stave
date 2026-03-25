@@ -4,6 +4,7 @@ import {
   STAVE_META_MODEL_OPTIONS,
   getDefaultModelForProvider,
   getNextProviderId,
+  getProviderIconUrl,
   getProviderLabel,
   getProviderWaveToneClass,
   getSdkModelOptions,
@@ -71,6 +72,11 @@ describe("model catalog", () => {
 
     test("returns 'Stave' as the full label", () => {
       expect(getProviderLabel({ providerId: "stave", variant: "full" })).toBe("Stave");
+    });
+
+    test("switches stave icon urls by theme", () => {
+      expect(getProviderIconUrl({ providerId: "stave", isDarkMode: false })).toContain("stave-logo-dark.svg");
+      expect(getProviderIconUrl({ providerId: "stave", isDarkMode: true })).toContain("stave-logo-light.svg");
     });
 
     test("cycles from codex to stave", () => {

@@ -72,6 +72,16 @@ export function createMainWindow() {
 
   window.webContents.on("before-input-event", (event, input) => {
     const hasMod = input.control || input.meta;
+    const isCmdW = input.type === "keyDown"
+      && hasMod
+      && !input.shift
+      && !input.alt
+      && input.key.toLowerCase() === "w";
+    if (isCmdW) {
+      event.preventDefault();
+      window.webContents.send("shortcut:close-tab-or-task");
+      return;
+    }
     const isF12 = input.key === "F12" && input.type === "keyDown";
     const isInspectorChord = input.type === "keyDown"
       && input.key.toLowerCase() === "i"

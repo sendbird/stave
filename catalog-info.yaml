@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: stave
+  description: Dashboard Front-end team's internal AI IDE
+  annotations:
+    github.com/project-slug: sendbird/stave
+spec:
+  type: service
+  lifecycle: experimental
+  owner: tp-dashboard-developer
+  system: sendbird-dashboard

@@ -239,6 +239,7 @@ export interface AppSettings {
   editorLspEnabled: boolean;
   pythonLspCommand: string;
   diffViewMode: "unified" | "split";
+  confirmBeforeClose: boolean;
   providerDebugStream: boolean;
   turnDiagnosticsVisible: boolean;
   providerTimeoutMs: number;
@@ -284,6 +285,7 @@ interface AppState {
   settings: AppSettings;
   editorTabs: EditorTab[];
   activeEditorTabId: string | null;
+  pendingCloseEditorTabId: string | null;
   workspaceRootName: string | null;
   projectFiles: string[];
   taskCheckpointById: Record<string, string>;
@@ -366,6 +368,8 @@ interface AppState {
   setActiveEditorTab: (args: { tabId: string }) => void;
   reorderEditorTabs: (args: { fromTabId: string; toTabId: string }) => void;
   closeEditorTab: (args: { tabId: string }) => void;
+  requestCloseActiveEditorTab: () => void;
+  clearPendingCloseEditorTab: () => void;
   updateEditorContent: (args: { tabId: string; content: string }) => void;
   saveActiveEditorTab: () => Promise<{ ok: boolean; conflict?: boolean }>;
   checkOpenTabConflicts: () => Promise<void>;
@@ -427,6 +431,7 @@ const defaultSettings: AppSettings = {
   editorLspEnabled: false,
   pythonLspCommand: "",
   diffViewMode: "unified",
+  confirmBeforeClose: true,
   providerDebugStream: false,
   turnDiagnosticsVisible: true,
   providerTimeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
@@ -1355,6 +1360,7 @@ export const useAppStore = create<AppState>()(
       settings: defaultSettings,
       editorTabs: [],
       activeEditorTabId: null,
+      pendingCloseEditorTabId: null,
       workspaceRootName: null,
       projectFiles: workspaceFsAdapter.getKnownFiles(),
       taskCheckpointById: {},
@@ -3694,6 +3700,15 @@ export const useAppStore = create<AppState>()(
             workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
           };
         }),
+      requestCloseActiveEditorTab: () =>
+        set((state) => {
+          if (!state.activeEditorTabId) {
+            return {};
+          }
+          return { pendingCloseEditorTabId: state.activeEditorTabId };
+        }),
+      clearPendingCloseEditorTab: () =>
+        set({ pendingCloseEditorTabId: null }),
       updateEditorContent: ({ tabId, content }) => {
         set((state) => {
           let changed = false;

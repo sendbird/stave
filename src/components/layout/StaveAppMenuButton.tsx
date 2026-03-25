@@ -1,6 +1,7 @@
 import { Home, Keyboard, LoaderCircle, Settings } from "lucide-react";
 import { Suspense, lazy, useCallback, useState } from "react";
 import { Button, Card, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui";
+import { getProviderIconUrl } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
@@ -63,7 +64,7 @@ export function StaveAppMenuButton(args?: { compact?: boolean; className?: strin
             )}
           >
             <img
-              src={isDarkMode ? "stave-logo-light.svg" : "stave-logo-dark.svg"}
+              src={getProviderIconUrl({ providerId: "stave", isDarkMode })}
               alt="Stave"
               className="h-4 w-auto"
               draggable={false}

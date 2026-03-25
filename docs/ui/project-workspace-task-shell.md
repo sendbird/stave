@@ -13,6 +13,7 @@ Replace the current `WorkspaceBar + TaskList` shell with a three-part layout:
 - The left project list is full-height and reaches the top edge of the app shell.
 - The top bar now applies only to the main work area, not the left project list.
 - The top bar shows the selected workspace path for the current workspace.
+- The top bar exposes an always-visible quick-open file search input, and `Cmd/Ctrl+P` focuses it from anywhere outside text inputs.
 - The center column contains the top bar, the selected workspace's task tab strip, and the main chat/editor surface.
 - The right edge contains a vertical rail for editor, explorer, changes, and terminal toggles.
 

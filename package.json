@@ -9,7 +9,11 @@
   },
   "type": "module",
   "main": "out/main/index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "postinstall": "node scripts/rebuild-electron-deps.mjs",
     "server-dev": "bun run server/dev-server.ts",
     "dev": "vite",
     "dev:all": "concurrently -n server,client -c blue,green \"bun run server-dev\" \"bun run dev\"",

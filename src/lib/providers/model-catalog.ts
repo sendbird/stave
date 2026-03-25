@@ -1,5 +1,10 @@
 import type { ProviderId } from "@/lib/providers/provider.types";
 
+const CLAUDE_COLOR_ICON_URL = `${import.meta.env.BASE_URL}claude-color.svg`;
+const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
+const STAVE_LOGO_DARK_ICON_URL = `${import.meta.env.BASE_URL}stave-logo-dark.svg`;
+const STAVE_LOGO_LIGHT_ICON_URL = `${import.meta.env.BASE_URL}stave-logo-light.svg`;
+
 // Source: https://platform.claude.com/docs/en/about-claude/models/overview
 // Latest models comparison (as of 2026-03-06)
 export const CLAUDE_SDK_MODEL_OPTIONS = [
@@ -43,7 +48,7 @@ export const PROVIDER_DESCRIPTORS = [
     id: "claude-code",
     label: "Claude Code",
     shortLabel: "Claude",
-    iconUrl: "claude-color.svg",
+    iconUrl: CLAUDE_COLOR_ICON_URL,
     fallbackLabel: "C",
     models: CLAUDE_SDK_MODEL_OPTIONS,
     defaultModel: "claude-sonnet-4-6",
@@ -56,7 +61,7 @@ export const PROVIDER_DESCRIPTORS = [
     id: "codex",
     label: "Codex",
     shortLabel: "Codex",
-    iconUrl: "codex-color.svg",
+    iconUrl: CODEX_COLOR_ICON_URL,
     fallbackLabel: "O",
     models: CODEX_SDK_MODEL_OPTIONS,
     defaultModel: "gpt-5.4",
@@ -71,7 +76,7 @@ export const PROVIDER_DESCRIPTORS = [
     id: "stave",
     label: "Stave",
     shortLabel: "Stave",
-    iconUrl: "stave-logo-dark.svg",
+    iconUrl: STAVE_LOGO_DARK_ICON_URL,
     fallbackLabel: "S",
     models: STAVE_META_MODEL_OPTIONS,
     defaultModel: "stave-auto",
@@ -108,7 +113,7 @@ export function getProviderLabel(args: {
 
 export function getProviderIconUrl(args: { providerId: ProviderId; isDarkMode?: boolean }) {
   if (args.providerId === "stave") {
-    return args.isDarkMode ? "stave-logo-light.svg" : "stave-logo-dark.svg";
+    return args.isDarkMode ? STAVE_LOGO_LIGHT_ICON_URL : STAVE_LOGO_DARK_ICON_URL;
   }
   return getProviderDescriptor({ providerId: args.providerId }).iconUrl;
 }

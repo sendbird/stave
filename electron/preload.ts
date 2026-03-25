@@ -80,6 +80,13 @@ type LspEventPayload =
       }>;
     };
 
+const closeShortcutSubscribers = new Set<() => void>();
+ipcRenderer.on("shortcut:close-tab-or-task", () => {
+  for (const subscriber of closeShortcutSubscribers) {
+    subscriber();
+  }
+});
+
 const lspEventSubscribers = new Set<(payload: LspEventPayload) => void>();
 ipcRenderer.on("lsp:event", (_event, payload: LspEventPayload) => {
   for (const subscriber of lspEventSubscribers) {
@@ -235,6 +242,12 @@ contextBridge.exposeInMainWorld("api", {
       zoomChangeSubscribers.add(listener);
       return () => {
         zoomChangeSubscribers.delete(listener);
+      };
+    },
+    subscribeCloseShortcut: (listener: () => void) => {
+      closeShortcutSubscribers.add(listener);
+      return () => {
+        closeShortcutSubscribers.delete(listener);
       };
     },
   },
