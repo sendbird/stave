@@ -65,8 +65,8 @@ export function KeyboardShortcutsDrawer({ open, onOpenChange }: KeyboardShortcut
             sequences: [[modifierLabel, "N"]],
           },
           {
-            label: "Close task",
-            description: "Archive the currently selected task.",
+            label: "Close tab / task",
+            description: "Close the active editor tab, or archive the task if no tabs are open.",
             sequences: [[modifierLabel, "W"]],
           },
           {

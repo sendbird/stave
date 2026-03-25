@@ -6,6 +6,7 @@ import { WorkspaceTaskTabs } from "@/components/layout/WorkspaceTaskTabs";
 import { ChatArea } from "@/components/session/ChatArea";
 import { TerminalDock } from "@/components/layout/TerminalDock";
 import { Toaster } from "@/components/ui";
+import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { getNextProviderId } from "@/lib/providers/model-catalog";
 import { RenderProfiler } from "@/lib/render-profiler";
 import { MIN_EDITOR_PANEL_WIDTH, TASK_LIST_MIN_WIDTH, useAppStore } from "@/store/app.store";
@@ -66,6 +67,7 @@ export function AppShell() {
   const pendingLayoutPatchRef = useRef<Partial<Record<ResizableLayoutKey, number>> | null>(null);
   const resizeFrameRef = useRef<number | null>(null);
   const [zoomHudPercent, setZoomHudPercent] = useState<number | null>(null);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const zoomHudTimerRef = useRef<number | null>(null);
 
   function flushPendingLayoutPatch() {
@@ -127,6 +129,32 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
+    const unsubscribe = window.api?.window?.subscribeCloseShortcut?.(() => {
+      const store = useAppStore.getState();
+      const { editorTabs, activeEditorTabId, activeTaskId, settings } = store;
+
+      if (activeEditorTabId && editorTabs.length > 0) {
+        store.requestCloseActiveEditorTab();
+        return;
+      }
+
+      if (activeTaskId) {
+        store.archiveTask({ taskId: activeTaskId });
+        return;
+      }
+
+      if (settings.confirmBeforeClose) {
+        setShowCloseConfirm(true);
+      } else {
+        void window.api?.window?.close?.();
+      }
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const store = useAppStore.getState();
       const hasMod = event.ctrlKey || event.metaKey;
@@ -145,17 +173,6 @@ export function AppShell() {
         event.preventDefault();
         event.stopPropagation();
         store.createTask({ title: "" });
-        return;
-      }
-
-      if (event.key.toLowerCase() === "w") {
-        const activeTaskId = store.activeTaskId;
-        if (!activeTaskId) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        store.archiveTask({ taskId: activeTaskId });
         return;
       }
 
@@ -237,6 +254,18 @@ export function AppShell() {
         </div>
       ) : null}
       <Toaster />
+      <ConfirmDialog
+        open={showCloseConfirm}
+        title="Close Stave?"
+        description="Are you sure you want to close the application window?"
+        confirmLabel="Close"
+        cancelLabel="Cancel"
+        onCancel={() => setShowCloseConfirm(false)}
+        onConfirm={() => {
+          setShowCloseConfirm(false);
+          void window.api?.window?.close?.();
+        }}
+      />
       <RenderProfiler id="ProjectWorkspaceSidebar">
         <ProjectWorkspaceSidebar width={Math.max(taskListWidth, TASK_LIST_MIN_WIDTH)} collapsed={taskListCollapsed} />
       </RenderProfiler>

@@ -840,6 +840,17 @@ export function EditorMainPanel() {
     setDraggingTabId(null);
   }
 
+  const pendingCloseEditorTabId = useAppStore((s) => s.pendingCloseEditorTabId);
+  const clearPendingCloseEditorTab = useAppStore((s) => s.clearPendingCloseEditorTab);
+
+  useEffect(() => {
+    if (!pendingCloseEditorTabId) {
+      return;
+    }
+    clearPendingCloseEditorTab();
+    requestCloseTab(pendingCloseEditorTabId);
+  }, [pendingCloseEditorTabId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function requestCloseTab(tabId: string) {
     const tab = editorTabs.find((item) => item.id === tabId);
     if (!tab) {
