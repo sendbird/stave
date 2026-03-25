@@ -34,7 +34,8 @@ Stave is an Electron-based AI coding workspace built with Bun, React, Vite, and 
 - **C++ build toolchain** — required for compiling `better-sqlite3` and `node-pty` native modules:
   - macOS: Xcode Command Line Tools (`xcode-select --install`)
   - Linux: `build-essential` (`sudo apt install build-essential`)
-  - Windows: Windows Build Tools (`npm install -g windows-build-tools`)
+  - Windows: Visual Studio Build Tools 2022 with the **Desktop development with C++** workload (VC++ tools) and Python installed. See the [node-gyp Windows docs](https://github.com/nodejs/node-gyp#on-windows) for details. Example with Chocolatey:
+    - `choco install visualstudio2022buildtools python --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"`
 - a working `claude` CLI login if you want Claude support
 - a working `codex` CLI login if you want Codex support
 - `pyright-langserver` or `basedpyright-langserver` on your PATH if you want Python LSP support in the editor
