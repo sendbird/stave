@@ -10,6 +10,21 @@ const nativeModules = ["better-sqlite3", "node-pty"];
 
 export function resolveElectronVersion(args = {}) {
   const repoRoot = args.repoRoot ?? defaultRepoRoot;
+
+  // Prefer the actual installed version from node_modules/electron/package.json
+  // so that the compiled ABI matches exactly what is on disk, even when
+  // package.json contains a semver range like "^41.0.0".
+  const installedElectronPkgPath = path.join(repoRoot, "node_modules", "electron", "package.json");
+  try {
+    const installedPkg = JSON.parse(readFileSync(installedElectronPkgPath, "utf8"));
+    if (typeof installedPkg.version === "string" && installedPkg.version.length > 0) {
+      return installedPkg.version;
+    }
+  } catch {
+    // Fall through to package.json derivation below.
+  }
+
+  // Fallback: strip the semver prefix from the devDependencies range.
   const packageJson = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
   const rawElectronVersion = packageJson.devDependencies?.electron;
 
@@ -83,6 +98,10 @@ function isDirectExecution() {
 }
 
 if (isDirectExecution()) {
+  if (process.env.SKIP_ELECTRON_REBUILD) {
+    console.log("SKIP_ELECTRON_REBUILD is set — skipping Electron native module rebuild.");
+    process.exit(0);
+  }
   try {
     rebuildElectronDeps();
   } catch (error) {

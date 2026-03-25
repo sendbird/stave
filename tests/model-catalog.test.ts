@@ -4,6 +4,7 @@ import {
   STAVE_META_MODEL_OPTIONS,
   getDefaultModelForProvider,
   getNextProviderId,
+  getProviderIconUrl,
   getProviderLabel,
   getSdkModelOptions,
   listProviderIds,
@@ -29,6 +30,11 @@ describe("model catalog", () => {
 
   test("returns provider defaults from the descriptor registry", () => {
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe("claude-sonnet-4-6");
+  });
+
+  test("returns stable asset-backed icon urls for provider badges", () => {
+    expect(getProviderIconUrl({ providerId: "claude-code" })).toContain("claude-color.svg");
+    expect(getProviderIconUrl({ providerId: "codex" })).toContain("codex-color.svg");
   });
 
   test("cycles provider order from the descriptor registry", () => {
@@ -64,6 +70,11 @@ describe("model catalog", () => {
 
     test("returns 'Stave' as the full label", () => {
       expect(getProviderLabel({ providerId: "stave", variant: "full" })).toBe("Stave");
+    });
+
+    test("switches stave icon urls by theme", () => {
+      expect(getProviderIconUrl({ providerId: "stave", isDarkMode: false })).toContain("stave-logo-dark.svg");
+      expect(getProviderIconUrl({ providerId: "stave", isDarkMode: true })).toContain("stave-logo-light.svg");
     });
 
     test("cycles from codex to stave", () => {

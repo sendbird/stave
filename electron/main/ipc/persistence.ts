@@ -55,6 +55,7 @@ export function registerPersistenceHandlers() {
       });
       event.returnValue = { ok: true };
     } catch (error) {
+      console.error("[persistence] upsert-workspace-sync failed:", error);
       event.returnValue = { ok: false, message: String(error) };
     }
   });
