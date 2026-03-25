@@ -1,9 +1,9 @@
 import type { ProviderId } from "@/lib/providers/provider.types";
 
-const CLAUDE_COLOR_ICON_URL = new URL("../../../public/claude-color.svg", import.meta.url).href;
-const CODEX_COLOR_ICON_URL = new URL("../../../public/codex-color.svg", import.meta.url).href;
-const STAVE_LOGO_DARK_ICON_URL = new URL("../../../public/stave-logo-dark.svg", import.meta.url).href;
-const STAVE_LOGO_LIGHT_ICON_URL = new URL("../../../public/stave-logo-light.svg", import.meta.url).href;
+const CLAUDE_COLOR_ICON_URL = `${import.meta.env.BASE_URL}claude-color.svg`;
+const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
+const STAVE_LOGO_DARK_ICON_URL = `${import.meta.env.BASE_URL}stave-logo-dark.svg`;
+const STAVE_LOGO_LIGHT_ICON_URL = `${import.meta.env.BASE_URL}stave-logo-light.svg`;
 
 // Source: https://platform.claude.com/docs/en/about-claude/models/overview
 // Latest models comparison (as of 2026-03-06)
