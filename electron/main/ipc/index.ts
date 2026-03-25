@@ -1,4 +1,5 @@
 import { registerFilesystemHandlers } from "./filesystem";
+import { registerInlineCompletionHandlers } from "./inline-completion";
 import { registerLspHandlers } from "./lsp";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerProviderHandlers } from "./provider";
@@ -18,4 +19,5 @@ export function registerHandlers() {
   registerSkillsHandlers();
   registerLspHandlers();
   registerScreenshotHandlers();
+  registerInlineCompletionHandlers();
 }

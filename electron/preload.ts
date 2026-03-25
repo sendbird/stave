@@ -244,4 +244,22 @@ contextBridge.exposeInMainWorld("api", {
   capture: {
     screenshot: () => ipcRenderer.invoke("screenshot:capture") as Promise<{ ok: boolean; dataUrl: string }>,
   },
+  inlineCompletion: {
+    request: (args: {
+      prefix: string;
+      suffix: string;
+      filePath: string;
+      language: string;
+      maxTokens?: number;
+    }) => ipcRenderer.invoke("inline-completion:request", args) as Promise<{
+      ok: boolean;
+      text: string;
+      error?: string;
+    }>,
+    abort: () => ipcRenderer.invoke("inline-completion:abort") as Promise<{ ok: boolean }>,
+    available: () => ipcRenderer.invoke("inline-completion:available") as Promise<{
+      ok: boolean;
+      available: boolean;
+    }>,
+  },
 });

@@ -971,6 +971,7 @@ function EditorSection() {
     editorLineNumbers,
     editorTabSize,
     editorLspEnabled,
+    editorAiCompletions,
     pythonLspCommand,
   ] = useAppStore(
     useShallow((state) => [
@@ -981,6 +982,7 @@ function EditorSection() {
       state.settings.editorLineNumbers,
       state.settings.editorTabSize,
       state.settings.editorLspEnabled,
+      state.settings.editorAiCompletions,
       state.settings.pythonLspCommand,
     ] as const),
   );
@@ -1055,6 +1057,25 @@ function EditorSection() {
             <ChoiceButtons
               value={editorMinimap ? "on" : "off"}
               onChange={(value) => updateSettings({ patch: { editorMinimap: value === "on" } })}
+              options={[
+                { value: "on", label: "On" },
+                { value: "off", label: "Off" },
+              ]}
+            />
+          </LabeledField>
+        </SettingsCard>
+
+        <SettingsCard
+          title="AI Inline Completions"
+          description="Ghost-text code suggestions powered by Claude. Requires the ANTHROPIC_API_KEY environment variable to be set."
+        >
+          <LabeledField
+            title="Enable AI Completions"
+            description="Shows AI-generated inline suggestions as you type. Press Tab to accept. Uses Claude Haiku for fast, low-cost completions."
+          >
+            <ChoiceButtons
+              value={editorAiCompletions ? "on" : "off"}
+              onChange={(value) => updateSettings({ patch: { editorAiCompletions: value === "on" } })}
               options={[
                 { value: "on", label: "On" },
                 { value: "off", label: "Off" },

@@ -237,6 +237,7 @@ export interface AppSettings {
   editorLineNumbers: "on" | "off" | "relative";
   editorTabSize: number;
   editorLspEnabled: boolean;
+  editorAiCompletions: boolean;
   pythonLspCommand: string;
   diffViewMode: "unified" | "split";
   providerDebugStream: boolean;
@@ -425,6 +426,7 @@ const defaultSettings: AppSettings = {
   editorLineNumbers: "on" as const,
   editorTabSize: 2,
   editorLspEnabled: false,
+  editorAiCompletions: false,
   pythonLspCommand: "",
   diffViewMode: "unified",
   providerDebugStream: false,

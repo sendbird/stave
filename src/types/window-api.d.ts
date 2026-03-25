@@ -485,6 +485,18 @@ interface WindowCaptureApi {
   screenshot: () => Promise<{ ok: boolean; dataUrl: string }>;
 }
 
+interface WindowInlineCompletionApi {
+  request?: (args: {
+    prefix: string;
+    suffix: string;
+    filePath: string;
+    language: string;
+    maxTokens?: number;
+  }) => Promise<{ ok: boolean; text: string; error?: string }>;
+  abort?: () => Promise<{ ok: boolean }>;
+  available?: () => Promise<{ ok: boolean; available: boolean }>;
+}
+
 interface WindowApi {
   provider?: WindowProviderApi;
   persistence?: WindowPersistenceApi;
@@ -494,6 +506,7 @@ interface WindowApi {
   terminal?: WindowTerminalApi;
   sourceControl?: WindowSourceControlApi;
   capture?: WindowCaptureApi;
+  inlineCompletion?: WindowInlineCompletionApi;
   window?: {
     minimize?: () => Promise<void>;
     toggleMaximize?: () => Promise<{ isMaximized: boolean }>;

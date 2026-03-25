@@ -18,6 +18,8 @@ import {
   type LanguageIntelligenceRuntime,
   type LanguageIntelligenceSettings,
 } from "./editor-language-intelligence";
+import { configureInlineCompletions, type InlineCompletionSettings } from "./editor-inline-completions";
+
 import { loadWorkspaceTypeScriptCompilerOptions, type WorkspaceTypeScriptCompilerOptions } from "./editor-monaco-tsconfig";
 
 type MonacoDisposable = { dispose(): void };
@@ -569,6 +571,7 @@ export function EditorMainPanel() {
     editorTabSize,
     editorWordWrap,
     editorLspEnabled,
+    editorAiCompletions,
     pythonLspCommand,
     setLayout,
     updateSettings,
@@ -595,6 +598,7 @@ export function EditorMainPanel() {
     state.settings.editorTabSize,
     state.settings.editorWordWrap,
     state.settings.editorLspEnabled,
+    state.settings.editorAiCompletions,
     state.settings.pythonLspCommand,
     state.setLayout,
     state.updateSettings,
@@ -628,6 +632,9 @@ export function EditorMainPanel() {
     getWorkspaceRootPath: () => workspaceRootPathRef.current,
     getSettings: () => languageIntelligenceSettingsRef.current,
   });
+  const inlineCompletionSettingsRef = useRef<InlineCompletionSettings>({
+    enabled: editorAiCompletions,
+  });
   const previousLanguageIntelligenceStateRef = useRef<{
     rootPath: string;
     enabled: boolean;
@@ -635,6 +642,9 @@ export function EditorMainPanel() {
   } | null>(null);
 
   workspaceRootPathRef.current = workspaceRootPath;
+  inlineCompletionSettingsRef.current = {
+    enabled: editorAiCompletions,
+  };
   languageIntelligenceSettingsRef.current = {
     enabled: editorLspEnabled,
     pythonLspCommand,
@@ -665,6 +675,10 @@ export function EditorMainPanel() {
     configureMonacoLanguageIntelligence({
       monaco,
       runtime: languageIntelligenceRuntimeRef.current,
+    });
+    configureInlineCompletions({
+      monaco,
+      getSettings: () => inlineCompletionSettingsRef.current,
     });
     if (!editorOpenerDisposableRef.current) {
       editorOpenerDisposableRef.current = monaco.editor.registerEditorOpener({
