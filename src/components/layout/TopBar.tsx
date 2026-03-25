@@ -5,6 +5,7 @@ import { Card, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "
 import { useAppStore } from "@/store/app.store";
 import { TopBarBranchDropdown } from "@/components/layout/TopBarBranchDropdown";
 import { TopBarOpenPR } from "@/components/layout/TopBarOpenPR";
+import { TopBarApprovePR } from "@/components/layout/TopBarApprovePR";
 import { TopBarUtilityActions } from "@/components/layout/TopBarUtilityActions";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
 
@@ -149,6 +150,7 @@ export function TopBar() {
               </Tooltip>
             ) : null}
             <TopBarOpenPR noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+            <TopBarApprovePR noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
           </TooltipProvider>
         </div>
         <div
