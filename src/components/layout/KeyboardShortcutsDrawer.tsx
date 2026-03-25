@@ -112,6 +112,11 @@ export function KeyboardShortcutsDrawer({ open, onOpenChange }: KeyboardShortcut
         description: "Common task and editor commands.",
         shortcuts: [
           {
+            label: "Quick open file",
+            description: "Search the active workspace files and open a file in the editor.",
+            sequences: [[modifierLabel, "P"]],
+          },
+          {
             label: "Save file",
             description: "Save the active editor tab.",
             sequences: [[modifierLabel, "S"]],
@@ -188,7 +193,7 @@ export function KeyboardShortcutsDrawer({ open, onOpenChange }: KeyboardShortcut
           </div>
           <DrawerFooter className="border-t border-border/70 px-5 py-4 md:flex-row md:items-center md:justify-between md:px-6">
             <p className="text-sm text-muted-foreground">
-              Task quick jump works on the active task list, and the guide shortcut is ignored while typing in inputs.
+              Task quick jump works on the active task list, and the quick open / guide shortcuts are ignored while typing in inputs.
             </p>
             <DrawerClose asChild>
               <Button variant="outline">Close</Button>

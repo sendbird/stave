@@ -1,4 +1,4 @@
-import { Keyboard, Moon, RefreshCw, Search, Settings, Sun } from "lucide-react";
+import { Keyboard, Moon, RefreshCw, Settings, Sun } from "lucide-react";
 import { memo, type CSSProperties } from "react";
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui";
 
@@ -48,14 +48,6 @@ export const TopBarUtilityActions = memo(function TopBarUtilityActions({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">{isDarkMode ? "Switch to light mode" : "Switch to dark mode"}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-9 w-9 rounded-md p-0" aria-label="search" style={noDragStyle}>
-              <Search className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Search</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>

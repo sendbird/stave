@@ -10,6 +10,7 @@ Stave is an Electron-based AI coding workspace built with Bun, React, Vite, and 
 - `$skill-name` composer selector that resolves installed Claude and Codex skills across global, user, and workspace scopes
 - file and image attachments in the composer, including screenshot capture and clipboard image paste with inline preview
 - Monaco editor with workspace-backed TypeScript IntelliSense, optional Python LSP support, docked terminal, and source-control actions
+- always-visible top-bar quick open for searching workspace files, with `Cmd/Ctrl+P` focusing it
 - redesigned project, workspace, and task shell with a collapsible project sidebar, workspace task tabs, and a right-side activity rail
 - recent-project switching that preserves each project's own workspace list and last active workspace
 - automatic import of existing branch-backed git worktrees when a project opens
