@@ -145,8 +145,8 @@ export function KeyboardShortcutsDrawer({ open, onOpenChange }: KeyboardShortcut
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="top">
-      <DrawerContent className="border-border/80 bg-card/95 shadow-2xl supports-backdrop-filter:backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-6xl flex-col">
+      <DrawerContent className="border-border/80 bg-card/95 shadow-2xl supports-backdrop-filter:backdrop-blur-xl data-[vaul-drawer-direction=top]:max-h-dvh data-[vaul-drawer-direction=top]:mb-0 data-[vaul-drawer-direction=top]:rounded-b-none data-[vaul-drawer-direction=top]:border-b-0">
+        <div className="mx-auto flex h-full w-full max-w-6xl flex-col">
           <DrawerHeader className="gap-3 border-b border-border/70 px-5 pb-5 pt-5 text-left md:px-6">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
@@ -165,7 +165,7 @@ export function KeyboardShortcutsDrawer({ open, onOpenChange }: KeyboardShortcut
               </Badge>
             </div>
           </DrawerHeader>
-          <div className="grid gap-4 overflow-y-auto px-5 py-5 md:grid-cols-2 md:px-6 xl:grid-cols-4">
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-5 py-5 md:grid-cols-2 md:px-6 xl:grid-cols-4">
             {sections.map((section) => (
               <Card key={section.title} className="border-border/70 bg-background/75 shadow-sm">
                 <CardHeader className="gap-1.5 pb-3">
