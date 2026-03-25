@@ -9,20 +9,20 @@ const PATCH_TARGETS = [
   {
     filePath: "node_modules/better-sqlite3/src/objects/statement.cpp",
     signature: "NODE_GETTER(Statement::JS_busy) {",
-    from: "Statement* stmt = Unwrap<Statement>(info.This());",
-    to: "Statement* stmt = Unwrap<Statement>(info.HolderV2());",
+    from: "Unwrap<Statement>(PROPERTY_HOLDER(info))",
+    to: "Unwrap<Statement>(info.HolderV2())",
   },
   {
     filePath: "node_modules/better-sqlite3/src/objects/database.cpp",
     signature: "NODE_GETTER(Database::JS_open) {",
-    from: "info.GetReturnValue().Set(Unwrap<Database>(info.This())->open);",
-    to: "info.GetReturnValue().Set(Unwrap<Database>(info.HolderV2())->open);",
+    from: "Unwrap<Database>(PROPERTY_HOLDER(info))",
+    to: "Unwrap<Database>(info.HolderV2())",
   },
   {
     filePath: "node_modules/better-sqlite3/src/objects/database.cpp",
     signature: "NODE_GETTER(Database::JS_inTransaction) {",
-    from: "Database* db = Unwrap<Database>(info.This());",
-    to: "Database* db = Unwrap<Database>(info.HolderV2());",
+    from: "Unwrap<Database>(PROPERTY_HOLDER(info))",
+    to: "Unwrap<Database>(info.HolderV2())",
   },
 ];
 
