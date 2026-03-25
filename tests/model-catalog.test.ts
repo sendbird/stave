@@ -5,6 +5,7 @@ import {
   getDefaultModelForProvider,
   getNextProviderId,
   getProviderLabel,
+  getProviderWaveToneClass,
   getSdkModelOptions,
   listProviderIds,
   toHumanModelName,
@@ -29,6 +30,12 @@ describe("model catalog", () => {
 
   test("returns provider defaults from the descriptor registry", () => {
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe("claude-sonnet-4-6");
+  });
+
+  test("returns provider wave tone classes", () => {
+    expect(getProviderWaveToneClass({ providerId: "claude-code" })).toBe("text-provider-claude");
+    expect(getProviderWaveToneClass({ providerId: "codex" })).toBe("text-provider-codex");
+    expect(getProviderWaveToneClass({ providerId: "stave" })).toBe("text-primary");
   });
 
   test("cycles provider order from the descriptor registry", () => {

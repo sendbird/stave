@@ -2,7 +2,7 @@ import { Archive, Download, Ellipsis, Hash, LoaderCircle, Pencil } from "lucide-
 import { memo, type ReactNode } from "react";
 import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Button, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Kbd, WaveIndicator } from "@/components/ui";
-import { getProviderLabel } from "@/lib/providers/model-catalog";
+import { getProviderLabel, getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { formatTaskUpdatedAt, isTaskArchived } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
@@ -49,7 +49,7 @@ export const CompactTaskItem = memo(function CompactTaskItem({
         </div>
         {isTurnActive ? (
           <WaveIndicator
-            className={cn("gap-px", task.provider === "claude-code" ? "text-provider-claude" : "text-provider-codex")}
+            className={cn("gap-px", getProviderWaveToneClass({ providerId: task.provider }))}
             barClassName="h-3 w-0.5 rounded-[2px]"
           />
         ) : null}
@@ -102,7 +102,7 @@ export const TaskItem = memo(function TaskItem({
                   className="inline-flex shrink-0 items-center gap-1 rounded-md border-border/70 bg-muted/60 px-1.5 py-0.5 text-[11px] text-muted-foreground"
                 >
                   <WaveIndicator
-                    className={cn("gap-px", task.provider === "claude-code" ? "text-provider-claude" : "text-provider-codex")}
+                    className={cn("gap-px", getProviderWaveToneClass({ providerId: task.provider }))}
                     barClassName="h-3 w-0.5 rounded-[2px]"
                   />
                   Responding

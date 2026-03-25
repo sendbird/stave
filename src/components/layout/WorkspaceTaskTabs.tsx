@@ -4,7 +4,7 @@ import { ModelIcon } from "@/components/ai-elements";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { Button, Card, Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, WaveIndicator } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { getProviderLabel } from "@/lib/providers/model-catalog";
+import { getProviderLabel, getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { getProviderConversationLabel, listProviderConversations } from "@/lib/providers/provider-conversations";
 import { isTaskArchived } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
@@ -157,7 +157,7 @@ export function WorkspaceTaskTabs() {
                 visibleTasks.map((task) => {
                   const isActive = task.id === activeTaskId;
                   const isResponding = Boolean(activeTurnIdsByTask[task.id]);
-                  const respondingToneClass = task.provider === "claude-code" ? "text-provider-claude" : "text-provider-codex";
+                  const respondingToneClass = getProviderWaveToneClass({ providerId: task.provider });
 
                   return (
                     <div
@@ -189,9 +189,9 @@ export function WorkspaceTaskTabs() {
                         className="flex min-w-0 items-center gap-2"
                         onClick={() => selectTask({ taskId: task.id })}
                       >
-                        <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center", isResponding && respondingToneClass)}>
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                           {isResponding ? (
-                            <WaveIndicator className="gap-px" barClassName="h-3 w-0.5 rounded-[2px]" />
+                            <WaveIndicator className={cn("gap-px", respondingToneClass)} barClassName="h-3 w-0.5 rounded-[2px]" />
                           ) : (
                             <ModelIcon providerId={task.provider} className="size-4 text-muted-foreground" />
                           )}

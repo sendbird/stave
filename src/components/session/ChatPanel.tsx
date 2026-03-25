@@ -51,7 +51,7 @@ import {
 } from "@/components/session/chat-panel.utils";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
-import { toHumanModelName } from "@/lib/providers/model-catalog";
+import { getProviderWaveToneClass, toHumanModelName } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage, CodeDiffPart, FileContextPart, ImageContextPart, MessagePart } from "@/types/chat";
@@ -122,7 +122,10 @@ function toProviderStartCase(args: { providerId: "claude-code" | "codex" | "stav
 }
 
 function toProviderWaveToneClass(args: { providerId: "claude-code" | "codex" | "stave" | "user" }) {
-  return args.providerId === "codex" ? "text-provider-codex" : "text-provider-claude";
+  if (args.providerId === "user") {
+    return "text-primary";
+  }
+  return getProviderWaveToneClass({ providerId: args.providerId });
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -812,12 +815,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               <MessageAction
                 key="responding-action"
                 label="Responding"
-                className={cn(
-                  "pointer-events-none absolute right-0 top-1/2 h-8 w-8 shrink-0 -translate-y-1/2 cursor-default p-0 opacity-100",
-                  toProviderWaveToneClass({ providerId: message.providerId }),
-                )}
+                className="pointer-events-none absolute right-0 top-1/2 h-8 w-8 shrink-0 -translate-y-1/2 cursor-default p-0 opacity-100"
               >
-                <WaveIndicator />
+                <WaveIndicator className={toProviderWaveToneClass({ providerId: message.providerId })} />
               </MessageAction>
             ) : null}
           </MessageActions>

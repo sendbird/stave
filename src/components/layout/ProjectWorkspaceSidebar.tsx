@@ -10,6 +10,7 @@ import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { StaveAppMenuButton } from "@/components/layout/StaveAppMenuButton";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, WaveIndicator } from "@/components/ui";
+import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
@@ -233,16 +234,32 @@ export function ProjectWorkspaceSidebar(args: { width: number; collapsed: boolea
     }
   }, [args.collapsed, reorderMode]);
 
-  function getWorkspaceRespondingTaskCount(workspaceId: string) {
-    const runtimeState = workspaceId === activeWorkspaceId
+  function getWorkspaceRuntimeState(workspaceId: string) {
+    return workspaceId === activeWorkspaceId
       ? { tasks, activeTurnIdsByTask }
       : workspaceRuntimeCacheById[workspaceId];
+  }
 
+  function getWorkspaceRespondingTasks(workspaceId: string) {
+    const runtimeState = getWorkspaceRuntimeState(workspaceId);
     if (!runtimeState) {
-      return 0;
+      return [];
     }
 
-    return runtimeState.tasks.reduce((count, task) => count + (runtimeState.activeTurnIdsByTask[task.id] ? 1 : 0), 0);
+    return runtimeState.tasks.filter((task) => Boolean(runtimeState.activeTurnIdsByTask[task.id]));
+  }
+
+  function getWorkspaceRespondingTaskCount(workspaceId: string) {
+    return getWorkspaceRespondingTasks(workspaceId).length;
+  }
+
+  function getWorkspaceRespondingToneClass(workspaceId: string) {
+    const providers = Array.from(new Set(getWorkspaceRespondingTasks(workspaceId).map((task) => task.provider)));
+    if (providers.length !== 1) {
+      return "text-primary";
+    }
+    const providerId = providers[0];
+    return providerId ? getProviderWaveToneClass({ providerId }) : "text-primary";
   }
 
   async function handleProjectWorkspaceOpen(args: { projectPath: string; workspaceId?: string }) {
@@ -391,6 +408,7 @@ export function ProjectWorkspaceSidebar(args: { width: number; collapsed: boolea
                   const workspaceBusy = busyWorkspaceKey === `${entry.projectPath}:${entry.workspaceId}`;
                   const respondingTaskCount = getWorkspaceRespondingTaskCount(entry.workspaceId);
                   const isResponding = respondingTaskCount > 0;
+                  const respondingToneClass = getWorkspaceRespondingToneClass(entry.workspaceId);
 
                   return (
                     <Tooltip key={`${entry.projectPath}:${entry.workspaceId}`}>
@@ -412,7 +430,7 @@ export function ProjectWorkspaceSidebar(args: { width: number; collapsed: boolea
                           {workspaceBusy ? (
                             <LoaderCircle className="size-4 animate-spin" />
                           ) : isResponding ? (
-                            <WaveIndicator className="gap-px text-primary" barClassName="h-3 w-0.5 rounded-[2px]" />
+                            <WaveIndicator className={cn("gap-px", respondingToneClass)} barClassName="h-3 w-0.5 rounded-[2px]" />
                           ) : (
                             <WorkspaceIdentityMark workspaceName={entry.workspaceName} isDefault={entry.isDefault} />
                           )}
@@ -586,6 +604,7 @@ export function ProjectWorkspaceSidebar(args: { width: number; collapsed: boolea
                                             const workspaceBusy = busyWorkspaceKey === `${project.projectPath}:${workspace.id}`;
                                             const respondingTaskCount = getWorkspaceRespondingTaskCount(workspace.id);
                                             const isResponding = respondingTaskCount > 0;
+                                            const respondingToneClass = getWorkspaceRespondingToneClass(workspace.id);
                                             const isActive = project.isCurrent && workspace.id === activeWorkspaceId;
                                             const workspaceReorderingDisabled = !reorderMode || projectBusy || workspaceBusy || project.workspaces.length < 2;
 
@@ -614,7 +633,7 @@ export function ProjectWorkspaceSidebar(args: { width: number; collapsed: boolea
                                                       <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                                                         {isResponding ? (
                                                           <WaveIndicator
-                                                            className="gap-px text-primary"
+                                                            className={cn("gap-px", respondingToneClass)}
                                                             barClassName="h-3 w-0.5 rounded-[2px]"
                                                           />
                                                         ) : (

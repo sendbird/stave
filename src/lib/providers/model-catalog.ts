@@ -113,6 +113,16 @@ export function getProviderIconUrl(args: { providerId: ProviderId; isDarkMode?: 
   return getProviderDescriptor({ providerId: args.providerId }).iconUrl;
 }
 
+export function getProviderWaveToneClass(args: { providerId: ProviderId }) {
+  if (args.providerId === "claude-code") {
+    return "text-provider-claude";
+  }
+  if (args.providerId === "codex") {
+    return "text-provider-codex";
+  }
+  return "text-primary";
+}
+
 export function getProviderFallbackLabel(args: { providerId: ProviderId }) {
   return getProviderDescriptor(args).fallbackLabel;
 }
