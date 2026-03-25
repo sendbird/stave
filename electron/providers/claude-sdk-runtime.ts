@@ -117,6 +117,7 @@ function resolveClaudeExecutablePath() {
   const candidates = [
     process.env.STAVE_CLAUDE_CLI_PATH,
     process.env.CLAUDE_CODE_PATH,
+    `${homedir()}/.claude/local/claude`,
     `${homedir()}/.bun/bin/claude`,
     `${homedir()}/.local/bin/claude`,
   ]
@@ -160,6 +161,7 @@ function buildClaudeEnv(args: { executablePath: string }) {
 
   const currentPath = process.env.PATH ?? "";
   const prepends = new Set<string>([
+    `${homedir()}/.claude/local`,
     `${homedir()}/.bun/bin`,
     `${homedir()}/.local/bin`,
     args.executablePath ? path.dirname(args.executablePath) : "",
@@ -1167,3 +1169,4 @@ export async function streamClaudeWithSdk(args: StreamTurnArgs & {
     }
   }
 }
+
