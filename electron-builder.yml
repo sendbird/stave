@@ -1,0 +1,40 @@
+appId: com.stave.app
+productName: Stave
+icon: build/icon
+files:
+  - out/**
+  - package.json
+  - "!node_modules/@openai/codex/**"
+  - "!node_modules/@openai/codex-darwin-arm64/**"
+  - "!node_modules/@openai/codex-darwin-x64/**"
+  - "!node_modules/@openai/codex-linux-arm64/**"
+  - "!node_modules/@openai/codex-linux-x64/**"
+  - "!node_modules/@openai/codex-win32-arm64/**"
+  - "!node_modules/@openai/codex-win32-x64/**"
+directories:
+  output: release
+asar: true
+asarUnpack:
+  - "**/*.node"
+  # The stdio proxy must be accessible on the real filesystem so that
+  # external processes can execute it with `node`.
+  - out/main/stave-mcp-stdio-proxy.mjs
+  # Orbit resolves the bundled portless CLI under app.asar.unpacked before
+  # falling back to a globally installed `portless`.
+  - node_modules/portless/dist/**
+  - node_modules/@anthropic-ai/claude-agent-sdk/vendor/**
+  - node_modules/@vscode/ripgrep/bin/**
+npmRebuild: false
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+win:
+  target:
+    - nsis
+mac:
+  target:
+    - dmg
+  extendInfo:
+    LSExtensionIsHidden: true

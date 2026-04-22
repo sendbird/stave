@@ -1,0 +1,34 @@
+.DS_Store
+
+# local agent and workspace state
+.cache/
+.codex/
+.stave/
+.superset/
+AGENTS.local.md
+claude-progress.txt
+execution/
+tracking/
+/handoff-*.md
+/work-handoff.md
+
+# dependencies
+node_modules/
+
+# build output
+.pages-dist/
+dist/
+out/
+release/
+site/src/generated/
+*.tsbuildinfo
+
+# test artifacts
+playwright-report/
+test-results/
+tests/artifacts/
+
+# local scratch
+debug/
+ideas/
+ref/

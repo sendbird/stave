@@ -1,0 +1,1 @@
+export const MESSAGE_BODY_LINE_HEIGHT = 1.68;

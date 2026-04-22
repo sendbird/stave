@@ -1,0 +1,991 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Nunito:wght@400;500;600;700&display=swap");
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css");
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@xterm/xterm/css/xterm.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.532 0.157 131.589);
+  --primary-foreground: oklch(0.986 0.031 120.757);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --success: oklch(0.74 0.128 156);
+  --success-foreground: oklch(0.29 0 0);
+  --warning: oklch(0.82 0.14 84);
+  --warning-foreground: oklch(0.32 0 0);
+  --info: oklch(0.61 0.19 300);
+  --info-foreground: oklch(0.985 0 0);
+  --muse: oklch(0.67 0.15 62);
+  --prompt-role-plan: oklch(0.56 0.19 258);
+  --prompt-role-thinking: oklch(0.67 0.15 62);
+  --prompt-role-effort: oklch(0.61 0.19 300);
+  --prompt-role-fast: oklch(0.72 0.15 84);
+  --prompt-mode-manual: oklch(0.65 0.14 156);
+  --prompt-mode-guided: oklch(0.56 0.19 258);
+  --prompt-mode-auto: oklch(0.72 0.15 84);
+  --prompt-mode-custom: var(--muted-foreground);
+  --overlay: oklch(0.145 0 0 / 0.66);
+  --surface: oklch(0.975 0 0);
+  --editor: oklch(0.96 0 0);
+  --editor-foreground: oklch(0.205 0 0);
+  --editor-muted: oklch(0.94 0 0);
+  --editor-tab: oklch(0.97 0 0);
+  --editor-tab-active: oklch(1 0 0);
+  --terminal: oklch(0.17 0.012 180);
+  --terminal-foreground: oklch(0.92 0.008 165);
+  --diff-added: oklch(0.92 0.05 154);
+  --diff-added-foreground: oklch(0.35 0.06 154);
+  --diff-removed: oklch(0.93 0.05 25);
+  --diff-removed-foreground: oklch(0.38 0.07 25);
+  --chart-1: oklch(0.897 0.196 126.665);
+  --chart-2: oklch(0.768 0.233 130.85);
+  --chart-3: oklch(0.648 0.2 131.684);
+  --chart-4: oklch(0.532 0.157 131.589);
+  --chart-5: oklch(0.453 0.124 130.933);
+  --provider-codex: #7a9dff;
+  --provider-claude: oklch(0.672 0.131 38.76);
+  --radius: 0.45rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.648 0.2 131.684);
+  --sidebar-primary-foreground: oklch(0.986 0.031 120.757);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --task-list-width: 290px;
+  --editor-panel-width: 560px;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.453 0.124 130.933);
+  --primary-foreground: oklch(0.986 0.031 120.757);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --success: oklch(0.77 0.12 156);
+  --success-foreground: oklch(0.205 0 0);
+  --warning: oklch(0.82 0.14 84);
+  --warning-foreground: oklch(0.205 0 0);
+  --info: oklch(0.74 0.16 305);
+  --info-foreground: oklch(0.205 0 0);
+  --muse: oklch(0.76 0.13 70);
+  --prompt-role-plan: oklch(0.74 0.14 255);
+  --prompt-role-thinking: oklch(0.76 0.13 70);
+  --prompt-role-effort: oklch(0.74 0.16 305);
+  --prompt-role-fast: oklch(0.82 0.14 84);
+  --prompt-mode-manual: oklch(0.77 0.12 156);
+  --prompt-mode-guided: oklch(0.74 0.14 255);
+  --prompt-mode-auto: oklch(0.82 0.14 84);
+  --prompt-mode-custom: var(--muted-foreground);
+  --overlay: oklch(0 0 0 / 0.78);
+  --surface: oklch(0.165 0 0);
+  --editor: oklch(0.18 0 0);
+  --editor-foreground: oklch(0.92 0 0);
+  --editor-muted: oklch(0.24 0 0);
+  --editor-tab: oklch(0.205 0 0);
+  --editor-tab-active: oklch(0.269 0 0);
+  --terminal: oklch(0.145 0 0);
+  --terminal-foreground: oklch(0.92 0 0);
+  --diff-added: oklch(0.34 0.07 154);
+  --diff-added-foreground: oklch(0.86 0.06 154);
+  --diff-removed: oklch(0.33 0.07 25);
+  --diff-removed-foreground: oklch(0.88 0.05 25);
+  --chart-1: oklch(0.897 0.196 126.665);
+  --chart-2: oklch(0.768 0.233 130.85);
+  --chart-3: oklch(0.648 0.2 131.684);
+  --chart-4: oklch(0.532 0.157 131.589);
+  --chart-5: oklch(0.453 0.124 130.933);
+  --provider-codex: #b1a7ff;
+  --provider-claude: oklch(0.672 0.131 38.76);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.768 0.233 130.85);
+  --sidebar-primary-foreground: oklch(0.274 0.072 132.109);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@theme inline {
+  --font-sans: "Geist Variable", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-muse: var(--muse);
+  --color-prompt-role-plan: var(--prompt-role-plan);
+  --color-prompt-role-thinking: var(--prompt-role-thinking);
+  --color-prompt-role-effort: var(--prompt-role-effort);
+  --color-prompt-role-fast: var(--prompt-role-fast);
+  --color-prompt-mode-manual: var(--prompt-mode-manual);
+  --color-prompt-mode-guided: var(--prompt-mode-guided);
+  --color-prompt-mode-auto: var(--prompt-mode-auto);
+  --color-prompt-mode-custom: var(--prompt-mode-custom);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+  --color-surface: var(--surface);
+  --color-editor: var(--editor);
+  --color-editor-foreground: var(--editor-foreground);
+  --color-editor-muted: var(--editor-muted);
+  --color-editor-tab: var(--editor-tab);
+  --color-editor-tab-active: var(--editor-tab-active);
+  --color-terminal: var(--terminal);
+  --color-terminal-foreground: var(--terminal-foreground);
+  --color-diff-added: var(--diff-added);
+  --color-diff-added-foreground: var(--diff-added-foreground);
+  --color-diff-removed: var(--diff-removed);
+  --color-diff-removed-foreground: var(--diff-removed-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-provider-codex: var(--provider-codex);
+  --color-provider-claude: var(--provider-claude);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --font-heading: "Inter Variable", sans-serif;
+}
+
+/*
+ * xterm.css ships its viewport background as an unlayered rule:
+ * `.xterm .xterm-viewport { background-color: #000; }`
+ *
+ * Keep the CLI-session overrides unlayered as well so they win in the
+ * cascade and the terminal padding / outer edge follows the current theme
+ * token instead of leaking xterm's hard-coded black.
+ */
+[data-cli-terminal-surface] > .xterm {
+  padding: 1rem 1.25rem;
+  background-color: var(--color-terminal);
+}
+
+[data-cli-terminal-surface] > .xterm > .xterm-viewport {
+  background-color: var(--color-terminal);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border);
+    box-sizing: border-box;
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 16px;
+    @apply bg-background text-foreground;
+  }
+
+  button,
+  [role="button"],
+  a[href],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 1023px) {
+    :root {
+      --task-list-width: 290px;
+      --editor-panel-width: 360px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /*
+   * ghostty-web terminal surface — IME composition fix.
+   *
+   * ghostty-web marks the container as `contenteditable="true"` so the
+   * browser can fire keyboard/composition events.  During CJK IME
+   * composition the browser inserts transient text nodes into the
+   * container.  Those nodes are visible (they appear at the container's
+   * default text-flow position, typically bottom-left) and cause a
+   * micro layout shift that triggers ResizeObserver, making the
+   * terminal jump.
+   *
+   * `font-size: 0` on the container itself collapses any raw text
+   * nodes to zero dimensions so they never affect layout.  The canvas
+   * and hidden textarea inside are sized via inline styles so they are
+   * unaffected.
+   */
+  [data-terminal-surface][contenteditable] {
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+    caret-color: transparent;
+  }
+
+}
+
+@layer utilities {
+  .animate-dropdown-in {
+    animation: dropdown-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform-origin: top center;
+  }
+
+  .animate-message-wave {
+    animation: message-wave 900ms ease-in-out infinite;
+    transform-origin: bottom;
+  }
+
+  .animate-cot-step-in {
+    animation: cot-step-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform-origin: top;
+  }
+
+  .animate-cot-content-in {
+    animation: cot-content-in 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform-origin: top;
+  }
+
+  .animate-text-shimmer {
+    animation: text-shimmer 2s linear infinite;
+  }
+
+  .animate-thinking-shimmer {
+    animation: thinking-shimmer 2s ease-in-out infinite;
+  }
+
+  .animate-thinking-phrase-soft {
+    animation: thinking-phrase-soft 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .animate-thinking-phrase-typewriter {
+    animation: thinking-phrase-typewriter 320ms steps(18, end);
+  }
+
+  .animate-thinking-phrase-slot {
+    animation: thinking-phrase-slot 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform-origin: center;
+  }
+
+  .animate-thinking-phrase-bounce {
+    animation: thinking-phrase-bounce 340ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform-origin: center;
+  }
+
+  .animate-thinking-label-settle {
+    animation: thinking-label-settle 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform-origin: left center;
+  }
+
+  .animate-terminal-caret {
+    animation: terminal-caret 1.05s steps(1, end) infinite;
+  }
+
+  .zen-conversation-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 36%, transparent)
+      transparent;
+    scrollbar-gutter: stable;
+  }
+
+  .zen-conversation-scroll::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .zen-conversation-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .zen-conversation-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--foreground) 42%, transparent) 0%,
+      color-mix(in oklab, var(--foreground) 24%, transparent) 100%
+    );
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--foreground) 14%, transparent);
+  }
+
+  .zen-conversation-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--primary) 52%, transparent) 0%,
+      color-mix(in oklab, var(--foreground) 34%, transparent) 100%
+    );
+    background-clip: padding-box;
+  }
+
+  .tab-strip-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .tab-strip-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
+  .sidebar-liquid-glass {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 42%, transparent),
+      18px 0 36px -28px color-mix(in oklab, var(--foreground) 24%, transparent);
+    backdrop-filter: blur(34px) saturate(165%);
+    -webkit-backdrop-filter: blur(34px) saturate(165%);
+  }
+
+  .sidebar-liquid-glass--space-haze {
+    background:
+      radial-gradient(
+        140% 120% at 0% 0%,
+        color-mix(in oklab, var(--primary) 22%, transparent) 0%,
+        transparent 56%
+      ),
+      radial-gradient(
+        96% 88% at 100% 8%,
+        color-mix(in oklab, var(--provider-codex) 22%, transparent) 0%,
+        transparent 52%
+      ),
+      radial-gradient(
+        92% 92% at 18% 100%,
+        color-mix(in oklab, var(--provider-claude) 18%, transparent) 0%,
+        transparent 46%
+      ),
+      radial-gradient(
+        72% 72% at 86% 78%,
+        color-mix(in oklab, var(--chart-2) 18%, transparent) 0%,
+        transparent 42%
+      ),
+      linear-gradient(
+        160deg,
+        color-mix(in oklab, var(--sidebar) 70%, white 20%) 0%,
+        color-mix(in oklab, var(--sidebar) 58%, transparent) 45%,
+        color-mix(in oklab, var(--sidebar) 74%, black 4%) 100%
+      );
+  }
+
+  .sidebar-liquid-glass--wave-aurora {
+    background:
+      radial-gradient(
+        150% 74% at -12% 0%,
+        color-mix(in oklab, var(--provider-claude) 24%, transparent) 0%,
+        transparent 58%
+      ),
+      radial-gradient(
+        132% 68% at 112% 12%,
+        color-mix(in oklab, var(--primary) 26%, transparent) 0%,
+        transparent 56%
+      ),
+      radial-gradient(
+        118% 76% at 48% 100%,
+        color-mix(in oklab, var(--provider-codex) 20%, transparent) 0%,
+        transparent 52%
+      ),
+      linear-gradient(
+        154deg,
+        transparent 0 10%,
+        color-mix(in oklab, var(--chart-2) 16%, transparent) 24%,
+        transparent 42%,
+        color-mix(in oklab, var(--primary) 12%, transparent) 58%,
+        transparent 74%
+      ),
+      linear-gradient(
+        172deg,
+        color-mix(in oklab, var(--sidebar) 68%, white 22%) 0%,
+        color-mix(in oklab, var(--sidebar) 56%, transparent) 48%,
+        color-mix(in oklab, var(--sidebar) 74%, black 4%) 100%
+      );
+  }
+
+  .sidebar-liquid-glass--gravity-paint {
+    background:
+      radial-gradient(
+        118% 128% at 8% -10%,
+        color-mix(in oklab, var(--provider-claude) 24%, transparent) 0%,
+        transparent 46%
+      ),
+      radial-gradient(
+        86% 132% at 100% 18%,
+        color-mix(in oklab, var(--chart-2) 24%, transparent) 0%,
+        transparent 44%
+      ),
+      radial-gradient(
+        90% 122% at 18% 100%,
+        color-mix(in oklab, var(--provider-codex) 20%, transparent) 0%,
+        transparent 42%
+      ),
+      linear-gradient(
+        160deg,
+        transparent 0 8%,
+        color-mix(in oklab, var(--primary) 18%, transparent) 22%,
+        transparent 38%,
+        color-mix(in oklab, var(--provider-claude) 14%, transparent) 56%,
+        transparent 72%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--sidebar) 70%, white 18%) 0%,
+        color-mix(in oklab, var(--sidebar) 60%, transparent) 46%,
+        color-mix(in oklab, var(--sidebar) 76%, black 5%) 100%
+      );
+  }
+
+  .sidebar-liquid-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        circle at 10% 10%,
+        color-mix(in oklab, white 58%, transparent) 0%,
+        transparent 28%
+      ),
+      linear-gradient(
+        130deg,
+        transparent 0 16%,
+        color-mix(in oklab, white 14%, transparent) 34%,
+        transparent 56%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 16%, transparent) 0%,
+        transparent 34%,
+        color-mix(in oklab, black 8%, transparent) 100%
+      );
+    opacity: 0.88;
+  }
+
+  .sidebar-liquid-glass::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      120deg,
+      color-mix(in oklab, white 12%, transparent) 0%,
+      transparent 24%,
+      transparent 72%,
+      color-mix(in oklab, white 10%, transparent) 100%
+    );
+    box-shadow:
+      inset 1px 0 0 color-mix(in oklab, white 18%, transparent),
+      inset 0 1px 0 color-mix(in oklab, white 18%, transparent),
+      inset 0 -1px 0 color-mix(in oklab, white 18%, transparent),
+      inset 0 1px 0 color-mix(in oklab, white 52%, transparent);
+    opacity: 0.7;
+  }
+
+  .sidebar-liquid-glass > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .sidebar-liquid-panel {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--sidebar) 26%, white 14%) 0%,
+      color-mix(in oklab, var(--sidebar) 16%, transparent) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 34%, transparent),
+      0 12px 24px -22px color-mix(in oklab, var(--foreground) 28%, transparent);
+    backdrop-filter: blur(20px) saturate(145%);
+    -webkit-backdrop-filter: blur(20px) saturate(145%);
+  }
+
+  .sidebar-liquid-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 16%, transparent) 0%,
+        transparent 36%
+      ),
+      radial-gradient(
+        circle at top left,
+        color-mix(in oklab, white 18%, transparent) 0%,
+        transparent 52%
+      ),
+      radial-gradient(
+        circle at 100% 100%,
+        color-mix(in oklab, var(--primary) 10%, transparent) 0%,
+        transparent 42%
+      );
+    opacity: 0.84;
+  }
+
+  .sidebar-liquid-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, white 12%, transparent),
+      inset 0 1px 0 color-mix(in oklab, white 28%, transparent);
+  }
+
+  .sidebar-liquid-panel > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Dark-mode glassmorphism overrides ─────────────────────── */
+  :is(.dark) .sidebar-liquid-glass {
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 8%, transparent),
+      18px 0 36px -28px color-mix(in oklab, black 34%, transparent);
+    backdrop-filter: blur(34px) saturate(125%);
+    -webkit-backdrop-filter: blur(34px) saturate(125%);
+  }
+
+  :is(.dark) .sidebar-liquid-glass--space-haze {
+    background:
+      radial-gradient(
+        132% 118% at 0% 0%,
+        color-mix(in oklab, var(--primary) 16%, transparent) 0%,
+        transparent 54%
+      ),
+      radial-gradient(
+        98% 88% at 100% 10%,
+        color-mix(in oklab, var(--provider-codex) 18%, transparent) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        94% 90% at 20% 100%,
+        color-mix(in oklab, var(--provider-claude) 14%, transparent) 0%,
+        transparent 44%
+      ),
+      radial-gradient(
+        72% 72% at 84% 78%,
+        color-mix(in oklab, var(--chart-2) 14%, transparent) 0%,
+        transparent 42%
+      ),
+      linear-gradient(
+        165deg,
+        color-mix(in oklab, var(--sidebar) 90%, white 3%) 0%,
+        color-mix(in oklab, var(--sidebar) 84%, transparent) 44%,
+        color-mix(in oklab, var(--sidebar) 94%, black 12%) 100%
+      );
+  }
+
+  :is(.dark) .sidebar-liquid-glass--wave-aurora {
+    background:
+      radial-gradient(
+        148% 72% at -12% 0%,
+        color-mix(in oklab, var(--provider-claude) 18%, transparent) 0%,
+        transparent 56%
+      ),
+      radial-gradient(
+        130% 68% at 112% 12%,
+        color-mix(in oklab, var(--primary) 20%, transparent) 0%,
+        transparent 54%
+      ),
+      radial-gradient(
+        120% 74% at 46% 100%,
+        color-mix(in oklab, var(--provider-codex) 16%, transparent) 0%,
+        transparent 50%
+      ),
+      linear-gradient(
+        154deg,
+        transparent 0 10%,
+        color-mix(in oklab, var(--chart-2) 10%, transparent) 24%,
+        transparent 44%,
+        color-mix(in oklab, var(--primary) 8%, transparent) 60%,
+        transparent 76%
+      ),
+      linear-gradient(
+        172deg,
+        color-mix(in oklab, var(--sidebar) 90%, white 4%) 0%,
+        color-mix(in oklab, var(--sidebar) 84%, transparent) 48%,
+        color-mix(in oklab, var(--sidebar) 94%, black 12%) 100%
+      );
+  }
+
+  :is(.dark) .sidebar-liquid-glass--gravity-paint {
+    background:
+      radial-gradient(
+        116% 130% at 8% -10%,
+        color-mix(in oklab, var(--provider-claude) 20%, transparent) 0%,
+        transparent 44%
+      ),
+      radial-gradient(
+        84% 132% at 100% 18%,
+        color-mix(in oklab, var(--chart-2) 18%, transparent) 0%,
+        transparent 42%
+      ),
+      radial-gradient(
+        92% 124% at 18% 100%,
+        color-mix(in oklab, var(--provider-codex) 14%, transparent) 0%,
+        transparent 40%
+      ),
+      linear-gradient(
+        160deg,
+        transparent 0 10%,
+        color-mix(in oklab, var(--primary) 12%, transparent) 24%,
+        transparent 40%,
+        color-mix(in oklab, var(--provider-claude) 10%, transparent) 58%,
+        transparent 76%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--sidebar) 90%, white 3%) 0%,
+        color-mix(in oklab, var(--sidebar) 84%, transparent) 48%,
+        color-mix(in oklab, var(--sidebar) 95%, black 13%) 100%
+      );
+  }
+
+  :is(.dark) .sidebar-liquid-glass::before {
+    background:
+      radial-gradient(
+        circle at 10% 10%,
+        color-mix(in oklab, white 10%, transparent) 0%,
+        transparent 28%
+      ),
+      linear-gradient(
+        132deg,
+        transparent 0 16%,
+        color-mix(in oklab, white 7%, transparent) 34%,
+        transparent 58%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 4%, transparent) 0%,
+        transparent 42%,
+        color-mix(in oklab, black 6%, transparent) 100%
+      );
+    opacity: 0.56;
+  }
+
+  :is(.dark) .sidebar-liquid-glass::after {
+    background: linear-gradient(
+      120deg,
+      color-mix(in oklab, white 4%, transparent) 0%,
+      transparent 26%,
+      transparent 72%,
+      color-mix(in oklab, white 4%, transparent) 100%
+    );
+    box-shadow:
+      inset 1px 0 0 color-mix(in oklab, white 6%, transparent),
+      inset 0 1px 0 color-mix(in oklab, white 6%, transparent),
+      inset 0 -1px 0 color-mix(in oklab, white 6%, transparent),
+      inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+    opacity: 0.6;
+  }
+
+  :is(.dark) .sidebar-liquid-panel {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--sidebar) 42%, white 3%) 0%,
+      color-mix(in oklab, var(--sidebar) 28%, transparent) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 8%, transparent),
+      0 12px 24px -22px color-mix(in oklab, black 30%, transparent);
+    backdrop-filter: blur(20px) saturate(120%);
+    -webkit-backdrop-filter: blur(20px) saturate(120%);
+  }
+
+  :is(.dark) .sidebar-liquid-panel::before {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 4%, transparent) 0%,
+        transparent 40%
+      ),
+      radial-gradient(
+        circle at top left,
+        color-mix(in oklab, white 4%, transparent) 0%,
+        transparent 54%
+      ),
+      radial-gradient(
+        circle at 100% 100%,
+        color-mix(in oklab, var(--primary) 8%, transparent) 0%,
+        transparent 44%
+      );
+    opacity: 0.48;
+  }
+
+  :is(.dark) .sidebar-liquid-panel::after {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, white 5%, transparent),
+      inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+  }
+}
+
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes message-wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.45;
+  }
+
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes cot-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cot-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes text-shimmer {
+  from {
+    background-position: 100% center;
+  }
+
+  to {
+    background-position: 0% center;
+  }
+}
+
+@keyframes thinking-shimmer {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes thinking-phrase-soft {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes thinking-phrase-typewriter {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes thinking-phrase-slot {
+  from {
+    opacity: 0;
+    transform: translateY(0.55em) scaleY(0.96);
+    filter: blur(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes thinking-phrase-bounce {
+  0% {
+    opacity: 0;
+    transform: translateY(0.18em) scale(0.94);
+  }
+
+  65% {
+    opacity: 1;
+    transform: translateY(-0.06em) scale(1.03);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes thinking-label-settle {
+  0% {
+    opacity: 0.82;
+    transform: translateY(0.08em) scale(0.985);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes terminal-caret {
+  0%,
+  48% {
+    opacity: 1;
+  }
+
+  49%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/*
+ * Border Beam styling is owned by the `border-beam` npm library — it ships
+ * its own `<style>` block per-instance (see src/components/ui/border-beam.tsx).
+ * Do not reintroduce local `.border-beam` overrides here; they flatten the
+ * library's palette back onto our theme tokens. Variant / size / theme are
+ * wired through `AppSettings.borderBeam*` and the Motion card of the
+ * settings dialog instead.
+ */
