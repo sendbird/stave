@@ -1,0 +1,11 @@
+If macOS blocks "Install Stave.command", run it from Terminal instead.
+
+1. Open Terminal.
+2. Type: sh 
+3. Drag "Install Stave.command" from this folder into the Terminal window.
+4. Press Enter.
+
+That command will:
+- copy Stave.app into ~/Applications
+- remove the quarantine attribute from ~/Applications/Stave.app
+- open the installed app

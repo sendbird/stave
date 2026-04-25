@@ -10,11 +10,22 @@ export interface CommandResult {
 export interface SourceControlStatusItem {
   code: string;
   path: string;
+  indexStatus?: string;
+  workingTreeStatus?: string;
 }
 
 export interface TerminalSession {
   pty: pty.IPty;
-  output: string;
+  outputChunks: string[];
+  pendingPush: string[];
+  pushScheduled: boolean;
+  deliveryMode: "poll" | "push";
+  ownerWebContentsId: number | null;
+  closing: boolean;
+  closed: Promise<void>;
+  close: () => void;
+  flushPushOutput: () => void;
+  markClosed: () => void;
 }
 
 export interface RootFileEntry {

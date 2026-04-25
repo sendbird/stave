@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_FILE_CONTEXT_CONTENT_CHARS } from "@/lib/file-context-sanitization";
+import {
+  MAX_FILE_CONTEXT_CONTENT_CHARS,
+  MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
+} from "@/lib/file-context-sanitization";
 import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
 
 describe("normalizeMessagesForSnapshot", () => {
@@ -131,5 +134,39 @@ describe("normalizeMessagesForSnapshot", () => {
     }
     expect(normalizedPart.output).toContain("tool output truncated");
     expect(normalizedPart.output?.length).toBeLessThanOrEqual(MAX_FILE_CONTEXT_CONTENT_CHARS);
+  });
+
+  test("sanitizes oversized approval descriptions in persisted history", () => {
+    const oversizedApprovalDescription = "Input: ".concat("y".repeat(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS + 256));
+    const normalized = normalizeMessagesForSnapshot({
+      messagesByTask: {
+        "task-1": [
+          {
+            id: "m-1",
+            role: "assistant",
+            model: "claude-sonnet-4-6",
+            providerId: "claude-code",
+            content: "",
+            parts: [
+              {
+                type: "approval",
+                toolName: "ExitPlanMode",
+                requestId: "approval-1",
+                description: oversizedApprovalDescription,
+                state: "approval-requested",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const normalizedPart = normalized["task-1"]?.[0]?.parts[0];
+    expect(normalizedPart?.type).toBe("approval");
+    if (normalizedPart?.type !== "approval") {
+      throw new Error("expected approval part");
+    }
+    expect(normalizedPart.description).toContain("approval description truncated");
+    expect(normalizedPart.description.length).toBeLessThanOrEqual(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS);
   });
 });

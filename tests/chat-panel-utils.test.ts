@@ -1,12 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import {
+  getLatestRenderableAssistantMessage,
+  getReasoningTraceExpansionMode,
+  getVisibleMessageParts,
   getLatestUserMessageId,
   getMessageBodyFallbackState,
   getMessageScrollFingerprint,
   getRenderableMessageParts,
+  hasRenderableMessageBody,
   groupMessageParts,
   hasVisibleMessagePartContent,
+  isCodeDiffSummarySystemEvent,
+  parseFileChangeToolInput,
   isPendingDiffStatus,
+  isSubagentProgressSystemEvent,
   shouldRenderInlineToolPart,
   shouldRenderInlineSystemEvent,
   shouldAutoOpenToolGroup,
@@ -36,6 +43,85 @@ describe("getRenderableMessageParts", () => {
       content: "Ignored content",
       parts: [{ type: "text", text: "Structured part" }],
     })).toEqual([{ type: "text", text: "Structured part" }]);
+  });
+});
+
+describe("hasRenderableMessageBody", () => {
+  test("treats tool-only completed turns as renderable content", () => {
+    expect(hasRenderableMessageBody({
+      content: "",
+      isStreaming: false,
+      parts: [{ type: "tool_use", toolName: "bash", input: "ls", output: "file.txt", state: "output-available" }],
+    })).toBe(true);
+  });
+
+  test("treats truly empty completed turns as non-renderable", () => {
+    expect(hasRenderableMessageBody({
+      content: "",
+      isStreaming: false,
+      parts: [],
+    })).toBe(false);
+  });
+});
+
+describe("getLatestRenderableAssistantMessage", () => {
+  test("returns the latest completed assistant with visible content", () => {
+    const latest = getLatestRenderableAssistantMessage([
+      { role: "assistant", content: "", isStreaming: false, parts: [] },
+      { role: "assistant", content: "final answer", isStreaming: false, parts: [] },
+    ]);
+
+    expect(latest).toEqual({
+      role: "assistant",
+      content: "final answer",
+      isStreaming: false,
+      parts: [],
+    });
+  });
+
+  test("falls back to the latest streaming assistant when no renderable assistant exists yet", () => {
+    const latest = getLatestRenderableAssistantMessage([
+      { role: "assistant", content: "", isStreaming: false, parts: [] },
+      { role: "assistant", content: "", isStreaming: true, parts: [] },
+    ]);
+
+    expect(latest).toEqual({
+      role: "assistant",
+      content: "",
+      isStreaming: true,
+      parts: [],
+    });
+  });
+
+  test("ignores user messages while scanning for the latest assistant", () => {
+    const latest = getLatestRenderableAssistantMessage([
+      { role: "assistant", content: "branch answer", isStreaming: false, parts: [] },
+      { role: "user", content: "follow-up", isStreaming: false, parts: [{ type: "text", text: "follow-up" }] },
+    ]);
+
+    expect(latest).toEqual({
+      role: "assistant",
+      content: "branch answer",
+      isStreaming: false,
+      parts: [],
+    });
+  });
+});
+
+describe("getVisibleMessageParts", () => {
+  test("hides modifying system events when inline code diffs are present", () => {
+    expect(getVisibleMessageParts([
+      { type: "system_event", content: "Modifying: src/a.ts, src/b.ts" },
+      { type: "code_diff", filePath: "src/a.ts", oldContent: "a", newContent: "b", status: "accepted" },
+    ])).toEqual([
+      { type: "code_diff", filePath: "src/a.ts", oldContent: "a", newContent: "b", status: "accepted" },
+    ]);
+  });
+
+  test("hides modifying system events even when there is no inline diff", () => {
+    expect(getVisibleMessageParts([
+      { type: "system_event", content: "Modifying: src/a.ts" },
+    ])).toEqual([]);
   });
 });
 
@@ -114,6 +200,30 @@ describe("summarizeDiffLineChanges", () => {
   });
 });
 
+describe("parseFileChangeToolInput", () => {
+  test("extracts applied, skipped, and failed file rows", () => {
+    expect(parseFileChangeToolInput(JSON.stringify({
+      appliedPaths: ["src/a.ts"],
+      skippedPaths: ["dist/bundle.js"],
+      failedPaths: [{ path: "src/c.ts", error: "permission denied" }],
+    }))).toEqual([
+      { filePath: "src/a.ts", status: "applied" },
+      { filePath: "dist/bundle.js", status: "skipped" },
+      { filePath: "src/c.ts", status: "failed", error: "permission denied" },
+    ]);
+  });
+
+  test("deduplicates duplicate paths by keeping the highest-priority status", () => {
+    expect(parseFileChangeToolInput(JSON.stringify({
+      appliedPaths: ["src/a.ts"],
+      skippedPaths: ["src/a.ts"],
+      failedPaths: [{ path: "src/a.ts", error: "boom" }],
+    }))).toEqual([
+      { filePath: "src/a.ts", status: "failed", error: "boom" },
+    ]);
+  });
+});
+
 describe("groupMessageParts", () => {
   test("groups consecutive code_diff and file_context parts", () => {
     const segments = groupMessageParts([
@@ -165,6 +275,11 @@ describe("groupMessageParts", () => {
 });
 
 describe("tool auto-open behavior", () => {
+  test("returns the configured reasoning expansion mode", () => {
+    expect(getReasoningTraceExpansionMode({ reasoningExpansionMode: "auto" })).toBe("auto");
+    expect(getReasoningTraceExpansionMode({ reasoningExpansionMode: "manual" })).toBe("manual");
+  });
+
   test("auto-opens individual tool cards only while streaming", () => {
     expect(shouldAutoOpenToolPart("input-streaming")).toBe(true);
     expect(shouldAutoOpenToolPart("input-available")).toBe(false);
@@ -224,6 +339,13 @@ describe("getMessageBodyFallbackState", () => {
 });
 
 describe("system event visibility", () => {
+  test("identifies codex file-change summary notices", () => {
+    expect(isCodeDiffSummarySystemEvent("Modifying: src/a.ts")).toBe(true);
+    expect(isCodeDiffSummarySystemEvent("  modifying: src/a.ts, src/b.ts")).toBe(true);
+    expect(isCodeDiffSummarySystemEvent("Applied file change(s): src/a.ts")).toBe(true);
+    expect(isCodeDiffSummarySystemEvent("Skipped inline diff for file(s): src/a.ts")).toBe(true);
+  });
+
   test("hides inline error-like system events", () => {
     expect(shouldRenderInlineSystemEvent({ content: "[error] provider unavailable" })).toBe(false);
     expect(shouldRenderInlineSystemEvent({ content: "Approval delivery failed: timeout" })).toBe(false);
@@ -231,12 +353,43 @@ describe("system event visibility", () => {
   });
 
   test("keeps useful non-error notices visible inline", () => {
-    expect(shouldRenderInlineSystemEvent({ content: "Generation aborted by user." })).toBe(true);
+    expect(shouldRenderInlineSystemEvent({
+      content: "Generation was stopped locally before completion.",
+    })).toBe(true);
     expect(shouldRenderInlineSystemEvent({ content: "No response returned." })).toBe(true);
     expect(hasVisibleMessagePartContent({
       type: "system_event",
       content: "Response was cut off because the output limit was reached.",
     })).toBe(true);
+  });
+
+  test("treats hidden file-change summary notices as empty when no other content exists", () => {
+    expect(getMessageBodyFallbackState({
+      isActivelyStreaming: false,
+      renderableParts: [{ type: "system_event", content: "Applied file change(s): src/a.ts" }],
+    })).toBe("empty-completed");
+  });
+
+  test("hides subagent progress events from standalone inline rendering", () => {
+    expect(shouldRenderInlineSystemEvent({ content: "Subagent progress: Reading CONVENTIONS.md" })).toBe(false);
+    expect(shouldRenderInlineSystemEvent({ content: "Subagent progress: Compiling docs..." })).toBe(false);
+    expect(hasVisibleMessagePartContent({
+      type: "system_event",
+      content: "Subagent progress: Finding session data directories",
+    })).toBe(false);
+  });
+});
+
+describe("isSubagentProgressSystemEvent", () => {
+  test("identifies subagent progress content", () => {
+    expect(isSubagentProgressSystemEvent("Subagent progress: Reading files")).toBe(true);
+    expect(isSubagentProgressSystemEvent("  Subagent progress: leading space")).toBe(true);
+  });
+
+  test("rejects non-progress content", () => {
+    expect(isSubagentProgressSystemEvent("Context compacted (auto).")).toBe(false);
+    expect(isSubagentProgressSystemEvent("[Stave] General task")).toBe(false);
+    expect(isSubagentProgressSystemEvent("")).toBe(false);
   });
 });
 

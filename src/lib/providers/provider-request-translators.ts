@@ -1,37 +1,47 @@
 import { buildLegacyPromptFromCanonicalRequest } from "./canonical-request";
 import type { CanonicalConversationRequest, ProviderId } from "./provider.types";
 
-function getSelectedSkillCommands(conversation: CanonicalConversationRequest) {
-  return conversation.contextParts
-    .filter((part): part is Extract<typeof part, { type: "skill_context" }> => part.type === "skill_context")
-    .flatMap((part) => part.skills.map((skill) => `/${skill.slug}`));
-}
-
-function getResumeConversationId(conversation?: CanonicalConversationRequest) {
-  const value = conversation?.resume?.nativeConversationId?.trim();
+function getStoredResumeSessionId(conversation?: CanonicalConversationRequest) {
+  const value = conversation?.resume?.nativeSessionId?.trim();
   return value ? value : undefined;
 }
 
 function shouldIncludeHistory(conversation: CanonicalConversationRequest) {
-  return !getResumeConversationId(conversation);
+  return !getStoredResumeSessionId(conversation);
+}
+
+export function filterPromptRetrievedContext(args: {
+  conversation: CanonicalConversationRequest;
+  excludedSourceIds?: string[];
+}) {
+  const excludedSourceIds = new Set((args.excludedSourceIds ?? []).filter(Boolean));
+  if (excludedSourceIds.size === 0) {
+    return args.conversation;
+  }
+
+  const nextContextParts = args.conversation.contextParts.filter((part) => (
+    part.type !== "retrieved_context" || !excludedSourceIds.has(part.sourceId)
+  ));
+  return nextContextParts.length === args.conversation.contextParts.length
+    ? args.conversation
+    : {
+        ...args.conversation,
+        contextParts: nextContextParts,
+      };
 }
 
 export function buildClaudePromptFromConversation(args: {
   conversation: CanonicalConversationRequest;
   fallbackPrompt: string;
 }) {
-  const basePrompt = buildLegacyPromptFromCanonicalRequest({
+  // Include full activated skill instructions in the prompt body for both
+  // providers. Stave-managed `$skill` activations are prompt-context based,
+  // not native slash-skill registrations.
+  return buildLegacyPromptFromCanonicalRequest({
     request: args.conversation,
     includeHistory: shouldIncludeHistory(args.conversation),
-    includeSkillContext: false,
+    includeSkillContext: true,
   }) || args.fallbackPrompt;
-  const skillCommands = getSelectedSkillCommands(args.conversation);
-
-  if (skillCommands.length === 0) {
-    return basePrompt;
-  }
-
-  return `${skillCommands.join("\n")}\n\n${basePrompt}`.trim();
 }
 
 export function buildCodexPromptFromConversation(args: {
@@ -41,6 +51,7 @@ export function buildCodexPromptFromConversation(args: {
   return buildLegacyPromptFromCanonicalRequest({
     request: args.conversation,
     includeHistory: shouldIncludeHistory(args.conversation),
+    includeSkillContext: true,
   }) || args.fallbackPrompt;
 }
 
@@ -66,7 +77,7 @@ export function buildProviderTurnPrompt(args: {
   });
 }
 
-export function resolveProviderResumeConversationId(args: {
+export function resolveProviderResumeSessionId(args: {
   conversation?: CanonicalConversationRequest;
   fallbackResumeId?: string;
 }) {
@@ -74,5 +85,5 @@ export function resolveProviderResumeConversationId(args: {
   if (fallback) {
     return fallback;
   }
-  return getResumeConversationId(args.conversation);
+  return getStoredResumeSessionId(args.conversation);
 }

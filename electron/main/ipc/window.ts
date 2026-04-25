@@ -1,4 +1,9 @@
 import { app, BrowserWindow, ipcMain } from "electron";
+import {
+  cancelQuitPrompt,
+  confirmQuitPrompt,
+  isQuitPromptOpen,
+} from "../quit-state";
 
 export function registerWindowHandlers() {
   ipcMain.handle("window:minimize", (event) => {
@@ -20,6 +25,22 @@ export function registerWindowHandlers() {
 
   ipcMain.handle("window:close", (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close();
+  });
+
+  ipcMain.handle("window:confirm-app-quit", () => {
+    if (!isQuitPromptOpen()) {
+      return { ok: false };
+    }
+    confirmQuitPrompt();
+    queueMicrotask(() => {
+      app.quit();
+    });
+    return { ok: true };
+  });
+
+  ipcMain.handle("window:cancel-app-quit", () => {
+    cancelQuitPrompt();
+    return { ok: true };
   });
 
   ipcMain.handle("window:is-maximized", (event) => {

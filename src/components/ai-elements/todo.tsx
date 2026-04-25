@@ -1,14 +1,21 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, Circle, ClipboardList, LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStatusBadge } from "./tool";
+import { getStatusBadge, type ToolState } from "./tool";
 
-type ToolState = "input-streaming" | "input-available" | "output-available" | "output-error";
-type TodoStatus = "pending" | "in_progress" | "completed";
+export type TodoStatus = "pending" | "in_progress" | "completed";
 
-interface TodoItem {
+export interface TodoItem {
   content: string;
   status: TodoStatus;
+}
+
+export interface TodoProgress {
+  todos: TodoItem[];
+  totalCount: number;
+  completedCount: number;
+  hasPendingTodos: boolean;
+  hasInProgressTodos: boolean;
 }
 
 export function parseTodoInput(args: { input: string }): { todos: TodoItem[] } {
@@ -32,18 +39,44 @@ export function parseTodoInput(args: { input: string }): { todos: TodoItem[] } {
   return { todos: [] };
 }
 
-function TodoItemIcon({ status }: { status: TodoStatus }) {
+export function getTodoProgress(args: { input: string }): TodoProgress {
+  const { todos } = parseTodoInput(args);
+  const completedCount = todos.filter((todo) => todo.status === "completed").length;
+
+  return {
+    todos,
+    totalCount: todos.length,
+    completedCount,
+    hasPendingTodos: todos.some((todo) => todo.status === "pending"),
+    hasInProgressTodos: todos.some((todo) => todo.status === "in_progress"),
+  };
+}
+
+function TodoItemIcon({ status, finalized }: { status: TodoStatus; finalized: boolean }) {
   if (status === "completed") {
-    return <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success-foreground" />;
+    return <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />;
   }
   if (status === "in_progress") {
+    // Once the tool part is finalized, stop the spinner — the item was still
+    // in-progress at the time of the last TodoWrite snapshot but the turn has
+    // since ended.
+    if (finalized) {
+      return <Circle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />;
+    }
     return <LoaderCircle className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />;
   }
   return <Circle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />;
 }
 
 function deriveOverallState(todos: TodoItem[], toolState?: ToolState): ToolState {
+  // When the tool part has been finalized (output-available / output-error),
+  // honour that state regardless of individual todo-item statuses — otherwise
+  // items left as "in_progress" at the time of finalization would keep the card
+  // in an eternal loading state.
   if (toolState === "output-error") return "output-error";
+  if (toolState === "output-available") return "output-available";
+
+  // Still streaming — derive from individual items.
   if (toolState === "input-streaming") return "input-streaming";
   if (todos.some((t) => t.status === "in_progress")) return "input-streaming";
   if (todos.length > 0 && todos.every((t) => t.status === "completed")) return "output-available";
@@ -63,16 +96,16 @@ export function TodoCard({
   className?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const { todos } = useMemo(() => parseTodoInput({ input }), [input]);
-  const completedCount = todos.filter((t) => t.status === "completed").length;
+  const { todos, completedCount } = useMemo(() => getTodoProgress({ input }), [input]);
   const displayState = deriveOverallState(todos, state);
+  const finalized = displayState === "output-available" || displayState === "output-error";
 
   return (
     <section className={cn("overflow-hidden rounded-md border bg-card", className)}>
       <button
         type="button"
         className={cn(
-          "flex w-full items-center justify-between px-3 py-2 text-sm font-semibold",
+          "flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold",
           open && "border-b",
         )}
         onClick={() => setOpen((v) => !v)}
@@ -81,7 +114,7 @@ export function TodoCard({
           <ClipboardList className="size-3.5 text-muted-foreground" />
           Todo
           {todos.length > 0 && (
-            <span className="ml-0.5 text-xs font-normal text-muted-foreground">
+            <span className="ml-0.5 text-[0.75em] font-normal text-muted-foreground">
               {completedCount}/{todos.length}
             </span>
           )}
@@ -96,18 +129,18 @@ export function TodoCard({
       {open && (
         <div className="px-3 py-2">
           {todos.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No todos.</p>
+            <p className="text-[0.875em] text-muted-foreground">No todos.</p>
           ) : (
             <ol className="space-y-1.5">
               {todos.map((todo, idx) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: order is stable for todo list
                 <li key={idx} className="flex items-start gap-2">
-                  <TodoItemIcon status={todo.status} />
+                  <TodoItemIcon status={todo.status} finalized={finalized} />
                   <span
                     className={cn(
-                      "text-sm leading-5",
+                      "text-[0.875em] leading-[1.6]",
                       todo.status === "completed" && "text-muted-foreground line-through",
-                      todo.status === "in_progress" && "font-medium text-foreground",
+                      todo.status === "in_progress" && (finalized ? "text-muted-foreground" : "font-medium text-foreground"),
                       todo.status === "pending" && "text-muted-foreground",
                     )}
                   >

@@ -21,6 +21,7 @@ export function registerSkillsHandlers() {
 
     return discoverSkillCatalog({
       workspacePath: parsedArgs.data.workspacePath,
+      sharedSkillsHome: parsedArgs.data.sharedSkillsHome,
     });
   });
 }

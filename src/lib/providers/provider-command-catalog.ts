@@ -22,6 +22,7 @@ export interface ProviderCommandCatalogResponse {
   detail: string;
 }
 
+const MAX_PROVIDER_COMMAND_CATALOG_CACHE_ENTRIES = 32;
 const providerCommandCatalogCache = new Map<string, ProviderCommandCatalogState>();
 
 function toCatalogCacheKey(args: { providerId: ProviderId; cwd?: string }) {
@@ -34,7 +35,7 @@ export function getInitialProviderCommandCatalog(args: { providerId: ProviderId 
       providerId: args.providerId,
       status: "unsupported",
       commands: [],
-      detail: `${getProviderLabel({ providerId: args.providerId, variant: "full" })} does not expose a native slash-command catalog through the current SDK path.`,
+      detail: `${getProviderLabel({ providerId: args.providerId, variant: "full" })} does not expose a native slash-command catalog through the current SDK/CLI path. Slash commands are passed through unchanged.`,
     };
   }
 
@@ -47,7 +48,14 @@ export function getInitialProviderCommandCatalog(args: { providerId: ProviderId 
 }
 
 export function getCachedProviderCommandCatalog(args: { providerId: ProviderId; cwd?: string }) {
-  return providerCommandCatalogCache.get(toCatalogCacheKey(args)) ?? getInitialProviderCommandCatalog({
+  const cacheKey = toCatalogCacheKey(args);
+  const cached = providerCommandCatalogCache.get(cacheKey);
+  if (cached) {
+    providerCommandCatalogCache.delete(cacheKey);
+    providerCommandCatalogCache.set(cacheKey, cached);
+    return cached;
+  }
+  return getInitialProviderCommandCatalog({
     providerId: args.providerId,
   });
 }
@@ -57,7 +65,16 @@ export function setCachedProviderCommandCatalog(args: {
   cwd?: string;
   catalog: ProviderCommandCatalogState;
 }) {
-  providerCommandCatalogCache.set(toCatalogCacheKey(args), args.catalog);
+  const cacheKey = toCatalogCacheKey(args);
+  providerCommandCatalogCache.delete(cacheKey);
+  providerCommandCatalogCache.set(cacheKey, args.catalog);
+  while (providerCommandCatalogCache.size > MAX_PROVIDER_COMMAND_CATALOG_CACHE_ENTRIES) {
+    const oldestKey = providerCommandCatalogCache.keys().next().value;
+    if (!oldestKey) {
+      break;
+    }
+    providerCommandCatalogCache.delete(oldestKey);
+  }
 }
 
 export function toProviderCommandCatalogState(args: {

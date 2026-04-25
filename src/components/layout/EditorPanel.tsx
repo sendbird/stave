@@ -1,32 +1,29 @@
-import {
-  ChevronsDown,
-  ChevronsUp,
-  ChevronDown,
-  ChevronRight,
-  FilePlus,
-  Folder,
-  FolderPlus,
-  FolderOpen,
-  FolderTree,
-  GitBranch,
-  LoaderCircle,
-  RefreshCcw,
-  X,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Button, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui";
+import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
+import { toast } from "@/components/ui";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { workspaceFsAdapter } from "@/lib/fs";
-import type { WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
+import type { WorkspaceCreateEntryResult, WorkspaceDeleteEntryResult, WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
 import { parseUnifiedDiffToBuffers } from "@/lib/source-control-diff";
-import { cn } from "@/lib/utils";
+import { hasSourceControlStagedChanges, type SourceControlStatusItem } from "@/lib/source-control-status";
 import { useAppStore } from "@/store/app.store";
-import { collectAncestorFolders, normalizeRelativeInputPath } from "./editor-panel.utils";
-
-interface SourceControlItem {
-  code: string;
-  path: string;
-}
+import type { SectionId } from "@/components/layout/settings-dialog.schema";
+import { RightRailPanelShell } from "./RightRailPanelShell";
+import { WorkspaceScriptsPanel } from "./WorkspaceScriptsPanel";
+import { WorkspaceSkillsPanel } from "./WorkspaceSkillsPanel";
+import { WorkspaceChangesPanel } from "./WorkspaceChangesPanel";
+import { WorkspaceExplorerPanel } from "./WorkspaceExplorerPanel";
+import { WorkspaceInformationPanel } from "./WorkspaceInformationPanel";
+import { WorkspaceLensPanel } from "./WorkspaceLensPanel";
+import { EXPLORER_SEARCH_REQUEST_EVENT } from "./explorer-search-events";
+import {
+  buildSourceControlSections,
+  buildSourceControlSummary,
+  getExplorerExpandedPathsAfterCreate,
+  normalizeRelativeInputPath,
+  type SourceControlItemViewModel,
+} from "./editor-panel.utils";
 
 interface SourceControlHistoryItem {
   hash: string;
@@ -40,107 +37,106 @@ interface ExplorerDirectoryState {
   error?: string;
 }
 
-function ExplorerTreeRow(args: {
-  entry: WorkspaceDirectoryEntry;
-  depth: number;
-  expanded: Set<string>;
-  directoryStateByPath: Record<string, ExplorerDirectoryState>;
-  onToggle: (path: string) => void;
-  onOpenFile: (path: string) => void;
-}) {
-  const { entry, depth, expanded, directoryStateByPath, onToggle, onOpenFile } = args;
-  const isFolder = entry.type === "folder";
-  const isOpen = isFolder && expanded.has(entry.path);
-  const directoryState = isFolder ? directoryStateByPath[entry.path] : undefined;
-  const childEntries = directoryState?.entries ?? [];
+type PendingExplorerCreate =
+  | { type: "file"; placeholder: string }
+  | { type: "folder"; placeholder: string };
 
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => (isFolder ? onToggle(entry.path) : onOpenFile(entry.path))}
-        className="flex min-w-0 w-full items-center gap-1 rounded-sm px-1.5 py-1 text-left text-sm hover:bg-secondary/60"
-        style={{ paddingLeft: `${6 + depth * 14}px` }}
-      >
-        {isFolder ? (
-          <>
-            {isOpen ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}
-            {isOpen ? <FolderOpen className="size-3.5 text-muted-foreground" /> : <Folder className="size-3.5 text-muted-foreground" />}
-          </>
-        ) : (
-          <>
-            <span className="inline-block w-3.5" />
-            <span className="inline-block size-1.5 rounded-full bg-muted-foreground/70" />
-          </>
-        )}
-        <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-        {isFolder && directoryState?.status === "loading" ? <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
-      </button>
-      {isFolder && isOpen ? (
-        <>
-          {directoryState?.status === "error" ? (
-            <p
-              className="py-1 text-sm text-destructive"
-              style={{ paddingLeft: `${24 + depth * 14}px` }}
-            >
-              {directoryState.error ?? "Failed to load folder."}
-            </p>
-          ) : null}
-          {directoryState?.status === "ready" && childEntries.length === 0 ? (
-            <p
-              className="py-1 text-sm text-muted-foreground"
-              style={{ paddingLeft: `${24 + depth * 14}px` }}
-            >
-              Empty
-            </p>
-          ) : null}
-          {childEntries.map((child) => (
-            <ExplorerTreeRow
-              key={child.path}
-              entry={child}
-              depth={depth + 1}
-              expanded={expanded}
-              directoryStateByPath={directoryStateByPath}
-              onToggle={onToggle}
-              onOpenFile={onOpenFile}
-            />
-          ))}
-        </>
-      ) : null}
-    </div>
-  );
+interface PendingExplorerDelete {
+  type: "file" | "folder";
+  path: string;
+  name: string;
+  affectedTabIds: string[];
+  dirtyTabCount: number;
 }
 
-export function EditorPanel() {
+interface EditorPanelProps {
+  onOpenSettings?: (options?: {
+    projectPath?: string | null;
+    section?: SectionId;
+  }) => void;
+  lensOccluded?: boolean;
+}
+
+function getParentDirectoryPath(args: { path: string }) {
+  return args.path.split("/").slice(0, -1).join("/");
+}
+
+function isAffectedByExplorerDelete(args: {
+  candidatePath: string;
+  targetPath: string;
+  targetType: "file" | "folder";
+}) {
+  return args.targetType === "file"
+    ? args.candidatePath === args.targetPath
+    : args.candidatePath === args.targetPath || args.candidatePath.startsWith(`${args.targetPath}/`);
+}
+
+function resolveWorkspaceAbsolutePath(args: { workspacePath?: string; relativePath: string }) {
+  const workspacePath = args.workspacePath?.trim();
+  if (!workspacePath) {
+    return null;
+  }
+
+  const normalizedWorkspacePath = workspacePath.replace(/[\\/]+$/, "") || workspacePath;
+  const normalizedRelativePath = args.relativePath
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+/g, "/");
+
+  if (!normalizedRelativePath) {
+    return normalizedWorkspacePath;
+  }
+
+  const separator = normalizedWorkspacePath.includes("\\") ? "\\" : "/";
+  const joinedRelativePath = normalizedRelativePath.split("/").filter(Boolean).join(separator);
+  return `${normalizedWorkspacePath}${separator}${joinedRelativePath}`;
+}
+
+export function EditorPanel(props: EditorPanelProps) {
   const [
     activeWorkspaceId,
-    workspaceRootName,
+    hasHydratedWorkspaces,
+    projectName,
     sidebarOverlayVisible,
     sidebarOverlayTab,
     workspaceCwd,
+    scmAutoRefreshSeconds,
     openFileFromTree,
     openDiffInEditor,
     setLayout,
     refreshProjectFiles,
+    closeEditorTab,
+    updateSettings,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
-    state.workspaceRootName,
+    state.hasHydratedWorkspaces,
+    state.projectName,
     state.layout.sidebarOverlayVisible,
     state.layout.sidebarOverlayTab,
     state.workspacePathById[state.activeWorkspaceId] ?? state.projectPath ?? undefined,
+    state.settings.scmAutoRefreshSeconds,
     state.openFileFromTree,
     state.openDiffInEditor,
     state.setLayout,
     state.refreshProjectFiles,
+    state.closeEditorTab,
+    state.updateSettings,
   ] as const));
 
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [explorerDirectoryStateByPath, setExplorerDirectoryStateByPath] = useState<Record<string, ExplorerDirectoryState>>({});
   const [explorerError, setExplorerError] = useState("");
+  const [pendingExplorerCreate, setPendingExplorerCreate] = useState<PendingExplorerCreate | null>(null);
+  const [pendingExplorerDelete, setPendingExplorerDelete] = useState<PendingExplorerDelete | null>(null);
+  const [pendingExplorerCreatePath, setPendingExplorerCreatePath] = useState("");
+  const [isCreatingExplorerEntry, setIsCreatingExplorerEntry] = useState(false);
+  const [isDeletingExplorerEntry, setIsDeletingExplorerEntry] = useState(false);
   const [commitMessage, setCommitMessage] = useState("");
+  const [explorerSearchRequestNonce, setExplorerSearchRequestNonce] = useState(0);
 
   const [sourceBranch, setSourceBranch] = useState("unknown");
-  const [sourceItems, setSourceItems] = useState<SourceControlItem[]>([]);
+  const [sourceItems, setSourceItems] = useState<SourceControlStatusItem[]>([]);
   const [sourceHistory, setSourceHistory] = useState<SourceControlHistoryItem[]>([]);
   const [sourceError, setSourceError] = useState("");
   const [hasConflicts, setHasConflicts] = useState(false);
@@ -148,12 +144,32 @@ export function EditorPanel() {
   const explorerDirectoryStateRef = useRef<Record<string, ExplorerDirectoryState>>({});
   const explorerRequestTokenRef = useRef(0);
   const selectedDiffRequestIdRef = useRef(0);
+  const pendingExplorerCreateInputRef = useRef<HTMLInputElement | null>(null);
 
   const explorerRootState = explorerDirectoryStateByPath[""];
   const explorerTree = explorerRootState?.entries ?? [];
   const isExplorerLoading = explorerRootState?.status === "loading";
   const filteredScmItems = sourceItems;
-  const explorerProjectName = workspaceRootName?.trim() || "Project";
+  const sourceControlSections = useMemo(
+    () => buildSourceControlSections({ items: filteredScmItems }),
+    [filteredScmItems],
+  );
+  const sourceControlSummary = useMemo(
+    () => buildSourceControlSummary({ items: filteredScmItems }),
+    [filteredScmItems],
+  );
+  const canCommitStagedChanges = sourceControlSummary.committableCount > 0 && !hasConflicts;
+  const canUnstageAnyChanges = sourceControlSummary.stagedCount > 0;
+  const sourceControlHint = hasConflicts
+    ? "Resolve or discard conflicted files before treating the tree as clean."
+    : canCommitStagedChanges && sourceControlSummary.workingTreeCount > 0
+      ? "Commit will include staged changes only. Working-tree edits remain local."
+      : canCommitStagedChanges
+        ? "Staged changes are ready to commit."
+        : filteredScmItems.length > 0
+      ? "Stage files to prepare the next commit."
+      : "Working tree is clean.";
+  const explorerProjectName = projectName?.trim() || "Project";
   const rightTab = sidebarOverlayTab;
 
   function updateExplorerDirectoryState(
@@ -246,41 +262,83 @@ export function EditorPanel() {
     setExplorerDirectoryStateByPath({});
     setExpandedFolders(new Set());
     setExplorerError("");
+    setPendingExplorerCreate(null);
+    setPendingExplorerDelete(null);
+    setPendingExplorerCreatePath("");
+    setIsCreatingExplorerEntry(false);
+    setIsDeletingExplorerEntry(false);
   }, [activeWorkspaceId, workspaceCwd]);
 
   useEffect(() => {
-    if (!workspaceCwd || !sidebarOverlayVisible || rightTab !== "explorer") {
+    if (!hasHydratedWorkspaces || !workspaceCwd || !sidebarOverlayVisible || rightTab !== "explorer") {
       return;
     }
     if (explorerDirectoryStateRef.current[""]) {
       return;
     }
     void loadExplorerDirectory({ directoryPath: "" });
-  }, [activeWorkspaceId, rightTab, sidebarOverlayVisible, workspaceCwd]);
+  }, [activeWorkspaceId, hasHydratedWorkspaces, rightTab, sidebarOverlayVisible, workspaceCwd]);
 
-  async function loadScmStatus() {
+  useEffect(() => {
+    if (!pendingExplorerCreate) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const input = pendingExplorerCreateInputRef.current;
+      if (!input) {
+        return;
+      }
+      input.focus({ preventScroll: true });
+      const cursorPosition = input.value.length;
+      input.setSelectionRange(cursorPosition, cursorPosition);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [pendingExplorerCreate]);
+
+  useEffect(() => {
+    const handleExplorerSearchRequest = () => {
+      setExplorerSearchRequestNonce((current) => current + 1);
+    };
+
+    window.addEventListener(EXPLORER_SEARCH_REQUEST_EVENT, handleExplorerSearchRequest);
+    return () => {
+      window.removeEventListener(EXPLORER_SEARCH_REQUEST_EVENT, handleExplorerSearchRequest);
+    };
+  }, []);
+
+  async function loadScmStatus(args?: { skipBusyState?: boolean }) {
     const getStatus = window.api?.sourceControl?.getStatus;
     if (!getStatus) {
       setSourceError("Source Control bridge unavailable. Use bun run dev:all or bun run dev:desktop.");
       return;
     }
 
-    setIsScmBusy(true);
-    const result = await getStatus({ cwd: workspaceCwd });
-    setSourceBranch(result.branch);
-    setSourceItems(result.items);
-    setHasConflicts(result.hasConflicts);
-    setSourceError(result.ok ? "" : result.stderr || "git status failed");
-
     const getHistory = window.api?.sourceControl?.getHistory;
-    if (getHistory) {
-      const historyResult = await getHistory({ cwd: workspaceCwd, limit: 15 });
-      if (historyResult.ok) {
-        setSourceHistory(historyResult.items);
-      }
+    if (!args?.skipBusyState) {
+      setIsScmBusy(true);
     }
 
-    setIsScmBusy(false);
+    try {
+      const [statusResult, historyResult] = await Promise.all([
+        getStatus({ cwd: workspaceCwd }),
+        getHistory ? getHistory({ cwd: workspaceCwd, limit: 15 }) : Promise.resolve(null),
+      ]);
+
+      setSourceBranch(statusResult.branch);
+      setSourceItems(statusResult.items);
+      setHasConflicts(statusResult.hasConflicts);
+      setSourceError(statusResult.ok ? "" : statusResult.stderr || "git status failed");
+
+      if (historyResult?.ok) {
+        setSourceHistory(historyResult.items);
+      }
+    } finally {
+      if (!args?.skipBusyState) {
+        setIsScmBusy(false);
+      }
+    }
   }
 
   useEffect(() => {
@@ -288,6 +346,25 @@ export function EditorPanel() {
       void loadScmStatus();
     }
   }, [rightTab, sidebarOverlayVisible, workspaceCwd]);
+
+  const loadScmStatusRef = useRef(loadScmStatus);
+  loadScmStatusRef.current = loadScmStatus;
+  const isScmBusyRef = useRef(isScmBusy);
+  isScmBusyRef.current = isScmBusy;
+
+  useEffect(() => {
+    if (scmAutoRefreshSeconds <= 0) return;
+    if (rightTab !== "changes" || !sidebarOverlayVisible) return;
+    if (!workspaceCwd) return;
+
+    const intervalId = window.setInterval(() => {
+      if (isScmBusyRef.current) return;
+      if (document.visibilityState === "hidden") return;
+      void loadScmStatusRef.current({ skipBusyState: true });
+    }, scmAutoRefreshSeconds * 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [scmAutoRefreshSeconds, rightTab, sidebarOverlayVisible, workspaceCwd]);
 
   async function handleStageAll() {
     const stageAll = window.api?.sourceControl?.stageAll;
@@ -297,12 +374,38 @@ export function EditorPanel() {
     }
 
     setIsScmBusy(true);
-    const result = await stageAll({ cwd: workspaceCwd });
-    if (!result.ok) {
-      setSourceError(result.stderr || "git add failed");
+    try {
+      const result = await stageAll({ cwd: workspaceCwd });
+      if (!result.ok) {
+        setSourceError(result.stderr || "git add failed");
+      } else {
+        setSourceError("");
+      }
+      await loadScmStatus({ skipBusyState: true });
+    } finally {
+      setIsScmBusy(false);
     }
-    await loadScmStatus();
-    setIsScmBusy(false);
+  }
+
+  async function handleUnstageAll() {
+    const unstageAll = window.api?.sourceControl?.unstageAll;
+    if (!unstageAll) {
+      setSourceError("Source Control bridge unavailable.");
+      return;
+    }
+
+    setIsScmBusy(true);
+    try {
+      const result = await unstageAll({ cwd: workspaceCwd });
+      if (!result.ok) {
+        setSourceError(result.stderr || "git restore --staged failed");
+      } else {
+        setSourceError("");
+      }
+      await loadScmStatus({ skipBusyState: true });
+    } finally {
+      setIsScmBusy(false);
+    }
   }
 
   async function handleCommit() {
@@ -311,21 +414,35 @@ export function EditorPanel() {
       setSourceError("Source Control bridge unavailable.");
       return;
     }
+    if (hasConflicts) {
+      setSourceError("Resolve or discard conflicted files before committing.");
+      return;
+    }
+    if (!canCommitStagedChanges) {
+      setSourceError("Stage at least one change before committing.");
+      return;
+    }
 
     setIsScmBusy(true);
-    const result = await commit({ message: commitMessage, cwd: workspaceCwd });
-    if (!result.ok) {
-      setSourceError(result.stderr || "git commit failed");
-    } else {
-      setCommitMessage("");
-      setSourceError("");
+    try {
+      const result = await commit({ message: commitMessage, cwd: workspaceCwd });
+      if (!result.ok) {
+        setSourceError(result.stderr || "git commit failed");
+      } else {
+        setCommitMessage("");
+        setSourceError("");
+      }
+      await loadScmStatus({ skipBusyState: true });
+    } finally {
+      setIsScmBusy(false);
     }
-    await loadScmStatus();
-    setIsScmBusy(false);
   }
 
-  async function handleStageToggle(args: { item: SourceControlItem }) {
-    const isStaged = args.item.code[0] && args.item.code[0] !== "?" && args.item.code[0] !== " ";
+  async function handleStageAction(args: {
+    action: "stage" | "toggle" | "unstage";
+    item: SourceControlStatusItem;
+  }) {
+    const isStaged = hasSourceControlStagedChanges({ item: args.item });
     const stageFile = window.api?.sourceControl?.stageFile;
     const unstageFile = window.api?.sourceControl?.unstageFile;
     if (!stageFile || !unstageFile) {
@@ -334,15 +451,44 @@ export function EditorPanel() {
     }
 
     setIsScmBusy(true);
-    const result = isStaged
-      ? await unstageFile({ path: args.item.path, cwd: workspaceCwd })
-      : await stageFile({ path: args.item.path, cwd: workspaceCwd });
+    try {
+      const nextAction = args.action === "toggle"
+        ? (isStaged ? "unstage" : "stage")
+        : args.action;
+      const result = nextAction === "unstage"
+        ? await unstageFile({ path: args.item.path, cwd: workspaceCwd })
+        : await stageFile({ path: args.item.path, cwd: workspaceCwd });
 
-    if (!result.ok) {
-      setSourceError(result.stderr || "git stage toggle failed");
+      if (!result.ok) {
+        setSourceError(result.stderr || "git stage toggle failed");
+      } else {
+        setSourceError("");
+      }
+      await loadScmStatus({ skipBusyState: true });
+    } finally {
+      setIsScmBusy(false);
     }
-    await loadScmStatus();
-    setIsScmBusy(false);
+  }
+
+  async function handleDiscardChange(args: { item: SourceControlStatusItem }) {
+    const discardFile = window.api?.sourceControl?.discardFile;
+    if (!discardFile) {
+      setSourceError("Source Control bridge unavailable.");
+      return;
+    }
+
+    setIsScmBusy(true);
+    try {
+      const result = await discardFile({ path: args.item.path, cwd: workspaceCwd });
+      if (!result.ok) {
+        setSourceError(result.stderr || "git discard failed");
+      } else {
+        setSourceError("");
+      }
+      await loadScmStatus({ skipBusyState: true });
+    } finally {
+      setIsScmBusy(false);
+    }
   }
 
   async function handleSelectDiff(args: { path: string }) {
@@ -376,27 +522,8 @@ export function EditorPanel() {
     }
   }
 
-  async function runExplorerCommand(args: { command: string; fallbackError: string }) {
-    const runCommand = window.api?.terminal?.runCommand;
-    if (!runCommand) {
-      setExplorerError("Terminal bridge unavailable.");
-      return false;
-    }
-    if (!workspaceCwd) {
-      setExplorerError("Workspace path unavailable.");
-      return false;
-    }
-    const result = await runCommand({ cwd: workspaceCwd, command: args.command });
-    if (!result.ok) {
-      setExplorerError(result.stderr || args.fallbackError);
-      return false;
-    }
-    setExplorerError("");
-    return true;
-  }
-
-  function handleOpenExplorerFile(filePath: string) {
-    void openFileFromTree({ filePath });
+  function handleOpenExplorerFile(filePath: string, line?: number) {
+    void openFileFromTree({ filePath, line });
     setLayout({ patch: { editorVisible: true } });
   }
 
@@ -414,6 +541,76 @@ export function EditorPanel() {
     if (!isOpen) {
       void loadExplorerDirectory({ directoryPath: path });
     }
+  }
+
+  async function handleCopyExplorerPath(args: { path: string; mode: "relative" | "absolute" }) {
+    const pathToCopy = args.mode === "absolute"
+      ? resolveWorkspaceAbsolutePath({ workspacePath: workspaceCwd, relativePath: args.path })
+      : args.path;
+    if (!pathToCopy) {
+      toast.error("Workspace path unavailable");
+      return;
+    }
+
+    try {
+      await copyTextToClipboard(pathToCopy);
+      toast.success(args.mode === "absolute" ? "Copied absolute path" : "Copied relative path");
+    } catch {
+      toast.error("Failed to copy path");
+    }
+  }
+
+  async function handleCopySourceControlPath(path: string) {
+    try {
+      await copyTextToClipboard(path);
+      toast.success("Copied relative path");
+    } catch {
+      toast.error("Failed to copy path");
+    }
+  }
+
+  async function handleOpenExplorerPath(args: { path: string; target: "finder" | "vscode" | "terminal" | "ghostty" }) {
+    const shellApi = window.api?.shell;
+    if (!shellApi) {
+      toast.error("Shell bridge unavailable");
+      return;
+    }
+
+    const absolutePath = resolveWorkspaceAbsolutePath({ workspacePath: workspaceCwd, relativePath: args.path });
+    if (!absolutePath) {
+      toast.error("Workspace path unavailable");
+      return;
+    }
+
+    const action = args.target === "finder"
+      ? shellApi.showInFinder
+      : args.target === "vscode"
+      ? shellApi.openInVSCode
+      : args.target === "ghostty"
+      ? shellApi.openInGhostty
+      : shellApi.openInTerminal;
+    if (!action) {
+      toast.error("Shell action unavailable");
+      return;
+    }
+
+    const result = await action({ path: absolutePath });
+    if (result.ok) {
+      return;
+    }
+
+    const actionLabel = args.target === "finder"
+      ? "open in Finder"
+      : args.target === "vscode"
+      ? "open in VS Code"
+      : args.target === "ghostty"
+      ? "open in Ghostty"
+      : "open in Terminal";
+    toast.error(`Failed to ${actionLabel}`, { description: result.stderr });
+  }
+
+  function handleRefreshExplorerDirectory(path: string) {
+    void loadExplorerDirectory({ directoryPath: path, force: true });
   }
 
   async function handleExpandAllFolders() {
@@ -443,68 +640,238 @@ export function EditorPanel() {
     setExpandedFolders(nextExpandedFolders);
   }
 
-  async function handleAddFolder() {
-    const nextPath = window.prompt("New folder path (relative to project root)");
-    if (nextPath === null) {
-      return;
-    }
-    const folderPath = normalizeRelativeInputPath({ value: nextPath });
-    if (!folderPath) {
-      setExplorerError("Enter a valid relative folder path.");
-      return;
-    }
-    const ok = await runExplorerCommand({
-      command: `mkdir -p ${JSON.stringify(folderPath)}`,
-      fallbackError: "Failed to create folder.",
-    });
-    if (!ok) {
-      return;
+  async function runExplorerCreateOperation(args: {
+    execute: () => Promise<WorkspaceCreateEntryResult>;
+    fallbackError: string;
+  }) {
+    let result = await args.execute();
+
+    if (!result.ok && !result.alreadyExists && workspaceCwd) {
+      await workspaceFsAdapter.setRoot?.({
+        rootPath: workspaceCwd,
+        rootName: explorerProjectName,
+        files: workspaceFsAdapter.getKnownFiles(),
+      });
+      result = await args.execute();
     }
 
-    const nextExpandedFolders = new Set(expandedFolders);
-    for (const folder of collectAncestorFolders({ path: folderPath })) {
-      nextExpandedFolders.add(folder);
+    if (!result.ok && !result.alreadyExists) {
+      setExplorerError(result.stderr || args.fallbackError);
+      return null;
     }
 
-    await Promise.all([
-      refreshProjectFiles(),
-      reloadExplorer({ expandedPaths: nextExpandedFolders }),
-    ]);
+    setExplorerError("");
+    return result;
   }
 
-  async function handleAddFile() {
-    const nextPath = window.prompt("New file path (relative to project root)");
-    if (nextPath === null) {
-      return;
+  async function runExplorerDeleteOperation(args: {
+    execute: () => Promise<WorkspaceDeleteEntryResult>;
+    fallbackError: string;
+  }) {
+    let result = await args.execute();
+
+    if (!result.ok && workspaceCwd) {
+      await workspaceFsAdapter.setRoot?.({
+        rootPath: workspaceCwd,
+        rootName: explorerProjectName,
+        files: workspaceFsAdapter.getKnownFiles(),
+      });
+      result = await args.execute();
     }
-    const filePath = normalizeRelativeInputPath({ value: nextPath });
-    if (!filePath) {
-      setExplorerError("Enter a valid relative file path.");
-      return;
+
+    if (!result.ok) {
+      const message = result.stderr || args.fallbackError;
+      setExplorerError(message);
+      toast.error(args.fallbackError, { description: message });
+      return null;
     }
-    const segments = filePath.split("/");
-    const parentPath = segments.slice(0, -1).join("/");
-    const command = parentPath
-      ? `mkdir -p ${JSON.stringify(parentPath)} && touch ${JSON.stringify(filePath)}`
-      : `touch ${JSON.stringify(filePath)}`;
-    const ok = await runExplorerCommand({
-      command,
-      fallbackError: "Failed to create file.",
+
+    setExplorerError("");
+    return result;
+  }
+
+  function startExplorerCreate(type: PendingExplorerCreate["type"], directoryPath = "") {
+    setExplorerError("");
+    const normalizedDirectoryPath = normalizeRelativeInputPath({ value: directoryPath }) ?? "";
+    const pathPrefix = normalizedDirectoryPath ? `${normalizedDirectoryPath}/` : "";
+    const suggestedLeafPath = type === "file" ? "new-file.tsx" : "new-folder";
+    setPendingExplorerCreate({
+      type,
+      placeholder: `${pathPrefix}${suggestedLeafPath}`,
     });
-    if (!ok) {
+    setPendingExplorerCreatePath(pathPrefix);
+  }
+
+  function handleStartExplorerFileCreate(directoryPath: string) {
+    startExplorerCreate("file", directoryPath);
+  }
+
+  function handleStartExplorerFolderCreate(directoryPath: string) {
+    startExplorerCreate("folder", directoryPath);
+  }
+
+  function handleCopyExplorerRelativePath(path: string) {
+    void handleCopyExplorerPath({ path, mode: "relative" });
+  }
+
+  function handleCopyExplorerAbsolutePath(path: string) {
+    void handleCopyExplorerPath({ path, mode: "absolute" });
+  }
+
+  function handleOpenExplorerInFinder(path: string) {
+    void handleOpenExplorerPath({ path, target: "finder" });
+  }
+
+  function handleOpenExplorerInVSCode(path: string) {
+    void handleOpenExplorerPath({ path, target: "vscode" });
+  }
+
+  function handleOpenExplorerInTerminal(path: string) {
+    void handleOpenExplorerPath({ path, target: "terminal" });
+  }
+
+  function handleOpenExplorerInGhostty(path: string) {
+    void handleOpenExplorerPath({ path, target: "ghostty" });
+  }
+
+  function cancelExplorerCreate() {
+    if (isCreatingExplorerEntry) {
       return;
     }
 
-    const nextExpandedFolders = new Set(expandedFolders);
-    for (const folder of collectAncestorFolders({ path: parentPath })) {
-      nextExpandedFolders.add(folder);
+    setPendingExplorerCreate(null);
+    setPendingExplorerCreatePath("");
+  }
+
+  function requestExplorerDelete(args: Omit<PendingExplorerDelete, "affectedTabIds" | "dirtyTabCount">) {
+    const affectedTabs = useAppStore.getState().editorTabs.filter((tab) => isAffectedByExplorerDelete({
+      candidatePath: tab.filePath,
+      targetPath: args.path,
+      targetType: args.type,
+    }));
+    setExplorerError("");
+    setPendingExplorerDelete({
+      ...args,
+      affectedTabIds: affectedTabs.map((tab) => tab.id),
+      dirtyTabCount: affectedTabs.filter((tab) => tab.isDirty).length,
+    });
+  }
+
+  function handleRequestDeleteExplorerFile(path: string, name: string) {
+    requestExplorerDelete({ type: "file", path, name });
+  }
+
+  function handleRequestDeleteExplorerFolder(path: string, name: string) {
+    requestExplorerDelete({ type: "folder", path, name });
+  }
+
+  function cancelExplorerDelete() {
+    if (isDeletingExplorerEntry) {
+      return;
     }
 
-    await Promise.all([
-      refreshProjectFiles(),
-      reloadExplorer({ expandedPaths: nextExpandedFolders }),
-    ]);
-    handleOpenExplorerFile(filePath);
+    setPendingExplorerDelete(null);
+  }
+
+  async function confirmExplorerDelete() {
+    if (!pendingExplorerDelete || isDeletingExplorerEntry) {
+      return;
+    }
+
+    const deleteRequest = pendingExplorerDelete;
+    const nextExpandedPaths = deleteRequest.type === "folder"
+      ? [...expandedFolders].filter((path) => !isAffectedByExplorerDelete({
+        candidatePath: path,
+        targetPath: deleteRequest.path,
+        targetType: "folder",
+      }))
+      : [...expandedFolders];
+
+    setIsDeletingExplorerEntry(true);
+    try {
+      const result = await runExplorerDeleteOperation({
+        execute: () => (
+          deleteRequest.type === "file"
+            ? workspaceFsAdapter.deleteFile({ filePath: deleteRequest.path })
+            : workspaceFsAdapter.deleteDirectory({ directoryPath: deleteRequest.path })
+        ),
+        fallbackError: deleteRequest.type === "file"
+          ? "Failed to delete file."
+          : "Failed to delete folder.",
+      });
+      if (!result) {
+        setPendingExplorerDelete(null);
+        return;
+      }
+
+      setPendingExplorerDelete(null);
+
+      for (const tabId of deleteRequest.affectedTabIds) {
+        closeEditorTab({ tabId });
+      }
+
+      await Promise.all([
+        refreshProjectFiles(),
+        reloadExplorer({ expandedPaths: nextExpandedPaths }),
+      ]);
+
+      toast.success(deleteRequest.type === "file" ? "Deleted file" : "Deleted folder", {
+        description: deleteRequest.path,
+      });
+    } finally {
+      setIsDeletingExplorerEntry(false);
+    }
+  }
+
+  async function submitExplorerCreate() {
+    if (!pendingExplorerCreate || isCreatingExplorerEntry) {
+      return;
+    }
+
+    const entryPath = normalizeRelativeInputPath({ value: pendingExplorerCreatePath });
+    if (!entryPath) {
+      setExplorerError(`Enter a valid relative ${pendingExplorerCreate.type} path.`);
+      return;
+    }
+
+    setIsCreatingExplorerEntry(true);
+    try {
+      const result = await runExplorerCreateOperation({
+        execute: () => (
+          pendingExplorerCreate.type === "file"
+            ? workspaceFsAdapter.createFile({ filePath: entryPath })
+            : workspaceFsAdapter.createDirectory({ directoryPath: entryPath })
+        ),
+        fallbackError: pendingExplorerCreate.type === "file"
+          ? "Failed to create file."
+          : "Failed to create folder.",
+      });
+      if (!result) {
+        return;
+      }
+
+      const nextExpandedFolders = new Set(expandedFolders);
+      for (const folder of getExplorerExpandedPathsAfterCreate({
+        path: entryPath,
+        type: pendingExplorerCreate.type,
+      })) {
+        nextExpandedFolders.add(folder);
+      }
+
+      setPendingExplorerCreate(null);
+      setPendingExplorerCreatePath("");
+
+      await Promise.all([
+        refreshProjectFiles(),
+        reloadExplorer({ expandedPaths: nextExpandedFolders }),
+      ]);
+
+      if (pendingExplorerCreate.type === "file") {
+        handleOpenExplorerFile(entryPath);
+      }
+    } finally {
+      setIsCreatingExplorerEntry(false);
+    }
   }
 
   return (
@@ -512,231 +879,107 @@ export function EditorPanel() {
       data-testid="editor-panel"
       className="h-full min-w-0 w-full overflow-hidden"
     >
-      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm">
-        <div className="flex h-10 items-center justify-between border-b border-border/80 px-3">
-          <TooltipProvider>
-            <div className="flex items-center gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn("h-7 w-7 rounded-sm p-0 text-muted-foreground", rightTab === "explorer" && "bg-secondary/80 text-foreground")}
-                    onClick={() => setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "explorer" } })}
-                  >
-                    <FolderTree className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Explorer</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn("h-7 w-7 rounded-sm p-0 text-muted-foreground", rightTab === "changes" && "bg-secondary/80 text-foreground")}
-                    onClick={() => setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "changes" } })}
-                  >
-                    <GitBranch className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Changes</TooltipContent>
-              </Tooltip>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                    onClick={() => {
-                      if (rightTab === "changes") {
-                        void loadScmStatus();
-                      } else {
-                        void Promise.all([
-                          refreshProjectFiles(),
-                          reloadExplorer({ expandedPaths: expandedFolders }),
-                        ]);
-                      }
-                    }}
-                  >
-                    <RefreshCcw className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Refresh</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                    onClick={() => setLayout({ patch: { sidebarOverlayVisible: false } })}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Close panel</TooltipContent>
-              </Tooltip>
-            </div>
-          </TooltipProvider>
-        </div>
-
-        {rightTab === "changes" ? (
-          <div className="border-b border-border/80 p-2">
-            <Input
-              className="h-8 rounded-sm border-border/80 bg-background px-2 text-sm"
-              placeholder={`Message (Ctrl Enter to commit on "${sourceBranch}")`}
-              value={commitMessage}
-              onChange={(event) => setCommitMessage(event.target.value)}
-            />
-            <div className="mt-2 flex items-center gap-2">
-              <Button size="sm" className="h-8 flex-1 rounded-sm text-sm" disabled={isScmBusy} onClick={() => void handleCommit()}>
-                Commit
-              </Button>
-              <Button size="sm" variant="outline" className="h-8 rounded-sm text-sm" disabled={isScmBusy} onClick={() => void handleStageAll()}>
-                + Stage All
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="min-h-0 flex-1 overflow-auto p-2">
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card">
+        <RightRailPanelShell panelId={rightTab}>
           {rightTab === "explorer" ? (
-            <>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="truncate text-sm text-muted-foreground">{explorerProjectName}</p>
-                <div className="flex items-center gap-1">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                          onClick={() => void handleAddFile()}
-                        >
-                          <FilePlus className="size-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">Add file</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                          onClick={() => void handleAddFolder()}
-                        >
-                          <FolderPlus className="size-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">Add folder</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                          onClick={() => setExpandedFolders(new Set())}
-                        >
-                          <ChevronsUp className="size-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">Collapse all</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                          onClick={() => void handleExpandAllFolders()}
-                        >
-                          <ChevronsDown className="size-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">Expand all</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-              {explorerError ? <p className="mb-1 text-sm text-destructive">{explorerError}</p> : null}
-              <div className="space-y-1">
-                {isExplorerLoading && explorerTree.length === 0 ? (
-                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <LoaderCircle className="size-4 animate-spin" />
-                    Loading files...
-                  </p>
-                ) : null}
-                {!explorerError && !isExplorerLoading && explorerTree.length === 0 ? <p className="text-sm text-muted-foreground">No files found.</p> : null}
-                {explorerTree.map((entry) => (
-                  <ExplorerTreeRow
-                    key={entry.path}
-                    entry={entry}
-                    depth={0}
-                    expanded={expandedFolders}
-                    directoryStateByPath={explorerDirectoryStateByPath}
-                    onToggle={handleToggleExplorerFolder}
-                    onOpenFile={handleOpenExplorerFile}
-                  />
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="mb-1 text-sm text-muted-foreground">Branch: {sourceBranch} | Changes ({filteredScmItems.length})</p>
-              {hasConflicts ? <p className="mb-1 text-sm text-warning-foreground">Conflict detected.</p> : null}
-              {sourceError ? <p className="mb-1 text-sm text-destructive">{sourceError}</p> : null}
-              {!sourceError && filteredScmItems.length === 0 ? <p className="text-sm text-muted-foreground">No local changes.</p> : null}
-              <div className="space-y-1">
-                {filteredScmItems.map((item) => (
-                  <div key={`${item.code}:${item.path}`} className="rounded-sm border border-border/80 bg-muted/40 px-2 py-1 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <button type="button" className="min-w-0 truncate text-left hover:underline" onClick={() => void handleSelectDiff({ path: item.path })}>
-                        {item.path}
-                      </button>
-                      <div className="flex items-center gap-1">
-                        <span className="text-success-foreground">{item.code}</span>
-                        <button
-                          type="button"
-                          className="rounded-sm border border-border/80 px-1 py-0.5 text-sm hover:bg-secondary/60"
-                          disabled={isScmBusy}
-                          onClick={() => void handleStageToggle({ item })}
-                        >
-                          {(item.code[0] && item.code[0] !== "?" && item.code[0] !== " ") ? "unstage" : "stage"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+            <WorkspaceExplorerPanel
+              projectName={explorerProjectName}
+              explorerError={explorerError}
+              pendingExplorerCreate={pendingExplorerCreate}
+              pendingExplorerCreateInputRef={pendingExplorerCreateInputRef}
+              pendingExplorerCreatePath={pendingExplorerCreatePath}
+              onPendingExplorerCreatePathChange={setPendingExplorerCreatePath}
+              isCreatingExplorerEntry={isCreatingExplorerEntry}
+              onStartExplorerCreate={startExplorerCreate}
+              onCancelExplorerCreate={cancelExplorerCreate}
+              onSubmitExplorerCreate={submitExplorerCreate}
+              isExplorerLoading={isExplorerLoading}
+              explorerTree={explorerTree}
+              expandedFolders={expandedFolders}
+              onCollapseAllFolders={() => setExpandedFolders(new Set())}
+              onExpandAllFolders={handleExpandAllFolders}
+              explorerDirectoryStateByPath={explorerDirectoryStateByPath}
+              onToggleExplorerFolder={handleToggleExplorerFolder}
+              onOpenExplorerFile={handleOpenExplorerFile}
+              onStartExplorerFileCreate={handleStartExplorerFileCreate}
+              onStartExplorerFolderCreate={handleStartExplorerFolderCreate}
+              onCopyExplorerRelativePath={handleCopyExplorerRelativePath}
+              onCopyExplorerAbsolutePath={handleCopyExplorerAbsolutePath}
+              onOpenExplorerInFinder={handleOpenExplorerInFinder}
+              onOpenExplorerInVSCode={handleOpenExplorerInVSCode}
+              onOpenExplorerInTerminal={handleOpenExplorerInTerminal}
+              onOpenExplorerInGhostty={handleOpenExplorerInGhostty}
+              onRefreshExplorerDirectory={handleRefreshExplorerDirectory}
+              onRequestDeleteExplorerFile={handleRequestDeleteExplorerFile}
+              onRequestDeleteExplorerFolder={handleRequestDeleteExplorerFolder}
+              searchRequestNonce={explorerSearchRequestNonce}
+              workspaceCwd={workspaceCwd}
+            />
+          ) : null}
 
-        {rightTab === "changes" ? (
-          <div className="border-t border-border/80 p-2">
-            <p className="text-sm text-muted-foreground">Commit History ({sourceHistory.length})</p>
-            <div className="mt-1 max-h-24 space-y-1 overflow-auto">
-              {sourceHistory.length === 0 ? <p className="text-sm text-muted-foreground">Initial commit</p> : null}
-              {sourceHistory.map((item) => (
-                <div key={`${item.hash}:${item.subject}`} className="rounded-sm border border-border/80 bg-muted/40 px-2 py-1">
-                  <p className="truncate text-sm font-medium">{item.subject}</p>
-                  <p className="text-sm text-muted-foreground">{item.hash} · {item.relativeDate}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
+          {rightTab === "changes" ? (
+            <WorkspaceChangesPanel
+              sourceBranch={sourceBranch}
+              filteredScmItems={filteredScmItems}
+              sourceControlSummary={sourceControlSummary}
+              sourceControlHint={sourceControlHint}
+              isScmBusy={isScmBusy}
+              commitMessage={commitMessage}
+              onCommitMessageChange={setCommitMessage}
+              canCommitStagedChanges={canCommitStagedChanges}
+              canUnstageAnyChanges={canUnstageAnyChanges}
+              onCommit={handleCommit}
+              onStageAll={handleStageAll}
+              onUnstageAll={handleUnstageAll}
+              hasConflicts={hasConflicts}
+              sourceError={sourceError}
+              sourceControlSections={sourceControlSections}
+              onCopySourceControlPath={handleCopySourceControlPath}
+              onSelectDiff={(path) => handleSelectDiff({ path })}
+              onStageAction={handleStageAction}
+              onDiscardChange={(item) => handleDiscardChange({ item })}
+              sourceHistory={sourceHistory}
+              onRefresh={() => loadScmStatus()}
+              autoRefreshSeconds={scmAutoRefreshSeconds}
+              onAutoRefreshSecondsChange={(seconds) => updateSettings({ patch: { scmAutoRefreshSeconds: seconds } })}
+            />
+          ) : null}
+
+          {rightTab === "information" ? <WorkspaceInformationPanel /> : null}
+          {rightTab === "skills" ? (
+            <WorkspaceSkillsPanel onOpenSettings={props.onOpenSettings} />
+          ) : null}
+          {rightTab === "scripts" ? (
+            <WorkspaceScriptsPanel onOpenSettings={props.onOpenSettings} />
+          ) : null}
+          {rightTab === "lens" ? (
+            <WorkspaceLensPanel occluded={props.lensOccluded} />
+          ) : null}
+        </RightRailPanelShell>
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingExplorerDelete)}
+        title={pendingExplorerDelete?.type === "folder" ? "Delete Folder" : "Delete File"}
+        description={pendingExplorerDelete
+          ? [
+              pendingExplorerDelete.type === "folder"
+                ? `Delete "${pendingExplorerDelete.name}" and all of its contents from disk?`
+                : `Delete "${pendingExplorerDelete.name}" from disk?`,
+              pendingExplorerDelete.affectedTabIds.length > 0
+                ? pendingExplorerDelete.dirtyTabCount > 0
+                  ? `${pendingExplorerDelete.affectedTabIds.length} open tab(s) will be closed, including ${pendingExplorerDelete.dirtyTabCount} with unsaved changes.`
+                  : `${pendingExplorerDelete.affectedTabIds.length} open tab(s) will be closed.`
+                : null,
+            ].filter(Boolean).join(" ")
+          : ""
+        }
+        confirmLabel={pendingExplorerDelete?.type === "folder" ? "Delete Folder" : "Delete File"}
+        loading={isDeletingExplorerEntry}
+        onCancel={cancelExplorerDelete}
+        onConfirm={() => {
+          void confirmExplorerDelete();
+        }}
+      />
     </aside>
   );
 }

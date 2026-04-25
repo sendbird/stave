@@ -1,13 +1,14 @@
-import { useTheme } from "next-themes"
-import { toast, Toaster as Sonner, type ToasterProps } from "sonner"
-import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react";
+import { toast, Toaster as Sonner, type ToasterProps } from "sonner";
+import { useAppStore } from "@/store/app.store";
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={isDarkMode ? "dark" : "light"}
+      position="top-right"
       className="toaster group"
       icons={{
         success: (
@@ -35,13 +36,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
         } as React.CSSProperties
       }
       toastOptions={{
+        descriptionClassName: "!text-muted-foreground",
         classNames: {
           toast: "cn-toast",
         },
       }}
       {...props}
     />
-  )
-}
+  );
+};
 
-export { toast, Toaster }
+export { toast, Toaster };

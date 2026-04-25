@@ -132,6 +132,52 @@ function buildPathSummary(args: { prefix: string; paths: string[] }) {
   return `${args.prefix}: ${args.paths.join(", ")}`;
 }
 
+function buildFileChangeFallbackEvent(args: {
+  appliedPaths?: string[];
+  skippedPaths?: string[];
+  failedPaths?: Array<{ path: string; error?: string }>;
+}): BridgeEvent | null {
+  const appliedPaths = (args.appliedPaths ?? []).filter(Boolean);
+  const skippedPaths = (args.skippedPaths ?? []).filter(Boolean);
+  const failedPaths = (args.failedPaths ?? []).filter((item) => item.path);
+  const outputLines: string[] = [];
+
+  if (appliedPaths.length > 0) {
+    outputLines.push(buildPathSummary({ prefix: "Applied file change(s)", paths: appliedPaths }));
+  }
+  if (skippedPaths.length > 0) {
+    outputLines.push(buildPathSummary({ prefix: "Skipped inline diff for file(s)", paths: skippedPaths }));
+  }
+  if (failedPaths.length > 0) {
+    outputLines.push(`Failed file change(s): ${failedPaths
+      .map((item) => `${item.path}${item.error ? ` (${item.error})` : ""}`)
+      .join(", ")}`);
+  }
+
+  if (outputLines.length === 0) {
+    return null;
+  }
+
+  return {
+    type: "tool",
+    toolName: "file_change",
+    input: JSON.stringify({
+      ...(appliedPaths.length > 0 ? { appliedPaths } : {}),
+      ...(skippedPaths.length > 0 ? { skippedPaths } : {}),
+      ...(failedPaths.length > 0
+        ? {
+            failedPaths: failedPaths.map((item) => ({
+              path: item.path,
+              ...(item.error ? { error: item.error } : {}),
+            })),
+          }
+        : {}),
+    }),
+    output: outputLines.join("\n"),
+    state: failedPaths.length > 0 ? "output-error" : "output-available",
+  };
+}
+
 export async function createTurnDiffTracker(args: { cwd: string }) {
   const workspaceRoot = normalizeWorkspaceRoot({ cwd: args.cwd });
   const snapshot = await snapshotDirectory({ cwd: workspaceRoot });
@@ -211,33 +257,8 @@ export async function createTurnDiffTracker(args: { cwd: string }) {
     skippedPaths?: string[];
     failedPaths?: Array<{ path: string; error?: string }>;
   }) {
-    const events: BridgeEvent[] = [];
-    const appliedPaths = (args.appliedPaths ?? []).filter(Boolean);
-    const skippedPaths = (args.skippedPaths ?? []).filter(Boolean);
-    const failedPaths = (args.failedPaths ?? []).filter((item) => item.path);
-
-    if (appliedPaths.length > 0) {
-      events.push({
-        type: "system",
-        content: buildPathSummary({ prefix: "Applied file change(s)", paths: appliedPaths }),
-      });
-    }
-    if (skippedPaths.length > 0) {
-      events.push({
-        type: "system",
-        content: buildPathSummary({ prefix: "Skipped inline diff for file(s)", paths: skippedPaths }),
-      });
-    }
-    if (failedPaths.length > 0) {
-      events.push({
-        type: "system",
-        content: `Failed file change(s): ${failedPaths
-          .map((item) => `${item.path}${item.error ? ` (${item.error})` : ""}`)
-          .join(", ")}`,
-      });
-    }
-
-    return events;
+    const fallbackEvent = buildFileChangeFallbackEvent(args);
+    return fallbackEvent ? [fallbackEvent] : [];
   }
 
   return {

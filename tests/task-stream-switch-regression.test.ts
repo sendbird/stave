@@ -109,8 +109,8 @@ describe("task stream switching", () => {
         "task-2": [],
       },
       activeTurnIdsByTask: {},
-      nativeConversationReadyByTask: {},
-      providerConversationByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
     });
 
     useAppStore.getState().sendUserMessage({

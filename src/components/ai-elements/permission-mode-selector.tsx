@@ -1,9 +1,11 @@
 import { Check, ChevronDown, Shield } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
+import type { ClaudePermissionMode } from "@/types/chat";
+export type { ClaudePermissionMode } from "@/types/chat";
 
-export type ClaudePermissionMode = "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk";
-export type CodexApprovalPolicy = "never" | "on-request" | "on-failure" | "untrusted";
+export type CodexApprovalPolicy = "never" | "on-request" | "untrusted";
 export type PermissionModeValue = ClaudePermissionMode | CodexApprovalPolicy;
 
 interface PermissionModeOption {
@@ -17,13 +19,13 @@ const CLAUDE_OPTIONS: PermissionModeOption[] = [
   { value: "bypassPermissions", label: "Bypass" },
   { value: "plan", label: "Plan" },
   { value: "dontAsk", label: "Don't Ask" },
+  { value: "auto", label: "Auto" },
 ];
 
 const CODEX_OPTIONS: PermissionModeOption[] = [
-  { value: "never", label: "Never" },
-  { value: "on-request", label: "On Request" },
-  { value: "on-failure", label: "On Failure" },
   { value: "untrusted", label: "Untrusted" },
+  { value: "on-request", label: "On Request" },
+  { value: "never", label: "Never" },
 ];
 
 export function getPermissionModeOptions(providerId: "claude-code" | "codex"): readonly PermissionModeOption[] {
@@ -71,14 +73,14 @@ export function PermissionModeSelector(args: PermissionModeSelectorProps) {
         )}
         onClick={() => setOpen((prev) => !prev)}
         disabled={disabled}
-        title="Permission mode (Shift+Tab to cycle)"
+        title="Permission mode"
       >
         <Shield className="size-3.5 text-muted-foreground" />
         <span>{current?.label ?? value}</span>
         <ChevronDown className="size-3.5 text-muted-foreground" />
       </button>
       {open ? (
-        <div className="absolute bottom-[calc(100%+0.375rem)] left-0 z-40 w-44 rounded-sm border border-border/90 bg-card p-1 shadow-xl">
+        <div className={cn(UI_LAYER_CLASS.floatingChrome, "absolute bottom-[calc(100%+0.375rem)] left-0 w-44 rounded-sm border border-border/90 bg-card p-1 shadow-xl")}>
           {options.map((option) => (
             <button
               key={option.value}

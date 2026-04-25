@@ -6,16 +6,20 @@
 - Let users type `$` in the prompt composer to search and insert skill tokens.
 - Resolve `$skill-name` selections into provider-appropriate dispatch at send time.
 
+![Skills panel showing detected workspace and shared skills](../screenshots/skills-panel.png)
+
+This rendered example shows the right-rail Skills panel with installed skills grouped from shared and workspace roots.
+
 ## Discovery Model
 
 Stave reads three scope layers:
 
 - `global`
-  - shared agent root: `~/.agents/skills` when present
+  - shared agent root: resolved from Settings when configured, otherwise from `STAVE_SHARED_SKILLS_HOME` when set
   - provider system roots such as `<provider-home>/skills/.system`
 - `user`
-  - Claude user root: resolved from `CLAUDE_HOME` when set, otherwise the active `~/.claude` home
-  - Codex user root: resolved from `CODEX_HOME` when set, otherwise the active `~/.codex` home
+  - Claude user root: resolved from `CLAUDE_HOME` when set, otherwise the active Claude home directory
+  - Codex user root: resolved from `CODEX_HOME` when set, otherwise the active Codex home directory
 - `local`
   - `<workspace>/skills`
   - `<workspace>/.agents/skills`
@@ -32,22 +36,21 @@ Important behavior:
 
 ## Composer UX
 
-- Typing `$` opens the skill palette in `PromptInput`.
+- Typing `$` near the current caret position opens the skill palette in `PromptInput`.
 - The visible draft stays inline as `$skill-name`.
 - `Tab` inserts the highlighted skill token.
-- `Enter` still sends unless the user explicitly highlighted a skill entry.
+- `Enter` still sends unless the user explicitly selected or highlighted a matching skill entry.
 - The Settings dialog shows the detected roots and a sampled catalog for the current workspace.
+- The Settings dialog can override the shared global skill root without editing shell environment variables.
 
 ## Send Path
 
 On send, Stave resolves compatible skills for the active provider and strips recognized `$skill-name` tokens from the provider-facing prompt.
 
-- Claude
-  - selected skills are serialized as native slash skill commands like `/skill-name`
-  - the fallback prompt body excludes the injected `[Selected Skills]` block
-- Codex
-  - selected skills are normalized into a `[Selected Skills]` prompt section with the resolved skill instructions
-  - this is used because the current Codex SDK transport does not expose a dedicated skill field
+- Claude and Codex
+  - selected skills are normalized into an `[Activated Skills]` prompt section with the resolved skill instructions
+  - Stave-managed `$skill` activations are prompt-context based, not provider-native slash skill registrations
+  - provider-native `/` commands remain separate and are not generated from `$skill` tokens
 
 ## Verification
 

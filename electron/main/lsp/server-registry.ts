@@ -1,7 +1,7 @@
 import path from "node:path";
 import { resolveExecutable } from "../utils/executable";
 
-export type SupportedLspLanguageId = "python";
+export type SupportedLspLanguageId = "python" | "typescript";
 
 export interface ResolvedLspServer {
   languageId: SupportedLspLanguageId;
@@ -31,6 +31,28 @@ export function resolveLspServer(args: {
         ok: true as const,
         server: {
           languageId: "python" as const,
+          displayName: path.basename(resolved.detail),
+          command: resolved.command,
+          args: ["--stdio"],
+          detail: resolved.detail,
+        },
+      };
+    }
+    case "typescript": {
+      const resolved = resolveExecutable({
+        preferredValue: args.commandOverride,
+        fallbackCommands: ["typescript-language-server"],
+      });
+      if (!resolved) {
+        return {
+          ok: false as const,
+          detail: "TypeScript language server not found. Install with `npm i -g typescript-language-server typescript` or set a TypeScript LSP command override.",
+        };
+      }
+      return {
+        ok: true as const,
+        server: {
+          languageId: "typescript" as const,
           displayName: path.basename(resolved.detail),
           command: resolved.command,
           args: ["--stdio"],

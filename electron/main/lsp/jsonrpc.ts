@@ -1,4 +1,8 @@
+import { byteLengthUtf8 } from "../../shared/bounded-text";
+
 const HEADER_SEPARATOR = "\r\n\r\n";
+const JSONRPC_BUFFER_MAX_BYTES = 2 * 1024 * 1024;
+const JSONRPC_MESSAGE_MAX_BYTES = 1 * 1024 * 1024;
 
 export function encodeJsonRpcMessage(message: unknown) {
   const body = JSON.stringify(message);
@@ -10,6 +14,11 @@ export class JsonRpcMessageBuffer {
 
   append(chunk: string | Buffer) {
     this.buffer += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+    if (byteLengthUtf8(this.buffer) > JSONRPC_BUFFER_MAX_BYTES) {
+      throw new Error(
+        `LSP JSON-RPC buffer exceeded ${JSONRPC_BUFFER_MAX_BYTES} bytes`,
+      );
+    }
     const messages: unknown[] = [];
 
     while (true) {
@@ -33,6 +42,11 @@ export class JsonRpcMessageBuffer {
       if (!Number.isFinite(contentLength) || contentLength < 0) {
         this.buffer = this.buffer.slice(headerEndIndex + HEADER_SEPARATOR.length);
         continue;
+      }
+      if (contentLength > JSONRPC_MESSAGE_MAX_BYTES) {
+        throw new Error(
+          `LSP JSON-RPC message exceeded ${JSONRPC_MESSAGE_MAX_BYTES} bytes`,
+        );
       }
 
       const bodyStartIndex = headerEndIndex + HEADER_SEPARATOR.length;

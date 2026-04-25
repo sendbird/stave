@@ -36,6 +36,7 @@ export interface SkillCatalogEntry {
 
 export interface SkillCatalogSnapshot {
   workspacePath: string | null;
+  sharedSkillsHome: string | null;
   fetchedAt: string;
   roots: SkillCatalogRoot[];
   skills: SkillCatalogEntry[];
