@@ -64,7 +64,16 @@ async function resolveRealPathIfExists(targetPath: string) {
 
 function normalizeOptionalPath(value: string | undefined | null) {
   const trimmed = value?.trim();
-  return trimmed ? path.resolve(trimmed) : null;
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed === "~") {
+    return homedir();
+  }
+  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
+    return path.resolve(homedir(), trimmed.slice(2));
+  }
+  return path.resolve(trimmed);
 }
 
 async function resolveProviderHome(providerId: ProviderId): Promise<ProviderHomeResolution> {
@@ -136,20 +145,30 @@ function dedupeCatalogRoots(roots: SkillCatalogRoot[]) {
 
 async function resolveCatalogRoots(args: {
   workspacePath?: string | null;
+  sharedSkillsHome?: string | null;
 }) {
   const [claudeHome, codexHome] = await Promise.all([
     resolveProviderHome("claude-code"),
     resolveProviderHome("codex"),
   ]);
   const specs: CandidateRootSpec[] = [];
+  const settingsSharedSkillsHome = normalizeOptionalPath(args.sharedSkillsHome);
+  const envSharedSkillsHome = normalizeOptionalPath(process.env.STAVE_SHARED_SKILLS_HOME);
+  const sharedSkillsHome = settingsSharedSkillsHome ?? envSharedSkillsHome;
 
-  specs.push({
-    scope: "global",
-    provider: "shared",
-    source: "shared_root",
-    path: path.join(homedir(), ".agents", "skills"),
-    detail: "Shared agent skills root.",
-  });
+  if (sharedSkillsHome) {
+    // Scan the configured directory directly — the UI calls this
+    // "Shared Skills Root" so the path itself is the skills directory.
+    specs.push({
+      scope: "global",
+      provider: "shared",
+      source: "shared_root",
+      path: sharedSkillsHome,
+      detail: settingsSharedSkillsHome
+        ? "Shared skills root configured in Settings."
+        : "Shared skills root resolved from STAVE_SHARED_SKILLS_HOME.",
+    });
+  }
 
   for (const home of [claudeHome, codexHome]) {
     const basePath = home.resolvedHomePath ?? home.configuredPath;
@@ -396,7 +415,12 @@ function dedupeSkillEntries(entries: SkillCatalogEntry[]) {
 
 export async function discoverSkillCatalog(args: {
   workspacePath?: string | null;
+  sharedSkillsHome?: string | null;
 } = {}): Promise<SkillCatalogResponse> {
+  const normalizedWorkspacePath = normalizeOptionalPath(args.workspacePath);
+  const normalizedSharedSkillsHome = normalizeOptionalPath(args.sharedSkillsHome)
+    ?? normalizeOptionalPath(process.env.STAVE_SHARED_SKILLS_HOME);
+
   try {
     const roots = await resolveCatalogRoots(args);
     const entries = dedupeSkillEntries(
@@ -406,7 +430,8 @@ export async function discoverSkillCatalog(args: {
     return {
       ok: true,
       catalog: {
-        workspacePath: normalizeOptionalPath(args.workspacePath),
+        workspacePath: normalizedWorkspacePath,
+        sharedSkillsHome: normalizedSharedSkillsHome,
         fetchedAt: new Date().toISOString(),
         roots,
         skills: entries,
@@ -419,7 +444,8 @@ export async function discoverSkillCatalog(args: {
     return {
       ok: false,
       catalog: {
-        workspacePath: normalizeOptionalPath(args.workspacePath),
+        workspacePath: normalizedWorkspacePath,
+        sharedSkillsHome: normalizedSharedSkillsHome,
         fetchedAt: new Date().toISOString(),
         roots: [],
         skills: [],

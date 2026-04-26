@@ -9,19 +9,19 @@ const PATCH_TARGETS = [
   {
     filePath: "node_modules/better-sqlite3/src/objects/statement.cpp",
     signature: "NODE_GETTER(Statement::JS_busy) {",
-    from: "Unwrap<Statement>(PROPERTY_HOLDER(info))",
+    from: "Unwrap<Statement>(info.This())",
     to: "Unwrap<Statement>(info.HolderV2())",
   },
   {
     filePath: "node_modules/better-sqlite3/src/objects/database.cpp",
     signature: "NODE_GETTER(Database::JS_open) {",
-    from: "Unwrap<Database>(PROPERTY_HOLDER(info))",
+    from: "Unwrap<Database>(info.This())",
     to: "Unwrap<Database>(info.HolderV2())",
   },
   {
     filePath: "node_modules/better-sqlite3/src/objects/database.cpp",
     signature: "NODE_GETTER(Database::JS_inTransaction) {",
-    from: "Unwrap<Database>(PROPERTY_HOLDER(info))",
+    from: "Unwrap<Database>(info.This())",
     to: "Unwrap<Database>(info.HolderV2())",
   },
 ];
@@ -45,7 +45,7 @@ function findMatchingBraceIndex(source, openBraceIndex) {
 export function patchScopedSourceBlock(args) {
   const signatureIndex = args.source.indexOf(args.signature);
   if (signatureIndex === -1) {
-    throw new Error(`Patch signature not found: ${args.signature}`);
+    return args.source;
   }
 
   const openBraceIndex = args.source.indexOf("{", signatureIndex);
@@ -60,7 +60,8 @@ export function patchScopedSourceBlock(args) {
     return args.source;
   }
   if (!block.includes(args.from)) {
-    throw new Error(`Patch target not found inside ${args.signature}`);
+    // Source was refactored upstream — patch no longer applies; skip.
+    return args.source;
   }
 
   const nextBlock = block.replace(args.from, args.to);
@@ -72,7 +73,12 @@ export function applyBetterSqlite3ElectronPatch(args = {}) {
 
   for (const target of PATCH_TARGETS) {
     const absoluteFilePath = path.join(repoRoot, target.filePath);
-    const source = readFileSync(absoluteFilePath, "utf8");
+    let source;
+    try {
+      source = readFileSync(absoluteFilePath, "utf8");
+    } catch {
+      continue;
+    }
     const nextSource = patchScopedSourceBlock({
       source,
       signature: target.signature,

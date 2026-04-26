@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -8,7 +8,13 @@ import {
   FilesystemRootArgsSchema,
   FilesystemWriteFileArgsSchema,
 } from "../electron/main/ipc/schemas";
-import { listDirectoryEntries, listFilesRecursive, resolveRootFilePath } from "../electron/main/utils/filesystem";
+import {
+  listDirectoryEntries,
+  listFilesRecursive,
+  resolveRootFilePath,
+  revisionFromStat,
+  writeFileWithExpectedRevision,
+} from "../electron/main/utils/filesystem";
 
 const tempDirs: string[] = [];
 
@@ -101,5 +107,103 @@ describe("filesystem path helpers", () => {
     expect(githubEntries).toEqual([
       { name: "workflows", path: ".github/workflows", type: "folder" },
     ]);
+  });
+
+  test("surfaces symlinked files and directories that resolve inside the workspace root", async () => {
+    const workspaceRoot = createTempWorkspace();
+    writeText(path.join(workspaceRoot, "dotfiles/config/nvim/init.lua"), "vim.o.number = true\n");
+    writeText(path.join(workspaceRoot, "dotfiles/zshrc"), "export ZDOTDIR=$HOME\n");
+    symlinkSync(path.join(workspaceRoot, "dotfiles/config"), path.join(workspaceRoot, ".config"));
+    symlinkSync(path.join(workspaceRoot, "dotfiles/zshrc"), path.join(workspaceRoot, ".zshrc"));
+
+    const files = await listFilesRecursive({ rootPath: workspaceRoot });
+    const rootEntries = await listDirectoryEntries({ rootPath: workspaceRoot });
+    const configEntries = await listDirectoryEntries({ rootPath: workspaceRoot, directoryPath: ".config" });
+
+    expect(files).toContain(".config/nvim/init.lua");
+    expect(files).toContain(".zshrc");
+    expect(rootEntries).toContainEqual({ name: ".config", path: ".config", type: "folder" });
+    expect(rootEntries).toContainEqual({ name: ".zshrc", path: ".zshrc", type: "file" });
+    expect(configEntries).toEqual([
+      { name: "nvim", path: ".config/nvim", type: "folder" },
+    ]);
+  });
+
+  test("shows symlinked entries that resolve outside the workspace root in the explorer", async () => {
+    const workspaceRoot = createTempWorkspace();
+    const externalRoot = createTempWorkspace();
+    writeText(path.join(externalRoot, "private/secret.txt"), "top-secret\n");
+    symlinkSync(path.join(externalRoot, "private"), path.join(workspaceRoot, ".external"));
+    symlinkSync(path.join(externalRoot, "private/secret.txt"), path.join(workspaceRoot, ".secret"));
+
+    const files = await listFilesRecursive({ rootPath: workspaceRoot });
+    const rootEntries = await listDirectoryEntries({ rootPath: workspaceRoot });
+
+    // listFilesRecursive must NOT traverse external symlinks to avoid indexing the whole filesystem
+    expect(files).not.toContain(".external/secret.txt");
+    expect(files).not.toContain(".secret");
+
+    // listDirectoryEntries (Explorer) MUST show external symlinks so dotfile repos are navigable
+    expect(rootEntries).toContainEqual({ name: ".external", path: ".external", type: "folder" });
+    expect(rootEntries).toContainEqual({ name: ".secret", path: ".secret", type: "file" });
+  });
+
+  test("allows expanding symlinked directories that resolve outside the workspace root", async () => {
+    const workspaceRoot = createTempWorkspace();
+    const externalRoot = createTempWorkspace();
+    writeText(path.join(externalRoot, "nvim/init.lua"), "vim.o.number = true\n");
+    symlinkSync(externalRoot, path.join(workspaceRoot, ".config"));
+
+    const rootEntries = await listDirectoryEntries({ rootPath: workspaceRoot });
+    const configEntries = await listDirectoryEntries({ rootPath: workspaceRoot, directoryPath: ".config" });
+
+    expect(rootEntries).toContainEqual({ name: ".config", path: ".config", type: "folder" });
+    expect(configEntries).toContainEqual({ name: "nvim", path: ".config/nvim", type: "folder" });
+  });
+
+  test("hides symlinked directories that would recurse back to an ancestor", async () => {
+    const workspaceRoot = createTempWorkspace();
+    mkdirSync(path.join(workspaceRoot, "src"), { recursive: true });
+    symlinkSync(workspaceRoot, path.join(workspaceRoot, "src", "self"));
+
+    const rootEntries = await listDirectoryEntries({ rootPath: workspaceRoot });
+    const srcEntries = await listDirectoryEntries({ rootPath: workspaceRoot, directoryPath: "src" });
+
+    expect(rootEntries).toContainEqual({ name: "src", path: "src", type: "folder" });
+    expect(srcEntries.some((entry) => entry.path === "src/self")).toBe(false);
+  });
+
+  test("writes a brand-new file when no revision is expected", async () => {
+    const workspaceRoot = createTempWorkspace();
+    mkdirSync(path.join(workspaceRoot, ".stave"), { recursive: true });
+    const filePath = path.join(workspaceRoot, ".stave", "scripts.json");
+
+    const result = await writeFileWithExpectedRevision({
+      filePath,
+      content: "{\n  \"version\": 2\n}\n",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.conflict).toBeUndefined();
+    expect(result.revision).toBeString();
+  });
+
+  test("treats a deleted file as a conflict when a prior revision is expected", async () => {
+    const workspaceRoot = createTempWorkspace();
+    mkdirSync(path.join(workspaceRoot, ".stave"), { recursive: true });
+    const filePath = path.join(workspaceRoot, ".stave", "scripts.json");
+    writeText(filePath, "{\n  \"version\": 1\n}\n");
+
+    const currentStat = statSync(filePath);
+    rmSync(filePath);
+
+    const result = await writeFileWithExpectedRevision({
+      filePath,
+      content: "{\n  \"version\": 2\n}\n",
+      expectedRevision: revisionFromStat({ size: currentStat.size, mtimeMs: currentStat.mtimeMs }),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.conflict).toBe(true);
   });
 });

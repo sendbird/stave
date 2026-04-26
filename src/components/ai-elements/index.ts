@@ -14,6 +14,7 @@ export {
   MessageResponse,
   MessageToolbar,
 } from "./message";
+export { ZenMessageContent } from "./zen-message";
 export {
   CodeBlock,
   CodeBlockActions,
@@ -24,14 +25,17 @@ export {
   CodeBlockTitle,
 } from "./code-block";
 export { Snippet } from "./snippet";
+export { Shimmer } from "./shimmer";
 export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning";
-export { ChainOfThought, ChainOfThoughtContent, ChainOfThoughtTrigger, type ChainOfThoughtStep } from "./chain-of-thought";
+export { ChainOfThought, ChainOfThoughtContent, ChainOfThoughtStep, ChainOfThoughtTrigger, type ChainOfThoughtStep as ChainOfThoughtStepData, type TraceSummaryItem } from "./chain-of-thought";
 export { SubagentCard, parseSubagentToolInput } from "./subagent";
-export { TodoCard, parseTodoInput } from "./todo";
+export { OrchestrationCard } from "./orchestration";
+export { StaveProcessingCard } from "./stave-processing-card";
+export { TodoCard, getTodoProgress, parseTodoInput } from "./todo";
 export { Tool, ToolContent, ToolGroup, ToolHeader, ToolInput, ToolOutput } from "./tool";
 export { ConfirmationCompact } from "./confirmation";
 export { UserInputCard } from "./user-input-card";
-export { PromptInput } from "./prompt-input";
+export { PromptInput, ZenPromptInput } from "./prompt-input";
 export { PromptSuggestion, PromptSuggestions, Suggestion, Suggestions } from "./suggestion";
 export { ModelSelector } from "./model-selector";
 export { PermissionModeSelector, cyclePermissionMode, type PermissionModeValue, type ClaudePermissionMode, type CodexApprovalPolicy } from "./permission-mode-selector";
@@ -45,3 +49,5 @@ export {
   ConversationVirtualList,
   messagesToMarkdown,
 } from "./conversation";
+export { CompactingIndicator, ContextCompactedCheckpoint } from "./checkpoint";
+export { ThinkingAnimatedText, ThinkingPhraseLabel } from "./thinking-phrase";

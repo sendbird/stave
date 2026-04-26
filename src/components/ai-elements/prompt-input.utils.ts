@@ -1,6 +1,7 @@
 import type { CommandPaletteItem } from "@/lib/commands";
 
 export const NO_COMMAND_SELECTION = -1;
+export const NO_PROMPT_HISTORY_SELECTION = -1;
 
 export function getNextCommandSelectionIndex(args: {
   currentIndex: number;
@@ -33,15 +34,74 @@ export function getAcceptedPaletteItem<T>(args: {
   selectedIndex: number;
   triggerKey: "Enter" | "Tab";
 }) {
-  const { items, selectedIndex, triggerKey } = args;
+  const { items, selectedIndex } = args;
   if (items.length === 0) {
     return null;
   }
-  if (triggerKey === "Tab") {
-    return items[selectedIndex] ?? items[0] ?? null;
+  return items[selectedIndex] ?? items[0] ?? null;
+}
+
+export function isPromptHistoryBoundaryReached(args: {
+  value: string;
+  selectionStart: number;
+  selectionEnd: number;
+  direction: "previous" | "next";
+}) {
+  if (args.selectionStart !== args.selectionEnd) {
+    return false;
   }
-  if (selectedIndex === NO_COMMAND_SELECTION) {
+  if (args.direction === "previous") {
+    return !args.value.slice(0, args.selectionStart).includes("\n");
+  }
+  return !args.value.slice(args.selectionEnd).includes("\n");
+}
+
+export function navigatePromptHistory(args: {
+  entries: readonly string[];
+  selectedIndex: number;
+  direction: "previous" | "next";
+  draftBeforeHistory: string;
+  currentValue: string;
+}) {
+  const { entries, selectedIndex, direction, draftBeforeHistory, currentValue } = args;
+  if (entries.length === 0) {
     return null;
   }
-  return items[selectedIndex] ?? null;
+
+  if (direction === "previous") {
+    if (selectedIndex === NO_PROMPT_HISTORY_SELECTION) {
+      const nextIndex = entries.length - 1;
+      return {
+        selectedIndex: nextIndex,
+        value: entries[nextIndex] ?? currentValue,
+        draftBeforeHistory: currentValue,
+      };
+    }
+    if (selectedIndex <= 0) {
+      return null;
+    }
+    const nextIndex = selectedIndex - 1;
+    return {
+      selectedIndex: nextIndex,
+      value: entries[nextIndex] ?? currentValue,
+      draftBeforeHistory,
+    };
+  }
+
+  if (selectedIndex === NO_PROMPT_HISTORY_SELECTION) {
+    return null;
+  }
+  if (selectedIndex >= entries.length - 1) {
+    return {
+      selectedIndex: NO_PROMPT_HISTORY_SELECTION,
+      value: draftBeforeHistory,
+      draftBeforeHistory: "",
+    };
+  }
+  const nextIndex = selectedIndex + 1;
+  return {
+    selectedIndex: nextIndex,
+    value: entries[nextIndex] ?? currentValue,
+    draftBeforeHistory,
+  };
 }

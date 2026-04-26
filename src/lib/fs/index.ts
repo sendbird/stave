@@ -46,6 +46,11 @@ class DynamicWorkspaceFsAdapter implements WorkspaceFsAdapter {
     return files;
   }
 
+  async getRepoMap(args: { refresh?: boolean } = {}) {
+    const delegate = await this.prepareDelegate();
+    return delegate.getRepoMap?.(args) ?? null;
+  }
+
   async listDirectory(args: Parameters<WorkspaceFsAdapter["listDirectory"]>[0]) {
     const delegate = await this.prepareDelegate();
     return delegate.listDirectory(args);
@@ -64,6 +69,38 @@ class DynamicWorkspaceFsAdapter implements WorkspaceFsAdapter {
   async writeFile(args: Parameters<WorkspaceFsAdapter["writeFile"]>[0]) {
     const delegate = await this.prepareDelegate();
     return delegate.writeFile(args);
+  }
+
+  async createFile(args: Parameters<WorkspaceFsAdapter["createFile"]>[0]) {
+    const delegate = await this.prepareDelegate();
+    const result = await delegate.createFile(args);
+    if (result.ok || result.alreadyExists) {
+      this.rootState.files = delegate.getKnownFiles();
+    }
+    return result;
+  }
+
+  async createDirectory(args: Parameters<WorkspaceFsAdapter["createDirectory"]>[0]) {
+    const delegate = await this.prepareDelegate();
+    return delegate.createDirectory(args);
+  }
+
+  async deleteFile(args: Parameters<WorkspaceFsAdapter["deleteFile"]>[0]) {
+    const delegate = await this.prepareDelegate();
+    const result = await delegate.deleteFile(args);
+    if (result.ok) {
+      this.rootState.files = delegate.getKnownFiles();
+    }
+    return result;
+  }
+
+  async deleteDirectory(args: Parameters<WorkspaceFsAdapter["deleteDirectory"]>[0]) {
+    const delegate = await this.prepareDelegate();
+    const result = await delegate.deleteDirectory(args);
+    if (result.ok) {
+      this.rootState.files = delegate.getKnownFiles();
+    }
+    return result;
   }
 
   getKnownFiles() {

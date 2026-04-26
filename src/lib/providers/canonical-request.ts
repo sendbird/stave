@@ -3,6 +3,7 @@ import {
   sanitizeChatMessagePayload,
   sanitizeFileContextPayload,
 } from "@/lib/file-context-sanitization";
+import { getAssistantResponseTextStartIndex } from "@/lib/session/assistant-response-parts";
 import type { SkillPromptContext } from "@/lib/skills/types";
 import type {
   CanonicalConversationMessage,
@@ -15,30 +16,94 @@ import type {
 function cloneMessagePart(part: MessagePart): MessagePart {
   switch (part.type) {
     case "text":
-      return { ...part };
+      return {
+        type: "text",
+        text: part.text,
+        ...(part.segmentId ? { segmentId: part.segmentId } : {}),
+      };
     case "thinking":
-      return { ...part };
+      return {
+        type: "thinking",
+        text: part.text,
+        isStreaming: part.isStreaming,
+      };
     case "tool_use":
-      return { ...part };
+      return {
+        // Strip renderer-only tool metadata such as elapsedSeconds and
+        // progressMessages. The provider IPC contract only accepts canonical
+        // history fields and rejects unknown keys.
+        type: "tool_use",
+        ...(part.toolUseId ? { toolUseId: part.toolUseId } : {}),
+        toolName: part.toolName,
+        input: part.input,
+        ...(part.output !== undefined ? { output: part.output } : {}),
+        state: part.state,
+      };
     case "code_diff":
-      return { ...part };
+      return {
+        type: "code_diff",
+        filePath: part.filePath,
+        oldContent: part.oldContent,
+        newContent: part.newContent,
+        status: part.status,
+      };
     case "file_context":
-      return { ...part };
+      return {
+        type: "file_context",
+        filePath: part.filePath,
+        content: part.content,
+        language: part.language,
+        ...(part.instruction !== undefined ? { instruction: part.instruction } : {}),
+      };
     case "image_context":
-      return { ...part };
+      return {
+        type: "image_context",
+        dataUrl: part.dataUrl,
+        label: part.label,
+        mimeType: part.mimeType,
+      };
     case "approval":
-      return { ...part };
+      return {
+        type: "approval",
+        toolName: part.toolName,
+        description: part.description,
+        requestId: part.requestId,
+        state: part.state,
+      };
     case "user_input":
       return {
-        ...part,
+        type: "user_input",
+        requestId: part.requestId,
+        toolName: part.toolName,
         questions: part.questions.map((question) => ({
           ...question,
           options: question.options.map((option) => ({ ...option })),
         })),
-        answers: part.answers ? { ...part.answers } : undefined,
+        ...(part.answers ? { answers: { ...part.answers } } : {}),
+        state: part.state,
       };
     case "system_event":
-      return { ...part };
+      return {
+        type: "system_event",
+        content: part.content,
+      };
+    case "orchestration_progress":
+      return {
+        type: "orchestration_progress",
+        supervisorModel: part.supervisorModel,
+        subtasks: part.subtasks.map((subtask) => ({ ...subtask })),
+        status: part.status,
+      };
+    case "stave_processing":
+      return {
+        type: "stave_processing",
+        strategy: part.strategy,
+        ...(part.model !== undefined ? { model: part.model } : {}),
+        ...(part.supervisorModel !== undefined ? { supervisorModel: part.supervisorModel } : {}),
+        reason: part.reason,
+        ...(part.fastModeRequested !== undefined ? { fastModeRequested: part.fastModeRequested } : {}),
+        ...(part.fastModeApplied !== undefined ? { fastModeApplied: part.fastModeApplied } : {}),
+      };
   }
 }
 
@@ -58,6 +123,18 @@ function cloneContextPart(part: FileContextPart | CanonicalRetrievedContextPart 
   return sanitizeFileContextPayload({ ...part });
 }
 
+function deriveCanonicalMessageContent(message: ChatMessage) {
+  const responseStartIndex = getAssistantResponseTextStartIndex(message.parts);
+
+  const trailingText = message.parts
+    .flatMap((part, index) => (
+      part.type === "text" && responseStartIndex !== -1 && index >= responseStartIndex ? [part.text] : []
+    ))
+    .join("");
+
+  return trailingText.trim().length > 0 ? trailingText : message.content;
+}
+
 export function toCanonicalConversationMessage(args: {
   message: ChatMessage;
 }): CanonicalConversationMessage {
@@ -67,7 +144,7 @@ export function toCanonicalConversationMessage(args: {
     role: sanitizedMessage.role,
     providerId: sanitizedMessage.providerId,
     model: sanitizedMessage.model,
-    content: sanitizedMessage.content,
+    content: deriveCanonicalMessageContent(sanitizedMessage),
     parts: sanitizedMessage.parts.map((part) => cloneMessagePart(part)),
     isPlanResponse: sanitizedMessage.isPlanResponse,
     planText: sanitizedMessage.planText,
@@ -95,7 +172,7 @@ export function buildCanonicalConversationRequest(args: {
     mimeType: string;
   }>;
   skillContexts?: SkillPromptContext[];
-  nativeConversationId?: string | null;
+  nativeSessionId?: string | null;
   retrievedContextParts?: CanonicalRetrievedContextPart[];
 }): CanonicalConversationRequest {
   const contextParts: CanonicalConversationRequest["contextParts"] = [];
@@ -150,8 +227,8 @@ export function buildCanonicalConversationRequest(args: {
         : [],
     },
     contextParts,
-    resume: args.nativeConversationId?.trim()
-      ? { nativeConversationId: args.nativeConversationId.trim() }
+    resume: args.nativeSessionId?.trim()
+      ? { nativeSessionId: args.nativeSessionId.trim() }
       : undefined,
   };
 }
@@ -197,7 +274,25 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
   includeSkillContext?: boolean;
 }) {
   const maxHistoryChars = 12000;
+  const hasVisibleSkillContext = args.request.contextParts.some(
+    (part) =>
+      part.type === "skill_context"
+      && part.skills.length > 0
+      && args.includeSkillContext !== false,
+  );
   const sections = [
+    ...((args.request.workspaceId || args.request.taskId)
+      ? [
+          "[Stave Workspace Context]",
+          [
+            args.request.workspaceId ? `workspaceId: ${args.request.workspaceId}` : null,
+            args.request.taskId ? `taskId: ${args.request.taskId}` : null,
+            "workspacePlanDirectory: .stave/context/plans",
+            "newWorkspacePlanFiles: .stave/context/plans/<taskIdPrefix>_<timestamp>.md",
+            "handoffConvention: write plan files (not workspace notes) when handing off to a new workspace; notes carry only a pointer to the plan file, and the source workspace's plan/notes/todos must not be copied verbatim into the target.",
+          ].filter(Boolean).join("\n"),
+        ]
+      : []),
     ...(args.includeHistory !== false
       ? [
           "[Task Shared Context]",
@@ -234,7 +329,11 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
       if (args.includeSkillContext === false || part.skills.length === 0) {
         return;
       }
-      sections.push("[Selected Skills]");
+      sections.push(
+        "[Activated Skills]",
+        "These skills are already activated by Stave via `$skill` tokens.",
+        "Run their instructions directly in this turn instead of calling provider-native Skill tools for the same slug.",
+      );
       for (const skill of part.skills) {
         sections.push(
           `name: ${skill.name}`,
@@ -256,10 +355,17 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
     );
   });
 
+  const trimmedInput = args.request.input.content.trim();
   sections.push(
     "[Current User Input]",
-    args.request.input.content,
+    trimmedInput.length > 0 ? args.request.input.content : "(none)",
   );
+  if (trimmedInput.length === 0 && hasVisibleSkillContext) {
+    sections.push(
+      "[Skill Invocation]",
+      "The user intentionally activated one or more skills without additional text. Follow the activated skill instructions.",
+    );
+  }
 
   return sections.join("\n\n");
 }

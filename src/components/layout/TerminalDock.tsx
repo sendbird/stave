@@ -1,536 +1,603 @@
-import "@xterm/xterm/css/xterm.css";
-import { useEffect, useRef, useState } from "react";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
-import { Eraser, Plus, SquareTerminal, Trash2, X } from "lucide-react";
-import { Button } from "@/components/ui";
+import {
+  Ellipsis,
+  Eraser,
+  Loader2,
+  Plus,
+  SquareTerminal,
+  X,
+} from "lucide-react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
+import { TerminalTabSurface } from "@/components/layout/TerminalTabSurface";
+import {
+  Button,
+  Card,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui";
+import { TERMINAL_WRITE_ERROR_THRESHOLD } from "@/components/layout/useTerminalInstance";
+import { useTerminalSessionManager } from "@/components/layout/useTerminalSessionManager";
+import { useTerminalTabManager } from "@/components/layout/useTerminalTabManager";
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+} from "@/lib/terminal/defaults";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import {
+  buildTerminalSessionSlotKey,
+  getWorkspaceTerminalTabKey,
+  type TerminalCreateSessionArgs,
+} from "@/lib/terminal/types";
+import { cn } from "@/lib/utils";
+import { shouldAutoCreateDockTerminalTab } from "@/components/layout/terminal-dock.utils";
+import {
+  TERMINAL_SURFACE_PANEL_CLASS_NAME,
+  TERMINAL_SURFACE_VIEWPORT_CLASS_NAME,
+} from "@/components/layout/terminal-surface-styles";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore } from "@/store/app.store";
 
-interface TerminalTab {
-  id: string;
-  label: string;
-}
+const TERMINAL_TRANSCRIPT_STORAGE_KEY = "stave:terminal-tab-transcript:v2";
 
-interface WorkspaceTerminalState {
-  tabs: TerminalTab[];
-  activeTabId: string | null;
-  sessionBuffers: Record<string, string>;
-}
+const DockTerminalTab = memo(function DockTerminalTab(args: {
+  tab: ReturnType<typeof useAppStore.getState>["terminalTabs"][number];
+  isActive: boolean;
+  draggingTabId: string | null;
+  dropTargetTabId: string | null;
+  onSelectTab: (tabId: string) => void;
+  onRenameTab: (tab: { id: string; title: string }) => void;
+  onCloseTab: (tabId: string) => void;
+  onDragStart: (event: DragEvent<HTMLDivElement>, tabId: string) => void;
+  onDragEnd: () => void;
+  onDragOver: (event: DragEvent<HTMLDivElement>, tabId: string) => void;
+  onDrop: (event: DragEvent<HTMLDivElement>, tabId: string) => void;
+}) {
+  const buttonVisibility = args.isActive
+    ? "opacity-100"
+    : "opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150";
 
-const TERMINAL_TRANSCRIPT_STORAGE_KEY = "stave:terminal-task-transcript:v1";
-const TERMINAL_POLL_INTERVAL_MS = 120;
-const TERMINAL_TRANSCRIPT_FLUSH_MS = 280;
-const DEFAULT_TERMINAL_FONT_FAMILY = '"JetBrains Mono", Menlo, Monaco, "Courier New", monospace';
-const DEFAULT_TERMINAL_FONT_SIZE = 13;
-const DEFAULT_TERMINAL_LINE_HEIGHT = 1.2;
-
-function waitForAnimationFrames(count: number) {
-  return new Promise<void>((resolve) => {
-    function step(remaining: number) {
-      if (remaining <= 0) {
-        resolve();
-        return;
-      }
-      window.requestAnimationFrame(() => step(remaining - 1));
-    }
-    step(count);
-  });
-}
-
-async function waitForTerminalFont(args: { fontFamily: string; fontSize: number }) {
-  if (typeof document === "undefined" || !("fonts" in document)) {
-    return;
-  }
-
-  const fonts = document.fonts;
-  const fontSpec = `${args.fontSize}px ${args.fontFamily}`;
-  const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 1200));
-
-  try {
-    await Promise.race([
-      Promise.allSettled([fonts.ready, fonts.load(fontSpec)]).then(() => undefined),
-      timeout,
-    ]);
-  } catch {
-    // Ignore font loading failures and continue with best-effort fitting.
-  }
-}
-
-function resolveTerminalTheme() {
-  const styles = getComputedStyle(document.documentElement);
-
-  return {
-    background: styles.getPropertyValue("--terminal").trim(),
-    foreground: styles.getPropertyValue("--terminal-foreground").trim(),
-    cursor: styles.getPropertyValue("--primary").trim(),
-  };
-}
+  return (
+    <div
+      draggable
+      onDragStart={(event) => args.onDragStart(event, args.tab.id)}
+      onDragEnd={args.onDragEnd}
+      onDragOver={(event) => args.onDragOver(event, args.tab.id)}
+      onDrop={(event) => args.onDrop(event, args.tab.id)}
+      onAuxClick={(event) => {
+        if (event.button === 1) {
+          event.preventDefault();
+          args.onCloseTab(args.tab.id);
+        }
+      }}
+      className={cn(
+        "group flex h-full items-center gap-1 border-b-[2.5px] px-3 transition-colors",
+        "cursor-grab",
+        args.isActive
+          ? "border-b-primary bg-background shadow-[1px_0_3px_-1px_rgba(0,0,0,0.1),-1px_0_3px_-1px_rgba(0,0,0,0.1)]"
+          : "border-b-transparent hover:bg-background/60",
+        args.draggingTabId === args.tab.id && "cursor-grabbing opacity-70",
+        args.dropTargetTabId === args.tab.id &&
+          args.draggingTabId &&
+          args.draggingTabId !== args.tab.id &&
+          "bg-primary/5",
+      )}
+    >
+      <button
+        type="button"
+        className="flex min-w-0 items-center gap-2"
+        title={args.tab.cwd}
+        onClick={() => args.onSelectTab(args.tab.id)}
+      >
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+          <SquareTerminal className="size-4 text-muted-foreground" />
+        </span>
+        <span className="max-w-48 truncate text-sm font-medium">
+          {args.tab.title}
+        </span>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "h-7 w-7 rounded-md p-0 text-muted-foreground",
+              buttonVisibility,
+            )}
+            aria-label={`terminal-menu-${args.tab.id}`}
+          >
+            <Ellipsis className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem
+            onSelect={() =>
+              args.onRenameTab({ id: args.tab.id, title: args.tab.title })
+            }
+          >
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => args.onCloseTab(args.tab.id)}
+          >
+            Close
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+});
 
 export function TerminalDock() {
+  const [terminalToRename, setTerminalToRename] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [terminalRenameValue, setTerminalRenameValue] = useState("");
+  const [draggingTerminalTabId, setDraggingTerminalTabId] = useState<
+    string | null
+  >(null);
+  const [dropTargetTerminalTabId, setDropTargetTerminalTabId] = useState<
+    string | null
+  >(null);
+  const wasTerminalDockedRef = useRef<boolean | null>(null);
+  const terminalRenameInputRef = useRef<HTMLInputElement | null>(null);
   const [
+    terminalDocked,
     terminalDockHeight,
     terminalFontFamily,
     terminalFontSize,
-    terminalLineHeight,
     isDarkMode,
     setLayout,
-    activeTaskId,
     activeWorkspaceId,
-    workspaceCwd,
-  ] = useAppStore(useShallow((state) => [
-    state.layout.terminalDockHeight ?? 210,
-    state.settings.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY,
-    state.settings.terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE,
-    state.settings.terminalLineHeight || DEFAULT_TERMINAL_LINE_HEIGHT,
-    state.isDarkMode,
-    state.setLayout,
-    state.activeTaskId,
-    state.activeWorkspaceId,
-    state.workspacePathById[state.activeWorkspaceId],
-  ] as const));
+    workspacePath,
+    tasks,
+    terminalTabs,
+    activeTerminalTabId,
+    createTerminalTab,
+    setActiveTerminalTab,
+    renameTerminalTab,
+    reorderTerminalTabs,
+    closeTerminalTab,
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.layout.terminalDocked,
+          state.layout.terminalDockHeight ?? 210,
+          state.settings.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY,
+          state.settings.terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE,
+          state.isDarkMode,
+          state.setLayout,
+          state.activeWorkspaceId,
+          state.workspacePathById[state.activeWorkspaceId] ??
+            state.projectPath ??
+            "",
+          state.tasks,
+          state.terminalTabs,
+          state.activeTerminalTabId,
+          state.createTerminalTab,
+          state.setActiveTerminalTab,
+          state.renameTerminalTab,
+          state.reorderTerminalTabs,
+          state.closeTerminalTab,
+        ] as const,
+    ),
+  );
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const xtermRef = useRef<Terminal | null>(null);
-  const activeSessionIdRef = useRef<string | null>(null);
-  const sessionBufferRef = useRef<Record<string, string>>({});
-  const writeLockRef = useRef(false);
-  const transcriptRef = useRef<Record<string, string>>({});
-  const creatingSessionRef = useRef(false);
-  const transcriptFlushTimerRef = useRef<number | null>(null);
-  const resizeFrameRef = useRef<number | null>(null);
-  const lastResizeRef = useRef<{ cols: number; rows: number }>({ cols: 0, rows: 0 });
-  const transcriptLoadedRef = useRef(false);
-  const workspaceTerminalStateRef = useRef<Record<string, WorkspaceTerminalState>>({});
-  const prevWorkspaceCwdRef = useRef<string | undefined>(undefined);
-
-  const [tabs, setTabs] = useState<TerminalTab[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [bridgeError, setBridgeError] = useState("");
-  const [terminalReady, setTerminalReady] = useState(false);
-
-  const activeSessionId = activeTabId;
-  const taskKey = `${activeWorkspaceId}:${activeTaskId || "no-task"}`;
-
-  function scheduleTranscriptFlush() {
-    if (transcriptFlushTimerRef.current !== null) {
-      return;
-    }
-
-    transcriptFlushTimerRef.current = window.setTimeout(() => {
-      transcriptFlushTimerRef.current = null;
-      window.localStorage.setItem(TERMINAL_TRANSCRIPT_STORAGE_KEY, JSON.stringify(transcriptRef.current));
-    }, TERMINAL_TRANSCRIPT_FLUSH_MS);
-  }
-
-  useEffect(() => {
-    activeSessionIdRef.current = activeSessionId;
-  }, [activeSessionId]);
-
-  useEffect(() => {
-    if (transcriptLoadedRef.current) {
-      return;
-    }
-    transcriptLoadedRef.current = true;
-    const raw = window.localStorage.getItem(TERMINAL_TRANSCRIPT_STORAGE_KEY);
-    try {
-      transcriptRef.current = raw ? (JSON.parse(raw) as Record<string, string>) : {};
-    } catch {
-      transcriptRef.current = {};
-    }
-
-    return () => {
-      if (transcriptFlushTimerRef.current !== null) {
-        window.clearTimeout(transcriptFlushTimerRef.current);
-        transcriptFlushTimerRef.current = null;
-      }
-      window.localStorage.setItem(TERMINAL_TRANSCRIPT_STORAGE_KEY, JSON.stringify(transcriptRef.current));
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!containerRef.current || xtermRef.current) {
-      return;
-    }
-    let cancelled = false;
-
-    const terminal = new Terminal({
-      theme: resolveTerminalTheme(),
-      fontFamily: terminalFontFamily,
-      fontSize: terminalFontSize,
-      lineHeight: terminalLineHeight,
-      letterSpacing: 0,
-      cursorBlink: true,
-      convertEol: true,
-      disableStdin: false,
-    });
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.open(containerRef.current);
-
-    xtermRef.current = terminal;
-    lastResizeRef.current = { cols: 0, rows: 0 };
-
-    const sendResize = () => {
-      fitAddon.fit();
-      if (lastResizeRef.current.cols === terminal.cols && lastResizeRef.current.rows === terminal.rows) {
-        return;
-      }
-      lastResizeRef.current = {
-        cols: terminal.cols,
-        rows: terminal.rows,
-      };
-      const resizeSession = window.api?.terminal?.resizeSession;
-      const sessionId = activeSessionIdRef.current;
-      if (sessionId && resizeSession) {
-        void resizeSession({ sessionId, cols: terminal.cols, rows: terminal.rows });
-      }
-    };
-
-    const scheduleResize = () => {
-      if (resizeFrameRef.current !== null) {
-        return;
-      }
-      resizeFrameRef.current = window.requestAnimationFrame(() => {
-        resizeFrameRef.current = null;
-        sendResize();
-      });
-    };
-
-    const stabilizeTerminalMetrics = async () => {
-      await waitForAnimationFrames(2);
-      await waitForTerminalFont({
-        fontFamily: terminalFontFamily,
-        fontSize: terminalFontSize,
-      });
-      await waitForAnimationFrames(1);
-
-      if (cancelled) {
-        return;
+  const activeTab = useMemo(
+    () => terminalTabs.find((tab) => tab.id === activeTerminalTabId) ?? null,
+    [activeTerminalTabId, terminalTabs],
+  );
+  const getTabKey = useCallback(
+    (tab: ReturnType<typeof useAppStore.getState>["terminalTabs"][number]) =>
+      getWorkspaceTerminalTabKey({
+        workspaceId: activeWorkspaceId,
+        terminalTabId: tab.id,
+      }),
+    [activeWorkspaceId],
+  );
+  const createSession = useCallback(
+    async (args: {
+      tab: ReturnType<typeof useAppStore.getState>["terminalTabs"][number];
+      cols: number;
+      rows: number;
+      deliveryMode: "poll" | "push";
+    }) => {
+      if (!workspacePath) {
+        return { ok: false, stderr: "Workspace path unavailable." };
       }
 
-      fitAddon.fit();
-      terminal.clearTextureAtlas();
-      terminal.refresh(0, Math.max(0, terminal.rows - 1));
-      sendResize();
-      if (!cancelled) {
-        setTerminalReady(true);
-      }
-    };
-
-    // ResizeObserver fires after layout is complete and fonts are applied,
-    // so it handles both the initial fit and all subsequent size changes.
-    const ro = new ResizeObserver(() => scheduleResize());
-    ro.observe(containerRef.current);
-
-    const disposable = terminal.onData((input) => {
-      const currentSessionId = activeSessionIdRef.current;
-      if (!currentSessionId || writeLockRef.current) {
-        return;
-      }
-      writeLockRef.current = true;
-      const writeSession = window.api?.terminal?.writeSession;
-      if (!writeSession) {
-        terminal.writeln("\r\n[error] terminal bridge unavailable.");
-        writeLockRef.current = false;
-        return;
-      }
-      void writeSession({ sessionId: currentSessionId, input }).finally(() => {
-        writeLockRef.current = false;
-      });
-    });
-
-    void stabilizeTerminalMetrics();
-
-    return () => {
-      cancelled = true;
-      setTerminalReady(false);
-      disposable.dispose();
-      ro.disconnect();
-      if (resizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(resizeFrameRef.current);
-        resizeFrameRef.current = null;
-      }
-      terminal.dispose();
-      xtermRef.current = null;
-    };
-  }, [terminalFontFamily, terminalFontSize, terminalLineHeight]);
-
-  useEffect(() => {
-    if (!xtermRef.current) {
-      return;
-    }
-    xtermRef.current.options.theme = resolveTerminalTheme();
-  }, [isDarkMode]);
-
-
-  async function createSessionTab() {
-    if (creatingSessionRef.current) return;
-    creatingSessionRef.current = true;
-    try {
       const createSession = window.api?.terminal?.createSession;
       if (!createSession) {
-        const message = "Terminal bridge unavailable. Use bun run dev:desktop.";
-        setBridgeError(message);
-        xtermRef.current?.writeln(`\r\n[error] ${message}`);
-        return;
-      }
-      const cols = xtermRef.current?.cols ?? 80;
-      const rows = xtermRef.current?.rows ?? 24;
-      const created = await createSession({ cwd: workspaceCwd, cols, rows });
-      if (!created.ok || !created.sessionId) {
-        setBridgeError("Failed to create terminal session.");
-        xtermRef.current?.writeln("\r\n[error] failed to create terminal session.");
-        return;
-      }
-      setBridgeError("");
-      const nextId = created.sessionId;
-      sessionBufferRef.current[nextId] = "";
-      setTabs((prev) => {
-        const index = prev.length + 1;
-        return [...prev, { id: nextId, label: `Terminal ${index}` }];
-      });
-      setActiveTabId(nextId);
-    } finally {
-      creatingSessionRef.current = false;
-    }
-  }
-
-  async function closeSession(args: { sessionId: string }) {
-    const closeSessionApi = window.api?.terminal?.closeSession;
-    if (closeSessionApi) {
-      await closeSessionApi({ sessionId: args.sessionId });
-    }
-    delete sessionBufferRef.current[args.sessionId];
-    setTabs((prev) => {
-      const next = prev.filter((tab) => tab.id !== args.sessionId);
-      setActiveTabId((current) => (current === args.sessionId ? next.at(-1)?.id ?? null : current));
-      return next;
-    });
-  }
-
-  useEffect(() => {
-    if (!xtermRef.current) {
-      return;
-    }
-    xtermRef.current.clear();
-    const transcript = transcriptRef.current[taskKey];
-    if (transcript) {
-      xtermRef.current.write(transcript);
-    }
-  }, [taskKey]);
-
-  // Persist terminal sessions across workspace switches instead of killing them.
-  useEffect(() => {
-    if (!terminalReady) {
-      return;
-    }
-
-    const prevCwd = prevWorkspaceCwdRef.current;
-    prevWorkspaceCwdRef.current = workspaceCwd;
-
-    // Save previous workspace's terminal state before switching.
-    if (prevCwd && prevCwd !== workspaceCwd) {
-      workspaceTerminalStateRef.current[prevCwd] = {
-        tabs: tabs,
-        activeTabId: activeTabId,
-        sessionBuffers: { ...sessionBufferRef.current },
-      };
-    }
-
-    // Restore saved state or start fresh for the new workspace.
-    const saved = workspaceCwd ? workspaceTerminalStateRef.current[workspaceCwd] : undefined;
-    if (saved && saved.tabs.length > 0) {
-      setTabs(saved.tabs);
-      setActiveTabId(saved.activeTabId);
-      sessionBufferRef.current = saved.sessionBuffers;
-      xtermRef.current?.clear();
-      const buffer = saved.activeTabId ? saved.sessionBuffers[saved.activeTabId] ?? "" : "";
-      if (buffer.trim()) {
-        xtermRef.current?.write(buffer);
-      }
-    } else {
-      setTabs([]);
-      setActiveTabId(null);
-      sessionBufferRef.current = {};
-      xtermRef.current?.clear();
-      void createSessionTab();
-    }
-
-    // Only kill sessions on full unmount (component teardown), not workspace switch.
-    return () => {
-      // Save current workspace state on unmount so it's available next mount.
-      if (workspaceCwd) {
-        workspaceTerminalStateRef.current[workspaceCwd] = {
-          tabs,
-          activeTabId,
-          sessionBuffers: { ...sessionBufferRef.current },
+        return {
+          ok: false,
+          stderr: "Terminal bridge unavailable. Use bun run dev:desktop.",
         };
       }
-    };
-  }, [workspaceCwd, terminalReady]);
 
-  // Fallback: ensure a session exists when a task is active but all sessions were cleared.
+      const linkedTask = args.tab.linkedTaskId
+        ? (tasks.find((task) => task.id === args.tab.linkedTaskId) ?? null)
+        : null;
+      const request: TerminalCreateSessionArgs = {
+        workspaceId: activeWorkspaceId,
+        workspacePath,
+        taskId: linkedTask?.id ?? null,
+        taskTitle: linkedTask?.title ?? null,
+        terminalTabId: args.tab.id,
+        cwd: args.tab.cwd,
+        cols: args.cols,
+        rows: args.rows,
+        deliveryMode: args.deliveryMode,
+      };
+
+      return createSession(request);
+    },
+    [activeWorkspaceId, tasks, workspacePath],
+  );
+
+  const tabManager = useTerminalTabManager({
+    tabs: terminalTabs,
+    activeTabId: activeTerminalTabId,
+    isVisible: terminalDocked,
+    getTabKey,
+  });
+
+  const slotKeyForTab = useCallback(
+    (tab: ReturnType<typeof useAppStore.getState>["terminalTabs"][number]) =>
+      buildTerminalSessionSlotKey({
+        surface: "terminal",
+        workspaceId: activeWorkspaceId,
+        tabId: tab.id,
+      }),
+    [activeWorkspaceId],
+  );
+
+  const {
+    activeSessionId,
+    activeWriteErrorCount,
+    bridgeError,
+    clearActiveTranscript,
+    getSessionIdForTabKey,
+    handleTerminalInput,
+    handleTerminalResize,
+    restartActiveTerminalRenderer,
+    sessionExited,
+    terminalReady,
+  } = useTerminalSessionManager({
+    activeTab,
+    activeTabId: activeTerminalTabId,
+    tabs: terminalTabs,
+    workspaceId: activeWorkspaceId,
+    transcriptStorageKey: TERMINAL_TRANSCRIPT_STORAGE_KEY,
+    isVisible: terminalDocked,
+    getTabKey,
+    createSession,
+    slotKeyForTab,
+    tabManager,
+  });
+
   useEffect(() => {
-    if (!terminalReady || !activeTaskId || tabs.length > 0) return;
-    void createSessionTab();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTaskId, tabs.length, terminalReady]);
+    const wasTerminalDocked = wasTerminalDockedRef.current;
+    wasTerminalDockedRef.current = terminalDocked;
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const poll = async () => {
-      if (cancelled) {
-        return;
-      }
-
-      const readSession = window.api?.terminal?.readSession;
-      if (!readSession || tabs.length === 0) {
-        return;
-      }
-
-      const ids = tabs.map((tab) => tab.id);
-      const reads = await Promise.all(ids.map(async (sessionId) => [sessionId, await readSession({ sessionId })] as const));
-      let activeOutput = "";
-      let transcriptChanged = false;
-
-      for (const [sessionId, read] of reads) {
-        if (!read.ok || !read.output) {
-          continue;
-        }
-
-        sessionBufferRef.current[sessionId] = `${sessionBufferRef.current[sessionId] ?? ""}${read.output}`;
-        transcriptRef.current[taskKey] = `${transcriptRef.current[taskKey] ?? ""}${read.output}`;
-        transcriptChanged = true;
-        if (activeSessionIdRef.current === sessionId) {
-          activeOutput += read.output;
-        }
-      }
-
-      if (activeOutput) {
-        xtermRef.current?.write(activeOutput);
-      }
-      if (transcriptChanged) {
-        scheduleTranscriptFlush();
-      }
-
-      if (!cancelled) {
-        window.setTimeout(() => {
-          void poll();
-        }, TERMINAL_POLL_INTERVAL_MS);
-      }
-    };
-
-    void poll();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [tabs, taskKey]);
-
-  useEffect(() => {
-    if (!activeSessionId || !xtermRef.current) {
+    if (
+      !shouldAutoCreateDockTerminalTab({
+        isTerminalDocked: terminalDocked,
+        wasTerminalDocked,
+        terminalTabCount: terminalTabs.length,
+        workspacePath,
+      })
+    ) {
       return;
     }
 
-    xtermRef.current.clear();
-    const buffer = sessionBufferRef.current[activeSessionId] ?? "";
-    if (buffer.trim()) {
-      xtermRef.current.write(buffer);
-    }
-  }, [activeSessionId]);
+    createTerminalTab({ cwd: workspacePath });
+  }, [createTerminalTab, terminalDocked, terminalTabs.length, workspacePath]);
 
-  function clearActiveTerminal() {
-    const sessionId = activeSessionIdRef.current;
-    if (!sessionId) {
+  useEffect(() => {
+    if (!terminalToRename) {
       return;
     }
-    sessionBufferRef.current[sessionId] = "";
-    transcriptRef.current[taskKey] = "";
-    scheduleTranscriptFlush();
-    xtermRef.current?.clear();
+    setTerminalRenameValue(terminalToRename.title);
+    const timer = window.setTimeout(() => {
+      terminalRenameInputRef.current?.focus();
+      terminalRenameInputRef.current?.select();
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [terminalToRename]);
+
+  function handleTerminalRenameConfirm() {
+    if (!terminalToRename) {
+      return;
+    }
+    const nextTitle = terminalRenameValue.trim();
+    if (!nextTitle || nextTitle === terminalToRename.title) {
+      setTerminalToRename(null);
+      return;
+    }
+    renameTerminalTab({ tabId: terminalToRename.id, title: nextTitle });
+    setTerminalToRename(null);
+  }
+
+  function handleTerminalTabDrop(
+    event: DragEvent<HTMLDivElement>,
+    overTabId: string,
+  ) {
+    event.preventDefault();
+    const draggedTabId =
+      draggingTerminalTabId ?? event.dataTransfer.getData("text/plain");
+    if (draggedTabId && draggedTabId !== overTabId) {
+      reorderTerminalTabs({ fromTabId: draggedTabId, toTabId: overTabId });
+    }
+    setDropTargetTerminalTabId(null);
+    setDraggingTerminalTabId(null);
   }
 
   return (
-    <div data-testid="terminal-dock" className="pb-2 transition-[height] duration-200" style={{ height: `${terminalDockHeight}px` }}>
-      <div className="grid h-full min-h-0 grid-cols-[1fr_156px] gap-1 overflow-hidden rounded-lg border border-border/80 bg-card">
-        <section className="min-h-0 overflow-hidden">
-          <div className="flex h-9 items-center justify-between border-b border-border/80 px-3 text-sm">
-            <span className="inline-flex items-center gap-2 font-medium text-foreground">
-              <SquareTerminal className="size-4 text-muted-foreground" />
-              Terminal
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 rounded-md p-0 text-muted-foreground"
-                onClick={clearActiveTerminal}
-                title="Clear Terminal"
-                aria-label="clear-terminal"
-              >
-                <Eraser className="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 rounded-md p-0 text-muted-foreground"
-                onClick={() => setLayout({ patch: { terminalDocked: false } })}
-                title="Close Terminal"
-                aria-label="close-terminal"
-              >
-                <X className="size-3.5" />
-              </Button>
-            </div>
-          </div>
-          <div className="h-[calc(100%-1.75rem)] overflow-hidden bg-terminal">
-            <div ref={containerRef} className="h-full w-full" />
-          </div>
-        </section>
-
-        <aside className="min-h-0 border-l border-border/80 bg-background">
-          <div className="flex h-9 items-center justify-between border-b border-border/80 px-3 text-sm">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 rounded-md px-2"
-              onClick={() => void createSessionTab()}
-              title="New Terminal Session"
-              aria-label="new-terminal-session"
-            >
-              <Plus className="size-3.5" />
-            </Button>
-            <span className="text-muted-foreground">Sessions</span>
-          </div>
-          <div className="max-h-[calc(100%-1.75rem)] space-y-1 overflow-auto p-1">
-            {bridgeError ? (
-              <p className="rounded-sm border border-destructive/30 bg-destructive/10 px-2 py-1 text-sm text-destructive">
-                {bridgeError}
-              </p>
-            ) : null}
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={[
-                  "flex items-center justify-between rounded-sm border px-1 py-1 text-sm",
-                  activeTabId === tab.id ? "border-primary/70 bg-secondary/80" : "border-border/70 bg-card",
-                ].join(" ")}
-              >
-                <button className="truncate text-left" onClick={() => setActiveTabId(tab.id)}>{tab.label}</button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto rounded p-0.5 text-muted-foreground"
-                  onClick={() => void closeSession({ sessionId: tab.id })}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+    <>
+      <div
+        data-testid="terminal-dock"
+        className="transition-[height] duration-200"
+        style={{ height: `${terminalDockHeight}px` }}
+      >
+        <div className="h-full min-h-0 overflow-hidden bg-card">
+          <section className="flex h-full min-h-0 flex-col overflow-hidden">
+            <div className="flex h-10 items-stretch border-b border-border/80 bg-muted/20">
+              <div className="min-w-0 flex-1 overflow-x-auto">
+                <div className="flex h-full min-w-max items-stretch">
+                  {terminalTabs.map((tab) => (
+                    <DockTerminalTab
+                      key={tab.id}
+                      tab={tab}
+                      isActive={tab.id === activeTerminalTabId}
+                      draggingTabId={draggingTerminalTabId}
+                      dropTargetTabId={dropTargetTerminalTabId}
+                      onSelectTab={(tabId) =>
+                        setActiveTerminalTab({ tabId, openDock: true })
+                      }
+                      onRenameTab={setTerminalToRename}
+                      onCloseTab={(tabId) => closeTerminalTab({ tabId })}
+                      onDragStart={(event, tabId) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", tabId);
+                        setDraggingTerminalTabId(tabId);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingTerminalTabId(null);
+                        setDropTargetTerminalTabId(null);
+                      }}
+                      onDragOver={(event, tabId) => {
+                        event.preventDefault();
+                        if (
+                          draggingTerminalTabId &&
+                          draggingTerminalTabId !== tabId
+                        ) {
+                          setDropTargetTerminalTabId(tabId);
+                        }
+                      }}
+                      onDrop={(event, tabId) =>
+                        handleTerminalTabDrop(event, tabId)
+                      }
+                    />
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </aside>
+              <div className="flex shrink-0 items-center gap-1 px-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 rounded-md p-0 text-muted-foreground"
+                        onClick={() =>
+                          createTerminalTab({ cwd: workspacePath || undefined })
+                        }
+                        aria-label="new-terminal-tab"
+                      >
+                        <Plus className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      New Terminal Tab
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 rounded-md p-0 text-muted-foreground"
+                        onClick={clearActiveTranscript}
+                        aria-label="clear-terminal"
+                        disabled={!activeTab}
+                      >
+                        <Eraser className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Clear Terminal
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 rounded-md p-0 text-muted-foreground"
+                        onClick={() =>
+                          setLayout({ patch: { terminalDocked: false } })
+                        }
+                        aria-label="hide-terminal"
+                      >
+                        <SquareTerminal className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Hide Terminal</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 rounded-md p-0 text-muted-foreground"
+                        onClick={() => {
+                          if (activeTab) {
+                            closeTerminalTab({ tabId: activeTab.id });
+                          }
+                        }}
+                        aria-label="close-active-terminal-tab"
+                        disabled={!activeTab}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Close Active Tab
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+            <div className="flex h-8 items-center gap-2 border-b border-border/60 px-3 text-xs text-muted-foreground">
+              <SquareTerminal className="size-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                {activeTab?.cwd ?? workspacePath ?? "Terminal"}
+              </span>
+              {sessionExited ? (
+                <span
+                  className={cn(
+                    "truncate text-[11px] font-medium",
+                    sessionExited.exitCode === 0
+                      ? "text-muted-foreground/80"
+                      : "text-destructive",
+                  )}
+                >
+                  exited ({sessionExited.exitCode})
+                </span>
+              ) : activeSessionId ? (
+                <span className="truncate text-[11px] text-emerald-600 dark:text-emerald-400">
+                  live
+                </span>
+              ) : null}
+            </div>
+            <div className={TERMINAL_SURFACE_PANEL_CLASS_NAME}>
+              <div className={TERMINAL_SURFACE_VIEWPORT_CLASS_NAME}>
+                {bridgeError ? (
+                  <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                    {bridgeError}
+                  </div>
+                ) : null}
+                {activeWriteErrorCount > TERMINAL_WRITE_ERROR_THRESHOLD ? (
+                  <div className="flex items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                    <span>Terminal rendering may be degraded.</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-[11px] text-amber-700 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200"
+                      onClick={restartActiveTerminalRenderer}
+                      disabled={!activeTab}
+                    >
+                      Restart renderer
+                    </Button>
+                  </div>
+                ) : null}
+                {!terminalReady ? (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-terminal">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                      <span>Initializing terminal…</span>
+                    </div>
+                  </div>
+                ) : null}
+                {terminalTabs.map((tab) => {
+                  const tabKey = getTabKey(tab);
+                  return (
+                    <TerminalTabSurface
+                      key={tabKey}
+                      tabKey={tabKey}
+                      sessionId={getSessionIdForTabKey(tabKey)}
+                      surface="terminal-dock"
+                      isActive={tab.id === activeTerminalTabId}
+                      isVisible={terminalDocked}
+                      fontFamily={terminalFontFamily}
+                      fontSize={terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE}
+                      isDarkMode={isDarkMode}
+                      dimmed={!activeTab}
+                      tabManager={tabManager}
+                      onData={handleTerminalInput}
+                      onResize={handleTerminalResize}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
-    </div>
+      {terminalToRename ? (
+        <div
+          className={cn(
+            UI_LAYER_CLASS.dialog,
+            "fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]",
+          )}
+          onMouseDown={() => setTerminalToRename(null)}
+        >
+          <Card
+            className="w-full max-w-md rounded-lg border-border/80 bg-card p-4 shadow-xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-foreground">
+              Rename Terminal Tab
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Enter a new name for this terminal tab.
+            </p>
+            <Input
+              ref={terminalRenameInputRef}
+              className="mt-3 h-10 rounded-sm border-border/80 bg-background"
+              value={terminalRenameValue}
+              onChange={(event) => setTerminalRenameValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleTerminalRenameConfirm();
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setTerminalToRename(null);
+                }
+              }}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setTerminalToRename(null)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleTerminalRenameConfirm}>Rename</Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+    </>
   );
 }

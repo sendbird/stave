@@ -95,6 +95,104 @@ export function findLatestPendingApprovalPart(args: {
   return undefined;
 }
 
+export function findLatestPendingToolInteractionPart(args: {
+  message?: Pick<ChatMessage, "parts">;
+}): ApprovalPart | UserInputPart | undefined {
+  const parts = args.message?.parts ?? [];
+
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index];
+    if (part?.type === "approval" && part.state === "approval-requested") {
+      return part;
+    }
+    if (part?.type === "user_input" && part.state === "input-requested") {
+      return part;
+    }
+  }
+
+  return undefined;
+}
+
+export function findLatestPendingApproval(args: {
+  messages: ChatMessage[];
+}): { messageId: string; part: ApprovalPart } | null {
+  const pendingApprovals = findPendingApprovals(args);
+  return pendingApprovals[0] ?? null;
+}
+
+export function findPendingApprovals(args: {
+  messages: ChatMessage[];
+}): Array<{ messageId: string; part: ApprovalPart }> {
+  const pendingApprovals: Array<{ messageId: string; part: ApprovalPart }> = [];
+
+  for (let messageIndex = args.messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = args.messages[messageIndex];
+    if (!message) {
+      continue;
+    }
+
+    for (let partIndex = message.parts.length - 1; partIndex >= 0; partIndex -= 1) {
+      const part = message.parts[partIndex];
+      if (part?.type === "approval" && part.state === "approval-requested") {
+        pendingApprovals.push({
+          messageId: message.id,
+          part,
+        });
+      }
+    }
+  }
+
+  return pendingApprovals;
+}
+
+export function findLatestPendingToolInteraction(args: {
+  messages: ChatMessage[];
+}): { messageId: string; part: ApprovalPart | UserInputPart } | null {
+  for (let messageIndex = args.messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = args.messages[messageIndex];
+    if (!message) {
+      continue;
+    }
+
+    const part = findLatestPendingToolInteractionPart({ message });
+    if (part) {
+      return {
+        messageId: message.id,
+        part,
+      };
+    }
+  }
+
+  return null;
+}
+
+export function findPendingApprovalMessageByRequestId(args: {
+  messages: ChatMessage[];
+  requestId: string;
+}): { messageId: string; part: ApprovalPart } | null {
+  for (let messageIndex = args.messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = args.messages[messageIndex];
+    if (!message) {
+      continue;
+    }
+    for (let partIndex = message.parts.length - 1; partIndex >= 0; partIndex -= 1) {
+      const part = message.parts[partIndex];
+      if (
+        part?.type === "approval"
+        && part.requestId === args.requestId
+        && part.state === "approval-requested"
+      ) {
+        return {
+          messageId: message.id,
+          part,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 export function findLatestPendingUserInputPart(args: {
   message?: Pick<ChatMessage, "parts">;
 }): UserInputPart | undefined {
@@ -108,6 +206,27 @@ export function findLatestPendingUserInputPart(args: {
   }
 
   return undefined;
+}
+
+export function findLatestPendingUserInput(args: {
+  messages: ChatMessage[];
+}): { messageId: string; part: UserInputPart } | null {
+  for (let messageIndex = args.messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = args.messages[messageIndex];
+    if (!message) {
+      continue;
+    }
+
+    const part = findLatestPendingUserInputPart({ message });
+    if (part) {
+      return {
+        messageId: message.id,
+        part,
+      };
+    }
+  }
+
+  return null;
 }
 
 export function updateApprovalPartsByRequestId(args: {
@@ -125,6 +244,87 @@ export function updateApprovalPartsByRequestId(args: {
       state: args.approved ? "approval-responded" : "output-denied",
     };
   });
+}
+
+export function resolvePendingToolInteractionPartsByRequestId(args: {
+  parts: MessagePart[];
+  requestId?: string;
+}): MessagePart[] {
+  const requestId = args.requestId?.trim();
+  if (!requestId) {
+    return args.parts;
+  }
+
+  let changed = false;
+  const nextParts = args.parts.map((part) => {
+    if (part.type === "approval" && part.requestId === requestId && part.state === "approval-requested") {
+      changed = true;
+      return {
+        ...part,
+        state: "approval-responded" as const,
+      };
+    }
+
+    if (part.type === "user_input" && part.requestId === requestId && part.state === "input-requested") {
+      changed = true;
+      return {
+        ...part,
+        state: "input-responded" as const,
+      };
+    }
+
+    return part;
+  });
+
+  return changed ? nextParts : args.parts;
+}
+
+export function interruptPendingToolInteractionParts(args: {
+  parts: MessagePart[];
+}): MessagePart[] {
+  let changed = false;
+  const nextParts = args.parts.map((part) => {
+    if (part.type === "approval" && part.state === "approval-requested") {
+      changed = true;
+      return {
+        ...part,
+        state: "approval-interrupted" as const,
+      };
+    }
+
+    if (part.type === "user_input" && part.state === "input-requested") {
+      changed = true;
+      return {
+        ...part,
+        state: "input-interrupted" as const,
+      };
+    }
+
+    return part;
+  });
+
+  return changed ? nextParts : args.parts;
+}
+
+export function interruptPendingToolInteractionsInMessages(args: {
+  messages: ChatMessage[];
+}): ChatMessage[] {
+  let changed = false;
+  const nextMessages = args.messages.map((message) => {
+    const nextParts = interruptPendingToolInteractionParts({
+      parts: message.parts,
+    });
+    if (nextParts === message.parts) {
+      return message;
+    }
+    changed = true;
+    return {
+      ...message,
+      parts: nextParts,
+    };
+  });
+
+  return changed ? nextMessages : args.messages;
 }
 
 export function updateUserInputPartsByRequestId(args: {

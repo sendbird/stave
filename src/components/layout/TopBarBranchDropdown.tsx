@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronDown, GitBranch } from "lucide-react";
 import {
@@ -15,19 +15,8 @@ import {
 import { isBranchAttachedElsewhere } from "@/lib/source-control-worktrees";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import { formatWorkspacePathLabel } from "@/store/project.utils";
 import type { CSSProperties } from "react";
-
-function formatWorkspacePathLabel(args: { workspacePath?: string; projectPath?: string | null }) {
-  const workspacePath = args.workspacePath?.trim();
-  if (!workspacePath) {
-    return "";
-  }
-  const projectPath = args.projectPath?.trim();
-  if (projectPath && workspacePath.startsWith(`${projectPath}/`)) {
-    return workspacePath.slice(projectPath.length + 1);
-  }
-  return workspacePath;
-}
 
 export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   const [branchOpen, setBranchOpen] = useState(false);
@@ -35,9 +24,13 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   const [newBranchName, setNewBranchName] = useState("");
   const [branches, setBranches] = useState<string[]>([]);
   const [worktreePathByBranch, setWorktreePathByBranch] = useState<Record<string, string>>({});
-  const [currentBranch, setCurrentBranch] = useState<string | null>(null);
+  const [detectedCurrentBranch, setDetectedCurrentBranch] = useState<{
+    workspaceId: string;
+    branch: string | null;
+  }>({ workspaceId: "", branch: null });
   const [branchError, setBranchError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const branchRequestIdRef = useRef(0);
 
   const [
     activeWorkspaceId,
@@ -57,52 +50,97 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
 
   const isDefaultWorkspace = Boolean(workspaceDefaultById[activeWorkspaceId]);
   const activeWorkspaceBranch = workspaceBranchById[activeWorkspaceId];
-  const workspaceCwd = workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
+  const workspaceCwd = workspacePathById[activeWorkspaceId] ?? projectPath ?? "";
+  const hasWorkspaceContext = Boolean(activeWorkspaceId && workspaceCwd);
+  const currentBranch = activeWorkspaceBranch
+    ?? (detectedCurrentBranch.workspaceId === activeWorkspaceId ? detectedCurrentBranch.branch : null);
 
-  // Load current branch on mount and when workspace changes
   useEffect(() => {
+    branchRequestIdRef.current += 1;
+    const requestId = branchRequestIdRef.current;
+
+    if (!hasWorkspaceContext) {
+      setDetectedCurrentBranch({ workspaceId: "", branch: null });
+      setBranches([]);
+      setWorktreePathByBranch({});
+      setBranchError("");
+      setIsBusy(false);
+      return;
+    }
+
+    setDetectedCurrentBranch((previous) =>
+      previous.workspaceId === activeWorkspaceId
+        ? previous
+        : { workspaceId: activeWorkspaceId, branch: null },
+    );
+    setBranches([]);
+    setWorktreePathByBranch({});
+    setBranchError("");
+    setIsBusy(false);
+
     async function detectBranch() {
       const listBranches = window.api?.sourceControl?.listBranches;
       if (!listBranches) return;
       const result = await listBranches({ cwd: workspaceCwd });
       if (result.ok && result.current) {
-        setCurrentBranch(result.current);
+        if (branchRequestIdRef.current !== requestId) {
+          return;
+        }
+        setDetectedCurrentBranch({
+          workspaceId: activeWorkspaceId,
+          branch: result.current,
+        });
       }
     }
     void detectBranch();
-  }, [activeWorkspaceId, workspaceCwd]);
-
-  useEffect(() => {
-    if (activeWorkspaceBranch) {
-      setCurrentBranch(activeWorkspaceBranch);
-    }
-  }, [activeWorkspaceBranch]);
+  }, [activeWorkspaceId, hasWorkspaceContext, workspaceCwd]);
 
   async function loadBranches() {
+    if (!hasWorkspaceContext) {
+      setBranchError("No workspace selected.");
+      return;
+    }
+
     const listBranches = window.api?.sourceControl?.listBranches;
     if (!listBranches) {
       setBranchError("Source Control bridge unavailable.");
       return;
     }
 
+    branchRequestIdRef.current += 1;
+    const requestId = branchRequestIdRef.current;
     setIsBusy(true);
-    const result = await listBranches({ cwd: workspaceCwd });
-    if (!result.ok) {
-      setBranchError(result.stderr || "Failed to load branches.");
-      setIsBusy(false);
-      return;
+    try {
+      const result = await listBranches({ cwd: workspaceCwd });
+      if (branchRequestIdRef.current !== requestId) {
+        return;
+      }
+      if (!result.ok) {
+        setBranchError(result.stderr || "Failed to load branches.");
+        return;
+      }
+      setDetectedCurrentBranch({
+        workspaceId: activeWorkspaceId,
+        branch: result.current || workspaceBranchById[activeWorkspaceId] || null,
+      });
+      setBranches(result.branches);
+      setWorktreePathByBranch(result.worktreePathByBranch ?? {});
+      setBranchError("");
+    } catch (err) {
+      if (branchRequestIdRef.current === requestId) {
+        setBranchError(err instanceof Error ? err.message : "Failed to load branches.");
+      }
+    } finally {
+      if (branchRequestIdRef.current === requestId) {
+        setIsBusy(false);
+      }
     }
-    setCurrentBranch(result.current || workspaceBranchById[activeWorkspaceId] || "main");
-    setBranches(result.branches);
-    setWorktreePathByBranch(result.worktreePathByBranch ?? {});
-    setBranchError("");
-    setIsBusy(false);
   }
 
   useEffect(() => {
-    if (!branchOpen || !isDefaultWorkspace) return;
+    if (!hasWorkspaceContext || !branchOpen || !isDefaultWorkspace) return;
     void loadBranches();
-  }, [branchOpen, isDefaultWorkspace, activeWorkspaceId]);
+  }, [activeWorkspaceId, branchOpen, hasWorkspaceContext, isDefaultWorkspace]);
 
   useEffect(() => {
     if (!isDefaultWorkspace) {
@@ -133,15 +171,19 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     if (!targetName || !currentBranch) return;
 
     setIsBusy(true);
-    const result = await createBranch({ name: targetName, from: currentBranch, cwd: workspaceCwd });
-    if (!result.ok) {
-      setBranchError(result.stderr || "Branch creation failed.");
+    try {
+      const result = await createBranch({ name: targetName, from: currentBranch, cwd: workspaceCwd });
+      if (!result.ok) {
+        setBranchError(result.stderr || "Branch creation failed.");
+        return;
+      }
+      setNewBranchName("");
+      await loadBranches();
+    } catch (err) {
+      setBranchError(err instanceof Error ? err.message : "Branch creation failed.");
+    } finally {
       setIsBusy(false);
-      return;
     }
-    setNewBranchName("");
-    await loadBranches();
-    setIsBusy(false);
   }
 
   async function handleCheckoutBranch(args: { name: string }) {
@@ -171,22 +213,32 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     }
 
     setIsBusy(true);
-    const result = await checkoutBranch({ name: args.name, cwd: workspaceCwd });
-    if (!result.ok) {
-      const message = result.stderr || "Branch checkout failed.";
+    try {
+      const result = await checkoutBranch({ name: args.name, cwd: workspaceCwd });
+      if (!result.ok) {
+        const message = result.stderr || "Branch checkout failed.";
+        setBranchError(message);
+        toast.error("Branch checkout failed", { description: message });
+        return false;
+      }
+      setWorkspaceBranch({ workspaceId: activeWorkspaceId, branch: args.name });
+      setDetectedCurrentBranch({
+        workspaceId: activeWorkspaceId,
+        branch: args.name,
+      });
+      await loadBranches();
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Branch checkout failed.";
       setBranchError(message);
       toast.error("Branch checkout failed", { description: message });
-      setIsBusy(false);
       return false;
+    } finally {
+      setIsBusy(false);
     }
-    setWorkspaceBranch({ workspaceId: activeWorkspaceId, branch: args.name });
-    setCurrentBranch(args.name);
-    await loadBranches();
-    setIsBusy(false);
-    return true;
   }
 
-  if (!currentBranch) return null;
+  if (!hasWorkspaceContext || !currentBranch) return null;
 
   // Default workspace: show dropdown to switch branches
   if (isDefaultWorkspace) {
@@ -194,20 +246,23 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       <DropdownMenu open={branchOpen} onOpenChange={setBranchOpen}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "inline-flex max-w-48 items-center gap-1.5 rounded-md border border-border/60 bg-background/60 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary/60",
-                  branchOpen && "border-primary/70 bg-secondary/80",
-                )}
-                style={props.noDragStyle}
-              >
-                <GitBranch className="size-3.5 shrink-0" />
-                <span className="truncate">{currentBranch}</span>
-                <ChevronDown className="size-3 shrink-0" />
-              </button>
-            </DropdownMenuTrigger>
+            <span className="inline-flex">
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "inline-flex max-w-48 items-center gap-1.5 rounded-md border border-border/60 bg-background/60 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary/60",
+                    branchOpen && "border-primary/70 bg-secondary/80",
+                  )}
+                  style={props.noDragStyle}
+                  aria-label="switch-branch"
+                >
+                  <GitBranch className="size-3.5 shrink-0" />
+                  <span className="truncate">{currentBranch}</span>
+                  <ChevronDown className="size-3 shrink-0" />
+                </button>
+              </DropdownMenuTrigger>
+            </span>
           </TooltipTrigger>
           <TooltipContent side="bottom">Switch branch</TooltipContent>
         </Tooltip>

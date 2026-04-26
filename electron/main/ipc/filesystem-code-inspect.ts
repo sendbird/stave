@@ -3,6 +3,17 @@ import path from "node:path";
 import { resolveRootFilePath } from "../utils/filesystem";
 
 const SOURCE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?|d\.[cm]?ts)$/;
+const TYPE_DECLARATION_FILE_PATTERN = /\.d\.[cm]?ts$/;
+const AMBIENT_SCAN_EXCLUDED_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "out",
+  "build",
+  ".next",
+  ".nuxt",
+  "coverage",
+]);
 const RESOLVABLE_SOURCE_SUFFIXES = [
   "",
   ".ts",
@@ -369,6 +380,63 @@ async function resolveWorkspaceImport(args: {
   return null;
 }
 
+async function collectAmbientTypeDeclarationFiles(args: {
+  rootPath: string;
+  maxFileCount: number;
+  visitedFiles: Set<string>;
+}) {
+  const files: Array<{ content: string; filePath: string }> = [];
+  const directoryQueue: string[] = [""];
+
+  while (directoryQueue.length > 0 && files.length < args.maxFileCount) {
+    const relativeDir = directoryQueue.shift();
+    if (relativeDir === undefined) {
+      continue;
+    }
+
+    const absoluteDir = relativeDir
+      ? path.join(args.rootPath, relativeDir)
+      : args.rootPath;
+
+    let entries;
+    try {
+      entries = await fs.readdir(absoluteDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (files.length >= args.maxFileCount) {
+        break;
+      }
+      const relativePath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        if (!AMBIENT_SCAN_EXCLUDED_DIRS.has(entry.name) && !entry.name.startsWith(".")) {
+          directoryQueue.push(relativePath);
+        }
+        continue;
+      }
+
+      if (!entry.isFile() || !TYPE_DECLARATION_FILE_PATTERN.test(entry.name)) {
+        continue;
+      }
+      if (args.visitedFiles.has(relativePath)) {
+        continue;
+      }
+
+      try {
+        const content = await fs.readFile(path.join(absoluteDir, entry.name), "utf8");
+        files.push({ content, filePath: relativePath });
+      } catch {
+        // Skip unreadable files.
+      }
+    }
+  }
+
+  return files;
+}
+
 export async function collectFocusedWorkspaceInspectContext(args: {
   rootPath?: string | null;
   entryFilePath?: string | null;
@@ -450,6 +518,18 @@ export async function collectFocusedWorkspaceInspectContext(args: {
       if (packageName) {
         packageNames.add(packageName);
       }
+    }
+  }
+
+  const remainingCapacity = maxSourceFileCount - sourceFiles.length;
+  if (remainingCapacity > 0) {
+    const ambientFiles = await collectAmbientTypeDeclarationFiles({
+      rootPath,
+      maxFileCount: remainingCapacity,
+      visitedFiles,
+    });
+    for (const file of ambientFiles) {
+      sourceFiles.push(file);
     }
   }
 

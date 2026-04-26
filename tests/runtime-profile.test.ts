@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   configurePersistenceUserDataPath,
-  resolveDevelopmentUserDataPath,
   resolvePersistenceRuntimeProfile,
 } from "../electron/main/runtime-profile";
 
@@ -22,13 +21,14 @@ describe("runtime profile persistence paths", () => {
     cleanupRoots.clear();
   });
 
-  test("defaults to development when Electron is not packaged", () => {
-    expect(resolvePersistenceRuntimeProfile({ isPackaged: false })).toBe("development");
+  test("always resolves to the production persistence profile", () => {
+    expect(resolvePersistenceRuntimeProfile({ isPackaged: false })).toBe("production");
     expect(resolvePersistenceRuntimeProfile({ isPackaged: true })).toBe("production");
     expect(resolvePersistenceRuntimeProfile({ isPackaged: false, override: "production" })).toBe("production");
+    expect(resolvePersistenceRuntimeProfile({ isPackaged: false, override: "development" })).toBe("production");
   });
 
-  test("configures dev builds to use the dev userData path and built local runs to use production", () => {
+  test("configures every runtime to use the single production userData path", () => {
     const root = createTempRoot();
     cleanupRoots.add(root);
 
@@ -51,17 +51,11 @@ describe("runtime profile persistence paths", () => {
       },
     };
 
-    const devResult = configurePersistenceUserDataPath(app, {});
-    expect(devResult.profile).toBe("development");
-    expect(devResult.userDataPath).toBe(resolveDevelopmentUserDataPath({ productionUserDataPath }));
-    expect(selectedUserDataPath).toBe(devResult.userDataPath);
-
-    selectedUserDataPath = productionUserDataPath;
-    const builtLocalResult = configurePersistenceUserDataPath(app, {
-      STAVE_RUNTIME_PROFILE: "production",
+    const result = configurePersistenceUserDataPath(app, {
+      STAVE_RUNTIME_PROFILE: "development",
     });
-    expect(builtLocalResult.profile).toBe("production");
-    expect(builtLocalResult.userDataPath).toBe(productionUserDataPath);
+    expect(result.profile).toBe("production");
+    expect(result.userDataPath).toBe(productionUserDataPath);
     expect(selectedUserDataPath).toBe(productionUserDataPath);
   });
 });

@@ -1,60 +1,78 @@
 # Attachments
 
-Stave supports attaching files and images to chat messages through the prompt composer.
+Stave lets you attach files and images to a chat message, so the model can work from the exact local context instead of guessing from a short text description.
 
-## File attachments
+## When To Use Attachments
 
-Users can attach project files to a message using the `@` file search or the file picker button in the composer toolbar.
+- The task depends on a specific file the model cannot infer from the prompt.
+- You want to ask about a screenshot, design mock, or error image.
+- You want to share logs, configs, or fixtures that are easier to read as a file than paste inline.
 
-- The file picker opens an inline panel with a search filter scoped to the current workspace's `projectFiles`.
-- Selected files appear as removable chips above the toolbar.
-- On send, Stave opens each attached file through the editor tab system, reads its content and language, and forwards the result as `fileContexts` alongside the user message.
+For general repository-wide rules, use [Project Instructions](project-instructions.md) instead of pasting a file into every prompt.
 
-## Image attachments
+## Quick Start
 
-Images can be attached in three ways:
+1. Open the task you want to send a message in.
+2. Click the paperclip button in the prompt composer to open the file picker, or drop a file directly onto the composer.
+3. For images, paste them directly from your clipboard with `Cmd/Ctrl+V`.
+4. Review the chips and thumbnails above the composer, then send the turn.
 
-1. **Screenshot capture** — click the camera button in the composer toolbar. Stave calls `window.api.capture.screenshot()` in the Electron runtime, which returns a `dataUrl` that becomes an image attachment.
-2. **Clipboard paste** — paste an image from the system clipboard (`Cmd/Ctrl+V`) directly into the prompt textarea. The `onPaste` handler detects `image/*` items in `clipboardData`, reads each file as a data URL via `FileReader`, and appends them as image attachments. Text-only pastes are unaffected.
-3. **Multiple images** — both screenshot capture and clipboard paste can add multiple images. Each image receives a unique `crypto.randomUUID()` identifier.
+## Attach A File From Your Workspace
 
-Attached images appear as small thumbnails with a remove button. Clicking a thumbnail opens a full-screen preview overlay.
+1. In the prompt composer, click the paperclip.
+2. The OS file dialog opens inside your current workspace.
+3. Pick one or more files.
+4. The files appear as removable chips above the composer.
+5. Send the turn. Stave reads each file, tags its language, and forwards the content with your message.
 
-## Data model
+You can remove a file before sending by clicking the `x` on the chip.
 
-```typescript
-type Attachment =
-  | { kind: "file"; filePath: string }
-  | { kind: "image"; id: string; dataUrl: string; label: string };
-```
+## Attach An Image
 
-- `kind: "file"` attachments carry a workspace-relative path and are resolved to file content at send time.
-- `kind: "image"` attachments carry an inline data URL and a display label such as `"Screenshot"` or `"Pasted image"`.
+- Copy an image from your browser, screenshot tool, or clipboard.
+- Focus the prompt composer and press `Cmd/Ctrl+V`.
+- A thumbnail appears above the composer. Click the thumbnail to open a full-size preview.
+- Remove an image with the `x` on its thumbnail.
 
-Attachments are stored in the prompt draft state (`promptDraftByTask`) and cleared after a successful send.
+You can paste more than one image into the same message. Each one is attached as a separate image.
 
-## Send path
+## Mixed Paste
 
-On send, Stave converts image attachments into `imageContexts`:
+If your clipboard contains image data and file references at the same time, Stave splits them:
 
-```typescript
-{
-  dataUrl: string;
-  label: string;
-  mimeType: "image/png";
-}
-```
+- Image bytes become image attachments.
+- File references become workspace-file attachments.
+- Plain text stays as text in the composer.
 
-These are passed to `sendUserMessage()` alongside `fileContexts` and the text content, where the active provider runtime includes them as image parts in the conversation turn.
+## Tips
 
-## Component structure
+- Keep attachments focused. One or two targeted files usually beats a dozen vaguely related ones.
+- Prefer the paperclip file picker when you want the exact workspace-relative path preserved in the conversation.
+- Prefer paste for screenshots, error modals, and design previews.
+- If you do not see an image thumbnail after paste, make sure your clipboard actually contains image data and not just text.
 
-- `PromptInput` — owns the paste handler, attachment display, file picker, and screenshot button
-- `ChatInput` — manages attachment state via `promptDraftByTask` and converts attachments to provider-facing contexts on send
-- `MessageAttachment` / `MessageAttachments` — display components for rendering attachments in sent messages
+## Troubleshooting
 
-## Verification
+### Paste Did Nothing
 
-- Screenshot capture requires the Electron runtime (`window.api.capture.screenshot`).
-- Clipboard paste works in both Electron and browser runtimes since it uses standard `ClipboardEvent` and `FileReader` APIs.
-- The `onAttachmentsChange` callback must be provided for image features to activate. If absent, paste and screenshot are no-ops.
+- Symptom: nothing appears after `Cmd/Ctrl+V`.
+- Cause: the clipboard has text only, or your focus was outside the prompt composer.
+- Fix: click inside the composer, then paste again. If the source was a screenshot tool, retake the screenshot so the clipboard contains image bytes.
+
+### The File Picker Does Not Open
+
+- Symptom: clicking the paperclip does nothing.
+- Cause: you are running Stave in a browser-only mode instead of the desktop app.
+- Fix: use a packaged desktop build. The file picker needs the desktop runtime.
+
+### I Want To Drop A Folder
+
+- Symptom: dropping a folder onto the composer does not attach anything.
+- Cause: attachments are file-scoped, not folder-scoped.
+- Fix: open the folder in Explorer, pick the files you want, and attach them individually.
+
+## Related Docs
+
+- [Integrated Terminal](integrated-terminal.md)
+- [Project Instructions](project-instructions.md)
+- [Runtime Safety Controls](provider-sandbox-and-approval.md)

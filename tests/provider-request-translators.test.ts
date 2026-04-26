@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildProviderTurnPrompt,
-  resolveProviderResumeConversationId,
+  filterPromptRetrievedContext,
+  resolveProviderResumeSessionId,
 } from "@/lib/providers/provider-request-translators";
 import type { CanonicalConversationRequest } from "@/lib/providers/provider.types";
 
@@ -47,6 +48,50 @@ describe("provider request translators", () => {
     expect(prompt).toContain("Continue with the runtime refactor.");
   });
 
+  test("marks skill-only invocations explicitly in provider prompts", () => {
+    const prompt = buildProviderTurnPrompt({
+      providerId: "claude-code",
+      prompt: "",
+      conversation: createConversation({
+        target: {
+          providerId: "claude-code",
+          model: "claude-sonnet-4-6",
+        },
+        input: {
+          role: "user",
+          providerId: "user",
+          model: "user",
+          content: "",
+          parts: [],
+        },
+        contextParts: [
+          {
+            type: "skill_context",
+            skills: [
+              {
+                id: "local:shared:stave-release",
+                slug: "stave-release",
+                name: "stave-release",
+                description: "Prepare a release PR.",
+                scope: "local",
+                provider: "shared",
+                path: "/tmp/stave-release/SKILL.md",
+                invocationToken: "$stave-release",
+                instructions: "Use this skill to create a versioned release PR for the Stave repository.",
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    expect(prompt).toContain("[Activated Skills]");
+    expect(prompt).toContain("[Current User Input]");
+    expect(prompt).toContain("(none)");
+    expect(prompt).toContain("[Skill Invocation]");
+    expect(prompt).toContain("Follow the activated skill instructions.");
+  });
+
   test("omits replayed history when the canonical request carries a resume conversation id", () => {
     const prompt = buildProviderTurnPrompt({
       providerId: "claude-code",
@@ -57,7 +102,7 @@ describe("provider request translators", () => {
           model: "claude-sonnet-4-6",
         },
         resume: {
-          nativeConversationId: "session_123",
+          nativeSessionId: "session_123",
         },
       }),
     });
@@ -66,17 +111,75 @@ describe("provider request translators", () => {
     expect(prompt).toContain("[Current User Input]");
   });
 
-  test("reads resume ids from canonical conversation metadata", () => {
+  test("preserves Codex resume when the task stays on the same Codex model", () => {
     const conversation = createConversation({
+      history: [
+        {
+          role: "assistant",
+          providerId: "codex",
+          model: "gpt-5.4",
+          content: "Patched the runtime.",
+          parts: [{ type: "text", text: "Patched the runtime." }],
+        },
+      ],
       resume: {
-        nativeConversationId: "thread_456",
+        nativeSessionId: "thread_456",
       },
     });
 
-    expect(resolveProviderResumeConversationId({ conversation })).toBe("thread_456");
-    expect(resolveProviderResumeConversationId({
+    const prompt = buildProviderTurnPrompt({
+      providerId: "codex",
+      prompt: "fallback prompt",
+      conversation,
+    });
+
+    expect(prompt).not.toContain("[Task Shared Context]");
+    expect(resolveProviderResumeSessionId({ conversation })).toBe("thread_456");
+  });
+
+  test("reads resume ids from canonical conversation metadata", () => {
+    const conversation = createConversation({
+      resume: {
+        nativeSessionId: "thread_456",
+      },
+    });
+
+    expect(resolveProviderResumeSessionId({ conversation })).toBe("thread_456");
+    expect(resolveProviderResumeSessionId({
       conversation,
       fallbackResumeId: "thread_override",
     })).toBe("thread_override");
+  });
+
+  test("can omit MCP-only retrieved context from the rendered prompt", () => {
+    const conversation = createConversation({
+      contextParts: [
+        {
+          type: "retrieved_context",
+          sourceId: "stave:current-task-awareness",
+          title: "Current Stave Task Context",
+          content: "MCP-scoped task context",
+        },
+        {
+          type: "retrieved_context",
+          sourceId: "stave:repo-map",
+          title: "Codebase Map",
+          content: "Repo map context",
+        },
+      ],
+    });
+
+    const filtered = filterPromptRetrievedContext({
+      conversation,
+      excludedSourceIds: ["stave:current-task-awareness"],
+    });
+    const prompt = buildProviderTurnPrompt({
+      providerId: "codex",
+      prompt: "fallback prompt",
+      conversation: filtered,
+    });
+
+    expect(prompt).not.toContain("MCP-scoped task context");
+    expect(prompt).toContain("Repo map context");
   });
 });

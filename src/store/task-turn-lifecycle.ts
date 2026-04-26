@@ -1,5 +1,11 @@
-import type { TaskProviderConversationState } from "@/lib/db/workspaces.db";
-import type { Attachment, ChatMessage, EditorTab, Task } from "@/types/chat";
+import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
+import type {
+  WorkspaceActiveSurface,
+  WorkspaceCliSessionTab,
+  WorkspaceTerminalTab,
+} from "@/lib/terminal/types";
+import type { WorkspaceInformationState } from "@/lib/workspace-information";
+import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
 import {
   interruptActiveTaskTurns,
   persistWorkspaceSnapshot,
@@ -27,11 +33,18 @@ export async function interruptWorkspaceTurnsBeforeTransition(args: {
   activeTaskId: string;
   tasks: Task[];
   messagesByTask: Record<string, ChatMessage[]>;
-  promptDraftByTask: Record<string, { text: string; attachedFilePaths: string[]; attachments: Attachment[] }>;
+  promptDraftByTask: Record<string, PromptDraft>;
+  workspaceInformation?: WorkspaceInformationState;
   editorTabs: EditorTab[];
   activeEditorTabId: string | null;
+  terminalTabs: WorkspaceTerminalTab[];
+  activeTerminalTabId: string | null;
+  terminalDocked: boolean;
+  cliSessionTabs: WorkspaceCliSessionTab[];
+  activeCliSessionTabId: string | null;
+  activeSurface: WorkspaceActiveSurface;
   activeTurnIdsByTask: Record<string, string | undefined>;
-  providerConversationByTask: Record<string, TaskProviderConversationState>;
+  providerSessionByTask: Record<string, TaskProviderSessionState>;
   workspaceName: string;
   applyInterruptedState: (args: {
     messagesByTask: Record<string, ChatMessage[]>;
@@ -77,9 +90,16 @@ export async function interruptWorkspaceTurnsBeforeTransition(args: {
     tasks: args.tasks,
     messagesByTask: interrupted.messagesByTask,
     promptDraftByTask: args.promptDraftByTask,
+    workspaceInformation: args.workspaceInformation,
     editorTabs: args.editorTabs,
     activeEditorTabId: args.activeEditorTabId,
-    providerConversationByTask: args.providerConversationByTask,
+    terminalTabs: args.terminalTabs,
+    activeTerminalTabId: args.activeTerminalTabId,
+    terminalDocked: args.terminalDocked,
+    cliSessionTabs: args.cliSessionTabs,
+    activeCliSessionTabId: args.activeCliSessionTabId,
+    activeSurface: args.activeSurface,
+    providerSessionByTask: args.providerSessionByTask,
   });
 
   return interrupted.interruptedTaskIds;

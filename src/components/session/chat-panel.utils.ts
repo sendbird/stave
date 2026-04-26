@@ -4,9 +4,27 @@ export function isPendingDiffStatus(status: CodeDiffPart["status"]) {
   return status === "pending";
 }
 
+export function shouldShowConversationLoadingState(args: {
+  visibleMessageCount: number;
+  totalMessageCount: number;
+  taskMessagesLoading: boolean;
+}) {
+  return args.visibleMessageCount === 0
+    && args.totalMessageCount > 0
+    && args.taskMessagesLoading;
+}
+
 export interface DiffLineChangeSummary {
   added: number;
   removed: number;
+}
+
+export type FileChangeStatus = "applied" | "skipped" | "failed";
+
+export interface FileChangeSummaryRow {
+  filePath: string;
+  status: FileChangeStatus;
+  error?: string;
 }
 
 export type MessagePartSegment =
@@ -16,11 +34,11 @@ export type MessagePartSegment =
   | { kind: "image_contexts"; parts: ImageContextPart[]; startIndex: number }
   | { kind: "other"; part: MessagePart; index: number };
 
-function isSubagentToolPart(args: { toolName: string }) {
+export function isSubagentToolPart(args: { toolName: string }) {
   return args.toolName.trim().toLowerCase() === "agent";
 }
 
-function isTodoToolPart(args: { toolName: string }) {
+export function isTodoToolPart(args: { toolName: string }) {
   return args.toolName.trim().toLowerCase() === "todowrite";
 }
 
@@ -82,6 +100,74 @@ export function summarizeDiffLineChanges(args: { oldContent: string; newContent:
     added: newWindow.length - sharedLineCount,
     removed: oldWindow.length - sharedLineCount,
   };
+}
+
+function getFileChangeStatusPriority(status: FileChangeStatus) {
+  switch (status) {
+    case "failed":
+      return 3;
+    case "skipped":
+      return 2;
+    case "applied":
+      return 1;
+  }
+}
+
+export function parseFileChangeToolInput(input: string): FileChangeSummaryRow[] {
+  try {
+    const parsed = JSON.parse(input) as {
+      appliedPaths?: unknown;
+      skippedPaths?: unknown;
+      failedPaths?: unknown;
+    };
+    const rows: FileChangeSummaryRow[] = [];
+
+    if (Array.isArray(parsed.appliedPaths)) {
+      rows.push(
+        ...parsed.appliedPaths
+          .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+          .map((filePath) => ({ filePath, status: "applied" as const })),
+      );
+    }
+
+    if (Array.isArray(parsed.skippedPaths)) {
+      rows.push(
+        ...parsed.skippedPaths
+          .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+          .map((filePath) => ({ filePath, status: "skipped" as const })),
+      );
+    }
+
+    if (Array.isArray(parsed.failedPaths)) {
+      rows.push(
+        ...parsed.failedPaths.flatMap((value) => {
+          if (!value || typeof value !== "object") {
+            return [];
+          }
+          const filePath = typeof value.path === "string" ? value.path.trim() : "";
+          if (!filePath) {
+            return [];
+          }
+          const error = typeof value.error === "string" && value.error.trim().length > 0
+            ? value.error
+            : undefined;
+          return [{ filePath, status: "failed" as const, ...(error ? { error } : {}) }];
+        }),
+      );
+    }
+
+    const dedupedRows = new Map<string, FileChangeSummaryRow>();
+    for (const row of rows) {
+      const existing = dedupedRows.get(row.filePath);
+      if (!existing || getFileChangeStatusPriority(row.status) > getFileChangeStatusPriority(existing.status)) {
+        dedupedRows.set(row.filePath, row);
+      }
+    }
+
+    return Array.from(dedupedRows.values());
+  } catch {
+    return [];
+  }
 }
 
 export function groupMessageParts(parts: MessagePart[]): MessagePartSegment[] {
@@ -165,6 +251,63 @@ export function getRenderableMessageParts(message: Pick<ChatMessage, "content" |
   return [{ type: "text", text: message.content }];
 }
 
+export function hasRenderableMessageBody(message: Pick<ChatMessage, "content" | "parts" | "isStreaming">) {
+  return getMessageBodyFallbackState({
+    isActivelyStreaming: Boolean(message.isStreaming),
+    renderableParts: getRenderableMessageParts(message),
+  }) === "content";
+}
+
+export function getLatestRenderableAssistantMessage<
+  T extends Pick<ChatMessage, "role" | "content" | "parts" | "isStreaming">,
+>(messages: T[]) {
+  let latestStreamingAssistant: T | null = null;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || message.role !== "assistant") {
+      continue;
+    }
+    if (!latestStreamingAssistant && message.isStreaming) {
+      latestStreamingAssistant = message;
+    }
+    if (hasRenderableMessageBody(message)) {
+      return message;
+    }
+  }
+
+  return latestStreamingAssistant;
+}
+
+export function isCodeDiffSummarySystemEvent(content: string): boolean {
+  const normalized = content.trimStart().toLowerCase();
+  return (
+    normalized.startsWith("modifying:")
+    || normalized.startsWith("applied file change(s):")
+    || normalized.startsWith("skipped inline diff for file(s):")
+  );
+}
+
+export function getVisibleMessageParts(parts: MessagePart[]): MessagePart[] {
+  const hasCodeDiffParts = parts.some((part) => part.type === "code_diff");
+
+  return parts.filter((part) => {
+    if (!hasVisibleMessagePartContent(part)) {
+      return false;
+    }
+
+    if (
+      hasCodeDiffParts
+      && part.type === "system_event"
+      && isCodeDiffSummarySystemEvent(part.content)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 export function getLatestUserMessageId(messages: Pick<ChatMessage, "id" | "role">[]): string | undefined {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index]?.role === "user") {
@@ -181,7 +324,7 @@ function getMessagePartScrollFingerprint(part: MessagePart): string {
     case "thinking":
       return `thinking:${part.text.length}:${part.isStreaming ? 1 : 0}`;
     case "tool_use":
-      return `tool:${part.toolName}:${part.state}:${part.input.length}:${part.output?.length ?? 0}`;
+      return `tool:${part.toolName}:${part.state}:${part.input.length}:${part.output?.length ?? 0}:${part.progressMessages?.length ?? 0}`;
     case "code_diff":
       return `diff:${part.filePath}:${part.status}:${part.oldContent.length}:${part.newContent.length}`;
     case "file_context":
@@ -194,6 +337,10 @@ function getMessagePartScrollFingerprint(part: MessagePart): string {
       return `input:${part.toolName}:${part.state}:${part.questions.length}:${Object.keys(part.answers ?? {}).length}`;
     case "system_event":
       return `system:${part.content.length}`;
+    case "orchestration_progress":
+      return `progress:${part.status}:${part.supervisorModel}:${part.subtasks.length}:${part.subtasks.map((subtask) => `${subtask.id}:${subtask.status}`).join(",")}`;
+    case "stave_processing":
+      return `stave_processing:${part.strategy}:${part.model ?? ""}:${part.supervisorModel ?? ""}:${part.fastModeRequested ? 1 : 0}:${part.fastModeApplied ? 1 : 0}`;
   }
 }
 
@@ -212,12 +359,23 @@ export function getMessageScrollFingerprint(message?: Pick<ChatMessage, "id" | "
   ].join(":");
 }
 
+export function isSubagentProgressSystemEvent(content: string): boolean {
+  return content.trimStart().startsWith("Subagent progress:");
+}
+
 export function shouldRenderInlineSystemEvent(args: { content: string }): boolean {
   const normalized = args.content.trim().toLowerCase();
   if (!normalized) {
     return false;
   }
+  if (isCodeDiffSummarySystemEvent(args.content)) {
+    return false;
+  }
   if (normalized.startsWith("[error]")) {
+    return false;
+  }
+  // Subagent progress events are rendered inside the SubagentCard, not inline.
+  if (isSubagentProgressSystemEvent(args.content)) {
     return false;
   }
   return !normalized.includes("failed");
@@ -283,6 +441,10 @@ export function shouldAutoOpenToolGroup(states: Array<ToolUsePart["state"] | und
   return states.some((state) => state !== undefined && shouldAutoOpenToolPart(state));
 }
 
+export function getReasoningTraceExpansionMode(args: { reasoningExpansionMode: "auto" | "manual" }): "auto" | "manual" {
+  return args.reasoningExpansionMode;
+}
+
 export type MessageBodyFallbackState = "content" | "streaming-placeholder" | "empty-completed";
 
 export function getMessageBodyFallbackState(args: {
@@ -291,20 +453,22 @@ export function getMessageBodyFallbackState(args: {
 }): MessageBodyFallbackState {
   const reasoningParts = args.renderableParts.filter((part) => part.type === "thinking");
   const visibleParts = args.renderableParts.filter(hasVisibleMessagePartContent);
-  const hasSystemEventParts = args.renderableParts.some((part) => part.type === "system_event");
+  const hasNonDiffSummarySystemEventParts = args.renderableParts.some((part) => (
+    part.type === "system_event" && !isCodeDiffSummarySystemEvent(part.content)
+  ));
   const hasReplayOnlyToolParts = args.renderableParts.some((part) => (
     part.type === "tool_use" && !shouldRenderInlineToolPart({ toolName: part.toolName })
   ));
 
   if (args.isActivelyStreaming && visibleParts.length === 0 && reasoningParts.length === 0) {
-    if (hasSystemEventParts || hasReplayOnlyToolParts) {
+    if (hasNonDiffSummarySystemEventParts || hasReplayOnlyToolParts) {
       return "content";
     }
     return "streaming-placeholder";
   }
 
   if (!args.isActivelyStreaming && visibleParts.length === 0 && reasoningParts.length === 0) {
-    if (hasSystemEventParts || hasReplayOnlyToolParts) {
+    if (hasNonDiffSummarySystemEventParts || hasReplayOnlyToolParts) {
       return "content";
     }
     return "empty-completed";

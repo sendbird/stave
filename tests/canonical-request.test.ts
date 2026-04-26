@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_FILE_CONTEXT_CONTENT_CHARS } from "@/lib/file-context-sanitization";
+import {
+  MAX_FILE_CONTEXT_CONTENT_CHARS,
+  MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
+} from "@/lib/file-context-sanitization";
 import {
   buildCanonicalConversationRequest,
   buildLegacyPromptFromCanonicalRequest,
@@ -27,6 +30,18 @@ const history: ChatMessage[] = [
   },
 ];
 
+const skillContext = {
+  id: "local:shared:stave-release",
+  slug: "stave-release",
+  name: "stave-release",
+  description: "Prepare a release PR.",
+  scope: "local" as const,
+  provider: "shared" as const,
+  path: "/tmp/stave-release/SKILL.md",
+  invocationToken: "$stave-release",
+  instructions: "Use this skill to create a versioned release PR for the Stave repository.",
+};
+
 describe("canonical request builder", () => {
   test("builds a provider-agnostic request snapshot from task history and current input", () => {
     const request = buildCanonicalConversationRequest({
@@ -44,7 +59,7 @@ describe("canonical request builder", () => {
         language: "ts",
         instruction: "Focus on the provider request path.",
       }],
-      nativeConversationId: "thread_123",
+      nativeSessionId: "thread_123",
     });
 
     expect(request.target).toEqual({
@@ -64,12 +79,14 @@ describe("canonical request builder", () => {
       },
     ]);
     expect(request.resume).toEqual({
-      nativeConversationId: "thread_123",
+      nativeSessionId: "thread_123",
     });
   });
 
   test("rebuilds the current legacy prompt from the canonical request history and input", () => {
     const request = buildCanonicalConversationRequest({
+      taskId: "task-1",
+      workspaceId: "workspace-1",
       providerId: "codex",
       model: "gpt-5.4",
       history,
@@ -81,10 +98,86 @@ describe("canonical request builder", () => {
       request,
     });
 
+    expect(prompt).toContain("[Stave Workspace Context]");
+    expect(prompt).toContain("workspaceId: workspace-1");
+    expect(prompt).toContain("taskId: task-1");
+    expect(prompt).toContain("workspacePlanDirectory: .stave/context/plans");
+    expect(prompt).toContain("newWorkspacePlanFiles: .stave/context/plans/<taskIdPrefix>_<timestamp>.md");
+    expect(prompt).toContain("handoffConvention: write plan files (not workspace notes) when handing off to a new workspace");
     expect(prompt).toContain("[Task Shared Context]");
     expect(prompt).toContain("assistant: 1. Check git status");
     expect(prompt).toContain("[Current User Input]");
     expect(prompt).toContain("Add a migration plan.");
+  });
+
+  test("prefers the trailing response text over accumulated assistant commentary", () => {
+    const request = buildCanonicalConversationRequest({
+      providerId: "codex",
+      model: "gpt-5.4",
+      history: [{
+        id: "assistant-commentary",
+        role: "assistant",
+        model: "gpt-5.4",
+        providerId: "codex",
+        content: "Inspecting the renderer.Final answer.",
+        parts: [
+          { type: "text", text: "Inspecting the renderer.", segmentId: "commentary-1" },
+          { type: "tool_use", toolUseId: "todo-1", toolName: "TodoWrite", input: "{\"todos\":[]}", state: "output-available" },
+          { type: "text", text: "Final answer.", segmentId: "final-1" },
+        ],
+      }],
+      userInput: "Continue.",
+      mode: "chat",
+    });
+
+    expect(request.history[0]?.content).toBe("Final answer.");
+
+    const prompt = buildLegacyPromptFromCanonicalRequest({ request });
+    expect(prompt).toContain("assistant: Final answer.");
+    expect(prompt).not.toContain("assistant: Inspecting the renderer.Final answer.");
+  });
+
+  test("prefers the last provider text segment when Codex emits commentary before the final answer", () => {
+    const request = buildCanonicalConversationRequest({
+      providerId: "codex",
+      model: "gpt-5.4",
+      history: [{
+        id: "assistant-commentary",
+        role: "assistant",
+        model: "gpt-5.4",
+        providerId: "codex",
+        content: "Inspecting the renderer.Final answer.",
+        parts: [
+          { type: "text", text: "Inspecting the renderer.", segmentId: "commentary-1" },
+          { type: "text", text: "Final answer.", segmentId: "final-1" },
+        ],
+      }],
+      userInput: "Continue.",
+      mode: "chat",
+    });
+
+    expect(request.history[0]?.content).toBe("Final answer.");
+  });
+
+  test("marks skill-only invocations explicitly instead of serializing an empty current input", () => {
+    const request = buildCanonicalConversationRequest({
+      providerId: "claude-code",
+      model: "claude-sonnet-4-6",
+      history,
+      userInput: "",
+      mode: "chat",
+      skillContexts: [skillContext],
+    });
+
+    const prompt = buildLegacyPromptFromCanonicalRequest({
+      request,
+    });
+
+    expect(prompt).toContain("[Activated Skills]");
+    expect(prompt).toContain("[Current User Input]");
+    expect(prompt).toContain("(none)");
+    expect(prompt).toContain("[Skill Invocation]");
+    expect(prompt).toContain("The user intentionally activated one or more skills without additional text.");
   });
 
   test("sanitizes oversized historical and current file context payloads", () => {
@@ -166,5 +259,37 @@ describe("canonical request builder", () => {
     }
     expect(historyPart.output).toContain("tool output truncated");
     expect(historyPart.output?.length).toBeLessThanOrEqual(MAX_FILE_CONTEXT_CONTENT_CHARS);
+  });
+
+  test("sanitizes oversized approval descriptions before serializing history", () => {
+    const oversizedApprovalDescription = "Input: ".concat("x".repeat(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS + 512));
+    const request = buildCanonicalConversationRequest({
+      providerId: "claude-code",
+      model: "claude-sonnet-4-6",
+      history: [{
+        id: "assistant-approval",
+        role: "assistant",
+        model: "claude-sonnet-4-6",
+        providerId: "claude-code",
+        content: "",
+        parts: [{
+          type: "approval",
+          toolName: "ExitPlanMode",
+          requestId: "approval-1",
+          description: oversizedApprovalDescription,
+          state: "approval-requested",
+        }],
+      }],
+      userInput: "continue",
+      mode: "chat",
+    });
+
+    const historyPart = request.history[0]?.parts[0];
+    expect(historyPart?.type).toBe("approval");
+    if (!historyPart || historyPart.type !== "approval") {
+      throw new Error("expected approval history part");
+    }
+    expect(historyPart.description).toContain("approval description truncated");
+    expect(historyPart.description.length).toBeLessThanOrEqual(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS);
   });
 });

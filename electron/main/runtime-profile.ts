@@ -12,14 +12,8 @@ export function resolvePersistenceRuntimeProfile(args: {
   isPackaged: boolean;
   override?: string | null;
 }): PersistenceRuntimeProfile {
-  const override = args.override?.trim().toLowerCase();
-  if (override === "production" || override === "prod") {
-    return "production";
-  }
-  if (override === "development" || override === "dev") {
-    return "development";
-  }
-  return args.isPackaged ? "production" : "development";
+  void args;
+  return "production";
 }
 
 export function resolveDevelopmentUserDataPath(args: { productionUserDataPath: string }) {
@@ -39,9 +33,7 @@ export function configurePersistenceUserDataPath(
     override: env.STAVE_RUNTIME_PROFILE ?? null,
   });
 
-  const selectedUserDataPath = profile === "production"
-    ? productionUserDataPath
-    : developmentUserDataPath;
+  const selectedUserDataPath = productionUserDataPath;
 
   if (selectedUserDataPath !== productionUserDataPath) {
     app.setPath("userData", selectedUserDataPath);

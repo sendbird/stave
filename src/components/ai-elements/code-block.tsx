@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { createHighlighter } from "shiki";
 import type { BundledLanguage } from "shiki";
@@ -71,7 +71,7 @@ export function CodeBlock({ code, language, showLineNumbers, className, children
   return (
     <CodeBlockContext.Provider value={{ code }}>
       <div
-        className={cn("my-2 overflow-hidden rounded-md border border-border/70 text-sm", className)}
+        className={cn("my-2 overflow-hidden rounded-md border border-border/70", className)}
         {...props}
       >
         {children}
@@ -79,6 +79,18 @@ export function CodeBlock({ code, language, showLineNumbers, className, children
       </div>
     </CodeBlockContext.Provider>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Highlight cache – survives component unmount/remount so previously
+// highlighted code blocks never flash the un-highlighted fallback.
+// ---------------------------------------------------------------------------
+
+const _highlightCache = new Map<string, string>();
+const MAX_HIGHLIGHT_CACHE_SIZE = 500;
+
+function getHighlightCacheKey(code: string, language: string) {
+  return `${language}\0${code}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,23 +103,38 @@ interface CodeBlockContentProps {
   showLineNumbers?: boolean;
 }
 
-export function CodeBlockContent({ code, language }: CodeBlockContentProps) {
-  const [html, setHtml] = useState<string | null>(null);
+export const CodeBlockContent = memo(function CodeBlockContent({ code, language }: CodeBlockContentProps) {
+  const resolvedLang = language ?? "bash";
+  const cacheKey = getHighlightCacheKey(code, resolvedLang);
+  const cached = _highlightCache.get(cacheKey);
+  const [html, setHtml] = useState<string | null>(cached ?? null);
   const messageCodeFontSize = useAppStore((state) => state.settings.messageCodeFontSize);
-  const codeSizeClass = messageCodeFontSize === "xl"
-    ? "text-xl"
-    : messageCodeFontSize === "lg"
-      ? "text-lg"
-      : "text-base";
 
   useEffect(() => {
+    // Already cached – apply immediately and skip the async path.
+    const existing = _highlightCache.get(cacheKey);
+    if (existing) {
+      setHtml(existing);
+      return;
+    }
+
     let cancelled = false;
     getHighlighter().then((hl) => {
       if (cancelled) return;
       try {
-        const lang = (language ?? "bash") as BundledLanguage;
+        const lang = resolvedLang as BundledLanguage;
         const result = hl.codeToHtml(code, { lang, theme: "github-dark" });
-        if (!cancelled) setHtml(result);
+        if (!cancelled) {
+          // Evict oldest entry when cache is full.
+          if (_highlightCache.size >= MAX_HIGHLIGHT_CACHE_SIZE) {
+            const firstKey = _highlightCache.keys().next().value;
+            if (firstKey !== undefined) {
+              _highlightCache.delete(firstKey);
+            }
+          }
+          _highlightCache.set(cacheKey, result);
+          setHtml(result);
+        }
       } catch {
         if (!cancelled) setHtml(null);
       }
@@ -115,15 +142,13 @@ export function CodeBlockContent({ code, language }: CodeBlockContentProps) {
     return () => {
       cancelled = true;
     };
-  }, [code, language]);
+  }, [code, resolvedLang, cacheKey]);
 
   if (html) {
     return (
       <div
-        className={cn(
-          "overflow-x-auto font-mono [&>pre]:m-0 [&>pre]:overflow-visible [&>pre]:px-4 [&>pre]:py-3",
-          codeSizeClass,
-        )}
+        className="font-mono [&>pre]:m-0 [&>pre]:overflow-x-auto [&>pre]:px-4 [&>pre]:py-3"
+        style={{ fontSize: `${messageCodeFontSize}px` }}
         // Shiki output is sanitised — no user content reaches dangerouslySetInnerHTML
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: html }}
@@ -133,11 +158,14 @@ export function CodeBlockContent({ code, language }: CodeBlockContentProps) {
 
   // Fallback: plain text while highlighter loads
   return (
-    <pre className={cn("overflow-x-auto bg-editor px-4 py-3 font-mono text-editor-foreground", codeSizeClass)}>
+    <pre
+      className="overflow-x-auto bg-editor px-4 py-3 font-mono text-editor-foreground"
+      style={{ fontSize: `${messageCodeFontSize}px` }}
+    >
       <code>{code}</code>
     </pre>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Header sub-components
@@ -156,11 +184,11 @@ export function CodeBlockHeader({ className, ...props }: HTMLAttributes<HTMLDivE
 }
 
 export function CodeBlockTitle({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)} {...props} />;
+  return <div className={cn("flex items-center gap-2 text-[0.875em] text-muted-foreground", className)} {...props} />;
 }
 
 export function CodeBlockFilename({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return <span className={cn("font-mono text-sm", className)} {...props} />;
+  return <span className={cn("font-mono text-[0.875em]", className)} {...props} />;
 }
 
 export function CodeBlockActions({ className, ...props }: HTMLAttributes<HTMLDivElement>) {

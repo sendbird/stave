@@ -1,18 +1,14 @@
 <!-- Claude Code project instructions -->
 
-See [AGENTS.md](./AGENTS.md) for the authoritative project policy.
+See [AGENTS.md](./AGENTS.md) for the authoritative repository policy.
 
-## Claude-specific guidance
+## Practical Notes
 
-- `app.store.ts` is ~2 100 lines. Read targeted sections with offset/limit instead of loading the whole file.
-- When modifying provider runtimes, always check **both** `claude-sdk-runtime.ts` and `codex-sdk-runtime.ts` for symmetry.
-- Run `bun test` after code changes to verify nothing is broken.
-- Prefer the `Agent` tool with `subagent_type: "Explore"` for open-ended codebase searches rather than manual glob/grep chains.
-
-## Release and Push Requests
-
-- Repository-local copy: `skills/stave-patch-release/SKILL.md`
-- Treat `$stave-patch-release` as the Stave release workflow trigger.
-- Use `$stave-patch-release` only when the user explicitly asks to release, ship, publish, version, tag, generate release notes, or repair an already-created release.
-- If the user only asks to commit, push, or commit and push current work, use a normal git commit/push flow instead.
-- For ordinary commit/push requests, do not bump `package.json`, do not touch `CHANGELOG.md`, and do not create or move semver release tags unless the user explicitly asks for release work.
+- Read targeted sections of [`src/store/app.store.ts`](src/store/app.store.ts) instead of loading the whole file at once.
+- When changing provider runtimes, review both [`electron/providers/claude-sdk-runtime.ts`](electron/providers/claude-sdk-runtime.ts) and [`electron/providers/codex-sdk-runtime.ts`](electron/providers/codex-sdk-runtime.ts) for symmetry unless the change is intentionally provider-specific.
+- Use Bun commands and `bunx --bun`.
+- After code changes, run `bun run typecheck` plus the smallest relevant focused tests before finishing.
+- For UI work, follow the theme guardrails in [AGENTS.md](./AGENTS.md).
+- For provider, IPC, terminal, or hot Zustand surface changes, follow the corresponding guardrails in [AGENTS.md](./AGENTS.md).
+- For explicit PR requests, use `skills/stave-worktree-pr-flow/SKILL.md` when available.
+- For explicit release requests, use `skills/stave-release/SKILL.md` when available.

@@ -93,6 +93,7 @@ describe("parseNormalizedEvent", () => {
       payload: {
         type: "plan_ready",
         planText: "Ship it.",
+        sourceSegmentId: "plan-segment-1",
       },
     });
 
@@ -118,14 +119,30 @@ describe("parseNormalizedEvent", () => {
   test("accepts valid provider conversation event", () => {
     const parsed = parseNormalizedEvent({
       payload: {
-        type: "provider_conversation",
+        type: "provider_session",
         providerId: "claude-code",
-        nativeConversationId: "session-123",
+        nativeSessionId: "session-123",
       },
     });
 
     expect(parsed).not.toBeNull();
-    expect(parsed?.type).toBe("provider_conversation");
+    expect(parsed?.type).toBe("provider_session");
+  });
+
+  test("accepts stave provider conversation metadata", () => {
+    const parsed = parseNormalizedEvent({
+      payload: {
+        type: "provider_session",
+        providerId: "stave",
+        nativeSessionId: "session-stave-123",
+      },
+    });
+
+    expect(parsed).toEqual({
+      type: "provider_session",
+      providerId: "stave",
+      nativeSessionId: "session-stave-123",
+    });
   });
 
   test("accepts valid prompt suggestions event", () => {

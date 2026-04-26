@@ -6,11 +6,12 @@ import { useAppStore } from "@/store/app.store";
 
 interface ModelIconProps {
   providerId: ProviderId;
+  model?: string;
   className?: string;
 }
 
 export function ModelIcon(args: ModelIconProps) {
-  const { providerId, className } = args;
+  const { providerId, model, className } = args;
   const [failed, setFailed] = useState(false);
   const isDarkMode = useAppStore((state) => state.isDarkMode);
 
@@ -30,7 +31,7 @@ export function ModelIcon(args: ModelIconProps) {
 
   return (
     <img
-      src={getProviderIconUrl({ providerId, isDarkMode })}
+      src={getProviderIconUrl({ providerId, model, isDarkMode })}
       alt=""
       aria-hidden
       className={cn("size-4 shrink-0 object-contain", className)}

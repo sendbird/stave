@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { getArchiveFallbackTaskId, getTaskCounts, getVisibleTasks, isTaskArchived, reorderTasksWithinFilter } from "../src/lib/tasks";
-import type { Task } from "../src/types/chat";
+import {
+  findWorkspaceTaskOrThrow,
+  getArchiveFallbackTaskId,
+  getRespondingTasks,
+  getRespondingProviderId,
+  getTaskCounts,
+  getVisibleTasks,
+  isTaskArchived,
+  normalizeSuggestedTaskTitle,
+  reorderTasksWithinFilter,
+} from "../src/lib/tasks";
+import type { ChatMessage, Task } from "../src/types/chat";
 
 const tasks: Task[] = [
   {
@@ -30,6 +40,48 @@ const tasks: Task[] = [
 ];
 
 describe("task utils", () => {
+  test("uses the streaming assistant's resolved provider for responding tone", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "m1",
+        role: "assistant",
+        model: "gpt-5.4",
+        providerId: "stave",
+        content: "",
+        isStreaming: true,
+        parts: [],
+      },
+    ];
+
+    expect(getRespondingProviderId({ fallbackProviderId: "stave", messages })).toBe("codex");
+  });
+
+  test("ignores archived tasks when listing responding tasks", () => {
+    expect(getRespondingTasks({
+      tasks,
+      activeTurnIdsByTask: {
+        "task-active-1": "turn-1",
+        "task-archived-1": "turn-2",
+      },
+    }).map((task) => task.id)).toEqual(["task-active-1"]);
+  });
+
+  test("falls back to the last assistant provider when a turn has no streaming marker", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "m1",
+        role: "assistant",
+        model: "claude-sonnet-4-6",
+        providerId: "claude-code",
+        content: "Done",
+        isStreaming: false,
+        parts: [],
+      },
+    ];
+
+    expect(getRespondingProviderId({ fallbackProviderId: "stave", messages })).toBe("claude-code");
+  });
+
   test("filters archived and active task views", () => {
     expect(getVisibleTasks({ tasks, filter: "active" }).map((task) => task.id)).toEqual(["task-active-1", "task-active-2"]);
     expect(getVisibleTasks({ tasks, filter: "archived" }).map((task) => task.id)).toEqual(["task-archived-1"]);
@@ -74,5 +126,26 @@ describe("task utils", () => {
   test("detects archived tasks", () => {
     expect(isTaskArchived(tasks[0]!)).toBe(false);
     expect(isTaskArchived(tasks[1]!)).toBe(true);
+  });
+
+  test("throws when a requested task id does not exist in the workspace", () => {
+    expect(() => findWorkspaceTaskOrThrow({
+      tasks,
+      requestedTaskId: "task-missing",
+    })).toThrow("Task not found in this workspace: task-missing");
+  });
+
+  test("returns null when no requested task id is provided", () => {
+    expect(findWorkspaceTaskOrThrow({ tasks, requestedTaskId: "" })).toBeNull();
+  });
+
+  test("normalizes concise suggested task titles", () => {
+    expect(normalizeSuggestedTaskTitle({ title: "  \"Fix IPC Task Naming\"  " })).toBe("Fix IPC Task Naming");
+  });
+
+  test("rejects verbose context-apology suggestions", () => {
+    expect(normalizeSuggestedTaskTitle({
+      title: "I don't have enough context to generate an accurate task title. The message \"3번만 해줘\" appears to be the latest message in a conversation.",
+    })).toBeNull();
   });
 });

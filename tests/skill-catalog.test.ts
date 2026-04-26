@@ -9,6 +9,7 @@ import {
 } from "@/lib/providers/provider-request-translators";
 import {
   getActiveSkillTokenMatch,
+  getCompatibleSkillEntries,
   replaceSkillToken,
   resolveSkillSelections,
 } from "@/lib/skills/catalog";
@@ -47,12 +48,14 @@ describe("skill discovery", () => {
   const originalHome = process.env.HOME;
   const originalClaudeHome = process.env.CLAUDE_HOME;
   const originalCodexHome = process.env.CODEX_HOME;
+  const originalSharedSkillsHome = process.env.STAVE_SHARED_SKILLS_HOME;
 
   beforeEach(async () => {
     tempHome = await mkdtemp(path.join(os.tmpdir(), "stave-skills-"));
     process.env.HOME = tempHome;
     delete process.env.CLAUDE_HOME;
     delete process.env.CODEX_HOME;
+    delete process.env.STAVE_SHARED_SKILLS_HOME;
   });
 
   afterEach(async () => {
@@ -71,13 +74,18 @@ describe("skill discovery", () => {
     } else {
       process.env.CODEX_HOME = originalCodexHome;
     }
+    if (originalSharedSkillsHome === undefined) {
+      delete process.env.STAVE_SHARED_SKILLS_HOME;
+    } else {
+      process.env.STAVE_SHARED_SKILLS_HOME = originalSharedSkillsHome;
+    }
     if (tempHome) {
       await rm(tempHome, { recursive: true, force: true });
     }
   });
 
   test("discovers user and local roots from provider home overrides", async () => {
-    const agentsRoot = path.join(tempHome, ".agents");
+    const agentsRoot = path.join(tempHome, "shared-agent-home");
     const claudeHomeReal = path.join(agentsRoot, "claude");
     const codexHomeReal = path.join(agentsRoot, "codex");
     const claudeHome = path.join(tempHome, ".claude-link");
@@ -113,6 +121,99 @@ describe("skill discovery", () => {
       && root.provider === "codex"
       && root.path === path.join(workspacePath, ".codex", "skills")
     )).toBeTrue();
+  });
+
+  test("scans the shared skills root directory directly without appending /skills", async () => {
+    const sharedRoot = path.join(tempHome, "my-shared-skills");
+    await writeSkill(sharedRoot, "direct-skill", "skill placed directly in shared root");
+
+    const result = await discoverSkillCatalog({ sharedSkillsHome: sharedRoot });
+
+    expect(result.ok).toBeTrue();
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain("direct-skill");
+    expect(result.catalog.roots.some((root) =>
+      root.provider === "shared"
+      && root.path === sharedRoot
+      && root.detail === "Shared skills root configured in Settings."
+    )).toBeTrue();
+  });
+
+  test("prefers the Settings shared root override over the environment root", async () => {
+    const sharedRootFromEnv = path.join(tempHome, "env-shared-root");
+    const sharedRootFromSettings = path.join(tempHome, "settings-shared-root");
+
+    process.env.STAVE_SHARED_SKILLS_HOME = sharedRootFromEnv;
+    await writeSkill(sharedRootFromEnv, "env-shared", "env shared skill");
+    await writeSkill(sharedRootFromSettings, "settings-shared", "settings shared skill");
+
+    const result = await discoverSkillCatalog({
+      sharedSkillsHome: sharedRootFromSettings,
+    });
+
+    expect(result.ok).toBeTrue();
+    expect(result.catalog.sharedSkillsHome).toBe(sharedRootFromSettings);
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain("settings-shared");
+    expect(result.catalog.skills.map((skill) => skill.slug)).not.toContain("env-shared");
+    expect(result.catalog.roots.some((root) =>
+      root.provider === "shared"
+      && root.path === sharedRootFromSettings
+      && root.detail === "Shared skills root configured in Settings."
+    )).toBeTrue();
+  });
+});
+
+describe("stave auto skill compatibility", () => {
+  const allSkills: SkillCatalogEntry[] = [
+    createCatalogSkill({ id: "local:claude:commit", slug: "commit", scope: "local", provider: "claude-code" }),
+    createCatalogSkill({ id: "local:codex:generate", slug: "generate", scope: "local", provider: "codex" }),
+    createCatalogSkill({ id: "local:shared:review", slug: "review", scope: "local", provider: "shared" }),
+    createCatalogSkill({ id: "local:stave:release", slug: "release", scope: "local", provider: "stave" }),
+  ];
+
+  test("stave provider sees ALL skills regardless of declared provider", () => {
+    const compatible = getCompatibleSkillEntries({ skills: allSkills, providerId: "stave" });
+    expect(compatible.map((s) => s.slug).sort()).toEqual(["commit", "generate", "release", "review"]);
+  });
+
+  test("claude-code provider only sees claude-code and shared skills", () => {
+    const compatible = getCompatibleSkillEntries({ skills: allSkills, providerId: "claude-code" });
+    const slugs = compatible.map((s) => s.slug).sort();
+    expect(slugs).toEqual(["commit", "review"]);
+  });
+
+  test("codex provider only sees codex and shared skills", () => {
+    const compatible = getCompatibleSkillEntries({ skills: allSkills, providerId: "codex" });
+    const slugs = compatible.map((s) => s.slug).sort();
+    expect(slugs).toEqual(["generate", "review"]);
+  });
+
+  test("stave can resolve skill tokens from any provider", () => {
+    const resolved = resolveSkillSelections({
+      text: "$commit $generate do it",
+      skills: allSkills,
+      providerId: "stave",
+    });
+    expect(resolved.selectedSkills.map((s) => s.slug)).toEqual(["commit", "generate"]);
+    expect(resolved.normalizedText).toBe("do it");
+  });
+
+  test("stave resolves skill tokens that claude-code or codex would not see", () => {
+    // codex skill should NOT resolve in claude-code mode
+    const claudeResolved = resolveSkillSelections({
+      text: "$generate",
+      skills: allSkills,
+      providerId: "claude-code",
+    });
+    expect(claudeResolved.selectedSkills).toHaveLength(0);
+
+    // but SHOULD resolve in stave mode
+    const staveResolved = resolveSkillSelections({
+      text: "$generate",
+      skills: allSkills,
+      providerId: "stave",
+    });
+    expect(staveResolved.selectedSkills).toHaveLength(1);
+    expect(staveResolved.selectedSkills[0]?.slug).toBe("generate");
   });
 });
 
@@ -165,7 +266,7 @@ describe("provider skill prompt serialization", () => {
     instructions: "Review the code for regressions and missing tests.",
   };
 
-  test("prefixes Claude prompts with native slash skill commands", () => {
+  test("includes full skill instructions in Claude prompts instead of native slash commands", () => {
     const conversation = buildCanonicalConversationRequest({
       providerId: "claude-code",
       history: [],
@@ -178,8 +279,12 @@ describe("provider skill prompt serialization", () => {
       fallbackPrompt: "Inspect the patch.",
     });
 
-    expect(prompt.startsWith("/reviewer")).toBeTrue();
-    expect(prompt.includes("[Selected Skills]")).toBeFalse();
+    // Skill instructions must be embedded in the prompt body so Claude Code
+    // can execute them directly — Stave skills are not in Claude's native
+    // skill registry, so /token prefixes caused "skill not found" errors.
+    expect(prompt.includes("[Activated Skills]")).toBeTrue();
+    expect(prompt.includes("Review the code for regressions and missing tests.")).toBeTrue();
+    expect(prompt.startsWith("/reviewer")).toBeFalse();
   });
 
   test("injects selected skill instructions into Codex prompts", () => {
@@ -195,7 +300,7 @@ describe("provider skill prompt serialization", () => {
       fallbackPrompt: "Inspect the patch.",
     });
 
-    expect(prompt.includes("[Selected Skills]")).toBeTrue();
+    expect(prompt.includes("[Activated Skills]")).toBeTrue();
     expect(prompt.includes("Review the code for regressions and missing tests.")).toBeTrue();
   });
 });

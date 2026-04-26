@@ -28,6 +28,11 @@ function isSkillCompatible(args: {
   providerId: ProviderId;
   skillProvider: SkillCatalogProvider;
 }) {
+  // Stave Auto is a meta-provider that can route to any executor —
+  // all skills are compatible regardless of their declared provider.
+  if (args.providerId === "stave") {
+    return true;
+  }
   return args.skillProvider === "shared" || args.skillProvider === args.providerId;
 }
 

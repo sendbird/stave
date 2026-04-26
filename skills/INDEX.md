@@ -1,0 +1,13 @@
+# Skills Index
+
+| Name | Category | Compatible Tools | Trigger Summary |
+| --- | --- | --- | --- |
+| `the-explore-codebase` | `navigation` | `claude`, `codex` | Explore an unfamiliar area of the Stave codebase quickly; use for architecture overviews, relevant-file discovery, entrypoints, and broad code search before implementation. |
+| `the-high-signal-review` | `review` | `claude`, `codex` | Review the current workspace diff or PR with a strict false-positive filter; use for high-signal code review, inline comments only for real issues, and policy-aware PR review. |
+| `the-trace-execution-path` | `navigation` | `claude`, `codex` | Trace a behavior through producer, bridge, contract, and consumer boundaries; use for execution paths, call flows, and "where does this happen" questions. |
+| `the-ipc-contract-audit` | `safety` | `claude`, `codex` | Audit multi-file Stave contracts when IPC payloads, provider events, runtime options, `window.api`, or schemas are involved. Covers strict Zod validation in `electron/main/ipc/schemas.ts` and `src/lib/providers/schemas.ts`, plus the host-service `respond()` await pitfall. |
+| `the-provider-runtime-symmetry` | `safety` | `claude`, `codex` | Keep `claude-sdk-runtime.ts` and `codex-sdk-runtime.ts` (and their shared env/executable/tooling-status helpers) in sync when editing one adapter. Enforces sibling-adapter parity, shared env-builder rules, and probe-vs-runtime verification. |
+| `stave-design-system` | `design` | `claude`, `codex` | Apply Stave's desktop-first design system for UI and UX work; preserve the existing token architecture, keep glass effects restrained, and favor dense, readable product surfaces over generic redesigns. |
+| `stave-release` | `release` | `claude`, `codex` | Stave release workflow: confirm whether the release is patch or minor, bump the selected version component, review actual PR changes and PR description `Changes` sections or git diff for the release scope, refresh `CHANGELOG.md`, create a dedicated release branch or worktree, and open a versioned PR against `main` without leaving the original checkout on the release branch. |
+| `stave-worktree-pr-flow` | `workflow` | `claude`, `codex` | Ship current work as a PR in one pass: reuse the current workspace-linked worktree when already in one, otherwise create a temporary worktree, commit with Conventional Commits, push, create PR, then clean up the temporary worktree. |
+| `lens-inspect` | `inspection` | `claude`, `codex` | Inspect a running web app with the Lens built-in browser: navigate, screenshot, read DOM, check console/network, pick elements to locate source code, compare rendered output to designs. |

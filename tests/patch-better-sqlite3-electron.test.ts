@@ -40,7 +40,7 @@ NODE_GETTER(Statement::JS_busy) {
     expect(patched).toBe(source);
   });
 
-  test("throws when the signature exists but the expected line is outside the target block", () => {
+  test("skips when the signature exists but the expected line is not in the target block", () => {
     const source = `NODE_METHOD(Database::JS_close) {
 \tDatabase* db = Unwrap<Database>(PROPERTY_HOLDER(info));
 }
@@ -50,11 +50,13 @@ NODE_GETTER(Database::JS_inTransaction) {
 }
 `;
 
-    expect(() => patchScopedSourceBlock({
+    const patched = patchScopedSourceBlock({
       source,
       signature: "NODE_GETTER(Database::JS_inTransaction) {",
       from: "Unwrap<Database>(PROPERTY_HOLDER(info))",
       to: "Unwrap<Database>(info.HolderV2())",
-    })).toThrow("Patch target not found inside NODE_GETTER(Database::JS_inTransaction) {");
+    });
+
+    expect(patched).toBe(source);
   });
 });

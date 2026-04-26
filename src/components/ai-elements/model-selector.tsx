@@ -1,42 +1,77 @@
-import { Check, ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getProviderLabel, listProviderIds } from "@/lib/providers/model-catalog";
-import type { ProviderId } from "@/lib/providers/provider.types";
-import { Input } from "@/components/ui";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  getProviderLabel,
+  listProviderIds,
+} from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
 import { ModelIcon } from "./model-icon";
+import {
+  shouldOpenModelSelector,
+  type ModelSelectorOption,
+} from "./model-selector.utils";
 
-export interface ModelSelectorOption {
-  key: string;
-  providerId: ProviderId;
-  model: string;
-  label: string;
-  available: boolean;
-}
+export {
+  buildModelSelectorOptions,
+  buildModelSelectorValue,
+  buildRecommendedModelSelectorOptions,
+  type ModelSelectorOption,
+} from "./model-selector.utils";
 
 interface ModelSelectorProps {
   value: ModelSelectorOption;
   options: readonly ModelSelectorOption[];
+  recommendedOptions?: readonly ModelSelectorOption[];
   disabled?: boolean;
+  className?: string;
+  triggerClassName?: string;
+  menuClassName?: string;
+  openToken?: string | number;
   onSelect: (args: { selection: ModelSelectorOption }) => void;
 }
 
 export function ModelSelector(args: ModelSelectorProps) {
-  const { value, options, disabled, onSelect } = args;
+  const {
+    value,
+    options,
+    recommendedOptions = [],
+    disabled,
+    className,
+    triggerClassName,
+    menuClassName,
+    openToken,
+    onSelect,
+  } = args;
   const [open, setOpen] = useState(false);
-  const [filterText, setFilterText] = useState("");
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const handledOpenTokenRef = useRef<string | number | undefined>(undefined);
+  const recommendedOptionKeys = useMemo(
+    () => new Set(recommendedOptions.map((option) => option.key)),
+    [recommendedOptions],
+  );
 
-  const visibleOptions = useMemo(() => {
-    const normalized = filterText.trim().toLowerCase();
-    if (!normalized) {
-      return options;
-    }
-    return options.filter((item) => item.label.toLowerCase().includes(normalized) || item.model.toLowerCase().includes(normalized));
-  }, [filterText, options]);
   const groupedOptions = useMemo(() => {
     const groups: Record<string, ModelSelectorOption[]> = {};
-    for (const option of visibleOptions) {
+    for (const option of options) {
+      if (recommendedOptionKeys.has(option.key)) {
+        continue;
+      }
       const bucket = groups[option.providerId] ?? [];
       bucket.push(option);
       groups[option.providerId] = bucket;
@@ -44,82 +79,126 @@ export function ModelSelector(args: ModelSelectorProps) {
     return listProviderIds()
       .map((providerId) => [providerId, groups[providerId] ?? []] as const)
       .filter(([, providerOptions]) => providerOptions.length > 0);
-  }, [visibleOptions]);
+  }, [options, recommendedOptionKeys]);
+
+  const renderOption = (option: ModelSelectorOption) => (
+    <CommandItem
+      key={option.key}
+      value={`${option.label} ${option.model} ${getProviderLabel({ providerId: option.providerId, variant: "full" })}${option.description ? ` ${option.description}` : ""}`}
+      disabled={!option.available}
+      data-checked={option.key === value.key ? "true" : undefined}
+      onSelect={() => {
+        onSelect({ selection: option });
+        setOpen(false);
+      }}
+      className="gap-3 rounded-lg px-3 py-2.5"
+    >
+      <ModelIcon
+        providerId={option.providerId}
+        model={option.model}
+        className="size-4"
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-center gap-1.5 truncate">
+          <span className="font-medium">{option.label}</span>
+          {option.isDefault ? (
+            <span className="shrink-0 rounded bg-primary/10 px-1 py-px text-[10px] font-medium leading-tight text-primary">
+              default
+            </span>
+          ) : null}
+        </span>
+        <span className="truncate text-xs text-muted-foreground">
+          {option.description || option.model}
+        </span>
+      </div>
+    </CommandItem>
+  );
 
   useEffect(() => {
-    if (!open) {
+    if (
+      !shouldOpenModelSelector({
+        openToken,
+        disabled,
+        lastHandledOpenToken: handledOpenTokenRef.current,
+      })
+    ) {
       return;
     }
-    const onPointerDown = (event: MouseEvent) => {
-      if (rootRef.current?.contains(event.target as Node)) {
-        return;
-      }
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
+    handledOpenTokenRef.current = openToken;
+    setOpen(true);
+  }, [disabled, openToken]);
 
   return (
-    <div className="relative" ref={rootRef}>
-      <button
-        type="button"
+    <Dialog open={open} onOpenChange={setOpen}>
+      <div className={cn("relative", className)}>
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "inline-flex h-9 max-w-[240px] items-center justify-between gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+              open
+                ? "bg-muted/70 focus-visible:border-primary/50"
+                : "focus-visible:border-border/60",
+              triggerClassName,
+            )}
+            disabled={disabled}
+            title="Open model selector (Alt+P). Use Alt+1..0 for mapped models."
+          >
+            <span className="flex min-w-0 items-center gap-1.5">
+              <ModelIcon
+                providerId={value.providerId}
+                model={value.model}
+                className="size-3.5"
+              />
+              <span className="truncate">{value.label}</span>
+            </span>
+            <ChevronDown className="size-3.5 text-muted-foreground" />
+          </button>
+        </DialogTrigger>
+      </div>
+      <DialogContent
         className={cn(
-          "inline-flex h-9 max-w-[240px] items-center gap-1.5 rounded-md border border-border/70 bg-secondary px-3 text-sm text-foreground transition-colors hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-60",
-          open && "border-primary/60 bg-secondary/90",
+          "overflow-hidden rounded-xl p-0 sm:max-w-lg",
+          menuClassName,
         )}
-        onClick={() => setOpen((prev) => !prev)}
-        disabled={disabled}
+        showCloseButton={false}
       >
-        <ModelIcon providerId={value.providerId} className="size-3.5" />
-        <span className="truncate">{value.label}</span>
-        <ChevronDown className="size-3.5 text-muted-foreground" />
-      </button>
-      {open ? (
-        <div className="absolute bottom-[calc(100%+0.375rem)] left-0 z-40 w-[20rem] rounded-sm border border-border/90 bg-card p-2 shadow-xl">
-          <label className="relative mb-2 block">
-            <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={filterText}
-              onChange={(event) => setFilterText(event.target.value)}
-              placeholder="Search model"
-              className="h-8 rounded-sm border-border/80 bg-background pl-7 pr-2 text-sm"
-            />
-          </label>
-          <div className="max-h-56 space-y-1 overflow-auto">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Select model</DialogTitle>
+          <DialogDescription>
+            Search and select the model for this composer.
+          </DialogDescription>
+        </DialogHeader>
+        <Command className="rounded-none bg-transparent p-0">
+          <CommandInput autoFocus placeholder="Search model" />
+          <CommandList className="max-h-[22rem] px-1 pb-1">
+            <CommandEmpty>No models found.</CommandEmpty>
+            {recommendedOptions.length > 0 ? (
+              <CommandGroup
+                heading={
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="size-3.5" />
+                    <span>Recommended</span>
+                  </span>
+                }
+              >
+                {recommendedOptions.map(renderOption)}
+              </CommandGroup>
+            ) : null}
+            {recommendedOptions.length > 0 && groupedOptions.length > 0 ? (
+              <CommandSeparator />
+            ) : null}
             {groupedOptions.map(([providerId, providerOptions]) => (
-              <div key={providerId} className="space-y-1">
-                <p className="cmdk-group-heading px-2 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {getProviderLabel({ providerId, variant: "full" })}
-                </p>
-                {providerOptions.map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    disabled={!option.available}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary/70",
-                      option.key === value.key && "bg-secondary/80",
-                      !option.available && "cursor-not-allowed opacity-50",
-                    )}
-                    onClick={() => {
-                      onSelect({ selection: option });
-                      setOpen(false);
-                    }}
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <ModelIcon providerId={option.providerId} className="size-3.5" />
-                      <span className="truncate">{option.label}</span>
-                    </span>
-                    {option.key === value.key ? <Check className="size-3.5 text-primary" /> : null}
-                  </button>
-                ))}
-              </div>
+              <CommandGroup
+                key={providerId}
+                heading={getProviderLabel({ providerId, variant: "full" })}
+              >
+                {providerOptions.map(renderOption)}
+              </CommandGroup>
             ))}
-            {visibleOptions.length === 0 ? <p className="px-2 py-1.5 text-sm text-muted-foreground">No models found.</p> : null}
-          </div>
-        </div>
-      ) : null}
-    </div>
+          </CommandList>
+        </Command>
+      </DialogContent>
+    </Dialog>
   );
 }

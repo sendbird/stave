@@ -29,4 +29,31 @@ describe("createTurnDiffTracker", () => {
       await rm(cwd, { recursive: true, force: true });
     }
   });
+
+  test("returns replay-only tool fallback events when inline diffs cannot be built", async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), "stave-diff-tracker-"));
+
+    try {
+      const tracker = await createTurnDiffTracker({ cwd });
+      const fallbackEvents = tracker.buildFallbackEvents({
+        appliedPaths: ["dist/output.js"],
+        skippedPaths: ["large.bin"],
+      });
+
+      expect(fallbackEvents).toEqual([
+        {
+          type: "tool",
+          toolName: "file_change",
+          input: JSON.stringify({
+            appliedPaths: ["dist/output.js"],
+            skippedPaths: ["large.bin"],
+          }),
+          output: "Applied file change(s): dist/output.js\nSkipped inline diff for file(s): large.bin",
+          state: "output-available",
+        },
+      ]);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
 });

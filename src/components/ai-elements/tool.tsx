@@ -1,6 +1,7 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ChevronDown, CircleAlert, CircleCheck, LoaderCircle, Wrench } from "lucide-react";
+import { LinkifiedText } from "@/components/ui/linkified-text";
 import { cn } from "@/lib/utils";
 
 interface ToolProps extends HTMLAttributes<HTMLDivElement> {
@@ -139,7 +140,7 @@ export function ToolHeader({ className, type, state, title, elapsedSeconds, ...p
   return (
     <button
       type="button"
-      className={cn("flex w-full items-center justify-between px-3 py-2 text-sm font-semibold", open && "border-b", className)}
+      className={cn("flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold", open && "border-b", className)}
       onClick={() => setOpen(!open)}
       {...props}
     >
@@ -148,7 +149,7 @@ export function ToolHeader({ className, type, state, title, elapsedSeconds, ...p
         {displayToolName({ type, title })}
       </span>
       <span className="inline-flex items-center gap-2">
-        <span className={cn("text-xs font-medium", getToolStatusTextClassName(state))}>
+        <span className={cn("text-[0.75em] font-medium", getToolStatusTextClassName(state))}>
           {getToolStatusText(state, elapsedSeconds)}
         </span>
         {getStatusBadge(state)}
@@ -170,20 +171,53 @@ export function ToolInput(args: { input: unknown; className?: string }) {
   const content = typeof args.input === "string" ? args.input : JSON.stringify(args.input, null, 2);
   return (
     <div className={cn("rounded-sm border border-border/70 bg-muted/20 p-2", args.className)}>
-      <p className="mb-1 text-sm uppercase text-muted-foreground">Input</p>
-      <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm text-muted-foreground">{content}</pre>
+      <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">Input</p>
+      <LinkifiedText
+        as="pre"
+        text={content}
+        className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-muted-foreground"
+      />
     </div>
   );
 }
 
-export function ToolOutput(args: { output?: ReactNode; errorText?: string; className?: string; label?: string }) {
+export function ToolOutput(args: {
+  output?: ReactNode;
+  outputText?: string;
+  errorText?: string;
+  className?: string;
+  label?: string;
+  linkifyOutputText?: boolean;
+}) {
   return (
     <div className={cn("rounded-sm border border-border/70 bg-background/40 p-2", args.className)}>
-      <p className="mb-1 text-sm uppercase text-muted-foreground">{args.label ?? "Output"}</p>
+      <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">{args.label ?? "Output"}</p>
       {args.errorText ? (
-        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm text-destructive">{args.errorText}</p>
+        <LinkifiedText
+          as="p"
+          text={args.errorText}
+          className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-destructive"
+        />
       ) : (
-        <div className="text-sm">{args.output ?? <span className="text-muted-foreground">No output.</span>}</div>
+        <div>
+          {args.output ?? (
+            typeof args.outputText === "string" && args.outputText !== "" ? (
+              args.linkifyOutputText === false ? (
+                <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[0.875em]">
+                  {args.outputText}
+                </pre>
+              ) : (
+                <LinkifiedText
+                  as="pre"
+                  text={args.outputText}
+                  className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[0.875em]"
+                />
+              )
+            ) : (
+              <span className="text-muted-foreground">No output.</span>
+            )
+          )}
+        </div>
       )}
     </div>
   );
@@ -220,7 +254,7 @@ export function ToolGroup(args: {
     <div className="rounded-md border bg-card">
       <button
         type="button"
-        className={cn("flex w-full items-center justify-between px-3 py-2 text-sm font-semibold", open && "border-b")}
+        className={cn("flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold", open && "border-b")}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="inline-flex items-center gap-1.5">
@@ -228,7 +262,7 @@ export function ToolGroup(args: {
           Tools
         </span>
         <span className="inline-flex items-center gap-2">
-          <span className={cn("text-xs font-medium", getToolStatusTextClassName(overallState))}>
+          <span className={cn("text-[0.75em] font-medium", getToolStatusTextClassName(overallState))}>
             {getToolStatusText(overallState)}
           </span>
           {getStatusBadge(overallState)}

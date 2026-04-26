@@ -36,4 +36,21 @@ describe("JsonRpcMessageBuffer", () => {
       { jsonrpc: "2.0", id: 2, result: "b" },
     ]);
   });
+
+  test("throws when the buffered transport stream exceeds the byte cap", () => {
+    const buffer = new JsonRpcMessageBuffer();
+
+    expect(() => buffer.append("x".repeat(2 * 1024 * 1024 + 1))).toThrow(
+      "LSP JSON-RPC buffer exceeded 2097152 bytes",
+    );
+  });
+
+  test("throws when a declared message body exceeds the byte cap", () => {
+    const buffer = new JsonRpcMessageBuffer();
+    const tooLarge = 1 * 1024 * 1024 + 1;
+
+    expect(() =>
+      buffer.append(`Content-Length: ${tooLarge}\r\n\r\n`),
+    ).toThrow("LSP JSON-RPC message exceeded 1048576 bytes");
+  });
 });

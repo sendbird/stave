@@ -2,8 +2,10 @@ import type { ButtonHTMLAttributes, HTMLAttributes, MouseEvent, ReactNode } from
 import { createContext, useContext, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getKnownFilePathSet, resolveWorkspaceFileLink, type ResolvedWorkspaceFileLink } from "@/lib/message-file-links";
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
+import { useShallow } from "zustand/react/shallow";
 import {
   CodeBlock,
   CodeBlockActions,
@@ -11,17 +13,52 @@ import {
   CodeBlockHeader,
   CodeBlockTitle,
 } from "./code-block";
-import { MarkdownMessage, resolveMessageSizeClass } from "./message-markdown";
+import { MarkdownMessage, MessageFileLink } from "./message-markdown";
+import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 
 interface MessageProps extends HTMLAttributes<HTMLDivElement> {
   from: "user" | "assistant";
 }
 
+const EMPTY_PROJECT_FILES: readonly string[] = [];
+const MESSAGE_FILE_PATH_CACHE_KEY = "__staveMessageFilePathCache";
+
+type MessageFilePathCache = {
+  hasSubscribed: boolean;
+  knownFilePaths: ReadonlySet<string>;
+};
+
+const globalMessageFilePathCache = globalThis as typeof globalThis & {
+  [MESSAGE_FILE_PATH_CACHE_KEY]?: MessageFilePathCache;
+};
+
+const messageFilePathCache = globalMessageFilePathCache[MESSAGE_FILE_PATH_CACHE_KEY]
+  ?? (globalMessageFilePathCache[MESSAGE_FILE_PATH_CACHE_KEY] = {
+    hasSubscribed: false,
+    knownFilePaths: getKnownFilePathSet(EMPTY_PROJECT_FILES),
+  });
+
+function syncKnownProjectFilePaths() {
+  messageFilePathCache.knownFilePaths = getKnownFilePathSet(useAppStore.getState().projectFiles);
+  if (messageFilePathCache.hasSubscribed) {
+    return;
+  }
+  messageFilePathCache.hasSubscribed = true;
+  useAppStore.subscribe((state, prevState) => {
+    if (state.projectFiles === prevState.projectFiles) {
+      return;
+    }
+    messageFilePathCache.knownFilePaths = getKnownFilePathSet(state.projectFiles);
+  });
+}
+
+syncKnownProjectFilePaths();
+
 export function Message({ from, className, ...props }: MessageProps) {
   return (
     <article
       className={cn(
-        "group flex flex-col gap-2",
+        "group min-w-0 flex flex-col gap-2",
         from === "user" ? "is-user" : "is-assistant",
         from === "user" ? "items-end" : "items-start",
         className
@@ -31,15 +68,16 @@ export function Message({ from, className, ...props }: MessageProps) {
   );
 }
 
-export function MessageContent(props: HTMLAttributes<HTMLDivElement>) {
+export function MessageContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   const messageFontSize = useAppStore((state) => state.settings.messageFontSize);
   return (
     <div
       className={cn(
-        "w-full rounded-md border border-border/80 bg-card px-3 py-2 leading-7 shadow-sm",
-        resolveMessageSizeClass(messageFontSize),
-        "group-[.is-user]:border-primary/40 group-[.is-user]:bg-primary/15"
+        "flex min-w-0 max-w-full w-full flex-col gap-3 text-foreground",
+        "group-[.is-user]:rounded-md group-[.is-user]:border group-[.is-user]:border-primary/35 group-[.is-user]:bg-primary/12 group-[.is-user]:px-4 group-[.is-user]:py-3",
+        className
       )}
+      style={{ fontSize: `${messageFontSize}px`, lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
       {...props}
     />
   );
@@ -49,68 +87,47 @@ interface MessageResponseProps extends HTMLAttributes<HTMLDivElement> {
   isStreaming?: boolean;
 }
 
-function stripLineSuffix(args: { href: string }) {
-  // Support links like /abs/path/file.ts:42:5 and /abs/path/file.ts#L42C5
-  return args.href
-    .replace(/#L\d+(?:C\d+)?$/i, "")
-    .replace(/:\d+(?::\d+)?$/, "");
-}
-
 export function MessageResponse({ isStreaming, ...props }: MessageResponseProps) {
-  const openFileFromTree = useAppStore((state) => state.openFileFromTree);
-  const setLayout = useAppStore((state) => state.setLayout);
-  const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
-  const workspacePathById = useAppStore((state) => state.workspacePathById);
-  const projectPath = useAppStore((state) => state.projectPath);
-  const messageFontSize = useAppStore((state) => state.settings.messageFontSize);
-  const messageCodeFontSize = useAppStore((state) => state.settings.messageCodeFontSize);
-
+  const [openFileFromTree, setLayout, messageFontSize, messageCodeFontSize, workspaceCwd] = useAppStore(useShallow((state) => [
+    state.openFileFromTree,
+    state.setLayout,
+    state.settings.messageFontSize,
+    state.settings.messageCodeFontSize,
+    state.workspacePathById[state.activeWorkspaceId] ?? state.projectPath ?? "",
+  ] as const));
   const content = typeof props.children === "string" ? props.children : "";
-  const workspaceCwd = workspacePathById[activeWorkspaceId] ?? projectPath ?? "";
 
-  function toWorkspaceRelativePath(args: { href: string }) {
-    const raw = args.href.trim();
-    if (!raw || raw.startsWith("http://") || raw.startsWith("https://")) {
-      return null;
-    }
-
-    let decoded = raw.replace(/^file:\/\//, "");
-    try {
-      decoded = decodeURIComponent(decoded);
-    } catch {
-      // Ignore decoding issues and keep the original href.
-    }
-
-    const normalized = stripLineSuffix({ href: decoded.split("?")[0] ?? decoded });
-    if (!normalized) {
-      return null;
-    }
-
-    if (normalized.startsWith("/")) {
-      if (!workspaceCwd) {
-        return null;
-      }
-      const prefix = `${workspaceCwd}/`;
-      if (!normalized.startsWith(prefix)) {
-        return null;
-      }
-      return normalized.slice(prefix.length);
-    }
-
-    return normalized.replace(/^\.\/+/, "");
+  function resolveFileLink(args: { href?: string; allowUnknownPath?: boolean }) {
+    return resolveWorkspaceFileLink({
+      href: args.href,
+      workspaceCwd,
+      knownFilePaths: messageFilePathCache.knownFilePaths,
+      allowUnknownPaths: args.allowUnknownPath,
+    });
   }
 
-  async function handleFileLinkClick(args: { event: MouseEvent<HTMLAnchorElement>; href?: string }) {
-    if (!args.href) {
-      return;
-    }
-    const filePath = toWorkspaceRelativePath({ href: args.href });
-    if (!filePath) {
+  async function openResolvedFileLink(args: { resolved: ResolvedWorkspaceFileLink; fallbackContent?: string }) {
+    await openFileFromTree({
+      filePath: args.resolved.filePath,
+      ...(args.resolved.line ? { line: args.resolved.line } : {}),
+      ...(args.resolved.column ? { column: args.resolved.column } : {}),
+      ...(args.fallbackContent ? { fallbackContent: args.fallbackContent } : {}),
+    });
+    setLayout({ patch: { editorVisible: true } });
+  }
+
+  async function handleFileLinkClick(args: {
+    event: MouseEvent<HTMLAnchorElement>;
+    href?: string;
+    resolvedFileLink?: ResolvedWorkspaceFileLink | null;
+    code?: string;
+  }) {
+    const resolved = args.resolvedFileLink ?? resolveFileLink({ href: args.href });
+    if (!resolved) {
       return;
     }
     args.event.preventDefault();
-    await openFileFromTree({ filePath });
-    setLayout({ patch: { editorVisible: true } });
+    await openResolvedFileLink({ resolved, fallbackContent: args.code });
   }
 
   return (
@@ -119,11 +136,31 @@ export function MessageResponse({ isStreaming, ...props }: MessageResponseProps)
       isStreaming={isStreaming}
       messageFontSize={messageFontSize}
       messageCodeFontSize={messageCodeFontSize}
+      resolveFileLink={resolveFileLink}
       onFileLinkClick={handleFileLinkClick}
-      renderBlockCode={({ code, language }) => (
+      renderBlockCode={({ code, language, fileHref, resolvedFileLink }) => (
         <CodeBlock code={code} language={language}>
           <CodeBlockHeader>
-            <CodeBlockTitle>{language ?? "code"}</CodeBlockTitle>
+            <CodeBlockTitle className="min-w-0 gap-2">
+              {resolvedFileLink ? (
+                <MessageFileLink
+                  href={fileHref ?? resolvedFileLink.filePath}
+                  filePath={resolvedFileLink.filePath}
+                  fileName={resolvedFileLink.fileName}
+                  line={resolvedFileLink.line}
+                  column={resolvedFileLink.column}
+                  onClick={(event) => void handleFileLinkClick({
+                    event,
+                    href: fileHref ?? resolvedFileLink.filePath,
+                    resolvedFileLink,
+                    code,
+                  })}
+                />
+              ) : null}
+              <span className="shrink-0">
+                {language ?? "code"}
+              </span>
+            </CodeBlockTitle>
             <CodeBlockActions>
               <CodeBlockCopyButton />
             </CodeBlockActions>
