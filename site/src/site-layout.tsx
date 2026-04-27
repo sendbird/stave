@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 import { ThemeToggle } from "./theme";
 
-const REPO_URL = "https://github.com/sendbird-playground/stave";
+const REPO_URL = "https://github.com/sendbird/stave";
 
 function GithubIcon({ className }: { className?: string }) {
   return (

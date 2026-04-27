@@ -18,7 +18,7 @@ describe("install guide", () => {
     );
     expect(readme).toContain("docs/install-guide.md");
     expect(readme).toContain(
-      "gh api -H 'Accept: application/vnd.github.v3.raw+json' repos/sendbird-playground/stave/contents/scripts/install-latest-release.sh | bash",
+      "gh api -H 'Accept: application/vnd.github.v3.raw+json' repos/sendbird/stave/contents/scripts/install-latest-release.sh | bash",
     );
     expect(guide).toContain("gh auth login");
     expect(guide).toContain("gh auth status");
@@ -49,8 +49,8 @@ describe("install guide", () => {
       "utf8",
     );
 
-    expect(installer).toContain('DEFAULT_REPO="sendbird-playground/stave"');
-    expect(autoUpdate).toContain('DEFAULT_REPO="sendbird-playground/stave"');
+    expect(installer).toContain('DEFAULT_REPO="sendbird/stave"');
+    expect(autoUpdate).toContain('DEFAULT_REPO="sendbird/stave"');
     const legacyRepo = ["OWNER", "stave"].join("/");
     expect(installer).not.toContain(legacyRepo);
     expect(autoUpdate).not.toContain(legacyRepo);

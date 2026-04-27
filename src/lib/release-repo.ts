@@ -1,4 +1,4 @@
-export const DEFAULT_STAVE_RELEASE_REPO = "sendbird-playground/stave";
+export const DEFAULT_STAVE_RELEASE_REPO = "sendbird/stave";
 
 export function resolveStaveReleaseRepo(value: string | null | undefined) {
   const candidate = value?.trim();

@@ -75,7 +75,7 @@ async function createGeneratedModule() {
           );
 
           if (resolvedTargetPath === path.join(repoRoot, "README.md")) {
-            return `${label}(https://github.com/sendbird-playground/stave${hash ? `#${hash}` : ""})`;
+            return `${label}(https://github.com/sendbird/stave${hash ? `#${hash}` : ""})`;
           }
 
           if (
