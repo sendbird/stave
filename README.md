@@ -13,7 +13,7 @@ Stave is a desktop AI coding workspace for Claude and Codex. It combines task-or
 The packaged macOS install flow uses GitHub CLI authentication:
 
 ```bash
-gh api -H 'Accept: application/vnd.github.v3.raw+json' repos/sendbird-playground/stave/contents/scripts/install-latest-release.sh | bash
+gh api -H 'Accept: application/vnd.github.v3.raw+json' repos/sendbird/stave/contents/scripts/install-latest-release.sh | bash
 ```
 
 If this is your first time using `gh`, or you need SSO or scope help, see the full [Install Guide](docs/install-guide.md).

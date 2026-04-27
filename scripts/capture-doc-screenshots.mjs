@@ -47,7 +47,7 @@ function createWorkspaceInformation() {
       {
         id: "pr-1",
         title: "docs(site): add static docs site",
-        url: "https://github.com/sendbird-playground/stave/pull/480",
+        url: "https://github.com/sendbird/stave/pull/480",
         status: "review",
         note: "Pages build, landing cleanup, docs rendering.",
       },

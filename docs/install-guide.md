@@ -34,7 +34,7 @@ gh auth refresh -h github.com -s repo,read:org
 Once `gh` is authenticated, install the latest Stave release with:
 
 ```bash
-gh api -H 'Accept: application/vnd.github.v3.raw+json' repos/sendbird-playground/stave/contents/scripts/install-latest-release.sh | bash
+gh api -H 'Accept: application/vnd.github.v3.raw+json' repos/sendbird/stave/contents/scripts/install-latest-release.sh | bash
 ```
 
 The installer script:
@@ -56,7 +56,7 @@ The installed app uses this same workspace shell for chat, editor, side panels, 
 
 Packaged macOS builds also show an app update action in the top bar.
 
-- It checks the latest authenticated GitHub release for `sendbird-playground/stave`
+- It checks the latest authenticated GitHub release for `sendbird/stave`
 - It compares that tag against the installed app version
 - If a newer release is available, it can install the update and restart Stave automatically
 

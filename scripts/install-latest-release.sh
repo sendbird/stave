@@ -11,7 +11,7 @@ done
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 
 APP_NAME="${STAVE_APP_NAME:-Stave}"
-DEFAULT_REPO="sendbird-playground/stave"
+DEFAULT_REPO="sendbird/stave"
 REPO="${STAVE_REPO:-$DEFAULT_REPO}"
 if [ -z "$REPO" ]; then
   REPO="$DEFAULT_REPO"

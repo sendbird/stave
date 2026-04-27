@@ -23,7 +23,7 @@ const HEADER_LINKS = [
   { href: DOCS_HREF, label: "Docs" },
   { href: INSTALL_HREF, label: "Install" },
   {
-    href: "https://github.com/sendbird-playground/stave/releases",
+    href: "https://github.com/sendbird/stave/releases",
     label: "Releases",
     external: true,
   },
