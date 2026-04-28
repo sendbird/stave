@@ -89,7 +89,7 @@ This is usually faster than opening Settings and browsing manually.
 Default bindings:
 
 - `Alt+1` → `Claude Opus 4.7`
-- `Alt+2` → `GPT-5.4`
+- `Alt+2` → `GPT-5.5`
 - `Alt+3` → `Stave Auto`
 
 ### Work Mostly From The Keyboard

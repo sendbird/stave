@@ -60,11 +60,11 @@ export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
     model: DEFAULT_CLAUDE_OPUS_MODEL,
   },
   {
-    id: "default-gpt-5-4-task",
-    label: "GPT-5.4",
+    id: "default-gpt-5-5-task",
+    label: "GPT-5.5",
     kind: "task",
     provider: "codex",
-    model: "gpt-5.4",
+    model: "gpt-5.5",
   },
   {
     id: "default-stave-auto-task",

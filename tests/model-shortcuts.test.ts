@@ -72,7 +72,7 @@ describe("model shortcuts", () => {
         available: true,
       },
       {
-        key: "codex:gpt-5.4",
+        key: "codex:gpt-5.5",
         available: false,
       },
     ];
