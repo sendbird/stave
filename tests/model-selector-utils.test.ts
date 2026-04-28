@@ -25,8 +25,8 @@ describe("model selector utils", () => {
           providerId: "claude-code",
         }),
         expect.objectContaining({
-          key: "codex:gpt-5.4",
-          model: "gpt-5.4",
+          key: "codex:gpt-5.5",
+          model: "gpt-5.5",
           providerId: "codex",
         }),
       ]),
@@ -87,7 +87,7 @@ describe("model selector utils", () => {
       ),
     ).toEqual([
       "claude-code:claude-opus-4-7",
-      "codex:gpt-5.4",
+      "codex:gpt-5.5",
       "stave:stave-auto",
     ]);
   });

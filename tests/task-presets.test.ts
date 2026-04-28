@@ -16,7 +16,7 @@ describe("task preset defaults", () => {
     expect(presets).toHaveLength(5);
     expect(presets.map((preset) => preset.id)).toEqual([
       "default-claude-opus-4-7-task",
-      "default-gpt-5-4-task",
+      "default-gpt-5-5-task",
       "default-stave-auto-task",
       "default-claude-cli-session",
       "default-codex-cli-session",
@@ -34,7 +34,7 @@ describe("task preset defaults", () => {
       label: "Extra",
       kind: "task",
       provider: "codex",
-      model: "gpt-5.4",
+      model: "gpt-5.5",
     });
     expect(DEFAULT_TASK_PRESETS).toHaveLength(5);
   });
