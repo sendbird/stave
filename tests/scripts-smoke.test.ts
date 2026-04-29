@@ -39,4 +39,16 @@ describe("package scripts", () => {
     const config = readFileSync(path.join(import.meta.dirname, "..", "electron-builder.yml"), "utf8");
     expect(config.includes("- node_modules/portless/dist/**")).toBe(true);
   });
+
+  test("node-invoked mjs scripts use Node-compatible entrypoint guards", () => {
+    for (const scriptPath of [
+      "scripts/run-desktop-built.mjs",
+      "scripts/run-desktop-built-logged.mjs",
+      "scripts/prepare-macos-release-bundle.mjs",
+    ]) {
+      const source = readFileSync(path.join(import.meta.dirname, "..", scriptPath), "utf8");
+      expect(source.includes("import.meta.main")).toBe(false);
+      expect(source.includes("process.argv[1]")).toBe(true);
+    }
+  });
 });

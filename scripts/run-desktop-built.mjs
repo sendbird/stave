@@ -3,9 +3,14 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const scriptPath = fileURLToPath(import.meta.url);
+const scriptDir = path.dirname(scriptPath);
 const repoRoot = path.resolve(scriptDir, "..");
 const productName = "Stave";
+
+function isMainModule() {
+  return Boolean(process.argv[1]) && path.resolve(process.argv[1]) === scriptPath;
+}
 
 export function shouldRunPackagedDesktopApp(args = {}) {
   return (args.platform ?? process.platform) === "darwin";
@@ -141,7 +146,7 @@ async function main() {
   await runUnpackagedDesktopApp();
 }
 
-if (import.meta.main) {
+if (isMainModule()) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
