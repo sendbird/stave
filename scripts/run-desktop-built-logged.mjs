@@ -5,12 +5,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findMacAppBinary, shouldRunPackagedDesktopApp } from "./run-desktop-built.mjs";
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const scriptPath = fileURLToPath(import.meta.url);
+const scriptDir = path.dirname(scriptPath);
 const repoRoot = path.resolve(scriptDir, "..");
 const productName = "Stave";
 const logPrefix = "desktop-built-";
 const maxLogFiles = 10;
 const maxLogAgeMs = 7 * 24 * 60 * 60 * 1000;
+
+function isMainModule() {
+  return Boolean(process.argv[1]) && path.resolve(process.argv[1]) === scriptPath;
+}
 
 function resolveLocalBin(name) {
   const binaryName = process.platform === "win32" ? `${name}.cmd` : name;
@@ -177,7 +182,7 @@ async function main() {
   }
 }
 
-if (import.meta.main) {
+if (isMainModule()) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;

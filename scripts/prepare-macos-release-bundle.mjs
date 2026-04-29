@@ -4,12 +4,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findMacAppBundle } from "./run-desktop-built.mjs";
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const scriptPath = fileURLToPath(import.meta.url);
+const scriptDir = path.dirname(scriptPath);
 const repoRoot = path.resolve(scriptDir, "..");
 const releaseRoot = path.join(repoRoot, "release");
 const productName = "Stave";
 const bundleDirectoryName = "Stave";
 const archiveName = "Stave-macOS.zip";
+
+function isMainModule() {
+  return Boolean(process.argv[1]) && path.resolve(process.argv[1]) === scriptPath;
+}
 
 export function copyMacAppBundle(args) {
   cpSync(args.sourceAppBundlePath, args.destinationAppBundlePath, {
@@ -51,7 +56,7 @@ function main() {
   });
 }
 
-if (import.meta.main) {
+if (isMainModule()) {
   try {
     main();
   } catch (error) {
