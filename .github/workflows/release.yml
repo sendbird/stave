@@ -68,13 +68,23 @@ jobs:
           set -euo pipefail
           TAG="v${{ steps.version.outputs.version }}"
           ASSET="release/Stave-macOS.zip"
-          if gh release view "$TAG" >/dev/null 2>&1; then
+
+          set +e
+          RELEASE_VIEW_OUTPUT=$(gh release view "$TAG" 2>&1)
+          RELEASE_VIEW_STATUS=$?
+          set -e
+
+          if [ "$RELEASE_VIEW_STATUS" -eq 0 ]; then
             echo "Release $TAG already exists; updating asset."
             gh release upload "$TAG" "$ASSET" --clobber
-          else
+          elif printf '%s\n' "$RELEASE_VIEW_OUTPUT" | grep -Eqi '404|release not found'; then
             echo "Creating release $TAG."
             gh release create "$TAG" \
               --title "$TAG" \
               --generate-notes \
               "$ASSET"
+          else
+            echo "Failed to query release $TAG with gh:" >&2
+            printf '%s\n' "$RELEASE_VIEW_OUTPUT" >&2
+            exit "$RELEASE_VIEW_STATUS"
           fi
