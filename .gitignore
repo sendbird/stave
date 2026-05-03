@@ -32,3 +32,6 @@ tests/artifacts/
 debug/
 ideas/
 ref/
+
+# git worktrees
+.worktrees/
