@@ -5,14 +5,8 @@ on:
     branches:
       - main
     paths:
-      - site/**
-      - docs/**
+      - CHANGELOG.md
       - package.json
-      - bun.lock
-      - scripts/build-pages-site.ts
-      - vite.site.config.ts
-      - .github/workflows/github-pages-landing.yml
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,6 +19,8 @@ concurrency:
 
 jobs:
   deploy:
+    if: >-
+      startsWith(github.event.head_commit.message, 'chore: release')
     runs-on: ubuntu-latest
     environment:
       name: github-pages
