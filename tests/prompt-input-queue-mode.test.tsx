@@ -176,8 +176,8 @@ describe("PromptInput queue mode", () => {
           crossReviewProvider: "claude-code" as const,
           leadingToolbarAction: createElement(
             "button",
-            { type: "button", "aria-label": "Open Coliseum" },
-            "Coliseum",
+            { type: "button", "aria-label": "Open Tools" },
+            "Tools",
           ),
           onValueChange: () => {},
           onModelSelect: () => {},
@@ -188,7 +188,7 @@ describe("PromptInput queue mode", () => {
       ),
     );
 
-    expect(html.indexOf('aria-label="Open Coliseum"')).toBeLessThan(
+    expect(html.indexOf('aria-label="Open Tools"')).toBeLessThan(
       html.indexOf('aria-label="Review by Claude Code"'),
     );
   });

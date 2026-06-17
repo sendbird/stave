@@ -1666,7 +1666,7 @@ export async function runTask(args: {
   const workspacePath = registration.workspacePath;
   const workspaceName = registration.workspace.name;
   let session = await loadWorkspaceSession(args.workspaceId);
-  const provider = args.provider ?? "stave";
+  const provider = args.provider ?? "claude-code";
   const model =
     args.runtimeOptions?.model?.trim() ||
     getDefaultModelForProvider({

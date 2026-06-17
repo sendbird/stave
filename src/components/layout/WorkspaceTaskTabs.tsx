@@ -62,7 +62,7 @@ import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import {
   filterTasksByName,
   getRespondingProviderId,
-  isColiseumBranch,
+  isLegacyBranchTask,
   isTaskArchived,
   isTaskManaged,
 } from "@/lib/tasks";
@@ -613,14 +613,14 @@ export function WorkspaceTaskTabs() {
     ),
   );
 
-  // Coliseum branch tasks are ephemeral fan-out children — never render them
+  // Legacy branch tasks are ephemeral fan-out children — never render them
   // as tabs; only the parent tab is visible, and its ChatPanel handles the
   // branch split view directly.
   const visibleTasks = tasks.filter(
-    (task) => !isColiseumBranch(task) && !isTaskArchived(task),
+    (task) => !isLegacyBranchTask(task) && !isTaskArchived(task),
   );
   const archivedTasks = tasks.filter(
-    (task) => !isColiseumBranch(task) && isTaskArchived(task),
+    (task) => !isLegacyBranchTask(task) && isTaskArchived(task),
   );
   const viewedSessionState = useAppStore((state) =>
     taskToViewSession

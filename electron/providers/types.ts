@@ -5,7 +5,7 @@ import type {
   ConnectedToolStatusResponse,
 } from "../../src/lib/providers/connected-tool-status";
 
-export type ProviderId = "claude-code" | "codex" | "stave";
+export type ProviderId = "claude-code" | "codex";
 
 export interface ProviderSlashCommand {
   name: string;
@@ -83,19 +83,6 @@ export type BridgeEvent =
   }
   | { type: "subagent_progress"; toolUseId?: string; content: string }
   | { type: "model_resolved"; resolvedProviderId: "claude-code" | "codex"; resolvedModel: string }
-  | {
-    type: "stave:execution_processing";
-    strategy: "direct" | "orchestrate";
-    model?: string;
-    supervisorModel?: string;
-    reason: string;
-    fastModeRequested?: boolean;
-    fastModeApplied?: boolean;
-  }
-  | { type: "stave:orchestration_processing"; supervisorModel: string; subtasks: Array<{ id: string; title: string; model: string; dependsOn: string[] }> }
-  | { type: "stave:subtask_started"; subtaskId: string; index: number; total: number; title: string; model: string }
-  | { type: "stave:subtask_done"; subtaskId: string; success: boolean }
-  | { type: "stave:synthesis_started" }
   | { type: "error"; message: string; recoverable: boolean }
   | { type: "done"; stop_reason?: string };
 

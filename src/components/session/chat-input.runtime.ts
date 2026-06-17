@@ -43,11 +43,6 @@ interface ChatInputRuntimeArgs {
   codexFastMode: boolean;
   codexPlanMode: boolean;
   codexBinaryPath: string;
-  staveAutoFastMode: boolean;
-  staveAutoOrchestrationMode: AppSettings["staveAutoOrchestrationMode"];
-  staveAutoMaxSubtasks: number;
-  staveAutoAllowCrossProviderWorkers: boolean;
-  staveAutoMaxParallelSubtasks: number;
 }
 
 type CommandCatalogRuntimeArgs = Pick<
@@ -107,10 +102,6 @@ export function cycleCodexEffortValue(
 export function buildChatInputRuntimeStatusItems(
   args: ChatInputRuntimeArgs,
 ): PromptInputRuntimeStatusItem[] {
-  if (args.activeProvider === "stave") {
-    return [];
-  }
-
   if (args.activeProvider === "claude-code") {
     return [
       {

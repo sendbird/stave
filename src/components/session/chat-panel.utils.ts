@@ -337,10 +337,6 @@ function getMessagePartScrollFingerprint(part: MessagePart): string {
       return `input:${part.toolName}:${part.state}:${part.questions.length}:${Object.keys(part.answers ?? {}).length}`;
     case "system_event":
       return `system:${part.content.length}`;
-    case "orchestration_progress":
-      return `progress:${part.status}:${part.supervisorModel}:${part.subtasks.length}:${part.subtasks.map((subtask) => `${subtask.id}:${subtask.status}`).join(",")}`;
-    case "stave_processing":
-      return `stave_processing:${part.strategy}:${part.model ?? ""}:${part.supervisorModel ?? ""}:${part.fastModeRequested ? 1 : 0}:${part.fastModeApplied ? 1 : 0}`;
   }
 }
 

@@ -162,18 +162,12 @@ describe("skill discovery", () => {
   });
 });
 
-describe("stave auto skill compatibility", () => {
+describe("provider skill compatibility", () => {
   const allSkills: SkillCatalogEntry[] = [
     createCatalogSkill({ id: "local:claude:commit", slug: "commit", scope: "local", provider: "claude-code" }),
     createCatalogSkill({ id: "local:codex:generate", slug: "generate", scope: "local", provider: "codex" }),
     createCatalogSkill({ id: "local:shared:review", slug: "review", scope: "local", provider: "shared" }),
-    createCatalogSkill({ id: "local:stave:release", slug: "release", scope: "local", provider: "stave" }),
   ];
-
-  test("stave provider sees ALL skills regardless of declared provider", () => {
-    const compatible = getCompatibleSkillEntries({ skills: allSkills, providerId: "stave" });
-    expect(compatible.map((s) => s.slug).sort()).toEqual(["commit", "generate", "release", "review"]);
-  });
 
   test("claude-code provider only sees claude-code and shared skills", () => {
     const compatible = getCompatibleSkillEntries({ skills: allSkills, providerId: "claude-code" });
@@ -187,17 +181,17 @@ describe("stave auto skill compatibility", () => {
     expect(slugs).toEqual(["generate", "review"]);
   });
 
-  test("stave can resolve skill tokens from any provider", () => {
+  test("codex resolves codex and shared skill tokens", () => {
     const resolved = resolveSkillSelections({
-      text: "$commit $generate do it",
+      text: "$generate $review do it",
       skills: allSkills,
-      providerId: "stave",
+      providerId: "codex",
     });
-    expect(resolved.selectedSkills.map((s) => s.slug)).toEqual(["commit", "generate"]);
+    expect(resolved.selectedSkills.map((s) => s.slug)).toEqual(["generate", "review"]);
     expect(resolved.normalizedText).toBe("do it");
   });
 
-  test("stave resolves skill tokens that claude-code or codex would not see", () => {
+  test("provider-specific skills do not resolve for other providers", () => {
     // codex skill should NOT resolve in claude-code mode
     const claudeResolved = resolveSkillSelections({
       text: "$generate",
@@ -205,15 +199,6 @@ describe("stave auto skill compatibility", () => {
       providerId: "claude-code",
     });
     expect(claudeResolved.selectedSkills).toHaveLength(0);
-
-    // but SHOULD resolve in stave mode
-    const staveResolved = resolveSkillSelections({
-      text: "$generate",
-      skills: allSkills,
-      providerId: "stave",
-    });
-    expect(staveResolved.selectedSkills).toHaveLength(1);
-    expect(staveResolved.selectedSkills[0]?.slug).toBe("generate");
   });
 });
 

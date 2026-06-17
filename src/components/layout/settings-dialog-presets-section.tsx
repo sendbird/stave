@@ -44,10 +44,6 @@ function describePreset(preset: TaskPreset) {
     return `${getProviderLabel({ providerId: preset.provider, variant: "full" })} CLI session`;
   }
 
-  if (preset.provider === "stave") {
-    return "Create a new task with Stave Auto selected.";
-  }
-
   return `${getProviderLabel({ providerId: preset.provider, variant: "full" })} · ${toHumanModelName({ model: preset.model ?? "" })}`;
 }
 

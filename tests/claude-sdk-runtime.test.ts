@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildClaudeApprovalPermissionResult,
   buildClaudeApprovalTimeoutBridgeEvent,
+  buildClaudeQueryOptions,
   CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
   ClaudeToolDecisionTimeoutError,
   resolveClaudeAgentProgressSummaries,
@@ -516,6 +517,85 @@ describe("resolveClaudeAgentProgressSummaries", () => {
 
   test("returns undefined when no override is set", () => {
     expect(resolveClaudeAgentProgressSummaries(undefined)).toBeUndefined();
+  });
+});
+
+describe("buildClaudeQueryOptions", () => {
+  test("omits resumeSessionAt when no Claude session is being resumed", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: {
+        claudeResumeSessionAt: "message-uuid",
+      },
+    });
+
+    expect(options).not.toHaveProperty("resume");
+    expect(options).not.toHaveProperty("resumeSessionAt");
+  });
+
+  test("omits forkSession when no Claude session is being resumed", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: {
+        claudeForkSession: true,
+      },
+    });
+
+    expect(options).not.toHaveProperty("resume");
+    expect(options).not.toHaveProperty("forkSession");
+  });
+
+  test("forwards resumeSessionAt only with a Claude resume session id", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      resume: "session-id",
+      runtimeOptions: {
+        claudeForkSession: true,
+        claudeResumeSessionAt: "message-uuid",
+      },
+    });
+
+    expect(options).toMatchObject({
+      resume: "session-id",
+      forkSession: true,
+      resumeSessionAt: "message-uuid",
+    });
+  });
+
+  test("omits fallbackModel when it matches the primary model", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: {
+        model: "claude-sonnet-4-6",
+        claudeFallbackModel: "claude-sonnet-4-6",
+      },
+    });
+
+    expect(options).toMatchObject({
+      model: "claude-sonnet-4-6",
+    });
+    expect(options).not.toHaveProperty("fallbackModel");
+  });
+
+  test("removes duplicate and primary models from fallbackModel lists", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: {
+        model: "claude-sonnet-4-6",
+        claudeFallbackModel:
+          "claude-sonnet-4-6, claude-haiku-4-5, claude-haiku-4-5",
+      },
+    });
+
+    expect(options).toMatchObject({
+      model: "claude-sonnet-4-6",
+      fallbackModel: "claude-haiku-4-5",
+    });
   });
 });
 

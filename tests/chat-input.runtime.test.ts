@@ -32,11 +32,6 @@ const baseArgs = {
   codexFastMode: true,
   codexPlanMode: true,
   codexBinaryPath: "/opt/homebrew/bin/codex",
-  staveAutoFastMode: false,
-  staveAutoOrchestrationMode: "auto" as const,
-  staveAutoMaxSubtasks: 3,
-  staveAutoAllowCrossProviderWorkers: true,
-  staveAutoMaxParallelSubtasks: 2,
   updateSettings,
 };
 

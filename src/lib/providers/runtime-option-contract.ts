@@ -48,6 +48,7 @@ export const CLAUDE_SETTING_SOURCE_OPTIONS = [
 export const CODEX_APPROVAL_POLICY_OPTIONS = [
   { value: "untrusted", label: "untrusted" },
   { value: "on-request", label: "on-request" },
+  { value: "on-failure", label: "on-failure" },
   { value: "never", label: "never" },
 ] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexApprovalPolicy"]>>[];
 
@@ -84,17 +85,6 @@ export const CODEX_REASONING_SUPPORT_OPTIONS = [
   { value: "disabled", label: "Disabled" },
 ] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexReasoningSummarySupport"]>>[];
 
-export const STAVE_AUTO_ORCHESTRATION_OPTIONS = [
-  { value: "off", label: "Off" },
-  { value: "auto", label: "Auto" },
-  { value: "aggressive", label: "Aggressive" },
-] as const;
-
-export const STAVE_AUTO_MAX_SUBTASK_OPTIONS = Array.from({ length: 8 }, (_, index) => {
-  const value = String(index + 1);
-  return { value, label: value };
-});
-
 export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "model",
   "chatStreamingEnabled",
@@ -113,11 +103,21 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudeEffort",
   "claudeThinkingMode",
   "claudeAgentProgressSummaries",
+  "claudePromptSuggestions",
+  "claudeForwardSubagentText",
+  "claudeEnableFileCheckpointing",
+  "claudeForkSession",
+  "claudeStrictMcpConfig",
   "claudeFastMode",
   "claudeAllowedTools",
   "claudeDisallowedTools",
+  "claudeSkills",
+  "claudePluginPaths",
+  "claudeAgentName",
+  "claudeFallbackModel",
   "claudeAdvisorModel",
   "claudeResumeSessionId",
+  "claudeResumeSessionAt",
   "codexFileAccess",
   "codexNetworkAccess",
   "codexApprovalPolicy",
@@ -127,10 +127,10 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "codexShowRawReasoning",
   "codexReasoningSummary",
   "codexReasoningSummarySupport",
+  "codexAdditionalReadableRoots",
   "codexFastMode",
   "codexPlanMode",
   "codexResumeThreadId",
-  "staveAuto",
   "responseStylePrompt",
   "promptPrDescription",
   "promptInlineCompletion",
@@ -160,11 +160,6 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "system",
   "subagent_progress",
   "model_resolved",
-  "stave:execution_processing",
-  "stave:orchestration_processing",
-  "stave:subtask_started",
-  "stave:subtask_done",
-  "stave:synthesis_started",
   "error",
   "done",
 ] as const satisfies readonly NormalizedProviderEvent["type"][];

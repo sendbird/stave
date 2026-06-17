@@ -15,6 +15,11 @@ class FakeChild extends EventEmitter {
   stdout = new FakeStream();
   stderr = new FakeStream();
   killed = false;
+  receivedMessages: Array<{
+    id?: number;
+    method?: string;
+    params?: Record<string, unknown>;
+  }> = [];
 
   constructor(private readonly scenario: FakeScenario) {
     super();
@@ -31,7 +36,9 @@ class FakeChild extends EventEmitter {
         const message = JSON.parse(line) as {
           id?: number;
           method?: string;
+          params?: Record<string, unknown>;
         };
+        this.receivedMessages.push(message);
 
         if (message.method === "initialize" && typeof message.id === "number") {
           this.emitJson({
@@ -109,6 +116,24 @@ async function getCodexConnectedToolStatus(
 }
 
 describe("codex app server stdout overflow handling", () => {
+  test("advertises experimentalApi because thread raw events require the capability", async () => {
+    nextScenario = "oversized-valid-response";
+
+    await getCodexConnectedToolStatus({
+      runtimeOptions: {
+        codexBinaryPath: "/tmp/fake-codex-capabilities",
+      },
+      toolIds: ["slack"],
+    });
+
+    const initialize = fakeChildren[0]?.receivedMessages.find(
+      (message) => message.method === "initialize",
+    );
+    expect(initialize?.params).toMatchObject({
+      capabilities: { experimentalApi: true },
+    });
+  });
+
   test("accepts valid oversized JSON-RPC responses without tearing down the process", async () => {
     nextScenario = "oversized-valid-response";
 

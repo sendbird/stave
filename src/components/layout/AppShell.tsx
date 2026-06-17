@@ -9,8 +9,6 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
-import { StaveMuseWidget } from "@/components/layout/StaveMuseWidget";
-import { resolveStaveMuseRightInset } from "@/components/layout/stave-muse-widget.utils";
 import { TopBar } from "@/components/layout/TopBar";
 import { ZenAppShellLayout } from "@/components/layout/ZenAppShellLayout";
 import {
@@ -29,7 +27,7 @@ import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { QuitConfirmationDialog } from "@/components/layout/QuitConfirmationDialog";
 import { listLatestWorkspaceTurns } from "@/lib/db/turns.db";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { isColiseumBranch, isTaskArchived } from "@/lib/tasks";
+import { isTaskArchived } from "@/lib/tasks";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
@@ -127,7 +125,6 @@ export function AppShell() {
     openProject,
     switchWorkspace,
     abortTaskTurn,
-    focusStaveMuse,
     setLayout,
     applyExternalWorkspaceInformationUpdate,
   ] = useAppStore(
@@ -174,7 +171,6 @@ export function AppShell() {
           state.openProject,
           state.switchWorkspace,
           state.abortTaskTurn,
-          state.focusStaveMuse,
           state.setLayout,
           state.applyExternalWorkspaceInformationUpdate,
         ] as const,
@@ -264,9 +260,6 @@ export function AppShell() {
       dispatchExplorerSearchRequest();
     });
   }, []);
-  const handleOpenStaveMuse = useCallback(() => {
-    focusStaveMuse();
-  }, [focusStaveMuse]);
   const handleCreatePullRequest = useCallback(() => {
     dispatchTopBarPrAction("create-pr");
   }, []);
@@ -538,9 +531,6 @@ export function AppShell() {
           return;
         case "navigation.home":
           store.clearTaskSelection();
-          return;
-        case "navigation.open-stave-muse":
-          handleOpenStaveMuse();
           return;
         case "view.toggle-workspace-sidebar":
           store.setLayout({
@@ -837,7 +827,7 @@ export function AppShell() {
       }>;
       handleOpenSettings({
         projectPath: customEvent.detail?.projectPath ?? null,
-        section: customEvent.detail?.section ?? "muse",
+        section: customEvent.detail?.section ?? "general",
       });
     };
 
@@ -999,21 +989,6 @@ export function AppShell() {
   const activeWorkspacePath =
     workspacePathById[activeWorkspaceId] ?? projectPath;
   const hasProjectContext = Boolean(projectPath?.trim());
-  const museLeftInset = isLargeViewport
-    ? (workspaceSidebarCollapsed
-        ? COLLAPSED_PROJECT_SIDEBAR_WIDTH
-        : Math.max(workspaceSidebarWidth, WORKSPACE_SIDEBAR_MIN_WIDTH)) + 12
-    : undefined;
-  const museRightInset = resolveStaveMuseRightInset({
-    hasProjectContext,
-    isLargeViewport,
-    sidebarOverlayVisible,
-    sidebarOverlayTab,
-    showDesktopSidebar,
-    desktopSidebarWidth,
-    overlayRightPanelMode,
-    viewportWidth: typeof window === "undefined" ? 1440 : window.innerWidth,
-  });
   const activeWorkspaceIsDefault = Boolean(
     workspaceDefaultById[activeWorkspaceId],
   );
@@ -1071,11 +1046,7 @@ export function AppShell() {
           ...remembered,
         ];
       })(),
-      tasks: tasks
-        // Coliseum branches are ephemeral fan-out children — never expose
-        // them as individually switchable tasks in the command palette.
-        .filter((task) => !isColiseumBranch(task))
-        .map((task) => ({
+      tasks: tasks.map((task) => ({
           id: task.id,
           isActive: task.id === activeTaskId,
           isResponding: Boolean(activeTurnIdsByTask[task.id]),
@@ -1098,7 +1069,6 @@ export function AppShell() {
         continueWorkspace: handleContinueWorkspace,
         focusFileSearch: handleFocusFileSearch,
         openExplorerSearch: handleOpenExplorerSearch,
-        openStaveMuse: handleOpenStaveMuse,
         openLatestCompletedTurnTask: handleOpenLatestCompletedTurnTask,
         openInTerminal: async (path: string) => {
           await window.api?.shell?.openInTerminal?.({ path });
@@ -1122,7 +1092,7 @@ export function AppShell() {
         selectTask: (taskId: string) => selectTask({ taskId }),
         setTaskProvider: (
           taskId: string,
-          provider: "claude-code" | "codex" | "stave",
+          provider: "claude-code" | "codex",
         ) => setTaskProvider({ taskId, provider }),
         showOverlayTab: (tab: RightRailPanelId) =>
           setLayout({
@@ -1196,7 +1166,6 @@ export function AppShell() {
       editorVisible,
       handleFocusFileSearch,
       handleOpenExplorerSearch,
-      handleOpenStaveMuse,
       handleOpenLatestCompletedTurnTask,
       handleOpenKeyboardShortcuts,
       handleOpenSettings,
@@ -1579,11 +1548,6 @@ export function AppShell() {
               <RightRail />
             </div>
           </div>
-          <StaveMuseWidget
-            leftInset={museLeftInset}
-            rightInset={museRightInset}
-            showFloatingTrigger={!isLargeViewport}
-          />
           {monacoWarmupActive && !editorVisible ? (
             <EditorMonacoWarmup onReady={handleMonacoWarmed} />
           ) : null}

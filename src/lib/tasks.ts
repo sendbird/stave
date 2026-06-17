@@ -21,13 +21,13 @@ export function isTaskArchived(task: Pick<Task, "archivedAt">) {
 }
 
 /**
- * True when the task is an ephemeral Coliseum branch. Branch tasks are hidden
+ * True when the task is an ephemeral legacy branch. Branch tasks are hidden
  * from every task-tree surface (sidebar, tabs, counts, search, archive fallback,
  * responding-task hover preview) by default. Callers that need to iterate every
  * task in the workspace (abort-all on switch, orphan reaper) can opt in via
- * `includeColiseumBranches`.
+ * `includeLegacyBranchTasks`.
  */
-export function isColiseumBranch(task: Pick<Task, "coliseumParentTaskId">) {
+export function isLegacyBranchTask(task: Pick<Task, "coliseumParentTaskId">) {
   return Boolean(task.coliseumParentTaskId);
 }
 
@@ -86,14 +86,14 @@ export function getVisibleTasks(args: {
   tasks: Task[];
   filter: TaskFilter;
   /**
-   * When true, include Coliseum branch children. Branches are hidden by default
+   * When true, include legacy branch children. Branches are hidden by default
    * from all standard task-tree surfaces; callers that need to iterate every
    * task (e.g. abort-all, orphan reaper) can opt in.
    */
-  includeColiseumBranches?: boolean;
+  includeLegacyBranchTasks?: boolean;
 }) {
   return args.tasks.filter((task) => {
-    if (!args.includeColiseumBranches && isColiseumBranch(task)) {
+    if (!args.includeLegacyBranchTasks && isLegacyBranchTask(task)) {
       return false;
     }
     return matchesTaskFilter({ task, filter: args.filter });
@@ -149,7 +149,7 @@ export function reorderTasksWithinFilter(args: {
 }
 
 export function getTaskCounts(args: { tasks: Array<Pick<Task, "archivedAt" | "coliseumParentTaskId">> }) {
-  const visible = args.tasks.filter((task) => !isColiseumBranch(task));
+  const visible = args.tasks.filter((task) => !isLegacyBranchTask(task));
   const archived = visible.filter((task) => isTaskArchived(task)).length;
   return {
     active: visible.length - archived,
@@ -159,7 +159,7 @@ export function getTaskCounts(args: { tasks: Array<Pick<Task, "archivedAt" | "co
 }
 
 export function filterTasksByName(args: { tasks: Task[]; query: string }) {
-  const visibleTasks = args.tasks.filter((task) => !isColiseumBranch(task));
+  const visibleTasks = args.tasks.filter((task) => !isLegacyBranchTask(task));
   const trimmed = args.query.trim();
   if (!trimmed) {
     return visibleTasks;
@@ -206,7 +206,7 @@ export function normalizeSuggestedTaskTitle(args: { title: string }) {
 export function getArchiveFallbackTaskId(args: { tasks: Task[]; archivedTaskId: string }) {
   const activeFallback = args.tasks.find(
     (task) =>
-      task.id !== args.archivedTaskId && !isTaskArchived(task) && !isColiseumBranch(task),
+      task.id !== args.archivedTaskId && !isTaskArchived(task) && !isLegacyBranchTask(task),
   );
   return activeFallback?.id ?? "";
 }
@@ -217,7 +217,7 @@ export function getRespondingTasks<T extends Pick<Task, "id" | "archivedAt" | "c
 }) {
   return args.tasks.filter(
     (task) =>
-      !isTaskArchived(task) && !isColiseumBranch(task) && Boolean(args.activeTurnIdsByTask[task.id]),
+      !isTaskArchived(task) && !isLegacyBranchTask(task) && Boolean(args.activeTurnIdsByTask[task.id]),
   );
 }
 

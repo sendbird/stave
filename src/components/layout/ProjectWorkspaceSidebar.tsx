@@ -27,7 +27,6 @@ import {
   Plus,
   RefreshCw,
   Settings,
-  Swords,
 } from "lucide-react";
 import {
   memo,
@@ -55,7 +54,6 @@ import { CreateWorkspaceDialog } from "@/components/layout/CreateWorkspaceDialog
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { MemoryUsagePopover } from "@/components/layout/ResourcesPopover";
 import { StaveAppMenuButton } from "@/components/layout/StaveAppMenuButton";
-import { StaveMuseTriggerButton } from "@/components/layout/StaveMuseTriggerButton";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
@@ -80,13 +78,11 @@ import {
   type ProviderTurnActivitySnapshot,
 } from "@/lib/providers/turn-status";
 import { getRespondingProviderId, getRespondingTasks } from "@/lib/tasks";
-import { resolveSidebarArtworkClass } from "@/lib/themes";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
-import { summarizeColiseumActivity } from "@/store/coliseum.utils";
 import { isDefaultWorkspaceName } from "@/store/project.utils";
-import type { ChatMessage, ColiseumGroupState, Task } from "@/types/chat";
+import type { ChatMessage, Task } from "@/types/chat";
 
 type ProjectSidebarView = ProjectSidebarCollapsedProjectView;
 const EMPTY_MESSAGES: ChatMessage[] = [];
@@ -94,10 +90,6 @@ const EMPTY_TASKS: Task[] = [];
 const EMPTY_MESSAGES_BY_TASK: Record<string, ChatMessage[]> = {};
 const EMPTY_MESSAGE_COUNT_BY_TASK: Record<string, number> = {};
 const EMPTY_ACTIVE_TURN_IDS_BY_TASK: Record<string, string | undefined> = {};
-const EMPTY_ACTIVE_COLISEUMS_BY_TASK: Record<
-  string,
-  ColiseumGroupState | undefined
-> = {};
 
 function resolveRespondingToneClass(args: {
   tasks: ReturnType<typeof useAppStore.getState>["tasks"];
@@ -172,7 +164,6 @@ function useWorkspaceSidebarActivityState(workspaceId: string) {
     tasks,
     messagesByTask,
     activeTurnIdsByTask,
-    activeColiseumsByTask,
     providerTurnActivityByTask,
     prStatus,
   ] = useAppStore(
@@ -182,7 +173,6 @@ function useWorkspaceSidebarActivityState(workspaceId: string) {
           state.tasks,
           state.messagesByTask,
           state.activeTurnIdsByTask,
-          state.activeColiseumsByTask,
           state.providerTurnActivityByTask,
           state.workspacePrInfoById[workspaceId]?.derived ?? null,
         ] as const;
@@ -192,7 +182,6 @@ function useWorkspaceSidebarActivityState(workspaceId: string) {
           runtimeState?.tasks ?? EMPTY_TASKS,
           runtimeState?.messagesByTask ?? EMPTY_MESSAGES_BY_TASK,
           runtimeState?.activeTurnIdsByTask ?? EMPTY_ACTIVE_TURN_IDS_BY_TASK,
-          runtimeState?.activeColiseumsByTask ?? EMPTY_ACTIVE_COLISEUMS_BY_TASK,
           state.providerTurnActivityByTask,
           state.workspacePrInfoById[workspaceId]?.derived ?? null,
         ] as const;
@@ -207,14 +196,9 @@ function useWorkspaceSidebarActivityState(workspaceId: string) {
         activeTurnIdsByTask,
         providerTurnActivityByTask,
       }),
-      hasColiseumActivity: summarizeColiseumActivity({
-        activeColiseumsByTask,
-        activeTurnIdsByTask,
-      }).hasActivity,
       prStatus,
     }),
     [
-      activeColiseumsByTask,
       activeTurnIdsByTask,
       messagesByTask,
       prStatus,
@@ -416,17 +400,13 @@ const WorkspaceLeadingStatusIcon = memo(
     isDefault: boolean;
     busy: boolean;
   }) {
-    const { respondingTaskCount, respondingToneClass, hasColiseumActivity, prStatus } =
+    const { respondingTaskCount, respondingToneClass, prStatus } =
       useWorkspaceSidebarActivityState(args.workspaceId);
 
     if (args.busy) {
       return (
         <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
       );
-    }
-
-    if (hasColiseumActivity) {
-      return <Swords className="size-4 animate-pulse text-primary" />;
     }
 
     if (respondingTaskCount > 0) {
@@ -489,10 +469,7 @@ const WorkspaceRespondingCountBadge = memo(
  * task in the workspace is streaming and the user opted into the Border Beam
  * motion setting. The wrapper is always mounted so the DOM stays stable; only
  * the `active` prop toggles — that lets the library handle fade-in / fade-out
- * transitions itself. The library's wrapper is `position: relative;
- * overflow: hidden;`, which would clip the row's subtle `ring-1` / `shadow-sm`
- * decorations — an intentional trade-off since those states are barely visible
- * and rewriting them onto this wrapper would bleed per-row state upward.
+ * transitions itself.
  */
 const WorkspaceBorderBeam = memo(function WorkspaceBorderBeam(args: {
   workspaceId: string;
@@ -510,6 +487,9 @@ const WorkspaceBorderBeam = memo(function WorkspaceBorderBeam(args: {
   const borderBeamVariant = useAppStore(
     (state) => state.settings.borderBeamVariant,
   );
+  const borderBeamStrength = useAppStore(
+    (state) => state.settings.borderBeamStrength,
+  );
 
   const active = borderBeamEnabled && respondingTaskCount > 0;
 
@@ -518,6 +498,7 @@ const WorkspaceBorderBeam = memo(function WorkspaceBorderBeam(args: {
       active={active}
       size={borderBeamSize}
       colorVariant={borderBeamVariant}
+      strength={borderBeamStrength}
       theme="auto"
     >
       {args.children}
@@ -611,9 +592,6 @@ export function ProjectWorkspaceSidebar(args: {
   }) => void;
   onPreloadSettings: () => void;
 }) {
-  const sidebarArtworkMode = useAppStore(
-    (state) => state.settings.sidebarArtworkMode,
-  );
   const [collapsedByProjectPath, setCollapsedByProjectPath] = useState<
     Record<string, boolean>
   >({});
@@ -961,10 +939,8 @@ export function ProjectWorkspaceSidebar(args: {
     <>
       <aside
         data-testid="project-workspace-sidebar"
-        data-sidebar-artwork={sidebarArtworkMode}
         className={cn(
           `sidebar-liquid-glass ${UI_LAYER_CLASS.floatingChrome} hidden h-full shrink-0 overflow-hidden text-sidebar-foreground lg:flex lg:flex-col`,
-          resolveSidebarArtworkClass({ mode: sidebarArtworkMode }),
           args.collapsed && "border-r border-sidebar-border/60",
         )}
         style={{
@@ -1586,7 +1562,6 @@ export function ProjectWorkspaceSidebar(args: {
           <TooltipProvider>
             {args.collapsed ? (
               <div className="flex flex-col items-center gap-2">
-                <StaveMuseTriggerButton />
                 <StaveAppMenuButton
                   compact
                   onOpenCommandPalette={args.onOpenCommandPalette}
@@ -1619,7 +1594,6 @@ export function ProjectWorkspaceSidebar(args: {
                     onOpenKeyboardShortcuts={args.onOpenKeyboardShortcuts}
                     onOpenSettings={() => args.onOpenSettings()}
                   />
-                  <StaveMuseTriggerButton />
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>

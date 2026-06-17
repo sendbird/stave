@@ -63,7 +63,6 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     return [
       { value: "claude-code", label: "Claude Code" },
       { value: "codex", label: "Codex" },
-      { value: "stave", label: "Stave Auto" },
     ];
   }, [kind]);
 
@@ -71,18 +70,11 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     const nextKind: TaskPresetKind =
       nextKindValue === "cli-session" ? "cli-session" : "task";
     setKind(nextKind);
-    if (nextKind === "cli-session" && provider === "stave") {
-      const fallback: ProviderId = "claude-code";
-      setProvider(fallback);
-      setModel(getDefaultModelForProvider({ providerId: fallback }));
-    }
   }
 
   function handleProviderChange(nextProvider: string) {
     const providerId =
-      nextProvider === "claude-code" ||
-      nextProvider === "codex" ||
-      nextProvider === "stave"
+      nextProvider === "claude-code" || nextProvider === "codex"
         ? (nextProvider as ProviderId)
         : "claude-code";
     setProvider(providerId);

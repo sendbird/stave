@@ -13,7 +13,7 @@ describe("model shortcuts", () => {
     expect(normalizeModelShortcutKeys(["codex:gpt-5.4-mini", ""])).toEqual([
       "codex:gpt-5.4-mini",
       "",
-      "stave:stave-auto",
+      "codex:gpt-5.4",
       "",
       "",
       "",
@@ -52,15 +52,15 @@ describe("model shortcuts", () => {
   test("describes a stored shortcut key with provider and model labels", () => {
     expect(
       describeModelShortcutKey({
-        shortcutKey: "stave:stave-auto",
+        shortcutKey: "claude-code:claude-opus-4-8",
       }),
     ).toEqual(
       expect.objectContaining({
-        providerId: "stave",
-        model: "stave-auto",
-        providerLabel: "Stave",
-        modelLabel: "Stave Auto",
-        fullLabel: "Stave · Stave Auto",
+        providerId: "claude-code",
+        model: "claude-opus-4-8",
+        providerLabel: "Claude Code",
+        modelLabel: "Claude Opus 4.8",
+        fullLabel: "Claude Code · Claude Opus 4.8",
       }),
     );
   });
@@ -68,7 +68,7 @@ describe("model shortcuts", () => {
   test("finds assigned model options and skips unavailable mappings", () => {
     const options = [
       {
-        key: "claude-code:claude-opus-4-7",
+        key: "claude-code:claude-opus-4-8",
         available: true,
       },
       {

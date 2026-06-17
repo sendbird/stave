@@ -40,20 +40,20 @@ const tasks: Task[] = [
 ];
 
 describe("task utils", () => {
-  test("uses the streaming assistant's resolved provider for responding tone", () => {
+  test("uses the streaming assistant provider for responding tone", () => {
     const messages: ChatMessage[] = [
       {
         id: "m1",
         role: "assistant",
         model: "gpt-5.4",
-        providerId: "stave",
+        providerId: "codex",
         content: "",
         isStreaming: true,
         parts: [],
       },
     ];
 
-    expect(getRespondingProviderId({ fallbackProviderId: "stave", messages })).toBe("codex");
+    expect(getRespondingProviderId({ fallbackProviderId: "claude-code", messages })).toBe("codex");
   });
 
   test("ignores archived tasks when listing responding tasks", () => {
@@ -79,7 +79,7 @@ describe("task utils", () => {
       },
     ];
 
-    expect(getRespondingProviderId({ fallbackProviderId: "stave", messages })).toBe("claude-code");
+    expect(getRespondingProviderId({ fallbackProviderId: "codex", messages })).toBe("claude-code");
   });
 
   test("filters archived and active task views", () => {

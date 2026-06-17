@@ -30,6 +30,7 @@ import type {
 } from "./types";
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
+import type { ProviderId } from "../../src/lib/providers/provider.types";
 
 interface WorkspaceMetaRow {
   id: string;
@@ -65,7 +66,7 @@ interface WorkspaceTaskRow {
   id: string;
   workspace_id: string;
   title: string;
-  provider: "claude-code" | "codex" | "stave";
+  provider: ProviderId | "stave";
   updated_at: string;
   unread: number;
   archived_at: string | null;
@@ -84,7 +85,7 @@ interface TurnSummaryRow {
   id: string;
   workspace_id: string;
   task_id: string;
-  provider_id: "claude-code" | "codex" | "stave";
+  provider_id: ProviderId | "stave";
   created_at: string;
   completed_at: string | null;
 }
@@ -101,7 +102,7 @@ interface NotificationRow {
   task_id: string | null;
   task_title: string | null;
   turn_id: string | null;
-  provider_id: "claude-code" | "codex" | "stave" | null;
+  provider_id: ProviderId | "stave" | null;
   action_json: string | null;
   payload_json: string;
   created_at: string;
@@ -126,6 +127,10 @@ interface LocalMcpRequestLogRow {
 const MAX_LOCAL_MCP_REQUEST_LOGS = 500;
 const LEGACY_TURN_JOURNAL_PURGE_KEY = "legacy_turn_journal_purged_v1";
 const LEGACY_TURN_EVENT_ARTIFACT_KIND = "turn_event_payload";
+
+function normalizePersistedProviderId(providerId: ProviderId | "stave"): ProviderId {
+  return providerId === "stave" ? "claude-code" : providerId;
+}
 
 export class SqliteStore {
   private db: Database.Database;
@@ -373,7 +378,7 @@ export class SqliteStore {
       taskId: row.task_id,
       taskTitle: row.task_title,
       turnId: row.turn_id,
-      providerId: row.provider_id,
+      providerId: row.provider_id ? normalizePersistedProviderId(row.provider_id) : null,
       action: row.action_json ? JSON.parse(row.action_json) : null,
       payload: JSON.parse(row.payload_json) as Record<string, unknown>,
       createdAt: row.created_at,
@@ -816,7 +821,7 @@ export class SqliteStore {
     return {
       id: args.row.id.startsWith(prefix) ? args.row.id.slice(prefix.length) : args.row.id,
       title: args.row.title,
-      provider: args.row.provider,
+      provider: normalizePersistedProviderId(args.row.provider),
       updatedAt: args.row.updated_at,
       unread: args.row.unread === 1,
       archivedAt: args.row.archived_at,
@@ -1567,7 +1572,7 @@ export class SqliteStore {
     id: string;
     workspaceId: string;
     taskId: string;
-    providerId: "claude-code" | "codex" | "stave";
+    providerId: ProviderId;
     createdAt?: string;
   }) {
     const createdAt = args.createdAt ?? new Date().toISOString();
@@ -1609,7 +1614,7 @@ export class SqliteStore {
       id: row.id,
       workspaceId: row.workspace_id,
       taskId: row.task_id,
-      providerId: row.provider_id,
+      providerId: normalizePersistedProviderId(row.provider_id),
       createdAt: row.created_at,
       completedAt: row.completed_at,
     }));
@@ -1643,7 +1648,7 @@ export class SqliteStore {
       id: row.id,
       workspaceId: row.workspace_id,
       taskId: row.task_id,
-      providerId: row.provider_id,
+      providerId: normalizePersistedProviderId(row.provider_id),
       createdAt: row.created_at,
       completedAt: row.completed_at,
     }));
@@ -1677,7 +1682,7 @@ export class SqliteStore {
       id: row.id,
       workspaceId: row.workspace_id,
       taskId: row.task_id,
-      providerId: row.provider_id,
+      providerId: normalizePersistedProviderId(row.provider_id),
       createdAt: row.created_at,
       completedAt: row.completed_at,
     }));

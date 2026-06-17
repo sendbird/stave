@@ -86,7 +86,6 @@ function createContext(
       continueWorkspace: () => {},
       focusFileSearch: () => {},
       openExplorerSearch: () => {},
-      openStaveMuse: () => {},
       openLatestCompletedTurnTask: async () => {},
       openInGhostty: async () => {},
       openInTerminal: async () => {},
@@ -130,13 +129,6 @@ describe("command palette registry", () => {
     expect(
       navigation?.items.some(
         (item) => item.id === "navigation.home" && item.shortcut === "Cmd+K H",
-      ),
-    ).toBe(true);
-    expect(
-      navigation?.items.some(
-        (item) =>
-          item.id === "navigation.open-stave-muse" &&
-          item.shortcut === "Cmd+K M",
       ),
     ).toBe(true);
     expect(

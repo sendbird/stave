@@ -2,62 +2,18 @@
 
 For a task-oriented guide to choosing Claude and Codex sandbox, approval, and plan settings in the UI, see [Provider Sandbox And Approval Guide](../features/provider-sandbox-and-approval.md).
 
-## Stave Model Router
+Stave supports two task providers directly:
 
-The Stave Model Router is a meta-provider that sits above the real Claude and Codex runtimes. When a task uses the `stave` provider, Stave Auto classifies each prompt by intent and either routes it directly to a single model or escalates it into orchestration.
+- `claude-code` for Claude Code SDK turns.
+- `codex` for Codex SDK or app-server turns.
 
-High-level flow:
-
-1. The renderer submits a turn with `providerId: "stave"`.
-2. `electron/main/ipc/provider.ts` validates the request and forwards it into the dedicated desktop `host-service` child process.
-3. `electron/providers/runtime.ts` inside that child detects the `stave` provider and builds the active `staveAuto` profile from settings.
-4. If the task is in Stave plan mode (`claudePermissionMode: "plan"`), Stave bypasses classifier / skill fast-path / orchestration and routes the turn directly to the profile `planModel`.
-5. Otherwise, `electron/providers/stave-preprocessor.ts` asks a lightweight classifier to return either `strategy: "direct"` with an intent (`plan`, `analyze`, `implement`, `quick_edit`, `general`) or `strategy: "orchestrate"`.
-6. For direct execution, Stave resolves the configured model for that intent from the profile, emits `stave:execution_processing`, rewrites the `StreamTurnArgs`, and re-enters the normal provider runtime.
-7. For orchestration, `electron/providers/stave-orchestrator.ts` asks the supervisor to produce role-based subtasks (`plan`, `analyze`, `implement`, `verify`, `general`), resolves each role to a configured model, executes subtasks, then synthesises the result.
-
-When Stave plan mode resolves to a Codex-family `planModel`, Stave also forces `codexPlanMode: true` on the rewritten direct turn so the underlying Codex runtime still gets `read-only` sandboxing plus `approvalPolicy = never`.
-
-### Direct intent table
-
-| Intent       | Default model       | Typical work                                    |
-| ------------ | ------------------- | ----------------------------------------------- |
-| `plan`       | `opusplan`          | design, strategy, planning-only requests        |
-| `analyze`    | `claude-opus-4-7`   | explanation, debugging, review, root cause      |
-| `implement`  | `gpt-5.3-codex`     | feature work, patching, refactors, test writing |
-| `quick_edit` | `claude-haiku-4-5`  | rename, typo, tiny targeted changes             |
-| `general`    | `claude-sonnet-4-6` | balanced default path                           |
-| `verify`     | `gpt-5.5`           | orchestration-only validation/review step       |
-
-### Complexity signals
-
-- **Prompt length > 1 200 characters** → treated as complex
-- **Attached files ≥ 4** → treated as complex
-- **Conversation history ≥ 8 messages** → treated as complex
-- **Prompt length < 350 characters** → treated as short / quick
-
-### Availability check
-
-The Stave router is considered available when at least one underlying provider is available. Direct execution uses profile-aware fallback pairs when the chosen provider is unavailable; orchestration can optionally fall back to same-provider workers when cross-provider workers are disabled.
-
-### Native command catalog
-
-The Stave provider does not expose a native command catalog. Switching to `claude-code` or `codex` directly gives access to the provider-native command behavior for that runtime. Claude currently exposes a catalog through the SDK; Codex does not, so Stave forwards Codex slash commands unchanged.
-
-### Source file
-
-Core files:
-
-- `electron/providers/stave-router.ts` — deterministic fallback intent router
-- `electron/providers/stave-preprocessor.ts` — LLM classifier
-- `electron/providers/stave-orchestrator.ts` — role-based orchestration runner
-- `src/lib/providers/stave-auto-profile.ts` — settings-derived profile helpers
-
----
+The renderer submits a selected provider and model with each turn. `electron/main/ipc/provider.ts` validates the request, forwards it into the dedicated desktop `host-service` child process, and `electron/providers/runtime.ts` dispatches to the matching provider runtime.
 
 ## Claude runtime
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.
+
+Current baseline: `@anthropic-ai/claude-agent-sdk@0.3.179` with bundled Claude Code `2.1.179` support.
 
 High-level flow:
 
@@ -75,6 +31,7 @@ Claude event mapping:
 - tool use -> `tool`
 - `ExitPlanMode` tool payload -> `plan_ready`
 - `task_progress.summary` -> `system` when Claude agent progress summaries are enabled
+- MCP elicitation and supported user dialogs -> `user_input`
 - `compact_boundary` -> `system` with `compactBoundary.trigger` and `compactBoundary.gitRef` metadata
 - `status: compacting` -> `system` (`Compacting conversation context…`)
 - stream or runtime failures -> `error`
@@ -110,7 +67,13 @@ Claude-specific runtime controls come from the UI and runtime options:
 - allow unsandboxed commands
 - setting sources
 - task budget
+- prompt suggestions
 - agent progress summaries
+- subagent text forwarding
+- file checkpointing
+- session fork / resume-at-message controls
+- skill, local plugin, main-agent, and fallback-model hints
+- strict MCP config
 - provider timeout
 - debug stream logging
 
@@ -147,6 +110,8 @@ If you want the user-facing setup workflow instead of the runtime internals, use
 In the chat composer, Stave now shows the active provider mode as a pill beside the model selector and keeps the detailed runtime values in the `Runtime` drawer. Inline runtime adjustments no longer happen there; the editable controls live in Settings.
 
 When Claude `agentProgressSummaries` is enabled, Stave forwards the SDK flag explicitly and renders incoming `task_progress.summary` updates as inline system events in the active assistant message.
+
+Stave maps Claude Agent SDK MCP elicitation requests and the `refusal_fallback_prompt` user dialog into the same Stave `user_input` card used by provider tools. URL elicitations render as confirmation prompts; form elicitations are coerced back to the SDK's requested schema before Stave responds.
 
 Stave now forwards Claude `settingSources` explicitly. The default Stave setting enables `project`, which allows `CLAUDE.md`, project settings, and project-native slash commands to participate in turns; `local` and `user` can be toggled from Settings.
 
@@ -305,18 +270,20 @@ Current Codex defaults follow the App Server-aligned baseline in Stave: `workspa
 
 Stave now forwards an explicit `show_raw_agent_reasoning: false` override when the Codex UI toggle is off, so local CLI defaults or config files do not leave raw reasoning enabled unexpectedly.
 
-Codex threads are keyed by task/cwd plus the active file-access, network, approval, model, reasoning, and web-search settings so Stave can preserve thread context without mixing incompatible runtime modes.
+Codex threads are keyed by task/cwd plus the active file-access, network, approval, model, reasoning, web-search, experimental App Server capability, and developer-instruction settings so Stave can preserve thread context without mixing incompatible runtime modes.
 
 When a task switches from one Codex model to another, Stave does not attempt to resume the older native thread. Instead it replays the task history into a fresh Codex thread so model-bound session errors do not break the next turn.
 
 ## Supported Codex baseline
 
-- Codex App Server transport: local `codex app-server` from Codex CLI `0.125.0`
-- Legacy rollback path: `@openai/codex-sdk@0.121.0`
-- Codex CLI baseline: `0.125.0`
-- Current Stave-supported Codex model IDs: `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex`
+- Codex App Server transport: local `codex app-server` from Codex CLI `0.140.0`
+- Legacy SDK fallback path: `@openai/codex-sdk@0.140.0`
+- Codex CLI baseline: `0.140.0`
+- Current Stave-supported Codex model IDs: `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex-spark`
 
-Stave requires a user-installed Codex CLI (`codex` ≥ 0.125.0). Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery.
+Stave requires a user-installed Codex CLI (`codex` ≥ 0.140.0). Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery.
+
+The Codex App Server adapter advertises the `experimentalApi` capability because Stave requests `experimentalRawEvents` for its streaming, approval, and elicitation event mapping. Additional restricted-sandbox readable roots can be supplied per runtime option without changing the workspace write root.
 
 Claude follows the same pattern. Users can force a specific local `claude` install via `runtimeOptions.claudeBinaryPath` or the Settings dialog's Claude Binary override before Stave falls back to environment-based discovery.
 

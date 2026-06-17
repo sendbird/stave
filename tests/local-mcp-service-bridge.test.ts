@@ -29,8 +29,8 @@ mock.module("../electron/main/host-service-client", () => ({
       taskId: "task-1",
       taskTitle: "Task",
       turnId: "turn-1",
-      provider: "stave",
-      model: "gpt-5.4",
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
     };
   },
   resolveHostServiceScriptPath: (args: {

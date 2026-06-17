@@ -406,9 +406,9 @@ function createToolServer() {
           .optional()
           .describe("Optional title when creating a new task."),
         provider: z
-          .enum(["claude-code", "codex", "stave"])
+          .enum(["claude-code", "codex"])
           .optional()
-          .describe("Provider to run. Defaults to `stave`."),
+          .describe("Provider to run. Defaults to `claude-code`."),
         runtimeOptions: z
           .record(z.string(), z.unknown())
           .optional()

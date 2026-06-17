@@ -2662,7 +2662,7 @@ describe("workspace store hydration ordering", () => {
     expect(upsertCalls).toHaveLength(1);
   });
 
-  test("flushActiveWorkspaceSnapshot keeps Coliseum branch messages resident after completion", async () => {
+  test("flushActiveWorkspaceSnapshot drops inactive legacy branch messages after completion", async () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: Array<unknown> = [];
     setWindowContext({
@@ -2714,8 +2714,8 @@ describe("workspace store hydration ordering", () => {
             role: "user",
             model: "user",
             providerId: "user",
-            content: "start coliseum",
-            parts: [{ type: "text", text: "start coliseum" }],
+            content: "start comparison",
+            parts: [{ type: "text", text: "start comparison" }],
           },
         ],
         "branch-a": [
@@ -2740,28 +2740,6 @@ describe("workspace store hydration ordering", () => {
         ],
       },
       activeTurnIdsByTask: {},
-      activeColiseumsByTask: {
-        "task-parent": {
-          parentTaskId: "task-parent",
-          runId: "run-1",
-          branchTaskIds: ["branch-a"],
-          branchMeta: {
-            "branch-a": {
-              branchTaskId: "branch-a",
-              provider: "claude-code",
-              model: "claude-sonnet-4-6",
-            },
-          },
-          createdAt: "2026-03-10T00:00:00.000Z",
-          parentMessageCountAtFanout: 1,
-          status: "ready",
-          championTaskId: null,
-          pickedHistory: [],
-          viewMode: "grid",
-          focusedBranchTaskId: null,
-          minimized: false,
-        },
-      },
       workspaceInformation: createEmptyWorkspaceInformation(),
     });
 
@@ -2769,11 +2747,9 @@ describe("workspace store hydration ordering", () => {
 
     const nextState = useAppStore.getState();
     expect(nextState.messagesByTask["task-parent"]?.at(-1)?.content).toBe(
-      "start coliseum",
+      "start comparison",
     );
-    expect(nextState.messagesByTask["branch-a"]?.at(-1)?.content).toBe(
-      "branch answer",
-    );
+    expect(nextState.messagesByTask["branch-a"]).toBeUndefined();
     expect(nextState.messagesByTask["task-idle"]).toBeUndefined();
     expect(upsertCalls).toHaveLength(1);
   });

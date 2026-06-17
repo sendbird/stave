@@ -125,40 +125,6 @@ const SystemEventPartSchema = z.object({
     .optional(),
 });
 
-const StaveProcessingPartSchema = z.object({
-  type: z.literal("stave_processing"),
-  strategy: z.union([z.literal("direct"), z.literal("orchestrate")]),
-  model: z.string().optional(),
-  supervisorModel: z.string().optional(),
-  reason: z.string(),
-  fastModeRequested: z.boolean().optional(),
-  fastModeApplied: z.boolean().optional(),
-});
-
-const OrchestrationProgressPartSchema = z.object({
-  type: z.literal("orchestration_progress"),
-  supervisorModel: z.string(),
-  subtasks: z.array(
-    z.object({
-      id: z.string(),
-      title: z.string(),
-      model: z.string(),
-      status: z.union([
-        z.literal("pending"),
-        z.literal("running"),
-        z.literal("done"),
-        z.literal("error"),
-      ]),
-    }),
-  ),
-  status: z.union([
-    z.literal("planning"),
-    z.literal("executing"),
-    z.literal("synthesizing"),
-    z.literal("done"),
-  ]),
-});
-
 const MessagePartSchema = z.discriminatedUnion("type", [
   TextPartSchema,
   ThinkingPartSchema,
@@ -169,8 +135,6 @@ const MessagePartSchema = z.discriminatedUnion("type", [
   ApprovalPartSchema,
   UserInputPartSchema,
   SystemEventPartSchema,
-  StaveProcessingPartSchema,
-  OrchestrationProgressPartSchema,
 ]);
 
 const AttachmentSchema = z.discriminatedUnion("kind", [
@@ -225,7 +189,6 @@ const ChatMessageSchema = z.object({
   providerId: z.union([
     z.literal("claude-code"),
     z.literal("codex"),
-    z.literal("stave"),
     z.literal("user"),
   ]),
   content: z.string(),
@@ -254,7 +217,6 @@ const TaskSchema = z.object({
   provider: z.union([
     z.literal("claude-code"),
     z.literal("codex"),
-    z.literal("stave"),
   ]),
   updatedAt: z.string(),
   unread: z.boolean(),

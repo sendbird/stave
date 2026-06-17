@@ -11,17 +11,16 @@ import {
 } from "@/lib/task-presets";
 
 describe("task preset defaults", () => {
-  test("seeds five presets with the expected kinds", () => {
+  test("seeds four presets with the expected kinds", () => {
     const presets = cloneDefaultTaskPresets();
-    expect(presets).toHaveLength(5);
+    expect(presets).toHaveLength(4);
     expect(presets.map((preset) => preset.id)).toEqual([
-      "default-claude-opus-4-7-task",
+      "default-claude-opus-4-8-task",
       "default-gpt-5-5-task",
-      "default-stave-auto-task",
       "default-claude-cli-session",
       "default-codex-cli-session",
     ]);
-    expect(presets.filter((preset) => preset.kind === "task")).toHaveLength(3);
+    expect(presets.filter((preset) => preset.kind === "task")).toHaveLength(2);
     expect(
       presets.filter((preset) => preset.kind === "cli-session"),
     ).toHaveLength(2);
@@ -36,7 +35,7 @@ describe("task preset defaults", () => {
       provider: "codex",
       model: "gpt-5.5",
     });
-    expect(DEFAULT_TASK_PRESETS).toHaveLength(5);
+    expect(DEFAULT_TASK_PRESETS).toHaveLength(4);
   });
 });
 
@@ -50,10 +49,10 @@ describe("normalizeTaskPreset", () => {
     expect(preset.id.length).toBeGreaterThan(0);
   });
 
-  test("forces stave provider to claude-code for CLI session presets", () => {
+  test("forces legacy unknown providers to claude-code for CLI session presets", () => {
     const preset = normalizeTaskPreset({
       kind: "cli-session",
-      provider: "stave",
+      provider: "stave" as never,
     });
     expect(preset.kind).toBe("cli-session");
     expect(preset.provider).toBe("claude-code");
@@ -75,19 +74,19 @@ describe("normalizeTaskPreset", () => {
     const preset = normalizeTaskPreset({
       kind: "task",
       provider: "claude-code",
-      model: "claude-opus-4-7",
-      label: "Opus 4.7",
+      model: "claude-opus-4-8",
+      label: "Opus 4.8",
     });
-    expect(preset.model).toBe("claude-opus-4-7");
-    expect(preset.label).toBe("Opus 4.7");
+    expect(preset.model).toBe("claude-opus-4-8");
+    expect(preset.label).toBe("Opus 4.8");
   });
 });
 
 describe("normalizePersistedTaskPresets", () => {
   test("returns defaults for non-array input", () => {
-    expect(normalizePersistedTaskPresets(undefined)).toHaveLength(5);
-    expect(normalizePersistedTaskPresets(null)).toHaveLength(5);
-    expect(normalizePersistedTaskPresets({})).toHaveLength(5);
+    expect(normalizePersistedTaskPresets(undefined)).toHaveLength(4);
+    expect(normalizePersistedTaskPresets(null)).toHaveLength(4);
+    expect(normalizePersistedTaskPresets({})).toHaveLength(4);
   });
 
   test("returns an empty list when an empty array is persisted", () => {

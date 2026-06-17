@@ -56,8 +56,8 @@ const threadLastUsedAt = new Map<string, number>();
 /** Maximum number of cached threads before LRU eviction kicks in. */
 const MAX_CACHED_THREADS = 24;
 
-const SUPPORTED_CODEX_SDK_VERSION = "0.125.0";
-const SUPPORTED_CODEX_CLI_VERSION = "0.125.0";
+const SUPPORTED_CODEX_SDK_VERSION = "0.140.0";
+const SUPPORTED_CODEX_CLI_VERSION = "0.140.0";
 const CODEX_HOME_DIRECTORY = process.env.HOME?.trim() || homedir();
 const CODEX_SHARED_RUNTIME_DIRECTORIES = [
   `${CODEX_HOME_DIRECTORY}/.codex`,
@@ -101,15 +101,16 @@ function resolveFileAccessMode(args: {
 }
 
 export function resolveApprovalPolicy(args: {
-  runtimeValue?: "never" | "on-request" | "untrusted";
+  runtimeValue?: "never" | "on-request" | "on-failure" | "untrusted";
   envValue?: string;
   planMode?: boolean;
-  fallback?: "never" | "on-request" | "untrusted";
-}): "never" | "on-request" | "untrusted" | undefined {
+  fallback?: "never" | "on-request" | "on-failure" | "untrusted";
+}): "never" | "on-request" | "on-failure" | "untrusted" | undefined {
   const candidate = args.runtimeValue ?? args.envValue;
   if (
     candidate !== "never" &&
     candidate !== "on-request" &&
+    candidate !== "on-failure" &&
     candidate !== "untrusted"
   ) {
     return args.fallback == null

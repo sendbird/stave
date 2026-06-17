@@ -9,7 +9,6 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
-import { buildStaveAutoProfileFromSettings } from "@/lib/providers/stave-auto-profile";
 import type { AppSettings } from "@/store/app.store";
 
 const DEFAULT_CODEX_APPROVAL_POLICY = "untrusted";
@@ -38,8 +37,18 @@ type RuntimeSettings = Pick<
   | "claudeEffort"
   | "claudeThinkingMode"
   | "claudeAgentProgressSummaries"
+  | "claudePromptSuggestions"
+  | "claudeForwardSubagentText"
+  | "claudeEnableFileCheckpointing"
+  | "claudeForkSession"
+  | "claudeStrictMcpConfig"
   | "claudeFastMode"
   | "claudeFastModeVisible"
+  | "claudeSkills"
+  | "claudePluginPaths"
+  | "claudeAgentName"
+  | "claudeFallbackModel"
+  | "claudeResumeSessionAt"
   | "codexFileAccess"
   | "codexNetworkAccess"
   | "codexApprovalPolicy"
@@ -49,28 +58,12 @@ type RuntimeSettings = Pick<
   | "codexShowRawReasoning"
   | "codexReasoningSummary"
   | "codexReasoningSummarySupport"
+  | "codexAdditionalReadableRoots"
   | "codexFastMode"
   | "codexPlanMode"
   | "codexFastModeVisible"
-  | "staveAutoClassifierModel"
-  | "staveAutoSupervisorModel"
-  | "staveAutoPlanModel"
-  | "staveAutoAnalyzeModel"
-  | "staveAutoImplementModel"
-  | "staveAutoQuickEditModel"
-  | "staveAutoGeneralModel"
-  | "staveAutoVerifyModel"
-  | "staveAutoOrchestrationMode"
-  | "staveAutoMaxSubtasks"
-  | "staveAutoMaxParallelSubtasks"
-  | "staveAutoAllowCrossProviderWorkers"
-  | "staveAutoFastMode"
-  | "staveAutoRoleRuntimeOverrides"
   | "promptResponseStyle"
   | "promptPrDescription"
-  | "promptSupervisorBreakdown"
-  | "promptSupervisorSynthesis"
-  | "promptPreprocessorClassifier"
   | "promptInlineCompletion"
 >;
 
@@ -81,6 +74,24 @@ export function normalizeCodexApprovalPolicy(args: {
     approvalPolicy: args.value,
     fallback: DEFAULT_CODEX_APPROVAL_POLICY,
   });
+}
+
+function normalizeDelimitedSettingList(value?: string | null) {
+  return (value ?? "")
+    .split(/[\n,]+/g)
+    .map((entry) => entry.trim())
+    .filter((entry, index, entries) => entry.length > 0 && entries.indexOf(entry) === index);
+}
+
+function normalizeClaudeSkillsSetting(value?: string | null): ProviderRuntimeOptions["claudeSkills"] {
+  const entries = normalizeDelimitedSettingList(value);
+  if (entries.length === 0) {
+    return undefined;
+  }
+  if (entries.length === 1 && entries[0]?.toLowerCase() === "all") {
+    return "all";
+  }
+  return entries;
 }
 
 export function normalizeClaudeTaskBudgetTokens(args: {
@@ -199,20 +210,35 @@ export function buildProviderRuntimeOptions(args: {
     claudeEffort: settings.claudeEffort,
     claudeThinkingMode: settings.claudeThinkingMode,
     claudeAgentProgressSummaries: settings.claudeAgentProgressSummaries,
+    claudePromptSuggestions: settings.claudePromptSuggestions,
+    claudeForwardSubagentText: settings.claudeForwardSubagentText,
+    claudeEnableFileCheckpointing: settings.claudeEnableFileCheckpointing,
+    claudeForkSession: settings.claudeForkSession,
+    claudeStrictMcpConfig: settings.claudeStrictMcpConfig,
     claudeFastMode: settings.claudeFastMode,
-    ...(args.provider === "stave"
+    ...(normalizeClaudeSkillsSetting(settings.claudeSkills)
+      ? { claudeSkills: normalizeClaudeSkillsSetting(settings.claudeSkills) }
+      : {}),
+    ...(normalizeDelimitedSettingList(settings.claudePluginPaths).length > 0
       ? {
-          ...(providerSession?.["claude-code"]?.trim()
-            ? { claudeResumeSessionId: providerSession["claude-code"] }
-            : {}),
-          ...(providerSession?.codex?.trim()
-            ? { codexResumeThreadId: providerSession.codex }
-            : {}),
+          claudePluginPaths: normalizeDelimitedSettingList(
+            settings.claudePluginPaths,
+          ),
         }
-      : args.provider === "claude-code" &&
-          providerSession?.["claude-code"]?.trim()
-        ? { claudeResumeSessionId: providerSession["claude-code"] }
-        : {}),
+      : {}),
+    ...(settings.claudeAgentName.trim()
+      ? { claudeAgentName: settings.claudeAgentName.trim() }
+      : {}),
+    ...(settings.claudeFallbackModel.trim()
+      ? { claudeFallbackModel: settings.claudeFallbackModel.trim() }
+      : {}),
+    ...(args.provider === "claude-code" &&
+    providerSession?.["claude-code"]?.trim()
+      ? { claudeResumeSessionId: providerSession["claude-code"] }
+      : {}),
+    ...(settings.claudeResumeSessionAt.trim()
+      ? { claudeResumeSessionAt: settings.claudeResumeSessionAt.trim() }
+      : {}),
     codexFileAccess: resolveEffectiveCodexFileAccessMode({
       fileAccessMode: settings.codexFileAccess,
       planMode: settings.codexPlanMode,
@@ -232,14 +258,19 @@ export function buildProviderRuntimeOptions(args: {
     codexShowRawReasoning: settings.codexShowRawReasoning,
     codexReasoningSummary: settings.codexReasoningSummary,
     codexReasoningSummarySupport: settings.codexReasoningSummarySupport,
+    ...(normalizeDelimitedSettingList(settings.codexAdditionalReadableRoots)
+      .length > 0
+      ? {
+          codexAdditionalReadableRoots: normalizeDelimitedSettingList(
+            settings.codexAdditionalReadableRoots,
+          ),
+        }
+      : {}),
     codexFastMode: settings.codexFastMode,
     codexPlanMode: settings.codexPlanMode,
     ...(args.provider === "codex" && providerSession?.codex?.trim()
       ? { codexResumeThreadId: providerSession.codex }
       : {}),
-    staveAuto: buildStaveAutoProfileFromSettings({
-      settings,
-    }),
     responseStylePrompt: settings.promptResponseStyle || undefined,
     promptPrDescription: settings.promptPrDescription || undefined,
     promptInlineCompletion: settings.promptInlineCompletion || undefined,

@@ -75,6 +75,24 @@
   --sidebar-ring: oklch(0.708 0 0);
   --task-list-width: 290px;
   --editor-panel-width: 560px;
+  --dropdown-open-dur: 250ms;
+  --dropdown-close-dur: 150ms;
+  --dropdown-pre-scale: 0.97;
+  --dropdown-closing-scale: 0.99;
+  --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tt-in-dur: 150ms;
+  --tt-out-dur: 50ms;
+  --tt-scale: 0.98;
+  --tt-delay: 80ms;
+  --tt-in-ease: ease-out;
+  --tt-out-ease: ease-out;
+  --pulse-dur: 1000ms;
+  --pulse-min: 0.5;
 }
 
 .dark {
@@ -382,6 +400,87 @@
     animation: terminal-caret 1.05s steps(1, end) infinite;
   }
 
+  .t-dropdown {
+    transform-origin: var(
+      --radix-dropdown-menu-content-transform-origin,
+      var(
+        --radix-popover-content-transform-origin,
+        var(
+          --radix-select-content-transform-origin,
+          var(--radix-context-menu-content-transform-origin, top left)
+        )
+      )
+    );
+    will-change: transform, opacity;
+  }
+
+  .t-dropdown[data-state="open"] {
+    animation: t-dropdown-open var(--dropdown-open-dur) var(--dropdown-ease)
+      both;
+  }
+
+  .t-dropdown[data-state="closed"] {
+    pointer-events: none;
+    animation: t-dropdown-close var(--dropdown-close-dur) var(--dropdown-ease)
+      both;
+  }
+
+  .t-modal {
+    transform-origin: center;
+    will-change: transform, opacity;
+  }
+
+  .t-modal[data-state="open"] {
+    animation: t-modal-open var(--modal-open-dur) var(--modal-ease) both;
+  }
+
+  .t-modal[data-state="closed"] {
+    pointer-events: none;
+    animation: t-modal-close var(--modal-close-dur) var(--modal-ease) both;
+  }
+
+  .t-overlay {
+    will-change: opacity;
+  }
+
+  .t-overlay[data-state="open"] {
+    animation: t-overlay-open var(--modal-open-dur) var(--modal-ease) both;
+  }
+
+  .t-overlay[data-state="closed"] {
+    pointer-events: none;
+    animation: t-overlay-close var(--modal-close-dur) var(--modal-ease) both;
+  }
+
+  .t-tooltip {
+    transform-origin: var(--radix-tooltip-content-transform-origin, center);
+    will-change: transform, opacity;
+  }
+
+  .t-tooltip[data-state="delayed-open"],
+  .t-tooltip[data-state="instant-open"] {
+    animation: t-tooltip-open var(--tt-in-dur) var(--tt-in-ease)
+      var(--tt-delay) both;
+  }
+
+  .t-tooltip[data-state="closed"] {
+    animation: t-tooltip-close var(--tt-out-dur) var(--tt-out-ease) both;
+  }
+
+  .t-skeleton-pulse {
+    animation: t-skeleton-pulse var(--pulse-dur) ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .t-dropdown,
+    .t-modal,
+    .t-overlay,
+    .t-tooltip,
+    .t-skeleton-pulse {
+      animation: none !important;
+    }
+  }
+
   .zen-conversation-scroll {
     scrollbar-width: thin;
     scrollbar-color: color-mix(in oklab, var(--foreground) 36%, transparent)
@@ -428,166 +527,6 @@
     width: 0;
     height: 0;
     display: none;
-  }
-
-  .sidebar-liquid-glass {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    box-shadow:
-      inset 0 1px 0 color-mix(in oklab, white 42%, transparent),
-      18px 0 36px -28px color-mix(in oklab, var(--foreground) 24%, transparent);
-    backdrop-filter: blur(34px) saturate(165%);
-    -webkit-backdrop-filter: blur(34px) saturate(165%);
-  }
-
-  .sidebar-liquid-glass--space-haze {
-    background:
-      radial-gradient(
-        140% 120% at 0% 0%,
-        color-mix(in oklab, var(--primary) 22%, transparent) 0%,
-        transparent 56%
-      ),
-      radial-gradient(
-        96% 88% at 100% 8%,
-        color-mix(in oklab, var(--provider-codex) 22%, transparent) 0%,
-        transparent 52%
-      ),
-      radial-gradient(
-        92% 92% at 18% 100%,
-        color-mix(in oklab, var(--provider-claude) 18%, transparent) 0%,
-        transparent 46%
-      ),
-      radial-gradient(
-        72% 72% at 86% 78%,
-        color-mix(in oklab, var(--chart-2) 18%, transparent) 0%,
-        transparent 42%
-      ),
-      linear-gradient(
-        160deg,
-        color-mix(in oklab, var(--sidebar) 70%, white 20%) 0%,
-        color-mix(in oklab, var(--sidebar) 58%, transparent) 45%,
-        color-mix(in oklab, var(--sidebar) 74%, black 4%) 100%
-      );
-  }
-
-  .sidebar-liquid-glass--wave-aurora {
-    background:
-      radial-gradient(
-        150% 74% at -12% 0%,
-        color-mix(in oklab, var(--provider-claude) 24%, transparent) 0%,
-        transparent 58%
-      ),
-      radial-gradient(
-        132% 68% at 112% 12%,
-        color-mix(in oklab, var(--primary) 26%, transparent) 0%,
-        transparent 56%
-      ),
-      radial-gradient(
-        118% 76% at 48% 100%,
-        color-mix(in oklab, var(--provider-codex) 20%, transparent) 0%,
-        transparent 52%
-      ),
-      linear-gradient(
-        154deg,
-        transparent 0 10%,
-        color-mix(in oklab, var(--chart-2) 16%, transparent) 24%,
-        transparent 42%,
-        color-mix(in oklab, var(--primary) 12%, transparent) 58%,
-        transparent 74%
-      ),
-      linear-gradient(
-        172deg,
-        color-mix(in oklab, var(--sidebar) 68%, white 22%) 0%,
-        color-mix(in oklab, var(--sidebar) 56%, transparent) 48%,
-        color-mix(in oklab, var(--sidebar) 74%, black 4%) 100%
-      );
-  }
-
-  .sidebar-liquid-glass--gravity-paint {
-    background:
-      radial-gradient(
-        118% 128% at 8% -10%,
-        color-mix(in oklab, var(--provider-claude) 24%, transparent) 0%,
-        transparent 46%
-      ),
-      radial-gradient(
-        86% 132% at 100% 18%,
-        color-mix(in oklab, var(--chart-2) 24%, transparent) 0%,
-        transparent 44%
-      ),
-      radial-gradient(
-        90% 122% at 18% 100%,
-        color-mix(in oklab, var(--provider-codex) 20%, transparent) 0%,
-        transparent 42%
-      ),
-      linear-gradient(
-        160deg,
-        transparent 0 8%,
-        color-mix(in oklab, var(--primary) 18%, transparent) 22%,
-        transparent 38%,
-        color-mix(in oklab, var(--provider-claude) 14%, transparent) 56%,
-        transparent 72%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--sidebar) 70%, white 18%) 0%,
-        color-mix(in oklab, var(--sidebar) 60%, transparent) 46%,
-        color-mix(in oklab, var(--sidebar) 76%, black 5%) 100%
-      );
-  }
-
-  .sidebar-liquid-glass::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(
-        circle at 10% 10%,
-        color-mix(in oklab, white 58%, transparent) 0%,
-        transparent 28%
-      ),
-      linear-gradient(
-        130deg,
-        transparent 0 16%,
-        color-mix(in oklab, white 14%, transparent) 34%,
-        transparent 56%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, white 16%, transparent) 0%,
-        transparent 34%,
-        color-mix(in oklab, black 8%, transparent) 100%
-      );
-    opacity: 0.88;
-  }
-
-  .sidebar-liquid-glass::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: linear-gradient(
-      120deg,
-      color-mix(in oklab, white 12%, transparent) 0%,
-      transparent 24%,
-      transparent 72%,
-      color-mix(in oklab, white 10%, transparent) 100%
-    );
-    box-shadow:
-      inset 1px 0 0 color-mix(in oklab, white 18%, transparent),
-      inset 0 1px 0 color-mix(in oklab, white 18%, transparent),
-      inset 0 -1px 0 color-mix(in oklab, white 18%, transparent),
-      inset 0 1px 0 color-mix(in oklab, white 52%, transparent);
-    opacity: 0.7;
-  }
-
-  .sidebar-liquid-glass > * {
-    position: relative;
-    z-index: 1;
   }
 
   .sidebar-liquid-panel {
@@ -648,148 +587,6 @@
   }
 
   /* ── Dark-mode glassmorphism overrides ─────────────────────── */
-  :is(.dark) .sidebar-liquid-glass {
-    box-shadow:
-      inset 0 1px 0 color-mix(in oklab, white 8%, transparent),
-      18px 0 36px -28px color-mix(in oklab, black 34%, transparent);
-    backdrop-filter: blur(34px) saturate(125%);
-    -webkit-backdrop-filter: blur(34px) saturate(125%);
-  }
-
-  :is(.dark) .sidebar-liquid-glass--space-haze {
-    background:
-      radial-gradient(
-        132% 118% at 0% 0%,
-        color-mix(in oklab, var(--primary) 16%, transparent) 0%,
-        transparent 54%
-      ),
-      radial-gradient(
-        98% 88% at 100% 10%,
-        color-mix(in oklab, var(--provider-codex) 18%, transparent) 0%,
-        transparent 50%
-      ),
-      radial-gradient(
-        94% 90% at 20% 100%,
-        color-mix(in oklab, var(--provider-claude) 14%, transparent) 0%,
-        transparent 44%
-      ),
-      radial-gradient(
-        72% 72% at 84% 78%,
-        color-mix(in oklab, var(--chart-2) 14%, transparent) 0%,
-        transparent 42%
-      ),
-      linear-gradient(
-        165deg,
-        color-mix(in oklab, var(--sidebar) 90%, white 3%) 0%,
-        color-mix(in oklab, var(--sidebar) 84%, transparent) 44%,
-        color-mix(in oklab, var(--sidebar) 94%, black 12%) 100%
-      );
-  }
-
-  :is(.dark) .sidebar-liquid-glass--wave-aurora {
-    background:
-      radial-gradient(
-        148% 72% at -12% 0%,
-        color-mix(in oklab, var(--provider-claude) 18%, transparent) 0%,
-        transparent 56%
-      ),
-      radial-gradient(
-        130% 68% at 112% 12%,
-        color-mix(in oklab, var(--primary) 20%, transparent) 0%,
-        transparent 54%
-      ),
-      radial-gradient(
-        120% 74% at 46% 100%,
-        color-mix(in oklab, var(--provider-codex) 16%, transparent) 0%,
-        transparent 50%
-      ),
-      linear-gradient(
-        154deg,
-        transparent 0 10%,
-        color-mix(in oklab, var(--chart-2) 10%, transparent) 24%,
-        transparent 44%,
-        color-mix(in oklab, var(--primary) 8%, transparent) 60%,
-        transparent 76%
-      ),
-      linear-gradient(
-        172deg,
-        color-mix(in oklab, var(--sidebar) 90%, white 4%) 0%,
-        color-mix(in oklab, var(--sidebar) 84%, transparent) 48%,
-        color-mix(in oklab, var(--sidebar) 94%, black 12%) 100%
-      );
-  }
-
-  :is(.dark) .sidebar-liquid-glass--gravity-paint {
-    background:
-      radial-gradient(
-        116% 130% at 8% -10%,
-        color-mix(in oklab, var(--provider-claude) 20%, transparent) 0%,
-        transparent 44%
-      ),
-      radial-gradient(
-        84% 132% at 100% 18%,
-        color-mix(in oklab, var(--chart-2) 18%, transparent) 0%,
-        transparent 42%
-      ),
-      radial-gradient(
-        92% 124% at 18% 100%,
-        color-mix(in oklab, var(--provider-codex) 14%, transparent) 0%,
-        transparent 40%
-      ),
-      linear-gradient(
-        160deg,
-        transparent 0 10%,
-        color-mix(in oklab, var(--primary) 12%, transparent) 24%,
-        transparent 40%,
-        color-mix(in oklab, var(--provider-claude) 10%, transparent) 58%,
-        transparent 76%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--sidebar) 90%, white 3%) 0%,
-        color-mix(in oklab, var(--sidebar) 84%, transparent) 48%,
-        color-mix(in oklab, var(--sidebar) 95%, black 13%) 100%
-      );
-  }
-
-  :is(.dark) .sidebar-liquid-glass::before {
-    background:
-      radial-gradient(
-        circle at 10% 10%,
-        color-mix(in oklab, white 10%, transparent) 0%,
-        transparent 28%
-      ),
-      linear-gradient(
-        132deg,
-        transparent 0 16%,
-        color-mix(in oklab, white 7%, transparent) 34%,
-        transparent 58%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, white 4%, transparent) 0%,
-        transparent 42%,
-        color-mix(in oklab, black 6%, transparent) 100%
-      );
-    opacity: 0.56;
-  }
-
-  :is(.dark) .sidebar-liquid-glass::after {
-    background: linear-gradient(
-      120deg,
-      color-mix(in oklab, white 4%, transparent) 0%,
-      transparent 26%,
-      transparent 72%,
-      color-mix(in oklab, white 4%, transparent) 100%
-    );
-    box-shadow:
-      inset 1px 0 0 color-mix(in oklab, white 6%, transparent),
-      inset 0 1px 0 color-mix(in oklab, white 6%, transparent),
-      inset 0 -1px 0 color-mix(in oklab, white 6%, transparent),
-      inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
-    opacity: 0.6;
-  }
-
   :is(.dark) .sidebar-liquid-panel {
     background: linear-gradient(
       180deg,
@@ -839,6 +636,109 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes t-dropdown-open {
+  from {
+    opacity: 0;
+    transform: scale(var(--dropdown-pre-scale));
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes t-dropdown-close {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(var(--dropdown-closing-scale));
+  }
+}
+
+@keyframes t-modal-open {
+  from {
+    opacity: 0;
+    transform: scale(var(--modal-scale));
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes t-modal-close {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(var(--modal-scale-close));
+  }
+}
+
+@keyframes t-overlay-open {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes t-overlay-close {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes t-tooltip-open {
+  from {
+    opacity: 0;
+    transform: scale(var(--tt-scale));
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes t-tooltip-close {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(var(--tt-scale));
+  }
+}
+
+@keyframes t-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: var(--pulse-min);
   }
 }
 

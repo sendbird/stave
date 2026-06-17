@@ -1,4 +1,5 @@
 import type { PromptDraft } from "../../src/types/chat";
+import type { ProviderId } from "../../src/lib/providers/provider.types";
 import type {
   WorkspaceActiveSurface,
   WorkspaceCliSessionTab,
@@ -9,7 +10,7 @@ import type { WorkspaceInformationState } from "../../src/lib/workspace-informat
 export interface PersistenceTaskRow {
   id: string;
   title: string;
-  provider: "claude-code" | "codex" | "stave";
+  provider: ProviderId;
   updatedAt: string;
   unread: boolean;
   archivedAt?: string | null;
@@ -43,7 +44,6 @@ export interface PersistenceWorkspaceSnapshot {
   providerSessionByTask?: Record<string, {
     "claude-code"?: string;
     codex?: string;
-    stave?: string;
   }>;
   editorTabs?: Array<{
     id: string;
@@ -75,7 +75,6 @@ export interface PersistenceWorkspaceShell {
   providerSessionByTask?: Record<string, {
     "claude-code"?: string;
     codex?: string;
-    stave?: string;
   }>;
   editorTabs?: Array<{
     id: string;
@@ -108,7 +107,6 @@ export interface PersistenceWorkspaceShellLite {
   providerSessionByTask?: Record<string, {
     "claude-code"?: string;
     codex?: string;
-    stave?: string;
   }>;
   messageCountByTask?: Record<string, number>;
 }
@@ -213,7 +211,7 @@ export interface PersistenceNotificationRecord {
   taskId: string | null;
   taskTitle: string | null;
   turnId: string | null;
-  providerId: "claude-code" | "codex" | "stave" | null;
+  providerId: ProviderId | null;
   action: PersistenceNotificationAction | null;
   payload: Record<string, unknown>;
   createdAt: string;

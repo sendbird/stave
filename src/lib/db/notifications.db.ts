@@ -6,11 +6,10 @@ import type {
 } from "@/lib/notifications/notification.types";
 import { sortNotificationsNewestFirst } from "@/lib/notifications/notification.types";
 
-const ProviderIdSchema = z.union([
-  z.literal("claude-code"),
-  z.literal("codex"),
-  z.literal("stave"),
-]);
+const ProviderIdSchema = z.preprocess(
+  (value) => (value === "stave" ? "claude-code" : value),
+  z.union([z.literal("claude-code"), z.literal("codex")]),
+);
 
 const AppNotificationActionSchema = z.discriminatedUnion("type", [
   z.object({

@@ -9,11 +9,9 @@ import type {
   ProviderId,
 } from "@/lib/providers/provider.types";
 import type { WorkspaceInformationState } from "@/lib/workspace-information";
-import { collectActiveColiseumTaskIds } from "@/store/coliseum.utils";
 import type { LayoutState } from "@/store/layout.utils";
 import type {
   ChatMessage,
-  ColiseumGroupState,
   EditorTab,
   PromptDraft,
   Task,
@@ -40,7 +38,6 @@ type ActiveWorkspaceProjectionState = {
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   nativeSessionReadyByTask: Record<string, boolean>;
-  activeColiseumsByTask: Record<string, ColiseumGroupState | undefined>;
 };
 
 type WorkspaceRuntimeCacheState = ActiveWorkspaceProjectionState & {
@@ -68,7 +65,6 @@ export type ActiveWorkspaceStatePatch = Pick<
   | "activeTurnIdsByTask"
   | "providerSessionByTask"
   | "nativeSessionReadyByTask"
-  | "activeColiseumsByTask"
 >;
 
 export type WorkspaceRuntimeStatePatch = Partial<ActiveWorkspaceStatePatch> & {
@@ -99,7 +95,6 @@ export function createWorkspaceSessionStateFromAppState(
     activeTurnIdsByTask: state.activeTurnIdsByTask,
     providerSessionByTask: state.providerSessionByTask,
     nativeSessionReadyByTask: state.nativeSessionReadyByTask,
-    activeColiseumsByTask: state.activeColiseumsByTask,
   };
 }
 
@@ -123,7 +118,6 @@ export function createActiveWorkspaceStatePatch(
     activeTurnIdsByTask: session.activeTurnIdsByTask,
     providerSessionByTask: session.providerSessionByTask,
     nativeSessionReadyByTask: session.nativeSessionReadyByTask,
-    activeColiseumsByTask: session.activeColiseumsByTask,
   };
 }
 
@@ -138,11 +132,6 @@ function compactWorkspaceSessionMessages(
     if (turnId) {
       retainedTaskIds.add(taskId);
     }
-  }
-  for (const taskId of collectActiveColiseumTaskIds({
-    activeColiseumsByTask: session.activeColiseumsByTask,
-  })) {
-    retainedTaskIds.add(taskId);
   }
   const nextMessagesByTask = Object.fromEntries(
     Object.entries(session.messagesByTask).filter(([taskId]) =>
@@ -183,7 +172,6 @@ export function saveActiveWorkspaceRuntimeCache(args: {
     | "activeTurnIdsByTask"
     | "providerSessionByTask"
     | "nativeSessionReadyByTask"
-    | "activeColiseumsByTask"
   >;
 }) {
   if (!args.state.activeWorkspaceId) {

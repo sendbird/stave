@@ -204,15 +204,16 @@ function resolveFileAccessMode(args: {
 }
 
 function resolveApprovalPolicy(args: {
-  runtimeValue?: "never" | "on-request" | "untrusted";
+  runtimeValue?: "never" | "on-request" | "on-failure" | "untrusted";
   envValue?: string;
   planMode?: boolean;
-  fallback?: "never" | "on-request" | "untrusted";
-}): "never" | "on-request" | "untrusted" | undefined {
+  fallback?: "never" | "on-request" | "on-failure" | "untrusted";
+}): "never" | "on-request" | "on-failure" | "untrusted" | undefined {
   const candidate = args.runtimeValue ?? args.envValue;
   if (
     candidate !== "never" &&
     candidate !== "on-request" &&
+    candidate !== "on-failure" &&
     candidate !== "untrusted"
   ) {
     return args.fallback == null
@@ -540,9 +541,10 @@ function resolveCodexAdditionalDirectories(args: {
     );
 }
 
-function buildSandboxPolicy(args: {
+export function buildSandboxPolicy(args: {
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  pathExists?: (value: string) => boolean;
 }) {
   const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
   const networkAccessEnabled =
@@ -559,7 +561,14 @@ function buildSandboxPolicy(args: {
   });
   const readableRoots = [
     args.cwd,
-    ...resolveCodexAdditionalDirectories({ cwd: args.cwd }),
+    ...resolveCodexAdditionalDirectories({
+      cwd: args.cwd,
+      candidates: [
+        ...CODEX_SHARED_RUNTIME_DIRECTORIES,
+        ...(args.runtimeOptions?.codexAdditionalReadableRoots ?? []),
+      ],
+      pathExists: args.pathExists,
+    }),
   ];
 
   switch (fileAccessMode) {
@@ -568,7 +577,7 @@ function buildSandboxPolicy(args: {
     case "read-only":
       return {
         type: "readOnly" as const,
-        access: {
+        permissionProfile: {
           type: "restricted" as const,
           includePlatformDefaults: true,
           readableRoots,
@@ -580,7 +589,7 @@ function buildSandboxPolicy(args: {
       return {
         type: "workspaceWrite" as const,
         writableRoots: [args.cwd],
-        readOnlyAccess: {
+        permissionProfile: {
           type: "restricted" as const,
           includePlatformDefaults: true,
           readableRoots,
@@ -1591,13 +1600,13 @@ class CodexAppServerClient {
 }
 
 function getCodexAppServerClient(args: { executablePath: string }) {
-  const key = args.executablePath.trim();
-  const existing = clientByExecutablePath.get(key);
+  const executablePath = args.executablePath.trim();
+  const existing = clientByExecutablePath.get(executablePath);
   if (existing) {
     return existing;
   }
-  const client = new CodexAppServerClient(key);
-  clientByExecutablePath.set(key, client);
+  const client = new CodexAppServerClient(executablePath);
+  clientByExecutablePath.set(executablePath, client);
   return client;
 }
 
@@ -1664,7 +1673,9 @@ function getCodexAppServerClientFromRuntimeOptions(args: {
   if (!executablePath) {
     throw new Error("Codex executable not found.");
   }
-  return getCodexAppServerClient({ executablePath });
+  return getCodexAppServerClient({
+    executablePath,
+  });
 }
 
 function toCodexStatusLabel(status: unknown) {
@@ -3034,7 +3045,9 @@ export async function getCodexConnectedToolStatus(args: {
   }
 
   try {
-    const client = getCodexAppServerClient({ executablePath });
+    const client = getCodexAppServerClient({
+      executablePath,
+    });
     const response = await client.request<{ data: CodexMcpServerStatus[] }>(
       "mcpServerStatus/list",
       {},

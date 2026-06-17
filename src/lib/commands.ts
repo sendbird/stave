@@ -73,12 +73,6 @@ function toCommandSearchText(args: { command: string; description: string }) {
 
 function buildProviderPassthroughNote(provider: ProviderId) {
   const providerLabel = getProviderLabel({ providerId: provider });
-  if (provider === "stave") {
-    return [
-      "Stave Auto does not expose provider-native slash commands.",
-      "Switch to Claude Code or Codex directly if you want slash-command passthrough behavior.",
-    ].join("\n");
-  }
   if (provider === "codex") {
     return [
       "Stave shows a bundled Codex slash-command reference in the popup.",

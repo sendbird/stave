@@ -20,9 +20,6 @@ export interface WorkspaceSummary {
 export interface TaskProviderSessionState {
   "claude-code"?: string;
   codex?: string;
-  // stave routes to claude-code/codex internally; this field is never set
-  // but must exist so ProviderId-indexed accesses type-check correctly.
-  stave?: string;
 }
 
 export interface WorkspaceSnapshot {

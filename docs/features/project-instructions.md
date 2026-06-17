@@ -69,7 +69,6 @@ This rendered example shows the `Settings → Projects` section with repository-
 ## Limitations And Advanced Options
 
 - The field is project-scoped, not workspace-scoped. Every workspace under the same repository shares the same instructions.
-- It does not replace Stave Auto's internal classifier or supervisor prompts; it applies to normal project turns.
 - If you need one-off behavior for a single request, put that instruction in the task prompt instead.
 
 ## Troubleshooting

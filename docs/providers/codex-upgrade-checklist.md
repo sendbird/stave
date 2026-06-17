@@ -2,6 +2,8 @@
 
 Use this checklist whenever Stave upgrades `@openai/codex-sdk`, changes expected Codex CLI or app-server behavior, or adopts a newer Codex app-server protocol surface.
 
+Current baseline: `@openai/codex-sdk@0.140.0` with local `codex` CLI/App Server `0.140.0`.
+
 ## Guardrails
 
 - Treat the upgrade as both a dependency change and a contract review. Do not close the work with only a version bump.
@@ -21,7 +23,6 @@ Use this checklist whenever Stave upgrades `@openai/codex-sdk`, changes expected
   - add runtime option support
   - expose a settings surface
   - extend Codex mode presets
-  - extend Stave Auto Codex role overrides
 - Do not override external `guardian_approval` feature state unless the product decision explicitly calls for it.
 
 ## Required Check Files
@@ -36,7 +37,6 @@ Use this checklist whenever Stave upgrades `@openai/codex-sdk`, changes expected
 - `src/types/window-api.d.ts`
 - `src/store/provider-runtime-options.ts`
 - `src/lib/providers/provider-mode-presets.ts`
-- `src/lib/providers/stave-auto-profile.ts`
 - `src/components/layout/settings-dialog-providers-section.tsx`
 - `src/components/layout/settings-dialog-codex-section.tsx`
 
@@ -51,9 +51,11 @@ Use this checklist whenever Stave upgrades `@openai/codex-sdk`, changes expected
   - preload and `window.api`
   - IPC schema
   - provider runtime request payload
+- Keep App Server `experimentalApi` advertised while Stave requests `experimentalRawEvents`; `thread/start` rejects that parameter without the capability.
+- Confirm `on-failure`, `on-request`, `untrusted`, and `never` approval policies still round-trip through settings, IPC schema, and runtime payloads.
+- Confirm restricted sandbox readable roots use App Server `permissionProfile` and remain additive without widening the workspace write root.
 - Confirm any new response or event payloads are mapped into Stave's normalized provider event flow if needed.
 - Confirm Codex mode presets still reflect the intended autonomy model after the upgrade.
-- Confirm Stave Auto Codex role overrides still cover the supported runtime controls.
 - Confirm external config import or raw config editing does not silently fight any new first-class Stave surface.
 
 ## Verification

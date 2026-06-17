@@ -115,7 +115,7 @@ interface MessageRowProps {
   message: {
     id: string;
     role: "user" | "assistant";
-    providerId: "claude-code" | "codex" | "stave" | "user";
+    providerId: "claude-code" | "codex" | "user";
     model: string;
     content: string;
     startedAt?: string;
