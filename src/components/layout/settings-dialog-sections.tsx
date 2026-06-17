@@ -1056,7 +1056,7 @@ function ThemeSection() {
             <div className="mt-3 grid gap-3 border-t border-border/50 pt-3">
               <LabeledField
                 title="Beam Size"
-                description="Library size preset. Rotate presets travel around an edge; pulse presets breathe in place."
+                description="Library size preset. Choose between a full border glow, compact controls, or a bottom sweep."
               >
                 <ChoiceButtons
                   value={borderBeamSize}
@@ -1079,16 +1079,6 @@ function ThemeSection() {
                       value: "line",
                       label: "Line",
                       description: "Bottom sweep",
-                    },
-                    {
-                      value: "pulse-inner",
-                      label: "Pulse Inner",
-                      description: "Contained breathe",
-                    },
-                    {
-                      value: "pulse-outside",
-                      label: "Pulse Outside",
-                      description: "Outward halo",
                     },
                   ]}
                 />

@@ -710,9 +710,7 @@ export interface AppSettings {
    */
   borderBeamEnabled: boolean;
   /**
-   * Size preset passed to the `border-beam` library. Rotate presets are
-   * `sm`, `md`, and `line`; pulse presets are `pulse-inner` and
-   * `pulse-outside`.
+   * Size preset passed to the `border-beam` library.
    */
   borderBeamSize: BorderBeamSize;
   /**
@@ -1523,9 +1521,7 @@ function normalizeBorderBeamSize(
 ): AppSettings["borderBeamSize"] {
   return value === "sm" ||
     value === "md" ||
-    value === "line" ||
-    value === "pulse-inner" ||
-    value === "pulse-outside"
+    value === "line"
     ? value
     : "md";
 }
