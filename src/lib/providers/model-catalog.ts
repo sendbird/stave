@@ -5,19 +5,18 @@ import type {
 
 const CLAUDE_COLOR_ICON_URL = `${import.meta.env.BASE_URL}claude-color.svg`;
 const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
-const STAVE_LOGO_DARK_ICON_URL = `${import.meta.env.BASE_URL}stave-logo-dark.svg`;
-const STAVE_LOGO_LIGHT_ICON_URL = `${import.meta.env.BASE_URL}stave-logo-light.svg`;
 export const STAVE_LOGO_URL = `${import.meta.env.BASE_URL}stave-logo.svg`;
-const STAVE_LOGO_AUTO_ICON_URL = `${import.meta.env.BASE_URL}stave-logo-auto.svg`;
-export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-4-7";
-export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-4-7[1m]";
+export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-4-8";
+export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-4-8[1m]";
 const LEGACY_AUTOMATIC_CLAUDE_OPUS_MODELS: Record<string, string> = {
+  "claude-opus-4-7": DEFAULT_CLAUDE_OPUS_MODEL,
+  "claude-opus-4-7[1m]": DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "claude-opus-4-6": DEFAULT_CLAUDE_OPUS_MODEL,
   "claude-opus-4-6[1m]": DEFAULT_CLAUDE_OPUS_1M_MODEL,
 };
 
 // Source: https://platform.claude.com/docs/en/about-claude/models/overview
-// Latest models comparison (as of 2026-04-17)
+// Latest models comparison (as of 2026-06-17)
 // The [1m] suffix activates the 1M-token context window; the Claude SDK
 // parses it and auto-injects the `context-1m-2025-08-07` beta header.
 export const CLAUDE_SDK_MODEL_OPTIONS = [
@@ -36,12 +35,8 @@ export const CODEX_MODEL_OPTIONS = [
   "gpt-5.5",
   "gpt-5.4",
   "gpt-5.4-mini",
-  "gpt-5.3-codex",
+  "gpt-5.3-codex-spark",
 ] as const;
-
-// Stave meta-provider: a single "Auto" pseudo-model that the router replaces
-// at runtime with the best matching real model for each prompt.
-export const STAVE_META_MODEL_OPTIONS = ["stave-auto"] as const;
 
 export interface ProviderDescriptor {
   id: ProviderId;
@@ -58,21 +53,6 @@ export interface ProviderDescriptor {
 }
 
 export const PROVIDER_DESCRIPTORS = [
-  {
-    // Stave meta-provider: analyses each prompt and automatically routes to
-    // the best underlying provider+model (claude-code or codex).
-    id: "stave",
-    label: "Stave",
-    shortLabel: "Stave",
-    iconUrl: STAVE_LOGO_DARK_ICON_URL,
-    fallbackLabel: "S",
-    models: STAVE_META_MODEL_OPTIONS,
-    defaultModel: "stave-auto",
-    sessionLabel: "Stave router",
-    capabilities: {
-      nativeCommandCatalog: false,
-    },
-  },
   {
     id: "claude-code",
     label: "Claude Code",
@@ -132,26 +112,11 @@ export function getProviderIconUrl(args: {
   model?: string;
   isDarkMode?: boolean;
 }) {
-  if (args.providerId === "stave") {
-    if (args.model === "stave-auto") {
-      return STAVE_LOGO_AUTO_ICON_URL;
-    }
-    return args.isDarkMode
-      ? STAVE_LOGO_LIGHT_ICON_URL
-      : STAVE_LOGO_DARK_ICON_URL;
-  }
   return getProviderDescriptor({ providerId: args.providerId }).iconUrl;
 }
 
 export function inferProviderIdFromModel(args: { model: string }): ProviderId {
   const normalizedModel = args.model.trim().toLowerCase();
-  if (
-    !normalizedModel ||
-    normalizedModel === "stave-auto" ||
-    normalizedModel.startsWith("stave-")
-  ) {
-    return "stave";
-  }
   if (normalizedModel.includes("codex") || normalizedModel.startsWith("gpt-")) {
     return "codex";
   }
@@ -162,12 +127,7 @@ export function resolveProviderDisplayId(args: {
   providerId: ProviderId;
   model?: string;
 }) {
-  if (args.providerId !== "stave" || !args.model) {
-    return args.providerId;
-  }
-
-  const inferredProviderId = inferProviderIdFromModel({ model: args.model });
-  return inferredProviderId === "stave" ? args.providerId : inferredProviderId;
+  return args.providerId;
 }
 
 export function getProviderWaveToneClass(args: {
@@ -300,10 +260,12 @@ export function toHumanModelName(args: { model: string }) {
 
   // 2. Static known names
   const known: Record<string, string> = {
-    [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 4.7",
-    [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 4.7 (1M)",
+    [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 4.8",
+    [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 4.8 (1M)",
     // Legacy labels kept so historical chat/turn records still render a
-    // recognizable name after the preset options migrated to 4.7.
+    // recognizable name after the preset options migrated.
+    "claude-opus-4-7": "Claude Opus 4.7",
+    "claude-opus-4-7[1m]": "Claude Opus 4.7 (1M)",
     "claude-opus-4-6": "Claude Opus 4.6",
     "claude-opus-4-6[1m]": "Claude Opus 4.6 (1M)",
     opusplan: "Claude Opus Plan",
@@ -315,7 +277,7 @@ export function toHumanModelName(args: { model: string }) {
     "gpt-5.4-mini": "GPT-5.4 Mini",
     "gpt-5-codex": "GPT-5-Codex",
     "gpt-5.3-codex": "GPT-5.3-Codex",
-    "stave-auto": "Stave Auto",
+    "gpt-5.3-codex-spark": "GPT-5.3-Codex Spark",
   };
   const exact = known[args.model];
   if (exact) {

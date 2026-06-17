@@ -29,8 +29,6 @@ export { Shimmer } from "./shimmer";
 export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning";
 export { ChainOfThought, ChainOfThoughtContent, ChainOfThoughtStep, ChainOfThoughtTrigger, type ChainOfThoughtStep as ChainOfThoughtStepData, type TraceSummaryItem } from "./chain-of-thought";
 export { SubagentCard, parseSubagentToolInput } from "./subagent";
-export { OrchestrationCard } from "./orchestration";
-export { StaveProcessingCard } from "./stave-processing-card";
 export { TodoCard, getTodoProgress, parseTodoInput } from "./todo";
 export { Tool, ToolContent, ToolGroup, ToolHeader, ToolInput, ToolOutput } from "./tool";
 export { ConfirmationCompact } from "./confirmation";

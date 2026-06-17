@@ -82,18 +82,15 @@ import {
 } from "@/lib/providers/model-shortcuts";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { BOOLEAN_TOGGLE_OPTIONS } from "@/lib/providers/runtime-option-contract";
-import { resolveSidebarArtworkClass } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 import {
   BUILTIN_CUSTOM_THEMES,
   MAX_USER_THEMES,
   PRESET_THEME_TOKENS,
-  SIDEBAR_ARTWORK_OPTIONS,
   THEME_TOKEN_NAMES,
   exportCustomThemeJson,
   listAllCustomThemes,
   parseCustomThemeFile,
-  type SidebarArtworkMode,
   type CustomThemeDefinition,
   type ThemeModeName,
   type ThemeTokenName,
@@ -108,9 +105,6 @@ import {
 import {
   DEFAULT_PROMPT_RESPONSE_STYLE,
   DEFAULT_PROMPT_PR_DESCRIPTION,
-  DEFAULT_PROMPT_SUPERVISOR_BREAKDOWN,
-  DEFAULT_PROMPT_SUPERVISOR_SYNTHESIS,
-  DEFAULT_PROMPT_PREPROCESSOR_CLASSIFIER,
   DEFAULT_PROMPT_INLINE_COMPLETION,
   DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
 } from "@/lib/providers/prompt-defaults";
@@ -124,7 +118,6 @@ import { DeveloperSection } from "./settings-dialog-developer-section";
 import { PresetsSection } from "./settings-dialog-presets-section";
 import { CodexSection } from "./settings-dialog-codex-section";
 import { McpSection } from "./settings-dialog-mcp-section";
-import { MuseSection } from "./settings-dialog-muse-section";
 import { ProvidersSection } from "./settings-dialog-providers-section";
 import { ToolingSection } from "./settings-dialog-tooling-section";
 import { WorkspaceScriptsManager } from "./WorkspaceScriptsManager";
@@ -161,10 +154,7 @@ const NOTIFICATION_SOUND_PRESET_OPTIONS: Array<{
 }));
 
 const PROMPT_MODEL_PROVIDER_IDS = ["claude-code", "codex"] as const;
-const MODEL_SHORTCUT_PROVIDER_IDS = [
-  "stave",
-  ...PROMPT_MODEL_PROVIDER_IDS,
-] as const;
+const MODEL_SHORTCUT_PROVIDER_IDS = PROMPT_MODEL_PROVIDER_IDS;
 const UNASSIGNED_APP_SHORTCUT_VALUE = "__shortcut_unassigned__";
 const UNASSIGNED_MODEL_SHORTCUT_VALUE = "__unassigned__";
 
@@ -972,15 +962,15 @@ function ThemeSection() {
     useState<ThemeModeName>("light");
   const themeMode = useAppStore((state) => state.settings.themeMode);
   const customThemeId = useAppStore((state) => state.settings.customThemeId);
-  const sidebarArtworkMode = useAppStore(
-    (state) => state.settings.sidebarArtworkMode,
-  );
   const borderBeamEnabled = useAppStore(
     (state) => state.settings.borderBeamEnabled,
   );
   const borderBeamSize = useAppStore((state) => state.settings.borderBeamSize);
   const borderBeamVariant = useAppStore(
     (state) => state.settings.borderBeamVariant,
+  );
+  const borderBeamStrength = useAppStore(
+    (state) => state.settings.borderBeamStrength,
   );
   const userCustomThemes = useAppStore(
     (state) => state.settings.userCustomThemes,
@@ -997,6 +987,7 @@ function ThemeSection() {
     () => new Set(BUILTIN_CUSTOM_THEMES.map((t) => t.id)),
     [],
   );
+  const borderBeamStrengthPercent = Math.round(borderBeamStrength * 100);
 
   return (
     <>
@@ -1050,60 +1041,6 @@ function ThemeSection() {
         </SettingsCard>
 
         <SettingsCard
-          title="Sidebar Artwork"
-          description="Choose the ambient gradient artwork behind the left sidebar. Space Haze is the default shell backdrop."
-        >
-          <div className="grid gap-2 sm:grid-cols-3">
-            {SIDEBAR_ARTWORK_OPTIONS.map((option) => {
-              const isActive = sidebarArtworkMode === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={cn(
-                    "grid gap-2 rounded-xl border p-3 text-left transition-colors",
-                    isActive
-                      ? "border-primary bg-primary/5 ring-1 ring-primary/25"
-                      : "border-border/70 bg-background/60 hover:border-primary/35 hover:bg-muted/30",
-                  )}
-                  onClick={() =>
-                    updateSettings({
-                      patch: {
-                        sidebarArtworkMode: option.value as SidebarArtworkMode,
-                      },
-                    })
-                  }
-                >
-                  <SidebarArtworkPreview
-                    mode={option.value as SidebarArtworkMode}
-                  />
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold">{option.label}</p>
-                    {option.value === "space-haze" ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] uppercase tracking-wide"
-                      >
-                        Default
-                      </Badge>
-                    ) : null}
-                    {isActive ? (
-                      <span className="ml-auto flex items-center gap-1 text-xs font-medium text-primary">
-                        <Check className="size-3.5" />
-                        Active
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {option.description}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
           title="Motion"
           description="Opt-in animated accents. All motion honors your system Reduced Motion preference."
         >
@@ -1119,18 +1056,40 @@ function ThemeSection() {
             <div className="mt-3 grid gap-3 border-t border-border/50 pt-3">
               <LabeledField
                 title="Beam Size"
-                description="Library size preset. `md` is the full border glow; `sm` is compact for small inputs; `line` sweeps a lit stripe along the bottom edge."
+                description="Library size preset. Rotate presets travel around an edge; pulse presets breathe in place."
               >
                 <ChoiceButtons
                   value={borderBeamSize}
-                  columns={3}
+                  columns={2}
                   onChange={(value) =>
                     updateSettings({ patch: { borderBeamSize: value } })
                   }
                   options={[
-                    { value: "sm", label: "Small" },
-                    { value: "md", label: "Medium" },
-                    { value: "line", label: "Line" },
+                    {
+                      value: "md",
+                      label: "Rotate",
+                      description: "Full border glow",
+                    },
+                    {
+                      value: "sm",
+                      label: "Compact",
+                      description: "Small controls",
+                    },
+                    {
+                      value: "line",
+                      label: "Line",
+                      description: "Bottom sweep",
+                    },
+                    {
+                      value: "pulse-inner",
+                      label: "Pulse Inner",
+                      description: "Contained breathe",
+                    },
+                    {
+                      value: "pulse-outside",
+                      label: "Pulse Outside",
+                      description: "Outward halo",
+                    },
                   ]}
                 />
               </LabeledField>
@@ -1151,6 +1110,33 @@ function ThemeSection() {
                     { value: "sunset", label: "Sunset" },
                   ]}
                 />
+              </LabeledField>
+              <LabeledField
+                title="Beam Strength"
+                description="Controls the library `strength` prop without changing the wrapped content."
+              >
+                <div className="flex items-center gap-3">
+                  <Slider
+                    aria-label="Border Beam strength"
+                    className="flex-1"
+                    value={[borderBeamStrengthPercent]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={(values) => {
+                      const nextValue = values[0];
+                      if (typeof nextValue !== "number") {
+                        return;
+                      }
+                      updateSettings({
+                        patch: { borderBeamStrength: nextValue / 100 },
+                      });
+                    }}
+                  />
+                  <Badge variant="outline" className="min-w-14 justify-center">
+                    {borderBeamStrengthPercent}%
+                  </Badge>
+                </div>
               </LabeledField>
             </div>
           ) : null}
@@ -1260,30 +1246,6 @@ function ThemeSection() {
     </>
   );
 }
-
-const SidebarArtworkPreview = memo(function SidebarArtworkPreview(args: {
-  mode: SidebarArtworkMode;
-}) {
-  return (
-    <div
-      aria-hidden="true"
-      className={cn(
-        "sidebar-liquid-glass relative h-20 overflow-hidden rounded-lg border border-sidebar-border/40 bg-sidebar/70",
-        resolveSidebarArtworkClass({ mode: args.mode }),
-      )}
-    >
-      <div className="absolute inset-x-3 top-2 h-px rounded-full bg-sidebar-border/75" />
-      <div className="absolute inset-x-2 bottom-2 grid gap-1.5">
-        <div className="rounded-md border border-sidebar-border/45 bg-background/20 px-2 py-1 shadow-sm">
-          <div className="h-1.5 w-2/5 rounded-full bg-foreground/60" />
-        </div>
-        <div className="rounded-md border border-sidebar-border/60 bg-background/24 px-2 py-1 ring-1 ring-primary/20 shadow-sm backdrop-blur-sm">
-          <div className="h-1.5 w-3/5 rounded-full bg-foreground/80" />
-        </div>
-      </div>
-    </div>
-  );
-});
 
 /** A visual card for a single custom theme preset. */
 const CustomThemeCard = memo(function CustomThemeCard(args: {
@@ -3179,8 +3141,6 @@ export function SettingsDialogSectionContent(args: {
       return <TerminalSection />;
     case "chat":
       return <ChatSection />;
-    case "muse":
-      return <MuseSection />;
     case "tooling":
       return <ToolingSection />;
     case "skills":
@@ -3365,9 +3325,6 @@ function PromptsSection() {
   const [
     promptResponseStyle,
     promptPrDescription,
-    promptSupervisorBreakdown,
-    promptSupervisorSynthesis,
-    promptPreprocessorClassifier,
     promptInlineCompletion,
     workspaceTurnSummaryPrimaryModel,
     workspaceTurnSummaryFallbackModel,
@@ -3378,9 +3335,6 @@ function PromptsSection() {
         [
           state.settings.promptResponseStyle,
           state.settings.promptPrDescription,
-          state.settings.promptSupervisorBreakdown,
-          state.settings.promptSupervisorSynthesis,
-          state.settings.promptPreprocessorClassifier,
           state.settings.promptInlineCompletion,
           state.settings.workspaceTurnSummaryPrimaryModel,
           state.settings.workspaceTurnSummaryFallbackModel,
@@ -3427,40 +3381,6 @@ function PromptsSection() {
             }
           />
         </SettingsCard>
-
-        <SettingsCard
-          title="Stave Auto — Orchestration"
-          description="Prompts used by the Stave meta-provider for task breakdown and result synthesis."
-        >
-          <PromptField
-            title="Supervisor Breakdown"
-            description="Instructs the supervisor how to decompose a request into subtasks. Use {maxSubtasks} and {providerNote} placeholders for dynamic values."
-            value={promptSupervisorBreakdown}
-            defaultValue={DEFAULT_PROMPT_SUPERVISOR_BREAKDOWN}
-            onCommit={(v) =>
-              updateSettings({ patch: { promptSupervisorBreakdown: v } })
-            }
-          />
-          <PromptField
-            title="Supervisor Synthesis"
-            description="Instructs the supervisor how to merge subtask results into a final response."
-            value={promptSupervisorSynthesis}
-            defaultValue={DEFAULT_PROMPT_SUPERVISOR_SYNTHESIS}
-            onCommit={(v) =>
-              updateSettings({ patch: { promptSupervisorSynthesis: v } })
-            }
-          />
-          <PromptField
-            title="Preprocessor Classifier"
-            description="Classifies user intent for direct routing vs orchestration. Use {orchestrationGuidance} for mode-aware phrasing."
-            value={promptPreprocessorClassifier}
-            defaultValue={DEFAULT_PROMPT_PREPROCESSOR_CLASSIFIER}
-            onCommit={(v) =>
-              updateSettings({ patch: { promptPreprocessorClassifier: v } })
-            }
-          />
-        </SettingsCard>
-
         <SettingsCard
           title="Inline Code Completion"
           description="System prompt for the FIM (fill-in-the-middle) code completion engine in the editor."

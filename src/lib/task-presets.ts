@@ -2,7 +2,6 @@ import {
   CLAUDE_SDK_MODEL_OPTIONS,
   CODEX_MODEL_OPTIONS,
   DEFAULT_CLAUDE_OPUS_MODEL,
-  STAVE_META_MODEL_OPTIONS,
   getDefaultModelForProvider,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -20,7 +19,7 @@ export interface TaskPreset {
   label: string;
   /** `task` creates a chat task; `cli-session` launches a native CLI tab. */
   kind: TaskPresetKind;
-  /** For `task` presets: any provider id. For `cli-session`: never `stave`. */
+  /** Provider used for the task or native CLI session. */
   provider: ProviderId;
   /** Model id used for `task` presets. Ignored for CLI sessions. */
   model?: string;
@@ -53,8 +52,8 @@ export const TASK_PRESET_SHORTCUT_SLOT_LABELS = [
  */
 export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
   {
-    id: "default-claude-opus-4-7-task",
-    label: "Opus 4.7",
+    id: "default-claude-opus-4-8-task",
+    label: "Opus 4.8",
     kind: "task",
     provider: "claude-code",
     model: DEFAULT_CLAUDE_OPUS_MODEL,
@@ -65,13 +64,6 @@ export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
     kind: "task",
     provider: "codex",
     model: "gpt-5.5",
-  },
-  {
-    id: "default-stave-auto-task",
-    label: "Stave Auto",
-    kind: "task",
-    provider: "stave",
-    model: "stave-auto",
   },
   {
     id: "default-claude-cli-session",
@@ -100,7 +92,7 @@ function getAllModelOptionsForProvider(providerId: ProviderId): string[] {
   if (providerId === "codex") {
     return [...CODEX_MODEL_OPTIONS];
   }
-  return [...STAVE_META_MODEL_OPTIONS];
+  return [];
 }
 
 export function listModelsForPresetProvider(
@@ -111,7 +103,7 @@ export function listModelsForPresetProvider(
 
 /**
  * Clamps a partial preset to a valid shape. Used when a persisted preset is
- * malformed (e.g. unknown provider, cli-session + stave combo) or when the
+ * malformed (e.g. unknown provider) or when the
  * user switches the `kind` / `provider` in the editor.
  */
 export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
@@ -121,10 +113,6 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
   let provider: ProviderId;
   if (input.provider === "claude-code" || input.provider === "codex") {
     provider = input.provider;
-  } else if (input.provider === "stave") {
-    // CLI sessions cannot run the `stave` meta-provider because the native
-    // CLI binary doesn't exist. Fall back to Claude for CLI presets.
-    provider = kind === "cli-session" ? "claude-code" : "stave";
   } else {
     provider = "claude-code";
   }
@@ -211,9 +199,6 @@ function buildDefaultPresetLabel(args: {
 }) {
   if (args.kind === "cli-session") {
     return args.provider === "claude-code" ? "Claude CLI" : "Codex CLI";
-  }
-  if (args.provider === "stave") {
-    return "Stave Auto";
   }
   if (args.model) {
     return args.model;

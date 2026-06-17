@@ -7,8 +7,6 @@ import {
   ContextCompactedCheckpoint,
   MessageAction,
   MessageResponse,
-  OrchestrationCard,
-  StaveProcessingCard,
   SubagentCard,
   TodoCard,
   Tool,
@@ -34,14 +32,14 @@ import { useAppStore } from "@/store/app.store";
 import type { MessagePart } from "@/types/chat";
 import { ChangedFilesBlock, FileChangeToolBlock, ReferencedFilesBlock, ImageAttachmentBlock } from "./chat-panel-file-blocks";
 
-export function toProviderStartCase(args: { providerId: "claude-code" | "codex" | "stave" }) {
+export function toProviderStartCase(args: { providerId: "claude-code" | "codex" }) {
   return args.providerId
     .split("-")
     .map((chunk) => `${chunk.slice(0, 1).toUpperCase()}${chunk.slice(1)}`)
     .join(" ");
 }
 
-export function toProviderWaveToneClass(args: { providerId: "claude-code" | "codex" | "stave" | "user"; model?: string }) {
+export function toProviderWaveToneClass(args: { providerId: "claude-code" | "codex" | "user"; model?: string }) {
   if (args.providerId === "user") {
     return "text-primary";
   }
@@ -225,10 +223,6 @@ export function MessagePartRenderer(args: {
         />
       );
     }
-    case "orchestration_progress":
-      return <OrchestrationCard part={part} />;
-    case "stave_processing":
-      return <StaveProcessingCard part={part} />;
     case "text":
       if (!part.text?.trim()) return null;
       return <MessageResponse isStreaming={isStreaming && isLastTextPart}>{part.text}</MessageResponse>;

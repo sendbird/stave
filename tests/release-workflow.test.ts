@@ -11,9 +11,11 @@ describe("release packaging workflow", () => {
 
     expect(workflow).toContain("Package unpacked macOS app bundle");
     expect(workflow).toContain("Prepare internal macOS release bundle");
-    expect(workflow).toContain("./node_modules/.bin/electron-builder --config electron-builder.yml --dir");
-    expect(workflow).toContain("node scripts/prepare-macos-release-bundle.mjs");
-    expect(workflow).toContain("files: release/Stave-macOS.zip");
+    expect(workflow).toContain("bunx --bun electron-builder --config electron-builder.yml --dir");
+    expect(workflow).toContain("bun run scripts/prepare-macos-release-bundle.mjs");
+    expect(workflow).toContain('ASSET="release/Stave-macOS.zip"');
+    expect(workflow).toContain('gh release upload "$TAG" "$ASSET" --clobber');
+    expect(workflow).toContain('gh release create "$TAG"');
     expect(bundlePrep).toContain("Install Stave.command");
     expect(bundlePrep).toContain("Install Stave in Terminal.txt");
     expect(bundlePrep).toContain("verbatimSymlinks: true");

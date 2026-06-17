@@ -15,6 +15,7 @@ export function resolveEffectiveCodexApprovalPolicy(args: {
   if (
     args.approvalPolicy === "never"
     || args.approvalPolicy === "on-request"
+    || args.approvalPolicy === "on-failure"
     || args.approvalPolicy === "untrusted"
   ) {
     return args.approvalPolicy;

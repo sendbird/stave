@@ -13,8 +13,6 @@ import type {
   FileContextPart,
   ImageContextPart,
   MessagePart,
-  OrchestrationProgressPart,
-  StaveProcessingPart,
   SystemEventPart,
   TextPart,
   ThinkingPart,
@@ -62,9 +60,7 @@ export type AssistantTraceEntry =
   | { kind: "approval"; id: string; part: ApprovalPart }
   | { kind: "user_input"; id: string; part: UserInputPart }
   | { kind: "diff"; id: string; parts: CodeDiffPart[] }
-  | { kind: "system"; id: string; part: SystemEventPart }
-  | { kind: "orchestration"; id: string; part: OrchestrationProgressPart }
-  | { kind: "stave_processing"; id: string; part: StaveProcessingPart };
+  | { kind: "system"; id: string; part: SystemEventPart };
 
 export interface AssistantTraceData {
   entries: AssistantTraceEntry[];
@@ -177,12 +173,6 @@ export function buildAssistantTrace(args: {
         if (shouldIncludeSystemEvent(part)) {
           entries.push({ kind: "system", id: `system-${index}`, part });
         }
-        return;
-      case "orchestration_progress":
-        entries.push({ kind: "orchestration", id: `orchestration-${index}`, part });
-        return;
-      case "stave_processing":
-        entries.push({ kind: "stave_processing", id: `stave-processing-${index}`, part });
         return;
       case "file_context":
         fileContextParts.push(part);

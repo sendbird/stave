@@ -9,7 +9,7 @@ import type {
 } from "@/types/chat";
 import type { SkillPromptContext } from "@/lib/skills/types";
 
-export type ProviderId = "claude-code" | "codex" | "stave";
+export type ProviderId = "claude-code" | "codex";
 export type ClaudeSettingSource = "user" | "project" | "local";
 
 export interface ProviderCommandCatalogRequest {
@@ -399,54 +399,6 @@ export interface CanonicalRetrievedContextPart {
   content: string;
 }
 
-export type StaveAutoIntent = "plan" | "analyze" | "implement" | "quick_edit" | "general";
-export type StaveWorkerRole = "plan" | "analyze" | "implement" | "verify" | "general";
-export type StaveOrchestrationMode = "off" | "auto" | "aggressive";
-export type StaveAutoRoleName = "classifier" | "supervisor" | StaveAutoIntent | "verify";
-
-export interface StaveAutoClaudeRoleRuntimeOverrides {
-  permissionMode?: "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk" | "auto";
-  thinkingMode?: "adaptive" | "enabled" | "disabled";
-  effort?: "low" | "medium" | "high" | "xhigh" | "max";
-  fastMode?: boolean;
-}
-
-export interface StaveAutoCodexRoleRuntimeOverrides {
-  approvalPolicy?: "never" | "on-request" | "untrusted";
-  reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
-  fastMode?: boolean;
-}
-
-export interface StaveAutoRoleRuntimeOverrides {
-  claude: StaveAutoClaudeRoleRuntimeOverrides;
-  codex: StaveAutoCodexRoleRuntimeOverrides;
-}
-
-export type StaveAutoRoleRuntimeOverridesMap = Record<StaveAutoRoleName, StaveAutoRoleRuntimeOverrides>;
-
-export interface StaveAutoProfile {
-  classifierModel: string;
-  supervisorModel: string;
-  planModel: string;
-  analyzeModel: string;
-  implementModel: string;
-  quickEditModel: string;
-  generalModel: string;
-  verifyModel?: string;
-  orchestrationMode: StaveOrchestrationMode;
-  maxSubtasks: number;
-  maxParallelSubtasks: number;
-  allowCrossProviderWorkers: boolean;
-  claudeFastModeSupported?: boolean;
-  codexFastModeSupported?: boolean;
-  fastMode?: boolean;
-  roleRuntimeOverrides?: StaveAutoRoleRuntimeOverridesMap;
-  // ---- Prompt overrides for orchestration / classification ----
-  promptSupervisorBreakdown?: string;
-  promptSupervisorSynthesis?: string;
-  promptPreprocessorClassifier?: string;
-}
-
 export interface CanonicalSkillContextPart {
   type: "skill_context";
   skills: SkillPromptContext[];
@@ -511,11 +463,6 @@ export type NormalizedProviderEvent =
   }
   | { type: "subagent_progress"; toolUseId?: string; content: string }
   | { type: "model_resolved"; resolvedProviderId: ProviderId; resolvedModel: string }
-  | { type: "stave:execution_processing"; strategy: "direct" | "orchestrate"; model?: string; supervisorModel?: string; reason: string; fastModeRequested?: boolean; fastModeApplied?: boolean }
-  | { type: "stave:orchestration_processing"; supervisorModel: string; subtasks: Array<{ id: string; title: string; model: string; dependsOn: string[] }> }
-  | { type: "stave:subtask_started"; subtaskId: string; index: number; total: number; title: string; model: string }
-  | { type: "stave:subtask_done"; subtaskId: string; success: boolean }
-  | { type: "stave:synthesis_started" }
   | { type: "error"; message: string; recoverable: boolean }
   | { type: "done"; stop_reason?: "end_turn" | "max_tokens" | "stop_sequence" | "tool_use" | string };
 
@@ -547,25 +494,34 @@ export interface ProviderRuntimeOptions {
   claudeEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   claudeThinkingMode?: "adaptive" | "enabled" | "disabled";
   claudeAgentProgressSummaries?: boolean;
+  claudePromptSuggestions?: boolean;
+  claudeForwardSubagentText?: boolean;
+  claudeEnableFileCheckpointing?: boolean;
+  claudeForkSession?: boolean;
+  claudeStrictMcpConfig?: boolean;
   claudeFastMode?: boolean;
   claudeAllowedTools?: string[];
   claudeDisallowedTools?: string[];
+  claudeSkills?: "all" | string[];
+  claudePluginPaths?: string[];
+  claudeAgentName?: string;
+  claudeFallbackModel?: string;
   claudeAdvisorModel?: string;
   claudeResumeSessionId?: string;
+  claudeResumeSessionAt?: string;
   codexFileAccess?: "read-only" | "workspace-write" | "danger-full-access";
   codexNetworkAccess?: boolean;
-  codexApprovalPolicy?: "never" | "on-request" | "untrusted";
+  codexApprovalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
   codexBinaryPath?: string;
   codexReasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
   codexWebSearch?: "disabled" | "cached" | "live";
   codexShowRawReasoning?: boolean;
   codexReasoningSummary?: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport?: "auto" | "enabled" | "disabled";
+  codexAdditionalReadableRoots?: string[];
   codexFastMode?: boolean;
   codexPlanMode?: boolean;
   codexResumeThreadId?: string;
-  /** Stave Auto profile used by the meta-provider for direct routing and orchestration. */
-  staveAuto?: StaveAutoProfile;
   // ---- Customisable AI prompt overrides ----
   /** Response formatting guidance injected into both Claude and Codex. */
   responseStylePrompt?: string;

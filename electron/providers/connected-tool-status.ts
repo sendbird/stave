@@ -127,24 +127,6 @@ async function getClaudeConnectedToolStatus(args: {
   };
 }
 
-function getUnsupportedProviderToolStatus(args: {
-  providerId: ProviderId;
-  toolIds?: ConnectedToolId[];
-}): ConnectedToolStatusResponse {
-  const toolIds = normalizeConnectedToolIds(args.toolIds);
-  return {
-    ok: true,
-    providerId: args.providerId,
-    detail: `${args.providerId} does not support connected-tool preflight.`,
-    tools: toolIds.map((toolId) => createStatusEntry({
-      id: toolId,
-      state: "unknown",
-      available: true,
-      detail: "Stave Auto does not expose deterministic connected-tool preflight. Muse will fall through to the routed provider.",
-    })),
-  };
-}
-
 export async function getProviderConnectedToolStatus(
   args: ConnectedToolStatusRequest,
 ): Promise<ConnectedToolStatusResponse> {
@@ -164,8 +146,16 @@ export async function getProviderConnectedToolStatus(
     });
   }
 
-  return getUnsupportedProviderToolStatus({
+  const toolIds = normalizeConnectedToolIds(args.toolIds);
+  return {
+    ok: false,
     providerId: args.providerId,
-    toolIds: args.toolIds,
-  });
+    detail: `${args.providerId} does not support connected-tool preflight.`,
+    tools: toolIds.map((toolId) => createStatusEntry({
+      id: toolId,
+      state: "unsupported",
+      available: false,
+      detail: `${getConnectedToolLabel(toolId)} is not supported by ${args.providerId}.`,
+    })),
+  };
 }

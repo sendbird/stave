@@ -116,10 +116,6 @@ function summarizeMessagePart(part: MessagePart) {
       return `[user_input:${part.toolName}] ${part.questions.length} questions`;
     case "system_event":
       return `[system] ${part.content}`;
-    case "orchestration_progress":
-      return `[orchestration:${part.status}] ${part.subtasks.length} subtasks`;
-    case "stave_processing":
-      return `[stave:${part.strategy}] ${part.reason}`;
   }
 }
 
@@ -329,10 +325,6 @@ function getContextDropPriority(part: CanonicalContextPart) {
     switch (part.sourceId) {
       case "stave:repo-map":
         return 0;
-      case "stave:muse-context":
-      case "stave:muse-planner-prompt":
-      case "stave:muse-chat-prompt":
-        return 1;
       case "stave:referenced-task-replies":
         return 4;
       case "stave:current-task-awareness":

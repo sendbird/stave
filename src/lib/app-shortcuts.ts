@@ -11,7 +11,6 @@ export type AppShortcutAllowedKey = (typeof APP_SHORTCUT_ALLOWED_KEYS)[number];
 
 export type AppShortcutCommandId =
   | "navigation.home"
-  | "navigation.open-stave-muse"
   | "view.toggle-workspace-sidebar"
   | "view.toggle-changes-panel"
   | "view.show-explorer"
@@ -37,12 +36,6 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     title: "Go home",
     description: "Clear the active task selection and return to the home view.",
     defaultKey: "h",
-  },
-  {
-    commandId: "navigation.open-stave-muse",
-    title: "Open Stave Muse",
-    description: "Open the global Muse widget for app-wide workflows.",
-    defaultKey: "m",
   },
   {
     commandId: "view.toggle-workspace-sidebar",

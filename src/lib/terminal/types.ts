@@ -27,7 +27,7 @@ export type CliSessionContextMode = "workspace" | "active-task";
 export interface WorkspaceCliSessionTab {
   id: string;
   title: string;
-  provider: Exclude<ProviderId, "stave">;
+  provider: ProviderId;
   contextMode: CliSessionContextMode;
   nativeSessionId?: string;
   linkedTaskId: string | null;
@@ -60,7 +60,7 @@ export interface CliSessionCreateSessionArgs {
   workspaceId: string;
   workspacePath: string;
   cliSessionTabId: string;
-  providerId: Exclude<ProviderId, "stave">;
+  providerId: ProviderId;
   contextMode: CliSessionContextMode;
   nativeSessionId?: string;
   taskId: string | null;
@@ -85,7 +85,7 @@ export function getTerminalTabDefaultTitle(args: {
 }
 
 export function getCliSessionProviderLabel(
-  providerId: Exclude<ProviderId, "stave">,
+  providerId: ProviderId,
 ) {
   return providerId === "claude-code" ? "Claude" : "Codex";
 }
@@ -95,7 +95,7 @@ export function getCliSessionContextLabel(contextMode: CliSessionContextMode) {
 }
 
 export function getCliSessionTabDefaultTitle(args: {
-  providerId: Exclude<ProviderId, "stave">;
+  providerId: ProviderId;
   contextMode: CliSessionContextMode;
   linkedTaskTitle?: string | null;
 }) {

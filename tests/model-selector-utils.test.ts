@@ -9,16 +9,11 @@ import {
 describe("model selector utils", () => {
   test("can build prompt-input options across all providers", () => {
     const options = buildModelSelectorOptions({
-      providerIds: ["stave", "claude-code", "codex"],
+      providerIds: ["claude-code", "codex"],
     });
 
     expect(options).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          key: "stave:stave-auto",
-          model: "stave-auto",
-          providerId: "stave",
-        }),
         expect.objectContaining({
           key: "claude-code:claude-sonnet-4-6",
           model: "claude-sonnet-4-6",
@@ -33,14 +28,11 @@ describe("model selector utils", () => {
     );
   });
 
-  test("can build routed-role options without the stave meta-model", () => {
+  test("builds provider options without a meta-model", () => {
     const options = buildModelSelectorOptions({
       providerIds: ["claude-code", "codex"],
     });
 
-    expect(options.map((option) => option.key)).not.toContain(
-      "stave:stave-auto",
-    );
     expect(options.map((option) => option.providerId)).toEqual(
       expect.not.arrayContaining(["stave"]),
     );
@@ -50,12 +42,12 @@ describe("model selector utils", () => {
     const options = buildModelSelectorOptions({
       providerIds: ["claude-code", "codex"],
       modelsByProvider: {
-        codex: ["gpt-5.4", "gpt-5-codex"],
+        codex: ["gpt-5.4", "gpt-5.3-codex-spark"],
       },
     });
 
     expect(options.map((option) => option.key)).toEqual(
-      expect.arrayContaining(["codex:gpt-5.4", "codex:gpt-5-codex"]),
+      expect.arrayContaining(["codex:gpt-5.4", "codex:gpt-5.3-codex-spark"]),
     );
     expect(options.map((option) => option.key)).not.toContain(
       "codex:gpt-5.3-codex",
@@ -73,9 +65,8 @@ describe("model selector utils", () => {
 
   test("builds the recommended group from available options in the expected order", () => {
     const options = buildModelSelectorOptions({
-      providerIds: ["stave", "claude-code", "codex"],
+      providerIds: ["claude-code", "codex"],
       availabilityByProvider: {
-        stave: true,
         "claude-code": true,
         codex: true,
       },
@@ -86,9 +77,9 @@ describe("model selector utils", () => {
         (option) => option.key,
       ),
     ).toEqual([
-      "claude-code:claude-opus-4-7",
+      "claude-code:claude-opus-4-8",
       "codex:gpt-5.5",
-      "stave:stave-auto",
+      "codex:gpt-5.4",
     ]);
   });
 

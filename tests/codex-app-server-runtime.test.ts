@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildSandboxPolicy,
   createCodexAppServerElicitationPauseController,
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
@@ -165,6 +166,57 @@ describe("mapCodexElicitationToUserInput", () => {
       ],
       fields: [],
     });
+  });
+});
+
+describe("buildSandboxPolicy", () => {
+  test("uses permissionProfile for read-only restricted reads", () => {
+    const policy = buildSandboxPolicy({
+      cwd: "/tmp/project",
+      runtimeOptions: {
+        codexFileAccess: "read-only",
+        codexNetworkAccess: false,
+        codexAdditionalReadableRoots: ["/tmp/context"],
+      },
+      pathExists: (value) => value.startsWith("/tmp/"),
+    });
+
+    expect(policy).toEqual({
+      type: "readOnly",
+      permissionProfile: {
+        type: "restricted",
+        includePlatformDefaults: true,
+        readableRoots: ["/tmp/project", "/tmp/context"],
+      },
+      networkAccess: false,
+    });
+    expect(policy).not.toHaveProperty("access");
+  });
+
+  test("uses permissionProfile for workspace-write restricted reads", () => {
+    const policy = buildSandboxPolicy({
+      cwd: "/tmp/project",
+      runtimeOptions: {
+        codexFileAccess: "workspace-write",
+        codexNetworkAccess: true,
+        codexAdditionalReadableRoots: ["/tmp/context"],
+      },
+      pathExists: (value) => value.startsWith("/tmp/"),
+    });
+
+    expect(policy).toEqual({
+      type: "workspaceWrite",
+      writableRoots: ["/tmp/project"],
+      permissionProfile: {
+        type: "restricted",
+        includePlatformDefaults: true,
+        readableRoots: ["/tmp/project", "/tmp/context"],
+      },
+      networkAccess: true,
+      excludeTmpdirEnvVar: false,
+      excludeSlashTmp: false,
+    });
+    expect(policy).not.toHaveProperty("readOnlyAccess");
   });
 });
 

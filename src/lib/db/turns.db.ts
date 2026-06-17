@@ -1,10 +1,15 @@
 import { z } from "zod";
 
+const ProviderIdSchema = z.preprocess(
+  (value) => (value === "stave" ? "claude-code" : value),
+  z.union([z.literal("claude-code"), z.literal("codex")]),
+);
+
 const PersistedTurnSummarySchema = z.object({
   id: z.string(),
   workspaceId: z.string(),
   taskId: z.string(),
-  providerId: z.union([z.literal("claude-code"), z.literal("codex"), z.literal("stave")]),
+  providerId: ProviderIdSchema,
   createdAt: z.string(),
   completedAt: z.string().nullable(),
 });

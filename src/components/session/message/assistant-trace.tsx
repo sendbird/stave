@@ -11,14 +11,12 @@ import {
   Info,
   ListTodo,
   LoaderCircle,
-  Network,
   Pencil,
   Search,
   ShieldCheck,
   Terminal,
   UserRound,
   Wrench,
-  Zap,
 } from "lucide-react";
 import {
   ChainOfThought,
@@ -27,9 +25,7 @@ import {
   ChainOfThoughtTrigger,
   getTodoProgress,
   MessageResponse,
-  OrchestrationCard,
   Shimmer,
-  StaveProcessingCard,
   ThinkingAnimatedText,
   ToolInput,
   ToolOutput,
@@ -84,10 +80,6 @@ function toStepStatus(args: { entry: AssistantTraceEntry; isStreaming: boolean }
     case "diff":
     case "system":
       return "done" as const;
-    case "orchestration":
-      return args.entry.part.status === "done" ? "done" as const : "active" as const;
-    case "stave_processing":
-      return args.isStreaming ? "active" as const : "done" as const;
   }
 }
 
@@ -117,8 +109,6 @@ function getEntryIcon(entry: AssistantTraceEntry): ReactNode | undefined {
     case "system": return <Info />;
     case "approval": return <ShieldCheck />;
     case "user_input": return <UserRound />;
-    case "orchestration": return <Network />;
-    case "stave_processing": return <Zap />;
     case "assistant_text": return undefined;
   }
 }
@@ -586,19 +576,6 @@ function AssistantTraceEntryView(args: {
         </ChainOfThoughtStep>
       );
 
-    case "orchestration":
-      return (
-        <ChainOfThoughtStep title="Orchestration" status={status} icon={icon} defaultOpen={isStreaming}>
-          <OrchestrationCard part={entry.part} />
-        </ChainOfThoughtStep>
-      );
-
-    case "stave_processing":
-      return (
-        <ChainOfThoughtStep title="Execution routing" status={status} icon={icon} defaultOpen={isStreaming}>
-          <StaveProcessingCard part={entry.part} />
-        </ChainOfThoughtStep>
-      );
   }
 }
 

@@ -87,23 +87,6 @@ function cloneMessagePart(part: MessagePart): MessagePart {
         type: "system_event",
         content: part.content,
       };
-    case "orchestration_progress":
-      return {
-        type: "orchestration_progress",
-        supervisorModel: part.supervisorModel,
-        subtasks: part.subtasks.map((subtask) => ({ ...subtask })),
-        status: part.status,
-      };
-    case "stave_processing":
-      return {
-        type: "stave_processing",
-        strategy: part.strategy,
-        ...(part.model !== undefined ? { model: part.model } : {}),
-        ...(part.supervisorModel !== undefined ? { supervisorModel: part.supervisorModel } : {}),
-        reason: part.reason,
-        ...(part.fastModeRequested !== undefined ? { fastModeRequested: part.fastModeRequested } : {}),
-        ...(part.fastModeApplied !== undefined ? { fastModeApplied: part.fastModeApplied } : {}),
-      };
   }
 }
 

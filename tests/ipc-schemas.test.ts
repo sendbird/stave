@@ -10,16 +10,27 @@ import {
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 
 describe("provider IPC schemas", () => {
-  test("rejects deprecated Codex on-failure approval policy in runtime options", () => {
+  test("accepts latest Codex and Claude runtime options", () => {
     const parsed = StreamTurnArgsSchema.safeParse({
       providerId: "codex",
       prompt: "continue",
       runtimeOptions: {
         codexApprovalPolicy: "on-failure",
+        codexAdditionalReadableRoots: ["/tmp/context"],
+        claudePromptSuggestions: false,
+        claudeForwardSubagentText: true,
+        claudeEnableFileCheckpointing: true,
+        claudeForkSession: true,
+        claudeStrictMcpConfig: true,
+        claudeSkills: ["review"],
+        claudePluginPaths: ["/tmp/claude-plugin"],
+        claudeAgentName: "code-reviewer",
+        claudeFallbackModel: "claude-sonnet-4-6,claude-haiku-4-5",
+        claudeResumeSessionAt: "message-uuid",
       },
     });
 
-    expect(parsed.success).toBe(false);
+    expect(parsed.success).toBe(true);
   });
 
   test("accepts Claude xhigh effort in runtime options", () => {
@@ -32,137 +43,6 @@ describe("provider IPC schemas", () => {
     });
 
     expect(parsed.success).toBe(true);
-  });
-
-  test("accepts stave_processing in canonical history", () => {
-    const parsed = StreamTurnArgsSchema.safeParse({
-      turnId: "turn-1",
-      providerId: "stave",
-      prompt: "그럼 수정해보자",
-      taskId: "task-1",
-      workspaceId: "workspace-1",
-      conversation: {
-        turnId: "turn-1",
-        taskId: "task-1",
-        workspaceId: "workspace-1",
-        target: {
-          providerId: "stave",
-          model: "stave-auto",
-        },
-        mode: "chat",
-        history: [{
-          messageId: "task-1-m-1",
-          role: "assistant",
-          providerId: "claude-code",
-          model: "claude-sonnet-4-6",
-          content: "",
-          parts: [{
-            type: "stave_processing",
-            strategy: "direct",
-            model: "claude-sonnet-4-6",
-            reason: "General task",
-            fastModeRequested: false,
-            fastModeApplied: false,
-          }],
-        }],
-        input: {
-          role: "user",
-          providerId: "user",
-          model: "user",
-          content: "그럼 수정해보자",
-          parts: [{
-            type: "text",
-            text: "그럼 수정해보자",
-          }],
-        },
-        contextParts: [],
-      },
-    });
-
-    expect(parsed.success).toBe(true);
-  });
-
-  test("accepts stave_processing in workspace snapshots", () => {
-    const parsed = parseWorkspaceSnapshot({
-      payload: {
-        activeTaskId: "task-1",
-        tasks: [{
-          id: "task-1",
-          title: "Debug Unexpected Failure",
-          provider: "stave",
-          updatedAt: "2026-03-25T13:15:32.623Z",
-          unread: false,
-          archivedAt: null,
-        }],
-        messagesByTask: {
-          "task-1": [{
-            id: "task-1-m-1",
-            role: "assistant",
-            providerId: "stave",
-            model: "stave-auto",
-            content: "",
-            startedAt: "2026-04-02T10:00:00.000Z",
-            completedAt: "2026-04-02T10:00:05.000Z",
-            parts: [{
-              type: "stave_processing",
-              strategy: "direct",
-              model: "claude-sonnet-4-6",
-              reason: "General task",
-              fastModeRequested: false,
-              fastModeApplied: false,
-            }],
-          }],
-        },
-        promptDraftByTask: {},
-        providerSessionByTask: {},
-        editorTabs: [],
-        activeEditorTabId: null,
-        terminalTabs: [{
-          id: "terminal-1",
-          title: "project",
-          linkedTaskId: null,
-          backend: "ghostty",
-          cwd: "/tmp/project",
-          createdAt: 1,
-        }],
-        activeTerminalTabId: "terminal-1",
-        cliSessionTabs: [{
-          id: "cli-1",
-          title: "Claude Workspace",
-          provider: "claude-code",
-          contextMode: "workspace",
-          nativeSessionId: "claude-session-1",
-          linkedTaskId: null,
-          linkedTaskTitle: null,
-          handoffSummary: "",
-          cwd: "/tmp/project",
-          createdAt: 2,
-        }],
-        activeCliSessionTabId: "cli-1",
-        activeSurface: {
-          kind: "cli-session",
-          cliSessionTabId: "cli-1",
-        },
-      },
-    });
-
-    expect(parsed).not.toBeNull();
-    expect(parsed?.messagesByTask["task-1"]?.[0]?.startedAt).toBe("2026-04-02T10:00:00.000Z");
-    expect(parsed?.messagesByTask["task-1"]?.[0]?.completedAt).toBe("2026-04-02T10:00:05.000Z");
-    expect(parsed?.activeTerminalTabId).toBe("terminal-1");
-    expect(parsed?.messagesByTask["task-1"]?.[0]?.parts[0]).toEqual({
-      type: "stave_processing",
-      strategy: "direct",
-      model: "claude-sonnet-4-6",
-      reason: "General task",
-      fastModeRequested: false,
-      fastModeApplied: false,
-    });
-    expect(parsed?.activeCliSessionTabId).toBe("cli-1");
-    expect(parsed?.activeSurface).toEqual({
-      kind: "cli-session",
-      cliSessionTabId: "cli-1",
-    });
   });
 
   test("preserves renderer-side tool metadata needed by assistant trace rendering", () => {

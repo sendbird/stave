@@ -274,6 +274,8 @@ describe("continueWorkspaceFromSummary", () => {
       "git fetch origin --prune",
       "git diff --stat \"origin/main\"...HEAD",
       "git diff --name-only \"origin/main\"...HEAD",
+      "git show-ref --verify --quiet \"refs/remotes/origin/main\"",
+      "git show-ref --verify --quiet \"refs/heads/origin/main\"",
       "mkdir -p .stave/workspaces",
       `git worktree add -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"origin/main\"`,
     ]);
@@ -611,6 +613,8 @@ describe("continueWorkspaceFromSummary", () => {
       "git fetch origin --prune",
       "git diff --stat \"origin/release\"...HEAD",
       "git diff --name-only \"origin/release\"...HEAD",
+      "git show-ref --verify --quiet \"refs/remotes/origin/release\"",
+      "git show-ref --verify --quiet \"refs/heads/origin/release\"",
       "mkdir -p .stave/workspaces",
       `git worktree add -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"origin/release\"`,
     ]);

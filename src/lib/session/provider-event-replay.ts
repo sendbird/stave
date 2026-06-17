@@ -15,8 +15,6 @@ import type {
   ChatMessage,
   CodeDiffPart,
   MessagePart,
-  OrchestrationProgressPart,
-  StaveProcessingPart,
   TextPart,
   ThinkingPart,
   ToolUsePart,
@@ -209,102 +207,6 @@ function appendSubagentProgressToPart(args: {
   return result;
 }
 
-function parseJsonString(raw: string): unknown | null {
-  const cleaned = raw
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  if (cleaned.length === 0) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    return null;
-  }
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
-}
-
-function isLikelyStaveExecutionProcessingPayload(value: unknown): boolean {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  if (candidate.strategy === "direct") {
-    return (typeof candidate.model === "string" || typeof candidate.intent === "string") && typeof candidate.reason === "string";
-  }
-
-  if (candidate.strategy === "orchestrate") {
-    return typeof candidate.supervisorModel === "string" && typeof candidate.reason === "string";
-  }
-
-  return false;
-}
-
-function isLikelyStaveOrchestrationBreakdownPayload(value: unknown): boolean {
-  if (!Array.isArray(value) || value.length === 0) {
-    return false;
-  }
-
-  return value.every((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      return false;
-    }
-
-    const candidate = item as Record<string, unknown>;
-    return (
-      typeof candidate.id === "string"
-      && typeof candidate.title === "string"
-      && typeof candidate.model === "string"
-      && typeof candidate.prompt === "string"
-      && (candidate.dependsOn === undefined || isStringArray(candidate.dependsOn))
-    );
-  });
-}
-
-function isLikelyStaveInternalRoutingPayload(text: string): boolean {
-  const parsed = parseJsonString(text);
-  if (!parsed) {
-    return false;
-  }
-
-  return (
-    isLikelyStaveExecutionProcessingPayload(parsed)
-    || isLikelyStaveOrchestrationBreakdownPayload(parsed)
-  );
-}
-
-function shouldSuppressStaveInternalText(args: {
-  message: ChatMessage;
-  candidateText: string;
-  partsExcludingTrailingText: MessagePart[];
-}): boolean {
-  if (args.message.providerId !== "stave") {
-    return false;
-  }
-
-  if (args.partsExcludingTrailingText.some((part) => part.type === "orchestration_progress")) {
-    return false;
-  }
-
-  const hasNonRoutingParts = args.partsExcludingTrailingText.some((part) => (
-    part.type !== "stave_processing"
-    && part.type !== "system_event"
-    && part.type !== "thinking"
-  ));
-  if (hasNonRoutingParts) {
-    return false;
-  }
-
-  return isLikelyStaveInternalRoutingPayload(args.candidateText);
-}
-
 function resolvePendingToolInteractionMessage(args: {
   message: ChatMessage;
   event: NormalizedProviderEvent;
@@ -392,34 +294,12 @@ function normalizeEventToPart(args: { event: NormalizedProviderEvent }): Message
         type: "system_event",
         content: `[error] ${event.message}`,
       });
-    case "stave:execution_processing": {
-      const plan = sanitizeMessagePartPayload({
-        type: "stave_processing",
-        strategy: event.strategy,
-        reason: event.reason,
-        ...(event.strategy === "direct" && event.model
-          ? {
-              model: event.model,
-              fastModeRequested: event.fastModeRequested,
-              fastModeApplied: event.fastModeApplied,
-            }
-          : {}),
-        ...(event.strategy === "orchestrate" && event.supervisorModel
-          ? { supervisorModel: event.supervisorModel }
-          : {}),
-      } satisfies StaveProcessingPart);
-      return plan;
-    }
     case "tool_progress":
     case "tool_result":
     case "usage":
     case "prompt_suggestions":
     case "plan_ready":
     case "model_resolved":
-    case "stave:orchestration_processing":
-    case "stave:subtask_started":
-    case "stave:subtask_done":
-    case "stave:synthesis_started":
     case "done":
       return null;
   }
@@ -556,9 +436,6 @@ function finalizeAssistantMessage(args: {
       }
       return part;
     }
-    if (part.type === "orchestration_progress" && part.status !== "done") {
-      return { ...part, status: "done" as const };
-    }
     return part;
   });
 
@@ -611,33 +488,6 @@ export function appendProviderEventToAssistant(args: {
     message,
     event: args.event,
   });
-
-  if (args.event.type === "text") {
-    const lastPart = message.parts.at(-1);
-    const partsExcludingTrailingText = lastPart?.type === "text"
-      ? message.parts.slice(0, -1)
-      : message.parts;
-    const candidateText = lastPart?.type === "text"
-      ? `${lastPart.text}${args.event.text}`
-      : args.event.text;
-
-    if (shouldSuppressStaveInternalText({
-      message,
-      candidateText,
-      partsExcludingTrailingText,
-    })) {
-      const nextContent = lastPart?.type === "text" && message.content.endsWith(lastPart.text)
-        ? message.content.slice(0, -lastPart.text.length)
-        : message.content;
-
-      return {
-        ...message,
-        content: nextContent,
-        parts: partsExcludingTrailingText,
-        isStreaming: true,
-      };
-    }
-  }
 
   if (args.event.type === "subagent_progress") {
     const { toolUseId, content } = args.event;
@@ -736,70 +586,6 @@ export function appendProviderEventToAssistant(args: {
 
   if (args.event.type === "provider_session") {
     return message;
-  }
-
-  if (args.event.type === "stave:orchestration_processing") {
-    const planEvent = args.event;
-    const progressPart: OrchestrationProgressPart = {
-      type: "orchestration_progress",
-      supervisorModel: planEvent.supervisorModel,
-      subtasks: planEvent.subtasks.map((st) => ({
-        id: st.id,
-        title: st.title,
-        model: st.model,
-        status: "pending" as const,
-      })),
-      status: "executing",
-    };
-    return {
-      ...message,
-      parts: [...message.parts, progressPart],
-      isStreaming: true,
-    };
-  }
-
-  if (args.event.type === "stave:subtask_started") {
-    const { subtaskId } = args.event;
-    const updatedParts = message.parts.map((part) => {
-      if (part.type !== "orchestration_progress") {
-        return part;
-      }
-      return {
-        ...part,
-        subtasks: part.subtasks.map((st) =>
-          st.id === subtaskId ? { ...st, status: "running" as const } : st,
-        ),
-      };
-    });
-    return { ...message, parts: updatedParts };
-  }
-
-  if (args.event.type === "stave:subtask_done") {
-    const { subtaskId, success } = args.event;
-    const updatedParts = message.parts.map((part) => {
-      if (part.type !== "orchestration_progress") {
-        return part;
-      }
-      return {
-        ...part,
-        subtasks: part.subtasks.map((st) =>
-          st.id === subtaskId
-            ? { ...st, status: success ? ("done" as const) : ("error" as const) }
-            : st,
-        ),
-      };
-    });
-    return { ...message, parts: updatedParts };
-  }
-
-  if (args.event.type === "stave:synthesis_started") {
-    const updatedParts = message.parts.map((part) => {
-      if (part.type !== "orchestration_progress") {
-        return part;
-      }
-      return { ...part, status: "synthesizing" as const };
-    });
-    return { ...message, parts: updatedParts };
   }
 
   if (args.event.type === "done") {

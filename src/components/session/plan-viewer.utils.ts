@@ -34,7 +34,7 @@ function hasPlanContent(message?: PlanMessage | null) {
 }
 
 export function resolvePlanViewerState(args: {
-  activeProvider: "claude-code" | "codex" | "stave";
+  activeProvider: "claude-code" | "codex";
   claudePermissionMode:
     | "default"
     | "acceptEdits"
@@ -52,8 +52,7 @@ export function resolvePlanViewerState(args: {
     : "";
 
   const isClaudePlanMode =
-    (args.activeProvider === "claude-code" ||
-      args.activeProvider === "stave") &&
+    args.activeProvider === "claude-code" &&
     args.claudePermissionMode === "plan";
   const isCodexPlanMode =
     args.activeProvider === "codex" && args.codexPlanMode === true;

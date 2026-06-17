@@ -8,7 +8,6 @@ import {
 } from "react";
 import { ChatInput } from "@/components/session/ChatInput";
 import { ChatPanel } from "@/components/session/ChatPanel";
-import { ColiseumArenaPanel } from "@/components/session/ColiseumArenaPanel";
 import {
   resolveChatAreaViewMode,
   resolveHydratingProjectCopy,
@@ -47,7 +46,6 @@ function ChatAreaImpl() {
     activeTaskMessageCount,
     activeTask,
     activeTurnId,
-    activeColiseum,
     persistenceBootstrapPhase,
     persistenceBootstrapMessage,
     refreshActiveManagedTask,
@@ -73,7 +71,6 @@ function ChatAreaImpl() {
             (task) => task.id === state.activeTaskId && !isTaskArchived(task),
           ) ?? null,
           state.activeTurnIdsByTask[state.activeTaskId],
-          state.activeColiseumsByTask[state.activeTaskId] ?? null,
           state.persistenceBootstrapPhase,
           state.persistenceBootstrapMessage,
           state.refreshActiveManagedTask,
@@ -209,21 +206,6 @@ function ChatAreaImpl() {
     );
   }
 
-  // Coliseum should take over the session surface even when the parent task
-  // has no direct messages yet; brand-new tasks can launch a Coliseum as
-  // their first action.
-  if (activeColiseum && !activeColiseum.minimized) {
-    return (
-      <div {...sessionAreaProps}>
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          <RenderProfiler id="ColiseumArenaPanel" thresholdMs={8}>
-            <ColiseumArenaPanel parentTaskId={activeTaskId} />
-          </RenderProfiler>
-        </div>
-      </div>
-    );
-  }
-
   if (viewMode === "empty_task") {
     return (
       <div {...sessionAreaProps}>
@@ -233,7 +215,7 @@ function ChatAreaImpl() {
               <EmptySplash
                 layout="top-card"
                 title="Start this task"
-                description="Send the first prompt to begin work in this workspace — or use Coliseum from the composer controls to compare answers from multiple models in parallel."
+                description="Send the first prompt to begin work in this workspace."
               />
             </div>
           </div>

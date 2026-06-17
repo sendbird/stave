@@ -22,6 +22,9 @@ import type {
   CanUseTool,
   McpServerConfig,
   McpServerStatus,
+  OnElicitation,
+  OnUserDialog,
+  Options,
   Query,
   SDKMessage,
   SDKAssistantMessage,
@@ -639,10 +642,22 @@ function extractClaudeTerminalIssue(args: { stdoutTail: string }) {
 function summarizeClaudePermissionRequest(args: {
   toolName: string;
   input: Record<string, unknown>;
+  title?: string;
+  displayName?: string;
+  description?: string;
   decisionReason?: string;
   blockedPath?: string;
 }) {
   const details: string[] = [];
+  if (args.title?.trim()) {
+    details.push(args.title.trim());
+  }
+  if (args.displayName?.trim()) {
+    details.push(args.displayName.trim());
+  }
+  if (args.description?.trim()) {
+    details.push(args.description.trim());
+  }
   if (args.decisionReason?.trim()) {
     details.push(args.decisionReason.trim());
   }
@@ -709,6 +724,386 @@ function parseClaudeQuestionList(args: { input: Record<string, unknown> }) {
       },
     ];
   });
+}
+
+type ClaudeElicitationFieldDescriptor = {
+  key: string;
+  kind: "text" | "number" | "integer" | "boolean" | "enum" | "multi_enum";
+  optionValueByLabel?: Record<string, string>;
+};
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function toTrimmedString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function parseClaudeStringOptions(args: {
+  rawOptions: unknown;
+  fallbackDescription?: string;
+}) {
+  if (!Array.isArray(args.rawOptions)) {
+    return null;
+  }
+  const parsed = args.rawOptions.flatMap((option) => {
+    if (typeof option === "string" && option.trim()) {
+      const value = option.trim();
+      return [
+        {
+          label: value,
+          value,
+          description: args.fallbackDescription ?? value,
+        },
+      ];
+    }
+    if (
+      !isPlainRecord(option) ||
+      typeof option.const !== "string" ||
+      !option.const.trim()
+    ) {
+      return [];
+    }
+    const value = option.const.trim();
+    return [
+      {
+        label: toTrimmedString(option.title) ?? value,
+        value,
+        description: args.fallbackDescription ?? value,
+      },
+    ];
+  });
+  return parsed.length > 0 ? parsed : null;
+}
+
+function mapDefaultValueToClaudeLabel(args: {
+  value: unknown;
+  optionValueByLabel: Record<string, string>;
+}) {
+  if (typeof args.value !== "string") {
+    return undefined;
+  }
+  return Object.entries(args.optionValueByLabel).find(
+    ([, optionValue]) => optionValue === args.value,
+  )?.[0];
+}
+
+function buildClaudeElicitationQuestionFromProperty(args: {
+  formMessage: string;
+  key: string;
+  property: Record<string, unknown>;
+  requiredKeys: Set<string>;
+}): {
+  question: UserInputQuestion;
+  field: ClaudeElicitationFieldDescriptor;
+} | null {
+  const title = toTrimmedString(args.property.title) ?? args.key;
+  const description =
+    toTrimmedString(args.property.description) ?? `Provide ${title}.`;
+  const required = args.requiredKeys.has(args.key);
+
+  if (args.property.type === "boolean") {
+    return {
+      question: {
+        key: args.key,
+        header: args.formMessage,
+        question: description,
+        inputType: "boolean",
+        options: [
+          { label: "Yes", description: "true" },
+          { label: "No", description: "false" },
+        ],
+        allowCustom: false,
+        required,
+        defaultValue:
+          typeof args.property.default === "boolean"
+            ? args.property.default
+              ? "Yes"
+              : "No"
+            : undefined,
+      },
+      field: {
+        key: args.key,
+        kind: "boolean",
+        optionValueByLabel: { Yes: "true", No: "false" },
+      },
+    };
+  }
+
+  if (args.property.type === "number" || args.property.type === "integer") {
+    return {
+      question: {
+        key: args.key,
+        header: args.formMessage,
+        question: description,
+        inputType: args.property.type,
+        options: [],
+        allowCustom: true,
+        required,
+        placeholder: title,
+        defaultValue:
+          typeof args.property.default === "number"
+            ? String(args.property.default)
+            : undefined,
+      },
+      field: { key: args.key, kind: args.property.type },
+    };
+  }
+
+  if (args.property.type === "array" && isPlainRecord(args.property.items)) {
+    const options = parseClaudeStringOptions({
+      rawOptions:
+        args.property.items.anyOf ??
+        args.property.items.oneOf ??
+        args.property.items.enum,
+      fallbackDescription: description,
+    });
+    if (!options) {
+      return null;
+    }
+    const optionValueByLabel = Object.fromEntries(
+      options.map((option) => [option.label, option.value]),
+    );
+    return {
+      question: {
+        key: args.key,
+        header: args.formMessage,
+        question: description,
+        inputType: "text",
+        options: options.map((option) => ({
+          label: option.label,
+          description: option.description,
+        })),
+        multiSelect: true,
+        allowCustom: false,
+        required,
+        defaultValue: Array.isArray(args.property.default)
+          ? args.property.default
+              .map(
+                (value) =>
+                  mapDefaultValueToClaudeLabel({
+                    value,
+                    optionValueByLabel,
+                  }) ?? (typeof value === "string" ? value : ""),
+              )
+              .filter(Boolean)
+              .join(", ")
+          : undefined,
+      },
+      field: { key: args.key, kind: "multi_enum", optionValueByLabel },
+    };
+  }
+
+  const scalarOptions = parseClaudeStringOptions({
+    rawOptions:
+      args.property.oneOf ?? args.property.anyOf ?? args.property.enum,
+    fallbackDescription: description,
+  });
+  if (scalarOptions) {
+    const optionValueByLabel = Object.fromEntries(
+      scalarOptions.map((option) => [option.label, option.value]),
+    );
+    return {
+      question: {
+        key: args.key,
+        header: args.formMessage,
+        question: description,
+        inputType: "text",
+        options: scalarOptions.map((option) => ({
+          label: option.label,
+          description: option.description,
+        })),
+        allowCustom: false,
+        required,
+        defaultValue: mapDefaultValueToClaudeLabel({
+          value: args.property.default,
+          optionValueByLabel,
+        }),
+      },
+      field: { key: args.key, kind: "enum", optionValueByLabel },
+    };
+  }
+
+  if (args.property.type === "string" || !("type" in args.property)) {
+    return {
+      question: {
+        key: args.key,
+        header: args.formMessage,
+        question: description,
+        inputType: "text",
+        options: [],
+        allowCustom: true,
+        required,
+        placeholder: title,
+        defaultValue:
+          typeof args.property.default === "string"
+            ? args.property.default
+            : undefined,
+      },
+      field: { key: args.key, kind: "text" },
+    };
+  }
+
+  return null;
+}
+
+function mapClaudeElicitationToUserInput(
+  request: Parameters<OnElicitation>[0],
+) {
+  const mode = request.mode === "url" ? "url" : "form";
+  const message =
+    request.message.trim() || "Additional input is required to continue.";
+
+  if (mode === "url") {
+    if (!request.url?.trim()) {
+      return null;
+    }
+    return {
+      mode,
+      questions: [
+        {
+          key: "__elicitation_url__",
+          header: request.title ?? "Claude MCP Elicitation",
+          question: message,
+          inputType: "url_notice" as const,
+          options: [],
+          allowCustom: false,
+          required: false,
+          linkUrl: request.url,
+        },
+      ],
+      fields: [] as ClaudeElicitationFieldDescriptor[],
+    };
+  }
+
+  const requestedSchema = isPlainRecord(request.requestedSchema)
+    ? request.requestedSchema
+    : null;
+  const properties =
+    requestedSchema && isPlainRecord(requestedSchema.properties)
+      ? requestedSchema.properties
+      : null;
+
+  if (!properties || Object.keys(properties).length === 0) {
+    return {
+      mode,
+      questions: [
+        {
+          key: "__elicitation_accept__",
+          header: request.title ?? "Claude MCP Elicitation",
+          question:
+            request.description ??
+            request.displayName ??
+            "Submit to allow this MCP request, or decline to cancel it.",
+          inputType: "text" as const,
+          options: [],
+          allowCustom: false,
+          required: false,
+        },
+      ],
+      fields: [] as ClaudeElicitationFieldDescriptor[],
+    };
+  }
+
+  const requiredKeys = new Set(
+    Array.isArray(requestedSchema.required)
+      ? requestedSchema.required.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [],
+  );
+  const mapped = Object.entries(properties).flatMap(([key, property]) => {
+    if (!isPlainRecord(property)) {
+      return [];
+    }
+    const question = buildClaudeElicitationQuestionFromProperty({
+      formMessage: message,
+      key,
+      property,
+      requiredKeys,
+    });
+    return question ? [question] : [];
+  });
+
+  if (mapped.length === 0) {
+    return null;
+  }
+  return {
+    mode,
+    questions: mapped.map((entry) => entry.question),
+    fields: mapped.map((entry) => entry.field),
+  };
+}
+
+function coerceClaudeElicitationAnswer(args: {
+  rawValue: string;
+  field: ClaudeElicitationFieldDescriptor;
+}) {
+  const rawValue = args.rawValue.trim();
+  if (args.field.kind === "boolean") {
+    const mapped = args.field.optionValueByLabel?.[rawValue] ?? rawValue;
+    if (mapped === "true") {
+      return true;
+    }
+    if (mapped === "false") {
+      return false;
+    }
+    return undefined;
+  }
+  if (args.field.kind === "number" || args.field.kind === "integer") {
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) {
+      return undefined;
+    }
+    return args.field.kind === "integer" ? Math.trunc(parsed) : parsed;
+  }
+  if (args.field.kind === "enum") {
+    return args.field.optionValueByLabel?.[rawValue] ?? rawValue;
+  }
+  if (args.field.kind === "multi_enum") {
+    return rawValue
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => args.field.optionValueByLabel?.[entry] ?? entry);
+  }
+  return rawValue;
+}
+
+function mapClaudeUserDialogToUserInput(
+  request: Parameters<OnUserDialog>[0],
+) {
+  if (request.dialogKind !== "refusal_fallback_prompt") {
+    return null;
+  }
+  const title =
+    toTrimmedString(request.payload.title) ?? "Claude Fallback Prompt";
+  const message =
+    toTrimmedString(request.payload.message) ??
+    toTrimmedString(request.payload.description) ??
+    "Claude needs a fallback prompt to continue.";
+  const defaultValue =
+    toTrimmedString(request.payload.prompt) ??
+    toTrimmedString(request.payload.defaultPrompt);
+  return {
+    answerKey: "prompt",
+    questions: [
+      {
+        key: "prompt",
+        header: title,
+        question: message,
+        inputType: "text" as const,
+        options: [],
+        allowCustom: true,
+        required: true,
+        placeholder: "Fallback prompt",
+        defaultValue,
+      },
+    ],
+  };
 }
 
 export class ClaudeToolDecisionTimeoutError extends Error {
@@ -913,7 +1308,39 @@ function resolveClaudeTaskBudget(value?: number) {
   return { total: Math.floor(value) };
 }
 
-function buildClaudeQueryOptions(args: {
+function resolveClaudeFallbackModel(args: {
+  model?: string;
+  fallbackModel?: string;
+}) {
+  const model = args.model?.trim();
+  const fallbackModels = (args.fallbackModel ?? "")
+    .split(",")
+    .map((candidate) => candidate.trim())
+    .filter(
+      (candidate, index, entries) =>
+        candidate.length > 0 &&
+        candidate !== model &&
+        entries.indexOf(candidate) === index,
+    );
+  return fallbackModels.length > 0 ? fallbackModels.join(",") : undefined;
+}
+
+function resolveClaudePluginConfigs(value?: readonly string[]) {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const plugins = value
+    .map((pluginPath) => pluginPath.trim())
+    .filter((pluginPath, index, entries) => pluginPath.length > 0 && entries.indexOf(pluginPath) === index)
+    .map((pluginPath) => ({
+      type: "local" as const,
+      path: pluginPath,
+      skipMcpDiscovery: true,
+    }));
+  return plugins.length > 0 ? plugins : undefined;
+}
+
+export function buildClaudeQueryOptions(args: {
   cwd: string;
   claudeExecutablePath: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -924,7 +1351,9 @@ function buildClaudeQueryOptions(args: {
   promptSuggestions?: boolean;
   canUseTool?: CanUseTool;
   mcpServers?: Record<string, McpServerConfig>;
-}) {
+  onElicitation?: OnElicitation;
+  onUserDialog?: OnUserDialog;
+}): Options {
   const permissionMode =
     args.permissionMode ??
     resolveClaudePermissionMode({
@@ -966,6 +1395,13 @@ function buildClaudeQueryOptions(args: {
     permissionMode,
     runtimeDisallowedTools: args.runtimeOptions?.claudeDisallowedTools,
   });
+  const pluginConfigs = resolveClaudePluginConfigs(
+    args.runtimeOptions?.claudePluginPaths,
+  );
+  const fallbackModel = resolveClaudeFallbackModel({
+    model: args.runtimeOptions?.model,
+    fallbackModel: args.runtimeOptions?.claudeFallbackModel,
+  });
 
   return {
     permissionMode,
@@ -974,9 +1410,11 @@ function buildClaudeQueryOptions(args: {
       : {}),
     ...(args.resume ? { resume: args.resume } : {}),
     ...(args.includePartialMessages ? { includePartialMessages: true } : {}),
-    promptSuggestions: args.promptSuggestions ?? false,
+    promptSuggestions:
+      args.runtimeOptions?.claudePromptSuggestions ?? args.promptSuggestions ?? false,
     cwd: args.cwd,
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
+    ...(fallbackModel ? { fallbackModel } : {}),
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     ...(typeof args.runtimeOptions?.claudeMaxTurns === "number"
       ? { maxTurns: args.runtimeOptions.claudeMaxTurns }
@@ -990,10 +1428,35 @@ function buildClaudeQueryOptions(args: {
       : {}),
     ...(thinking ? { thinking } : {}),
     ...(agentProgressSummaries !== undefined ? { agentProgressSummaries } : {}),
+    ...(typeof args.runtimeOptions?.claudeForwardSubagentText === "boolean"
+      ? { forwardSubagentText: args.runtimeOptions.claudeForwardSubagentText }
+      : {}),
+    ...(typeof args.runtimeOptions?.claudeEnableFileCheckpointing === "boolean"
+      ? {
+          enableFileCheckpointing:
+            args.runtimeOptions.claudeEnableFileCheckpointing,
+        }
+      : {}),
+    ...(args.resume && args.runtimeOptions?.claudeForkSession
+      ? { forkSession: true }
+      : {}),
+    ...(args.resume && args.runtimeOptions?.claudeResumeSessionAt
+      ? { resumeSessionAt: args.runtimeOptions.claudeResumeSessionAt }
+      : {}),
+    ...(typeof args.runtimeOptions?.claudeStrictMcpConfig === "boolean"
+      ? { strictMcpConfig: args.runtimeOptions.claudeStrictMcpConfig }
+      : {}),
     ...(args.runtimeOptions?.claudeAllowedTools
       ? { allowedTools: args.runtimeOptions.claudeAllowedTools }
       : {}),
     ...(disallowedTools.length > 0 ? { disallowedTools } : {}),
+    ...(args.runtimeOptions?.claudeSkills
+      ? { skills: args.runtimeOptions.claudeSkills }
+      : {}),
+    ...(pluginConfigs ? { plugins: pluginConfigs } : {}),
+    ...(args.runtimeOptions?.claudeAgentName
+      ? { agent: args.runtimeOptions.claudeAgentName }
+      : {}),
     ...(settingSources !== undefined ? { settingSources } : {}),
     ...(args.runtimeOptions?.claudeAdvisorModel
       ? { advisorModel: args.runtimeOptions.claudeAdvisorModel }
@@ -1002,6 +1465,13 @@ function buildClaudeQueryOptions(args: {
       ? { settings: { fastMode: true } }
       : {}),
     ...(args.canUseTool ? { canUseTool: args.canUseTool } : {}),
+    ...(args.onElicitation ? { onElicitation: args.onElicitation } : {}),
+    ...(args.onUserDialog
+      ? {
+          onUserDialog: args.onUserDialog,
+          supportedDialogKinds: ["refusal_fallback_prompt"],
+        }
+      : {}),
     ...(args.mcpServers ? { mcpServers: args.mcpServers } : {}),
     sandbox: {
       enabled: claudeSandboxEnabled,
@@ -2160,6 +2630,9 @@ export async function streamClaudeWithSdk(
     const approvalDecisionTimeoutMs = resolveClaudeApprovalDecisionTimeoutMs({
       envValue: process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS,
     });
+    let nextClaudeUserInputRequestOrdinal = 1;
+    const createClaudeUserInputRequestId = (prefix: string) =>
+      `${prefix}-${Date.now()}-${nextClaudeUserInputRequestOrdinal++}`;
     const promptConversation = args.conversation
       ? filterPromptRetrievedContext({
           conversation: args.conversation,
@@ -2188,6 +2661,126 @@ export async function streamClaudeWithSdk(
         includePartialMessages: true,
         promptSuggestions: true,
         mcpServers: embeddedMcpServers,
+        onElicitation: async (request, options) => {
+          const requestId = createClaudeUserInputRequestId(
+            "claude-elicitation",
+          );
+          const elicitation = mapClaudeElicitationToUserInput(request);
+          if (!elicitation) {
+            return { action: "decline" };
+          }
+
+          const userInputEvent: BridgeEvent = {
+            type: "user_input",
+            toolName: "mcp_elicitation",
+            requestId,
+            questions: elicitation.questions,
+          };
+          eventCollector.append(userInputEvent);
+          args.onEvent?.(userInputEvent);
+
+          try {
+            const response = await waitForClaudeToolDecision({
+              signal: options.signal,
+              register: (resolve) => {
+                pendingUserInputResolvers.set(requestId, resolve);
+                return () => {
+                  pendingUserInputResolvers.delete(requestId);
+                };
+              },
+              timeoutMs: approvalDecisionTimeoutMs,
+            });
+            if (response.denied) {
+              return { action: "decline" };
+            }
+            if (elicitation.mode === "url") {
+              return { action: "accept" };
+            }
+            const content = Object.fromEntries(
+              elicitation.fields.flatMap((field) => {
+                const rawValue = response.answers?.[field.key];
+                if (typeof rawValue !== "string") {
+                  return [];
+                }
+                const coerced = coerceClaudeElicitationAnswer({
+                  rawValue,
+                  field,
+                });
+                return coerced === undefined ? [] : [[field.key, coerced]];
+              }),
+            );
+            return { action: "accept", content };
+          } catch (error) {
+            if (error instanceof ClaudeToolDecisionTimeoutError) {
+              emitClaudeApprovalTimeoutBridgeEvent({
+                eventCollector,
+                onEvent: args.onEvent,
+                kind: "user_input",
+                toolName: "mcp_elicitation",
+                requestId,
+                timeoutMs: error.timeoutMs,
+              });
+              return { action: "decline" };
+            }
+            throw error;
+          }
+        },
+        onUserDialog: async (request, options) => {
+          const dialog = mapClaudeUserDialogToUserInput(request);
+          if (!dialog) {
+            return { behavior: "cancelled" };
+          }
+          const requestId = createClaudeUserInputRequestId(
+            "claude-user-dialog",
+          );
+          const userInputEvent: BridgeEvent = {
+            type: "user_input",
+            toolName: request.dialogKind,
+            requestId,
+            questions: dialog.questions,
+          };
+          eventCollector.append(userInputEvent);
+          args.onEvent?.(userInputEvent);
+
+          try {
+            const response = await waitForClaudeToolDecision({
+              signal: options.signal,
+              register: (resolve) => {
+                pendingUserInputResolvers.set(requestId, resolve);
+                return () => {
+                  pendingUserInputResolvers.delete(requestId);
+                };
+              },
+              timeoutMs: approvalDecisionTimeoutMs,
+            });
+            if (response.denied) {
+              return { behavior: "cancelled" };
+            }
+            const answer = response.answers?.[dialog.answerKey]?.trim() ?? "";
+            return {
+              behavior: "completed",
+              result: {
+                prompt: answer,
+                text: answer,
+                value: answer,
+                answer,
+              },
+            };
+          } catch (error) {
+            if (error instanceof ClaudeToolDecisionTimeoutError) {
+              emitClaudeApprovalTimeoutBridgeEvent({
+                eventCollector,
+                onEvent: args.onEvent,
+                kind: "user_input",
+                toolName: request.dialogKind,
+                requestId,
+                timeoutMs: error.timeoutMs,
+              });
+              return { behavior: "cancelled" };
+            }
+            throw error;
+          }
+        },
         canUseTool: async (toolName, input, options) => {
           const normalizedInput = normalizeClaudeToolInput(input);
           const requestId = options.toolUseID;
@@ -2301,6 +2894,9 @@ export async function streamClaudeWithSdk(
             description: summarizeClaudePermissionRequest({
               toolName,
               input: normalizedInput,
+              title: options.title,
+              displayName: options.displayName,
+              description: options.description,
               decisionReason: options.decisionReason,
               blockedPath: options.blockedPath,
             }),

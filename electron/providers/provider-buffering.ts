@@ -275,51 +275,6 @@ function getBridgeEventStringAccessors(event: BridgeEvent) {
           },
         },
       ];
-    case "stave:execution_processing":
-      return [
-        {
-          get: () => event.reason,
-          set: (value: string) => {
-            event.reason = value;
-          },
-        },
-      ];
-    case "stave:orchestration_processing":
-      return event.subtasks.flatMap((_, index) => [
-        {
-          get: () => event.subtasks[index]?.title ?? "",
-          set: (value: string) => {
-            const subtask = event.subtasks[index];
-            if (subtask) {
-              subtask.title = value;
-            }
-          },
-        },
-        {
-          get: () => event.subtasks[index]?.model ?? "",
-          set: (value: string) => {
-            const subtask = event.subtasks[index];
-            if (subtask) {
-              subtask.model = value;
-            }
-          },
-        },
-      ]);
-    case "stave:subtask_started":
-      return [
-        {
-          get: () => event.title,
-          set: (value: string) => {
-            event.title = value;
-          },
-        },
-        {
-          get: () => event.model,
-          set: (value: string) => {
-            event.model = value;
-          },
-        },
-      ];
     case "error":
       return [
         {

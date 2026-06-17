@@ -3,7 +3,7 @@ import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 import { saveActiveWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
 
 describe("saveActiveWorkspaceRuntimeCache", () => {
-  test("retains Coliseum parent and branch messages while dropping unrelated idle tasks", () => {
+  test("retains active task messages while dropping idle task messages", () => {
     const cache = saveActiveWorkspaceRuntimeCache({
       state: {
         activeWorkspaceId: "ws-main",
@@ -99,63 +99,10 @@ describe("saveActiveWorkspaceRuntimeCache", () => {
         activeTurnIdsByTask: {},
         providerSessionByTask: {},
         nativeSessionReadyByTask: {},
-        activeColiseumsByTask: {
-          "task-parent": {
-            parentTaskId: "task-parent",
-            runId: "run-1",
-            branchTaskIds: ["branch-a"],
-            branchMeta: {
-              "branch-a": {
-                branchTaskId: "branch-a",
-                provider: "claude-code",
-                model: "claude-sonnet-4-6",
-              },
-            },
-            createdAt: "2026-04-20T12:00:00.000Z",
-            parentMessageCountAtFanout: 1,
-            status: "ready",
-            championTaskId: null,
-            pickedHistory: [],
-            viewMode: "grid",
-            focusedBranchTaskId: null,
-            minimized: false,
-            reviewerTaskId: "reviewer-1",
-          },
-        },
       },
     });
 
     expect(cache["ws-main"]?.messagesByTask).toEqual({
-      "task-parent": [
-        {
-          id: "task-parent-m-1",
-          role: "user",
-          model: "user",
-          providerId: "user",
-          content: "compare these",
-          parts: [{ type: "text", text: "compare these" }],
-        },
-      ],
-      "branch-a": [
-        {
-          id: "branch-a-m-1",
-          role: "assistant",
-          model: "claude-sonnet-4-6",
-          providerId: "claude-code",
-          content: "final branch answer",
-          parts: [{ type: "text", text: "final branch answer" }],
-        },
-      ],
-      "reviewer-1": [
-        {
-          id: "reviewer-1-m-1",
-          role: "assistant",
-          model: "claude-opus",
-          providerId: "claude-code",
-          content: "pick branch a",
-          parts: [{ type: "text", text: "pick branch a" }],
-        },
-      ],
       "task-other": [
         {
           id: "task-other-m-1",

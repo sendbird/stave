@@ -173,7 +173,6 @@ export function KeyboardShortcutsDrawer({
     args: Pick<ShortcutItem, "label" | "description"> & {
       actionId:
         | "navigation.home"
-        | "navigation.open-stave-muse"
         | "view.toggle-workspace-sidebar"
         | "view.toggle-changes-panel"
         | "view.show-explorer"
@@ -340,11 +339,6 @@ export function KeyboardShortcutsDrawer({
             description: "Open the prompt model picker from the keyboard.",
             sequences: [["Alt", "P"]],
           },
-          buildShellShortcutItem({
-            actionId: "navigation.open-stave-muse",
-            label: "Open Stave Muse",
-            description: "Open the global Muse widget for app-wide workflows.",
-          }),
           {
             label: "Quick open file",
             description:

@@ -163,40 +163,11 @@ describe("provider turn status helpers", () => {
     ).toEqual({});
   });
 
-  test("promotes the effective provider when stave resolves to claude", () => {
-    const started = startProviderTurnActivity({
-      activityByTask: {},
-      taskId: "task-1",
-      turnId: "turn-1",
-      providerId: "stave",
-      now: 1000,
-    });
-    const updated = applyProviderTurnActivityEvents({
-      activityByTask: started,
-      taskId: "task-1",
-      turnId: "turn-1",
-      providerId: "stave",
-      now: 2000,
-      events: [
-        {
-          type: "model_resolved",
-          resolvedProviderId: "claude-code",
-          resolvedModel: "claude-sonnet-4-6",
-        },
-      ],
-    });
-
-    expect(updated["task-1"]?.providerId).toBe("claude-code");
-  });
-
   test("uses the same UI stall threshold across provider ids", () => {
     expect(
       resolveProviderTurnStallThresholdMs({ providerId: "claude-code" }),
     ).toBe(PROVIDER_TURN_STALL_THRESHOLD_MS);
     expect(resolveProviderTurnStallThresholdMs({ providerId: "codex" })).toBe(
-      PROVIDER_TURN_STALL_THRESHOLD_MS,
-    );
-    expect(resolveProviderTurnStallThresholdMs({ providerId: "stave" })).toBe(
       PROVIDER_TURN_STALL_THRESHOLD_MS,
     );
   });

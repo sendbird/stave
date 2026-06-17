@@ -86,8 +86,6 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
 - `SettingsDialog`
   - includes a `Projects` section with a dedicated project menu and a single detail panel for the selected project
   - keeps repository workspace defaults, git metadata, scripts config editing, close action, and project removal inside that selected-project panel instead of the main sidebar row
-  - exposes `Settings > Design > Sidebar Artwork` so the left sidebar backdrop can switch between `Space Haze`, `Wave + Aurora`, and `Gravity Paint`
-  - shows thumbnail previews for each sidebar artwork option so the backdrop modes can be compared before switching
 - `WorkspaceTaskTabs`
   - renders active tasks and full-panel CLI sessions as horizontal tabs for the selected workspace
   - uses one shared leading slot for responding wave or model icon
@@ -103,7 +101,7 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
   - moves the old workspace-bar utility toggles into a vertical strip on the far right
   - labels the git panel as `Source Control`, with `Changes` and `History` kept as the internal tabs inside that panel
   - exposes a dedicated Scripts panel for workspace actions, services, hook inspection, Orbit-enabled dev services, runtime path/status summary, and quick navigation back to project settings
-  - exposes a workspace information panel with an auto-updated top `Summary` accordion section that starts expanded, plus shared accordion sections, URL-first linked-resource sections for Jira, Confluence, Figma, Slack, and GitHub, notes, todos, saved plans, and custom structured fields that Muse and local MCP workflows can register against
+  - exposes a workspace information panel with an auto-updated top `Summary` accordion section that starts expanded, plus shared accordion sections, URL-first linked-resource sections for Jira, Confluence, Figma, Slack, and GitHub, notes, todos, saved plans, and custom structured fields that local MCP workflows can register against
   - surfaces workspace-level plan history from markdown files under `.stave/context/plans`, while still showing legacy `.stave/plans` files
   - keeps the newest plan first, limits the list to the latest five saved plans, and opens the selected saved plan directly in the editor from the Information panel
   - stays visible at every breakpoint, using a narrower compact treatment below `lg`

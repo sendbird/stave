@@ -8,11 +8,6 @@ export const MAX_PROVIDER_USER_INPUT_QUESTION_CHARS = 5_000;
 export const MAX_PROVIDER_USER_INPUT_HEADER_CHARS = 200;
 export const MAX_PROVIDER_USER_INPUT_OPTION_LABEL_CHARS = 500;
 export const MAX_PROVIDER_USER_INPUT_OPTION_DESCRIPTION_CHARS = 5_000;
-export const MAX_PROVIDER_STAVE_PROCESSING_MODEL_CHARS = 200;
-export const MAX_PROVIDER_STAVE_PROCESSING_REASON_CHARS = 5_000;
-export const MAX_PROVIDER_ORCHESTRATION_SUBTASK_MODEL_CHARS = 200;
-export const MAX_PROVIDER_ORCHESTRATION_SUBTASK_TITLE_CHARS = 5_000;
-export const MAX_PROVIDER_ORCHESTRATION_SUPERVISOR_MODEL_CHARS = 200;
 
 type FileContextPayload = Pick<FileContextPart, "type" | "filePath" | "content" | "language" | "instruction">;
 
@@ -147,67 +142,6 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
     case "system_event": {
       const content = sanitizeTextField({ value: part.content, label: "system event" });
       return content === part.content ? part : { ...part, content } as T;
-    }
-    case "orchestration_progress": {
-      const supervisorModel = sanitizeTextField({
-        value: part.supervisorModel,
-        label: "orchestration supervisor model",
-        maxChars: MAX_PROVIDER_ORCHESTRATION_SUPERVISOR_MODEL_CHARS,
-      });
-      const subtasks = part.subtasks.map((subtask) => ({
-        ...subtask,
-        title: sanitizeTextField({
-          value: subtask.title,
-          label: "orchestration subtask title",
-          maxChars: MAX_PROVIDER_ORCHESTRATION_SUBTASK_TITLE_CHARS,
-        }),
-        model: sanitizeTextField({
-          value: subtask.model,
-          label: "orchestration subtask model",
-          maxChars: MAX_PROVIDER_ORCHESTRATION_SUBTASK_MODEL_CHARS,
-        }),
-      }));
-      const changed = supervisorModel !== part.supervisorModel
-        || subtasks.some((subtask, index) => (
-          subtask.title !== part.subtasks[index]?.title
-          || subtask.model !== part.subtasks[index]?.model
-        ));
-      return changed
-        ? {
-            ...part,
-            supervisorModel,
-            subtasks,
-          } as T
-        : part;
-    }
-    case "stave_processing": {
-      const model = part.model == null
-        ? part.model
-        : sanitizeTextField({
-            value: part.model,
-            label: "stave processing model",
-            maxChars: MAX_PROVIDER_STAVE_PROCESSING_MODEL_CHARS,
-          });
-      const supervisorModel = part.supervisorModel == null
-        ? part.supervisorModel
-        : sanitizeTextField({
-            value: part.supervisorModel,
-            label: "stave processing supervisor model",
-            maxChars: MAX_PROVIDER_STAVE_PROCESSING_MODEL_CHARS,
-          });
-      const reason = sanitizeTextField({
-        value: part.reason,
-        label: "stave processing reason",
-        maxChars: MAX_PROVIDER_STAVE_PROCESSING_REASON_CHARS,
-      });
-      return model === part.model && supervisorModel === part.supervisorModel && reason === part.reason
-        ? part
-        : {
-            ...part,
-            ...(model !== undefined ? { model } : {}),
-            ...(supervisorModel !== undefined ? { supervisorModel } : {}),
-            reason,
-          } as T;
     }
     case "approval": {
       const description = sanitizeTextField({

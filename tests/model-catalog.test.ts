@@ -2,18 +2,14 @@ import { describe, expect, test } from "bun:test";
 import {
   CODEX_MODEL_OPTIONS,
   DEFAULT_CLAUDE_OPUS_MODEL,
-  STAVE_META_MODEL_OPTIONS,
   getDynamicDisplayNames,
   resolveClaudeEffortForModelSwitch,
   resolveDefaultClaudeEffortForModel,
   getDefaultModelForProvider,
   getNextProviderId,
-  getProviderIconUrl,
   getProviderLabel,
   getProviderWaveToneClass,
-  getSdkModelOptions,
   inferProviderIdFromModel,
-  listProviderIds,
   registerDynamicDisplayNames,
   toHumanModelName,
   upgradeSettingsScopedClaudeOpusModel,
@@ -25,7 +21,7 @@ describe("model catalog", () => {
       "gpt-5.5",
       "gpt-5.4",
       "gpt-5.4-mini",
-      "gpt-5.3-codex",
+      "gpt-5.3-codex-spark",
     ]);
   });
 
@@ -86,13 +82,13 @@ describe("model catalog", () => {
     ).toBe("max");
   });
 
-  test("upgrades settings-scoped Opus 4.6 aliases to Opus 4.7 while preserving the 1M suffix", () => {
+  test("upgrades settings-scoped Opus 4.6 aliases to Opus 4.8 while preserving the 1M suffix", () => {
     expect(
       upgradeSettingsScopedClaudeOpusModel({ model: "claude-opus-4-6" }),
     ).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
     expect(
       upgradeSettingsScopedClaudeOpusModel({ model: "claude-opus-4-6[1m]" }),
-    ).toBe("claude-opus-4-7[1m]");
+    ).toBe("claude-opus-4-8[1m]");
     expect(
       upgradeSettingsScopedClaudeOpusModel({ model: "claude-opus-4-6-fast" }),
     ).toBe("claude-opus-4-6-fast");
@@ -105,18 +101,6 @@ describe("model catalog", () => {
     expect(getProviderWaveToneClass({ providerId: "codex" })).toBe(
       "text-provider-codex",
     );
-    expect(getProviderWaveToneClass({ providerId: "stave" })).toBe(
-      "text-primary",
-    );
-    expect(
-      getProviderWaveToneClass({ providerId: "stave", model: "gpt-5.4" }),
-    ).toBe("text-provider-codex");
-    expect(
-      getProviderWaveToneClass({
-        providerId: "stave",
-        model: "claude-sonnet-4-6",
-      }),
-    ).toBe("text-provider-claude");
   });
 
   test("infers provider ids from routed model ids", () => {
@@ -125,14 +109,13 @@ describe("model catalog", () => {
     expect(inferProviderIdFromModel({ model: "claude-sonnet-4-6" })).toBe(
       "claude-code",
     );
-    expect(inferProviderIdFromModel({ model: "stave-auto" })).toBe("stave");
   });
 
   // ── 1M context model variants ─────────────────────────────────────────────
 
   test("formats [1m] model variants with human-readable labels", () => {
-    expect(toHumanModelName({ model: "claude-opus-4-7[1m]" })).toBe(
-      "Claude Opus 4.7 (1M)",
+    expect(toHumanModelName({ model: "claude-opus-4-8[1m]" })).toBe(
+      "Claude Opus 4.8 (1M)",
     );
     expect(toHumanModelName({ model: "claude-sonnet-4-6[1m]" })).toBe(
       "Claude Sonnet 4.6 (1M)",
@@ -145,7 +128,7 @@ describe("model catalog", () => {
   });
 
   test("infers claude-code provider for [1m] model variants", () => {
-    expect(inferProviderIdFromModel({ model: "claude-opus-4-7[1m]" })).toBe(
+    expect(inferProviderIdFromModel({ model: "claude-opus-4-8[1m]" })).toBe(
       "claude-code",
     );
     expect(inferProviderIdFromModel({ model: "claude-sonnet-4-6[1m]" })).toBe(
@@ -153,16 +136,16 @@ describe("model catalog", () => {
     );
   });
 
-  test("wave tone class resolves correctly for [1m] variants via stave", () => {
+  test("wave tone class resolves correctly for [1m] variants", () => {
     expect(
       getProviderWaveToneClass({
-        providerId: "stave",
-        model: "claude-opus-4-7[1m]",
+        providerId: "claude-code",
+        model: "claude-opus-4-8[1m]",
       }),
     ).toBe("text-provider-claude");
     expect(
       getProviderWaveToneClass({
-        providerId: "stave",
+        providerId: "claude-code",
         model: "claude-sonnet-4-6[1m]",
       }),
     ).toBe("text-provider-claude");
@@ -170,61 +153,7 @@ describe("model catalog", () => {
 
   test("cycles provider order from the descriptor registry", () => {
     expect(getNextProviderId({ providerId: "claude-code" })).toBe("codex");
-  });
-
-  // ── Stave meta-provider ──────────────────────────────────────────────────
-
-  describe("stave meta-provider", () => {
-    test("is registered in the provider list", () => {
-      expect(listProviderIds()).toContain("stave");
-    });
-
-    test("includes the stave-auto pseudo-model", () => {
-      expect(STAVE_META_MODEL_OPTIONS).toEqual(["stave-auto"]);
-    });
-
-    test("defaults to stave-auto", () => {
-      expect(getDefaultModelForProvider({ providerId: "stave" })).toBe(
-        "stave-auto",
-      );
-    });
-
-    test("returns stave-auto as the only model option", () => {
-      expect(getSdkModelOptions({ providerId: "stave" })).toEqual([
-        "stave-auto",
-      ]);
-    });
-
-    test("formats stave-auto with the canonical human label", () => {
-      expect(toHumanModelName({ model: "stave-auto" })).toBe("Stave Auto");
-    });
-
-    test("returns 'Stave' as the short label", () => {
-      expect(getProviderLabel({ providerId: "stave" })).toBe("Stave");
-    });
-
-    test("returns 'Stave' as the full label", () => {
-      expect(getProviderLabel({ providerId: "stave", variant: "full" })).toBe(
-        "Stave",
-      );
-    });
-
-    test("switches stave icon urls by theme", () => {
-      expect(
-        getProviderIconUrl({ providerId: "stave", isDarkMode: false }),
-      ).toContain("stave-logo-dark.svg");
-      expect(
-        getProviderIconUrl({ providerId: "stave", isDarkMode: true }),
-      ).toContain("stave-logo-light.svg");
-    });
-
-    test("cycles from codex to stave", () => {
-      expect(getNextProviderId({ providerId: "codex" })).toBe("stave");
-    });
-
-    test("cycles from stave back to claude-code", () => {
-      expect(getNextProviderId({ providerId: "stave" })).toBe("claude-code");
-    });
+    expect(getNextProviderId({ providerId: "codex" })).toBe("claude-code");
   });
 
   // ── Dynamic display-name registry ─────────────────────────────────────────
@@ -254,7 +183,7 @@ describe("model catalog", () => {
 
     test("toHumanModelName still returns static names when no dynamic entry exists", () => {
       expect(toHumanModelName({ model: DEFAULT_CLAUDE_OPUS_MODEL })).toBe(
-        "Claude Opus 4.7",
+        "Claude Opus 4.8",
       );
     });
 

@@ -14,7 +14,6 @@ import {
   SearchCheck,
   Shield,
   SlidersHorizontal,
-  Sparkles,
   TerminalSquare,
   Wrench,
 } from "lucide-react";
@@ -25,7 +24,6 @@ export const settingsSections = [
   { id: "projects", label: "Projects", icon: Folder },
   { id: "theme", label: "Design", icon: Palette },
   { id: "chat", label: "Chat", icon: Bot },
-  { id: "muse", label: "Muse", icon: Sparkles },
   { id: "providers", label: "Providers", icon: Wrench },
   { id: "codex", label: "Codex", icon: Package2 },
   { id: "mcp", label: "MCP", icon: Cable },
@@ -51,7 +49,6 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
     {
       label: "Providers",
       ids: [
-        "muse",
         "providers",
         "codex",
         "mcp",

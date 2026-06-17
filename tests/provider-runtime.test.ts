@@ -129,7 +129,7 @@ describe("parseNormalizedEvent", () => {
     expect(parsed?.type).toBe("provider_session");
   });
 
-  test("accepts stave provider conversation metadata", () => {
+  test("rejects removed stave provider conversation metadata", () => {
     const parsed = parseNormalizedEvent({
       payload: {
         type: "provider_session",
@@ -138,11 +138,7 @@ describe("parseNormalizedEvent", () => {
       },
     });
 
-    expect(parsed).toEqual({
-      type: "provider_session",
-      providerId: "stave",
-      nativeSessionId: "session-stave-123",
-    });
+    expect(parsed).toBeNull();
   });
 
   test("accepts valid prompt suggestions event", () => {

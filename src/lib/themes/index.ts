@@ -17,15 +17,6 @@ export {
   type CustomThemeDefinition,
 } from "./types";
 
-// Sidebar artwork variants for the project workspace shell
-export {
-  SIDEBAR_ARTWORK_OPTIONS,
-  DEFAULT_SIDEBAR_ARTWORK_MODE,
-  normalizeSidebarArtworkMode,
-  resolveSidebarArtworkClass,
-  type SidebarArtworkMode,
-} from "./sidebar-artwork";
-
 // Base light / dark preset values
 export { PRESET_THEME_TOKENS } from "./presets";
 

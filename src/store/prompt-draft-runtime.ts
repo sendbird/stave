@@ -105,7 +105,7 @@ export function resolvePromptDraftPlanModeChange(args: {
     };
   }
 
-  if (args.providerId === "claude-code" || args.providerId === "stave") {
+  if (args.providerId === "claude-code") {
     const nextMode: ClaudePermissionMode = args.enabled
       ? "plan"
       : (args.claudePermissionModeBeforePlan ?? "auto");

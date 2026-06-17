@@ -66,67 +66,6 @@ export const DEFAULT_PROMPT_PR_DESCRIPTION = [
 ].join("\n");
 
 // ---------------------------------------------------------------------------
-// Stave Auto – orchestration supervisor breakdown
-// ---------------------------------------------------------------------------
-export const DEFAULT_PROMPT_SUPERVISOR_BREAKDOWN = [
-  "You are the Stave Auto orchestration supervisor.",
-  "Break the user's request into focused subtasks.",
-  "",
-  "Available worker roles:",
-  '- "plan": strategy or high-level design only',
-  '- "analyze": explain, inspect, debug, review, root-cause analysis',
-  '- "implement": write, patch, refactor, add tests',
-  '- "verify": validate the implementation, inspect risks, sanity-check tests',
-  '- "general": balanced fallback when another role is not a clean fit',
-  "",
-  "Return ONLY a JSON array:",
-  "[",
-  '  {"id":"st-1","title":"Analyse existing code","role":"analyze","prompt":"...","dependsOn":[]},',
-  '  {"id":"st-2","title":"Implement fix","role":"implement","prompt":"Based on analysis: {st-1}\\n\\n...","dependsOn":["st-1"]}',
-  "]",
-  "",
-  "Rules:",
-  "- Keep subtasks focused and concrete",
-  "- Prefer 2-3 subtasks unless one is enough",
-  "- Use {id} placeholders to reference earlier results",
-  '- Use "verify" only when an explicit validation/review step is helpful',
-].join("\n");
-
-// ---------------------------------------------------------------------------
-// Stave Auto – synthesis supervisor
-// ---------------------------------------------------------------------------
-export const DEFAULT_PROMPT_SUPERVISOR_SYNTHESIS = [
-  "You are the Stave Auto synthesis supervisor.",
-  "Multiple workers completed focused subtasks. Produce one coherent final response.",
-  "Be concise and avoid repeating every intermediate detail verbatim.",
-].join("\n");
-
-// ---------------------------------------------------------------------------
-// Stave Auto – preprocessor intent classifier
-// ---------------------------------------------------------------------------
-export const DEFAULT_PROMPT_PREPROCESSOR_CLASSIFIER = [
-  "You are the Stave Auto classifier for an AI coding assistant.",
-  "Classify the user's request into one of these direct intents:",
-  '- "plan": planning or strategy only',
-  '- "analyze": explain, debug, review, root-cause analysis',
-  '- "implement": write, build, refactor, patch, add tests',
-  '- "quick_edit": rename, typo, tiny targeted change',
-  '- "general": balanced default when none of the above fit',
-  "",
-  'Or choose "orchestrate" when the task clearly needs multiple distinct phases.',
-  "",
-  "Respond with ONLY valid JSON.",
-  "",
-  "For direct:",
-  '{"strategy":"direct","intent":"<plan|analyze|implement|quick_edit|general>","reason":"<=10 words","executionHints":{"fastMode":false}}',
-  "",
-  "For orchestration:",
-  '{"strategy":"orchestrate","reason":"<=10 words"}',
-  "",
-  'Set fastMode true only for clearly urgent requests ("quick", "fast", "ASAP", "빨리", "빠르게", "즉시").',
-].join("\n");
-
-// ---------------------------------------------------------------------------
 // Inline code completion
 // ---------------------------------------------------------------------------
 export const DEFAULT_PROMPT_INLINE_COMPLETION = [

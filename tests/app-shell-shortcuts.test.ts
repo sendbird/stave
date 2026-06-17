@@ -141,24 +141,6 @@ describe("app shell shortcut gating", () => {
     });
   });
 
-  test("opens Muse when M follows the chord before timeout", () => {
-    expect(
-      resolveShortcutChord({
-        key: "m",
-        pendingChord: {
-          type: "app-command",
-          startedAt: 100,
-        },
-        now: 150,
-      }),
-    ).toEqual({
-      action: "navigation.open-stave-muse",
-      nextPendingChord: null,
-      preventDefault: true,
-      stopAppHandling: true,
-    });
-  });
-
   test("opens scripts when S follows the chord before timeout", () => {
     expect(
       resolveShortcutChord({

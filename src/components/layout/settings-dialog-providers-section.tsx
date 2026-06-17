@@ -1,6 +1,5 @@
 import {
   buildModelSelectorOptions,
-  buildRecommendedModelSelectorOptions,
   buildModelSelectorValue,
   ModelSelector,
 } from "@/components/ai-elements/model-selector";
@@ -41,26 +40,14 @@ import type {
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 import {
-  buildStaveAutoModelSettingsPatch,
-  detectStaveAutoModelPreset,
-  resolveStaveProviderForModel,
-  STAVE_AUTO_MODEL_PRESETS,
-} from "@/lib/providers/stave-auto-profile";
-import {
   DEFAULT_CLAUDE_OPUS_1M_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   getDefaultModelForProvider,
 } from "@/lib/providers/model-catalog";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import type {
-  StaveAutoClaudeRoleRuntimeOverrides,
-  StaveAutoCodexRoleRuntimeOverrides,
-  StaveAutoRoleName,
-  StaveAutoRoleRuntimeOverrides,
-} from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   DraftInput,
@@ -77,8 +64,6 @@ import {
   ClaudeRuntimeToolsCard,
   CodexBinaryPathCard,
 } from "./settings-dialog-developer-section";
-
-const STAVE_AUTO_MODEL_PROVIDER_IDS = ["claude-code", "codex"] as const;
 const CLAUDE_ADVISOR_SOURCE_MODEL_OPTIONS = buildModelSelectorOptions({
   providerIds: ["claude-code"],
   modelsByProvider: {
@@ -90,11 +75,6 @@ const CLAUDE_ADVISOR_SOURCE_MODEL_OPTIONS = buildModelSelectorOptions({
     ],
   },
 });
-
-const STAVE_AUTO_BOOLEAN_OVERRIDE_OPTIONS = [
-  { value: "on", label: "on" },
-  { value: "off", label: "off" },
-] as const;
 
 type ExplainedSelectOption<T extends string> = {
   value: T;
@@ -295,6 +275,14 @@ const CODEX_APPROVAL_POLICY_HELP = [
     description: "Pause when approval is needed and ask you to confirm.",
     example:
       "Use this when you want more explicit checkpoints than the default low-friction setup.",
+  },
+  {
+    value: "on-failure",
+    label: "on-failure",
+    description:
+      "Let Codex retry with approval only after an operation fails without it.",
+    example:
+      "Useful when you want low-friction execution but still want a recovery path for blocked commands.",
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexApprovalPolicy"]>
@@ -526,15 +514,6 @@ function DescribedSelect<T extends string>(args: {
   );
 }
 
-function StaveAutoOverrideField(args: { label: string; children: ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-foreground/90">{args.label}</p>
-      {args.children}
-    </div>
-  );
-}
-
 function ProviderModePresetButtons(args: {
   presets: readonly ProviderModePresetDefinition[];
   activePresetId: ProviderModePresetId | null;
@@ -559,596 +538,6 @@ function ProviderModePresetButtons(args: {
   );
 }
 
-function StaveAutoRoleField(args: {
-  role: StaveAutoRoleName;
-  title: string;
-  description: string;
-  value: string;
-  overrides: StaveAutoRoleRuntimeOverrides;
-  modelOptions: ReturnType<typeof buildModelSelectorOptions>;
-  recommendedModelOptions: ReturnType<
-    typeof buildRecommendedModelSelectorOptions
-  >;
-  onModelSelect: (model: string) => void;
-  onClaudeOverrideChange: <K extends keyof StaveAutoClaudeRoleRuntimeOverrides>(
-    key: K,
-    value: StaveAutoClaudeRoleRuntimeOverrides[K],
-  ) => void;
-  onCodexOverrideChange: <K extends keyof StaveAutoCodexRoleRuntimeOverrides>(
-    key: K,
-    value: StaveAutoCodexRoleRuntimeOverrides[K],
-  ) => void;
-}) {
-  const providerId = resolveStaveProviderForModel({ model: args.value });
-  const providerLabel =
-    providerId === "claude-code" ? "Claude runtime" : "Codex runtime";
-
-  return (
-    <div className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="space-y-1">
-          <p className="text-sm font-medium">{args.title}</p>
-          <p className="text-xs text-muted-foreground">{args.description}</p>
-        </div>
-        <Badge variant="secondary">{providerLabel}</Badge>
-      </div>
-      <ModelSelector
-        value={buildModelSelectorValue({ model: args.value })}
-        options={args.modelOptions}
-        recommendedOptions={args.recommendedModelOptions}
-        className="w-full"
-        triggerClassName="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
-        menuClassName="sm:max-w-lg"
-        onSelect={({ selection }) => args.onModelSelect(selection.model)}
-      />
-      {providerId === "claude-code" ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <StaveAutoOverrideField label="Permission Mode">
-            <Select
-              value={args.overrides.claude.permissionMode ?? "auto"}
-              onValueChange={(value) =>
-                args.onClaudeOverrideChange(
-                  "permissionMode",
-                  value as StaveAutoClaudeRoleRuntimeOverrides["permissionMode"],
-                )
-              }
-            >
-              <SelectTrigger className="h-9 rounded-md border-border/80 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CLAUDE_PERMISSION_MODE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </StaveAutoOverrideField>
-          <StaveAutoOverrideField label="Thinking">
-            <Select
-              value={args.overrides.claude.thinkingMode ?? "adaptive"}
-              onValueChange={(value) =>
-                args.onClaudeOverrideChange(
-                  "thinkingMode",
-                  value as StaveAutoClaudeRoleRuntimeOverrides["thinkingMode"],
-                )
-              }
-            >
-              <SelectTrigger className="h-9 rounded-md border-border/80 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CLAUDE_THINKING_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </StaveAutoOverrideField>
-          <StaveAutoOverrideField label="Effort">
-            <Select
-              value={args.overrides.claude.effort ?? "medium"}
-              onValueChange={(value) =>
-                args.onClaudeOverrideChange(
-                  "effort",
-                  value as StaveAutoClaudeRoleRuntimeOverrides["effort"],
-                )
-              }
-            >
-              <SelectTrigger className="h-9 rounded-md border-border/80 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CLAUDE_EFFORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </StaveAutoOverrideField>
-          <StaveAutoOverrideField label="Fast">
-            <Select
-              value={(args.overrides.claude.fastMode ?? false) ? "on" : "off"}
-              onValueChange={(value) =>
-                args.onClaudeOverrideChange("fastMode", value === "on")
-              }
-            >
-              <SelectTrigger className="h-9 rounded-md border-border/80 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STAVE_AUTO_BOOLEAN_OVERRIDE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </StaveAutoOverrideField>
-        </div>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-3">
-          <StaveAutoOverrideField label="Approvals">
-            <Select
-              value={args.overrides.codex.approvalPolicy ?? "untrusted"}
-              onValueChange={(value) =>
-                args.onCodexOverrideChange(
-                  "approvalPolicy",
-                  value as StaveAutoCodexRoleRuntimeOverrides["approvalPolicy"],
-                )
-              }
-            >
-              <SelectTrigger className="h-9 rounded-md border-border/80 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CODEX_APPROVAL_POLICY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </StaveAutoOverrideField>
-          <StaveAutoOverrideField label="Effort">
-            <Select
-              value={args.overrides.codex.reasoningEffort ?? "medium"}
-              onValueChange={(value) =>
-                args.onCodexOverrideChange(
-                  "reasoningEffort",
-                  value as StaveAutoCodexRoleRuntimeOverrides["reasoningEffort"],
-                )
-              }
-            >
-              <SelectTrigger className="h-9 rounded-md border-border/80 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CODEX_EFFORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </StaveAutoOverrideField>
-          <StaveAutoOverrideField label="Fast">
-            <Select
-              value={(args.overrides.codex.fastMode ?? false) ? "on" : "off"}
-              onValueChange={(value) =>
-                args.onCodexOverrideChange("fastMode", value === "on")
-              }
-            >
-              <SelectTrigger className="h-9 rounded-md border-border/80 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STAVE_AUTO_BOOLEAN_OVERRIDE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </StaveAutoOverrideField>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StaveAutoCard() {
-  const codexBinaryPath = useAppStore(
-    (state) => state.settings.codexBinaryPath,
-  );
-  const [
-    staveAutoClassifierModel,
-    staveAutoSupervisorModel,
-    staveAutoPlanModel,
-    staveAutoAnalyzeModel,
-    staveAutoImplementModel,
-    staveAutoQuickEditModel,
-    staveAutoGeneralModel,
-    staveAutoVerifyModel,
-    staveAutoOrchestrationMode,
-    staveAutoMaxSubtasks,
-    staveAutoMaxParallelSubtasks,
-    staveAutoAllowCrossProviderWorkers,
-    staveAutoFastMode,
-    staveAutoRoleRuntimeOverrides,
-  ] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.settings.staveAutoClassifierModel,
-          state.settings.staveAutoSupervisorModel,
-          state.settings.staveAutoPlanModel,
-          state.settings.staveAutoAnalyzeModel,
-          state.settings.staveAutoImplementModel,
-          state.settings.staveAutoQuickEditModel,
-          state.settings.staveAutoGeneralModel,
-          state.settings.staveAutoVerifyModel,
-          state.settings.staveAutoOrchestrationMode,
-          state.settings.staveAutoMaxSubtasks,
-          state.settings.staveAutoMaxParallelSubtasks,
-          state.settings.staveAutoAllowCrossProviderWorkers,
-          state.settings.staveAutoFastMode,
-          state.settings.staveAutoRoleRuntimeOverrides,
-        ] as const,
-    ),
-  );
-  const updateSettings = useAppStore((state) => state.updateSettings);
-  const codexModelCatalog = useCodexModelCatalog({
-    enabled: true,
-    codexBinaryPath,
-  });
-  const codexModelEnrichment = useMemo(() => {
-    if (codexModelCatalog.entries.length === 0) {
-      return undefined;
-    }
-    const map = new Map<
-      string,
-      { description?: string; isDefault?: boolean }
-    >();
-    for (const entry of codexModelCatalog.entries) {
-      const id = entry.model.trim();
-      if (id) {
-        map.set(id, {
-          description: entry.description || undefined,
-          isDefault: entry.isDefault || undefined,
-        });
-      }
-    }
-    return map.size > 0 ? map : undefined;
-  }, [codexModelCatalog.entries]);
-  const roleModelOptions = useMemo(
-    () =>
-      buildModelSelectorOptions({
-        providerIds: STAVE_AUTO_MODEL_PROVIDER_IDS,
-        modelsByProvider: {
-          codex: codexModelCatalog.models,
-        },
-        enrichmentByModel: codexModelEnrichment,
-      }),
-    [codexModelCatalog.models, codexModelEnrichment],
-  );
-  const recommendedRoleModelOptions = useMemo(
-    () => buildRecommendedModelSelectorOptions({ options: roleModelOptions }),
-    [roleModelOptions],
-  );
-  const currentPresetId = detectStaveAutoModelPreset({
-    settings: {
-      staveAutoClassifierModel,
-      staveAutoSupervisorModel,
-      staveAutoPlanModel,
-      staveAutoAnalyzeModel,
-      staveAutoImplementModel,
-      staveAutoQuickEditModel,
-      staveAutoGeneralModel,
-      staveAutoVerifyModel,
-    },
-  });
-  const currentPreset =
-    STAVE_AUTO_MODEL_PRESETS.find((preset) => preset.id === currentPresetId) ??
-    null;
-
-  type StaveAutoModelSettingKey =
-    | "staveAutoClassifierModel"
-    | "staveAutoSupervisorModel"
-    | "staveAutoPlanModel"
-    | "staveAutoAnalyzeModel"
-    | "staveAutoImplementModel"
-    | "staveAutoQuickEditModel"
-    | "staveAutoGeneralModel"
-    | "staveAutoVerifyModel";
-
-  const updateRoleModel = (key: StaveAutoModelSettingKey, model: string) => {
-    updateSettings({
-      patch: {
-        [key]: model,
-      } as Partial<Record<StaveAutoModelSettingKey, string>>,
-    });
-  };
-
-  const updateClaudeRoleOverride = <
-    K extends keyof StaveAutoClaudeRoleRuntimeOverrides,
-  >(
-    role: StaveAutoRoleName,
-    key: K,
-    value: StaveAutoClaudeRoleRuntimeOverrides[K],
-  ) => {
-    updateSettings({
-      patch: {
-        staveAutoRoleRuntimeOverrides: {
-          ...staveAutoRoleRuntimeOverrides,
-          [role]: {
-            ...staveAutoRoleRuntimeOverrides[role],
-            claude: {
-              ...staveAutoRoleRuntimeOverrides[role].claude,
-              [key]: value,
-            },
-          },
-        },
-      },
-    });
-  };
-
-  const updateCodexRoleOverride = <
-    K extends keyof StaveAutoCodexRoleRuntimeOverrides,
-  >(
-    role: StaveAutoRoleName,
-    key: K,
-    value: StaveAutoCodexRoleRuntimeOverrides[K],
-  ) => {
-    updateSettings({
-      patch: {
-        staveAutoRoleRuntimeOverrides: {
-          ...staveAutoRoleRuntimeOverrides,
-          [role]: {
-            ...staveAutoRoleRuntimeOverrides[role],
-            codex: {
-              ...staveAutoRoleRuntimeOverrides[role].codex,
-              [key]: value,
-            },
-          },
-        },
-      },
-    });
-  };
-
-  const roleFields = [
-    {
-      role: "supervisor" as const,
-      title: "Supervisor Model",
-      description:
-        "Used for orchestration planning and synthesis. Default: claude-sonnet-4-6.",
-      value: staveAutoSupervisorModel,
-      onSelect: (model: string) =>
-        updateRoleModel("staveAutoSupervisorModel", model),
-    },
-    {
-      role: "plan" as const,
-      title: "Plan Model",
-      description: "Used for strategy, design, and plan-only requests.",
-      value: staveAutoPlanModel,
-      onSelect: (model: string) => updateRoleModel("staveAutoPlanModel", model),
-    },
-    {
-      role: "analyze" as const,
-      title: "Analyze Model",
-      description:
-        "Used for debugging, review, explanation, architecture, and root-cause analysis.",
-      value: staveAutoAnalyzeModel,
-      onSelect: (model: string) =>
-        updateRoleModel("staveAutoAnalyzeModel", model),
-    },
-    {
-      role: "implement" as const,
-      title: "Implement Model",
-      description:
-        "Used for feature work, code generation, patching, refactors, and test writing.",
-      value: staveAutoImplementModel,
-      onSelect: (model: string) =>
-        updateRoleModel("staveAutoImplementModel", model),
-    },
-    {
-      role: "quick_edit" as const,
-      title: "Quick Edit Model",
-      description: "Used for rename, typo, and tiny targeted edits.",
-      value: staveAutoQuickEditModel,
-      onSelect: (model: string) =>
-        updateRoleModel("staveAutoQuickEditModel", model),
-    },
-    {
-      role: "general" as const,
-      title: "General Model",
-      description:
-        "Used when the request does not strongly match another role.",
-      value: staveAutoGeneralModel,
-      onSelect: (model: string) =>
-        updateRoleModel("staveAutoGeneralModel", model),
-    },
-    {
-      role: "verify" as const,
-      title: "Verify Model",
-      description:
-        "Used for validation, sanity checks, and review after implementation.",
-      value: staveAutoVerifyModel,
-      onSelect: (model: string) =>
-        updateRoleModel("staveAutoVerifyModel", model),
-    },
-    {
-      role: "classifier" as const,
-      title: "Classifier Model",
-      description:
-        "Lightweight model that decides whether to route directly or orchestrate.",
-      value: staveAutoClassifierModel,
-      onSelect: (model: string) =>
-        updateRoleModel("staveAutoClassifierModel", model),
-    },
-  ];
-
-  return (
-    <SettingsCard
-      title="Stave Auto"
-      description="Role-based defaults for Stave Auto. Apply a preset for a full role map, then fine-tune any individual model below."
-    >
-      <LabeledField
-        title="Model Preset"
-        description="Applying a preset rewrites every Stave Auto role model at once."
-      >
-        <div className="space-y-3">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {STAVE_AUTO_MODEL_PRESETS.map((preset) => (
-              <Button
-                key={preset.id}
-                className="h-auto min-h-20 items-start justify-start whitespace-normal px-4 py-3 text-left"
-                variant={currentPresetId === preset.id ? "default" : "outline"}
-                onClick={() =>
-                  updateSettings({
-                    patch: buildStaveAutoModelSettingsPatch({
-                      presetId: preset.id,
-                    }),
-                  })
-                }
-              >
-                <div className="w-full space-y-1">
-                  <p className="text-sm font-medium">{preset.label}</p>
-                  <p className="text-xs opacity-80">{preset.description}</p>
-                </div>
-              </Button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/25 px-3 py-2.5">
-            <Badge variant={currentPreset ? "default" : "secondary"}>
-              {currentPreset
-                ? `Current: ${currentPreset.label}`
-                : "Current: Custom"}
-            </Badge>
-            <p className="text-xs text-muted-foreground">
-              {currentPreset
-                ? currentPreset.description
-                : "Manual overrides are active. Pick a preset again to reapply a full Stave Auto model map."}
-            </p>
-          </div>
-        </div>
-      </LabeledField>
-      <LabeledField
-        title="Orchestration Mode"
-        description="Off = direct routing only. Auto = orchestrate only when needed. Aggressive = bias toward multi-step workflows."
-      >
-        <Select
-          value={staveAutoOrchestrationMode}
-          onValueChange={(value) =>
-            updateSettings({
-              patch: {
-                staveAutoOrchestrationMode: value as
-                  | "off"
-                  | "auto"
-                  | "aggressive",
-              },
-            })
-          }
-        >
-          <SelectTrigger className="h-10 rounded-md border-border/80 bg-background">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="off">off</SelectItem>
-            <SelectItem value="auto">auto</SelectItem>
-            <SelectItem value="aggressive">aggressive</SelectItem>
-          </SelectContent>
-        </Select>
-      </LabeledField>
-      <SwitchField
-        title="Fast Mode"
-        description="Requests fast execution for Stave Auto turns. It is only applied to providers whose fast mode is available in this workspace."
-        checked={staveAutoFastMode}
-        onCheckedChange={(checked) =>
-          updateSettings({ patch: { staveAutoFastMode: checked } })
-        }
-      />
-      <LabeledField
-        title="Role Runtime Overrides"
-        description="Each role has its own default settings that you can customize per selected model provider."
-      >
-        <div className="space-y-3">
-          {roleFields.map((field) => (
-            <StaveAutoRoleField
-              key={field.role}
-              role={field.role}
-              title={field.title}
-              description={field.description}
-              value={field.value}
-              overrides={staveAutoRoleRuntimeOverrides[field.role]}
-              modelOptions={roleModelOptions}
-              recommendedModelOptions={recommendedRoleModelOptions}
-              onModelSelect={field.onSelect}
-              onClaudeOverrideChange={(key, value) =>
-                updateClaudeRoleOverride(field.role, key, value)
-              }
-              onCodexOverrideChange={(key, value) =>
-                updateCodexRoleOverride(field.role, key, value)
-              }
-            />
-          ))}
-        </div>
-      </LabeledField>
-      <LabeledField
-        title="Max Subtasks"
-        description="Upper bound for supervisor-generated subtasks per orchestration run."
-      >
-        <DraftInput
-          className="h-10 rounded-md border-border/80 bg-background"
-          value={String(staveAutoMaxSubtasks)}
-          onCommit={(value) =>
-            updateSettings({
-              patch: {
-                staveAutoMaxSubtasks: Math.min(
-                  8,
-                  Math.max(1, readInt(value, 3)),
-                ),
-              },
-            })
-          }
-        />
-      </LabeledField>
-      <LabeledField
-        title="Max Parallel Subtasks"
-        description="How many independent subtasks Stave may execute at the same time."
-      >
-        <DraftInput
-          className="h-10 rounded-md border-border/80 bg-background"
-          value={String(staveAutoMaxParallelSubtasks)}
-          onCommit={(value) =>
-            updateSettings({
-              patch: {
-                staveAutoMaxParallelSubtasks: Math.min(
-                  8,
-                  Math.max(1, readInt(value, 2)),
-                ),
-              },
-            })
-          }
-        />
-      </LabeledField>
-      <SwitchField
-        title="Cross-Provider Workers"
-        description="Allow orchestration to mix Claude and Codex workers in the same request."
-        checked={staveAutoAllowCrossProviderWorkers}
-        onCheckedChange={(checked) =>
-          updateSettings({
-            patch: { staveAutoAllowCrossProviderWorkers: checked },
-          })
-        }
-      />
-    </SettingsCard>
-  );
-}
-
 export function ProvidersSection() {
   const [
     modelClaude,
@@ -1162,6 +551,16 @@ export function ProvidersSection() {
     claudeEffort,
     claudeThinkingMode,
     claudeAgentProgressSummaries,
+    claudePromptSuggestions,
+    claudeForwardSubagentText,
+    claudeEnableFileCheckpointing,
+    claudeForkSession,
+    claudeStrictMcpConfig,
+    claudeSkills,
+    claudePluginPaths,
+    claudeAgentName,
+    claudeFallbackModel,
+    claudeResumeSessionAt,
     codexFileAccess,
     codexNetworkAccess,
     codexApprovalPolicy,
@@ -1170,6 +569,7 @@ export function ProvidersSection() {
     codexShowRawReasoning,
     codexReasoningSummary,
     codexReasoningSummarySupport,
+    codexAdditionalReadableRoots,
     codexFastMode,
   ] = useAppStore(
     useShallow(
@@ -1186,6 +586,16 @@ export function ProvidersSection() {
           state.settings.claudeEffort,
           state.settings.claudeThinkingMode,
           state.settings.claudeAgentProgressSummaries,
+          state.settings.claudePromptSuggestions,
+          state.settings.claudeForwardSubagentText,
+          state.settings.claudeEnableFileCheckpointing,
+          state.settings.claudeForkSession,
+          state.settings.claudeStrictMcpConfig,
+          state.settings.claudeSkills,
+          state.settings.claudePluginPaths,
+          state.settings.claudeAgentName,
+          state.settings.claudeFallbackModel,
+          state.settings.claudeResumeSessionAt,
           state.settings.codexFileAccess,
           state.settings.codexNetworkAccess,
           state.settings.codexApprovalPolicy,
@@ -1194,6 +604,7 @@ export function ProvidersSection() {
           state.settings.codexShowRawReasoning,
           state.settings.codexReasoningSummary,
           state.settings.codexReasoningSummarySupport,
+          state.settings.codexAdditionalReadableRoots,
           state.settings.codexFastMode,
         ] as const,
     ),
@@ -1251,16 +662,10 @@ export function ProvidersSection() {
     <>
       <SectionHeading
         title="Providers"
-        description="Provider-specific runtime controls and connected feature status for Stave, Claude, and Codex."
+        description="Provider-specific runtime controls and connected feature status for Claude and Codex."
       />
-      <Tabs defaultValue="stave" className="gap-4">
+      <Tabs defaultValue="claude" className="gap-4">
         <TabsList className="h-auto w-full justify-start rounded-xl border border-border/70 bg-muted/30 p-1">
-          <TabsTrigger
-            value="stave"
-            className="h-8 flex-none rounded-lg px-3 text-xs font-medium"
-          >
-            Stave
-          </TabsTrigger>
           <TabsTrigger
             value="claude"
             className="h-8 flex-none rounded-lg px-3 text-xs font-medium"
@@ -1274,12 +679,6 @@ export function ProvidersSection() {
             Codex
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="stave">
-          <SectionStack>
-            <StaveAutoCard />
-          </SectionStack>
-        </TabsContent>
 
         <TabsContent value="claude">
           <SectionStack>
@@ -1524,6 +923,121 @@ export function ProvidersSection() {
                   })
                 }
               />
+              <SwitchField
+                title="Prompt Suggestions"
+                description="Enables Claude SDK prompt_suggestion events after completed turns."
+                checked={claudePromptSuggestions}
+                onCheckedChange={(checked) =>
+                  updateSettings({
+                    patch: { claudePromptSuggestions: checked },
+                  })
+                }
+              />
+              <SwitchField
+                title="Forward Subagent Text"
+                description="Streams nested subagent transcript text instead of only subagent progress heartbeats."
+                checked={claudeForwardSubagentText}
+                onCheckedChange={(checked) =>
+                  updateSettings({
+                    patch: { claudeForwardSubagentText: checked },
+                  })
+                }
+              />
+              <SwitchField
+                title="File Checkpointing"
+                description="Enables Claude SDK file checkpoints so changed files can be rewound by session controls."
+                checked={claudeEnableFileCheckpointing}
+                onCheckedChange={(checked) =>
+                  updateSettings({
+                    patch: { claudeEnableFileCheckpointing: checked },
+                  })
+                }
+              />
+              <SwitchField
+                title="Fork Resumed Session"
+                description="When resuming a Claude session, fork to a new session instead of continuing the previous one."
+                checked={claudeForkSession}
+                onCheckedChange={(checked) =>
+                  updateSettings({ patch: { claudeForkSession: checked } })
+                }
+              />
+              <SwitchField
+                title="Strict MCP Config"
+                description="Only use MCP servers passed by Stave and explicitly configured SDK agents."
+                checked={claudeStrictMcpConfig}
+                onCheckedChange={(checked) =>
+                  updateSettings({
+                    patch: { claudeStrictMcpConfig: checked },
+                  })
+                }
+              />
+              <LabeledField
+                title="Skills"
+                description="Comma- or newline-separated Claude skill names. Use `all` to enable every discovered skill."
+              >
+                <DraftInput
+                  className="h-10 rounded-md border-border/80 bg-background"
+                  value={claudeSkills}
+                  placeholder="all"
+                  onCommit={(value) =>
+                    updateSettings({ patch: { claudeSkills: value } })
+                  }
+                />
+              </LabeledField>
+              <LabeledField
+                title="Plugin Paths"
+                description="Comma- or newline-separated local Claude plugin directories. Stave owns MCP discovery for these plugins."
+              >
+                <DraftInput
+                  className="h-10 rounded-md border-border/80 bg-background"
+                  value={claudePluginPaths}
+                  placeholder="<workspace>/plugin"
+                  onCommit={(value) =>
+                    updateSettings({ patch: { claudePluginPaths: value } })
+                  }
+                />
+              </LabeledField>
+              <LabeledField
+                title="Main Agent"
+                description="Optional Claude agent name from settings or loaded plugins for the main conversation."
+              >
+                <DraftInput
+                  className="h-10 rounded-md border-border/80 bg-background"
+                  value={claudeAgentName}
+                  placeholder="code-reviewer"
+                  onCommit={(value) =>
+                    updateSettings({ patch: { claudeAgentName: value } })
+                  }
+                />
+              </LabeledField>
+              <LabeledField
+                title="Fallback Models"
+                description="Comma-separated Claude fallback models used when the primary model is overloaded or unavailable."
+              >
+                <DraftInput
+                  className="h-10 rounded-md border-border/80 bg-background"
+                  value={claudeFallbackModel}
+                  placeholder="claude-sonnet-4-6"
+                  onCommit={(value) =>
+                    updateSettings({ patch: { claudeFallbackModel: value } })
+                  }
+                />
+              </LabeledField>
+              <LabeledField
+                title="Resume At Message"
+                description="Optional Claude assistant message UUID for partial resume from a previous session."
+              >
+                <DraftInput
+                  className="h-10 rounded-md border-border/80 bg-background"
+                  value={claudeResumeSessionAt}
+                  placeholder="message uuid"
+                  onCommit={(value) =>
+                    updateSettings({
+                      patch: { claudeResumeSessionAt: value },
+                    })
+                  }
+                />
+              </LabeledField>
             </SettingsCard>
             <ClaudeBinaryPathCard />
             <ClaudeRuntimeToolsCard />
@@ -1735,6 +1249,21 @@ export function ProvidersSection() {
                   updateSettings({ patch: { codexFastMode: checked } })
                 }
               />
+              <LabeledField
+                title="Additional Readable Roots"
+                description="Comma- or newline-separated directories Codex can read in restricted read-only/workspace-write sandboxes."
+              >
+                <DraftInput
+                  className="h-10 rounded-md border-border/80 bg-background"
+                  value={codexAdditionalReadableRoots}
+                  placeholder="<workspace>/context"
+                  onCommit={(value) =>
+                    updateSettings({
+                      patch: { codexAdditionalReadableRoots: value },
+                    })
+                  }
+                />
+              </LabeledField>
             </SettingsCard>
             <CodexBinaryPathCard />
           </SectionStack>

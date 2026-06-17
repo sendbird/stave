@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { toast } from "sonner";
+import type {
+  BorderBeamColorVariant,
+  BorderBeamSize,
+} from "border-beam";
 import {
   listActiveWorkspaceTurns,
   listLatestWorkspaceTurns,
@@ -36,9 +40,7 @@ import type {
   NormalizedProviderEvent,
   ProviderId,
   ProviderTurnRequest,
-  StaveAutoRoleRuntimeOverridesMap,
 } from "@/lib/providers/provider.types";
-import type { ConnectedToolStatusEntry } from "@/lib/providers/connected-tool-status";
 import { getRepoMapContextCache } from "@/lib/fs/repo-map-context-cache";
 import { buildCurrentTaskAwarenessRetrievedContext } from "@/lib/task-context/current-task-awareness";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
@@ -86,9 +88,6 @@ import {
 import {
   DEFAULT_PROMPT_RESPONSE_STYLE,
   DEFAULT_PROMPT_PR_DESCRIPTION,
-  DEFAULT_PROMPT_SUPERVISOR_BREAKDOWN,
-  DEFAULT_PROMPT_SUPERVISOR_SYNTHESIS,
-  DEFAULT_PROMPT_PREPROCESSOR_CLASSIFIER,
   DEFAULT_PROMPT_INLINE_COMPLETION,
   DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
   normalizeResponseStylePrompt,
@@ -97,12 +96,6 @@ import {
   normalizeThinkingPhraseAnimationStyle,
   type ThinkingPhraseAnimationStyle,
 } from "@/lib/thinking-phrases";
-import {
-  buildStaveAutoModelSettingsPatch,
-  createDefaultStaveAutoRoleRuntimeOverrides,
-  DEFAULT_STAVE_AUTO_MODEL_PRESET_ID,
-  normalizeStaveAutoRoleRuntimeOverrides,
-} from "@/lib/providers/stave-auto-profile";
 import {
   canTakeOverTask,
   getArchiveFallbackTaskId,
@@ -165,43 +158,6 @@ import {
   parseWorkspaceTurnSummaryResponse,
 } from "@/lib/workspace-turn-summary";
 import {
-  buildStaveMuseContextSnapshot,
-  buildStaveMuseLocalActionResponse,
-  buildStaveMuseSummaryResponse,
-  createEmptyStaveMuseState,
-  findStaveMuseWorkspaceMention,
-  getStaveMuseRuntimeCwd,
-  formatStaveMuseTargetLabel,
-  resolveStaveMuseLocalAction,
-  STAVE_MUSE_SESSION_ID,
-  type StaveMuseDefaultTarget,
-  type StaveMuseLocalAction,
-  type StaveMuseLocalActionContext,
-  type StaveMuseProjectSummary,
-  type StaveMuseState,
-  type StaveMuseTaskSummary,
-  type StaveMuseWorkspaceSummary,
-} from "@/lib/stave-muse";
-import {
-  buildStaveMuseInstructionContextPart,
-  buildStaveMuseRouterPrompt,
-  DEFAULT_STAVE_MUSE_CHAT_PROMPT,
-  DEFAULT_STAVE_MUSE_PLANNER_PROMPT,
-  DEFAULT_STAVE_MUSE_ROUTER_PROMPT,
-} from "@/lib/stave-muse-prompts";
-import {
-  buildStaveMuseConnectedToolPreflightMessage,
-  buildStaveMuseProviderUnavailableMessage,
-  resolveRequestedStaveMuseConnectedTools,
-} from "@/lib/stave-muse-connected-tools";
-import {
-  DEFAULT_STAVE_MUSE_ROUTING_DECISION,
-  isStaveMuseExplicitTaskRequest,
-  parseStaveMuseRoutingDecision,
-  resolveStaveMuseFastPathDecision,
-  type StaveMuseRoutingDecision,
-} from "@/lib/stave-muse-routing";
-import {
   findLatestPendingApproval,
   findLatestPendingApprovalPart,
   findLatestPendingUserInput,
@@ -230,20 +186,6 @@ import {
   runProviderTurn,
 } from "@/store/provider-turn-runtime";
 import {
-  buildColiseumMergedFollowUp,
-  buildReviewerPrompt,
-  clearReviewerFromGroup,
-  collectActiveColiseumTaskIds,
-  extractBranchSummary,
-  planColiseumFanOut,
-  planReviewerLaunch,
-  promoteColiseumChampion,
-  stripColiseumBranchesFromRecords,
-  unpickColiseumChampion as unpickColiseumChampionUtil,
-  validateColiseumBranches,
-  type ColiseumBranchSpec,
-} from "@/store/coliseum.utils";
-import {
   applyPendingProviderEventsToStoreState,
   createWorkspaceSessionStateFromAppState,
   saveActiveWorkspaceRuntimeCache,
@@ -253,8 +195,6 @@ import type {
   ChatMessage,
   ClaudePermissionMode,
   ClaudePermissionModeBeforePlan,
-  ColiseumGroupState,
-  ColiseumReviewerVerdict,
   EditorTab,
   PromptDraft,
   Task,
@@ -305,11 +245,9 @@ import {
   type ThemeTokenValues,
   type ThemeOverrideValues,
   type CustomThemeDefinition,
-  type SidebarArtworkMode,
   THEME_TOKEN_NAMES,
   PRESET_THEME_TOKENS,
   BUILTIN_CUSTOM_THEMES,
-  DEFAULT_SIDEBAR_ARTWORK_MODE,
   applyThemeClass,
   applyThemeOverrides,
   applyCustomTheme,
@@ -318,8 +256,6 @@ import {
   findCustomThemeById,
   listAllCustomThemes,
   MAX_USER_THEMES,
-  normalizeSidebarArtworkMode,
-  SIDEBAR_ARTWORK_OPTIONS,
 } from "@/lib/themes";
 import {
   type RecentProjectState,
@@ -390,7 +326,6 @@ export {
   PRESET_THEME_TOKENS,
   BUILTIN_CUSTOM_THEMES,
   MAX_USER_THEMES,
-  SIDEBAR_ARTWORK_OPTIONS,
 } from "@/lib/themes";
 export {
   parseCustomThemeFile,
@@ -403,7 +338,6 @@ export type {
   ThemeTokenValues,
   ThemeOverrideValues,
   CustomThemeDefinition,
-  SidebarArtworkMode,
   ThemeValidationResult,
 } from "@/lib/themes";
 export type { RecentProjectState } from "@/store/project.utils";
@@ -434,15 +368,6 @@ type SendUserMessageResult =
   | { status: "blocked" }
   | { status: "queued"; taskId: string; workspaceId: string }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string };
-
-type StartColiseumResult =
-  | { status: "blocked"; reason: string }
-  | {
-      status: "started";
-      parentTaskId: string;
-      workspaceId: string;
-      branchTaskIds: string[];
-    };
 
 const APP_STORE_KEY = "stave-store";
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
@@ -503,124 +428,6 @@ function arePromptDraftQueuedNextTurnEqual(
   );
 }
 
-/**
- * Mirror the reviewer task's assistant message text into the group's
- * `reviewerVerdict.content` so the arena's ColiseumReviewerCard can subscribe
- * directly to `group.reviewerVerdict` — the reviewer task is hidden from the
- * task tree by `coliseumParentTaskId` and never rendered as a chat column, so
- * its messages record must be translated back onto the parent-scoped group
- * state. Also drives the `running` → `complete` / `error` transition.
- *
- * Called from the reviewer's flushEvents callback AFTER
- * `applyPendingProviderEventsToStoreState` so we read the already-applied
- * assistant text from `state.messagesByTask[reviewerTaskId]`.
- *
- * Keeping this in its own helper keeps the launch action readable and means
- * tests can exercise mirroring logic without the full dispatch path later.
- */
-function mirrorReviewerVerdict(args: {
-  set: (updater: (state: AppState) => Partial<AppState>) => void;
-  get: () => AppState;
-  parentTaskId: string;
-  reviewerTaskId: string;
-  workspaceId: string;
-  pendingEvents: NormalizedProviderEvent[];
-}) {
-  const state = args.get();
-  const sessionMessages =
-    state.activeWorkspaceId === args.workspaceId
-      ? state.messagesByTask
-      : state.workspaceRuntimeCacheById[args.workspaceId]?.messagesByTask;
-  if (!sessionMessages) return;
-  const messages = sessionMessages[args.reviewerTaskId] ?? [];
-  const assistant = [...messages].reverse().find((m) => m.role === "assistant");
-  const accumulatedText =
-    assistant?.parts
-      .filter(
-        (p): p is Extract<typeof p, { type: "text" }> => p.type === "text",
-      )
-      .map((p) => p.text)
-      .join("") ?? "";
-
-  const group =
-    state.activeWorkspaceId === args.workspaceId
-      ? state.activeColiseumsByTask[args.parentTaskId]
-      : state.workspaceRuntimeCacheById[args.workspaceId]
-          ?.activeColiseumsByTask[args.parentTaskId];
-  if (!group || !group.reviewerVerdict) return;
-
-  // Detect lifecycle transitions by inspecting the events we just applied.
-  const sawError = args.pendingEvents.some((event) => event.type === "error");
-  const sawDone = args.pendingEvents.some((event) => event.type === "done");
-
-  const nextStatus: ColiseumReviewerVerdict["status"] = sawError
-    ? "error"
-    : sawDone
-      ? "complete"
-      : group.reviewerVerdict.status;
-  const nextCompletedAt =
-    (sawDone || sawError) && !group.reviewerVerdict.completedAt
-      ? buildRecentTimestamp()
-      : group.reviewerVerdict.completedAt;
-
-  const errorEvent = args.pendingEvents.find(
-    (event): event is Extract<NormalizedProviderEvent, { type: "error" }> =>
-      event.type === "error",
-  );
-  const errorMessage = sawError
-    ? (errorEvent?.message ??
-      group.reviewerVerdict.errorMessage ??
-      "Reviewer failed.")
-    : group.reviewerVerdict.errorMessage;
-
-  const nextVerdict: ColiseumReviewerVerdict = {
-    ...group.reviewerVerdict,
-    content: accumulatedText,
-    status: nextStatus,
-    ...(nextCompletedAt ? { completedAt: nextCompletedAt } : {}),
-    ...(errorMessage ? { errorMessage } : {}),
-  };
-
-  // Skip the set if nothing actually changed to keep subscribers quiet.
-  if (
-    nextVerdict.content === group.reviewerVerdict.content &&
-    nextVerdict.status === group.reviewerVerdict.status &&
-    nextVerdict.completedAt === group.reviewerVerdict.completedAt &&
-    nextVerdict.errorMessage === group.reviewerVerdict.errorMessage
-  ) {
-    return;
-  }
-
-  const nextGroup: ColiseumGroupState = {
-    ...group,
-    reviewerVerdict: nextVerdict,
-  };
-  args.set((current) => {
-    if (args.workspaceId === current.activeWorkspaceId) {
-      return {
-        activeColiseumsByTask: {
-          ...current.activeColiseumsByTask,
-          [args.parentTaskId]: nextGroup,
-        },
-      } as Partial<AppState>;
-    }
-    const cached = current.workspaceRuntimeCacheById[args.workspaceId];
-    if (!cached) return current;
-    return {
-      workspaceRuntimeCacheById: {
-        ...current.workspaceRuntimeCacheById,
-        [args.workspaceId]: {
-          ...cached,
-          activeColiseumsByTask: {
-            ...cached.activeColiseumsByTask,
-            [args.parentTaskId]: nextGroup,
-          },
-        },
-      },
-    } as Partial<AppState>;
-  });
-}
-
 function resolveTaskRuntimeTarget(args: {
   state: Pick<
     AppState,
@@ -644,7 +451,6 @@ function resolveTaskRuntimeTarget(args: {
     | "activeTurnIdsByTask"
     | "providerSessionByTask"
     | "nativeSessionReadyByTask"
-    | "activeColiseumsByTask"
   >;
   taskId: string;
 }) {
@@ -714,7 +520,6 @@ function getWorkspaceSessionForState(args: {
     | "activeTurnIdsByTask"
     | "providerSessionByTask"
     | "nativeSessionReadyByTask"
-    | "activeColiseumsByTask"
     | "workspaceRuntimeCacheById"
   >;
   workspaceId: string;
@@ -898,8 +703,6 @@ export interface AppSettings {
   themeMode: "light" | "dark" | "system";
   /** ID of the active custom theme preset, or `null` for the default. */
   customThemeId: string | null;
-  /** Ambient artwork rendered behind the left project sidebar glass. */
-  sidebarArtworkMode: SidebarArtworkMode;
   /**
    * When `true`, an animated "border beam" highlight travels around the
    * prompt input and active-workspace rows while a task is streaming. Purely
@@ -907,16 +710,21 @@ export interface AppSettings {
    */
   borderBeamEnabled: boolean;
   /**
-   * Size preset passed to the `border-beam` library. `md` is a full border
-   * glow (default), `sm` is a compact button-sized glow, `line` traces a
-   * bottom-only sweep with breathe/spike animations.
+   * Size preset passed to the `border-beam` library. Rotate presets are
+   * `sm`, `md`, and `line`; pulse presets are `pulse-inner` and
+   * `pulse-outside`.
    */
-  borderBeamSize: "sm" | "md" | "line";
+  borderBeamSize: BorderBeamSize;
   /**
    * Color palette preset passed to the `border-beam` library. These are the
    * library's own presets — do not remap onto our theme tokens.
    */
-  borderBeamVariant: "colorful" | "mono" | "ocean" | "sunset";
+  borderBeamVariant: BorderBeamColorVariant;
+  /**
+   * Overall beam opacity/intensity. Passed through to the library's
+   * `strength` prop as a 0-1 value.
+   */
+  borderBeamStrength: number;
   /** User-installed custom theme definitions (persisted in localStorage). */
   userCustomThemes: CustomThemeDefinition[];
   themeOverrides: Record<ThemeModeName, ThemeOverrideValues>;
@@ -940,38 +748,12 @@ export interface AppSettings {
   codexFastModeVisible: boolean;
   modelClaude: string;
   modelCodex: string;
-  modelStave: string;
   /**
    * User-configurable presets rendered in the preset bar between the task
    * tab strip and the chat panel. Each preset either seeds a new task with a
    * fixed provider + model, or launches a native CLI session.
    */
   taskPresets: TaskPreset[];
-  /** Role-based defaults used by Stave Auto. */
-  staveAutoClassifierModel: string;
-  staveAutoSupervisorModel: string;
-  staveAutoPlanModel: string;
-  staveAutoAnalyzeModel: string;
-  staveAutoImplementModel: string;
-  staveAutoQuickEditModel: string;
-  staveAutoGeneralModel: string;
-  staveAutoVerifyModel: string;
-  staveAutoOrchestrationMode: "off" | "auto" | "aggressive";
-  staveAutoMaxSubtasks: number;
-  staveAutoMaxParallelSubtasks: number;
-  staveAutoAllowCrossProviderWorkers: boolean;
-  staveAutoFastMode: boolean;
-  staveAutoRoleRuntimeOverrides: StaveAutoRoleRuntimeOverridesMap;
-  /** Control-plane defaults used by the global Stave Muse widget. */
-  museDefaultTarget: StaveMuseDefaultTarget;
-  museRouterModel: string;
-  museChatModel: string;
-  musePlannerModel: string;
-  museRouterPrompt: string;
-  museChatPrompt: string;
-  musePlannerPrompt: string;
-  museAutoHandoffToTask: boolean;
-  museAllowDirectWorkspaceInfoEdits: boolean;
   rulesPresetPrimary: string;
   rulesPresetSecondary: string;
   permissionMode: "require-approval" | "auto-safe";
@@ -1033,16 +815,27 @@ export interface AppSettings {
   claudeEffort: "low" | "medium" | "high" | "xhigh" | "max";
   claudeThinkingMode: "adaptive" | "enabled" | "disabled";
   claudeAgentProgressSummaries: boolean;
+  claudePromptSuggestions: boolean;
+  claudeForwardSubagentText: boolean;
+  claudeEnableFileCheckpointing: boolean;
+  claudeForkSession: boolean;
+  claudeStrictMcpConfig: boolean;
   claudeFastMode: boolean;
+  claudeSkills: string;
+  claudePluginPaths: string;
+  claudeAgentName: string;
+  claudeFallbackModel: string;
+  claudeResumeSessionAt: string;
   codexFileAccess: "read-only" | "workspace-write" | "danger-full-access";
   codexNetworkAccess: boolean;
-  codexApprovalPolicy: "never" | "on-request" | "untrusted";
+  codexApprovalPolicy: "never" | "on-request" | "on-failure" | "untrusted";
   codexBinaryPath: string;
   codexReasoningEffort: "minimal" | "low" | "medium" | "high" | "xhigh";
   codexWebSearch: "disabled" | "cached" | "live";
   codexShowRawReasoning: boolean;
   codexReasoningSummary: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport: "auto" | "enabled" | "disabled";
+  codexAdditionalReadableRoots: string;
   codexFastMode: boolean;
   codexPlanMode: boolean;
   /**
@@ -1057,12 +850,6 @@ export interface AppSettings {
   promptResponseStyle: string;
   /** Prompt template for AI-generated PR descriptions. */
   promptPrDescription: string;
-  /** System prompt for Stave Auto orchestration breakdown. */
-  promptSupervisorBreakdown: string;
-  /** Prompt for Stave Auto synthesis. */
-  promptSupervisorSynthesis: string;
-  /** System prompt for Stave Auto intent classifier. */
-  promptPreprocessorClassifier: string;
   /** System prompt for inline code completion. */
   promptInlineCompletion: string;
   /** Preferred model for the Information panel's automatic latest-turn summary. */
@@ -1133,16 +920,9 @@ interface AppState {
     ProviderTurnActivitySnapshot | undefined
   >;
   nativeSessionReadyByTask: Record<string, boolean>;
-  /**
-   * Runtime-only state for in-flight Coliseums (multi-model parallel turns),
-   * keyed by the parent task id. Not persisted — branches are ephemeral child
-   * tasks and orphaned branches are reaped on workspace bootstrap.
-   */
-  activeColiseumsByTask: Record<string, ColiseumGroupState | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   workspaceRuntimeCacheById: Record<string, WorkspaceSessionState>;
   taskWorkspaceIdById: Record<string, string>;
-  staveMuse: StaveMuseState;
   persistenceBootstrapPhase: PersistenceBootstrapPhase;
   persistenceBootstrapMessage: string;
   hydrateProjectRegistry: () => Promise<void>;
@@ -1319,24 +1099,6 @@ interface AppState {
     notificationId: string;
     approved: boolean;
   }) => Promise<void>;
-  setStaveMuseOpen: (args: { open: boolean }) => void;
-  focusStaveMuse: () => void;
-  setStaveMuseTarget: (args: {
-    kind: StaveMuseState["target"]["kind"];
-  }) => void;
-  clearStaveMuseConversation: () => void;
-  updateStaveMusePromptDraft: (args: { patch: Partial<PromptDraft> }) => void;
-  sendStaveMuseMessage: (args: { content: string }) => Promise<void>;
-  abortStaveMuseTurn: () => void;
-  resolveStaveMuseApproval: (args: {
-    messageId: string;
-    approved: boolean;
-  }) => Promise<void>;
-  resolveStaveMuseUserInput: (args: {
-    messageId: string;
-    answers?: Record<string, string>;
-    denied?: boolean;
-  }) => Promise<void>;
   sendUserMessage: (args: {
     taskId: string;
     content: string;
@@ -1352,80 +1114,6 @@ interface AppState {
       mimeType: string;
     }>;
   }) => Promise<SendUserMessageResult>;
-  startColiseum: (args: {
-    parentTaskId: string;
-    branches: ColiseumBranchSpec[];
-    content: string;
-    fileContexts?: Array<{
-      filePath: string;
-      content: string;
-      language: string;
-      instruction?: string;
-    }>;
-    imageContexts?: Array<{
-      dataUrl: string;
-      label: string;
-      mimeType: string;
-    }>;
-  }) => Promise<StartColiseumResult>;
-  pickColiseumChampion: (args: {
-    parentTaskId: string;
-    championTaskId: string;
-  }) => void;
-  unpickColiseumChampion: (args: { parentTaskId: string }) => void;
-  setColiseumViewMode: (args: {
-    parentTaskId: string;
-    viewMode: ColiseumGroupState["viewMode"];
-    focusedBranchTaskId?: string | null;
-  }) => void;
-  minimizeColiseum: (args: { parentTaskId: string }) => void;
-  restoreColiseum: (args: { parentTaskId: string }) => void;
-  closeColiseumBranch: (args: { branchTaskId: string }) => void;
-  /**
-   * Non-destructive by default is now the norm — this is the explicit
-   * destructive action that aborts remaining turns and drops every branch.
-   * `dismissColiseum` is preserved as an alias for callers that haven't
-   * migrated yet.
-   */
-  discardColiseumRun: (args: { parentTaskId: string }) => void;
-  dismissColiseum: (args: { parentTaskId: string }) => void;
-  /**
-   * Phase 2.3 "partial pick" — staged as a follow-up prompt on the parent so
-   * the user keeps authorship. After the champion's answer is committed to the
-   * parent, picking another branch via this action pre-fills the parent's
-   * prompt draft with a follow-up ("please also incorporate …") quoting the
-   * alternative branch's final text. No new provider turn runs automatically;
-   * the user reviews and sends from the composer like any other message.
-   */
-  enqueueColiseumIncorporateFollowUp: (args: {
-    parentTaskId: string;
-    branchTaskId: string;
-  }) => void;
-  /**
-   * Stage a merged-answer follow-up on the parent task using the latest
-   * reviewer verdict plus branch summaries. This preserves user authorship:
-   * no provider turn starts until the user sends the drafted follow-up.
-   */
-  enqueueColiseumMergedFollowUp: (args: { parentTaskId: string }) => void;
-  /**
-   * Spawn an ephemeral reviewer task that compares branch outputs and streams
-   * a verdict into `group.reviewerVerdict`. Only one reviewer runs at a time
-   * per group — relaunching aborts any in-flight reviewer first. Result status
-   * `"blocked"` means the caller should surface the reason as a toast.
-   */
-  launchColiseumReviewer: (args: {
-    parentTaskId: string;
-    reviewerProvider: ProviderId;
-    reviewerModel: string;
-  }) => Promise<
-    | { status: "blocked"; reason: string }
-    | { status: "started"; reviewerTaskId: string; turnId: string }
-  >;
-  /**
-   * Drop the reviewer verdict and kill the reviewer task. Called by the
-   * verdict card's "Clear" button and implicitly by `discardColiseumRun`.
-   */
-  clearColiseumReviewerVerdict: (args: { parentTaskId: string }) => void;
   abortTaskTurn: (args: { taskId: string }) => void;
   resolveApproval: (args: {
     taskId: string;
@@ -1821,12 +1509,6 @@ function showNotificationToast(notification: AppNotification) {
 const ARCHIVED_TASK_TURN_NOTICE =
   "Generation stopped because the task was archived before this turn completed.";
 export const STAVE_OPEN_SETTINGS_EVENT = "stave:open-settings";
-export const STAVE_MUSE_OPEN_SETTINGS_EVENT = STAVE_OPEN_SETTINGS_EVENT;
-const DEFAULT_STAVE_AUTO_MODEL_SETTINGS = buildStaveAutoModelSettingsPatch({
-  presetId: DEFAULT_STAVE_AUTO_MODEL_PRESET_ID,
-});
-const DEFAULT_STAVE_AUTO_ROLE_RUNTIME_OVERRIDES =
-  createDefaultStaveAutoRoleRuntimeOverrides();
 
 function normalizeAppShellMode(value: unknown): AppShellMode {
   return value === "zen" ? "zen" : "stave";
@@ -1839,7 +1521,13 @@ function normalizeReasoningExpansionMode(value: unknown): "auto" | "manual" {
 function normalizeBorderBeamSize(
   value: unknown,
 ): AppSettings["borderBeamSize"] {
-  return value === "sm" || value === "md" || value === "line" ? value : "md";
+  return value === "sm" ||
+    value === "md" ||
+    value === "line" ||
+    value === "pulse-inner" ||
+    value === "pulse-outside"
+    ? value
+    : "md";
 }
 
 function normalizeBorderBeamVariant(
@@ -1853,15 +1541,22 @@ function normalizeBorderBeamVariant(
     : "colorful";
 }
 
+function normalizeBorderBeamStrength(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return defaultSettings.borderBeamStrength;
+  }
+  return Math.min(1, Math.max(0, value));
+}
+
 const defaultSettings: AppSettings = {
   appShellMode: "stave",
   showPresetBar: true,
   themeMode: "dark",
   customThemeId: null,
-  sidebarArtworkMode: DEFAULT_SIDEBAR_ARTWORK_MODE,
   borderBeamEnabled: false,
   borderBeamSize: "md",
   borderBeamVariant: "colorful",
+  borderBeamStrength: 1,
   userCustomThemes: [],
   themeOverrides: {
     light: {},
@@ -1886,24 +1581,7 @@ const defaultSettings: AppSettings = {
   codexFastModeVisible: true,
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
-  modelStave: getDefaultModelForProvider({ providerId: "stave" }),
   taskPresets: cloneDefaultTaskPresets(),
-  ...DEFAULT_STAVE_AUTO_MODEL_SETTINGS,
-  staveAutoOrchestrationMode: "auto",
-  staveAutoMaxSubtasks: 3,
-  staveAutoMaxParallelSubtasks: 2,
-  staveAutoAllowCrossProviderWorkers: true,
-  staveAutoFastMode: false,
-  staveAutoRoleRuntimeOverrides: DEFAULT_STAVE_AUTO_ROLE_RUNTIME_OVERRIDES,
-  museDefaultTarget: "app",
-  museRouterModel: "gpt-5.4-mini",
-  museChatModel: "gpt-5.4-mini",
-  musePlannerModel: "gpt-5.4",
-  museRouterPrompt: DEFAULT_STAVE_MUSE_ROUTER_PROMPT,
-  museChatPrompt: DEFAULT_STAVE_MUSE_CHAT_PROMPT,
-  musePlannerPrompt: DEFAULT_STAVE_MUSE_PLANNER_PROMPT,
-  museAutoHandoffToTask: true,
-  museAllowDirectWorkspaceInfoEdits: true,
   rulesPresetPrimary: "typescript-best-practices",
   rulesPresetSecondary: "no-target-brand-keyword",
   permissionMode: "auto-safe",
@@ -1959,7 +1637,17 @@ const defaultSettings: AppSettings = {
   claudeEffort: "high",
   claudeThinkingMode: "adaptive",
   claudeAgentProgressSummaries: false,
+  claudePromptSuggestions: true,
+  claudeForwardSubagentText: false,
+  claudeEnableFileCheckpointing: false,
+  claudeForkSession: false,
+  claudeStrictMcpConfig: false,
   claudeFastMode: false,
+  claudeSkills: "",
+  claudePluginPaths: "",
+  claudeAgentName: "",
+  claudeFallbackModel: "",
+  claudeResumeSessionAt: "",
   codexFileAccess: "danger-full-access",
   codexNetworkAccess: true,
   codexApprovalPolicy: "never",
@@ -1969,14 +1657,12 @@ const defaultSettings: AppSettings = {
   codexShowRawReasoning: false,
   codexReasoningSummary: "auto",
   codexReasoningSummarySupport: "auto",
+  codexAdditionalReadableRoots: "",
   codexFastMode: false,
   codexPlanMode: false,
   planAutoApprove: undefined,
   promptResponseStyle: DEFAULT_PROMPT_RESPONSE_STYLE,
   promptPrDescription: DEFAULT_PROMPT_PR_DESCRIPTION,
-  promptSupervisorBreakdown: DEFAULT_PROMPT_SUPERVISOR_BREAKDOWN,
-  promptSupervisorSynthesis: DEFAULT_PROMPT_SUPERVISOR_SYNTHESIS,
-  promptPreprocessorClassifier: DEFAULT_PROMPT_PREPROCESSOR_CLASSIFIER,
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,
   workspaceTurnSummaryPrimaryModel: "gpt-5.4-mini",
   workspaceTurnSummaryFallbackModel: "claude-haiku-4-5",
@@ -2012,7 +1698,6 @@ function normalizeSharedSkillsHomeSetting(value?: string | null) {
 function getRetainedLoadedMessageTaskIds(args: {
   activeTaskId: string;
   activeTurnIdsByTask: Record<string, string | undefined>;
-  activeColiseumsByTask: Record<string, ColiseumGroupState | undefined>;
 }) {
   const retained = new Set<string>();
   if (args.activeTaskId) {
@@ -2023,11 +1708,6 @@ function getRetainedLoadedMessageTaskIds(args: {
       retained.add(taskId);
     }
   }
-  for (const taskId of collectActiveColiseumTaskIds({
-    activeColiseumsByTask: args.activeColiseumsByTask,
-  })) {
-    retained.add(taskId);
-  }
   return retained;
 }
 
@@ -2035,12 +1715,10 @@ function compactLoadedMessagesByTask(args: {
   messagesByTask: Record<string, ChatMessage[]>;
   activeTaskId: string;
   activeTurnIdsByTask: Record<string, string | undefined>;
-  activeColiseumsByTask: Record<string, ColiseumGroupState | undefined>;
 }) {
   const retained = getRetainedLoadedMessageTaskIds({
     activeTaskId: args.activeTaskId,
     activeTurnIdsByTask: args.activeTurnIdsByTask,
-    activeColiseumsByTask: args.activeColiseumsByTask,
   });
   let changed = false;
   const nextEntries = Object.entries(args.messagesByTask).filter(([taskId]) => {
@@ -2456,451 +2134,6 @@ function shouldPreferLoadedWorkspaceState(args: {
     summarizeWorkspaceShell(args.loadedWorkspaceShellState.shell) >
     summarizeWorkspaceSession(args.cachedWorkspaceState)
   );
-}
-
-function buildStaveMuseLocalActionContextFromState(
-  state: Pick<
-    AppState,
-    | "activeWorkspaceId"
-    | "projectName"
-    | "projectPath"
-    | "recentProjects"
-    | "workspaces"
-    | "workspaceBranchById"
-    | "workspaceDefaultById"
-    | "workspaceInformation"
-    | "tasks"
-    | "activeTaskId"
-    | "activeTurnIdsByTask"
-  >,
-) {
-  const projects: StaveMuseProjectSummary[] = state.recentProjects.map(
-    (project) => ({
-      projectName: project.projectName,
-      projectPath: project.projectPath,
-      isCurrent: project.projectPath === state.projectPath,
-    }),
-  );
-  const workspaces: StaveMuseWorkspaceSummary[] = state.workspaces.map(
-    (workspace) => ({
-      id: workspace.id,
-      name: workspace.name,
-      branch: state.workspaceBranchById[workspace.id],
-      isActive: workspace.id === state.activeWorkspaceId,
-      isDefault: Boolean(state.workspaceDefaultById[workspace.id]),
-    }),
-  );
-  const tasks: StaveMuseTaskSummary[] = state.tasks
-    .filter((task) => !isTaskArchived(task))
-    .map((task) => ({
-      id: task.id,
-      title: task.title,
-      isActive: task.id === state.activeTaskId,
-      isResponding: Boolean(state.activeTurnIdsByTask[task.id]),
-    }));
-
-  return {
-    projectName: state.projectName,
-    projectPath: state.projectPath,
-    projects,
-    workspaces,
-    tasks,
-    activeTaskId: state.activeTaskId,
-    workspaceInformation: state.workspaceInformation,
-  } satisfies StaveMuseLocalActionContext;
-}
-
-function createStaveMuseUserMessage(args: {
-  content: string;
-  existingMessages: ChatMessage[];
-}): ChatMessage {
-  return {
-    id: buildMessageId({
-      taskId: STAVE_MUSE_SESSION_ID,
-      count: args.existingMessages.length,
-    }),
-    role: "user",
-    model: "user",
-    providerId: "user",
-    content: args.content,
-    parts: [createUserTextPart({ text: args.content })],
-  };
-}
-
-function createStaveMuseAssistantMessage(args: {
-  content: string;
-  messageCount: number;
-  providerId: ProviderId;
-  model: string;
-}): ChatMessage {
-  const timestamp = buildRecentTimestamp();
-  return {
-    id: buildMessageId({
-      taskId: STAVE_MUSE_SESSION_ID,
-      count: args.messageCount,
-    }),
-    role: "assistant",
-    model: args.model,
-    providerId: args.providerId,
-    content: args.content,
-    startedAt: timestamp,
-    completedAt: timestamp,
-    isStreaming: false,
-    parts: args.content.trim()
-      ? [createUserTextPart({ text: args.content })]
-      : [],
-  };
-}
-
-function buildClearedStaveMusePromptDraft(
-  assistant: StaveMuseState,
-): PromptDraft {
-  return {
-    text: "",
-    attachedFilePaths: [],
-    attachments: [],
-    ...(assistant.promptDraft.runtimeOverrides
-      ? { runtimeOverrides: assistant.promptDraft.runtimeOverrides }
-      : {}),
-  };
-}
-
-function appendStaveMuseStandaloneMessage(args: {
-  assistant: StaveMuseState;
-  content: string;
-  providerId?: ProviderId;
-  model?: string;
-}) {
-  const assistantMessage = createStaveMuseAssistantMessage({
-    content: args.content,
-    messageCount: args.assistant.messages.length,
-    providerId: args.providerId ?? "stave",
-    model: args.model ?? "stave-muse",
-  });
-
-  return {
-    ...args.assistant,
-    messages: [...args.assistant.messages, assistantMessage],
-    open: true,
-    focusNonce: args.assistant.focusNonce + 1,
-  } satisfies StaveMuseState;
-}
-
-function appendStaveMuseSubmittedUserMessage(args: {
-  assistant: StaveMuseState;
-  content: string;
-}) {
-  const userMessage = createStaveMuseUserMessage({
-    content: args.content,
-    existingMessages: args.assistant.messages,
-  });
-
-  return {
-    ...args.assistant,
-    messages: [...args.assistant.messages, userMessage],
-    promptDraft: buildClearedStaveMusePromptDraft(args.assistant),
-    open: true,
-    focusNonce: args.assistant.focusNonce + 1,
-  } satisfies StaveMuseState;
-}
-
-function hasSelectedMuseWorkspace(
-  state: Pick<AppState, "activeWorkspaceId" | "workspaces">,
-) {
-  return (
-    Boolean(state.activeWorkspaceId) &&
-    state.workspaces.some(
-      (workspace) => workspace.id === state.activeWorkspaceId,
-    )
-  );
-}
-
-function coerceMuseCustomFieldValue(args: {
-  field: WorkspaceInformationState["customFields"][number];
-  value: string;
-}) {
-  const rawValue = args.value.trim();
-  switch (args.field.type) {
-    case "number": {
-      if (!rawValue) {
-        return null;
-      }
-      const nextValue = Number.parseFloat(rawValue);
-      return Number.isFinite(nextValue) ? nextValue : args.field.value;
-    }
-    case "boolean": {
-      const normalized = rawValue.toLowerCase();
-      if (["true", "yes", "on", "1", "done"].includes(normalized)) {
-        return true;
-      }
-      if (["false", "no", "off", "0"].includes(normalized)) {
-        return false;
-      }
-      return args.field.value;
-    }
-    case "single_select":
-      return rawValue;
-    case "text":
-    case "textarea":
-    case "date":
-    case "url":
-    default:
-      return rawValue;
-  }
-}
-
-function updateMuseCustomField(args: {
-  field: WorkspaceInformationState["customFields"][number];
-  value: string;
-}): WorkspaceInformationState["customFields"][number] {
-  const nextValue = coerceMuseCustomFieldValue(args);
-  switch (args.field.type) {
-    case "number":
-      return {
-        ...args.field,
-        value:
-          typeof nextValue === "number" || nextValue === null
-            ? nextValue
-            : args.field.value,
-      };
-    case "boolean":
-      return {
-        ...args.field,
-        value: typeof nextValue === "boolean" ? nextValue : args.field.value,
-      };
-    case "single_select":
-      return {
-        ...args.field,
-        value: typeof nextValue === "string" ? nextValue : args.field.value,
-      };
-    case "text":
-    case "textarea":
-    case "date":
-    case "url":
-    default:
-      return {
-        ...args.field,
-        value: typeof nextValue === "string" ? nextValue : args.field.value,
-      };
-  }
-}
-
-function getBlockingConnectedToolStatuses(args: {
-  statuses: readonly ConnectedToolStatusEntry[];
-}) {
-  return args.statuses.filter(
-    (entry) =>
-      entry.state === "needs-auth" ||
-      entry.state === "disabled" ||
-      entry.state === "error" ||
-      entry.state === "unsupported",
-  );
-}
-
-function appendStaveMuseLocalExchange(args: {
-  assistant: StaveMuseState;
-  content: string;
-  responseText: string;
-  providerId?: ProviderId;
-  model?: string;
-}) {
-  const userMessage = createStaveMuseUserMessage({
-    content: args.content,
-    existingMessages: args.assistant.messages,
-  });
-  const messagesWithUser = [...args.assistant.messages, userMessage];
-  const assistantMessage = createStaveMuseAssistantMessage({
-    content: args.responseText,
-    messageCount: messagesWithUser.length,
-    providerId: args.providerId ?? "stave",
-    model: args.model ?? "stave-muse",
-  });
-
-  return {
-    ...args.assistant,
-    messages: [...messagesWithUser, assistantMessage],
-    promptDraft: buildClearedStaveMusePromptDraft(args.assistant),
-    open: true,
-    focusNonce: args.assistant.focusNonce + 1,
-  } satisfies StaveMuseState;
-}
-
-function appendStaveMusePendingReply(args: {
-  assistant: StaveMuseState;
-  providerId: ProviderId;
-  model: string;
-  turnId: string;
-}) {
-  const currentMessages = args.assistant.messages;
-  const assistantMessage: ChatMessage = {
-    id: buildMessageId({
-      taskId: STAVE_MUSE_SESSION_ID,
-      count: currentMessages.length,
-    }),
-    role: "assistant",
-    model: args.model,
-    providerId: args.providerId,
-    content: "",
-    startedAt: buildRecentTimestamp(),
-    isStreaming: true,
-    parts: [],
-  };
-
-  return {
-    ...args.assistant,
-    messages: [...currentMessages, assistantMessage],
-    activeTurnId: args.turnId,
-    open: true,
-  } satisfies StaveMuseState;
-}
-
-function appendStaveMusePendingTurn(args: {
-  assistant: StaveMuseState;
-  content: string;
-  providerId: ProviderId;
-  model: string;
-  turnId: string;
-}) {
-  const currentMessages = args.assistant.messages;
-  const userMessage = createStaveMuseUserMessage({
-    content: args.content,
-    existingMessages: currentMessages,
-  });
-  const assistantMessage: ChatMessage = {
-    id: buildMessageId({
-      taskId: STAVE_MUSE_SESSION_ID,
-      count: currentMessages.length + 1,
-    }),
-    role: "assistant",
-    model: args.model,
-    providerId: args.providerId,
-    content: "",
-    startedAt: buildRecentTimestamp(),
-    isStreaming: true,
-    parts: [],
-  };
-
-  return {
-    ...args.assistant,
-    messages: [...currentMessages, userMessage, assistantMessage],
-    activeTurnId: args.turnId,
-    promptDraft: buildClearedStaveMusePromptDraft(args.assistant),
-    open: true,
-    focusNonce: args.assistant.focusNonce + 1,
-  } satisfies StaveMuseState;
-}
-
-function applyProviderEventsToStaveMuse(args: {
-  assistant: StaveMuseState;
-  events: NormalizedProviderEvent[];
-  provider: ProviderId;
-  model: string;
-  turnId: string;
-}) {
-  if (args.assistant.activeTurnId !== args.turnId) {
-    return args.assistant;
-  }
-
-  const replayed = replayProviderEventsToTaskState({
-    taskId: STAVE_MUSE_SESSION_ID,
-    messages: args.assistant.messages,
-    events: args.events,
-    provider: args.provider,
-    model: args.model,
-    turnId: args.turnId,
-    nativeSessionReady: args.assistant.nativeSessionReady,
-    providerSession: args.assistant.providerSession,
-  });
-
-  return {
-    ...args.assistant,
-    messages: replayed.messages,
-    activeTurnId: replayed.activeTurnId,
-    nativeSessionReady: replayed.nativeSessionReady,
-    providerSession: replayed.providerSession,
-  } satisfies StaveMuseState;
-}
-
-async function collectStaveMuseRoutingDecision(args: {
-  content: string;
-  model: string;
-  settings: AppSettings;
-  contextSnapshot: string;
-  projectBasePrompt?: string;
-}) {
-  const STAVE_MUSE_ROUTER_TIMEOUT_MS = 4_000;
-  const runtimeCwd = getStaveMuseRuntimeCwd();
-  const fastPathDecision = resolveStaveMuseFastPathDecision({
-    input: args.content,
-  });
-  if (fastPathDecision) {
-    return fastPathDecision;
-  }
-  const provider = inferProviderIdFromModel({ model: args.model });
-  const prompt = buildStaveMuseRouterPrompt({
-    instructionPrompt: args.settings.museRouterPrompt,
-    contextSnapshot: args.contextSnapshot,
-    userRequest: args.content,
-  });
-
-  return new Promise<StaveMuseRoutingDecision>((resolve) => {
-    let responseText = "";
-    let settled = false;
-    const finalize = (decision: StaveMuseRoutingDecision) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timeoutHandle);
-      resolve(decision);
-    };
-    const timeoutHandle = setTimeout(() => {
-      finalize(DEFAULT_STAVE_MUSE_ROUTING_DECISION);
-    }, STAVE_MUSE_ROUTER_TIMEOUT_MS);
-    const runtimeOptions = applyProjectBasePromptToRuntimeOptions({
-      runtimeOptions: buildProviderRuntimeOptions({
-        provider,
-        model: args.model,
-        settings: args.settings,
-      }),
-      projectBasePrompt: args.projectBasePrompt,
-    });
-    runProviderTurn({
-      provider,
-      prompt,
-      taskId: `${STAVE_MUSE_SESSION_ID}-router`,
-      cwd: runtimeCwd,
-      runtimeOptions: {
-        ...runtimeOptions,
-        claudeAllowedTools: [],
-        claudeMaxTurns: 1,
-        codexApprovalPolicy: "never",
-        codexFastMode: true,
-        codexFileAccess: "read-only",
-        providerTimeoutMs: Math.min(
-          runtimeOptions.providerTimeoutMs ?? STAVE_MUSE_ROUTER_TIMEOUT_MS,
-          STAVE_MUSE_ROUTER_TIMEOUT_MS,
-        ),
-      },
-      onEvent: ({ event }) => {
-        if (event.type === "text") {
-          responseText += event.text;
-          return;
-        }
-        if (
-          event.type === "error" ||
-          (event.type === "system" &&
-            event.content.startsWith("Provider stream failed:"))
-        ) {
-          finalize(DEFAULT_STAVE_MUSE_ROUTING_DECISION);
-          return;
-        }
-        if (event.type === "done") {
-          finalize(parseStaveMuseRoutingDecision(responseText));
-        }
-      },
-    });
-  });
 }
 
 export const useAppStore = create<AppState>()(
@@ -4358,13 +3591,9 @@ export const useAppStore = create<AppState>()(
         activeTurnIdsByTask: {},
         providerTurnActivityByTask: {},
         nativeSessionReadyByTask: {},
-        activeColiseumsByTask: {},
         providerSessionByTask: {},
         workspaceRuntimeCacheById: {},
         taskWorkspaceIdById: {},
-        staveMuse: createEmptyStaveMuseState({
-          defaultTarget: defaultSettings.museDefaultTarget,
-        }),
         persistenceBootstrapPhase: "idle",
         persistenceBootstrapMessage: "",
         hydrateProjectRegistry: async () => {
@@ -5280,7 +4509,6 @@ export const useAppStore = create<AppState>()(
               messagesByTask: current.messagesByTask,
               activeTaskId: current.activeTaskId,
               activeTurnIdsByTask: current.activeTurnIdsByTask,
-              activeColiseumsByTask: current.activeColiseumsByTask,
             });
             if (compactedMessagesByTask === current.messagesByTask) {
               return current;
@@ -5334,7 +4562,6 @@ export const useAppStore = create<AppState>()(
               providerSessionByTask: refreshedSession.providerSessionByTask,
               nativeSessionReadyByTask:
                 refreshedSession.nativeSessionReadyByTask,
-              activeColiseumsByTask: refreshedSession.activeColiseumsByTask,
               workspaceRuntimeCacheById: {
                 ...state.workspaceRuntimeCacheById,
                 [workspaceId]: refreshedSession,
@@ -6839,14 +6066,6 @@ export const useAppStore = create<AppState>()(
                     value: patch.claudeSettingSources,
                   }),
                 }),
-            ...(patch.staveAutoRoleRuntimeOverrides === undefined
-              ? {}
-              : {
-                  staveAutoRoleRuntimeOverrides:
-                    normalizeStaveAutoRoleRuntimeOverrides({
-                      value: patch.staveAutoRoleRuntimeOverrides,
-                    }),
-                }),
             ...(patch.taskPresets === undefined
               ? {}
               : {
@@ -7137,7 +6356,6 @@ export const useAppStore = create<AppState>()(
             )?.provider;
             const nextNativeSessionReady =
               activeProvider !== undefined &&
-              activeProvider !== "stave" &&
               Boolean(nextTaskSession[activeProvider]?.trim());
 
             return {
@@ -7832,17 +7050,14 @@ export const useAppStore = create<AppState>()(
               draftProvider: provider,
               nativeSessionReadyByTask: {
                 ...state.nativeSessionReadyByTask,
-                // stave has no native conversation ID of its own; treat as not ready
-                [taskId]:
-                  provider !== "stave" &&
-                  Boolean(
-                    (
-                      state.providerSessionByTask[taskId] as Record<
-                        string,
-                        string | undefined
-                      >
-                    )?.[provider]?.trim(),
-                  ),
+                [taskId]: Boolean(
+                  (
+                    state.providerSessionByTask[taskId] as Record<
+                      string,
+                      string | undefined
+                    >
+                  )?.[provider]?.trim(),
+                ),
               },
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(state),
@@ -7943,13 +7158,8 @@ export const useAppStore = create<AppState>()(
             return;
           }
           if (preset.kind === "cli-session") {
-            if (preset.provider === "stave") {
-              // `stave` meta-provider has no native CLI binary.
-              return;
-            }
-            const cliProvider: Exclude<ProviderId, "stave"> = preset.provider;
             get().createCliSessionTab({
-              provider: cliProvider,
+              provider: preset.provider,
               contextMode: preset.contextMode ?? "workspace",
             });
             return;
@@ -7965,8 +7175,6 @@ export const useAppStore = create<AppState>()(
               settingsPatch.modelClaude = preset.model;
             } else if (preset.provider === "codex") {
               settingsPatch.modelCodex = preset.model;
-            } else if (preset.provider === "stave") {
-              settingsPatch.modelStave = preset.model;
             }
           }
           if (Object.keys(settingsPatch).length > 0) {
@@ -8695,999 +7903,6 @@ export const useAppStore = create<AppState>()(
           });
           await latestState.markNotificationRead({ id: notification.id });
         },
-        setStaveMuseOpen: ({ open }) => {
-          set((state) => {
-            if (state.staveMuse.open === open) {
-              return state;
-            }
-            return {
-              staveMuse: {
-                ...state.staveMuse,
-                open,
-              },
-            };
-          });
-        },
-        focusStaveMuse: () => {
-          set((state) => ({
-            staveMuse: {
-              ...state.staveMuse,
-              open: true,
-              focusNonce: state.staveMuse.focusNonce + 1,
-            },
-          }));
-        },
-        setStaveMuseTarget: ({ kind }) => {
-          set((state) => {
-            if (state.staveMuse.target.kind === kind) {
-              return state;
-            }
-            return {
-              staveMuse: {
-                ...state.staveMuse,
-                open: true,
-                target: { kind },
-              },
-            };
-          });
-        },
-        clearStaveMuseConversation: () => {
-          const activeTurnId = get().staveMuse.activeTurnId;
-          if (activeTurnId) {
-            void window.api?.provider?.abortTurn?.({ turnId: activeTurnId });
-          }
-          void window.api?.provider?.cleanupTask?.({
-            taskId: STAVE_MUSE_SESSION_ID,
-          });
-          set((state) => ({
-            staveMuse: {
-              ...createEmptyStaveMuseState(),
-              open: state.staveMuse.open,
-              target: state.staveMuse.target,
-              focusNonce: state.staveMuse.focusNonce + 1,
-            },
-          }));
-        },
-        updateStaveMusePromptDraft: ({ patch }) => {
-          set((state) => {
-            const currentDraft = state.staveMuse.promptDraft;
-            const nextDraft = {
-              text: currentDraft.text,
-              attachedFilePaths: currentDraft.attachedFilePaths,
-              attachments: currentDraft.attachments,
-              runtimeOverrides: currentDraft.runtimeOverrides,
-              ...patch,
-            };
-            const textChanged = nextDraft.text !== currentDraft.text;
-            const attachedFilePathsChanged =
-              nextDraft.attachedFilePaths.length !==
-                currentDraft.attachedFilePaths.length ||
-              nextDraft.attachedFilePaths.some(
-                (path, index) => path !== currentDraft.attachedFilePaths[index],
-              );
-            const attachmentsChanged =
-              nextDraft.attachments.length !==
-                currentDraft.attachments.length ||
-              nextDraft.attachments.some(
-                (attachment, index) =>
-                  attachment !== currentDraft.attachments[index],
-              );
-            const runtimeOverridesChanged =
-              !arePromptDraftRuntimeOverridesEqual(
-                nextDraft.runtimeOverrides,
-                currentDraft.runtimeOverrides,
-              );
-            if (
-              !textChanged &&
-              !attachedFilePathsChanged &&
-              !attachmentsChanged &&
-              !runtimeOverridesChanged
-            ) {
-              return state;
-            }
-            return {
-              staveMuse: {
-                ...state.staveMuse,
-                promptDraft: nextDraft,
-              },
-            };
-          });
-        },
-        sendStaveMuseMessage: async ({ content }) => {
-          const trimmedContent = content.trim();
-          if (!trimmedContent) {
-            return;
-          }
-
-          const stateBeforeSubmit = get();
-          if (stateBeforeSubmit.staveMuse.activeTurnId) {
-            return;
-          }
-
-          const historyBeforeSubmit = stateBeforeSubmit.staveMuse.messages;
-
-          set((state) => ({
-            staveMuse: appendStaveMuseSubmittedUserMessage({
-              assistant: state.staveMuse,
-              content: trimmedContent,
-            }),
-          }));
-
-          const appendMuseResponse = (
-            responseText: string,
-            args?: {
-              providerId?: ProviderId;
-              model?: string;
-            },
-          ) => {
-            set((state) => ({
-              staveMuse: appendStaveMuseStandaloneMessage({
-                assistant: state.staveMuse,
-                content: responseText,
-                providerId: args?.providerId,
-                model: args?.model,
-              }),
-            }));
-          };
-
-          const buildMuseContext = () =>
-            buildStaveMuseLocalActionContextFromState(get());
-          const ensureWorkspaceInfoContext = () => {
-            const state = get();
-            if (hasSelectedMuseWorkspace(state)) {
-              return true;
-            }
-            appendMuseResponse("Select a workspace first.");
-            return false;
-          };
-          const applyWorkspaceInformationUpdate = (
-            updater: (
-              current: WorkspaceInformationState,
-            ) => WorkspaceInformationState,
-          ) => {
-            if (!ensureWorkspaceInfoContext()) {
-              return false;
-            }
-            get().updateWorkspaceInformation({ updater });
-            return true;
-          };
-
-          const stateBeforeRouting = get();
-          const localAction = resolveStaveMuseLocalAction({
-            input: trimmedContent,
-            context: buildMuseContext(),
-            allowDirectWorkspaceInfoEdits:
-              stateBeforeRouting.settings.museAllowDirectWorkspaceInfoEdits,
-          });
-
-          if (localAction) {
-            switch (localAction.kind) {
-              case "show_summary":
-                appendMuseResponse(
-                  buildStaveMuseSummaryResponse({
-                    target: get().staveMuse.target,
-                    context: buildMuseContext(),
-                  }),
-                );
-                return;
-              case "show_information_summary":
-                appendMuseResponse(
-                  buildStaveMuseLocalActionResponse({
-                    action: localAction,
-                    context: buildMuseContext(),
-                  }),
-                );
-                return;
-              case "open_settings":
-                window.dispatchEvent(
-                  new CustomEvent(STAVE_MUSE_OPEN_SETTINGS_EVENT, {
-                    detail: { section: "muse" },
-                  }),
-                );
-                break;
-              case "toggle_information_panel":
-                get().setLayout({
-                  patch: {
-                    sidebarOverlayVisible: localAction.open ?? true,
-                    sidebarOverlayTab: "information",
-                  },
-                });
-                break;
-              case "toggle_changes_panel":
-                get().setLayout({
-                  patch: {
-                    sidebarOverlayVisible: localAction.open ?? true,
-                    sidebarOverlayTab: "changes",
-                  },
-                });
-                break;
-              case "toggle_explorer_panel":
-                get().setLayout({
-                  patch: {
-                    sidebarOverlayVisible: localAction.open ?? true,
-                    sidebarOverlayTab: "explorer",
-                  },
-                });
-                break;
-              case "toggle_scripts_panel":
-                get().setLayout({
-                  patch: {
-                    sidebarOverlayVisible: localAction.open ?? true,
-                    sidebarOverlayTab: "scripts",
-                  },
-                });
-                break;
-              case "toggle_editor":
-                get().setLayout({
-                  patch: {
-                    editorVisible:
-                      localAction.open ?? !get().layout.editorVisible,
-                  },
-                });
-                break;
-              case "toggle_terminal":
-                get().setLayout({
-                  patch: {
-                    terminalDocked:
-                      localAction.open ?? !get().layout.terminalDocked,
-                  },
-                });
-                break;
-              case "toggle_workspace_sidebar":
-                get().setLayout({
-                  patch: {
-                    workspaceSidebarCollapsed:
-                      localAction.open === undefined
-                        ? !get().layout.workspaceSidebarCollapsed
-                        : !localAction.open,
-                  },
-                });
-                break;
-              case "switch_workspace":
-                await get().switchWorkspace({
-                  workspaceId: localAction.workspaceId,
-                });
-                break;
-              case "open_project":
-                await get().openProject({
-                  projectPath: localAction.projectPath,
-                });
-                break;
-              case "create_task":
-                if (!hasSelectedMuseWorkspace(get())) {
-                  appendMuseResponse("Open a project workspace first.");
-                  return;
-                }
-                get().createTask({ title: localAction.title });
-                break;
-              case "select_task":
-                get().selectTask({ taskId: localAction.taskId });
-                break;
-              case "replace_notes":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    notes: localAction.text,
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "append_notes":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    notes: current.notes.trim()
-                      ? `${current.notes.trim()}\n${localAction.text}`
-                      : localAction.text,
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "clear_notes":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    notes: "",
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "add_todo":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => {
-                    const nextTodo = createWorkspaceTodoItem();
-                    nextTodo.text = localAction.text;
-                    return {
-                      ...current,
-                      todos: [...current.todos, nextTodo],
-                    };
-                  })
-                ) {
-                  return;
-                }
-                break;
-              case "complete_todo":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    todos: current.todos.map((todo) =>
-                      todo.id === localAction.todoId
-                        ? { ...todo, completed: true }
-                        : todo,
-                    ),
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "delete_todo":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    todos: current.todos.filter(
-                      (todo) => todo.id !== localAction.todoId,
-                    ),
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "add_jira_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => {
-                    const nextLink = createWorkspaceJiraIssue();
-                    nextLink.issueKey = localAction.issueKey;
-                    nextLink.title = localAction.issueKey;
-                    nextLink.url = localAction.url;
-                    return {
-                      ...current,
-                      jiraIssues: [...current.jiraIssues, nextLink],
-                    };
-                  })
-                ) {
-                  return;
-                }
-                break;
-              case "remove_jira_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    jiraIssues: current.jiraIssues.filter(
-                      (issue) => issue.id !== localAction.linkId,
-                    ),
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "add_pull_request_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => {
-                    const nextLink = createWorkspaceLinkedPullRequest();
-                    nextLink.title = localAction.title;
-                    nextLink.url = localAction.url;
-                    return {
-                      ...current,
-                      linkedPullRequests: [
-                        ...current.linkedPullRequests,
-                        nextLink,
-                      ],
-                    };
-                  })
-                ) {
-                  return;
-                }
-                break;
-              case "remove_pull_request_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    linkedPullRequests: current.linkedPullRequests.filter(
-                      (pullRequest) => pullRequest.id !== localAction.linkId,
-                    ),
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "add_confluence_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => {
-                    const nextLink = createWorkspaceConfluencePage();
-                    nextLink.title = localAction.title;
-                    nextLink.url = localAction.url;
-                    return {
-                      ...current,
-                      confluencePages: [...current.confluencePages, nextLink],
-                    };
-                  })
-                ) {
-                  return;
-                }
-                break;
-              case "remove_confluence_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    confluencePages: current.confluencePages.filter(
-                      (page) => page.id !== localAction.linkId,
-                    ),
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "add_figma_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => {
-                    const nextLink = createWorkspaceFigmaResource();
-                    nextLink.title = localAction.title;
-                    nextLink.url = localAction.url;
-                    nextLink.nodeId = localAction.nodeId;
-                    return {
-                      ...current,
-                      figmaResources: [...current.figmaResources, nextLink],
-                    };
-                  })
-                ) {
-                  return;
-                }
-                break;
-              case "remove_figma_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    figmaResources: current.figmaResources.filter(
-                      (resource) => resource.id !== localAction.linkId,
-                    ),
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "add_slack_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => {
-                    const nextLink = createWorkspaceSlackThread();
-                    nextLink.url = localAction.url;
-                    nextLink.channelName = localAction.channelName;
-                    return {
-                      ...current,
-                      slackThreads: [...current.slackThreads, nextLink],
-                    };
-                  })
-                ) {
-                  return;
-                }
-                break;
-              case "remove_slack_link":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    slackThreads: current.slackThreads.filter(
-                      (thread) => thread.id !== localAction.linkId,
-                    ),
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "add_custom_field":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    customFields: [
-                      ...current.customFields,
-                      createWorkspaceInfoCustomField({
-                        type: localAction.fieldType,
-                        label: localAction.label,
-                      }),
-                    ],
-                  }))
-                ) {
-                  return;
-                }
-                break;
-              case "set_custom_field":
-                if (
-                  !applyWorkspaceInformationUpdate((current) => ({
-                    ...current,
-                    customFields: current.customFields.map((field) =>
-                      field.id === localAction.fieldId
-                        ? updateMuseCustomField({
-                            field,
-                            value: localAction.value,
-                          })
-                        : field,
-                    ),
-                  }))
-                ) {
-                  return;
-                }
-                break;
-            }
-
-            appendMuseResponse(
-              buildStaveMuseLocalActionResponse({
-                action: localAction,
-                context: buildMuseContext(),
-              }),
-            );
-            return;
-          }
-
-          const contextSnapshot = buildStaveMuseContextSnapshot({
-            target: stateBeforeRouting.staveMuse.target,
-            context: buildMuseContext(),
-          });
-          const routingDecision = await collectStaveMuseRoutingDecision({
-            content: trimmedContent,
-            model: stateBeforeRouting.settings.museRouterModel,
-            settings: stateBeforeRouting.settings,
-            contextSnapshot,
-            projectBasePrompt: resolveProjectBasePrompt({
-              projectPath: stateBeforeRouting.projectPath,
-              recentProjects: stateBeforeRouting.recentProjects,
-            }),
-          });
-
-          const explicitTaskRequest =
-            isStaveMuseExplicitTaskRequest(trimmedContent);
-          if (routingDecision.mode === "handoff") {
-            const currentState = get();
-            if (
-              !currentState.settings.museAutoHandoffToTask &&
-              !explicitTaskRequest
-            ) {
-              appendMuseResponse(
-                "This request needs task chat. Turn on Auto Handoff To Task or ask Muse to open a task for it.",
-                { model: "stave-muse-router" },
-              );
-              return;
-            }
-            if (!hasSelectedMuseWorkspace(currentState)) {
-              appendMuseResponse(
-                "Open a project workspace first so I can hand this off to a task.",
-              );
-              return;
-            }
-
-            const requestedWorkspace = findStaveMuseWorkspaceMention({
-              input: trimmedContent,
-              workspaces: buildMuseContext().workspaces,
-            });
-            if (
-              requestedWorkspace &&
-              requestedWorkspace.id !== get().activeWorkspaceId
-            ) {
-              await get().switchWorkspace({
-                workspaceId: requestedWorkspace.id,
-              });
-            }
-
-            const nextTitle =
-              normalizeSuggestedTaskTitle({ title: trimmedContent }) ??
-              "Muse Task";
-            get().createTask({ title: nextTitle });
-            const nextTaskId = get().activeTaskId;
-            void get().sendUserMessage({
-              taskId: nextTaskId,
-              content: trimmedContent,
-            });
-            appendMuseResponse(
-              `Created task "${nextTitle}" and handed the request off to task chat.${routingDecision.reason ? ` ${routingDecision.reason}` : ""}`,
-              { model: "stave-muse-router" },
-            );
-            return;
-          }
-
-          const activeModel =
-            routingDecision.mode === "planner"
-              ? stateBeforeRouting.settings.musePlannerModel
-              : stateBeforeRouting.settings.museChatModel;
-          const provider = inferProviderIdFromModel({ model: activeModel });
-          const providerRuntimeOptions = {
-            ...applyProjectBasePromptToRuntimeOptions({
-              runtimeOptions: buildProviderRuntimeOptions({
-                provider,
-                model: activeModel,
-                settings: get().settings,
-              }),
-              projectBasePrompt: resolveProjectBasePrompt({
-                projectPath: stateBeforeRouting.projectPath,
-                recentProjects: stateBeforeRouting.recentProjects,
-              }),
-            }),
-            ...(provider === "claude-code"
-              ? {
-                  claudeDisallowedTools: [
-                    "Bash",
-                    "Glob",
-                    "Grep",
-                    "LS",
-                    "NotebookRead",
-                    "Read",
-                  ],
-                  claudePermissionMode: "plan" as const,
-                }
-              : {
-                  codexApprovalPolicy: "never" as const,
-                  codexFileAccess: "read-only" as const,
-                }),
-          };
-          const connectedToolIds = resolveRequestedStaveMuseConnectedTools({
-            input: trimmedContent,
-          });
-          const turnId = crypto.randomUUID();
-          const workspaceId = get().activeWorkspaceId || undefined;
-          const museRuntimeCwd = getStaveMuseRuntimeCwd();
-          const promptContextPart = buildStaveMuseInstructionContextPart({
-            mode: routingDecision.mode === "planner" ? "planner" : "chat",
-            prompt:
-              routingDecision.mode === "planner"
-                ? stateBeforeRouting.settings.musePlannerPrompt
-                : stateBeforeRouting.settings.museChatPrompt,
-          });
-          const retrievedContextParts: CanonicalRetrievedContextPart[] = [
-            promptContextPart,
-            {
-              type: "retrieved_context",
-              sourceId: "stave:muse-context",
-              title: "Stave Muse Context",
-              content: contextSnapshot,
-            },
-          ];
-
-          if (window.api?.provider?.checkAvailability) {
-            try {
-              const availability = await window.api.provider.checkAvailability({
-                providerId: provider,
-                runtimeOptions: providerRuntimeOptions,
-              });
-              if (!availability.ok || !availability.available) {
-                appendMuseResponse(
-                  buildStaveMuseProviderUnavailableMessage({
-                    providerId: provider,
-                    detail: availability.detail,
-                  }),
-                  {
-                    providerId: "stave",
-                    model: "system",
-                  },
-                );
-                return;
-              }
-            } catch (error) {
-              appendMuseResponse(
-                buildStaveMuseProviderUnavailableMessage({
-                  providerId: provider,
-                  detail: String(error),
-                }),
-                {
-                  providerId: "stave",
-                  model: "system",
-                },
-              );
-              return;
-            }
-          }
-
-          if (
-            connectedToolIds.length > 0 &&
-            window.api?.provider?.getConnectedToolStatus
-          ) {
-            try {
-              const connectedToolStatus =
-                await window.api.provider.getConnectedToolStatus({
-                  providerId: provider,
-                  cwd: museRuntimeCwd,
-                  runtimeOptions: providerRuntimeOptions,
-                  toolIds: connectedToolIds,
-                });
-              const blockingStatuses = getBlockingConnectedToolStatuses({
-                statuses: connectedToolStatus.tools,
-              });
-              if (blockingStatuses.length > 0) {
-                appendMuseResponse(
-                  buildStaveMuseConnectedToolPreflightMessage({
-                    providerId: provider,
-                    blockingTools: blockingStatuses,
-                  }),
-                  {
-                    providerId: "stave",
-                    model: "system",
-                  },
-                );
-                return;
-              }
-            } catch (error) {
-              appendMuseResponse(
-                buildStaveMuseConnectedToolPreflightMessage({
-                  providerId: provider,
-                  blockingTools: connectedToolIds.map((toolId) => ({
-                    id: toolId,
-                    label: toolId,
-                    state: "error" as const,
-                    available: false,
-                    detail: String(error),
-                  })),
-                }),
-                {
-                  providerId: "stave",
-                  model: "system",
-                },
-              );
-              return;
-            }
-          }
-
-          const conversation = buildCanonicalConversationRequest({
-            turnId,
-            taskId: STAVE_MUSE_SESSION_ID,
-            workspaceId,
-            providerId: provider,
-            model: activeModel,
-            history: historyBeforeSubmit,
-            userInput: trimmedContent,
-            mode: "chat",
-            retrievedContextParts,
-          });
-
-          set((state) => ({
-            staveMuse: appendStaveMusePendingReply({
-              assistant: state.staveMuse,
-              providerId: provider,
-              model: activeModel,
-              turnId,
-            }),
-          }));
-
-          const providerTurnEventController = createProviderTurnEventController(
-            {
-              flushEvents: (pendingEvents) => {
-                set((state) => ({
-                  staveMuse: applyProviderEventsToStaveMuse({
-                    assistant: state.staveMuse,
-                    events: pendingEvents,
-                    provider,
-                    model: activeModel,
-                    turnId,
-                  }),
-                }));
-              },
-            },
-          );
-
-          runProviderTurn({
-            turnId,
-            provider,
-            prompt: trimmedContent,
-            conversation,
-            taskId: STAVE_MUSE_SESSION_ID,
-            workspaceId,
-            cwd: museRuntimeCwd,
-            runtimeOptions: providerRuntimeOptions,
-            onEvent: ({ event }) =>
-              providerTurnEventController.handleEvent(event),
-          });
-        },
-        abortStaveMuseTurn: () => {
-          const stateBefore = get();
-          const activeTurnId = stateBefore.staveMuse.activeTurnId;
-          if (activeTurnId) {
-            void window.api?.provider?.abortTurn?.({ turnId: activeTurnId });
-          }
-          void window.api?.provider?.cleanupTask?.({
-            taskId: STAVE_MUSE_SESSION_ID,
-          });
-          set((state) => {
-            const current = state.staveMuse.messages;
-            const interruptedMessages =
-              interruptPendingToolInteractionsInMessages({
-                messages: current,
-              });
-            const target = interruptedMessages[interruptedMessages.length - 1];
-            if (!target || target.role !== "assistant" || !target.isStreaming) {
-              return {
-                staveMuse: {
-                  ...state.staveMuse,
-                  messages: interruptedMessages,
-                  activeTurnId: undefined,
-                  providerSession: undefined,
-                  nativeSessionReady: false,
-                },
-              };
-            }
-            const aborted: ChatMessage = {
-              ...target,
-              completedAt: buildRecentTimestamp(),
-              isStreaming: false,
-              parts: [
-                ...target.parts,
-                {
-                  type: "system_event",
-                  content: LOCAL_ABORT_SYSTEM_EVENT_CONTENT,
-                },
-              ],
-            };
-            return {
-              staveMuse: {
-                ...state.staveMuse,
-                messages: [...interruptedMessages.slice(0, -1), aborted],
-                activeTurnId: undefined,
-                providerSession: undefined,
-                nativeSessionReady: false,
-              },
-            };
-          });
-        },
-        resolveStaveMuseApproval: async ({ messageId, approved }) => {
-          const stateBefore = get();
-          const activeTurnId = stateBefore.staveMuse.activeTurnId;
-          const message = stateBefore.staveMuse.messages.find(
-            (item) => item.id === messageId,
-          );
-          const approvalPart = findLatestPendingApprovalPart({ message });
-
-          const appendApprovalFailure = (failureText: string) => {
-            set((state) => ({
-              staveMuse: appendStaveMuseStandaloneMessage({
-                assistant: state.staveMuse,
-                content: failureText,
-                providerId: "stave",
-                model: "system",
-              }),
-            }));
-          };
-
-          const applyApprovalResponse = (requestId: string) => {
-            set((state) => ({
-              staveMuse: {
-                ...state.staveMuse,
-                messages: updateMessageById({
-                  messages: state.staveMuse.messages,
-                  messageId,
-                  update: (currentMessage) => ({
-                    ...currentMessage,
-                    parts: updateApprovalPartsByRequestId({
-                      parts: currentMessage.parts,
-                      requestId,
-                      approved,
-                    }),
-                  }),
-                }),
-              },
-            }));
-          };
-
-          if (activeTurnId && approvalPart) {
-            const respondApproval = window.api?.provider?.respondApproval;
-            if (respondApproval) {
-              void respondApproval({
-                turnId: activeTurnId,
-                requestId: approvalPart.requestId,
-                approved,
-              })
-                .then((result) => {
-                  if (!result.ok) {
-                    appendApprovalFailure(
-                      `Approval delivery failed: ${result.message ?? "unknown"}`,
-                    );
-                    return;
-                  }
-                  applyApprovalResponse(approvalPart.requestId);
-                })
-                .catch((error) => {
-                  appendApprovalFailure(
-                    `Approval delivery failed: ${String(error)}`,
-                  );
-                });
-              return;
-            }
-          }
-
-          if (
-            !activeTurnId &&
-            approvalPart &&
-            window.api?.provider?.respondApproval
-          ) {
-            appendApprovalFailure(
-              "Approval delivery failed: no active turn found for this Muse turn.",
-            );
-            return;
-          }
-          if (approvalPart) {
-            appendApprovalFailure(
-              "Approval delivery failed: no active turn found for this Muse turn.",
-            );
-          }
-        },
-        resolveStaveMuseUserInput: async ({ messageId, answers, denied }) => {
-          const stateBefore = get();
-          const activeTurnId = stateBefore.staveMuse.activeTurnId;
-          const message = stateBefore.staveMuse.messages.find(
-            (item) => item.id === messageId,
-          );
-          const userInputPart = findLatestPendingUserInputPart({ message });
-
-          const appendUserInputFailure = (failureText: string) => {
-            set((state) => ({
-              staveMuse: appendStaveMuseStandaloneMessage({
-                assistant: state.staveMuse,
-                content: failureText,
-                providerId: "stave",
-                model: "system",
-              }),
-            }));
-          };
-
-          const applyUserInputResponse = (requestId: string) => {
-            set((state) => ({
-              staveMuse: {
-                ...state.staveMuse,
-                messages: updateMessageById({
-                  messages: state.staveMuse.messages,
-                  messageId,
-                  update: (currentMessage) => ({
-                    ...currentMessage,
-                    parts: updateUserInputPartsByRequestId({
-                      parts: currentMessage.parts,
-                      requestId,
-                      answers,
-                      denied,
-                    }),
-                  }),
-                }),
-              },
-            }));
-          };
-
-          if (activeTurnId && userInputPart) {
-            const respondUserInput = window.api?.provider?.respondUserInput;
-            if (respondUserInput) {
-              void respondUserInput({
-                turnId: activeTurnId,
-                requestId: userInputPart.requestId,
-                answers,
-                denied,
-              })
-                .then((result) => {
-                  if (!result.ok) {
-                    appendUserInputFailure(
-                      `User input delivery failed: ${result.message ?? "unknown"}`,
-                    );
-                    return;
-                  }
-                  applyUserInputResponse(userInputPart.requestId);
-                })
-                .catch((error) => {
-                  appendUserInputFailure(
-                    `User input delivery failed: ${String(error)}`,
-                  );
-                });
-              return;
-            }
-          }
-
-          if (
-            !activeTurnId &&
-            userInputPart &&
-            window.api?.provider?.respondUserInput
-          ) {
-            appendUserInputFailure(
-              "User input delivery failed: no active turn found for this Muse turn.",
-            );
-            return;
-          }
-          if (userInputPart) {
-            appendUserInputFailure(
-              "User input delivery failed: no active turn found for this Muse turn.",
-            );
-          }
-        },
         sendUserMessage: async ({
           taskId,
           content,
@@ -9979,17 +8194,11 @@ export const useAppStore = create<AppState>()(
                     runtimeOverrides: promptDraft.runtimeOverrides,
                     fallbackModel: state.settings.modelClaude,
                   })
-                : provider === "stave"
-                  ? resolvePromptDraftModelForProvider({
-                      providerId: provider,
-                      runtimeOverrides: promptDraft.runtimeOverrides,
-                      fallbackModel: state.settings.modelStave,
-                    })
-                  : resolvePromptDraftModelForProvider({
-                      providerId: provider,
-                      runtimeOverrides: promptDraft.runtimeOverrides,
-                      fallbackModel: state.settings.modelCodex,
-                    });
+                : resolvePromptDraftModelForProvider({
+                    providerId: provider,
+                    runtimeOverrides: promptDraft.runtimeOverrides,
+                    fallbackModel: state.settings.modelCodex,
+                  });
 
             const skillSelection = resolveSkillSelections({
               text: content,
@@ -10568,1677 +8777,6 @@ export const useAppStore = create<AppState>()(
             throw error;
           }
         },
-        startColiseum: async ({
-          parentTaskId,
-          branches,
-          content,
-          fileContexts,
-          imageContexts,
-        }) => {
-          const branchValidationError = validateColiseumBranches(branches);
-          if (branchValidationError) {
-            return {
-              status: "blocked",
-              reason: branchValidationError,
-            } satisfies StartColiseumResult;
-          }
-
-          let state = get();
-          const runtimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!runtimeTarget) {
-            return {
-              status: "blocked",
-              reason: "Parent task not found.",
-            } satisfies StartColiseumResult;
-          }
-          const parentTask = runtimeTarget.task;
-          if (parentTask.coliseumParentTaskId) {
-            return {
-              status: "blocked",
-              reason: "Cannot start a Coliseum from within a Coliseum branch.",
-            } satisfies StartColiseumResult;
-          }
-          if (isManagedTaskReadOnly({ state, taskId: parentTaskId })) {
-            return {
-              status: "blocked",
-              reason: "This task is managed externally.",
-            } satisfies StartColiseumResult;
-          }
-          if (state.activeColiseumsByTask[parentTaskId]) {
-            return {
-              status: "blocked",
-              reason: "A Coliseum is already running on this task.",
-            } satisfies StartColiseumResult;
-          }
-
-          const { workspaceId: parentWorkspaceId, cwd: parentWorkspaceCwd } =
-            resolveTaskWorkspaceContext({
-              taskId: parentTaskId,
-              activeWorkspaceId: state.activeWorkspaceId,
-              taskWorkspaceIdById: state.taskWorkspaceIdById,
-              workspacePathById: state.workspacePathById,
-              workspaceDefaultById: state.workspaceDefaultById,
-              projectPath: state.projectPath,
-            });
-          if (!parentWorkspaceId) {
-            return {
-              status: "blocked",
-              reason: "Parent task has no workspace.",
-            } satisfies StartColiseumResult;
-          }
-
-          const parentWorkspaceSession =
-            getWorkspaceSessionForState({
-              state,
-              workspaceId: parentWorkspaceId,
-            }) ?? runtimeTarget.session;
-          const parentHistory =
-            parentWorkspaceSession.messagesByTask[parentTaskId] ?? [];
-          if (parentWorkspaceSession.activeTurnIdsByTask[parentTaskId]) {
-            return {
-              status: "blocked",
-              reason: "Parent task has an active turn.",
-            } satisfies StartColiseumResult;
-          }
-          if (findLatestPendingApproval({ messages: parentHistory })) {
-            return {
-              status: "blocked",
-              reason: "Parent task has a pending approval.",
-            } satisfies StartColiseumResult;
-          }
-          if (findLatestPendingUserInput({ messages: parentHistory })) {
-            return {
-              status: "blocked",
-              reason: "Parent task has a pending user input.",
-            } satisfies StartColiseumResult;
-          }
-
-          const parentPromptDraft =
-            parentWorkspaceSession.promptDraftByTask[parentTaskId];
-          const resolvedFileContexts =
-            fileContexts !== undefined
-              ? fileContexts
-              : await getDraftFileContexts({
-                  promptDraft: parentPromptDraft ?? EMPTY_PROMPT_DRAFT,
-                  session: parentWorkspaceSession,
-                  workspaceRootPath: parentWorkspaceCwd,
-                  fileContexts,
-                });
-          const resolvedImageContexts =
-            imageContexts !== undefined
-              ? imageContexts
-              : getDraftImageContexts({
-                  promptDraft: parentPromptDraft ?? EMPTY_PROMPT_DRAFT,
-                  imageContexts,
-                });
-
-          // Re-read state in case file reads yielded the event loop.
-          state = get();
-          const latestWorkspaceSession = getWorkspaceSessionForState({
-            state,
-            workspaceId: parentWorkspaceId,
-          });
-          if (!latestWorkspaceSession) {
-            return {
-              status: "blocked",
-              reason: "Parent workspace session unavailable.",
-            } satisfies StartColiseumResult;
-          }
-          // Re-check invariants after async gap.
-          if (latestWorkspaceSession.activeTurnIdsByTask[parentTaskId]) {
-            return {
-              status: "blocked",
-              reason: "Parent task started a turn during setup.",
-            } satisfies StartColiseumResult;
-          }
-          if (state.activeColiseumsByTask[parentTaskId]) {
-            return {
-              status: "blocked",
-              reason: "A Coliseum is already running on this task.",
-            } satisfies StartColiseumResult;
-          }
-          const latestParentHistory =
-            latestWorkspaceSession.messagesByTask[parentTaskId] ??
-            parentHistory;
-          const latestParentTask =
-            latestWorkspaceSession.tasks.find((t) => t.id === parentTaskId) ??
-            parentTask;
-          const latestParentPromptDraft =
-            latestWorkspaceSession.promptDraftByTask[parentTaskId];
-
-          let plan;
-          try {
-            plan = planColiseumFanOut({
-              parentTask: latestParentTask,
-              parentMessages: latestParentHistory,
-              parentPromptDraft: latestParentPromptDraft,
-              parentTaskWorkspaceId: parentWorkspaceId,
-              branches,
-              content,
-              fileContexts:
-                resolvedFileContexts.length > 0
-                  ? resolvedFileContexts
-                  : undefined,
-              imageContexts:
-                resolvedImageContexts.length > 0
-                  ? resolvedImageContexts
-                  : undefined,
-            });
-          } catch (planError) {
-            return {
-              status: "blocked",
-              reason:
-                planError instanceof Error
-                  ? planError.message
-                  : String(planError),
-            } satisfies StartColiseumResult;
-          }
-
-          // Apply the fan-out state patch. The parent workspace may or may not
-          // be the active workspace — handle both.
-          set((nextState) => {
-            const mergedTasks = [...nextState.tasks, ...plan.branchTasks];
-            const mergedTaskWorkspaceIdById = {
-              ...nextState.taskWorkspaceIdById,
-              ...plan.branchTaskWorkspaceIdById,
-            };
-            if (parentWorkspaceId === nextState.activeWorkspaceId) {
-              return {
-                tasks: mergedTasks,
-                messagesByTask: {
-                  ...nextState.messagesByTask,
-                  ...plan.branchMessagesByTask,
-                },
-                messageCountByTask: {
-                  ...nextState.messageCountByTask,
-                  ...plan.branchMessageCountByTask,
-                },
-                activeTurnIdsByTask: {
-                  ...nextState.activeTurnIdsByTask,
-                  ...plan.branchActiveTurnIdsByTask,
-                },
-                providerSessionByTask: {
-                  ...nextState.providerSessionByTask,
-                  ...plan.branchProviderSessionByTask,
-                },
-                nativeSessionReadyByTask: {
-                  ...nextState.nativeSessionReadyByTask,
-                  ...plan.branchNativeSessionReadyByTask,
-                },
-                promptDraftByTask: {
-                  ...nextState.promptDraftByTask,
-                  ...plan.branchPromptDraftByTask,
-                },
-                activeColiseumsByTask: {
-                  ...nextState.activeColiseumsByTask,
-                  [parentTaskId]: plan.group,
-                },
-                taskWorkspaceIdById: mergedTaskWorkspaceIdById,
-                workspaceSnapshotVersion:
-                  incrementWorkspaceSnapshotVersion(nextState),
-              };
-            }
-            // Parent task lives in an inactive workspace cache.
-            const cachedSession =
-              nextState.workspaceRuntimeCacheById[parentWorkspaceId];
-            if (!cachedSession) {
-              return nextState;
-            }
-            return {
-              taskWorkspaceIdById: mergedTaskWorkspaceIdById,
-              workspaceRuntimeCacheById: {
-                ...nextState.workspaceRuntimeCacheById,
-                [parentWorkspaceId]: {
-                  ...cachedSession,
-                  tasks: [...cachedSession.tasks, ...plan.branchTasks],
-                  messagesByTask: {
-                    ...cachedSession.messagesByTask,
-                    ...plan.branchMessagesByTask,
-                  },
-                  messageCountByTask: {
-                    ...cachedSession.messageCountByTask,
-                    ...plan.branchMessageCountByTask,
-                  },
-                  activeTurnIdsByTask: {
-                    ...cachedSession.activeTurnIdsByTask,
-                    ...plan.branchActiveTurnIdsByTask,
-                  },
-                  providerSessionByTask: {
-                    ...cachedSession.providerSessionByTask,
-                    ...plan.branchProviderSessionByTask,
-                  },
-                  nativeSessionReadyByTask: {
-                    ...cachedSession.nativeSessionReadyByTask,
-                    ...plan.branchNativeSessionReadyByTask,
-                  },
-                  promptDraftByTask: {
-                    ...cachedSession.promptDraftByTask,
-                    ...plan.branchPromptDraftByTask,
-                  },
-                  activeColiseumsByTask: {
-                    ...cachedSession.activeColiseumsByTask,
-                    [parentTaskId]: plan.group,
-                  },
-                },
-              },
-            };
-          });
-
-          // Dispatch each branch's provider turn. Each branch gets its own
-          // event controller so stream events are routed via the branch's
-          // taskId — the existing applyPendingProviderEventsToStoreState router
-          // already gates on `activeTurnIdsByTask[taskId]`, so cross-branch
-          // isolation is free as long as each branch's taskId and turnId are
-          // unique (guaranteed by planColiseumFanOut).
-          const skillSelection = resolveSkillSelections({
-            text: content,
-            skills: state.skillCatalog.skills,
-            providerId: latestParentTask.provider,
-          });
-          const normalizedPrompt = skillSelection.normalizedText;
-
-          for (const dispatch of plan.branchDispatchList) {
-            const { taskId, turnId, provider, model } = dispatch;
-            const inheritedOverrides: PromptDraft["runtimeOverrides"] =
-              latestParentPromptDraft?.runtimeOverrides
-                ? { ...latestParentPromptDraft.runtimeOverrides, model }
-                : { model };
-            const branchPromptDraft: PromptDraft = {
-              text: "",
-              attachedFilePaths: [],
-              attachments: [],
-              runtimeOverrides: inheritedOverrides,
-            };
-            const resolvedPromptDraftRuntimeState =
-              resolvePromptDraftRuntimeState({
-                promptDraft: branchPromptDraft,
-                fallback: {
-                  claudePermissionMode: state.settings.claudePermissionMode,
-                  claudePermissionModeBeforePlan:
-                    state.settings.claudePermissionModeBeforePlan,
-                  codexPlanMode: state.settings.codexPlanMode,
-                },
-              });
-            const branchProviderSession =
-              plan.branchProviderSessionByTask[taskId];
-            const conversation = buildCanonicalConversationRequest({
-              turnId,
-              taskId,
-              workspaceId: parentWorkspaceId,
-              providerId: provider,
-              model,
-              history: latestParentHistory,
-              userInput: normalizedPrompt,
-              mode: "chat",
-              fileContexts:
-                resolvedFileContexts.length > 0
-                  ? resolvedFileContexts
-                  : undefined,
-              imageContexts:
-                resolvedImageContexts.length > 0
-                  ? resolvedImageContexts
-                  : undefined,
-              skillContexts: skillSelection.selectedSkills,
-              nativeSessionId: null,
-              retrievedContextParts: [],
-            });
-
-            const turnActivityStartedAt = Date.now();
-            set((nextState) => ({
-              providerTurnActivityByTask: startProviderTurnActivity({
-                activityByTask: nextState.providerTurnActivityByTask,
-                taskId,
-                turnId,
-                providerId: provider,
-                now: turnActivityStartedAt,
-              }),
-            }));
-            scheduleProviderTurnStallTimer({
-              taskId,
-              turnId,
-              lastEventAt: turnActivityStartedAt,
-            });
-
-            const providerTurnEventController =
-              createProviderTurnEventController({
-                flushEvents: (pendingEvents) => {
-                  const currentState = get();
-                  const applied = applyPendingProviderEventsToStoreState({
-                    state: currentState,
-                    taskWorkspaceId: parentWorkspaceId,
-                    taskId,
-                    events: pendingEvents,
-                    provider,
-                    model,
-                    turnId,
-                  });
-                  const turnStillActive =
-                    currentState.activeTurnIdsByTask[taskId] === turnId;
-                  const nextTurnActivityByTask = turnStillActive
-                    ? applyProviderTurnActivityEvents({
-                        activityByTask: currentState.providerTurnActivityByTask,
-                        taskId,
-                        turnId,
-                        providerId: provider,
-                        events: pendingEvents,
-                      })
-                    : currentState.providerTurnActivityByTask;
-                  const activityChanged =
-                    nextTurnActivityByTask !==
-                    currentState.providerTurnActivityByTask;
-                  if (applied.stateChanged || activityChanged) {
-                    set({
-                      ...applied.statePatch,
-                      ...(activityChanged
-                        ? {
-                            providerTurnActivityByTask: nextTurnActivityByTask,
-                          }
-                        : {}),
-                    });
-                  }
-                  if (
-                    !turnStillActive ||
-                    pendingEvents.some((event) => event.type === "done")
-                  ) {
-                    clearProviderTurnStallTimer(taskId);
-                  } else {
-                    const nextActivity = nextTurnActivityByTask[taskId];
-                    if (nextActivity) {
-                      scheduleProviderTurnStallTimer({
-                        taskId,
-                        turnId,
-                        lastEventAt: nextActivity.lastEventAt,
-                      });
-                    }
-                  }
-                },
-              });
-
-            runProviderTurn({
-              turnId,
-              provider,
-              prompt: normalizedPrompt,
-              conversation,
-              taskId,
-              workspaceId: parentWorkspaceId,
-              cwd: parentWorkspaceCwd,
-              runtimeOptions: applyProjectBasePromptToRuntimeOptions({
-                runtimeOptions: buildProviderRuntimeOptions({
-                  provider,
-                  model,
-                  settings: {
-                    ...get().settings,
-                    claudePermissionMode:
-                      resolvedPromptDraftRuntimeState.claudePermissionMode,
-                    codexPlanMode:
-                      resolvedPromptDraftRuntimeState.codexPlanMode,
-                  },
-                  providerSession: branchProviderSession,
-                }),
-                projectBasePrompt: resolveProjectBasePrompt({
-                  projectPath: get().projectPath,
-                  recentProjects: get().recentProjects,
-                }),
-              }),
-              onEvent: ({ event }) =>
-                providerTurnEventController.handleEvent(event),
-            });
-          }
-
-          return {
-            status: "started",
-            parentTaskId,
-            workspaceId: parentWorkspaceId,
-            branchTaskIds: plan.group.branchTaskIds,
-          } satisfies StartColiseumResult;
-        },
-        pickColiseumChampion: ({ parentTaskId, championTaskId }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          if (!group) {
-            return;
-          }
-          if (!group.branchTaskIds.includes(championTaskId)) {
-            return;
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const workspaceId = parentRuntimeTarget.workspaceId;
-          const parentSession = parentRuntimeTarget.session;
-          const parentMessages =
-            parentSession.messagesByTask[parentTaskId] ?? [];
-          const championMessages =
-            parentSession.messagesByTask[championTaskId] ?? [];
-
-          let promotion;
-          try {
-            promotion = promoteColiseumChampion({
-              group,
-              championTaskId,
-              parentMessages,
-              championMessages,
-              // Re-pick: if a champion was already grafted, roll the parent
-              // back to pre-fan-out first so the new champion's tail replaces
-              // (not appends to) the previous pick.
-              replacePreviousPick: group.championTaskId != null,
-            });
-          } catch {
-            return;
-          }
-
-          // Non-destructive: branches stay alive so the user can re-pick or
-          // keep comparing. Runtime caches are NOT evicted here — discard is
-          // now the explicit destructive action.
-          const championProviderSession =
-            parentSession.providerSessionByTask[championTaskId] ?? {};
-          const championNativeSessionReady =
-            parentSession.nativeSessionReadyByTask[championTaskId] ?? false;
-
-          const pickedAt = buildRecentTimestamp();
-          const nextGroup: ColiseumGroupState = {
-            ...group,
-            status: "promoted",
-            championTaskId,
-            pickedHistory: [
-              ...group.pickedHistory,
-              { championTaskId, pickedAt },
-            ],
-          };
-
-          set((nextState) => {
-            const applyPatchToSession = <
-              S extends {
-                messagesByTask: Record<string, ChatMessage[]>;
-                messageCountByTask: Record<string, number>;
-                providerSessionByTask: Record<string, TaskProviderSessionState>;
-                nativeSessionReadyByTask: Record<string, boolean>;
-                activeColiseumsByTask: Record<
-                  string,
-                  ColiseumGroupState | undefined
-                >;
-              },
-            >(
-              session: S,
-            ): S => ({
-              ...session,
-              messagesByTask: {
-                ...session.messagesByTask,
-                [parentTaskId]: promotion.nextParentMessages,
-              },
-              messageCountByTask: {
-                ...session.messageCountByTask,
-                [parentTaskId]: promotion.nextParentMessages.length,
-              },
-              providerSessionByTask: {
-                ...session.providerSessionByTask,
-                [parentTaskId]: championProviderSession,
-              },
-              nativeSessionReadyByTask: {
-                ...session.nativeSessionReadyByTask,
-                [parentTaskId]: championNativeSessionReady,
-              },
-              activeColiseumsByTask: {
-                ...session.activeColiseumsByTask,
-                [parentTaskId]: nextGroup,
-              },
-            });
-
-            if (workspaceId === nextState.activeWorkspaceId) {
-              return {
-                messagesByTask: {
-                  ...nextState.messagesByTask,
-                  [parentTaskId]: promotion.nextParentMessages,
-                },
-                messageCountByTask: {
-                  ...nextState.messageCountByTask,
-                  [parentTaskId]: promotion.nextParentMessages.length,
-                },
-                providerSessionByTask: {
-                  ...nextState.providerSessionByTask,
-                  [parentTaskId]: championProviderSession,
-                },
-                nativeSessionReadyByTask: {
-                  ...nextState.nativeSessionReadyByTask,
-                  [parentTaskId]: championNativeSessionReady,
-                },
-                activeColiseumsByTask: {
-                  ...nextState.activeColiseumsByTask,
-                  [parentTaskId]: nextGroup,
-                },
-                workspaceSnapshotVersion:
-                  incrementWorkspaceSnapshotVersion(nextState),
-              };
-            }
-            const cachedSession =
-              nextState.workspaceRuntimeCacheById[workspaceId];
-            if (!cachedSession) {
-              return nextState;
-            }
-            return {
-              workspaceRuntimeCacheById: {
-                ...nextState.workspaceRuntimeCacheById,
-                [workspaceId]: applyPatchToSession(cachedSession),
-              },
-            };
-          });
-        },
-        unpickColiseumChampion: ({ parentTaskId }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          if (!group || !group.championTaskId) {
-            return;
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const workspaceId = parentRuntimeTarget.workspaceId;
-          const parentSession = parentRuntimeTarget.session;
-          const parentMessages =
-            parentSession.messagesByTask[parentTaskId] ?? [];
-          const { nextParentMessages } = unpickColiseumChampionUtil({
-            group,
-            parentMessages,
-          });
-          const nextGroup: ColiseumGroupState = {
-            ...group,
-            status: "ready",
-            championTaskId: null,
-          };
-
-          set((nextState) => {
-            if (workspaceId === nextState.activeWorkspaceId) {
-              return {
-                messagesByTask: {
-                  ...nextState.messagesByTask,
-                  [parentTaskId]: nextParentMessages,
-                },
-                messageCountByTask: {
-                  ...nextState.messageCountByTask,
-                  [parentTaskId]: nextParentMessages.length,
-                },
-                activeColiseumsByTask: {
-                  ...nextState.activeColiseumsByTask,
-                  [parentTaskId]: nextGroup,
-                },
-                workspaceSnapshotVersion:
-                  incrementWorkspaceSnapshotVersion(nextState),
-              };
-            }
-            const cachedSession =
-              nextState.workspaceRuntimeCacheById[workspaceId];
-            if (!cachedSession) {
-              return nextState;
-            }
-            return {
-              workspaceRuntimeCacheById: {
-                ...nextState.workspaceRuntimeCacheById,
-                [workspaceId]: {
-                  ...cachedSession,
-                  messagesByTask: {
-                    ...cachedSession.messagesByTask,
-                    [parentTaskId]: nextParentMessages,
-                  },
-                  messageCountByTask: {
-                    ...cachedSession.messageCountByTask,
-                    [parentTaskId]: nextParentMessages.length,
-                  },
-                  activeColiseumsByTask: {
-                    ...cachedSession.activeColiseumsByTask,
-                    [parentTaskId]: nextGroup,
-                  },
-                },
-              },
-            };
-          });
-        },
-        setColiseumViewMode: ({
-          parentTaskId,
-          viewMode,
-          focusedBranchTaskId,
-        }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          if (!group) {
-            return;
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const workspaceId = parentRuntimeTarget.workspaceId;
-          // When switching to focus without an explicit branch, default to the
-          // champion if one is picked, else the first branch.
-          const resolvedFocus =
-            viewMode === "focus"
-              ? (focusedBranchTaskId ??
-                group.focusedBranchTaskId ??
-                group.championTaskId ??
-                group.branchTaskIds[0] ??
-                null)
-              : null;
-          const nextGroup: ColiseumGroupState = {
-            ...group,
-            viewMode,
-            focusedBranchTaskId: resolvedFocus,
-          };
-          set((nextState) =>
-            workspaceId === nextState.activeWorkspaceId
-              ? {
-                  activeColiseumsByTask: {
-                    ...nextState.activeColiseumsByTask,
-                    [parentTaskId]: nextGroup,
-                  },
-                }
-              : nextState.workspaceRuntimeCacheById[workspaceId]
-                ? {
-                    workspaceRuntimeCacheById: {
-                      ...nextState.workspaceRuntimeCacheById,
-                      [workspaceId]: {
-                        ...nextState.workspaceRuntimeCacheById[workspaceId]!,
-                        activeColiseumsByTask: {
-                          ...nextState.workspaceRuntimeCacheById[workspaceId]!
-                            .activeColiseumsByTask,
-                          [parentTaskId]: nextGroup,
-                        },
-                      },
-                    },
-                  }
-                : nextState,
-          );
-        },
-        minimizeColiseum: ({ parentTaskId }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          if (!group || group.minimized) {
-            return;
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const workspaceId = parentRuntimeTarget.workspaceId;
-          const nextGroup: ColiseumGroupState = { ...group, minimized: true };
-          set((nextState) =>
-            workspaceId === nextState.activeWorkspaceId
-              ? {
-                  activeColiseumsByTask: {
-                    ...nextState.activeColiseumsByTask,
-                    [parentTaskId]: nextGroup,
-                  },
-                }
-              : nextState.workspaceRuntimeCacheById[workspaceId]
-                ? {
-                    workspaceRuntimeCacheById: {
-                      ...nextState.workspaceRuntimeCacheById,
-                      [workspaceId]: {
-                        ...nextState.workspaceRuntimeCacheById[workspaceId]!,
-                        activeColiseumsByTask: {
-                          ...nextState.workspaceRuntimeCacheById[workspaceId]!
-                            .activeColiseumsByTask,
-                          [parentTaskId]: nextGroup,
-                        },
-                      },
-                    },
-                  }
-                : nextState,
-          );
-        },
-        restoreColiseum: ({ parentTaskId }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          if (!group || !group.minimized) {
-            return;
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const workspaceId = parentRuntimeTarget.workspaceId;
-          const nextGroup: ColiseumGroupState = { ...group, minimized: false };
-          set((nextState) =>
-            workspaceId === nextState.activeWorkspaceId
-              ? {
-                  activeColiseumsByTask: {
-                    ...nextState.activeColiseumsByTask,
-                    [parentTaskId]: nextGroup,
-                  },
-                }
-              : nextState.workspaceRuntimeCacheById[workspaceId]
-                ? {
-                    workspaceRuntimeCacheById: {
-                      ...nextState.workspaceRuntimeCacheById,
-                      [workspaceId]: {
-                        ...nextState.workspaceRuntimeCacheById[workspaceId]!,
-                        activeColiseumsByTask: {
-                          ...nextState.workspaceRuntimeCacheById[workspaceId]!
-                            .activeColiseumsByTask,
-                          [parentTaskId]: nextGroup,
-                        },
-                      },
-                    },
-                  }
-                : nextState,
-          );
-        },
-        closeColiseumBranch: ({ branchTaskId }) => {
-          const state = get();
-          // Find the parent group that owns this branch.
-          const entry = Object.entries(state.activeColiseumsByTask).find(
-            ([, group]) => group?.branchTaskIds.includes(branchTaskId),
-          );
-          if (!entry) {
-            return;
-          }
-          const [parentTaskId, group] = entry;
-          if (!group) {
-            return;
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const workspaceId = parentRuntimeTarget.workspaceId;
-
-          // Side effects: abort the branch's turn if still running, cleanup provider cache.
-          const activeTurnId =
-            parentRuntimeTarget.session.activeTurnIdsByTask[branchTaskId];
-          if (activeTurnId) {
-            const abortTurn = window.api?.provider?.abortTurn;
-            if (abortTurn) {
-              void abortTurn({ turnId: activeTurnId });
-            }
-          }
-          clearProviderTurnStallTimer(branchTaskId);
-          const cleanupTask = window.api?.provider?.cleanupTask;
-          if (cleanupTask) {
-            void cleanupTask({ taskId: branchTaskId });
-          }
-
-          const nextBranchTaskIds = group.branchTaskIds.filter(
-            (id) => id !== branchTaskId,
-          );
-          // If fewer than 2 branches remain, drop the whole group (no contest
-          // to continue). Otherwise shrink the group.
-          const dropGroup = nextBranchTaskIds.length < 2;
-          const branchesToDrop = dropGroup
-            ? group.branchTaskIds
-            : [branchTaskId];
-
-          set((nextState) => {
-            const branchDropSet = new Set(branchesToDrop);
-            const patchForActive = () => ({
-              tasks: nextState.tasks.filter(
-                (task) => !branchDropSet.has(task.id),
-              ),
-              messagesByTask: stripColiseumBranchesFromRecords(
-                nextState.messagesByTask,
-                branchesToDrop,
-              ),
-              messageCountByTask: stripColiseumBranchesFromRecords(
-                nextState.messageCountByTask,
-                branchesToDrop,
-              ),
-              activeTurnIdsByTask: stripColiseumBranchesFromRecords(
-                nextState.activeTurnIdsByTask,
-                branchesToDrop,
-              ),
-              providerSessionByTask: stripColiseumBranchesFromRecords(
-                nextState.providerSessionByTask,
-                branchesToDrop,
-              ),
-              nativeSessionReadyByTask: stripColiseumBranchesFromRecords(
-                nextState.nativeSessionReadyByTask,
-                branchesToDrop,
-              ),
-              promptDraftByTask: stripColiseumBranchesFromRecords(
-                nextState.promptDraftByTask,
-                branchesToDrop,
-              ),
-              taskWorkspaceIdById: stripColiseumBranchesFromRecords(
-                nextState.taskWorkspaceIdById,
-                branchesToDrop,
-              ),
-              activeColiseumsByTask: dropGroup
-                ? (() => {
-                    const copy = { ...nextState.activeColiseumsByTask };
-                    delete copy[parentTaskId];
-                    return copy;
-                  })()
-                : {
-                    ...nextState.activeColiseumsByTask,
-                    [parentTaskId]: {
-                      ...group,
-                      branchTaskIds: nextBranchTaskIds,
-                    },
-                  },
-              activeTaskId:
-                nextState.activeTaskId &&
-                branchDropSet.has(nextState.activeTaskId)
-                  ? parentTaskId
-                  : nextState.activeTaskId,
-              workspaceSnapshotVersion:
-                incrementWorkspaceSnapshotVersion(nextState),
-            });
-
-            if (workspaceId === nextState.activeWorkspaceId) {
-              return patchForActive();
-            }
-            const cachedSession =
-              nextState.workspaceRuntimeCacheById[workspaceId];
-            if (!cachedSession) {
-              return nextState;
-            }
-            return {
-              taskWorkspaceIdById: stripColiseumBranchesFromRecords(
-                nextState.taskWorkspaceIdById,
-                branchesToDrop,
-              ),
-              workspaceRuntimeCacheById: {
-                ...nextState.workspaceRuntimeCacheById,
-                [workspaceId]: {
-                  ...cachedSession,
-                  tasks: cachedSession.tasks.filter(
-                    (task) => !branchDropSet.has(task.id),
-                  ),
-                  messagesByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.messagesByTask,
-                    branchesToDrop,
-                  ),
-                  messageCountByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.messageCountByTask,
-                    branchesToDrop,
-                  ),
-                  activeTurnIdsByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.activeTurnIdsByTask,
-                    branchesToDrop,
-                  ),
-                  providerSessionByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.providerSessionByTask,
-                    branchesToDrop,
-                  ),
-                  nativeSessionReadyByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.nativeSessionReadyByTask,
-                    branchesToDrop,
-                  ),
-                  promptDraftByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.promptDraftByTask,
-                    branchesToDrop,
-                  ),
-                  activeColiseumsByTask: dropGroup
-                    ? (() => {
-                        const copy = {
-                          ...cachedSession.activeColiseumsByTask,
-                        };
-                        delete copy[parentTaskId];
-                        return copy;
-                      })()
-                    : {
-                        ...cachedSession.activeColiseumsByTask,
-                        [parentTaskId]: {
-                          ...group,
-                          branchTaskIds: nextBranchTaskIds,
-                        },
-                      },
-                },
-              },
-            };
-          });
-        },
-        discardColiseumRun: ({ parentTaskId }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          if (!group) {
-            return;
-          }
-          // Discard = drop the whole contest without promoting any branch.
-          // If a champion was previously picked, its graft stays on the parent —
-          // only the branches and arena state are removed. To fully roll the
-          // parent back to pre-fan-out, the caller should invoke
-          // `unpickColiseumChampion` first.
-          //
-          // The reviewer task (if any) lives under the same parent and is
-          // torn down alongside branches so no orphaned runtime remains.
-          const abortTurn = window.api?.provider?.abortTurn;
-          const cleanupTask = window.api?.provider?.cleanupTask;
-          const ephemeralTaskIds = [
-            ...group.branchTaskIds,
-            ...(group.reviewerTaskId ? [group.reviewerTaskId] : []),
-          ];
-          for (const ephemeralTaskId of ephemeralTaskIds) {
-            const activeTurnId = state.activeTurnIdsByTask[ephemeralTaskId];
-            if (activeTurnId && abortTurn) {
-              void abortTurn({ turnId: activeTurnId });
-            }
-            clearProviderTurnStallTimer(ephemeralTaskId);
-            if (cleanupTask) {
-              void cleanupTask({ taskId: ephemeralTaskId });
-            }
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const workspaceId = parentRuntimeTarget.workspaceId;
-          const branchesToDrop = ephemeralTaskIds;
-
-          set((nextState) => {
-            const branchDropSet = new Set(branchesToDrop);
-            const dropActiveColiseumsFromActive = {
-              ...nextState.activeColiseumsByTask,
-            };
-            delete dropActiveColiseumsFromActive[parentTaskId];
-
-            if (workspaceId === nextState.activeWorkspaceId) {
-              return {
-                tasks: nextState.tasks.filter(
-                  (task) => !branchDropSet.has(task.id),
-                ),
-                messagesByTask: stripColiseumBranchesFromRecords(
-                  nextState.messagesByTask,
-                  branchesToDrop,
-                ),
-                messageCountByTask: stripColiseumBranchesFromRecords(
-                  nextState.messageCountByTask,
-                  branchesToDrop,
-                ),
-                activeTurnIdsByTask: stripColiseumBranchesFromRecords(
-                  nextState.activeTurnIdsByTask,
-                  branchesToDrop,
-                ),
-                providerSessionByTask: stripColiseumBranchesFromRecords(
-                  nextState.providerSessionByTask,
-                  branchesToDrop,
-                ),
-                nativeSessionReadyByTask: stripColiseumBranchesFromRecords(
-                  nextState.nativeSessionReadyByTask,
-                  branchesToDrop,
-                ),
-                promptDraftByTask: stripColiseumBranchesFromRecords(
-                  nextState.promptDraftByTask,
-                  branchesToDrop,
-                ),
-                taskWorkspaceIdById: stripColiseumBranchesFromRecords(
-                  nextState.taskWorkspaceIdById,
-                  branchesToDrop,
-                ),
-                activeColiseumsByTask: dropActiveColiseumsFromActive,
-                activeTaskId:
-                  nextState.activeTaskId &&
-                  branchDropSet.has(nextState.activeTaskId)
-                    ? parentTaskId
-                    : nextState.activeTaskId,
-                workspaceSnapshotVersion:
-                  incrementWorkspaceSnapshotVersion(nextState),
-              };
-            }
-            const cachedSession =
-              nextState.workspaceRuntimeCacheById[workspaceId];
-            if (!cachedSession) {
-              return nextState;
-            }
-            const nextCachedColiseums = {
-              ...cachedSession.activeColiseumsByTask,
-            };
-            delete nextCachedColiseums[parentTaskId];
-            return {
-              taskWorkspaceIdById: stripColiseumBranchesFromRecords(
-                nextState.taskWorkspaceIdById,
-                branchesToDrop,
-              ),
-              workspaceRuntimeCacheById: {
-                ...nextState.workspaceRuntimeCacheById,
-                [workspaceId]: {
-                  ...cachedSession,
-                  tasks: cachedSession.tasks.filter(
-                    (task) => !branchDropSet.has(task.id),
-                  ),
-                  messagesByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.messagesByTask,
-                    branchesToDrop,
-                  ),
-                  messageCountByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.messageCountByTask,
-                    branchesToDrop,
-                  ),
-                  activeTurnIdsByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.activeTurnIdsByTask,
-                    branchesToDrop,
-                  ),
-                  providerSessionByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.providerSessionByTask,
-                    branchesToDrop,
-                  ),
-                  nativeSessionReadyByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.nativeSessionReadyByTask,
-                    branchesToDrop,
-                  ),
-                  promptDraftByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.promptDraftByTask,
-                    branchesToDrop,
-                  ),
-                  activeColiseumsByTask: nextCachedColiseums,
-                },
-              },
-            };
-          });
-        },
-        // Legacy alias. New callers should use `discardColiseumRun` directly so
-        // the destructive intent is obvious.
-        dismissColiseum: ({ parentTaskId }) => {
-          get().discardColiseumRun({ parentTaskId });
-        },
-        enqueueColiseumIncorporateFollowUp: ({
-          parentTaskId,
-          branchTaskId,
-        }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          if (!group || !group.branchTaskIds.includes(branchTaskId)) {
-            return;
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const parentSession = parentRuntimeTarget.session;
-          const meta = group.branchMeta[branchTaskId];
-          if (!meta) return;
-
-          const branchMessages =
-            parentSession.messagesByTask[branchTaskId] ?? [];
-          const branchAssistantText = (() => {
-            // Final assistant text from the branch — same accumulator the
-            // reviewer summary uses but scoped to this single branch.
-            const tail = branchMessages.slice(group.parentMessageCountAtFanout);
-            const assistants = tail.filter((m) => m.role === "assistant");
-            return assistants
-              .flatMap((msg) =>
-                msg.parts
-                  .filter(
-                    (
-                      p,
-                    ): p is Extract<
-                      (typeof msg.parts)[number],
-                      { type: "text" }
-                    > => p.type === "text",
-                  )
-                  .map((p) => p.text),
-              )
-              .join("\n")
-              .trim();
-          })();
-
-          const quotedText =
-            branchAssistantText.length > 0
-              ? branchAssistantText
-                  .split("\n")
-                  .map((line) => `> ${line}`)
-                  .join("\n")
-              : "> _(no final text — branch used only tools)_";
-
-          const providerLabel = meta.provider;
-          const modelLabel = meta.model;
-          const followUpText = `Please also use useful ideas from the ${providerLabel}/${modelLabel} branch's answer (below). Reconcile with the current champion where they overlap, and call out explicit trade-offs if something has to give.\n\n${quotedText}\n\n— (auto-generated from Coliseum "Use ideas from…")`;
-
-          const currentDraft =
-            parentSession.promptDraftByTask[parentTaskId] ?? EMPTY_PROMPT_DRAFT;
-          const separator = currentDraft.text.trim().length > 0 ? "\n\n" : "";
-          const nextText = `${currentDraft.text}${separator}${followUpText}`;
-
-          get().updatePromptDraft({
-            taskId: parentTaskId,
-            patch: { text: nextText },
-          });
-        },
-        enqueueColiseumMergedFollowUp: ({ parentTaskId }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          const reviewerVerdict = group?.reviewerVerdict;
-          if (
-            !group ||
-            !reviewerVerdict ||
-            reviewerVerdict.status !== "complete"
-          ) {
-            return;
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const parentSession = parentRuntimeTarget.session;
-
-          const branchSummaries = group.branchTaskIds
-            .map((branchId) => {
-              const meta = group.branchMeta[branchId];
-              if (!meta) return null;
-              const branchMessages =
-                parentSession.messagesByTask[branchId] ?? [];
-              return extractBranchSummary({
-                branchMeta: meta,
-                branchMessages,
-                parentMessageCountAtFanout: group.parentMessageCountAtFanout,
-              });
-            })
-            .filter(
-              (summary): summary is NonNullable<typeof summary> =>
-                summary !== null,
-            );
-          if (branchSummaries.length === 0) {
-            return;
-          }
-
-          const followUpText = buildColiseumMergedFollowUp({
-            reviewerVerdict,
-            branchSummaries,
-            championTaskId: group.championTaskId,
-          });
-          const currentDraft =
-            parentSession.promptDraftByTask[parentTaskId] ?? EMPTY_PROMPT_DRAFT;
-          const separator = currentDraft.text.trim().length > 0 ? "\n\n" : "";
-          const nextText = `${currentDraft.text}${separator}${followUpText}`;
-
-          get().updatePromptDraft({
-            taskId: parentTaskId,
-            patch: { text: nextText },
-          });
-        },
-        launchColiseumReviewer: async ({
-          parentTaskId,
-          reviewerProvider,
-          reviewerModel,
-        }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          if (!group) {
-            return {
-              status: "blocked",
-              reason: "Coliseum not found for this task.",
-            } as const;
-          }
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return {
-              status: "blocked",
-              reason: "Parent task not found.",
-            } as const;
-          }
-          const parentSession = parentRuntimeTarget.session;
-          const workspaceId = parentRuntimeTarget.workspaceId;
-          const parentTask = parentRuntimeTarget.task;
-
-          // Abort any prior reviewer cleanly before starting a new one — the
-          // verdict card's "Re-run" button lands here.
-          if (group.reviewerTaskId) {
-            const priorTurnId = state.activeTurnIdsByTask[group.reviewerTaskId];
-            const abortTurn = window.api?.provider?.abortTurn;
-            if (priorTurnId && abortTurn) {
-              void abortTurn({ turnId: priorTurnId });
-            }
-            const cleanupTask = window.api?.provider?.cleanupTask;
-            if (cleanupTask) {
-              void cleanupTask({ taskId: group.reviewerTaskId });
-            }
-            clearProviderTurnStallTimer(group.reviewerTaskId);
-          }
-
-          // Pull the original user prompt — the first user message added at
-          // fan-out time. Using messagesByTask on a branch: message index
-          // `parentMessageCountAtFanout` is the user's Coliseum prompt.
-          const firstBranchId = group.branchTaskIds[0];
-          const firstBranchMessages = firstBranchId
-            ? (parentSession.messagesByTask[firstBranchId] ?? [])
-            : [];
-          const originalUserPrompt =
-            firstBranchMessages[group.parentMessageCountAtFanout]?.content ??
-            "";
-
-          // Reduce each branch to the summary shape the reviewer needs.
-          const branchSummaries = group.branchTaskIds
-            .map((branchId) => {
-              const meta = group.branchMeta[branchId];
-              if (!meta) return null;
-              const branchMessages =
-                parentSession.messagesByTask[branchId] ?? [];
-              return extractBranchSummary({
-                branchMeta: meta,
-                branchMessages,
-                parentMessageCountAtFanout: group.parentMessageCountAtFanout,
-              });
-            })
-            .filter((s): s is NonNullable<typeof s> => s !== null);
-          if (branchSummaries.length === 0) {
-            return {
-              status: "blocked",
-              reason: "No branch output available to review yet.",
-            } as const;
-          }
-
-          const reviewerPrompt = buildReviewerPrompt({
-            originalUserPrompt,
-            branchSummaries,
-          });
-
-          const parentPromptDraft =
-            parentSession.promptDraftByTask[parentTaskId];
-
-          const plan = planReviewerLaunch({
-            parentTask,
-            group,
-            parentTaskWorkspaceId: workspaceId,
-            reviewerProvider,
-            reviewerModel,
-            reviewerPrompt,
-            parentPromptDraft,
-          });
-
-          // Apply reviewer task + seeded messages + group state to the store.
-          set((nextState) => {
-            const mergedTaskWorkspaceIdById = {
-              ...nextState.taskWorkspaceIdById,
-              [plan.reviewerTask.id]: workspaceId,
-            };
-            if (workspaceId === nextState.activeWorkspaceId) {
-              return {
-                tasks: [...nextState.tasks, plan.reviewerTask],
-                messagesByTask: {
-                  ...nextState.messagesByTask,
-                  [plan.reviewerTask.id]: plan.reviewerMessages,
-                },
-                messageCountByTask: {
-                  ...nextState.messageCountByTask,
-                  [plan.reviewerTask.id]: plan.reviewerMessages.length,
-                },
-                activeTurnIdsByTask: {
-                  ...nextState.activeTurnIdsByTask,
-                  [plan.reviewerTask.id]: plan.reviewerTurnId,
-                },
-                providerSessionByTask: {
-                  ...nextState.providerSessionByTask,
-                  [plan.reviewerTask.id]: plan.reviewerProviderSession,
-                },
-                nativeSessionReadyByTask: {
-                  ...nextState.nativeSessionReadyByTask,
-                  [plan.reviewerTask.id]: false,
-                },
-                promptDraftByTask: {
-                  ...nextState.promptDraftByTask,
-                  [plan.reviewerTask.id]: plan.reviewerPromptDraft,
-                },
-                activeColiseumsByTask: {
-                  ...nextState.activeColiseumsByTask,
-                  [parentTaskId]: plan.nextGroup,
-                },
-                taskWorkspaceIdById: mergedTaskWorkspaceIdById,
-                workspaceSnapshotVersion:
-                  incrementWorkspaceSnapshotVersion(nextState),
-              };
-            }
-            const cachedSession =
-              nextState.workspaceRuntimeCacheById[workspaceId];
-            if (!cachedSession) {
-              return nextState;
-            }
-            return {
-              taskWorkspaceIdById: mergedTaskWorkspaceIdById,
-              workspaceRuntimeCacheById: {
-                ...nextState.workspaceRuntimeCacheById,
-                [workspaceId]: {
-                  ...cachedSession,
-                  tasks: [...cachedSession.tasks, plan.reviewerTask],
-                  messagesByTask: {
-                    ...cachedSession.messagesByTask,
-                    [plan.reviewerTask.id]: plan.reviewerMessages,
-                  },
-                  messageCountByTask: {
-                    ...cachedSession.messageCountByTask,
-                    [plan.reviewerTask.id]: plan.reviewerMessages.length,
-                  },
-                  activeTurnIdsByTask: {
-                    ...cachedSession.activeTurnIdsByTask,
-                    [plan.reviewerTask.id]: plan.reviewerTurnId,
-                  },
-                  providerSessionByTask: {
-                    ...cachedSession.providerSessionByTask,
-                    [plan.reviewerTask.id]: plan.reviewerProviderSession,
-                  },
-                  nativeSessionReadyByTask: {
-                    ...cachedSession.nativeSessionReadyByTask,
-                    [plan.reviewerTask.id]: false,
-                  },
-                  promptDraftByTask: {
-                    ...cachedSession.promptDraftByTask,
-                    [plan.reviewerTask.id]: plan.reviewerPromptDraft,
-                  },
-                  activeColiseumsByTask: {
-                    ...cachedSession.activeColiseumsByTask,
-                    [parentTaskId]: plan.nextGroup,
-                  },
-                },
-              },
-            };
-          });
-
-          // Resolve workspace cwd for dispatch.
-          const { cwd: parentWorkspaceCwd } = resolveTaskWorkspaceContext({
-            taskId: parentTaskId,
-            activeWorkspaceId: state.activeWorkspaceId,
-            taskWorkspaceIdById: state.taskWorkspaceIdById,
-            workspacePathById: state.workspacePathById,
-            workspaceDefaultById: state.workspaceDefaultById,
-            projectPath: state.projectPath,
-          });
-
-          const reviewerTaskId = plan.reviewerTask.id;
-          const reviewerTurnId = plan.reviewerTurnId;
-          const reviewerConversation = buildCanonicalConversationRequest({
-            turnId: reviewerTurnId,
-            taskId: reviewerTaskId,
-            workspaceId,
-            providerId: reviewerProvider,
-            model: reviewerModel,
-            history: [],
-            userInput: reviewerPrompt,
-            mode: "chat",
-            nativeSessionId: null,
-            retrievedContextParts: [],
-          });
-
-          const resolvedRuntimeState = resolvePromptDraftRuntimeState({
-            promptDraft: plan.reviewerPromptDraft,
-            fallback: {
-              claudePermissionMode: state.settings.claudePermissionMode,
-              claudePermissionModeBeforePlan:
-                state.settings.claudePermissionModeBeforePlan,
-              codexPlanMode: state.settings.codexPlanMode,
-            },
-          });
-
-          const turnActivityStartedAt = Date.now();
-          set((nextState) => ({
-            providerTurnActivityByTask: startProviderTurnActivity({
-              activityByTask: nextState.providerTurnActivityByTask,
-              taskId: reviewerTaskId,
-              turnId: reviewerTurnId,
-              providerId: reviewerProvider,
-              now: turnActivityStartedAt,
-            }),
-          }));
-          scheduleProviderTurnStallTimer({
-            taskId: reviewerTaskId,
-            turnId: reviewerTurnId,
-            lastEventAt: turnActivityStartedAt,
-          });
-
-          const reviewerEventController = createProviderTurnEventController({
-            flushEvents: (pendingEvents) => {
-              const currentState = get();
-              const applied = applyPendingProviderEventsToStoreState({
-                state: currentState,
-                taskWorkspaceId: workspaceId,
-                taskId: reviewerTaskId,
-                events: pendingEvents,
-                provider: reviewerProvider,
-                model: reviewerModel,
-                turnId: reviewerTurnId,
-              });
-              const turnStillActive =
-                currentState.activeTurnIdsByTask[reviewerTaskId] ===
-                reviewerTurnId;
-              const nextTurnActivityByTask = turnStillActive
-                ? applyProviderTurnActivityEvents({
-                    activityByTask: currentState.providerTurnActivityByTask,
-                    taskId: reviewerTaskId,
-                    turnId: reviewerTurnId,
-                    providerId: reviewerProvider,
-                    events: pendingEvents,
-                  })
-                : currentState.providerTurnActivityByTask;
-              const activityChanged =
-                nextTurnActivityByTask !==
-                currentState.providerTurnActivityByTask;
-              if (applied.stateChanged || activityChanged) {
-                set({
-                  ...applied.statePatch,
-                  ...(activityChanged
-                    ? {
-                        providerTurnActivityByTask: nextTurnActivityByTask,
-                      }
-                    : {}),
-                });
-              }
-
-              // Mirror reviewer task's assistant text into the group's
-              // `reviewerVerdict.content` so the arena card can subscribe
-              // directly to `group.reviewerVerdict` without pulling the
-              // reviewer task's messages (which are hidden from the task
-              // list by `coliseumParentTaskId`). Kept here rather than in
-              // the shared reducer so main task logic stays untouched.
-              mirrorReviewerVerdict({
-                set,
-                get,
-                parentTaskId,
-                reviewerTaskId,
-                workspaceId,
-                pendingEvents,
-              });
-
-              if (
-                !turnStillActive ||
-                pendingEvents.some((event) => event.type === "done")
-              ) {
-                clearProviderTurnStallTimer(reviewerTaskId);
-              } else {
-                const nextActivity = nextTurnActivityByTask[reviewerTaskId];
-                if (nextActivity) {
-                  scheduleProviderTurnStallTimer({
-                    taskId: reviewerTaskId,
-                    turnId: reviewerTurnId,
-                    lastEventAt: nextActivity.lastEventAt,
-                  });
-                }
-              }
-            },
-          });
-
-          runProviderTurn({
-            turnId: reviewerTurnId,
-            provider: reviewerProvider,
-            prompt: reviewerPrompt,
-            conversation: reviewerConversation,
-            taskId: reviewerTaskId,
-            workspaceId,
-            cwd: parentWorkspaceCwd,
-            runtimeOptions: applyProjectBasePromptToRuntimeOptions({
-              runtimeOptions: buildProviderRuntimeOptions({
-                provider: reviewerProvider,
-                model: reviewerModel,
-                settings: {
-                  ...get().settings,
-                  claudePermissionMode:
-                    resolvedRuntimeState.claudePermissionMode,
-                  codexPlanMode: resolvedRuntimeState.codexPlanMode,
-                },
-                providerSession: plan.reviewerProviderSession,
-              }),
-              projectBasePrompt: resolveProjectBasePrompt({
-                projectPath: get().projectPath,
-                recentProjects: get().recentProjects,
-              }),
-            }),
-            onEvent: ({ event }) => reviewerEventController.handleEvent(event),
-          });
-
-          return {
-            status: "started",
-            reviewerTaskId,
-            turnId: reviewerTurnId,
-          } as const;
-        },
-        clearColiseumReviewerVerdict: ({ parentTaskId }) => {
-          const state = get();
-          const group = state.activeColiseumsByTask[parentTaskId];
-          if (!group || (!group.reviewerTaskId && !group.reviewerVerdict)) {
-            return;
-          }
-          const reviewerTaskId = group.reviewerTaskId;
-          const parentRuntimeTarget = resolveTaskRuntimeTarget({
-            state,
-            taskId: parentTaskId,
-          });
-          if (!parentRuntimeTarget) {
-            return;
-          }
-          const workspaceId = parentRuntimeTarget.workspaceId;
-
-          if (reviewerTaskId) {
-            const activeTurnId = state.activeTurnIdsByTask[reviewerTaskId];
-            const abortTurn = window.api?.provider?.abortTurn;
-            if (activeTurnId && abortTurn) {
-              void abortTurn({ turnId: activeTurnId });
-            }
-            clearProviderTurnStallTimer(reviewerTaskId);
-            const cleanupTask = window.api?.provider?.cleanupTask;
-            if (cleanupTask) {
-              void cleanupTask({ taskId: reviewerTaskId });
-            }
-          }
-
-          set((nextState) => {
-            const dropIds = reviewerTaskId ? [reviewerTaskId] : [];
-            const nextGroup = clearReviewerFromGroup(group);
-            if (workspaceId === nextState.activeWorkspaceId) {
-              return {
-                tasks:
-                  dropIds.length > 0
-                    ? nextState.tasks.filter(
-                        (task) => !dropIds.includes(task.id),
-                      )
-                    : nextState.tasks,
-                messagesByTask: stripColiseumBranchesFromRecords(
-                  nextState.messagesByTask,
-                  dropIds,
-                ),
-                messageCountByTask: stripColiseumBranchesFromRecords(
-                  nextState.messageCountByTask,
-                  dropIds,
-                ),
-                activeTurnIdsByTask: stripColiseumBranchesFromRecords(
-                  nextState.activeTurnIdsByTask,
-                  dropIds,
-                ),
-                providerSessionByTask: stripColiseumBranchesFromRecords(
-                  nextState.providerSessionByTask,
-                  dropIds,
-                ),
-                nativeSessionReadyByTask: stripColiseumBranchesFromRecords(
-                  nextState.nativeSessionReadyByTask,
-                  dropIds,
-                ),
-                promptDraftByTask: stripColiseumBranchesFromRecords(
-                  nextState.promptDraftByTask,
-                  dropIds,
-                ),
-                taskWorkspaceIdById: stripColiseumBranchesFromRecords(
-                  nextState.taskWorkspaceIdById,
-                  dropIds,
-                ),
-                activeColiseumsByTask: {
-                  ...nextState.activeColiseumsByTask,
-                  [parentTaskId]: nextGroup,
-                },
-                workspaceSnapshotVersion:
-                  incrementWorkspaceSnapshotVersion(nextState),
-              };
-            }
-            const cachedSession =
-              nextState.workspaceRuntimeCacheById[workspaceId];
-            if (!cachedSession) {
-              return nextState;
-            }
-            return {
-              taskWorkspaceIdById: stripColiseumBranchesFromRecords(
-                nextState.taskWorkspaceIdById,
-                dropIds,
-              ),
-              workspaceRuntimeCacheById: {
-                ...nextState.workspaceRuntimeCacheById,
-                [workspaceId]: {
-                  ...cachedSession,
-                  tasks:
-                    dropIds.length > 0
-                      ? cachedSession.tasks.filter(
-                          (task) => !dropIds.includes(task.id),
-                        )
-                      : cachedSession.tasks,
-                  messagesByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.messagesByTask,
-                    dropIds,
-                  ),
-                  messageCountByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.messageCountByTask,
-                    dropIds,
-                  ),
-                  activeTurnIdsByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.activeTurnIdsByTask,
-                    dropIds,
-                  ),
-                  providerSessionByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.providerSessionByTask,
-                    dropIds,
-                  ),
-                  nativeSessionReadyByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.nativeSessionReadyByTask,
-                    dropIds,
-                  ),
-                  promptDraftByTask: stripColiseumBranchesFromRecords(
-                    cachedSession.promptDraftByTask,
-                    dropIds,
-                  ),
-                  activeColiseumsByTask: {
-                    ...cachedSession.activeColiseumsByTask,
-                    [parentTaskId]: nextGroup,
-                  },
-                },
-              },
-            };
-          });
-        },
         abortTaskTurn: ({ taskId }) => {
           const stateBefore = get();
           if (isManagedTaskReadOnly({ state: stateBefore, taskId })) {
@@ -12330,10 +8868,6 @@ export const useAppStore = create<AppState>()(
           });
         },
         resolveApproval: ({ taskId, messageId, approved }) => {
-          if (taskId === STAVE_MUSE_SESSION_ID) {
-            void get().resolveStaveMuseApproval({ messageId, approved });
-            return;
-          }
           const stateBefore = get();
           if (isManagedTaskReadOnly({ state: stateBefore, taskId })) {
             return;
@@ -12566,14 +9100,6 @@ export const useAppStore = create<AppState>()(
           }
         },
         resolveUserInput: ({ taskId, messageId, answers, denied }) => {
-          if (taskId === STAVE_MUSE_SESSION_ID) {
-            void get().resolveStaveMuseUserInput({
-              messageId,
-              answers,
-              denied,
-            });
-            return;
-          }
           const stateBefore = get();
           if (isManagedTaskReadOnly({ state: stateBefore, taskId })) {
             return;
@@ -12795,33 +9321,6 @@ export const useAppStore = create<AppState>()(
           }
         },
         resolveDiff: ({ taskId, messageId, accepted, partIndex }) => {
-          if (taskId === STAVE_MUSE_SESSION_ID) {
-            set((state) => ({
-              staveMuse: {
-                ...state.staveMuse,
-                messages: updateMessageById({
-                  messages: state.staveMuse.messages,
-                  messageId,
-                  update: (message) => ({
-                    ...message,
-                    parts: message.parts.map((part, index) => {
-                      if (part.type !== "code_diff") {
-                        return part;
-                      }
-                      if (partIndex != null && index !== partIndex) {
-                        return part;
-                      }
-                      return {
-                        ...part,
-                        status: accepted ? "accepted" : "rejected",
-                      };
-                    }),
-                  }),
-                }),
-              },
-            }));
-            return;
-          }
           set((state) => {
             const current = state.messagesByTask[taskId] ?? [];
             return {
@@ -13504,11 +10003,6 @@ export const useAppStore = create<AppState>()(
         layout: state.layout,
         settings: state.settings,
         projectName: state.projectName,
-        staveMuse: {
-          ...state.staveMuse,
-          activeTurnId: undefined,
-          messages: state.staveMuse.messages.slice(-40),
-        },
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) {
@@ -13535,14 +10029,14 @@ export const useAppStore = create<AppState>()(
           typeof raw.showPresetBar === "boolean"
             ? raw.showPresetBar
             : defaultSettings.showPresetBar;
-        state.settings.sidebarArtworkMode = normalizeSidebarArtworkMode(
-          raw.sidebarArtworkMode,
-        );
         state.settings.borderBeamSize = normalizeBorderBeamSize(
           raw.borderBeamSize,
         );
         state.settings.borderBeamVariant = normalizeBorderBeamVariant(
           raw.borderBeamVariant,
+        );
+        state.settings.borderBeamStrength = normalizeBorderBeamStrength(
+          raw.borderBeamStrength,
         );
         if (
           typeof persistedSettings?.terminalFontFamily === "string" &&
@@ -13599,62 +10093,6 @@ export const useAppStore = create<AppState>()(
         state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
           raw.modelShortcutKeys,
         );
-        if (
-          typeof raw.staveModelPlanner === "string" &&
-          typeof raw.staveAutoPlanModel !== "string"
-        ) {
-          raw.staveAutoPlanModel = raw.staveModelPlanner;
-        }
-        if (
-          typeof raw.staveModelComplex === "string" &&
-          typeof raw.staveAutoAnalyzeModel !== "string"
-        ) {
-          raw.staveAutoAnalyzeModel = raw.staveModelComplex;
-        }
-        if (
-          typeof raw.staveModelCodeGen === "string" &&
-          typeof raw.staveAutoImplementModel !== "string"
-        ) {
-          raw.staveAutoImplementModel = raw.staveModelCodeGen;
-        }
-        if (
-          typeof raw.staveModelQuickEdit === "string" &&
-          typeof raw.staveAutoQuickEditModel !== "string"
-        ) {
-          raw.staveAutoQuickEditModel = raw.staveModelQuickEdit;
-        }
-        if (
-          typeof raw.staveModelDefault === "string" &&
-          typeof raw.staveAutoGeneralModel !== "string"
-        ) {
-          raw.staveAutoGeneralModel = raw.staveModelDefault;
-        }
-        if (
-          typeof raw.stavePreprocessorModel === "string" &&
-          typeof raw.staveAutoClassifierModel !== "string"
-        ) {
-          raw.staveAutoClassifierModel = raw.stavePreprocessorModel;
-        }
-        if (
-          typeof raw.staveSupervisorModel === "string" &&
-          typeof raw.staveAutoSupervisorModel !== "string"
-        ) {
-          raw.staveAutoSupervisorModel = raw.staveSupervisorModel;
-        }
-        if (
-          typeof raw.staveModelComplex === "string" &&
-          typeof raw.staveAutoVerifyModel !== "string"
-        ) {
-          raw.staveAutoVerifyModel = raw.staveModelComplex;
-        }
-        if (
-          typeof raw.staveOrchestrationEnabled === "boolean" &&
-          typeof raw.staveAutoOrchestrationMode !== "string"
-        ) {
-          raw.staveAutoOrchestrationMode = raw.staveOrchestrationEnabled
-            ? "auto"
-            : "off";
-        }
         delete raw.staveModelPlanner;
         delete raw.staveModelEcosystem;
         delete raw.staveModelComplex;
@@ -13664,6 +10102,31 @@ export const useAppStore = create<AppState>()(
         delete raw.stavePreprocessorModel;
         delete raw.staveSupervisorModel;
         delete raw.staveOrchestrationEnabled;
+        delete raw.staveAutoClassifierModel;
+        delete raw.staveAutoSupervisorModel;
+        delete raw.staveAutoPlanModel;
+        delete raw.staveAutoAnalyzeModel;
+        delete raw.staveAutoImplementModel;
+        delete raw.staveAutoQuickEditModel;
+        delete raw.staveAutoGeneralModel;
+        delete raw.staveAutoVerifyModel;
+        delete raw.staveAutoOrchestrationMode;
+        delete raw.staveAutoMaxSubtasks;
+        delete raw.staveAutoMaxParallelSubtasks;
+        delete raw.staveAutoAllowCrossProviderWorkers;
+        delete raw.staveAutoFastMode;
+        delete raw.staveAutoRoleRuntimeOverrides;
+        delete raw.modelStave;
+        delete raw.sidebarArtworkMode;
+        delete raw.museDefaultTarget;
+        delete raw.museRouterModel;
+        delete raw.museChatModel;
+        delete raw.musePlannerModel;
+        delete raw.museRouterPrompt;
+        delete raw.museChatPrompt;
+        delete raw.musePlannerPrompt;
+        delete raw.museAutoHandoffToTask;
+        delete raw.museAllowDirectWorkspaceInfoEdits;
         // Migrate string font sizes ("base"/"lg"/"xl") to numeric pixel values.
         const _legacyFontSizeMap: Record<string, number> = {
           base: 16,
@@ -13725,44 +10188,12 @@ export const useAppStore = create<AppState>()(
         state.settings.reasoningExpansionMode = normalizeReasoningExpansionMode(
           state.settings.reasoningExpansionMode,
         );
-        state.settings.staveAutoRoleRuntimeOverrides =
-          normalizeStaveAutoRoleRuntimeOverrides({
-            value: raw.staveAutoRoleRuntimeOverrides,
-          });
         state.settings.modelClaude = upgradeSettingsScopedClaudeOpusModel({
           model: state.settings.modelClaude,
         });
         state.settings.claudeAdvisorModel =
           upgradeSettingsScopedClaudeOpusModel({
             model: state.settings.claudeAdvisorModel,
-          });
-        state.settings.staveAutoSupervisorModel =
-          upgradeSettingsScopedClaudeOpusModel({
-            model: state.settings.staveAutoSupervisorModel,
-          });
-        state.settings.staveAutoPlanModel =
-          upgradeSettingsScopedClaudeOpusModel({
-            model: state.settings.staveAutoPlanModel,
-          });
-        state.settings.staveAutoAnalyzeModel =
-          upgradeSettingsScopedClaudeOpusModel({
-            model: state.settings.staveAutoAnalyzeModel,
-          });
-        state.settings.staveAutoImplementModel =
-          upgradeSettingsScopedClaudeOpusModel({
-            model: state.settings.staveAutoImplementModel,
-          });
-        state.settings.staveAutoQuickEditModel =
-          upgradeSettingsScopedClaudeOpusModel({
-            model: state.settings.staveAutoQuickEditModel,
-          });
-        state.settings.staveAutoGeneralModel =
-          upgradeSettingsScopedClaudeOpusModel({
-            model: state.settings.staveAutoGeneralModel,
-          });
-        state.settings.staveAutoVerifyModel =
-          upgradeSettingsScopedClaudeOpusModel({
-            model: state.settings.staveAutoVerifyModel,
           });
         state.settings.providerTimeoutMs = normalizeProviderTimeoutMs({
           value: state.settings.providerTimeoutMs,
@@ -13836,19 +10267,7 @@ export const useAppStore = create<AppState>()(
             }),
           }));
         }
-        state.layout = normalizeLayoutState(state.layout);
-        state.staveMuse = state.staveMuse
-          ? {
-              ...createEmptyStaveMuseState({
-                defaultTarget: state.settings.museDefaultTarget,
-              }),
-              ...state.staveMuse,
-              activeTurnId: undefined,
-            }
-          : createEmptyStaveMuseState({
-              defaultTarget: state.settings.museDefaultTarget,
-            });
-        const isDark = resolveDarkModeForTheme({
+        state.layout = normalizeLayoutState(state.layout);        const isDark = resolveDarkModeForTheme({
           themeMode: state.settings?.themeMode ?? "dark",
           fallback: state.isDarkMode,
         });

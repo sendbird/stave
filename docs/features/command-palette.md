@@ -43,7 +43,7 @@ The palette is global. You do not need to focus the chat composer first.
 
 ### Provider And Settings
 
-- switch between Claude, Codex, and Stave Auto
+- switch between Claude and Codex
 - jump straight to mapped models with `Alt+1..0`
 - open Settings
 - jump directly to a specific settings section
@@ -88,9 +88,9 @@ This is usually faster than opening Settings and browsing manually.
 
 Default bindings:
 
-- `Alt+1` → `Claude Opus 4.7`
+- `Alt+1` → `Claude Opus 4.8`
 - `Alt+2` → `GPT-5.5`
-- `Alt+3` → `Stave Auto`
+- `Alt+3` → `GPT-5.4`
 
 ### Work Mostly From The Keyboard
 

@@ -116,7 +116,6 @@ export interface CommandPaletteCommandHandlers {
   continueWorkspace: () => Promise<void> | void;
   focusFileSearch: () => void;
   openExplorerSearch: () => void;
-  openStaveMuse: () => void;
   openLatestCompletedTurnTask: () => Promise<void> | void;
   openInTerminal: (path: string) => Promise<void> | void;
   openInGhostty: (path: string) => Promise<void> | void;
@@ -287,26 +286,6 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       keywords: ["home", "dashboard", "clear task selection"],
       shortcut: `${args.modifierLabel}+K H`,
       run: args.commands.clearTaskSelection,
-      source: "core",
-    }),
-  },
-  {
-    id: "navigation.open-stave-muse",
-    title: "Open Stave Muse",
-    description: "Open the global Stave Muse widget.",
-    group: "navigation",
-    icon: Sparkles,
-    keywords: ["muse", "assistant", "operator", "global chat", "widget"],
-    shortcut: (modifierLabel) => `${modifierLabel}+K M`,
-    build: (args) => ({
-      id: "navigation.open-stave-muse",
-      title: "Open Stave Muse",
-      subtitle: "Open the global control-plane Muse.",
-      group: "navigation",
-      icon: Sparkles,
-      keywords: ["muse", "assistant", "operator", "global chat", "widget"],
-      shortcut: `${args.modifierLabel}+K M`,
-      run: args.commands.openStaveMuse,
       source: "core",
     }),
   },
@@ -711,28 +690,6 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
             keywords: ["provider", "codex", "model"],
             run: () =>
               args.commands.setTaskProvider(args.activeTaskId, "codex"),
-            source: "core",
-          }
-        : null,
-  },
-  {
-    id: "provider.set.stave",
-    title: "Set Provider: Stave Auto",
-    description: "Switch the active task to the Stave meta-provider.",
-    group: "provider",
-    icon: Bot,
-    keywords: ["provider", "stave", "router", "auto"],
-    build: (args) =>
-      args.activeTaskId
-        ? {
-            id: "provider.set.stave",
-            title: "Set Provider: Stave Auto",
-            subtitle: "Switch the active task to the Stave router.",
-            group: "provider",
-            icon: Bot,
-            keywords: ["provider", "stave", "router", "auto"],
-            run: () =>
-              args.commands.setTaskProvider(args.activeTaskId, "stave"),
             source: "core",
           }
         : null,

@@ -443,6 +443,9 @@ export function PromptInput(args: PromptInputProps) {
   const borderBeamVariant = useAppStore(
     (state) => state.settings.borderBeamVariant,
   );
+  const borderBeamStrength = useAppStore(
+    (state) => state.settings.borderBeamStrength,
+  );
   const showBorderBeam = borderBeamEnabled && !minimal && Boolean(isTurnActive);
   const interactionsDisabled = Boolean(disabled);
   const hasDraftPayload =
@@ -1007,15 +1010,14 @@ export function PromptInput(args: PromptInputProps) {
         inside it, so the library (which owns its own `<style>` + mask
         compositing) is the positioning context for the beam layers.
 
-        The `focus-within:ring-*` pulse would be clipped by the library
-        wrapper's `overflow: hidden`, so we relocate it onto the wrapper
-        itself (matching `rounded-xl` on the non-minimal form keeps the ring
-        radius visually aligned with the inner border).
+        The focus ring belongs on the wrapper so it tracks both rotate and
+        pulse presets while preserving the inner form's border radius.
       */}
       <BorderBeam
         active={showBorderBeam}
         size={borderBeamSize}
         colorVariant={borderBeamVariant}
+        strength={borderBeamStrength}
         theme="auto"
         className={cn(
           "transition-[box-shadow]",

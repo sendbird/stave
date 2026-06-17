@@ -929,7 +929,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
-        provider: "claude-code" | "codex" | "stave";
+        provider: ProviderId;
         updatedAt: string;
         unread: boolean;
         archivedAt?: string | null;
@@ -942,7 +942,6 @@ interface WindowPersistenceApi {
         {
           "claude-code"?: string;
           codex?: string;
-          stave?: string;
         }
       >;
       editorTabs?: Array<{
@@ -976,7 +975,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
-        provider: "claude-code" | "codex" | "stave";
+        provider: ProviderId;
         updatedAt: string;
         unread: boolean;
         archivedAt?: string | null;
@@ -989,7 +988,6 @@ interface WindowPersistenceApi {
         {
           "claude-code"?: string;
           codex?: string;
-          stave?: string;
         }
       >;
       editorTabs?: Array<{
@@ -1023,7 +1021,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
-        provider: "claude-code" | "codex" | "stave";
+        provider: ProviderId;
         updatedAt: string;
         unread: boolean;
         archivedAt?: string | null;
@@ -1036,7 +1034,6 @@ interface WindowPersistenceApi {
         {
           "claude-code"?: string;
           codex?: string;
-          stave?: string;
         }
       >;
       messageCountByTask?: Record<string, number>;
@@ -1049,7 +1046,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
-        provider: "claude-code" | "codex" | "stave";
+        provider: ProviderId;
         updatedAt: string;
         unread: boolean;
         archivedAt?: string | null;
@@ -1068,7 +1065,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
-        provider: "claude-code" | "codex" | "stave";
+        provider: ProviderId;
         updatedAt: string;
         unread: boolean;
       }>;
@@ -1184,7 +1181,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
-        provider: "claude-code" | "codex" | "stave";
+        provider: ProviderId;
         updatedAt: string;
         unread: boolean;
       }>;
@@ -1278,7 +1275,7 @@ interface WindowPersistenceApi {
       id: string;
       workspaceId: string;
       taskId: string;
-      providerId: "claude-code" | "codex" | "stave";
+      providerId: ProviderId;
       createdAt: string;
       completedAt: string | null;
     }>;
@@ -1292,7 +1289,7 @@ interface WindowPersistenceApi {
       id: string;
       workspaceId: string;
       taskId: string;
-      providerId: "claude-code" | "codex" | "stave";
+      providerId: ProviderId;
       createdAt: string;
       completedAt: string | null;
     }>;
@@ -1306,7 +1303,7 @@ interface WindowPersistenceApi {
       id: string;
       workspaceId: string;
       taskId: string;
-      providerId: "claude-code" | "codex" | "stave";
+      providerId: ProviderId;
       createdAt: string;
       completedAt: string | null;
     }>;
@@ -1319,7 +1316,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
-        provider: "claude-code" | "codex" | "stave";
+        provider: ProviderId;
         updatedAt: string;
         unread: boolean;
       }>;

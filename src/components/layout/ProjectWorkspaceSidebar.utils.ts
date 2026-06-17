@@ -1,4 +1,4 @@
-import { isColiseumBranch, isTaskArchived } from "@/lib/tasks";
+import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import type { Task } from "@/types/chat";
 
 export interface ProjectSidebarWorkspaceView {
@@ -74,9 +74,9 @@ export function buildWorkspaceHoverPreview(args: {
   messageCountByTask?: Record<string, number>;
   activeTurnIdsByTask?: Record<string, string | undefined>;
 }): WorkspaceHoverPreview {
-  // Coliseum branches are ephemeral fan-out children — hide from hover previews.
+  // Legacy branches are ephemeral fan-out children — hide from hover previews.
   const visibleTasks = [...args.tasks]
-    .filter((task) => !isColiseumBranch(task) && !isTaskArchived(task))
+    .filter((task) => !isLegacyBranchTask(task) && !isTaskArchived(task))
     .sort((left, right) => parseTaskUpdatedAt(right.updatedAt) - parseTaskUpdatedAt(left.updatedAt));
   const taskTitles = visibleTasks
     .slice(0, WORKSPACE_HOVER_PREVIEW_TASK_LIMIT)

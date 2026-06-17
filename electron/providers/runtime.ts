@@ -21,31 +21,12 @@ import {
   dropBufferedBridgeEvents,
 } from "./provider-buffering";
 import { getProviderConnectedToolStatus } from "./connected-tool-status";
-import {
-  buildStaveResolvedArgs,
-  resolveForcedStavePlanTarget,
-  resolveSkillFastPath,
-  type StaveRouteTarget,
-} from "./stave-router";
-import { resolveAvailableStaveModel } from "./stave-model-fallback";
-import { runPreprocessor } from "./stave-preprocessor";
-import {
-  getCachedAvailability,
-  setCachedAvailability,
-} from "./stave-availability";
-import { runOrchestrator } from "./stave-orchestrator";
 import type {
   BridgeEvent,
   ProviderResponderResult,
   ProviderRuntime,
   StreamTurnArgs,
 } from "./types";
-import {
-  applyStaveRoleRuntimeOverrides,
-  DEFAULT_STAVE_AUTO_PROFILE,
-  resolveStaveIntentModel,
-  resolveStaveProviderForModel,
-} from "../../src/lib/providers/stave-auto-profile";
 import {
   getCodexSlashCommandCatalogDetail,
   listCodexSlashCommands,
@@ -322,7 +303,6 @@ function describeClaudeAvailability(
     explicitPath: args.runtimeOptions?.claudeBinaryPath,
   });
   if (!executablePath) {
-    setCachedAvailability("claude-code", false);
     return {
       available: false,
       detail:
@@ -344,7 +324,6 @@ function describeClaudeAvailability(
       ]
         .filter(Boolean)
         .join("\n");
-  setCachedAvailability("claude-code", available);
   return { available, detail };
 }
 
@@ -355,7 +334,6 @@ function describeCodexAvailability(
     explicitPath: args.runtimeOptions?.codexBinaryPath,
   });
   if (!executablePath) {
-    setCachedAvailability("codex", false);
     return {
       available: false,
       detail:
@@ -377,26 +355,7 @@ function describeCodexAvailability(
       ]
         .filter(Boolean)
         .join("\n");
-  setCachedAvailability("codex", available);
   return { available, detail };
-}
-
-function describeStaveAvailability(
-  args: { runtimeOptions?: StreamTurnArgs["runtimeOptions"] } = {},
-) {
-  const claude = describeClaudeAvailability(args);
-  const codex = describeCodexAvailability(args);
-  const available = claude.available || codex.available;
-  setCachedAvailability("stave", available);
-  return {
-    available,
-    detail: [
-      `Claude: ${claude.available ? "available" : "unavailable"}`,
-      claude.detail,
-      `Codex: ${codex.available ? "available" : "unavailable"}`,
-      codex.detail,
-    ].join("\n"),
-  };
 }
 
 async function withTimeout<T>(args: {
@@ -528,249 +487,6 @@ async function runProviderTurn(
   });
   const turnTimeoutMs =
     args.runtimeOptions?.providerTimeoutMs ?? sdkTurnTimeoutMs;
-
-  // ── Stave meta-provider: Pre-processor → direct or orchestrate ────────────
-  if (args.providerId === "stave") {
-    const contextParts = args.conversation?.contextParts ?? [];
-    const attachedFileCount = contextParts.filter(
-      (p) => p.type === "file_context" || p.type === "image_context",
-    ).length;
-    const historyLength = args.conversation?.history?.length ?? 0;
-    const profile =
-      args.runtimeOptions?.staveAuto ?? DEFAULT_STAVE_AUTO_PROFILE;
-
-    const forcedPlanTarget = resolveForcedStavePlanTarget({
-      profile,
-      runtimeOptions: args.runtimeOptions,
-    });
-    if (forcedPlanTarget != null) {
-      const chosenModel = resolveAvailableStaveModel({
-        model: forcedPlanTarget.model,
-      });
-
-      const resolvedTarget: StaveRouteTarget = {
-        providerId: resolveStaveProviderForModel({ model: chosenModel }),
-        model: chosenModel,
-        reason: forcedPlanTarget.reason,
-      };
-
-      const resolvedArgs = buildStaveResolvedArgs(args, resolvedTarget, {
-        forceCodexPlanMode: true,
-      });
-
-      const claudeFastSupported = profile.claudeFastModeSupported !== false;
-      const codexFastSupported = profile.codexFastModeSupported !== false;
-      if (profile.fastMode) {
-        resolvedArgs.runtimeOptions = {
-          ...resolvedArgs.runtimeOptions,
-          ...(claudeFastSupported ? { claudeFastMode: true } : {}),
-          ...(codexFastSupported ? { codexFastMode: true } : {}),
-        };
-      }
-      resolvedArgs.runtimeOptions = applyStaveRoleRuntimeOverrides({
-        profile,
-        role: "plan",
-        model: resolvedTarget.model,
-        runtimeOptions: resolvedArgs.runtimeOptions,
-      });
-
-      // Plan-mode forced route: role overrides must not clobber the plan routing signal.
-      // The forceCodexPlanMode flag (set above) already handles Codex; guard Claude here.
-      if (resolvedTarget.providerId === "claude-code") {
-        resolvedArgs.runtimeOptions!.claudePermissionMode = "plan";
-      }
-
-      const fastModeApplied =
-        resolvedTarget.providerId === "codex"
-          ? (resolvedArgs.runtimeOptions?.codexFastMode ?? false)
-          : (resolvedArgs.runtimeOptions?.claudeFastMode ?? false);
-
-      args.onEvent?.({
-        type: "stave:execution_processing",
-        strategy: "direct",
-        model: chosenModel,
-        reason: forcedPlanTarget.reason,
-        fastModeRequested: profile.fastMode ?? false,
-        fastModeApplied,
-      });
-
-      args.onEvent?.({
-        type: "model_resolved",
-        resolvedProviderId: resolvedTarget.providerId,
-        resolvedModel: resolvedTarget.model,
-      });
-
-      return runProviderTurn(resolvedArgs);
-    }
-
-    // ── Skill fast-path: bypass preprocessor when skill_context is present ──
-    // Skills carry an explicit provider preference — no classifier needed.
-    const skillTarget = resolveSkillFastPath({ contextParts, profile });
-    if (skillTarget != null) {
-      const chosenModel = resolveAvailableStaveModel({
-        model: skillTarget.model,
-      });
-
-      const resolvedTarget: StaveRouteTarget = {
-        providerId: resolveStaveProviderForModel({ model: chosenModel }),
-        model: chosenModel,
-        reason: skillTarget.reason,
-      };
-
-      const resolvedArgs = buildStaveResolvedArgs(args, resolvedTarget);
-      resolvedArgs.runtimeOptions = applyStaveRoleRuntimeOverrides({
-        profile,
-        role: resolvedTarget.providerId === "codex" ? "implement" : "general",
-        model: resolvedTarget.model,
-        runtimeOptions: resolvedArgs.runtimeOptions,
-      });
-
-      // Emit execution plan with skill fast-path indication.
-      args.onEvent?.({
-        type: "stave:execution_processing",
-        strategy: "direct",
-        model: chosenModel,
-        reason: skillTarget.reason,
-      });
-
-      args.onEvent?.({
-        type: "model_resolved",
-        resolvedProviderId: resolvedTarget.providerId,
-        resolvedModel: resolvedTarget.model,
-      });
-
-      return runProviderTurn(resolvedArgs);
-    }
-
-    // Helper: run a provider turn in batch mode (collect all events, no streaming).
-    // Injected into the Pre-processor so it can call any provider without a
-    // circular module dependency.
-    const runTurnBatch = async (
-      batchArgs: StreamTurnArgs,
-    ): Promise<BridgeEvent[]> => {
-      const collected = createBoundedBridgeEventCollector({
-        maxBytes: BATCH_TURN_RETAINED_BYTES_MAX,
-      });
-      await runProviderTurn({
-        ...batchArgs,
-        onEvent: (event) => collected.append(event),
-      });
-      if (collected.overflowed) {
-        throw new Error(
-          `Provider batch output exceeded ${BATCH_TURN_RETAINED_BYTES_MAX} bytes`,
-        );
-      }
-      return collected.events.slice();
-    };
-
-    const plan = await runPreprocessor({
-      userPrompt: args.prompt,
-      historyLength,
-      attachedFileCount,
-      profile,
-      baseArgs: {
-        cwd: args.cwd,
-        taskId: args.taskId,
-        workspaceId: args.workspaceId,
-      },
-      runTurnBatch,
-    });
-
-    // Emit the structured execution plan so the UI can reflect it.
-    if (plan.strategy === "orchestrate") {
-      args.onEvent?.({
-        type: "stave:execution_processing",
-        strategy: "orchestrate",
-        supervisorModel: profile.supervisorModel,
-        reason: plan.reason,
-      });
-    }
-
-    if (plan.strategy === "direct") {
-      // ── Phase 2: Availability-aware fallback ────────────────────────────────
-      // Fallback pairs: if the plan's provider is cached as unavailable, pick
-      // an equivalent model from the other provider.
-      // (MODEL_FALLBACK is hoisted to the top of the stave block.)
-
-      const chosenModel = resolveAvailableStaveModel({
-        model: resolveStaveIntentModel({
-          profile,
-          intent: plan.intent,
-        }),
-      });
-
-      // Resolve to the chosen provider and model.
-      const resolvedTarget = {
-        providerId: resolveStaveProviderForModel({ model: chosenModel }),
-        model: chosenModel,
-        reason: plan.reason,
-      };
-
-      const resolvedArgs = buildStaveResolvedArgs(args, resolvedTarget);
-
-      // Apply fast-mode hint if the Pre-processor flagged it OR the Stave Auto profile enables fast mode globally,
-      // guarded by per-provider support flags.
-      const claudeFastSupported = profile.claudeFastModeSupported !== false;
-      const codexFastSupported = profile.codexFastModeSupported !== false;
-      if (plan.executionHints?.fastMode || profile.fastMode) {
-        resolvedArgs.runtimeOptions = {
-          ...resolvedArgs.runtimeOptions,
-          ...(claudeFastSupported ? { claudeFastMode: true } : {}),
-          ...(codexFastSupported ? { codexFastMode: true } : {}),
-        };
-      }
-      resolvedArgs.runtimeOptions = applyStaveRoleRuntimeOverrides({
-        profile,
-        role: plan.intent,
-        model: resolvedTarget.model,
-        runtimeOptions: resolvedArgs.runtimeOptions,
-      });
-
-      // Compute the effective fast mode flag for the resolved provider.
-      const resolvedProvider = resolvedTarget.providerId;
-      const fastModeApplied =
-        resolvedProvider === "codex"
-          ? (resolvedArgs.runtimeOptions?.codexFastMode ?? false)
-          : (resolvedArgs.runtimeOptions?.claudeFastMode ?? false);
-
-      // Emit the structured execution plan so the UI can reflect it.
-      args.onEvent?.({
-        type: "stave:execution_processing",
-        strategy: "direct",
-        model: chosenModel,
-        reason: plan.reason,
-        fastModeRequested:
-          (plan.executionHints?.fastMode ?? false) ||
-          (profile.fastMode ?? false),
-        fastModeApplied,
-      });
-
-      // Notify the client of the resolved model (updates the message badge).
-      // Note: the routing reason is already shown via the stave:execution_processing event → stave_processing MessagePart.
-      args.onEvent?.({
-        type: "model_resolved",
-        resolvedProviderId: resolvedTarget.providerId,
-        resolvedModel: resolvedTarget.model,
-      });
-
-      return runProviderTurn(resolvedArgs);
-    }
-
-    // strategy === "orchestrate" — Phase 3: invoke the Orchestrator.
-    await runOrchestrator({
-      userPrompt: args.prompt,
-      profile,
-      baseArgs: {
-        cwd: args.cwd,
-        taskId: args.taskId,
-        workspaceId: args.workspaceId,
-      },
-      runtimeOptions: args.runtimeOptions,
-      onEvent: (event) => args.onEvent?.(event),
-      runTurnBatch,
-    });
-    return;
-  }
 
   // Shared across Claude + Codex: a pausable timeout controller keeps the
   // approval/user_input wait from silently timing out the turn. See
@@ -1072,20 +788,13 @@ export const providerRuntime: ProviderRuntime = {
       const result = describeCodexAvailability({ runtimeOptions });
       return { ok: true, ...result };
     }
-    const result = describeStaveAvailability({ runtimeOptions });
-    return { ok: true, ...result };
+    return {
+      ok: false,
+      available: false,
+      detail: `Unsupported provider: ${providerId}`,
+    };
   },
   getCommandCatalog: async ({ providerId, cwd, runtimeOptions }) => {
-    if (providerId === "stave") {
-      return {
-        ok: true,
-        supported: false,
-        commands: [],
-        detail:
-          "Stave auto-routing does not expose a native command catalog. Switch to Claude Code or Codex directly to access provider-specific commands.",
-      };
-    }
-
     if (providerId === "claude-code") {
       const result = await withTimeout({
         task: getClaudeCommandCatalog({ cwd, runtimeOptions }),

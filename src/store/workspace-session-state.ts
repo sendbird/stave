@@ -15,11 +15,7 @@ import { isTaskArchived, normalizeTaskControl } from "@/lib/tasks";
 import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
 import { createEmptyWorkspaceInformation, type WorkspaceInformationState } from "@/lib/workspace-information";
 import { interruptPendingToolInteractionsInMessages } from "@/store/provider-message.utils";
-import {
-  reapColiseumOrphans,
-  stripColiseumBranchesFromRecords,
-} from "@/store/coliseum.utils";
-import type { ChatMessage, ColiseumGroupState, EditorTab, PromptDraft, Task } from "@/types/chat";
+import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
 
 export const starterWorkspaceId = "base";
 export const defaultWorkspaceName = "Default Workspace";
@@ -44,13 +40,6 @@ export interface WorkspaceSessionState {
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   nativeSessionReadyByTask: Record<string, boolean>;
-  /**
-   * Runtime-only state for in-flight Coliseums (multi-model parallel turns),
-   * keyed by the parent task id. Not persisted — branches are ephemeral child
-   * tasks and orphaned branches are reaped on workspace bootstrap if their
-   * parent's group is gone.
-   */
-  activeColiseumsByTask: Record<string, ColiseumGroupState | undefined>;
 }
 
 export function createEmptyWorkspaceState() {
@@ -199,10 +188,29 @@ export function buildNativeSessionReadyByTask(args: {
   for (const task of args.tasks) {
     const providerSession = args.providerSessionByTask[task.id];
     // stave has no native conversation of its own; treat as not ready
-    next[task.id] = task.provider !== "stave" && Boolean(providerSession?.[task.provider]?.trim());
+    next[task.id] = Boolean(providerSession?.[task.provider]?.trim());
   }
 
   return next;
+}
+
+function collectLegacyBranchTaskIds(tasks: Task[]) {
+  return tasks
+    .filter((task) => Boolean(task.coliseumParentTaskId))
+    .map((task) => task.id);
+}
+
+function stripRecordsByIds<T>(
+  records: Record<string, T>,
+  removableIds: readonly string[],
+): Record<string, T> {
+  if (removableIds.length === 0) {
+    return records;
+  }
+  const removable = new Set(removableIds);
+  return Object.fromEntries(
+    Object.entries(records).filter(([taskId]) => !removable.has(taskId)),
+  ) as Record<string, T>;
 }
 
 function buildMessageId(args: { taskId: string; count: number }) {
@@ -370,16 +378,11 @@ export function buildWorkspaceSessionState(args: {
 }): WorkspaceSessionState {
   const empty = createEmptyWorkspaceState();
   const rawTasks = (args.snapshot?.tasks ?? empty.tasks).map(normalizeTaskControl);
-  // Coliseum branch tasks are runtime-only — if any survived the snapshot
-  // (process crash mid-contest), drop them here since there's no live group
-  // state on bootstrap.
-  const { tasks, orphanedBranchTaskIds } = reapColiseumOrphans({
-    tasks: rawTasks,
-    activeColiseumsByTask: {},
-  });
+  const orphanedBranchTaskIds = collectLegacyBranchTaskIds(rawTasks);
+  const tasks = rawTasks.filter((task) => !task.coliseumParentTaskId);
   const rawProviderSessionByTask =
     args.snapshot?.providerSessionByTask ?? empty.providerSessionByTask;
-  const providerSessionByTask = stripColiseumBranchesFromRecords(
+  const providerSessionByTask = stripRecordsByIds(
     rawProviderSessionByTask,
     orphanedBranchTaskIds,
   );
@@ -389,7 +392,7 @@ export function buildWorkspaceSessionState(args: {
         latestTurns: args.latestTurns,
       })
     : (args.snapshot?.messagesByTask ?? empty.messagesByTask);
-  const messagesByTask = stripColiseumBranchesFromRecords(
+  const messagesByTask = stripRecordsByIds(
     rawMessagesByTask,
     orphanedBranchTaskIds,
   );
@@ -433,7 +436,7 @@ export function buildWorkspaceSessionState(args: {
     tasks,
     messagesByTask,
     messageCountByTask,
-    promptDraftByTask: stripColiseumBranchesFromRecords(
+    promptDraftByTask: stripRecordsByIds(
       args.snapshot?.promptDraftByTask ?? empty.promptDraftByTask,
       orphanedBranchTaskIds,
     ),
@@ -446,7 +449,7 @@ export function buildWorkspaceSessionState(args: {
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
     activeSurface,
-    activeTurnIdsByTask: stripColiseumBranchesFromRecords(
+    activeTurnIdsByTask: stripRecordsByIds(
       activeTurnIdsByTask,
       orphanedBranchTaskIds,
     ),
@@ -455,7 +458,6 @@ export function buildWorkspaceSessionState(args: {
       tasks,
       providerSessionByTask,
     }),
-    activeColiseumsByTask: {} as Record<string, ColiseumGroupState | undefined>,
   };
 }
 
@@ -468,12 +470,9 @@ export function buildWorkspaceSessionStateFromShell(args: {
 }): WorkspaceSessionState {
   const empty = createEmptyWorkspaceState();
   const rawTasks = (args.shell?.tasks ?? empty.tasks).map(normalizeTaskControl);
-  // Reap orphan Coliseum branches — no live group state at bootstrap.
-  const { tasks, orphanedBranchTaskIds } = reapColiseumOrphans({
-    tasks: rawTasks,
-    activeColiseumsByTask: {},
-  });
-  const providerSessionByTask = stripColiseumBranchesFromRecords(
+  const orphanedBranchTaskIds = collectLegacyBranchTaskIds(rawTasks);
+  const tasks = rawTasks.filter((task) => !task.coliseumParentTaskId);
+  const providerSessionByTask = stripRecordsByIds(
     args.shell?.providerSessionByTask ?? empty.providerSessionByTask,
     orphanedBranchTaskIds,
   );
@@ -484,11 +483,11 @@ export function buildWorkspaceSessionStateFromShell(args: {
         latestTurns: args.latestTurns,
       })
     : loadedMessagesByTask;
-  const messagesByTask = stripColiseumBranchesFromRecords(
+  const messagesByTask = stripRecordsByIds(
     rawMessagesByTask,
     orphanedBranchTaskIds,
   );
-  const messageCountByTask = stripColiseumBranchesFromRecords(
+  const messageCountByTask = stripRecordsByIds(
     {
       ...(args.shell?.messageCountByTask ?? empty.messageCountByTask),
       ...(args.messageCountByTaskOverrides ?? {}),
@@ -535,7 +534,7 @@ export function buildWorkspaceSessionStateFromShell(args: {
     tasks,
     messagesByTask,
     messageCountByTask,
-    promptDraftByTask: stripColiseumBranchesFromRecords(
+    promptDraftByTask: stripRecordsByIds(
       args.shell?.promptDraftByTask ?? empty.promptDraftByTask,
       orphanedBranchTaskIds,
     ),
@@ -548,7 +547,7 @@ export function buildWorkspaceSessionStateFromShell(args: {
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
     activeSurface,
-    activeTurnIdsByTask: stripColiseumBranchesFromRecords(
+    activeTurnIdsByTask: stripRecordsByIds(
       activeTurnIdsByTask,
       orphanedBranchTaskIds,
     ),
@@ -557,7 +556,6 @@ export function buildWorkspaceSessionStateFromShell(args: {
       tasks,
       providerSessionByTask,
     }),
-    activeColiseumsByTask: {} as Record<string, ColiseumGroupState | undefined>,
   };
 }
 

@@ -36,7 +36,7 @@ This rendered example shows the `Settings → General` workspace mode control wh
 
 ### Key Controls
 
-- Zen mode hides the top bar, task tabs, editor panels, terminal dock, right rail, and Stave Muse widget.
+- Zen mode hides the top bar, task tabs, editor panels, terminal dock, and right rail.
 - A reduced left rail remains visible with only the current and recent project list.
 - Assistant thinking, orchestration, subagent progress, and other trace detail are suppressed.
 - Final assistant responses, changed-file results, approval cards, and user-input cards remain visible.

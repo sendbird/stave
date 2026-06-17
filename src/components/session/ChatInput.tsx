@@ -1,5 +1,4 @@
 import { PromptInput, ZenPromptInput } from "@/components/ai-elements";
-import { LoaderCircle, Swords } from "lucide-react";
 import {
   useCallback,
   useDeferredValue,
@@ -8,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import {
   buildModelSelectorOptions,
@@ -18,7 +16,6 @@ import {
 } from "@/components/ai-elements/model-selector";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
-import { ColiseumLauncherDialog } from "@/components/session/ColiseumLauncherDialog";
 import { Badge, Button, Kbd, toast } from "@/components/ui";
 import {
   buildCommandPaletteItems,
@@ -148,7 +145,6 @@ const INACTIVE_CODEX_SETTINGS = [
   false,
   true,
 ] as const;
-const INACTIVE_STAVE_SETTINGS = [false, "auto", 3, true, 2] as const;
 const EMPTY_PROVIDER_MODE_PRESETS: readonly ProviderModePresetDefinition[] = [];
 
 interface ChatInputComposerProps {
@@ -188,7 +184,6 @@ interface ChatInputComposerProps {
   onThinkingModeChange?: (value: "adaptive" | "enabled" | "disabled") => void;
   onProviderModeSelect?: (presetId: ProviderModePresetId) => void;
   onModelSelect: (args: { selection: ModelSelectorOption }) => void;
-  coliseumAction?: ReactNode;
   crossReviewProvider?: "claude-code" | "codex" | null;
   onCrossReview?: (args: { instructions?: string }) => void;
 }
@@ -206,7 +201,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     abortTaskTurn,
     resolveApproval,
     resolveUserInput,
-    setStaveMuseOpen,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -221,7 +215,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.abortTaskTurn,
           state.resolveApproval,
           state.resolveUserInput,
-          state.setStaveMuseOpen,
         ] as const,
     ),
   );
@@ -836,10 +829,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           onAttachmentsChange={({ attachments }) =>
             updateNonTextPromptDraft({ attachments })
           }
-          leadingToolbarAction={args.coliseumAction}
           crossReviewProvider={args.crossReviewProvider}
           onCrossReview={args.onCrossReview}
-          onFocus={() => setStaveMuseOpen({ open: false })}
           onSubmit={async ({ text, filePaths }) => {
             cancelPendingDraftSave();
             const submittedDraft = {
@@ -924,7 +915,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
     updatePromptDraft,
     clearTaskProviderSession,
     abortTaskTurn,
-    restoreColiseum,
     updateSettings,
     refreshSkillCatalog,
     sendUserMessage,
@@ -939,7 +929,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
           state.updatePromptDraft,
           state.clearTaskProviderSession,
           state.abortTaskTurn,
-          state.restoreColiseum,
           state.updateSettings,
           state.refreshSkillCatalog,
           state.sendUserMessage,
@@ -951,26 +940,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
       state.tasks.find(
         (task) => task.id === state.activeTaskId && !isTaskArchived(task),
       ) ?? null,
-  );
-  const [activeColiseum, activeColiseumRunningBranches, activeColiseumReviewerRunning] = useAppStore(
-    useShallow((state) => {
-      const group = state.activeColiseumsByTask[state.activeTaskId] ?? null;
-      const runningBranches = group
-        ? group.branchTaskIds.reduce(
-            (count, branchTaskId) =>
-              count + (state.activeTurnIdsByTask[branchTaskId] ? 1 : 0),
-            0,
-          )
-        : 0;
-      const reviewerRunning = Boolean(
-        group
-        && (
-          (group.reviewerTaskId && state.activeTurnIdsByTask[group.reviewerTaskId])
-          || group.reviewerVerdict?.status === "running"
-        ),
-      );
-      return [group, runningBranches, reviewerRunning] as const;
-    }),
   );
   const draftProvider = useAppStore((state) => state.draftProvider);
   const activeProvider = activeTask?.provider ?? draftProvider;
@@ -1021,7 +990,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
   const [
     modelClaude,
     modelCodex,
-    modelStave,
     storedClaudeEffort,
     skillsEnabled,
     skillsAutoSuggest,
@@ -1033,7 +1001,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
         [
           state.settings.modelClaude,
           state.settings.modelCodex,
-          state.settings.modelStave,
           state.settings.claudeEffort,
           state.settings.skillsEnabled,
           state.settings.skillsAutoSuggest,
@@ -1056,7 +1023,7 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
     claudeBinaryPath,
   ] = useAppStore(
     useShallow((state) =>
-      activeProvider === "claude-code" || activeProvider === "stave"
+      activeProvider === "claude-code"
         ? ([
             state.settings.claudePermissionMode,
             state.settings.claudePermissionModeBeforePlan,
@@ -1106,25 +1073,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
         : INACTIVE_CODEX_SETTINGS,
     ),
   );
-  const [
-    staveAutoFastMode,
-    staveAutoOrchestrationMode,
-    staveAutoMaxSubtasks,
-    staveAutoAllowCrossProviderWorkers,
-    staveAutoMaxParallelSubtasks,
-  ] = useAppStore(
-    useShallow((state) =>
-      activeProvider === "stave"
-        ? ([
-            state.settings.staveAutoFastMode,
-            state.settings.staveAutoOrchestrationMode,
-            state.settings.staveAutoMaxSubtasks,
-            state.settings.staveAutoAllowCrossProviderWorkers,
-            state.settings.staveAutoMaxParallelSubtasks,
-          ] as const)
-        : INACTIVE_STAVE_SETTINGS,
-    ),
-  );
   const providerSelectionTarget = activeTaskId || "draft:session";
   const skillCatalog = useAppStore((state) => state.skillCatalog);
   const taskRuntimeState = useMemo(
@@ -1161,99 +1109,12 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
           runtimeOverrides: promptDraftRuntimeOverrides,
           fallbackModel: modelClaude,
         })
-      : activeProvider === "stave"
-        ? resolvePromptDraftModelForProvider({
-            providerId: activeProvider,
-            runtimeOverrides: promptDraftRuntimeOverrides,
-            fallbackModel: modelStave,
-          })
-        : resolvePromptDraftModelForProvider({
-            providerId: activeProvider,
-            runtimeOverrides: promptDraftRuntimeOverrides,
-            fallbackModel: modelCodex,
-          });
+      : resolvePromptDraftModelForProvider({
+          providerId: activeProvider,
+          runtimeOverrides: promptDraftRuntimeOverrides,
+          fallbackModel: modelCodex,
+        });
   const activeProviderAvailable = providerAvailability[activeProvider];
-  const coliseumAction = useMemo(() => {
-    if (!activeTaskId || !activeTask) {
-      return null;
-    }
-
-    if (activeColiseum?.minimized) {
-      const coliseumBusy =
-        activeColiseumRunningBranches > 0 || activeColiseumReviewerRunning;
-      return (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "h-8 gap-2 px-3 text-muted-foreground hover:bg-secondary/30 hover:text-foreground",
-            args.compact && "h-8 gap-1.5 px-2.5 text-xs",
-          )}
-          onClick={() => restoreColiseum({ parentTaskId: activeTaskId })}
-          aria-label="Reopen Coliseum arena"
-          title={
-            coliseumBusy
-              ? "Reopen the running Coliseum arena"
-              : "Reopen the paused Coliseum arena"
-          }
-        >
-          {coliseumBusy ? (
-            <LoaderCircle className="size-3.5 animate-spin" />
-          ) : (
-            <Swords className="size-3.5" />
-          )}
-          <span>Reopen arena</span>
-        </Button>
-      );
-    }
-
-    const disabledReason = isTaskManaged(activeTask)
-      ? "This task is managed externally."
-      : isTurnActive
-        ? "Wait for the current turn to finish before starting a Coliseum."
-        : undefined;
-
-    return (
-      <ColiseumLauncherDialog
-        parentTaskId={activeTaskId}
-        defaultProviderId={activeProvider}
-        defaultModel={activeModel}
-        workspaceRootPath={workspaceCwd}
-        disabled={Boolean(disabledReason)}
-        disabledReason={disabledReason}
-        tooltipSide="top"
-        renderTrigger={({ disabled }) => (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-8 gap-2 px-3 text-muted-foreground hover:bg-secondary/30 hover:text-foreground",
-              args.compact && "h-8 gap-1.5 px-2.5 text-xs",
-            )}
-            disabled={disabled}
-            aria-label="Open Coliseum"
-          >
-            <Swords className="size-3.5" />
-            <span>Coliseum</span>
-          </Button>
-        )}
-      />
-    );
-  }, [
-    activeColiseum?.minimized,
-    activeColiseumReviewerRunning,
-    activeColiseumRunningBranches,
-    activeModel,
-    activeProvider,
-    activeTask,
-    activeTaskId,
-    args.compact,
-    isTurnActive,
-    restoreColiseum,
-    workspaceCwd,
-  ]);
   const selectedModelOption = useMemo<ModelSelectorOption>(
     () =>
       buildModelSelectorValue({
@@ -1382,11 +1243,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
       codexFastMode,
       codexPlanMode: effectiveCodexPlanMode,
       codexBinaryPath,
-      staveAutoFastMode,
-      staveAutoOrchestrationMode,
-      staveAutoMaxSubtasks,
-      staveAutoAllowCrossProviderWorkers,
-      staveAutoMaxParallelSubtasks,
       claudePermissionModeBeforePlan: effectiveClaudePermissionModeBeforePlan,
     });
   }, [
@@ -1414,11 +1270,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
     effectiveClaudePermissionModeBeforePlan,
     effectiveCodexPlanMode,
     providerTimeoutMs,
-    staveAutoAllowCrossProviderWorkers,
-    staveAutoFastMode,
-    staveAutoMaxParallelSubtasks,
-    staveAutoMaxSubtasks,
-    staveAutoOrchestrationMode,
   ]);
   const providerModeStatus =
     useMemo<PromptInputProviderModeStatus | null>(() => {
@@ -1686,7 +1537,7 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
     return null;
   }, [lastAssistantProviderId, isTurnActive]);
   const crossReviewReturnProviderRef = useRef<
-    "claude-code" | "codex" | "stave" | null
+    "claude-code" | "codex" | null
   >(null);
   const handleCrossReview = useCallback(
     async (reviewArgs: { instructions?: string }) => {
@@ -1798,7 +1649,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
       effortLabel={effortLabel}
       effortValue={effortValue}
       onEffortCycle={onEffortCycle}
-      coliseumAction={coliseumAction}
       crossReviewProvider={crossReviewProvider}
       onCrossReview={crossReviewProvider ? handleCrossReview : undefined}
       onModelSelect={({ selection }) => {
@@ -1849,7 +1699,7 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
       planMode={
         activeProvider === "codex"
           ? effectiveCodexPlanMode
-          : (activeProvider === "claude-code" || activeProvider === "stave") &&
+          : activeProvider === "claude-code" &&
             effectiveClaudePermissionMode === "plan"
       }
       onPlanModeChange={
@@ -1881,7 +1731,7 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
                 });
               }
             }
-          : activeProvider === "claude-code" || activeProvider === "stave"
+          : activeProvider === "claude-code"
             ? (enabled) => {
                 const nextPlanModeState = resolvePromptDraftPlanModeChange({
                   providerId: activeProvider,

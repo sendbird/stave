@@ -295,7 +295,7 @@ export function registerProviderHandlers() {
     if (!parsedArgs.success) {
       return {
         ok: false,
-        providerId: "stave" as const,
+        providerId: "claude-code" as const,
         detail: "Invalid connected-tool status request.",
         tools: [],
       };

@@ -20,10 +20,8 @@ import { cn } from "@/lib/utils";
 /**
  * Reusable provider + model selector duo.
  *
- * Extracted from `ColiseumLauncherDialog` so the reviewer dialog can pick a
- * provider/model with the exact same UI and defaulting behaviour. Keeping this
- * small and dumb — callers own the selected values so the component does not
- * introduce new runtime state.
+ * Callers own the selected values so the component does not introduce new
+ * runtime state.
  */
 
 interface ProviderModelPickerProps {

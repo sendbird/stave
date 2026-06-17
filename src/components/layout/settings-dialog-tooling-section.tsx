@@ -34,7 +34,7 @@ const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
   git: "Workspace branch, diff, sync, and source-control actions.",
   gh: "Pull request creation, PR status refresh, merge, and branch update flows.",
   claude: "Claude Code turns, plugin refresh, and Claude-native diagnostics.",
-  codex: "Codex turns, Stave Auto routing, and Codex-native execution flows.",
+  codex: "Codex turns and Codex-native execution flows.",
 };
 
 const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = {
