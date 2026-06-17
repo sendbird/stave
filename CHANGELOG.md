@@ -2,6 +2,19 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.6.0](https://github.com/sendbird/stave/compare/v0.5.1...v0.6.0) (2026-06-17)
+
+### Features
+
+* Revamp Claude and Codex provider runtime integration, IPC schemas, runtime options, and model defaults.
+* Streamline app surfaces by removing legacy Stave Auto, Muse, and Coliseum fan-out UI, docs, screenshots, helpers, and tests.
+* Refresh workspace/task shell behavior, provider settings, prompt presets, command palette entries, and shared shadcn motion primitives.
+* Update release workflow test coverage for the current GitHub CLI release upload path.
+
+### References
+
+* [#19](https://github.com/sendbird/stave/pull/19)
+
 ## [0.5.1](https://github.com/sendbird/stave/compare/v0.5.0...v0.5.1) (2026-04-29)
 
 ### Features
