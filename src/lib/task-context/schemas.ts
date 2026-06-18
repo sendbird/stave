@@ -308,7 +308,7 @@ const WorkspaceCliSessionTabSchema = z.object({
     .optional(),
 });
 
-const WorkspaceActiveSurfaceSchema = z.discriminatedUnion("kind", [
+const WorkspaceActiveSurfacePayloadSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("task"),
     taskId: z.string(),
@@ -318,13 +318,22 @@ const WorkspaceActiveSurfaceSchema = z.discriminatedUnion("kind", [
     cliSessionTabId: z.string(),
   }),
   z.object({
-    kind: z.literal("fleet-view"),
-  }),
-  z.object({
     kind: z.literal("compare-run"),
     compareRunId: z.string(),
   }),
 ]);
+
+const WorkspaceActiveSurfaceSchema = z.preprocess((payload) => {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "kind" in payload &&
+    payload.kind === "fleet-view"
+  ) {
+    return { kind: "task", taskId: "" };
+  }
+  return payload;
+}, WorkspaceActiveSurfacePayloadSchema);
 
 const WorkspaceJiraIssueSchema = z.object({
   id: z.string(),

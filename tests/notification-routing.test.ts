@@ -109,6 +109,17 @@ afterEach(() => {
 });
 
 describe("notification routing", () => {
+  test("opens Fleet View without changing the workspace active surface", () => {
+    const previousWorkspaceSurface = useAppStore.getState().activeSurface;
+
+    useAppStore.getState().openFleetView();
+
+    expect(useAppStore.getState().activeAppSurface).toEqual({
+      kind: "fleet-view",
+    });
+    expect(useAppStore.getState().activeSurface).toBe(previousWorkspaceSurface);
+  });
+
   test("can route a blocked notification into Fleet View attention", async () => {
     const result = await useAppStore.getState().openNotificationContext({
       notificationId: "notification-user-input",
@@ -116,8 +127,12 @@ describe("notification routing", () => {
     });
 
     expect(result).toEqual({ status: "opened" });
-    expect(useAppStore.getState().activeSurface).toEqual({
+    expect(useAppStore.getState().activeAppSurface).toEqual({
       kind: "fleet-view",
+    });
+    expect(useAppStore.getState().activeSurface).toEqual({
+      kind: "task",
+      taskId: "task-blocked",
     });
     expect(useAppStore.getState().activeTaskId).toBe("task-blocked");
     expect(useAppStore.getState().focusPendingInteractionRequest?.taskId).toBe(

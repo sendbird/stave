@@ -394,12 +394,18 @@ type SendUserMessageResult =
   | { status: "queued"; taskId: string; workspaceId: string }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string };
 
+type AppActiveSurface = { kind: "workspace" } | { kind: "fleet-view" };
+
 const APP_STORE_KEY = "stave-store";
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
   text: "",
   attachedFilePaths: [],
   attachments: [],
 };
+const WORKSPACE_APP_SURFACE = { kind: "workspace" } satisfies AppActiveSurface;
+const FLEET_VIEW_APP_SURFACE = {
+  kind: "fleet-view",
+} satisfies AppActiveSurface;
 const workspaceSwitchMetricsByWorkspaceId = new Map<
   string,
   WorkspaceSwitchMetric
@@ -409,6 +415,18 @@ export {
   DEFAULT_PROVIDER_TIMEOUT_MS,
   PROVIDER_TIMEOUT_OPTIONS,
 } from "@/lib/providers/runtime-option-contract";
+
+function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
+  if (
+    value &&
+    typeof value === "object" &&
+    "kind" in value &&
+    value.kind === "fleet-view"
+  ) {
+    return FLEET_VIEW_APP_SURFACE;
+  }
+  return WORKSPACE_APP_SURFACE;
+}
 
 function hasPromptDraftPayload(
   draft: Pick<PromptDraft, "text" | "attachedFilePaths" | "attachments">,
@@ -978,6 +996,7 @@ interface AppState {
   activeTerminalTabId: string | null;
   cliSessionTabs: WorkspaceCliSessionTab[];
   activeCliSessionTabId: string | null;
+  activeAppSurface: AppActiveSurface;
   activeSurface: WorkspaceActiveSurface;
   focusPendingInteractionRequest: {
     taskId: string;
@@ -3031,6 +3050,7 @@ export const useAppStore = create<AppState>()(
             taskMessagesLoadingByTask: {},
             workspaces: nextProject.workspaces,
             activeWorkspaceId: nextProject.activeWorkspaceId,
+            activeAppSurface: WORKSPACE_APP_SURFACE,
             projectPath: args.projectRootPath,
             recentProjects: upsertRecentProjectState({
               projects: rememberedProjects,
@@ -3168,6 +3188,7 @@ export const useAppStore = create<AppState>()(
           workspaceSnapshotVersion: 0,
           workspaces: nextProject.workspaces,
           activeWorkspaceId: nextProject.activeWorkspaceId,
+          activeAppSurface: WORKSPACE_APP_SURFACE,
           projectPath: args.projectRootPath,
           recentProjects: upsertRecentProjectState({
             projects: rememberedProjects,
@@ -3916,6 +3937,7 @@ export const useAppStore = create<AppState>()(
         activeTerminalTabId: null,
         cliSessionTabs: [],
         activeCliSessionTabId: null,
+        activeAppSurface: WORKSPACE_APP_SURFACE,
         activeSurface: { kind: "task", taskId: "" },
         focusPendingInteractionRequest: null,
         pendingCloseEditorTabId: null,
@@ -5506,6 +5528,7 @@ export const useAppStore = create<AppState>()(
               files,
             }),
             workspaceRuntimeCacheById: nextRuntimeCacheById,
+            activeAppSurface: WORKSPACE_APP_SURFACE,
             taskWorkspaceIdById: registerTaskWorkspaceOwnership({
               taskWorkspaceIdById: state.taskWorkspaceIdById,
               workspaceId,
@@ -5892,6 +5915,11 @@ export const useAppStore = create<AppState>()(
         switchWorkspace: async ({ workspaceId }) => {
           const current = get();
           if (workspaceId === current.activeWorkspaceId) {
+            if (current.activeAppSurface.kind !== "workspace") {
+              set(() => ({
+                activeAppSurface: WORKSPACE_APP_SURFACE,
+              }));
+            }
             return;
           }
           if (
@@ -5972,6 +6000,7 @@ export const useAppStore = create<AppState>()(
               workspaces:
                 nextWorkspaces.length > 0 ? nextWorkspaces : state.workspaces,
               activeWorkspaceId: workspaceId,
+              activeAppSurface: WORKSPACE_APP_SURFACE,
               workspaceSnapshotVersion: 0,
               promptDraftPersistenceVersion: 0,
               taskMessagesLoadingByTask: {},
@@ -6548,12 +6577,11 @@ export const useAppStore = create<AppState>()(
         },
         openFleetView: () => {
           set((state) => {
-            if (state.activeSurface.kind === "fleet-view") {
+            if (state.activeAppSurface.kind === "fleet-view") {
               return state;
             }
             return {
-              activeSurface: { kind: "fleet-view" },
-              workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+              activeAppSurface: FLEET_VIEW_APP_SURFACE,
             };
           });
         },
@@ -6568,6 +6596,7 @@ export const useAppStore = create<AppState>()(
             }
             return {
               activeCompareRunId: normalizedCompareRunId,
+              activeAppSurface: WORKSPACE_APP_SURFACE,
               activeSurface: {
                 kind: "compare-run",
                 compareRunId: normalizedCompareRunId,
@@ -6770,6 +6799,7 @@ export const useAppStore = create<AppState>()(
                 },
               },
               activeCompareRunId: compareRunId,
+              activeAppSurface: WORKSPACE_APP_SURFACE,
               activeSurface: {
                 kind: "compare-run",
                 compareRunId,
@@ -6925,6 +6955,7 @@ export const useAppStore = create<AppState>()(
           }
           if (
             stateBefore.activeTaskId === taskId &&
+            stateBefore.activeAppSurface.kind === "workspace" &&
             stateBefore.activeSurface.kind === "task" &&
             stateBefore.activeSurface.taskId === taskId
           ) {
@@ -6938,6 +6969,7 @@ export const useAppStore = create<AppState>()(
             (stateBefore.messageCountByTask[taskId] ?? 0) > 0;
           set((state) => ({
             activeTaskId: taskId,
+            activeAppSurface: WORKSPACE_APP_SURFACE,
             activeSurface: { kind: "task", taskId },
             workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
           }));
@@ -6965,10 +6997,16 @@ export const useAppStore = create<AppState>()(
         clearTaskSelection: () =>
           set((state) => {
             if (!state.activeTaskId) {
+              if (state.activeAppSurface.kind !== "workspace") {
+                return {
+                  activeAppSurface: WORKSPACE_APP_SURFACE,
+                };
+              }
               return state;
             }
             return {
               activeTaskId: "",
+              activeAppSurface: WORKSPACE_APP_SURFACE,
               activeSurface:
                 state.activeSurface.kind === "task"
                   ? { kind: "task", taskId: "" }
@@ -7217,6 +7255,7 @@ export const useAppStore = create<AppState>()(
             return {
               tasks: [nextTask, ...state.tasks],
               activeTaskId: nextTask.id,
+              activeAppSurface: WORKSPACE_APP_SURFACE,
               activeSurface: { kind: "task", taskId: nextTask.id },
               messagesByTask: {
                 ...state.messagesByTask,
@@ -7297,6 +7336,7 @@ export const useAppStore = create<AppState>()(
                   : task,
               ),
               activeTaskId: taskId,
+              activeAppSurface: WORKSPACE_APP_SURFACE,
               activeSurface: { kind: "task", taskId },
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(state),
@@ -7889,6 +7929,7 @@ export const useAppStore = create<AppState>()(
           set((current) => ({
             cliSessionTabs: [...current.cliSessionTabs, nextTab],
             activeCliSessionTabId: nextTab.id,
+            activeAppSurface: WORKSPACE_APP_SURFACE,
             activeSurface: { kind: "cli-session", cliSessionTabId: nextTab.id },
             workspaceSnapshotVersion:
               incrementWorkspaceSnapshotVersion(current),
@@ -8012,12 +8053,14 @@ export const useAppStore = create<AppState>()(
             if (tabId === null) {
               if (
                 state.activeCliSessionTabId === null &&
+                state.activeAppSurface.kind === "workspace" &&
                 state.activeSurface.kind === "task"
               ) {
                 return state;
               }
               return {
                 activeCliSessionTabId: null,
+                activeAppSurface: WORKSPACE_APP_SURFACE,
                 activeSurface: { kind: "task", taskId: state.activeTaskId },
                 workspaceSnapshotVersion:
                   incrementWorkspaceSnapshotVersion(state),
@@ -8028,6 +8071,7 @@ export const useAppStore = create<AppState>()(
             }
             if (
               state.activeCliSessionTabId === tabId &&
+              state.activeAppSurface.kind === "workspace" &&
               state.activeSurface.kind === "cli-session" &&
               state.activeSurface.cliSessionTabId === tabId
             ) {
@@ -8035,6 +8079,7 @@ export const useAppStore = create<AppState>()(
             }
             return {
               activeCliSessionTabId: tabId,
+              activeAppSurface: WORKSPACE_APP_SURFACE,
               activeSurface: { kind: "cli-session", cliSessionTabId: tabId },
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(state),
@@ -10896,6 +10941,7 @@ export const useAppStore = create<AppState>()(
         // Project/workspace history is mirrored into SQLite so this cache is not the only durable source.
         workspaces: state.workspaces,
         activeWorkspaceId: state.activeWorkspaceId,
+        activeAppSurface: state.activeAppSurface,
         projectPath: state.projectPath,
         recentProjects: captureCurrentProjectState({
           recentProjects: state.recentProjects,
@@ -10924,6 +10970,9 @@ export const useAppStore = create<AppState>()(
           return;
         }
         const persistedSettings = state.settings;
+        state.activeAppSurface = normalizeAppActiveSurface(
+          state.activeAppSurface,
+        );
         // Merge with defaultSettings so newly added fields are never undefined
         // for users whose persisted state pre-dates those fields.
         state.settings = { ...defaultSettings, ...persistedSettings };

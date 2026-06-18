@@ -10,6 +10,7 @@ import { useAppStore } from "@/store/app.store";
 export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
   const [
     projectPath,
+    recentProjects,
     workspaces,
     activeWorkspaceId,
     tasks,
@@ -23,6 +24,7 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
       (state) =>
         [
           state.projectPath,
+          state.recentProjects,
           state.workspaces,
           state.activeWorkspaceId,
           state.tasks,
@@ -75,7 +77,7 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
     workspaces,
   ]);
 
-  if (!projectPath) {
+  if (!projectPath && recentProjects.length === 0) {
     return null;
   }
 
