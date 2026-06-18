@@ -12,6 +12,10 @@ import {
   isWorkspaceInfoUrl,
   updateWorkspaceInfoSelectFieldOptions,
 } from "@/lib/workspace-information";
+import {
+  formatWorkspaceInfoTaskSeedPrompt,
+  resolveWorkspaceInfoTaskSeedTitle,
+} from "@/lib/workspace-information-task-seed";
 
 test("createEmptyWorkspaceInformation returns empty defaults", () => {
   expect(createEmptyWorkspaceInformation()).toEqual({
@@ -152,4 +156,31 @@ test("extractConfluencePageReference returns null for non-confluence urls", () =
     null,
   );
   expect(extractConfluencePageReference("not a url")).toBe(null);
+});
+
+test("resolveWorkspaceInfoTaskSeedTitle prefers normalized title", () => {
+  expect(
+    resolveWorkspaceInfoTaskSeedTitle({
+      title: "  Fix   flaky   tests  ",
+      referenceLabel: "ENG-123",
+    }),
+  ).toBe("Fix flaky tests");
+});
+
+test("formatWorkspaceInfoTaskSeedPrompt includes source reference url and note", () => {
+  const prompt = formatWorkspaceInfoTaskSeedPrompt({
+    title: "Add task seeding",
+    sourceLabel: "GitHub pull request",
+    referenceLabel: "sendbird/stave #27",
+    url: "https://github.com/sendbird/stave/pull/27",
+    note: "Carry this into a focused implementation task.",
+  });
+
+  expect(prompt.split("\n")[0]).toBe("Add task seeding");
+  expect(prompt).toContain(
+    "Create a Stave task from this GitHub pull request.",
+  );
+  expect(prompt).toContain("Reference: sendbird/stave #27");
+  expect(prompt).toContain("URL: https://github.com/sendbird/stave/pull/27");
+  expect(prompt).toContain("Carry this into a focused implementation task.");
 });
