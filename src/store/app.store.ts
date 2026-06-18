@@ -98,6 +98,10 @@ import {
   type PrePrReviewProviderId,
 } from "@/lib/source-control-review";
 import {
+  isTrustedApproval,
+  normalizeTrustedToolEntries,
+} from "@/lib/providers/trusted-tools";
+import {
   normalizeThinkingPhraseAnimationStyle,
   type ThinkingPhraseAnimationStyle,
 } from "@/lib/thinking-phrases";
@@ -828,6 +832,7 @@ export interface AppSettings {
   rulesPresetPrimary: string;
   rulesPresetSecondary: string;
   permissionMode: "require-approval" | "auto-safe";
+  trustedTools: string[];
   subagentsEnabled: boolean;
   subagentsProfile: string;
   skillsEnabled: boolean;
@@ -1544,10 +1549,16 @@ function buildApprovalNotificationInputs(args: {
   turnId: string;
   provider: ProviderId;
   events: NormalizedProviderEvent[];
+  trustedTools?: readonly string[] | null;
 }): AppNotificationCreateInput[] {
   const approvalEvents = args.events.filter(
     (event): event is Extract<NormalizedProviderEvent, { type: "approval" }> =>
-      event.type === "approval",
+      event.type === "approval" &&
+      !isTrustedApproval({
+        trustedTools: args.trustedTools,
+        toolName: event.toolName,
+        input: event.input,
+      }),
   );
   if (approvalEvents.length === 0) {
     return [];
@@ -1610,6 +1621,34 @@ function buildApprovalNotificationInputs(args: {
         dedupeKey: `task.approval_requested:${args.turnId}:${event.requestId}`,
       } satisfies AppNotificationCreateInput,
     ];
+  });
+}
+
+function findTrustedApprovalResponses(args: {
+  session: WorkspaceSessionState;
+  taskId: string;
+  events: NormalizedProviderEvent[];
+  trustedTools?: readonly string[] | null;
+}) {
+  const taskMessages = args.session.messagesByTask[args.taskId] ?? [];
+  return args.events.flatMap((event) => {
+    if (
+      event.type !== "approval" ||
+      !isTrustedApproval({
+        trustedTools: args.trustedTools,
+        toolName: event.toolName,
+        input: event.input,
+      })
+    ) {
+      return [];
+    }
+    const location = findPendingApprovalMessageByRequestId({
+      messages: taskMessages,
+      requestId: event.requestId,
+    });
+    return location
+      ? [{ messageId: location.messageId, requestId: event.requestId }]
+      : [];
   });
 }
 
@@ -1725,6 +1764,8 @@ function showNotificationToast(notification: AppNotification) {
 const ARCHIVED_TASK_TURN_NOTICE =
   "Generation stopped because the task was archived before this turn completed.";
 export const STAVE_OPEN_SETTINGS_EVENT = "stave:open-settings";
+const WORKSPACE_PR_STATUS_FRESH_MS = 4 * 60 * 1000;
+const WORKSPACE_PR_STATUS_POLL_CONCURRENCY = 3;
 
 function normalizeAppShellMode(value: unknown): AppShellMode {
   return value === "zen" ? "zen" : "stave";
@@ -1799,6 +1840,7 @@ const defaultSettings: AppSettings = {
   rulesPresetPrimary: "typescript-best-practices",
   rulesPresetSecondary: "no-target-brand-keyword",
   permissionMode: "auto-safe",
+  trustedTools: [],
   subagentsEnabled: true,
   subagentsProfile: "default",
   skillsEnabled: true,
@@ -6346,6 +6388,13 @@ export const useAppStore = create<AppState>()(
                     patch.modelShortcutKeys,
                   ),
                 }),
+            ...(patch.trustedTools === undefined
+              ? {}
+              : {
+                  trustedTools: normalizeTrustedToolEntries(
+                    patch.trustedTools,
+                  ),
+                }),
             ...(patch.reasoningExpansionMode === undefined
               ? {}
               : {
@@ -8231,37 +8280,82 @@ export const useAppStore = create<AppState>()(
           const getPrStatus = window.api?.sourceControl?.getPrStatus;
           if (!getPrStatus) return;
 
-          const nonDefaultIds = state.workspaces
-            .filter((ws) => !state.workspaceDefaultById[ws.id])
-            .map((ws) => ws.id);
-
-          // Fetch sequentially to avoid hammering GitHub API.
-          for (const wsId of nonDefaultIds) {
-            const cwd = state.workspacePathById[wsId];
-            if (!cwd) continue;
-
-            try {
-              const result = await getPrStatus({ cwd });
-              if (!result.ok) continue;
-
-              const pr = result.pr as GitHubPrPayload | null;
-              const derived = pr ? derivePrStatus(pr) : ("no_pr" as const);
-              const info: WorkspacePrInfo = {
-                pr,
-                derived,
-                lastFetched: Date.now(),
-              };
-
-              set((s) => ({
-                workspacePrInfoById: {
-                  ...s.workspacePrInfoById,
-                  [wsId]: info,
-                },
-              }));
-            } catch {
-              // ignore
+          const now = Date.now();
+          const targets = state.workspaces.flatMap((workspace) => {
+            const wsId = workspace.id;
+            if (state.workspaceDefaultById[wsId]) {
+              return [];
             }
+            if (wsId === state.activeWorkspaceId) {
+              return [];
+            }
+            const cwd = state.workspacePathById[wsId];
+            if (!cwd) {
+              return [];
+            }
+            const lastFetched = state.workspacePrInfoById[wsId]?.lastFetched;
+            if (
+              typeof lastFetched === "number" &&
+              now - lastFetched < WORKSPACE_PR_STATUS_FRESH_MS
+            ) {
+              return [];
+            }
+            return [{ wsId, cwd }];
+          });
+          if (targets.length === 0) {
+            return;
           }
+
+          const updates: Array<[string, WorkspacePrInfo]> = [];
+          let targetIndex = 0;
+          const fetchNext = async () => {
+            while (targetIndex < targets.length) {
+              const target = targets[targetIndex];
+              targetIndex += 1;
+              if (!target) {
+                continue;
+              }
+
+              try {
+                const result = await getPrStatus({ cwd: target.cwd });
+                if (!result.ok) continue;
+
+                const pr = result.pr as GitHubPrPayload | null;
+                const derived = pr ? derivePrStatus(pr) : ("no_pr" as const);
+                updates.push([
+                  target.wsId,
+                  {
+                    pr,
+                    derived,
+                    lastFetched: Date.now(),
+                  },
+                ]);
+              } catch {
+                // ignore
+              }
+            }
+          };
+
+          await Promise.all(
+            Array.from(
+              {
+                length: Math.min(
+                  WORKSPACE_PR_STATUS_POLL_CONCURRENCY,
+                  targets.length,
+                ),
+              },
+              () => fetchNext(),
+            ),
+          );
+          if (updates.length === 0) {
+            return;
+          }
+          set((s) => ({
+            workspacePrInfoById: {
+              ...s.workspacePrInfoById,
+              ...Object.fromEntries(updates),
+            },
+          }));
         },
         setLayout: ({ patch }) =>
           set((state) => {
@@ -9444,6 +9538,7 @@ export const useAppStore = create<AppState>()(
                         turnId,
                         provider,
                         events: pendingEvents,
+                        trustedTools: latestState.settings.trustedTools,
                       });
                     notificationsToPersist.push(
                       ...buildUserInputNotificationInputs({
@@ -9471,6 +9566,20 @@ export const useAppStore = create<AppState>()(
                     }
                     if (notificationsToPersist.length > 0) {
                       void persistNotifications(notificationsToPersist);
+                    }
+                    const trustedApprovalResponses =
+                      findTrustedApprovalResponses({
+                        session: notificationSession,
+                        taskId: resolvedTaskId,
+                        events: pendingEvents,
+                        trustedTools: latestState.settings.trustedTools,
+                      });
+                    for (const response of trustedApprovalResponses) {
+                      void latestState.resolveApproval({
+                        taskId: resolvedTaskId,
+                        messageId: response.messageId,
+                        approved: true,
+                      });
                     }
                   }
                   if (applied.turnCompleted) {
@@ -10898,6 +11007,9 @@ export const useAppStore = create<AppState>()(
         );
         state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
           raw.modelShortcutKeys,
+        );
+        state.settings.trustedTools = normalizeTrustedToolEntries(
+          raw.trustedTools,
         );
         delete raw.staveModelPlanner;
         delete raw.staveModelEcosystem;

@@ -328,6 +328,7 @@ export const RuntimeOptionsObjectSchema = z
     claudeFastMode: z.boolean().optional(),
     claudeAllowedTools: z.array(z.string().max(200)).max(200).optional(),
     claudeDisallowedTools: z.array(z.string().max(200)).max(200).optional(),
+    trustedTools: z.array(z.string().max(500)).max(200).optional(),
     claudeSkills: z
       .union([z.literal("all"), z.array(z.string().max(200)).max(200)])
       .optional(),

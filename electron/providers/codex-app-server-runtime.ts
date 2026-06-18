@@ -630,6 +630,13 @@ function buildApprovalDescription(args: {
   return reason ?? `Codex requested approval for ${args.method}.`;
 }
 
+function buildApprovalInput(args: { params: Record<string, unknown> }) {
+  return typeof args.params.command === "string" &&
+    args.params.command.trim().length > 0
+    ? args.params.command.trim()
+    : undefined;
+}
+
 function mapApprovalToolName(method: ServerRequestMethod) {
   switch (method) {
     case "item/commandExecution/requestApproval":
@@ -3415,6 +3422,7 @@ export async function streamCodexWithAppServer(
       switch (message.method as ServerRequestMethod) {
         case "item/commandExecution/requestApproval": {
           const params = (message.params ?? {}) as Record<string, unknown>;
+          const approvalInput = buildApprovalInput({ params });
           pendingApprovalRequests.set(requestId, {
             serverRequestId: message.id as JsonRpcId,
             responseKind: "commandExecution",
@@ -3428,6 +3436,7 @@ export async function streamCodexWithAppServer(
               method: "item/commandExecution/requestApproval",
               params,
             }),
+            ...(approvalInput ? { input: approvalInput } : {}),
           });
           return;
         }
@@ -3474,6 +3483,7 @@ export async function streamCodexWithAppServer(
         case "applyPatchApproval":
         case "execCommandApproval": {
           const params = (message.params ?? {}) as Record<string, unknown>;
+          const approvalInput = buildApprovalInput({ params });
           pendingApprovalRequests.set(requestId, {
             serverRequestId: message.id as JsonRpcId,
             responseKind: "review",
@@ -3489,6 +3499,7 @@ export async function streamCodexWithAppServer(
               method: message.method as ServerRequestMethod,
               params,
             }),
+            ...(approvalInput ? { input: approvalInput } : {}),
           });
           return;
         }

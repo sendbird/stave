@@ -5397,6 +5397,218 @@ describe("workspace store hydration ordering", () => {
     );
   });
 
+  test("trusted approval events auto-approve without creating approval notifications", async () => {
+    const localStorage = createMemoryStorage();
+    const approvalCalls: Array<{
+      turnId: string;
+      requestId: string;
+      approved: boolean;
+    }> = [];
+    let streamListener:
+      | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
+      | null = null;
+
+    (globalThis as { window: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async () => ({
+            ok: true,
+            streamId: "stream-trusted-approval",
+            turnId: "turn-trusted-approval",
+          }),
+          subscribeStreamEvents: (listener: typeof streamListener) => {
+            streamListener = listener;
+            return () => {
+              if (streamListener === listener) {
+                streamListener = null;
+              }
+            };
+          },
+          respondApproval: async (args: {
+            turnId: string;
+            requestId: string;
+            approved: boolean;
+          }) => {
+            approvalCalls.push(args);
+            return { ok: true, message: "ok" };
+          },
+        },
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          upsertWorkspace: async () => ({ ok: true }),
+        },
+        fs: {
+          readFile: async () => ({
+            ok: false,
+            content: "",
+            revision: "",
+            stderr: "not found",
+          }),
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-trusted-approval",
+      activeTaskId: "task-trusted-approval",
+      projectPath: "/tmp/stave-trusted-approval",
+      workspacePathById: {
+        "ws-trusted-approval": "/tmp/stave-trusted-approval",
+      },
+      workspaceBranchById: {
+        "ws-trusted-approval": "main",
+      },
+      workspaceDefaultById: {
+        "ws-trusted-approval": true,
+      },
+      draftProvider: "codex",
+      settings: {
+        ...initialState.settings,
+        trustedTools: ["bash:bun test"],
+      },
+      tasks: [
+        {
+          id: "task-trusted-approval",
+          title: "Trusted Approval Task",
+          provider: "codex",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-trusted-approval": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+    });
+
+    await useAppStore.getState().sendUserMessage({
+      taskId: "task-trusted-approval",
+      content: "run tests",
+    });
+    const activeTurnId =
+      useAppStore.getState().activeTurnIdsByTask["task-trusted-approval"];
+    expect(activeTurnId).toBeString();
+
+    streamListener?.({
+      streamId: "stream-trusted-approval",
+      done: false,
+      event: {
+        type: "approval",
+        toolName: "bash",
+        requestId: "approval-trusted-1",
+        description: "Run bun test",
+        input: "bun test tests/trusted-tools.test.ts",
+      },
+    });
+
+    await Bun.sleep(30);
+
+    expect(approvalCalls).toEqual([
+      {
+        turnId: activeTurnId,
+        requestId: "approval-trusted-1",
+        approved: true,
+      },
+    ]);
+    const message =
+      useAppStore.getState().messagesByTask["task-trusted-approval"]?.[1];
+    expect(message?.parts[0]).toMatchObject({
+      type: "approval",
+      requestId: "approval-trusted-1",
+      state: "approval-responded",
+    });
+    expect(useAppStore.getState().notifications).toEqual([]);
+  });
+
+  test("fetchAllWorkspacePrStatuses skips fresh and active workspaces with bounded concurrency", async () => {
+    const localStorage = createMemoryStorage();
+    const calls: string[] = [];
+    let inFlight = 0;
+    let maxInFlight = 0;
+    setWindowContext({
+      localStorage,
+      api: {
+        sourceControl: {
+          getPrStatus: async ({ cwd }: { cwd?: string }) => {
+            calls.push(cwd ?? "");
+            inFlight += 1;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            await Bun.sleep(5);
+            inFlight -= 1;
+            return { ok: true, pr: null };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-active",
+      workspaces: [
+        { id: "ws-default", name: "Default", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-active", name: "Active", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-fresh", name: "Fresh", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-stale-1", name: "Stale 1", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-stale-2", name: "Stale 2", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-stale-3", name: "Stale 3", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-stale-4", name: "Stale 4", updatedAt: "2026-04-07T00:00:00.000Z" },
+      ],
+      workspaceDefaultById: {
+        "ws-default": true,
+        "ws-active": false,
+        "ws-fresh": false,
+        "ws-stale-1": false,
+        "ws-stale-2": false,
+        "ws-stale-3": false,
+        "ws-stale-4": false,
+      },
+      workspacePathById: {
+        "ws-default": "/tmp/default",
+        "ws-active": "/tmp/active",
+        "ws-fresh": "/tmp/fresh",
+        "ws-stale-1": "/tmp/stale-1",
+        "ws-stale-2": "/tmp/stale-2",
+        "ws-stale-3": "/tmp/stale-3",
+        "ws-stale-4": "/tmp/stale-4",
+      },
+      workspacePrInfoById: {
+        "ws-fresh": {
+          pr: null,
+          derived: "no_pr",
+          lastFetched: Date.now(),
+        },
+      },
+    });
+
+    await useAppStore.getState().fetchAllWorkspacePrStatuses();
+
+    expect(calls.sort()).toEqual([
+      "/tmp/stale-1",
+      "/tmp/stale-2",
+      "/tmp/stale-3",
+      "/tmp/stale-4",
+    ]);
+    expect(maxInFlight).toBeLessThanOrEqual(3);
+    expect(
+      useAppStore.getState().workspacePrInfoById["ws-stale-1"],
+    ).toMatchObject({
+      pr: null,
+      derived: "no_pr",
+    });
+  });
+
   test("resolveApproval keeps pending state when no active turn exists", async () => {
     setWindowContext({
       localStorage: createMemoryStorage(),

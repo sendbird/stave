@@ -103,6 +103,7 @@ export interface ApprovalPart extends MessagePartBase {
   type: "approval";
   toolName: string;
   description: string;
+  input?: string;
   requestId: string;
   state:
     | "approval-requested"
