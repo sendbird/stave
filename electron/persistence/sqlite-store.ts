@@ -92,7 +92,10 @@ interface TurnSummaryRow {
 
 interface NotificationRow {
   id: string;
-  kind: "task.turn_completed" | "task.approval_requested";
+  kind:
+    | "task.turn_completed"
+    | "task.approval_requested"
+    | "task.user_input_requested";
   title: string;
   body: string;
   project_path: string | null;

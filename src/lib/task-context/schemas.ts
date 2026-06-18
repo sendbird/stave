@@ -57,6 +57,7 @@ const ApprovalPartSchema = z.object({
   type: z.literal("approval"),
   toolName: z.string(),
   description: z.string(),
+  input: z.string().optional(),
   requestId: z.string(),
   state: z.union([
     z.literal("approval-requested"),
@@ -315,6 +316,13 @@ const WorkspaceActiveSurfaceSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("cli-session"),
     cliSessionTabId: z.string(),
+  }),
+  z.object({
+    kind: z.literal("fleet-view"),
+  }),
+  z.object({
+    kind: z.literal("compare-run"),
+    compareRunId: z.string(),
   }),
 ]);
 

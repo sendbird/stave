@@ -4,6 +4,10 @@ import {
   resolveEffectiveCodexFileAccessMode,
 } from "@/lib/providers/codex-runtime-options";
 import { DEFAULT_CLAUDE_OPUS_MODEL } from "@/lib/providers/model-catalog";
+import {
+  normalizeTrustedToolEntries,
+  toClaudeAllowedToolsFromTrustedEntries,
+} from "@/lib/providers/trusted-tools";
 import type {
   ClaudeSettingSource,
   ProviderId,
@@ -44,6 +48,7 @@ type RuntimeSettings = Pick<
   | "claudeStrictMcpConfig"
   | "claudeFastMode"
   | "claudeFastModeVisible"
+  | "trustedTools"
   | "claudeSkills"
   | "claudePluginPaths"
   | "claudeAgentName"
@@ -186,6 +191,9 @@ export function buildProviderRuntimeOptions(args: {
         sourceModel: claudeAdvisorModelSetting,
       })
     : undefined;
+  const trustedTools = normalizeTrustedToolEntries(settings.trustedTools);
+  const claudeAllowedTools =
+    toClaudeAllowedToolsFromTrustedEntries(trustedTools);
 
   return {
     model: args.model,
@@ -216,6 +224,8 @@ export function buildProviderRuntimeOptions(args: {
     claudeForkSession: settings.claudeForkSession,
     claudeStrictMcpConfig: settings.claudeStrictMcpConfig,
     claudeFastMode: settings.claudeFastMode,
+    trustedTools,
+    ...(claudeAllowedTools.length > 0 ? { claudeAllowedTools } : {}),
     ...(normalizeClaudeSkillsSetting(settings.claudeSkills)
       ? { claudeSkills: normalizeClaudeSkillsSetting(settings.claudeSkills) }
       : {}),

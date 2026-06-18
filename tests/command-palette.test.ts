@@ -90,6 +90,7 @@ function createContext(
       openInGhostty: async () => {},
       openInTerminal: async () => {},
       openInVSCode: async () => {},
+      openFleetView: () => {},
       openKeyboardShortcuts: () => {},
       openProject: async () => {},
       openSettings: () => {},
@@ -99,6 +100,7 @@ function createContext(
       saveActiveEditor: async () => {},
       selectTask: () => {},
       setTaskProvider: () => {},
+      startCompareRun: () => {},
       showOverlayTab: () => {},
       stopActiveTurn: () => {},
       switchWorkspace: async () => {},
@@ -137,6 +139,13 @@ describe("command palette registry", () => {
       ),
     ).toBe(true);
     expect(
+      navigation?.items.some(
+        (item) =>
+          item.id === "navigation.fleet-view" &&
+          item.shortcut === "Cmd+K F",
+      ),
+    ).toBe(true);
+    expect(
       navigation?.items.some((item) => item.id === "task.select.task-2"),
     ).toBe(true);
     expect(
@@ -147,6 +156,9 @@ describe("command palette registry", () => {
     expect(task?.items.some((item) => item.id === "task.create-pr")).toBe(true);
     expect(
       task?.items.some((item) => item.id === "task.stop-active-turn"),
+    ).toBe(true);
+    expect(
+      task?.items.some((item) => item.id === "task.compare-providers"),
     ).toBe(true);
     expect(
       provider?.items.some((item) => item.id === "provider.set.codex"),

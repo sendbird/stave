@@ -149,11 +149,19 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
         label: "approval description",
         maxChars: MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
       });
-      return description === part.description
+      const input = part.input == null
+        ? part.input
+        : sanitizeTextField({
+            value: part.input,
+            label: "approval input",
+            maxChars: MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
+          });
+      return description === part.description && input === part.input
         ? part
         : {
             ...part,
             description,
+            ...(input != null ? { input } : {}),
           } as T;
     }
     case "user_input": {

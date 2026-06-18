@@ -102,6 +102,12 @@ describe("buildCreatePrTargetBranchOptions", () => {
     })).toBe(false);
 
     expect(shouldShowCreatePrSubmitSpinner({
+      step: "reviewing",
+      activeSubmitAction: "pr",
+      buttonAction: "pr",
+    })).toBe(false);
+
+    expect(shouldShowCreatePrSubmitSpinner({
       step: "committing",
       activeSubmitAction: null,
       buttonAction: "pr",
@@ -133,6 +139,11 @@ describe("canSubmitCreatePr", () => {
   test("rejects submission when the dialog is not ready", () => {
     expect(canSubmitCreatePr({
       step: "loading",
+      title: "Improve PR title fallback behavior",
+    })).toBe(false);
+
+    expect(canSubmitCreatePr({
+      step: "reviewing",
       title: "Improve PR title fallback behavior",
     })).toBe(false);
   });

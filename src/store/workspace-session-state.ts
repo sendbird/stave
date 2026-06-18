@@ -145,6 +145,12 @@ function resolveActiveSurface(args: {
   if (args.activeSurface.kind === "cli-session" && hasCliSession(args.activeSurface.cliSessionTabId)) {
     return args.activeSurface;
   }
+  if (args.activeSurface.kind === "fleet-view") {
+    return args.activeSurface;
+  }
+  if (args.activeSurface.kind === "compare-run") {
+    return args.activeSurface;
+  }
 
   if (hasTask(args.activeTaskId)) {
     return { kind: "task", taskId: args.activeTaskId } satisfies WorkspaceActiveSurface;

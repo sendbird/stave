@@ -3,6 +3,7 @@ export type CreatePrDialogStep =
   | "loading"
   | "ready"
   | "committing"
+  | "reviewing"
   | "pushing"
   | "creating-pr"
   | "action";

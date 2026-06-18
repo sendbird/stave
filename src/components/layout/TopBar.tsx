@@ -22,6 +22,7 @@ import {
 import { useAppStore } from "@/store/app.store";
 import { TopBarBranchDropdown } from "@/components/layout/TopBarBranchDropdown";
 import { TopBarFileSearch } from "@/components/layout/TopBarFileSearch";
+import { TopBarFleetAttention } from "@/components/layout/TopBarFleetAttention";
 import { TopBarNotifications } from "@/components/layout/TopBarNotifications";
 import { TopBarOpenPR } from "@/components/layout/TopBarOpenPR";
 import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
@@ -236,6 +237,9 @@ export function TopBar() {
           ) : null}
         </div>
 
+        {hasProjectContext ? (
+          <TopBarFleetAttention noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+        ) : null}
         {hasProjectContext ? (
           <TopBarNotifications noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         ) : null}

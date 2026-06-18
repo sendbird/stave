@@ -18,6 +18,7 @@ import {
   Search,
   Settings,
   Sparkles,
+  SplitSquareHorizontal,
   Terminal,
   type LucideIcon,
 } from "lucide-react";
@@ -120,6 +121,7 @@ export interface CommandPaletteCommandHandlers {
   openInTerminal: (path: string) => Promise<void> | void;
   openInGhostty: (path: string) => Promise<void> | void;
   openInVSCode: (path: string) => Promise<void> | void;
+  openFleetView: () => void;
   openKeyboardShortcuts: () => void;
   openProject: (projectPath: string) => Promise<void> | void;
   openSettings: (options?: {
@@ -132,6 +134,7 @@ export interface CommandPaletteCommandHandlers {
   saveActiveEditor: () => Promise<void> | void;
   selectTask: (taskId: string) => void;
   setTaskProvider: (taskId: string, provider: ProviderId) => void;
+  startCompareRun: () => Promise<void> | void;
   showOverlayTab: (tab: CommandPaletteLayoutState["sidebarOverlayTab"]) => void;
   stopActiveTurn: () => void;
   switchWorkspace: (workspaceId: string) => Promise<void> | void;
@@ -319,6 +322,29 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     }),
   },
   {
+    id: "navigation.fleet-view",
+    title: "Open Fleet View",
+    description: "Open the cross-workspace agent status view.",
+    group: "navigation",
+    icon: Bot,
+    keywords: ["fleet", "agents", "status", "parallel", "needs input"],
+    shortcut: (modifierLabel) => `${modifierLabel}+K F`,
+    build: (args) =>
+      args.projectPath
+        ? {
+            id: "navigation.fleet-view",
+            title: "Open Fleet View",
+            subtitle: "Show agent status across workspaces.",
+            group: "navigation",
+            icon: Bot,
+            keywords: ["fleet", "agents", "status", "parallel", "needs input"],
+            shortcut: `${args.modifierLabel}+K F`,
+            run: args.commands.openFleetView,
+            source: "core",
+          }
+        : null,
+  },
+  {
     id: "task.new",
     title: "New Task",
     description: "Create a new task in the active workspace.",
@@ -404,6 +430,42 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
             icon: CommandIcon,
             keywords: ["stop", "abort", "cancel generation"],
             run: args.commands.stopActiveTurn,
+            source: "core",
+          }
+        : null,
+  },
+  {
+    id: "task.compare-providers",
+    title: "Compare Current Draft Across Providers",
+    description:
+      "Launch Claude and Codex variants from the current prompt draft.",
+    group: "task",
+    icon: SplitSquareHorizontal,
+    keywords: [
+      "compare",
+      "best of n",
+      "claude",
+      "codex",
+      "providers",
+      "variants",
+    ],
+    build: (args) =>
+      args.projectPath
+        ? {
+            id: "task.compare-providers",
+            title: "Compare Current Draft Across Providers",
+            subtitle: "Start Claude and Codex in isolated workspaces.",
+            group: "task",
+            icon: SplitSquareHorizontal,
+            keywords: [
+              "compare",
+              "best of n",
+              "claude",
+              "codex",
+              "providers",
+              "variants",
+            ],
+            run: args.commands.startCompareRun,
             source: "core",
           }
         : null,

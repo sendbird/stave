@@ -229,6 +229,41 @@ export function findLatestPendingUserInput(args: {
   return null;
 }
 
+export function findPendingUserInputMessageByRequestId(args: {
+  messages: ChatMessage[];
+  requestId: string;
+}): { messageId: string; part: UserInputPart } | null {
+  for (
+    let messageIndex = args.messages.length - 1;
+    messageIndex >= 0;
+    messageIndex -= 1
+  ) {
+    const message = args.messages[messageIndex];
+    if (!message) {
+      continue;
+    }
+    for (
+      let partIndex = message.parts.length - 1;
+      partIndex >= 0;
+      partIndex -= 1
+    ) {
+      const part = message.parts[partIndex];
+      if (
+        part?.type === "user_input" &&
+        part.requestId === args.requestId &&
+        part.state === "input-requested"
+      ) {
+        return {
+          messageId: message.id,
+          part,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 export function updateApprovalPartsByRequestId(args: {
   parts: MessagePart[];
   requestId: string;

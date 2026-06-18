@@ -46,6 +46,7 @@ import {
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
 import type { ChatMessage, MessagePart } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -56,6 +57,10 @@ import { AssistantMessageBody } from "./message/assistant-trace";
 import { SessionLoadingState } from "./SessionLoadingState";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
+
+function escapeAttributeSelectorValue(value: string) {
+  return value.replace(/["\\]/g, "\\$&");
+}
 
 const MemoizedAssistantMessageBody = memo(AssistantMessageBody);
 
@@ -422,6 +427,9 @@ function ChatPanelMessageList() {
   const totalMessageCount = useAppStore(
     (state) => state.messageCountByTask[state.activeTaskId] ?? 0,
   );
+  const focusPendingInteractionRequest = useAppStore(
+    (state) => state.focusPendingInteractionRequest,
+  );
   const taskMessagesLoading = useAppStore(
     (state) => state.taskMessagesLoadingByTask[state.activeTaskId] === true,
   );
@@ -452,6 +460,10 @@ function ChatPanelMessageList() {
   const forceScrollKey = `${latestVisibleMessageId ?? "none"}:${turnCompletionScrollTick}`;
   const scrollContextKey = `${activeWorkspaceId}:${activeTaskId}`;
   const traceExpansionMode = getReasoningTraceExpansionMode({ reasoningExpansionMode });
+  const pendingInteraction = useMemo(
+    () => findLatestPendingToolInteraction({ messages: visibleMessages }),
+    [visibleMessages],
+  );
 
   useEffect(() => {
     if (previousActiveTurnIdRef.current && !activeTurnId) {
@@ -469,6 +481,53 @@ function ChatPanelMessageList() {
     }, 1000);
     return () => window.clearInterval(handle);
   }, [activeTurnId]);
+
+  useEffect(() => {
+    if (
+      !focusPendingInteractionRequest ||
+      focusPendingInteractionRequest.taskId !== activeTaskId ||
+      !pendingInteraction
+    ) {
+      return;
+    }
+
+    const messageIndex = visibleMessages.findIndex(
+      (message) => message.id === pendingInteraction.messageId,
+    );
+    if (messageIndex < 0) {
+      return;
+    }
+
+    virtuosoRef.current?.scrollToIndex({
+      index: messageIndex,
+      align: "center",
+      behavior: "smooth",
+    });
+
+    const requestId = pendingInteraction.part.requestId;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const node = document.querySelector<HTMLElement>(
+          `[data-pending-interaction-request-id="${escapeAttributeSelectorValue(requestId)}"]`,
+        );
+        node?.scrollIntoView({ block: "center", behavior: "smooth" });
+        node?.focus({ preventScroll: true });
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) {
+        window.cancelAnimationFrame(secondFrame);
+      }
+    };
+  }, [
+    activeTaskId,
+    focusPendingInteractionRequest,
+    pendingInteraction,
+    visibleMessages,
+  ]);
 
   return (
     <ConversationContent
