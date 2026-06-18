@@ -30,7 +30,10 @@ import type {
   AppNotification,
   AppNotificationCreateInput,
 } from "@/lib/notifications/notification.types";
-import type { PrePrReviewFinding } from "@/lib/source-control-review";
+import type {
+  PrePrReviewFinding,
+  PrePrReviewProviderId,
+} from "@/lib/source-control-review";
 import type { ProviderSlashCommand } from "@/lib/providers/provider-command-catalog";
 import type { GitHubPrPayload } from "@/lib/pr-status";
 import type { SkillCatalogResponse } from "@/lib/skills/types";
@@ -298,16 +301,20 @@ interface WindowProviderApi {
     headBranch?: string;
   }>;
   /** Reviews the branch diff before PR creation using a lightweight
-   *  single-turn Claude query. Best effort; callers should not block on
+   *  single-turn provider query. Best effort; callers should not block on
    *  `ok: false`. */
   reviewDiff?: (args: {
     cwd?: string;
     baseBranch?: string;
     headBranch?: string;
+    providerId?: PrePrReviewProviderId;
+    model?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<{
     ok: boolean;
     findings: PrePrReviewFinding[];
     headBranch?: string;
+    providerId?: PrePrReviewProviderId;
     truncated?: boolean;
   }>;
 }

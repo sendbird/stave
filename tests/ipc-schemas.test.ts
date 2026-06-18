@@ -118,7 +118,22 @@ describe("provider IPC schemas", () => {
       cwd: "/tmp/project",
       baseBranch: "main",
       headBranch: "feature/review",
+      providerId: "codex",
+      model: "gpt-5-codex",
+      runtimeOptions: {
+        model: "gpt-5-codex",
+        codexApprovalPolicy: "never",
+        codexBinaryPath: "/tmp/codex",
+        codexFileAccess: "read-only",
+        codexNetworkAccess: false,
+        codexReasoningEffort: "medium",
+        codexWebSearch: "disabled",
+      },
     }).success).toBe(true);
+    expect(ReviewDiffArgsSchema.safeParse({
+      cwd: "/tmp/project",
+      providerId: "openai",
+    }).success).toBe(false);
     expect(ReviewDiffArgsSchema.safeParse({
       cwd: "/tmp/project",
       extra: true,

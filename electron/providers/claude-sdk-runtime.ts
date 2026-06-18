@@ -14,6 +14,7 @@ import {
 } from "../../src/lib/file-context-sanitization";
 import { parsePullRequestSuggestionResponse } from "../../src/lib/source-control-pr";
 import {
+  buildReviewDiffPrompt,
   parseReviewFindings,
   type PrePrReviewFinding,
 } from "../../src/lib/source-control-review";
@@ -3455,6 +3456,7 @@ export async function reviewClaudeWorktreeDiff(args: {
   baseBranch: string;
   headBranch: string;
   agentsContent?: string;
+  model?: string;
 }): Promise<{ ok: boolean; findings?: PrePrReviewFinding[] }> {
   try {
     const mod = await getPrewarmedSdkModule();
@@ -3466,44 +3468,7 @@ export async function reviewClaudeWorktreeDiff(args: {
     }
 
     const claudeExecutablePath = getPrewarmedExecutablePath();
-    const reviewPrompt = [
-      "Review this pull request diff before it is opened.",
-      "Find only concrete issues that should be fixed before sharing the PR: logic bugs, races, data loss, security problems, broken user flows, or test gaps that hide a likely bug.",
-      "Do not comment on style, naming, formatting, or speculative improvements.",
-      "Return only JSON in this exact shape:",
-      '{"findings":[{"severity":"critical|high|medium|low","file":"path/to/file.ts","line":123,"kind":"bug|race|security|other","message":"short actionable finding"}]}',
-      "Use an empty findings array if there are no concrete issues.",
-      "",
-      `Base branch: ${args.baseBranch}`,
-      `Head branch: ${args.headBranch}`,
-      "",
-      "Commit log:",
-      args.commitLog || "(no commits)",
-      "",
-      "Changed files:",
-      args.fileList || "(no file list available)",
-      ...(args.agentsContent
-        ? [
-            "",
-            "Repository guidelines from AGENTS.md:",
-            args.agentsContent.slice(0, 2000),
-          ]
-        : []),
-      ...(args.diff.length > 0
-        ? [
-            "",
-            "Branch diff against the base branch (may be truncated):",
-            args.diff.slice(0, 9000),
-          ]
-        : []),
-      ...(args.workingTreeDiff.length > 0
-        ? [
-            "",
-            "Uncommitted working tree diff (may be truncated):",
-            args.workingTreeDiff.slice(0, 4000),
-          ]
-        : []),
-    ].join("\n");
+    const reviewPrompt = buildReviewDiffPrompt(args);
 
     const stream = queryFn({
       prompt: reviewPrompt,
@@ -3511,7 +3476,7 @@ export async function reviewClaudeWorktreeDiff(args: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: "claude-sonnet-4-6",
+        model: args.model?.trim() || "claude-sonnet-4-6",
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),

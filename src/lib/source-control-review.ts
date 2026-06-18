@@ -1,3 +1,5 @@
+export type PrePrReviewProviderId = "claude-code" | "codex";
+
 export type PrePrReviewFindingSeverity =
   | "critical"
   | "high"
@@ -17,6 +19,106 @@ export interface PrePrReviewFinding {
 const MAX_FINDINGS = 20;
 const MAX_FILE_CHARS = 300;
 const MAX_MESSAGE_CHARS = 500;
+export const PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS = 9_000;
+export const PRE_PR_REVIEW_WORKING_TREE_DIFF_MAX_CHARS = 4_000;
+const PRE_PR_REVIEW_AGENTS_MAX_CHARS = 2_000;
+
+export const PRE_PR_REVIEW_PROVIDER_IDS = [
+  "claude-code",
+  "codex",
+] as const satisfies readonly PrePrReviewProviderId[];
+
+export const DEFAULT_PRE_PR_REVIEW_PROVIDER: PrePrReviewProviderId =
+  "claude-code";
+
+export const PRE_PR_REVIEW_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    findings: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          severity: {
+            type: "string",
+            enum: ["critical", "high", "medium", "low"],
+          },
+          file: { type: "string" },
+          line: { type: "number" },
+          kind: {
+            type: "string",
+            enum: ["bug", "race", "security", "other"],
+          },
+          message: { type: "string" },
+        },
+        required: ["severity", "file", "kind", "message"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["findings"],
+  additionalProperties: false,
+} as const;
+
+export function normalizePrePrReviewProvider(
+  value: unknown,
+): PrePrReviewProviderId {
+  return value === "codex" || value === "claude-code"
+    ? value
+    : DEFAULT_PRE_PR_REVIEW_PROVIDER;
+}
+
+export function buildReviewDiffPrompt(args: {
+  diff: string;
+  workingTreeDiff: string;
+  commitLog: string;
+  fileList: string;
+  baseBranch: string;
+  headBranch: string;
+  agentsContent?: string;
+}) {
+  return [
+    "Review this pull request diff before it is opened.",
+    "Find only concrete issues that should be fixed before sharing the PR: logic bugs, races, data loss, security problems, broken user flows, or test gaps that hide a likely bug.",
+    "Do not edit files. Do not run commands. Do not comment on style, naming, formatting, or speculative improvements.",
+    "Return only JSON in this exact shape:",
+    '{"findings":[{"severity":"critical|high|medium|low","file":"path/to/file.ts","line":123,"kind":"bug|race|security|other","message":"short actionable finding"}]}',
+    "Use an empty findings array if there are no concrete issues.",
+    "",
+    `Base branch: ${args.baseBranch}`,
+    `Head branch: ${args.headBranch}`,
+    "",
+    "Commit log:",
+    args.commitLog || "(no commits)",
+    "",
+    "Changed files:",
+    args.fileList || "(no file list available)",
+    ...(args.agentsContent
+      ? [
+          "",
+          "Repository guidelines from AGENTS.md:",
+          args.agentsContent.slice(0, PRE_PR_REVIEW_AGENTS_MAX_CHARS),
+        ]
+      : []),
+    ...(args.diff.length > 0
+      ? [
+          "",
+          "Branch diff against the base branch (may be truncated):",
+          args.diff.slice(0, PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS),
+        ]
+      : []),
+    ...(args.workingTreeDiff.length > 0
+      ? [
+          "",
+          "Uncommitted working tree diff (may be truncated):",
+          args.workingTreeDiff.slice(
+            0,
+            PRE_PR_REVIEW_WORKING_TREE_DIFF_MAX_CHARS,
+          ),
+        ]
+      : []),
+  ].join("\n");
+}
 
 function stripCodeFences(text: string) {
   const trimmed = text.trim();

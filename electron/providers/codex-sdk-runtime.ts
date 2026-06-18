@@ -12,6 +12,12 @@ import type {
   ConnectedToolStatusResponse,
 } from "../../src/lib/providers/connected-tool-status";
 import {
+  buildReviewDiffPrompt,
+  parseReviewFindings,
+  PRE_PR_REVIEW_OUTPUT_SCHEMA,
+  type PrePrReviewFinding,
+} from "../../src/lib/source-control-review";
+import {
   buildCodexCliEnv,
   resolveCodexCliExecutablePath,
 } from "./cli-path-env";
@@ -1393,5 +1399,66 @@ export async function streamCodexWithSdk(
     ];
     failureEvents.forEach((event) => args.onEvent?.(event));
     return failureEvents;
+  }
+}
+
+// ── Pre-PR diff review ──────────────────────────────────────────────────────
+// Runs an isolated single-turn Codex review over the PR diff. It deliberately
+// uses a read-only sandbox and avoids the cached chat threads used by normal
+// Codex turns so review state cannot leak into the user's conversation.
+
+export async function reviewCodexWorktreeDiff(args: {
+  cwd?: string;
+  diff: string;
+  workingTreeDiff: string;
+  commitLog: string;
+  fileList: string;
+  baseBranch: string;
+  headBranch: string;
+  agentsContent?: string;
+  model?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<{ ok: boolean; findings?: PrePrReviewFinding[] }> {
+  try {
+    const runtimeCwd =
+      args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+    const mod = await import("@openai/codex-sdk");
+    const CodexCtor = mod.Codex as
+      | typeof import("@openai/codex-sdk").Codex
+      | undefined;
+    if (!CodexCtor) {
+      return { ok: false };
+    }
+
+    const codexExecutablePath = resolveCodexExecutablePath({
+      explicitPath: args.runtimeOptions?.codexBinaryPath,
+    });
+    if (!codexExecutablePath) {
+      return { ok: false };
+    }
+
+    const codex = new CodexCtor({
+      codexBinaryPath: codexExecutablePath,
+      env: buildCodexEnv({ executablePath: codexExecutablePath }),
+    });
+    const thread = codex.startThread({
+      workingDirectory: runtimeCwd,
+      sandboxMode: "read-only",
+      networkAccessEnabled: false,
+      approvalPolicy: "never",
+      ...(args.model?.trim() || args.runtimeOptions?.model?.trim()
+        ? { model: args.model?.trim() || args.runtimeOptions?.model?.trim() }
+        : {}),
+      ...(args.runtimeOptions?.codexReasoningEffort
+        ? { modelReasoningEffort: args.runtimeOptions.codexReasoningEffort }
+        : {}),
+    });
+    const turn = await thread.run(buildReviewDiffPrompt(args), {
+      outputSchema: PRE_PR_REVIEW_OUTPUT_SCHEMA,
+    });
+
+    return { ok: true, findings: parseReviewFindings(turn.finalResponse) };
+  } catch {
+    return { ok: false };
   }
 }

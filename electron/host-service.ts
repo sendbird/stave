@@ -73,6 +73,7 @@ import {
   uninstallCodexPlugin,
   writeCodexConfigValue,
 } from "./providers/codex-app-server-runtime";
+import { reviewCodexWorktreeDiff } from "./providers/codex-sdk-runtime";
 import {
   getClaudeContextUsage,
   prewarmClaudeSdk,
@@ -82,6 +83,11 @@ import {
   suggestClaudePRDescription,
   suggestClaudeTaskName,
 } from "./providers/claude-sdk-runtime";
+import {
+  normalizePrePrReviewProvider,
+  PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS,
+  PRE_PR_REVIEW_WORKING_TREE_DIFF_MAX_CHARS,
+} from "../src/lib/source-control-review";
 import {
   getCodexMcpStatus,
   getToolingStatusSnapshot,
@@ -769,13 +775,22 @@ async function reviewProviderDiff(args: {
   cwd?: string;
   baseBranch?: string;
   headBranch?: string;
+  providerId?: StreamTurnArgs["providerId"];
+  model?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
+  const providerId = normalizePrePrReviewProvider(args.providerId);
   const context = await collectProviderPullRequestContext(args);
   if (!context.ok) {
-    return { ok: false, findings: [], headBranch: context.headBranch };
+    return {
+      ok: false,
+      findings: [],
+      headBranch: context.headBranch,
+      providerId,
+    };
   }
 
-  const review = await reviewClaudeWorktreeDiff({
+  const reviewArgs = {
     cwd: context.cwd,
     diff: context.diff,
     workingTreeDiff: context.workingTreeDiff,
@@ -784,13 +799,25 @@ async function reviewProviderDiff(args: {
     baseBranch: context.baseBranch,
     headBranch: context.headBranch,
     agentsContent: context.agentsContent,
-  });
+    model: args.model ?? args.runtimeOptions?.model,
+  };
+  const review =
+    providerId === "codex"
+      ? await reviewCodexWorktreeDiff({
+          ...reviewArgs,
+          runtimeOptions: args.runtimeOptions,
+        })
+      : await reviewClaudeWorktreeDiff(reviewArgs);
 
   return {
     ok: review.ok,
     findings: review.findings ?? [],
     headBranch: context.headBranch,
-    truncated: context.diff.length > 9000 || context.workingTreeDiff.length > 4000,
+    providerId,
+    truncated:
+      context.diff.length > PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS ||
+      context.workingTreeDiff.length >
+        PRE_PR_REVIEW_WORKING_TREE_DIFF_MAX_CHARS,
   };
 }
 

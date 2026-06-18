@@ -33,7 +33,10 @@ import type {
   AppNotification,
   AppNotificationCreateInput,
 } from "../src/lib/notifications/notification.types";
-import type { PrePrReviewFinding } from "../src/lib/source-control-review";
+import type {
+  PrePrReviewFinding,
+  PrePrReviewProviderId,
+} from "../src/lib/source-control-review";
 import type { SkillCatalogResponse } from "../src/lib/skills/types";
 import type {
   AppUpdateInstallResult,
@@ -677,11 +680,15 @@ contextBridge.exposeInMainWorld("api", {
       cwd?: string;
       baseBranch?: string;
       headBranch?: string;
+      providerId?: PrePrReviewProviderId;
+      model?: string;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     }) =>
       ipcRenderer.invoke("provider:review-diff", args) as Promise<{
         ok: boolean;
         findings: PrePrReviewFinding[];
         headBranch?: string;
+        providerId?: PrePrReviewProviderId;
         truncated?: boolean;
       }>,
   },

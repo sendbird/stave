@@ -42,7 +42,10 @@ import type {
   ToolingStatusRequest,
   ToolingStatusSnapshot,
 } from "../../src/lib/tooling-status";
-import type { PrePrReviewFinding } from "../../src/lib/source-control-review";
+import type {
+  PrePrReviewFinding,
+  PrePrReviewProviderId,
+} from "../../src/lib/source-control-review";
 import type { CommandResult, SourceControlStatusItem } from "../main/types";
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 
@@ -188,12 +191,16 @@ export interface HostProviderReviewDiffArgs {
   cwd?: string;
   baseBranch?: string;
   headBranch?: string;
+  providerId?: PrePrReviewProviderId;
+  model?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }
 
 export interface HostProviderReviewDiffResult {
   ok: boolean;
   findings: PrePrReviewFinding[];
   headBranch?: string;
+  providerId?: PrePrReviewProviderId;
   truncated?: boolean;
 }
 

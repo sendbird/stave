@@ -61,6 +61,7 @@ import {
 } from "@/lib/pr-status";
 import { isTaskArchived } from "@/lib/tasks";
 import type { PrePrReviewFinding } from "@/lib/source-control-review";
+import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -325,6 +326,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     activeTurnIdsByTask,
     workspacePrInfoById,
     prePrReviewEnabled,
+    prePrReviewProvider,
+    prePrReviewClaudeModel,
+    prePrReviewCodexModel,
+    prePrReviewCodexBinaryPath,
+    prePrReviewCodexReasoningEffort,
     fetchWorkspacePrStatus,
     continueWorkspaceFromSummary,
   ] = useAppStore(useShallow((state) => [
@@ -341,6 +347,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     state.activeTurnIdsByTask,
     state.workspacePrInfoById,
     state.settings.prePrReviewEnabled,
+    state.settings.prePrReviewProvider,
+    state.settings.modelClaude,
+    state.settings.modelCodex,
+    state.settings.codexBinaryPath,
+    state.settings.codexReasoningEffort,
     state.fetchWorkspacePrStatus,
     state.continueWorkspaceFromSummary,
   ] as const));
@@ -748,11 +759,31 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     }
 
     if (prePrReviewEnabled && reviewDiff && !options.skipReview) {
+      const reviewProviderLabel = getProviderLabel({
+        providerId: prePrReviewProvider,
+      });
+      const reviewModel =
+        prePrReviewProvider === "codex"
+          ? prePrReviewCodexModel
+          : prePrReviewClaudeModel;
+      const reviewRuntimeOptions =
+        prePrReviewProvider === "codex"
+          ? {
+              model: reviewModel,
+              codexApprovalPolicy: "never" as const,
+              codexBinaryPath:
+                prePrReviewCodexBinaryPath.trim() || undefined,
+              codexFileAccess: "read-only" as const,
+              codexNetworkAccess: false,
+              codexReasoningEffort: prePrReviewCodexReasoningEffort,
+              codexWebSearch: "disabled" as const,
+            }
+          : { model: reviewModel };
       setStep("reviewing");
       setInlineNotice({
         tone: "info",
         title: "Running AI pre-PR review",
-        description: "Checking the branch diff for concrete bugs, races, and security issues before pushing.",
+        description: `${reviewProviderLabel} is checking the branch diff for concrete bugs, races, and security issues before pushing.`,
       });
 
       try {
@@ -760,15 +791,21 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           cwd: workspaceCwd,
           baseBranch: selectedTargetBranch,
           headBranch: currentBranch || undefined,
+          providerId: prePrReviewProvider,
+          model: reviewModel,
+          runtimeOptions: reviewRuntimeOptions,
         });
 
         if (reviewResult.ok && reviewResult.findings.length > 0) {
+          const resultProviderLabel = getProviderLabel({
+            providerId: reviewResult.providerId ?? prePrReviewProvider,
+          });
           setReviewFindings(reviewResult.findings);
           setReviewDiffTruncated(Boolean(reviewResult.truncated));
           setInlineNotice({
             tone: "warning",
             title: "Review findings need a decision",
-            description: "Stop to fix the issues, or proceed anyway if they are acceptable for this PR.",
+            description: `${resultProviderLabel} found issues. Stop to fix them, or proceed anyway if they are acceptable for this PR.`,
           });
           return;
         }
@@ -779,14 +816,14 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           setInlineNotice({
             tone: "warning",
             title: "AI pre-PR review was skipped",
-            description: "The review request failed, so Stave will continue creating the PR.",
+            description: `${reviewProviderLabel} review failed, so Stave will continue creating the PR.`,
           });
         }
       } catch {
         setInlineNotice({
           tone: "warning",
           title: "AI pre-PR review was skipped",
-          description: "The review request failed, so Stave will continue creating the PR.",
+          description: `${reviewProviderLabel} review failed, so Stave will continue creating the PR.`,
         });
       }
     }

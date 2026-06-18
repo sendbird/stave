@@ -48,6 +48,9 @@ export const ReviewDiffArgsSchema = z
     cwd: z.string().max(4096).optional(),
     baseBranch: z.string().max(200).optional(),
     headBranch: z.string().max(200).optional(),
+    providerId: ProviderIdSchema.optional(),
+    model: z.string().max(200).optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema),
   })
   .strict();
 

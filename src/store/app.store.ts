@@ -93,6 +93,11 @@ import {
   normalizeResponseStylePrompt,
 } from "@/lib/providers/prompt-defaults";
 import {
+  DEFAULT_PRE_PR_REVIEW_PROVIDER,
+  normalizePrePrReviewProvider,
+  type PrePrReviewProviderId,
+} from "@/lib/source-control-review";
+import {
   normalizeThinkingPhraseAnimationStyle,
   type ThinkingPhraseAnimationStyle,
 } from "@/lib/thinking-phrases";
@@ -787,6 +792,7 @@ export interface AppSettings {
   reviewStrictMode: boolean;
   reviewChecklistPreset: string;
   prePrReviewEnabled: boolean;
+  prePrReviewProvider: PrePrReviewProviderId;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -1755,6 +1761,7 @@ const defaultSettings: AppSettings = {
   reviewStrictMode: true,
   reviewChecklistPreset: "safety-first",
   prePrReviewEnabled: false,
+  prePrReviewProvider: DEFAULT_PRE_PR_REVIEW_PROVIDER,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",
@@ -10819,6 +10826,9 @@ export const useAppStore = create<AppState>()(
           );
         state.settings.promptResponseStyle = normalizeResponseStylePrompt(
           state.settings.promptResponseStyle,
+        );
+        state.settings.prePrReviewProvider = normalizePrePrReviewProvider(
+          state.settings.prePrReviewProvider,
         );
         const legacyProjectInitCommand = normalizeProjectWorkspaceInitCommand({
           value: raw.newWorkspaceInitCommand,
