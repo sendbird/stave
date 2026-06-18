@@ -91,6 +91,7 @@ export function AppShell() {
     projectName,
     tasks,
     activeTaskId,
+    activeAppSurface,
     activeSurface,
     cliSessionTabs,
     activeTurnIdsByTask,
@@ -139,6 +140,7 @@ export function AppShell() {
           state.projectName,
           state.tasks,
           state.activeTaskId,
+          state.activeAppSurface,
           state.activeSurface,
           state.cliSessionTabs,
           state.activeTurnIdsByTask,
@@ -1224,10 +1226,13 @@ export function AppShell() {
     ],
   );
   const showCliSurface =
+    activeAppSurface.kind === "workspace" &&
     activeSurface.kind === "cli-session" &&
     cliSessionTabs.some((tab) => tab.id === activeSurface.cliSessionTabId);
-  const showFleetView = activeSurface.kind === "fleet-view";
-  const showCompareRun = activeSurface.kind === "compare-run";
+  const showFleetView = activeAppSurface.kind === "fleet-view";
+  const showCompareRun =
+    activeAppSurface.kind === "workspace" &&
+    activeSurface.kind === "compare-run";
 
   return (
     <div className="relative flex h-full w-full bg-background text-foreground">
@@ -1375,8 +1380,10 @@ export function AppShell() {
                 className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
               >
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                  {hasProject ? <WorkspaceTaskTabs /> : null}
-                  {hasProject && showPresetBar ? <PresetBar /> : null}
+                  {hasProject && !showFleetView ? <WorkspaceTaskTabs /> : null}
+                  {hasProject && !showFleetView && showPresetBar ? (
+                    <PresetBar />
+                  ) : null}
                   <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">

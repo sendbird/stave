@@ -72,7 +72,7 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.terminalDocked).toBe(true);
   });
 
-  test("parses fleet view as a workspace active surface", () => {
+  test("normalizes legacy fleet view workspace surfaces to task fallback", () => {
     const parsed = parseWorkspaceShell({
       payload: {
         ...createWorkspaceBase(),
@@ -81,7 +81,7 @@ describe("task-context workspace schemas", () => {
       },
     });
 
-    expect(parsed?.activeSurface).toEqual({ kind: "fleet-view" });
+    expect(parsed?.activeSurface).toEqual({ kind: "task", taskId: "" });
   });
 
   test("parses compare run as a workspace active surface", () => {
