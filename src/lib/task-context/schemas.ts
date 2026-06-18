@@ -57,6 +57,7 @@ const ApprovalPartSchema = z.object({
   type: z.literal("approval"),
   toolName: z.string(),
   description: z.string(),
+  input: z.string().optional(),
   requestId: z.string(),
   state: z.union([
     z.literal("approval-requested"),
