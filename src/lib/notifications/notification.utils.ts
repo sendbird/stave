@@ -11,6 +11,7 @@ const STOP_REASON_LABELS: Record<string, string> = {
 export const NOTIFICATION_TOAST_DURATIONS_MS = {
   turnCompleted: 4000,
   approvalRequested: 8000,
+  userInputRequested: 8000,
 } as const;
 
 export interface NotificationToastOptions {
@@ -58,6 +59,32 @@ export function formatApprovalNotificationDetail(
   return null;
 }
 
+export function formatUserInputNotificationDetail(
+  payload: Record<string, unknown>,
+): string | null {
+  const toolName =
+    typeof payload.toolName === "string" ? payload.toolName.trim() : "";
+  const question =
+    typeof payload.question === "string" ? payload.question.trim() : "";
+  const questionCount =
+    typeof payload.questionCount === "number" && payload.questionCount > 1
+      ? payload.questionCount
+      : null;
+  const detail = question || (questionCount ? `${questionCount} questions` : "");
+
+  if (toolName && detail) {
+    return `${toolName}: ${detail}`;
+  }
+  if (toolName) {
+    return toolName;
+  }
+  if (detail) {
+    return detail;
+  }
+
+  return null;
+}
+
 export function buildNotificationDetail(
   notification: Pick<AppNotification, "kind" | "payload">,
 ): string | null {
@@ -66,6 +93,9 @@ export function buildNotificationDetail(
   }
   if (notification.kind === "task.approval_requested") {
     return formatApprovalNotificationDetail(notification.payload);
+  }
+  if (notification.kind === "task.user_input_requested") {
+    return formatUserInputNotificationDetail(notification.payload);
   }
 
   return null;
@@ -94,11 +124,22 @@ export function buildNotificationToastOptions(
     };
   }
 
+  if (notification.kind === "task.approval_requested") {
+    return {
+      tone: "warning",
+      title: `Approval needed — ${label}`,
+      description,
+      duration: NOTIFICATION_TOAST_DURATIONS_MS.approvalRequested,
+      closeButton: true,
+      dismissible: true,
+    };
+  }
+
   return {
     tone: "warning",
-    title: `Approval needed — ${label}`,
+    title: `Input needed — ${label}`,
     description,
-    duration: NOTIFICATION_TOAST_DURATIONS_MS.approvalRequested,
+    duration: NOTIFICATION_TOAST_DURATIONS_MS.userInputRequested,
     closeButton: true,
     dismissible: true,
   };

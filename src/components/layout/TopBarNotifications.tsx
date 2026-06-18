@@ -20,7 +20,10 @@ import {
 } from "@/components/layout/top-bar-notifications.utils";
 import { buildNotificationDetail } from "@/lib/notifications/notification.utils";
 import { formatTaskUpdatedAt, isTaskArchived, isTaskManaged } from "@/lib/tasks";
-import { isNotificationUnread } from "@/lib/notifications/notification.types";
+import {
+  isNotificationUnread,
+  type AppNotification,
+} from "@/lib/notifications/notification.types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
@@ -31,11 +34,21 @@ interface ArchivedNotificationPrompt {
   taskTitle: string;
 }
 
-function NotificationKindIcon({ kind }: { kind: "task.turn_completed" | "task.approval_requested" }) {
-  if (kind === "task.approval_requested") {
+function NotificationKindIcon({ kind }: { kind: AppNotification["kind"] }) {
+  if (
+    kind === "task.approval_requested" ||
+    kind === "task.user_input_requested"
+  ) {
     return <ShieldAlert className="size-3.5 shrink-0 text-warning" />;
   }
   return <CircleCheck className="size-3.5 shrink-0 text-success" />;
+}
+
+function shouldOpenNotificationInFleet(kind: AppNotification["kind"]) {
+  return (
+    kind === "task.approval_requested" ||
+    kind === "task.user_input_requested"
+  );
 }
 
 function buildLocationLabel(args: {
@@ -119,17 +132,24 @@ export function TopBarNotifications(props: {
     }
   }
 
-  async function handleOpenNotification(notificationId: string) {
-    setPendingActionId(`open:${notificationId}`);
+  async function handleOpenNotification(notification: AppNotification) {
+    setPendingActionId(`open:${notification.id}`);
     try {
-      const result = await openNotificationContext({ notificationId });
+      const result = await openNotificationContext({
+        notificationId: notification.id,
+        targetSurface: shouldOpenNotificationInFleet(notification.kind)
+          ? "fleet"
+          : "task",
+      });
       if (result.status === "archived-task") {
         setArchivedPrompt({
-          notificationId,
+          notificationId: notification.id,
           taskTitle: result.taskTitle,
         });
       } else {
-        setArchivedPrompt((current) => current?.notificationId === notificationId ? null : current);
+        setArchivedPrompt((current) =>
+          current?.notificationId === notification.id ? null : current,
+        );
       }
     } finally {
       setPendingActionId(null);
@@ -258,7 +278,7 @@ export function TopBarNotifications(props: {
             <div className="px-4 py-8 text-center">
               <p className="text-sm font-medium text-foreground">No notifications yet.</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Task completions and approval requests will appear here.
+                Task completions and blocked requests will appear here.
               </p>
             </div>
           ) : visibleNotifications.length === 0 ? (
@@ -342,7 +362,9 @@ export function TopBarNotifications(props: {
                             type="button"
                             className="min-w-0 flex-1 rounded-lg p-1 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none"
                             disabled={notificationBusy}
-                            onClick={() => void handleOpenNotification(notification.id)}
+                            onClick={() =>
+                              void handleOpenNotification(notification)
+                            }
                           >
                             <div className="flex items-center gap-1.5">
                               <NotificationKindIcon kind={notification.kind} />

@@ -162,11 +162,17 @@ import {
   findLatestPendingApprovalPart,
   findLatestPendingUserInput,
   findPendingApprovalMessageByRequestId,
+  findPendingUserInputMessageByRequestId,
   findLatestPendingUserInputPart,
   interruptPendingToolInteractionsInMessages,
   updateApprovalPartsByRequestId,
   updateUserInputPartsByRequestId,
 } from "@/store/provider-message.utils";
+import {
+  buildReviewFeedbackFileContexts,
+  formatReviewFeedbackPrompt,
+} from "@/lib/review-feedback";
+import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import {
   applyProjectBasePromptToRuntimeOptions,
   buildProviderRuntimeOptions,
@@ -916,6 +922,7 @@ interface AppState {
   providerAvailability: Record<ProviderId, boolean>;
   skillCatalog: SkillCatalogState;
   notifications: AppNotification[];
+  reviewCommentsByTask: Record<string, ReviewComment[] | undefined>;
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerTurnActivityByTask: Record<
     string,
@@ -1102,11 +1109,27 @@ interface AppState {
   markAllNotificationsRead: () => Promise<void>;
   openNotificationContext: (args: {
     notificationId: string;
+    targetSurface?: "task" | "fleet";
   }) => Promise<NotificationContextOpenResult>;
   resolveNotificationApproval: (args: {
     notificationId: string;
     approved: boolean;
   }) => Promise<void>;
+  addReviewComment: (args: {
+    taskId: string;
+    filePath: string;
+    line?: number;
+    side?: ReviewCommentSide;
+    body: string;
+  }) => ReviewComment | null;
+  removeReviewComment: (args: {
+    taskId: string;
+    commentId: string;
+  }) => void;
+  clearReviewComments: (args: { taskId: string }) => void;
+  submitReviewFeedback: (args: {
+    taskId: string;
+  }) => Promise<SendUserMessageResult>;
   sendUserMessage: (args: {
     taskId: string;
     content: string;
@@ -1497,6 +1520,103 @@ function buildApprovalNotificationInputs(args: {
           description: event.description,
         },
         dedupeKey: `task.approval_requested:${args.turnId}:${event.requestId}`,
+      } satisfies AppNotificationCreateInput,
+    ];
+  });
+}
+
+function formatUserInputQuestionSummary(
+  event: Extract<NormalizedProviderEvent, { type: "user_input" }>,
+) {
+  const firstQuestion = event.questions[0];
+  const questionText =
+    firstQuestion?.header.trim() || firstQuestion?.question.trim() || "";
+  if (questionText) {
+    return questionText;
+  }
+  if (event.questions.length > 1) {
+    return `${event.questions.length} questions`;
+  }
+  return "User input requested";
+}
+
+function buildUserInputNotificationInputs(args: {
+  state: Pick<
+    AppState,
+    "projectPath" | "projectName" | "workspaces" | "recentProjects"
+  >;
+  session: WorkspaceSessionState;
+  workspaceId: string;
+  taskId: string;
+  turnId: string;
+  provider: ProviderId;
+  events: NormalizedProviderEvent[];
+}): AppNotificationCreateInput[] {
+  const userInputEvents = args.events.filter(
+    (
+      event,
+    ): event is Extract<NormalizedProviderEvent, { type: "user_input" }> =>
+      event.type === "user_input",
+  );
+  if (userInputEvents.length === 0) {
+    return [];
+  }
+
+  const project = resolveProjectForWorkspaceId({
+    state: {
+      projectPath: args.state.projectPath,
+      projectName: args.state.projectName,
+      workspaces: args.state.workspaces,
+      recentProjects: args.state.recentProjects,
+    },
+    workspaceId: args.workspaceId,
+  });
+  const workspaceName = resolveWorkspaceName({
+    state: {
+      workspaces: args.state.workspaces,
+      recentProjects: args.state.recentProjects,
+    },
+    workspaceId: args.workspaceId,
+  });
+  const taskTitle = resolveTaskTitleFromSession({
+    session: args.session,
+    taskId: args.taskId,
+  });
+  const taskMessages = args.session.messagesByTask[args.taskId] ?? [];
+
+  return userInputEvents.flatMap((event) => {
+    const location = findPendingUserInputMessageByRequestId({
+      messages: taskMessages,
+      requestId: event.requestId,
+    });
+    if (!location) {
+      return [];
+    }
+
+    const question = formatUserInputQuestionSummary(event);
+    return [
+      {
+        id: crypto.randomUUID(),
+        kind: "task.user_input_requested",
+        title: taskTitle,
+        body: `${event.toolName}: ${question}`,
+        projectPath: project?.projectPath ?? null,
+        projectName: project?.projectName ?? null,
+        workspaceId: args.workspaceId,
+        workspaceName,
+        taskId: args.taskId,
+        taskTitle,
+        turnId: args.turnId,
+        providerId: args.provider,
+        action: null,
+        payload: {
+          toolName: event.toolName,
+          question,
+          questionCount: event.questions.length,
+          requestId: event.requestId,
+          messageId: location.messageId,
+        },
+        dedupeKey: `task.user_input_requested:${args.turnId}:${event.requestId}`,
       } satisfies AppNotificationCreateInput,
     ];
   });
@@ -2947,6 +3067,7 @@ export const useAppStore = create<AppState>()(
 
       const openNotificationContextInternal = async (
         notification: AppNotification,
+        options: { targetSurface?: "task" | "fleet" } = {},
       ): Promise<NotificationContextOpenResult> => {
         const projectPath = notification.projectPath?.trim();
         if (projectPath && projectPath !== get().projectPath) {
@@ -2985,6 +3106,16 @@ export const useAppStore = create<AppState>()(
               notification.taskTitle?.trim() ||
               "Untitled Task",
           };
+        }
+
+        if (options.targetSurface === "fleet") {
+          await get().focusTaskAttention({
+            taskId,
+            workspaceId,
+            projectPath,
+          });
+          get().openFleetView();
+          return { status: "opened" };
         }
 
         afterWorkspaceOpen.selectTask({ taskId });
@@ -3595,6 +3726,7 @@ export const useAppStore = create<AppState>()(
           detail: "Skill catalog has not been loaded yet.",
         },
         notifications: [],
+        reviewCommentsByTask: {},
         activeTurnIdsByTask: {},
         providerTurnActivityByTask: {},
         nativeSessionReadyByTask: {},
@@ -7893,14 +8025,16 @@ export const useAppStore = create<AppState>()(
             );
           }
         },
-        openNotificationContext: async ({ notificationId }) => {
+        openNotificationContext: async ({ notificationId, targetSurface }) => {
           const notification = get().notifications.find(
             (item) => item.id === notificationId,
           );
           if (!notification) {
             return { status: "opened" };
           }
-          const result = await openNotificationContextInternal(notification);
+          const result = await openNotificationContextInternal(notification, {
+            targetSurface,
+          });
           if (isNotificationUnread(notification)) {
             await get().markNotificationRead({ id: notification.id });
           }
@@ -7950,6 +8084,101 @@ export const useAppStore = create<AppState>()(
             approved,
           });
           await latestState.markNotificationRead({ id: notification.id });
+        },
+        addReviewComment: ({ taskId, filePath, line, side, body }) => {
+          const normalizedTaskId = taskId.trim();
+          const normalizedFilePath = filePath.trim();
+          const normalizedBody = body.trim();
+          if (!normalizedTaskId || !normalizedFilePath || !normalizedBody) {
+            return null;
+          }
+
+          const normalizedLine =
+            Number.isInteger(line) && line && line > 0 ? line : undefined;
+          const comment: ReviewComment = {
+            id: crypto.randomUUID(),
+            filePath: normalizedFilePath,
+            ...(normalizedLine ? { line: normalizedLine } : {}),
+            side: side === "original" ? "original" : "modified",
+            body: normalizedBody,
+            createdAt: buildRecentTimestamp(),
+          };
+
+          set((state) => ({
+            reviewCommentsByTask: {
+              ...state.reviewCommentsByTask,
+              [normalizedTaskId]: [
+                ...(state.reviewCommentsByTask[normalizedTaskId] ?? []),
+                comment,
+              ],
+            },
+          }));
+
+          return comment;
+        },
+        removeReviewComment: ({ taskId, commentId }) => {
+          const normalizedTaskId = taskId.trim();
+          if (!normalizedTaskId || !commentId) {
+            return;
+          }
+          set((state) => {
+            const current = state.reviewCommentsByTask[normalizedTaskId] ?? [];
+            const nextComments = current.filter(
+              (comment) => comment.id !== commentId,
+            );
+            if (nextComments.length === current.length) {
+              return state;
+            }
+            const nextByTask = { ...state.reviewCommentsByTask };
+            if (nextComments.length > 0) {
+              nextByTask[normalizedTaskId] = nextComments;
+            } else {
+              delete nextByTask[normalizedTaskId];
+            }
+            return { reviewCommentsByTask: nextByTask };
+          });
+        },
+        clearReviewComments: ({ taskId }) => {
+          const normalizedTaskId = taskId.trim();
+          if (!normalizedTaskId) {
+            return;
+          }
+          set((state) => {
+            if (!state.reviewCommentsByTask[normalizedTaskId]) {
+              return state;
+            }
+            const nextByTask = { ...state.reviewCommentsByTask };
+            delete nextByTask[normalizedTaskId];
+            return { reviewCommentsByTask: nextByTask };
+          });
+        },
+        submitReviewFeedback: async ({ taskId }) => {
+          const normalizedTaskId = taskId.trim();
+          if (!normalizedTaskId) {
+            return { status: "blocked" } satisfies SendUserMessageResult;
+          }
+
+          const state = get();
+          const comments = state.reviewCommentsByTask[normalizedTaskId] ?? [];
+          const content = formatReviewFeedbackPrompt({ comments });
+          if (!content) {
+            return { status: "blocked" } satisfies SendUserMessageResult;
+          }
+
+          const result = await get().sendUserMessage({
+            taskId: normalizedTaskId,
+            content,
+            fileContexts: buildReviewFeedbackFileContexts({
+              comments,
+              editorTabs: state.editorTabs,
+            }),
+          });
+
+          if (result.status !== "blocked") {
+            get().clearReviewComments({ taskId: normalizedTaskId });
+          }
+
+          return result;
         },
         sendUserMessage: async ({
           taskId,
@@ -8698,6 +8927,17 @@ export const useAppStore = create<AppState>()(
                         provider,
                         events: pendingEvents,
                       });
+                    notificationsToPersist.push(
+                      ...buildUserInputNotificationInputs({
+                        state: latestState,
+                        session: notificationSession,
+                        workspaceId: taskWorkspaceId,
+                        taskId: resolvedTaskId,
+                        turnId,
+                        provider,
+                        events: pendingEvents,
+                      }),
+                    );
                     const completionNotification =
                       buildTaskTurnCompletedNotificationInput({
                         state: latestState,

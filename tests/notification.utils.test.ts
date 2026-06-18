@@ -5,6 +5,7 @@ import {
   buildNotificationDetail,
   NOTIFICATION_TOAST_DURATIONS_MS,
   formatApprovalNotificationDetail,
+  formatUserInputNotificationDetail,
   formatNotificationStopReason,
 } from "@/lib/notifications/notification.utils";
 
@@ -70,6 +71,26 @@ describe("notification formatting utils", () => {
     );
   });
 
+  test("uses user input question details for blocked input notifications", () => {
+    expect(
+      formatUserInputNotificationDetail({
+        toolName: "request_user_input",
+        question: "Pick a release target",
+        questionCount: 1,
+      }),
+    ).toBe("request_user_input: Pick a release target");
+
+    expect(
+      buildNotificationDetail({
+        kind: "task.user_input_requested",
+        payload: {
+          toolName: "request_user_input",
+          questionCount: 2,
+        },
+      }),
+    ).toBe("request_user_input: 2 questions");
+  });
+
   test("builds a faster dismissible success toast for completed turns", () => {
     const notification = {
       kind: "task.turn_completed",
@@ -112,6 +133,31 @@ describe("notification formatting utils", () => {
       title: "Approval needed — Refactor notifications",
       description: "Bash: Run tests before continuing",
       duration: NOTIFICATION_TOAST_DURATIONS_MS.approvalRequested,
+      closeButton: true,
+      dismissible: true,
+    });
+  });
+
+  test("builds a dismissible user-input toast with a finite duration", () => {
+    const notification = {
+      kind: "task.user_input_requested",
+      taskTitle: "Refactor notifications",
+      workspaceName: "workspace",
+      payload: {
+        toolName: "request_user_input",
+        question: "Pick a release target",
+        questionCount: 1,
+      },
+    } satisfies Pick<
+      AppNotification,
+      "kind" | "taskTitle" | "workspaceName" | "payload"
+    >;
+
+    expect(buildNotificationToastOptions(notification)).toEqual({
+      tone: "warning",
+      title: "Input needed — Refactor notifications",
+      description: "request_user_input: Pick a release target",
+      duration: NOTIFICATION_TOAST_DURATIONS_MS.userInputRequested,
       closeButton: true,
       dismissible: true,
     });

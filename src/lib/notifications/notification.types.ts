@@ -2,7 +2,8 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 
 export type AppNotificationKind =
   | "task.turn_completed"
-  | "task.approval_requested";
+  | "task.approval_requested"
+  | "task.user_input_requested";
 
 export interface AppNotificationApprovalAction {
   type: "approval";
