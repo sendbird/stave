@@ -450,7 +450,7 @@ export type NormalizedProviderEvent =
   | { type: "tool_progress"; toolUseId: string; toolName: string; elapsedSeconds: number }
   | { type: "tool_result"; tool_use_id: string; output: string; isError?: boolean; isPartial?: boolean }
   | { type: "diff"; filePath: string; oldContent: string; newContent: string; status?: CodeDiffPart["status"] }
-  | { type: "approval"; toolName: string; requestId: string; description: string }
+  | { type: "approval"; toolName: string; requestId: string; description: string; input?: string }
   | { type: "user_input"; toolName: string; requestId: string; questions: UserInputQuestion[] }
   | { type: "plan_ready"; planText: string; sourceSegmentId?: string }
   | {
@@ -502,6 +502,7 @@ export interface ProviderRuntimeOptions {
   claudeFastMode?: boolean;
   claudeAllowedTools?: string[];
   claudeDisallowedTools?: string[];
+  trustedTools?: string[];
   claudeSkills?: "all" | string[];
   claudePluginPaths?: string[];
   claudeAgentName?: string;

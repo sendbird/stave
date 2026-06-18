@@ -85,12 +85,14 @@ function createApprovalPart(args: {
   requestId: string;
   toolName: string;
   description: string;
+  input?: string;
 }): ApprovalPart {
   return sanitizeMessagePartPayload({
     type: "approval",
     toolName: args.toolName,
     requestId: args.requestId,
     description: args.description,
+    ...(args.input ? { input: args.input } : {}),
     state: "approval-requested",
   });
 }
@@ -262,6 +264,7 @@ function normalizeEventToPart(args: { event: NormalizedProviderEvent }): Message
         requestId: event.requestId,
         toolName: event.toolName,
         description: event.description,
+        input: event.input,
       });
     case "user_input":
       return createUserInputPart({
