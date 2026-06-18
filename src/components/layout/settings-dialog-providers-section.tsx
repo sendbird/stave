@@ -26,6 +26,10 @@ import {
   CODEX_EFFORT_OPTIONS,
 } from "@/lib/providers/runtime-option-contract";
 import {
+  formatTrustedToolEntry,
+  removeTrustedToolEntry,
+} from "@/lib/providers/trusted-tools";
+import {
   buildClaudeProviderModeSettingsPatch,
   buildCodexProviderModeSettingsPatch,
   CLAUDE_PROVIDER_MODE_PRESETS,
@@ -571,6 +575,7 @@ export function ProvidersSection() {
     codexReasoningSummarySupport,
     codexAdditionalReadableRoots,
     codexFastMode,
+    trustedTools,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -606,6 +611,7 @@ export function ProvidersSection() {
           state.settings.codexReasoningSummarySupport,
           state.settings.codexAdditionalReadableRoots,
           state.settings.codexFastMode,
+          state.settings.trustedTools,
         ] as const,
     ),
   );
@@ -664,6 +670,53 @@ export function ProvidersSection() {
         title="Providers"
         description="Provider-specific runtime controls and connected feature status for Claude and Codex."
       />
+      <SettingsCard
+        title="Trusted Approvals"
+        description="Approvals marked as always allowed. Bash entries are stored as command prefixes instead of trusting every shell command."
+        titleAccessory={
+          <Badge variant={trustedTools.length > 0 ? "secondary" : "outline"}>
+            {trustedTools.length}
+          </Badge>
+        }
+      >
+        {trustedTools.length > 0 ? (
+          <div className="space-y-2">
+            {trustedTools.map((entry) => (
+              <div
+                key={entry}
+                className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-muted/20 px-3 py-2"
+              >
+                <span className="min-w-0 truncate text-sm">
+                  {formatTrustedToolEntry(entry)}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 shrink-0 px-2 text-xs"
+                  onClick={() =>
+                    updateSettings({
+                      patch: {
+                        trustedTools: removeTrustedToolEntry({
+                          entries: trustedTools,
+                          entry,
+                        }),
+                      },
+                    })
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No trusted approvals yet. Use approve and always allow from an
+            approval prompt to add one.
+          </p>
+        )}
+      </SettingsCard>
       <Tabs defaultValue="claude" className="gap-4">
         <TabsList className="h-auto w-full justify-start rounded-xl border border-border/70 bg-muted/30 p-1">
           <TabsTrigger

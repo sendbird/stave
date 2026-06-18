@@ -67,6 +67,7 @@ function cloneMessagePart(part: MessagePart): MessagePart {
         type: "approval",
         toolName: part.toolName,
         description: part.description,
+        ...(part.input ? { input: part.input } : {}),
         requestId: part.requestId,
         state: part.state,
       };
