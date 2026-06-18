@@ -440,7 +440,7 @@ function SectionHeader(props: {
           </div>
         ) : null}
       </div>
-      <AccordionContent className="pb-3 pl-6 pt-0">
+      <AccordionContent className="pb-3 pl-2 pt-0">
         {props.children}
       </AccordionContent>
     </AccordionItem>
