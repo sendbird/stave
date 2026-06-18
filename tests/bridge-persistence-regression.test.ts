@@ -4430,6 +4430,328 @@ describe("workspace store hydration ordering", () => {
     expect(closedWorkspaceIds).toEqual(["ws-feature-close"]);
   });
 
+  test("closeWorkspace cleanup removes clean worktrees without force", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
+
+    setWindowContext({
+      localStorage,
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          upsertWorkspace: async () => ({ ok: true }),
+          closeWorkspace: async () => ({ ok: true }),
+        },
+        fs: {
+          listFiles: async () => ({ ok: true, files: [] }),
+          readFile: async () => ({ ok: false }),
+          writeFile: async () => ({ ok: false }),
+        },
+        terminal: {
+          runCommand: async (call: { cwd?: string; command: string }) => {
+            runCalls.push(call);
+            if (
+              call.cwd === workspacePath &&
+              call.command === "git status --porcelain --untracked-files=all"
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
+              call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
+              call.command === "git worktree prune"
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
+              call.command === 'git rev-list --count "feature" --not --remotes'
+            ) {
+              return { ok: true, code: 0, stdout: "0\n", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
+              call.command === 'git branch -d "feature"'
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            return {
+              ok: false,
+              code: 1,
+              stdout: "",
+              stderr: `Unexpected command: ${call.command}`,
+            };
+          },
+        },
+      },
+    });
+
+    const { useAppStore, waitForPendingWorkspaceArchiveCleanups } =
+      await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        {
+          id: "ws-main-close",
+          name: "Main",
+          updatedAt: "2026-03-10T00:00:00.000Z",
+        },
+        {
+          id: "ws-feature-close",
+          name: "feature",
+          updatedAt: "2026-03-10T00:01:00.000Z",
+        },
+      ],
+      activeWorkspaceId: "ws-main-close",
+      projectPath: "/tmp/stave-project-close",
+      workspacePathById: {
+        "ws-main-close": "/tmp/stave-project-close",
+        "ws-feature-close": workspacePath,
+      },
+      workspaceBranchById: {
+        "ws-main-close": "main",
+        "ws-feature-close": "feature",
+      },
+      workspaceDefaultById: {
+        "ws-main-close": true,
+        "ws-feature-close": false,
+      },
+    });
+
+    await useAppStore
+      .getState()
+      .closeWorkspace({ workspaceId: "ws-feature-close" });
+    await waitForPendingWorkspaceArchiveCleanups();
+
+    expect(runCalls.map((call) => call.command)).toEqual([
+      "git status --porcelain --untracked-files=all",
+      `git worktree remove ${JSON.stringify(workspacePath)}`,
+      "git worktree prune",
+      'git rev-list --count "feature" --not --remotes',
+      'git branch -d "feature"',
+    ]);
+    expect(runCalls.some((call) => call.command.includes("--force"))).toBe(
+      false,
+    );
+    expect(runCalls.some((call) => call.command.includes("rm -rf"))).toBe(
+      false,
+    );
+    expect(runCalls.some((call) => call.command.includes("branch -D"))).toBe(
+      false,
+    );
+  });
+
+  test("closeWorkspace cleanup preserves dirty worktrees and branches", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
+      setWindowContext({
+        localStorage,
+        api: {
+          persistence: {
+            listWorkspaces: async () => ({ ok: true, rows: [] }),
+            loadWorkspace: async () => ({ ok: true, snapshot: null }),
+            upsertWorkspace: async () => ({ ok: true }),
+            closeWorkspace: async () => ({ ok: true }),
+          },
+          fs: {
+            listFiles: async () => ({ ok: true, files: [] }),
+            readFile: async () => ({ ok: false }),
+            writeFile: async () => ({ ok: false }),
+          },
+          terminal: {
+            runCommand: async (call: { cwd?: string; command: string }) => {
+              runCalls.push(call);
+              if (
+                call.cwd === workspacePath &&
+                call.command === "git status --porcelain --untracked-files=all"
+              ) {
+                return {
+                  ok: true,
+                  code: 0,
+                  stdout: " M src/app.ts\n?? scratch.md\n",
+                  stderr: "",
+                };
+              }
+              return {
+                ok: false,
+                code: 1,
+                stdout: "",
+                stderr: `Unexpected command: ${call.command}`,
+              };
+            },
+          },
+        },
+      });
+
+      const { useAppStore, waitForPendingWorkspaceArchiveCleanups } =
+        await import("../src/store/app.store");
+      const initialState = useAppStore.getInitialState();
+      useAppStore.setState({
+        ...initialState,
+        hasHydratedWorkspaces: true,
+        workspaces: [
+          {
+            id: "ws-main-close",
+            name: "Main",
+            updatedAt: "2026-03-10T00:00:00.000Z",
+          },
+          {
+            id: "ws-feature-close",
+            name: "feature",
+            updatedAt: "2026-03-10T00:01:00.000Z",
+          },
+        ],
+        activeWorkspaceId: "ws-main-close",
+        projectPath: "/tmp/stave-project-close",
+        workspacePathById: {
+          "ws-main-close": "/tmp/stave-project-close",
+          "ws-feature-close": workspacePath,
+        },
+        workspaceBranchById: {
+          "ws-main-close": "main",
+          "ws-feature-close": "feature",
+        },
+        workspaceDefaultById: {
+          "ws-main-close": true,
+          "ws-feature-close": false,
+        },
+      });
+
+      await useAppStore
+        .getState()
+        .closeWorkspace({ workspaceId: "ws-feature-close" });
+      await waitForPendingWorkspaceArchiveCleanups();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    expect(runCalls.map((call) => call.command)).toEqual([
+      "git status --porcelain --untracked-files=all",
+    ]);
+  });
+
+  test("closeWorkspace cleanup preserves unpushed branches after worktree removal", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
+      setWindowContext({
+        localStorage,
+        api: {
+          persistence: {
+            listWorkspaces: async () => ({ ok: true, rows: [] }),
+            loadWorkspace: async () => ({ ok: true, snapshot: null }),
+            upsertWorkspace: async () => ({ ok: true }),
+            closeWorkspace: async () => ({ ok: true }),
+          },
+          fs: {
+            listFiles: async () => ({ ok: true, files: [] }),
+            readFile: async () => ({ ok: false }),
+            writeFile: async () => ({ ok: false }),
+          },
+          terminal: {
+            runCommand: async (call: { cwd?: string; command: string }) => {
+              runCalls.push(call);
+              if (
+                call.cwd === workspacePath &&
+                call.command === "git status --porcelain --untracked-files=all"
+              ) {
+                return { ok: true, code: 0, stdout: "", stderr: "" };
+              }
+              if (
+                call.cwd === "/tmp/stave-project-close" &&
+                call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
+              ) {
+                return { ok: true, code: 0, stdout: "", stderr: "" };
+              }
+              if (
+                call.cwd === "/tmp/stave-project-close" &&
+                call.command === "git worktree prune"
+              ) {
+                return { ok: true, code: 0, stdout: "", stderr: "" };
+              }
+              if (
+                call.cwd === "/tmp/stave-project-close" &&
+                call.command === 'git rev-list --count "feature" --not --remotes'
+              ) {
+                return { ok: true, code: 0, stdout: "2\n", stderr: "" };
+              }
+              return {
+                ok: false,
+                code: 1,
+                stdout: "",
+                stderr: `Unexpected command: ${call.command}`,
+              };
+            },
+          },
+        },
+      });
+
+      const { useAppStore, waitForPendingWorkspaceArchiveCleanups } =
+        await import("../src/store/app.store");
+      const initialState = useAppStore.getInitialState();
+      useAppStore.setState({
+        ...initialState,
+        hasHydratedWorkspaces: true,
+        workspaces: [
+          {
+            id: "ws-main-close",
+            name: "Main",
+            updatedAt: "2026-03-10T00:00:00.000Z",
+          },
+          {
+            id: "ws-feature-close",
+            name: "feature",
+            updatedAt: "2026-03-10T00:01:00.000Z",
+          },
+        ],
+        activeWorkspaceId: "ws-main-close",
+        projectPath: "/tmp/stave-project-close",
+        workspacePathById: {
+          "ws-main-close": "/tmp/stave-project-close",
+          "ws-feature-close": workspacePath,
+        },
+        workspaceBranchById: {
+          "ws-main-close": "main",
+          "ws-feature-close": "feature",
+        },
+        workspaceDefaultById: {
+          "ws-main-close": true,
+          "ws-feature-close": false,
+        },
+      });
+
+      await useAppStore
+        .getState()
+        .closeWorkspace({ workspaceId: "ws-feature-close" });
+      await waitForPendingWorkspaceArchiveCleanups();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    expect(runCalls.map((call) => call.command)).toEqual([
+      "git status --porcelain --untracked-files=all",
+      `git worktree remove ${JSON.stringify(workspacePath)}`,
+      "git worktree prune",
+      'git rev-list --count "feature" --not --remotes',
+    ]);
+  });
+
   test("switchWorkspace resolves after shell hydrate and backfills messages asynchronously for uncached workspaces", async () => {
     const localStorage = createMemoryStorage();
     let resolveTaskMessages:

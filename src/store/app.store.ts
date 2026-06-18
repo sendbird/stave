@@ -2176,6 +2176,16 @@ async function closeTerminalSessionsForWorkspaces(workspaceIds: string[]) {
 
 const activeWorkspaceArchiveCleanups = new Set<Promise<void>>();
 
+type WorkspaceArchiveCommandRunner = (args: {
+  cwd?: string;
+  command: string;
+}) => Promise<{
+  ok: boolean;
+  code: number;
+  stdout: string;
+  stderr: string;
+}>;
+
 /**
  * Wait for every background workspace-archive cleanup promise to settle.
  * Archive cleanup (git worktree removal, branch deletion, persistence close)
@@ -2211,6 +2221,48 @@ function startWorkspaceArchiveCleanup(args: {
     });
 }
 
+async function workspaceHasLocalChanges(args: {
+  runner: WorkspaceArchiveCommandRunner;
+  workspacePath: string;
+  workspaceId: string;
+}) {
+  const statusResult = await args.runner({
+    cwd: args.workspacePath,
+    command: "git status --porcelain --untracked-files=all",
+  });
+  if (!statusResult.ok) {
+    console.warn("[workspace-archive] dirty check failed", {
+      workspaceId: args.workspaceId,
+      workspacePath: args.workspacePath,
+      stderr: statusResult.stderr,
+    });
+    return true;
+  }
+  return statusResult.stdout.trim().length > 0;
+}
+
+async function workspaceBranchHasUnpushedCommits(args: {
+  runner: WorkspaceArchiveCommandRunner;
+  projectPath: string;
+  workspaceId: string;
+  workspaceBranch: string;
+}) {
+  const unpushedResult = await args.runner({
+    cwd: args.projectPath,
+    command: `git rev-list --count ${JSON.stringify(args.workspaceBranch)} --not --remotes`,
+  });
+  if (!unpushedResult.ok) {
+    console.warn("[workspace-archive] unpushed branch check failed", {
+      workspaceId: args.workspaceId,
+      workspaceBranch: args.workspaceBranch,
+      stderr: unpushedResult.stderr,
+    });
+    return true;
+  }
+  const count = Number.parseInt(unpushedResult.stdout.trim(), 10);
+  return Number.isFinite(count) && count > 0;
+}
+
 async function performWorkspaceArchiveCleanup(args: {
   workspaceId: string;
   workspacePath?: string;
@@ -2242,22 +2294,47 @@ async function performWorkspaceArchiveCleanup(args: {
   const runner = window.api?.terminal?.runCommand;
   if (runner && projectPath && workspacePath) {
     try {
-      const removeResult = await runner({
-        cwd: projectPath,
-        command: `git worktree remove --force ${JSON.stringify(workspacePath)}`,
+      const hasLocalChanges = await workspaceHasLocalChanges({
+        runner,
+        workspacePath,
+        workspaceId,
       });
-      if (!removeResult.ok) {
+      let didRemoveWorktree = false;
+      if (hasLocalChanges) {
+        console.warn("[workspace-archive] preserving dirty worktree", {
+          workspaceId,
+          workspacePath,
+        });
+      } else {
+        const removeResult = await runner({
+          cwd: projectPath,
+          command: `git worktree remove ${JSON.stringify(workspacePath)}`,
+        });
+        didRemoveWorktree = removeResult.ok;
         await runner({
           cwd: projectPath,
-          command: `rm -rf ${JSON.stringify(workspacePath)}`,
+          command: "git worktree prune",
         });
-        await runner({ cwd: projectPath, command: "git worktree prune" });
       }
-      if (workspaceBranch) {
-        await runner({
-          cwd: projectPath,
-          command: `git branch -D ${JSON.stringify(workspaceBranch)}`,
+
+      if (workspaceBranch && didRemoveWorktree) {
+        const hasUnpushedCommits = await workspaceBranchHasUnpushedCommits({
+          runner,
+          projectPath,
+          workspaceId,
+          workspaceBranch,
         });
+        if (hasUnpushedCommits) {
+          console.warn("[workspace-archive] preserving unpushed branch", {
+            workspaceId,
+            workspaceBranch,
+          });
+        } else {
+          await runner({
+            cwd: projectPath,
+            command: `git branch -d ${JSON.stringify(workspaceBranch)}`,
+          });
+        }
       }
     } catch (error) {
       console.error(
