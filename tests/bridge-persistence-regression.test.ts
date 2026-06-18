@@ -5227,6 +5227,176 @@ describe("workspace store hydration ordering", () => {
     });
   });
 
+  test("rollbackTask clears provider session so the next turn replays restored history", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const cleanupCalls: string[] = [];
+    setWindowContext({
+      localStorage,
+      api: {
+        terminal: {
+          runCommand: async (call: { cwd?: string; command: string }) => {
+            runCalls.push(call);
+            return { ok: true, code: 0, stdout: "", stderr: "" };
+          },
+        },
+        fs: {
+          listFiles: async () => ({ ok: true, files: ["src/app.ts"] }),
+        },
+        provider: {
+          cleanupTask: async ({ taskId }: { taskId: string }) => {
+            cleanupCalls.push(taskId);
+            return { ok: true };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-rollback",
+      activeTaskId: "task-rollback",
+      projectPath: "/tmp/stave-rollback",
+      workspacePathById: {
+        "ws-rollback": "/tmp/stave-rollback",
+      },
+      workspaceDefaultById: {
+        "ws-rollback": true,
+      },
+      tasks: [
+        {
+          id: "task-rollback",
+          title: "Rollback Task",
+          provider: "codex",
+          updatedAt: "2026-04-01T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: {
+        "task-rollback": [],
+      },
+      taskCheckpointById: {
+        "task-rollback": "abc123",
+      },
+      providerSessionByTask: {
+        "task-rollback": { codex: "thread-stale-rollback" },
+      },
+      nativeSessionReadyByTask: {
+        "task-rollback": true,
+      },
+    });
+
+    await useAppStore.getState().rollbackTask({ taskId: "task-rollback" });
+
+    expect(runCalls).toEqual([
+      {
+        cwd: "/tmp/stave-rollback",
+        command: 'git restore --source="abc123" --staged --worktree .',
+      },
+    ]);
+    expect(cleanupCalls).toEqual(["task-rollback"]);
+    const nextState = useAppStore.getState();
+    expect(nextState.providerSessionByTask["task-rollback"]).toBeUndefined();
+    expect(nextState.nativeSessionReadyByTask["task-rollback"]).toBe(false);
+    expect(
+      nextState.messagesByTask["task-rollback"]?.at(-1)?.content,
+    ).toContain("Provider session reset");
+  });
+
+  test("rollbackToCompactBoundary clears provider session after restore", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const cleanupCalls: string[] = [];
+    setWindowContext({
+      localStorage,
+      api: {
+        terminal: {
+          runCommand: async (call: { cwd?: string; command: string }) => {
+            runCalls.push(call);
+            return { ok: true, code: 0, stdout: "", stderr: "" };
+          },
+        },
+        fs: {
+          listFiles: async () => ({ ok: true, files: ["src/restored.ts"] }),
+        },
+        provider: {
+          cleanupTask: async ({ taskId }: { taskId: string }) => {
+            cleanupCalls.push(taskId);
+            return { ok: true };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-compact",
+      activeTaskId: "task-compact",
+      projectPath: "/tmp/stave-compact",
+      workspacePathById: {
+        "ws-compact": "/tmp/stave-compact",
+      },
+      workspaceDefaultById: {
+        "ws-compact": true,
+      },
+      tasks: [
+        {
+          id: "task-compact",
+          title: "Compact Task",
+          provider: "claude-code",
+          updatedAt: "2026-04-01T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: {
+        "task-compact": [
+          {
+            id: "task-compact-m-0",
+            role: "user",
+            model: "user",
+            providerId: "user",
+            content: "before restore",
+            parts: [{ type: "text", text: "before restore" }],
+          },
+        ],
+      },
+      providerSessionByTask: {
+        "task-compact": { "claude-code": "session-stale-compact" },
+      },
+      nativeSessionReadyByTask: {
+        "task-compact": true,
+      },
+    });
+
+    await useAppStore.getState().rollbackToCompactBoundary({
+      taskId: "task-compact",
+      gitRef: "def456",
+      trigger: "manual",
+    });
+
+    expect(runCalls).toEqual([
+      {
+        cwd: "/tmp/stave-compact",
+        command: 'git restore --source="def456" --staged --worktree .',
+      },
+    ]);
+    expect(cleanupCalls).toEqual(["task-compact"]);
+    const nextState = useAppStore.getState();
+    expect(nextState.providerSessionByTask["task-compact"]).toBeUndefined();
+    expect(nextState.nativeSessionReadyByTask["task-compact"]).toBe(false);
+    expect(nextState.messagesByTask["task-compact"]?.at(-1)?.content).toContain(
+      "Provider session reset",
+    );
+  });
+
   test("resolveApproval keeps pending state when no active turn exists", async () => {
     setWindowContext({
       localStorage: createMemoryStorage(),

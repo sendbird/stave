@@ -551,6 +551,58 @@ function getWorkspaceSessionForState(args: {
   return args.state.workspaceRuntimeCacheById[args.workspaceId] ?? null;
 }
 
+function clearRestoredTaskProviderSession(args: {
+  state: AppState;
+  taskId: string;
+}) {
+  const taskWorkspaceId =
+    args.state.taskWorkspaceIdById[args.taskId] ?? args.state.activeWorkspaceId;
+  if (taskWorkspaceId && taskWorkspaceId !== args.state.activeWorkspaceId) {
+    const cachedSession = args.state.workspaceRuntimeCacheById[taskWorkspaceId];
+    if (!cachedSession) {
+      return {};
+    }
+    const { [args.taskId]: _dropped, ...providerSessionByTask } =
+      cachedSession.providerSessionByTask;
+    return {
+      workspaceRuntimeCacheById: {
+        ...args.state.workspaceRuntimeCacheById,
+        [taskWorkspaceId]: {
+          ...cachedSession,
+          providerSessionByTask,
+          nativeSessionReadyByTask: {
+            ...cachedSession.nativeSessionReadyByTask,
+            [args.taskId]: false,
+          },
+        },
+      },
+    };
+  }
+
+  const { [args.taskId]: _dropped, ...providerSessionByTask } =
+    args.state.providerSessionByTask;
+  return {
+    providerSessionByTask,
+    nativeSessionReadyByTask: {
+      ...args.state.nativeSessionReadyByTask,
+      [args.taskId]: false,
+    },
+  };
+}
+
+function cleanupRestoredTaskProviderRuntime(args: { taskId: string }) {
+  const cleanupTask = window.api?.provider?.cleanupTask;
+  if (!cleanupTask) {
+    return;
+  }
+  void cleanupTask({ taskId: args.taskId }).catch((error) => {
+    console.warn("[checkpoint-restore] provider cleanup failed", {
+      taskId: args.taskId,
+      error,
+    });
+  });
+}
+
 function getDraftImageContexts(args: {
   promptDraft: PromptDraft;
   imageContexts?: Array<{
@@ -7431,12 +7483,15 @@ export const useAppStore = create<AppState>()(
             cwd: workspaceCwd,
             command: `git restore --source=${JSON.stringify(checkpoint)} --staged --worktree .`,
           });
+          if (rollbackResult.ok) {
+            cleanupRestoredTaskProviderRuntime({ taskId });
+          }
 
           const rawOutput = rollbackResult.ok
-            ? `Rollback complete to checkpoint ${checkpoint}.`
+            ? `Rollback complete to checkpoint ${checkpoint}. Provider session reset for the next turn.`
             : rollbackResult.stderr.trim() || "Rollback failed.";
           const output = rollbackResult.ok
-            ? `Rollback complete to checkpoint \`${checkpoint}\`.`
+            ? `Rollback complete to checkpoint \`${checkpoint}\`. Provider session reset for the next turn.`
             : `> **Rollback failed.** ${rollbackResult.stderr.trim() || "Unknown error."}`;
 
           const files = await workspaceFsAdapter.listFiles();
@@ -7457,6 +7512,12 @@ export const useAppStore = create<AppState>()(
             };
             return {
               projectFiles: files,
+              ...(rollbackResult.ok
+                ? clearRestoredTaskProviderSession({
+                    state: nextState,
+                    taskId,
+                  })
+                : {}),
               messagesByTask: {
                 ...nextState.messagesByTask,
                 [taskId]: [...current, message],
@@ -7498,6 +7559,7 @@ export const useAppStore = create<AppState>()(
             rawOutput: string;
             output: string;
             files?: string[];
+            resetProviderSession?: boolean;
           }) => {
             set((nextState) => {
               const current = nextState.messagesByTask[taskId] ?? [];
@@ -7516,6 +7578,12 @@ export const useAppStore = create<AppState>()(
               };
               return {
                 ...(args.files ? { projectFiles: args.files } : {}),
+                ...(args.resetProviderSession
+                  ? clearRestoredTaskProviderSession({
+                      state: nextState,
+                      taskId,
+                    })
+                  : {}),
                 messagesByTask: {
                   ...nextState.messagesByTask,
                   [taskId]: [...current, message],
@@ -7547,17 +7615,21 @@ export const useAppStore = create<AppState>()(
             cwd: workspaceCwd,
             command: `git restore --source=${JSON.stringify(resolvedGitRef)} --staged --worktree .`,
           });
+          if (restoreResult.ok) {
+            cleanupRestoredTaskProviderRuntime({ taskId });
+          }
           const rawOutput = restoreResult.ok
-            ? `Restore complete to ${compactBoundaryLabel} checkpoint ${resolvedGitRef}.`
+            ? `Restore complete to ${compactBoundaryLabel} checkpoint ${resolvedGitRef}. Provider session reset for the next turn.`
             : restoreResult.stderr.trim() || "Restore failed.";
           const output = restoreResult.ok
-            ? `Restore complete to ${compactBoundaryLabel} checkpoint \`${resolvedGitRef}\`.`
+            ? `Restore complete to ${compactBoundaryLabel} checkpoint \`${resolvedGitRef}\`. Provider session reset for the next turn.`
             : `> **Restore failed.** ${restoreResult.stderr.trim() || "Unknown error."}`;
           const files = await workspaceFsAdapter.listFiles();
           appendResultMessage({
             rawOutput,
             output,
             files,
+            resetProviderSession: restoreResult.ok,
           });
         },
         archiveTask: ({ taskId }) => {
