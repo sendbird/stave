@@ -1083,10 +1083,14 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("scm:history", args),
     listBranches: (args: { cwd?: string; refreshRemote?: boolean }) =>
       ipcRenderer.invoke("scm:list-branches", args),
+    fetchBranch: (args: { cwd?: string; branch?: string }) =>
+      ipcRenderer.invoke("scm:fetch-branch", args),
     createBranch: (args: { name: string; cwd?: string; from?: string }) =>
       ipcRenderer.invoke("scm:create-branch", args),
     checkoutBranch: (args: { name: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:checkout-branch", args),
+    pullBranch: (args: { cwd?: string; branch?: string }) =>
+      ipcRenderer.invoke("scm:pull-branch", args),
     mergeBranch: (args: { branch: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:merge-branch", args),
     rebaseBranch: (args: { branch: string; cwd?: string }) =>

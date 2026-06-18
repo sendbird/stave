@@ -60,6 +60,12 @@ export function registerScmHandlers() {
   );
 
   ipcMain.handle(
+    "scm:fetch-branch",
+    (_event, args: { cwd?: string; branch?: string }) =>
+      invokeHostService("scm.fetch-branch", args),
+  );
+
+  ipcMain.handle(
     "scm:create-branch",
     (_event, args: { name: string; cwd?: string; from?: string }) =>
       invokeHostService("scm.create-branch", args),
@@ -69,6 +75,12 @@ export function registerScmHandlers() {
     "scm:checkout-branch",
     (_event, args: { name: string; cwd?: string }) =>
       invokeHostService("scm.checkout-branch", args),
+  );
+
+  ipcMain.handle(
+    "scm:pull-branch",
+    (_event, args: { cwd?: string; branch?: string }) =>
+      invokeHostService("scm.pull-branch", args),
   );
 
   ipcMain.handle(

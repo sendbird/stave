@@ -434,7 +434,10 @@ export async function listScmBranches(args: {
     ]);
 
   return {
-    ok: listResult.ok && currentResult.ok,
+    ok:
+      listResult.ok &&
+      currentResult.ok &&
+      (!args.refreshRemote || refreshResult.ok),
     current: currentResult.ok ? currentResult.stdout.trim() : "unknown",
     branches: listResult.ok
       ? listResult.stdout
@@ -462,6 +465,59 @@ export async function listScmBranches(args: {
       .join("\n")
       .trim(),
   };
+}
+
+async function assertScmBranchMatches(args: {
+  cwd?: string;
+  branch?: string;
+}) {
+  const expectedBranch = args.branch?.trim();
+  if (!expectedBranch) {
+    return { ok: true, currentBranch: "" };
+  }
+
+  const currentResult = await runCommand({
+    command: "git rev-parse --abbrev-ref HEAD",
+    cwd: args.cwd,
+  });
+  if (!currentResult.ok) {
+    return {
+      ok: false,
+      currentBranch: "",
+      stderr: currentResult.stderr || "Failed to detect current branch.",
+    };
+  }
+
+  const currentBranch = currentResult.stdout.trim();
+  if (currentBranch !== expectedBranch) {
+    return {
+      ok: false,
+      currentBranch,
+      stderr: `Workspace is on "${currentBranch}", not "${expectedBranch}".`,
+    };
+  }
+
+  return { ok: true, currentBranch };
+}
+
+export async function fetchScmBranch(args: {
+  cwd?: string;
+  branch?: string;
+}) {
+  const branchCheck = await assertScmBranchMatches(args);
+  if (!branchCheck.ok) {
+    return {
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: branchCheck.stderr || "Branch does not match current checkout.",
+    };
+  }
+
+  return runCommand({
+    command: "git fetch --all --prune",
+    cwd: args.cwd,
+  });
 }
 
 export function createScmBranch(args: {
@@ -499,6 +555,26 @@ export function checkoutScmBranch(args: { name: string; cwd?: string }) {
   const safeName = quotePath({ value: name });
   return runCommand({
     command: `git checkout "${safeName}"`,
+    cwd: args.cwd,
+  });
+}
+
+export async function pullScmBranch(args: {
+  cwd?: string;
+  branch?: string;
+}) {
+  const branchCheck = await assertScmBranchMatches(args);
+  if (!branchCheck.ok) {
+    return {
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: branchCheck.stderr || "Branch does not match current checkout.",
+    };
+  }
+
+  return runCommand({
+    command: "git pull --ff-only",
     cwd: args.cwd,
   });
 }

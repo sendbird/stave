@@ -3,6 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import {
   Check,
   ChevronDown,
+  Download,
   GitBranch,
   Loader2,
   Plus,
@@ -55,6 +56,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   const [branchError, setBranchError] = useState("");
   const [branchStatus, setBranchStatus] = useState<BranchStatusSummary>(CLEAN_BRANCH_STATUS);
   const [isBusy, setIsBusy] = useState(false);
+  const [branchOperation, setBranchOperation] = useState<"fetch" | "pull" | null>(null);
   const branchRequestIdRef = useRef(0);
   const statusRequestIdRef = useRef(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -128,6 +130,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       setBranchError("");
       setBranchStatus(CLEAN_BRANCH_STATUS);
       setIsBusy(false);
+      setBranchOperation(null);
       return;
     }
 
@@ -141,6 +144,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     setWorktreePathByBranch({});
     setBranchError("");
     setIsBusy(false);
+    setBranchOperation(null);
 
     async function detectBranch() {
       const listBranches = window.api?.sourceControl?.listBranches;
@@ -168,13 +172,13 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     async (args?: { refreshRemote?: boolean }) => {
       if (!hasWorkspaceContext) {
         setBranchError("No workspace selected.");
-        return;
+        return false;
       }
 
       const listBranches = window.api?.sourceControl?.listBranches;
       if (!listBranches) {
         setBranchError("Source Control bridge unavailable.");
-        return;
+        return false;
       }
 
       branchRequestIdRef.current += 1;
@@ -186,11 +190,11 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
           refreshRemote: args?.refreshRemote,
         });
         if (branchRequestIdRef.current !== requestId) {
-          return;
+          return false;
         }
         if (!result.ok) {
           setBranchError(result.stderr || "Failed to load branches.");
-          return;
+          return false;
         }
         setDetectedCurrentBranch({
           workspaceId: activeWorkspaceId,
@@ -201,10 +205,12 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         setWorktreePathByBranch(result.worktreePathByBranch ?? {});
         setBranchError("");
         await refreshBranchStatus();
+        return true;
       } catch (err) {
         if (branchRequestIdRef.current === requestId) {
           setBranchError(err instanceof Error ? err.message : "Failed to load branches.");
         }
+        return false;
       } finally {
         if (branchRequestIdRef.current === requestId) {
           setIsBusy(false);
@@ -219,6 +225,84 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       workspaceCwd,
     ],
   );
+
+  const handleFetchCurrentBranch = useCallback(async () => {
+    if (!currentBranch) return;
+    const fetchBranch = window.api?.sourceControl?.fetchBranch;
+    if (!fetchBranch) {
+      const message = "Fetch bridge unavailable.";
+      setBranchError(message);
+      toast.error("Branch fetch failed", { description: message });
+      return;
+    }
+
+    setIsBusy(true);
+    setBranchOperation("fetch");
+    setBranchError("");
+    try {
+      const result = await fetchBranch({
+        cwd: workspaceCwd,
+        branch: currentBranch,
+      });
+      if (!result.ok) {
+        const message = formatScmCommandError(result, "Branch fetch failed.");
+        setBranchError(message);
+        toast.error("Branch fetch failed", { description: message });
+        return;
+      }
+      toast.success("Branch fetched", { description: currentBranch });
+      await loadBranches();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Branch fetch failed.";
+      setBranchError(message);
+      toast.error("Branch fetch failed", { description: message });
+    } finally {
+      setBranchOperation(null);
+      setIsBusy(false);
+    }
+  }, [currentBranch, loadBranches, workspaceCwd]);
+
+  const handlePullCurrentBranch = useCallback(async () => {
+    if (!currentBranch) return;
+    const pullBranch = window.api?.sourceControl?.pullBranch;
+    if (!pullBranch) {
+      const message = "Pull bridge unavailable.";
+      setBranchError(message);
+      toast.error("Branch pull failed", { description: message });
+      return;
+    }
+
+    if (branchStatus.dirtyCount > 0) {
+      toast.warning("Working tree has local changes", {
+        description: "Git may block pull if local edits would be overwritten.",
+      });
+    }
+
+    setIsBusy(true);
+    setBranchOperation("pull");
+    setBranchError("");
+    try {
+      const result = await pullBranch({
+        cwd: workspaceCwd,
+        branch: currentBranch,
+      });
+      if (!result.ok) {
+        const message = formatScmCommandError(result, "Branch pull failed.");
+        setBranchError(message);
+        toast.error("Branch pull failed", { description: message });
+        return;
+      }
+      toast.success("Branch pulled", { description: currentBranch });
+      await loadBranches();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Branch pull failed.";
+      setBranchError(message);
+      toast.error("Branch pull failed", { description: message });
+    } finally {
+      setBranchOperation(null);
+      setIsBusy(false);
+    }
+  }, [branchStatus.dirtyCount, currentBranch, loadBranches, workspaceCwd]);
 
   useEffect(() => {
     if (!hasWorkspaceContext || !branchOpen || !isDefaultWorkspace) return;
@@ -505,6 +589,38 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   ? "Local edits stay in this workspace. Git may block unsafe checkouts."
                   : "Create or switch branches for this default workspace."}
               </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 rounded-sm px-2 text-xs"
+                  disabled={isBusy}
+                  onClick={() => void handleFetchCurrentBranch()}
+                >
+                  {branchOperation === "fetch" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-3.5" />
+                  )}
+                  Fetch
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 rounded-sm px-2 text-xs"
+                  disabled={isBusy}
+                  onClick={() => void handlePullCurrentBranch()}
+                >
+                  {branchOperation === "pull" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Download className="size-3.5" />
+                  )}
+                  Pull
+                </Button>
+              </div>
             </div>
 
             <div className="mt-2 flex gap-2">
@@ -648,4 +764,11 @@ function getBranchOptionDescription(args: {
     return `Create local branch ${args.option.localName}`;
   }
   return "Checkout branch";
+}
+
+function formatScmCommandError(
+  result: { stderr?: string; stdout?: string },
+  fallback: string,
+) {
+  return result.stderr?.trim() || result.stdout?.trim() || fallback;
 }

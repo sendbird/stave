@@ -26,12 +26,14 @@ import {
   createScmPullRequest,
   diffSourceControlFile,
   discardSourceControlPath,
+  fetchScmBranch,
   fetchGitHubPrStatus,
   getScmHistory,
   getScmStatus,
   listScmBranches,
   mergeScmBranch,
   mergeScmPr,
+  pullScmBranch,
   rebaseScmBranch,
   setScmPrReady,
   stageAllSourceControl,
@@ -1196,11 +1198,17 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "scm.list-branches":
       await respond(request.id, await listScmBranches(request.params));
       return;
+    case "scm.fetch-branch":
+      await respond(request.id, await fetchScmBranch(request.params));
+      return;
     case "scm.create-branch":
       await respond(request.id, await createScmBranch(request.params));
       return;
     case "scm.checkout-branch":
       await respond(request.id, await checkoutScmBranch(request.params));
+      return;
+    case "scm.pull-branch":
+      await respond(request.id, await pullScmBranch(request.params));
       return;
     case "scm.merge-branch":
       await respond(request.id, await mergeScmBranch(request.params));
