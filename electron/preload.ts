@@ -61,7 +61,15 @@ import type {
 } from "../src/lib/workspace-scripts/types";
 import type {
   BrowserConsoleEventPayload,
+  LensAnnotation,
+  LensAnnotationEventPayload,
+  LensCdpApprovalRequestPayload,
+  LensCdpApprovalResponse,
+  LensDownloadEntry,
+  LensDownloadEventPayload,
   BrowserNavigationEventPayload,
+  LensSecurityConfig,
+  LensStyleEdit,
 } from "../src/lib/lens/lens.types";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
 import { WORKSPACE_SCRIPTS_IPC } from "../src/lib/workspace-scripts/constants";
@@ -126,6 +134,42 @@ ipcRenderer.on(
   "provider:stream-event",
   (_event, payload: StreamEventPayload) => {
     for (const subscriber of streamEventSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const lensCdpApprovalRequestSubscribers = new Set<
+  (payload: LensCdpApprovalRequestPayload) => void
+>();
+ipcRenderer.on(
+  "lens:cdp-approval-request",
+  (_event, payload: LensCdpApprovalRequestPayload) => {
+    for (const subscriber of lensCdpApprovalRequestSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const lensDownloadEventSubscribers = new Set<
+  (payload: LensDownloadEventPayload) => void
+>();
+ipcRenderer.on(
+  "lens:download-event",
+  (_event, payload: LensDownloadEventPayload) => {
+    for (const subscriber of lensDownloadEventSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const lensAnnotationEventSubscribers = new Set<
+  (payload: LensAnnotationEventPayload) => void
+>();
+ipcRenderer.on(
+  "lens:annotation-event",
+  (_event, payload: LensAnnotationEventPayload) => {
+    for (const subscriber of lensAnnotationEventSubscribers) {
       subscriber(payload);
     }
   },
@@ -1263,6 +1307,17 @@ contextBridge.exposeInMainWorld("api", {
       }>,
   },
   lens: {
+    setSecurityConfig: (args: LensSecurityConfig) =>
+      ipcRenderer.invoke("lens:set-security-config", args) as Promise<{
+        ok: boolean;
+        config?: LensSecurityConfig;
+        message?: string;
+      }>,
+    respondCdpApproval: (args: LensCdpApprovalResponse) =>
+      ipcRenderer.invoke("lens:respond-cdp-approval", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
     createView: (args: { workspaceId: string }) =>
       ipcRenderer.invoke("lens:create-view", args) as Promise<{
         ok: boolean;
@@ -1328,6 +1383,43 @@ contextBridge.exposeInMainWorld("api", {
         dataUrl?: string;
         message?: string;
       }>,
+    saveScreenshot: (args: {
+      workspaceId: string;
+      options?: {
+        fullPage?: boolean;
+        clip?: { x: number; y: number; width: number; height: number };
+      };
+    }) =>
+      ipcRenderer.invoke("lens:save-screenshot", args) as Promise<{
+        ok: boolean;
+        path?: string;
+        entry?: LensDownloadEntry;
+        message?: string;
+      }>,
+    downloadUrl: (args: {
+      workspaceId: string;
+      url: string;
+      filename?: string;
+    }) =>
+      ipcRenderer.invoke("lens:download-url", args) as Promise<{
+        ok: boolean;
+        entry?: LensDownloadEntry;
+        message?: string;
+      }>,
+    downloadPageAssets: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("lens:download-page-assets", args) as Promise<{
+        ok: boolean;
+        assetUrls?: string[];
+        entries?: LensDownloadEntry[];
+        errors?: Array<{ url: string; message: string }>;
+        message?: string;
+      }>,
+    listDownloads: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("lens:list-downloads", args) as Promise<{
+        ok: boolean;
+        entries?: LensDownloadEntry[];
+        message?: string;
+      }>,
     getDom: (args: { workspaceId: string; selector?: string }) =>
       ipcRenderer.invoke("lens:get-dom", args) as Promise<{
         ok: boolean;
@@ -1385,12 +1477,73 @@ contextBridge.exposeInMainWorld("api", {
         };
         message?: string;
       }>,
+    startAnnotationMode: (args: {
+      workspaceId: string;
+      options?: { extractDebugSource?: boolean };
+    }) =>
+      ipcRenderer.invoke("lens:start-annotation-mode", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    stopAnnotationMode: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("lens:stop-annotation-mode", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    getAnnotations: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("lens:get-annotations", args) as Promise<{
+        ok: boolean;
+        annotations?: LensAnnotation[];
+        message?: string;
+      }>,
+    removeAnnotation: (args: {
+      workspaceId: string;
+      annotationId: string;
+    }) =>
+      ipcRenderer.invoke("lens:remove-annotation", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    setElementStyle: (args: {
+      workspaceId: string;
+      selector: string;
+      patch: Record<string, string>;
+    }) =>
+      ipcRenderer.invoke("lens:set-element-style", args) as Promise<{
+        ok: boolean;
+        edits?: LensStyleEdit[];
+        message?: string;
+      }>,
     subscribeNavigationEvents: (
       listener: (payload: BrowserNavigationEventPayload) => void,
     ) => {
       lensNavigationEventSubscribers.add(listener);
       return () => {
         lensNavigationEventSubscribers.delete(listener);
+      };
+    },
+    subscribeCdpApprovalRequests: (
+      listener: (payload: LensCdpApprovalRequestPayload) => void,
+    ) => {
+      lensCdpApprovalRequestSubscribers.add(listener);
+      return () => {
+        lensCdpApprovalRequestSubscribers.delete(listener);
+      };
+    },
+    subscribeDownloadEvents: (
+      listener: (payload: LensDownloadEventPayload) => void,
+    ) => {
+      lensDownloadEventSubscribers.add(listener);
+      return () => {
+        lensDownloadEventSubscribers.delete(listener);
+      };
+    },
+    subscribeAnnotationEvents: (
+      listener: (payload: LensAnnotationEventPayload) => void,
+    ) => {
+      lensAnnotationEventSubscribers.add(listener);
+      return () => {
+        lensAnnotationEventSubscribers.delete(listener);
       };
     },
   },

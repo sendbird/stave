@@ -3,7 +3,7 @@
 ## Summary
 
 - Lens is Stave's built-in workspace browser in the right rail.
-- It lets you preview a page, inspect DOM and runtime signals, and send element context directly into the active task draft.
+- It lets you preview a page, inspect DOM and runtime signals, save page artifacts, and send element or visual-comment context directly into the active task draft.
 
 ## When To Use It
 
@@ -17,14 +17,15 @@
 - Each workspace gets its own Lens browser session and storage partition.
 - To send picked elements into chat, select an active task first.
 - For exact React file and line mapping, enable `Settings > Lens > React _debugSource` and run the target app in a React dev build.
+- CDP-backed actions such as screenshots, JavaScript evaluation, element clicks, and live style edits require `Settings > Lens > Developer Mode` plus per-host approval. Approved hosts are currently global across workspaces.
 - External agents only reach Lens through Stave Local MCP, not through the renderer UI directly.
 
 ## Quick Start
 
-1. Open the right rail and choose `Lens`.
+1. Open the right rail and choose `Lens`, or press `Cmd+Shift+B` on macOS / `Ctrl+Shift+B` elsewhere.
 2. Enter a URL such as `http://localhost:3000` or `https://example.com`.
-3. Click the crosshair button to pick an element.
-4. Return to the active task draft and refine the appended Lens context into an instruction.
+3. Pick an element, add visual comments with `Annotate`, save a screenshot, or download page assets.
+4. Send the captured Lens context into the active task draft and refine it into an instruction.
 
 ## Interface Walkthrough
 
@@ -32,6 +33,7 @@
 
 - Right rail `Lens` tab
 - Command Palette: `Show Lens Panel`
+- Keyboard: `Cmd+Shift+B` / `Ctrl+Shift+B`
 - Settings: `Lens` section for source mapping options
 
 ### Key Controls
@@ -39,6 +41,10 @@
 - Address bar: loads local or remote pages into the current workspace session.
 - Back, forward, reload: standard navigation for the current workspace browser.
 - Pick Element: captures selector, styles, HTML, and source hints, then appends the result to the active task draft.
+- Annotate: places numbered visual comments on elements or selected areas, then sends the comments to the active task draft.
+- Style: live-edits supported element styles from an annotation and records before/after diffs in the sent payload.
+- Screenshot: saves viewport or full-page PNG captures under the workspace Lens downloads directory.
+- Downloads: lists recent Lens downloads and can download page image, stylesheet, and script assets.
 - Footer status: shows whether Lens is live, loading, or waiting for a page.
 - Source mapping badges: show whether heuristic hints and React `_debugSource` extraction are enabled.
 
@@ -50,6 +56,13 @@
 2. Leave `Heuristic Search` on unless you have a reason to suppress grep-friendly hints.
 3. Turn on `React _debugSource` when your app runs in a React dev build and you want exact file and line output.
 
+### Configure Site Access And CDP
+
+1. Open `Settings > Lens`.
+2. Use `Site Access` to set newline-delimited allowed and blocked hosts. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation.
+3. Use `Developer Mode` to enable or disable CDP-backed Lens actions and remove approved CDP hosts.
+4. When Lens asks for CDP access, approve only hosts you expect agents to inspect or control.
+
 ### Inspect A Page And Send A Fix Request
 
 1. Open Lens in the same workspace as the code you want to change.
@@ -57,6 +70,20 @@
 3. Click `Pick Element`, then click the broken component in the page.
 4. Open the active task draft and add the actual instruction, such as what looks wrong or what should change.
 5. Run the task so the agent can use the appended Lens context plus the codebase.
+
+### Add Visual Comments
+
+1. Open Lens and navigate to the target page.
+2. Turn on `Annotate`.
+3. Add comments to elements or page areas.
+4. Optionally use the style editor on an element comment to record live before/after style edits.
+5. Click `Send` in the comment list to append the formatted visual comments to the active task draft.
+
+### Save Screenshots And Downloads
+
+- Use the Screenshot menu to save viewport or full-page PNG captures.
+- Use the Downloads menu to inspect recent saved files or download page assets.
+- Saved files live under Stave's app data directory in `lens-downloads/<workspace-id>/`. Closing the Lens panel does not delete them.
 
 ### Use Lens From An External Agent
 
@@ -72,7 +99,11 @@
 ```json
 {
   "lensSourceMappingHeuristic": true,
-  "lensSourceMappingReactDebugSource": false
+  "lensSourceMappingReactDebugSource": false,
+  "lensAllowedHosts": [],
+  "lensBlockedHosts": [],
+  "lensDeveloperModeCdp": true,
+  "lensCdpApprovedHosts": []
 }
 ```
 
@@ -84,8 +115,12 @@
   "examples": [
     "stave_lens_navigate",
     "stave_lens_screenshot",
+    "stave_lens_download",
+    "stave_lens_list_downloads",
     "stave_lens_get_html",
-    "stave_lens_get_console"
+    "stave_lens_get_console",
+    "stave_lens_get_annotations",
+    "stave_lens_set_style"
   ]
 }
 ```
@@ -96,9 +131,17 @@
 - External agents need Local MCP because the Lens browser lives inside the desktop app. Without MCP, only the current renderer UI can access it.
 - `React _debugSource` only works in React dev builds. Production builds fall back to heuristic source hints.
 - Console and network logs are buffered, not infinite. Lens keeps the most recent entries only.
+- Download history is buffered in memory, while saved files remain on disk until the user removes them.
 - Lens console messages are mirrored into the Stave window DevTools console with a `[Lens:<workspaceId>]` prefix.
+- Annotation events use a per-session nonce and are filtered out of the user-visible Lens console log.
 - Lens hides while blocking overlays such as Settings are open so the native `WebContentsView` does not render above dialogs.
 - Lens is ideal for runtime inspection, but exact DOM-to-source mapping is still framework-dependent outside React dev mode.
+
+### CDP actions fail with a Developer Mode message
+
+- Symptom: screenshots, page HTML reads, evaluation, clicks, or style edits fail before running.
+- Cause: CDP is disabled or the current host has not been approved.
+- Fix: enable `Settings > Lens > Developer Mode`, open Lens for that workspace, and approve the host when prompted.
 
 ## Troubleshooting
 

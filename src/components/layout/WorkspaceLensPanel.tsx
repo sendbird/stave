@@ -11,40 +11,77 @@ import { useShallow } from "zustand/react/shallow";
 import {
   ArrowLeft,
   ArrowRight,
+  Camera,
+  ChevronDown,
   Crosshair,
+  Download,
   ExternalLink,
   Globe,
+  Highlighter,
   Loader2,
   RotateCw,
   ScanSearch,
+  Send,
+  ShieldAlert,
+  SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 import {
   Badge,
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Empty,
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Input,
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
   toast,
 } from "@/components/ui";
-import { formatElementForChat } from "@/lib/lens/lens-element-message";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  formatAnnotationsForChat,
+  formatElementForChat,
+} from "@/lib/lens/lens-element-message";
 import type {
+  LensAnnotation,
+  LensAnnotationEventPayload,
   BrowserNavigationEventPayload,
   BrowserNavigationState,
   ElementPickerResult,
   LensBounds,
+  LensCdpApprovalRequestPayload,
+  LensDownloadEntry,
+  LensDownloadEventPayload,
   LensSourceMappingConfig,
+  LensStyleEdit,
 } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
 
@@ -69,6 +106,149 @@ function areLensBoundsEqual(
     left.y === right.y &&
     left.width === right.width &&
     left.height === right.height
+  );
+}
+
+function mergeDownloadEntry(
+  entries: LensDownloadEntry[],
+  entry: LensDownloadEntry,
+): LensDownloadEntry[] {
+  const index = entries.findIndex((candidate) => candidate.id === entry.id);
+  const next =
+    index >= 0
+      ? entries.map((candidate, candidateIndex) =>
+          candidateIndex === index ? entry : candidate,
+        )
+      : [...entries, entry];
+  return next.slice(-20);
+}
+
+function mergeAnnotationEntry(
+  annotations: LensAnnotation[],
+  annotation: LensAnnotation,
+): LensAnnotation[] {
+  const index = annotations.findIndex(
+    (candidate) => candidate.id === annotation.id,
+  );
+  if (index >= 0) {
+    return annotations.map((candidate, candidateIndex) =>
+      candidateIndex === index ? annotation : candidate,
+    );
+  }
+  return [...annotations, annotation].sort((left, right) => left.pin - right.pin);
+}
+
+const ANNOTATION_STYLE_FIELDS = [
+  "fontSize",
+  "fontWeight",
+  "color",
+  "backgroundColor",
+  "padding",
+  "margin",
+] as const;
+
+function resolveAnnotationStyleValue(
+  annotation: LensAnnotation,
+  field: (typeof ANNOTATION_STYLE_FIELDS)[number],
+): string {
+  const edit = annotation.styleEdits
+    ?.slice()
+    .reverse()
+    .find((candidate) => candidate.property === field);
+  return edit?.after ?? annotation.computedStyles?.[field] ?? "";
+}
+
+function AnnotationStylePopover(args: {
+  annotation: LensAnnotation;
+  disabled: boolean;
+  onApply: (
+    annotation: LensAnnotation,
+    patch: Record<string, string>,
+  ) => Promise<void>;
+}) {
+  const { annotation, disabled, onApply } = args;
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    for (const field of ANNOTATION_STYLE_FIELDS) {
+      next[field] = resolveAnnotationStyleValue(annotation, field);
+    }
+    setDraft(next);
+  }, [annotation]);
+
+  const patch = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(draft).filter(([field, value]) => {
+          const trimmed = value.trim();
+          return (
+            trimmed !== "" &&
+            trimmed !==
+              resolveAnnotationStyleValue(
+                annotation,
+                field as (typeof ANNOTATION_STYLE_FIELDS)[number],
+              )
+          );
+        }),
+      ),
+    [annotation, draft],
+  );
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          disabled={disabled || !annotation.selector}
+          aria-label={`Edit styles for annotation ${annotation.pin}`}
+        >
+          <SlidersHorizontal className="size-3" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 space-y-3">
+        <div>
+          <PopoverTitle>Style</PopoverTitle>
+          <PopoverDescription>
+            Live inline edits for the selected element.
+          </PopoverDescription>
+        </div>
+        <div className="grid gap-2">
+          {ANNOTATION_STYLE_FIELDS.map((field) => (
+            <label key={field} className="grid gap-1 text-xs">
+              <span className="font-medium text-muted-foreground">
+                {field}
+              </span>
+              <Input
+                value={draft[field] ?? ""}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    [field]: event.target.value,
+                  }))
+                }
+                className="h-7 font-mono text-xs"
+              />
+            </label>
+          ))}
+        </div>
+        <Button
+          type="button"
+          size="xs"
+          className="w-full"
+          disabled={saving || Object.keys(patch).length === 0}
+          onClick={() => {
+            setSaving(true);
+            void onApply(annotation, patch).finally(() => setSaving(false));
+          }}
+        >
+          Apply
+        </Button>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -118,7 +298,18 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [isPickerActive, setIsPickerActive] = useState(false);
+  const [cdpApprovalRequest, setCdpApprovalRequest] =
+    useState<LensCdpApprovalRequestPayload | null>(null);
+  const [downloads, setDownloads] = useState<LensDownloadEntry[]>([]);
+  const [annotations, setAnnotations] = useState<LensAnnotation[]>([]);
+  const [isAnnotationModeActive, setIsAnnotationModeActive] = useState(false);
   const isOccluded = Boolean(args.occluded);
+  const cdpApprovalRequestRef =
+    useRef<LensCdpApprovalRequestPayload | null>(null);
+
+  useEffect(() => {
+    cdpApprovalRequestRef.current = cdpApprovalRequest;
+  }, [cdpApprovalRequest]);
 
   const applyNavigationState = useCallback((state: BrowserNavigationState) => {
     setUrl(state.url);
@@ -206,6 +397,8 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     pendingBoundsRef.current = null;
     lastSentBoundsRef.current = null;
     boundsRequestInFlightRef.current = false;
+    setAnnotations([]);
+    setIsAnnotationModeActive(false);
 
     if (!workspaceId) {
       applyNavigationState(DEFAULT_NAVIGATION_STATE);
@@ -322,6 +515,29 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   }, [hasLensApi, isOccluded, syncBounds, workspaceId]);
 
   useEffect(() => {
+    if (!workspaceId || !hasLensApi || !cdpApprovalRequest) {
+      return;
+    }
+
+    cancelAnimationFrame(measureRafRef.current);
+    cancelAnimationFrame(flushRafRef.current);
+    pendingBoundsRef.current = null;
+    void window.api?.lens?.setBounds?.({
+      workspaceId,
+      bounds: { x: 0, y: 0, width: 0, height: 0 },
+    });
+    void window.api?.lens?.setVisible?.({ workspaceId, visible: false });
+
+    return () => {
+      if (isOccluded) {
+        return;
+      }
+      void window.api?.lens?.setVisible?.({ workspaceId, visible: true });
+      syncBounds();
+    };
+  }, [cdpApprovalRequest, hasLensApi, isOccluded, syncBounds, workspaceId]);
+
+  useEffect(() => {
     if (!workspaceId || !hasLensApi) {
       return;
     }
@@ -339,6 +555,99 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       unsubscribe?.();
     };
   }, [applyNavigationState, hasLensApi, workspaceId]);
+
+  useEffect(() => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const unsubscribe = window.api?.lens?.subscribeCdpApprovalRequests?.(
+      (payload: LensCdpApprovalRequestPayload) => {
+        if (payload.workspaceId !== workspaceId) {
+          return;
+        }
+        setCdpApprovalRequest(payload);
+      },
+    );
+
+    return () => {
+      const pending = cdpApprovalRequestRef.current;
+      if (pending?.workspaceId === workspaceId) {
+        void window.api?.lens?.respondCdpApproval?.({
+          requestId: pending.requestId,
+          approved: false,
+        });
+      }
+      unsubscribe?.();
+    };
+  }, [hasLensApi, workspaceId]);
+
+  useEffect(() => {
+    setDownloads([]);
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    let cancelled = false;
+    void window.api?.lens?.listDownloads?.({ workspaceId }).then((result) => {
+      if (!cancelled && result?.ok && result.entries) {
+        setDownloads(result.entries.slice(-20));
+      }
+    });
+
+    const unsubscribe = window.api?.lens?.subscribeDownloadEvents?.(
+      (payload: LensDownloadEventPayload) => {
+        if (payload.workspaceId !== workspaceId) {
+          return;
+        }
+        setDownloads((current) => mergeDownloadEntry(current, payload.entry));
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [hasLensApi, workspaceId]);
+
+  useEffect(() => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const unsubscribe = window.api?.lens?.subscribeAnnotationEvents?.(
+      (payload: LensAnnotationEventPayload) => {
+        if (payload.workspaceId !== workspaceId) {
+          return;
+        }
+
+        if (payload.type === "clear") {
+          setAnnotations([]);
+          return;
+        }
+        if (payload.type === "remove" && payload.annotation) {
+          setAnnotations((current) =>
+            current.filter(
+              (annotation) => annotation.id !== payload.annotation?.id,
+            ),
+          );
+          return;
+        }
+        if (
+          (payload.type === "add" || payload.type === "update") &&
+          payload.annotation
+        ) {
+          setAnnotations((current) =>
+            mergeAnnotationEntry(current, payload.annotation!),
+          );
+        }
+      },
+    );
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [hasLensApi, workspaceId]);
 
   const navigate = useCallback(
     async (targetUrl: string) => {
@@ -469,7 +778,247 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     }
   }, [activeTaskId, hasLensApi, sourceMappingConfig, workspaceId]);
 
+  const respondToCdpApproval = useCallback(
+    async (approved: boolean) => {
+      const request = cdpApprovalRequest;
+      if (!request) {
+        return;
+      }
+
+      setCdpApprovalRequest(null);
+      cdpApprovalRequestRef.current = null;
+
+      if (approved) {
+        const state = useAppStore.getState();
+        const host = request.host.trim().toLowerCase();
+        const alreadyApproved = state.settings.lensCdpApprovedHosts.some(
+          (entry) => entry.trim().toLowerCase() === host,
+        );
+        if (!alreadyApproved) {
+          state.updateSettings({
+            patch: {
+              lensCdpApprovedHosts: [
+                ...state.settings.lensCdpApprovedHosts,
+                host,
+              ],
+            },
+          });
+        }
+      }
+
+      const result = await window.api?.lens?.respondCdpApproval?.({
+        requestId: request.requestId,
+        approved,
+        remember: approved,
+      });
+
+      if (result && !result.ok) {
+        toast.error("CDP approval expired", {
+          description: "Retry the Lens action to request access again.",
+        });
+      }
+    },
+    [cdpApprovalRequest],
+  );
+
+  const saveScreenshot = useCallback(
+    async (fullPage: boolean) => {
+      if (!workspaceId || !hasLensApi) {
+        return;
+      }
+
+      const result = await window.api?.lens?.saveScreenshot?.({
+        workspaceId,
+        options: { fullPage },
+      });
+
+      if (!result?.ok) {
+        toast.error("Screenshot failed", {
+          description: result?.message ?? "Lens could not save the screenshot.",
+        });
+        return;
+      }
+
+      toast.success("Screenshot saved", {
+        description: result.path,
+      });
+    },
+    [hasLensApi, workspaceId],
+  );
+
+  const downloadPageAssets = useCallback(async () => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const result = await window.api?.lens?.downloadPageAssets?.({
+      workspaceId,
+    });
+
+    if (!result?.ok) {
+      toast.error("Download failed", {
+        description: result?.message ?? "Lens could not download page assets.",
+      });
+      return;
+    }
+
+    const count = result.entries?.length ?? 0;
+    const failed = result.errors?.length ?? 0;
+    toast.success("Page assets downloaded", {
+      description:
+        failed > 0
+          ? `${count} saved, ${failed} skipped.`
+          : `${count} asset${count === 1 ? "" : "s"} saved.`,
+    });
+  }, [hasLensApi, workspaceId]);
+
+  const openDownloadInFinder = useCallback((savePath: string) => {
+    void window.api?.shell?.showInFinder?.({ path: savePath });
+  }, []);
+
+  const toggleAnnotationMode = useCallback(async () => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    if (isAnnotationModeActive) {
+      const result = await window.api?.lens?.stopAnnotationMode?.({
+        workspaceId,
+      });
+      if (!result?.ok) {
+        toast.error("Annotation mode failed", {
+          description: result?.message ?? "Lens could not stop annotation mode.",
+        });
+        return;
+      }
+      setIsAnnotationModeActive(false);
+      return;
+    }
+
+    const result = await window.api?.lens?.startAnnotationMode?.({
+      workspaceId,
+      options: {
+        extractDebugSource: sourceMappingConfig.reactDebugSource,
+      },
+    });
+    if (!result?.ok) {
+      toast.error("Annotation mode failed", {
+        description: result?.message ?? "Lens could not start annotation mode.",
+      });
+      return;
+    }
+    setIsAnnotationModeActive(true);
+  }, [
+    hasLensApi,
+    isAnnotationModeActive,
+    sourceMappingConfig.reactDebugSource,
+    workspaceId,
+  ]);
+
+  const removeAnnotation = useCallback(
+    async (annotationId: string) => {
+      if (!workspaceId || !hasLensApi) {
+        return;
+      }
+
+      const result = await window.api?.lens?.removeAnnotation?.({
+        workspaceId,
+        annotationId,
+      });
+      if (!result?.ok) {
+        setAnnotations((current) =>
+          current.filter((annotation) => annotation.id !== annotationId),
+        );
+      }
+    },
+    [hasLensApi, workspaceId],
+  );
+
+  const applyAnnotationStyle = useCallback(
+    async (annotation: LensAnnotation, patch: Record<string, string>) => {
+      if (!workspaceId || !hasLensApi || !annotation.selector) {
+        return;
+      }
+
+      const result = await window.api?.lens?.setElementStyle?.({
+        workspaceId,
+        selector: annotation.selector,
+        patch,
+      });
+
+      if (!result?.ok || !result.edits) {
+        toast.error("Style edit failed", {
+          description: result?.message ?? "Lens could not edit that element.",
+        });
+        return;
+      }
+
+      const edits: LensStyleEdit[] = result.edits;
+      setAnnotations((current) =>
+        current.map((candidate) => {
+          if (candidate.id !== annotation.id) {
+            return candidate;
+          }
+          return {
+            ...candidate,
+            computedStyles: {
+              ...(candidate.computedStyles ?? {}),
+              ...Object.fromEntries(
+                edits.map((edit) => [edit.property, edit.after]),
+              ),
+            },
+            styleEdits: [...(candidate.styleEdits ?? []), ...edits],
+          };
+        }),
+      );
+
+      toast.success("Style updated", {
+        description: `${edits.length} propert${edits.length === 1 ? "y" : "ies"} changed.`,
+      });
+    },
+    [hasLensApi, workspaceId],
+  );
+
+  const sendAnnotationsToDraft = useCallback(async () => {
+    if (!activeTaskId) {
+      toast.warning("Select a task first", {
+        description: "Lens sends visual comments into the active task draft.",
+      });
+      return;
+    }
+
+    if (annotations.length === 0) {
+      return;
+    }
+
+    const annotationText = formatAnnotationsForChat(
+      annotations,
+      sourceMappingConfig,
+    );
+    const currentText =
+      useAppStore.getState().promptDraftByTask[activeTaskId]?.text?.trim() ??
+      "";
+    useAppStore.getState().updatePromptDraft({
+      taskId: activeTaskId,
+      patch: {
+        text: currentText
+          ? `${currentText}\n\n${annotationText}`
+          : annotationText,
+      },
+    });
+    useAppStore.setState((state) => ({
+      promptFocusNonce: state.promptFocusNonce + 1,
+    }));
+
+    toast.success("Lens comments added", {
+      description: `${annotations.length} visual comment${
+        annotations.length === 1 ? "" : "s"
+      } appended to the active task draft.`,
+    });
+  }, [activeTaskId, annotations, sourceMappingConfig]);
+
   const pickerDisabled = !hasLensApi || !activeTaskId || url === "about:blank";
+  const lensPageActionDisabled = !hasLensApi || url === "about:blank";
   const pickerTooltip = useMemo(() => {
     if (!hasLensApi) {
       return "Lens is only available in the Electron desktop runtime.";
@@ -607,6 +1156,113 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                 {pickerTooltip}
               </TooltipContent>
             </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={isAnnotationModeActive ? "secondary" : "outline"}
+                  disabled={lensPageActionDisabled}
+                  onClick={() => {
+                    void toggleAnnotationMode();
+                  }}
+                  className="h-7 gap-1 px-2 text-xs"
+                >
+                  <Highlighter className="size-3.5" />
+                  <span>Annotate</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Visual comments</TooltipContent>
+            </Tooltip>
+
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="outline"
+                      disabled={lensPageActionDisabled}
+                      aria-label="Save screenshot"
+                    >
+                      <Camera className="size-3.5" />
+                      <ChevronDown className="size-2.5 opacity-70" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Screenshot</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem
+                  onSelect={() => {
+                    void saveScreenshot(false);
+                  }}
+                >
+                  Viewport
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    void saveScreenshot(true);
+                  }}
+                >
+                  Full Page
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant={downloads.length > 0 ? "secondary" : "outline"}
+                      disabled={!hasLensApi}
+                      aria-label="Downloads"
+                    >
+                      <Download className="size-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Downloads</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel>Downloads</DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={lensPageActionDisabled}
+                  onSelect={() => {
+                    void downloadPageAssets();
+                  }}
+                >
+                  Download Page Assets
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {downloads.length > 0 ? (
+                  downloads
+                    .slice(-5)
+                    .reverse()
+                    .map((entry) => (
+                      <DropdownMenuItem
+                        key={entry.id}
+                        className="min-w-0"
+                        onSelect={() => openDownloadInFinder(entry.savePath)}
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {entry.filename}
+                        </span>
+                        <span className="ml-2 shrink-0 text-[10px] text-muted-foreground">
+                          {entry.state}
+                        </span>
+                      </DropdownMenuItem>
+                    ))
+                ) : (
+                  <DropdownMenuItem disabled>No downloads yet</DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
@@ -626,6 +1282,67 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               {sourceMappingConfig.reactDebugSource ? "react source on" : "react source off"}
             </Badge>
           </div>
+          {annotations.length > 0 ? (
+            <div className="max-h-28 space-y-1 overflow-y-auto rounded-md border border-border/60 bg-background/70 p-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-medium">
+                  {annotations.length} comment
+                  {annotations.length === 1 ? "" : "s"}
+                </div>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="secondary"
+                  disabled={!activeTaskId}
+                  onClick={() => {
+                    void sendAnnotationsToDraft();
+                  }}
+                  className="h-6 gap-1 px-2 text-[11px]"
+                >
+                  <Send className="size-3" />
+                  Send
+                </Button>
+              </div>
+              <div className="space-y-1">
+                {annotations.map((annotation) => (
+                  <div
+                    key={annotation.id}
+                    className="flex items-start gap-2 rounded border border-border/50 bg-muted/30 px-2 py-1.5 text-xs"
+                  >
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                      {annotation.pin}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">
+                        {annotation.comment}
+                      </div>
+                      <div className="truncate text-[10px] text-muted-foreground">
+                        {annotation.kind === "area"
+                          ? "area"
+                          : annotation.selector}
+                      </div>
+                    </div>
+                    <AnnotationStylePopover
+                      annotation={annotation}
+                      disabled={!hasLensApi || annotation.kind !== "element"}
+                      onApply={applyAnnotationStyle}
+                    />
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      aria-label={`Remove annotation ${annotation.pin}`}
+                      onClick={() => {
+                        void removeAnnotation(annotation.id);
+                      }}
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -668,6 +1385,62 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
           </div>
         </div>
       </div>
+      <Dialog
+        open={cdpApprovalRequest !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            void respondToCdpApproval(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="gap-3">
+            <div className="flex items-center gap-2">
+              <span className="flex size-9 items-center justify-center rounded-md border border-border bg-muted">
+                <ShieldAlert className="size-4 text-muted-foreground" />
+              </span>
+              <div className="min-w-0">
+                <DialogTitle>Allow Lens CDP access?</DialogTitle>
+                <DialogDescription className="mt-1">
+                  Full CDP access lets agents inspect and control this site.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
+              <div className="text-xs font-medium text-muted-foreground">
+                Host
+              </div>
+              <div className="truncate font-mono text-xs">
+                {cdpApprovalRequest?.host ?? ""}
+              </div>
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Approving remembers this host in Settings &gt; Lens &gt; Developer Mode.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void respondToCdpApproval(false);
+              }}
+            >
+              Deny
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                void respondToCdpApproval(true);
+              }}
+            >
+              Approve and Remember
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 }

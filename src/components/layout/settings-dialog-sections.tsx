@@ -3475,17 +3475,56 @@ function PromptsSection() {
 // Lens section – built-in browser source mapping configuration
 // ---------------------------------------------------------------------------
 
+function parseLensHostList(value: string): string[] {
+  const seen = new Set<string>();
+  const hosts: string[] = [];
+
+  for (const line of value.split("\n")) {
+    const host = line.trim().toLowerCase();
+    if (!host || seen.has(host)) {
+      continue;
+    }
+    seen.add(host);
+    hosts.push(host);
+  }
+
+  return hosts;
+}
+
+function formatLensHostList(hosts: readonly string[]): string {
+  return hosts.join("\n");
+}
+
 function LensSection() {
-  const [heuristic, reactDebugSource] = useAppStore(
+  const [
+    heuristic,
+    reactDebugSource,
+    developerModeCdp,
+    cdpApprovedHosts,
+    allowedHosts,
+    blockedHosts,
+  ] = useAppStore(
     useShallow(
       (state) =>
         [
           state.settings.lensSourceMappingHeuristic,
           state.settings.lensSourceMappingReactDebugSource,
+          state.settings.lensDeveloperModeCdp,
+          state.settings.lensCdpApprovedHosts,
+          state.settings.lensAllowedHosts,
+          state.settings.lensBlockedHosts,
         ] as const,
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const allowedHostsText = useMemo(
+    () => formatLensHostList(allowedHosts),
+    [allowedHosts],
+  );
+  const blockedHostsText = useMemo(
+    () => formatLensHostList(blockedHosts),
+    [blockedHosts],
+  );
 
   return (
     <>
@@ -3518,6 +3557,97 @@ function LensSection() {
               })
             }
           />
+        </SettingsCard>
+        <SettingsCard
+          title="Developer Mode"
+          description="Control CDP-backed Lens actions such as screenshots, JavaScript evaluation, and agent page control."
+        >
+          <SwitchField
+            title="CDP Tools"
+            description="Allow CDP-backed Lens operations after per-host approval."
+            checked={developerModeCdp}
+            onCheckedChange={(checked) =>
+              updateSettings({
+                patch: { lensDeveloperModeCdp: checked },
+              })
+            }
+          />
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground">
+              Approved Hosts
+            </div>
+            {cdpApprovedHosts.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {cdpApprovedHosts.map((host) => (
+                  <Badge
+                    key={host}
+                    variant="secondary"
+                    className="gap-1 rounded-md pr-1"
+                  >
+                    <span className="max-w-48 truncate font-mono text-[11px]">
+                      {host}
+                    </span>
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      aria-label={`Remove ${host}`}
+                      onClick={() =>
+                        updateSettings({
+                          patch: {
+                            lensCdpApprovedHosts: cdpApprovedHosts.filter(
+                              (entry) => entry !== host,
+                            ),
+                          },
+                        })
+                      }
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No hosts have been approved for CDP access.
+              </p>
+            )}
+          </div>
+        </SettingsCard>
+        <SettingsCard
+          title="Site Access"
+          description="Restrict Lens navigation by hostname. Blocked hosts win over allowed hosts; localhost and loopback targets are always allowed."
+        >
+          <LabeledField
+            title="Allowed Hosts"
+            description="One host per line. Leave empty to allow any host that is not blocked."
+          >
+            <DraftTextarea
+              value={allowedHostsText}
+              placeholder={"example.com\napp.example.com"}
+              rows={4}
+              onCommit={(value) =>
+                updateSettings({
+                  patch: { lensAllowedHosts: parseLensHostList(value) },
+                })
+              }
+            />
+          </LabeledField>
+          <LabeledField
+            title="Blocked Hosts"
+            description="One host per line. These hosts are blocked even when they also match the allow list."
+          >
+            <DraftTextarea
+              value={blockedHostsText}
+              placeholder={"example.org\nstaging.example.com"}
+              rows={4}
+              onCommit={(value) =>
+                updateSettings({
+                  patch: { lensBlockedHosts: parseLensHostList(value) },
+                })
+              }
+            />
+          </LabeledField>
         </SettingsCard>
       </SectionStack>
     </>

@@ -499,7 +499,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     group: "view",
     icon: Layers3,
     keywords: ["source control", "changes", "diff", "git"],
-    shortcut: (modifierLabel) => `${modifierLabel}+Shift+B`,
+    shortcut: (modifierLabel) => `${modifierLabel}+K C`,
     build: (args) => ({
       id: "view.toggle-changes-panel",
       title:
@@ -511,7 +511,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       group: "view",
       icon: Layers3,
       keywords: ["source control", "changes", "diff", "git"],
-      shortcut: `${args.modifierLabel}+Shift+B`,
+      shortcut: `${args.modifierLabel}+K C`,
       run: args.commands.toggleChangesPanel,
       source: "core",
     }),
@@ -608,7 +608,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     group: "view",
     icon: Globe,
     keywords: ["lens", "browser", "preview", "inspect", "right rail"],
-    shortcut: (modifierLabel) => `${modifierLabel}+K L`,
+    shortcut: (modifierLabel) => `${modifierLabel}+Shift+B`,
     build: (args) => ({
       id: "view.show-lens",
       title: "Show Lens Panel",
@@ -617,7 +617,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       group: "view",
       icon: Globe,
       keywords: ["lens", "browser", "preview", "inspect", "right rail"],
-      shortcut: `${args.modifierLabel}+K L`,
+      shortcut: `${args.modifierLabel}+Shift+B`,
       run: () => args.commands.showOverlayTab("lens"),
       source: "core",
     }),

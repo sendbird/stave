@@ -1,9 +1,45 @@
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { TooltipProvider } from "@/components/ui";
+import type { LensSecurityConfig } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
 
+function buildLensSecurityConfig(): LensSecurityConfig {
+  const settings = useAppStore.getState().settings;
+  return {
+    allowedHosts: settings.lensAllowedHosts,
+    blockedHosts: settings.lensBlockedHosts,
+    developerModeCdp: settings.lensDeveloperModeCdp,
+    cdpApprovedHosts: settings.lensCdpApprovedHosts,
+  };
+}
+
+function pushLensSecurityConfig(): void {
+  void window.api?.lens?.setSecurityConfig?.(buildLensSecurityConfig());
+}
+
 export default function App() {
+  useEffect(() => {
+    pushLensSecurityConfig();
+    const unsubscribe = useAppStore.subscribe((state, prevState) => {
+      if (
+        state.settings.lensAllowedHosts === prevState.settings.lensAllowedHosts &&
+        state.settings.lensBlockedHosts === prevState.settings.lensBlockedHosts &&
+        state.settings.lensDeveloperModeCdp ===
+          prevState.settings.lensDeveloperModeCdp &&
+        state.settings.lensCdpApprovedHosts ===
+          prevState.settings.lensCdpApprovedHosts
+      ) {
+        return;
+      }
+
+      pushLensSecurityConfig();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const setBootstrapStatus = useAppStore.getState().setPersistenceBootstrapStatus;

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { assertNavigationAllowed } from "../electron/main/browser/browser-security";
 import { normalizeLensUrl } from "../electron/main/browser/browser-url";
 
 describe("normalizeLensUrl", () => {
@@ -26,5 +27,62 @@ describe("normalizeLensUrl", () => {
     expect(() => normalizeLensUrl("javascript:alert(1)")).toThrow(
       "Blocked protocol: javascript:alert(1)",
     );
+  });
+});
+
+describe("assertNavigationAllowed", () => {
+  test("allows remote hosts when lists are empty", () => {
+    expect(() =>
+      assertNavigationAllowed("https://example.com", {
+        allowedHosts: [],
+        blockedHosts: [],
+        developerModeCdp: true,
+        cdpApprovedHosts: [],
+      }),
+    ).not.toThrow();
+  });
+
+  test("blocked hosts win over allowed hosts", () => {
+    expect(() =>
+      assertNavigationAllowed("https://app.example.com", {
+        allowedHosts: ["example.com"],
+        blockedHosts: ["app.example.com"],
+        developerModeCdp: true,
+        cdpApprovedHosts: [],
+      }),
+    ).toThrow("Lens navigation blocked");
+  });
+
+  test("allowlist matches subdomains", () => {
+    expect(() =>
+      assertNavigationAllowed("https://app.example.com", {
+        allowedHosts: ["example.com"],
+        blockedHosts: [],
+        developerModeCdp: true,
+        cdpApprovedHosts: [],
+      }),
+    ).not.toThrow();
+  });
+
+  test("loopback targets are always allowed", () => {
+    expect(() =>
+      assertNavigationAllowed("http://localhost:5173", {
+        allowedHosts: ["example.com"],
+        blockedHosts: ["localhost"],
+        developerModeCdp: true,
+        cdpApprovedHosts: [],
+      }),
+    ).not.toThrow();
+  });
+
+  test("throws for unparseable urls", () => {
+    expect(() =>
+      assertNavigationAllowed("https://not a url", {
+        allowedHosts: [],
+        blockedHosts: [],
+        developerModeCdp: true,
+        cdpApprovedHosts: [],
+      }),
+    ).toThrow("Invalid Lens URL");
   });
 });

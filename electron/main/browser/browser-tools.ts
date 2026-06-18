@@ -22,8 +22,11 @@ import {
   getAccessibilitySnapshot,
   getDocumentHTML,
   getTextContent,
+  setElementStyle,
   typeText,
 } from "./browser-cdp";
+import { triggerDownloadByUrl } from "./browser-downloads";
+import { assertNavigationAllowed } from "./browser-security";
 
 // ---------------------------------------------------------------------------
 // Helpers (same pattern as stave-mcp-server.ts)
@@ -70,6 +73,7 @@ export function registerBrowserTools(server: McpServer): void {
       if (!wc) throw new Error("WebContents not available");
 
       const targetUrl = normalizeLensUrl(url);
+      assertNavigationAllowed(targetUrl);
 
       await Promise.race([
         wc.loadURL(targetUrl),
@@ -269,6 +273,106 @@ export function registerBrowserTools(server: McpServer): void {
         entries: entries.slice(-n),
         total: entries.length,
       });
+    },
+  );
+
+  // ---- Download URL ----
+  server.registerTool(
+    "stave_lens_download",
+    {
+      description:
+        "Download a URL through the workspace Lens browser session and return the saved file path.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        url: z.string().describe("HTTP(S) URL to download"),
+        filename: z
+          .string()
+          .optional()
+          .describe("Optional filename to use for the saved file"),
+      },
+    },
+    async ({ workspaceId, url, filename }) => {
+      const session = requireSession(workspaceId);
+      const targetUrl = normalizeLensUrl(url);
+      assertNavigationAllowed(targetUrl);
+      const entry = await triggerDownloadByUrl(
+        session.view.webContents.id,
+        targetUrl,
+        filename,
+      );
+      return toStructuredResult({ ok: true, entry, savePath: entry.savePath });
+    },
+  );
+
+  // ---- List downloads ----
+  server.registerTool(
+    "stave_lens_list_downloads",
+    {
+      description:
+        "List recent files saved by the workspace Lens browser downloads and screenshot actions.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        limit: z
+          .number()
+          .optional()
+          .describe("Number of recent entries to return (default 50)"),
+      },
+    },
+    async ({ workspaceId, limit }) => {
+      const session = requireSession(workspaceId);
+      const entries = session.downloadLog.toArray();
+      const n = limit ?? 50;
+      return toStructuredResult({
+        ok: true,
+        entries: entries.slice(-n),
+        total: entries.length,
+      });
+    },
+  );
+
+  // ---- Get annotations ----
+  server.registerTool(
+    "stave_lens_get_annotations",
+    {
+      description:
+        "Read visual comments the user placed in the workspace Lens browser annotation mode.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+      },
+    },
+    async ({ workspaceId }) => {
+      const session = requireSession(workspaceId);
+      const annotations = await session.view.webContents.executeJavaScript(
+        "window.__staveGetAnnotations?.() ?? []",
+      );
+      return toStructuredResult({ ok: true, annotations });
+    },
+  );
+
+  // ---- Set element style ----
+  server.registerTool(
+    "stave_lens_set_style",
+    {
+      description:
+        "Apply a live inline style patch to an element in the workspace Lens browser and return before/after edits.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        selector: z.string().describe("CSS selector of the target element"),
+        style: z
+          .record(z.string(), z.string())
+          .describe(
+            "Style patch. Supported keys: fontSize, fontWeight, color, backgroundColor, padding, margin.",
+          ),
+      },
+    },
+    async ({ workspaceId, selector, style }) => {
+      const session = requireSession(workspaceId);
+      const edits = await setElementStyle(
+        session.view.webContents.id,
+        selector,
+        style,
+      );
+      return toStructuredResult({ ok: true, edits });
     },
   );
 

@@ -3,13 +3,17 @@
 // Includes search hints so the AI agent can locate the source file.
 // ---------------------------------------------------------------------------
 
-import type { ElementPickerResult, LensSourceMappingConfig } from "./lens.types";
+import type {
+  ElementPickerResult,
+  LensAnnotation,
+  LensSourceMappingConfig,
+} from "./lens.types";
 
 /**
  * Build search hint strings that help an AI agent locate the source file
  * responsible for the picked element.
  */
-function buildSearchHints(result: ElementPickerResult): string[] {
+export function buildSearchHints(result: ElementPickerResult): string[] {
   const hints: string[] = [];
 
   // Distinctive class combination (skip very common utility-only combos)
@@ -49,7 +53,7 @@ function buildSearchHints(result: ElementPickerResult): string[] {
 /**
  * Build a React source location hint from _debugSource data.
  */
-function buildDebugSourceHint(result: ElementPickerResult): string | null {
+export function buildDebugSourceHint(result: ElementPickerResult): string | null {
   if (!result.debugSource) return null;
   const { fileName, lineNumber, columnNumber } = result.debugSource;
   const loc =
@@ -113,6 +117,98 @@ export function formatElementForChat(
         `**Source search hints** (use grep/file search to find the component):`,
         ...hints.map((h) => `- ${h}`),
       );
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function annotationToElementResult(
+  annotation: LensAnnotation,
+): ElementPickerResult | null {
+  if (!annotation.selector || !annotation.tagName) {
+    return null;
+  }
+
+  return {
+    selector: annotation.selector,
+    tagName: annotation.tagName,
+    id: annotation.elementId ?? "",
+    classList: annotation.classList ?? [],
+    boundingBox: annotation.rect,
+    computedStyles: annotation.computedStyles ?? {},
+    outerHTML: annotation.outerHTML ?? "",
+    textContent: annotation.textContent ?? "",
+    debugSource: annotation.debugSource,
+  };
+}
+
+export function formatAnnotationsForChat(
+  annotations: LensAnnotation[],
+  config?: LensSourceMappingConfig,
+): string {
+  const lines: string[] = [
+    `[Lens Visual Comments]`,
+    ``,
+    `The user left ${annotations.length} visual comment${annotations.length === 1 ? "" : "s"} on the live page.`,
+  ];
+
+  for (const annotation of annotations) {
+    lines.push(
+      ``,
+      `## ${annotation.pin}. ${annotation.kind === "area" ? "Area" : "Element"} Comment`,
+      `**Comment:** ${annotation.comment}`,
+      `**Position:** (${annotation.rect.x}, ${annotation.rect.y}) ${annotation.rect.width}x${annotation.rect.height}`,
+    );
+
+    if (annotation.styleEdits && annotation.styleEdits.length > 0) {
+      lines.push(
+        `**Style edits:**`,
+        ...annotation.styleEdits.map(
+          (edit) => `- ${edit.property}: \`${edit.before}\` → \`${edit.after}\``,
+        ),
+      );
+    }
+
+    const elementResult = annotationToElementResult(annotation);
+    if (elementResult) {
+      lines.push(
+        `**Selector:** \`${elementResult.selector}\``,
+        `**Tag:** \`<${elementResult.tagName}>\``,
+      );
+
+      if (elementResult.id) {
+        lines.push(`**ID:** \`#${elementResult.id}\``);
+      }
+
+      if (elementResult.classList.length > 0) {
+        lines.push(
+          `**Classes:** ${elementResult.classList.map((c) => `\`.${c}\``).join(", ")}`,
+        );
+      }
+
+      const debugSourceHint = buildDebugSourceHint(elementResult);
+      if (debugSourceHint && config?.reactDebugSource !== false) {
+        lines.push(`**${debugSourceHint}**`);
+      }
+
+      if (elementResult.textContent) {
+        lines.push(`**Text:** "${elementResult.textContent}"`);
+      }
+
+      if (elementResult.outerHTML) {
+        lines.push(`**HTML:**`, "```html", elementResult.outerHTML, "```");
+      }
+
+      if (config?.heuristic !== false) {
+        const hints = buildSearchHints(elementResult);
+        if (hints.length > 0) {
+          lines.push(
+            `**Source search hints:**`,
+            ...hints.map((hint) => `- ${hint}`),
+          );
+        }
+      }
     }
   }
 
