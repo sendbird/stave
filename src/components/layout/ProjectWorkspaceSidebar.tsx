@@ -921,7 +921,7 @@ export function ProjectWorkspaceSidebar(args: {
       <aside
         data-testid="project-workspace-sidebar"
         className={cn(
-          `sidebar-liquid-glass ${UI_LAYER_CLASS.floatingChrome} hidden h-full shrink-0 overflow-hidden text-sidebar-foreground lg:flex lg:flex-col`,
+          `${UI_LAYER_CLASS.floatingChrome} hidden h-full shrink-0 overflow-hidden text-sidebar-foreground lg:flex lg:flex-col`,
           args.collapsed && "border-r border-sidebar-border/60",
         )}
         style={{
@@ -1363,9 +1363,10 @@ export function ProjectWorkspaceSidebar(args: {
                                                       >
                                                       <div
                                                         className={cn(
-                                                          "group/workspace-row relative flex items-center gap-1 rounded-lg border border-transparent bg-transparent transition-[background-color,border-color,box-shadow,color] hover:border-sidebar-border/45 hover:bg-background/20 hover:text-foreground hover:shadow-sm",
-                                                          isActive &&
-                                                            "border-sidebar-border/60 bg-background/24 text-foreground ring-1 ring-primary/20 shadow-sm backdrop-blur-sm",
+                                                          "group/workspace-row relative flex items-center gap-1 rounded-lg border transition-[background-color,border-color,box-shadow,color]",
+                                                          isActive
+                                                            ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary hover:bg-primary/16"
+                                                            : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-background/20 hover:text-foreground hover:shadow-sm",
                                                           isDragging &&
                                                             "border-sidebar-border/45 bg-background/22 shadow-sm",
                                                         )}
