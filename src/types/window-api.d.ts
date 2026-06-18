@@ -1440,6 +1440,100 @@ interface LensNavigationEventPayload {
   state: LensNavigationState;
 }
 
+interface LensSecurityConfig {
+  allowedHosts: string[];
+  blockedHosts: string[];
+  developerModeCdp: boolean;
+  cdpApprovedHosts: string[];
+}
+
+interface LensCdpApprovalRequestPayload {
+  workspaceId: string;
+  requestId: string;
+  url: string;
+  host: string;
+  reason: string;
+}
+
+interface LensCdpApprovalResponse {
+  requestId: string;
+  approved: boolean;
+  remember?: boolean;
+}
+
+type LensDownloadState =
+  | "progressing"
+  | "completed"
+  | "cancelled"
+  | "interrupted";
+
+interface LensDownloadEntry {
+  id: string;
+  url: string;
+  filename: string;
+  savePath: string;
+  mimeType?: string;
+  totalBytes?: number;
+  receivedBytes?: number;
+  state: LensDownloadState;
+  startedAt: string;
+  completedAt?: string;
+}
+
+interface LensDownloadEventPayload {
+  workspaceId: string;
+  entry: LensDownloadEntry;
+}
+
+interface LensRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface LensStyleEdit {
+  property: string;
+  before: string;
+  after: string;
+}
+
+interface LensAnnotation {
+  id: string;
+  kind: "element" | "area";
+  pin: number;
+  rect: LensRect;
+  comment: string;
+  createdAt: string;
+  selector?: string;
+  tagName?: string;
+  elementId?: string;
+  classList?: string[];
+  computedStyles?: Record<string, string>;
+  outerHTML?: string;
+  textContent?: string;
+  debugSource?: {
+    fileName: string;
+    lineNumber: number;
+    columnNumber?: number;
+  };
+  styleEdits?: LensStyleEdit[];
+}
+
+type LensAnnotationEventType =
+  | "add"
+  | "update"
+  | "remove"
+  | "clear"
+  | "submit";
+
+interface LensAnnotationEventPayload {
+  workspaceId: string;
+  type: LensAnnotationEventType;
+  annotation?: LensAnnotation;
+  annotations?: LensAnnotation[];
+}
+
 interface LensElementPickerResult {
   selector: string;
   tagName: string;
@@ -1457,6 +1551,14 @@ interface LensElementPickerResult {
 }
 
 interface WindowLensApi {
+  setSecurityConfig?: (args: LensSecurityConfig) => Promise<{
+    ok: boolean;
+    config?: LensSecurityConfig;
+    message?: string;
+  }>;
+  respondCdpApproval?: (
+    args: LensCdpApprovalResponse,
+  ) => Promise<{ ok: boolean; message?: string }>;
   createView?: (args: {
     workspaceId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
@@ -1488,6 +1590,33 @@ interface WindowLensApi {
       clip?: { x: number; y: number; width: number; height: number };
     };
   }) => Promise<{ ok: boolean; dataUrl?: string; message?: string }>;
+  saveScreenshot?: (args: {
+    workspaceId: string;
+    options?: {
+      fullPage?: boolean;
+      clip?: { x: number; y: number; width: number; height: number };
+    };
+  }) => Promise<{
+    ok: boolean;
+    path?: string;
+    entry?: LensDownloadEntry;
+    message?: string;
+  }>;
+  downloadUrl?: (args: {
+    workspaceId: string;
+    url: string;
+    filename?: string;
+  }) => Promise<{ ok: boolean; entry?: LensDownloadEntry; message?: string }>;
+  downloadPageAssets?: (args: { workspaceId: string }) => Promise<{
+    ok: boolean;
+    assetUrls?: string[];
+    entries?: LensDownloadEntry[];
+    errors?: Array<{ url: string; message: string }>;
+    message?: string;
+  }>;
+  listDownloads?: (args: {
+    workspaceId: string;
+  }) => Promise<{ ok: boolean; entries?: LensDownloadEntry[]; message?: string }>;
   getDom?: (args: {
     workspaceId: string;
     selector?: string;
@@ -1524,8 +1653,38 @@ interface WindowLensApi {
     result?: LensElementPickerResult;
     message?: string;
   }>;
+  startAnnotationMode?: (args: {
+    workspaceId: string;
+    options?: { extractDebugSource?: boolean };
+  }) => Promise<{ ok: boolean; message?: string }>;
+  stopAnnotationMode?: (args: {
+    workspaceId: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  getAnnotations?: (args: { workspaceId: string }) => Promise<{
+    ok: boolean;
+    annotations?: LensAnnotation[];
+    message?: string;
+  }>;
+  removeAnnotation?: (args: {
+    workspaceId: string;
+    annotationId: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  setElementStyle?: (args: {
+    workspaceId: string;
+    selector: string;
+    patch: Record<string, string>;
+  }) => Promise<{ ok: boolean; edits?: LensStyleEdit[]; message?: string }>;
   subscribeNavigationEvents?: (
     listener: (payload: LensNavigationEventPayload) => void,
+  ) => () => void;
+  subscribeCdpApprovalRequests?: (
+    listener: (payload: LensCdpApprovalRequestPayload) => void,
+  ) => () => void;
+  subscribeDownloadEvents?: (
+    listener: (payload: LensDownloadEventPayload) => void,
+  ) => () => void;
+  subscribeAnnotationEvents?: (
+    listener: (payload: LensAnnotationEventPayload) => void,
   ) => () => void;
 }
 

@@ -3,6 +3,9 @@
 // ---------------------------------------------------------------------------
 
 import { BrowserWindow, ipcMain } from "electron";
+import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import {
   createBrowserSession,
   destroyBrowserSession,
@@ -14,17 +17,36 @@ import {
   updateNavigationState,
 } from "../browser/browser-manager";
 import {
+  deriveDownloadFilename,
+  enumeratePageAssets,
+  getDownloadsDir,
+  sendDownloadEvent,
+  triggerDownloadByUrl,
+} from "../browser/browser-downloads";
+import { getAnnotationOverlayScript } from "../browser/browser-annotation-overlay";
+import {
+  assertCdpAllowedForWebContentsId,
   captureScreenshot,
   ensureDebuggerAttached,
   detachDebugger,
   getDocumentHTML,
   evaluateExpression,
+  setElementStyle,
 } from "../browser/browser-cdp";
 import { getElementPickerScript } from "../browser/browser-element-picker";
+import {
+  assertNavigationAllowed,
+  respondCdpApproval,
+  setLensSecurityConfig,
+} from "../browser/browser-security";
 import { normalizeLensUrl } from "../browser/browser-url";
 import type {
   BrowserConsoleEntry,
   LensBounds,
+  LensCdpApprovalResponse,
+  LensDownloadEntry,
+  LensAnnotationEventPayload,
+  LensSecurityConfig,
 } from "../../../src/lib/lens/lens.types";
 import { getMainWindow } from "../window";
 
@@ -40,6 +62,27 @@ function resolveWebContents(
   workspaceId: string,
 ): Electron.WebContents | undefined {
   return getWebContentsForSession(workspaceId);
+}
+
+function screenshotFilename(fullPage?: boolean): string {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `lens-${fullPage ? "full-page" : "viewport"}-${stamp}.png`;
+}
+
+async function existingNames(directory: string): Promise<Set<string>> {
+  try {
+    return new Set(await fs.readdir(directory));
+  } catch {
+    return new Set();
+  }
+}
+
+function pngDataUrlToBuffer(dataUrl: string): Buffer {
+  const prefix = "data:image/png;base64,";
+  if (!dataUrl.startsWith(prefix)) {
+    throw new Error("Screenshot did not return a PNG data URL.");
+  }
+  return Buffer.from(dataUrl.slice(prefix.length), "base64");
 }
 
 function sendNavigationEvent(args: {
@@ -61,6 +104,30 @@ function sendNavigationEvent(args: {
   });
 }
 
+function sendAnnotationEvent(payload: LensAnnotationEventPayload) {
+  const renderer = getMainWindow()?.webContents;
+  if (!renderer || renderer.isDestroyed()) {
+    return;
+  }
+  renderer.send("lens:annotation-event", payload);
+}
+
+async function injectAnnotationOverlay(
+  workspaceId: string,
+  wc: Electron.WebContents,
+): Promise<void> {
+  const session = getBrowserSession(workspaceId);
+  if (!session?.annotationOverlayActive || !session.annotationNonce) {
+    return;
+  }
+  await wc.executeJavaScript(
+    getAnnotationOverlayScript({
+      extractDebugSource: session.annotationExtractDebugSource,
+      nonce: session.annotationNonce,
+    }),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Console / Network event listeners for a session
 // ---------------------------------------------------------------------------
@@ -79,6 +146,9 @@ function attachEventListeners(workspaceId: string, wc: Electron.WebContents) {
   };
 
   wc.on("did-navigate", sendNavUpdate);
+  wc.on("did-navigate", () => {
+    sendAnnotationEvent({ workspaceId, type: "clear" });
+  });
   wc.on("did-navigate-in-page", sendNavUpdate);
   wc.on("did-start-loading", () => {
     updateNavigationState(workspaceId, { isLoading: true });
@@ -87,6 +157,16 @@ function attachEventListeners(workspaceId: string, wc: Electron.WebContents) {
   wc.on("did-stop-loading", () => {
     updateNavigationState(workspaceId, { isLoading: false });
     sendNavUpdate();
+    void injectAnnotationOverlay(workspaceId, wc).catch((error) => {
+      pushConsoleEntry(workspaceId, {
+        level: "warn",
+        text: `Annotation overlay reinjection failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        timestamp: toIso(),
+        source: wc.getURL(),
+      });
+    });
   });
   wc.on(
     "did-fail-load",
@@ -111,6 +191,27 @@ function attachEventListeners(workspaceId: string, wc: Electron.WebContents) {
 
   // Console messages
   wc.on("console-message", (_e, level, message, _line, sourceId) => {
+    const session = getBrowserSession(workspaceId);
+    const annotationPrefix = session?.annotationNonce
+      ? `__STAVE_ANN__${session.annotationNonce}`
+      : null;
+    if (annotationPrefix && message.startsWith(annotationPrefix)) {
+      try {
+        const payload = JSON.parse(message.slice(annotationPrefix.length)) as
+          | Omit<LensAnnotationEventPayload, "workspaceId">
+          | null;
+        if (payload?.type) {
+          sendAnnotationEvent({
+            workspaceId,
+            ...payload,
+          } as LensAnnotationEventPayload);
+        }
+      } catch {
+        sendAnnotationEvent({ workspaceId, type: "clear" });
+      }
+      return;
+    }
+
     const levelMap: Record<number, BrowserConsoleEntry["level"]> = {
       0: "debug",
       1: "log",
@@ -131,6 +232,29 @@ function attachEventListeners(workspaceId: string, wc: Electron.WebContents) {
 // ---------------------------------------------------------------------------
 
 export function registerBrowserHandlers() {
+  // ---- Security settings: renderer pushes persisted Lens settings to main ----
+  ipcMain.handle(
+    "lens:set-security-config",
+    async (_event, args: LensSecurityConfig) => {
+      try {
+        const config = setLensSecurityConfig(args);
+        return { ok: true, config };
+      } catch (err) {
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:respond-cdp-approval",
+    async (_event, args: LensCdpApprovalResponse) => ({
+      ok: respondCdpApproval(args),
+    }),
+  );
+
   // ---- Create view: create WebContentsView in main process (idempotent) ----
   ipcMain.handle(
     "lens:create-view",
@@ -222,6 +346,7 @@ export function registerBrowserHandlers() {
 
       try {
         const url = normalizeLensUrl(args.url);
+        assertNavigationAllowed(url);
         await wc.loadURL(url);
         return { ok: true };
       } catch (err) {
@@ -299,6 +424,134 @@ export function registerBrowserHandlers() {
           message: err instanceof Error ? err.message : String(err),
         };
       }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:save-screenshot",
+    async (
+      _event,
+      args: {
+        workspaceId: string;
+        options?: {
+          fullPage?: boolean;
+          clip?: { x: number; y: number; width: number; height: number };
+        };
+      },
+    ) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        const dataUrl = await captureScreenshot(
+          session.view.webContents.id,
+          args.options,
+        );
+        const buffer = pngDataUrlToBuffer(dataUrl);
+        const directory = getDownloadsDir(args.workspaceId);
+        await fs.mkdir(directory, { recursive: true });
+        const filename = deriveDownloadFilename(
+          "lens-screenshot.png",
+          screenshotFilename(args.options?.fullPage),
+          await existingNames(directory),
+        );
+        const savePath = path.join(directory, filename);
+        await fs.writeFile(savePath, buffer);
+
+        const now = toIso();
+        const entry: LensDownloadEntry = {
+          id: `${args.workspaceId}:lens-screenshot-${Date.now()}`,
+          url: session.navigationState.url,
+          filename,
+          savePath,
+          mimeType: "image/png",
+          totalBytes: buffer.length,
+          receivedBytes: buffer.length,
+          state: "completed",
+          startedAt: now,
+          completedAt: now,
+        };
+        session.downloadLog.push(entry);
+        sendDownloadEvent(args.workspaceId, entry);
+
+        return { ok: true, path: savePath, entry };
+      } catch (err) {
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:download-url",
+    async (
+      _event,
+      args: { workspaceId: string; url: string; filename?: string },
+    ) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        const url = normalizeLensUrl(args.url);
+        assertNavigationAllowed(url);
+        const entry = await triggerDownloadByUrl(
+          session.view.webContents.id,
+          url,
+          args.filename,
+        );
+        return { ok: true, entry };
+      } catch (err) {
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:download-page-assets",
+    async (_event, args: { workspaceId: string }) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        const assetUrls = await enumeratePageAssets(session.view.webContents.id);
+        const entries: LensDownloadEntry[] = [];
+        const errors: Array<{ url: string; message: string }> = [];
+
+        for (const assetUrl of assetUrls) {
+          try {
+            assertNavigationAllowed(assetUrl);
+            entries.push(
+              await triggerDownloadByUrl(session.view.webContents.id, assetUrl),
+            );
+          } catch (error) {
+            errors.push({
+              url: assetUrl,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+
+        return { ok: true, assetUrls, entries, errors };
+      } catch (err) {
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:list-downloads",
+    async (_event, args: { workspaceId: string }) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+      return { ok: true, entries: session.downloadLog.toArray() };
     },
   );
 
@@ -403,6 +656,123 @@ export function registerBrowserHandlers() {
     },
   );
 
+  ipcMain.handle(
+    "lens:start-annotation-mode",
+    async (
+      _event,
+      args: { workspaceId: string; options?: { extractDebugSource?: boolean } },
+    ) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        session.annotationOverlayActive = true;
+        session.annotationNonce = randomUUID();
+        session.annotationExtractDebugSource =
+          args.options?.extractDebugSource ?? false;
+        await injectAnnotationOverlay(args.workspaceId, session.view.webContents);
+        return { ok: true };
+      } catch (err) {
+        session.annotationOverlayActive = false;
+        session.annotationNonce = null;
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:stop-annotation-mode",
+    async (_event, args: { workspaceId: string }) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        await session.view.webContents.executeJavaScript(
+          "window.__staveTeardownAnnotations?.()",
+        );
+      } catch {
+        // Ignore teardown failures; navigation may already have destroyed page state.
+      }
+      session.annotationOverlayActive = false;
+      session.annotationNonce = null;
+      session.annotationExtractDebugSource = false;
+      sendAnnotationEvent({ workspaceId: args.workspaceId, type: "clear" });
+      return { ok: true };
+    },
+  );
+
+  ipcMain.handle(
+    "lens:get-annotations",
+    async (_event, args: { workspaceId: string }) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        const annotations = await session.view.webContents.executeJavaScript(
+          "window.__staveGetAnnotations?.() ?? []",
+        );
+        return { ok: true, annotations };
+      } catch (err) {
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:remove-annotation",
+    async (_event, args: { workspaceId: string; annotationId: string }) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        const removed = await session.view.webContents.executeJavaScript(
+          `window.__staveRemoveAnnotation?.(${JSON.stringify(args.annotationId)}) ?? false`,
+        );
+        return { ok: Boolean(removed) };
+      } catch (err) {
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:set-element-style",
+    async (
+      _event,
+      args: {
+        workspaceId: string;
+        selector: string;
+        patch: Record<string, string>;
+      },
+    ) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        const edits = await setElementStyle(
+          session.view.webContents.id,
+          args.selector,
+          args.patch,
+        );
+        return { ok: true, edits };
+      } catch (err) {
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
   // ---- Attach CDP debugger (for MCP tools) ----
   ipcMain.handle(
     "lens:attach-debugger",
@@ -411,6 +781,10 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
+        await assertCdpAllowedForWebContentsId(
+          session.view.webContents.id,
+          "attach CDP debugger",
+        );
         ensureDebuggerAttached(session.view.webContents.id);
         session.debuggerAttached = true;
         return { ok: true };

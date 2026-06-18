@@ -942,6 +942,14 @@ export interface AppSettings {
   lensSourceMappingHeuristic: boolean;
   /** React _debugSource: extract file:line from React fiber (dev builds). */
   lensSourceMappingReactDebugSource: boolean;
+  /** Hosts always allowed for Lens navigation. Empty = no allowlist restriction. */
+  lensAllowedHosts: string[];
+  /** Hosts always blocked for Lens navigation (wins over the allowlist). */
+  lensBlockedHosts: string[];
+  /** Master switch for CDP-backed Lens tools (screenshot/evaluate/click/etc.). */
+  lensDeveloperModeCdp: boolean;
+  /** Hosts the user has approved for CDP access (per-host opt-in). */
+  lensCdpApprovedHosts: string[];
 }
 
 interface AppState {
@@ -1929,7 +1937,35 @@ const defaultSettings: AppSettings = {
   // Lens
   lensSourceMappingHeuristic: true,
   lensSourceMappingReactDebugSource: false,
+  lensAllowedHosts: [],
+  lensBlockedHosts: [],
+  lensDeveloperModeCdp: true,
+  lensCdpApprovedHosts: [],
 };
+
+function normalizeLensHostSettings(
+  value: unknown,
+  fallback: string[],
+): string[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const seen = new Set<string>();
+  const hosts: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") {
+      continue;
+    }
+    const host = entry.trim().toLowerCase();
+    if (!host || seen.has(host)) {
+      continue;
+    }
+    seen.add(host);
+    hosts.push(host);
+  }
+  return hosts;
+}
 
 function createDefaultProviderAvailability() {
   return Object.fromEntries(
@@ -6427,6 +6463,30 @@ export const useAppStore = create<AppState>()(
               ? {}
               : {
                   taskPresets: normalizePersistedTaskPresets(patch.taskPresets),
+                }),
+            ...(patch.lensAllowedHosts === undefined
+              ? {}
+              : {
+                  lensAllowedHosts: normalizeLensHostSettings(
+                    patch.lensAllowedHosts,
+                    defaultSettings.lensAllowedHosts,
+                  ),
+                }),
+            ...(patch.lensBlockedHosts === undefined
+              ? {}
+              : {
+                  lensBlockedHosts: normalizeLensHostSettings(
+                    patch.lensBlockedHosts,
+                    defaultSettings.lensBlockedHosts,
+                  ),
+                }),
+            ...(patch.lensCdpApprovedHosts === undefined
+              ? {}
+              : {
+                  lensCdpApprovedHosts: normalizeLensHostSettings(
+                    patch.lensCdpApprovedHosts,
+                    defaultSettings.lensCdpApprovedHosts,
+                  ),
                 }),
             ...(patch.notificationSoundVolume === undefined
               ? {}
@@ -10999,6 +11059,22 @@ export const useAppStore = create<AppState>()(
               (value: unknown): value is string => typeof value === "string",
             )
           : defaultSettings.commandPaletteRecentCommandIds;
+        state.settings.lensAllowedHosts = normalizeLensHostSettings(
+          raw.lensAllowedHosts,
+          defaultSettings.lensAllowedHosts,
+        );
+        state.settings.lensBlockedHosts = normalizeLensHostSettings(
+          raw.lensBlockedHosts,
+          defaultSettings.lensBlockedHosts,
+        );
+        state.settings.lensCdpApprovedHosts = normalizeLensHostSettings(
+          raw.lensCdpApprovedHosts,
+          defaultSettings.lensCdpApprovedHosts,
+        );
+        state.settings.lensDeveloperModeCdp =
+          typeof raw.lensDeveloperModeCdp === "boolean"
+            ? raw.lensDeveloperModeCdp
+            : defaultSettings.lensDeveloperModeCdp;
         state.settings.appShortcutKeys = normalizeAppShortcutKeys(
           raw.appShortcutKeys,
         );

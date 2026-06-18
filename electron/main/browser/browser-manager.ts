@@ -6,12 +6,14 @@
 // ---------------------------------------------------------------------------
 
 import { WebContentsView, session as electronSession } from "electron";
+import { attachDownloadHandler } from "./browser-downloads";
 import { isDevToolsShortcut } from "../keyboard-shortcuts";
 import { getMainWindow, toggleMainWindowDevTools } from "../window";
 import { openExternalWithFallback } from "../utils/external-url";
 import type {
   BrowserConsoleEventPayload,
   BrowserConsoleEntry,
+  LensDownloadEntry,
   BrowserNavigationState,
   BrowserNetworkEntry,
   LensBounds,
@@ -21,7 +23,7 @@ import type {
 // Ring buffer – bounded array with FIFO eviction
 // ---------------------------------------------------------------------------
 
-class RingBuffer<T> {
+export class RingBuffer<T> {
   private items: T[] = [];
   constructor(private readonly capacity: number) {}
 
@@ -55,6 +57,11 @@ export interface BrowserSessionState {
   debuggerAttached: boolean;
   consoleLog: RingBuffer<BrowserConsoleEntry>;
   networkLog: RingBuffer<BrowserNetworkEntry>;
+  downloadLog: RingBuffer<LensDownloadEntry>;
+  downloadHandlerCleanup: (() => void) | null;
+  annotationOverlayActive: boolean;
+  annotationNonce: string | null;
+  annotationExtractDebugSource: boolean;
   navigationState: BrowserNavigationState;
   /** Last CSS-pixel bounds sent from renderer (for zoom-change re-apply). */
   lastCssBounds: LensBounds | null;
@@ -64,6 +71,7 @@ export interface BrowserSessionState {
 
 const CONSOLE_BUFFER_SIZE = 200;
 const NETWORK_BUFFER_SIZE = 200;
+const DOWNLOAD_BUFFER_SIZE = 200;
 
 const sessions = new Map<string, BrowserSessionState>();
 
@@ -174,6 +182,11 @@ export function createBrowserSession(
     debuggerAttached: false,
     consoleLog: new RingBuffer<BrowserConsoleEntry>(CONSOLE_BUFFER_SIZE),
     networkLog: new RingBuffer<BrowserNetworkEntry>(NETWORK_BUFFER_SIZE),
+    downloadLog: new RingBuffer<LensDownloadEntry>(DOWNLOAD_BUFFER_SIZE),
+    downloadHandlerCleanup: null,
+    annotationOverlayActive: false,
+    annotationNonce: null,
+    annotationExtractDebugSource: false,
     navigationState: {
       url: "about:blank",
       title: "",
@@ -186,6 +199,13 @@ export function createBrowserSession(
   };
 
   sessions.set(workspaceId, session);
+  session.downloadHandlerCleanup = attachDownloadHandler(
+    workspaceId,
+    ses,
+    (entry) => {
+      session.downloadLog.push(entry);
+    },
+  );
   return session;
 }
 
@@ -230,6 +250,17 @@ export function getWebContentsIdForSession(
   return getWebContentsForSession(workspaceId)?.id;
 }
 
+export function getWorkspaceIdForWebContentsId(
+  webContentsId: number,
+): string | undefined {
+  for (const session of sessions.values()) {
+    if (session.view.webContents.id === webContentsId) {
+      return session.workspaceId;
+    }
+  }
+  return undefined;
+}
+
 export function destroyBrowserSession(workspaceId: string): void {
   const session = sessions.get(workspaceId);
   if (!session) return;
@@ -245,6 +276,9 @@ export function destroyBrowserSession(workspaceId: string): void {
       // webContents may already be destroyed
     }
   }
+
+  session.downloadHandlerCleanup?.();
+  session.downloadHandlerCleanup = null;
 
   // Remove view from window
   try {
@@ -268,6 +302,7 @@ export function destroyBrowserSession(workspaceId: string): void {
 
   session.consoleLog.clear();
   session.networkLog.clear();
+  session.downloadLog.clear();
   sessions.delete(workspaceId);
 }
 

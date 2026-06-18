@@ -83,3 +83,122 @@ export interface LensSourceMappingConfig {
   /** Extract _debugSource from React fiber internals (dev builds only). */
   reactDebugSource: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Annotations (Codex-style element/area comments)
+// ---------------------------------------------------------------------------
+
+export interface LensRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface LensStyleEdit {
+  /** camelCase CSS property (matches ElementPickerResult.computedStyles keys). */
+  property: string;
+  /** Value captured at selection time. */
+  before: string;
+  /** Current live value applied to the element. */
+  after: string;
+}
+
+export interface LensAnnotation {
+  /** Stable id generated in-page. */
+  id: string;
+  kind: "element" | "area";
+  /** 1-based display index assigned by the in-page registry. */
+  pin: number;
+  /** Viewport-relative CSS-pixel rect (element boundingBox or drawn area). */
+  rect: LensRect;
+  comment: string;
+  /** ISO timestamp set in-page when the annotation is created. */
+  createdAt: string;
+  // -- element-kind fields (undefined for area annotations) --
+  selector?: string;
+  tagName?: string;
+  /** Element id attribute. Named to avoid clashing with annotation id. */
+  elementId?: string;
+  classList?: string[];
+  computedStyles?: Record<string, string>;
+  outerHTML?: string;
+  textContent?: string;
+  debugSource?: ElementPickerDebugSource;
+  /** Live style edits applied to this element. */
+  styleEdits?: LensStyleEdit[];
+}
+
+export type LensAnnotationEventType =
+  | "add"
+  | "update"
+  | "remove"
+  | "clear"
+  | "submit";
+
+export interface LensAnnotationEventPayload {
+  workspaceId: string;
+  type: LensAnnotationEventType;
+  /** Present for add/update/remove. */
+  annotation?: LensAnnotation;
+  /** Present for submit: the full batch the user chose to send. */
+  annotations?: LensAnnotation[];
+}
+
+// ---------------------------------------------------------------------------
+// Downloads
+// ---------------------------------------------------------------------------
+
+export type LensDownloadState =
+  | "progressing"
+  | "completed"
+  | "cancelled"
+  | "interrupted";
+
+export interface LensDownloadEntry {
+  id: string;
+  url: string;
+  filename: string;
+  /** Absolute path under userData/lens-downloads/<workspaceId>/. */
+  savePath: string;
+  mimeType?: string;
+  totalBytes?: number;
+  receivedBytes?: number;
+  state: LensDownloadState;
+  startedAt: string;
+  completedAt?: string;
+}
+
+export interface LensDownloadEventPayload {
+  workspaceId: string;
+  entry: LensDownloadEntry;
+}
+
+// ---------------------------------------------------------------------------
+// Security configuration (renderer settings pushed to main)
+// ---------------------------------------------------------------------------
+
+export interface LensSecurityConfig {
+  /** Hosts always allowed. Empty = no allowlist restriction. */
+  allowedHosts: string[];
+  /** Hosts always blocked (wins over the allowlist). */
+  blockedHosts: string[];
+  /** Master switch for CDP-backed Lens operations. */
+  developerModeCdp: boolean;
+  /** Hosts approved for CDP access (per-host opt-in). */
+  cdpApprovedHosts: string[];
+}
+
+export interface LensCdpApprovalRequestPayload {
+  workspaceId: string;
+  requestId: string;
+  url: string;
+  host: string;
+  reason: string;
+}
+
+export interface LensCdpApprovalResponse {
+  requestId: string;
+  approved: boolean;
+  remember?: boolean;
+}
