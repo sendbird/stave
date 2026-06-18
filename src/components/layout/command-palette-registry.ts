@@ -18,6 +18,7 @@ import {
   Search,
   Settings,
   Sparkles,
+  SplitSquareHorizontal,
   Terminal,
   type LucideIcon,
 } from "lucide-react";
@@ -133,6 +134,7 @@ export interface CommandPaletteCommandHandlers {
   saveActiveEditor: () => Promise<void> | void;
   selectTask: (taskId: string) => void;
   setTaskProvider: (taskId: string, provider: ProviderId) => void;
+  startCompareRun: () => Promise<void> | void;
   showOverlayTab: (tab: CommandPaletteLayoutState["sidebarOverlayTab"]) => void;
   stopActiveTurn: () => void;
   switchWorkspace: (workspaceId: string) => Promise<void> | void;
@@ -428,6 +430,42 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
             icon: CommandIcon,
             keywords: ["stop", "abort", "cancel generation"],
             run: args.commands.stopActiveTurn,
+            source: "core",
+          }
+        : null,
+  },
+  {
+    id: "task.compare-providers",
+    title: "Compare Current Draft Across Providers",
+    description:
+      "Launch Claude and Codex variants from the current prompt draft.",
+    group: "task",
+    icon: SplitSquareHorizontal,
+    keywords: [
+      "compare",
+      "best of n",
+      "claude",
+      "codex",
+      "providers",
+      "variants",
+    ],
+    build: (args) =>
+      args.projectPath
+        ? {
+            id: "task.compare-providers",
+            title: "Compare Current Draft Across Providers",
+            subtitle: "Start Claude and Codex in isolated workspaces.",
+            group: "task",
+            icon: SplitSquareHorizontal,
+            keywords: [
+              "compare",
+              "best of n",
+              "claude",
+              "codex",
+              "providers",
+              "variants",
+            ],
+            run: args.commands.startCompareRun,
             source: "core",
           }
         : null,

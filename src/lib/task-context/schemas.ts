@@ -319,6 +319,10 @@ const WorkspaceActiveSurfaceSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("fleet-view"),
   }),
+  z.object({
+    kind: z.literal("compare-run"),
+    compareRunId: z.string(),
+  }),
 ]);
 
 const WorkspaceJiraIssueSchema = z.object({

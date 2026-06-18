@@ -84,6 +84,21 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.activeSurface).toEqual({ kind: "fleet-view" });
   });
 
+  test("parses compare run as a workspace active surface", () => {
+    const parsed = parseWorkspaceShell({
+      payload: {
+        ...createWorkspaceBase(),
+        activeSurface: { kind: "compare-run", compareRunId: "compare-1" },
+        messageCountByTask: {},
+      },
+    });
+
+    expect(parsed?.activeSurface).toEqual({
+      kind: "compare-run",
+      compareRunId: "compare-1",
+    });
+  });
+
   test("parses prompt draft runtime overrides and queued-next-turn content from snapshots", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {

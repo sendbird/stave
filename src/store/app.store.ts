@@ -172,6 +172,16 @@ import {
   buildReviewFeedbackFileContexts,
   formatReviewFeedbackPrompt,
 } from "@/lib/review-feedback";
+import {
+  buildCompareWorkspaceName,
+  buildDefaultCompareVariants,
+  buildInitialCompareRun,
+  normalizeCompareVariants,
+  type CompareRun,
+  type CompareRunVariant,
+  type CompareRunVariantConfig,
+  type StartCompareRunResult,
+} from "@/lib/compare-runs";
 import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import {
   applyProjectBasePromptToRuntimeOptions,
@@ -923,6 +933,8 @@ interface AppState {
   skillCatalog: SkillCatalogState;
   notifications: AppNotification[];
   reviewCommentsByTask: Record<string, ReviewComment[] | undefined>;
+  compareRunsById: Record<string, CompareRun | undefined>;
+  activeCompareRunId: string | null;
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerTurnActivityByTask: Record<
     string,
@@ -1006,6 +1018,23 @@ interface AppState {
   refreshProviderCommandCatalog: () => void;
   notifyWorkspacePlansChanged: () => void;
   openFleetView: () => void;
+  openCompareRun: (args: { compareRunId: string }) => void;
+  startCompareRun: (args: {
+    seedPrompt: string;
+    variants?: CompareRunVariantConfig[];
+  }) => Promise<StartCompareRunResult>;
+  startCompareRunFromActiveDraft: () => Promise<StartCompareRunResult>;
+  openCompareVariant: (args: {
+    compareRunId: string;
+    variantId: string;
+  }) => Promise<void>;
+  keepCompareVariant: (args: {
+    compareRunId: string;
+    variantId: string;
+  }) => Promise<StartCompareRunResult>;
+  cancelCompareRun: (args: {
+    compareRunId: string;
+  }) => Promise<StartCompareRunResult>;
   focusTaskAttention: (args: {
     taskId: string;
     workspaceId?: string;
@@ -3727,6 +3756,8 @@ export const useAppStore = create<AppState>()(
         },
         notifications: [],
         reviewCommentsByTask: {},
+        compareRunsById: {},
+        activeCompareRunId: null,
         activeTurnIdsByTask: {},
         providerTurnActivityByTask: {},
         nativeSessionReadyByTask: {},
@@ -6338,6 +6369,335 @@ export const useAppStore = create<AppState>()(
               workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
             };
           });
+        },
+        openCompareRun: ({ compareRunId }) => {
+          const normalizedCompareRunId = compareRunId.trim();
+          if (!normalizedCompareRunId) {
+            return;
+          }
+          set((state) => {
+            if (!state.compareRunsById[normalizedCompareRunId]) {
+              return state;
+            }
+            return {
+              activeCompareRunId: normalizedCompareRunId,
+              activeSurface: {
+                kind: "compare-run",
+                compareRunId: normalizedCompareRunId,
+              },
+              workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            };
+          });
+        },
+        startCompareRunFromActiveDraft: async () => {
+          const state = get();
+          const activeDraft =
+            state.promptDraftByTask[state.activeTaskId] ??
+            state.promptDraftByTask["draft:session"] ??
+            EMPTY_PROMPT_DRAFT;
+          const seedPrompt = activeDraft.text.trim();
+          if (!seedPrompt) {
+            return {
+              ok: false,
+              message: "Write a prompt before starting a compare run.",
+            };
+          }
+          return get().startCompareRun({ seedPrompt });
+        },
+        startCompareRun: async ({ seedPrompt, variants }) => {
+          const normalizedSeedPrompt = seedPrompt.trim();
+          if (!normalizedSeedPrompt) {
+            return {
+              ok: false,
+              message: "Compare run prompt is required.",
+            };
+          }
+
+          const stateBefore = get();
+          if (!stateBefore.projectPath || !stateBefore.activeWorkspaceId) {
+            return {
+              ok: false,
+              message: "Open a project before starting a compare run.",
+            };
+          }
+
+          const normalizedVariants = normalizeCompareVariants(
+            variants ??
+              buildDefaultCompareVariants({
+                modelClaude: stateBefore.settings.modelClaude,
+                modelCodex: stateBefore.settings.modelCodex,
+              }),
+          );
+          if (normalizedVariants.length < 2) {
+            return {
+              ok: false,
+              message: "Compare runs need at least two variants.",
+            };
+          }
+
+          const compareRunId = crypto.randomUUID();
+          const now = buildRecentTimestamp();
+          const baseWorkspaceId = stateBefore.activeWorkspaceId;
+          const baseBranch =
+            stateBefore.workspaceBranchById[baseWorkspaceId] ??
+            stateBefore.defaultBranch ??
+            "main";
+          const compareRun = buildInitialCompareRun({
+            id: compareRunId,
+            seedPrompt: normalizedSeedPrompt,
+            baseWorkspaceId,
+            baseBranch,
+            variants: normalizedVariants,
+            now,
+          });
+
+          set((state) => ({
+            compareRunsById: {
+              ...state.compareRunsById,
+              [compareRunId]: compareRun,
+            },
+            activeCompareRunId: compareRunId,
+          }));
+
+          const updateVariant = (
+            variantId: string,
+            patch: Partial<CompareRunVariant>,
+          ) => {
+            set((state) => {
+              const currentRun = state.compareRunsById[compareRunId];
+              if (!currentRun) {
+                return state;
+              }
+              return {
+                compareRunsById: {
+                  ...state.compareRunsById,
+                  [compareRunId]: {
+                    ...currentRun,
+                    updatedAt: buildRecentTimestamp(),
+                    variants: currentRun.variants.map((variant) =>
+                      variant.id === variantId
+                        ? { ...variant, ...patch }
+                        : variant,
+                    ),
+                  },
+                },
+              };
+            });
+          };
+
+          for (let index = 0; index < compareRun.variants.length; index += 1) {
+            const variant = compareRun.variants[index];
+            if (!variant) {
+              continue;
+            }
+            updateVariant(variant.id, { status: "creating" });
+            const workspaceName = buildCompareWorkspaceName({
+              seedPrompt: normalizedSeedPrompt,
+              compareRunId,
+              index,
+              provider: variant.provider,
+            });
+            const createResult = await get().createWorkspace({
+              name: workspaceName,
+              mode: "branch",
+              fromBranch: baseBranch,
+              initialTaskTitle:
+                variant.label?.trim() || `Compare ${index + 1}`,
+            });
+            if (!createResult.ok) {
+              updateVariant(variant.id, {
+                status: "failed",
+                error:
+                  createResult.message?.trim() ||
+                  "Workspace creation failed.",
+              });
+              continue;
+            }
+
+            const stateAfterCreate = get();
+            const workspaceId = stateAfterCreate.activeWorkspaceId;
+            const taskId = stateAfterCreate.activeTaskId;
+            updateVariant(variant.id, {
+              workspaceId,
+              workspaceName:
+                stateAfterCreate.workspaces.find(
+                  (workspace) => workspace.id === workspaceId,
+                )?.name ?? workspaceName,
+              workspacePath: stateAfterCreate.workspacePathById[workspaceId],
+              branchName: stateAfterCreate.workspaceBranchById[workspaceId],
+              taskId,
+            });
+
+            stateAfterCreate.setTaskProvider({
+              taskId,
+              provider: variant.provider,
+            });
+            if (variant.model?.trim()) {
+              get().updatePromptDraft({
+                taskId,
+                patch: {
+                  runtimeOverrides: {
+                    model: variant.model.trim(),
+                  },
+                },
+              });
+            }
+
+            const launchResult = await get().sendUserMessage({
+              taskId,
+              content: normalizedSeedPrompt,
+            });
+            updateVariant(variant.id, {
+              status:
+                launchResult.status === "blocked" ? "failed" : "running",
+              error:
+                launchResult.status === "blocked"
+                  ? "Variant launch was blocked."
+                  : undefined,
+            });
+          }
+
+          set((state) => {
+            const currentRun = state.compareRunsById[compareRunId];
+            if (!currentRun) {
+              return state;
+            }
+            const hasRunningVariant = currentRun.variants.some(
+              (variant) => variant.status === "running",
+            );
+            const hasCreatingVariant = currentRun.variants.some(
+              (variant) => variant.status === "creating",
+            );
+            const nextStatus =
+              hasRunningVariant || hasCreatingVariant ? "running" : "failed";
+            return {
+              compareRunsById: {
+                ...state.compareRunsById,
+                [compareRunId]: {
+                  ...currentRun,
+                  status: nextStatus,
+                  updatedAt: buildRecentTimestamp(),
+                  ...(nextStatus === "failed"
+                    ? { error: "No compare variants could be started." }
+                    : {}),
+                },
+              },
+              activeCompareRunId: compareRunId,
+              activeSurface: {
+                kind: "compare-run",
+                compareRunId,
+              },
+              workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            };
+          });
+
+          return { ok: true, compareRunId };
+        },
+        openCompareVariant: async ({ compareRunId, variantId }) => {
+          const run = get().compareRunsById[compareRunId];
+          const variant = run?.variants.find((item) => item.id === variantId);
+          if (!variant?.workspaceId || !variant.taskId) {
+            return;
+          }
+          const stateBeforeOpen = get();
+          if (stateBeforeOpen.activeWorkspaceId !== variant.workspaceId) {
+            await stateBeforeOpen.switchWorkspace({
+              workspaceId: variant.workspaceId,
+            });
+          }
+          get().selectTask({ taskId: variant.taskId });
+        },
+        keepCompareVariant: async ({ compareRunId, variantId }) => {
+          const run = get().compareRunsById[compareRunId];
+          const keptVariant = run?.variants.find(
+            (variant) => variant.id === variantId,
+          );
+          if (!run || !keptVariant?.workspaceId || !keptVariant.taskId) {
+            return {
+              ok: false,
+              message: "Compare variant is no longer available.",
+            };
+          }
+
+          const discardWorkspaceIds = run.variants
+            .filter(
+              (variant) =>
+                variant.id !== variantId &&
+                variant.workspaceId &&
+                variant.status !== "discarded",
+            )
+            .map((variant) => variant.workspaceId!);
+
+          for (const workspaceId of discardWorkspaceIds) {
+            await get().closeWorkspace({ workspaceId });
+          }
+
+          await get().openCompareVariant({ compareRunId, variantId });
+
+          set((state) => {
+            const currentRun = state.compareRunsById[compareRunId];
+            if (!currentRun) {
+              return state;
+            }
+            return {
+              compareRunsById: {
+                ...state.compareRunsById,
+                [compareRunId]: {
+                  ...currentRun,
+                  status: "completed",
+                  keptVariantId: variantId,
+                  updatedAt: buildRecentTimestamp(),
+                  variants: currentRun.variants.map((variant) => {
+                    if (variant.id === variantId) {
+                      return { ...variant, status: "kept" };
+                    }
+                    if (variant.workspaceId) {
+                      return { ...variant, status: "discarded" };
+                    }
+                    return variant;
+                  }),
+                },
+              },
+            };
+          });
+
+          return { ok: true, compareRunId };
+        },
+        cancelCompareRun: async ({ compareRunId }) => {
+          const run = get().compareRunsById[compareRunId];
+          if (!run) {
+            return { ok: false, message: "Compare run was not found." };
+          }
+
+          for (const variant of run.variants) {
+            if (variant.workspaceId && variant.status !== "discarded") {
+              await get().closeWorkspace({ workspaceId: variant.workspaceId });
+            }
+          }
+
+          set((state) => {
+            const currentRun = state.compareRunsById[compareRunId];
+            if (!currentRun) {
+              return state;
+            }
+            return {
+              compareRunsById: {
+                ...state.compareRunsById,
+                [compareRunId]: {
+                  ...currentRun,
+                  status: "cancelled",
+                  updatedAt: buildRecentTimestamp(),
+                  variants: currentRun.variants.map((variant) => ({
+                    ...variant,
+                    status:
+                      variant.status === "kept" ? "kept" : "discarded",
+                  })),
+                },
+              },
+            };
+          });
+
+          return { ok: true, compareRunId };
         },
         focusTaskAttention: async ({ taskId, workspaceId, projectPath }) => {
           const stateBefore = get();
