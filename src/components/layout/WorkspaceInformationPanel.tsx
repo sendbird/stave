@@ -14,6 +14,7 @@ import {
   Globe,
   Hash,
   Link,
+  MessageSquarePlus,
   Plus,
   RefreshCcw,
   SlidersHorizontal,
@@ -45,6 +46,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  toast,
 } from "@/components/ui";
 import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
@@ -81,6 +83,10 @@ import {
 } from "@/lib/pr-status";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
+import {
+  formatWorkspaceInfoTaskSeedPrompt,
+  resolveWorkspaceInfoTaskSeedTitle,
+} from "@/lib/workspace-information-task-seed";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
@@ -525,6 +531,30 @@ function InlineLinkRow(props: {
   );
 }
 
+function CreateTaskActionButton(props: {
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+            disabled={props.disabled}
+            onClick={props.onClick}
+            aria-label="Create task"
+          >
+            <MessageSquarePlus className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left">Create task</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Inline URL input — shown when adding a new link
 // ---------------------------------------------------------------------------
@@ -607,6 +637,7 @@ function GitHubPrRow(props: {
   onRefresh?: () => void;
   loading?: boolean;
   isCurrent?: boolean;
+  actions?: ReactNode;
 }) {
   const visual = PR_STATUS_VISUAL[props.status];
 
@@ -659,6 +690,7 @@ function GitHubPrRow(props: {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-0.5 pt-0.5 opacity-0 transition-opacity group-hover/pr-row:opacity-100">
+        {props.actions}
         {props.onRefresh ? (
           <button
             type="button"
@@ -959,6 +991,7 @@ function EmptyHint(props: { children: ReactNode }) {
 export function WorkspaceInformationPanel() {
   const [
     activeWorkspaceId,
+    activeTaskId,
     workspacePath,
     workspaceInformation,
     updateWorkspaceInformation,
@@ -968,11 +1001,14 @@ export function WorkspaceInformationPanel() {
     infoPanelScale,
     workspacePlansRefreshNonce,
     openFileFromTree,
+    createTask,
+    sendUserMessage,
   ] = useAppStore(
     useShallow(
       (state) =>
         [
           state.activeWorkspaceId,
+          state.activeTaskId,
           state.workspacePathById[state.activeWorkspaceId] ??
             state.projectPath ??
             "",
@@ -984,6 +1020,8 @@ export function WorkspaceInformationPanel() {
           state.settings.infoPanelScale,
           state.workspacePlansRefreshNonce,
           state.openFileFromTree,
+          state.createTask,
+          state.sendUserMessage,
         ] as const,
     ),
   );
@@ -993,6 +1031,9 @@ export function WorkspaceInformationPanel() {
   >(() => readStoredWorkspaceInformationSections());
   const [linkedPullRequestPreviewById, setLinkedPullRequestPreviewById] =
     useState<Record<string, LinkedPullRequestPreview>>({});
+  const [taskSeedInFlightId, setTaskSeedInFlightId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!activeWorkspaceId || isDefaultWorkspace) {
@@ -1110,6 +1151,56 @@ export function WorkspaceInformationPanel() {
       ...current,
       [args.itemId]: preview,
     }));
+  }
+
+  async function handleCreateTaskFromWorkspaceInfo(args: {
+    itemId: string;
+    sourceLabel: string;
+    title: string;
+    url: string;
+    referenceLabel?: string;
+    note?: string;
+  }) {
+    if (taskSeedInFlightId) {
+      return;
+    }
+
+    const title = resolveWorkspaceInfoTaskSeedTitle({
+      title: args.title,
+      referenceLabel: args.referenceLabel,
+    });
+    const content = formatWorkspaceInfoTaskSeedPrompt({
+      title,
+      sourceLabel: args.sourceLabel,
+      url: args.url,
+      referenceLabel: args.referenceLabel,
+      note: args.note,
+    });
+
+    setTaskSeedInFlightId(args.itemId);
+    try {
+      createTask({ title });
+      const newTaskId = useAppStore.getState().activeTaskId;
+      if (!newTaskId || newTaskId === activeTaskId) {
+        toast.error("Unable to create task");
+        return;
+      }
+
+      const result = await sendUserMessage({
+        taskId: newTaskId,
+        content,
+      });
+      if (result.status === "blocked") {
+        toast.error("Task created but prompt was blocked", {
+          description: title,
+        });
+        return;
+      }
+
+      toast.success("Task created", { description: title });
+    } finally {
+      setTaskSeedInFlightId(null);
+    }
   }
 
   const currentBranchPr = prInfo?.pr ?? null;
@@ -1414,6 +1505,12 @@ export function WorkspaceInformationPanel() {
                 const repo = githubRef
                   ? `${githubRef.owner}/${githubRef.repo}`
                   : undefined;
+                const referenceLabel =
+                  repo && number > 0
+                    ? `${repo} #${number}`
+                    : number > 0
+                      ? `#${number}`
+                      : repo;
                 const branch =
                   previewInfo?.pr.headRefName && previewInfo.pr.baseRefName
                     ? `${previewInfo.pr.headRefName} → ${previewInfo.pr.baseRefName}`
@@ -1432,6 +1529,21 @@ export function WorkspaceInformationPanel() {
                     branch={branch}
                     url={item.url}
                     loading={preview?.loading}
+                    actions={
+                      <CreateTaskActionButton
+                        disabled={taskSeedInFlightId !== null}
+                        onClick={() =>
+                          void handleCreateTaskFromWorkspaceInfo({
+                            itemId: item.id,
+                            sourceLabel: "GitHub pull request",
+                            title,
+                            url: item.url,
+                            referenceLabel,
+                            note: item.note,
+                          })
+                        }
+                      />
+                    }
                     onRefresh={() =>
                       void refreshLinkedPullRequestPreview({
                         itemId: item.id,
@@ -1493,6 +1605,7 @@ export function WorkspaceInformationPanel() {
                   issueRef?.host || formatWorkspaceInfoHostLabel(issue.url);
                 const title =
                   issue.title.trim() || issueKey || "Linked Jira issue";
+                const referenceLabel = issueKey || host || undefined;
 
                 if (!isWorkspaceInfoUrl(issue.url)) {
                   return (
@@ -1548,6 +1661,21 @@ export function WorkspaceInformationPanel() {
                       ) : null
                     }
                     url={issue.url}
+                    actions={
+                      <CreateTaskActionButton
+                        disabled={taskSeedInFlightId !== null}
+                        onClick={() =>
+                          void handleCreateTaskFromWorkspaceInfo({
+                            itemId: issue.id,
+                            sourceLabel: "Jira issue",
+                            title,
+                            url: issue.url,
+                            referenceLabel,
+                            note: issue.note,
+                          })
+                        }
+                      />
+                    }
                     onRemove={() =>
                       patchWorkspaceInformation((current) => ({
                         ...current,

@@ -3,6 +3,7 @@ import {
   CliSessionCreateSessionArgsSchema,
   FilesystemRepoMapArgsSchema,
   LocalMcpConfigUpdateArgsSchema,
+  ReviewDiffArgsSchema,
   SuggestPRDescriptionArgsSchema,
   TerminalCreateSessionArgsSchema,
   StreamTurnArgsSchema,
@@ -110,6 +111,33 @@ describe("provider IPC schemas", () => {
       baseBranch: "main",
       workspaceContext: "Use the active workspace task as the primary source of intent.",
     }).success).toBe(true);
+  });
+
+  test("accepts strict pre-PR review requests", () => {
+    expect(ReviewDiffArgsSchema.safeParse({
+      cwd: "/tmp/project",
+      baseBranch: "main",
+      headBranch: "feature/review",
+      providerId: "codex",
+      model: "gpt-5-codex",
+      runtimeOptions: {
+        model: "gpt-5-codex",
+        codexApprovalPolicy: "never",
+        codexBinaryPath: "/tmp/codex",
+        codexFileAccess: "read-only",
+        codexNetworkAccess: false,
+        codexReasoningEffort: "medium",
+        codexWebSearch: "disabled",
+      },
+    }).success).toBe(true);
+    expect(ReviewDiffArgsSchema.safeParse({
+      cwd: "/tmp/project",
+      providerId: "openai",
+    }).success).toBe(false);
+    expect(ReviewDiffArgsSchema.safeParse({
+      cwd: "/tmp/project",
+      extra: true,
+    }).success).toBe(false);
   });
 
   test("accepts terminal session creation args with workspace metadata", () => {

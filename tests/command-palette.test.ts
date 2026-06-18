@@ -100,6 +100,7 @@ function createContext(
       saveActiveEditor: async () => {},
       selectTask: () => {},
       setTaskProvider: () => {},
+      startCompareRun: () => {},
       showOverlayTab: () => {},
       stopActiveTurn: () => {},
       switchWorkspace: async () => {},
@@ -155,6 +156,9 @@ describe("command palette registry", () => {
     expect(task?.items.some((item) => item.id === "task.create-pr")).toBe(true);
     expect(
       task?.items.some((item) => item.id === "task.stop-active-turn"),
+    ).toBe(true);
+    expect(
+      task?.items.some((item) => item.id === "task.compare-providers"),
     ).toBe(true);
     expect(
       provider?.items.some((item) => item.id === "provider.set.codex"),

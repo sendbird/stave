@@ -64,7 +64,13 @@ export type BridgeEvent =
   | { type: "tool"; toolUseId?: string; toolName: string; input: string; output?: string; state: "input-streaming" | "input-available" | "output-available" | "output-error" }
   | { type: "tool_result"; tool_use_id: string; output: string; isError?: boolean; isPartial?: boolean }
   | { type: "diff"; filePath: string; oldContent: string; newContent: string; status?: "pending" | "accepted" | "rejected" }
-  | { type: "approval"; toolName: string; requestId: string; description: string }
+  | {
+    type: "approval";
+    toolName: string;
+    requestId: string;
+    description: string;
+    input?: string;
+  }
   | {
     type: "user_input";
     toolName: string;

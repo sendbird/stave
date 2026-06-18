@@ -1602,7 +1602,7 @@ export function ProjectWorkspaceSidebar(args: {
         title="Archive Workspace"
         description={
           workspaceToClose
-            ? `Archive workspace "${workspaceToClose.name}"? The associated git worktree will be permanently removed. Any uncommitted changes will be lost.`
+            ? `Archive workspace "${workspaceToClose.name}"? Stave will remove the associated git worktree only when it is clean and will preserve local changes or unpushed branch commits.`
             : ""
         }
         confirmLabel="Archive"

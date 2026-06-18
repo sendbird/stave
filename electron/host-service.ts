@@ -73,14 +73,21 @@ import {
   uninstallCodexPlugin,
   writeCodexConfigValue,
 } from "./providers/codex-app-server-runtime";
+import { reviewCodexWorktreeDiff } from "./providers/codex-sdk-runtime";
 import {
   getClaudeContextUsage,
   prewarmClaudeSdk,
   reloadClaudePlugins,
+  reviewClaudeWorktreeDiff,
   suggestClaudeCommitMessage,
   suggestClaudePRDescription,
   suggestClaudeTaskName,
 } from "./providers/claude-sdk-runtime";
+import {
+  normalizePrePrReviewProvider,
+  PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS,
+  PRE_PR_REVIEW_WORKING_TREE_DIFF_MAX_CHARS,
+} from "../src/lib/source-control-review";
 import {
   getCodexMcpStatus,
   getToolingStatusSnapshot,
@@ -617,12 +624,10 @@ async function suggestProviderCommitMessage(args: { cwd?: string }) {
   return suggestClaudeCommitMessage({ diff, fileList });
 }
 
-async function suggestProviderPRDescription(args: {
+async function collectProviderPullRequestContext(args: {
   cwd?: string;
   baseBranch?: string;
   headBranch?: string;
-  promptTemplate?: string;
-  workspaceContext?: string;
 }) {
   const cwd = args.cwd;
   const baseBranch = args.baseBranch?.trim() || "main";
@@ -699,23 +704,50 @@ async function suggestProviderPRDescription(args: {
   const agentsContent = agentsResult.ok
     ? agentsResult.stdout.trim()
     : undefined;
-  const fallbackDraft = generateFallbackPullRequestDraft({
+
+  return {
+    ok: true,
+    cwd,
     baseBranch,
     headBranch,
-    commitLog,
-    fileList,
-  });
-
-  const suggestion = await suggestClaudePRDescription({
-    cwd,
     diff,
     workingTreeDiff,
     commitLog,
     fileList,
-    baseBranch,
-    headBranch,
     prTemplateContent,
     agentsContent,
+  } as const;
+}
+
+async function suggestProviderPRDescription(args: {
+  cwd?: string;
+  baseBranch?: string;
+  headBranch?: string;
+  promptTemplate?: string;
+  workspaceContext?: string;
+}) {
+  const context = await collectProviderPullRequestContext(args);
+  if (!context.ok) {
+    return { ok: false, headBranch: context.headBranch };
+  }
+
+  const fallbackDraft = generateFallbackPullRequestDraft({
+    baseBranch: context.baseBranch,
+    headBranch: context.headBranch,
+    commitLog: context.commitLog,
+    fileList: context.fileList,
+  });
+
+  const suggestion = await suggestClaudePRDescription({
+    cwd: context.cwd,
+    diff: context.diff,
+    workingTreeDiff: context.workingTreeDiff,
+    commitLog: context.commitLog,
+    fileList: context.fileList,
+    baseBranch: context.baseBranch,
+    headBranch: context.headBranch,
+    prTemplateContent: context.prTemplateContent,
+    agentsContent: context.agentsContent,
     promptTemplate: args.promptTemplate,
     workspaceContext: args.workspaceContext,
   });
@@ -727,15 +759,65 @@ async function suggestProviderPRDescription(args: {
   });
   const resolvedTitle = resolvePullRequestTitle({
     currentTitle: mergedDraft.title,
-    commitLog,
-    headBranch,
+    commitLog: context.commitLog,
+    headBranch: context.headBranch,
   });
 
   return {
     ok: true,
     title: resolvedTitle,
     body: mergedDraft.body,
-    headBranch,
+    headBranch: context.headBranch,
+  };
+}
+
+async function reviewProviderDiff(args: {
+  cwd?: string;
+  baseBranch?: string;
+  headBranch?: string;
+  providerId?: StreamTurnArgs["providerId"];
+  model?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}) {
+  const providerId = normalizePrePrReviewProvider(args.providerId);
+  const context = await collectProviderPullRequestContext(args);
+  if (!context.ok) {
+    return {
+      ok: false,
+      findings: [],
+      headBranch: context.headBranch,
+      providerId,
+    };
+  }
+
+  const reviewArgs = {
+    cwd: context.cwd,
+    diff: context.diff,
+    workingTreeDiff: context.workingTreeDiff,
+    commitLog: context.commitLog,
+    fileList: context.fileList,
+    baseBranch: context.baseBranch,
+    headBranch: context.headBranch,
+    agentsContent: context.agentsContent,
+    model: args.model ?? args.runtimeOptions?.model,
+  };
+  const review =
+    providerId === "codex"
+      ? await reviewCodexWorktreeDiff({
+          ...reviewArgs,
+          runtimeOptions: args.runtimeOptions,
+        })
+      : await reviewClaudeWorktreeDiff(reviewArgs);
+
+  return {
+    ok: review.ok,
+    findings: review.findings ?? [],
+    headBranch: context.headBranch,
+    providerId,
+    truncated:
+      context.diff.length > PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS ||
+      context.workingTreeDiff.length >
+        PRE_PR_REVIEW_WORKING_TREE_DIFF_MAX_CHARS,
   };
 }
 
@@ -1064,6 +1146,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(
         request.id,
         await suggestProviderPRDescription(request.params),
+      );
+      return;
+    case "provider.review-diff":
+      await respond(
+        request.id,
+        await reviewProviderDiff(request.params),
       );
       return;
     case "tooling.get-status":

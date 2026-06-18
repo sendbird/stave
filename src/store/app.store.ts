@@ -93,6 +93,15 @@ import {
   normalizeResponseStylePrompt,
 } from "@/lib/providers/prompt-defaults";
 import {
+  DEFAULT_PRE_PR_REVIEW_PROVIDER,
+  normalizePrePrReviewProvider,
+  type PrePrReviewProviderId,
+} from "@/lib/source-control-review";
+import {
+  isTrustedApproval,
+  normalizeTrustedToolEntries,
+} from "@/lib/providers/trusted-tools";
+import {
   normalizeThinkingPhraseAnimationStyle,
   type ThinkingPhraseAnimationStyle,
 } from "@/lib/thinking-phrases";
@@ -172,6 +181,16 @@ import {
   buildReviewFeedbackFileContexts,
   formatReviewFeedbackPrompt,
 } from "@/lib/review-feedback";
+import {
+  buildCompareWorkspaceName,
+  buildDefaultCompareVariants,
+  buildInitialCompareRun,
+  normalizeCompareVariants,
+  type CompareRun,
+  type CompareRunVariant,
+  type CompareRunVariantConfig,
+  type StartCompareRunResult,
+} from "@/lib/compare-runs";
 import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import {
   applyProjectBasePromptToRuntimeOptions,
@@ -536,6 +555,58 @@ function getWorkspaceSessionForState(args: {
   return args.state.workspaceRuntimeCacheById[args.workspaceId] ?? null;
 }
 
+function clearRestoredTaskProviderSession(args: {
+  state: AppState;
+  taskId: string;
+}) {
+  const taskWorkspaceId =
+    args.state.taskWorkspaceIdById[args.taskId] ?? args.state.activeWorkspaceId;
+  if (taskWorkspaceId && taskWorkspaceId !== args.state.activeWorkspaceId) {
+    const cachedSession = args.state.workspaceRuntimeCacheById[taskWorkspaceId];
+    if (!cachedSession) {
+      return {};
+    }
+    const { [args.taskId]: _dropped, ...providerSessionByTask } =
+      cachedSession.providerSessionByTask;
+    return {
+      workspaceRuntimeCacheById: {
+        ...args.state.workspaceRuntimeCacheById,
+        [taskWorkspaceId]: {
+          ...cachedSession,
+          providerSessionByTask,
+          nativeSessionReadyByTask: {
+            ...cachedSession.nativeSessionReadyByTask,
+            [args.taskId]: false,
+          },
+        },
+      },
+    };
+  }
+
+  const { [args.taskId]: _dropped, ...providerSessionByTask } =
+    args.state.providerSessionByTask;
+  return {
+    providerSessionByTask,
+    nativeSessionReadyByTask: {
+      ...args.state.nativeSessionReadyByTask,
+      [args.taskId]: false,
+    },
+  };
+}
+
+function cleanupRestoredTaskProviderRuntime(args: { taskId: string }) {
+  const cleanupTask = window.api?.provider?.cleanupTask;
+  if (!cleanupTask) {
+    return;
+  }
+  void cleanupTask({ taskId: args.taskId }).catch((error) => {
+    console.warn("[checkpoint-restore] provider cleanup failed", {
+      taskId: args.taskId,
+      error,
+    });
+  });
+}
+
 function getDraftImageContexts(args: {
   promptDraft: PromptDraft;
   imageContexts?: Array<{
@@ -761,6 +832,7 @@ export interface AppSettings {
   rulesPresetPrimary: string;
   rulesPresetSecondary: string;
   permissionMode: "require-approval" | "auto-safe";
+  trustedTools: string[];
   subagentsEnabled: boolean;
   subagentsProfile: string;
   skillsEnabled: boolean;
@@ -776,6 +848,8 @@ export interface AppSettings {
   modelShortcutKeys: string[];
   reviewStrictMode: boolean;
   reviewChecklistPreset: string;
+  prePrReviewEnabled: boolean;
+  prePrReviewProvider: PrePrReviewProviderId;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -923,6 +997,8 @@ interface AppState {
   skillCatalog: SkillCatalogState;
   notifications: AppNotification[];
   reviewCommentsByTask: Record<string, ReviewComment[] | undefined>;
+  compareRunsById: Record<string, CompareRun | undefined>;
+  activeCompareRunId: string | null;
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerTurnActivityByTask: Record<
     string,
@@ -1006,6 +1082,23 @@ interface AppState {
   refreshProviderCommandCatalog: () => void;
   notifyWorkspacePlansChanged: () => void;
   openFleetView: () => void;
+  openCompareRun: (args: { compareRunId: string }) => void;
+  startCompareRun: (args: {
+    seedPrompt: string;
+    variants?: CompareRunVariantConfig[];
+  }) => Promise<StartCompareRunResult>;
+  startCompareRunFromActiveDraft: () => Promise<StartCompareRunResult>;
+  openCompareVariant: (args: {
+    compareRunId: string;
+    variantId: string;
+  }) => Promise<void>;
+  keepCompareVariant: (args: {
+    compareRunId: string;
+    variantId: string;
+  }) => Promise<StartCompareRunResult>;
+  cancelCompareRun: (args: {
+    compareRunId: string;
+  }) => Promise<StartCompareRunResult>;
   focusTaskAttention: (args: {
     taskId: string;
     workspaceId?: string;
@@ -1456,10 +1549,16 @@ function buildApprovalNotificationInputs(args: {
   turnId: string;
   provider: ProviderId;
   events: NormalizedProviderEvent[];
+  trustedTools?: readonly string[] | null;
 }): AppNotificationCreateInput[] {
   const approvalEvents = args.events.filter(
     (event): event is Extract<NormalizedProviderEvent, { type: "approval" }> =>
-      event.type === "approval",
+      event.type === "approval" &&
+      !isTrustedApproval({
+        trustedTools: args.trustedTools,
+        toolName: event.toolName,
+        input: event.input,
+      }),
   );
   if (approvalEvents.length === 0) {
     return [];
@@ -1522,6 +1621,34 @@ function buildApprovalNotificationInputs(args: {
         dedupeKey: `task.approval_requested:${args.turnId}:${event.requestId}`,
       } satisfies AppNotificationCreateInput,
     ];
+  });
+}
+
+function findTrustedApprovalResponses(args: {
+  session: WorkspaceSessionState;
+  taskId: string;
+  events: NormalizedProviderEvent[];
+  trustedTools?: readonly string[] | null;
+}) {
+  const taskMessages = args.session.messagesByTask[args.taskId] ?? [];
+  return args.events.flatMap((event) => {
+    if (
+      event.type !== "approval" ||
+      !isTrustedApproval({
+        trustedTools: args.trustedTools,
+        toolName: event.toolName,
+        input: event.input,
+      })
+    ) {
+      return [];
+    }
+    const location = findPendingApprovalMessageByRequestId({
+      messages: taskMessages,
+      requestId: event.requestId,
+    });
+    return location
+      ? [{ messageId: location.messageId, requestId: event.requestId }]
+      : [];
   });
 }
 
@@ -1637,6 +1764,8 @@ function showNotificationToast(notification: AppNotification) {
 const ARCHIVED_TASK_TURN_NOTICE =
   "Generation stopped because the task was archived before this turn completed.";
 export const STAVE_OPEN_SETTINGS_EVENT = "stave:open-settings";
+const WORKSPACE_PR_STATUS_FRESH_MS = 4 * 60 * 1000;
+const WORKSPACE_PR_STATUS_POLL_CONCURRENCY = 3;
 
 function normalizeAppShellMode(value: unknown): AppShellMode {
   return value === "zen" ? "zen" : "stave";
@@ -1711,6 +1840,7 @@ const defaultSettings: AppSettings = {
   rulesPresetPrimary: "typescript-best-practices",
   rulesPresetSecondary: "no-target-brand-keyword",
   permissionMode: "auto-safe",
+  trustedTools: [],
   subagentsEnabled: true,
   subagentsProfile: "default",
   skillsEnabled: true,
@@ -1724,6 +1854,8 @@ const defaultSettings: AppSettings = {
   modelShortcutKeys: normalizeModelShortcutKeys(),
   reviewStrictMode: true,
   reviewChecklistPreset: "safety-first",
+  prePrReviewEnabled: false,
+  prePrReviewProvider: DEFAULT_PRE_PR_REVIEW_PROVIDER,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",
@@ -2138,6 +2270,16 @@ async function closeTerminalSessionsForWorkspaces(workspaceIds: string[]) {
 
 const activeWorkspaceArchiveCleanups = new Set<Promise<void>>();
 
+type WorkspaceArchiveCommandRunner = (args: {
+  cwd?: string;
+  command: string;
+}) => Promise<{
+  ok: boolean;
+  code: number;
+  stdout: string;
+  stderr: string;
+}>;
+
 /**
  * Wait for every background workspace-archive cleanup promise to settle.
  * Archive cleanup (git worktree removal, branch deletion, persistence close)
@@ -2173,6 +2315,48 @@ function startWorkspaceArchiveCleanup(args: {
     });
 }
 
+async function workspaceHasLocalChanges(args: {
+  runner: WorkspaceArchiveCommandRunner;
+  workspacePath: string;
+  workspaceId: string;
+}) {
+  const statusResult = await args.runner({
+    cwd: args.workspacePath,
+    command: "git status --porcelain --untracked-files=all",
+  });
+  if (!statusResult.ok) {
+    console.warn("[workspace-archive] dirty check failed", {
+      workspaceId: args.workspaceId,
+      workspacePath: args.workspacePath,
+      stderr: statusResult.stderr,
+    });
+    return true;
+  }
+  return statusResult.stdout.trim().length > 0;
+}
+
+async function workspaceBranchHasUnpushedCommits(args: {
+  runner: WorkspaceArchiveCommandRunner;
+  projectPath: string;
+  workspaceId: string;
+  workspaceBranch: string;
+}) {
+  const unpushedResult = await args.runner({
+    cwd: args.projectPath,
+    command: `git rev-list --count ${JSON.stringify(args.workspaceBranch)} --not --remotes`,
+  });
+  if (!unpushedResult.ok) {
+    console.warn("[workspace-archive] unpushed branch check failed", {
+      workspaceId: args.workspaceId,
+      workspaceBranch: args.workspaceBranch,
+      stderr: unpushedResult.stderr,
+    });
+    return true;
+  }
+  const count = Number.parseInt(unpushedResult.stdout.trim(), 10);
+  return Number.isFinite(count) && count > 0;
+}
+
 async function performWorkspaceArchiveCleanup(args: {
   workspaceId: string;
   workspacePath?: string;
@@ -2204,22 +2388,47 @@ async function performWorkspaceArchiveCleanup(args: {
   const runner = window.api?.terminal?.runCommand;
   if (runner && projectPath && workspacePath) {
     try {
-      const removeResult = await runner({
-        cwd: projectPath,
-        command: `git worktree remove --force ${JSON.stringify(workspacePath)}`,
+      const hasLocalChanges = await workspaceHasLocalChanges({
+        runner,
+        workspacePath,
+        workspaceId,
       });
-      if (!removeResult.ok) {
+      let didRemoveWorktree = false;
+      if (hasLocalChanges) {
+        console.warn("[workspace-archive] preserving dirty worktree", {
+          workspaceId,
+          workspacePath,
+        });
+      } else {
+        const removeResult = await runner({
+          cwd: projectPath,
+          command: `git worktree remove ${JSON.stringify(workspacePath)}`,
+        });
+        didRemoveWorktree = removeResult.ok;
         await runner({
           cwd: projectPath,
-          command: `rm -rf ${JSON.stringify(workspacePath)}`,
+          command: "git worktree prune",
         });
-        await runner({ cwd: projectPath, command: "git worktree prune" });
       }
-      if (workspaceBranch) {
-        await runner({
-          cwd: projectPath,
-          command: `git branch -D ${JSON.stringify(workspaceBranch)}`,
+
+      if (workspaceBranch && didRemoveWorktree) {
+        const hasUnpushedCommits = await workspaceBranchHasUnpushedCommits({
+          runner,
+          projectPath,
+          workspaceId,
+          workspaceBranch,
         });
+        if (hasUnpushedCommits) {
+          console.warn("[workspace-archive] preserving unpushed branch", {
+            workspaceId,
+            workspaceBranch,
+          });
+        } else {
+          await runner({
+            cwd: projectPath,
+            command: `git branch -d ${JSON.stringify(workspaceBranch)}`,
+          });
+        }
       }
     } catch (error) {
       console.error(
@@ -3727,6 +3936,8 @@ export const useAppStore = create<AppState>()(
         },
         notifications: [],
         reviewCommentsByTask: {},
+        compareRunsById: {},
+        activeCompareRunId: null,
         activeTurnIdsByTask: {},
         providerTurnActivityByTask: {},
         nativeSessionReadyByTask: {},
@@ -6177,6 +6388,13 @@ export const useAppStore = create<AppState>()(
                     patch.modelShortcutKeys,
                   ),
                 }),
+            ...(patch.trustedTools === undefined
+              ? {}
+              : {
+                  trustedTools: normalizeTrustedToolEntries(
+                    patch.trustedTools,
+                  ),
+                }),
             ...(patch.reasoningExpansionMode === undefined
               ? {}
               : {
@@ -6338,6 +6556,335 @@ export const useAppStore = create<AppState>()(
               workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
             };
           });
+        },
+        openCompareRun: ({ compareRunId }) => {
+          const normalizedCompareRunId = compareRunId.trim();
+          if (!normalizedCompareRunId) {
+            return;
+          }
+          set((state) => {
+            if (!state.compareRunsById[normalizedCompareRunId]) {
+              return state;
+            }
+            return {
+              activeCompareRunId: normalizedCompareRunId,
+              activeSurface: {
+                kind: "compare-run",
+                compareRunId: normalizedCompareRunId,
+              },
+              workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            };
+          });
+        },
+        startCompareRunFromActiveDraft: async () => {
+          const state = get();
+          const activeDraft =
+            state.promptDraftByTask[state.activeTaskId] ??
+            state.promptDraftByTask["draft:session"] ??
+            EMPTY_PROMPT_DRAFT;
+          const seedPrompt = activeDraft.text.trim();
+          if (!seedPrompt) {
+            return {
+              ok: false,
+              message: "Write a prompt before starting a compare run.",
+            };
+          }
+          return get().startCompareRun({ seedPrompt });
+        },
+        startCompareRun: async ({ seedPrompt, variants }) => {
+          const normalizedSeedPrompt = seedPrompt.trim();
+          if (!normalizedSeedPrompt) {
+            return {
+              ok: false,
+              message: "Compare run prompt is required.",
+            };
+          }
+
+          const stateBefore = get();
+          if (!stateBefore.projectPath || !stateBefore.activeWorkspaceId) {
+            return {
+              ok: false,
+              message: "Open a project before starting a compare run.",
+            };
+          }
+
+          const normalizedVariants = normalizeCompareVariants(
+            variants ??
+              buildDefaultCompareVariants({
+                modelClaude: stateBefore.settings.modelClaude,
+                modelCodex: stateBefore.settings.modelCodex,
+              }),
+          );
+          if (normalizedVariants.length < 2) {
+            return {
+              ok: false,
+              message: "Compare runs need at least two variants.",
+            };
+          }
+
+          const compareRunId = crypto.randomUUID();
+          const now = buildRecentTimestamp();
+          const baseWorkspaceId = stateBefore.activeWorkspaceId;
+          const baseBranch =
+            stateBefore.workspaceBranchById[baseWorkspaceId] ??
+            stateBefore.defaultBranch ??
+            "main";
+          const compareRun = buildInitialCompareRun({
+            id: compareRunId,
+            seedPrompt: normalizedSeedPrompt,
+            baseWorkspaceId,
+            baseBranch,
+            variants: normalizedVariants,
+            now,
+          });
+
+          set((state) => ({
+            compareRunsById: {
+              ...state.compareRunsById,
+              [compareRunId]: compareRun,
+            },
+            activeCompareRunId: compareRunId,
+          }));
+
+          const updateVariant = (
+            variantId: string,
+            patch: Partial<CompareRunVariant>,
+          ) => {
+            set((state) => {
+              const currentRun = state.compareRunsById[compareRunId];
+              if (!currentRun) {
+                return state;
+              }
+              return {
+                compareRunsById: {
+                  ...state.compareRunsById,
+                  [compareRunId]: {
+                    ...currentRun,
+                    updatedAt: buildRecentTimestamp(),
+                    variants: currentRun.variants.map((variant) =>
+                      variant.id === variantId
+                        ? { ...variant, ...patch }
+                        : variant,
+                    ),
+                  },
+                },
+              };
+            });
+          };
+
+          for (let index = 0; index < compareRun.variants.length; index += 1) {
+            const variant = compareRun.variants[index];
+            if (!variant) {
+              continue;
+            }
+            updateVariant(variant.id, { status: "creating" });
+            const workspaceName = buildCompareWorkspaceName({
+              seedPrompt: normalizedSeedPrompt,
+              compareRunId,
+              index,
+              provider: variant.provider,
+            });
+            const createResult = await get().createWorkspace({
+              name: workspaceName,
+              mode: "branch",
+              fromBranch: baseBranch,
+              initialTaskTitle:
+                variant.label?.trim() || `Compare ${index + 1}`,
+            });
+            if (!createResult.ok) {
+              updateVariant(variant.id, {
+                status: "failed",
+                error:
+                  createResult.message?.trim() ||
+                  "Workspace creation failed.",
+              });
+              continue;
+            }
+
+            const stateAfterCreate = get();
+            const workspaceId = stateAfterCreate.activeWorkspaceId;
+            const taskId = stateAfterCreate.activeTaskId;
+            updateVariant(variant.id, {
+              workspaceId,
+              workspaceName:
+                stateAfterCreate.workspaces.find(
+                  (workspace) => workspace.id === workspaceId,
+                )?.name ?? workspaceName,
+              workspacePath: stateAfterCreate.workspacePathById[workspaceId],
+              branchName: stateAfterCreate.workspaceBranchById[workspaceId],
+              taskId,
+            });
+
+            stateAfterCreate.setTaskProvider({
+              taskId,
+              provider: variant.provider,
+            });
+            if (variant.model?.trim()) {
+              get().updatePromptDraft({
+                taskId,
+                patch: {
+                  runtimeOverrides: {
+                    model: variant.model.trim(),
+                  },
+                },
+              });
+            }
+
+            const launchResult = await get().sendUserMessage({
+              taskId,
+              content: normalizedSeedPrompt,
+            });
+            updateVariant(variant.id, {
+              status:
+                launchResult.status === "blocked" ? "failed" : "running",
+              error:
+                launchResult.status === "blocked"
+                  ? "Variant launch was blocked."
+                  : undefined,
+            });
+          }
+
+          set((state) => {
+            const currentRun = state.compareRunsById[compareRunId];
+            if (!currentRun) {
+              return state;
+            }
+            const hasRunningVariant = currentRun.variants.some(
+              (variant) => variant.status === "running",
+            );
+            const hasCreatingVariant = currentRun.variants.some(
+              (variant) => variant.status === "creating",
+            );
+            const nextStatus =
+              hasRunningVariant || hasCreatingVariant ? "running" : "failed";
+            return {
+              compareRunsById: {
+                ...state.compareRunsById,
+                [compareRunId]: {
+                  ...currentRun,
+                  status: nextStatus,
+                  updatedAt: buildRecentTimestamp(),
+                  ...(nextStatus === "failed"
+                    ? { error: "No compare variants could be started." }
+                    : {}),
+                },
+              },
+              activeCompareRunId: compareRunId,
+              activeSurface: {
+                kind: "compare-run",
+                compareRunId,
+              },
+              workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            };
+          });
+
+          return { ok: true, compareRunId };
+        },
+        openCompareVariant: async ({ compareRunId, variantId }) => {
+          const run = get().compareRunsById[compareRunId];
+          const variant = run?.variants.find((item) => item.id === variantId);
+          if (!variant?.workspaceId || !variant.taskId) {
+            return;
+          }
+          const stateBeforeOpen = get();
+          if (stateBeforeOpen.activeWorkspaceId !== variant.workspaceId) {
+            await stateBeforeOpen.switchWorkspace({
+              workspaceId: variant.workspaceId,
+            });
+          }
+          get().selectTask({ taskId: variant.taskId });
+        },
+        keepCompareVariant: async ({ compareRunId, variantId }) => {
+          const run = get().compareRunsById[compareRunId];
+          const keptVariant = run?.variants.find(
+            (variant) => variant.id === variantId,
+          );
+          if (!run || !keptVariant?.workspaceId || !keptVariant.taskId) {
+            return {
+              ok: false,
+              message: "Compare variant is no longer available.",
+            };
+          }
+
+          const discardWorkspaceIds = run.variants
+            .filter(
+              (variant) =>
+                variant.id !== variantId &&
+                variant.workspaceId &&
+                variant.status !== "discarded",
+            )
+            .map((variant) => variant.workspaceId!);
+
+          for (const workspaceId of discardWorkspaceIds) {
+            await get().closeWorkspace({ workspaceId });
+          }
+
+          await get().openCompareVariant({ compareRunId, variantId });
+
+          set((state) => {
+            const currentRun = state.compareRunsById[compareRunId];
+            if (!currentRun) {
+              return state;
+            }
+            return {
+              compareRunsById: {
+                ...state.compareRunsById,
+                [compareRunId]: {
+                  ...currentRun,
+                  status: "completed",
+                  keptVariantId: variantId,
+                  updatedAt: buildRecentTimestamp(),
+                  variants: currentRun.variants.map((variant) => {
+                    if (variant.id === variantId) {
+                      return { ...variant, status: "kept" };
+                    }
+                    if (variant.workspaceId) {
+                      return { ...variant, status: "discarded" };
+                    }
+                    return variant;
+                  }),
+                },
+              },
+            };
+          });
+
+          return { ok: true, compareRunId };
+        },
+        cancelCompareRun: async ({ compareRunId }) => {
+          const run = get().compareRunsById[compareRunId];
+          if (!run) {
+            return { ok: false, message: "Compare run was not found." };
+          }
+
+          for (const variant of run.variants) {
+            if (variant.workspaceId && variant.status !== "discarded") {
+              await get().closeWorkspace({ workspaceId: variant.workspaceId });
+            }
+          }
+
+          set((state) => {
+            const currentRun = state.compareRunsById[compareRunId];
+            if (!currentRun) {
+              return state;
+            }
+            return {
+              compareRunsById: {
+                ...state.compareRunsById,
+                [compareRunId]: {
+                  ...currentRun,
+                  status: "cancelled",
+                  updatedAt: buildRecentTimestamp(),
+                  variants: currentRun.variants.map((variant) => ({
+                    ...variant,
+                    status:
+                      variant.status === "kept" ? "kept" : "discarded",
+                  })),
+                },
+              },
+            };
+          });
+
+          return { ok: true, compareRunId };
         },
         focusTaskAttention: async ({ taskId, workspaceId, projectPath }) => {
           const stateBefore = get();
@@ -6985,12 +7532,15 @@ export const useAppStore = create<AppState>()(
             cwd: workspaceCwd,
             command: `git restore --source=${JSON.stringify(checkpoint)} --staged --worktree .`,
           });
+          if (rollbackResult.ok) {
+            cleanupRestoredTaskProviderRuntime({ taskId });
+          }
 
           const rawOutput = rollbackResult.ok
-            ? `Rollback complete to checkpoint ${checkpoint}.`
+            ? `Rollback complete to checkpoint ${checkpoint}. Provider session reset for the next turn.`
             : rollbackResult.stderr.trim() || "Rollback failed.";
           const output = rollbackResult.ok
-            ? `Rollback complete to checkpoint \`${checkpoint}\`.`
+            ? `Rollback complete to checkpoint \`${checkpoint}\`. Provider session reset for the next turn.`
             : `> **Rollback failed.** ${rollbackResult.stderr.trim() || "Unknown error."}`;
 
           const files = await workspaceFsAdapter.listFiles();
@@ -7011,6 +7561,12 @@ export const useAppStore = create<AppState>()(
             };
             return {
               projectFiles: files,
+              ...(rollbackResult.ok
+                ? clearRestoredTaskProviderSession({
+                    state: nextState,
+                    taskId,
+                  })
+                : {}),
               messagesByTask: {
                 ...nextState.messagesByTask,
                 [taskId]: [...current, message],
@@ -7052,6 +7608,7 @@ export const useAppStore = create<AppState>()(
             rawOutput: string;
             output: string;
             files?: string[];
+            resetProviderSession?: boolean;
           }) => {
             set((nextState) => {
               const current = nextState.messagesByTask[taskId] ?? [];
@@ -7070,6 +7627,12 @@ export const useAppStore = create<AppState>()(
               };
               return {
                 ...(args.files ? { projectFiles: args.files } : {}),
+                ...(args.resetProviderSession
+                  ? clearRestoredTaskProviderSession({
+                      state: nextState,
+                      taskId,
+                    })
+                  : {}),
                 messagesByTask: {
                   ...nextState.messagesByTask,
                   [taskId]: [...current, message],
@@ -7101,17 +7664,21 @@ export const useAppStore = create<AppState>()(
             cwd: workspaceCwd,
             command: `git restore --source=${JSON.stringify(resolvedGitRef)} --staged --worktree .`,
           });
+          if (restoreResult.ok) {
+            cleanupRestoredTaskProviderRuntime({ taskId });
+          }
           const rawOutput = restoreResult.ok
-            ? `Restore complete to ${compactBoundaryLabel} checkpoint ${resolvedGitRef}.`
+            ? `Restore complete to ${compactBoundaryLabel} checkpoint ${resolvedGitRef}. Provider session reset for the next turn.`
             : restoreResult.stderr.trim() || "Restore failed.";
           const output = restoreResult.ok
-            ? `Restore complete to ${compactBoundaryLabel} checkpoint \`${resolvedGitRef}\`.`
+            ? `Restore complete to ${compactBoundaryLabel} checkpoint \`${resolvedGitRef}\`. Provider session reset for the next turn.`
             : `> **Restore failed.** ${restoreResult.stderr.trim() || "Unknown error."}`;
           const files = await workspaceFsAdapter.listFiles();
           appendResultMessage({
             rawOutput,
             output,
             files,
+            resetProviderSession: restoreResult.ok,
           });
         },
         archiveTask: ({ taskId }) => {
@@ -7713,37 +8280,82 @@ export const useAppStore = create<AppState>()(
           const getPrStatus = window.api?.sourceControl?.getPrStatus;
           if (!getPrStatus) return;
 
-          const nonDefaultIds = state.workspaces
-            .filter((ws) => !state.workspaceDefaultById[ws.id])
-            .map((ws) => ws.id);
-
-          // Fetch sequentially to avoid hammering GitHub API.
-          for (const wsId of nonDefaultIds) {
-            const cwd = state.workspacePathById[wsId];
-            if (!cwd) continue;
-
-            try {
-              const result = await getPrStatus({ cwd });
-              if (!result.ok) continue;
-
-              const pr = result.pr as GitHubPrPayload | null;
-              const derived = pr ? derivePrStatus(pr) : ("no_pr" as const);
-              const info: WorkspacePrInfo = {
-                pr,
-                derived,
-                lastFetched: Date.now(),
-              };
-
-              set((s) => ({
-                workspacePrInfoById: {
-                  ...s.workspacePrInfoById,
-                  [wsId]: info,
-                },
-              }));
-            } catch {
-              // ignore
+          const now = Date.now();
+          const targets = state.workspaces.flatMap((workspace) => {
+            const wsId = workspace.id;
+            if (state.workspaceDefaultById[wsId]) {
+              return [];
             }
+            if (wsId === state.activeWorkspaceId) {
+              return [];
+            }
+            const cwd = state.workspacePathById[wsId];
+            if (!cwd) {
+              return [];
+            }
+            const lastFetched = state.workspacePrInfoById[wsId]?.lastFetched;
+            if (
+              typeof lastFetched === "number" &&
+              now - lastFetched < WORKSPACE_PR_STATUS_FRESH_MS
+            ) {
+              return [];
+            }
+            return [{ wsId, cwd }];
+          });
+          if (targets.length === 0) {
+            return;
           }
+
+          const updates: Array<[string, WorkspacePrInfo]> = [];
+          let targetIndex = 0;
+          const fetchNext = async () => {
+            while (targetIndex < targets.length) {
+              const target = targets[targetIndex];
+              targetIndex += 1;
+              if (!target) {
+                continue;
+              }
+
+              try {
+                const result = await getPrStatus({ cwd: target.cwd });
+                if (!result.ok) continue;
+
+                const pr = result.pr as GitHubPrPayload | null;
+                const derived = pr ? derivePrStatus(pr) : ("no_pr" as const);
+                updates.push([
+                  target.wsId,
+                  {
+                    pr,
+                    derived,
+                    lastFetched: Date.now(),
+                  },
+                ]);
+              } catch {
+                // ignore
+              }
+            }
+          };
+
+          await Promise.all(
+            Array.from(
+              {
+                length: Math.min(
+                  WORKSPACE_PR_STATUS_POLL_CONCURRENCY,
+                  targets.length,
+                ),
+              },
+              () => fetchNext(),
+            ),
+          );
+          if (updates.length === 0) {
+            return;
+          }
+          set((s) => ({
+            workspacePrInfoById: {
+              ...s.workspacePrInfoById,
+              ...Object.fromEntries(updates),
+            },
+          }));
         },
         setLayout: ({ patch }) =>
           set((state) => {
@@ -8926,6 +9538,7 @@ export const useAppStore = create<AppState>()(
                         turnId,
                         provider,
                         events: pendingEvents,
+                        trustedTools: latestState.settings.trustedTools,
                       });
                     notificationsToPersist.push(
                       ...buildUserInputNotificationInputs({
@@ -8953,6 +9566,20 @@ export const useAppStore = create<AppState>()(
                     }
                     if (notificationsToPersist.length > 0) {
                       void persistNotifications(notificationsToPersist);
+                    }
+                    const trustedApprovalResponses =
+                      findTrustedApprovalResponses({
+                        session: notificationSession,
+                        taskId: resolvedTaskId,
+                        events: pendingEvents,
+                        trustedTools: latestState.settings.trustedTools,
+                      });
+                    for (const response of trustedApprovalResponses) {
+                      void latestState.resolveApproval({
+                        taskId: resolvedTaskId,
+                        messageId: response.messageId,
+                        approved: true,
+                      });
                     }
                   }
                   if (applied.turnCompleted) {
@@ -10381,6 +11008,9 @@ export const useAppStore = create<AppState>()(
         state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
           raw.modelShortcutKeys,
         );
+        state.settings.trustedTools = normalizeTrustedToolEntries(
+          raw.trustedTools,
+        );
         delete raw.staveModelPlanner;
         delete raw.staveModelEcosystem;
         delete raw.staveModelComplex;
@@ -10457,6 +11087,9 @@ export const useAppStore = create<AppState>()(
           );
         state.settings.promptResponseStyle = normalizeResponseStylePrompt(
           state.settings.promptResponseStyle,
+        );
+        state.settings.prePrReviewProvider = normalizePrePrReviewProvider(
+          state.settings.prePrReviewProvider,
         );
         const legacyProjectInitCommand = normalizeProjectWorkspaceInitCommand({
           value: raw.newWorkspaceInitCommand,
