@@ -1365,7 +1365,7 @@ export function ProjectWorkspaceSidebar(args: {
                                                         className={cn(
                                                           "group/workspace-row relative flex items-center gap-1 rounded-lg border transition-[background-color,border-color,box-shadow,color]",
                                                           isActive
-                                                            ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary hover:bg-primary/16"
+                                                            ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:pointer-events-none before:absolute before:-left-px before:-top-px before:h-3 before:w-3 before:rounded-tl-lg before:border-l-2 before:border-t-2 before:border-primary hover:bg-primary/16"
                                                             : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-background/20 hover:text-foreground hover:shadow-sm",
                                                           isDragging &&
                                                             "border-sidebar-border/45 bg-background/22 shadow-sm",
