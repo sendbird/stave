@@ -18,6 +18,7 @@ import {
   parseReviewFindings,
   type PrePrReviewFinding,
 } from "../../src/lib/source-control-review";
+import { isTrustedApproval } from "../../src/lib/providers/trusted-tools";
 import type {
   ClaudeContextUsageResponse,
   ClaudeMcpServerStatusSnapshot,
@@ -568,6 +569,16 @@ export function shouldAutoAllowClaudeTool(args: {
     permissionMode: args.permissionMode ?? "default",
     toolName: args.toolName,
   }) === "allow";
+}
+
+function resolveTrustedApprovalInput(args: {
+  toolName: string;
+  input: Record<string, unknown>;
+}) {
+  if (args.toolName.trim().toLowerCase() === "bash") {
+    return extractClaudeBashCommand(args.input)?.trim() || undefined;
+  }
+  return undefined;
 }
 
 async function resolveEmbeddedStaveLocalMcpServers(): Promise<
@@ -2892,6 +2903,24 @@ export async function streamClaudeWithSdk(
             });
           }
 
+          const trustedApprovalInput = resolveTrustedApprovalInput({
+            toolName,
+            input: normalizedInput,
+          });
+          if (
+            isTrustedApproval({
+              trustedTools: args.runtimeOptions?.trustedTools,
+              toolName,
+              input: trustedApprovalInput,
+            })
+          ) {
+            return buildClaudeApprovalPermissionResult({
+              approved: true,
+              normalizedInput,
+              denialMessage: `Claude trusted ${toolName}.`,
+            });
+          }
+
           const approvalEvent: BridgeEvent = {
             type: "approval",
             toolName,
@@ -2905,6 +2934,7 @@ export async function streamClaudeWithSdk(
               decisionReason: options.decisionReason,
               blockedPath: options.blockedPath,
             }),
+            ...(trustedApprovalInput ? { input: trustedApprovalInput } : {}),
           };
           eventCollector.append(approvalEvent);
           args.onEvent?.(approvalEvent);

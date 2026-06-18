@@ -111,6 +111,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudeFastMode",
   "claudeAllowedTools",
   "claudeDisallowedTools",
+  "trustedTools",
   "claudeSkills",
   "claudePluginPaths",
   "claudeAgentName",

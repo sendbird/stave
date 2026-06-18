@@ -3,6 +3,10 @@ import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  buildTrustedToolEntryForApproval,
+  formatTrustedToolEntry,
+} from "@/lib/providers/trusted-tools";
 import { cn } from "@/lib/utils";
 import type { ApprovalPart } from "@/types/chat";
 
@@ -18,6 +22,11 @@ interface ChatInputApprovalQueueProps {
   disabledReason?: string;
   guidanceFocusNonce?: number;
   onResolveApproval: (args: { messageId: string; approved: boolean }) => void;
+  onTrustAndApprove?: (args: {
+    messageId: string;
+    toolName: string;
+    input?: string;
+  }) => void;
   onDraftGuidance?: (args: {
     messageId: string;
     toolName: string;
@@ -34,6 +43,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     disabledReason,
     guidanceFocusNonce = 0,
     onResolveApproval,
+    onTrustAndApprove,
     onDraftGuidance,
   } = args;
   const [guidanceMessageId, setGuidanceMessageId] = useState<string | null>(null);
@@ -109,6 +119,10 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
 
   // Safe after the length guard — TS can't narrow the earlier binding.
   const current = latest as PendingApprovalQueueItem;
+  const trustedEntry = buildTrustedToolEntryForApproval({
+    toolName: current.part.toolName,
+    input: current.part.input,
+  });
 
   return (
     <section
@@ -129,6 +143,21 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
         onApprove={() => onResolveApproval({ messageId: current.messageId, approved: true })}
         onReject={() => onResolveApproval({ messageId: current.messageId, approved: false })}
       />
+      {!disabled && onTrustAndApprove && trustedEntry ? (
+        <button
+          type="button"
+          className="mt-1.5 rounded px-1 py-0.5 text-left text-[0.6875rem] text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+          onClick={() =>
+            onTrustAndApprove({
+              messageId: current.messageId,
+              toolName: current.part.toolName,
+              input: current.part.input,
+            })
+          }
+        >
+          approve and always allow {formatTrustedToolEntry(trustedEntry)}
+        </button>
+      ) : null}
 
       {/* Guidance inline */}
       {!disabled && onDraftGuidance ? (
