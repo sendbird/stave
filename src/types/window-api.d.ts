@@ -30,6 +30,7 @@ import type {
   AppNotification,
   AppNotificationCreateInput,
 } from "@/lib/notifications/notification.types";
+import type { PrePrReviewFinding } from "@/lib/source-control-review";
 import type { ProviderSlashCommand } from "@/lib/providers/provider-command-catalog";
 import type { GitHubPrPayload } from "@/lib/pr-status";
 import type { SkillCatalogResponse } from "@/lib/skills/types";
@@ -295,6 +296,19 @@ interface WindowProviderApi {
     title?: string;
     body?: string;
     headBranch?: string;
+  }>;
+  /** Reviews the branch diff before PR creation using a lightweight
+   *  single-turn Claude query. Best effort; callers should not block on
+   *  `ok: false`. */
+  reviewDiff?: (args: {
+    cwd?: string;
+    baseBranch?: string;
+    headBranch?: string;
+  }) => Promise<{
+    ok: boolean;
+    findings: PrePrReviewFinding[];
+    headBranch?: string;
+    truncated?: boolean;
   }>;
 }
 

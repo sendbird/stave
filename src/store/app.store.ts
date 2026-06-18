@@ -786,6 +786,7 @@ export interface AppSettings {
   modelShortcutKeys: string[];
   reviewStrictMode: boolean;
   reviewChecklistPreset: string;
+  prePrReviewEnabled: boolean;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -1753,6 +1754,7 @@ const defaultSettings: AppSettings = {
   modelShortcutKeys: normalizeModelShortcutKeys(),
   reviewStrictMode: true,
   reviewChecklistPreset: "safety-first",
+  prePrReviewEnabled: false,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",

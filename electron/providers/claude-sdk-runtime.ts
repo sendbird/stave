@@ -13,6 +13,10 @@ import {
   sanitizeTextField,
 } from "../../src/lib/file-context-sanitization";
 import { parsePullRequestSuggestionResponse } from "../../src/lib/source-control-pr";
+import {
+  parseReviewFindings,
+  type PrePrReviewFinding,
+} from "../../src/lib/source-control-review";
 import type {
   ClaudeContextUsageResponse,
   ClaudeMcpServerStatusSnapshot,
@@ -3432,6 +3436,105 @@ export async function suggestClaudePRDescription(args: {
     const { title, body } = parsePullRequestSuggestionResponse(fullText);
 
     return title || body ? { ok: true, title, body } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
+// ── Pre-PR diff review ──────────────────────────────────────────────────────
+// Runs a single-turn Claude review over the PR diff before the branch is pushed.
+// This is deliberately isolated from the user's chat session and returns a
+// structured best-effort result so PR creation can continue on model failure.
+
+export async function reviewClaudeWorktreeDiff(args: {
+  cwd?: string;
+  diff: string;
+  workingTreeDiff: string;
+  commitLog: string;
+  fileList: string;
+  baseBranch: string;
+  headBranch: string;
+  agentsContent?: string;
+}): Promise<{ ok: boolean; findings?: PrePrReviewFinding[] }> {
+  try {
+    const mod = await getPrewarmedSdkModule();
+    const queryFn = (
+      mod as { query?: typeof import("@anthropic-ai/claude-agent-sdk").query }
+    ).query;
+    if (!queryFn) {
+      return { ok: false };
+    }
+
+    const claudeExecutablePath = getPrewarmedExecutablePath();
+    const reviewPrompt = [
+      "Review this pull request diff before it is opened.",
+      "Find only concrete issues that should be fixed before sharing the PR: logic bugs, races, data loss, security problems, broken user flows, or test gaps that hide a likely bug.",
+      "Do not comment on style, naming, formatting, or speculative improvements.",
+      "Return only JSON in this exact shape:",
+      '{"findings":[{"severity":"critical|high|medium|low","file":"path/to/file.ts","line":123,"kind":"bug|race|security|other","message":"short actionable finding"}]}',
+      "Use an empty findings array if there are no concrete issues.",
+      "",
+      `Base branch: ${args.baseBranch}`,
+      `Head branch: ${args.headBranch}`,
+      "",
+      "Commit log:",
+      args.commitLog || "(no commits)",
+      "",
+      "Changed files:",
+      args.fileList || "(no file list available)",
+      ...(args.agentsContent
+        ? [
+            "",
+            "Repository guidelines from AGENTS.md:",
+            args.agentsContent.slice(0, 2000),
+          ]
+        : []),
+      ...(args.diff.length > 0
+        ? [
+            "",
+            "Branch diff against the base branch (may be truncated):",
+            args.diff.slice(0, 9000),
+          ]
+        : []),
+      ...(args.workingTreeDiff.length > 0
+        ? [
+            "",
+            "Uncommitted working tree diff (may be truncated):",
+            args.workingTreeDiff.slice(0, 4000),
+          ]
+        : []),
+    ].join("\n");
+
+    const stream = queryFn({
+      prompt: reviewPrompt,
+      options: {
+        permissionMode: "default",
+        maxTurns: 1,
+        cwd: args.cwd || process.cwd(),
+        model: "claude-sonnet-4-6",
+        ...(claudeExecutablePath
+          ? { pathToClaudeCodeExecutable: claudeExecutablePath }
+          : {}),
+        env: buildClaudeEnv({ executablePath: claudeExecutablePath }),
+      },
+    }) as Query;
+
+    const textParts: string[] = [];
+    for await (const message of stream) {
+      if (message.type === "assistant") {
+        const assistantMsg = message as SDKAssistantMessage;
+        const contentBlocks = assistantMsg.message?.content;
+        if (!Array.isArray(contentBlocks)) continue;
+        for (const block of contentBlocks) {
+          const b = block as { type?: string; text?: string };
+          if (b.type === "text" && b.text) {
+            textParts.push(b.text);
+          }
+        }
+      }
+    }
+
+    return { ok: true, findings: parseReviewFindings(textParts.join("")) };
   } catch {
     return { ok: false };
   }

@@ -3314,6 +3314,7 @@ function useSettingsModelSelectorOptions(args: {
 function PromptsSection() {
   const [
     promptResponseStyle,
+    prePrReviewEnabled,
     promptPrDescription,
     promptInlineCompletion,
     workspaceTurnSummaryPrimaryModel,
@@ -3324,6 +3325,7 @@ function PromptsSection() {
       (state) =>
         [
           state.settings.promptResponseStyle,
+          state.settings.prePrReviewEnabled,
           state.settings.promptPrDescription,
           state.settings.promptInlineCompletion,
           state.settings.workspaceTurnSummaryPrimaryModel,
@@ -3342,6 +3344,20 @@ function PromptsSection() {
       />
 
       <SectionStack>
+        <SettingsCard
+          title="Pre-PR Review"
+          description="Run a best-effort one-shot AI review before Stave pushes a branch and opens a pull request."
+        >
+          <SwitchField
+            title="Review Before Opening PR"
+            description="Shows concrete findings in the PR dialog with options to stop and fix or proceed anyway. Model failures never block PR creation."
+            checked={prePrReviewEnabled}
+            onCheckedChange={(checked) =>
+              updateSettings({ patch: { prePrReviewEnabled: checked } })
+            }
+          />
+        </SettingsCard>
+
         <SettingsCard
           title="Response Style"
           description="Formatting guidance injected into every Claude and Codex turn. Controls how the model structures its answers — headings, bullet lists, conciseness, etc."

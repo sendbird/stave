@@ -33,6 +33,7 @@ import type {
   AppNotification,
   AppNotificationCreateInput,
 } from "../src/lib/notifications/notification.types";
+import type { PrePrReviewFinding } from "../src/lib/source-control-review";
 import type { SkillCatalogResponse } from "../src/lib/skills/types";
 import type {
   AppUpdateInstallResult,
@@ -671,6 +672,17 @@ contextBridge.exposeInMainWorld("api", {
          *  returns `ok: false` when this differs from the provided headBranch,
          *  signalling a cwd mismatch. */
         headBranch?: string;
+      }>,
+    reviewDiff: (args: {
+      cwd?: string;
+      baseBranch?: string;
+      headBranch?: string;
+    }) =>
+      ipcRenderer.invoke("provider:review-diff", args) as Promise<{
+        ok: boolean;
+        findings: PrePrReviewFinding[];
+        headBranch?: string;
+        truncated?: boolean;
       }>,
   },
   persistence: {

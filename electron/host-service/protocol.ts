@@ -42,6 +42,7 @@ import type {
   ToolingStatusRequest,
   ToolingStatusSnapshot,
 } from "../../src/lib/tooling-status";
+import type { PrePrReviewFinding } from "../../src/lib/source-control-review";
 import type { CommandResult, SourceControlStatusItem } from "../main/types";
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 
@@ -181,6 +182,19 @@ export interface HostProviderSuggestPRDescriptionResult {
   title?: string;
   body?: string;
   headBranch?: string;
+}
+
+export interface HostProviderReviewDiffArgs {
+  cwd?: string;
+  baseBranch?: string;
+  headBranch?: string;
+}
+
+export interface HostProviderReviewDiffResult {
+  ok: boolean;
+  findings: PrePrReviewFinding[];
+  headBranch?: string;
+  truncated?: boolean;
 }
 
 export interface HostProviderStreamEventPayload {
@@ -492,6 +506,7 @@ export interface HostServiceRequestMap {
   "provider.suggest-task-name": HostProviderSuggestTaskNameArgs;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageArgs;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionArgs;
+  "provider.review-diff": HostProviderReviewDiffArgs;
   "tooling.get-status": ToolingStatusRequest;
   "tooling.sync-origin-main": SyncOriginMainRequest;
   "scm.status": {
@@ -663,6 +678,7 @@ export interface HostServiceResponseMap {
   "provider.suggest-task-name": HostProviderSuggestTaskNameResult;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageResult;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionResult;
+  "provider.review-diff": HostProviderReviewDiffResult;
   "tooling.get-status": ToolingStatusSnapshot;
   "tooling.sync-origin-main": SyncOriginMainResult;
   "scm.status": HostScmStatusResult;

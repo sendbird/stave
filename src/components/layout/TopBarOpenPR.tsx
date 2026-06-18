@@ -60,6 +60,7 @@ import {
   PR_TONE_BADGE_CLASS,
 } from "@/lib/pr-status";
 import { isTaskArchived } from "@/lib/tasks";
+import type { PrePrReviewFinding } from "@/lib/source-control-review";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -169,6 +170,77 @@ function CreatePrLoadingSplash(props: { currentBranch?: string; baseBranch: stri
   );
 }
 
+function formatReviewFindingLocation(finding: PrePrReviewFinding) {
+  return finding.line ? `${finding.file}:${finding.line}` : finding.file;
+}
+
+function getReviewSeverityClassName(severity: PrePrReviewFinding["severity"]) {
+  if (severity === "critical" || severity === "high") {
+    return "border-destructive/40 bg-destructive/10 text-destructive";
+  }
+  if (severity === "medium") {
+    return "border-warning/40 bg-warning/10 text-warning";
+  }
+  return "border-border/70 bg-muted text-muted-foreground";
+}
+
+function PrePrReviewFindingsPanel(props: {
+  findings: PrePrReviewFinding[];
+  truncated?: boolean;
+}) {
+  if (props.findings.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/5 p-3">
+      <div className="flex items-start gap-2">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm font-medium text-foreground">
+            AI review found {props.findings.length} issue
+            {props.findings.length === 1 ? "" : "s"}
+          </p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Stop to fix these before opening the PR, or proceed if they are not
+            relevant.
+            {props.truncated ? " The review used a truncated diff." : ""}
+          </p>
+        </div>
+      </div>
+
+      <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+        {props.findings.map((finding, index) => (
+          <div
+            key={`${finding.file}:${finding.line ?? "file"}:${index}`}
+            className="rounded-md border border-border/70 bg-background/80 p-2"
+          >
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span
+                className={cn(
+                  "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase",
+                  getReviewSeverityClassName(finding.severity),
+                )}
+              >
+                {finding.severity}
+              </span>
+              <span className="rounded-sm border border-border/70 bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                {finding.kind}
+              </span>
+              <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+                {formatReviewFindingLocation(finding)}
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs leading-5 text-foreground">
+              {finding.message}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PullRequestBranchFields(props: {
   currentBranch?: string;
   defaultBranch: string;
@@ -228,6 +300,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [prTitle, setPrTitle] = useState("");
   const [prBody, setPrBody] = useState("");
   const [inlineNotice, setInlineNotice] = useState<InlineNotice | null>(null);
+  const [reviewFindings, setReviewFindings] = useState<PrePrReviewFinding[]>(
+    [],
+  );
+  const [reviewDiffTruncated, setReviewDiffTruncated] = useState(false);
 
   // Uncommitted changes section
   const [changedFiles, setChangedFiles] = useState<ScmStatusItem[]>([]);
@@ -248,6 +324,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     tasks,
     activeTurnIdsByTask,
     workspacePrInfoById,
+    prePrReviewEnabled,
     fetchWorkspacePrStatus,
     continueWorkspaceFromSummary,
   ] = useAppStore(useShallow((state) => [
@@ -263,6 +340,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     state.tasks,
     state.activeTurnIdsByTask,
     state.workspacePrInfoById,
+    state.settings.prePrReviewEnabled,
     state.fetchWorkspacePrStatus,
     state.continueWorkspaceFromSummary,
   ] as const));
@@ -334,6 +412,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setPrTitle("");
     setPrBody("");
     setInlineNotice(null);
+    setReviewFindings([]);
+    setReviewDiffTruncated(false);
     setChangedFiles([]);
     setCommitMessage("");
     setChangesExpanded(true);
@@ -424,6 +504,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setCommitMessage("");
     setChangedFiles([]);
     setChangesExpanded(true);
+    setReviewFindings([]);
+    setReviewDiffTruncated(false);
     setInlineNotice({
       tone: "info",
       title: "Preparing PR draft",
@@ -504,15 +586,20 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     );
   }
 
-  async function handleSubmit(options: { draft: boolean }) {
+  async function handleSubmit(options: { draft: boolean; skipReview?: boolean }) {
     const submitAction: CreatePrSubmitAction = options.draft ? "draft" : "pr";
     const getStatus = window.api?.sourceControl?.getStatus;
     const runCommand = window.api?.terminal?.runCommand;
     const createPR = window.api?.sourceControl?.createPR;
+    const reviewDiff = window.api?.provider?.reviewDiff;
     const openExternal = window.api?.shell?.openExternal;
     const runScriptHook = window.api?.scripts?.runHook;
     const selectedTargetBranch = targetBranch.trim() || defaultBaseBranch;
     setActiveSubmitAction(submitAction);
+    if (!options.skipReview) {
+      setReviewFindings([]);
+      setReviewDiffTruncated(false);
+    }
 
     if (!runCommand || !createPR) {
       setInlineNotice({
@@ -660,6 +747,50 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       });
     }
 
+    if (prePrReviewEnabled && reviewDiff && !options.skipReview) {
+      setStep("reviewing");
+      setInlineNotice({
+        tone: "info",
+        title: "Running AI pre-PR review",
+        description: "Checking the branch diff for concrete bugs, races, and security issues before pushing.",
+      });
+
+      try {
+        const reviewResult = await reviewDiff({
+          cwd: workspaceCwd,
+          baseBranch: selectedTargetBranch,
+          headBranch: currentBranch || undefined,
+        });
+
+        if (reviewResult.ok && reviewResult.findings.length > 0) {
+          setReviewFindings(reviewResult.findings);
+          setReviewDiffTruncated(Boolean(reviewResult.truncated));
+          setInlineNotice({
+            tone: "warning",
+            title: "Review findings need a decision",
+            description: "Stop to fix the issues, or proceed anyway if they are acceptable for this PR.",
+          });
+          return;
+        }
+
+        setReviewFindings([]);
+        setReviewDiffTruncated(false);
+        if (!reviewResult.ok) {
+          setInlineNotice({
+            tone: "warning",
+            title: "AI pre-PR review was skipped",
+            description: "The review request failed, so Stave will continue creating the PR.",
+          });
+        }
+      } catch {
+        setInlineNotice({
+          tone: "warning",
+          title: "AI pre-PR review was skipped",
+          description: "The review request failed, so Stave will continue creating the PR.",
+        });
+      }
+    }
+
     if (runScriptHook && activeWorkspaceId && projectPath) {
       setStep("action");
       setInlineNotice({
@@ -776,6 +907,26 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     void handleSubmit({ draft: false });
   }
 
+  function handleProceedAfterReview() {
+    const submitAction = activeSubmitAction ?? "pr";
+    setReviewFindings([]);
+    setReviewDiffTruncated(false);
+    void handleSubmit({
+      draft: submitAction === "draft",
+      skipReview: true,
+    });
+  }
+
+  function handleStopAfterReview() {
+    setStep("ready");
+    setActiveSubmitAction(null);
+    setInlineNotice({
+      tone: "warning",
+      title: "PR creation paused",
+      description: "Fix the review findings, then create the PR again when ready.",
+    });
+  }
+
   // -------------------------------------------------------------------------
   // PR Action handlers
   // -------------------------------------------------------------------------
@@ -878,7 +1029,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   // -------------------------------------------------------------------------
 
   const isBusy = step !== "idle" && step !== "ready";
-  const isDialogBusy = step === "committing" || step === "pushing" || step === "creating-pr";
+  const isDialogBusy = step === "committing" || step === "reviewing" || step === "pushing" || step === "creating-pr";
   const isCreateDraftSubmitting = shouldShowCreatePrSubmitSpinner({
     step,
     activeSubmitAction,
@@ -897,6 +1048,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const statusLabel =
     step === "loading" ? "Loading..." :
     step === "committing" ? "Committing..." :
+    step === "reviewing" ? "Reviewing..." :
     step === "pushing" ? "Pushing..." :
     step === "creating-pr" ? "Creating..." :
     step === "action" ? "Working..." :
@@ -1155,6 +1307,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 />
 
                 {inlineNotice ? <InlineNoticeBanner notice={inlineNotice} /> : null}
+                <PrePrReviewFindingsPanel
+                  findings={reviewFindings}
+                  truncated={reviewDiffTruncated}
+                />
 
                 {/* PR Title */}
                 <div className="space-y-2">
@@ -1237,24 +1393,39 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 )}
               </div>
 
-              <DialogFooter className="shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!canSubmitPr || isDialogBusy}
-                  onClick={() => void handleSubmit({ draft: true })}
-                >
-                  {isCreateDraftSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
-                  Create Draft
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={!canSubmitPr || isDialogBusy}
-                >
-                  {isCreatePrSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
-                  Create PR
-                </Button>
-              </DialogFooter>
+              {step === "reviewing" && reviewFindings.length > 0 ? (
+                <DialogFooter className="shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleStopAfterReview}
+                  >
+                    Stop and fix
+                  </Button>
+                  <Button type="button" onClick={handleProceedAfterReview}>
+                    Proceed anyway
+                  </Button>
+                </DialogFooter>
+              ) : (
+                <DialogFooter className="shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!canSubmitPr || isDialogBusy}
+                    onClick={() => void handleSubmit({ draft: true })}
+                  >
+                    {isCreateDraftSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+                    Create Draft
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={!canSubmitPr || isDialogBusy}
+                  >
+                    {isCreatePrSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+                    Create PR
+                  </Button>
+                </DialogFooter>
+              )}
             </form>
           )}
         </DialogContent>

@@ -43,6 +43,14 @@ export const SuggestPRDescriptionArgsSchema = z
   })
   .strict();
 
+export const ReviewDiffArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    baseBranch: z.string().max(200).optional(),
+    headBranch: z.string().max(200).optional(),
+  })
+  .strict();
+
 export const CreatePRArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
