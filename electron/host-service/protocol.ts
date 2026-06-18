@@ -556,6 +556,10 @@ export interface HostServiceRequestMap {
     cwd?: string;
     refreshRemote?: boolean;
   };
+  "scm.fetch-branch": {
+    cwd?: string;
+    branch?: string;
+  };
   "scm.create-branch": {
     name: string;
     cwd?: string;
@@ -564,6 +568,10 @@ export interface HostServiceRequestMap {
   "scm.checkout-branch": {
     name: string;
     cwd?: string;
+  };
+  "scm.pull-branch": {
+    cwd?: string;
+    branch?: string;
   };
   "scm.merge-branch": {
     branch: string;
@@ -705,8 +713,10 @@ export interface HostServiceResponseMap {
   "scm.diff": HostScmDiffResult;
   "scm.history": HostScmHistoryResult;
   "scm.list-branches": HostScmListBranchesResult;
+  "scm.fetch-branch": CommandResult;
   "scm.create-branch": CommandResult;
   "scm.checkout-branch": CommandResult;
+  "scm.pull-branch": CommandResult;
   "scm.merge-branch": CommandResult;
   "scm.rebase-branch": CommandResult;
   "scm.cherry-pick": CommandResult;

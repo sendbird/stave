@@ -886,6 +886,10 @@ interface WindowSourceControlApi {
     worktreePathByBranch: Record<string, string>;
     stderr: string;
   }>;
+  fetchBranch?: (args: {
+    cwd?: string;
+    branch?: string;
+  }) => Promise<SourceControlCommandResult>;
   createBranch?: (args: {
     name: string;
     cwd?: string;
@@ -894,6 +898,10 @@ interface WindowSourceControlApi {
   checkoutBranch?: (args: {
     name: string;
     cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  pullBranch?: (args: {
+    cwd?: string;
+    branch?: string;
   }) => Promise<SourceControlCommandResult>;
   mergeBranch?: (args: {
     branch: string;
