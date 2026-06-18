@@ -1,5 +1,6 @@
 import {
   Bot,
+  BookOpen,
   CalendarIcon,
   ClipboardCheck,
   CheckCircle2,
@@ -58,12 +59,14 @@ import {
   createWorkspaceJiraIssue,
   createWorkspaceLinkedPullRequest,
   createWorkspaceSlackThread,
+  createWorkspaceStorybookResource,
   createWorkspaceTodoItem,
   extractConfluencePageReference,
   extractFigmaResourceReference,
   extractGitHubPullRequestReference,
   extractJiraIssueReference,
   extractSlackThreadReference,
+  extractStorybookResourceReference,
   formatWorkspaceInfoHostLabel,
   isGitHubPullRequestUrl,
   isWorkspaceInfoUrl,
@@ -132,8 +135,9 @@ const WORKSPACE_INFORMATION_SECTION_IDS = [
   "github",
   "jira",
   "confluence",
-  "figma",
+  "storybook",
   "slack",
+  "figma",
   "custom",
 ] as const;
 
@@ -1795,6 +1799,195 @@ export function WorkspaceInformationPanel() {
             </div>
           </SectionHeader>
 
+          {/* ── Storybook ─────────────────────────────────────── */}
+          <SectionHeader
+            value="storybook"
+            title="Storybook"
+            icon={<BookOpen className="size-4" />}
+            count={workspaceInformation.storybookResources?.length ?? 0}
+            action={
+              <AddButton
+                onClick={() =>
+                  patchWorkspaceInformation((current) => ({
+                    ...current,
+                    storybookResources: [
+                      ...(current.storybookResources ?? []),
+                      createWorkspaceStorybookResource(),
+                    ],
+                  }))
+                }
+                label="Add Storybook resource"
+              />
+            }
+          >
+            <div className="-mx-2 space-y-0.5">
+              {(workspaceInformation.storybookResources?.length ?? 0) === 0 ? (
+                <EmptyHint>No linked Storybook resources</EmptyHint>
+              ) : null}
+              {(workspaceInformation.storybookResources ?? []).map(
+                (resource) => {
+                  const storybookRef = extractStorybookResourceReference(
+                    resource.url,
+                  );
+                  const title =
+                    resource.title.trim() ||
+                    storybookRef?.title ||
+                    "Storybook resource";
+                  const host =
+                    storybookRef?.host ||
+                    formatWorkspaceInfoHostLabel(resource.url);
+                  const sublabel = host
+                    ? `${host}${storybookRef?.storyPath ? ` · ${storybookRef.storyPath}` : ""}`
+                    : storybookRef?.storyPath || undefined;
+
+                  if (!isWorkspaceInfoUrl(resource.url)) {
+                    return (
+                      <InlineUrlInput
+                        key={resource.id}
+                        value={resource.url}
+                        icon={<Link className="size-4" />}
+                        placeholder="https://storybook.example.com/?path=/docs/..."
+                        onChange={(url) =>
+                          patchWorkspaceInformation((current) => ({
+                            ...current,
+                            storybookResources: updateItemById(
+                              current.storybookResources ?? [],
+                              resource.id,
+                              (item) => {
+                                const parsed =
+                                  extractStorybookResourceReference(url);
+                                return {
+                                  ...item,
+                                  url,
+                                  title: parsed?.title || item.title,
+                                };
+                              },
+                            ),
+                          }))
+                        }
+                        onRemove={() =>
+                          patchWorkspaceInformation((current) => ({
+                            ...current,
+                            storybookResources: removeItemById(
+                              current.storybookResources ?? [],
+                              resource.id,
+                            ),
+                          }))
+                        }
+                      />
+                    );
+                  }
+
+                  return (
+                    <InlineLinkRow
+                      key={resource.id}
+                      icon={
+                        <Globe className="size-4 text-muted-foreground/70" />
+                      }
+                      label={title}
+                      sublabel={sublabel}
+                      url={resource.url}
+                      onRemove={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          storybookResources: removeItemById(
+                            current.storybookResources ?? [],
+                            resource.id,
+                          ),
+                        }))
+                      }
+                    />
+                  );
+                },
+              )}
+            </div>
+          </SectionHeader>
+
+          {/* ── Slack ─────────────────────────────────────────── */}
+          <SectionHeader
+            value="slack"
+            title="Slack"
+            icon={<SlackIcon className="size-4" />}
+            count={workspaceInformation.slackThreads?.length ?? 0}
+            action={
+              <AddButton
+                onClick={() =>
+                  patchWorkspaceInformation((current) => ({
+                    ...current,
+                    slackThreads: [
+                      ...(current.slackThreads ?? []),
+                      createWorkspaceSlackThread(),
+                    ],
+                  }))
+                }
+                label="Add Slack thread"
+              />
+            }
+          >
+            <div className="-mx-2 space-y-0.5">
+              {(workspaceInformation.slackThreads?.length ?? 0) === 0 ? (
+                <EmptyHint>No linked Slack threads</EmptyHint>
+              ) : null}
+              {(workspaceInformation.slackThreads ?? []).map((thread) => {
+                const slackRef = extractSlackThreadReference(thread.url);
+                const host =
+                  slackRef?.host || formatWorkspaceInfoHostLabel(thread.url);
+                const label =
+                  thread.channelName.trim() ||
+                  (slackRef ? `#${slackRef.channelId}` : "Slack thread");
+
+                if (!isWorkspaceInfoUrl(thread.url)) {
+                  return (
+                    <InlineUrlInput
+                      key={thread.id}
+                      value={thread.url}
+                      icon={<Link className="size-4" />}
+                      placeholder="https://team.slack.com/archives/C.../p..."
+                      onChange={(url) =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          slackThreads: updateItemById(
+                            current.slackThreads ?? [],
+                            thread.id,
+                            (item) => ({ ...item, url }),
+                          ),
+                        }))
+                      }
+                      onRemove={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          slackThreads: removeItemById(
+                            current.slackThreads ?? [],
+                            thread.id,
+                          ),
+                        }))
+                      }
+                    />
+                  );
+                }
+
+                return (
+                  <InlineLinkRow
+                    key={thread.id}
+                    icon={<Hash className="size-4 text-muted-foreground/70" />}
+                    label={label}
+                    sublabel={host || undefined}
+                    url={thread.url}
+                    onRemove={() =>
+                      patchWorkspaceInformation((current) => ({
+                        ...current,
+                        slackThreads: removeItemById(
+                          current.slackThreads ?? [],
+                          thread.id,
+                        ),
+                      }))
+                    }
+                  />
+                );
+              })}
+            </div>
+          </SectionHeader>
+
           {/* ── Figma ─────────────────────────────────────────── */}
           <SectionHeader
             value="figma"
@@ -1886,91 +2079,6 @@ export function WorkspaceInformationPanel() {
                         figmaResources: removeItemById(
                           current.figmaResources,
                           resource.id,
-                        ),
-                      }))
-                    }
-                  />
-                );
-              })}
-            </div>
-          </SectionHeader>
-
-          {/* ── Slack ─────────────────────────────────────────── */}
-          <SectionHeader
-            value="slack"
-            title="Slack"
-            icon={<SlackIcon className="size-4" />}
-            count={workspaceInformation.slackThreads?.length ?? 0}
-            action={
-              <AddButton
-                onClick={() =>
-                  patchWorkspaceInformation((current) => ({
-                    ...current,
-                    slackThreads: [
-                      ...(current.slackThreads ?? []),
-                      createWorkspaceSlackThread(),
-                    ],
-                  }))
-                }
-                label="Add Slack thread"
-              />
-            }
-          >
-            <div className="-mx-2 space-y-0.5">
-              {(workspaceInformation.slackThreads?.length ?? 0) === 0 ? (
-                <EmptyHint>No linked Slack threads</EmptyHint>
-              ) : null}
-              {(workspaceInformation.slackThreads ?? []).map((thread) => {
-                const slackRef = extractSlackThreadReference(thread.url);
-                const host =
-                  slackRef?.host || formatWorkspaceInfoHostLabel(thread.url);
-                const label =
-                  thread.channelName.trim() ||
-                  (slackRef ? `#${slackRef.channelId}` : "Slack thread");
-
-                if (!isWorkspaceInfoUrl(thread.url)) {
-                  return (
-                    <InlineUrlInput
-                      key={thread.id}
-                      value={thread.url}
-                      icon={<Link className="size-4" />}
-                      placeholder="https://team.slack.com/archives/C.../p..."
-                      onChange={(url) =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          slackThreads: updateItemById(
-                            current.slackThreads ?? [],
-                            thread.id,
-                            (item) => ({ ...item, url }),
-                          ),
-                        }))
-                      }
-                      onRemove={() =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          slackThreads: removeItemById(
-                            current.slackThreads ?? [],
-                            thread.id,
-                          ),
-                        }))
-                      }
-                    />
-                  );
-                }
-
-                return (
-                  <InlineLinkRow
-                    key={thread.id}
-                    icon={<Hash className="size-4 text-muted-foreground/70" />}
-                    label={label}
-                    sublabel={host || undefined}
-                    url={thread.url}
-                    onRemove={() =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        slackThreads: removeItemById(
-                          current.slackThreads ?? [],
-                          thread.id,
                         ),
                       }))
                     }

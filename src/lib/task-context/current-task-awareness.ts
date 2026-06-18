@@ -21,6 +21,8 @@ function truncateText(value: string, maxChars = MAX_TEXT_CHARS) {
 }
 
 function summarizeWorkspaceInformation(info: WorkspaceInformationState) {
+  const storybookResources = info.storybookResources ?? [];
+
   return [
     `Latest turn summary: ${info.turnSummary ? "present" : "empty"}`,
     `Notes: ${info.notes.trim() ? "present" : "empty"}`,
@@ -28,8 +30,9 @@ function summarizeWorkspaceInformation(info: WorkspaceInformationState) {
     `Linked PRs: ${info.linkedPullRequests.length}`,
     `Jira: ${info.jiraIssues.length}`,
     `Confluence: ${info.confluencePages.length}`,
-    `Figma: ${info.figmaResources.length}`,
+    `Storybook: ${storybookResources.length}`,
     `Slack: ${info.slackThreads.length}`,
+    `Figma: ${info.figmaResources.length}`,
     `Custom fields: ${info.customFields.length}`,
   ].join("\n");
 }
@@ -69,27 +72,49 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
       .join(" | "));
   const confluenceItems = info.confluencePages
     .slice(0, MAX_VISIBLE_RESOURCES)
-    .map((page) => [page.title || "Confluence page", page.spaceKey, page.url, page.note]
-      .filter((value) => value.trim().length > 0)
-      .join(" | "));
+    .map((page) =>
+      [page.title || "Confluence page", page.spaceKey, page.url, page.note]
+        .filter((value) => value.trim().length > 0)
+        .join(" | "),
+    );
   const figmaItems = info.figmaResources
     .slice(0, MAX_VISIBLE_RESOURCES)
-    .map((resource) => [
-      resource.title || "Figma resource",
-      resource.nodeId ? `node ${resource.nodeId}` : "",
-      resource.url,
-      resource.note,
-    ].filter((value) => value.trim().length > 0).join(" | "));
+    .map((resource) =>
+      [
+        resource.title || "Figma resource",
+        resource.nodeId ? `node ${resource.nodeId}` : "",
+        resource.url,
+        resource.note,
+      ]
+        .filter((value) => value.trim().length > 0)
+        .join(" | "),
+    );
+  const storybookItems = (info.storybookResources ?? [])
+    .slice(0, MAX_VISIBLE_RESOURCES)
+    .map((resource) =>
+      [resource.title || "Storybook resource", resource.url, resource.note]
+        .filter((value) => value.trim().length > 0)
+        .join(" | "),
+    );
   const slackItems = info.slackThreads
     .slice(0, MAX_VISIBLE_RESOURCES)
-    .map((thread) => [thread.channelName || "Slack thread", thread.url, thread.note]
-      .filter((value) => value.trim().length > 0)
-      .join(" | "));
+    .map((thread) =>
+      [thread.channelName || "Slack thread", thread.url, thread.note]
+        .filter((value) => value.trim().length > 0)
+        .join(" | "),
+    );
   const linkedPrItems = info.linkedPullRequests
     .slice(0, MAX_VISIBLE_RESOURCES)
-    .map((pullRequest) => [pullRequest.title || "Linked pull request", pullRequest.status, pullRequest.url, pullRequest.note]
-      .filter((value) => value.trim().length > 0)
-      .join(" | "));
+    .map((pullRequest) =>
+      [
+        pullRequest.title || "Linked pull request",
+        pullRequest.status,
+        pullRequest.url,
+        pullRequest.note,
+      ]
+        .filter((value) => value.trim().length > 0)
+        .join(" | "),
+    );
   const customFieldItems = info.customFields
     .slice(0, MAX_VISIBLE_CUSTOM_FIELDS)
     .map((field) => {
@@ -135,13 +160,18 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
       emptyLabel: "none",
     }),
     ...formatSection({
-      label: "Figma resources",
-      items: figmaItems,
+      label: "Storybook resources",
+      items: storybookItems,
       emptyLabel: "none",
     }),
     ...formatSection({
       label: "Slack threads",
       items: slackItems,
+      emptyLabel: "none",
+    }),
+    ...formatSection({
+      label: "Figma resources",
+      items: figmaItems,
       emptyLabel: "none",
     }),
     ...formatSection({

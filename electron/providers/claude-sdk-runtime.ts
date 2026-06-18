@@ -147,6 +147,7 @@ const CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES = new Set([
   "stave_remove_workspace_resource",
   "stave_add_workspace_jira_issue",
   "stave_add_workspace_confluence_page",
+  "stave_add_workspace_storybook_resource",
   "stave_add_workspace_figma_resource",
   "stave_add_workspace_slack_thread",
   "stave_add_workspace_custom_field",

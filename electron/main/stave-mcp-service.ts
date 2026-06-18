@@ -212,6 +212,21 @@ export async function addWorkspaceFigmaResource(args: {
   }>("add-workspace-figma-resource", args);
 }
 
+export async function addWorkspaceStorybookResource(args: {
+  workspaceId: string;
+  url: string;
+  title?: string;
+  note?: string;
+}) {
+  return invokeLocalMcp<{
+    workspaceId: string;
+    added:
+      | import("../../src/lib/workspace-information").WorkspaceStorybookResource
+      | null;
+    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
+  }>("add-workspace-storybook-resource", args);
+}
+
 export async function addWorkspaceSlackThread(args: {
   workspaceId: string;
   url: string;

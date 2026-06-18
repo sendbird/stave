@@ -527,6 +527,12 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.addWorkspaceFigmaResource(
         args as Parameters<typeof localMcpRuntime.addWorkspaceFigmaResource>[0],
       );
+    case "add-workspace-storybook-resource":
+      return localMcpRuntime.addWorkspaceStorybookResource(
+        args as Parameters<
+          typeof localMcpRuntime.addWorkspaceStorybookResource
+        >[0],
+      );
     case "add-workspace-slack-thread":
       return localMcpRuntime.addWorkspaceSlackThread(
         args as Parameters<typeof localMcpRuntime.addWorkspaceSlackThread>[0],

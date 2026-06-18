@@ -298,6 +298,7 @@ export type HostLocalMcpAction =
   | "add-workspace-jira-issue"
   | "add-workspace-confluence-page"
   | "add-workspace-figma-resource"
+  | "add-workspace-storybook-resource"
   | "add-workspace-slack-thread";
 
 export interface HostServiceRequestMap {

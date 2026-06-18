@@ -352,6 +352,13 @@ const WorkspaceFigmaResourceSchema = z.object({
   note: z.string().optional().default(""),
 });
 
+const WorkspaceStorybookResourceSchema = z.object({
+  id: z.string(),
+  title: z.string().optional().default(""),
+  url: z.string().optional().default(""),
+  note: z.string().optional().default(""),
+});
+
 const WorkspaceLinkedPullRequestSchema = z.object({
   id: z.string(),
   title: z.string().optional().default(""),
@@ -453,6 +460,10 @@ const WorkspaceInformationSchema = z.object({
     .optional()
     .default([]),
   figmaResources: z.array(WorkspaceFigmaResourceSchema).optional().default([]),
+  storybookResources: z
+    .array(WorkspaceStorybookResourceSchema)
+    .optional()
+    .default([]),
   linkedPullRequests: z
     .array(WorkspaceLinkedPullRequestSchema)
     .optional()
@@ -500,6 +511,7 @@ export const WorkspaceSnapshotSchema = z.object({
     jiraIssues: [],
     confluencePages: [],
     figmaResources: [],
+    storybookResources: [],
     linkedPullRequests: [],
     slackThreads: [],
     notes: "",
