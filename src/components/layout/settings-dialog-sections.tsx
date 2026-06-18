@@ -108,6 +108,7 @@ import {
   DEFAULT_PROMPT_INLINE_COMPLETION,
   DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
 } from "@/lib/providers/prompt-defaults";
+import type { PrePrReviewProviderId } from "@/lib/source-control-review";
 import {
   THINKING_PHRASE_ANIMATION_OPTIONS,
   normalizeThinkingPhraseAnimationStyle,
@@ -3314,6 +3315,8 @@ function useSettingsModelSelectorOptions(args: {
 function PromptsSection() {
   const [
     promptResponseStyle,
+    prePrReviewEnabled,
+    prePrReviewProvider,
     promptPrDescription,
     promptInlineCompletion,
     workspaceTurnSummaryPrimaryModel,
@@ -3324,6 +3327,8 @@ function PromptsSection() {
       (state) =>
         [
           state.settings.promptResponseStyle,
+          state.settings.prePrReviewEnabled,
+          state.settings.prePrReviewProvider,
           state.settings.promptPrDescription,
           state.settings.promptInlineCompletion,
           state.settings.workspaceTurnSummaryPrimaryModel,
@@ -3342,6 +3347,45 @@ function PromptsSection() {
       />
 
       <SectionStack>
+        <SettingsCard
+          title="Pre-PR Review"
+          description="Run a best-effort one-shot AI review before Stave pushes a branch and opens a pull request."
+        >
+          <SwitchField
+            title="Review Before Opening PR"
+            description="Shows concrete findings in the PR dialog with options to stop and fix or proceed anyway. Model failures never block PR creation."
+            checked={prePrReviewEnabled}
+            onCheckedChange={(checked) =>
+              updateSettings({ patch: { prePrReviewEnabled: checked } })
+            }
+          />
+          <LabeledField
+            title="Review Provider"
+            description="Choose which provider runs the one-shot review. The provider uses its configured default model."
+          >
+            <ChoiceButtons<PrePrReviewProviderId>
+              value={prePrReviewProvider}
+              onChange={(providerId) =>
+                updateSettings({
+                  patch: { prePrReviewProvider: providerId },
+                })
+              }
+              options={[
+                {
+                  value: "claude-code",
+                  label: "Claude",
+                  description: "Uses the configured Claude model.",
+                },
+                {
+                  value: "codex",
+                  label: "Codex",
+                  description: "Uses the configured Codex model.",
+                },
+              ]}
+            />
+          </LabeledField>
+        </SettingsCard>
+
         <SettingsCard
           title="Response Style"
           description="Formatting guidance injected into every Claude and Codex turn. Controls how the model structures its answers — headings, bullet lists, conciseness, etc."

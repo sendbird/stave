@@ -27,6 +27,7 @@ import {
   CodexThreadRollbackArgsSchema,
   CleanupTaskArgsSchema,
   ProviderCommandCatalogArgsSchema,
+  ReviewDiffArgsSchema,
   StreamAckArgsSchema,
   StreamReadArgsSchema,
   StreamTurnArgsSchema,
@@ -584,5 +585,13 @@ export function registerProviderHandlers() {
       return { ok: false };
     }
     return invokeHostService("provider.suggest-pr-description", parsed.data);
+  });
+
+  ipcMain.handle("provider:review-diff", (_event, args: unknown) => {
+    const parsed = ReviewDiffArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, findings: [] };
+    }
+    return invokeHostService("provider.review-diff", parsed.data);
   });
 }

@@ -43,6 +43,7 @@ const settings = {
   codexFastMode: true,
   codexPlanMode: false,
   codexFastModeVisible: true,
+  trustedTools: [],
 } as const;
 
 describe("normalizeCodexApprovalPolicy", () => {
@@ -171,6 +172,23 @@ describe("buildProviderRuntimeOptions", () => {
       claudeAgentName: "code-reviewer",
       claudeFallbackModel: "claude-haiku-4-5",
       claudeResumeSessionAt: "message-uuid",
+    });
+  });
+
+  test("forwards trusted approval tools and maps Claude non-Bash entries", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-4-6",
+        settings: {
+          ...settings,
+          trustedTools: ["Edit", "bash:bun test", "edit"],
+        },
+        providerSession: null,
+      }),
+    ).toMatchObject({
+      trustedTools: ["Edit", "bash:bun test"],
+      claudeAllowedTools: ["Edit"],
     });
   });
 

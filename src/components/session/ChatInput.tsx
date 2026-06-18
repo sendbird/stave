@@ -51,6 +51,10 @@ import {
   providerSupportsNativeCommandCatalog,
 } from "@/lib/providers/model-catalog";
 import { normalizeModelShortcutKeys } from "@/lib/providers/model-shortcuts";
+import {
+  addTrustedToolEntry,
+  buildTrustedToolEntryForApproval,
+} from "@/lib/providers/trusted-tools";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import {
   CLAUDE_EFFORT_OPTIONS,
@@ -201,6 +205,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     abortTaskTurn,
     resolveApproval,
     resolveUserInput,
+    updateSettings,
+    trustedTools,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -215,6 +221,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.abortTaskTurn,
           state.resolveApproval,
           state.resolveUserInput,
+          state.updateSettings,
+          state.settings.trustedTools,
         ] as const,
     ),
   );
@@ -656,6 +664,27 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                 taskId: args.activeTaskId,
                 messageId,
                 approved,
+              });
+            }}
+            onTrustAndApprove={({ messageId, toolName, input }) => {
+              const trustedEntry = buildTrustedToolEntryForApproval({
+                toolName,
+                input,
+              });
+              if (trustedEntry) {
+                updateSettings({
+                  patch: {
+                    trustedTools: addTrustedToolEntry({
+                      entries: trustedTools,
+                      entry: trustedEntry,
+                    }),
+                  },
+                });
+              }
+              resolveApproval({
+                taskId: args.activeTaskId,
+                messageId,
+                approved: true,
               });
             }}
             onDraftGuidance={({
