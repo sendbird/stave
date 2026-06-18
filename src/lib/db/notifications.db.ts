@@ -24,6 +24,7 @@ const AppNotificationSchema = z.object({
   kind: z.union([
     z.literal("task.turn_completed"),
     z.literal("task.approval_requested"),
+    z.literal("task.user_input_requested"),
   ]),
   title: z.string(),
   body: z.string(),
@@ -46,6 +47,7 @@ const AppNotificationCreateInputSchema = z.object({
   kind: z.union([
     z.literal("task.turn_completed"),
     z.literal("task.approval_requested"),
+    z.literal("task.user_input_requested"),
   ]),
   title: z.string(),
   body: z.string(),

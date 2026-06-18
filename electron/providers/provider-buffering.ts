@@ -189,6 +189,16 @@ function getBridgeEventStringAccessors(event: BridgeEvent) {
             event.description = value;
           },
         },
+        ...(typeof event.input === "string"
+          ? [
+              {
+                get: () => event.input ?? "",
+                set: (value: string) => {
+                  event.input = value;
+                },
+              },
+            ]
+          : []),
       ];
     case "user_input":
       return [

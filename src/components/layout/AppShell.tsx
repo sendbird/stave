@@ -12,6 +12,7 @@ import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import { TopBar } from "@/components/layout/TopBar";
 import { ZenAppShellLayout } from "@/components/layout/ZenAppShellLayout";
 import { FleetView } from "@/components/layout/FleetView";
+import { CompareRunPanel } from "@/components/compare/CompareRunPanel";
 import {
   COLLAPSED_PROJECT_SIDEBAR_WIDTH,
   ProjectWorkspaceSidebar,
@@ -124,6 +125,7 @@ export function AppShell() {
     refreshProjectFiles,
     refreshWorkspaces,
     openFleetView,
+    startCompareRunFromActiveDraft,
     openProject,
     switchWorkspace,
     abortTaskTurn,
@@ -171,6 +173,7 @@ export function AppShell() {
           state.refreshProjectFiles,
           state.refreshWorkspaces,
           state.openFleetView,
+          state.startCompareRunFromActiveDraft,
           state.openProject,
           state.switchWorkspace,
           state.abortTaskTurn,
@@ -277,6 +280,17 @@ export function AppShell() {
       },
     });
   }, []);
+  const handleStartCompareRun = useCallback(async () => {
+    const result = await startCompareRunFromActiveDraft();
+    if (!result.ok) {
+      toast.error("Unable to start compare run", {
+        description: result.message,
+      });
+      return;
+    }
+    toast.success("Compare run started");
+    setCommandPaletteOpen(false);
+  }, [startCompareRunFromActiveDraft]);
   const handleOpenLatestCompletedTurnTask = useCallback(async () => {
     const stateBefore = useAppStore.getState();
     if (stateBefore.workspaces.length === 0) {
@@ -1101,6 +1115,7 @@ export function AppShell() {
           taskId: string,
           provider: "claude-code" | "codex",
         ) => setTaskProvider({ taskId, provider }),
+        startCompareRun: handleStartCompareRun,
         showOverlayTab: (tab: RightRailPanelId) =>
           setLayout({
             patch: { sidebarOverlayVisible: true, sidebarOverlayTab: tab },
@@ -1178,6 +1193,7 @@ export function AppShell() {
       handleOpenSettings,
       modifierLabel,
       openFleetView,
+      handleStartCompareRun,
       openProject,
       projectPath,
       projectName,
@@ -1211,6 +1227,7 @@ export function AppShell() {
     activeSurface.kind === "cli-session" &&
     cliSessionTabs.some((tab) => tab.id === activeSurface.cliSessionTabId);
   const showFleetView = activeSurface.kind === "fleet-view";
+  const showCompareRun = activeSurface.kind === "compare-run";
 
   return (
     <div className="relative flex h-full w-full bg-background text-foreground">
@@ -1364,7 +1381,9 @@ export function AppShell() {
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                         <div className="min-h-0 min-w-0 flex-1 sm:min-w-[420px]">
-                          {showFleetView ? (
+                          {showCompareRun ? (
+                            <CompareRunPanel />
+                          ) : showFleetView ? (
                             <FleetView />
                           ) : (
                             <>

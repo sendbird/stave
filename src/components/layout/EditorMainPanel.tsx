@@ -8,6 +8,7 @@ import { FileCode2, LoaderCircle } from "lucide-react";
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type DragEvent,
@@ -31,12 +32,20 @@ import { canSendEditorContextToTask } from "@/store/editor.utils";
 import {
   buildDiffEditorModelPath,
   releaseDiffEditorModels,
-  type DiffEditorModelOwner,
 } from "./editor-main-panel.utils";
+import {
+  getModifiedDiffEditorLine,
+  registerDiffReviewCommentAction,
+} from "./editor-diff-review";
 import { EditorImagePreviewOverlay } from "./editor-image-preview-overlay";
 import { EditorMainTabStrip } from "./editor-main-tab-strip";
 import { EditorMainToolbar } from "./editor-main-toolbar";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
+import {
+  EditorReviewPanel,
+  type EditorReviewDraft,
+} from "./EditorReviewPanel";
+import type { ReviewComment } from "@/types/review";
 import {
   clearLanguageIntelligenceMarkers,
   configureMonacoLanguageIntelligence,
@@ -60,6 +69,8 @@ import {
   type MonacoDisposable,
   type PendingEditorNavigation,
 } from "./editor-monaco-workspace-support";
+
+const EMPTY_REVIEW_COMMENTS: ReviewComment[] = [];
 
 export function EditorMainPanel() {
   const [
@@ -92,6 +103,9 @@ export function EditorMainPanel() {
     pendingEditorSelection,
     clearPendingEditorSelection,
     sendEditorContextToChat,
+    addReviewComment,
+    removeReviewComment,
+    submitReviewFeedback,
     toggleEditorDiffMode,
     toggleEditorMarkdownPreviewMode,
     saveActiveEditorTab,
@@ -128,6 +142,9 @@ export function EditorMainPanel() {
           state.pendingEditorSelection,
           state.clearPendingEditorSelection,
           state.sendEditorContextToChat,
+          state.addReviewComment,
+          state.removeReviewComment,
+          state.submitReviewFeedback,
           state.toggleEditorDiffMode,
           state.toggleEditorMarkdownPreviewMode,
           state.saveActiveEditorTab,
@@ -143,6 +160,11 @@ export function EditorMainPanel() {
   const activeTaskIsResponding = useAppStore((state) =>
     Boolean(state.activeTurnIdsByTask[state.activeTaskId]),
   );
+  const reviewCommentsForActiveTask = useAppStore(
+    (state) =>
+      state.reviewCommentsByTask[state.activeTaskId] ??
+      EMPTY_REVIEW_COMMENTS,
+  );
   const [tabToClose, setTabToClose] = useState<{
     id: string;
     fileName: string;
@@ -155,9 +177,14 @@ export function EditorMainPanel() {
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dropTargetTabId, setDropTargetTabId] = useState<string | null>(null);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const [reviewDraft, setReviewDraft] = useState<EditorReviewDraft | null>(
+    null,
+  );
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
-  const diffEditorRef = useRef<DiffEditorModelOwner | null>(null);
+  const diffEditorRef =
+    useRef<MonacoEditorApi.IStandaloneDiffEditor | null>(null);
+  const diffReviewActionDisposableRef = useRef<MonacoDisposable | null>(null);
   const activeDiffTabIdRef = useRef<string | null>(null);
   const saveActiveEditorTabRef = useRef(saveActiveEditorTab);
   saveActiveEditorTabRef.current = saveActiveEditorTab;
@@ -199,6 +226,7 @@ export function EditorMainPanel() {
 
   const activeTab =
     editorTabs.find((tab) => tab.id === activeEditorTabId) ?? null;
+  const activeFilePath = activeTab?.filePath ?? null;
   const activeTabContentPending = Boolean(
     activeTab && activeTab.contentState && activeTab.contentState !== "ready",
   );
@@ -221,6 +249,23 @@ export function EditorMainPanel() {
   );
   const activeDiffSessionKey =
     showDiffDisplayControls && activeTab ? activeTab.id : null;
+  const activeFileReviewComments = useMemo(() => {
+    if (!activeFilePath) {
+      return EMPTY_REVIEW_COMMENTS;
+    }
+    return reviewCommentsForActiveTask.filter(
+      (comment) => comment.filePath === activeFilePath,
+    );
+  }, [activeFilePath, reviewCommentsForActiveTask]);
+  const canAddReviewComment = Boolean(
+    activeTaskId &&
+      activeTab &&
+      activeDiffSessionKey &&
+      !activeTabContentPending,
+  );
+  const canSubmitReviewFeedback = Boolean(
+    activeTaskId && reviewCommentsForActiveTask.length > 0,
+  );
   const sendToAgentDisabled =
     !canSendEditorContextToTask({
       taskId: activeTaskId,
@@ -506,12 +551,27 @@ export function EditorMainPanel() {
     }
 
     return () => {
+      diffReviewActionDisposableRef.current?.dispose();
+      diffReviewActionDisposableRef.current = null;
       // @monaco-editor/react disposes diff models before disposing the widget.
       // Reset the widget first so Monaco does not observe disposed models mid-unmount.
       releaseDiffEditorModels(diffEditorRef.current);
       diffEditorRef.current = null;
     };
   }, [activeDiffSessionKey]);
+
+  useEffect(() => {
+    if (!reviewDraft) {
+      return;
+    }
+    if (
+      !activeFilePath ||
+      !activeDiffSessionKey ||
+      reviewDraft.filePath !== activeFilePath
+    ) {
+      setReviewDraft(null);
+    }
+  }, [activeDiffSessionKey, activeFilePath, reviewDraft]);
 
   function handleTabDragStart(event: DragEvent<HTMLDivElement>, tabId: string) {
     event.dataTransfer.effectAllowed = "move";
@@ -605,6 +665,41 @@ export function EditorMainPanel() {
     return `${root}/${relative}`;
   }
 
+  function startReviewCommentDraft(args: { line?: number } = {}) {
+    if (!activeTab || !activeDiffSessionKey) {
+      return;
+    }
+    setReviewDraft({
+      filePath: activeTab.filePath,
+      line: args.line ?? getModifiedDiffEditorLine(diffEditorRef.current),
+      side: "modified",
+      body: "",
+    });
+  }
+
+  function submitReviewCommentDraft() {
+    if (!reviewDraft || !activeTaskId) {
+      return;
+    }
+    const comment = addReviewComment({
+      taskId: activeTaskId,
+      filePath: reviewDraft.filePath,
+      line: reviewDraft.line,
+      side: reviewDraft.side,
+      body: reviewDraft.body,
+    });
+    if (comment) {
+      setReviewDraft(null);
+    }
+  }
+
+  function submitActiveTaskReviewFeedback() {
+    if (!activeTaskId || reviewCommentsForActiveTask.length === 0) {
+      return;
+    }
+    void submitReviewFeedback({ taskId: activeTaskId });
+  }
+
   return (
     <section
       data-testid="editor-main"
@@ -619,12 +714,17 @@ export function EditorMainPanel() {
         editorMarkdownPreviewMode={editorMarkdownPreviewMode}
         diffViewMode={diffViewMode}
         showDiffDisplayControls={showDiffDisplayControls}
+        reviewCommentCount={reviewCommentsForActiveTask.length}
+        canAddReviewComment={canAddReviewComment}
+        canSubmitReviewFeedback={canSubmitReviewFeedback}
         onSave={() => void saveActiveEditorTab()}
         onToggleEditorDiffMode={toggleEditorDiffMode}
         onToggleEditorMarkdownPreviewMode={toggleEditorMarkdownPreviewMode}
         onChangeDiffViewMode={(mode) =>
           updateSettings({ patch: { diffViewMode: mode } })
         }
+        onAddReviewComment={() => startReviewCommentDraft()}
+        onSubmitReviewFeedback={submitActiveTaskReviewFeedback}
         onSendToAgent={() => sendEditorContextToChat({ taskId: activeTaskId })}
         onCloseEditor={() => setLayout({ patch: { editorVisible: false } })}
       />
@@ -664,6 +764,26 @@ export function EditorMainPanel() {
               </TooltipContent>
             </Tooltip>
           </div>
+        ) : null}
+
+        {showDiffDisplayControls ? (
+          <EditorReviewPanel
+            draft={reviewDraft}
+            comments={activeFileReviewComments}
+            totalCount={reviewCommentsForActiveTask.length}
+            submitDisabled={!canSubmitReviewFeedback}
+            onDraftBodyChange={(body) =>
+              setReviewDraft((current) =>
+                current ? { ...current, body } : current,
+              )
+            }
+            onCancelDraft={() => setReviewDraft(null)}
+            onSubmitDraft={submitReviewCommentDraft}
+            onRemoveComment={(commentId) =>
+              removeReviewComment({ taskId: activeTaskId, commentId })
+            }
+            onSendReview={submitActiveTaskReviewFeedback}
+          />
         ) : null}
 
         <div className="min-h-0 flex-1 overflow-hidden">
@@ -750,6 +870,13 @@ export function EditorMainPanel() {
                 onMount={(editor, monaco) => {
                   editorRef.current = null;
                   diffEditorRef.current = editor;
+                  diffReviewActionDisposableRef.current?.dispose();
+                  diffReviewActionDisposableRef.current =
+                    registerDiffReviewCommentAction({
+                      editor: editor.getModifiedEditor(),
+                      onAddComment: (target) =>
+                        startReviewCommentDraft({ line: target.line }),
+                    });
                   editor
                     .getOriginalEditor()
                     .updateOptions({ tabSize: editorTabSize });

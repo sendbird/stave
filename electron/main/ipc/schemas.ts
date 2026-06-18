@@ -43,6 +43,17 @@ export const SuggestPRDescriptionArgsSchema = z
   })
   .strict();
 
+export const ReviewDiffArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    baseBranch: z.string().max(200).optional(),
+    headBranch: z.string().max(200).optional(),
+    providerId: ProviderIdSchema.optional(),
+    model: z.string().max(200).optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema),
+  })
+  .strict();
+
 export const CreatePRArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
@@ -317,6 +328,7 @@ export const RuntimeOptionsObjectSchema = z
     claudeFastMode: z.boolean().optional(),
     claudeAllowedTools: z.array(z.string().max(200)).max(200).optional(),
     claudeDisallowedTools: z.array(z.string().max(200)).max(200).optional(),
+    trustedTools: z.array(z.string().max(500)).max(200).optional(),
     claudeSkills: z
       .union([z.literal("all"), z.array(z.string().max(200)).max(200)])
       .optional(),
@@ -898,6 +910,7 @@ export const NotificationRecordSchema = z
     kind: z.union([
       z.literal("task.turn_completed"),
       z.literal("task.approval_requested"),
+      z.literal("task.user_input_requested"),
     ]),
     title: z.string().min(1).max(500),
     body: z.string().max(5000),

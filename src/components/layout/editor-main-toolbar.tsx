@@ -4,6 +4,8 @@ import {
   Columns2,
   Eye,
   FileCode2,
+  MessageSquarePlus,
+  MessagesSquare,
   PenLine,
   Save,
   Send,
@@ -33,10 +35,15 @@ export function EditorMainToolbar(args: {
   editorMarkdownPreviewMode: boolean;
   diffViewMode: "unified" | "split";
   showDiffDisplayControls: boolean;
+  reviewCommentCount: number;
+  canAddReviewComment: boolean;
+  canSubmitReviewFeedback: boolean;
   onSave: () => void;
   onToggleEditorDiffMode: () => void;
   onToggleEditorMarkdownPreviewMode: () => void;
   onChangeDiffViewMode: (mode: "unified" | "split") => void;
+  onAddReviewComment: () => void;
+  onSubmitReviewFeedback: () => void;
   onSendToAgent: () => void;
   onCloseEditor: () => void;
 }) {
@@ -165,6 +172,55 @@ export function EditorMainToolbar(args: {
                 <TooltipContent side="bottom">Split Diff</TooltipContent>
               </Tooltip>
             </div>
+          ) : null}
+          {args.showDiffDisplayControls ? (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                      disabled={!args.canAddReviewComment}
+                      onClick={args.onAddReviewComment}
+                      aria-label="Add review comment"
+                    >
+                      <MessageSquarePlus className="size-4" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Add review comment
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="relative h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                      disabled={!args.canSubmitReviewFeedback}
+                      onClick={args.onSubmitReviewFeedback}
+                      aria-label="Send review to agent"
+                    >
+                      <MessagesSquare className="size-4" />
+                      {args.reviewCommentCount > 0 ? (
+                        <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
+                          {args.reviewCommentCount > 9
+                            ? "9+"
+                            : args.reviewCommentCount}
+                        </span>
+                      ) : null}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Send review to agent
+                </TooltipContent>
+              </Tooltip>
+            </>
           ) : null}
           <Tooltip>
             <TooltipTrigger asChild>

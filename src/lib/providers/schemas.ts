@@ -83,6 +83,7 @@ const ApprovalEventSchema = z.object({
   toolName: z.string(),
   requestId: z.string(),
   description: z.string(),
+  input: z.string().optional(),
 });
 
 const UserInputQuestionSchema = z.object({

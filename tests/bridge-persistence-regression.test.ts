@@ -4430,6 +4430,328 @@ describe("workspace store hydration ordering", () => {
     expect(closedWorkspaceIds).toEqual(["ws-feature-close"]);
   });
 
+  test("closeWorkspace cleanup removes clean worktrees without force", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
+
+    setWindowContext({
+      localStorage,
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          upsertWorkspace: async () => ({ ok: true }),
+          closeWorkspace: async () => ({ ok: true }),
+        },
+        fs: {
+          listFiles: async () => ({ ok: true, files: [] }),
+          readFile: async () => ({ ok: false }),
+          writeFile: async () => ({ ok: false }),
+        },
+        terminal: {
+          runCommand: async (call: { cwd?: string; command: string }) => {
+            runCalls.push(call);
+            if (
+              call.cwd === workspacePath &&
+              call.command === "git status --porcelain --untracked-files=all"
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
+              call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
+              call.command === "git worktree prune"
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
+              call.command === 'git rev-list --count "feature" --not --remotes'
+            ) {
+              return { ok: true, code: 0, stdout: "0\n", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
+              call.command === 'git branch -d "feature"'
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            return {
+              ok: false,
+              code: 1,
+              stdout: "",
+              stderr: `Unexpected command: ${call.command}`,
+            };
+          },
+        },
+      },
+    });
+
+    const { useAppStore, waitForPendingWorkspaceArchiveCleanups } =
+      await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        {
+          id: "ws-main-close",
+          name: "Main",
+          updatedAt: "2026-03-10T00:00:00.000Z",
+        },
+        {
+          id: "ws-feature-close",
+          name: "feature",
+          updatedAt: "2026-03-10T00:01:00.000Z",
+        },
+      ],
+      activeWorkspaceId: "ws-main-close",
+      projectPath: "/tmp/stave-project-close",
+      workspacePathById: {
+        "ws-main-close": "/tmp/stave-project-close",
+        "ws-feature-close": workspacePath,
+      },
+      workspaceBranchById: {
+        "ws-main-close": "main",
+        "ws-feature-close": "feature",
+      },
+      workspaceDefaultById: {
+        "ws-main-close": true,
+        "ws-feature-close": false,
+      },
+    });
+
+    await useAppStore
+      .getState()
+      .closeWorkspace({ workspaceId: "ws-feature-close" });
+    await waitForPendingWorkspaceArchiveCleanups();
+
+    expect(runCalls.map((call) => call.command)).toEqual([
+      "git status --porcelain --untracked-files=all",
+      `git worktree remove ${JSON.stringify(workspacePath)}`,
+      "git worktree prune",
+      'git rev-list --count "feature" --not --remotes',
+      'git branch -d "feature"',
+    ]);
+    expect(runCalls.some((call) => call.command.includes("--force"))).toBe(
+      false,
+    );
+    expect(runCalls.some((call) => call.command.includes("rm -rf"))).toBe(
+      false,
+    );
+    expect(runCalls.some((call) => call.command.includes("branch -D"))).toBe(
+      false,
+    );
+  });
+
+  test("closeWorkspace cleanup preserves dirty worktrees and branches", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
+      setWindowContext({
+        localStorage,
+        api: {
+          persistence: {
+            listWorkspaces: async () => ({ ok: true, rows: [] }),
+            loadWorkspace: async () => ({ ok: true, snapshot: null }),
+            upsertWorkspace: async () => ({ ok: true }),
+            closeWorkspace: async () => ({ ok: true }),
+          },
+          fs: {
+            listFiles: async () => ({ ok: true, files: [] }),
+            readFile: async () => ({ ok: false }),
+            writeFile: async () => ({ ok: false }),
+          },
+          terminal: {
+            runCommand: async (call: { cwd?: string; command: string }) => {
+              runCalls.push(call);
+              if (
+                call.cwd === workspacePath &&
+                call.command === "git status --porcelain --untracked-files=all"
+              ) {
+                return {
+                  ok: true,
+                  code: 0,
+                  stdout: " M src/app.ts\n?? scratch.md\n",
+                  stderr: "",
+                };
+              }
+              return {
+                ok: false,
+                code: 1,
+                stdout: "",
+                stderr: `Unexpected command: ${call.command}`,
+              };
+            },
+          },
+        },
+      });
+
+      const { useAppStore, waitForPendingWorkspaceArchiveCleanups } =
+        await import("../src/store/app.store");
+      const initialState = useAppStore.getInitialState();
+      useAppStore.setState({
+        ...initialState,
+        hasHydratedWorkspaces: true,
+        workspaces: [
+          {
+            id: "ws-main-close",
+            name: "Main",
+            updatedAt: "2026-03-10T00:00:00.000Z",
+          },
+          {
+            id: "ws-feature-close",
+            name: "feature",
+            updatedAt: "2026-03-10T00:01:00.000Z",
+          },
+        ],
+        activeWorkspaceId: "ws-main-close",
+        projectPath: "/tmp/stave-project-close",
+        workspacePathById: {
+          "ws-main-close": "/tmp/stave-project-close",
+          "ws-feature-close": workspacePath,
+        },
+        workspaceBranchById: {
+          "ws-main-close": "main",
+          "ws-feature-close": "feature",
+        },
+        workspaceDefaultById: {
+          "ws-main-close": true,
+          "ws-feature-close": false,
+        },
+      });
+
+      await useAppStore
+        .getState()
+        .closeWorkspace({ workspaceId: "ws-feature-close" });
+      await waitForPendingWorkspaceArchiveCleanups();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    expect(runCalls.map((call) => call.command)).toEqual([
+      "git status --porcelain --untracked-files=all",
+    ]);
+  });
+
+  test("closeWorkspace cleanup preserves unpushed branches after worktree removal", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
+      setWindowContext({
+        localStorage,
+        api: {
+          persistence: {
+            listWorkspaces: async () => ({ ok: true, rows: [] }),
+            loadWorkspace: async () => ({ ok: true, snapshot: null }),
+            upsertWorkspace: async () => ({ ok: true }),
+            closeWorkspace: async () => ({ ok: true }),
+          },
+          fs: {
+            listFiles: async () => ({ ok: true, files: [] }),
+            readFile: async () => ({ ok: false }),
+            writeFile: async () => ({ ok: false }),
+          },
+          terminal: {
+            runCommand: async (call: { cwd?: string; command: string }) => {
+              runCalls.push(call);
+              if (
+                call.cwd === workspacePath &&
+                call.command === "git status --porcelain --untracked-files=all"
+              ) {
+                return { ok: true, code: 0, stdout: "", stderr: "" };
+              }
+              if (
+                call.cwd === "/tmp/stave-project-close" &&
+                call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
+              ) {
+                return { ok: true, code: 0, stdout: "", stderr: "" };
+              }
+              if (
+                call.cwd === "/tmp/stave-project-close" &&
+                call.command === "git worktree prune"
+              ) {
+                return { ok: true, code: 0, stdout: "", stderr: "" };
+              }
+              if (
+                call.cwd === "/tmp/stave-project-close" &&
+                call.command === 'git rev-list --count "feature" --not --remotes'
+              ) {
+                return { ok: true, code: 0, stdout: "2\n", stderr: "" };
+              }
+              return {
+                ok: false,
+                code: 1,
+                stdout: "",
+                stderr: `Unexpected command: ${call.command}`,
+              };
+            },
+          },
+        },
+      });
+
+      const { useAppStore, waitForPendingWorkspaceArchiveCleanups } =
+        await import("../src/store/app.store");
+      const initialState = useAppStore.getInitialState();
+      useAppStore.setState({
+        ...initialState,
+        hasHydratedWorkspaces: true,
+        workspaces: [
+          {
+            id: "ws-main-close",
+            name: "Main",
+            updatedAt: "2026-03-10T00:00:00.000Z",
+          },
+          {
+            id: "ws-feature-close",
+            name: "feature",
+            updatedAt: "2026-03-10T00:01:00.000Z",
+          },
+        ],
+        activeWorkspaceId: "ws-main-close",
+        projectPath: "/tmp/stave-project-close",
+        workspacePathById: {
+          "ws-main-close": "/tmp/stave-project-close",
+          "ws-feature-close": workspacePath,
+        },
+        workspaceBranchById: {
+          "ws-main-close": "main",
+          "ws-feature-close": "feature",
+        },
+        workspaceDefaultById: {
+          "ws-main-close": true,
+          "ws-feature-close": false,
+        },
+      });
+
+      await useAppStore
+        .getState()
+        .closeWorkspace({ workspaceId: "ws-feature-close" });
+      await waitForPendingWorkspaceArchiveCleanups();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    expect(runCalls.map((call) => call.command)).toEqual([
+      "git status --porcelain --untracked-files=all",
+      `git worktree remove ${JSON.stringify(workspacePath)}`,
+      "git worktree prune",
+      'git rev-list --count "feature" --not --remotes',
+    ]);
+  });
+
   test("switchWorkspace resolves after shell hydrate and backfills messages asynchronously for uncached workspaces", async () => {
     const localStorage = createMemoryStorage();
     let resolveTaskMessages:
@@ -4902,6 +5224,388 @@ describe("workspace store hydration ordering", () => {
       type: "approval",
       requestId: "approval-abort-1",
       state: "approval-interrupted",
+    });
+  });
+
+  test("rollbackTask clears provider session so the next turn replays restored history", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const cleanupCalls: string[] = [];
+    setWindowContext({
+      localStorage,
+      api: {
+        terminal: {
+          runCommand: async (call: { cwd?: string; command: string }) => {
+            runCalls.push(call);
+            return { ok: true, code: 0, stdout: "", stderr: "" };
+          },
+        },
+        fs: {
+          listFiles: async () => ({ ok: true, files: ["src/app.ts"] }),
+        },
+        provider: {
+          cleanupTask: async ({ taskId }: { taskId: string }) => {
+            cleanupCalls.push(taskId);
+            return { ok: true };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-rollback",
+      activeTaskId: "task-rollback",
+      projectPath: "/tmp/stave-rollback",
+      workspacePathById: {
+        "ws-rollback": "/tmp/stave-rollback",
+      },
+      workspaceDefaultById: {
+        "ws-rollback": true,
+      },
+      tasks: [
+        {
+          id: "task-rollback",
+          title: "Rollback Task",
+          provider: "codex",
+          updatedAt: "2026-04-01T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: {
+        "task-rollback": [],
+      },
+      taskCheckpointById: {
+        "task-rollback": "abc123",
+      },
+      providerSessionByTask: {
+        "task-rollback": { codex: "thread-stale-rollback" },
+      },
+      nativeSessionReadyByTask: {
+        "task-rollback": true,
+      },
+    });
+
+    await useAppStore.getState().rollbackTask({ taskId: "task-rollback" });
+
+    expect(runCalls).toEqual([
+      {
+        cwd: "/tmp/stave-rollback",
+        command: 'git restore --source="abc123" --staged --worktree .',
+      },
+    ]);
+    expect(cleanupCalls).toEqual(["task-rollback"]);
+    const nextState = useAppStore.getState();
+    expect(nextState.providerSessionByTask["task-rollback"]).toBeUndefined();
+    expect(nextState.nativeSessionReadyByTask["task-rollback"]).toBe(false);
+    expect(
+      nextState.messagesByTask["task-rollback"]?.at(-1)?.content,
+    ).toContain("Provider session reset");
+  });
+
+  test("rollbackToCompactBoundary clears provider session after restore", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const cleanupCalls: string[] = [];
+    setWindowContext({
+      localStorage,
+      api: {
+        terminal: {
+          runCommand: async (call: { cwd?: string; command: string }) => {
+            runCalls.push(call);
+            return { ok: true, code: 0, stdout: "", stderr: "" };
+          },
+        },
+        fs: {
+          listFiles: async () => ({ ok: true, files: ["src/restored.ts"] }),
+        },
+        provider: {
+          cleanupTask: async ({ taskId }: { taskId: string }) => {
+            cleanupCalls.push(taskId);
+            return { ok: true };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-compact",
+      activeTaskId: "task-compact",
+      projectPath: "/tmp/stave-compact",
+      workspacePathById: {
+        "ws-compact": "/tmp/stave-compact",
+      },
+      workspaceDefaultById: {
+        "ws-compact": true,
+      },
+      tasks: [
+        {
+          id: "task-compact",
+          title: "Compact Task",
+          provider: "claude-code",
+          updatedAt: "2026-04-01T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: {
+        "task-compact": [
+          {
+            id: "task-compact-m-0",
+            role: "user",
+            model: "user",
+            providerId: "user",
+            content: "before restore",
+            parts: [{ type: "text", text: "before restore" }],
+          },
+        ],
+      },
+      providerSessionByTask: {
+        "task-compact": { "claude-code": "session-stale-compact" },
+      },
+      nativeSessionReadyByTask: {
+        "task-compact": true,
+      },
+    });
+
+    await useAppStore.getState().rollbackToCompactBoundary({
+      taskId: "task-compact",
+      gitRef: "def456",
+      trigger: "manual",
+    });
+
+    expect(runCalls).toEqual([
+      {
+        cwd: "/tmp/stave-compact",
+        command: 'git restore --source="def456" --staged --worktree .',
+      },
+    ]);
+    expect(cleanupCalls).toEqual(["task-compact"]);
+    const nextState = useAppStore.getState();
+    expect(nextState.providerSessionByTask["task-compact"]).toBeUndefined();
+    expect(nextState.nativeSessionReadyByTask["task-compact"]).toBe(false);
+    expect(nextState.messagesByTask["task-compact"]?.at(-1)?.content).toContain(
+      "Provider session reset",
+    );
+  });
+
+  test("trusted approval events auto-approve without creating approval notifications", async () => {
+    const localStorage = createMemoryStorage();
+    const approvalCalls: Array<{
+      turnId: string;
+      requestId: string;
+      approved: boolean;
+    }> = [];
+    let streamListener:
+      | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
+      | null = null;
+
+    (globalThis as { window: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async () => ({
+            ok: true,
+            streamId: "stream-trusted-approval",
+            turnId: "turn-trusted-approval",
+          }),
+          subscribeStreamEvents: (listener: typeof streamListener) => {
+            streamListener = listener;
+            return () => {
+              if (streamListener === listener) {
+                streamListener = null;
+              }
+            };
+          },
+          respondApproval: async (args: {
+            turnId: string;
+            requestId: string;
+            approved: boolean;
+          }) => {
+            approvalCalls.push(args);
+            return { ok: true, message: "ok" };
+          },
+        },
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          upsertWorkspace: async () => ({ ok: true }),
+        },
+        fs: {
+          readFile: async () => ({
+            ok: false,
+            content: "",
+            revision: "",
+            stderr: "not found",
+          }),
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-trusted-approval",
+      activeTaskId: "task-trusted-approval",
+      projectPath: "/tmp/stave-trusted-approval",
+      workspacePathById: {
+        "ws-trusted-approval": "/tmp/stave-trusted-approval",
+      },
+      workspaceBranchById: {
+        "ws-trusted-approval": "main",
+      },
+      workspaceDefaultById: {
+        "ws-trusted-approval": true,
+      },
+      draftProvider: "codex",
+      settings: {
+        ...initialState.settings,
+        trustedTools: ["bash:bun test"],
+      },
+      tasks: [
+        {
+          id: "task-trusted-approval",
+          title: "Trusted Approval Task",
+          provider: "codex",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-trusted-approval": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+    });
+
+    await useAppStore.getState().sendUserMessage({
+      taskId: "task-trusted-approval",
+      content: "run tests",
+    });
+    const activeTurnId =
+      useAppStore.getState().activeTurnIdsByTask["task-trusted-approval"];
+    expect(activeTurnId).toBeString();
+
+    streamListener?.({
+      streamId: "stream-trusted-approval",
+      done: false,
+      event: {
+        type: "approval",
+        toolName: "bash",
+        requestId: "approval-trusted-1",
+        description: "Run bun test",
+        input: "bun test tests/trusted-tools.test.ts",
+      },
+    });
+
+    await Bun.sleep(30);
+
+    expect(approvalCalls).toEqual([
+      {
+        turnId: activeTurnId,
+        requestId: "approval-trusted-1",
+        approved: true,
+      },
+    ]);
+    const message =
+      useAppStore.getState().messagesByTask["task-trusted-approval"]?.[1];
+    expect(message?.parts[0]).toMatchObject({
+      type: "approval",
+      requestId: "approval-trusted-1",
+      state: "approval-responded",
+    });
+    expect(useAppStore.getState().notifications).toEqual([]);
+  });
+
+  test("fetchAllWorkspacePrStatuses skips fresh and active workspaces with bounded concurrency", async () => {
+    const localStorage = createMemoryStorage();
+    const calls: string[] = [];
+    let inFlight = 0;
+    let maxInFlight = 0;
+    setWindowContext({
+      localStorage,
+      api: {
+        sourceControl: {
+          getPrStatus: async ({ cwd }: { cwd?: string }) => {
+            calls.push(cwd ?? "");
+            inFlight += 1;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            await Bun.sleep(5);
+            inFlight -= 1;
+            return { ok: true, pr: null };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-active",
+      workspaces: [
+        { id: "ws-default", name: "Default", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-active", name: "Active", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-fresh", name: "Fresh", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-stale-1", name: "Stale 1", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-stale-2", name: "Stale 2", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-stale-3", name: "Stale 3", updatedAt: "2026-04-07T00:00:00.000Z" },
+        { id: "ws-stale-4", name: "Stale 4", updatedAt: "2026-04-07T00:00:00.000Z" },
+      ],
+      workspaceDefaultById: {
+        "ws-default": true,
+        "ws-active": false,
+        "ws-fresh": false,
+        "ws-stale-1": false,
+        "ws-stale-2": false,
+        "ws-stale-3": false,
+        "ws-stale-4": false,
+      },
+      workspacePathById: {
+        "ws-default": "/tmp/default",
+        "ws-active": "/tmp/active",
+        "ws-fresh": "/tmp/fresh",
+        "ws-stale-1": "/tmp/stale-1",
+        "ws-stale-2": "/tmp/stale-2",
+        "ws-stale-3": "/tmp/stale-3",
+        "ws-stale-4": "/tmp/stale-4",
+      },
+      workspacePrInfoById: {
+        "ws-fresh": {
+          pr: null,
+          derived: "no_pr",
+          lastFetched: Date.now(),
+        },
+      },
+    });
+
+    await useAppStore.getState().fetchAllWorkspacePrStatuses();
+
+    expect(calls.sort()).toEqual([
+      "/tmp/stale-1",
+      "/tmp/stale-2",
+      "/tmp/stale-3",
+      "/tmp/stale-4",
+    ]);
+    expect(maxInFlight).toBeLessThanOrEqual(3);
+    expect(
+      useAppStore.getState().workspacePrInfoById["ws-stale-1"],
+    ).toMatchObject({
+      pr: null,
+      derived: "no_pr",
     });
   });
 
