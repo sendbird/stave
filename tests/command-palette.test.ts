@@ -90,6 +90,7 @@ function createContext(
       openInGhostty: async () => {},
       openInTerminal: async () => {},
       openInVSCode: async () => {},
+      openFleetView: () => {},
       openKeyboardShortcuts: () => {},
       openProject: async () => {},
       openSettings: () => {},
@@ -134,6 +135,13 @@ describe("command palette registry", () => {
     expect(
       navigation?.items.some(
         (item) => item.id === "navigation.latest-completed-turn-task",
+      ),
+    ).toBe(true);
+    expect(
+      navigation?.items.some(
+        (item) =>
+          item.id === "navigation.fleet-view" &&
+          item.shortcut === "Cmd+K F",
       ),
     ).toBe(true);
     expect(

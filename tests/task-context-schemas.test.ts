@@ -72,6 +72,18 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.terminalDocked).toBe(true);
   });
 
+  test("parses fleet view as a workspace active surface", () => {
+    const parsed = parseWorkspaceShell({
+      payload: {
+        ...createWorkspaceBase(),
+        activeSurface: { kind: "fleet-view" },
+        messageCountByTask: {},
+      },
+    });
+
+    expect(parsed?.activeSurface).toEqual({ kind: "fleet-view" });
+  });
+
   test("parses prompt draft runtime overrides and queued-next-turn content from snapshots", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {

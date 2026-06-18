@@ -41,7 +41,8 @@ export interface WorkspaceCliSessionTab {
 
 export type WorkspaceActiveSurface =
   | { kind: "task"; taskId: string }
-  | { kind: "cli-session"; cliSessionTabId: string };
+  | { kind: "cli-session"; cliSessionTabId: string }
+  | { kind: "fleet-view" };
 
 export interface TerminalCreateSessionArgs {
   workspaceId: string;

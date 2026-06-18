@@ -11,6 +11,7 @@ export type AppShortcutAllowedKey = (typeof APP_SHORTCUT_ALLOWED_KEYS)[number];
 
 export type AppShortcutCommandId =
   | "navigation.home"
+  | "navigation.fleet-view"
   | "view.toggle-workspace-sidebar"
   | "view.toggle-changes-panel"
   | "view.show-explorer"
@@ -36,6 +37,12 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     title: "Go home",
     description: "Clear the active task selection and return to the home view.",
     defaultKey: "h",
+  },
+  {
+    commandId: "navigation.fleet-view",
+    title: "Open Fleet View",
+    description: "Open the cross-workspace agent status view.",
+    defaultKey: "f",
   },
   {
     commandId: "view.toggle-workspace-sidebar",

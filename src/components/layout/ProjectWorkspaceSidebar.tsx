@@ -72,12 +72,9 @@ import {
   loadWorkspaceShellSummary,
   type WorkspaceShellSummary,
 } from "@/lib/db/workspaces.db";
+import { summarizeFleetRespondingTasks } from "@/lib/fleet/task-status";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
-import {
-  resolveProviderTurnDisplayState,
-  type ProviderTurnActivitySnapshot,
-} from "@/lib/providers/turn-status";
-import { getRespondingProviderId, getRespondingTasks } from "@/lib/tasks";
+import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
@@ -100,41 +97,25 @@ function resolveRespondingToneClass(args: {
     ProviderTurnActivitySnapshot | undefined
   >;
 }) {
-  const respondingTasks = getRespondingTasks({
+  const summary = summarizeFleetRespondingTasks({
     tasks: args.tasks,
+    messagesByTask: args.messagesByTask,
     activeTurnIdsByTask: args.activeTurnIdsByTask,
+    providerTurnActivityByTask: args.providerTurnActivityByTask,
   });
-  if (respondingTasks.length === 0) {
+  if (summary.respondingTaskCount === 0) {
     return {
       respondingTaskCount: 0,
       respondingToneClass: "text-primary",
     };
   }
 
-  const providers = Array.from(
-    new Set(
-      respondingTasks.map((task) =>
-        getRespondingProviderId({
-          fallbackProviderId: task.provider,
-          messages: args.messagesByTask[task.id] ?? EMPTY_MESSAGES,
-        }),
-      ),
-    ),
-  );
-  const hasStalledTask = respondingTasks.some(
-    (task) =>
-      resolveProviderTurnDisplayState({
-        activeTurnId: args.activeTurnIdsByTask[task.id] ?? null,
-        activity: args.providerTurnActivityByTask[task.id] ?? null,
-      }) === "stalled",
-  );
-
   return {
-    respondingTaskCount: respondingTasks.length,
-    respondingToneClass: hasStalledTask
+    respondingTaskCount: summary.respondingTaskCount,
+    respondingToneClass: summary.hasWarningTask
       ? "text-warning"
-      : providers.length === 1 && providers[0]
-        ? getProviderWaveToneClass({ providerId: providers[0] })
+      : summary.respondingProviderIds.length === 1 && summary.respondingProviderIds[0]
+        ? getProviderWaveToneClass({ providerId: summary.respondingProviderIds[0] })
         : "text-primary",
   };
 }

@@ -11,6 +11,7 @@ import { useShallow } from "zustand/react/shallow";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import { TopBar } from "@/components/layout/TopBar";
 import { ZenAppShellLayout } from "@/components/layout/ZenAppShellLayout";
+import { FleetView } from "@/components/layout/FleetView";
 import {
   COLLAPSED_PROJECT_SIDEBAR_WIDTH,
   ProjectWorkspaceSidebar,
@@ -122,6 +123,7 @@ export function AppShell() {
     saveActiveEditorTab,
     refreshProjectFiles,
     refreshWorkspaces,
+    openFleetView,
     openProject,
     switchWorkspace,
     abortTaskTurn,
@@ -168,6 +170,7 @@ export function AppShell() {
           state.saveActiveEditorTab,
           state.refreshProjectFiles,
           state.refreshWorkspaces,
+          state.openFleetView,
           state.openProject,
           state.switchWorkspace,
           state.abortTaskTurn,
@@ -531,6 +534,9 @@ export function AppShell() {
           return;
         case "navigation.home":
           store.clearTaskSelection();
+          return;
+        case "navigation.fleet-view":
+          store.openFleetView();
           return;
         case "view.toggle-workspace-sidebar":
           store.setLayout({
@@ -1079,6 +1085,7 @@ export function AppShell() {
         openInVSCode: async (path: string) => {
           await window.api?.shell?.openInVSCode?.({ path });
         },
+        openFleetView: () => openFleetView(),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
         openProject: (nextProjectPath: string) =>
           openProject({ projectPath: nextProjectPath }),
@@ -1170,6 +1177,7 @@ export function AppShell() {
       handleOpenKeyboardShortcuts,
       handleOpenSettings,
       modifierLabel,
+      openFleetView,
       openProject,
       projectPath,
       projectName,
@@ -1202,6 +1210,7 @@ export function AppShell() {
   const showCliSurface =
     activeSurface.kind === "cli-session" &&
     cliSessionTabs.some((tab) => tab.id === activeSurface.cliSessionTabId);
+  const showFleetView = activeSurface.kind === "fleet-view";
 
   return (
     <div className="relative flex h-full w-full bg-background text-foreground">
@@ -1355,14 +1364,20 @@ export function AppShell() {
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                         <div className="min-h-0 min-w-0 flex-1 sm:min-w-[420px]">
-                          <div
-                            className={
-                              showCliSurface ? "hidden h-full" : "h-full"
-                            }
-                          >
-                            <ChatArea />
-                          </div>
-                          <CliSessionPanel />
+                          {showFleetView ? (
+                            <FleetView />
+                          ) : (
+                            <>
+                              <div
+                                className={
+                                  showCliSurface ? "hidden h-full" : "h-full"
+                                }
+                              >
+                                <ChatArea />
+                              </div>
+                              <CliSessionPanel />
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className={terminalDocked ? undefined : "hidden"}>

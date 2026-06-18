@@ -899,6 +899,10 @@ interface AppState {
   cliSessionTabs: WorkspaceCliSessionTab[];
   activeCliSessionTabId: string | null;
   activeSurface: WorkspaceActiveSurface;
+  focusPendingInteractionRequest: {
+    taskId: string;
+    nonce: number;
+  } | null;
   pendingCloseEditorTabId: string | null;
   pendingEditorSelection: {
     tabId: string;
@@ -994,6 +998,12 @@ interface AppState {
   }) => void;
   refreshProviderCommandCatalog: () => void;
   notifyWorkspacePlansChanged: () => void;
+  openFleetView: () => void;
+  focusTaskAttention: (args: {
+    taskId: string;
+    workspaceId?: string;
+    projectPath?: string;
+  }) => Promise<void>;
   selectTask: (args: { taskId: string }) => void;
   loadTaskMessages: (args: {
     taskId: string;
@@ -3567,6 +3577,7 @@ export const useAppStore = create<AppState>()(
         cliSessionTabs: [],
         activeCliSessionTabId: null,
         activeSurface: { kind: "task", taskId: "" },
+        focusPendingInteractionRequest: null,
         pendingCloseEditorTabId: null,
         pendingEditorSelection: null,
         projectName: null,
@@ -6183,6 +6194,47 @@ export const useAppStore = create<AppState>()(
         notifyWorkspacePlansChanged: () => {
           set((state) => ({
             workspacePlansRefreshNonce: state.workspacePlansRefreshNonce + 1,
+          }));
+        },
+        openFleetView: () => {
+          set((state) => {
+            if (state.activeSurface.kind === "fleet-view") {
+              return state;
+            }
+            return {
+              activeSurface: { kind: "fleet-view" },
+              workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            };
+          });
+        },
+        focusTaskAttention: async ({ taskId, workspaceId, projectPath }) => {
+          const stateBefore = get();
+          if (projectPath && projectPath !== stateBefore.projectPath) {
+            await stateBefore.openProject({ projectPath });
+          }
+
+          const stateAfterProjectOpen = get();
+          const resolvedWorkspaceId =
+            workspaceId ??
+            stateAfterProjectOpen.taskWorkspaceIdById[taskId] ??
+            stateAfterProjectOpen.activeWorkspaceId;
+
+          if (
+            resolvedWorkspaceId &&
+            resolvedWorkspaceId !== stateAfterProjectOpen.activeWorkspaceId
+          ) {
+            await stateAfterProjectOpen.switchWorkspace({
+              workspaceId: resolvedWorkspaceId,
+            });
+          }
+
+          const stateAfterWorkspaceOpen = get();
+          stateAfterWorkspaceOpen.selectTask({ taskId });
+          set((state) => ({
+            focusPendingInteractionRequest: {
+              taskId,
+              nonce: (state.focusPendingInteractionRequest?.nonce ?? 0) + 1,
+            },
           }));
         },
         selectTask: ({ taskId }) => {

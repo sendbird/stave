@@ -141,6 +141,24 @@ describe("app shell shortcut gating", () => {
     });
   });
 
+  test("opens fleet view when F follows the chord before timeout", () => {
+    expect(
+      resolveShortcutChord({
+        key: "f",
+        pendingChord: {
+          type: "app-command",
+          startedAt: 100,
+        },
+        now: 150,
+      }),
+    ).toEqual({
+      action: "navigation.fleet-view",
+      nextPendingChord: null,
+      preventDefault: true,
+      stopAppHandling: true,
+    });
+  });
+
   test("opens scripts when S follows the chord before timeout", () => {
     expect(
       resolveShortcutChord({

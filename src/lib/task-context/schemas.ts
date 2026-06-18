@@ -316,6 +316,9 @@ const WorkspaceActiveSurfaceSchema = z.discriminatedUnion("kind", [
     kind: z.literal("cli-session"),
     cliSessionTabId: z.string(),
   }),
+  z.object({
+    kind: z.literal("fleet-view"),
+  }),
 ]);
 
 const WorkspaceJiraIssueSchema = z.object({

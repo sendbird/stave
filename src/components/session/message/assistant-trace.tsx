@@ -552,14 +552,42 @@ function AssistantTraceEntryView(args: {
 
     case "approval":
       return (
-        <ChainOfThoughtStep title={`Approval: ${entry.part.toolName}`} status={status} icon={icon} defaultOpen>
+        <ChainOfThoughtStep
+          title={`Approval: ${entry.part.toolName}`}
+          status={status}
+          icon={icon}
+          defaultOpen
+          data-pending-interaction={
+            entry.part.state === "approval-requested" ? "true" : undefined
+          }
+          data-pending-interaction-request-id={
+            entry.part.state === "approval-requested"
+              ? entry.part.requestId
+              : undefined
+          }
+          tabIndex={entry.part.state === "approval-requested" ? -1 : undefined}
+        >
           <MessagePartRenderer part={entry.part} taskId={taskId} messageId={messageId} />
         </ChainOfThoughtStep>
       );
 
     case "user_input":
       return (
-        <ChainOfThoughtStep title={`Input: ${entry.part.toolName}`} status={status} icon={icon} defaultOpen>
+        <ChainOfThoughtStep
+          title={`Input: ${entry.part.toolName}`}
+          status={status}
+          icon={icon}
+          defaultOpen
+          data-pending-interaction={
+            entry.part.state === "input-requested" ? "true" : undefined
+          }
+          data-pending-interaction-request-id={
+            entry.part.state === "input-requested"
+              ? entry.part.requestId
+              : undefined
+          }
+          tabIndex={entry.part.state === "input-requested" ? -1 : undefined}
+        >
           <MessagePartRenderer part={entry.part} taskId={taskId} messageId={messageId} />
         </ChainOfThoughtStep>
       );

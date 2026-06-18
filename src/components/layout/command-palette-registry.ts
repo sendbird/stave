@@ -120,6 +120,7 @@ export interface CommandPaletteCommandHandlers {
   openInTerminal: (path: string) => Promise<void> | void;
   openInGhostty: (path: string) => Promise<void> | void;
   openInVSCode: (path: string) => Promise<void> | void;
+  openFleetView: () => void;
   openKeyboardShortcuts: () => void;
   openProject: (projectPath: string) => Promise<void> | void;
   openSettings: (options?: {
@@ -317,6 +318,29 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       run: args.commands.openLatestCompletedTurnTask,
       source: "core",
     }),
+  },
+  {
+    id: "navigation.fleet-view",
+    title: "Open Fleet View",
+    description: "Open the cross-workspace agent status view.",
+    group: "navigation",
+    icon: Bot,
+    keywords: ["fleet", "agents", "status", "parallel", "needs input"],
+    shortcut: (modifierLabel) => `${modifierLabel}+K F`,
+    build: (args) =>
+      args.projectPath
+        ? {
+            id: "navigation.fleet-view",
+            title: "Open Fleet View",
+            subtitle: "Show agent status across workspaces.",
+            group: "navigation",
+            icon: Bot,
+            keywords: ["fleet", "agents", "status", "parallel", "needs input"],
+            shortcut: `${args.modifierLabel}+K F`,
+            run: args.commands.openFleetView,
+            source: "core",
+          }
+        : null,
   },
   {
     id: "task.new",
