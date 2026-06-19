@@ -18,11 +18,13 @@ import {
   createWorkspaceJiraIssue,
   createWorkspaceLinkedPullRequest,
   createWorkspaceSlackThread,
+  createWorkspaceStorybookResource,
   createWorkspaceTodoItem,
   extractConfluencePageReference,
   extractFigmaResourceReference,
   extractJiraIssueReference,
   extractSlackThreadReference,
+  extractStorybookResourceReference,
   type WorkspaceInfoCustomField,
   type WorkspaceInformationState,
   type WorkspaceInfoFieldType,
@@ -162,6 +164,7 @@ type WorkspaceInformationResourceKind =
   | "pull_request"
   | "confluence"
   | "figma"
+  | "storybook"
   | "slack";
 
 type WorkspaceCustomFieldValueInput = string | number | boolean | null;
@@ -503,6 +506,7 @@ function normalizeWorkspaceResourceKind(
     case "pull_request":
     case "confluence":
     case "figma":
+    case "storybook":
     case "slack":
       return value.trim();
     default:
@@ -839,6 +843,19 @@ export async function addWorkspaceResource(args: {
             figmaResources: [...current.figmaResources, nextLink],
           };
         }
+        case "storybook": {
+          const nextLink = createWorkspaceStorybookResource();
+          nextLink.title = title || url;
+          nextLink.url = url;
+          nextLink.note = note;
+          return {
+            ...current,
+            storybookResources: [
+              ...(current.storybookResources ?? []),
+              nextLink,
+            ],
+          };
+        }
         case "slack": {
           const nextLink = createWorkspaceSlackThread();
           nextLink.url = url;
@@ -910,6 +927,21 @@ export async function removeWorkspaceResource(args: {
           return {
             ...current,
             figmaResources,
+          };
+        }
+        case "storybook": {
+          const storybookResources = (
+            current.storybookResources ?? []
+          ).filter((item) => item.id !== args.itemId);
+          if (
+            storybookResources.length ===
+            (current.storybookResources ?? []).length
+          ) {
+            throw new Error(`Workspace resource not found: ${args.itemId}`);
+          }
+          return {
+            ...current,
+            storybookResources,
           };
         }
         case "slack": {
@@ -1137,6 +1169,33 @@ export async function addWorkspaceFigmaResource(args: {
     workspaceId: workspaceInformation.workspaceId,
     added:
       workspaceInformation.workspaceInformation.figmaResources.at(-1) ?? null,
+    workspaceInformation: workspaceInformation.workspaceInformation,
+  };
+}
+
+export async function addWorkspaceStorybookResource(args: {
+  workspaceId: string;
+  url: string;
+  title?: string;
+  note?: string;
+}) {
+  const parsed = extractStorybookResourceReference(args.url);
+  const workspaceInformation = await addWorkspaceResource({
+    workspaceId: args.workspaceId,
+    kind: "storybook",
+    url: normalizeWorkspaceInfoString(args.url),
+    title:
+      normalizeWorkspaceInfoString(args.title) ||
+      parsed?.title ||
+      parsed?.storyPath ||
+      "Storybook resource",
+    note: normalizeWorkspaceInfoString(args.note),
+  });
+  return {
+    workspaceId: workspaceInformation.workspaceId,
+    added:
+      workspaceInformation.workspaceInformation.storybookResources.at(-1) ??
+      null,
     workspaceInformation: workspaceInformation.workspaceInformation,
   };
 }

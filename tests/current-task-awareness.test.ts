@@ -36,6 +36,12 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
       nodeId: "1:2",
       note: "Latest approved mock",
     }];
+    workspaceInformation.storybookResources = [{
+      id: "storybook-1",
+      title: "PromptInput stories",
+      url: "https://storybook.example.com/?path=/docs/prompt-input--docs",
+      note: "Interactive states",
+    }];
 
     const context = buildCurrentTaskAwarenessRetrievedContext({
       workspaceId: "ws-123",
@@ -59,6 +65,7 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     expect(context.content).toContain("id: ws-123");
     expect(context.content).toContain("title: Make task chat understand the information panel");
     expect(context.content).toContain("Latest turn summary: present");
+    expect(context.content).toContain("Storybook: 1");
     expect(context.content).toContain("Summarise the latest workspace activity in the Information panel. | Prepared the UI plan and identified the Information panel integration points.");
     expect(context.content).toContain("Workspace Conventions:");
     expect(context.content).toContain("new workspace plan files belong under `.stave/context/plans`");
@@ -70,6 +77,7 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     // exited before writing the plan file — otherwise the agent attempts the
     // Write mid-plan, gets blocked, and stalls.
     expect(context.content.toLowerCase()).toMatch(/after (?:you )?exit(?:ing)? plan mode/);
+    expect(context.content).toContain("PromptInput stories | https://storybook.example.com/?path=/docs/prompt-input--docs | Interactive states");
     expect(context.content).toContain("Prompt Input Redesign | node 1:2 | https://www.figma.com/design/FILE123/Prompt?node-id=1-2 | Latest approved mock");
   });
 

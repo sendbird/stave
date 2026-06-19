@@ -29,6 +29,7 @@ function createWorkspaceBase() {
       jiraIssues: [],
       confluencePages: [],
       figmaResources: [],
+      storybookResources: [],
       linkedPullRequests: [],
       slackThreads: [],
       notes: "",

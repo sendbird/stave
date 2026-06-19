@@ -7,6 +7,7 @@ import {
   extractFigmaResourceReference,
   extractGitHubPullRequestReference,
   extractJiraIssueReference,
+  extractStorybookResourceReference,
   formatWorkspaceInfoHostLabel,
   isGitHubPullRequestUrl,
   isWorkspaceInfoUrl,
@@ -22,6 +23,7 @@ test("createEmptyWorkspaceInformation returns empty defaults", () => {
     jiraIssues: [],
     confluencePages: [],
     figmaResources: [],
+    storybookResources: [],
     linkedPullRequests: [],
     slackThreads: [],
     notes: "",
@@ -115,6 +117,18 @@ test("extractFigmaResourceReference reads the resource kind, title, and node id"
     fileKey: "FILE123",
     title: "Workspace Information",
     nodeId: "42-7",
+  });
+});
+
+test("extractStorybookResourceReference reads host and story path", () => {
+  expect(
+    extractStorybookResourceReference(
+      "https://storybook.example.com/?path=/docs/components-button--docs",
+    ),
+  ).toEqual({
+    host: "storybook.example.com",
+    storyPath: "/docs/components-button--docs",
+    title: "components button",
   });
 });
 

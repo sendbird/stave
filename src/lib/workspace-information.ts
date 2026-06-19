@@ -66,6 +66,13 @@ export interface WorkspaceFigmaResource {
   note: string;
 }
 
+export interface WorkspaceStorybookResource {
+  id: string;
+  title: string;
+  url: string;
+  note: string;
+}
+
 export interface WorkspaceLinkedPullRequest {
   id: string;
   title: string;
@@ -159,6 +166,7 @@ export interface WorkspaceInformationState {
   jiraIssues: WorkspaceJiraIssue[];
   confluencePages: WorkspaceConfluencePage[];
   figmaResources: WorkspaceFigmaResource[];
+  storybookResources: WorkspaceStorybookResource[];
   linkedPullRequests: WorkspaceLinkedPullRequest[];
   slackThreads: WorkspaceSlackThread[];
   turnSummary?: WorkspaceTurnSummary | null;
@@ -188,6 +196,15 @@ export function createWorkspaceFigmaResource(): WorkspaceFigmaResource {
     title: "",
     url: "",
     nodeId: "",
+    note: "",
+  };
+}
+
+export function createWorkspaceStorybookResource(): WorkspaceStorybookResource {
+  return {
+    id: buildWorkspaceInformationId("storybook"),
+    title: "",
+    url: "",
     note: "",
   };
 }
@@ -349,6 +366,35 @@ export function extractFigmaResourceReference(
   };
 }
 
+export interface StorybookResourceReference {
+  host: string;
+  storyPath: string;
+  title: string;
+}
+
+export function extractStorybookResourceReference(
+  value: string,
+): StorybookResourceReference | null {
+  const url = parseWorkspaceInfoUrl(value);
+  if (!url) {
+    return null;
+  }
+
+  const storyPath = url.searchParams.get("path")?.trim() ?? "";
+  const rawTitle = storyPath || decodeURIComponent(url.pathname).trim();
+  const title = rawTitle
+    .replace(/^\/?(story|docs)\//, "")
+    .replace(/--docs$/, "")
+    .replace(/[\/_-]+/g, " ")
+    .trim();
+
+  return {
+    host: formatWorkspaceInfoHostLabel(value),
+    storyPath,
+    title,
+  };
+}
+
 export function createWorkspaceInfoCustomField(args?: {
   type?: WorkspaceInfoFieldType;
   label?: string;
@@ -501,6 +547,7 @@ export function createEmptyWorkspaceInformation(): WorkspaceInformationState {
     jiraIssues: [],
     confluencePages: [],
     figmaResources: [],
+    storybookResources: [],
     linkedPullRequests: [],
     slackThreads: [],
     notes: "",

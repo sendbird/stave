@@ -33,6 +33,7 @@ import {
   addWorkspaceJiraIssue,
   addWorkspaceResource,
   addWorkspaceSlackThread,
+  addWorkspaceStorybookResource,
   addWorkspaceTodo,
   appendWorkspaceNotes,
   clearWorkspaceNotes,
@@ -578,11 +579,18 @@ function createToolServer() {
     "stave_add_workspace_resource",
     {
       description:
-        "Add a Jira issue, PR, Confluence page, Figma resource, or Slack thread to the workspace Information panel.",
+        "Add a Jira issue, PR, Confluence page, Storybook resource, Slack thread, or Figma resource to the workspace Information panel.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         kind: z
-          .enum(["jira", "pull_request", "confluence", "figma", "slack"])
+          .enum([
+            "jira",
+            "pull_request",
+            "confluence",
+            "storybook",
+            "slack",
+            "figma",
+          ])
           .describe("Resource kind."),
         url: z.string().url().describe("Resource URL."),
         title: z.string().optional().describe("Optional display title."),
@@ -616,11 +624,18 @@ function createToolServer() {
     "stave_remove_workspace_resource",
     {
       description:
-        "Remove a linked Jira issue, PR, Confluence page, Figma resource, or Slack thread from the workspace Information panel.",
+        "Remove a linked Jira issue, PR, Confluence page, Storybook resource, Slack thread, or Figma resource from the workspace Information panel.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         kind: z
-          .enum(["jira", "pull_request", "confluence", "figma", "slack"])
+          .enum([
+            "jira",
+            "pull_request",
+            "confluence",
+            "storybook",
+            "slack",
+            "figma",
+          ])
           .describe("Resource kind."),
         itemId: z.string().min(1).describe("Stored resource id."),
       },
@@ -784,6 +799,32 @@ function createToolServer() {
           url,
           title,
           spaceKey,
+          note,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "stave_add_workspace_storybook_resource",
+    {
+      description:
+        "Register a Storybook resource in the Stave Workspace Information panel.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Workspace id."),
+        url: z.string().min(1).describe("Storybook URL."),
+        title: z.string().optional().describe("Optional title override."),
+        note: z
+          .string()
+          .optional()
+          .describe("Optional note stored with the link."),
+      },
+    },
+    async ({ workspaceId, url, title, note }) =>
+      toStructuredResult(
+        await addWorkspaceStorybookResource({
+          workspaceId,
+          url,
+          title,
           note,
         }),
       ),

@@ -245,6 +245,7 @@ describe("continueWorkspaceFromSummary", () => {
       workspaceInformation: {
         jiraIssues: [],
         figmaResources: [],
+        storybookResources: [],
         linkedPullRequests: [],
         slackThreads: [],
         notes: "Remember the follow-up branch handoff.",
@@ -438,6 +439,7 @@ describe("continueWorkspaceFromSummary", () => {
       workspaceInformation: {
         jiraIssues: [],
         figmaResources: [],
+        storybookResources: [],
         linkedPullRequests: [],
         slackThreads: [],
         notes: "",
@@ -586,6 +588,7 @@ describe("continueWorkspaceFromSummary", () => {
       workspaceInformation: {
         jiraIssues: [],
         figmaResources: [],
+        storybookResources: [],
         linkedPullRequests: [],
         slackThreads: [],
         notes: "",
