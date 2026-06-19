@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test";
 import {
   buildSandboxPolicy,
   createCodexAppServerElicitationPauseController,
+  formatCodexGoal,
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
+  parseCodexGoalSlashCommand,
   resolveCodexChatgptAuthTokensRefreshResponse,
+  runCodexGoalSlashCommand,
   summarizeCodexAppServerDebugMessage,
   toCodexConfigLayerDisplayValue,
 } from "../electron/providers/codex-app-server-runtime";
@@ -17,6 +20,150 @@ function encodeJwtPayload(payload: Record<string, unknown>) {
     .replace(/=+$/g, "");
   return `header.${encoded}.signature`;
 }
+
+describe("Codex /goal slash command helpers", () => {
+  test("parses goal view, clear, pause, resume, and set commands", () => {
+    expect(parseCodexGoalSlashCommand("/goal")).toEqual({ kind: "get" });
+    expect(parseCodexGoalSlashCommand(" /goal clear ")).toEqual({
+      kind: "clear",
+    });
+    expect(parseCodexGoalSlashCommand("/goal pause")).toEqual({
+      kind: "status",
+      status: "paused",
+    });
+    expect(parseCodexGoalSlashCommand("/goal resume")).toEqual({
+      kind: "status",
+      status: "active",
+    });
+    expect(
+      parseCodexGoalSlashCommand(
+        "/goal Finish the migration and keep tests green",
+      ),
+    ).toEqual({
+      kind: "set",
+      objective: "Finish the migration and keep tests green",
+    });
+    expect(parseCodexGoalSlashCommand("/goals")).toBeNull();
+  });
+
+  test("formats Codex goal state for the transcript", () => {
+    expect(
+      formatCodexGoal({
+        threadId: "thread-1",
+        objective: "Finish the migration",
+        status: "budgetLimited",
+        tokenBudget: 10_000,
+        tokensUsed: 2500,
+        timeUsedSeconds: 125,
+        createdAt: 0,
+        updatedAt: 0,
+      }),
+    ).toBe(
+      [
+        "Codex goal: Finish the migration",
+        "Status: budget limited",
+        "Usage: 2500 / 10000 tokens, 2m 5s",
+      ].join("\n"),
+    );
+  });
+
+  test("sets a Codex thread goal through App Server", async () => {
+    const calls: Array<{ method: string; params: unknown }> = [];
+    const events = await runCodexGoalSlashCommand({
+      threadId: "thread-1",
+      input: "/goal Finish the migration",
+      client: {
+        async request(method, params) {
+          calls.push({ method, params });
+          return {
+            goal: {
+              threadId: "thread-1",
+              objective: "Finish the migration",
+              status: "active",
+              tokenBudget: null,
+              tokensUsed: 0,
+              timeUsedSeconds: 0,
+              createdAt: 0,
+              updatedAt: 0,
+            },
+          };
+        },
+      },
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "thread/goal/set",
+        params: {
+          threadId: "thread-1",
+          objective: "Finish the migration",
+          status: "active",
+        },
+      },
+    ]);
+    expect(events).toEqual([
+      {
+        type: "goal_status",
+        providerId: "codex",
+        goal: {
+          providerId: "codex",
+          nativeSessionId: "thread-1",
+          objective: "Finish the migration",
+          status: "active",
+          tokenBudget: null,
+          tokensUsed: 0,
+          timeUsedSeconds: 0,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      },
+      {
+        type: "text",
+        text: [
+          "Set Codex goal.",
+          "",
+          "Codex goal: Finish the migration",
+          "Status: active",
+          "Usage: 0 tokens, 0s",
+        ].join("\n"),
+      },
+      { type: "done" },
+    ]);
+  });
+
+  test("does not pause when no Codex thread goal exists", async () => {
+    const calls: Array<{ method: string; params: unknown }> = [];
+    const events = await runCodexGoalSlashCommand({
+      threadId: "thread-1",
+      input: "/goal pause",
+      client: {
+        async request(method, params) {
+          calls.push({ method, params });
+          return { goal: null };
+        },
+      },
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "thread/goal/get",
+        params: { threadId: "thread-1" },
+      },
+    ]);
+    expect(events).toEqual([
+      {
+        type: "goal_status",
+        providerId: "codex",
+        goal: null,
+      },
+      {
+        type: "text",
+        text: "No Codex goal is set for this thread.",
+      },
+      { type: "done" },
+    ]);
+  });
+});
 
 describe("mapCodexElicitationToUserInput", () => {
   test("maps form-mode elicitation schema into shared user-input questions", () => {

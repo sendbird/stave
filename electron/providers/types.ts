@@ -1,4 +1,8 @@
-import type { CanonicalConversationRequest, ProviderRuntimeOptions } from "../../src/lib/providers/provider.types";
+import type {
+  CanonicalConversationRequest,
+  ProviderGoalSnapshot,
+  ProviderRuntimeOptions,
+} from "../../src/lib/providers/provider.types";
 import type { UserInputQuestion } from "../../src/types/chat";
 import type {
   ConnectedToolStatusRequest,
@@ -51,6 +55,7 @@ export type BridgeEvent =
   | { type: "thinking"; text: string; isStreaming?: boolean }
   | { type: "text"; text: string; segmentId?: string }
   | { type: "provider_session"; providerId: ProviderId; nativeSessionId: string }
+  | { type: "goal_status"; providerId: "codex"; goal: ProviderGoalSnapshot | null }
   | {
     type: "usage";
     inputTokens: number;

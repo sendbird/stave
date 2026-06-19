@@ -10,6 +10,7 @@ export function applyProviderEventsToWorkspaceSession(args: {
   model: string;
   turnId: string;
 }) {
+  const providerGoalByTask = args.session.providerGoalByTask ?? {};
   const replayed = replayProviderEventsToTaskState({
     taskId: args.taskId,
     messages: args.session.messagesByTask[args.taskId] ?? [],
@@ -19,6 +20,7 @@ export function applyProviderEventsToWorkspaceSession(args: {
     turnId: args.turnId,
     nativeSessionReady: args.session.nativeSessionReadyByTask[args.taskId],
     providerSession: args.session.providerSessionByTask[args.taskId],
+    providerGoal: providerGoalByTask[args.taskId] ?? null,
   });
 
   const activeTurnMatches = args.session.activeTurnIdsByTask[args.taskId] === replayed.activeTurnId;
@@ -27,12 +29,15 @@ export function applyProviderEventsToWorkspaceSession(args: {
   const providerSessionMatches =
     replayed.providerSession === undefined
     || args.session.providerSessionByTask[args.taskId] === replayed.providerSession;
+  const providerGoalMatches =
+    (providerGoalByTask[args.taskId] ?? null) === replayed.providerGoal;
 
   if (
     !replayed.changed
     && activeTurnMatches
     && nativeSessionReadyMatches
     && providerSessionMatches
+    && providerGoalMatches
   ) {
     return {
       stateChanged: false,
@@ -80,6 +85,12 @@ export function applyProviderEventsToWorkspaceSession(args: {
         : {
             ...args.session.providerSessionByTask,
             [args.taskId]: replayed.providerSession!,
+          },
+      providerGoalByTask: providerGoalMatches
+        ? providerGoalByTask
+        : {
+            ...providerGoalByTask,
+            [args.taskId]: replayed.providerGoal,
           },
     },
     turnCompleted: replayed.activeTurnId === undefined,

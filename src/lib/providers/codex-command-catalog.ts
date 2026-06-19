@@ -7,12 +7,32 @@ export interface CodexBuiltInSlashCommand extends ProviderSlashCommand {
 
 // Source:
 // - https://developers.openai.com/codex/cli/slash-commands
-// - verified against the installed Codex CLI on 2026-04-16
+// - verified against the installed Codex CLI/App Server protocol on 2026-06-19
 export const CODEX_CLI_SLASH_COMMANDS: readonly CodexBuiltInSlashCommand[] = [
   {
     name: "permissions",
     command: "/permissions",
     description: "Adjust approvals and sandbox behavior for the active thread.",
+    category: "runtime",
+  },
+  {
+    name: "ide",
+    command: "/ide",
+    description:
+      "Include available IDE context such as open files and selection.",
+    argumentHint: "[prompt]",
+    category: "workspace",
+  },
+  {
+    name: "keymap",
+    command: "/keymap",
+    description: "Inspect or change Codex TUI keyboard shortcuts.",
+    category: "runtime",
+  },
+  {
+    name: "vim",
+    command: "/vim",
+    description: "Toggle Vim editing mode for the composer.",
     category: "runtime",
   },
   {
@@ -42,9 +62,27 @@ export const CODEX_CLI_SLASH_COMMANDS: readonly CodexBuiltInSlashCommand[] = [
     category: "integrations",
   },
   {
+    name: "hooks",
+    command: "/hooks",
+    description: "View and manage configured Codex lifecycle hooks.",
+    category: "integrations",
+  },
+  {
     name: "clear",
     command: "/clear",
     description: "Clear the terminal and start a fresh conversation.",
+    category: "session",
+  },
+  {
+    name: "archive",
+    command: "/archive",
+    description: "Archive the current session and exit Codex.",
+    category: "session",
+  },
+  {
+    name: "delete",
+    command: "/delete",
+    description: "Delete the current session transcript and exit Codex.",
     category: "session",
   },
   {
@@ -76,6 +114,31 @@ export const CODEX_CLI_SLASH_COMMANDS: readonly CodexBuiltInSlashCommand[] = [
     command: "/experimental",
     description: "Toggle experimental Codex features.",
     category: "runtime",
+  },
+  {
+    name: "approve",
+    command: "/approve",
+    description: "Approve one retry of a recent automatic review denial.",
+    category: "runtime",
+  },
+  {
+    name: "memories",
+    command: "/memories",
+    description: "Configure memory injection and memory generation.",
+    category: "runtime",
+  },
+  {
+    name: "skills",
+    command: "/skills",
+    description: "Browse and select Codex skills for the active task.",
+    category: "integrations",
+  },
+  {
+    name: "import",
+    command: "/import",
+    description:
+      "Import supported Claude Code setup, project files, and recent chats.",
+    category: "integrations",
   },
   {
     name: "feedback",
@@ -129,6 +192,13 @@ export const CODEX_CLI_SLASH_COMMANDS: readonly CodexBuiltInSlashCommand[] = [
     category: "runtime",
   },
   {
+    name: "goal",
+    command: "/goal",
+    description: "Set, view, pause, resume, or clear the thread goal.",
+    argumentHint: "[objective | pause | resume | clear]",
+    category: "session",
+  },
+  {
     name: "personality",
     command: "/personality",
     description: "Choose how Codex communicates in the active thread.",
@@ -153,6 +223,26 @@ export const CODEX_CLI_SLASH_COMMANDS: readonly CodexBuiltInSlashCommand[] = [
     command: "/fork",
     description: "Fork the current conversation into a new thread.",
     category: "session",
+  },
+  {
+    name: "side",
+    command: "/side",
+    description: "Start an ephemeral side conversation from the current thread.",
+    argumentHint: "[prompt]",
+    category: "session",
+  },
+  {
+    name: "btw",
+    command: "/btw",
+    description: "Alias for starting an ephemeral side conversation.",
+    argumentHint: "[prompt]",
+    category: "session",
+  },
+  {
+    name: "raw",
+    command: "/raw",
+    description: "Toggle raw scrollback mode for easier terminal selection.",
+    category: "runtime",
   },
   {
     name: "resume",
@@ -186,6 +276,13 @@ export const CODEX_CLI_SLASH_COMMANDS: readonly CodexBuiltInSlashCommand[] = [
     category: "inspection",
   },
   {
+    name: "usage",
+    command: "/usage",
+    description: "Inspect account token usage and available rate-limit resets.",
+    argumentHint: "[daily | weekly | cumulative]",
+    category: "inspection",
+  },
+  {
     name: "debug-config",
     command: "/debug-config",
     description: "Print config-layer and policy diagnostics.",
@@ -201,6 +298,12 @@ export const CODEX_CLI_SLASH_COMMANDS: readonly CodexBuiltInSlashCommand[] = [
     name: "title",
     command: "/title",
     description: "Configure terminal title fields interactively.",
+    category: "runtime",
+  },
+  {
+    name: "theme",
+    command: "/theme",
+    description: "Choose a terminal syntax-highlighting theme.",
     category: "runtime",
   },
 ];

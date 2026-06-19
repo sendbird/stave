@@ -38,6 +38,7 @@ import type {
   CanonicalRetrievedContextPart,
   ClaudeSettingSource,
   NormalizedProviderEvent,
+  ProviderGoalSnapshot,
   ProviderId,
   ProviderTurnRequest,
 } from "@/lib/providers/provider.types";
@@ -493,6 +494,7 @@ function resolveTaskRuntimeTarget(args: {
     | "activeSurface"
     | "activeTurnIdsByTask"
     | "providerSessionByTask"
+    | "providerGoalByTask"
     | "nativeSessionReadyByTask"
   >;
   taskId: string;
@@ -562,6 +564,7 @@ function getWorkspaceSessionForState(args: {
     | "activeSurface"
     | "activeTurnIdsByTask"
     | "providerSessionByTask"
+    | "providerGoalByTask"
     | "nativeSessionReadyByTask"
     | "workspaceRuntimeCacheById"
   >;
@@ -586,12 +589,15 @@ function clearRestoredTaskProviderSession(args: {
     }
     const { [args.taskId]: _dropped, ...providerSessionByTask } =
       cachedSession.providerSessionByTask;
+    const { [args.taskId]: _droppedGoal, ...providerGoalByTask } =
+      cachedSession.providerGoalByTask ?? {};
     return {
       workspaceRuntimeCacheById: {
         ...args.state.workspaceRuntimeCacheById,
         [taskWorkspaceId]: {
           ...cachedSession,
           providerSessionByTask,
+          providerGoalByTask,
           nativeSessionReadyByTask: {
             ...cachedSession.nativeSessionReadyByTask,
             [args.taskId]: false,
@@ -603,8 +609,11 @@ function clearRestoredTaskProviderSession(args: {
 
   const { [args.taskId]: _dropped, ...providerSessionByTask } =
     args.state.providerSessionByTask;
+  const { [args.taskId]: _droppedGoal, ...providerGoalByTask } =
+    args.state.providerGoalByTask;
   return {
     providerSessionByTask,
+    providerGoalByTask,
     nativeSessionReadyByTask: {
       ...args.state.nativeSessionReadyByTask,
       [args.taskId]: false,
@@ -1033,6 +1042,7 @@ interface AppState {
   >;
   nativeSessionReadyByTask: Record<string, boolean>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
+  providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
   workspaceRuntimeCacheById: Record<string, WorkspaceSessionState>;
   taskWorkspaceIdById: Record<string, string>;
   persistenceBootstrapPhase: PersistenceBootstrapPhase;
@@ -4000,6 +4010,7 @@ export const useAppStore = create<AppState>()(
         providerTurnActivityByTask: {},
         nativeSessionReadyByTask: {},
         providerSessionByTask: {},
+        providerGoalByTask: {},
         workspaceRuntimeCacheById: {},
         taskWorkspaceIdById: {},
         persistenceBootstrapPhase: "idle",
@@ -4968,6 +4979,7 @@ export const useAppStore = create<AppState>()(
               workspaceInformation: refreshedSession.workspaceInformation,
               activeTurnIdsByTask: refreshedSession.activeTurnIdsByTask,
               providerSessionByTask: refreshedSession.providerSessionByTask,
+              providerGoalByTask: refreshedSession.providerGoalByTask,
               nativeSessionReadyByTask:
                 refreshedSession.nativeSessionReadyByTask,
               workspaceRuntimeCacheById: {
@@ -7175,6 +7187,14 @@ export const useAppStore = create<AppState>()(
               ...currentSession,
             };
             delete nextTaskSession[providerId];
+            const providerGoalByTask =
+              providerId === "codex"
+                ? (() => {
+                    const { [taskId]: _droppedGoal, ...rest } =
+                      state.providerGoalByTask;
+                    return rest;
+                  })()
+                : state.providerGoalByTask;
 
             const activeProvider = state.tasks.find(
               (task) => task.id === taskId,
@@ -7188,6 +7208,7 @@ export const useAppStore = create<AppState>()(
                 ...state.providerSessionByTask,
                 [taskId]: nextTaskSession,
               },
+              providerGoalByTask,
               nativeSessionReadyByTask: {
                 ...state.nativeSessionReadyByTask,
                 [taskId]: nextNativeSessionReady,
@@ -9828,6 +9849,8 @@ export const useAppStore = create<AppState>()(
             // carried across to subsequent turns or workspace reloads.
             const { [taskId]: _dropped, ...restProviderSession } =
               state.providerSessionByTask;
+            const { [taskId]: _droppedGoal, ...restProviderGoal } =
+              state.providerGoalByTask;
             if (!target || target.role !== "assistant" || !target.isStreaming) {
               return {
                 messagesByTask:
@@ -9846,6 +9869,7 @@ export const useAppStore = create<AppState>()(
                   taskId,
                 }),
                 providerSessionByTask: restProviderSession,
+                providerGoalByTask: restProviderGoal,
                 ...(interruptedMessages === current
                   ? {}
                   : {
@@ -9882,6 +9906,7 @@ export const useAppStore = create<AppState>()(
                 taskId,
               }),
               providerSessionByTask: restProviderSession,
+              providerGoalByTask: restProviderGoal,
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(state),
             };

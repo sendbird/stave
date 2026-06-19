@@ -1,6 +1,7 @@
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import { resolveEffectiveCodexFileAccessMode } from "@/lib/providers/codex-runtime-options";
 import type {
+  ProviderGoalSnapshot,
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
@@ -43,6 +44,7 @@ interface ChatInputRuntimeArgs {
   codexFastMode: boolean;
   codexPlanMode: boolean;
   codexBinaryPath: string;
+  providerGoal?: ProviderGoalSnapshot | null;
 }
 
 type CommandCatalogRuntimeArgs = Pick<
@@ -97,6 +99,71 @@ export function cycleCodexEffortValue(
     current,
     order: CODEX_EFFORT_CYCLE_ORDER,
   });
+}
+
+function formatGoalStatusValue(status: ProviderGoalSnapshot["status"]) {
+  switch (status) {
+    case "usageLimited":
+      return "usage limited";
+    case "budgetLimited":
+      return "budget limited";
+    default:
+      return status;
+  }
+}
+
+function formatGoalTokenCount(value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0";
+  }
+  if (value >= 1000) {
+    const compact = value % 1000 === 0
+      ? String(value / 1000)
+      : (value / 1000).toFixed(1).replace(/\.0$/, "");
+    return `${compact}k`;
+  }
+  return String(Math.floor(value));
+}
+
+function formatGoalTokenValue(goal: ProviderGoalSnapshot) {
+  const used = formatGoalTokenCount(goal.tokensUsed);
+  if (typeof goal.tokenBudget === "number" && goal.tokenBudget > 0) {
+    return `${used}/${formatGoalTokenCount(goal.tokenBudget)} tokens`;
+  }
+  return `${used} tokens`;
+}
+
+function formatGoalElapsedValue(totalSeconds: number) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return "0s";
+  }
+  const seconds = Math.floor(totalSeconds);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m`;
+  }
+  return `${seconds}s`;
+}
+
+function formatGoalObjectiveValue(objective: string) {
+  const normalized = objective.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 48) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 45).trimEnd()}...`;
+}
+
+export function formatProviderGoalRuntimeValue(goal: ProviderGoalSnapshot) {
+  return [
+    formatGoalStatusValue(goal.status),
+    formatGoalTokenValue(goal),
+    formatGoalElapsedValue(goal.timeUsedSeconds),
+    formatGoalObjectiveValue(goal.objective),
+  ].join(" | ");
 }
 
 export function buildChatInputRuntimeStatusItems(
@@ -178,6 +245,20 @@ export function buildChatInputRuntimeStatusItems(
       label: "Network",
       value: args.codexNetworkAccess ? "On" : "Off",
     },
+    ...(args.providerGoal
+      ? [
+          {
+            id: "goal",
+            label: "Goal",
+            value: formatProviderGoalRuntimeValue(args.providerGoal),
+            tone:
+              args.providerGoal.status === "active"
+              || args.providerGoal.status === "complete"
+                ? "default"
+                : "warning",
+          } satisfies PromptInputRuntimeStatusItem,
+        ]
+      : []),
     {
       id: "raw-reasoning",
       label: "Raw Reasoning",
