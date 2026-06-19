@@ -66,6 +66,29 @@ describe("chat-input runtime helpers", () => {
     );
   });
 
+  test("surfaces Codex goal status with compact progress", () => {
+    const items = buildChatInputRuntimeStatusItems({
+      ...baseArgs,
+      providerGoal: {
+        providerId: "codex",
+        nativeSessionId: "thread-1",
+        objective: "Finish the migration and keep the provider tests green",
+        status: "budgetLimited",
+        tokenBudget: 10_000,
+        tokensUsed: 2500,
+        timeUsedSeconds: 125,
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    });
+
+    expect(items.find((item) => item.id === "goal")).toMatchObject({
+      label: "Goal",
+      value: "budget limited | 2.5k/10k tokens | 2m | Finish the migration and keep the provider te...",
+      tone: "warning",
+    });
+  });
+
   test("only forwards command-catalog runtime options for Claude", () => {
     expect(
       buildCommandCatalogRuntimeOptions({

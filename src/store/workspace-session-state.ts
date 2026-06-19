@@ -14,6 +14,7 @@ import type {
 import { isTaskArchived, normalizeTaskControl } from "@/lib/tasks";
 import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
 import { createEmptyWorkspaceInformation, type WorkspaceInformationState } from "@/lib/workspace-information";
+import type { ProviderGoalSnapshot } from "@/lib/providers/provider.types";
 import { interruptPendingToolInteractionsInMessages } from "@/store/provider-message.utils";
 import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
 
@@ -39,6 +40,7 @@ export interface WorkspaceSessionState {
   activeSurface: WorkspaceActiveSurface;
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
+  providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
   nativeSessionReadyByTask: Record<string, boolean>;
 }
 
@@ -59,6 +61,7 @@ export function createEmptyWorkspaceState() {
     activeCliSessionTabId: null as string | null,
     activeSurface: { kind: "task", taskId: "" } as WorkspaceActiveSurface,
     providerSessionByTask: {} as Record<string, TaskProviderSessionState>,
+    providerGoalByTask: {} as Record<string, ProviderGoalSnapshot | null | undefined>,
   };
 }
 
@@ -457,6 +460,7 @@ export function buildWorkspaceSessionState(args: {
       orphanedBranchTaskIds,
     ),
     providerSessionByTask,
+    providerGoalByTask: empty.providerGoalByTask,
     nativeSessionReadyByTask: buildNativeSessionReadyByTask({
       tasks,
       providerSessionByTask,
@@ -555,6 +559,7 @@ export function buildWorkspaceSessionStateFromShell(args: {
       orphanedBranchTaskIds,
     ),
     providerSessionByTask,
+    providerGoalByTask: empty.providerGoalByTask,
     nativeSessionReadyByTask: buildNativeSessionReadyByTask({
       tasks,
       providerSessionByTask,

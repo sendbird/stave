@@ -18,6 +18,33 @@ const ProviderSessionEventSchema = z.object({
   nativeSessionId: z.string(),
 });
 
+const ProviderGoalStatusSchema = z.union([
+  z.literal("active"),
+  z.literal("paused"),
+  z.literal("blocked"),
+  z.literal("usageLimited"),
+  z.literal("budgetLimited"),
+  z.literal("complete"),
+]);
+
+const ProviderGoalSnapshotSchema = z.object({
+  providerId: z.literal("codex"),
+  nativeSessionId: z.string(),
+  objective: z.string(),
+  status: ProviderGoalStatusSchema,
+  tokenBudget: z.number().nullable(),
+  tokensUsed: z.number(),
+  timeUsedSeconds: z.number(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+
+const GoalStatusEventSchema = z.object({
+  type: z.literal("goal_status"),
+  providerId: z.literal("codex"),
+  goal: ProviderGoalSnapshotSchema.nullable(),
+});
+
 const UsageEventSchema = z.object({
   type: z.literal("usage"),
   inputTokens: z.number(),
@@ -158,6 +185,7 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   ThinkingEventSchema,
   TextEventSchema,
   ProviderSessionEventSchema,
+  GoalStatusEventSchema,
   UsageEventSchema,
   PromptSuggestionsEventSchema,
   ToolEventSchema,

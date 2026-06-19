@@ -7,6 +7,7 @@ import {
   type CommandContext,
 } from "@/lib/commands";
 import type { ProviderCommandCatalogState } from "@/lib/providers/provider-command-catalog";
+import { listCodexSlashCommands } from "@/lib/providers/codex-command-catalog";
 
 const claudeCommandCatalog: ProviderCommandCatalogState = {
   providerId: "claude-code",
@@ -136,6 +137,20 @@ describe("getActiveSlashCommandTokenMatch", () => {
 });
 
 describe("buildCommandPaletteItems", () => {
+  test("includes current bundled Codex slash commands such as /goal", () => {
+    expect(listCodexSlashCommands().map((command) => command.command)).toEqual(
+      expect.arrayContaining([
+        "/approve",
+        "/goal",
+        "/hooks",
+        "/ide",
+        "/skills",
+        "/theme",
+        "/usage",
+      ]),
+    );
+  });
+
   test("lists only provider-native commands from the loaded catalog", () => {
     const palette = buildCommandPaletteItems({
       provider: "claude-code",

@@ -32,6 +32,8 @@ import type {
   CodexThreadForkResponse,
   CodexThreadReadResponse,
   CodexThreadSnapshot,
+  ProviderGoalSnapshot,
+  ProviderGoalStatus,
 } from "../../src/lib/providers/provider.types";
 import {
   buildCodexCliEnv,
@@ -42,6 +44,7 @@ import { toText } from "./utils";
 import {
   buildProviderTurnPrompt,
   filterPromptRetrievedContext,
+  getProviderNativeSlashCommandInput,
   resolveProviderResumeSessionId,
 } from "../../src/lib/providers/provider-request-translators";
 import {
@@ -656,9 +659,292 @@ function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+export type CodexThreadGoalStatus = ProviderGoalStatus;
+
+export interface CodexThreadGoal {
+  threadId: string;
+  objective: string;
+  status: CodexThreadGoalStatus;
+  tokenBudget: number | null;
+  tokensUsed: number;
+  timeUsedSeconds: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type CodexGoalSlashCommand =
+  | { kind: "get" }
+  | { kind: "clear" }
+  | { kind: "set"; objective: string }
+  | { kind: "status"; status: "active" | "paused" };
+
+export function parseCodexGoalSlashCommand(
+  input: string,
+): CodexGoalSlashCommand | null {
+  const match = input.trim().match(/^\/goal(?:\s+([\s\S]*))?$/i);
+  if (!match) {
+    return null;
+  }
+
+  const argument = (match[1] ?? "").trim();
+  if (!argument) {
+    return { kind: "get" };
+  }
+
+  const normalizedArgument = argument.toLowerCase();
+  if (normalizedArgument === "clear") {
+    return { kind: "clear" };
+  }
+  if (normalizedArgument === "pause") {
+    return { kind: "status", status: "paused" };
+  }
+  if (normalizedArgument === "resume") {
+    return { kind: "status", status: "active" };
+  }
+
+  return { kind: "set", objective: argument };
+}
+
+function formatCodexGoalStatus(status: CodexThreadGoalStatus) {
+  switch (status) {
+    case "usageLimited":
+      return "usage limited";
+    case "budgetLimited":
+      return "budget limited";
+    default:
+      return status;
+  }
+}
+
+function formatCodexGoalElapsedTime(totalSeconds: number) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return "0s";
+  }
+  const seconds = Math.floor(totalSeconds);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${remainingSeconds}s`;
+  }
+  return `${remainingSeconds}s`;
+}
+
+export function formatCodexGoal(goal: CodexThreadGoal) {
+  const tokenBudget =
+    typeof goal.tokenBudget === "number" && goal.tokenBudget > 0
+      ? ` / ${goal.tokenBudget}`
+      : "";
+  return [
+    `Codex goal: ${goal.objective}`,
+    `Status: ${formatCodexGoalStatus(goal.status)}`,
+    `Usage: ${goal.tokensUsed}${tokenBudget} tokens, ${formatCodexGoalElapsedTime(goal.timeUsedSeconds)}`,
+  ].join("\n");
+}
+
+function isCodexThreadGoalStatus(value: unknown): value is CodexThreadGoalStatus {
+  return (
+    value === "active"
+    || value === "paused"
+    || value === "blocked"
+    || value === "usageLimited"
+    || value === "budgetLimited"
+    || value === "complete"
+  );
+}
+
+function normalizeGoalNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function normalizeCodexThreadGoal(value: unknown): CodexThreadGoal | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const goal = value as Record<string, unknown>;
+  const threadId = typeof goal.threadId === "string" ? goal.threadId.trim() : "";
+  const objective = typeof goal.objective === "string" ? goal.objective.trim() : "";
+  if (!threadId || !objective || !isCodexThreadGoalStatus(goal.status)) {
+    return null;
+  }
+  const rawTokenBudget = goal.tokenBudget;
+  return {
+    threadId,
+    objective,
+    status: goal.status,
+    tokenBudget:
+      typeof rawTokenBudget === "number" && Number.isFinite(rawTokenBudget)
+        ? rawTokenBudget
+        : null,
+    tokensUsed: normalizeGoalNumber(goal.tokensUsed),
+    timeUsedSeconds: normalizeGoalNumber(goal.timeUsedSeconds),
+    createdAt: normalizeGoalNumber(goal.createdAt),
+    updatedAt: normalizeGoalNumber(goal.updatedAt),
+  };
+}
+
+export function mapCodexThreadGoalToProviderGoal(
+  goal: CodexThreadGoal,
+): ProviderGoalSnapshot {
+  return {
+    providerId: "codex",
+    nativeSessionId: goal.threadId,
+    objective: goal.objective,
+    status: goal.status,
+    tokenBudget: goal.tokenBudget,
+    tokensUsed: goal.tokensUsed,
+    timeUsedSeconds: goal.timeUsedSeconds,
+    createdAt: goal.createdAt,
+    updatedAt: goal.updatedAt,
+  };
+}
+
+function buildCodexGoalStatusEvent(goal: CodexThreadGoal | null): BridgeEvent {
+  return {
+    type: "goal_status",
+    providerId: "codex",
+    goal: goal ? mapCodexThreadGoalToProviderGoal(goal) : null,
+  };
+}
+
+async function readCodexGoalStatusEvent(args: {
+  client: CodexElicitationPauseClient;
+  threadId: string;
+}): Promise<BridgeEvent | null> {
+  try {
+    const response = await args.client.request<{ goal: CodexThreadGoal | null }>(
+      "thread/goal/get",
+      {
+        threadId: args.threadId,
+      },
+    );
+    return buildCodexGoalStatusEvent(response.goal);
+  } catch (error) {
+    console.warn("[provider-runtime] Codex goal status sync failed", {
+      threadId: args.threadId,
+      error: toErrorMessage(error),
+    });
+    return null;
+  }
+}
+
 type CodexElicitationPauseClient = {
   request<T = unknown>(method: string, params: unknown): Promise<T>;
 };
+
+export async function runCodexGoalSlashCommand(args: {
+  client: CodexElicitationPauseClient;
+  threadId: string;
+  input: string;
+}): Promise<BridgeEvent[] | null> {
+  const command = parseCodexGoalSlashCommand(args.input);
+  if (!command) {
+    return null;
+  }
+
+  try {
+    if (command.kind === "get") {
+      const response = await args.client.request<{
+        goal: CodexThreadGoal | null;
+      }>("thread/goal/get", {
+        threadId: args.threadId,
+      });
+      return [
+        buildCodexGoalStatusEvent(response.goal),
+        {
+          type: "text",
+          text: response.goal
+            ? formatCodexGoal(response.goal)
+            : "No Codex goal is set for this thread.",
+        },
+        { type: "done" },
+      ];
+    }
+
+    if (command.kind === "clear") {
+      const response = await args.client.request<{ cleared: boolean }>(
+        "thread/goal/clear",
+        {
+          threadId: args.threadId,
+        },
+      );
+      return [
+        buildCodexGoalStatusEvent(null),
+        {
+          type: "text",
+          text: response.cleared
+            ? "Cleared the Codex goal."
+            : "No Codex goal was set for this thread.",
+        },
+        { type: "done" },
+      ];
+    }
+
+    if (command.kind === "status") {
+      const current = await args.client.request<{
+        goal: CodexThreadGoal | null;
+      }>("thread/goal/get", {
+        threadId: args.threadId,
+      });
+      if (!current.goal) {
+        return [
+          buildCodexGoalStatusEvent(null),
+          {
+            type: "text",
+            text: "No Codex goal is set for this thread.",
+          },
+          { type: "done" },
+        ];
+      }
+      const response = await args.client.request<{ goal: CodexThreadGoal }>(
+        "thread/goal/set",
+        {
+          threadId: args.threadId,
+          status: command.status,
+        },
+      );
+      return [
+        buildCodexGoalStatusEvent(response.goal),
+        {
+          type: "text",
+          text: `${command.status === "paused" ? "Paused" : "Resumed"} the Codex goal.\n\n${formatCodexGoal(response.goal)}`,
+        },
+        { type: "done" },
+      ];
+    }
+
+    const response = await args.client.request<{ goal: CodexThreadGoal }>(
+      "thread/goal/set",
+      {
+        threadId: args.threadId,
+        objective: command.objective,
+        status: "active",
+      },
+    );
+    return [
+      buildCodexGoalStatusEvent(response.goal),
+      {
+        type: "text",
+        text: `Set Codex goal.\n\n${formatCodexGoal(response.goal)}`,
+      },
+      { type: "done" },
+    ];
+  } catch (error) {
+    return [
+      {
+        type: "error",
+        message: toCodexUserFacingErrorMessage({
+          message: toErrorMessage(error),
+        }),
+        recoverable: true,
+      },
+      { type: "done" },
+    ];
+  }
+}
 
 export function createCodexAppServerElicitationPauseController(args: {
   client: CodexElicitationPauseClient;
@@ -3204,21 +3490,43 @@ export async function streamCodexWithAppServer(
   };
 
   emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
-  const diffTracker = await createTurnDiffTracker({ cwd: runtimeCwd });
-  const hasEmbeddedStaveLocalMcp = await hasConnectedStaveLocalMcpForCodex();
+  const syncedGoalEvent = await readCodexGoalStatusEvent({ client, threadId });
+  if (syncedGoalEvent) {
+    emitBridgeEvent(syncedGoalEvent);
+  }
+  const nativeSlashCommandInput = args.conversation
+    ? getProviderNativeSlashCommandInput(args.conversation)
+    : null;
+  const hasEmbeddedStaveLocalMcp = nativeSlashCommandInput
+    ? false
+    : await hasConnectedStaveLocalMcpForCodex();
 
-  const providerPrompt = buildProviderTurnPrompt({
-    providerId: args.providerId,
-    prompt: args.prompt,
-    conversation: args.conversation
-      ? filterPromptRetrievedContext({
-          conversation: args.conversation,
-          excludedSourceIds: hasEmbeddedStaveLocalMcp
-            ? []
-            : ["stave:current-task-awareness"],
-        })
-      : args.conversation,
+  const providerPrompt =
+    nativeSlashCommandInput ??
+    buildProviderTurnPrompt({
+      providerId: args.providerId,
+      prompt: args.prompt,
+      conversation: args.conversation
+        ? filterPromptRetrievedContext({
+            conversation: args.conversation,
+            excludedSourceIds: hasEmbeddedStaveLocalMcp
+              ? []
+              : ["stave:current-task-awareness"],
+          })
+        : args.conversation,
+    });
+
+  const goalCommandEvents = await runCodexGoalSlashCommand({
+    client,
+    threadId,
+    input: providerPrompt,
   });
+  if (goalCommandEvents) {
+    emitBridgeEvents(goalCommandEvents);
+    return finalizeCollectedEvents();
+  }
+
+  const diffTracker = await createTurnDiffTracker({ cwd: runtimeCwd });
 
   const toolOutputBuffers = new Map<string, string>();
   const toolOutputLastEmitAt = new Map<string, number>();
@@ -3607,6 +3915,25 @@ export async function streamCodexWithAppServer(
     }
 
     const params = (message.params ?? {}) as Record<string, unknown>;
+    if (message.method === "thread/goal/updated") {
+      const goal = normalizeCodexThreadGoal(params.goal);
+      const eventThreadId =
+        typeof params.threadId === "string"
+          ? params.threadId
+          : goal?.threadId;
+      if (eventThreadId === threadId && goal) {
+        emitBridgeEvent(buildCodexGoalStatusEvent(goal));
+      }
+      return;
+    }
+    if (message.method === "thread/goal/cleared") {
+      const eventThreadId =
+        typeof params.threadId === "string" ? params.threadId : "";
+      if (eventThreadId === threadId) {
+        emitBridgeEvent(buildCodexGoalStatusEvent(null));
+      }
+      return;
+    }
     if (
       typeof params.turnId === "string" &&
       appServerTurnId &&

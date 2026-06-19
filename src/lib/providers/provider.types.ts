@@ -432,10 +432,31 @@ export interface CanonicalConversationRequest {
   };
 }
 
+export type ProviderGoalStatus =
+  | "active"
+  | "paused"
+  | "blocked"
+  | "usageLimited"
+  | "budgetLimited"
+  | "complete";
+
+export interface ProviderGoalSnapshot {
+  providerId: "codex";
+  nativeSessionId: string;
+  objective: string;
+  status: ProviderGoalStatus;
+  tokenBudget: number | null;
+  tokensUsed: number;
+  timeUsedSeconds: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type NormalizedProviderEvent =
   | { type: "thinking"; text: string; isStreaming?: boolean }
   | { type: "text"; text: string; segmentId?: string }
   | { type: "provider_session"; providerId: ProviderId; nativeSessionId: string }
+  | { type: "goal_status"; providerId: "codex"; goal: ProviderGoalSnapshot | null }
   | {
     type: "usage";
     inputTokens: number;

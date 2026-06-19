@@ -972,6 +972,9 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
   );
   const draftProvider = useAppStore((state) => state.draftProvider);
   const activeProvider = activeTask?.provider ?? draftProvider;
+  const activeProviderGoal = useAppStore(
+    (state) => state.providerGoalByTask[activeTaskId] ?? null,
+  );
   const codexBinaryPathForCatalog = useAppStore(
     (state) => state.settings.codexBinaryPath,
   );
@@ -1272,10 +1275,12 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
       codexFastMode,
       codexPlanMode: effectiveCodexPlanMode,
       codexBinaryPath,
+      providerGoal: activeProvider === "codex" ? activeProviderGoal : null,
       claudePermissionModeBeforePlan: effectiveClaudePermissionModeBeforePlan,
     });
   }, [
     activeProvider,
+    activeProviderGoal,
     claudeAllowDangerouslySkipPermissions,
     claudeAgentProgressSummaries,
     claudeAllowUnsandboxedCommands,

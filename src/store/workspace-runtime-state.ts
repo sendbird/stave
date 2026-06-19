@@ -6,6 +6,7 @@ import type {
 } from "@/lib/terminal/types";
 import type {
   NormalizedProviderEvent,
+  ProviderGoalSnapshot,
   ProviderId,
 } from "@/lib/providers/provider.types";
 import type { WorkspaceInformationState } from "@/lib/workspace-information";
@@ -37,6 +38,7 @@ type ActiveWorkspaceProjectionState = {
   activeSurface: WorkspaceActiveSurface;
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
+  providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
   nativeSessionReadyByTask: Record<string, boolean>;
 };
 
@@ -64,6 +66,7 @@ export type ActiveWorkspaceStatePatch = Pick<
   | "activeSurface"
   | "activeTurnIdsByTask"
   | "providerSessionByTask"
+  | "providerGoalByTask"
   | "nativeSessionReadyByTask"
 >;
 
@@ -94,6 +97,7 @@ export function createWorkspaceSessionStateFromAppState(
     activeSurface: state.activeSurface,
     activeTurnIdsByTask: state.activeTurnIdsByTask,
     providerSessionByTask: state.providerSessionByTask,
+    providerGoalByTask: state.providerGoalByTask,
     nativeSessionReadyByTask: state.nativeSessionReadyByTask,
   };
 }
@@ -117,6 +121,7 @@ export function createActiveWorkspaceStatePatch(
     activeSurface: session.activeSurface,
     activeTurnIdsByTask: session.activeTurnIdsByTask,
     providerSessionByTask: session.providerSessionByTask,
+    providerGoalByTask: session.providerGoalByTask,
     nativeSessionReadyByTask: session.nativeSessionReadyByTask,
   };
 }
@@ -171,6 +176,7 @@ export function saveActiveWorkspaceRuntimeCache(args: {
     | "activeSurface"
     | "activeTurnIdsByTask"
     | "providerSessionByTask"
+    | "providerGoalByTask"
     | "nativeSessionReadyByTask"
   >;
 }) {

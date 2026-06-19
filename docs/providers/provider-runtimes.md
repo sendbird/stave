@@ -230,7 +230,10 @@ Codex-specific runtime controls come from the UI and runtime options:
 Codex slash-command behavior:
 
 - The current Codex App Server/CLI path does not expose a native slash-command catalog that Stave can enumerate.
-- Stave therefore forwards Codex slash commands unchanged instead of trying to validate or block them locally.
+- Stave therefore shows a bundled Codex slash-command reference and does not block unlisted commands locally.
+- Slash-command-only turns are sent without Stave's normal context wrapper so provider-native command parsers can see the leading `/command` token.
+- Stave handles Codex `/goal` through the App Server `thread/goal/*` RPCs so users can set, view, pause, resume, or clear the active thread goal from the chat composer.
+- Stave also listens for Codex App Server `thread/goal/updated` and `thread/goal/cleared` notifications, stores the current task goal as runtime state, and shows the compact status/progress in the chat input runtime bar.
 - The Settings developer surface mirrors the native Codex MCP/runtime status rather than synthesizing a Claude-style plugin list.
 
 Stave only accepts the canonical Codex approval policies: `never`,

@@ -48,6 +48,52 @@ describe("provider request translators", () => {
     expect(prompt).toContain("Continue with the runtime refactor.");
   });
 
+  test("preserves provider-native slash commands as raw provider input", () => {
+    const conversation = createConversation({
+      input: {
+        role: "user",
+        providerId: "user",
+        model: "user",
+        content: "  /goal Finish the migration and keep tests green",
+        parts: [
+          {
+            type: "text",
+            text: "  /goal Finish the migration and keep tests green",
+          },
+        ],
+      },
+      contextParts: [
+        {
+          type: "retrieved_context",
+          sourceId: "stave:repo-map",
+          title: "Codebase Map",
+          content: "Repo map context",
+        },
+      ],
+    });
+
+    expect(
+      buildProviderTurnPrompt({
+        providerId: "codex",
+        prompt: "fallback prompt",
+        conversation,
+      }),
+    ).toBe("/goal Finish the migration and keep tests green");
+    expect(
+      buildProviderTurnPrompt({
+        providerId: "claude-code",
+        prompt: "fallback prompt",
+        conversation: {
+          ...conversation,
+          target: {
+            providerId: "claude-code",
+            model: "claude-sonnet-4-6",
+          },
+        },
+      }),
+    ).toBe("/goal Finish the migration and keep tests green");
+  });
+
   test("marks skill-only invocations explicitly in provider prompts", () => {
     const prompt = buildProviderTurnPrompt({
       providerId: "claude-code",

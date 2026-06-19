@@ -10,6 +10,15 @@ function shouldIncludeHistory(conversation: CanonicalConversationRequest) {
   return !getStoredResumeSessionId(conversation);
 }
 
+const PROVIDER_NATIVE_SLASH_COMMAND_PATTERN = /^\/[A-Za-z0-9:._-]+(?:\s|$)/;
+
+export function getProviderNativeSlashCommandInput(
+  conversation: CanonicalConversationRequest,
+) {
+  const input = conversation.input.content.trimStart();
+  return PROVIDER_NATIVE_SLASH_COMMAND_PATTERN.test(input) ? input : null;
+}
+
 export function filterPromptRetrievedContext(args: {
   conversation: CanonicalConversationRequest;
   excludedSourceIds?: string[];
@@ -34,6 +43,13 @@ export function buildClaudePromptFromConversation(args: {
   conversation: CanonicalConversationRequest;
   fallbackPrompt: string;
 }) {
+  const slashCommandInput = getProviderNativeSlashCommandInput(
+    args.conversation,
+  );
+  if (slashCommandInput) {
+    return slashCommandInput;
+  }
+
   // Include full activated skill instructions in the prompt body for both
   // providers. Stave-managed `$skill` activations are prompt-context based,
   // not native slash-skill registrations.
@@ -48,6 +64,13 @@ export function buildCodexPromptFromConversation(args: {
   conversation: CanonicalConversationRequest;
   fallbackPrompt: string;
 }) {
+  const slashCommandInput = getProviderNativeSlashCommandInput(
+    args.conversation,
+  );
+  if (slashCommandInput) {
+    return slashCommandInput;
+  }
+
   return buildLegacyPromptFromCanonicalRequest({
     request: args.conversation,
     includeHistory: shouldIncludeHistory(args.conversation),

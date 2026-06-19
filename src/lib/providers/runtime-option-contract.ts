@@ -149,6 +149,7 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "thinking",
   "text",
   "provider_session",
+  "goal_status",
   "usage",
   "prompt_suggestions",
   "tool",

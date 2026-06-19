@@ -324,6 +324,49 @@ describe("appendProviderEventToAssistant", () => {
   });
 });
 
+describe("provider goal status replay", () => {
+  test("updates provider goal status without creating an assistant message", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "goal_status",
+          providerId: "codex",
+          goal: {
+            providerId: "codex",
+            nativeSessionId: "thread-1",
+            objective: "Finish the migration",
+            status: "active",
+            tokenBudget: 10_000,
+            tokensUsed: 2500,
+            timeUsedSeconds: 125,
+            createdAt: 0,
+            updatedAt: 1,
+          },
+        },
+      ],
+      provider: "codex",
+      model: "gpt-5.4",
+      turnId: "turn-1",
+    });
+
+    expect(replayed.changed).toBe(true);
+    expect(replayed.messages).toEqual([]);
+    expect(replayed.providerGoal).toEqual({
+      providerId: "codex",
+      nativeSessionId: "thread-1",
+      objective: "Finish the migration",
+      status: "active",
+      tokenBudget: 10_000,
+      tokensUsed: 2500,
+      timeUsedSeconds: 125,
+      createdAt: 0,
+      updatedAt: 1,
+    });
+  });
+});
+
 describe("plan response replay", () => {
   test("appends a dedicated plan message after prior assistant content", () => {
     const replayed = replayProviderEventsToTaskState({

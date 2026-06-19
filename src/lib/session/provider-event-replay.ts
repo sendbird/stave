@@ -1,7 +1,11 @@
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { sanitizeMessagePartPayload } from "@/lib/file-context-sanitization";
 import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
-import type { NormalizedProviderEvent, ProviderId } from "@/lib/providers/provider.types";
+import type {
+  NormalizedProviderEvent,
+  ProviderGoalSnapshot,
+  ProviderId,
+} from "@/lib/providers/provider.types";
 import {
   hasRenderableAssistantContent,
   findLatestPendingToolInteractionPart,
@@ -27,6 +31,29 @@ function buildMessageId(args: { taskId: string; count: number }) {
 
 function buildRecentTimestamp() {
   return new Date().toISOString();
+}
+
+function providerGoalsEqual(
+  left: ProviderGoalSnapshot | null,
+  right: ProviderGoalSnapshot | null,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.providerId === right.providerId
+    && left.nativeSessionId === right.nativeSessionId
+    && left.objective === right.objective
+    && left.status === right.status
+    && left.tokenBudget === right.tokenBudget
+    && left.tokensUsed === right.tokensUsed
+    && left.timeUsedSeconds === right.timeUsedSeconds
+    && left.createdAt === right.createdAt
+    && left.updatedAt === right.updatedAt
+  );
 }
 
 function createTextPart(args: { text: string; segmentId?: string }): TextPart {
@@ -138,6 +165,7 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "usage":
     case "prompt_suggestions":
     case "provider_session":
+    case "goal_status":
     case "model_resolved":
     case "done":
       return false;
@@ -243,6 +271,7 @@ function normalizeEventToPart(args: { event: NormalizedProviderEvent }): Message
     case "text":
       return createTextPart({ text: event.text, segmentId: event.segmentId });
     case "provider_session":
+    case "goal_status":
       return null;
     case "tool":
       return createToolPart({
@@ -769,11 +798,13 @@ export function replayProviderEventsToTaskState(args: {
   turnId?: string;
   nativeSessionReady?: boolean;
   providerSession?: TaskProviderSessionState;
+  providerGoal?: ProviderGoalSnapshot | null;
 }) {
   let current = args.messages;
   let nextActiveTurnId = args.turnId;
   let nextNativeSessionReady = args.nativeSessionReady ?? false;
   let nextProviderSession = args.providerSession;
+  let nextProviderGoal = args.providerGoal ?? null;
   let changed = false;
 
   for (const event of args.events) {
@@ -787,6 +818,14 @@ export function replayProviderEventsToTaskState(args: {
       }
       if (!nextNativeSessionReady) {
         nextNativeSessionReady = true;
+        changed = true;
+      }
+      continue;
+    }
+
+    if (event.type === "goal_status") {
+      if (!providerGoalsEqual(nextProviderGoal, event.goal)) {
+        nextProviderGoal = event.goal;
         changed = true;
       }
       continue;
@@ -875,5 +914,6 @@ export function replayProviderEventsToTaskState(args: {
     activeTurnId: nextActiveTurnId,
     nativeSessionReady: nextNativeSessionReady,
     providerSession: nextProviderSession,
+    providerGoal: nextProviderGoal,
   };
 }
