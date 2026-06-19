@@ -50,6 +50,7 @@ import {
   respondUserInput,
   runTask,
   setWorkspaceCustomField,
+  updateWorkspaceStorybookResourceAccess,
   updateWorkspaceTodo,
 } from "./stave-mcp-service";
 import { registerBrowserTools } from "./browser/browser-tools";
@@ -612,6 +613,22 @@ function createToolServer() {
           .string()
           .optional()
           .describe("Optional Confluence space key."),
+        storybookAccessKind: z
+          .enum(["unknown", "public", "requires_github_auth"])
+          .optional()
+          .describe("Optional Storybook access classification."),
+        storybookExternalRepo: z
+          .string()
+          .optional()
+          .describe("Optional GitHub owner/repo that backs the Storybook."),
+        storybookReadableVia: z
+          .enum(["unknown", "web", "github_cli"])
+          .optional()
+          .describe("Optional route an agent should use to read Storybook."),
+        storybookSourceHint: z
+          .string()
+          .optional()
+          .describe("Optional source or artifact hint for the Storybook."),
       },
     },
     async (input) =>
@@ -817,17 +834,101 @@ function createToolServer() {
           .string()
           .optional()
           .describe("Optional note stored with the link."),
+        accessKind: z
+          .enum(["unknown", "public", "requires_github_auth"])
+          .optional()
+          .describe("Optional Storybook access classification."),
+        externalRepo: z
+          .string()
+          .optional()
+          .describe("Optional GitHub owner/repo that backs the Storybook."),
+        readableVia: z
+          .enum(["unknown", "web", "github_cli"])
+          .optional()
+          .describe("Optional route an agent should use to read Storybook."),
+        sourceHint: z
+          .string()
+          .optional()
+          .describe("Optional source or artifact hint for the Storybook."),
       },
     },
-    async ({ workspaceId, url, title, note }) =>
+    async ({
+      workspaceId,
+      url,
+      title,
+      note,
+      accessKind,
+      externalRepo,
+      readableVia,
+      sourceHint,
+    }) =>
       toStructuredResult(
         await addWorkspaceStorybookResource({
           workspaceId,
           url,
           title,
           note,
+          accessKind,
+          externalRepo,
+          readableVia,
+          sourceHint,
         }),
       ),
+  );
+
+  server.registerTool(
+    "stave_update_workspace_storybook_resource_access",
+    {
+      description:
+        "Attach access metadata such as GitHub owner/repo to an existing Storybook resource when direct URL reading requires authentication.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Workspace id."),
+        resourceId: z
+          .string()
+          .optional()
+          .describe("Stored Storybook resource id."),
+        url: z
+          .string()
+          .optional()
+          .describe("Stored Storybook URL, used when resource id is unknown."),
+        accessKind: z
+          .enum(["unknown", "public", "requires_github_auth"])
+          .optional()
+          .describe("Storybook access classification."),
+        externalRepo: z
+          .string()
+          .optional()
+          .describe("GitHub owner/repo that backs the Storybook."),
+        readableVia: z
+          .enum(["unknown", "web", "github_cli"])
+          .optional()
+          .describe("Route an agent should use to read Storybook."),
+        sourceHint: z
+          .string()
+          .optional()
+          .describe("Source or artifact hint for the Storybook."),
+      },
+    },
+    async ({
+      workspaceId,
+      resourceId,
+      url,
+      accessKind,
+      externalRepo,
+      readableVia,
+      sourceHint,
+    }) =>
+      toStructuredResult({
+        result: await updateWorkspaceStorybookResourceAccess({
+          workspaceId,
+          resourceId,
+          url,
+          accessKind,
+          externalRepo,
+          readableVia,
+          sourceHint,
+        }),
+      }),
   );
 
   server.registerTool(

@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { parseWorkspaceShell, parseWorkspaceSnapshot } from "../src/lib/task-context/schemas";
+import {
+  parseWorkspaceShell,
+  parseWorkspaceSnapshot,
+} from "../src/lib/task-context/schemas";
 
 function createWorkspaceBase() {
   return {
@@ -9,14 +12,16 @@ function createWorkspaceBase() {
     providerSessionByTask: {},
     editorTabs: [],
     activeEditorTabId: null,
-    terminalTabs: [{
-      id: "terminal-1",
-      title: "Workspace",
-      linkedTaskId: null,
-      backend: "xterm",
-      cwd: "/tmp/workspace",
-      createdAt: 1,
-    }],
+    terminalTabs: [
+      {
+        id: "terminal-1",
+        title: "Workspace",
+        linkedTaskId: null,
+        backend: "xterm",
+        cwd: "/tmp/workspace",
+        createdAt: 1,
+      },
+    ],
     activeTerminalTabId: "terminal-1",
     terminalDocked: true,
     cliSessionTabs: [],
@@ -49,14 +54,16 @@ describe("task-context workspace schemas", () => {
     });
 
     expect(parsed).not.toBeNull();
-    expect(parsed?.terminalTabs).toEqual([{
-      id: "terminal-1",
-      title: "Workspace",
-      linkedTaskId: null,
-      backend: "ghostty",
-      cwd: "/tmp/workspace",
-      createdAt: 1,
-    }]);
+    expect(parsed?.terminalTabs).toEqual([
+      {
+        id: "terminal-1",
+        title: "Workspace",
+        linkedTaskId: null,
+        backend: "ghostty",
+        cwd: "/tmp/workspace",
+        createdAt: 1,
+      },
+    ]);
     expect(parsed?.terminalDocked).toBe(true);
   });
 
@@ -100,20 +107,57 @@ describe("task-context workspace schemas", () => {
     });
   });
 
+  test("preserves Storybook access metadata in workspace snapshots", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        messagesByTask: {},
+        workspaceInformation: {
+          ...createWorkspaceBase().workspaceInformation,
+          storybookResources: [
+            {
+              id: "storybook-1",
+              title: "Private Storybook",
+              url: "https://silver-chainsaw-ww7n83m.pages.github.io/?path=/story/example--default",
+              note: "",
+              access: {
+                kind: "requires_github_auth",
+                provider: "github-pages",
+                externalRepo: "acme/storybook",
+                readableVia: "github_cli",
+                sourceHint: "storybook-static",
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(parsed?.workspaceInformation.storybookResources[0]?.access).toEqual({
+      kind: "requires_github_auth",
+      provider: "github-pages",
+      externalRepo: "acme/storybook",
+      readableVia: "github_cli",
+      sourceHint: "storybook-static",
+    });
+  });
+
   test("parses prompt draft runtime overrides and queued-next-turn content from snapshots", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {
         ...createWorkspaceBase(),
         activeTaskId: "task-1",
-        tasks: [{
-          id: "task-1",
-          title: "Task 1",
-          provider: "claude-code",
-          updatedAt: "2026-04-11T00:00:00.000Z",
-          unread: false,
-          controlMode: "interactive",
-          controlOwner: "stave",
-        }],
+        tasks: [
+          {
+            id: "task-1",
+            title: "Task 1",
+            provider: "claude-code",
+            updatedAt: "2026-04-11T00:00:00.000Z",
+            unread: false,
+            controlMode: "interactive",
+            controlOwner: "stave",
+          },
+        ],
         messagesByTask: {
           "task-1": [],
         },
@@ -159,24 +203,28 @@ describe("task-context workspace schemas", () => {
       payload: {
         ...createWorkspaceBase(),
         messageCountByTask: {},
-        editorTabs: [{
-          id: "file:/tmp/project/src/app.ts",
-          filePath: "/tmp/project/src/app.ts",
-          language: "typescript",
-          hasConflict: false,
-          isDirty: false,
-        }],
+        editorTabs: [
+          {
+            id: "file:/tmp/project/src/app.ts",
+            filePath: "/tmp/project/src/app.ts",
+            language: "typescript",
+            hasConflict: false,
+            isDirty: false,
+          },
+        ],
       },
     });
 
-    expect(parsed?.editorTabs).toEqual([{
-      id: "file:/tmp/project/src/app.ts",
-      filePath: "/tmp/project/src/app.ts",
-      language: "typescript",
-      content: "",
-      contentState: "ready",
-      hasConflict: false,
-      isDirty: false,
-    }]);
+    expect(parsed?.editorTabs).toEqual([
+      {
+        id: "file:/tmp/project/src/app.ts",
+        filePath: "/tmp/project/src/app.ts",
+        language: "typescript",
+        content: "",
+        contentState: "ready",
+        hasConflict: false,
+        isDirty: false,
+      },
+    ]);
   });
 });

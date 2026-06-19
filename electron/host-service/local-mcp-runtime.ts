@@ -25,6 +25,7 @@ import {
   extractJiraIssueReference,
   extractSlackThreadReference,
   extractStorybookResourceReference,
+  resolveStorybookResourceAccess,
   type WorkspaceInfoCustomField,
   type WorkspaceInformationState,
   type WorkspaceInfoFieldType,
@@ -786,6 +787,10 @@ export async function addWorkspaceResource(args: {
   nodeId?: string;
   channelName?: string;
   spaceKey?: string;
+  storybookAccessKind?: string;
+  storybookExternalRepo?: string;
+  storybookReadableVia?: string;
+  storybookSourceHint?: string;
 }) {
   const kind = normalizeWorkspaceResourceKind(args.kind);
   const url = args.url.trim();
@@ -848,6 +853,13 @@ export async function addWorkspaceResource(args: {
           nextLink.title = title || url;
           nextLink.url = url;
           nextLink.note = note;
+          nextLink.access = resolveStorybookResourceAccess({
+            url,
+            accessKind: args.storybookAccessKind,
+            externalRepo: args.storybookExternalRepo,
+            readableVia: args.storybookReadableVia,
+            sourceHint: args.storybookSourceHint,
+          });
           return {
             ...current,
             storybookResources: [
@@ -930,9 +942,9 @@ export async function removeWorkspaceResource(args: {
           };
         }
         case "storybook": {
-          const storybookResources = (
-            current.storybookResources ?? []
-          ).filter((item) => item.id !== args.itemId);
+          const storybookResources = (current.storybookResources ?? []).filter(
+            (item) => item.id !== args.itemId,
+          );
           if (
             storybookResources.length ===
             (current.storybookResources ?? []).length
@@ -1178,6 +1190,10 @@ export async function addWorkspaceStorybookResource(args: {
   url: string;
   title?: string;
   note?: string;
+  accessKind?: string;
+  externalRepo?: string;
+  readableVia?: string;
+  sourceHint?: string;
 }) {
   const parsed = extractStorybookResourceReference(args.url);
   const workspaceInformation = await addWorkspaceResource({
@@ -1190,6 +1206,10 @@ export async function addWorkspaceStorybookResource(args: {
       parsed?.storyPath ||
       "Storybook resource",
     note: normalizeWorkspaceInfoString(args.note),
+    storybookAccessKind: args.accessKind,
+    storybookExternalRepo: args.externalRepo,
+    storybookReadableVia: args.readableVia,
+    storybookSourceHint: args.sourceHint,
   });
   return {
     workspaceId: workspaceInformation.workspaceId,
@@ -1198,6 +1218,55 @@ export async function addWorkspaceStorybookResource(args: {
       null,
     workspaceInformation: workspaceInformation.workspaceInformation,
   };
+}
+
+export async function updateWorkspaceStorybookResourceAccess(args: {
+  workspaceId: string;
+  resourceId?: string;
+  url?: string;
+  accessKind?: string;
+  externalRepo?: string;
+  readableVia?: string;
+  sourceHint?: string;
+}) {
+  return updateWorkspaceInformationState({
+    workspaceId: args.workspaceId,
+    updater: (current) => {
+      const resourceId = normalizeWorkspaceInfoString(args.resourceId);
+      const url = normalizeWorkspaceInfoString(args.url);
+      let found = false;
+      const storybookResources = (current.storybookResources ?? []).map(
+        (resource) => {
+          const matchesResourceId = resourceId && resource.id === resourceId;
+          const matchesUrl = url && resource.url === url;
+          if (!matchesResourceId && !matchesUrl) {
+            return resource;
+          }
+
+          found = true;
+          return {
+            ...resource,
+            access: resolveStorybookResourceAccess({
+              url: resource.url,
+              accessKind: args.accessKind,
+              externalRepo: args.externalRepo,
+              readableVia: args.readableVia,
+              sourceHint: args.sourceHint,
+            }),
+          };
+        },
+      );
+
+      if (!found) {
+        throw new Error("Workspace Storybook resource not found.");
+      }
+
+      return {
+        ...current,
+        storybookResources,
+      };
+    },
+  });
 }
 
 export async function addWorkspaceSlackThread(args: {

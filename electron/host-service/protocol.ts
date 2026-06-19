@@ -299,6 +299,7 @@ export type HostLocalMcpAction =
   | "add-workspace-confluence-page"
   | "add-workspace-figma-resource"
   | "add-workspace-storybook-resource"
+  | "update-workspace-storybook-resource-access"
   | "add-workspace-slack-thread";
 
 export interface HostServiceRequestMap {

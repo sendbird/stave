@@ -148,6 +148,7 @@ const CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES = new Set([
   "stave_add_workspace_jira_issue",
   "stave_add_workspace_confluence_page",
   "stave_add_workspace_storybook_resource",
+  "stave_update_workspace_storybook_resource_access",
   "stave_add_workspace_figma_resource",
   "stave_add_workspace_slack_thread",
   "stave_add_workspace_custom_field",
@@ -566,10 +567,12 @@ export function shouldAutoAllowClaudeTool(args: {
   toolName: string;
   permissionMode?: ClaudePermissionMode;
 }) {
-  return resolveClaudePermissionModeDecision({
-    permissionMode: args.permissionMode ?? "default",
-    toolName: args.toolName,
-  }) === "allow";
+  return (
+    resolveClaudePermissionModeDecision({
+      permissionMode: args.permissionMode ?? "default",
+      toolName: args.toolName,
+    }) === "allow"
+  );
 }
 
 function resolveTrustedApprovalInput(args: {
@@ -1090,9 +1093,7 @@ function coerceClaudeElicitationAnswer(args: {
   return rawValue;
 }
 
-function mapClaudeUserDialogToUserInput(
-  request: Parameters<OnUserDialog>[0],
-) {
+function mapClaudeUserDialogToUserInput(request: Parameters<OnUserDialog>[0]) {
   if (request.dialogKind !== "refusal_fallback_prompt") {
     return null;
   }
@@ -1348,7 +1349,10 @@ function resolveClaudePluginConfigs(value?: readonly string[]) {
   }
   const plugins = value
     .map((pluginPath) => pluginPath.trim())
-    .filter((pluginPath, index, entries) => pluginPath.length > 0 && entries.indexOf(pluginPath) === index)
+    .filter(
+      (pluginPath, index, entries) =>
+        pluginPath.length > 0 && entries.indexOf(pluginPath) === index,
+    )
     .map((pluginPath) => ({
       type: "local" as const,
       path: pluginPath,
@@ -1428,7 +1432,9 @@ export function buildClaudeQueryOptions(args: {
     ...(args.resume ? { resume: args.resume } : {}),
     ...(args.includePartialMessages ? { includePartialMessages: true } : {}),
     promptSuggestions:
-      args.runtimeOptions?.claudePromptSuggestions ?? args.promptSuggestions ?? false,
+      args.runtimeOptions?.claudePromptSuggestions ??
+      args.promptSuggestions ??
+      false,
     cwd: args.cwd,
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
     ...(fallbackModel ? { fallbackModel } : {}),
@@ -1808,7 +1814,10 @@ function mapClaudeStreamPlanEvent(args: {
 }): BridgeEvent[] {
   const { streamEvent, planState } = args;
 
-  if (streamEvent.type === "message_start" || streamEvent.type === "message_stop") {
+  if (
+    streamEvent.type === "message_start" ||
+    streamEvent.type === "message_stop"
+  ) {
     planState.exitPlanBlocksByIndex.clear();
     return [];
   }
@@ -1820,17 +1829,17 @@ function mapClaudeStreamPlanEvent(args: {
         ? (streamEvent.content_block as Record<string, unknown>)
         : null;
     if (
-      index == null
-      || !contentBlock
-      || contentBlock.type !== "tool_use"
-      || contentBlock.name !== "ExitPlanMode"
+      index == null ||
+      !contentBlock ||
+      contentBlock.type !== "tool_use" ||
+      contentBlock.name !== "ExitPlanMode"
     ) {
       return [];
     }
 
     const sourceSegmentId =
-      extractClaudeToolUseId(contentBlock.id)
-      ?? buildClaudeFallbackPlanSegmentId(index);
+      extractClaudeToolUseId(contentBlock.id) ??
+      buildClaudeFallbackPlanSegmentId(index);
     const initialInput =
       contentBlock.input && typeof contentBlock.input === "object"
         ? (contentBlock.input as Record<string, unknown>)
@@ -1844,7 +1853,12 @@ function mapClaudeStreamPlanEvent(args: {
     });
 
     return initialPlanText
-      ? [buildClaudePlanReadyEvent({ planText: initialPlanText, sourceSegmentId })]
+      ? [
+          buildClaudePlanReadyEvent({
+            planText: initialPlanText,
+            sourceSegmentId,
+          }),
+        ]
       : [];
   }
 
@@ -1863,9 +1877,8 @@ function mapClaudeStreamPlanEvent(args: {
       return [];
     }
 
-    const partialJson = typeof delta.partial_json === "string"
-      ? delta.partial_json
-      : "";
+    const partialJson =
+      typeof delta.partial_json === "string" ? delta.partial_json : "";
     if (!partialJson) {
       return [];
     }
@@ -1973,9 +1986,7 @@ export function mapClaudeMessageToEvents(args: {
         ];
       }
       if (status === "requesting") {
-        return [
-          { type: "system", content: "Sending request to model\u2026" },
-        ];
+        return [{ type: "system", content: "Sending request to model\u2026" }];
       }
       return [];
     }
@@ -2054,10 +2065,12 @@ export function mapClaudeMessageToEvents(args: {
         const toolUseId = extractClaudeToolUseId(b.id);
         if (b.name === "ExitPlanMode") {
           const planText = extractClaudePlanTextFromToolInput(b.input) ?? "";
-          events.push(buildClaudePlanReadyEvent({
-            planText,
-            sourceSegmentId: toolUseId,
-          }));
+          events.push(
+            buildClaudePlanReadyEvent({
+              planText,
+              sourceSegmentId: toolUseId,
+            }),
+          );
           continue;
         }
         events.push({
@@ -2679,9 +2692,8 @@ export async function streamClaudeWithSdk(
         promptSuggestions: true,
         mcpServers: embeddedMcpServers,
         onElicitation: async (request, options) => {
-          const requestId = createClaudeUserInputRequestId(
-            "claude-elicitation",
-          );
+          const requestId =
+            createClaudeUserInputRequestId("claude-elicitation");
           const elicitation = mapClaudeElicitationToUserInput(request);
           if (!elicitation) {
             return { action: "decline" };
@@ -2747,9 +2759,8 @@ export async function streamClaudeWithSdk(
           if (!dialog) {
             return { behavior: "cancelled" };
           }
-          const requestId = createClaudeUserInputRequestId(
-            "claude-user-dialog",
-          );
+          const requestId =
+            createClaudeUserInputRequestId("claude-user-dialog");
           const userInputEvent: BridgeEvent = {
             type: "user_input",
             toolName: request.dialogKind,

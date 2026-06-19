@@ -123,6 +123,12 @@ For workspace Information panel management, also use:
 - `stave_remove_workspace_todo`
 - `stave_add_workspace_resource`
 - `stave_remove_workspace_resource`
+- `stave_add_workspace_jira_issue`
+- `stave_add_workspace_confluence_page`
+- `stave_add_workspace_storybook_resource`
+- `stave_update_workspace_storybook_resource_access`
+- `stave_add_workspace_figma_resource`
+- `stave_add_workspace_slack_thread`
 - `stave_add_workspace_custom_field`
 - `stave_set_workspace_custom_field`
 - `stave_remove_workspace_custom_field`

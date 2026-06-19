@@ -66,11 +66,43 @@ export interface WorkspaceFigmaResource {
   note: string;
 }
 
+export const STORYBOOK_ACCESS_KINDS = [
+  "unknown",
+  "public",
+  "requires_github_auth",
+] as const;
+
+export type WorkspaceStorybookAccessKind =
+  (typeof STORYBOOK_ACCESS_KINDS)[number];
+
+export const STORYBOOK_ACCESS_PROVIDERS = [
+  "unknown",
+  "github-pages",
+  "web",
+] as const;
+
+export type WorkspaceStorybookAccessProvider =
+  (typeof STORYBOOK_ACCESS_PROVIDERS)[number];
+
+export const STORYBOOK_READABLE_VIA = ["unknown", "web", "github_cli"] as const;
+
+export type WorkspaceStorybookReadableVia =
+  (typeof STORYBOOK_READABLE_VIA)[number];
+
+export interface WorkspaceStorybookResourceAccess {
+  kind: WorkspaceStorybookAccessKind;
+  provider: WorkspaceStorybookAccessProvider;
+  externalRepo: string;
+  readableVia: WorkspaceStorybookReadableVia;
+  sourceHint: string;
+}
+
 export interface WorkspaceStorybookResource {
   id: string;
   title: string;
   url: string;
   note: string;
+  access?: WorkspaceStorybookResourceAccess;
 }
 
 export interface WorkspaceLinkedPullRequest {
@@ -395,6 +427,144 @@ export function extractStorybookResourceReference(
   };
 }
 
+export function normalizeGitHubRepoReference(value?: string | null) {
+  const rawValue = value?.trim() ?? "";
+  if (!rawValue) {
+    return "";
+  }
+
+  const normalizedValue = rawValue.replace(/\.git$/, "");
+  const parsedUrl = parseWorkspaceInfoUrl(normalizedValue);
+  const pathValue =
+    parsedUrl?.hostname.replace(/^www\./, "") === "github.com"
+      ? parsedUrl.pathname
+      : normalizedValue.replace(/^https?:\/\/(?:www\.)?github\.com\//, "");
+  const segments = pathValue.replace(/^\/+/, "").split("/").filter(Boolean);
+  const owner = segments[0]?.trim() ?? "";
+  const repo = segments[1]?.trim() ?? "";
+  if (!owner || !repo) {
+    return rawValue;
+  }
+
+  return `${owner}/${repo}`;
+}
+
+function isWorkspaceStorybookAccessKind(
+  value?: string | null,
+): value is WorkspaceStorybookAccessKind {
+  return STORYBOOK_ACCESS_KINDS.includes(value as WorkspaceStorybookAccessKind);
+}
+
+function isWorkspaceStorybookReadableVia(
+  value?: string | null,
+): value is WorkspaceStorybookReadableVia {
+  return STORYBOOK_READABLE_VIA.includes(
+    value as WorkspaceStorybookReadableVia,
+  );
+}
+
+function normalizeStorybookAccessKind(
+  value?: string | null,
+): WorkspaceStorybookAccessKind | undefined {
+  const normalized = value?.trim();
+  return isWorkspaceStorybookAccessKind(normalized) ? normalized : undefined;
+}
+
+function normalizeStorybookReadableVia(
+  value?: string | null,
+): WorkspaceStorybookReadableVia | undefined {
+  const normalized = value?.trim();
+  return isWorkspaceStorybookReadableVia(normalized) ? normalized : undefined;
+}
+
+export function inferStorybookResourceAccess(
+  value: string,
+): WorkspaceStorybookResourceAccess | undefined {
+  const url = parseWorkspaceInfoUrl(value);
+  if (!url) {
+    return undefined;
+  }
+
+  const host = url.hostname.replace(/^www\./, "").toLowerCase();
+  if (host.endsWith(".pages.github.io")) {
+    return {
+      kind: "requires_github_auth",
+      provider: "github-pages",
+      externalRepo: "",
+      readableVia: "github_cli",
+      sourceHint: "",
+    };
+  }
+
+  if (host.endsWith(".github.io")) {
+    return {
+      kind: "unknown",
+      provider: "github-pages",
+      externalRepo: "",
+      readableVia: "unknown",
+      sourceHint: "",
+    };
+  }
+
+  return undefined;
+}
+
+export function resolveStorybookResourceAccess(args: {
+  url: string;
+  accessKind?: string | null;
+  externalRepo?: string | null;
+  readableVia?: string | null;
+  sourceHint?: string | null;
+}): WorkspaceStorybookResourceAccess | undefined {
+  const inferred = inferStorybookResourceAccess(args.url);
+  const externalRepo = normalizeGitHubRepoReference(args.externalRepo);
+  const sourceHint = args.sourceHint?.trim() ?? "";
+  const kind = normalizeStorybookAccessKind(args.accessKind) ?? inferred?.kind;
+  const readableVia =
+    normalizeStorybookReadableVia(args.readableVia) ??
+    (externalRepo ? "github_cli" : inferred?.readableVia);
+
+  if (!kind && !externalRepo && !readableVia && !sourceHint && !inferred) {
+    return undefined;
+  }
+
+  return {
+    kind: kind ?? "unknown",
+    provider: inferred?.provider ?? (externalRepo ? "github-pages" : "unknown"),
+    externalRepo,
+    readableVia: readableVia ?? "unknown",
+    sourceHint,
+  };
+}
+
+export function formatStorybookAccessContext(
+  resource: WorkspaceStorybookResource,
+) {
+  const access =
+    resource.access ?? inferStorybookResourceAccess(resource.url) ?? null;
+  if (!access) {
+    return "";
+  }
+
+  const parts = [
+    access.kind === "requires_github_auth"
+      ? "access requires GitHub auth"
+      : access.kind === "public"
+        ? "access public"
+        : "access unknown",
+    access.provider !== "unknown" ? `provider ${access.provider}` : "",
+    access.externalRepo ? `repo ${access.externalRepo}` : "",
+    access.readableVia === "github_cli"
+      ? "read via GitHub CLI/API instead of direct web fetch"
+      : access.readableVia === "web"
+        ? "read via web fetch"
+        : "",
+    access.sourceHint ? `source ${access.sourceHint}` : "",
+  ].filter((value) => value.length > 0);
+
+  return parts.join(", ");
+}
+
 export function createWorkspaceInfoCustomField(args?: {
   type?: WorkspaceInfoFieldType;
   label?: string;
@@ -502,10 +672,9 @@ export function extractConfluencePageReference(
   // Pattern: /wiki/spaces/SPACE/pages/12345/Page+Title
   if (segments[0] === "wiki" && segments[1] === "spaces" && segments[2]) {
     const spaceKey = segments[2];
-    const title =
-      segments[5]
-        ? decodeURIComponent(segments[5].replace(/\+/g, " ")).trim()
-        : "";
+    const title = segments[5]
+      ? decodeURIComponent(segments[5].replace(/\+/g, " ")).trim()
+      : "";
     return {
       host: formatWorkspaceInfoHostLabel(value),
       spaceKey,

@@ -9,8 +9,12 @@ import {
   extractJiraIssueReference,
   extractStorybookResourceReference,
   formatWorkspaceInfoHostLabel,
+  formatStorybookAccessContext,
+  inferStorybookResourceAccess,
   isGitHubPullRequestUrl,
   isWorkspaceInfoUrl,
+  normalizeGitHubRepoReference,
+  resolveStorybookResourceAccess,
   updateWorkspaceInfoSelectFieldOptions,
 } from "@/lib/workspace-information";
 import {
@@ -130,6 +134,70 @@ test("extractStorybookResourceReference reads host and story path", () => {
     storyPath: "/docs/components-button--docs",
     title: "components button",
   });
+});
+
+test("inferStorybookResourceAccess detects private GitHub Pages hosts", () => {
+  expect(
+    inferStorybookResourceAccess(
+      "https://silver-chainsaw-ww7n83m.pages.github.io/?path=/story/2026-06-kms-help-center-contents-articles--filter-status-published",
+    ),
+  ).toEqual({
+    kind: "requires_github_auth",
+    provider: "github-pages",
+    externalRepo: "",
+    readableVia: "github_cli",
+    sourceHint: "",
+  });
+
+  expect(
+    inferStorybookResourceAccess(
+      "https://sendbird.github.io/design-system/?path=/docs/button--docs",
+    ),
+  ).toEqual({
+    kind: "unknown",
+    provider: "github-pages",
+    externalRepo: "",
+    readableVia: "unknown",
+    sourceHint: "",
+  });
+});
+
+test("resolveStorybookResourceAccess stores GitHub repo mapping for agents", () => {
+  expect(
+    resolveStorybookResourceAccess({
+      url: "https://silver-chainsaw-ww7n83m.pages.github.io/?path=/story/example--default",
+      externalRepo: "https://github.com/acme/storybook.git",
+      sourceHint: "storybook-static artifact",
+    }),
+  ).toEqual({
+    kind: "requires_github_auth",
+    provider: "github-pages",
+    externalRepo: "acme/storybook",
+    readableVia: "github_cli",
+    sourceHint: "storybook-static artifact",
+  });
+
+  expect(normalizeGitHubRepoReference("acme/storybook")).toBe("acme/storybook");
+});
+
+test("formatStorybookAccessContext tells agents to avoid direct fetches", () => {
+  expect(
+    formatStorybookAccessContext({
+      id: "storybook-1",
+      title: "Private Storybook",
+      url: "https://silver-chainsaw-ww7n83m.pages.github.io/?path=/story/example--default",
+      note: "",
+      access: {
+        kind: "requires_github_auth",
+        provider: "github-pages",
+        externalRepo: "acme/storybook",
+        readableVia: "github_cli",
+        sourceHint: "storybook-static",
+      },
+    }),
+  ).toBe(
+    "access requires GitHub auth, provider github-pages, repo acme/storybook, read via GitHub CLI/API instead of direct web fetch, source storybook-static",
+  );
 });
 
 test("formatWorkspaceInfoHostLabel normalizes www-prefixed hosts", () => {
