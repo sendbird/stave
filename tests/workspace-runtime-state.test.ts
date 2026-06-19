@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 import { saveActiveWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
+import { applyProviderEventsToWorkspaceSession } from "@/store/workspace-turn-replay";
 
 describe("saveActiveWorkspaceRuntimeCache", () => {
   test("retains active task messages while dropping idle task messages", () => {
@@ -98,6 +99,7 @@ describe("saveActiveWorkspaceRuntimeCache", () => {
         activeSurface: { kind: "task", taskId: "task-other" },
         activeTurnIdsByTask: {},
         providerSessionByTask: {},
+        providerGoalByTask: {},
         nativeSessionReadyByTask: {},
       },
     });
@@ -114,5 +116,70 @@ describe("saveActiveWorkspaceRuntimeCache", () => {
         },
       ],
     });
+  });
+});
+
+describe("applyProviderEventsToWorkspaceSession", () => {
+  test("marks snapshots changed when only the provider goal changes", () => {
+    const session = {
+      activeTaskId: "task-1",
+      tasks: [
+        {
+          id: "task-1",
+          title: "Goal Task",
+          provider: "codex",
+          updatedAt: "2026-04-20T12:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-1": [] },
+      messageCountByTask: { "task-1": 0 },
+      promptDraftByTask: {},
+      workspaceInformation: createEmptyWorkspaceInformation(),
+      editorTabs: [],
+      activeEditorTabId: null,
+      terminalTabs: [],
+      activeTerminalTabId: null,
+      terminalDocked: false,
+      cliSessionTabs: [],
+      activeCliSessionTabId: null,
+      activeSurface: { kind: "task", taskId: "task-1" },
+      activeTurnIdsByTask: { "task-1": "turn-1" },
+      providerSessionByTask: { "task-1": { codex: "thread-1" } },
+      providerGoalByTask: {},
+      nativeSessionReadyByTask: { "task-1": true },
+    };
+
+    const applied = applyProviderEventsToWorkspaceSession({
+      session,
+      taskId: "task-1",
+      events: [
+        {
+          type: "goal_status",
+          providerId: "codex",
+          goal: {
+            providerId: "codex",
+            nativeSessionId: "thread-1",
+            objective: "Fix the stalled goal turn",
+            status: "active",
+            tokenBudget: null,
+            tokensUsed: 0,
+            timeUsedSeconds: 0,
+            createdAt: 0,
+            updatedAt: 1,
+          },
+        },
+      ],
+      provider: "codex",
+      model: "gpt-5.4",
+      turnId: "turn-1",
+    });
+
+    expect(applied.stateChanged).toBe(true);
+    expect(applied.snapshotChanged).toBe(true);
+    expect(applied.session.providerGoalByTask["task-1"]?.objective).toBe(
+      "Fix the stalled goal turn",
+    );
   });
 });

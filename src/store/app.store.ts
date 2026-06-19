@@ -472,6 +472,42 @@ function arePromptDraftQueuedNextTurnEqual(
   );
 }
 
+function parseCodexGoalSetObjective(content: string): string | null {
+  const match = content.trim().match(/^\/goal(?:\s+([\s\S]*))?$/i);
+  if (!match) {
+    return null;
+  }
+
+  const argument = (match[1] ?? "").trim();
+  if (!argument) {
+    return null;
+  }
+
+  const normalizedArgument = argument.toLowerCase();
+  if (
+    normalizedArgument === "clear" ||
+    normalizedArgument === "pause" ||
+    normalizedArgument === "resume"
+  ) {
+    return null;
+  }
+
+  return argument;
+}
+
+function buildClearedPromptDraftWithQueuedNextTurn(args: {
+  draft?: PromptDraft | null;
+  queuedNextTurn?: PromptDraft["queuedNextTurn"];
+}): PromptDraft {
+  const clearedDraft = buildClearedPromptDraft(args.draft);
+  return args.queuedNextTurn
+    ? {
+        ...clearedDraft,
+        queuedNextTurn: args.queuedNextTurn,
+      }
+    : clearedDraft;
+}
+
 function resolveTaskRuntimeTarget(args: {
   state: Pick<
     AppState,
@@ -9014,6 +9050,16 @@ export const useAppStore = create<AppState>()(
           }
           const provider =
             task?.provider ?? state.draftProvider ?? "claude-code";
+          const codexGoalObjective =
+            provider === "codex" ? parseCodexGoalSetObjective(content) : null;
+          const codexGoalQueuedNextTurn: PromptDraft["queuedNextTurn"] =
+            codexGoalObjective
+              ? {
+                  queuedAt: buildRecentTimestamp(),
+                  sourceTurnId: turnId,
+                  content: codexGoalObjective,
+                }
+              : undefined;
           const { workspaceId: taskWorkspaceId, cwd: workspaceCwd } =
             resolveTaskWorkspaceContext({
               taskId: resolvedTaskId,
@@ -9165,7 +9211,10 @@ export const useAppStore = create<AppState>()(
             }
             promptDraftClearedOptimistically = true;
             updatePromptDraftsForWorkspace({
-              [resolvedTaskId]: buildClearedPromptDraft(promptDraft),
+              [resolvedTaskId]: buildClearedPromptDraftWithQueuedNextTurn({
+                draft: promptDraft,
+                queuedNextTurn: codexGoalQueuedNextTurn,
+              }),
               ...(sourcePromptDraftTaskId !== resolvedTaskId
                 ? {
                     [sourcePromptDraftTaskId]:
@@ -9395,10 +9444,12 @@ export const useAppStore = create<AppState>()(
                   ...pendingTurnState,
                   promptDraftByTask: {
                     ...nextState.promptDraftByTask,
-                    [resolvedTaskId]: buildClearedPromptDraft(
-                      nextState.promptDraftByTask[resolvedTaskId] ??
+                    [resolvedTaskId]: buildClearedPromptDraftWithQueuedNextTurn({
+                      draft:
+                        nextState.promptDraftByTask[resolvedTaskId] ??
                         promptDraft,
-                    ),
+                      queuedNextTurn: codexGoalQueuedNextTurn,
+                    }),
                     ...(sourcePromptDraftTaskId !== resolvedTaskId
                       ? {
                           [sourcePromptDraftTaskId]: buildClearedPromptDraft(
@@ -9453,10 +9504,14 @@ export const useAppStore = create<AppState>()(
                       activeTurnIdsByTask: pendingTurnState.activeTurnIdsByTask,
                       promptDraftByTask: {
                         ...cachedSession.promptDraftByTask,
-                        [resolvedTaskId]: buildClearedPromptDraft(
-                          cachedSession.promptDraftByTask[resolvedTaskId] ??
-                            promptDraft,
-                        ),
+                        [resolvedTaskId]:
+                          buildClearedPromptDraftWithQueuedNextTurn({
+                            draft:
+                              cachedSession.promptDraftByTask[
+                                resolvedTaskId
+                              ] ?? promptDraft,
+                            queuedNextTurn: codexGoalQueuedNextTurn,
+                          }),
                       },
                     },
                   },

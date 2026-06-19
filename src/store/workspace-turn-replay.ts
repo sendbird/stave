@@ -49,7 +49,8 @@ export function applyProviderEventsToWorkspaceSession(args: {
 
   return {
     stateChanged: true,
-    snapshotChanged: replayed.changed || !providerSessionMatches,
+    snapshotChanged:
+      replayed.changed || !providerSessionMatches || !providerGoalMatches,
     session: {
       ...args.session,
       messagesByTask: replayed.changed

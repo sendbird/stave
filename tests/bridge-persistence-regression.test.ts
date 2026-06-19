@@ -3185,6 +3185,141 @@ describe("workspace store hydration ordering", () => {
     ).toEqual(["user", "assistant", "user", "assistant"]);
   });
 
+  test("auto-dispatches Codex /goal objectives after the goal is set", async () => {
+    const localStorage = createMemoryStorage();
+    const startedPrompts: string[] = [];
+    let streamListener:
+      | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
+      | null = null;
+
+    (globalThis as { window: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async (args: { prompt?: string }) => {
+            const sequence = startedPrompts.length + 1;
+            startedPrompts.push(args.prompt ?? "");
+            return {
+              ok: true,
+              streamId: `goal-stream-${sequence}`,
+              turnId: `goal-turn-${sequence}`,
+            };
+          },
+          subscribeStreamEvents: (listener: typeof streamListener) => {
+            streamListener = listener;
+            return () => {
+              if (streamListener === listener) {
+                streamListener = null;
+              }
+            };
+          },
+          abortTurn: async () => ({ ok: true, message: "aborted" }),
+          cleanupTask: async () => ({ ok: true }),
+        },
+        fs: {
+          readFile: async () => ({
+            ok: false,
+            content: "",
+            revision: "",
+            stderr: "not found",
+          }),
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-04-09T00:00:00.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      projectPath: "/tmp/stave-project",
+      workspacePathById: {
+        "ws-main": "/tmp/stave-project",
+      },
+      workspaceBranchById: {
+        "ws-main": "main",
+      },
+      workspaceDefaultById: {
+        "ws-main": true,
+      },
+      draftProvider: "codex",
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "codex",
+          updatedAt: "2026-04-09T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-main": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+      providerGoalByTask: {},
+    });
+
+    const started = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "/goal Fix the stalled goal turn",
+    });
+
+    expect(started).toMatchObject({
+      status: "started",
+      taskId: "task-main",
+      workspaceId: "ws-main",
+    });
+    expect(startedPrompts).toEqual(["/goal Fix the stalled goal turn"]);
+    expect(
+      useAppStore.getState().promptDraftByTask["task-main"]?.queuedNextTurn,
+    ).toMatchObject({
+      sourceTurnId: started.turnId,
+      content: "Fix the stalled goal turn",
+    });
+
+    streamListener?.({
+      streamId: "goal-stream-1",
+      event: { type: "text", text: "Set Codex goal." },
+      done: false,
+    });
+    streamListener?.({
+      streamId: "goal-stream-1",
+      event: { type: "done" },
+      done: true,
+    });
+
+    await Bun.sleep(25);
+
+    const autoDispatchedState = useAppStore.getState();
+    expect(startedPrompts).toEqual([
+      "/goal Fix the stalled goal turn",
+      "Fix the stalled goal turn",
+    ]);
+    expect(typeof autoDispatchedState.activeTurnIdsByTask["task-main"]).toBe(
+      "string",
+    );
+    expect(autoDispatchedState.activeTurnIdsByTask["task-main"]).not.toBe(
+      started.turnId,
+    );
+    expect(
+      autoDispatchedState.promptDraftByTask["task-main"]?.queuedNextTurn,
+    ).toBeUndefined();
+    expect(
+      autoDispatchedState.messagesByTask["task-main"]?.map(
+        (message) => message.role,
+      ),
+    ).toEqual(["user", "assistant", "user", "assistant"]);
+  });
+
   test("auto-dispatches an attachment-only queued next turn after completion", async () => {
     const localStorage = createMemoryStorage();
     const startedPrompts: string[] = [];
