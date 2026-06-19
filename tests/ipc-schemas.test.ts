@@ -46,6 +46,24 @@ describe("provider IPC schemas", () => {
     expect(parsed.success).toBe(true);
   });
 
+  test("accepts provider timeout windows up to 24 hours", () => {
+    expect(StreamTurnArgsSchema.safeParse({
+      providerId: "codex",
+      prompt: "continue",
+      runtimeOptions: {
+        providerTimeoutMs: 86_400_000,
+      },
+    }).success).toBe(true);
+
+    expect(StreamTurnArgsSchema.safeParse({
+      providerId: "codex",
+      prompt: "continue",
+      runtimeOptions: {
+        providerTimeoutMs: 86_400_001,
+      },
+    }).success).toBe(false);
+  });
+
   test("preserves renderer-side tool metadata needed by assistant trace rendering", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {
