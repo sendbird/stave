@@ -125,7 +125,7 @@ export function ProviderTimeoutCard() {
     >
       <LabeledField
         title="Timeout Window"
-        description="Default is 3 hours so long-running coding turns, refactors, and tool-heavy sessions do not time out too early."
+        description="Default is 12 hours so long-running coding turns, refactors, and tool-heavy sessions do not time out too early."
       >
         <div className="flex flex-wrap items-start gap-3">
           <Select

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const MAX_PROVIDER_TIMEOUT_MS = 10_800_000;
+const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 
 export const ProviderIdSchema = z.union([
   z.literal("claude-code"),

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+  DEFAULT_PROVIDER_TIMEOUT_MS,
+  PROVIDER_TIMEOUT_OPTIONS,
+} from "@/lib/providers/runtime-option-contract";
+import { normalizeProviderTimeoutMs } from "@/store/editor.utils";
+import {
   applyProjectBasePromptToRuntimeOptions,
   buildProviderRuntimeOptions,
   normalizeCodexApprovalPolicy,
@@ -59,6 +64,15 @@ describe("normalizeCodexApprovalPolicy", () => {
 });
 
 describe("buildProviderRuntimeOptions", () => {
+  test("supports 12 and 24 hour provider timeout windows with 12 hours as default", () => {
+    expect(DEFAULT_PROVIDER_TIMEOUT_MS).toBe(43_200_000);
+    expect(PROVIDER_TIMEOUT_OPTIONS).toContain(43_200_000);
+    expect(PROVIDER_TIMEOUT_OPTIONS).toContain(86_400_000);
+    expect(normalizeProviderTimeoutMs({ value: 43_200_000 })).toBe(43_200_000);
+    expect(normalizeProviderTimeoutMs({ value: 86_400_000 })).toBe(86_400_000);
+    expect(normalizeProviderTimeoutMs({ value: 86_400_001 })).toBe(43_200_000);
+  });
+
   test("prepends the project base prompt ahead of an existing system prompt", () => {
     expect(
       applyProjectBasePromptToRuntimeOptions({
