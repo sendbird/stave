@@ -233,6 +233,7 @@ Codex slash-command behavior:
 - Stave therefore shows a bundled Codex slash-command reference and does not block unlisted commands locally.
 - Slash-command-only turns are sent without Stave's normal context wrapper so provider-native command parsers can see the leading `/command` token.
 - Stave handles Codex `/goal` through the App Server `thread/goal/*` RPCs so users can set, view, pause, resume, or clear the active thread goal from the chat composer.
+- After `/goal <objective>` sets a new objective, Stave queues that objective as the next user turn so work continues under the newly active goal instead of stopping at the status update.
 - Stave also listens for Codex App Server `thread/goal/updated` and `thread/goal/cleared` notifications, stores the current task goal as runtime state, and shows the compact status/progress in the chat input runtime bar.
 - The Settings developer surface mirrors the native Codex MCP/runtime status rather than synthesizing a Claude-style plugin list.
 
