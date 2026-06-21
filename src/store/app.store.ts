@@ -49,7 +49,11 @@ import {
   buildWorkspaceContinueSummaryFilePath,
   buildWorkspaceContinueSummaryMarkdown,
 } from "@/lib/workspace-continue";
-import type { ScriptTrigger } from "@/lib/workspace-scripts";
+import {
+  type ScriptTrigger,
+  type TurnVerificationResult,
+  buildTurnVerificationResult,
+} from "@/lib/workspace-scripts";
 import type {
   AppNotification,
   AppNotificationCreateInput,
@@ -1079,6 +1083,8 @@ interface AppState {
   nativeSessionReadyByTask: Record<string, boolean>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
+  /** Latest turn.completed verification result per workspace (worktree-scoped). */
+  turnVerificationByWorkspace: Record<string, TurnVerificationResult | undefined>;
   workspaceRuntimeCacheById: Record<string, WorkspaceSessionState>;
   taskWorkspaceIdById: Record<string, string>;
   persistenceBootstrapPhase: PersistenceBootstrapPhase;
@@ -2604,6 +2610,21 @@ export const useAppStore = create<AppState>()(
         taskTitle?: string;
         turnId?: string;
       }) => {
+        // A new turn invalidates the previous turn's verification badge so it
+        // never lingers as a stale ✅ while fresh work is in flight.
+        if (args.trigger === "turn.started") {
+          set((state) => {
+            if (
+              state.turnVerificationByWorkspace[args.workspaceId] === undefined
+            ) {
+              return state;
+            }
+            const next = { ...state.turnVerificationByWorkspace };
+            delete next[args.workspaceId];
+            return { turnVerificationByWorkspace: next };
+          });
+        }
+
         const runScriptHook = window.api?.scripts?.runHook;
         const context = resolveScriptHookWorkspaceContext(args.workspaceId);
         if (!runScriptHook || !context) {
@@ -2618,6 +2639,29 @@ export const useAppStore = create<AppState>()(
           ...(args.turnId ? { turnId: args.turnId } : {}),
         })
           .then((result) => {
+            // Surface turn.completed verify hooks as a Changes-panel badge.
+            // Only record when at least one hook entry was configured, so a
+            // project without verify hooks shows nothing rather than a
+            // misleading green check.
+            if (
+              args.trigger === "turn.completed" &&
+              result.summary &&
+              result.summary.totalEntries > 0
+            ) {
+              const verification = buildTurnVerificationResult({
+                workspaceId: args.workspaceId,
+                taskId: args.taskId,
+                turnId: args.turnId,
+                summary: result.summary,
+                completedAt: Date.now(),
+              });
+              set((state) => ({
+                turnVerificationByWorkspace: {
+                  ...state.turnVerificationByWorkspace,
+                  [args.workspaceId]: verification,
+                },
+              }));
+            }
             if (!result.ok && result.summary?.failures.length) {
               console.warn("[workspace-scripts] hook failures", {
                 trigger: args.trigger,
@@ -4049,6 +4093,7 @@ export const useAppStore = create<AppState>()(
         nativeSessionReadyByTask: {},
         providerSessionByTask: {},
         providerGoalByTask: {},
+        turnVerificationByWorkspace: {},
         workspaceRuntimeCacheById: {},
         taskWorkspaceIdById: {},
         persistenceBootstrapPhase: "idle",

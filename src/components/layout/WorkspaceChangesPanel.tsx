@@ -5,6 +5,12 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { SourceControlStatusItem } from "@/lib/source-control-status";
 import { cn } from "@/lib/utils";
+import {
+  type TurnVerificationResult,
+  VERIFICATION_STATUS_VISUAL,
+  describeTurnVerification,
+} from "@/lib/workspace-scripts";
+import { VerificationStatusIcon } from "./VerificationStatusIcon";
 import { WorkspaceFileIcon } from "./explorer-entry-icon";
 import type { SourceControlItemViewModel, SourceControlSection, SourceControlSummary } from "./editor-panel.utils";
 
@@ -245,6 +251,7 @@ export function WorkspaceChangesPanel(props: {
   onRefresh: () => Promise<void>;
   autoRefreshSeconds: number;
   onAutoRefreshSecondsChange: (seconds: number) => void;
+  verification?: TurnVerificationResult | null;
 }) {
   const [view, setView] = useState<SourceControlPanelView>("changes");
   const showStageAll = props.sourceControlSummary.workingTreeCount > 0;
@@ -276,6 +283,20 @@ export function WorkspaceChangesPanel(props: {
             <span className="text-[11px] text-muted-foreground">{props.sourceHistory.length}</span>
           </TabsTrigger>
         </TabsList>
+        {props.verification ? (
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
+              VERIFICATION_STATUS_VISUAL[props.verification.status].iconClassName,
+            )}
+            title={describeTurnVerification(props.verification)}
+          >
+            <VerificationStatusIcon status={props.verification.status} />
+            {props.verification.failures.length > 0 ? (
+              <span>{props.verification.failures.length}</span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex shrink-0 items-center gap-1">
           <Button
             type="button"

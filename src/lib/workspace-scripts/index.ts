@@ -48,3 +48,16 @@ export {
   resolveScriptsFromConfig,
   resolveScriptConfigFromTiers,
 } from "./config";
+
+export type {
+  TurnVerificationResult,
+  TurnVerificationStatus,
+  VerificationStatusVisual,
+} from "./verification";
+
+export {
+  buildTurnVerificationResult,
+  describeTurnVerification,
+  deriveTurnVerificationStatus,
+  VERIFICATION_STATUS_VISUAL,
+} from "./verification";

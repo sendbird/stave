@@ -201,7 +201,7 @@ export interface WorkspaceScriptHookRunSummary {
   trigger: ScriptTrigger;
   totalEntries: number;
   executedEntries: number;
-  failures: Array<{ scriptId: string; message: string }>;
+  failures: Array<{ scriptId: string; message: string; blocking: boolean }>;
 }
 
 // ---- Legacy renderer state kept for compatibility ------------------------

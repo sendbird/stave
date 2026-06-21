@@ -720,6 +720,7 @@ export async function runScriptHook(args: {
       summary.failures.push({
         scriptId: ref.scriptId,
         message: "Script entry not found.",
+        blocking: ref.blocking,
       });
       if (ref.blocking) {
         break;
@@ -745,6 +746,7 @@ export async function runScriptHook(args: {
           "error" in result && result.error
             ? result.error
             : `Exited with ${result.exitCode ?? -1}`,
+        blocking: ref.blocking,
       });
       if (ref.blocking) {
         break;
