@@ -5,6 +5,8 @@
 // element info on click.
 // ---------------------------------------------------------------------------
 
+import { getLensStyleCaptureScript } from "./browser-style-capture";
+
 interface ElementPickerOptions {
   /** When true, attempt to extract React fiber _debugSource info. */
   extractDebugSource?: boolean;
@@ -106,20 +108,14 @@ export function getElementPickerScript(
       if (!el) { resolve(null); return; }
 
       const r = el.getBoundingClientRect();
-      const cs = window.getComputedStyle(el);
-      const styleKeys = [
-        "color", "backgroundColor", "fontSize", "fontWeight",
-        "padding", "margin", "display", "position",
-        "width", "height", "borderRadius", "opacity",
-      ];
-      const computedStyles = {};
-      for (const k of styleKeys) computedStyles[k] = cs.getPropertyValue(
-        k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())
-      );
+      ${getLensStyleCaptureScript()}
+      const computedStyles = staveComputedStylesForElement(el);
 
       // Attempt React fiber _debugSource extraction
       let debugSource = null;
-      ${extractDebugSource ? `
+      ${
+        extractDebugSource
+          ? `
       try {
         const fiberKey = Object.keys(el).find(function(k) {
           return k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$");
@@ -141,7 +137,9 @@ export function getElementPickerScript(
       } catch (_) {
         // Silently ignore — _debugSource extraction is best-effort
       }
-      ` : "// _debugSource extraction disabled by settings"}
+      `
+          : "// _debugSource extraction disabled by settings"
+      }
 
       resolve({
         selector: buildSelector(el),

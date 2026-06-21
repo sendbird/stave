@@ -395,7 +395,11 @@ export function registerBrowserHandlers() {
     async (_event, args: { workspaceId: string }) => {
       const session = getBrowserSession(args.workspaceId);
       if (!session) return { ok: false, message: "No browser session" };
-      return { ok: true, state: { ...session.navigationState } };
+      return {
+        ok: true,
+        state: { ...session.navigationState },
+        annotationModeActive: session.annotationOverlayActive,
+      };
     },
   );
 

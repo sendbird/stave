@@ -1,3 +1,5 @@
+import { getLensStyleCaptureScript } from "./browser-style-capture";
+
 interface AnnotationOverlayOptions {
   extractDebugSource?: boolean;
   nonce: string;
@@ -124,7 +126,9 @@ export function getAnnotationOverlayScript(
   }
 
   function getDebugSource(el) {
-    ${extractDebugSource ? `
+    ${
+      extractDebugSource
+        ? `
     try {
       const fiberKey = Object.keys(el).find(function(k) {
         return k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$");
@@ -143,25 +147,13 @@ export function getAnnotationOverlayScript(
         }
       }
     } catch (_) {}
-    ` : ""}
+    `
+        : ""
+    }
     return null;
   }
 
-  function computedStylesFor(el) {
-    const cs = window.getComputedStyle(el);
-    const styleKeys = [
-      "color", "backgroundColor", "fontSize", "fontWeight",
-      "padding", "margin", "display", "position",
-      "width", "height", "borderRadius", "opacity",
-    ];
-    const computedStyles = {};
-    for (const key of styleKeys) {
-      computedStyles[key] = cs.getPropertyValue(
-        key.replace(/[A-Z]/g, (match) => "-" + match.toLowerCase())
-      );
-    }
-    return computedStyles;
-  }
+  ${getLensStyleCaptureScript()}
 
   function makeElementAnnotation(el, comment) {
     const r = el.getBoundingClientRect();
@@ -176,7 +168,7 @@ export function getAnnotationOverlayScript(
       tagName: el.tagName.toLowerCase(),
       elementId: el.id || "",
       classList: Array.from(el.classList),
-      computedStyles: computedStylesFor(el),
+      computedStyles: staveComputedStylesForElement(el),
       outerHTML: el.outerHTML.slice(0, 2000),
       textContent: (el.textContent || "").trim().slice(0, 500),
       debugSource: getDebugSource(el),

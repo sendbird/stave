@@ -1581,6 +1581,7 @@ interface WindowLensApi {
   getState?: (args: { workspaceId: string }) => Promise<{
     ok: boolean;
     state?: LensNavigationState;
+    annotationModeActive?: boolean;
     message?: string;
   }>;
   screenshot?: (args: {

@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -161,12 +162,13 @@ function resolveAnnotationStyleValue(
 function AnnotationStylePopover(args: {
   annotation: LensAnnotation;
   disabled: boolean;
+  onOpenChange?: (open: boolean) => void;
   onApply: (
     annotation: LensAnnotation,
     patch: Record<string, string>,
   ) => Promise<void>;
 }) {
-  const { annotation, disabled, onApply } = args;
+  const { annotation, disabled, onApply, onOpenChange } = args;
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -197,7 +199,7 @@ function AnnotationStylePopover(args: {
   );
 
   return (
-    <Popover>
+    <Popover onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -287,6 +289,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   const pendingBoundsRef = useRef<LensBounds | null>(null);
   const lastSentBoundsRef = useRef<LensBounds | null>(null);
   const boundsRequestInFlightRef = useRef(false);
+  const isViewReadyRef = useRef(false);
   // Track whether the URL address bar is focused so navigation events don't
   // clobber text the user is actively editing.
   const isUrlInputFocused = useRef(false);
@@ -303,9 +306,14 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   const [downloads, setDownloads] = useState<LensDownloadEntry[]>([]);
   const [annotations, setAnnotations] = useState<LensAnnotation[]>([]);
   const [isAnnotationModeActive, setIsAnnotationModeActive] = useState(false);
+  const [isLensFloatingSurfaceOpen, setIsLensFloatingSurfaceOpen] =
+    useState(false);
   const isOccluded = Boolean(args.occluded);
+  const isLensSuppressed = isOccluded || isLensFloatingSurfaceOpen;
   const cdpApprovalRequestRef =
     useRef<LensCdpApprovalRequestPayload | null>(null);
+  const isLensSuppressedRef = useRef(isLensSuppressed);
+  isLensSuppressedRef.current = isLensSuppressed;
 
   useEffect(() => {
     cdpApprovalRequestRef.current = cdpApprovalRequest;
@@ -351,29 +359,42 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       return;
     }
 
-    void request.finally(() => {
-      lastSentBoundsRef.current = bounds;
-      boundsRequestInFlightRef.current = false;
+    void request
+      .then((result) => {
+        if (result?.ok) {
+          lastSentBoundsRef.current = bounds;
+        }
+      })
+      .catch(() => {
+        // Bounds sync is best-effort; the next layout change retries.
+      })
+      .finally(() => {
+        boundsRequestInFlightRef.current = false;
 
-      if (!pendingBoundsRef.current) {
-        return;
-      }
+        if (!pendingBoundsRef.current) {
+          return;
+        }
 
-      cancelAnimationFrame(flushRafRef.current);
-      flushRafRef.current = requestAnimationFrame(() => {
-        flushPendingBounds();
+        cancelAnimationFrame(flushRafRef.current);
+        flushRafRef.current = requestAnimationFrame(() => {
+          flushPendingBounds();
+        });
       });
-    });
   }, [hasLensApi, workspaceId]);
 
-  const syncBounds = useCallback(() => {
+  const syncBounds = useCallback((options?: { immediate?: boolean }) => {
     const el = placeholderRef.current;
-    if (!workspaceId || !el || !hasLensApi || isOccluded) {
+    if (
+      !workspaceId ||
+      !el ||
+      !hasLensApi ||
+      !isViewReadyRef.current ||
+      isLensSuppressedRef.current
+    ) {
       return;
     }
 
-    cancelAnimationFrame(measureRafRef.current);
-    measureRafRef.current = requestAnimationFrame(() => {
+    const measureBounds = () => {
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) {
         return;
@@ -387,16 +408,45 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       };
 
       cancelAnimationFrame(flushRafRef.current);
+      if (options?.immediate) {
+        flushPendingBounds();
+        return;
+      }
+
       flushRafRef.current = requestAnimationFrame(() => {
         flushPendingBounds();
       });
-    });
-  }, [flushPendingBounds, hasLensApi, isOccluded, workspaceId]);
+    };
+
+    cancelAnimationFrame(measureRafRef.current);
+    if (options?.immediate) {
+      measureBounds();
+      return;
+    }
+
+    measureRafRef.current = requestAnimationFrame(measureBounds);
+  }, [flushPendingBounds, hasLensApi, workspaceId]);
+
+  useLayoutEffect(() => {
+    if (!workspaceId || !hasLensApi || isLensSuppressed) {
+      return;
+    }
+
+    syncBounds({ immediate: true });
+  }, [
+    annotations.length,
+    hasLensApi,
+    isAnnotationModeActive,
+    isLensSuppressed,
+    syncBounds,
+    workspaceId,
+  ]);
 
   useEffect(() => {
     pendingBoundsRef.current = null;
     lastSentBoundsRef.current = null;
     boundsRequestInFlightRef.current = false;
+    isViewReadyRef.current = false;
     setAnnotations([]);
     setIsAnnotationModeActive(false);
 
@@ -424,14 +474,24 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         return;
       }
 
-      await lensApi?.setVisible?.({ workspaceId, visible: !isOccluded });
+      isViewReadyRef.current = true;
+      await lensApi?.setVisible?.({
+        workspaceId,
+        visible: !isLensSuppressedRef.current,
+      });
 
       const stateResult = await lensApi?.getState?.({ workspaceId });
       if (!cancelled && stateResult?.ok && stateResult.state) {
         applyNavigationState(stateResult.state);
+        setIsAnnotationModeActive(Boolean(stateResult.annotationModeActive));
       }
 
-      if (isOccluded) {
+      const annotationsResult = await lensApi?.getAnnotations?.({ workspaceId });
+      if (!cancelled && annotationsResult?.ok) {
+        setAnnotations(annotationsResult.annotations ?? []);
+      }
+
+      if (isLensSuppressedRef.current) {
         await lensApi?.setBounds?.({
           workspaceId,
           bounds: { x: 0, y: 0, width: 0, height: 0 },
@@ -449,22 +509,21 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       pendingBoundsRef.current = null;
       lastSentBoundsRef.current = null;
       boundsRequestInFlightRef.current = false;
+      isViewReadyRef.current = false;
       // Reset bounds first so the view doesn't occlude other panels while hidden.
       void window.api?.lens?.setBounds?.({
         workspaceId,
         bounds: { x: 0, y: 0, width: 0, height: 0 },
       });
       void window.api?.lens?.setVisible?.({ workspaceId, visible: false });
-      // Destroy the session so memory is freed when switching workspaces or
-      // closing the panel. createView is idempotent so re-opening costs only
-      // a page reload, not a full Electron process.
-      void window.api?.lens?.destroyView?.({ workspaceId });
+      // Keep the workspace-scoped session alive so returning to the workspace
+      // restores its Lens page, annotation overlay, and navigation history.
     };
-  }, [applyNavigationState, hasLensApi, isOccluded, lensApi, syncBounds, workspaceId]);
+  }, [applyNavigationState, hasLensApi, lensApi, syncBounds, workspaceId]);
 
   useEffect(() => {
     const el = placeholderRef.current;
-    if (!workspaceId || !el || !hasLensApi || isOccluded) {
+    if (!workspaceId || !el || !hasLensApi) {
       return;
     }
 
@@ -491,17 +550,18 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       window.removeEventListener("resize", handleWindowResize);
       unsubscribeZoom?.();
     };
-  }, [hasLensApi, isOccluded, syncBounds, workspaceId]);
+  }, [hasLensApi, syncBounds, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {
       return;
     }
 
-    if (isOccluded) {
+    if (isLensSuppressed) {
       cancelAnimationFrame(measureRafRef.current);
       cancelAnimationFrame(flushRafRef.current);
       pendingBoundsRef.current = null;
+      lastSentBoundsRef.current = null;
       void window.api?.lens?.setBounds?.({
         workspaceId,
         bounds: { x: 0, y: 0, width: 0, height: 0 },
@@ -512,7 +572,12 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     void window.api?.lens?.setVisible?.({ workspaceId, visible: true });
     syncBounds();
-  }, [hasLensApi, isOccluded, syncBounds, workspaceId]);
+  }, [
+    hasLensApi,
+    isLensSuppressed,
+    syncBounds,
+    workspaceId,
+  ]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi || !cdpApprovalRequest) {
@@ -522,6 +587,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     cancelAnimationFrame(measureRafRef.current);
     cancelAnimationFrame(flushRafRef.current);
     pendingBoundsRef.current = null;
+    lastSentBoundsRef.current = null;
     void window.api?.lens?.setBounds?.({
       workspaceId,
       bounds: { x: 0, y: 0, width: 0, height: 0 },
@@ -529,13 +595,13 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     void window.api?.lens?.setVisible?.({ workspaceId, visible: false });
 
     return () => {
-      if (isOccluded) {
+      if (isLensSuppressedRef.current) {
         return;
       }
       void window.api?.lens?.setVisible?.({ workspaceId, visible: true });
       syncBounds();
     };
-  }, [cdpApprovalRequest, hasLensApi, isOccluded, syncBounds, workspaceId]);
+  }, [cdpApprovalRequest, hasLensApi, syncBounds, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {
@@ -1176,7 +1242,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               <TooltipContent>Visual comments</TooltipContent>
             </Tooltip>
 
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={setIsLensFloatingSurfaceOpen}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
@@ -1212,7 +1278,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={setIsLensFloatingSurfaceOpen}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
@@ -1325,6 +1391,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                     <AnnotationStylePopover
                       annotation={annotation}
                       disabled={!hasLensApi || annotation.kind !== "element"}
+                      onOpenChange={setIsLensFloatingSurfaceOpen}
                       onApply={applyAnnotationStyle}
                     />
                     <Button
