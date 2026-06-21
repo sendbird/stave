@@ -99,6 +99,7 @@ import {
 } from "@/lib/workspace-information-task-seed";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import { extractPlanTodoItems } from "@/lib/plans";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
 
 // ---------------------------------------------------------------------------
@@ -1444,6 +1445,49 @@ export function WorkspaceInformationPanel() {
               workspacePath={workspacePath}
               refreshNonce={workspacePlansRefreshNonce}
               onOpenFile={({ filePath }) => openFileFromTree({ filePath })}
+              onImportTodos={async ({ filePath }) => {
+                if (!workspacePath) {
+                  return;
+                }
+                const result = await window.api?.fs?.readFile?.({
+                  rootPath: workspacePath,
+                  filePath,
+                });
+                if (!result?.ok || typeof result.content !== "string") {
+                  toast.error("Could not read plan file");
+                  return;
+                }
+                const items = extractPlanTodoItems(result.content);
+                if (items.length === 0) {
+                  toast("No checklist items found in this plan");
+                  return;
+                }
+                patchWorkspaceInformation((current) => ({
+                  ...current,
+                  todos: [
+                    ...current.todos,
+                    ...items.map((item) => {
+                      const base = {
+                        ...createWorkspaceTodoItem(),
+                        text: item.text,
+                      };
+                      return item.completed
+                        ? applyWorkspaceTodoStatus(base, "completed")
+                        : base;
+                    }),
+                  ],
+                }));
+                setOpenSections((sections) =>
+                  sections.includes("todo")
+                    ? sections
+                    : [...sections, "todo"],
+                );
+                toast.success(
+                  `Imported ${items.length} ${
+                    items.length === 1 ? "todo" : "todos"
+                  } from plan`,
+                );
+              }}
             />
           </SectionHeader>
 

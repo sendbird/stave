@@ -43,6 +43,52 @@ export function parseWorkspacePlanFilePath(filePath: string): WorkspacePlanEntry
   };
 }
 
+const PLAN_TODO_CHECKBOX_RE = /^\s*[-*+]\s+\[([ xX])\]\s+(.+)$/;
+const PLAN_TODO_NUMBERED_RE = /^\s*\d+[.)]\s+(.+)$/;
+const MAX_IMPORTED_PLAN_TODOS = 100;
+
+/**
+ * Extract actionable checklist items from a saved plan's markdown so they can
+ * be promoted into trackable workspace todos. Prefers GitHub-style task-list
+ * checkboxes (`- [ ]` / `- [x]`); when a plan has none, falls back to numbered
+ * list items. Returns at most {@link MAX_IMPORTED_PLAN_TODOS} entries.
+ */
+export function extractPlanTodoItems(
+  markdown: string,
+): { text: string; completed: boolean }[] {
+  if (!markdown) {
+    return [];
+  }
+
+  const checkboxItems: { text: string; completed: boolean }[] = [];
+  const numberedItems: { text: string; completed: boolean }[] = [];
+
+  for (const line of markdown.split(/\r?\n/)) {
+    const checkbox = PLAN_TODO_CHECKBOX_RE.exec(line);
+    if (checkbox) {
+      const text = (checkbox[2] ?? "").trim();
+      if (text) {
+        checkboxItems.push({
+          text,
+          completed: (checkbox[1] ?? "").toLowerCase() === "x",
+        });
+      }
+      continue;
+    }
+
+    const numbered = PLAN_TODO_NUMBERED_RE.exec(line);
+    if (numbered) {
+      const text = (numbered[1] ?? "").trim();
+      if (text) {
+        numberedItems.push({ text, completed: false });
+      }
+    }
+  }
+
+  const items = checkboxItems.length > 0 ? checkboxItems : numberedItems;
+  return items.slice(0, MAX_IMPORTED_PLAN_TODOS);
+}
+
 export function isWorkspacePlanFilePath(filePath: string) {
   return filePath.endsWith(".md")
     && (
