@@ -90,6 +90,7 @@ export async function updateWorkspaceTodo(args: {
   todoId: string;
   text?: string;
   completed?: boolean;
+  status?: "pending" | "in_progress" | "completed";
 }) {
   return invokeLocalMcp<{
     workspaceId: string;

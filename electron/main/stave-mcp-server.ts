@@ -545,15 +545,22 @@ function createToolServer() {
         todoId: z.string().min(1).describe("Todo id."),
         text: z.string().optional().describe("Updated todo text."),
         completed: z.boolean().optional().describe("Optional completion flag."),
+        status: z
+          .enum(["pending", "in_progress", "completed"])
+          .optional()
+          .describe(
+            "Optional progress status: pending, in_progress, or completed.",
+          ),
       },
     },
-    async ({ workspaceId, todoId, text, completed }) =>
+    async ({ workspaceId, todoId, text, completed, status }) =>
       toStructuredResult({
         result: await updateWorkspaceTodo({
           workspaceId,
           todoId,
           text,
           completed,
+          status,
         }),
       }),
   );

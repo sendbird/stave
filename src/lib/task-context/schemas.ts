@@ -414,6 +414,7 @@ const WorkspaceTodoItemSchema = z.object({
   id: z.string(),
   text: z.string().optional().default(""),
   completed: z.boolean().optional().default(false),
+  status: z.enum(["pending", "in_progress", "completed"]).optional(),
 });
 
 const WorkspaceInfoCustomFieldSchema = z.discriminatedUnion("type", [

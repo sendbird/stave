@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
+  CircleDot,
   ExternalLink,
   GitMerge,
   GitPullRequest,
@@ -60,7 +61,10 @@ import {
   createWorkspaceLinkedPullRequest,
   createWorkspaceSlackThread,
   createWorkspaceStorybookResource,
+  applyWorkspaceTodoStatus,
   createWorkspaceTodoItem,
+  cycleWorkspaceTodoStatus,
+  resolveWorkspaceTodoStatus,
   extractConfluencePageReference,
   extractFigmaResourceReference,
   extractGitHubPullRequestReference,
@@ -1216,9 +1220,11 @@ export function WorkspaceInformationPanel() {
 
   const currentBranchPr = prInfo?.pr ?? null;
   const currentBranchPrStatus = prInfo?.derived ?? null;
-  const openTodoCount = workspaceInformation.todos.filter(
-    (todo) => !todo.completed,
+  const totalTodoCount = workspaceInformation.todos.length;
+  const completedTodoCount = workspaceInformation.todos.filter(
+    (todo) => resolveWorkspaceTodoStatus(todo) === "completed",
   ).length;
+  const openTodoCount = totalTodoCount - completedTodoCount;
   const latestTurnSummary = workspaceInformation.turnSummary ?? null;
 
   return (
@@ -1307,6 +1313,23 @@ export function WorkspaceInformationPanel() {
               />
             }
           >
+            {totalTodoCount > 0 ? (
+              <div className="mb-1.5 flex items-center gap-2 px-0.5">
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{
+                      width: `${Math.round(
+                        (completedTodoCount / totalTodoCount) * 100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                  {completedTodoCount}/{totalTodoCount}
+                </span>
+              </div>
+            ) : null}
             <div className="-mx-2 space-y-0.5">
               {workspaceInformation.todos.length === 0 ? (
                 <EmptyHint>No todos yet</EmptyHint>
@@ -1320,9 +1343,9 @@ export function WorkspaceInformationPanel() {
                     type="button"
                     className={cn(
                       "flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors",
-                      todo.completed
-                        ? "text-primary"
-                        : "text-muted-foreground/40 hover:text-muted-foreground",
+                      resolveWorkspaceTodoStatus(todo) === "pending"
+                        ? "text-muted-foreground/40 hover:text-muted-foreground"
+                        : "text-primary",
                     )}
                     onClick={() =>
                       patchWorkspaceInformation((current) => ({
@@ -1330,19 +1353,24 @@ export function WorkspaceInformationPanel() {
                         todos: updateItemById(
                           current.todos,
                           todo.id,
-                          (item) => ({
-                            ...item,
-                            completed: !item.completed,
-                          }),
+                          (item) =>
+                            applyWorkspaceTodoStatus(
+                              item,
+                              cycleWorkspaceTodoStatus(
+                                resolveWorkspaceTodoStatus(item),
+                              ),
+                            ),
                         ),
                       }))
                     }
-                    aria-label={
-                      todo.completed ? "Mark incomplete" : "Mark complete"
-                    }
+                    aria-label={`Todo status: ${resolveWorkspaceTodoStatus(
+                      todo,
+                    )}. Click to advance.`}
                   >
-                    {todo.completed ? (
+                    {resolveWorkspaceTodoStatus(todo) === "completed" ? (
                       <CheckCircle2 className="size-4" />
+                    ) : resolveWorkspaceTodoStatus(todo) === "in_progress" ? (
+                      <CircleDot className="size-4" />
                     ) : (
                       <Circle className="size-4" />
                     )}
@@ -1365,7 +1393,8 @@ export function WorkspaceInformationPanel() {
                     placeholder="Todo item"
                     className={cn(
                       "h-8 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0",
-                      todo.completed && "text-muted-foreground/50 line-through",
+                      resolveWorkspaceTodoStatus(todo) === "completed" &&
+                        "text-muted-foreground/50 line-through",
                     )}
                   />
                   <button
