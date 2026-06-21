@@ -269,12 +269,21 @@ async function runFiniteScript(args: {
     });
   });
 
+  // Capture a bounded copy of combined stdout/stderr so turn.completed
+  // verification can map failures back to individual changed files.
+  let capturedOutput = "";
+  const captureOutput = (text: string) => {
+    if (capturedOutput.length < 64 * 1024) {
+      capturedOutput += text;
+    }
+  };
+
   let lastExitCode = 0;
 
   for (let index = 0; index < args.scriptEntry.commands.length; index += 1) {
     if (entry.aborted) {
       deleteWorkspaceScriptProcess(key);
-      return { ok: false as const, runId, exitCode: -1, error: "Aborted" };
+      return { ok: false as const, runId, exitCode: -1, error: "Aborted", output: capturedOutput };
     }
 
     const command = args.scriptEntry.commands[index];
@@ -310,11 +319,15 @@ async function runFiniteScript(args: {
         entry.process = child;
 
         child.stdout?.on("data", (chunk: Buffer) => {
-          outputBuffer.push(chunk.toString());
+          const text = chunk.toString();
+          outputBuffer.push(text);
+          captureOutput(text);
         });
 
         child.stderr?.on("data", (chunk: Buffer) => {
-          outputBuffer.push(chunk.toString());
+          const text = chunk.toString();
+          outputBuffer.push(text);
+          captureOutput(text);
         });
 
         child.once("error", (error) => {
@@ -357,7 +370,7 @@ async function runFiniteScript(args: {
         event: { type: "error", error: message },
       });
       deleteWorkspaceScriptProcess(key);
-      return { ok: false as const, runId, exitCode: -1, error: message };
+      return { ok: false as const, runId, exitCode: -1, error: message, output: capturedOutput };
     }
 
     outputBuffer.flush();
@@ -385,7 +398,7 @@ async function runFiniteScript(args: {
         event: { type: "completed", exitCode: lastExitCode },
       });
       deleteWorkspaceScriptProcess(key);
-      return { ok: false as const, runId, exitCode: lastExitCode };
+      return { ok: false as const, runId, exitCode: lastExitCode, output: capturedOutput };
     }
   }
 
@@ -398,7 +411,7 @@ async function runFiniteScript(args: {
     event: { type: "completed", exitCode: 0 },
   });
   deleteWorkspaceScriptProcess(key);
-  return { ok: true as const, runId, exitCode: 0 };
+  return { ok: true as const, runId, exitCode: 0, output: capturedOutput };
 }
 
 async function runServiceScript(args: {
@@ -747,6 +760,7 @@ export async function runScriptHook(args: {
             ? result.error
             : `Exited with ${result.exitCode ?? -1}`,
         blocking: ref.blocking,
+        output: "output" in result ? result.output : undefined,
       });
       if (ref.blocking) {
         break;

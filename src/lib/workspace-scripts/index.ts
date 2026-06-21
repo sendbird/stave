@@ -50,6 +50,7 @@ export {
 } from "./config";
 
 export type {
+  FileVerificationStatus,
   TurnVerificationResult,
   TurnVerificationStatus,
   VerificationStatusVisual,
@@ -57,6 +58,7 @@ export type {
 
 export {
   buildTurnVerificationResult,
+  deriveFileVerificationStatuses,
   describeTurnVerification,
   deriveTurnVerificationStatus,
   VERIFICATION_STATUS_VISUAL,

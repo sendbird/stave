@@ -18,10 +18,18 @@ export interface TurnVerificationResult {
   status: TurnVerificationStatus;
   totalEntries: number;
   executedEntries: number;
-  failures: Array<{ scriptId: string; message: string; blocking: boolean }>;
+  failures: Array<{
+    scriptId: string;
+    message: string;
+    blocking: boolean;
+    output?: string;
+  }>;
   /** Epoch-ms the verifying turn completed. */
   completedAt: number;
 }
+
+/** Per-file verification status derived from failure output (Phase 2). */
+export type FileVerificationStatus = "warn" | "fail";
 
 /**
  * Collapse a hook run summary into a single turn-level status.
@@ -79,6 +87,40 @@ export const VERIFICATION_STATUS_VISUAL: Record<
   warn: { label: "Verification warnings", iconClassName: "text-warning" },
   fail: { label: "Verification failed", iconClassName: "text-destructive" },
 };
+
+/**
+ * Map verification failures back to the changed files they reference.
+ *
+ * Generic + tool-agnostic: every common reporter (ESLint, tsc, vitest, bun
+ * test, prettier) prints the offending path somewhere in its output, so an
+ * absolute or relative path that *contains* the git-relative changed path is a
+ * reliable match without per-tool parsers. A blocking failure marks a file
+ * `fail`; a non-blocking failure marks it `warn` (unless already `fail`).
+ * Files never referenced get no status and render no icon.
+ */
+export function deriveFileVerificationStatuses(args: {
+  failures: Array<{ blocking: boolean; output?: string }>;
+  changedPaths: string[];
+}): Record<string, FileVerificationStatus> {
+  const statuses: Record<string, FileVerificationStatus> = {};
+  for (const failure of args.failures) {
+    const output = failure.output;
+    if (!output) {
+      continue;
+    }
+    for (const path of args.changedPaths) {
+      if (!path || !output.includes(path)) {
+        continue;
+      }
+      if (failure.blocking) {
+        statuses[path] = "fail";
+      } else if (statuses[path] !== "fail") {
+        statuses[path] = "warn";
+      }
+    }
+  }
+  return statuses;
+}
 
 /** Human-readable tooltip describing a turn verification result. */
 export function describeTurnVerification(result: TurnVerificationResult): string {

@@ -7,6 +7,11 @@ import {
   isSourceControlUntracked,
   type SourceControlStatusItem,
 } from "@/lib/source-control-status";
+import {
+  type FileVerificationStatus,
+  type TurnVerificationResult,
+  deriveFileVerificationStatuses,
+} from "@/lib/workspace-scripts";
 
 export interface ExplorerNode {
   name: string;
@@ -37,6 +42,7 @@ export interface SourceControlItemViewModel {
   pathDetail: string;
   pathLabel: string;
   sectionId: SourceControlSectionId;
+  verificationStatus?: FileVerificationStatus;
 }
 
 export type SourceControlSectionId =
@@ -241,7 +247,7 @@ export function buildExplorerIndex(args: { files: string[]; filter?: string }): 
   };
 }
 
-export function buildSourceControlItemViewModel(args: { item: SourceControlStatusItem }): SourceControlItemViewModel {
+export function buildSourceControlItemViewModel(args: { item: SourceControlStatusItem; verificationStatus?: FileVerificationStatus }): SourceControlItemViewModel {
   const displayPath = resolveSourceControlDiffPaths({ rawPath: args.item.path });
   const workingTreeSegments = displayPath.workingTreePath.split("/").filter(Boolean);
   const fileName = workingTreeSegments.at(-1) ?? displayPath.workingTreePath ?? displayPath.displayPath;
@@ -285,6 +291,7 @@ export function buildSourceControlItemViewModel(args: { item: SourceControlStatu
       : directoryLabel,
     pathLabel: displayPath.displayPath,
     sectionId,
+    verificationStatus: args.verificationStatus,
   };
 }
 
@@ -320,11 +327,21 @@ export function buildSourceControlSummary(args: { items: SourceControlStatusItem
   });
 }
 
-export function buildSourceControlSections(args: { items: SourceControlStatusItem[] }): SourceControlSection[] {
+export function buildSourceControlSections(args: { items: SourceControlStatusItem[]; verification?: TurnVerificationResult | null }): SourceControlSection[] {
   const sectionsById = new Map<SourceControlSectionId, SourceControlItemViewModel[]>();
 
+  const fileVerificationStatuses = args.verification
+    ? deriveFileVerificationStatuses({
+        failures: args.verification.failures,
+        changedPaths: args.items.map((item) => item.path),
+      })
+    : {};
+
   for (const item of args.items) {
-    const viewModel = buildSourceControlItemViewModel({ item });
+    const viewModel = buildSourceControlItemViewModel({
+      item,
+      verificationStatus: fileVerificationStatuses[item.path],
+    });
     const sectionItems = sectionsById.get(viewModel.sectionId) ?? [];
     sectionItems.push(viewModel);
     sectionsById.set(viewModel.sectionId, sectionItems);

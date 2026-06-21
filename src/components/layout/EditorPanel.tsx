@@ -153,8 +153,8 @@ export function EditorPanel(props: EditorPanelProps) {
   const isExplorerLoading = explorerRootState?.status === "loading";
   const filteredScmItems = sourceItems;
   const sourceControlSections = useMemo(
-    () => buildSourceControlSections({ items: filteredScmItems }),
-    [filteredScmItems],
+    () => buildSourceControlSections({ items: filteredScmItems, verification: turnVerification ?? null }),
+    [filteredScmItems, turnVerification],
   );
   const sourceControlSummary = useMemo(
     () => buildSourceControlSummary({ items: filteredScmItems }),

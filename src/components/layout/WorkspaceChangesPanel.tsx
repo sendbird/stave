@@ -114,6 +114,12 @@ function SourceControlRow(args: {
                     new
                   </Badge>
                 ) : null}
+                {args.item.verificationStatus ? (
+                  <VerificationStatusIcon
+                    status={args.item.verificationStatus}
+                    className="size-3"
+                  />
+                ) : null}
               </div>
               <p className="truncate text-[11px] text-muted-foreground">
                 {args.item.pathDetail}
