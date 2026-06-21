@@ -41,6 +41,10 @@ import {
   isTaskArchived,
 } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
+import {
+  resolveWorkspaceTodoStatus,
+  type WorkspaceTodoItem,
+} from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
 import { isDefaultWorkspaceName } from "@/store/project.utils";
 import type { ChatMessage, Task } from "@/types/chat";
@@ -82,6 +86,7 @@ const EMPTY_MESSAGES: ChatMessage[] = [];
 const EMPTY_MESSAGES_BY_TASK: Record<string, ChatMessage[]> = {};
 const EMPTY_MESSAGE_COUNT_BY_TASK: Record<string, number> = {};
 const EMPTY_ACTIVE_TURN_IDS_BY_TASK: Record<string, string | undefined> = {};
+const EMPTY_TODOS: WorkspaceTodoItem[] = [];
 const FLEET_UNKNOWN_STATUS_PRIORITY = 5;
 
 function formatWorkspaceName(name: string, branch?: string) {
@@ -337,6 +342,7 @@ function FleetWorkspaceSection(args: {
     providerTurnActivityByTask,
     runtimeState,
     prStatus,
+    activeTodos,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -357,6 +363,9 @@ function FleetWorkspaceSection(args: {
           state.providerTurnActivityByTask,
           state.workspaceRuntimeCacheById[args.workspace.id] ?? null,
           state.workspacePrInfoById[args.workspace.id]?.derived ?? null,
+          state.activeWorkspaceId === args.workspace.id
+            ? state.workspaceInformation.todos
+            : EMPTY_TODOS,
         ] as const,
     ),
   );
@@ -477,6 +486,14 @@ function FleetWorkspaceSection(args: {
       });
   }, [providerTurnActivityByTask, taskState]);
 
+  const todoProgress = useMemo(() => {
+    const total = activeTodos.length;
+    const completed = activeTodos.filter(
+      (todo) => resolveWorkspaceTodoStatus(todo) === "completed",
+    ).length;
+    return { completed, total };
+  }, [activeTodos]);
+
   const firstAttentionTarget = useMemo(() => {
     const row = rows.find(
       (candidate) =>
@@ -526,7 +543,29 @@ function FleetWorkspaceSection(args: {
               : `${rows.length} task${rows.length === 1 ? "" : "s"}`}
           </p>
         </div>
-        <WorkspacePrBadge status={prStatus} />
+        <div className="flex shrink-0 items-center gap-2">
+          {todoProgress.total > 0 ? (
+            <span
+              className="inline-flex items-center gap-1.5"
+              title={`${todoProgress.completed} of ${todoProgress.total} todos done`}
+            >
+              <span className="h-1 w-12 overflow-hidden rounded-full bg-muted">
+                <span
+                  className="block h-full rounded-full bg-primary"
+                  style={{
+                    width: `${Math.round(
+                      (todoProgress.completed / todoProgress.total) * 100,
+                    )}%`,
+                  }}
+                />
+              </span>
+              <span className="text-[11px] tabular-nums text-muted-foreground">
+                {todoProgress.completed}/{todoProgress.total}
+              </span>
+            </span>
+          ) : null}
+          <WorkspacePrBadge status={prStatus} />
+        </div>
       </div>
       {rows.map((row) => (
         <MemoizedFleetTaskRow
