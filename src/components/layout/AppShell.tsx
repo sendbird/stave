@@ -552,7 +552,7 @@ export function AppShell() {
           store.clearTaskSelection();
           return;
         case "navigation.fleet-view":
-          store.openFleetView();
+          store.toggleFleetView();
           return;
         case "view.toggle-workspace-sidebar":
           store.setLayout({

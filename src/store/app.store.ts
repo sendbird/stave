@@ -1155,6 +1155,8 @@ interface AppState {
   refreshProviderCommandCatalog: () => void;
   notifyWorkspacePlansChanged: () => void;
   openFleetView: () => void;
+  closeFleetView: () => void;
+  toggleFleetView: () => void;
   openCompareRun: (args: { compareRunId: string }) => void;
   startCompareRun: (args: {
     seedPrompt: string;
@@ -6692,6 +6694,24 @@ export const useAppStore = create<AppState>()(
               activeAppSurface: FLEET_VIEW_APP_SURFACE,
             };
           });
+        },
+        closeFleetView: () => {
+          set((state) => {
+            if (state.activeAppSurface.kind === "workspace") {
+              return state;
+            }
+            return {
+              activeAppSurface: WORKSPACE_APP_SURFACE,
+            };
+          });
+        },
+        toggleFleetView: () => {
+          set((state) => ({
+            activeAppSurface:
+              state.activeAppSurface.kind === "fleet-view"
+                ? WORKSPACE_APP_SURFACE
+                : FLEET_VIEW_APP_SURFACE,
+          }));
         },
         openCompareRun: ({ compareRunId }) => {
           const normalizedCompareRunId = compareRunId.trim();

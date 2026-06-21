@@ -8,6 +8,7 @@ import {
   Radio,
   ShieldCheck,
   UserRound,
+  X,
 } from "lucide-react";
 import {
   memo,
@@ -587,8 +588,20 @@ const MemoizedFleetWorkspaceSection = memo(FleetWorkspaceSection);
 export function FleetView() {
   const projects = useFleetProjects();
   const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
+  const closeFleetView = useAppStore((state) => state.closeFleetView);
   const [attentionTargetsByWorkspaceId, setAttentionTargetsByWorkspaceId] =
     useState<Record<string, FleetAttentionTarget>>({});
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) {
+        return;
+      }
+      closeFleetView();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [closeFleetView]);
 
   const handleAttentionTargetChange = useCallback(
     (workspaceId: string, target: FleetAttentionTarget | null) => {
@@ -653,20 +666,33 @@ export function FleetView() {
             {totalWorkspaceCount === 1 ? "" : "s"}
           </p>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 rounded-sm"
-          disabled={!nextAttentionTarget}
-          onClick={() => {
-            if (nextAttentionTarget) {
-              void focusTaskAttention(nextAttentionTarget);
-            }
-          }}
-        >
-          <ArrowRight className="size-4" />
-          Next Needs Input
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 rounded-sm"
+            disabled={!nextAttentionTarget}
+            onClick={() => {
+              if (nextAttentionTarget) {
+                void focusTaskAttention(nextAttentionTarget);
+              }
+            }}
+          >
+            <ArrowRight className="size-4" />
+            Next Needs Input
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 rounded-sm p-0 text-muted-foreground hover:text-foreground"
+            aria-label="close-fleet-view"
+            title="Close Fleet View"
+            onClick={closeFleetView}
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {projects.length === 0 ? (
