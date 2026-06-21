@@ -126,8 +126,10 @@ const HOST_SERVICE_QUEUE_SLOW_WRITE_MS = 48;
 const HOST_SERVICE_QUEUE_LOG_INTERVAL_MS = 2_000;
 const HOST_PROVIDER_EVENT_STRING_MAX_BYTES = 128 * 1024;
 const HOST_PROVIDER_EVENT_LIST_MAX_ITEMS = 32;
-const HOST_SERVICE_STDIN_BUFFER_MAX_BYTES = HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES;
-const HOST_SERVICE_STDIN_MESSAGE_MAX_BYTES = HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES;
+const HOST_SERVICE_STDIN_BUFFER_MAX_BYTES =
+  HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES;
+const HOST_SERVICE_STDIN_MESSAGE_MAX_BYTES =
+  HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES;
 
 let messageWriteChain = Promise.resolve();
 let pendingMessageCount = 0;
@@ -306,7 +308,10 @@ function shrinkProviderStreamEventPayload(
         ...payload,
         event: {
           ...event,
-          content: shrinkProviderEventString(event.content, "subagent-progress"),
+          content: shrinkProviderEventString(
+            event.content,
+            "subagent-progress",
+          ),
         },
       };
     case "error":
@@ -325,7 +330,7 @@ function shrinkProviderStreamEventPayload(
           suggestions: event.suggestions
             .slice(0, HOST_PROVIDER_EVENT_LIST_MAX_ITEMS)
             .map((suggestion) =>
-              shrinkProviderEventString(suggestion, "prompt-suggestion")
+              shrinkProviderEventString(suggestion, "prompt-suggestion"),
             ),
         },
       };
@@ -407,11 +412,12 @@ function emitEvent<TEvent extends HostServiceEventName>(
   event: TEvent,
   payload: HostServiceEventMap[TEvent],
 ) {
-  const normalizedPayload = event === "provider.stream-event"
-    ? shrinkProviderStreamEventPayload(
-        payload as HostServiceEventMap["provider.stream-event"],
-      )
-    : payload;
+  const normalizedPayload =
+    event === "provider.stream-event"
+      ? shrinkProviderStreamEventPayload(
+          payload as HostServiceEventMap["provider.stream-event"],
+        )
+      : payload;
   const writePromise = writeMessage({
     type: "event",
     event,
@@ -533,6 +539,12 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
           typeof localMcpRuntime.addWorkspaceStorybookResource
         >[0],
       );
+    case "update-workspace-storybook-resource-access":
+      return localMcpRuntime.updateWorkspaceStorybookResourceAccess(
+        args as Parameters<
+          typeof localMcpRuntime.updateWorkspaceStorybookResourceAccess
+        >[0],
+      );
     case "add-workspace-slack-thread":
       return localMcpRuntime.addWorkspaceSlackThread(
         args as Parameters<typeof localMcpRuntime.addWorkspaceSlackThread>[0],
@@ -565,7 +577,6 @@ function startPushProviderTurn(args: StreamTurnArgs) {
         workspaceId: args.workspaceId ?? null,
       });
     }
-
   }
 
   const started = providerRuntime.startTurnStream(
@@ -672,7 +683,10 @@ async function collectProviderPullRequestContext(args: {
       command: `git log "${safeComparisonBaseRef}"..HEAD --pretty=format:"%h %s" --no-merges`,
       cwd,
     }),
-    runCommand({ command: `git diff "${safeComparisonBaseRef}"...HEAD --stat`, cwd }),
+    runCommand({
+      command: `git diff "${safeComparisonBaseRef}"...HEAD --stat`,
+      cwd,
+    }),
     runCommand({ command: "git status --porcelain", cwd }),
     runCommand({
       command: "cat .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null || true",
@@ -1034,10 +1048,7 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       );
       return;
     case "provider.get-codex-model-catalog":
-      await respond(
-        request.id,
-        await getCodexModelCatalog(request.params),
-      );
+      await respond(request.id, await getCodexModelCatalog(request.params));
       return;
     case "provider.get-codex-app-server-snapshot":
       await respond(
@@ -1046,22 +1057,13 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       );
       return;
     case "provider.get-codex-plugin-detail":
-      await respond(
-        request.id,
-        await getCodexPluginDetail(request.params),
-      );
+      await respond(request.id, await getCodexPluginDetail(request.params));
       return;
     case "provider.install-codex-plugin":
-      await respond(
-        request.id,
-        await installCodexPlugin(request.params),
-      );
+      await respond(request.id, await installCodexPlugin(request.params));
       return;
     case "provider.uninstall-codex-plugin":
-      await respond(
-        request.id,
-        await uninstallCodexPlugin(request.params),
-      );
+      await respond(request.id, await uninstallCodexPlugin(request.params));
       return;
     case "provider.set-codex-experimental-feature-enablement":
       await respond(
@@ -1070,58 +1072,31 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       );
       return;
     case "provider.start-codex-mcp-oauth-login":
-      await respond(
-        request.id,
-        await startCodexMcpOauthLogin(request.params),
-      );
+      await respond(request.id, await startCodexMcpOauthLogin(request.params));
       return;
     case "provider.read-codex-mcp-resource":
-      await respond(
-        request.id,
-        await readCodexMcpResource(request.params),
-      );
+      await respond(request.id, await readCodexMcpResource(request.params));
       return;
     case "provider.rename-codex-thread":
-      await respond(
-        request.id,
-        await renameCodexThread(request.params),
-      );
+      await respond(request.id, await renameCodexThread(request.params));
       return;
     case "provider.read-codex-thread":
-      await respond(
-        request.id,
-        await readCodexThread(request.params),
-      );
+      await respond(request.id, await readCodexThread(request.params));
       return;
     case "provider.fork-codex-thread":
-      await respond(
-        request.id,
-        await forkCodexThread(request.params),
-      );
+      await respond(request.id, await forkCodexThread(request.params));
       return;
     case "provider.archive-codex-thread":
-      await respond(
-        request.id,
-        await archiveCodexThread(request.params),
-      );
+      await respond(request.id, await archiveCodexThread(request.params));
       return;
     case "provider.compact-codex-thread":
-      await respond(
-        request.id,
-        await compactCodexThread(request.params),
-      );
+      await respond(request.id, await compactCodexThread(request.params));
       return;
     case "provider.rollback-codex-thread":
-      await respond(
-        request.id,
-        await rollbackCodexThread(request.params),
-      );
+      await respond(request.id, await rollbackCodexThread(request.params));
       return;
     case "provider.start-codex-review":
-      await respond(
-        request.id,
-        await startCodexReview(request.params),
-      );
+      await respond(request.id, await startCodexReview(request.params));
       return;
     case "provider.import-codex-external-config":
       await respond(
@@ -1130,16 +1105,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       );
       return;
     case "provider.write-codex-config-value":
-      await respond(
-        request.id,
-        await writeCodexConfigValue(request.params),
-      );
+      await respond(request.id, await writeCodexConfigValue(request.params));
       return;
     case "provider.batch-write-codex-config":
-      await respond(
-        request.id,
-        await batchWriteCodexConfig(request.params),
-      );
+      await respond(request.id, await batchWriteCodexConfig(request.params));
       return;
     case "provider.suggest-task-name":
       await respond(request.id, await suggestClaudeTaskName(request.params));
@@ -1157,10 +1126,7 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       );
       return;
     case "provider.review-diff":
-      await respond(
-        request.id,
-        await reviewProviderDiff(request.params),
-      );
+      await respond(request.id, await reviewProviderDiff(request.params));
       return;
     case "tooling.get-status":
       await respond(request.id, await getToolingStatusSnapshot(request.params));

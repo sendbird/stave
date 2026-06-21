@@ -118,6 +118,10 @@ export async function addWorkspaceResource(args: {
   nodeId?: string;
   channelName?: string;
   spaceKey?: string;
+  storybookAccessKind?: string;
+  storybookExternalRepo?: string;
+  storybookReadableVia?: string;
+  storybookSourceHint?: string;
 }) {
   return invokeLocalMcp<{
     workspaceId: string;
@@ -217,6 +221,10 @@ export async function addWorkspaceStorybookResource(args: {
   url: string;
   title?: string;
   note?: string;
+  accessKind?: string;
+  externalRepo?: string;
+  readableVia?: string;
+  sourceHint?: string;
 }) {
   return invokeLocalMcp<{
     workspaceId: string;
@@ -225,6 +233,21 @@ export async function addWorkspaceStorybookResource(args: {
       | null;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("add-workspace-storybook-resource", args);
+}
+
+export async function updateWorkspaceStorybookResourceAccess(args: {
+  workspaceId: string;
+  resourceId?: string;
+  url?: string;
+  accessKind?: string;
+  externalRepo?: string;
+  readableVia?: string;
+  sourceHint?: string;
+}) {
+  return invokeLocalMcp<{
+    workspaceId: string;
+    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
+  }>("update-workspace-storybook-resource-access", args);
 }
 
 export async function addWorkspaceSlackThread(args: {

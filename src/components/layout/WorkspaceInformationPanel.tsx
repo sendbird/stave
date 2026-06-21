@@ -68,8 +68,11 @@ import {
   extractSlackThreadReference,
   extractStorybookResourceReference,
   formatWorkspaceInfoHostLabel,
+  inferStorybookResourceAccess,
   isGitHubPullRequestUrl,
   isWorkspaceInfoUrl,
+  resolveStorybookResourceAccess,
+  type WorkspaceStorybookResourceAccess,
   type WorkspaceInfoCustomField,
   type WorkspaceInfoFieldType,
   type WorkspaceInformationState,
@@ -197,6 +200,33 @@ function formatFigmaKindLabel(
   return kind.charAt(0).toUpperCase() + kind.slice(1);
 }
 
+function formatStorybookAccessBadgeLabel(
+  access?: WorkspaceStorybookResourceAccess | null,
+) {
+  if (!access) {
+    return null;
+  }
+  if (access.kind === "requires_github_auth") {
+    return "GitHub auth";
+  }
+  if (access.kind === "public") {
+    return "Public";
+  }
+  if (access.provider === "github-pages") {
+    return "GitHub Pages";
+  }
+  return null;
+}
+
+function storybookAccessBadgeClass(
+  access?: WorkspaceStorybookResourceAccess | null,
+) {
+  if (access?.kind === "requires_github_auth") {
+    return "border-warning/30 bg-warning/10 text-warning";
+  }
+  return "border-border/70 bg-muted/40 text-muted-foreground";
+}
+
 async function fetchLinkedPullRequestPreview(args: {
   cwd: string;
   url: string;
@@ -262,11 +292,7 @@ function GitHubIcon({ className }: { className?: string }) {
 
 function JiraIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={cn("size-4", className)}
-    >
+    <svg viewBox="0 0 24 24" fill="none" className={cn("size-4", className)}>
       <defs>
         <linearGradient
           id="jira-grad-1"
@@ -305,11 +331,7 @@ function JiraIcon({ className }: { className?: string }) {
 
 function FigmaIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 38 57"
-      fill="none"
-      className={cn("size-4", className)}
-    >
+    <svg viewBox="0 0 38 57" fill="none" className={cn("size-4", className)}>
       <path
         d="M19 28.5a9.5 9.5 0 119 9.5 9.5 9.5 0 01-9.5-9.5z"
         fill="#1ABCFE"
@@ -318,10 +340,7 @@ function FigmaIcon({ className }: { className?: string }) {
         d="M0 47.5A9.5 9.5 0 019.5 38H19v9.5a9.5 9.5 0 11-19 0z"
         fill="#0ACF83"
       />
-      <path
-        d="M19 0v19h9.5a9.5 9.5 0 100-19H19z"
-        fill="#FF7262"
-      />
+      <path d="M19 0v19h9.5a9.5 9.5 0 100-19H19z" fill="#FF7262" />
       <path
         d="M0 9.5A9.5 9.5 0 009.5 19H19V0H9.5A9.5 9.5 0 000 9.5z"
         fill="#F24E1E"
@@ -336,11 +355,7 @@ function FigmaIcon({ className }: { className?: string }) {
 
 function SlackIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={cn("size-4", className)}
-    >
+    <svg viewBox="0 0 24 24" fill="none" className={cn("size-4", className)}>
       <path
         d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z"
         fill="#E01E5A"
@@ -363,11 +378,7 @@ function SlackIcon({ className }: { className?: string }) {
 
 function ConfluenceIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={cn("size-4", className)}
-    >
+    <svg viewBox="0 0 24 24" fill="none" className={cn("size-4", className)}>
       <defs>
         <linearGradient
           id="confluence-grad"
@@ -409,10 +420,7 @@ function SectionHeader(props: {
   return (
     <AccordionItem
       value={props.value}
-      className={cn(
-        "border-b border-border/50",
-        props.first && "border-t-0",
-      )}
+      className={cn("border-b border-border/50", props.first && "border-t-0")}
     >
       <div className="group/section-row flex items-center">
         <AccordionTrigger className="flex-1 gap-2 py-2.5 pr-1 pl-0 hover:no-underline [&>svg[data-slot=accordion-trigger-icon]]:hidden">
@@ -606,7 +614,9 @@ function GitHubPrStatusIcon(props: {
   const cls = cn("size-[18px] shrink-0", props.className);
 
   if (status === "merged") {
-    return <GitMerge className={cn(cls, "text-[#8250df] dark:text-[#a371f7]")} />;
+    return (
+      <GitMerge className={cn(cls, "text-[#8250df] dark:text-[#a371f7]")} />
+    );
   }
   if (status === "closed_unmerged") {
     return (
@@ -624,9 +634,7 @@ function GitHubPrStatusIcon(props: {
   }
   // Open states
   return (
-    <GitPullRequest
-      className={cn(cls, "text-[#1a7f37] dark:text-[#3fb950]")}
-    />
+    <GitPullRequest className={cn(cls, "text-[#1a7f37] dark:text-[#3fb950]")} />
   );
 }
 
@@ -647,10 +655,7 @@ function GitHubPrRow(props: {
 
   return (
     <div className="group/pr-row flex items-start gap-2.5 rounded-md px-1.5 py-2.5 transition-colors hover:bg-muted/50">
-      <GitHubPrStatusIcon
-        status={props.status}
-        className="mt-0.5 size-4"
-      />
+      <GitHubPrStatusIcon status={props.status} className="mt-0.5 size-4" />
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
           <button
@@ -739,7 +744,9 @@ function CustomFieldDatePicker(props: {
   value: string;
   onChange: (value: string) => void;
 }) {
-  const selected = props.value ? new Date(props.value + "T00:00:00") : undefined;
+  const selected = props.value
+    ? new Date(props.value + "T00:00:00")
+    : undefined;
   const isValid = selected && !Number.isNaN(selected.getTime());
 
   return (
@@ -1235,7 +1242,9 @@ export function WorkspaceInformationPanel() {
             action={
               latestTurnSummary ? (
                 <span className="pr-1 text-[11px] text-muted-foreground/70">
-                  {formatTaskUpdatedAt({ value: latestTurnSummary.generatedAt })}
+                  {formatTaskUpdatedAt({
+                    value: latestTurnSummary.generatedAt,
+                  })}
                 </span>
               ) : null
             }
@@ -1318,16 +1327,18 @@ export function WorkspaceInformationPanel() {
                     onClick={() =>
                       patchWorkspaceInformation((current) => ({
                         ...current,
-                        todos: updateItemById(current.todos, todo.id, (item) => ({
-                          ...item,
-                          completed: !item.completed,
-                        })),
+                        todos: updateItemById(
+                          current.todos,
+                          todo.id,
+                          (item) => ({
+                            ...item,
+                            completed: !item.completed,
+                          }),
+                        ),
                       }))
                     }
                     aria-label={
-                      todo.completed
-                        ? "Mark incomplete"
-                        : "Mark complete"
+                      todo.completed ? "Mark incomplete" : "Mark complete"
                     }
                   >
                     {todo.completed ? (
@@ -1341,17 +1352,20 @@ export function WorkspaceInformationPanel() {
                     onChange={(event) =>
                       patchWorkspaceInformation((current) => ({
                         ...current,
-                        todos: updateItemById(current.todos, todo.id, (item) => ({
-                          ...item,
-                          text: event.target.value,
-                        })),
+                        todos: updateItemById(
+                          current.todos,
+                          todo.id,
+                          (item) => ({
+                            ...item,
+                            text: event.target.value,
+                          }),
+                        ),
                       }))
                     }
                     placeholder="Todo item"
                     className={cn(
                       "h-8 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0",
-                      todo.completed &&
-                        "text-muted-foreground/50 line-through",
+                      todo.completed && "text-muted-foreground/50 line-through",
                     )}
                   />
                   <button
@@ -1446,7 +1460,9 @@ export function WorkspaceInformationPanel() {
           >
             <div className="-mx-2 space-y-0.5">
               {/* Current branch PR */}
-              {!isDefaultWorkspace && currentBranchPr && currentBranchPrStatus ? (
+              {!isDefaultWorkspace &&
+              currentBranchPr &&
+              currentBranchPrStatus ? (
                 <GitHubPrRow
                   number={currentBranchPr.number}
                   title={currentBranchPr.title}
@@ -1653,7 +1669,11 @@ export function WorkspaceInformationPanel() {
                     key={issue.id}
                     icon={<Globe className="size-4 text-muted-foreground/70" />}
                     label={title}
-                    sublabel={host ? `${host}${issueKey ? ` · ${issueKey}` : ""}` : issueKey}
+                    sublabel={
+                      host
+                        ? `${host}${issueKey ? ` · ${issueKey}` : ""}`
+                        : issueKey
+                    }
                     badge={
                       issue.status.trim() ? (
                         <Badge
@@ -1727,8 +1747,7 @@ export function WorkspaceInformationPanel() {
                   confluenceRef?.title ||
                   "Linked Confluence page";
                 const host =
-                  confluenceRef?.host ||
-                  formatWorkspaceInfoHostLabel(page.url);
+                  confluenceRef?.host || formatWorkspaceInfoHostLabel(page.url);
                 const spaceKey =
                   page.spaceKey.trim() || confluenceRef?.spaceKey || "";
 
@@ -1774,9 +1793,7 @@ export function WorkspaceInformationPanel() {
                 return (
                   <InlineLinkRow
                     key={page.id}
-                    icon={
-                      <Globe className="size-4 text-muted-foreground/70" />
-                    }
+                    icon={<Globe className="size-4 text-muted-foreground/70" />}
                     label={title}
                     sublabel={
                       host
@@ -1836,6 +1853,12 @@ export function WorkspaceInformationPanel() {
                   const host =
                     storybookRef?.host ||
                     formatWorkspaceInfoHostLabel(resource.url);
+                  const access =
+                    resource.access ??
+                    inferStorybookResourceAccess(resource.url) ??
+                    null;
+                  const accessBadgeLabel =
+                    formatStorybookAccessBadgeLabel(access);
                   const sublabel = host
                     ? `${host}${storybookRef?.storyPath ? ` · ${storybookRef.storyPath}` : ""}`
                     : storybookRef?.storyPath || undefined;
@@ -1860,6 +1883,9 @@ export function WorkspaceInformationPanel() {
                                   ...item,
                                   url,
                                   title: parsed?.title || item.title,
+                                  access: resolveStorybookResourceAccess({
+                                    url,
+                                  }),
                                 };
                               },
                             ),
@@ -1886,6 +1912,34 @@ export function WorkspaceInformationPanel() {
                       }
                       label={title}
                       sublabel={sublabel}
+                      badge={
+                        accessBadgeLabel || access?.externalRepo ? (
+                          <>
+                            {accessBadgeLabel ? (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none",
+                                  storybookAccessBadgeClass(access),
+                                )}
+                              >
+                                {accessBadgeLabel}
+                              </Badge>
+                            ) : null}
+                            {access?.externalRepo ? (
+                              <Badge
+                                variant="outline"
+                                className="h-5 max-w-36 rounded-full px-2 py-0 text-[11px] font-normal leading-none text-muted-foreground"
+                                title={access.externalRepo}
+                              >
+                                <span className="truncate">
+                                  repo {access.externalRepo}
+                                </span>
+                              </Badge>
+                            ) : null}
+                          </>
+                        ) : null
+                      }
                       url={resource.url}
                       onRemove={() =>
                         patchWorkspaceInformation((current) => ({
@@ -2114,10 +2168,7 @@ export function WorkspaceInformationPanel() {
                 <EmptyHint>No custom fields</EmptyHint>
               ) : null}
               {workspaceInformation.customFields.map((field) => (
-                <div
-                  key={field.id}
-                  className="group/field space-y-1.5 px-1.5"
-                >
+                <div key={field.id} className="group/field space-y-1.5 px-1.5">
                   <div className="flex items-center gap-1.5">
                     <Input
                       value={field.label}

@@ -215,10 +215,7 @@ const ChatMessageSchema = z.object({
 const TaskSchema = z.object({
   id: z.string(),
   title: z.string(),
-  provider: z.union([
-    z.literal("claude-code"),
-    z.literal("codex"),
-  ]),
+  provider: z.union([z.literal("claude-code"), z.literal("codex")]),
   updatedAt: z.string(),
   unread: z.boolean(),
   archivedAt: z
@@ -352,11 +349,33 @@ const WorkspaceFigmaResourceSchema = z.object({
   note: z.string().optional().default(""),
 });
 
+const WorkspaceStorybookResourceAccessSchema = z.object({
+  kind: z
+    .union([
+      z.literal("unknown"),
+      z.literal("public"),
+      z.literal("requires_github_auth"),
+    ])
+    .optional()
+    .default("unknown"),
+  provider: z
+    .union([z.literal("unknown"), z.literal("github-pages"), z.literal("web")])
+    .optional()
+    .default("unknown"),
+  externalRepo: z.string().optional().default(""),
+  readableVia: z
+    .union([z.literal("unknown"), z.literal("web"), z.literal("github_cli")])
+    .optional()
+    .default("unknown"),
+  sourceHint: z.string().optional().default(""),
+});
+
 const WorkspaceStorybookResourceSchema = z.object({
   id: z.string(),
   title: z.string().optional().default(""),
   url: z.string().optional().default(""),
   note: z.string().optional().default(""),
+  access: WorkspaceStorybookResourceAccessSchema.optional(),
 });
 
 const WorkspaceLinkedPullRequestSchema = z.object({
