@@ -262,19 +262,20 @@ const WorkspaceTerminalTabSchema = z
     id: z.string(),
     title: z.string(),
     linkedTaskId: z.string().nullable(),
-    // Legacy persisted shells may still contain xterm tabs from before the
-    // Ghostty migration. Normalize those payloads instead of dropping the entire
-    // workspace shell at parse time.
+    // Legacy persisted shells may carry a `backend` tag (`ghostty` from the
+    // pre-xterm dock renderer, or `xterm`). Both surfaces now render with
+    // xterm, so normalize any persisted value to one canonical tag instead of
+    // dropping the workspace shell at parse time.
     backend: z
       .union([z.literal("ghostty"), z.literal("xterm")])
       .optional()
-      .default("ghostty"),
+      .default("xterm"),
     cwd: z.string(),
     createdAt: z.number().int().nonnegative(),
   })
   .transform((tab) => ({
     ...tab,
-    backend: "ghostty" as const,
+    backend: "xterm" as const,
   }));
 
 const WorkspaceCliSessionTabSchema = z.object({

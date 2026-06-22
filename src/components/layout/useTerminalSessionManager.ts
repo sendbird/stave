@@ -867,7 +867,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
 
         // Sync PTY geometry after reattach. While the terminal was hidden,
         // layout changes (window resize, dock drag) only updated the local
-        // Ghostty renderer. Flush the current measured size so the backend
+        // terminal renderer. Flush the current measured size so the backend
         // PTY cols/rows match what the user actually sees.
         const reattachSize = tabManagerGetSize(tabKey);
         const reattachCols = reattachSize.cols || cols;
@@ -1148,7 +1148,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
     transcriptRef.current[activeTabKey] = "";
     scheduleTranscriptFlush();
     tabManagerRef.current.clear(activeTabKey);
-    // Recreate the Ghostty renderer alongside the PTY restart so a corrupted
+    // Recreate the terminal renderer alongside the PTY restart so a corrupted
     // viewport is not reused against the next session bootstrap.
     tabManagerRef.current.restart(activeTabKey);
     setSessionExited(null);
