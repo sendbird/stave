@@ -17,7 +17,7 @@ function createWorkspaceBase() {
         id: "terminal-1",
         title: "Workspace",
         linkedTaskId: null,
-        backend: "xterm",
+        backend: "ghostty",
         cwd: "/tmp/workspace",
         createdAt: 1,
       },
@@ -45,7 +45,7 @@ function createWorkspaceBase() {
 }
 
 describe("task-context workspace schemas", () => {
-  test("normalizes legacy xterm terminal tabs in workspace shell payloads", () => {
+  test("normalizes legacy ghostty terminal tabs to xterm in workspace shell payloads", () => {
     const parsed = parseWorkspaceShell({
       payload: {
         ...createWorkspaceBase(),
@@ -59,7 +59,7 @@ describe("task-context workspace schemas", () => {
         id: "terminal-1",
         title: "Workspace",
         linkedTaskId: null,
-        backend: "ghostty",
+        backend: "xterm",
         cwd: "/tmp/workspace",
         createdAt: 1,
       },
@@ -67,7 +67,7 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.terminalDocked).toBe(true);
   });
 
-  test("normalizes legacy xterm terminal tabs in workspace snapshot payloads", () => {
+  test("normalizes legacy ghostty terminal tabs to xterm in workspace snapshot payloads", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {
         ...createWorkspaceBase(),
@@ -76,7 +76,7 @@ describe("task-context workspace schemas", () => {
     });
 
     expect(parsed).not.toBeNull();
-    expect(parsed?.terminalTabs?.[0]?.backend).toBe("ghostty");
+    expect(parsed?.terminalTabs?.[0]?.backend).toBe("xterm");
     expect(parsed?.terminalDocked).toBe(true);
   });
 

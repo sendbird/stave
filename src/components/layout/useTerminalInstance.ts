@@ -6,17 +6,18 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { FitAddon, Terminal, init as initGhosttyWasm } from "ghostty-web";
-import {
-  bindGhosttyRuntimeErrorHandler,
-  clearGhosttyRuntimeErrorHandler,
-  installGhosttyRuntimeGuards,
-  isRecoverableGhosttyRuntimeError,
-} from "@/lib/terminal/ghostty-runtime-guards";
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal as XTerm, type ITheme } from "@xterm/xterm";
 
 const AUTO_FOCUS_MAX_ATTEMPTS = 60;
 
 export const TERMINAL_WRITE_ERROR_THRESHOLD = 5;
+
+const DEFAULT_TERMINAL_BACKGROUND = "#1f1f1f";
+const DEFAULT_TERMINAL_FOREGROUND = "#eaeaea";
+
+/** Track global WebGL failure — skip on subsequent terminal instances after a GPU crash. */
+let webglLoadFailed = false;
 
 type FocusableTarget = {
   focus?: (this: unknown, options?: { preventScroll?: boolean }) => void;
@@ -138,10 +139,6 @@ export function focusTerminalInstanceSurface(args: {
   return false;
 }
 
-export function isSwallowableTerminalRuntimeError(error: unknown) {
-  return isRecoverableGhosttyRuntimeError(error);
-}
-
 function waitForAnimationFrames(count: number) {
   return new Promise<void>((resolve) => {
     function step(remaining: number) {
@@ -155,19 +152,26 @@ function waitForAnimationFrames(count: number) {
   });
 }
 
-let ghosttyWasmReady: Promise<void> | null = null;
-
-function ensureGhosttyWasm() {
-  installGhosttyRuntimeGuards();
-  if (!ghosttyWasmReady) {
-    ghosttyWasmReady = initGhosttyWasm();
+/** Parse an rgb/rgba string and return the channel values, or null. */
+function parseRgb(rgb: string): [number, number, number] | null {
+  const match = rgb.match(/(\d+)/g);
+  if (!match || match.length < 3) {
+    return null;
   }
-  return ghosttyWasmReady;
+  return [Number(match[0]), Number(match[1]), Number(match[2])];
 }
 
-function resolveTerminalTheme() {
-  // Resolve through a probe element so the browser converts oklch/etc.
-  // to rgb() strings that the terminal renderer can consume.
+function resolveTerminalTheme(): ITheme {
+  if (typeof document === "undefined") {
+    return {
+      background: DEFAULT_TERMINAL_BACKGROUND,
+      foreground: DEFAULT_TERMINAL_FOREGROUND,
+    };
+  }
+
+  // xterm.js (and its WebGL addon) cannot parse oklch() color strings. Resolve
+  // CSS custom properties through a probe element so the browser converts
+  // oklch/etc. to an rgb() string that xterm can consume.
   const probe = document.createElement("div");
   probe.style.display = "none";
   probe.style.backgroundColor = "var(--color-terminal)";
@@ -175,60 +179,32 @@ function resolveTerminalTheme() {
   probe.style.caretColor = "var(--color-primary)";
   document.documentElement.appendChild(probe);
   const computed = getComputedStyle(probe);
-  const background = computed.backgroundColor;
-  const foreground = computed.color;
-  const cursor = computed.caretColor;
+  const background = computed.backgroundColor || DEFAULT_TERMINAL_BACKGROUND;
+  const foreground = computed.color || DEFAULT_TERMINAL_FOREGROUND;
+  const cursor = computed.caretColor || foreground;
   probe.remove();
 
-  return { background, foreground, cursor };
+  // Derive a visible selection colour from the foreground so selected text
+  // stands out regardless of the terminal palette.
+  const fg = parseRgb(foreground);
+  const selectionBackground = fg
+    ? `rgba(${fg[0]}, ${fg[1]}, ${fg[2]}, 0.35)`
+    : undefined;
+  const selectionInactiveBackground = fg
+    ? `rgba(${fg[0]}, ${fg[1]}, ${fg[2]}, 0.2)`
+    : undefined;
+
+  return {
+    background,
+    foreground,
+    cursor,
+    selectionBackground,
+    selectionInactiveBackground,
+  };
 }
 
-type ResolvedTerminalTheme = ReturnType<typeof resolveTerminalTheme>;
-
-function getResolvedTerminalThemeKey(theme: ResolvedTerminalTheme) {
-  return `${theme.background}::${theme.foreground}::${theme.cursor}`;
-}
-
-function applyTerminalTheme(args: {
-  terminal: Terminal;
-  theme: ResolvedTerminalTheme;
-}) {
-  args.terminal.renderer?.setTheme(args.theme);
-
-  if (args.terminal.element) {
-    args.terminal.element.style.backgroundColor = args.theme.background;
-    args.terminal.element.style.color = args.theme.foreground;
-  }
-
-  if (args.terminal.renderer && args.terminal.wasmTerm) {
-    args.terminal.renderer.render(
-      args.terminal.wasmTerm,
-      true,
-      args.terminal.getViewportY(),
-      args.terminal,
-    );
-  }
-}
-
-function writePreservingScroll(args: {
-  terminal: Terminal;
-  data: string;
-  appendNewline?: boolean;
-}) {
-  const viewportY =
-    typeof args.terminal.getViewportY === "function"
-      ? args.terminal.getViewportY()
-      : 0;
-
-  if (args.appendNewline) {
-    args.terminal.writeln(args.data);
-  } else {
-    args.terminal.write(args.data);
-  }
-
-  if (viewportY > 0) {
-    args.terminal.scrollToLine(viewportY);
-  }
+function getResolvedTerminalThemeKey(theme: ITheme) {
+  return `${theme.background}::${theme.foreground}::${theme.cursor}::${theme.selectionBackground}`;
 }
 
 function describeTerminalError(error: unknown, fallback: string) {
@@ -237,67 +213,31 @@ function describeTerminalError(error: unknown, fallback: string) {
     : fallback;
 }
 
-type VisibleTerminalRendererLike = {
-  resize?: (cols: number, rows: number) => void;
-  render: (...args: any[]) => void;
+type ScreenStateTerminalLike = {
+  reset: () => void;
+  write: (data: string) => void;
 };
 
-type VisibleTerminalLike = {
-  cols?: number;
-  rows?: number;
-  resize: (cols: number, rows: number) => void;
-  getViewportY: () => number;
-  renderer?: VisibleTerminalRendererLike | null;
-  wasmTerm?: unknown;
-};
-
-export async function restoreVisibleTerminalViewport(args: {
-  terminal?: VisibleTerminalLike | null;
-  proposed?: { cols: number; rows: number };
-  notifyResize?: (cols: number, rows: number) => Promise<void> | void;
+export function restoreTerminalScreenState(args: {
+  terminal?: ScreenStateTerminalLike | null;
+  screenState: string;
 }) {
   const terminal = args.terminal;
   if (!terminal) {
     return;
   }
 
-  const currentCols = terminal.cols ?? 0;
-  const currentRows = terminal.rows ?? 0;
-  const proposed = args.proposed;
-  const geometryChanged =
-    proposed != null &&
-    (proposed.cols !== currentCols || proposed.rows !== currentRows);
-
-  if (geometryChanged && proposed) {
-    // PTY-first resize contract: if the hidden surface's measured geometry
-    // changed, hand that off to the backend resize path and let the frontend
-    // resize only happen after the PTY has acknowledged it.
-    await args.notifyResize?.(proposed.cols, proposed.rows);
-    return;
-  }
-
-  const rendererCols = proposed?.cols ?? currentCols;
-  const rendererRows = proposed?.rows ?? currentRows;
-  if (
-    terminal.renderer?.resize &&
-    rendererCols > 0 &&
-    rendererRows > 0
-  ) {
-    terminal.renderer.resize(rendererCols, rendererRows);
-  }
-
-  if (terminal.renderer && terminal.wasmTerm) {
-    terminal.renderer.render(
-      terminal.wasmTerm,
-      true,
-      terminal.getViewportY(),
-      terminal,
-    );
+  // Snapshot replay needs a fresh parser/render surface. `clear()` only emits
+  // ANSI erase commands into the existing state, which can leave stale session
+  // state behind when a new PTY is attached to the same renderer.
+  terminal.reset();
+  if (args.screenState) {
+    terminal.write(args.screenState);
   }
 }
 
 export interface TerminalInstanceController {
-  readonly terminal: Terminal | null;
+  readonly terminal: XTerm | null;
   readonly fitAddon: FitAddon | null;
   clear: () => void;
   restoreScreenState: (screenState: string) => void;
@@ -334,38 +274,14 @@ export interface UseTerminalInstanceReturn {
   revision: number;
 }
 
-type ScreenStateTerminalLike = {
-  reset: () => void;
-  write: (data: string) => void;
-};
-
-export function restoreTerminalScreenState(args: {
-  terminal?: ScreenStateTerminalLike | null;
-  screenState: string;
-}) {
-  const terminal = args.terminal;
-  if (!terminal) {
-    return;
-  }
-
-  // Snapshot replay needs a fresh parser/render surface. `clear()` only emits
-  // ANSI erase commands into the existing state, which can leave stale session
-  // state behind when a new PTY is attached to the same renderer.
-  terminal.reset();
-  if (args.screenState) {
-    terminal.write(args.screenState);
-  }
-}
-
 export function useTerminalInstance(
   args: UseTerminalInstanceArgs,
 ): UseTerminalInstanceReturn {
-  const terminalRef = useRef<Terminal | null>(null);
+  const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const cleanupRef = useRef<() => void>(() => {});
   const themeSyncFrameRef = useRef<number | null>(null);
   const themeKeyRef = useRef<string | null>(null);
-  const isComposingRef = useRef(false);
   const visibleRef = useRef(args.visible);
   const diagnosticContextRef = useRef(args.diagnosticContext);
   const onDataRef = useRef(args.onData);
@@ -402,9 +318,7 @@ export function useTerminalInstance(
     try {
       cleanupRef.current();
     } catch (caughtError) {
-      if (!isSwallowableTerminalRuntimeError(caughtError)) {
-        console.warn("[terminal] failed to dispose renderer", caughtError);
-      }
+      console.warn("[terminal] failed to dispose renderer", caughtError);
     }
 
     cleanupRef.current = () => {};
@@ -457,27 +371,6 @@ export function useTerminalInstance(
     },
     [],
   );
-  const handleGhosttyRuntimeError = useCallback(
-    (caughtError: unknown, context: string) => {
-      consecutiveWriteSuccessRef.current = 0;
-      setWriteErrorCount((count) => count + 1);
-      reportRendererIssue(context, caughtError);
-
-      if (isRecoverableGhosttyRuntimeError(caughtError)) {
-        console.warn(`[terminal] ${context} (guarded)`, caughtError);
-        return;
-      }
-
-      console.error(`[terminal] ${context}`, caughtError);
-      setError(
-        describeTerminalError(
-          caughtError,
-          "Terminal renderer failed.",
-        ),
-      );
-    },
-    [reportRendererIssue],
-  );
 
   const executeTerminalOperation = useCallback(
     <T>(
@@ -494,7 +387,9 @@ export function useTerminalInstance(
         const didWrite = options.countWriteSuccessWhen?.(result) ?? true;
         if (options.countWriteError && didWrite) {
           consecutiveWriteSuccessRef.current += 1;
-          if (consecutiveWriteSuccessRef.current >= TERMINAL_WRITE_ERROR_THRESHOLD) {
+          if (
+            consecutiveWriteSuccessRef.current >= TERMINAL_WRITE_ERROR_THRESHOLD
+          ) {
             consecutiveWriteSuccessRef.current = 0;
             setWriteErrorCount(0);
           }
@@ -506,11 +401,7 @@ export function useTerminalInstance(
           setWriteErrorCount((count) => count + 1);
         }
 
-        if (isSwallowableTerminalRuntimeError(caughtError)) {
-          console.warn(`[terminal] ${context} (swallowed)`, caughtError);
-          return undefined;
-        }
-
+        reportRendererIssue(context, caughtError);
         console.error(`[terminal] ${context}`, caughtError);
         setError(
           describeTerminalError(
@@ -521,7 +412,7 @@ export function useTerminalInstance(
         return undefined;
       }
     },
-    [],
+    [reportRendererIssue],
   );
 
   const measureProposedDimensions = useCallback(() => {
@@ -577,7 +468,7 @@ export function useTerminalInstance(
       executeTerminalOperation(
         "sync-terminal-theme",
         () => {
-          applyTerminalTheme({ terminal, theme });
+          terminal.options.theme = theme;
         },
         { message: "Failed to apply terminal theme." },
       );
@@ -645,20 +536,6 @@ export function useTerminalInstance(
     consecutiveWriteSuccessRef.current = 0;
 
     const bootstrap = async () => {
-      try {
-        await ensureGhosttyWasm();
-      } catch (caughtError) {
-        if (!cancelled) {
-          setError(
-            describeTerminalError(
-              caughtError,
-              "Failed to load terminal renderer.",
-            ),
-          );
-        }
-        return;
-      }
-
       const container = args.containerRef.current;
       if (cancelled || !container) {
         return;
@@ -680,13 +557,17 @@ export function useTerminalInstance(
         return;
       }
 
-      const terminal = new Terminal({
-        theme: resolveTerminalTheme(),
+      container.replaceChildren();
+
+      const terminal = new XTerm({
+        allowProposedApi: true,
+        convertEol: true,
+        cursorBlink: false,
+        cursorStyle: "block",
         fontFamily: args.fontFamily,
         fontSize: args.fontSize,
-        cursorBlink: false,
-        convertEol: true,
-        disableStdin: false,
+        scrollback: 10_000,
+        theme: resolveTerminalTheme(),
       });
       const fitAddon = new FitAddon();
 
@@ -713,17 +594,38 @@ export function useTerminalInstance(
       terminalRef.current = terminal;
       fitAddonRef.current = fitAddon;
       themeKeyRef.current = null;
-      bindGhosttyRuntimeErrorHandler(terminal, handleGhosttyRuntimeError);
+
+      if (!webglLoadFailed) {
+        import("@xterm/addon-webgl")
+          .then(({ WebglAddon }) => {
+            if (cancelled || terminalRef.current !== terminal) {
+              return;
+            }
+            try {
+              const webgl = new WebglAddon();
+              webgl.onContextLoss(() => {
+                webgl.dispose();
+                webglLoadFailed = true;
+              });
+              terminal.loadAddon(webgl);
+            } catch {
+              webglLoadFailed = true;
+            }
+          })
+          .catch(() => {
+            webglLoadFailed = true;
+          });
+      }
 
       // Gate ResizeObserver through requestAnimationFrame so resize-heavy
-      // interactions emit at most one measure + resize request per frame.
-      // The local surface still follows the backend-success path, preserving
-      // the PTY-first contract and avoiding stale WebGL geometry churn.
+      // interactions emit at most one measure + resize request per frame. The
+      // local surface still follows the backend-success path, preserving the
+      // PTY-first contract.
       let resizeRafPending = false;
       const resizeObserver =
         typeof ResizeObserver !== "undefined"
           ? new ResizeObserver(() => {
-              if (!visibleRef.current || isComposingRef.current) {
+              if (!visibleRef.current) {
                 return;
               }
               if (resizeRafPending) {
@@ -732,7 +634,7 @@ export function useTerminalInstance(
               resizeRafPending = true;
               requestAnimationFrame(() => {
                 resizeRafPending = false;
-                if (!visibleRef.current || isComposingRef.current) {
+                if (!visibleRef.current) {
                   return;
                 }
                 emitResize();
@@ -758,21 +660,14 @@ export function useTerminalInstance(
         }
         terminal.options.cursorBlink = false;
       };
-      const onCompositionStart = () => {
-        isComposingRef.current = true;
-      };
-      const onCompositionEnd = () => {
-        isComposingRef.current = false;
-        emitResize();
-      };
 
       container.addEventListener("focusin", onFocusIn);
       container.addEventListener("focusout", onFocusOut);
-      container.addEventListener("compositionstart", onCompositionStart);
-      container.addEventListener("compositionend", onCompositionEnd);
 
       await waitForAnimationFrames(2);
       if (cancelled) {
+        container.removeEventListener("focusin", onFocusIn);
+        container.removeEventListener("focusout", onFocusOut);
         dataDisposable.dispose();
         resizeObserver?.disconnect();
         terminal.dispose();
@@ -801,11 +696,8 @@ export function useTerminalInstance(
       cleanupRef.current = () => {
         container.removeEventListener("focusin", onFocusIn);
         container.removeEventListener("focusout", onFocusOut);
-        container.removeEventListener("compositionstart", onCompositionStart);
-        container.removeEventListener("compositionend", onCompositionEnd);
         dataDisposable.dispose();
         resizeObserver?.disconnect();
-        clearGhosttyRuntimeErrorHandler(terminal);
         terminal.dispose();
       };
     };
@@ -914,30 +806,31 @@ export function useTerminalInstance(
         return;
       }
 
-      const proposed = measureProposedDimensions();
-      try {
-        await restoreVisibleTerminalViewport({
-          terminal: terminalRef.current,
-          proposed,
-          notifyResize: (cols, rows) => onResizeRef.current(cols, rows),
-        });
-      } catch (caughtError) {
-        reportRendererIssue("restore-terminal-viewport", caughtError);
-        if (isSwallowableTerminalRuntimeError(caughtError)) {
-          console.warn(
-            "[terminal] restore-terminal-viewport (swallowed)",
-            caughtError,
-          );
-          return;
-        }
-        console.error("[terminal] restore-terminal-viewport", caughtError);
-        setError(
-          describeTerminalError(
-            caughtError,
-            "Failed to restore terminal viewport.",
-          ),
-        );
+      const terminal = terminalRef.current;
+      if (!terminal) {
+        return;
       }
+
+      const proposed = measureProposedDimensions();
+      if (
+        proposed &&
+        (proposed.cols !== terminal.cols || proposed.rows !== terminal.rows)
+      ) {
+        // PTY-first: hand the geometry change to the backend. The local
+        // renderer resizes through the controller once the PTY acknowledges.
+        onResizeRef.current(proposed.cols, proposed.rows);
+        return;
+      }
+
+      // Geometry unchanged — force a repaint in case the surface was
+      // display:none while hidden (xterm may have skipped layout work).
+      executeTerminalOperation(
+        "refresh-terminal-on-restore",
+        () => {
+          terminal.refresh(0, Math.max(0, terminal.rows - 1));
+        },
+        { message: "Failed to refresh terminal viewport." },
+      );
     })();
 
     return () => {
@@ -948,7 +841,6 @@ export function useTerminalInstance(
     args.visible,
     executeTerminalOperation,
     measureProposedDimensions,
-    reportRendererIssue,
     ready,
   ]);
 
@@ -956,8 +848,10 @@ export function useTerminalInstance(
     if (args.visible) {
       return;
     }
-    terminalRef.current?.options &&
-      (terminalRef.current.options.cursorBlink = false);
+    const terminal = terminalRef.current;
+    if (terminal) {
+      terminal.options.cursorBlink = false;
+    }
   }, [args.visible]);
 
   const controller = useMemo<TerminalInstanceController>(
@@ -1006,13 +900,11 @@ export function useTerminalInstance(
         executeTerminalOperation(
           "write-terminal-output",
           () => {
-            if (!terminalRef.current) {
+            const terminal = terminalRef.current;
+            if (!terminal) {
               return false;
             }
-            writePreservingScroll({
-              terminal: terminalRef.current,
-              data,
-            });
+            terminal.write(data);
             return true;
           },
           {
@@ -1026,14 +918,11 @@ export function useTerminalInstance(
         executeTerminalOperation(
           "write-terminal-line",
           () => {
-            if (!terminalRef.current) {
+            const terminal = terminalRef.current;
+            if (!terminal) {
               return false;
             }
-            writePreservingScroll({
-              terminal: terminalRef.current,
-              data,
-              appendNewline: true,
-            });
+            terminal.writeln(data);
             return true;
           },
           {

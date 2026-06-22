@@ -252,6 +252,19 @@
   background-color: var(--color-terminal);
 }
 
+/*
+ * Dock terminal surface uses the same xterm renderer. Its container already
+ * supplies the shell inset padding, so only the viewport background is
+ * overridden here to stop xterm.css's hard-coded black from leaking.
+ */
+[data-terminal-surface] > .xterm {
+  background-color: var(--color-terminal);
+}
+
+[data-terminal-surface] > .xterm > .xterm-viewport {
+  background-color: var(--color-terminal);
+}
+
 @layer base {
   *,
   *::before,
@@ -318,30 +331,6 @@
   * {
     @apply border-border outline-ring/50;
   }
-
-  /*
-   * ghostty-web terminal surface — IME composition fix.
-   *
-   * ghostty-web marks the container as `contenteditable="true"` so the
-   * browser can fire keyboard/composition events.  During CJK IME
-   * composition the browser inserts transient text nodes into the
-   * container.  Those nodes are visible (they appear at the container's
-   * default text-flow position, typically bottom-left) and cause a
-   * micro layout shift that triggers ResizeObserver, making the
-   * terminal jump.
-   *
-   * `font-size: 0` on the container itself collapses any raw text
-   * nodes to zero dimensions so they never affect layout.  The canvas
-   * and hidden textarea inside are sized via inline styles so they are
-   * unaffected.
-   */
-  [data-terminal-surface][contenteditable] {
-    font-size: 0;
-    line-height: 0;
-    color: transparent;
-    caret-color: transparent;
-  }
-
 }
 
 @layer utilities {
