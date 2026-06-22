@@ -255,6 +255,7 @@ function createInterruptedTurnNoticeMessage(args: { taskId: string; count: numbe
 export function appendInterruptedTurnNotices(args: {
   messagesByTask: Record<string, ChatMessage[]>;
   latestTurns?: PersistedTurnSummary[];
+  messageCountByTask?: Record<string, number>;
 }) {
   const latestTurns = args.latestTurns ?? [];
   if (latestTurns.length === 0) {
@@ -284,7 +285,11 @@ export function appendInterruptedTurnNotices(args: {
           ...interruptedMessages,
           createInterruptedTurnNoticeMessage({
             taskId: turn.taskId,
-            count: interruptedMessages.length,
+            // Anchor to the durable total; `interruptedMessages` may be a tail window.
+            count: Math.max(
+              interruptedMessages.length,
+              args.messageCountByTask?.[turn.taskId] ?? 0,
+            ),
           }),
         ];
     changed = true;
@@ -320,6 +325,7 @@ export function interruptActiveTaskTurns(args: {
   messagesByTask: Record<string, ChatMessage[]>;
   activeTurnIdsByTask: Record<string, string | undefined>;
   notice: string;
+  messageCountByTask?: Record<string, number>;
 }) {
   const interruptedTaskIds: string[] = [];
   let messagesChanged = false;
@@ -359,7 +365,11 @@ export function interruptActiveTaskTurns(args: {
           ...finalizedMessages,
           createSystemNoticeMessage({
             taskId: task.id,
-            count: finalizedMessages.length,
+            // Anchor to the durable total; `finalizedMessages` may be a tail window.
+            count: Math.max(
+              finalizedMessages.length,
+              args.messageCountByTask?.[task.id] ?? 0,
+            ),
             notice: args.notice,
           }),
         ];
@@ -484,10 +494,15 @@ export function buildWorkspaceSessionStateFromShell(args: {
     orphanedBranchTaskIds,
   );
   const loadedMessagesByTask = args.messagesByTask ?? empty.messagesByTask;
+  const baseMessageCountByTask = {
+    ...(args.shell?.messageCountByTask ?? empty.messageCountByTask),
+    ...(args.messageCountByTaskOverrides ?? {}),
+  };
   const rawMessagesByTask = args.appendInterruptedNotices
     ? appendInterruptedTurnNotices({
         messagesByTask: loadedMessagesByTask,
         latestTurns: args.latestTurns,
+        messageCountByTask: baseMessageCountByTask,
       })
     : loadedMessagesByTask;
   const messagesByTask = stripRecordsByIds(
@@ -495,10 +510,7 @@ export function buildWorkspaceSessionStateFromShell(args: {
     orphanedBranchTaskIds,
   );
   const messageCountByTask = stripRecordsByIds(
-    {
-      ...(args.shell?.messageCountByTask ?? empty.messageCountByTask),
-      ...(args.messageCountByTaskOverrides ?? {}),
-    },
+    baseMessageCountByTask,
     orphanedBranchTaskIds,
   );
   for (const [taskId, messages] of Object.entries(messagesByTask)) {

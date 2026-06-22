@@ -799,8 +799,16 @@ export function replayProviderEventsToTaskState(args: {
   nativeSessionReady?: boolean;
   providerSession?: TaskProviderSessionState;
   providerGoal?: ProviderGoalSnapshot | null;
+  messageCount?: number;
 }) {
   let current = args.messages;
+  // `current` may be a trimmed tail window. Positional IDs must continue from the
+  // durable total, so convert in-window indices to full-history indices via this
+  // offset; newly created messages then never collide with unloaded older rows.
+  const messageIndexOffset = Math.max(
+    0,
+    (args.messageCount ?? 0) - args.messages.length,
+  );
   let nextActiveTurnId = args.turnId;
   let nextNativeSessionReady = args.nativeSessionReady ?? false;
   let nextProviderSession = args.providerSession;
@@ -835,7 +843,7 @@ export function replayProviderEventsToTaskState(args: {
     if (!target || target.role !== "assistant") {
       target = createStreamingAssistantMessage({
         taskId: args.taskId,
-        count: current.length,
+        count: current.length + messageIndexOffset,
         provider: args.provider,
         model: args.model,
       });
@@ -864,7 +872,7 @@ export function replayProviderEventsToTaskState(args: {
         });
         const planMessage = createPlanAssistantMessage({
           taskId: args.taskId,
-          count: current.length,
+          count: current.length + messageIndexOffset,
           provider: args.provider,
           model: args.model,
           planText: event.planText,

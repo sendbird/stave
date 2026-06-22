@@ -853,6 +853,14 @@ export class SqliteStore {
           id, workspace_id, task_id, role, model, provider_id, content, is_streaming, parts_json, message_json
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          role = excluded.role,
+          model = excluded.model,
+          provider_id = excluded.provider_id,
+          content = excluded.content,
+          is_streaming = excluded.is_streaming,
+          parts_json = excluded.parts_json,
+          message_json = excluded.message_json
       `).run(
         persistedMessageRowId,
         args.workspaceId,
@@ -1363,7 +1371,6 @@ export class SqliteStore {
       if (existingPayloadEntry && "messagesByTask" in existingPayloadEntry.payload) {
         const legacySnapshot = existingPayloadEntry.payload as PersistenceWorkspaceSnapshot;
         for (const taskId of preservedLegacyTaskIds) {
-          this.db.prepare("DELETE FROM messages WHERE workspace_id = ? AND task_id = ?").run(args.id, taskId);
           this.insertTaskMessages({
             workspaceId: args.id,
             taskId,
@@ -1376,7 +1383,11 @@ export class SqliteStore {
         if (!nextTaskIds.has(taskId)) {
           continue;
         }
-        this.db.prepare("DELETE FROM messages WHERE workspace_id = ? AND task_id = ?").run(args.id, taskId);
+        // Message persistence is additive: upsert the in-memory window without
+        // deleting rows it omits. messagesByTask is only a tail window over the
+        // durable `messages` table, so a destructive rewrite here would drop
+        // unloaded older history (and would make in-memory eviction lossy).
+        // Genuine deletions go through removeTaskFromWorkspace/deleteWorkspace.
         this.insertTaskMessages({
           workspaceId: args.id,
           taskId,
