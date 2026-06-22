@@ -61,6 +61,7 @@ import {
 } from "@/lib/pr-status";
 import { isTaskArchived } from "@/lib/tasks";
 import type { PrePrReviewFinding } from "@/lib/source-control-review";
+import { deriveTurnVerificationStatus } from "@/lib/workspace-scripts";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
 
@@ -242,6 +243,68 @@ function PrePrReviewFindingsPanel(props: {
   );
 }
 
+function PrePrVerificationPanel(props: {
+  failures: Array<{ scriptId: string; message: string; blocking: boolean }>;
+  blocking: boolean;
+}) {
+  if (props.failures.length === 0) {
+    return null;
+  }
+
+  const containerClass = props.blocking
+    ? "border-destructive/40 bg-destructive/5"
+    : "border-warning/40 bg-warning/5";
+  const iconClass = props.blocking ? "text-destructive" : "text-warning";
+
+  return (
+    <div className={cn("space-y-2 rounded-lg border p-3", containerClass)}>
+      <div className="flex items-start gap-2">
+        <TriangleAlert className={cn("mt-0.5 size-4 shrink-0", iconClass)} />
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm font-medium text-foreground">
+            Verification {props.blocking ? "failed" : "reported warnings"} —{" "}
+            {props.failures.length} check
+            {props.failures.length === 1 ? "" : "s"}
+          </p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {props.blocking
+              ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
+              : "These pr.beforeOpen checks are non-blocking — proceed anyway, or stop to fix them first."}
+          </p>
+        </div>
+      </div>
+
+      <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+        {props.failures.map((failure, index) => (
+          <div
+            key={`${failure.scriptId}:${index}`}
+            className="rounded-md border border-border/70 bg-background/80 p-2"
+          >
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className="rounded-sm border border-border/70 bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                {failure.scriptId}
+              </span>
+              <span
+                className={cn(
+                  "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase",
+                  failure.blocking
+                    ? "border-destructive/40 text-destructive"
+                    : "border-warning/40 text-warning",
+                )}
+              >
+                {failure.blocking ? "blocking" : "non-blocking"}
+              </span>
+            </div>
+            <p className="mt-1.5 break-words text-xs leading-5 text-foreground">
+              {failure.message}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PullRequestBranchFields(props: {
   currentBranch?: string;
   defaultBranch: string;
@@ -305,6 +368,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     [],
   );
   const [reviewDiffTruncated, setReviewDiffTruncated] = useState(false);
+  const [verificationFailures, setVerificationFailures] = useState<
+    Array<{ scriptId: string; message: string; blocking: boolean }>
+  >([]);
+  const [verificationBlocking, setVerificationBlocking] = useState(false);
 
   // Uncommitted changes section
   const [changedFiles, setChangedFiles] = useState<ScmStatusItem[]>([]);
@@ -425,6 +492,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setInlineNotice(null);
     setReviewFindings([]);
     setReviewDiffTruncated(false);
+    setVerificationFailures([]);
+    setVerificationBlocking(false);
     setChangedFiles([]);
     setCommitMessage("");
     setChangesExpanded(true);
@@ -597,7 +666,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     );
   }
 
-  async function handleSubmit(options: { draft: boolean; skipReview?: boolean }) {
+  async function handleSubmit(options: { draft: boolean; skipReview?: boolean; skipVerification?: boolean }) {
     const submitAction: CreatePrSubmitAction = options.draft ? "draft" : "pr";
     const getStatus = window.api?.sourceControl?.getStatus;
     const runCommand = window.api?.terminal?.runCommand;
@@ -610,6 +679,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!options.skipReview) {
       setReviewFindings([]);
       setReviewDiffTruncated(false);
+    }
+    if (!options.skipVerification) {
+      setVerificationFailures([]);
+      setVerificationBlocking(false);
     }
 
     if (!runCommand || !createPR) {
@@ -828,12 +901,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
     }
 
-    if (runScriptHook && activeWorkspaceId && projectPath) {
+    if (runScriptHook && activeWorkspaceId && projectPath && !options.skipVerification) {
       setStep("action");
       setInlineNotice({
         tone: "info",
         title: "Running PR preflight",
-        description: "Executing configured `pr.beforeOpen` scripts before push and PR creation.",
+        description: "Executing configured `pr.beforeOpen` verification before push and PR creation.",
       });
       const hookResult = await runScriptHook({
         workspaceId: activeWorkspaceId,
@@ -843,13 +916,33 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         workspaceName: currentBranch ?? "workspace",
         branch: currentBranch ?? selectedTargetBranch,
       });
-      if (!hookResult.ok) {
+      if (!hookResult.summary) {
+        // Infra error (invalid config / spawn failure) — hard stop.
+        if (hookResult.error) {
+          setInlineNotice({
+            tone: "error",
+            title: "PR preflight failed",
+            description: hookResult.error,
+          });
+          setStep("ready");
+          setActiveSubmitAction(null);
+          return;
+        }
+      } else if (hookResult.summary.failures.length > 0) {
+        // Gate on verification: blocking failures stop hard, non-blocking
+        // failures warn and allow an explicit "Proceed anyway".
+        const blocking =
+          deriveTurnVerificationStatus(hookResult.summary) === "fail";
+        setVerificationFailures(hookResult.summary.failures);
+        setVerificationBlocking(blocking);
         setInlineNotice({
-          tone: "error",
-          title: "PR preflight failed",
-          description: hookResult.error
-            ?? hookResult.summary?.failures.map((failure) => `${failure.scriptId}: ${failure.message}`).join(" ")
-            ?? "Configured pre-open scripts failed.",
+          tone: blocking ? "error" : "warning",
+          title: blocking
+            ? "Verification failed"
+            : "Verification reported warnings",
+          description: blocking
+            ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
+            : "Non-blocking pr.beforeOpen checks failed. Review them, then proceed or fix.",
         });
         setStep("ready");
         return;
@@ -961,6 +1054,29 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       tone: "warning",
       title: "PR creation paused",
       description: "Fix the review findings, then create the PR again when ready.",
+    });
+  }
+
+  function handleProceedAfterVerification() {
+    const submitAction = activeSubmitAction ?? "pr";
+    setVerificationFailures([]);
+    setVerificationBlocking(false);
+    void handleSubmit({
+      draft: submitAction === "draft",
+      skipReview: true,
+      skipVerification: true,
+    });
+  }
+
+  function handleStopAfterVerification() {
+    setVerificationFailures([]);
+    setVerificationBlocking(false);
+    setStep("ready");
+    setActiveSubmitAction(null);
+    setInlineNotice({
+      tone: "warning",
+      title: "PR creation paused",
+      description: "Fix the verification failures, then create the PR again when ready.",
     });
   }
 
@@ -1348,6 +1464,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   findings={reviewFindings}
                   truncated={reviewDiffTruncated}
                 />
+                <PrePrVerificationPanel
+                  failures={verificationFailures}
+                  blocking={verificationBlocking}
+                />
 
                 {/* PR Title */}
                 <div className="space-y-2">
@@ -1442,6 +1562,24 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   <Button type="button" onClick={handleProceedAfterReview}>
                     Proceed anyway
                   </Button>
+                </DialogFooter>
+              ) : verificationFailures.length > 0 ? (
+                <DialogFooter className="shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleStopAfterVerification}
+                  >
+                    Stop and fix
+                  </Button>
+                  {verificationBlocking ? null : (
+                    <Button
+                      type="button"
+                      onClick={handleProceedAfterVerification}
+                    >
+                      Proceed anyway
+                    </Button>
+                  )}
                 </DialogFooter>
               ) : (
                 <DialogFooter className="shrink-0">

@@ -18,7 +18,8 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
     activeTurnIdsByTask,
     providerTurnActivityByTask,
     workspaceRuntimeCacheById,
-    openFleetView,
+    toggleFleetView,
+    isFleetViewActive,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -32,7 +33,8 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
           state.activeTurnIdsByTask,
           state.providerTurnActivityByTask,
           state.workspaceRuntimeCacheById,
-          state.openFleetView,
+          state.toggleFleetView,
+          state.activeAppSurface.kind === "fleet-view",
         ] as const,
     ),
   );
@@ -91,10 +93,12 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
           className={cn(
             "relative h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
             attentionCount > 0 && "text-warning hover:text-warning",
+            isFleetViewActive && "bg-secondary/70 text-foreground",
           )}
           style={props.noDragStyle}
-          aria-label="open-fleet-view"
-          onClick={openFleetView}
+          aria-label={isFleetViewActive ? "close-fleet-view" : "open-fleet-view"}
+          aria-pressed={isFleetViewActive}
+          onClick={toggleFleetView}
         >
           <Bot className="size-4" />
           {attentionCount > 0 ? (
@@ -104,7 +108,9 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
           ) : null}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">Fleet View</TooltipContent>
+      <TooltipContent side="bottom">
+        {isFleetViewActive ? "Close Fleet View" : "Fleet View"}
+      </TooltipContent>
     </Tooltip>
   );
 }

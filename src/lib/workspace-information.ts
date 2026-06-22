@@ -128,10 +128,49 @@ export interface WorkspaceConfluencePage {
   note: string;
 }
 
+export type WorkspaceTodoStatus = "pending" | "in_progress" | "completed";
+
+export const WORKSPACE_TODO_STATUSES: readonly WorkspaceTodoStatus[] = [
+  "pending",
+  "in_progress",
+  "completed",
+];
+
 export interface WorkspaceTodoItem {
   id: string;
   text: string;
+  /** Legacy mirror of `status === "completed"`, kept for backward compatibility. */
   completed: boolean;
+  status?: WorkspaceTodoStatus;
+}
+
+/** Resolve the effective 3-state status, falling back to the legacy `completed` flag. */
+export function resolveWorkspaceTodoStatus(
+  todo: Pick<WorkspaceTodoItem, "status" | "completed">,
+): WorkspaceTodoStatus {
+  if (todo.status) {
+    return todo.status;
+  }
+  return todo.completed ? "completed" : "pending";
+}
+
+/** Apply a status to a todo, keeping the legacy `completed` flag in sync. */
+export function applyWorkspaceTodoStatus(
+  todo: WorkspaceTodoItem,
+  status: WorkspaceTodoStatus,
+): WorkspaceTodoItem {
+  return { ...todo, status, completed: status === "completed" };
+}
+
+/** Cycle pending -> in_progress -> completed -> pending. */
+export function cycleWorkspaceTodoStatus(
+  status: WorkspaceTodoStatus,
+): WorkspaceTodoStatus {
+  return status === "pending"
+    ? "in_progress"
+    : status === "in_progress"
+      ? "completed"
+      : "pending";
 }
 
 export interface WorkspaceTurnSummary {
@@ -275,6 +314,7 @@ export function createWorkspaceTodoItem(): WorkspaceTodoItem {
     id: buildWorkspaceInformationId("todo"),
     text: "",
     completed: false,
+    status: "pending",
   };
 }
 

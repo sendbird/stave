@@ -201,7 +201,13 @@ export interface WorkspaceScriptHookRunSummary {
   trigger: ScriptTrigger;
   totalEntries: number;
   executedEntries: number;
-  failures: Array<{ scriptId: string; message: string }>;
+  failures: Array<{
+    scriptId: string;
+    message: string;
+    blocking: boolean;
+    /** Bounded combined stdout/stderr, used for file-level verification mapping. */
+    output?: string;
+  }>;
 }
 
 // ---- Legacy renderer state kept for compatibility ------------------------

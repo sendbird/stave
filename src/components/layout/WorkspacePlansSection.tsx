@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ClipboardCheck, FolderOpen, RefreshCcw } from "lucide-react";
+import { ClipboardCheck, ListPlus, RefreshCcw } from "lucide-react";
 import { Badge, Button, Card, CardContent } from "@/components/ui";
 import {
   buildWorkspacePlanListEntries,
@@ -15,6 +15,7 @@ interface WorkspacePlansSectionProps {
   refreshNonce: number;
   embedded?: boolean;
   onOpenFile: (args: { filePath: string }) => Promise<void>;
+  onImportTodos?: (args: { filePath: string }) => void | Promise<void>;
 }
 
 async function listWorkspacePlanEntries(rootPath: string): Promise<WorkspacePlanListEntry[]> {
@@ -48,6 +49,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
     refreshNonce,
     embedded = false,
     onOpenFile,
+    onImportTodos,
   } = args;
   const [entries, setEntries] = useState<WorkspacePlanListEntry[]>([]);
   const [listLoading, setListLoading] = useState(false);
@@ -127,31 +129,45 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
       ) : (
         <div className="space-y-2">
           {entries.map((entry) => (
-            <button
+            <div
               key={entry.filePath}
-              type="button"
-              onClick={() => void onOpenFile({ filePath: entry.filePath })}
-              className="group flex w-full items-start gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-left transition-colors hover:bg-muted/35"
-              title={entry.filePath}
+              className="group flex w-full items-stretch gap-1 overflow-hidden rounded-lg border border-border/70 bg-muted/20 transition-colors hover:bg-muted/35"
             >
-              <ClipboardCheck className="mt-0.5 size-4 shrink-0 text-primary" />
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {entry.label}
+              <button
+                type="button"
+                onClick={() => void onOpenFile({ filePath: entry.filePath })}
+                className="flex min-w-0 flex-1 items-start gap-3 px-3 py-2.5 text-left"
+                title={entry.filePath}
+              >
+                <ClipboardCheck className="mt-0.5 size-4 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {entry.label}
+                    </p>
+                    {entry.source === "legacy" ? (
+                      <Badge variant="outline" className="rounded-sm px-1.5 py-0 text-[10px]">
+                        legacy
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <p className="truncate text-[11px] text-muted-foreground/80">
+                    Task {entry.taskIdPrefix || "unknown"}
                   </p>
-                  {entry.source === "legacy" ? (
-                    <Badge variant="outline" className="rounded-sm px-1.5 py-0 text-[10px]">
-                      legacy
-                    </Badge>
-                  ) : null}
                 </div>
-                <p className="truncate text-[11px] text-muted-foreground/80">
-                  Task {entry.taskIdPrefix || "unknown"}
-                </p>
-              </div>
-              <FolderOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground" />
-            </button>
+              </button>
+              {onImportTodos ? (
+                <button
+                  type="button"
+                  onClick={() => void onImportTodos({ filePath: entry.filePath })}
+                  className="flex shrink-0 items-center justify-center px-2.5 text-muted-foreground/60 transition-colors hover:bg-muted/50 hover:text-foreground"
+                  title="Import checklist items as todos"
+                  aria-label="Import checklist items as todos"
+                >
+                  <ListPlus className="size-4" />
+                </button>
+              ) : null}
+            </div>
           ))}
         </div>
       )}

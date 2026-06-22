@@ -835,11 +835,14 @@ export function ProjectWorkspaceSidebar(args: {
       if (args.projectPath !== useAppStore.getState().projectPath) {
         await openProject({ projectPath: args.projectPath });
       }
-      if (
-        args.workspaceId &&
-        useAppStore.getState().activeWorkspaceId !== args.workspaceId
-      ) {
-        await switchWorkspace({ workspaceId: args.workspaceId });
+      if (args.workspaceId) {
+        const stateNow = useAppStore.getState();
+        if (
+          stateNow.activeWorkspaceId !== args.workspaceId ||
+          stateNow.activeAppSurface.kind !== "workspace"
+        ) {
+          await switchWorkspace({ workspaceId: args.workspaceId });
+        }
       }
     } finally {
       setBusyProjectPath(null);

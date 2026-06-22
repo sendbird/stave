@@ -19,7 +19,9 @@ import {
   createWorkspaceLinkedPullRequest,
   createWorkspaceSlackThread,
   createWorkspaceStorybookResource,
+  applyWorkspaceTodoStatus,
   createWorkspaceTodoItem,
+  type WorkspaceTodoStatus,
   extractConfluencePageReference,
   extractFigmaResourceReference,
   extractJiraIssueReference,
@@ -725,9 +727,16 @@ export async function updateWorkspaceTodo(args: {
   todoId: string;
   text?: string;
   completed?: boolean;
+  status?: WorkspaceTodoStatus;
 }) {
-  if (args.text === undefined && args.completed === undefined) {
-    throw new Error("Workspace todo update requires text or completed.");
+  if (
+    args.text === undefined &&
+    args.completed === undefined &&
+    args.status === undefined
+  ) {
+    throw new Error(
+      "Workspace todo update requires text, status, or completed.",
+    );
   }
   return updateWorkspaceInformationState({
     workspaceId: args.workspaceId,
@@ -738,13 +747,20 @@ export async function updateWorkspaceTodo(args: {
           return todo;
         }
         found = true;
-        return {
-          ...todo,
-          ...(args.text !== undefined ? { text: args.text.trim() } : {}),
-          ...(args.completed !== undefined
-            ? { completed: args.completed }
-            : {}),
-        };
+        const withText =
+          args.text !== undefined ? { ...todo, text: args.text.trim() } : todo;
+        // `status` is the source of truth; a legacy `completed` flag maps to
+        // true -> "completed", false -> "pending".
+        const nextStatus: WorkspaceTodoStatus | undefined =
+          args.status ??
+          (args.completed !== undefined
+            ? args.completed
+              ? "completed"
+              : "pending"
+            : undefined);
+        return nextStatus !== undefined
+          ? applyWorkspaceTodoStatus(withText, nextStatus)
+          : withText;
       });
       if (!found) {
         throw new Error(`Workspace todo not found: ${args.todoId}`);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildWorkspacePlanListEntries,
   buildWorkspacePlanFilePath,
+  extractPlanTodoItems,
   isWorkspacePlanFilePath,
   MAX_WORKSPACE_PLANS,
   parseWorkspacePlanFilePath,
@@ -36,6 +37,48 @@ function installStubApi(api: StubApi) {
     }
   };
 }
+
+describe("extractPlanTodoItems", () => {
+  test("extracts task-list checkboxes with completion state", () => {
+    const items = extractPlanTodoItems(
+      [
+        "# Plan",
+        "",
+        "- [ ] First task",
+        "- [x] Second done",
+        "* [X] Third done",
+        "+ [ ] Fourth task",
+        "Some prose that is not a task.",
+      ].join("\n"),
+    );
+    expect(items).toEqual([
+      { text: "First task", completed: false },
+      { text: "Second done", completed: true },
+      { text: "Third done", completed: true },
+      { text: "Fourth task", completed: false },
+    ]);
+  });
+
+  test("falls back to numbered list items when no checkboxes exist", () => {
+    const items = extractPlanTodoItems(
+      ["1. Set up", "2) Build", "- a plain bullet", "## Heading"].join("\n"),
+    );
+    expect(items).toEqual([
+      { text: "Set up", completed: false },
+      { text: "Build", completed: false },
+    ]);
+  });
+
+  test("ignores numbered items once checkboxes are present", () => {
+    const items = extractPlanTodoItems(["1. Ignored", "- [ ] Kept"].join("\n"));
+    expect(items).toEqual([{ text: "Kept", completed: false }]);
+  });
+
+  test("returns an empty list for empty or task-free markdown", () => {
+    expect(extractPlanTodoItems("")).toEqual([]);
+    expect(extractPlanTodoItems("Just prose.\n\nMore prose.")).toEqual([]);
+  });
+});
 
 describe("workspace plans helpers", () => {
   test("writes new plans into the workspace context plans directory", () => {

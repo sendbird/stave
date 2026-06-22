@@ -102,6 +102,7 @@ export function EditorPanel(props: EditorPanelProps) {
     sidebarOverlayTab,
     workspaceCwd,
     scmAutoRefreshSeconds,
+    turnVerification,
     openFileFromTree,
     openDiffInEditor,
     setLayout,
@@ -116,6 +117,7 @@ export function EditorPanel(props: EditorPanelProps) {
     state.layout.sidebarOverlayTab,
     state.workspacePathById[state.activeWorkspaceId] ?? state.projectPath ?? undefined,
     state.settings.scmAutoRefreshSeconds,
+    state.turnVerificationByWorkspace[state.activeWorkspaceId],
     state.openFileFromTree,
     state.openDiffInEditor,
     state.setLayout,
@@ -151,8 +153,8 @@ export function EditorPanel(props: EditorPanelProps) {
   const isExplorerLoading = explorerRootState?.status === "loading";
   const filteredScmItems = sourceItems;
   const sourceControlSections = useMemo(
-    () => buildSourceControlSections({ items: filteredScmItems }),
-    [filteredScmItems],
+    () => buildSourceControlSections({ items: filteredScmItems, verification: turnVerification ?? null }),
+    [filteredScmItems, turnVerification],
   );
   const sourceControlSummary = useMemo(
     () => buildSourceControlSummary({ items: filteredScmItems }),
@@ -942,6 +944,7 @@ export function EditorPanel(props: EditorPanelProps) {
               onRefresh={() => loadScmStatus()}
               autoRefreshSeconds={scmAutoRefreshSeconds}
               onAutoRefreshSecondsChange={(seconds) => updateSettings({ patch: { scmAutoRefreshSeconds: seconds } })}
+              verification={turnVerification ?? null}
             />
           ) : null}
 
