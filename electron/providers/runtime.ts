@@ -7,11 +7,7 @@ import {
 } from "./claude-sdk-runtime";
 import { buildCodexCliEnv } from "./cli-path-env";
 import {
-  cleanupCodexTask,
   resolveCodexExecutablePath,
-  streamCodexWithSdk,
-} from "./codex-sdk-runtime";
-import {
   cleanupCodexAppServerTask,
   streamCodexWithAppServer,
 } from "./codex-app-server-runtime";
@@ -85,13 +81,6 @@ const activeStreams = new Map<string, ActiveStreamSession>();
  * SQLite being closed → "database connection is not open".
  */
 const activeTurnPromises = new Map<string, Promise<void>>();
-const CODEX_RUNTIME_SELECTOR =
-  process.env.STAVE_CODEX_RUNTIME?.trim().toLowerCase();
-
-function shouldUseLegacyCodexRuntime() {
-  return CODEX_RUNTIME_SELECTOR === "legacy-sdk";
-}
-
 function upsertActiveSession(args: {
   turnId: string;
   providerId: StreamTurnArgs["providerId"];
@@ -282,7 +271,6 @@ function appendStreamEvent(session: ActiveStreamSession, event: BridgeEvent) {
 
 function cleanupProviderTaskState(taskId: string) {
   cleanupClaudeTask(taskId);
-  cleanupCodexTask(taskId);
   cleanupCodexAppServerTask(taskId);
 }
 
@@ -578,9 +566,7 @@ async function runProviderTurn(
 
   try {
     const events = await runStreamWithPausableTimeout(
-      (shouldUseLegacyCodexRuntime()
-        ? streamCodexWithSdk
-        : streamCodexWithAppServer)({
+      streamCodexWithAppServer({
         ...args,
         onEvent: wrapStreamOnEvent(args.onEvent),
         registerAbort: (aborter) => {

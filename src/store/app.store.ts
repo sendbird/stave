@@ -992,7 +992,6 @@ export interface AppSettings {
   codexShowRawReasoning: boolean;
   codexReasoningSummary: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport: "auto" | "enabled" | "disabled";
-  codexAdditionalReadableRoots: string;
   codexFastMode: boolean;
   codexPlanMode: boolean;
   /**
@@ -2094,7 +2093,6 @@ const defaultSettings: AppSettings = {
   codexShowRawReasoning: false,
   codexReasoningSummary: "auto",
   codexReasoningSummarySupport: "auto",
-  codexAdditionalReadableRoots: "",
   codexFastMode: false,
   codexPlanMode: false,
   planAutoApprove: undefined,
@@ -11578,6 +11576,7 @@ export const useAppStore = create<AppState>()(
         delete raw.codexShowRawAgentReasoning;
         delete raw.codexSupportsReasoningSummaries;
         delete raw.codexExperimentalPlanMode;
+        delete raw.codexAdditionalReadableRoots;
         state.settings.thinkingPhraseAnimationStyle =
           normalizeThinkingPhraseAnimationStyle(
             state.settings.thinkingPhraseAnimationStyle,

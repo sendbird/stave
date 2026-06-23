@@ -157,16 +157,15 @@ describe("toAsarUnpackedPath", () => {
   test("rewrites packaged Electron paths to app.asar.unpacked", () => {
     expect(
       toAsarUnpackedPath(
-        "/Applications/Stave.app/Contents/Resources/app.asar/node_modules/@openai/codex/vendor/bin/codex",
+        "/Applications/Stave.app/Contents/Resources/app.asar/node_modules/@vscode/ripgrep/bin/rg",
       ),
     ).toBe(
-      "/Applications/Stave.app/Contents/Resources/app.asar.unpacked/node_modules/@openai/codex/vendor/bin/codex",
+      "/Applications/Stave.app/Contents/Resources/app.asar.unpacked/node_modules/@vscode/ripgrep/bin/rg",
     );
   });
 
   test("leaves non-asar paths unchanged", () => {
-    const input =
-      "/Users/demo/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex";
+    const input = "/Users/demo/node_modules/@vscode/ripgrep/bin/rg";
     expect(toAsarUnpackedPath(input)).toBe(input);
   });
 });
@@ -179,13 +178,13 @@ describe("normalizeExecutablePathValue", () => {
 
     const normalized = normalizeExecutablePathValue({
       value:
-        "~/Applications/Stave.app/Contents/Resources/app.asar/node_modules/@openai/codex/vendor/bin/codex",
+        "~/Applications/Stave.app/Contents/Resources/app.asar/node_modules/@vscode/ripgrep/bin/rg",
     });
 
     expect(normalized).toBe(
       path.join(
         process.env.HOME.trim(),
-        "Applications/Stave.app/Contents/Resources/app.asar.unpacked/node_modules/@openai/codex/vendor/bin/codex",
+        "Applications/Stave.app/Contents/Resources/app.asar.unpacked/node_modules/@vscode/ripgrep/bin/rg",
       ),
     );
   });

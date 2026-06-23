@@ -17,7 +17,6 @@ describe("provider IPC schemas", () => {
       prompt: "continue",
       runtimeOptions: {
         codexApprovalPolicy: "on-failure",
-        codexAdditionalReadableRoots: ["/tmp/context"],
         claudePromptSuggestions: false,
         claudeForwardSubagentText: true,
         claudeEnableFileCheckpointing: true,

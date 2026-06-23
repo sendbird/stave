@@ -32,7 +32,7 @@ Trace forward and backward across boundaries.
 |---|---|
 | Renderer → preload | `src/types/window-api.d.ts`, `electron/preload.ts` |
 | Preload → main IPC | `electron/main/ipc/*.ts`, strict Zod schemas in `electron/main/ipc/schemas.ts` |
-| IPC → provider runtime | `electron/providers/claude-sdk-runtime.ts`, `electron/providers/codex-sdk-runtime.ts`, `electron/providers/adapter.factory.ts` |
+| IPC → provider runtime | `electron/providers/claude-sdk-runtime.ts`, `electron/providers/codex-app-server-runtime.ts`, `electron/providers/adapter.factory.ts` |
 | Provider emit → normalize | `src/lib/providers/provider.types.ts` (TS union) + `src/lib/providers/schemas.ts` (Zod union, strictly validated at `parseNormalizedEvent`) |
 | Normalized event → UI state | `src/lib/session/provider-event-replay.ts`, `src/store/app.store.ts` consumers, `src/components/session/chat-panel-message-parts.tsx` |
 | Terminal IPC | `electron/main/ipc/terminal.ts`, `electron/host-service/terminal-runtime.ts`, `src/components/layout/useTerminalSessionManager.ts` |

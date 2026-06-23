@@ -540,7 +540,6 @@ export interface ProviderRuntimeOptions {
   codexShowRawReasoning?: boolean;
   codexReasoningSummary?: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport?: "auto" | "enabled" | "disabled";
-  codexAdditionalReadableRoots?: string[];
   codexFastMode?: boolean;
   codexPlanMode?: boolean;
   codexResumeThreadId?: string;

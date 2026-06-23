@@ -128,7 +128,6 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "codexShowRawReasoning",
   "codexReasoningSummary",
   "codexReasoningSummarySupport",
-  "codexAdditionalReadableRoots",
   "codexFastMode",
   "codexPlanMode",
   "codexResumeThreadId",

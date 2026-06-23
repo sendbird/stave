@@ -573,7 +573,6 @@ export function ProvidersSection() {
     codexShowRawReasoning,
     codexReasoningSummary,
     codexReasoningSummarySupport,
-    codexAdditionalReadableRoots,
     codexFastMode,
     trustedTools,
   ] = useAppStore(
@@ -609,7 +608,6 @@ export function ProvidersSection() {
           state.settings.codexShowRawReasoning,
           state.settings.codexReasoningSummary,
           state.settings.codexReasoningSummarySupport,
-          state.settings.codexAdditionalReadableRoots,
           state.settings.codexFastMode,
           state.settings.trustedTools,
         ] as const,
@@ -1302,21 +1300,6 @@ export function ProvidersSection() {
                   updateSettings({ patch: { codexFastMode: checked } })
                 }
               />
-              <LabeledField
-                title="Additional Readable Roots"
-                description="Comma- or newline-separated directories Codex can read in restricted read-only/workspace-write sandboxes."
-              >
-                <DraftInput
-                  className="h-10 rounded-md border-border/80 bg-background"
-                  value={codexAdditionalReadableRoots}
-                  placeholder="<workspace>/context"
-                  onCommit={(value) =>
-                    updateSettings({
-                      patch: { codexAdditionalReadableRoots: value },
-                    })
-                  }
-                />
-              </LabeledField>
             </SettingsCard>
             <CodexBinaryPathCard />
           </SectionStack>

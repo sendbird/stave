@@ -1,8 +1,8 @@
 # Codex Upgrade Checklist
 
-Use this checklist whenever Stave upgrades `@openai/codex-sdk`, changes expected Codex CLI or app-server behavior, or adopts a newer Codex app-server protocol surface.
+Use this checklist whenever Stave changes expected Codex CLI or app-server behavior, or adopts a newer Codex app-server protocol surface.
 
-Current baseline: `@openai/codex-sdk@0.140.0` with local `codex` CLI/App Server `0.140.0`.
+Current baseline: local `codex` CLI/App Server `0.142.0`.
 
 ## Guardrails
 
@@ -12,7 +12,7 @@ Current baseline: `@openai/codex-sdk@0.140.0` with local `codex` CLI/App Server 
 
 ## Guardian Reviewer
 
-- Explicitly check whether official Guardian reviewer support is present in the installed SDK, CLI, or app-server protocol.
+- Explicitly check whether official Guardian reviewer support is present in the installed CLI or app-server protocol.
 - Review support for:
   - `approvalsReviewer`
   - `allowedApprovalsReviewers`
@@ -28,7 +28,6 @@ Current baseline: `@openai/codex-sdk@0.140.0` with local `codex` CLI/App Server 
 ## Required Check Files
 
 - `electron/providers/codex-app-server-runtime.ts`
-- `electron/providers/codex-sdk-runtime.ts`
 - `electron/providers/runtime.ts`
 - `electron/providers/types.ts`
 - `src/lib/providers/provider.types.ts`
@@ -44,16 +43,15 @@ Current baseline: `@openai/codex-sdk@0.140.0` with local `codex` CLI/App Server 
 
 - Confirm the default runtime path still matches product intent:
   - app-server path
-  - legacy SDK fallback path
 - Confirm any new request fields are wired across the full path:
   - renderer settings or draft override
   - shared runtime options type
   - preload and `window.api`
   - IPC schema
   - provider runtime request payload
-- Keep App Server `experimentalApi` advertised while Stave requests `experimentalRawEvents`; `thread/start` rejects that parameter without the capability.
+- Keep App Server request builders aligned with `codex app-server generate-ts` / `generate-json-schema`; do not add hand-written thread or turn fields outside the generated request types.
 - Confirm `on-failure`, `on-request`, `untrusted`, and `never` approval policies still round-trip through settings, IPC schema, and runtime payloads.
-- Confirm restricted sandbox readable roots use App Server `permissionProfile` and remain additive without widening the workspace write root.
+- Confirm sandbox payloads match the generated `SandboxPolicy` variants.
 - Confirm any new response or event payloads are mapped into Stave's normalized provider event flow if needed.
 - Confirm Codex mode presets still reflect the intended autonomy model after the upgrade.
 - Confirm external config import or raw config editing does not silently fight any new first-class Stave surface.

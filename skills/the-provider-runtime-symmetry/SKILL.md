@@ -1,6 +1,6 @@
 ---
 name: the-provider-runtime-symmetry
-description: Keep Stave's Claude and Codex provider runtimes in sync when editing one of them. Use when a change touches `electron/providers/claude-sdk-runtime.ts`, `electron/providers/codex-sdk-runtime.ts`, `electron/providers/codex-app-server-runtime.ts`, executable lookup, env construction, CLI session launch env, tooling status probes, or any provider-agnostic behavior. Trigger on phrases like "provider runtime", "claude adapter", "codex adapter", "sibling adapter", "PATH env", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "tooling status", "어댑터 대칭", "양쪽 프로바이더 확인".
+description: Keep Stave's Claude and Codex provider runtimes in sync when editing one of them. Use when a change touches `electron/providers/claude-sdk-runtime.ts`, `electron/providers/codex-app-server-runtime.ts`, executable lookup, env construction, CLI session launch env, tooling status probes, or any provider-agnostic behavior. Trigger on phrases like "provider runtime", "claude adapter", "codex adapter", "sibling adapter", "PATH env", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "tooling status", "어댑터 대칭", "양쪽 프로바이더 확인".
 compatible-tools: [claude, codex]
 category: safety
 test-prompts:
@@ -24,7 +24,7 @@ Use alongside `the-ipc-contract-audit` when the change also crosses IPC.
 
 ## Use This Skill When
 
-- Editing `electron/providers/claude-sdk-runtime.ts` or `electron/providers/codex-sdk-runtime.ts`.
+- Editing `electron/providers/claude-sdk-runtime.ts`.
 - Editing `electron/providers/codex-app-server-runtime.ts` or `electron/providers/runtime.ts`.
 - Editing executable lookup (`electron/providers/executable-path.ts`) or CLI env builder (`electron/providers/cli-path-env.ts`).
 - Editing CLI session launch env in host-service terminal surfaces.
@@ -43,8 +43,7 @@ Use alongside `the-ipc-contract-audit` when the change also crosses IPC.
 | File | Role |
 |---|---|
 | `electron/providers/claude-sdk-runtime.ts` | Claude SDK adapter (~1 200 lines) |
-| `electron/providers/codex-sdk-runtime.ts` | Codex SDK adapter (~800 lines) |
-| `electron/providers/codex-app-server-runtime.ts` | Codex app-server variant |
+| `electron/providers/codex-app-server-runtime.ts` | Codex App Server adapter |
 | `electron/providers/runtime.ts` | Shared provider runtime entry |
 | `electron/providers/executable-path.ts` | CLI binary lookup |
 | `electron/providers/cli-path-env.ts` | Env-builder (PATH, config homes) |
@@ -91,7 +90,7 @@ Verify both paths explicitly.
 
 ### 6. SDK upgrade hygiene
 
-When upgrading `@anthropic-ai/claude-agent-sdk`, `@openai/codex-sdk`, or the Claude/Codex CLI expectations:
+When upgrading `@anthropic-ai/claude-agent-sdk` or the Claude/Codex CLI expectations:
 
 - [ ] Confirm new option names and object shapes against installed package types in `node_modules`, not memory.
 - [ ] For Codex upgrades, read `docs/providers/codex-upgrade-checklist.md`, including Guardian reviewer status.

@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildCodexConfigOverrides,
   buildSandboxPolicy,
+  buildCodexThreadResumeParams,
+  buildCodexThreadStartParams,
+  buildCodexTurnStartParams,
   createCodexAppServerElicitationPauseController,
   formatCodexGoal,
   mapCodexElicitationToApproval,
@@ -19,6 +23,81 @@ function encodeJwtPayload(payload: Record<string, unknown>) {
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
   return `header.${encoded}.signature`;
+}
+
+// Derived from `codex app-server generate-json-schema --out <dir>` for
+// Codex CLI/App Server 0.142.0.
+const GENERATED_CODEX_APP_SERVER_V2_TURN_START_PARAM_KEYS: Set<string> =
+  new Set([
+    "approvalPolicy",
+    "approvalsReviewer",
+    "clientUserMessageId",
+    "cwd",
+    "effort",
+    "input",
+    "model",
+    "outputSchema",
+    "personality",
+    "sandboxPolicy",
+    "serviceTier",
+    "summary",
+    "threadId",
+  ] as const);
+
+const GENERATED_CODEX_APP_SERVER_V2_THREAD_START_PARAM_KEYS: Set<string> =
+  new Set([
+    "approvalPolicy",
+    "approvalsReviewer",
+    "baseInstructions",
+    "config",
+    "cwd",
+    "developerInstructions",
+    "ephemeral",
+    "model",
+    "modelProvider",
+    "personality",
+    "sandbox",
+    "serviceName",
+    "serviceTier",
+    "sessionStartSource",
+    "threadSource",
+  ] as const);
+
+const GENERATED_CODEX_APP_SERVER_V2_THREAD_RESUME_PARAM_KEYS: Set<string> =
+  new Set([
+    "approvalPolicy",
+    "approvalsReviewer",
+    "baseInstructions",
+    "config",
+    "cwd",
+    "developerInstructions",
+    "model",
+    "modelProvider",
+    "personality",
+    "sandbox",
+    "serviceTier",
+    "threadId",
+  ] as const);
+
+function expectGeneratedTurnStartParamKeys(value: object) {
+  const unexpectedKeys = Object.keys(value).filter(
+    (key) => !GENERATED_CODEX_APP_SERVER_V2_TURN_START_PARAM_KEYS.has(key),
+  );
+  expect(unexpectedKeys).toEqual([]);
+}
+
+function expectGeneratedThreadStartParamKeys(value: object) {
+  const unexpectedKeys = Object.keys(value).filter(
+    (key) => !GENERATED_CODEX_APP_SERVER_V2_THREAD_START_PARAM_KEYS.has(key),
+  );
+  expect(unexpectedKeys).toEqual([]);
+}
+
+function expectGeneratedThreadResumeParamKeys(value: object) {
+  const unexpectedKeys = Object.keys(value).filter(
+    (key) => !GENERATED_CODEX_APP_SERVER_V2_THREAD_RESUME_PARAM_KEYS.has(key),
+  );
+  expect(unexpectedKeys).toEqual([]);
 }
 
 describe("Codex /goal slash command helpers", () => {
@@ -317,53 +396,170 @@ describe("mapCodexElicitationToUserInput", () => {
 });
 
 describe("buildSandboxPolicy", () => {
-  test("uses permissionProfile for read-only restricted reads", () => {
+  test("uses generated read-only sandbox policy shape", () => {
     const policy = buildSandboxPolicy({
       cwd: "/tmp/project",
       runtimeOptions: {
         codexFileAccess: "read-only",
         codexNetworkAccess: false,
-        codexAdditionalReadableRoots: ["/tmp/context"],
       },
-      pathExists: (value) => value.startsWith("/tmp/"),
     });
 
     expect(policy).toEqual({
       type: "readOnly",
-      permissionProfile: {
-        type: "restricted",
-        includePlatformDefaults: true,
-        readableRoots: ["/tmp/project", "/tmp/context"],
-      },
       networkAccess: false,
     });
-    expect(policy).not.toHaveProperty("access");
+    expect(policy).not.toHaveProperty("permissionProfile");
   });
 
-  test("uses permissionProfile for workspace-write restricted reads", () => {
+  test("uses generated workspace-write sandbox policy shape", () => {
     const policy = buildSandboxPolicy({
       cwd: "/tmp/project",
       runtimeOptions: {
         codexFileAccess: "workspace-write",
         codexNetworkAccess: true,
-        codexAdditionalReadableRoots: ["/tmp/context"],
       },
-      pathExists: (value) => value.startsWith("/tmp/"),
     });
 
     expect(policy).toEqual({
       type: "workspaceWrite",
       writableRoots: ["/tmp/project"],
-      permissionProfile: {
-        type: "restricted",
-        includePlatformDefaults: true,
-        readableRoots: ["/tmp/project", "/tmp/context"],
-      },
       networkAccess: true,
       excludeTmpdirEnvVar: false,
       excludeSlashTmp: false,
     });
-    expect(policy).not.toHaveProperty("readOnlyAccess");
+    expect(policy).not.toHaveProperty("permissionProfile");
+  });
+});
+
+describe("Codex App Server plan-mode payloads", () => {
+  test("forwards plan mode through generated thread config overrides", () => {
+    const config = buildCodexConfigOverrides({
+      runtimeOptions: {
+        codexPlanMode: true,
+        codexReasoningEffort: "high",
+      },
+    });
+
+    expect(config).toMatchObject({
+      collaboration_mode_kind: "plan",
+      plan_mode_reasoning_effort: "high",
+    });
+  });
+
+  test("keeps thread/start payload within generated schema keys", () => {
+    const params = buildCodexThreadStartParams({
+      cwd: "/tmp/project",
+      runtimeOptions: {
+        model: "gpt-5.1",
+        codexPlanMode: true,
+        codexReasoningEffort: "high",
+      },
+      ephemeral: true,
+      sandbox: "read-only",
+      approvalPolicy: "never",
+    });
+
+    expectGeneratedThreadStartParamKeys(params);
+    expect(params).not.toHaveProperty("experimentalRawEvents");
+    expect(params).not.toHaveProperty("persistExtendedHistory");
+    expect(params).toMatchObject({
+      cwd: "/tmp/project",
+      model: "gpt-5.1",
+      ephemeral: true,
+      sandbox: "read-only",
+      approvalPolicy: "never",
+      config: {
+        collaboration_mode_kind: "plan",
+        plan_mode_reasoning_effort: "high",
+      },
+    });
+  });
+
+  test("keeps thread/resume payload within generated schema keys", () => {
+    const params = buildCodexThreadResumeParams({
+      threadId: "thread-1",
+      cwd: "/tmp/project",
+      runtimeOptions: {
+        model: "gpt-5.1",
+        codexFastMode: true,
+      },
+    });
+
+    expectGeneratedThreadResumeParamKeys(params);
+    expect(params).not.toHaveProperty("experimentalRawEvents");
+    expect(params).not.toHaveProperty("persistExtendedHistory");
+    expect(params).toMatchObject({
+      threadId: "thread-1",
+      cwd: "/tmp/project",
+      model: "gpt-5.1",
+      config: {
+        "features.fast_mode": true,
+      },
+    });
+  });
+
+  test("keeps plan turn/start payload within generated schema keys", () => {
+    const params = buildCodexTurnStartParams({
+      threadId: "thread-1",
+      prompt: "Draft a plan.",
+      cwd: "/tmp/project",
+      runtimeOptions: {
+        model: "gpt-5.1",
+        codexPlanMode: true,
+        codexApprovalPolicy: "on-request",
+        codexFileAccess: "danger-full-access",
+        codexNetworkAccess: false,
+        codexReasoningEffort: "high",
+        codexReasoningSummary: "concise",
+      },
+    });
+
+    expectGeneratedTurnStartParamKeys(params);
+    expect(params).not.toHaveProperty("collaborationMode");
+    expect(params).toMatchObject({
+      threadId: "thread-1",
+      cwd: "/tmp/project",
+      approvalPolicy: "never",
+      model: "gpt-5.1",
+      effort: "high",
+      summary: "concise",
+      sandboxPolicy: {
+        type: "readOnly",
+        networkAccess: false,
+      },
+    });
+  });
+
+  test("uses native turn/start outputSchema for isolated review turns", () => {
+    const outputSchema = {
+      type: "object",
+      properties: {
+        findings: { type: "array" },
+      },
+    };
+    const params = buildCodexTurnStartParams({
+      threadId: "thread-review-1",
+      prompt: "Review the diff.",
+      cwd: "/tmp/project",
+      runtimeOptions: {
+        codexFileAccess: "read-only",
+        codexNetworkAccess: false,
+        codexApprovalPolicy: "never",
+      },
+      outputSchema,
+    });
+
+    expectGeneratedTurnStartParamKeys(params);
+    expect(params).toMatchObject({
+      threadId: "thread-review-1",
+      approvalPolicy: "never",
+      outputSchema,
+      sandboxPolicy: {
+        type: "readOnly",
+        networkAccess: false,
+      },
+    });
   });
 });
 

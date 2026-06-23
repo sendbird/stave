@@ -68,6 +68,7 @@ import {
   readCodexThread,
   readCodexMcpResource,
   renameCodexThread,
+  reviewCodexWorktreeDiff,
   rollbackCodexThread,
   setCodexExperimentalFeatureEnablement,
   startCodexMcpOauthLogin,
@@ -75,7 +76,6 @@ import {
   uninstallCodexPlugin,
   writeCodexConfigValue,
 } from "./providers/codex-app-server-runtime";
-import { reviewCodexWorktreeDiff } from "./providers/codex-sdk-runtime";
 import {
   getClaudeContextUsage,
   prewarmClaudeSdk,
