@@ -53,13 +53,16 @@ export type {
   FileVerificationStatus,
   TurnVerificationResult,
   TurnVerificationStatus,
+  VerificationFixPromptOptions,
   VerificationStatusVisual,
 } from "./verification";
 
 export {
   buildTurnVerificationResult,
+  buildVerificationFixPrompt,
   deriveFileVerificationStatuses,
   describeTurnVerification,
   deriveTurnVerificationStatus,
+  VERIFICATION_FIX_OUTPUT_LIMIT,
   VERIFICATION_STATUS_VISUAL,
 } from "./verification";

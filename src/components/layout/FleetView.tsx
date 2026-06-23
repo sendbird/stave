@@ -28,7 +28,11 @@ import {
 import {
   classifyTaskStatus,
   compareFleetTaskStatus,
+  deriveFleetLifecycleStatus,
+  FLEET_LIFECYCLE_LABEL,
+  groupFleetWorkspacesByLane,
   hasFleetTaskAttentionStatus,
+  type FleetLifecycleStatus,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
 import {
@@ -333,6 +337,10 @@ function FleetWorkspaceSection(args: {
     workspaceId: string,
     target: FleetAttentionTarget | null,
   ) => void;
+  onLifecycleChange: (
+    workspaceId: string,
+    status: FleetLifecycleStatus | null,
+  ) => void;
 }) {
   const [
     activeWorkspaceId,
@@ -520,6 +528,23 @@ function FleetWorkspaceSection(args: {
     return () => args.onAttentionTargetChange(args.workspace.id, null);
   }, [args.onAttentionTargetChange, args.workspace.id, firstAttentionTarget]);
 
+  const lifecycle = useMemo<FleetLifecycleStatus>(
+    () =>
+      deriveFleetLifecycleStatus({
+        prStatus,
+        hasRunningTask: rows.some(
+          (row) => row.status !== "unknown" && row.status !== "idle",
+        ),
+        hasRecentActivity: rows.some((row) => row.messageCount > 0),
+      }),
+    [prStatus, rows],
+  );
+
+  useEffect(() => {
+    args.onLifecycleChange(args.workspace.id, lifecycle);
+    return () => args.onLifecycleChange(args.workspace.id, null);
+  }, [args.onLifecycleChange, args.workspace.id, lifecycle]);
+
   return (
     <section className="border-b border-border/70">
       <div className="flex min-h-12 items-center justify-between gap-3 bg-card/60 px-4 py-2">
@@ -585,12 +610,38 @@ function FleetWorkspaceSection(args: {
 
 const MemoizedFleetWorkspaceSection = memo(FleetWorkspaceSection);
 
+const FLEET_LIFECYCLE_DOT: Record<FleetLifecycleStatus, string> = {
+  "in-progress": "bg-primary",
+  "in-review": "bg-warning",
+  backlog: "bg-muted-foreground/50",
+  done: "bg-success",
+};
+
+function FleetLaneHeader(args: { lane: FleetLifecycleStatus; count: number }) {
+  return (
+    <div className="flex items-center gap-2 border-t border-border/60 bg-background/80 px-4 py-1.5">
+      <span
+        className={cn("size-1.5 rounded-full", FLEET_LIFECYCLE_DOT[args.lane])}
+      />
+      <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        {FLEET_LIFECYCLE_LABEL[args.lane]}
+      </span>
+      <span className="text-[11px] tabular-nums text-muted-foreground">
+        {args.count}
+      </span>
+    </div>
+  );
+}
+
 export function FleetView() {
   const projects = useFleetProjects();
   const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
   const closeFleetView = useAppStore((state) => state.closeFleetView);
   const [attentionTargetsByWorkspaceId, setAttentionTargetsByWorkspaceId] =
     useState<Record<string, FleetAttentionTarget>>({});
+  const [lifecycleByWorkspaceId, setLifecycleByWorkspaceId] = useState<
+    Record<string, FleetLifecycleStatus>
+  >({});
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -617,6 +668,24 @@ export function FleetView() {
         const next = { ...current };
         if (target) {
           next[workspaceId] = target;
+        } else {
+          delete next[workspaceId];
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const handleLifecycleChange = useCallback(
+    (workspaceId: string, status: FleetLifecycleStatus | null) => {
+      setLifecycleByWorkspaceId((current) => {
+        if ((current[workspaceId] ?? null) === status) {
+          return current;
+        }
+        const next = { ...current };
+        if (status) {
+          next[workspaceId] = status;
         } else {
           delete next[workspaceId];
         }
@@ -729,15 +798,40 @@ export function FleetView() {
                     No workspaces
                   </div>
                 ) : (
-                  project.workspaces.map((workspace) => (
-                    <MemoizedFleetWorkspaceSection
-                      key={workspace.id}
-                      projectPath={project.projectPath}
-                      workspace={workspace}
-                      onOpenTask={handleOpenTask}
-                      onAttentionTargetChange={handleAttentionTargetChange}
-                    />
-                  ))
+                  (() => {
+                    const laneGroups = groupFleetWorkspacesByLane({
+                      workspaces: project.workspaces,
+                      lifecycleByWorkspaceId,
+                    });
+                    // Only label lanes once a project actually spans more than
+                    // one — a single-lane project stays as clean as before.
+                    const showLanes = laneGroups.length > 1;
+                    const elements: ReactNode[] = [];
+                    for (const group of laneGroups) {
+                      if (showLanes) {
+                        elements.push(
+                          <FleetLaneHeader
+                            key={`lane:${group.lane}`}
+                            lane={group.lane}
+                            count={group.workspaces.length}
+                          />,
+                        );
+                      }
+                      for (const workspace of group.workspaces) {
+                        elements.push(
+                          <MemoizedFleetWorkspaceSection
+                            key={workspace.id}
+                            projectPath={project.projectPath}
+                            workspace={workspace}
+                            onOpenTask={handleOpenTask}
+                            onAttentionTargetChange={handleAttentionTargetChange}
+                            onLifecycleChange={handleLifecycleChange}
+                          />,
+                        );
+                      }
+                    }
+                    return elements;
+                  })()
                 )}
               </section>
             ))}

@@ -3,6 +3,8 @@ import {
   classifyTaskStatus,
   compareFleetTaskStatus,
   countFleetAttentionTasks,
+  deriveFleetLifecycleStatus,
+  groupFleetWorkspacesByLane,
   hasFleetTaskAttentionStatus,
   summarizeFleetRespondingTasks,
 } from "../src/lib/fleet/task-status";
@@ -288,5 +290,115 @@ describe("fleet task status helpers", () => {
         },
       }),
     ).toBe(2);
+  });
+});
+
+describe("deriveFleetLifecycleStatus", () => {
+  test("merged or closed PR is done", () => {
+    expect(
+      deriveFleetLifecycleStatus({
+        prStatus: "merged",
+        hasRunningTask: true,
+        hasRecentActivity: true,
+      }),
+    ).toBe("done");
+    expect(
+      deriveFleetLifecycleStatus({
+        prStatus: "closed_unmerged",
+        hasRunningTask: false,
+        hasRecentActivity: false,
+      }),
+    ).toBe("done");
+  });
+
+  test("any open PR is in-review (wins over running work)", () => {
+    for (const prStatus of [
+      "draft",
+      "review_required",
+      "changes_requested",
+      "checks_pending",
+      "checks_failed",
+      "merge_conflict",
+      "behind_base",
+      "ready_to_merge",
+    ] as const) {
+      expect(
+        deriveFleetLifecycleStatus({
+          prStatus,
+          hasRunningTask: true,
+          hasRecentActivity: true,
+        }),
+      ).toBe("in-review");
+    }
+  });
+
+  test("no PR but live or recent work is in-progress", () => {
+    expect(
+      deriveFleetLifecycleStatus({
+        prStatus: "no_pr",
+        hasRunningTask: true,
+        hasRecentActivity: false,
+      }),
+    ).toBe("in-progress");
+    expect(
+      deriveFleetLifecycleStatus({
+        prStatus: null,
+        hasRunningTask: false,
+        hasRecentActivity: true,
+      }),
+    ).toBe("in-progress");
+  });
+
+  test("no PR and no activity is backlog", () => {
+    expect(
+      deriveFleetLifecycleStatus({
+        prStatus: null,
+        hasRunningTask: false,
+        hasRecentActivity: false,
+      }),
+    ).toBe("backlog");
+  });
+});
+
+describe("groupFleetWorkspacesByLane", () => {
+  const workspaces = [
+    { id: "ws-backlog" },
+    { id: "ws-progress" },
+    { id: "ws-review" },
+    { id: "ws-done" },
+    { id: "ws-unreported" },
+  ];
+
+  test("orders lanes live-first and defaults unreported to backlog", () => {
+    const groups = groupFleetWorkspacesByLane({
+      workspaces,
+      lifecycleByWorkspaceId: {
+        "ws-backlog": "backlog",
+        "ws-progress": "in-progress",
+        "ws-review": "in-review",
+        "ws-done": "done",
+      },
+    });
+    expect(groups.map((group) => group.lane)).toEqual([
+      "in-progress",
+      "in-review",
+      "backlog",
+      "done",
+    ]);
+    const backlog = groups.find((group) => group.lane === "backlog");
+    expect(backlog?.workspaces.map((workspace) => workspace.id)).toEqual([
+      "ws-backlog",
+      "ws-unreported",
+    ]);
+  });
+
+  test("drops empty lanes", () => {
+    const groups = groupFleetWorkspacesByLane({
+      workspaces: [{ id: "a" }, { id: "b" }],
+      lifecycleByWorkspaceId: { a: "in-progress", b: "in-progress" },
+    });
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.lane).toBe("in-progress");
+    expect(groups[0]?.workspaces).toHaveLength(2);
   });
 });

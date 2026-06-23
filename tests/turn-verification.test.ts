@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+  type TurnVerificationResult,
   type WorkspaceScriptHookRunSummary,
+  VERIFICATION_FIX_OUTPUT_LIMIT,
   buildTurnVerificationResult,
+  buildVerificationFixPrompt,
   deriveFileVerificationStatuses,
   deriveTurnVerificationStatus,
 } from "@/lib/workspace-scripts";
@@ -77,6 +80,91 @@ describe("buildTurnVerificationResult", () => {
     expect(result.status).toBe("pass");
     expect(result.taskId).toBeUndefined();
     expect(result.turnId).toBeUndefined();
+  });
+});
+
+describe("buildVerificationFixPrompt", () => {
+  function makeResult(
+    failures: TurnVerificationResult["failures"],
+  ): TurnVerificationResult {
+    return {
+      workspaceId: "ws-1",
+      taskId: "task-1",
+      turnId: "turn-1",
+      status: "fail",
+      totalEntries: failures.length + 1,
+      executedEntries: failures.length,
+      failures,
+      completedAt: 1,
+    };
+  }
+
+  it("returns an empty string when there is nothing to fix", () => {
+    expect(buildVerificationFixPrompt(makeResult([]))).toBe("");
+  });
+
+  it("returns an empty string when the scriptId matches no failure", () => {
+    const result = makeResult([
+      { scriptId: "lint", message: "x", blocking: false },
+    ]);
+    expect(buildVerificationFixPrompt(result, { scriptId: "test" })).toBe("");
+  });
+
+  it("includes the scriptId, label, message, and output for a single failure", () => {
+    const result = makeResult([
+      {
+        scriptId: "test",
+        message: "1 test failed",
+        blocking: true,
+        output: "FAIL src/a.test.ts > adds numbers",
+      },
+    ]);
+    const prompt = buildVerificationFixPrompt(result);
+    expect(prompt).toContain("`test` verification check failed");
+    expect(prompt).toContain("### test (blocking)");
+    expect(prompt).toContain("1 test failed");
+    expect(prompt).toContain("FAIL src/a.test.ts > adds numbers");
+    // never weaken the check
+    expect(prompt).toContain("without weakening or skipping the check");
+  });
+
+  it("includes every failure when no scriptId is given", () => {
+    const result = makeResult([
+      { scriptId: "lint", message: "lint broke", blocking: false },
+      { scriptId: "test", message: "test broke", blocking: true },
+    ]);
+    const prompt = buildVerificationFixPrompt(result);
+    expect(prompt).toContain("2 verification checks failed");
+    expect(prompt).toContain("### lint (warning)");
+    expect(prompt).toContain("### test (blocking)");
+  });
+
+  it("narrows to a single failure by scriptId", () => {
+    const result = makeResult([
+      { scriptId: "lint", message: "lint broke", blocking: false },
+      { scriptId: "test", message: "test broke", blocking: true },
+    ]);
+    const prompt = buildVerificationFixPrompt(result, { scriptId: "test" });
+    expect(prompt).toContain("### test (blocking)");
+    expect(prompt).not.toContain("### lint");
+  });
+
+  it("bounds captured output and marks the truncation", () => {
+    const huge = "x".repeat(VERIFICATION_FIX_OUTPUT_LIMIT + 5000);
+    const result = makeResult([
+      { scriptId: "test", message: "boom", blocking: true, output: huge },
+    ]);
+    const prompt = buildVerificationFixPrompt(result);
+    expect(prompt).toContain("…[truncated 5000 chars]…");
+    expect(prompt.length).toBeLessThan(huge.length);
+  });
+
+  it("omits the output fence when there is no captured output", () => {
+    const result = makeResult([
+      { scriptId: "format", message: "needs formatting", blocking: false },
+    ]);
+    const prompt = buildVerificationFixPrompt(result);
+    expect(prompt).not.toContain("```");
   });
 });
 

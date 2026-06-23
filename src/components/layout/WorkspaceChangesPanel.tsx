@@ -1,12 +1,19 @@
-import { Check, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, History, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer } from "lucide-react";
+import { Check, ClipboardList, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, GitPullRequest, History, ListChecks, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer, Wrench } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Badge, Button, Input, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  PR_STATUS_VISUAL,
+  PR_TONE_ICON_CLASS,
+  type PrStatusTone,
+  type WorkspacePrStatus,
+} from "@/lib/pr-status";
 import type { SourceControlStatusItem } from "@/lib/source-control-status";
 import { cn } from "@/lib/utils";
 import {
   type TurnVerificationResult,
+  type TurnVerificationStatus,
   VERIFICATION_STATUS_VISUAL,
   describeTurnVerification,
 } from "@/lib/workspace-scripts";
@@ -15,7 +22,267 @@ import { VerificationStatusIcon } from "./VerificationStatusIcon";
 import { WorkspaceFileIcon } from "./explorer-entry-icon";
 import type { SourceControlItemViewModel, SourceControlSection, SourceControlSummary } from "./editor-panel.utils";
 
-type SourceControlPanelView = "changes" | "history";
+type SourceControlPanelView = "changes" | "history" | "checks";
+
+/**
+ * Pre-merge roll-up data that is not already carried by the panel's other
+ * props (verification + intent live in their own props). Computed by the parent
+ * from workspace information + cached PR status.
+ */
+export interface WorkspaceChecksViewModel {
+  prStatus: WorkspacePrStatus;
+  pr: { number: number; title: string; url: string } | null;
+  openTodoCount: number;
+  totalTodoCount: number;
+  openTodos: string[];
+}
+
+type ChecksTone = "ok" | "warn" | "fail" | "neutral";
+
+const CHECKS_TONE_TEXT: Record<ChecksTone, string> = {
+  ok: "text-success",
+  warn: "text-warning",
+  fail: "text-destructive",
+  neutral: "text-muted-foreground",
+};
+
+/** Collapse a verification/intent status into the local check tone. */
+function statusToChecksTone(status: TurnVerificationStatus): ChecksTone {
+  if (status === "pass") return "ok";
+  if (status === "warn") return "warn";
+  return "fail";
+}
+
+/** Collapse a GitHub PR tone into the local check tone. */
+function prToneToChecksTone(tone: PrStatusTone): ChecksTone {
+  if (tone === "open" || tone === "done") return "ok";
+  if (tone === "attention") return "warn";
+  if (tone === "danger" || tone === "closed") return "fail";
+  return "neutral";
+}
+
+function ChecksSection(args: {
+  icon: ReactNode;
+  title: string;
+  summary: string;
+  tone: ChecksTone;
+  children?: ReactNode;
+}) {
+  return (
+    <section className="space-y-2 rounded-xl border border-border/70 bg-background/60 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <span className={cn("flex size-4 items-center justify-center", CHECKS_TONE_TEXT[args.tone])}>
+          {args.icon}
+        </span>
+        <p className="text-xs font-medium text-foreground">{args.title}</p>
+        <span className={cn("ml-auto truncate text-[11px] font-medium", CHECKS_TONE_TEXT[args.tone])}>
+          {args.summary}
+        </span>
+      </div>
+      {args.children}
+    </section>
+  );
+}
+
+function ChecksTabContent(props: {
+  checks: WorkspaceChecksViewModel;
+  verification?: TurnVerificationResult | null;
+  intentCompliance?: TurnIntentComplianceResult | null;
+  sourceControlSummary: SourceControlSummary;
+  sourceBranch: string;
+  changedCount: number;
+  onSelectDiff: (path: string) => Promise<void>;
+  onFixVerificationWithAgent?: (args?: { scriptId?: string }) => void;
+}) {
+  const verification = props.verification ?? null;
+  const intent = props.intentCompliance ?? null;
+  const { stagedCount, workingTreeCount, conflictCount } =
+    props.sourceControlSummary;
+  const { openTodoCount, totalTodoCount, openTodos } = props.checks;
+  const prVisual = PR_STATUS_VISUAL[props.checks.prStatus];
+
+  const verificationSummary = !verification
+    ? "Not run"
+    : verification.status === "pass"
+      ? "Passed"
+      : `${verification.failures.length} ${verification.status === "fail" ? "failing" : "warnings"}`;
+  const intentSummary = !intent
+    ? "Not run"
+    : intent.findings.length === 0
+      ? "Consistent"
+      : `${intent.findings.length} to review`;
+  const treeTone: ChecksTone =
+    conflictCount > 0 ? "fail" : props.changedCount > 0 ? "neutral" : "ok";
+  const treeSummary =
+    conflictCount > 0
+      ? `${conflictCount} conflict${conflictCount === 1 ? "" : "s"}`
+      : props.changedCount > 0
+        ? `${props.changedCount} changed`
+        : "Clean";
+
+  return (
+    <div className="space-y-2.5 px-3 py-3">
+      <ChecksSection
+        icon={<GitPullRequest className="size-4" />}
+        title="Pull request"
+        summary={prVisual.label}
+        tone={prToneToChecksTone(prVisual.tone)}
+      >
+        {props.checks.pr ? (
+          <p className="truncate text-[11px] text-muted-foreground">
+            <span className={cn("font-medium", PR_TONE_ICON_CLASS[prVisual.tone])}>
+              #{props.checks.pr.number}
+            </span>{" "}
+            {props.checks.pr.title}
+          </p>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">
+            No pull request linked to this branch yet.
+          </p>
+        )}
+      </ChecksSection>
+
+      <ChecksSection
+        icon={<ListChecks className="size-4" />}
+        title="Verification"
+        summary={verificationSummary}
+        tone={verification ? statusToChecksTone(verification.status) : "neutral"}
+      >
+        {verification && verification.failures.length > 0 ? (
+          <div className="space-y-1.5">
+            {props.onFixVerificationWithAgent ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                className="h-6 gap-1 px-2 text-[11px]"
+                onClick={() => props.onFixVerificationWithAgent?.()}
+                title="Send these failures to the agent as the next turn"
+              >
+                <Wrench className="size-3" />
+                {verification.failures.length > 1
+                  ? "Fix all with agent"
+                  : "Fix with agent"}
+              </Button>
+            ) : null}
+            <ul className="space-y-1.5">
+              {verification.failures.map((failure, index) => (
+                <li key={`${failure.scriptId}-${index}`} className="text-[11px]">
+                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                    <span
+                      className={cn(
+                        "rounded px-1 py-px text-[10px] uppercase tracking-wide",
+                        failure.blocking
+                          ? "bg-destructive/15 text-destructive"
+                          : "bg-warning/15 text-warning",
+                      )}
+                    >
+                      {failure.blocking ? "blocking" : "warn"}
+                    </span>
+                    <span className="truncate">{failure.scriptId}</span>
+                    {props.onFixVerificationWithAgent &&
+                    verification.failures.length > 1 ? (
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="ghost"
+                        className="ml-auto h-5 shrink-0 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                        onClick={() =>
+                          props.onFixVerificationWithAgent?.({
+                            scriptId: failure.scriptId,
+                          })
+                        }
+                        title={`Send only ${failure.scriptId} to the agent`}
+                      >
+                        <Wrench className="size-3" />
+                        Fix
+                      </Button>
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground">
+                    {failure.message}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </ChecksSection>
+
+      <ChecksSection
+        icon={<Crosshair className="size-4" />}
+        title="Intent guard"
+        summary={intentSummary}
+        tone={intent ? statusToChecksTone(intent.status) : "neutral"}
+      >
+        {intent && intent.findings.length > 0 ? (
+          <ul className="space-y-1">
+            {intent.findings.map((finding, index) => (
+              <li key={`${finding.file}-${index}`}>
+                <button
+                  type="button"
+                  className="flex w-full flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left text-[11px] hover:bg-muted"
+                  onClick={() => void props.onSelectDiff(finding.file)}
+                  title={`Open ${finding.file}`}
+                >
+                  <span className="flex max-w-full items-center gap-1.5 font-medium text-foreground">
+                    <span className="rounded bg-muted px-1 py-px text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {finding.severity}
+                    </span>
+                    <span className="truncate">
+                      {finding.file}
+                      {typeof finding.line === "number" ? `:${finding.line}` : ""}
+                    </span>
+                  </span>
+                  <span className="whitespace-pre-wrap break-words text-muted-foreground">
+                    {finding.message}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </ChecksSection>
+
+      <ChecksSection
+        icon={<GitBranch className="size-4" />}
+        title="Working tree"
+        summary={treeSummary}
+        tone={treeTone}
+      >
+        <p className="truncate text-[11px] text-muted-foreground">
+          <span className="font-medium text-foreground">{props.sourceBranch}</span>
+          {" · "}
+          {stagedCount} staged · {workingTreeCount} working tree
+          {conflictCount > 0 ? ` · ${conflictCount} conflicts` : ""}
+        </p>
+      </ChecksSection>
+
+      <ChecksSection
+        icon={<ClipboardList className="size-4" />}
+        title="Todos"
+        summary={
+          totalTodoCount === 0 ? "None" : `${openTodoCount} open / ${totalTodoCount}`
+        }
+        tone={openTodoCount > 0 ? "warn" : "ok"}
+      >
+        {openTodos.length > 0 ? (
+          <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+            {openTodos.slice(0, 6).map((text, index) => (
+              <li key={`${index}-${text}`} className="flex items-start gap-1.5">
+                <span className="mt-1 size-1 shrink-0 rounded-full bg-warning" />
+                <span className="truncate">{text}</span>
+              </li>
+            ))}
+            {openTodos.length > 6 ? (
+              <li className="pl-2.5 text-[10px]">+{openTodos.length - 6} more</li>
+            ) : null}
+          </ul>
+        ) : null}
+      </ChecksSection>
+    </div>
+  );
+}
 
 interface SourceControlHistoryEntry {
   hash: string;
@@ -260,8 +527,25 @@ export function WorkspaceChangesPanel(props: {
   onAutoRefreshSecondsChange: (seconds: number) => void;
   verification?: TurnVerificationResult | null;
   intentCompliance?: TurnIntentComplianceResult | null;
+  /**
+   * Forward failing verification checks back to the agent as the next turn.
+   * Omit a `scriptId` to fix every failure; pass one to fix a single check.
+   * When absent, the fix actions are hidden.
+   */
+  onFixVerificationWithAgent?: (args?: { scriptId?: string }) => void;
+  /** Pre-merge roll-up data for the Checks tab. When absent, the tab is hidden. */
+  checks?: WorkspaceChecksViewModel | null;
 }) {
   const [view, setView] = useState<SourceControlPanelView>("changes");
+  const verificationFailureCount = props.verification?.failures.length ?? 0;
+  const showChecksTab = Boolean(props.checks);
+  // Count the actionable, merge-blocking signals surfaced on the Checks tab.
+  const checksAttentionCount =
+    (props.verification && props.verification.status !== "pass"
+      ? props.verification.failures.length
+      : 0) +
+    (props.intentCompliance?.findings.length ?? 0) +
+    props.sourceControlSummary.conflictCount;
   const showStageAll = props.sourceControlSummary.workingTreeCount > 0;
   const showUnstageAll = props.canUnstageAnyChanges;
   const showComposer = props.filteredScmItems.length > 0 || props.commitMessage.trim().length > 0;
@@ -290,6 +574,15 @@ export function WorkspaceChangesPanel(props: {
             <span>History</span>
             <span className="text-[11px] text-muted-foreground">{props.sourceHistory.length}</span>
           </TabsTrigger>
+          {showChecksTab ? (
+            <TabsTrigger value="checks" className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium">
+              <ListChecks className="size-3.5" />
+              <span>Checks</span>
+              {checksAttentionCount > 0 ? (
+                <span className="text-[11px] text-destructive">{checksAttentionCount}</span>
+              ) : null}
+            </TabsTrigger>
+          ) : null}
         </TabsList>
         {props.verification ? (
           props.verification.failures.length > 0 ? (
@@ -309,7 +602,24 @@ export function WorkspaceChangesPanel(props: {
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-0">
                 <PopoverHeader className="border-b border-border/70 px-3 py-2">
-                  <PopoverTitle className="text-xs">Verification</PopoverTitle>
+                  <div className="flex items-center justify-between gap-2">
+                    <PopoverTitle className="text-xs">Verification</PopoverTitle>
+                    {props.onFixVerificationWithAgent ? (
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        className="h-6 gap-1 px-2 text-[11px]"
+                        onClick={() => props.onFixVerificationWithAgent?.()}
+                        title="Send these failures to the agent as the next turn"
+                      >
+                        <Wrench className="size-3" />
+                        {verificationFailureCount > 1
+                          ? "Fix all with agent"
+                          : "Fix with agent"}
+                      </Button>
+                    ) : null}
+                  </div>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {describeTurnVerification(props.verification)}
                   </p>
@@ -332,6 +642,24 @@ export function WorkspaceChangesPanel(props: {
                           {failure.blocking ? "blocking" : "warn"}
                         </span>
                         <span className="truncate">{failure.scriptId}</span>
+                        {props.onFixVerificationWithAgent &&
+                        verificationFailureCount > 1 ? (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            className="ml-auto h-5 shrink-0 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                            onClick={() =>
+                              props.onFixVerificationWithAgent?.({
+                                scriptId: failure.scriptId,
+                              })
+                            }
+                            title={`Send only ${failure.scriptId} to the agent`}
+                          >
+                            <Wrench className="size-3" />
+                            Fix
+                          </Button>
+                        ) : null}
                       </div>
                       <p className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground">
                         {failure.message}
@@ -634,6 +962,21 @@ export function WorkspaceChangesPanel(props: {
           )}
         </div>
       </TabsContent>
+
+      {props.checks ? (
+        <TabsContent value="checks" className="min-h-0 flex-1 overflow-auto">
+          <ChecksTabContent
+            checks={props.checks}
+            verification={props.verification}
+            intentCompliance={props.intentCompliance}
+            sourceControlSummary={props.sourceControlSummary}
+            sourceBranch={props.sourceBranch}
+            changedCount={props.filteredScmItems.length}
+            onSelectDiff={props.onSelectDiff}
+            onFixVerificationWithAgent={props.onFixVerificationWithAgent}
+          />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }
