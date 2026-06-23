@@ -50,6 +50,8 @@ export const ReviewDiffArgsSchema = z
     headBranch: z.string().max(200).optional(),
     providerId: ProviderIdSchema.optional(),
     model: z.string().max(200).optional(),
+    mode: z.enum(["review", "intent"]).optional(),
+    intentContext: z.string().max(8000).optional(),
     runtimeOptions: z.lazy(() => RuntimeOptionsSchema),
   })
   .strict();

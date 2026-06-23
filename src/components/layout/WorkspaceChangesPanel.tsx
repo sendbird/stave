@@ -1,4 +1,4 @@
-import { Check, Copy, File, GitBranch, GitCommitHorizontal, History, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer } from "lucide-react";
+import { Check, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, History, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Badge, Button, Input, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
@@ -10,6 +10,7 @@ import {
   VERIFICATION_STATUS_VISUAL,
   describeTurnVerification,
 } from "@/lib/workspace-scripts";
+import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
 import { VerificationStatusIcon } from "./VerificationStatusIcon";
 import { WorkspaceFileIcon } from "./explorer-entry-icon";
 import type { SourceControlItemViewModel, SourceControlSection, SourceControlSummary } from "./editor-panel.utils";
@@ -258,6 +259,7 @@ export function WorkspaceChangesPanel(props: {
   autoRefreshSeconds: number;
   onAutoRefreshSecondsChange: (seconds: number) => void;
   verification?: TurnVerificationResult | null;
+  intentCompliance?: TurnIntentComplianceResult | null;
 }) {
   const [view, setView] = useState<SourceControlPanelView>("changes");
   const showStageAll = props.sourceControlSummary.workingTreeCount > 0;
@@ -300,6 +302,24 @@ export function WorkspaceChangesPanel(props: {
             <VerificationStatusIcon status={props.verification.status} />
             {props.verification.failures.length > 0 ? (
               <span>{props.verification.failures.length}</span>
+            ) : null}
+          </div>
+        ) : null}
+        {props.intentCompliance ? (
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
+              VERIFICATION_STATUS_VISUAL[props.intentCompliance.status].iconClassName,
+            )}
+            title={
+              props.intentCompliance.status === "pass"
+                ? "Intent guard: consistent with the pinned intent"
+                : `Intent guard: ${props.intentCompliance.findings.length} possible issue${props.intentCompliance.findings.length === 1 ? "" : "s"} vs the pinned intent`
+            }
+          >
+            <Crosshair className="size-3.5" />
+            {props.intentCompliance.findings.length > 0 ? (
+              <span>{props.intentCompliance.findings.length}</span>
             ) : null}
           </div>
         ) : null}

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  buildIntentGuardContextInput,
   changeWorkspaceInfoCustomFieldType,
   createEmptyWorkspaceInformation,
   createWorkspaceInfoCustomField,
@@ -13,8 +14,10 @@ import {
   inferStorybookResourceAccess,
   isGitHubPullRequestUrl,
   isWorkspaceInfoUrl,
+  isWorkspaceIntentAnchor,
   normalizeGitHubRepoReference,
   resolveStorybookResourceAccess,
+  toggleWorkspaceIntentAnchor,
   updateWorkspaceInfoSelectFieldOptions,
 } from "@/lib/workspace-information";
 import {
@@ -33,7 +36,56 @@ test("createEmptyWorkspaceInformation returns empty defaults", () => {
     notes: "",
     todos: [],
     customFields: [],
+    intentAnchorIds: [],
   });
+});
+
+test("toggleWorkspaceIntentAnchor adds and removes ids immutably", () => {
+  const base = createEmptyWorkspaceInformation();
+  const added = toggleWorkspaceIntentAnchor(base, "jira-1");
+  expect(added.intentAnchorIds).toEqual(["jira-1"]);
+  expect(isWorkspaceIntentAnchor(added, "jira-1")).toBe(true);
+  expect(isWorkspaceIntentAnchor(base, "jira-1")).toBe(false);
+
+  const removed = toggleWorkspaceIntentAnchor(added, "jira-1");
+  expect(removed.intentAnchorIds).toEqual([]);
+  expect(isWorkspaceIntentAnchor(removed, "jira-1")).toBe(false);
+});
+
+test("buildIntentGuardContextInput is empty until resources are pinned", () => {
+  const info = {
+    ...createEmptyWorkspaceInformation(),
+    notes: "Read-only dashboard only.",
+    jiraIssues: [
+      {
+        id: "jira-1",
+        issueKey: "PROJ-1",
+        title: "PRD",
+        url: "https://jira/PROJ-1",
+        status: "",
+        note: "",
+      },
+    ],
+    figmaResources: [
+      {
+        id: "figma-1",
+        title: "Design",
+        url: "https://figma/abc",
+        nodeId: "",
+        note: "",
+      },
+    ],
+  };
+
+  // No pins: disarmed even though notes/resources exist.
+  expect(buildIntentGuardContextInput(info)).toEqual({});
+
+  // Pin only the Jira issue: notes are included, but the unpinned Figma is not.
+  const pinned = toggleWorkspaceIntentAnchor(info, "jira-1");
+  const input = buildIntentGuardContextInput(pinned);
+  expect(input.notes).toBe("Read-only dashboard only.");
+  expect(input.jiraIssues?.map((issue) => issue.id)).toEqual(["jira-1"]);
+  expect(input.figmaResources).toEqual([]);
 });
 
 test("changeWorkspaceInfoCustomFieldType preserves id and label while resetting value", () => {

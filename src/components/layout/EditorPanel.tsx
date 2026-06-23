@@ -103,6 +103,7 @@ export function EditorPanel(props: EditorPanelProps) {
     workspaceCwd,
     scmAutoRefreshSeconds,
     turnVerification,
+    turnIntentCompliance,
     openFileFromTree,
     openDiffInEditor,
     setLayout,
@@ -118,6 +119,7 @@ export function EditorPanel(props: EditorPanelProps) {
     state.workspacePathById[state.activeWorkspaceId] ?? state.projectPath ?? undefined,
     state.settings.scmAutoRefreshSeconds,
     state.turnVerificationByWorkspace[state.activeWorkspaceId],
+    state.turnIntentComplianceByWorkspace[state.activeWorkspaceId],
     state.openFileFromTree,
     state.openDiffInEditor,
     state.setLayout,
@@ -945,6 +947,7 @@ export function EditorPanel(props: EditorPanelProps) {
               autoRefreshSeconds={scmAutoRefreshSeconds}
               onAutoRefreshSecondsChange={(seconds) => updateSettings({ patch: { scmAutoRefreshSeconds: seconds } })}
               verification={turnVerification ?? null}
+              intentCompliance={turnIntentCompliance ?? null}
             />
           ) : null}
 

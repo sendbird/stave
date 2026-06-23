@@ -98,9 +98,12 @@ import {
   normalizeResponseStylePrompt,
 } from "@/lib/providers/prompt-defaults";
 import {
+  collectIntentContext,
   DEFAULT_PRE_PR_REVIEW_PROVIDER,
+  deriveIntentComplianceStatus,
   normalizePrePrReviewProvider,
   type PrePrReviewProviderId,
+  type TurnIntentComplianceResult,
 } from "@/lib/source-control-review";
 import {
   isTrustedApproval,
@@ -156,6 +159,7 @@ import {
 } from "@/lib/providers/turn-status";
 import { resolveWorkspaceRelativeFilePath } from "@/lib/workspace-file-path";
 import {
+  buildIntentGuardContextInput,
   createEmptyWorkspaceInformation,
   createWorkspaceConfluencePage,
   createWorkspaceFigmaResource,
@@ -1086,6 +1090,11 @@ interface AppState {
   providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
   /** Latest turn.completed verification result per workspace (worktree-scoped). */
   turnVerificationByWorkspace: Record<string, TurnVerificationResult | undefined>;
+  /** Latest turn.completed intent-guard result per workspace (worktree-scoped). */
+  turnIntentComplianceByWorkspace: Record<
+    string,
+    TurnIntentComplianceResult | undefined
+  >;
   workspaceRuntimeCacheById: Record<string, WorkspaceSessionState>;
   taskWorkspaceIdById: Record<string, string>;
   persistenceBootstrapPhase: PersistenceBootstrapPhase;
@@ -2604,6 +2613,71 @@ export const useAppStore = create<AppState>()(
         };
       };
 
+      // C2 intent guard: after a turn completes, if the workspace has pinned
+      // intent anchors, run a single-turn provider check comparing the diff
+      // against that pinned intent and surface it as a Changes-panel badge.
+      // No-op when nothing is pinned, so it stays disarmed by default.
+      const runIntentGuardForTurn = (args: {
+        workspaceId: string;
+        taskId?: string;
+        turnId?: string;
+        workspacePath: string;
+      }) => {
+        const reviewDiff = window.api?.provider?.reviewDiff;
+        if (!reviewDiff) {
+          return;
+        }
+        const state = get();
+        const info =
+          state.activeWorkspaceId === args.workspaceId
+            ? state.workspaceInformation
+            : state.workspaceRuntimeCacheById[args.workspaceId]
+                ?.workspaceInformation;
+        if (!info) {
+          return;
+        }
+        const intentContext = collectIntentContext(
+          buildIntentGuardContextInput(info),
+        );
+        if (!intentContext) {
+          return;
+        }
+        const providerId = normalizePrePrReviewProvider(
+          state.settings.prePrReviewProvider,
+        );
+        void reviewDiff({
+          cwd: args.workspacePath,
+          providerId,
+          mode: "intent",
+          intentContext,
+        })
+          .then((result) => {
+            if (!result.ok) {
+              return;
+            }
+            const compliance: TurnIntentComplianceResult = {
+              workspaceId: args.workspaceId,
+              taskId: args.taskId,
+              turnId: args.turnId,
+              status: deriveIntentComplianceStatus(result.findings),
+              findings: result.findings,
+              completedAt: Date.now(),
+            };
+            set((current) => ({
+              turnIntentComplianceByWorkspace: {
+                ...current.turnIntentComplianceByWorkspace,
+                [args.workspaceId]: compliance,
+              },
+            }));
+          })
+          .catch((error) => {
+            console.warn("[intent-guard] turn.completed check failed", {
+              workspaceId: args.workspaceId,
+              error: String(error),
+            });
+          });
+      };
+
       const runScriptHookInBackground = (args: {
         workspaceId: string;
         trigger: ScriptTrigger;
@@ -2624,10 +2698,33 @@ export const useAppStore = create<AppState>()(
             delete next[args.workspaceId];
             return { turnVerificationByWorkspace: next };
           });
+          set((state) => {
+            if (
+              state.turnIntentComplianceByWorkspace[args.workspaceId] ===
+              undefined
+            ) {
+              return state;
+            }
+            const next = { ...state.turnIntentComplianceByWorkspace };
+            delete next[args.workspaceId];
+            return { turnIntentComplianceByWorkspace: next };
+          });
         }
 
         const runScriptHook = window.api?.scripts?.runHook;
         const context = resolveScriptHookWorkspaceContext(args.workspaceId);
+
+        // Intent guard runs independently of verify hooks; it only needs the
+        // resolved workspace context (path) to diff against.
+        if (args.trigger === "turn.completed" && context) {
+          runIntentGuardForTurn({
+            workspaceId: args.workspaceId,
+            taskId: args.taskId,
+            turnId: args.turnId,
+            workspacePath: context.workspacePath,
+          });
+        }
+
         if (!runScriptHook || !context) {
           return;
         }
@@ -4098,6 +4195,7 @@ export const useAppStore = create<AppState>()(
         providerSessionByTask: {},
         providerGoalByTask: {},
         turnVerificationByWorkspace: {},
+        turnIntentComplianceByWorkspace: {},
         workspaceRuntimeCacheById: {},
         taskWorkspaceIdById: {},
         persistenceBootstrapPhase: "idle",

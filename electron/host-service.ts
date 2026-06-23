@@ -799,6 +799,8 @@ async function reviewProviderDiff(args: {
   headBranch?: string;
   providerId?: StreamTurnArgs["providerId"];
   model?: string;
+  mode?: "review" | "intent";
+  intentContext?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
   const providerId = normalizePrePrReviewProvider(args.providerId);
@@ -822,6 +824,8 @@ async function reviewProviderDiff(args: {
     headBranch: context.headBranch,
     agentsContent: context.agentsContent,
     model: args.model ?? args.runtimeOptions?.model,
+    mode: args.mode,
+    intentContext: args.intentContext,
   };
   const review =
     providerId === "codex"

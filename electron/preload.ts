@@ -726,6 +726,8 @@ contextBridge.exposeInMainWorld("api", {
       headBranch?: string;
       providerId?: PrePrReviewProviderId;
       model?: string;
+      mode?: "review" | "intent";
+      intentContext?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     }) =>
       ipcRenderer.invoke("provider:review-diff", args) as Promise<{

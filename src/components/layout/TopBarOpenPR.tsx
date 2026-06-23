@@ -60,7 +60,11 @@ import {
   PR_TONE_BADGE_CLASS,
 } from "@/lib/pr-status";
 import { isTaskArchived } from "@/lib/tasks";
-import type { PrePrReviewFinding } from "@/lib/source-control-review";
+import {
+  collectIntentContext,
+  type PrePrReviewFinding,
+} from "@/lib/source-control-review";
+import { buildIntentGuardContextInput } from "@/lib/workspace-information";
 import { deriveTurnVerificationStatus } from "@/lib/workspace-scripts";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
@@ -176,6 +180,10 @@ function formatReviewFindingLocation(finding: PrePrReviewFinding) {
   return finding.line ? `${finding.file}:${finding.line}` : finding.file;
 }
 
+function formatReviewFindingKind(kind: PrePrReviewFinding["kind"]) {
+  return kind.replace(/_/g, " ");
+}
+
 function getReviewSeverityClassName(severity: PrePrReviewFinding["severity"]) {
   if (severity === "critical" || severity === "high") {
     return "border-destructive/40 bg-destructive/10 text-destructive";
@@ -227,7 +235,7 @@ function PrePrReviewFindingsPanel(props: {
                 {finding.severity}
               </span>
               <span className="rounded-sm border border-border/70 bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
-                {finding.kind}
+                {formatReviewFindingKind(finding.kind)}
               </span>
               <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
                 {formatReviewFindingLocation(finding)}
@@ -860,21 +868,56 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       });
 
       try {
-        const reviewResult = await reviewDiff({
+        const reviewArgs = {
           cwd: workspaceCwd,
           baseBranch: selectedTargetBranch,
           headBranch: currentBranch || undefined,
           providerId: prePrReviewProvider,
           model: reviewModel,
           runtimeOptions: reviewRuntimeOptions,
-        });
+        };
+        const reviewResult = await reviewDiff(reviewArgs);
 
-        if (reviewResult.ok && reviewResult.findings.length > 0) {
+        const findings: PrePrReviewFinding[] = reviewResult.ok
+          ? [...reviewResult.findings]
+          : [];
+        let truncated = Boolean(reviewResult.truncated);
+
+        // Intent guard: a second single-turn check that compares the diff
+        // against the pinned product intent (PRD / spec / design). Only runs
+        // when the workspace has intent pinned, so it is a no-op otherwise.
+        const intentContext = collectIntentContext(
+          buildIntentGuardContextInput(
+            useAppStore.getState().workspaceInformation,
+          ),
+        );
+        if (intentContext) {
+          setInlineNotice({
+            tone: "info",
+            title: "Running AI intent guard",
+            description: `${reviewProviderLabel} is checking the change against the pinned product intent (PRD / spec / design).`,
+          });
+          try {
+            const intentResult = await reviewDiff({
+              ...reviewArgs,
+              mode: "intent",
+              intentContext,
+            });
+            if (intentResult.ok) {
+              findings.push(...intentResult.findings);
+              truncated = truncated || Boolean(intentResult.truncated);
+            }
+          } catch {
+            // Intent guard is best-effort; ignore failures.
+          }
+        }
+
+        if (findings.length > 0) {
           const resultProviderLabel = getProviderLabel({
             providerId: reviewResult.providerId ?? prePrReviewProvider,
           });
-          setReviewFindings(reviewResult.findings);
-          setReviewDiffTruncated(Boolean(reviewResult.truncated));
+          setReviewFindings(findings);
+          setReviewDiffTruncated(truncated);
           setInlineNotice({
             tone: "warning",
             title: "Review findings need a decision",
