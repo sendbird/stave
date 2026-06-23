@@ -775,17 +775,20 @@ export function resolveTaskWorkspaceContext(args: {
   workspaceDefaultById?: Record<string, boolean>;
   projectPath?: string | null;
 }) {
-  const workspaceId =
-    args.taskWorkspaceIdById[args.taskId] ?? args.activeWorkspaceId;
+  const ownedWorkspaceId = args.taskWorkspaceIdById[args.taskId];
+  const workspaceId = ownedWorkspaceId ?? args.activeWorkspaceId;
   const projectPath = args.projectPath?.trim();
   const workspacePath = args.workspacePathById[workspaceId]?.trim();
+  const canUseProjectRoot =
+    args.workspaceDefaultById?.[workspaceId] === true ||
+    ownedWorkspaceId === undefined;
 
   return {
     workspaceId,
     cwd:
       workspacePath ||
       (args.workspaceDefaultById?.[workspaceId] ? projectPath : undefined) ||
-      projectPath ||
+      (canUseProjectRoot ? projectPath : undefined) ||
       undefined,
   };
 }
