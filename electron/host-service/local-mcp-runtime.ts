@@ -1897,6 +1897,7 @@ export async function runTask(args: {
   const pendingState = buildPendingProviderTurnState({
     tasks: session.tasks,
     messagesByTask: session.messagesByTask,
+    messageCountByTask: session.messageCountByTask,
     activeTurnIdsByTask: session.activeTurnIdsByTask,
     taskWorkspaceIdById: {},
     workspaceSnapshotVersion: 0,
