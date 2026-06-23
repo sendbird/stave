@@ -10,12 +10,13 @@ const STOP_REASON_LABELS: Record<string, string> = {
 
 export const NOTIFICATION_TOAST_DURATIONS_MS = {
   turnCompleted: 4000,
+  turnFailed: 8000,
   approvalRequested: 8000,
   userInputRequested: 8000,
 } as const;
 
 export interface NotificationToastOptions {
-  tone: "success" | "warning";
+  tone: "success" | "warning" | "error";
   title: string;
   description?: string;
   duration: number;
@@ -91,6 +92,10 @@ export function buildNotificationDetail(
   if (notification.kind === "task.turn_completed") {
     return formatNotificationStopReason(notification.payload.stopReason);
   }
+  if (notification.kind === "task.turn_failed") {
+    const message = notification.payload.message;
+    return typeof message === "string" && message.trim() ? message.trim() : null;
+  }
   if (notification.kind === "task.approval_requested") {
     return formatApprovalNotificationDetail(notification.payload);
   }
@@ -119,6 +124,17 @@ export function buildNotificationToastOptions(
       title: label,
       description,
       duration: NOTIFICATION_TOAST_DURATIONS_MS.turnCompleted,
+      closeButton: true,
+      dismissible: true,
+    };
+  }
+
+  if (notification.kind === "task.turn_failed") {
+    return {
+      tone: "error",
+      title: `Run failed — ${label}`,
+      description,
+      duration: NOTIFICATION_TOAST_DURATIONS_MS.turnFailed,
       closeButton: true,
       dismissible: true,
     };

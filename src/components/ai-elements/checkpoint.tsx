@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from "react";
+import { useState, type HTMLAttributes } from "react";
 import { BookmarkIcon, LoaderCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,9 @@ export function ContextCompactedCheckpoint({
   restoreDisabled?: boolean;
 }) {
   const displayTrigger = trigger ? ` (${trigger})` : "";
+  // Restore runs a destructive `git restore --worktree` that discards
+  // uncommitted changes, so require an explicit second click to confirm.
+  const [confirmingRestore, setConfirmingRestore] = useState(false);
 
   return (
     <div
@@ -70,20 +73,52 @@ export function ContextCompactedCheckpoint({
           {displayTrigger}
         </span>
         {onRestore ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-5 px-1.5 text-[0.6875em]"
-            disabled={restoreDisabled || restorePending}
-            onClick={onRestore}
-            title={restoreDisabled ? "Restore unavailable for this checkpoint." : "Restore workspace to this checkpoint."}
-          >
-            {restorePending
-              ? <LoaderCircle className="mr-1 size-3 animate-spin" />
-              : <RotateCcw className="mr-1 size-3" />}
-            Restore
-          </Button>
+          confirmingRestore ? (
+            <span className="inline-flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1.5 text-[0.6875em] text-destructive hover:text-destructive"
+                disabled={restoreDisabled || restorePending}
+                onClick={() => {
+                  setConfirmingRestore(false);
+                  onRestore();
+                }}
+                title="Discards uncommitted changes in the worktree and restores this checkpoint."
+              >
+                {restorePending
+                  ? <LoaderCircle className="mr-1 size-3 animate-spin" />
+                  : <RotateCcw className="mr-1 size-3" />}
+                Confirm restore
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1.5 text-[0.6875em]"
+                disabled={restorePending}
+                onClick={() => setConfirmingRestore(false)}
+              >
+                Cancel
+              </Button>
+            </span>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-[0.6875em]"
+              disabled={restoreDisabled || restorePending}
+              onClick={() => setConfirmingRestore(true)}
+              title={restoreDisabled ? "Restore unavailable for this checkpoint." : "Restore workspace to this checkpoint (discards uncommitted changes)."}
+            >
+              {restorePending
+                ? <LoaderCircle className="mr-1 size-3 animate-spin" />
+                : <RotateCcw className="mr-1 size-3" />}
+              Restore
+            </Button>
+          )
         ) : null}
       </div>
 

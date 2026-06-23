@@ -1629,6 +1629,77 @@ function buildTaskTurnCompletedNotificationInput(args: {
   };
 }
 
+function buildTaskTurnFailedNotificationInput(args: {
+  state: Pick<
+    AppState,
+    "projectPath" | "projectName" | "workspaces" | "recentProjects"
+  >;
+  session: WorkspaceSessionState;
+  workspaceId: string;
+  taskId: string;
+  turnId: string;
+  provider: ProviderId;
+  events: NormalizedProviderEvent[];
+}): AppNotificationCreateInput | null {
+  const errorEvent = [...args.events]
+    .reverse()
+    .find(
+      (event): event is Extract<NormalizedProviderEvent, { type: "error" }> =>
+        event.type === "error" && event.recoverable === false,
+    );
+  if (!errorEvent) {
+    return null;
+  }
+  if (
+    workspaceHasActiveTurns({
+      activeTurnIdsByTask: args.session.activeTurnIdsByTask,
+    })
+  ) {
+    return null;
+  }
+
+  const project = resolveProjectForWorkspaceId({
+    state: {
+      projectPath: args.state.projectPath,
+      projectName: args.state.projectName,
+      workspaces: args.state.workspaces,
+      recentProjects: args.state.recentProjects,
+    },
+    workspaceId: args.workspaceId,
+  });
+  const workspaceName = resolveWorkspaceName({
+    state: {
+      workspaces: args.state.workspaces,
+      recentProjects: args.state.recentProjects,
+    },
+    workspaceId: args.workspaceId,
+  });
+  const taskTitle = resolveTaskTitleFromSession({
+    session: args.session,
+    taskId: args.taskId,
+  });
+
+  return {
+    id: crypto.randomUUID(),
+    kind: "task.turn_failed",
+    title: taskTitle,
+    body: `Latest run failed in ${workspaceName}.`,
+    projectPath: project?.projectPath ?? null,
+    projectName: project?.projectName ?? null,
+    workspaceId: args.workspaceId,
+    workspaceName,
+    taskId: args.taskId,
+    taskTitle,
+    turnId: args.turnId,
+    providerId: args.provider,
+    action: null,
+    payload: {
+      message: errorEvent.message,
+    },
+    dedupeKey: `task.turn_failed:${args.turnId}`,
+  };
+}
+
 function buildApprovalNotificationInputs(args: {
   state: Pick<
     AppState,
@@ -3485,7 +3556,8 @@ export const useAppStore = create<AppState>()(
           } = get().settings;
           if (
             notificationSoundEnabled &&
-            result.notification.kind === "task.turn_completed"
+            (result.notification.kind === "task.turn_completed" ||
+              result.notification.kind === "task.turn_failed")
           ) {
             if (
               notificationSoundMode === "custom" &&
@@ -9900,8 +9972,8 @@ export const useAppStore = create<AppState>()(
                         events: pendingEvents,
                       }),
                     );
-                    const completionNotification =
-                      buildTaskTurnCompletedNotificationInput({
+                    const failureNotification =
+                      buildTaskTurnFailedNotificationInput({
                         state: latestState,
                         session: notificationSession,
                         workspaceId: taskWorkspaceId,
@@ -9910,8 +9982,22 @@ export const useAppStore = create<AppState>()(
                         provider,
                         events: pendingEvents,
                       });
-                    if (completionNotification) {
-                      notificationsToPersist.push(completionNotification);
+                    if (failureNotification) {
+                      notificationsToPersist.push(failureNotification);
+                    } else {
+                      const completionNotification =
+                        buildTaskTurnCompletedNotificationInput({
+                          state: latestState,
+                          session: notificationSession,
+                          workspaceId: taskWorkspaceId,
+                          taskId: resolvedTaskId,
+                          turnId,
+                          provider,
+                          events: pendingEvents,
+                        });
+                      if (completionNotification) {
+                        notificationsToPersist.push(completionNotification);
+                      }
                     }
                     if (notificationsToPersist.length > 0) {
                       void persistNotifications(notificationsToPersist);

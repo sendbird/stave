@@ -190,6 +190,7 @@ export interface PersistenceLocalMcpRequestLogPage {
 
 export type PersistenceNotificationKind =
   | "task.turn_completed"
+  | "task.turn_failed"
   | "task.approval_requested"
   | "task.user_input_requested";
 

@@ -211,6 +211,17 @@ export function resolveProviderTurnDisplayState(args: {
   return "responding";
 }
 
+function formatDurationLabel(elapsedMs: number) {
+  const totalSeconds = Math.floor(Math.max(0, elapsedMs) / 1000);
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+}
+
 export function formatProviderTurnIdleDuration(args: {
   activity?: Pick<ProviderTurnActivitySnapshot, "lastEventAt"> | null;
   now?: number;
@@ -219,16 +230,17 @@ export function formatProviderTurnIdleDuration(args: {
     return null;
   }
 
-  const elapsedMs = Math.max(
-    0,
-    (args.now ?? Date.now()) - args.activity.lastEventAt,
-  );
-  const totalSeconds = Math.floor(elapsedMs / 1000);
-  if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
+  return formatDurationLabel((args.now ?? Date.now()) - args.activity.lastEventAt);
+}
+
+/** Elapsed wall-clock time since the active turn started (for a live label). */
+export function formatProviderTurnElapsedDuration(args: {
+  activity?: Pick<ProviderTurnActivitySnapshot, "startedAt"> | null;
+  now?: number;
+}) {
+  if (!args.activity) {
+    return null;
   }
 
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  return formatDurationLabel((args.now ?? Date.now()) - args.activity.startedAt);
 }

@@ -124,7 +124,8 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
         </div>
       ) : entries.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/70 bg-muted/15 px-3 py-3 text-xs leading-5 text-muted-foreground">
-          No saved plans yet.
+          No saved plans yet. Plan files written during a task (plan mode) show
+          up here — open one to import its checklist items as todos.
         </div>
       ) : (
         <div className="space-y-2">

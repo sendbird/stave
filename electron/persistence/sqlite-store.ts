@@ -31,6 +31,12 @@ import type {
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
+import type { BridgeEvent } from "../providers/types";
+import {
+  parseTurnEventPayload,
+  prepareTurnEventPayload,
+  type PersistedTurnStreamEvent,
+} from "./turn-event-payload";
 
 interface WorkspaceMetaRow {
   id: string;
@@ -1606,6 +1612,104 @@ export class SqliteStore {
       SET completed_at = ?
       WHERE id = ?
     `).run(completedAt, args.id);
+  }
+
+  /**
+   * W1 Phase 0 — persist a single streamed turn event. Idempotent on
+   * (turn_id, sequence): replaying the same event is a no-op, so replay/resume
+   * paths can safely re-save. Oversized payloads are bounded by
+   * `prepareTurnEventPayload`.
+   */
+  saveStreamEvent(args: {
+    turnId: string;
+    sequence: number;
+    event: BridgeEvent;
+    createdAt?: string;
+  }) {
+    if (this._closed) {
+      return;
+    }
+    this.insertTurnEventRow(args);
+  }
+
+  /**
+   * Batch variant for the streaming hot path — persists a buffered run of events
+   * in one transaction to keep per-event write cost off the provider stream.
+   */
+  saveStreamEvents(args: {
+    turnId: string;
+    events: Array<{ sequence: number; event: BridgeEvent }>;
+    createdAt?: string;
+  }) {
+    if (this._closed || args.events.length === 0) {
+      return;
+    }
+    const tx = this.db.transaction(
+      (events: Array<{ sequence: number; event: BridgeEvent }>) => {
+        for (const item of events) {
+          this.insertTurnEventRow({
+            turnId: args.turnId,
+            sequence: item.sequence,
+            event: item.event,
+            createdAt: args.createdAt,
+          });
+        }
+      },
+    );
+    tx(args.events);
+  }
+
+  private insertTurnEventRow(args: {
+    turnId: string;
+    sequence: number;
+    event: BridgeEvent;
+    createdAt?: string;
+  }) {
+    const createdAt = args.createdAt ?? new Date().toISOString();
+    const prepared = prepareTurnEventPayload(args.event);
+    this.db.prepare(`
+      INSERT OR IGNORE INTO turn_events (id, turn_id, sequence, event_type, payload_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      `${args.turnId}-${args.sequence}`,
+      args.turnId,
+      args.sequence,
+      prepared.eventType,
+      prepared.payloadJson,
+      createdAt,
+    );
+  }
+
+  /**
+   * W1 Phase 0 — read persisted turn events in sequence order, optionally only
+   * those after `sinceSequence` (for resume/replay). Truncated payloads come
+   * back with `event: null` and `truncated: true`.
+   */
+  getStreamEvents(args: {
+    turnId: string;
+    sinceSequence?: number;
+  }): PersistedTurnStreamEvent[] {
+    const sinceSequence = args.sinceSequence ?? 0;
+    const rows = this.db.prepare(`
+      SELECT sequence, event_type, payload_json
+      FROM turn_events
+      WHERE turn_id = ? AND sequence > ?
+      ORDER BY sequence ASC
+    `).all(args.turnId, sinceSequence) as Array<{
+      sequence: number;
+      event_type: string;
+      payload_json: string;
+    }>;
+
+    return rows.map((row) => {
+      const parsed = parseTurnEventPayload(row.payload_json);
+      return {
+        sequence: row.sequence,
+        eventType: row.event_type,
+        event: parsed.event,
+        truncated: parsed.truncated,
+      };
+    });
   }
 
   listTurns(args: { workspaceId: string; taskId: string; limit?: number }): PersistenceTurnSummary[] {

@@ -62,6 +62,7 @@ import {
   findOptionLabel,
 } from "@/lib/providers/runtime-option-contract";
 import {
+  formatProviderTurnElapsedDuration,
   formatProviderTurnIdleDuration,
   resolveProviderTurnDisplayState,
 } from "@/lib/providers/turn-status";
@@ -281,6 +282,32 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         ? formatProviderTurnIdleDuration({ activity: providerTurnActivity })
         : null,
     [providerTurnActivity, providerTurnDisplayState],
+  );
+  // Live elapsed clock for a healthy ("responding") turn. The interval only
+  // runs while responding and is torn down on stall/idle/turn change.
+  const isTurnResponding = providerTurnDisplayState === "responding";
+  const [turnElapsedNow, setTurnElapsedNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isTurnResponding) {
+      return;
+    }
+    setTurnElapsedNow(Date.now());
+    const handle = window.setInterval(() => {
+      setTurnElapsedNow(Date.now());
+    }, 1000);
+    return () => {
+      window.clearInterval(handle);
+    };
+  }, [isTurnResponding, activeTurnId]);
+  const runningDurationLabel = useMemo(
+    () =>
+      isTurnResponding
+        ? formatProviderTurnElapsedDuration({
+            activity: providerTurnActivity,
+            now: turnElapsedNow,
+          })
+        : null,
+    [isTurnResponding, providerTurnActivity, turnElapsedNow],
   );
   const promptHistoryEntries = useMemo(
     () => getPromptHistoryEntries(activeTaskMessages),
@@ -705,6 +732,15 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               });
             }}
           />
+        ) : null}
+        {runningDurationLabel ? (
+          <div className="mb-2 flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
+            <span
+              className="size-1.5 rounded-full bg-primary animate-pulse"
+              aria-hidden
+            />
+            <span>Running · {runningDurationLabel}</span>
+          </div>
         ) : null}
         {providerTurnDisplayState === "stalled" ? (
           <div className="mb-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-muted-foreground dark:bg-warning/15">

@@ -911,6 +911,7 @@ export const NotificationRecordSchema = z
     id: z.string().min(1).max(200),
     kind: z.union([
       z.literal("task.turn_completed"),
+      z.literal("task.turn_failed"),
       z.literal("task.approval_requested"),
       z.literal("task.user_input_requested"),
     ]),

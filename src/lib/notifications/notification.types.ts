@@ -2,6 +2,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 
 export type AppNotificationKind =
   | "task.turn_completed"
+  | "task.turn_failed"
   | "task.approval_requested"
   | "task.user_input_requested";
 
