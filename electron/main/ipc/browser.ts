@@ -7,15 +7,17 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
-  createBrowserSession,
   destroyBrowserSession,
   getBrowserSession,
   getWebContentsForSession,
-  pushConsoleEntry,
   setViewBounds,
   setViewVisible,
-  updateNavigationState,
 } from "../browser/browser-manager";
+import {
+  ensureBrowserSessionWithEvents,
+  injectAnnotationOverlay,
+  sendAnnotationEvent,
+} from "../browser/browser-session-events";
 import {
   deriveDownloadFilename,
   enumeratePageAssets,
@@ -23,7 +25,6 @@ import {
   sendDownloadEvent,
   triggerDownloadByUrl,
 } from "../browser/browser-downloads";
-import { getAnnotationOverlayScript } from "../browser/browser-annotation-overlay";
 import {
   assertCdpAllowedForWebContentsId,
   captureScreenshot,
@@ -41,14 +42,11 @@ import {
 } from "../browser/browser-security";
 import { normalizeLensUrl } from "../browser/browser-url";
 import type {
-  BrowserConsoleEntry,
   LensBounds,
   LensCdpApprovalResponse,
   LensDownloadEntry,
-  LensAnnotationEventPayload,
   LensSecurityConfig,
 } from "../../../src/lib/lens/lens.types";
-import { getMainWindow } from "../window";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -85,148 +83,6 @@ function pngDataUrlToBuffer(dataUrl: string): Buffer {
   return Buffer.from(dataUrl.slice(prefix.length), "base64");
 }
 
-function sendNavigationEvent(args: {
-  workspaceId: string;
-  state: ReturnType<typeof updateNavigationState>;
-}) {
-  if (!args.state) {
-    return;
-  }
-
-  const renderer = getMainWindow()?.webContents;
-  if (!renderer || renderer.isDestroyed()) {
-    return;
-  }
-
-  renderer.send("lens:navigation-event", {
-    workspaceId: args.workspaceId,
-    state: args.state,
-  });
-}
-
-function sendAnnotationEvent(payload: LensAnnotationEventPayload) {
-  const renderer = getMainWindow()?.webContents;
-  if (!renderer || renderer.isDestroyed()) {
-    return;
-  }
-  renderer.send("lens:annotation-event", payload);
-}
-
-async function injectAnnotationOverlay(
-  workspaceId: string,
-  wc: Electron.WebContents,
-): Promise<void> {
-  const session = getBrowserSession(workspaceId);
-  if (!session?.annotationOverlayActive || !session.annotationNonce) {
-    return;
-  }
-  await wc.executeJavaScript(
-    getAnnotationOverlayScript({
-      extractDebugSource: session.annotationExtractDebugSource,
-      nonce: session.annotationNonce,
-    }),
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Console / Network event listeners for a session
-// ---------------------------------------------------------------------------
-
-function attachEventListeners(workspaceId: string, wc: Electron.WebContents) {
-  // Navigation events → push to renderer
-  const sendNavUpdate = () => {
-    const state = updateNavigationState(workspaceId, {
-      url: wc.getURL(),
-      title: wc.getTitle(),
-      canGoBack: wc.canGoBack(),
-      canGoForward: wc.canGoForward(),
-      isLoading: wc.isLoading(),
-    });
-    sendNavigationEvent({ workspaceId, state });
-  };
-
-  wc.on("did-navigate", sendNavUpdate);
-  wc.on("did-navigate", () => {
-    sendAnnotationEvent({ workspaceId, type: "clear" });
-  });
-  wc.on("did-navigate-in-page", sendNavUpdate);
-  wc.on("did-start-loading", () => {
-    updateNavigationState(workspaceId, { isLoading: true });
-    sendNavUpdate();
-  });
-  wc.on("did-stop-loading", () => {
-    updateNavigationState(workspaceId, { isLoading: false });
-    sendNavUpdate();
-    void injectAnnotationOverlay(workspaceId, wc).catch((error) => {
-      pushConsoleEntry(workspaceId, {
-        level: "warn",
-        text: `Annotation overlay reinjection failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-        timestamp: toIso(),
-        source: wc.getURL(),
-      });
-    });
-  });
-  wc.on(
-    "did-fail-load",
-    (_event, _errorCode, errorDescription, validatedUrl, isMainFrame) => {
-      if (!isMainFrame) {
-        return;
-      }
-      pushConsoleEntry(workspaceId, {
-        level: "error",
-        text: `Navigation failed: ${errorDescription}`,
-        timestamp: toIso(),
-        source: validatedUrl,
-      });
-      updateNavigationState(workspaceId, { isLoading: false });
-      sendNavUpdate();
-    },
-  );
-  wc.on("page-title-updated", (_e, title) => {
-    updateNavigationState(workspaceId, { title });
-    sendNavUpdate();
-  });
-
-  // Console messages
-  wc.on("console-message", (_e, level, message, _line, sourceId) => {
-    const session = getBrowserSession(workspaceId);
-    const annotationPrefix = session?.annotationNonce
-      ? `__STAVE_ANN__${session.annotationNonce}`
-      : null;
-    if (annotationPrefix && message.startsWith(annotationPrefix)) {
-      try {
-        const payload = JSON.parse(message.slice(annotationPrefix.length)) as
-          | Omit<LensAnnotationEventPayload, "workspaceId">
-          | null;
-        if (payload?.type) {
-          sendAnnotationEvent({
-            workspaceId,
-            ...payload,
-          } as LensAnnotationEventPayload);
-        }
-      } catch {
-        sendAnnotationEvent({ workspaceId, type: "clear" });
-      }
-      return;
-    }
-
-    const levelMap: Record<number, BrowserConsoleEntry["level"]> = {
-      0: "debug",
-      1: "log",
-      2: "warn",
-      3: "error",
-    };
-    pushConsoleEntry(workspaceId, {
-      level: levelMap[level] ?? "log",
-      text: message,
-      timestamp: toIso(),
-      source: sourceId,
-    });
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Handler registration
 // ---------------------------------------------------------------------------
@@ -260,15 +116,8 @@ export function registerBrowserHandlers() {
     "lens:create-view",
     async (_event, args: { workspaceId: string }) => {
       try {
-        // Idempotent: if session already exists, just return ok
-        const existing = getBrowserSession(args.workspaceId);
-        if (existing) {
-          return { ok: true };
-        }
-
-        const session = createBrowserSession(args.workspaceId);
-        attachEventListeners(args.workspaceId, session.view.webContents);
-
+        const { session } = ensureBrowserSessionWithEvents(args.workspaceId);
+        session.managedByMcp = false;
         return { ok: true };
       } catch (err) {
         return {

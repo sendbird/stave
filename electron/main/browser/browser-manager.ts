@@ -62,6 +62,8 @@ export interface BrowserSessionState {
   annotationOverlayActive: boolean;
   annotationNonce: string | null;
   annotationExtractDebugSource: boolean;
+  /** True when the session was opened only for MCP/headless inspection. */
+  managedByMcp: boolean;
   navigationState: BrowserNavigationState;
   /** Last CSS-pixel bounds sent from renderer (for zoom-change re-apply). */
   lastCssBounds: LensBounds | null;
@@ -187,6 +189,7 @@ export function createBrowserSession(
     annotationOverlayActive: false,
     annotationNonce: null,
     annotationExtractDebugSource: false,
+    managedByMcp: false,
     navigationState: {
       url: "about:blank",
       title: "",
@@ -221,12 +224,14 @@ export function listBrowserSessions(): Array<{
   url: string;
   title: string;
   isLoading: boolean;
+  managedByMcp: boolean;
 }> {
   return [...sessions.values()].map((s) => ({
     workspaceId: s.workspaceId,
     url: s.navigationState.url,
     title: s.navigationState.title,
     isLoading: s.navigationState.isLoading,
+    managedByMcp: s.managedByMcp,
   }));
 }
 

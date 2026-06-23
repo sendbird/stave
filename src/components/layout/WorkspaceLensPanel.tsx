@@ -20,6 +20,8 @@ import {
   Globe,
   Highlighter,
   Loader2,
+  Maximize2,
+  Minimize2,
   RotateCw,
   ScanSearch,
   Send,
@@ -84,6 +86,8 @@ import type {
   LensSourceMappingConfig,
   LensStyleEdit,
 } from "@/lib/lens/lens.types";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
 const DEFAULT_NAVIGATION_STATE: BrowserNavigationState = {
@@ -308,6 +312,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   const [isAnnotationModeActive, setIsAnnotationModeActive] = useState(false);
   const [isLensFloatingSurfaceOpen, setIsLensFloatingSurfaceOpen] =
     useState(false);
+  const [isLensFullscreen, setIsLensFullscreen] = useState(false);
   const isOccluded = Boolean(args.occluded);
   const isLensSuppressed = isOccluded || isLensFloatingSurfaceOpen;
   const cdpApprovalRequestRef =
@@ -437,10 +442,28 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     annotations.length,
     hasLensApi,
     isAnnotationModeActive,
+    isLensFullscreen,
     isLensSuppressed,
     syncBounds,
     workspaceId,
   ]);
+
+  useEffect(() => {
+    if (!isLensFullscreen) {
+      return;
+    }
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      setIsLensFullscreen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isLensFullscreen]);
 
   useEffect(() => {
     pendingBoundsRef.current = null;
@@ -1106,7 +1129,13 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
   return (
     <TooltipProvider delayDuration={120}>
-      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar/20">
+      <div
+        className={cn(
+          "flex h-full min-h-0 flex-col overflow-hidden bg-sidebar/20",
+          isLensFullscreen && "fixed inset-0 h-dvh bg-background shadow-2xl",
+          isLensFullscreen && UI_LAYER_CLASS.floatingChrome,
+        )}
+      >
         <div className="flex shrink-0 flex-col gap-2 border-b border-border/60 px-3 py-2">
           <div className="flex items-center gap-1">
             <Tooltip>
@@ -1329,6 +1358,32 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant={isLensFullscreen ? "secondary" : "outline"}
+                  disabled={!hasLensApi}
+                  onClick={() => setIsLensFullscreen((current) => !current)}
+                  aria-label={
+                    isLensFullscreen
+                      ? "Exit fullscreen Lens"
+                      : "Open Lens fullscreen"
+                  }
+                >
+                  {isLensFullscreen ? (
+                    <Minimize2 className="size-3.5" />
+                  ) : (
+                    <Maximize2 className="size-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isLensFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
