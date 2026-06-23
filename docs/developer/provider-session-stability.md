@@ -15,7 +15,6 @@ Renderer (app.store.ts)          IPC bridge             Host service (runtime.ts
 │ providerTurnActivity  │   │ IPC channels  │   │ activeStreams Map             │
 │ stall indicator       │   └───────────────┘   │                              │
 │ timers                │                       │ streamClaudeWithSdk()        │
-│                       │                       │ streamCodexWithSdk()         │
 │                       │                       │ streamCodexWithAppServer()   │
 └──────────────────────┘                       └──────────────────────────────┘
 ```
@@ -71,12 +70,10 @@ message appears in the chat when the user simply presses Esc.
 uniformly. An `AbortError` (or SDK abort message) is indistinguishable from
 a real network/process failure.
 
-**Fix (applied)**: Both `claude-sdk-runtime.ts` and `codex-sdk-runtime.ts`
-now check for `AbortError` (by name or message pattern) before falling
-through to the generic error path. On abort, a clean
+**Fix (applied)**: `claude-sdk-runtime.ts` and
+`codex-app-server-runtime.ts` now check for `AbortError` (by name or message
+pattern) before falling through to the generic error path. On abort, a clean
 `{ type: "done", stop_reason: "user_abort" }` is emitted instead.
-
-The Codex app-server runtime applies the same pattern.
 
 **Detection heuristic**:
 ```typescript
@@ -128,12 +125,13 @@ loop runs forever.
 `(taskId, cwd, runtimeOptions)` combination creates a new cached thread
 that is never evicted.
 
-**Cause**: `threadByTask` (Codex SDK) and `clientByExecutablePath`
-(Codex app-server) are global `Map`s with no size limit or TTL.
+**Cause**: Codex app-server thread/client maps are global `Map`s with no size
+limit or TTL.
 
-**Fix (applied)**: `threadByTask` now has LRU eviction with a cap of 24
-entries. On insert, if the cache is full, the least-recently-used entry
-is removed. `threadLastUsedAt` tracks access timestamps.
+**Fix (applied)**: Codex task thread tracking avoids unbounded SDK thread
+caches because the legacy SDK runtime has been removed. App Server client
+lifetime is keyed by executable path and should be watched when adding new
+long-lived App Server state.
 
 ---
 
@@ -202,7 +200,7 @@ legitimately waiting for user input.
 
 ## Checklist: modifying provider runtimes
 
-When editing `claude-sdk-runtime.ts`, `codex-sdk-runtime.ts`, or
+When editing `claude-sdk-runtime.ts` or
 `codex-app-server-runtime.ts`:
 
 - [ ] **finally block cleans up all Maps**: pending resolvers, trackers,

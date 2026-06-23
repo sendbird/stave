@@ -14,7 +14,6 @@ import {
   resolveCodexCliExecutablePath,
 } from "../electron/providers/cli-path-env";
 import { resolveCodexExecutablePath as resolveCodexAppServerExecutablePath } from "../electron/providers/codex-app-server-runtime";
-import { resolveCodexExecutablePath as resolveCodexSdkExecutablePath } from "../electron/providers/codex-sdk-runtime";
 import { __resetExecutablePathCachesForTests } from "../electron/providers/executable-path";
 
 const createdDirectories: string[] = [];
@@ -168,7 +167,7 @@ describe("provider executable resolution", () => {
     );
   });
 
-  test("normalizes tilde-prefixed Codex binary overrides for tooling and both runtime backends", () => {
+  test("normalizes tilde-prefixed Codex binary overrides for tooling and runtime resolver", () => {
     if (process.platform === "win32") {
       return;
     }
@@ -185,14 +184,11 @@ describe("provider executable resolution", () => {
       resolveCodexCliExecutablePath({ explicitPath: fixture.tildePath }),
     ).toBe(fixture.executablePath);
     expect(
-      resolveCodexSdkExecutablePath({ explicitPath: fixture.tildePath }),
-    ).toBe(fixture.executablePath);
-    expect(
       resolveCodexAppServerExecutablePath({ explicitPath: fixture.tildePath }),
     ).toBe(fixture.executablePath);
   });
 
-  test("normalizes alias-shaped Codex binary overrides for tooling and both runtime backends", () => {
+  test("normalizes alias-shaped Codex binary overrides for tooling and runtime resolver", () => {
     if (process.platform === "win32") {
       return;
     }
@@ -209,14 +205,11 @@ describe("provider executable resolution", () => {
       resolveCodexCliExecutablePath({ explicitPath: fixture.aliasPath }),
     ).toBe(fixture.executablePath);
     expect(
-      resolveCodexSdkExecutablePath({ explicitPath: fixture.aliasPath }),
-    ).toBe(fixture.executablePath);
-    expect(
       resolveCodexAppServerExecutablePath({ explicitPath: fixture.aliasPath }),
     ).toBe(fixture.executablePath);
   });
 
-  test("uses the same normalized Codex env override path for tooling and both runtime backends", () => {
+  test("uses the same normalized Codex env override path for tooling and runtime resolver", () => {
     if (process.platform === "win32") {
       return;
     }
@@ -235,7 +228,6 @@ describe("provider executable resolution", () => {
       },
       () => {
         expect(resolveCodexCliExecutablePath()).toBe(fixture.executablePath);
-        expect(resolveCodexSdkExecutablePath()).toBe(fixture.executablePath);
         expect(resolveCodexAppServerExecutablePath()).toBe(
           fixture.executablePath,
         );
@@ -243,7 +235,7 @@ describe("provider executable resolution", () => {
     );
   });
 
-  test("uses the same alias-shaped Codex env override path for tooling and both runtime backends", () => {
+  test("uses the same alias-shaped Codex env override path for tooling and runtime resolver", () => {
     if (process.platform === "win32") {
       return;
     }
@@ -262,7 +254,6 @@ describe("provider executable resolution", () => {
       },
       () => {
         expect(resolveCodexCliExecutablePath()).toBe(fixture.executablePath);
-        expect(resolveCodexSdkExecutablePath()).toBe(fixture.executablePath);
         expect(resolveCodexAppServerExecutablePath()).toBe(
           fixture.executablePath,
         );
@@ -303,7 +294,6 @@ describe("provider executable resolution", () => {
         __resetExecutablePathCachesForTests();
         try {
           expect(resolveCodexCliExecutablePath()).toBe(codexPath);
-          expect(resolveCodexSdkExecutablePath()).toBe(codexPath);
           expect(resolveCodexAppServerExecutablePath()).toBe(codexPath);
         } finally {
           __resetExecutablePathCachesForTests();

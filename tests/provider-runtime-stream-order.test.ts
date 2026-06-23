@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
 const actualClaudeRuntime = await import("../electron/providers/claude-sdk-runtime");
-const actualCodexRuntime = await import("../electron/providers/codex-sdk-runtime");
 const actualCodexAppServerRuntime = await import(
   "../electron/providers/codex-app-server-runtime"
 );
@@ -30,20 +29,10 @@ mock.module("../electron/providers/claude-sdk-runtime", () => ({
   suggestClaudeTaskName: async () => "stub",
 }));
 
-mock.module("../electron/providers/codex-sdk-runtime", () => ({
-  ...actualCodexRuntime,
-  cleanupCodexTask: () => {},
-  resolveCodexExecutablePath: () => "/tmp/codex",
-  streamCodexWithSdk: async (args: { onEvent?: (event: { type: string }) => void }) => {
-    args.onEvent?.({ type: "text", text: "progress" });
-    args.onEvent?.({ type: "done" });
-    return [{ type: "text", text: "progress" }, { type: "done" }];
-  },
-}));
-
 mock.module("../electron/providers/codex-app-server-runtime", () => ({
   ...actualCodexAppServerRuntime,
   cleanupCodexAppServerTask: () => {},
+  resolveCodexExecutablePath: () => "/tmp/codex",
   getCodexConnectedToolStatus: async () => ({
     ok: true,
     detail: "",

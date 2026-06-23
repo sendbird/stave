@@ -5,7 +5,7 @@ For a task-oriented guide to choosing Claude and Codex sandbox, approval, and pl
 Stave supports two task providers directly:
 
 - `claude-code` for Claude Code SDK turns.
-- `codex` for Codex SDK or app-server turns.
+- `codex` for Codex App Server turns.
 
 The renderer submits a selected provider and model with each turn. `electron/main/ipc/provider.ts` validates the request, forwards it into the dedicated desktop `host-service` child process, and `electron/providers/runtime.ts` dispatches to the matching provider runtime.
 
@@ -142,8 +142,6 @@ Compaction checkpoint UI support:
 ## Codex runtime
 
 Codex turns are handled in `electron/providers/codex-app-server-runtime.ts`.
-The older `electron/providers/codex-sdk-runtime.ts` path remains available only
-as a rollback target behind `STAVE_CODEX_RUNTIME=legacy-sdk`.
 
 High-level flow:
 
@@ -185,8 +183,8 @@ Codex text-boundary note:
 
 Codex plan mode:
 
-- When `codexPlanMode` is enabled, Stave forwards
-  `collaborationMode.mode = "plan"` on the App Server turn.
+- When `codexPlanMode` is enabled, Stave forwards the App Server thread
+  config override `collaboration_mode_kind = "plan"`.
 - Stave also forces Codex plan turns onto `read-only` file access, even if the
   normal Codex runtime setting is `workspace-write` or `danger-full-access`, so
   plan turns cannot mutate the workspace.
@@ -280,14 +278,13 @@ When a task switches from one Codex model to another, Stave does not attempt to 
 
 ## Supported Codex baseline
 
-- Codex App Server transport: local `codex app-server` from Codex CLI `0.140.0`
-- Legacy SDK fallback path: `@openai/codex-sdk@0.140.0`
-- Codex CLI baseline: `0.140.0`
+- Codex App Server transport: local `codex app-server` from Codex CLI `0.142.0`
+- Codex CLI baseline: `0.142.0`
 - Current Stave-supported Codex model IDs: `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex-spark`
 
-Stave requires a user-installed Codex CLI (`codex` ≥ 0.140.0). Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery.
+Stave requires a user-installed Codex CLI (`codex` ≥ 0.142.0). Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery.
 
-The Codex App Server adapter advertises the `experimentalApi` capability because Stave requests `experimentalRawEvents` for its streaming, approval, and elicitation event mapping. Additional restricted-sandbox readable roots can be supplied per runtime option without changing the workspace write root.
+The Codex App Server adapter advertises the `experimentalApi` capability during initialization for App Server features that require it, but thread and turn request payloads are kept within the generated 0.142.0 protocol surface.
 
 Claude follows the same pattern. Users can force a specific local `claude` install via `runtimeOptions.claudeBinaryPath` or the Settings dialog's Claude Binary override before Stave falls back to environment-based discovery.
 

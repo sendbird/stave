@@ -52,7 +52,6 @@ Changes to executable lookup, runtime env, CLI launch env, or tooling status pro
 - `electron/providers/executable-path.ts`
 - `electron/providers/cli-path-env.ts`
 - `electron/providers/claude-sdk-runtime.ts`
-- `electron/providers/codex-sdk-runtime.ts`
 - `electron/providers/codex-app-server-runtime.ts`
 - `electron/providers/runtime.ts`
 - `electron/main/utils/tooling-status.ts`

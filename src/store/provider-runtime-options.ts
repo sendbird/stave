@@ -63,7 +63,6 @@ type RuntimeSettings = Pick<
   | "codexShowRawReasoning"
   | "codexReasoningSummary"
   | "codexReasoningSummarySupport"
-  | "codexAdditionalReadableRoots"
   | "codexFastMode"
   | "codexPlanMode"
   | "codexFastModeVisible"
@@ -268,14 +267,6 @@ export function buildProviderRuntimeOptions(args: {
     codexShowRawReasoning: settings.codexShowRawReasoning,
     codexReasoningSummary: settings.codexReasoningSummary,
     codexReasoningSummarySupport: settings.codexReasoningSummarySupport,
-    ...(normalizeDelimitedSettingList(settings.codexAdditionalReadableRoots)
-      .length > 0
-      ? {
-          codexAdditionalReadableRoots: normalizeDelimitedSettingList(
-            settings.codexAdditionalReadableRoots,
-          ),
-        }
-      : {}),
     codexFastMode: settings.codexFastMode,
     codexPlanMode: settings.codexPlanMode,
     ...(args.provider === "codex" && providerSession?.codex?.trim()

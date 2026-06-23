@@ -48,14 +48,19 @@ import {
   resolveProviderResumeSessionId,
 } from "../../src/lib/providers/provider-request-translators";
 import {
+  buildIntentGuardPrompt,
+  buildReviewDiffPrompt,
+  parseReviewFindings,
+  PRE_PR_REVIEW_OUTPUT_SCHEMA,
+  type PrePrReviewFinding,
+} from "../../src/lib/source-control-review";
+import {
   resolveEffectiveCodexApprovalPolicy,
   resolveEffectiveCodexFileAccessMode,
 } from "../../src/lib/providers/codex-runtime-options";
-import { homedir } from "node:os";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { accessSync, constants } from "node:fs";
 import path from "node:path";
-import { parseBooleanEnv, probeExecutableVersion } from "./runtime-shared";
+import { parseBooleanEnv } from "./runtime-shared";
 import {
   appendBoundedText,
   createBoundedBridgeEventCollector,
@@ -79,12 +84,6 @@ import {
 const threadIdByTask = new Map<string, string>();
 const clientByExecutablePath = new Map<string, CodexAppServerClient>();
 
-const CODEX_HOME_DIRECTORY = process.env.HOME?.trim() || homedir();
-const CODEX_SHARED_RUNTIME_DIRECTORIES = [
-  `${CODEX_HOME_DIRECTORY}/.agents`,
-  `${CODEX_HOME_DIRECTORY}/.codex`,
-  `${CODEX_HOME_DIRECTORY}/.stave`,
-] as const;
 const APP_SERVER_INTERRUPT_GRACE_MS = 10_000;
 const CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES = 32 * 1024 * 1024;
 const CODEX_APP_SERVER_STDOUT_SOFT_LINE_MAX_BYTES = 1 * 1024 * 1024;
@@ -408,10 +407,11 @@ function truncateCodexSnapshot(args: { value: string; maxBytes: number }) {
   });
 }
 
-function buildCodexConfigOverrides(args: {
+export function buildCodexConfigOverrides(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
   const config: Record<string, string | boolean> = {};
+  const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
   const developerInstructions = buildCodexDeveloperInstructions({
     runtimeOptions: args.runtimeOptions,
   });
@@ -448,8 +448,93 @@ function buildCodexConfigOverrides(args: {
   if (codexFastMode !== undefined) {
     config["features.fast_mode"] = codexFastMode;
   }
+  if (planModeEnabled) {
+    config.collaboration_mode_kind = "plan";
+    if (args.runtimeOptions?.codexReasoningEffort) {
+      config.plan_mode_reasoning_effort =
+        args.runtimeOptions.codexReasoningEffort;
+    }
+  }
 
   return Object.keys(config).length > 0 ? config : undefined;
+}
+
+export function buildCodexTurnStartParams(args: {
+  threadId: string;
+  prompt: string;
+  cwd: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  outputSchema?: unknown;
+}) {
+  const approvalPolicy = resolveApprovalPolicy({
+    runtimeValue: args.runtimeOptions?.codexApprovalPolicy,
+    envValue: process.env.STAVE_CODEX_APPROVAL_POLICY?.trim(),
+    planMode: args.runtimeOptions?.codexPlanMode === true,
+    fallback: "untrusted",
+  });
+
+  return {
+    threadId: args.threadId,
+    input: [
+      {
+        type: "text" as const,
+        text: args.prompt,
+        text_elements: [],
+      },
+    ],
+    cwd: args.cwd,
+    ...(approvalPolicy ? { approvalPolicy } : {}),
+    sandboxPolicy: buildSandboxPolicy({
+      cwd: args.cwd,
+      runtimeOptions: args.runtimeOptions,
+    }),
+    ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
+    ...(args.runtimeOptions?.codexReasoningEffort
+      ? { effort: args.runtimeOptions.codexReasoningEffort }
+      : {}),
+    ...(args.runtimeOptions?.codexReasoningSummary
+      ? { summary: args.runtimeOptions.codexReasoningSummary }
+      : {}),
+    ...(args.outputSchema ? { outputSchema: args.outputSchema } : {}),
+  };
+}
+
+export function buildCodexThreadStartParams(args: {
+  cwd: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  ephemeral?: boolean;
+  sandbox?: "read-only" | "workspace-write" | "danger-full-access";
+  approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
+}) {
+  const config = buildCodexConfigOverrides({
+    runtimeOptions: args.runtimeOptions,
+  });
+
+  return {
+    ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
+    cwd: args.cwd,
+    ...(args.approvalPolicy ? { approvalPolicy: args.approvalPolicy } : {}),
+    ...(args.sandbox ? { sandbox: args.sandbox } : {}),
+    ...(config ? { config } : {}),
+    ...(args.ephemeral !== undefined ? { ephemeral: args.ephemeral } : {}),
+  };
+}
+
+export function buildCodexThreadResumeParams(args: {
+  threadId: string;
+  cwd: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}) {
+  const config = buildCodexConfigOverrides({
+    runtimeOptions: args.runtimeOptions,
+  });
+
+  return {
+    threadId: args.threadId,
+    ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
+    cwd: args.cwd,
+    ...(config ? { config } : {}),
+  };
 }
 
 function buildThreadKey(args: {
@@ -506,15 +591,6 @@ function buildCodexThreadStartedEvents(args: {
   ];
 }
 
-function isReadableDirectory(args: { path: string }) {
-  try {
-    accessSync(args.path, constants.R_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function resolveCodexExecutablePath(
   args: { explicitPath?: string } = {},
 ) {
@@ -523,31 +599,9 @@ export function resolveCodexExecutablePath(
   });
 }
 
-function resolveCodexAdditionalDirectories(args: {
-  cwd: string;
-  candidates?: readonly string[];
-  pathExists?: (value: string) => boolean;
-}) {
-  const resolvedCwd = path.resolve(args.cwd);
-  return (args.candidates ?? CODEX_SHARED_RUNTIME_DIRECTORIES)
-    .map((candidate) => candidate.trim())
-    .filter(Boolean)
-    .map((candidate) => path.resolve(candidate))
-    .filter((candidate, index, entries) => entries.indexOf(candidate) === index)
-    .filter((candidate) => candidate !== resolvedCwd)
-    .filter((candidate) => !resolvedCwd.startsWith(`${candidate}${path.sep}`))
-    .filter((candidate) =>
-      (
-        args.pathExists ??
-        ((value: string) => isReadableDirectory({ path: value }))
-      )(candidate),
-    );
-}
-
 export function buildSandboxPolicy(args: {
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  pathExists?: (value: string) => boolean;
 }) {
   const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
   const networkAccessEnabled =
@@ -562,29 +616,12 @@ export function buildSandboxPolicy(args: {
     planMode: planModeEnabled,
     fallback: "workspace-write",
   });
-  const readableRoots = [
-    args.cwd,
-    ...resolveCodexAdditionalDirectories({
-      cwd: args.cwd,
-      candidates: [
-        ...CODEX_SHARED_RUNTIME_DIRECTORIES,
-        ...(args.runtimeOptions?.codexAdditionalReadableRoots ?? []),
-      ],
-      pathExists: args.pathExists,
-    }),
-  ];
-
   switch (fileAccessMode) {
     case "danger-full-access":
       return { type: "dangerFullAccess" as const };
     case "read-only":
       return {
         type: "readOnly" as const,
-        permissionProfile: {
-          type: "restricted" as const,
-          includePlatformDefaults: true,
-          readableRoots,
-        },
         networkAccess: networkAccessEnabled,
       };
     case "workspace-write":
@@ -592,11 +629,6 @@ export function buildSandboxPolicy(args: {
       return {
         type: "workspaceWrite" as const,
         writableRoots: [args.cwd],
-        permissionProfile: {
-          type: "restricted" as const,
-          includePlatformDefaults: true,
-          readableRoots,
-        },
         networkAccess: networkAccessEnabled,
         excludeTmpdirEnvVar: false,
         excludeSlashTmp: false,
@@ -1923,25 +1955,20 @@ async function ensureCodexThread(args: {
     }),
   });
 
-  const config = buildCodexConfigOverrides({
-    runtimeOptions: args.runtimeOptions,
-  });
-  const params = {
-    ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
-    cwd: args.cwd,
-    ...(config ? { config } : {}),
-    experimentalRawEvents: true,
-    persistExtendedHistory: true,
-  };
-
   const response = resumeThreadId
     ? await args.client.request<{ thread: { id: string } }>("thread/resume", {
-        threadId: resumeThreadId,
-        ...params,
+        ...buildCodexThreadResumeParams({
+          threadId: resumeThreadId,
+          cwd: args.cwd,
+          runtimeOptions: args.runtimeOptions,
+        }),
       })
     : await args.client.request<{ thread: { id: string } }>(
         "thread/start",
-        params,
+        buildCodexThreadStartParams({
+          cwd: args.cwd,
+          runtimeOptions: args.runtimeOptions,
+        }),
       );
   const threadId = response.thread.id;
   rememberThreadId({ threadKey, threadId });
@@ -3376,6 +3403,198 @@ export async function getCodexConnectedToolStatus(args: {
   }
 }
 
+function extractLatestAgentMessageTextFromTurn(turn: unknown) {
+  if (!isRecord(turn) || !Array.isArray(turn.items)) {
+    return "";
+  }
+  for (let index = turn.items.length - 1; index >= 0; index -= 1) {
+    const item = turn.items[index];
+    if (
+      isRecord(item) &&
+      item.type === "agentMessage" &&
+      typeof item.text === "string"
+    ) {
+      return item.text;
+    }
+  }
+  return "";
+}
+
+// Runs an isolated single-turn Codex review over the PR diff. It deliberately
+// uses an ephemeral read-only App Server thread so review state cannot leak
+// into the user's conversation thread and cannot mutate the workspace.
+export async function reviewCodexWorktreeDiff(args: {
+  cwd?: string;
+  diff: string;
+  workingTreeDiff: string;
+  commitLog: string;
+  fileList: string;
+  baseBranch: string;
+  headBranch: string;
+  agentsContent?: string;
+  model?: string;
+  mode?: "review" | "intent";
+  intentContext?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<{ ok: boolean; findings?: PrePrReviewFinding[] }> {
+  const runtimeCwd =
+    args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  const codexExecutablePath = resolveCodexExecutablePath({
+    explicitPath: args.runtimeOptions?.codexBinaryPath,
+  });
+  if (!codexExecutablePath) {
+    return { ok: false };
+  }
+
+  const model = args.model?.trim() || args.runtimeOptions?.model?.trim();
+  const reviewRuntimeOptions: StreamTurnArgs["runtimeOptions"] = {
+    ...args.runtimeOptions,
+    ...(model ? { model } : {}),
+    codexFileAccess: "read-only",
+    codexNetworkAccess: false,
+    codexApprovalPolicy: "never",
+    codexPlanMode: false,
+  };
+  const reviewPrompt =
+    args.mode === "intent"
+      ? buildIntentGuardPrompt({
+          diff: args.diff,
+          workingTreeDiff: args.workingTreeDiff,
+          fileList: args.fileList,
+          intentContext: args.intentContext ?? "",
+        })
+      : buildReviewDiffPrompt(args);
+
+  const client = getCodexAppServerClient({
+    executablePath: codexExecutablePath,
+  });
+  let threadId = "";
+  let unsubscribe: (() => void) | null = null;
+  try {
+    const account = await client.request<{
+      account: unknown | null;
+      requiresOpenaiAuth: boolean;
+    }>("account/read", { refreshToken: true });
+    if (!account.account && account.requiresOpenaiAuth) {
+      return { ok: false };
+    }
+
+    const threadResponse = await client.request<{ thread: { id: string } }>(
+      "thread/start",
+      buildCodexThreadStartParams({
+        cwd: runtimeCwd,
+        runtimeOptions: reviewRuntimeOptions,
+        ephemeral: true,
+        sandbox: "read-only",
+        approvalPolicy: "never",
+      }),
+    );
+    threadId = threadResponse.thread.id;
+
+    let latestAgentMessageText = "";
+    let failureMessage: string | null = null;
+    let resolveCompletion: (() => void) | null = null;
+    const waitForCompletion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve;
+    });
+
+    unsubscribe = client.subscribe((message) => {
+      if (!message.method) {
+        return;
+      }
+      const params = isRecord(message.params) ? message.params : null;
+      if (params?.threadId !== threadId) {
+        return;
+      }
+
+      if (message.method === "item/completed") {
+        const item = isRecord(params.item) ? params.item : null;
+        if (
+          item?.type === "agentMessage" &&
+          typeof item.text === "string"
+        ) {
+          latestAgentMessageText = item.text;
+        }
+        return;
+      }
+
+      if (message.method === "turn/completed") {
+        const turn = isRecord(params.turn) ? params.turn : null;
+        const turnText = extractLatestAgentMessageTextFromTurn(turn);
+        if (turnText) {
+          latestAgentMessageText = turnText;
+        }
+        const error = isRecord(turn?.error) ? turn.error : null;
+        if (turn?.status === "failed") {
+          failureMessage =
+            typeof error?.message === "string"
+              ? error.message
+              : "Codex App Server review turn failed.";
+        }
+        resolveCompletion?.();
+        return;
+      }
+
+      if (message.method === "error") {
+        failureMessage =
+          typeof params.message === "string"
+            ? params.message
+            : "Codex App Server review turn failed.";
+        resolveCompletion?.();
+      }
+    });
+
+    const turnResponse = await client.request<{
+      turn: {
+        id: string;
+        status?: string;
+        error?: { message?: string | null } | null;
+        items?: unknown[];
+      };
+    }>(
+      "turn/start",
+      buildCodexTurnStartParams({
+        threadId,
+        cwd: runtimeCwd,
+        prompt: reviewPrompt,
+        runtimeOptions: reviewRuntimeOptions,
+        outputSchema: PRE_PR_REVIEW_OUTPUT_SCHEMA,
+      }),
+    );
+    const immediateText = extractLatestAgentMessageTextFromTurn(
+      turnResponse.turn,
+    );
+    if (immediateText) {
+      latestAgentMessageText = immediateText;
+    }
+    if (turnResponse.turn.status === "failed") {
+      failureMessage =
+        turnResponse.turn.error?.message ?? "Codex App Server review turn failed.";
+    }
+    if (
+      turnResponse.turn.status !== "completed" &&
+      turnResponse.turn.status !== "failed"
+    ) {
+      await waitForCompletion;
+    }
+
+    if (failureMessage) {
+      return { ok: false };
+    }
+    return {
+      ok: true,
+      findings: parseReviewFindings(latestAgentMessageText),
+    };
+  } catch {
+    return { ok: false };
+  } finally {
+    unsubscribe?.();
+    if (threadId) {
+      void client.request("thread/delete", { threadId }).catch(() => {});
+    }
+  }
+}
+
 export async function streamCodexWithAppServer(
   args: StreamTurnArgs & {
     onEvent?: (event: BridgeEvent) => void;
@@ -4478,59 +4697,17 @@ export async function streamCodexWithAppServer(
   });
 
   try {
-    const approvalPolicy = resolveApprovalPolicy({
-      runtimeValue: args.runtimeOptions?.codexApprovalPolicy,
-      envValue: process.env.STAVE_CODEX_APPROVAL_POLICY?.trim(),
-      planMode: args.runtimeOptions?.codexPlanMode === true,
-      fallback: "untrusted",
-    });
-
     // Race turn/start against waitForTurnCompletion so an abort (or
     // process death) during the request isn't blocked until the outer
     // 3-hour timeout.
     const turnStartPromise = client.request<{ turn: { id: string } }>(
       "turn/start",
-      {
+      buildCodexTurnStartParams({
         threadId,
-        input: [
-          {
-            type: "text",
-            text: providerPrompt,
-            text_elements: [],
-          },
-        ],
         cwd: runtimeCwd,
-        ...(approvalPolicy ? { approvalPolicy } : {}),
-        sandboxPolicy: buildSandboxPolicy({
-          cwd: runtimeCwd,
-          runtimeOptions: args.runtimeOptions,
-        }),
-        ...(args.runtimeOptions?.model
-          ? { model: args.runtimeOptions.model }
-          : {}),
-        ...(args.runtimeOptions?.codexReasoningEffort
-          ? { effort: args.runtimeOptions.codexReasoningEffort }
-          : {}),
-        ...(args.runtimeOptions?.codexReasoningSummary
-          ? { summary: args.runtimeOptions.codexReasoningSummary }
-          : {}),
-        ...(args.runtimeOptions?.codexPlanMode
-          ? {
-              collaborationMode: {
-                mode: "plan",
-                settings: {
-                  model: args.runtimeOptions?.model?.trim() || "gpt-5.5",
-                  reasoning_effort:
-                    args.runtimeOptions?.codexReasoningEffort ?? null,
-                  developer_instructions:
-                    buildCodexDeveloperInstructions({
-                      runtimeOptions: args.runtimeOptions,
-                    }) ?? null,
-                },
-              },
-            }
-          : {}),
-      },
+        prompt: providerPrompt,
+        runtimeOptions: args.runtimeOptions,
+      }),
     );
 
     const turnResponse = await Promise.race([

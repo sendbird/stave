@@ -12,8 +12,7 @@ Read in this order:
 2. `electron/providers/runtime.ts`
 3. `electron/providers/claude-sdk-runtime.ts`
 4. `electron/providers/codex-app-server-runtime.ts`
-5. `electron/providers/codex-sdk-runtime.ts` for rollback-only legacy behavior
-6. `electron/main/ipc/schemas.ts`
+5. `electron/main/ipc/schemas.ts`
 
 ### Prompt input, skills, and quick controls
 

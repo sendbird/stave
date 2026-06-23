@@ -44,7 +44,6 @@ const settings = {
   codexShowRawReasoning: false,
   codexReasoningSummary: "auto",
   codexReasoningSummarySupport: "auto",
-  codexAdditionalReadableRoots: "",
   codexFastMode: true,
   codexPlanMode: false,
   codexFastModeVisible: true,
@@ -214,13 +213,11 @@ describe("buildProviderRuntimeOptions", () => {
         settings: {
           ...settings,
           codexApprovalPolicy: "on-failure",
-          codexAdditionalReadableRoots: "/tmp/context-a\n/tmp/context-b",
         },
         providerSession: null,
       }),
     ).toMatchObject({
       codexApprovalPolicy: "on-failure",
-      codexAdditionalReadableRoots: ["/tmp/context-a", "/tmp/context-b"],
     });
   });
 

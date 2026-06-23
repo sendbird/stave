@@ -39,7 +39,7 @@ High-signal files:
 
 - `src/store/app.store.ts`: central Zustand store
 - `electron/providers/claude-sdk-runtime.ts`: Claude runtime adapter
-- `electron/providers/codex-sdk-runtime.ts`: Codex runtime adapter
+- `electron/providers/codex-app-server-runtime.ts`: Codex App Server runtime adapter
 - `src/types/window-api.d.ts`: renderer-to-main IPC contract
 - `electron/preload.ts`: exposed renderer bridge
 

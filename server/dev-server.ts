@@ -1,10 +1,5 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import type {
-  SandboxMode,
-  ApprovalMode,
-  ModelReasoningEffort,
-} from "@openai/codex-sdk";
 import { parseWorktreePathByBranch } from "../src/lib/source-control-worktrees";
 import {
   buildSourceControlDiffPreview,
@@ -14,9 +9,13 @@ import {
   hasSourceControlConflicts,
   parseSourceControlStatusLines,
 } from "../src/lib/source-control-status";
-import type { BridgeEvent } from "../electron/providers/types";
+import type {
+  BridgeEvent,
+  ProviderResponderResult,
+} from "../electron/providers/types";
+import type { ProviderRuntimeOptions } from "../src/lib/providers/provider.types";
 import { streamClaudeWithSdk } from "../electron/providers/claude-sdk-runtime";
-import { streamCodexWithSdk } from "../electron/providers/codex-sdk-runtime";
+import { streamCodexWithAppServer } from "../electron/providers/codex-app-server-runtime";
 
 // Browser-only development bridge.
 // This is not the primary desktop runtime; it exists so `bun run dev` / `bun run dev:all`
@@ -37,14 +36,6 @@ interface TerminalSession {
   output: string;
 }
 
-interface ProviderRuntimeOptions {
-  codexSandboxMode?: SandboxMode;
-  codexApprovalPolicy?: ApprovalMode;
-  codexNetworkAccessEnabled?: boolean;
-  codexPathOverride?: string;
-  codexModelReasoningEffort?: ModelReasoningEffort;
-}
-
 interface ProviderTurnRequest {
   providerId: ProviderId;
   prompt: string;
@@ -57,7 +48,7 @@ const terminalSessions = new Map<string, TerminalSession>();
 const activeProviderAborters = new Map<ProviderId, () => void>();
 const activeApprovalResponders = new Map<
   ProviderId,
-  (args: { requestId: string; approved: boolean }) => boolean
+  (args: { requestId: string; approved: boolean }) => ProviderResponderResult
 >();
 const activeUserInputResponders = new Map<
   ProviderId,
@@ -65,7 +56,7 @@ const activeUserInputResponders = new Map<
     requestId: string;
     answers?: Record<string, string>;
     denied?: boolean;
-  }) => boolean
+  }) => ProviderResponderResult
 >();
 
 function json(value: unknown, status = 200) {
@@ -73,6 +64,10 @@ function json(value: unknown, status = 200) {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+function isResponderDelivered(result: ProviderResponderResult) {
+  return result.ok;
 }
 
 async function readJson<T>(req: Request): Promise<T> {
@@ -216,7 +211,7 @@ const server = Bun.serve({
         return json({ events: result ?? events });
       }
 
-      const result = await streamCodexWithSdk({
+      const result = await streamCodexWithAppServer({
         providerId: body.providerId,
         prompt: body.prompt,
         taskId: body.taskId,
@@ -228,8 +223,16 @@ const server = Bun.serve({
         registerAbort: (aborter) => {
           activeProviderAborters.set(body.providerId, aborter);
         },
+        registerApprovalResponder: (responder) => {
+          activeApprovalResponders.set(body.providerId, responder);
+        },
+        registerUserInputResponder: (responder) => {
+          activeUserInputResponders.set(body.providerId, responder);
+        },
       });
       activeProviderAborters.delete(body.providerId);
+      activeApprovalResponders.delete(body.providerId);
+      activeUserInputResponders.delete(body.providerId);
       return json({ events: result ?? events });
     }
 
@@ -259,10 +262,10 @@ const server = Bun.serve({
           message: `No active approval responder for ${body.providerId}. requestId=${body.requestId}`,
         });
       }
-      const delivered = responder({
+      const delivered = isResponderDelivered(responder({
         requestId: body.requestId,
         approved: body.approved,
-      });
+      }));
       return json({
         ok: delivered,
         message: delivered
@@ -285,11 +288,11 @@ const server = Bun.serve({
           message: `No active user-input responder for ${body.providerId}. requestId=${body.requestId}`,
         });
       }
-      const delivered = responder({
+      const delivered = isResponderDelivered(responder({
         requestId: body.requestId,
         answers: body.answers,
         denied: body.denied,
-      });
+      }));
       return json({
         ok: delivered,
         message: delivered

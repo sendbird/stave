@@ -35,7 +35,7 @@ If the retrieved context pinpoints the subsystem, jump straight to targeted read
 
 - `src/store/app.store.ts` is a coordinator (~2 100 lines), not a good first file for broad scanning. Read targeted slices with `offset`/`limit`.
 - `electron/main/ipc/schemas.ts` is the first stop for schema-ish regressions.
-- `electron/providers/claude-sdk-runtime.ts` and `electron/providers/codex-sdk-runtime.ts` should be checked together when behavior is provider-adapter-specific.
+- `electron/providers/claude-sdk-runtime.ts` and `electron/providers/codex-app-server-runtime.ts` should be checked together when behavior is provider-adapter-specific.
 - `src/lib/providers/schemas.ts` is the Zod discriminated union mirror of `NormalizedProviderEvent` — always inspect alongside `src/lib/providers/provider.types.ts`.
 - `src/lib/session/provider-event-replay.ts` is where normalized events become shared chat state.
 - `src/types/window-api.d.ts` is the renderer-visible IPC contract.

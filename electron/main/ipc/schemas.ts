@@ -381,10 +381,6 @@ export const RuntimeOptionsObjectSchema = z
     codexReasoningSummarySupport: z
       .union([z.literal("auto"), z.literal("enabled"), z.literal("disabled")])
       .optional(),
-    codexAdditionalReadableRoots: z
-      .array(z.string().max(4096))
-      .max(50)
-      .optional(),
     codexFastMode: z.boolean().optional(),
     codexPlanMode: z.boolean().optional(),
     codexResumeThreadId: z.string().max(200).optional(),
