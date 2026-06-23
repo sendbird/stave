@@ -1,4 +1,4 @@
-import { Check, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, History, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer } from "lucide-react";
+import { Check, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, History, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer, Wrench } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Badge, Button, Input, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
@@ -260,8 +260,15 @@ export function WorkspaceChangesPanel(props: {
   onAutoRefreshSecondsChange: (seconds: number) => void;
   verification?: TurnVerificationResult | null;
   intentCompliance?: TurnIntentComplianceResult | null;
+  /**
+   * Forward failing verification checks back to the agent as the next turn.
+   * Omit a `scriptId` to fix every failure; pass one to fix a single check.
+   * When absent, the fix actions are hidden.
+   */
+  onFixVerificationWithAgent?: (args?: { scriptId?: string }) => void;
 }) {
   const [view, setView] = useState<SourceControlPanelView>("changes");
+  const verificationFailureCount = props.verification?.failures.length ?? 0;
   const showStageAll = props.sourceControlSummary.workingTreeCount > 0;
   const showUnstageAll = props.canUnstageAnyChanges;
   const showComposer = props.filteredScmItems.length > 0 || props.commitMessage.trim().length > 0;
@@ -309,7 +316,24 @@ export function WorkspaceChangesPanel(props: {
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-0">
                 <PopoverHeader className="border-b border-border/70 px-3 py-2">
-                  <PopoverTitle className="text-xs">Verification</PopoverTitle>
+                  <div className="flex items-center justify-between gap-2">
+                    <PopoverTitle className="text-xs">Verification</PopoverTitle>
+                    {props.onFixVerificationWithAgent ? (
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        className="h-6 gap-1 px-2 text-[11px]"
+                        onClick={() => props.onFixVerificationWithAgent?.()}
+                        title="Send these failures to the agent as the next turn"
+                      >
+                        <Wrench className="size-3" />
+                        {verificationFailureCount > 1
+                          ? "Fix all with agent"
+                          : "Fix with agent"}
+                      </Button>
+                    ) : null}
+                  </div>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {describeTurnVerification(props.verification)}
                   </p>
@@ -332,6 +356,24 @@ export function WorkspaceChangesPanel(props: {
                           {failure.blocking ? "blocking" : "warn"}
                         </span>
                         <span className="truncate">{failure.scriptId}</span>
+                        {props.onFixVerificationWithAgent &&
+                        verificationFailureCount > 1 ? (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            className="ml-auto h-5 shrink-0 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                            onClick={() =>
+                              props.onFixVerificationWithAgent?.({
+                                scriptId: failure.scriptId,
+                              })
+                            }
+                            title={`Send only ${failure.scriptId} to the agent`}
+                          >
+                            <Wrench className="size-3" />
+                            Fix
+                          </Button>
+                        ) : null}
                       </div>
                       <p className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground">
                         {failure.message}

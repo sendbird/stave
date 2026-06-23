@@ -53,6 +53,7 @@ import {
   type ScriptTrigger,
   type TurnVerificationResult,
   buildTurnVerificationResult,
+  buildVerificationFixPrompt,
 } from "@/lib/workspace-scripts";
 import type {
   AppNotification,
@@ -1328,6 +1329,16 @@ interface AppState {
       label: string;
       mimeType: string;
     }>;
+  }) => Promise<SendUserMessageResult>;
+  /**
+   * Forward a workspace's failing verification checks back to its agent as the
+   * next turn. Builds a prompt from the stored {@link TurnVerificationResult}
+   * (optionally limited to one `scriptId`) and submits it via
+   * {@link sendUserMessage}. Only ever runs on an explicit user action.
+   */
+  requestVerificationFix: (args: {
+    workspaceId: string;
+    scriptId?: string;
   }) => Promise<SendUserMessageResult>;
   abortTaskTurn: (args: { taskId: string }) => void;
   resolveApproval: (args: {
@@ -9193,6 +9204,17 @@ export const useAppStore = create<AppState>()(
           }
 
           return result;
+        },
+        requestVerificationFix: async ({ workspaceId, scriptId }) => {
+          const result = get().turnVerificationByWorkspace[workspaceId];
+          if (!result || result.failures.length === 0 || !result.taskId) {
+            return { status: "blocked" } satisfies SendUserMessageResult;
+          }
+          const content = buildVerificationFixPrompt(result, { scriptId });
+          if (!content.trim()) {
+            return { status: "blocked" } satisfies SendUserMessageResult;
+          }
+          return get().sendUserMessage({ taskId: result.taskId, content });
         },
         sendUserMessage: async ({
           taskId,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { toast } from "@/components/ui";
@@ -110,6 +110,7 @@ export function EditorPanel(props: EditorPanelProps) {
     refreshProjectFiles,
     closeEditorTab,
     updateSettings,
+    requestVerificationFix,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
     state.hasHydratedWorkspaces,
@@ -126,7 +127,27 @@ export function EditorPanel(props: EditorPanelProps) {
     state.refreshProjectFiles,
     state.closeEditorTab,
     state.updateSettings,
+    state.requestVerificationFix,
   ] as const));
+
+  const handleFixVerificationWithAgent = useCallback(
+    async (args?: { scriptId?: string }) => {
+      const result = await requestVerificationFix({
+        workspaceId: activeWorkspaceId,
+        scriptId: args?.scriptId,
+      });
+      if (result.status === "blocked") {
+        toast.error("Couldn't forward the failures to the agent");
+        return;
+      }
+      toast.success(
+        result.status === "queued"
+          ? "Queued fix for the next turn"
+          : "Sent failing checks to the agent",
+      );
+    },
+    [requestVerificationFix, activeWorkspaceId],
+  );
 
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [explorerDirectoryStateByPath, setExplorerDirectoryStateByPath] = useState<Record<string, ExplorerDirectoryState>>({});
@@ -948,6 +969,9 @@ export function EditorPanel(props: EditorPanelProps) {
               onAutoRefreshSecondsChange={(seconds) => updateSettings({ patch: { scmAutoRefreshSeconds: seconds } })}
               verification={turnVerification ?? null}
               intentCompliance={turnIntentCompliance ?? null}
+              onFixVerificationWithAgent={(args) =>
+                void handleFixVerificationWithAgent(args)
+              }
             />
           ) : null}
 
