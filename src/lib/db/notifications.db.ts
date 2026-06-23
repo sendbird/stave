@@ -23,6 +23,7 @@ const AppNotificationSchema = z.object({
   id: z.string(),
   kind: z.union([
     z.literal("task.turn_completed"),
+    z.literal("task.turn_failed"),
     z.literal("task.approval_requested"),
     z.literal("task.user_input_requested"),
   ]),
@@ -46,6 +47,7 @@ const AppNotificationCreateInputSchema = z.object({
   id: z.string(),
   kind: z.union([
     z.literal("task.turn_completed"),
+    z.literal("task.turn_failed"),
     z.literal("task.approval_requested"),
     z.literal("task.user_input_requested"),
   ]),

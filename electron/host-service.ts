@@ -97,7 +97,7 @@ import {
 } from "./main/utils/tooling-status";
 import { isDoneEvent } from "./main/utils/provider-events";
 import { quotePath, runCommand } from "./main/utils/command";
-import type { StreamTurnArgs } from "./providers/types";
+import type { BridgeEvent, StreamTurnArgs } from "./providers/types";
 import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
   HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES,
@@ -555,11 +555,47 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
   }
 }
 
+/** Max time a buffered turn event waits before being flushed to SQLite. */
+const TURN_EVENT_FLUSH_INTERVAL_MS = 300;
+/** Flush immediately once this many events are buffered, regardless of timer. */
+const TURN_EVENT_FLUSH_MAX_PENDING = 64;
+
 function startPushProviderTurn(args: StreamTurnArgs) {
   const turnId = args.turnId ?? randomUUID();
   const store = args.taskId ? ensureHostServicePersistenceReady() : null;
   let sequence = 0;
   let completed = false;
+
+  // W1 Phase 0 — durable turn-event journaling. Buffer events and flush to
+  // SQLite in batches so the provider stream hot path never blocks on a
+  // per-event DB write (the unbounded per-event journal it replaces was purged).
+  const persistEnabled = Boolean(args.taskId && store);
+  let pendingTurnEvents: Array<{ sequence: number; event: BridgeEvent }> = [];
+  let turnEventFlushTimer: ReturnType<typeof setInterval> | null = null;
+
+  const flushTurnEvents = () => {
+    if (!persistEnabled || !store || pendingTurnEvents.length === 0) {
+      return;
+    }
+    const batch = pendingTurnEvents;
+    pendingTurnEvents = [];
+    try {
+      store.saveStreamEvents({ turnId, events: batch });
+    } catch (error) {
+      console.warn(
+        "[provider:persistence] failed to save stream events",
+        error,
+        { turnId, count: batch.length, providerId: args.providerId },
+      );
+    }
+  };
+
+  const stopTurnEventFlushTimer = () => {
+    if (turnEventFlushTimer) {
+      clearInterval(turnEventFlushTimer);
+      turnEventFlushTimer = null;
+    }
+  };
 
   if (args.taskId && store) {
     try {
@@ -589,6 +625,19 @@ function startPushProviderTurn(args: StreamTurnArgs) {
       onEvent: (turnEvent) => {
         sequence += 1;
 
+        if (persistEnabled) {
+          pendingTurnEvents.push({ sequence, event: turnEvent });
+          if (!turnEventFlushTimer) {
+            turnEventFlushTimer = setInterval(
+              flushTurnEvents,
+              TURN_EVENT_FLUSH_INTERVAL_MS,
+            );
+          }
+          if (pendingTurnEvents.length >= TURN_EVENT_FLUSH_MAX_PENDING) {
+            flushTurnEvents();
+          }
+        }
+
         emitEvent("provider.stream-event", {
           streamId: started.streamId,
           event: turnEvent,
@@ -601,6 +650,8 @@ function startPushProviderTurn(args: StreamTurnArgs) {
         });
       },
       onDone: () => {
+        stopTurnEventFlushTimer();
+        flushTurnEvents();
         if (!completed && args.taskId && store) {
           completed = true;
           try {

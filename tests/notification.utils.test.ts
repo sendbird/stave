@@ -114,6 +114,41 @@ describe("notification formatting utils", () => {
     });
   });
 
+  test("builds an error toast and detail for failed turns", () => {
+    const notification = {
+      kind: "task.turn_failed",
+      taskTitle: "Refactor notifications",
+      workspaceName: "workspace",
+      payload: {
+        message: "Provider runtime exited unexpectedly",
+      },
+    } satisfies Pick<
+      AppNotification,
+      "kind" | "taskTitle" | "workspaceName" | "payload"
+    >;
+
+    expect(buildNotificationDetail(notification)).toBe(
+      "Provider runtime exited unexpectedly",
+    );
+    expect(buildNotificationToastOptions(notification)).toEqual({
+      tone: "error",
+      title: "Run failed — Refactor notifications",
+      description: "Provider runtime exited unexpectedly",
+      duration: NOTIFICATION_TOAST_DURATIONS_MS.turnFailed,
+      closeButton: true,
+      dismissible: true,
+    });
+  });
+
+  test("returns null detail for failed turns without a message", () => {
+    expect(
+      buildNotificationDetail({
+        kind: "task.turn_failed",
+        payload: {},
+      }),
+    ).toBeNull();
+  });
+
   test("builds a dismissible approval toast with a finite duration", () => {
     const notification = {
       kind: "task.approval_requested",

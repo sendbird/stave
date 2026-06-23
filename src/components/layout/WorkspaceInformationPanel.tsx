@@ -555,10 +555,20 @@ function InlineLinkRow(props: {
                   />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="left">
-                {props.pinned
-                  ? "Pinned as intent anchor"
-                  : "Pin as intent anchor"}
+              <TooltipContent
+                side="left"
+                className="max-w-60 flex-col items-start gap-0.5 whitespace-normal break-normal text-left"
+              >
+                <span className="font-medium">
+                  {props.pinned
+                    ? "Pinned as intent anchor"
+                    : "Pin as intent anchor"}
+                </span>
+                <span className="text-background/70">
+                  {props.pinned
+                    ? "The intent guard checks your changes against this and flags scope or intent drift. Click to unpin."
+                    : "Pin this PRD, spec, or design so the AI checks each change against it after a turn."}
+                </span>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

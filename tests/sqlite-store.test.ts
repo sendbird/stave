@@ -201,6 +201,51 @@ describe("SqliteStore", () => {
     );
   });
 
+  nativeSqliteTest(
+    "persists and replays turn stream events in sequence order",
+    async () => {
+      const SqliteStore = await loadSqliteStore();
+      const store = new SqliteStore({ dbPath });
+      store.beginTurn({
+        id: "turn-1",
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        providerId: "claude-code",
+        createdAt: "2026-03-06T01:00:00.000Z",
+      });
+
+      store.saveStreamEvent({
+        turnId: "turn-1",
+        sequence: 2,
+        event: { type: "text", text: "second" },
+      });
+      store.saveStreamEvent({
+        turnId: "turn-1",
+        sequence: 1,
+        event: { type: "thinking", text: "first" },
+      });
+      // Batch path + idempotency: re-saving sequence 2 must be a no-op.
+      store.saveStreamEvents({
+        turnId: "turn-1",
+        events: [
+          { sequence: 2, event: { type: "text", text: "DUPLICATE" } },
+          { sequence: 3, event: { type: "done", stop_reason: "end_turn" } },
+        ],
+      });
+
+      const all = store.getStreamEvents({ turnId: "turn-1" });
+      expect(all.map((e) => e.sequence)).toEqual([1, 2, 3]);
+      expect(all.map((e) => e.eventType)).toEqual(["thinking", "text", "done"]);
+      // Idempotent: the original sequence-2 payload is preserved.
+      expect(all[1]?.event).toEqual({ type: "text", text: "second" });
+
+      const sinceTwo = store.getStreamEvents({ turnId: "turn-1", sinceSequence: 2 });
+      expect(sinceTwo.map((e) => e.sequence)).toEqual([3]);
+
+      store.close();
+    },
+  );
+
   nativeSqliteTest("lists the latest turn for each task in a workspace", async () => {
     const SqliteStore = await loadSqliteStore();
     const store = new SqliteStore({ dbPath });

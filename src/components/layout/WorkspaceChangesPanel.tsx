@@ -1,6 +1,6 @@
 import { Check, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, History, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Badge, Button, Input, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
+import { Badge, Button, Input, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { SourceControlStatusItem } from "@/lib/source-control-status";
@@ -292,36 +292,131 @@ export function WorkspaceChangesPanel(props: {
           </TabsTrigger>
         </TabsList>
         {props.verification ? (
-          <div
-            className={cn(
-              "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
-              VERIFICATION_STATUS_VISUAL[props.verification.status].iconClassName,
-            )}
-            title={describeTurnVerification(props.verification)}
-          >
-            <VerificationStatusIcon status={props.verification.status} />
-            {props.verification.failures.length > 0 ? (
-              <span>{props.verification.failures.length}</span>
-            ) : null}
-          </div>
+          props.verification.failures.length > 0 ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
+                    VERIFICATION_STATUS_VISUAL[props.verification.status].iconClassName,
+                  )}
+                  aria-label={describeTurnVerification(props.verification)}
+                >
+                  <VerificationStatusIcon status={props.verification.status} />
+                  <span>{props.verification.failures.length}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-0">
+                <PopoverHeader className="border-b border-border/70 px-3 py-2">
+                  <PopoverTitle className="text-xs">Verification</PopoverTitle>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {describeTurnVerification(props.verification)}
+                  </p>
+                </PopoverHeader>
+                <ul className="max-h-72 overflow-y-auto py-1">
+                  {props.verification.failures.map((failure, index) => (
+                    <li
+                      key={`${failure.scriptId}-${index}`}
+                      className="px-3 py-1.5 text-[11px]"
+                    >
+                      <div className="flex items-center gap-1.5 font-medium text-foreground">
+                        <span
+                          className={cn(
+                            "rounded px-1 py-px text-[10px] uppercase tracking-wide",
+                            failure.blocking
+                              ? "bg-destructive/15 text-destructive"
+                              : "bg-warning/15 text-warning",
+                          )}
+                        >
+                          {failure.blocking ? "blocking" : "warn"}
+                        </span>
+                        <span className="truncate">{failure.scriptId}</span>
+                      </div>
+                      <p className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground">
+                        {failure.message}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <div
+              className={cn(
+                "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
+                VERIFICATION_STATUS_VISUAL[props.verification.status].iconClassName,
+              )}
+              title={describeTurnVerification(props.verification)}
+            >
+              <VerificationStatusIcon status={props.verification.status} />
+            </div>
+          )
         ) : null}
         {props.intentCompliance ? (
-          <div
-            className={cn(
-              "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
-              VERIFICATION_STATUS_VISUAL[props.intentCompliance.status].iconClassName,
-            )}
-            title={
-              props.intentCompliance.status === "pass"
-                ? "Intent guard: consistent with the pinned intent"
-                : `Intent guard: ${props.intentCompliance.findings.length} possible issue${props.intentCompliance.findings.length === 1 ? "" : "s"} vs the pinned intent`
-            }
-          >
-            <Crosshair className="size-3.5" />
-            {props.intentCompliance.findings.length > 0 ? (
-              <span>{props.intentCompliance.findings.length}</span>
-            ) : null}
-          </div>
+          props.intentCompliance.findings.length > 0 ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
+                    VERIFICATION_STATUS_VISUAL[props.intentCompliance.status].iconClassName,
+                  )}
+                  aria-label={`Intent guard: ${props.intentCompliance.findings.length} possible issue${props.intentCompliance.findings.length === 1 ? "" : "s"} vs the pinned intent`}
+                >
+                  <Crosshair className="size-3.5" />
+                  <span>{props.intentCompliance.findings.length}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-0">
+                <PopoverHeader className="border-b border-border/70 px-3 py-2">
+                  <PopoverTitle className="text-xs">Intent guard</PopoverTitle>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Possible deviations from the pinned intent. Click to open the
+                    file.
+                  </p>
+                </PopoverHeader>
+                <ul className="max-h-72 overflow-y-auto py-1">
+                  {props.intentCompliance.findings.map((finding, index) => (
+                    <li key={`${finding.file}-${index}`}>
+                      <button
+                        type="button"
+                        className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-[11px] hover:bg-muted"
+                        onClick={() => void props.onSelectDiff(finding.file)}
+                        title={`Open ${finding.file}`}
+                      >
+                        <span className="flex max-w-full items-center gap-1.5 font-medium text-foreground">
+                          <span className="rounded bg-muted px-1 py-px text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {finding.severity}
+                          </span>
+                          <span className="truncate">
+                            {finding.file}
+                            {typeof finding.line === "number"
+                              ? `:${finding.line}`
+                              : ""}
+                          </span>
+                        </span>
+                        <span className="whitespace-pre-wrap break-words text-muted-foreground">
+                          {finding.message}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <div
+              className={cn(
+                "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
+                VERIFICATION_STATUS_VISUAL[props.intentCompliance.status].iconClassName,
+              )}
+              title="Intent guard: consistent with the pinned intent"
+            >
+              <Crosshair className="size-3.5" />
+            </div>
+          )
         ) : null}
         <div className="flex shrink-0 items-center gap-1">
           <Button

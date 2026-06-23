@@ -1974,9 +1974,16 @@ export function PromptInput(args: PromptInputProps) {
                 >
                   <OctagonX className="size-3.5" />
                 </TooltipTrigger>
-                <TooltipContent side="top">
-                  <span>Stop responding</span>
-                  <Kbd>Esc</Kbd>
+                <TooltipContent
+                  side="top"
+                  className="max-w-56 flex-col items-start gap-0.5 whitespace-normal break-normal text-left"
+                >
+                  <span className="inline-flex items-center gap-1 font-medium">
+                    Stop responding <Kbd>Esc</Kbd>
+                  </span>
+                  <span className="text-background/70">
+                    Pending approvals expire; your draft is preserved.
+                  </span>
                 </TooltipContent>
               </Tooltip>
             ) : null}
