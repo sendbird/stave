@@ -309,6 +309,8 @@ interface WindowProviderApi {
     headBranch?: string;
     providerId?: PrePrReviewProviderId;
     model?: string;
+    mode?: "review" | "intent";
+    intentContext?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<{
     ok: boolean;

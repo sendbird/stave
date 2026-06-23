@@ -14,6 +14,7 @@ import {
 } from "../../src/lib/file-context-sanitization";
 import { parsePullRequestSuggestionResponse } from "../../src/lib/source-control-pr";
 import {
+  buildIntentGuardPrompt,
   buildReviewDiffPrompt,
   parseReviewFindings,
   type PrePrReviewFinding,
@@ -3499,6 +3500,8 @@ export async function reviewClaudeWorktreeDiff(args: {
   headBranch: string;
   agentsContent?: string;
   model?: string;
+  mode?: "review" | "intent";
+  intentContext?: string;
 }): Promise<{ ok: boolean; findings?: PrePrReviewFinding[] }> {
   try {
     const mod = await getPrewarmedSdkModule();
@@ -3510,7 +3513,15 @@ export async function reviewClaudeWorktreeDiff(args: {
     }
 
     const claudeExecutablePath = getPrewarmedExecutablePath();
-    const reviewPrompt = buildReviewDiffPrompt(args);
+    const reviewPrompt =
+      args.mode === "intent"
+        ? buildIntentGuardPrompt({
+            diff: args.diff,
+            workingTreeDiff: args.workingTreeDiff,
+            fileList: args.fileList,
+            intentContext: args.intentContext ?? "",
+          })
+        : buildReviewDiffPrompt(args);
 
     const stream = queryFn({
       prompt: reviewPrompt,

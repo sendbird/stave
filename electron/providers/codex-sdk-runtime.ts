@@ -12,6 +12,7 @@ import type {
   ConnectedToolStatusResponse,
 } from "../../src/lib/providers/connected-tool-status";
 import {
+  buildIntentGuardPrompt,
   buildReviewDiffPrompt,
   parseReviewFindings,
   PRE_PR_REVIEW_OUTPUT_SCHEMA,
@@ -1417,6 +1418,8 @@ export async function reviewCodexWorktreeDiff(args: {
   headBranch: string;
   agentsContent?: string;
   model?: string;
+  mode?: "review" | "intent";
+  intentContext?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }): Promise<{ ok: boolean; findings?: PrePrReviewFinding[] }> {
   try {
@@ -1453,7 +1456,16 @@ export async function reviewCodexWorktreeDiff(args: {
         ? { modelReasoningEffort: args.runtimeOptions.codexReasoningEffort }
         : {}),
     });
-    const turn = await thread.run(buildReviewDiffPrompt(args), {
+    const reviewPrompt =
+      args.mode === "intent"
+        ? buildIntentGuardPrompt({
+            diff: args.diff,
+            workingTreeDiff: args.workingTreeDiff,
+            fileList: args.fileList,
+            intentContext: args.intentContext ?? "",
+          })
+        : buildReviewDiffPrompt(args);
+    const turn = await thread.run(reviewPrompt, {
       outputSchema: PRE_PR_REVIEW_OUTPUT_SCHEMA,
     });
 

@@ -1,3 +1,5 @@
+import type { IntentGuardContextInput } from "./source-control-review";
+
 export const WORKSPACE_INFO_FIELD_TYPES = [
   "text",
   "textarea",
@@ -244,6 +246,12 @@ export interface WorkspaceInformationState {
   notes: string;
   todos: WorkspaceTodoItem[];
   customFields: WorkspaceInfoCustomField[];
+  /**
+   * Ids of the resources (Jira/Confluence/Figma) pinned as first-class intent
+   * anchors. The C2 intent guard checks changes only against these pinned
+   * anchors (plus freeform notes); an empty/absent list disarms the guard.
+   */
+  intentAnchorIds?: string[];
 }
 
 function buildWorkspaceInformationId(prefix: string) {
@@ -762,5 +770,57 @@ export function createEmptyWorkspaceInformation(): WorkspaceInformationState {
     notes: "",
     todos: [],
     customFields: [],
+    intentAnchorIds: [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Intent anchors (C2 intent guard) — pin specific references as the
+// authoritative product intent (PRD / spec / design) for a workspace.
+// ---------------------------------------------------------------------------
+
+/** Whether the resource id is currently pinned as an intent anchor. */
+export function isWorkspaceIntentAnchor(
+  info: Pick<WorkspaceInformationState, "intentAnchorIds">,
+  id: string,
+): boolean {
+  return Boolean(info.intentAnchorIds?.includes(id));
+}
+
+/** Toggle a resource id in the intent-anchor set (immutably). */
+export function toggleWorkspaceIntentAnchor(
+  info: WorkspaceInformationState,
+  id: string,
+): WorkspaceInformationState {
+  const current = info.intentAnchorIds ?? [];
+  const next = current.includes(id)
+    ? current.filter((anchorId) => anchorId !== id)
+    : [...current, id];
+  return { ...info, intentAnchorIds: next };
+}
+
+/**
+ * Build the intent-guard context input from the pinned anchors only. Notes are
+ * always included as freeform intent. Returns an empty input (which collects to
+ * an empty string) when no resource anchors are pinned, so the guard stays
+ * disarmed until the user explicitly pins intent.
+ */
+export function buildIntentGuardContextInput(
+  info: WorkspaceInformationState,
+): IntentGuardContextInput {
+  const ids = info.intentAnchorIds ?? [];
+  if (ids.length === 0) {
+    return {};
+  }
+  const pinned = new Set(ids);
+  return {
+    notes: info.notes,
+    jiraIssues: info.jiraIssues.filter((issue) => pinned.has(issue.id)),
+    confluencePages: info.confluencePages.filter((page) =>
+      pinned.has(page.id),
+    ),
+    figmaResources: info.figmaResources.filter((figma) =>
+      pinned.has(figma.id),
+    ),
   };
 }

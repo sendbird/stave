@@ -6,7 +6,13 @@ export type PrePrReviewFindingSeverity =
   | "medium"
   | "low";
 
-export type PrePrReviewFindingKind = "bug" | "race" | "security" | "other";
+export type PrePrReviewFindingKind =
+  | "bug"
+  | "race"
+  | "security"
+  | "intent_violation"
+  | "scope_drift"
+  | "other";
 
 export interface PrePrReviewFinding {
   severity: PrePrReviewFindingSeverity;
@@ -47,7 +53,14 @@ export const PRE_PR_REVIEW_OUTPUT_SCHEMA = {
           line: { type: "number" },
           kind: {
             type: "string",
-            enum: ["bug", "race", "security", "other"],
+            enum: [
+              "bug",
+              "race",
+              "security",
+              "intent_violation",
+              "scope_drift",
+              "other",
+            ],
           },
           message: { type: "string" },
         },
@@ -184,6 +197,24 @@ function normalizeKind(value: unknown): PrePrReviewFindingKind {
   if (normalized === "security" || normalized === "sec") {
     return "security";
   }
+  if (
+    normalized === "intent_violation" ||
+    normalized === "intent-violation" ||
+    normalized === "intent" ||
+    normalized === "violation"
+  ) {
+    return "intent_violation";
+  }
+  if (
+    normalized === "scope_drift" ||
+    normalized === "scope-drift" ||
+    normalized === "scope" ||
+    normalized === "drift" ||
+    normalized === "out_of_scope" ||
+    normalized === "out-of-scope"
+  ) {
+    return "scope_drift";
+  }
   return "other";
 }
 
@@ -249,4 +280,197 @@ export function parseReviewFindings(text: string): PrePrReviewFinding[] {
     .map((item) => normalizeFinding(item))
     .filter((item): item is PrePrReviewFinding => Boolean(item))
     .slice(0, MAX_FINDINGS);
+}
+
+export const INTENT_GUARD_CONTEXT_MAX_CHARS = 6_000;
+const INTENT_GUARD_NOTE_MAX_CHARS = 600;
+
+/**
+ * Structural subset of the workspace information that holds pinned product
+ * intent. Kept decoupled from `WorkspaceInformationState` so this lib has no
+ * dependency on the renderer-side information model and stays trivially
+ * testable. Pass the full workspace information state — extra fields are
+ * ignored.
+ */
+export interface IntentGuardContextInput {
+  notes?: string;
+  jiraIssues?: ReadonlyArray<{
+    issueKey?: string;
+    title?: string;
+    url?: string;
+    note?: string;
+  }>;
+  confluencePages?: ReadonlyArray<{
+    title?: string;
+    url?: string;
+    note?: string;
+  }>;
+  figmaResources?: ReadonlyArray<{
+    title?: string;
+    url?: string;
+    note?: string;
+  }>;
+}
+
+function appendIntentNote(lines: string[], note?: string) {
+  const trimmed = (note ?? "").replace(/\s+/g, " ").trim();
+  if (trimmed) {
+    lines.push(`  note: ${trimmed.slice(0, INTENT_GUARD_NOTE_MAX_CHARS)}`);
+  }
+}
+
+function buildResourceSection(
+  label: string,
+  title: string | undefined,
+  url: string | undefined,
+  note: string | undefined,
+): string | null {
+  const heading = (title ?? "").trim() || (url ?? "").trim();
+  if (!heading && !(url ?? "").trim()) {
+    return null;
+  }
+  const lines = [
+    `[${label}] ${heading || "(untitled)"}${url ? ` (${url})` : ""}`,
+  ];
+  appendIntentNote(lines, note);
+  return lines.join("\n");
+}
+
+/**
+ * Collect the workspace's pinned product intent (notes + Jira/Confluence/Figma
+ * references) into a single labelled, length-capped string for the intent
+ * guard prompt. Returns an empty string when no intent is available, so callers
+ * can skip the guard entirely.
+ */
+export function collectIntentContext(input: IntentGuardContextInput): string {
+  const sections: string[] = [];
+
+  const notes = (input.notes ?? "").trim();
+  if (notes) {
+    sections.push(`[Notes]\n${notes}`);
+  }
+
+  for (const issue of input.jiraIssues ?? []) {
+    const heading = [issue.issueKey, issue.title]
+      .map((part) => (part ?? "").trim())
+      .filter(Boolean)
+      .join(" — ");
+    const section = buildResourceSection(
+      "Jira",
+      heading || undefined,
+      issue.url,
+      issue.note,
+    );
+    if (section) {
+      sections.push(section);
+    }
+  }
+
+  for (const page of input.confluencePages ?? []) {
+    const section = buildResourceSection(
+      "Confluence",
+      page.title,
+      page.url,
+      page.note,
+    );
+    if (section) {
+      sections.push(section);
+    }
+  }
+
+  for (const figma of input.figmaResources ?? []) {
+    const section = buildResourceSection(
+      "Figma",
+      figma.title,
+      figma.url,
+      figma.note,
+    );
+    if (section) {
+      sections.push(section);
+    }
+  }
+
+  return sections.join("\n\n").slice(0, INTENT_GUARD_CONTEXT_MAX_CHARS).trim();
+}
+
+export type IntentComplianceStatus = "pass" | "warn" | "fail";
+
+/**
+ * Collapse intent-guard findings into a single status.
+ * - `pass` — no findings (the change is consistent with the pinned intent).
+ * - `fail` — at least one `critical`/`high` finding (a likely real violation).
+ * - `warn` — only `medium`/`low` findings (possible drift worth a look).
+ */
+export function deriveIntentComplianceStatus(
+  findings: PrePrReviewFinding[],
+): IntentComplianceStatus {
+  if (findings.length === 0) {
+    return "pass";
+  }
+  if (
+    findings.some(
+      (finding) =>
+        finding.severity === "critical" || finding.severity === "high",
+    )
+  ) {
+    return "fail";
+  }
+  return "warn";
+}
+
+/** Latest intent-guard result for a workspace turn (mirrors the verification result). */
+export interface TurnIntentComplianceResult {
+  workspaceId: string;
+  taskId?: string;
+  turnId?: string;
+  status: IntentComplianceStatus;
+  findings: PrePrReviewFinding[];
+  /** Epoch-ms the guarding turn completed. */
+  completedAt: number;
+}
+
+/**
+ * Build the intent-guard prompt: ask the provider whether the change conflicts
+ * with or drifts outside the pinned product intent, returning findings in the
+ * same JSON shape as the pre-PR review (with `intent_violation`/`scope_drift`
+ * kinds).
+ */
+export function buildIntentGuardPrompt(args: {
+  diff: string;
+  workingTreeDiff: string;
+  fileList: string;
+  intentContext: string;
+}) {
+  return [
+    "You are an intent-compliance guard for a code change.",
+    "The user pinned the product intent below (PRD / spec / design references). Judge ONLY whether the change conflicts with, contradicts, or drifts outside that pinned intent.",
+    'Report two kinds of issues: "intent_violation" (the change does something the pinned intent forbids or contradicts) and "scope_drift" (the change adds or removes behavior that is outside the pinned intent\'s scope).',
+    "Do not report style, naming, formatting, generic bugs, or improvements unrelated to the pinned intent. Do not edit files. Do not run commands.",
+    "Return only JSON in this exact shape:",
+    '{"findings":[{"severity":"critical|high|medium|low","file":"path/to/file.ts","line":123,"kind":"intent_violation|scope_drift","message":"how the change conflicts with the pinned intent"}]}',
+    "Use an empty findings array if the change is consistent with the pinned intent.",
+    "",
+    "Pinned product intent:",
+    args.intentContext || "(no pinned intent provided)",
+    "",
+    "Changed files:",
+    args.fileList || "(no file list available)",
+    ...(args.diff.length > 0
+      ? [
+          "",
+          "Branch diff against the base branch (may be truncated):",
+          args.diff.slice(0, PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS),
+        ]
+      : []),
+    ...(args.workingTreeDiff.length > 0
+      ? [
+          "",
+          "Uncommitted working tree diff (may be truncated):",
+          args.workingTreeDiff.slice(
+            0,
+            PRE_PR_REVIEW_WORKING_TREE_DIFF_MAX_CHARS,
+          ),
+        ]
+      : []),
+  ].join("\n");
 }

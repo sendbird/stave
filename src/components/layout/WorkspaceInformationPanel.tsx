@@ -17,6 +17,7 @@ import {
   Hash,
   Link,
   MessageSquarePlus,
+  Pin,
   Plus,
   RefreshCcw,
   SlidersHorizontal,
@@ -75,6 +76,8 @@ import {
   inferStorybookResourceAccess,
   isGitHubPullRequestUrl,
   isWorkspaceInfoUrl,
+  isWorkspaceIntentAnchor,
+  toggleWorkspaceIntentAnchor,
   resolveStorybookResourceAccess,
   type WorkspaceStorybookResourceAccess,
   type WorkspaceInfoCustomField,
@@ -502,6 +505,8 @@ function InlineLinkRow(props: {
   url: string;
   onRemove: () => void;
   actions?: ReactNode;
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }) {
   return (
     <div className="group/link-row flex items-center gap-2.5 rounded-md px-1.5 py-2">
@@ -526,23 +531,56 @@ function InlineLinkRow(props: {
           </p>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/link-row:opacity-100">
-        {props.actions}
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
-                onClick={props.onRemove}
-                aria-label="Remove"
-              >
-                <X className="size-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Remove</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <div className="flex shrink-0 items-center gap-0.5">
+        {props.onTogglePin ? (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex size-7 items-center justify-center rounded-sm transition-opacity hover:bg-muted",
+                    props.pinned
+                      ? "text-primary opacity-100"
+                      : "text-muted-foreground/60 opacity-0 hover:text-foreground group-hover/link-row:opacity-100",
+                  )}
+                  onClick={props.onTogglePin}
+                  aria-pressed={props.pinned}
+                  aria-label={
+                    props.pinned ? "Unpin intent anchor" : "Pin as intent anchor"
+                  }
+                >
+                  <Pin
+                    className={cn("size-3.5", props.pinned ? "fill-current" : "")}
+                  />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                {props.pinned
+                  ? "Pinned as intent anchor"
+                  : "Pin as intent anchor"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/link-row:opacity-100">
+          {props.actions}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+                  onClick={props.onRemove}
+                  aria-label="Remove"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Remove</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
     </div>
   );
@@ -1740,6 +1778,12 @@ export function WorkspaceInformationPanel() {
                 return (
                   <InlineLinkRow
                     key={issue.id}
+                    pinned={isWorkspaceIntentAnchor(workspaceInformation, issue.id)}
+                    onTogglePin={() =>
+                      patchWorkspaceInformation((current) =>
+                        toggleWorkspaceIntentAnchor(current, issue.id),
+                      )
+                    }
                     icon={<Globe className="size-4 text-muted-foreground/70" />}
                     label={title}
                     sublabel={
@@ -1866,6 +1910,12 @@ export function WorkspaceInformationPanel() {
                 return (
                   <InlineLinkRow
                     key={page.id}
+                    pinned={isWorkspaceIntentAnchor(workspaceInformation, page.id)}
+                    onTogglePin={() =>
+                      patchWorkspaceInformation((current) =>
+                        toggleWorkspaceIntentAnchor(current, page.id),
+                      )
+                    }
                     icon={<Globe className="size-4 text-muted-foreground/70" />}
                     label={title}
                     sublabel={
@@ -2190,6 +2240,12 @@ export function WorkspaceInformationPanel() {
                 return (
                   <InlineLinkRow
                     key={resource.id}
+                    pinned={isWorkspaceIntentAnchor(workspaceInformation, resource.id)}
+                    onTogglePin={() =>
+                      patchWorkspaceInformation((current) =>
+                        toggleWorkspaceIntentAnchor(current, resource.id),
+                      )
+                    }
                     icon={<Globe className="size-4 text-muted-foreground/70" />}
                     label={title}
                     sublabel={

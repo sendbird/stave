@@ -193,6 +193,11 @@ export interface HostProviderReviewDiffArgs {
   headBranch?: string;
   providerId?: PrePrReviewProviderId;
   model?: string;
+  /** "review" (default) checks for bugs; "intent" checks the change against
+   *  the pinned product intent in `intentContext`. */
+  mode?: "review" | "intent";
+  /** Pinned product intent (PRD / spec / design) text for `mode: "intent"`. */
+  intentContext?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }
 
