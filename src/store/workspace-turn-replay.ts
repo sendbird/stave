@@ -1,6 +1,7 @@
 import type { NormalizedProviderEvent, ProviderId } from "@/lib/providers/provider.types";
 import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
+import { trimLoadedTaskMessages } from "@/store/task-message-loading";
 
 export function applyProviderEventsToWorkspaceSession(args: {
   session: WorkspaceSessionState;
@@ -21,6 +22,7 @@ export function applyProviderEventsToWorkspaceSession(args: {
     nativeSessionReady: args.session.nativeSessionReadyByTask[args.taskId],
     providerSession: args.session.providerSessionByTask[args.taskId],
     providerGoal: providerGoalByTask[args.taskId] ?? null,
+    messageCount: args.session.messageCountByTask[args.taskId],
   });
 
   const activeTurnMatches = args.session.activeTurnIdsByTask[args.taskId] === replayed.activeTurnId;
@@ -56,7 +58,9 @@ export function applyProviderEventsToWorkspaceSession(args: {
       messagesByTask: replayed.changed
         ? {
             ...args.session.messagesByTask,
-            [args.taskId]: replayed.messages,
+            // Bound the resident window; evicted head messages stay on disk and
+            // reload via "load older". Count below stays on the untrimmed length.
+            [args.taskId]: trimLoadedTaskMessages({ messages: replayed.messages }),
           }
         : args.session.messagesByTask,
       messageCountByTask: replayed.changed

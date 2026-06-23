@@ -254,6 +254,7 @@ import {
 import {
   TASK_MESSAGES_PAGE_SIZE,
   resolveInitialLatestTaskMessagesPageSize,
+  trimLoadedTaskMessages,
 } from "@/store/task-message-loading";
 import {
   normalizeComparablePath,
@@ -3893,6 +3894,9 @@ export const useAppStore = create<AppState>()(
                   ? (appendInterruptedTurnNotices({
                       messagesByTask: { [result.value.taskId]: mergedMessages },
                       latestTurns: [interruptedTurn],
+                      messageCountByTask: {
+                        [result.value.taskId]: result.value.page.totalCount,
+                      },
                     })[result.value.taskId] ?? mergedMessages)
                   : mergedMessages;
                 messagesPatch[result.value.taskId] = nextMessages;
@@ -7705,7 +7709,7 @@ export const useAppStore = create<AppState>()(
           set((nextState) => {
             const current = nextState.messagesByTask[taskId] ?? [];
             const message: ChatMessage = {
-              id: buildMessageId({ taskId, count: current.length }),
+              id: buildMessageId({ taskId, count: Math.max(current.length, nextState.messageCountByTask[taskId] ?? 0) }),
               role: "assistant",
               model: "system",
               providerId: "user",
@@ -7720,7 +7724,7 @@ export const useAppStore = create<AppState>()(
             return {
               messagesByTask: {
                 ...nextState.messagesByTask,
-                [taskId]: [...current, message],
+                [taskId]: trimLoadedTaskMessages({ messages: [...current, message] }),
               },
               messageCountByTask: {
                 ...nextState.messageCountByTask,
@@ -7769,7 +7773,7 @@ export const useAppStore = create<AppState>()(
           set((nextState) => {
             const current = nextState.messagesByTask[taskId] ?? [];
             const message: ChatMessage = {
-              id: buildMessageId({ taskId, count: current.length }),
+              id: buildMessageId({ taskId, count: Math.max(current.length, nextState.messageCountByTask[taskId] ?? 0) }),
               role: "assistant",
               model: "system",
               providerId: "user",
@@ -7791,7 +7795,7 @@ export const useAppStore = create<AppState>()(
                 : {}),
               messagesByTask: {
                 ...nextState.messagesByTask,
-                [taskId]: [...current, message],
+                [taskId]: trimLoadedTaskMessages({ messages: [...current, message] }),
               },
               messageCountByTask: {
                 ...nextState.messageCountByTask,
@@ -7835,7 +7839,7 @@ export const useAppStore = create<AppState>()(
             set((nextState) => {
               const current = nextState.messagesByTask[taskId] ?? [];
               const message: ChatMessage = {
-                id: buildMessageId({ taskId, count: current.length }),
+                id: buildMessageId({ taskId, count: Math.max(current.length, nextState.messageCountByTask[taskId] ?? 0) }),
                 role: "assistant",
                 model: "system",
                 providerId: "user",
@@ -7857,7 +7861,7 @@ export const useAppStore = create<AppState>()(
                   : {}),
                 messagesByTask: {
                   ...nextState.messagesByTask,
-                  [taskId]: [...current, message],
+                  [taskId]: trimLoadedTaskMessages({ messages: [...current, message] }),
                 },
                 messageCountByTask: {
                   ...nextState.messageCountByTask,
@@ -7925,6 +7929,7 @@ export const useAppStore = create<AppState>()(
                   messagesByTask: state.messagesByTask,
                   activeTurnIdsByTask: state.activeTurnIdsByTask,
                   notice: ARCHIVED_TASK_TURN_NOTICE,
+                  messageCountByTask: state.messageCountByTask,
                 })
               : {
                   messagesByTask: state.messagesByTask,
@@ -10066,8 +10071,12 @@ export const useAppStore = create<AppState>()(
                 (cachedSession?.messagesByTask ?? state.messagesByTask)[
                   taskId
                 ] ?? [];
+              const durableCount =
+                (cachedSession?.messageCountByTask ?? state.messageCountByTask)[
+                  taskId
+                ] ?? 0;
               const systemMessage: ChatMessage = {
-                id: buildMessageId({ taskId, count: current.length }),
+                id: buildMessageId({ taskId, count: Math.max(current.length, durableCount) }),
                 role: "assistant",
                 model: "system",
                 providerId: "user",
@@ -10298,8 +10307,12 @@ export const useAppStore = create<AppState>()(
                 (cachedSession?.messagesByTask ?? state.messagesByTask)[
                   taskId
                 ] ?? [];
+              const durableCount =
+                (cachedSession?.messageCountByTask ?? state.messageCountByTask)[
+                  taskId
+                ] ?? 0;
               const systemMessage: ChatMessage = {
-                id: buildMessageId({ taskId, count: current.length }),
+                id: buildMessageId({ taskId, count: Math.max(current.length, durableCount) }),
                 role: "assistant",
                 model: "system",
                 providerId: "user",

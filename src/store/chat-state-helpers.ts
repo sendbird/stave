@@ -58,8 +58,15 @@ export function buildLocalCommandResponseState(args: {
   shouldClearProviderSession: boolean;
 }) {
   const current = args.messagesByTask[args.taskId] ?? [];
-  const userMessageId = buildMessageId({ taskId: args.taskId, count: current.length });
-  const assistantMessageId = buildMessageId({ taskId: args.taskId, count: current.length + 1 });
+  // Message IDs are positional over the FULL history; `current` may be a trimmed
+  // tail window, so anchor new IDs to the durable total (`messageCountByTask`) to
+  // avoid colliding with unloaded older rows on the additive-upsert persist path.
+  const baseMessageCount = Math.max(
+    current.length,
+    args.messageCountByTask[args.taskId] ?? 0,
+  );
+  const userMessageId = buildMessageId({ taskId: args.taskId, count: baseMessageCount });
+  const assistantMessageId = buildMessageId({ taskId: args.taskId, count: baseMessageCount + 1 });
   const timestamp = buildRecentTimestamp();
 
   const userMessage: ChatMessage = {
@@ -152,8 +159,13 @@ export function buildPendingProviderTurnState(args: {
   }>;
 }) {
   const current = args.messagesByTask[args.taskId] ?? [];
-  const userMessageId = buildMessageId({ taskId: args.taskId, count: current.length });
-  const assistantMessageId = buildMessageId({ taskId: args.taskId, count: current.length + 1 });
+  // Anchor new IDs to the durable total; `current` may be a trimmed tail window.
+  const baseMessageCount = Math.max(
+    current.length,
+    args.messageCountByTask[args.taskId] ?? 0,
+  );
+  const userMessageId = buildMessageId({ taskId: args.taskId, count: baseMessageCount });
+  const assistantMessageId = buildMessageId({ taskId: args.taskId, count: baseMessageCount + 1 });
   const userParts: MessagePart[] = [];
 
   if (args.fileContexts) {

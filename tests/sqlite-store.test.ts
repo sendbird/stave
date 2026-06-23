@@ -412,6 +412,93 @@ describe("SqliteStore", () => {
     store.close();
   });
 
+  nativeSqliteTest("preserves unloaded older messages when re-persisting a partial tail window", async () => {
+    const SqliteStore = await loadSqliteStore();
+    const store = new SqliteStore({ dbPath });
+
+    const makeMessage = (id: string, content: string) => ({
+      id,
+      role: "user" as const,
+      model: "user",
+      providerId: "user" as const,
+      content,
+      isStreaming: false,
+      parts: [{ type: "text" as const, text: content }],
+    });
+
+    // Initial persist: full history of three messages lives on disk.
+    store.upsertWorkspace({
+      id: "ws-1",
+      name: "Workspace One",
+      snapshot: {
+        activeTaskId: "task-1",
+        tasks: [
+          {
+            id: "task-1",
+            title: "Task One",
+            provider: "claude-code",
+            updatedAt: "2026-03-06T00:00:00.000Z",
+            unread: false,
+          },
+        ],
+        messagesByTask: {
+          "task-1": [
+            makeMessage("m-1", "first"),
+            makeMessage("m-2", "second"),
+            makeMessage("m-3", "third"),
+          ],
+        },
+      },
+    } as unknown as Parameters<typeof store.upsertWorkspace>[0]);
+
+    // Re-persist only a PARTIAL TAIL window: the oldest message (m-1) has been
+    // evicted from the in-memory window and a new tail (m-4) appended. A
+    // destructive delete+reinsert (pre-fix behaviour) would drop m-1 from disk.
+    store.upsertWorkspace({
+      id: "ws-1",
+      name: "Workspace One",
+      snapshot: {
+        activeTaskId: "task-1",
+        tasks: [
+          {
+            id: "task-1",
+            title: "Task One",
+            provider: "claude-code",
+            updatedAt: "2026-03-06T00:05:00.000Z",
+            unread: false,
+          },
+        ],
+        messagesByTask: {
+          "task-1": [
+            makeMessage("m-2", "second"),
+            makeMessage("m-3", "third"),
+            makeMessage("m-4", "fourth"),
+          ],
+        },
+      },
+    } as unknown as Parameters<typeof store.upsertWorkspace>[0]);
+
+    const page = store.loadTaskMessagesPage({
+      workspaceId: "ws-1",
+      taskId: "task-1",
+      limit: 10,
+      offset: 0,
+    });
+    const shell = store.loadWorkspaceShell({ workspaceId: "ws-1" });
+    store.close();
+
+    // m-1 (unloaded older history) must survive the partial-window persist,
+    // and ordering stays chronological by insertion (rowid).
+    expect(page?.messages.map((message) => message.id)).toEqual([
+      "m-1",
+      "m-2",
+      "m-3",
+      "m-4",
+    ]);
+    expect(page?.totalCount).toBe(4);
+    expect(shell?.messageCountByTask).toEqual({ "task-1": 4 });
+  });
+
   nativeSqliteTest("loads a thin workspace shell summary without replaying full shell payloads", async () => {
     const SqliteStore = await loadSqliteStore();
     const store = new SqliteStore({ dbPath });

@@ -4,6 +4,7 @@ import {
   MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
 } from "@/lib/file-context-sanitization";
 import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
+import { trimLoadedTaskMessages } from "@/store/task-message-loading";
 
 describe("normalizeMessagesForSnapshot", () => {
   test("marks legacy codex diffs as accepted", () => {
@@ -168,5 +169,30 @@ describe("normalizeMessagesForSnapshot", () => {
     }
     expect(normalizedPart.description).toContain("approval description truncated");
     expect(normalizedPart.description.length).toBeLessThanOrEqual(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS);
+  });
+});
+
+describe("normalizeMessagesForSnapshot composed with eviction", () => {
+  test("does not resurrect head messages dropped by trimLoadedTaskMessages", () => {
+    const taskId = "task-1";
+    const full = Array.from({ length: 500 }, (_, index) => ({
+      id: `${taskId}-m-${index + 1}`,
+      role: "assistant" as const,
+      model: "gpt-5.4",
+      providerId: "codex" as const,
+      content: `m${index + 1}`,
+      parts: [],
+    }));
+
+    const trimmed = trimLoadedTaskMessages({ messages: full });
+    const normalized = normalizeMessagesForSnapshot({
+      messagesByTask: { [taskId]: trimmed },
+    });
+
+    // Normalization is a per-message transform; it must not re-add evicted head
+    // messages. The snapshot only ever persists the trimmed tail window.
+    expect(normalized[taskId]).toHaveLength(trimmed.length);
+    expect(normalized[taskId]?.[0]?.id).toBe(trimmed[0]?.id);
+    expect(normalized[taskId]?.at(-1)?.id).toBe(`${taskId}-m-500`);
   });
 });

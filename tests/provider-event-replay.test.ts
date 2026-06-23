@@ -669,3 +669,59 @@ describe("subagent progress integration", () => {
     expect(part.progressMessages).toEqual(["Reading CONVENTIONS.md"]);
   });
 });
+
+describe("replayProviderEventsToTaskState — partial-window message IDs", () => {
+  // A 2-message tail window over a task whose durable history is 10 messages.
+  function partialWindow(): ChatMessage[] {
+    return [
+      {
+        id: "task-1-m-9",
+        role: "assistant",
+        model: "gpt-5.4",
+        providerId: "codex",
+        content: "older",
+        isStreaming: false,
+        parts: [],
+      },
+      {
+        id: "task-1-m-10",
+        role: "user",
+        model: "user",
+        providerId: "user",
+        content: "latest prompt",
+        parts: [],
+      },
+    ];
+  }
+
+  test("anchors a new streaming message ID to the durable total, not window length", () => {
+    const result = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: partialWindow(),
+      messageCount: 10, // true on-disk total; only the last 2 are resident
+      events: [{ type: "text", text: "hello" }],
+      provider: "codex",
+      model: "gpt-5.4",
+    });
+
+    const created = result.messages[result.messages.length - 1];
+    // Window length is 2, so the pre-fix scheme would mint task-1-m-3 and collide
+    // with the real on-disk m-3 (silently overwritten by the additive upsert).
+    expect(created?.id).toBe("task-1-m-11");
+  });
+
+  test("falls back to window length when the durable total is unknown", () => {
+    const result = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: partialWindow(),
+      events: [{ type: "text", text: "hello" }],
+      provider: "codex",
+      model: "gpt-5.4",
+    });
+
+    const created = result.messages[result.messages.length - 1];
+    // messageCount omitted -> offset 0 -> positional over the resident window
+    // (preserves legacy behavior for full-history sessions).
+    expect(created?.id).toBe("task-1-m-3");
+  });
+});

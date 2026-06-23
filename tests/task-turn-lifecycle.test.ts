@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { interruptWorkspaceTurnsBeforeTransition } from "@/store/task-turn-lifecycle";
-import { WORKSPACE_SWITCH_TURN_NOTICE } from "@/store/workspace-session-state";
+import { applyProviderEventsToWorkspaceSession } from "@/store/workspace-turn-replay";
+import {
+  WORKSPACE_SWITCH_TURN_NOTICE,
+  type WorkspaceSessionState,
+} from "@/store/workspace-session-state";
+import {
+  MAX_LOADED_TASK_MESSAGES,
+  MAX_LOADED_TASK_MESSAGES_EVICTION_SLACK,
+} from "@/store/task-message-loading";
 import type { ChatMessage, Task } from "@/types/chat";
 
 const originalWindow = globalThis.window;
@@ -109,5 +117,59 @@ describe("interruptWorkspaceTurnsBeforeTransition", () => {
     });
     expect(appliedStates[0]?.messagesByTask["task-a"]?.at(-1)?.content).toBe(WORKSPACE_SWITCH_TURN_NOTICE);
     expect(appliedStates[0]?.messagesByTask["task-b"]?.at(-1)?.content).toBe(WORKSPACE_SWITCH_TURN_NOTICE);
+  });
+});
+
+describe("applyProviderEventsToWorkspaceSession — resident window eviction", () => {
+  function buildResidentSession(
+    taskId: string,
+    count: number,
+  ): WorkspaceSessionState {
+    const messages: ChatMessage[] = Array.from({ length: count }, (_, index) => ({
+      // Last message is a user turn so replay appends a fresh assistant message.
+      id: `${taskId}-m-${index + 1}`,
+      role: index === count - 1 ? "user" : "assistant",
+      model: index === count - 1 ? "user" : "gpt-5.4",
+      providerId: index === count - 1 ? "user" : "codex",
+      content: `message ${index + 1}`,
+      parts: [],
+    }));
+    return {
+      messagesByTask: { [taskId]: messages },
+      messageCountByTask: { [taskId]: count },
+      activeTurnIdsByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+      providerGoalByTask: {},
+    } as unknown as WorkspaceSessionState;
+  }
+
+  test("caps the resident window while preserving the full durable count", () => {
+    const taskId = "task-evict";
+    // Sit exactly at the hysteresis ceiling; one streamed message tips it over.
+    const residentCount =
+      MAX_LOADED_TASK_MESSAGES + MAX_LOADED_TASK_MESSAGES_EVICTION_SLACK;
+    const session = buildResidentSession(taskId, residentCount);
+
+    const result = applyProviderEventsToWorkspaceSession({
+      session,
+      taskId,
+      events: [{ type: "text", text: "fresh streamed token" }],
+      provider: "codex",
+      model: "gpt-5.4",
+      turnId: "turn-1",
+    });
+
+    const resident = result.session.messagesByTask[taskId] ?? [];
+    // Window trimmed back to the cap...
+    expect(resident).toHaveLength(MAX_LOADED_TASK_MESSAGES);
+    // ...but the in-flight streaming message is never evicted...
+    expect(resident.at(-1)?.id).toBe(`${taskId}-m-${residentCount + 1}`);
+    expect(resident.at(-1)?.isStreaming).toBe(true);
+    // ...and the durable count stays untrimmed so "load older" remains enabled.
+    expect(result.session.messageCountByTask[taskId]).toBe(residentCount + 1);
+    expect(result.session.messageCountByTask[taskId]).toBeGreaterThan(
+      resident.length,
+    );
   });
 });

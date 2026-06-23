@@ -33,6 +33,7 @@ export async function interruptWorkspaceTurnsBeforeTransition(args: {
   activeTaskId: string;
   tasks: Task[];
   messagesByTask: Record<string, ChatMessage[]>;
+  messageCountByTask?: Record<string, number>;
   promptDraftByTask: Record<string, PromptDraft>;
   workspaceInformation?: WorkspaceInformationState;
   editorTabs: EditorTab[];
@@ -56,6 +57,7 @@ export async function interruptWorkspaceTurnsBeforeTransition(args: {
     messagesByTask: args.messagesByTask,
     activeTurnIdsByTask: args.activeTurnIdsByTask,
     notice: WORKSPACE_SWITCH_TURN_NOTICE,
+    messageCountByTask: args.messageCountByTask,
   });
 
   if (interrupted.interruptedTaskIds.length > 0) {
