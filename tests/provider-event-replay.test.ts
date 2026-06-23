@@ -3,6 +3,10 @@ import {
   appendProviderEventToAssistant,
   replayProviderEventsToTaskState,
 } from "@/lib/session/provider-event-replay";
+import {
+  PROVIDER_MAX_TOKENS_TRUNCATION_NOTICE,
+  PROVIDER_OUTPUT_OVERFLOW_TRUNCATION_NOTICE,
+} from "@/lib/truncation-visibility";
 import type { ChatMessage, TextPart } from "@/types/chat";
 
 function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
@@ -138,6 +142,51 @@ describe("appendProviderEventToAssistant", () => {
       { type: "text", text: "Inspecting the layout.", segmentId: "msg-1" },
       { type: "text", text: "## Result\n\nFinal answer.", segmentId: "msg-2" },
     ]);
+  });
+
+  test("surfaces max-token completion as a truncation warning", () => {
+    const updated = appendProviderEventToAssistant({
+      message: createMessage({
+        content: "Partial answer",
+        parts: [{ type: "text", text: "Partial answer" }],
+      }),
+      event: { type: "done", stop_reason: "max_tokens" },
+    });
+
+    expect(updated.parts.at(-1)).toEqual({
+      type: "system_event",
+      content: PROVIDER_MAX_TOKENS_TRUNCATION_NOTICE,
+    });
+    expect(updated.isStreaming).toBe(false);
+  });
+
+  test("surfaces retained-output overflow even when no text was returned", () => {
+    const updated = appendProviderEventToAssistant({
+      message: createMessage(),
+      event: { type: "done", stop_reason: "output_overflow" },
+    });
+
+    expect(updated.content).toBe("");
+    expect(updated.parts).toEqual([
+      {
+        type: "system_event",
+        content: PROVIDER_OUTPUT_OVERFLOW_TRUNCATION_NOTICE,
+      },
+    ]);
+    expect(updated.isStreaming).toBe(false);
+  });
+
+  test("does not duplicate provider overflow notices emitted by the runtime", () => {
+    const runtimeNotice =
+      "Claude turn output was truncated in non-stream replay because the retained snapshot limit was exceeded.";
+    const updated = appendProviderEventToAssistant({
+      message: createMessage({
+        parts: [{ type: "system_event", content: runtimeNotice }],
+      }),
+      event: { type: "done", stop_reason: "output_overflow" },
+    });
+
+    expect(updated.parts).toEqual([{ type: "system_event", content: runtimeNotice }]);
   });
 
   test("marks a matching approval as responded once the tool starts", () => {

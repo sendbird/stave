@@ -31,6 +31,7 @@ export { ChainOfThought, ChainOfThoughtContent, ChainOfThoughtStep, ChainOfThoug
 export { SubagentCard, parseSubagentToolInput } from "./subagent";
 export { TodoCard, getTodoProgress, parseTodoInput } from "./todo";
 export { Tool, ToolContent, ToolGroup, ToolHeader, ToolInput, ToolOutput } from "./tool";
+export { TruncationWarningBanner } from "./truncation-warning";
 export { ConfirmationCompact } from "./confirmation";
 export { UserInputCard } from "./user-input-card";
 export { PromptInput, ZenPromptInput } from "./prompt-input";

@@ -2,6 +2,8 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ChevronDown, CircleAlert, CircleCheck, LoaderCircle, Wrench } from "lucide-react";
 import { LinkifiedText } from "@/components/ui/linkified-text";
+import { TruncationWarningBanner } from "@/components/ai-elements/truncation-warning";
+import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { cn } from "@/lib/utils";
 
 interface ToolProps extends HTMLAttributes<HTMLDivElement> {
@@ -169,9 +171,20 @@ export function ToolContent({ className, ...props }: HTMLAttributes<HTMLDivEleme
 
 export function ToolInput(args: { input: unknown; className?: string }) {
   const content = typeof args.input === "string" ? args.input : JSON.stringify(args.input, null, 2);
+  const truncationNotice = detectTruncationNotice({
+    text: content,
+    source: "tool_input",
+  });
   return (
     <div className={cn("rounded-sm border border-border/70 bg-muted/20 p-2", args.className)}>
       <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">Input</p>
+      {truncationNotice ? (
+        <TruncationWarningBanner
+          notice={truncationNotice}
+          compact
+          className="mb-2"
+        />
+      ) : null}
       <LinkifiedText
         as="pre"
         text={content}
@@ -189,9 +202,20 @@ export function ToolOutput(args: {
   label?: string;
   linkifyOutputText?: boolean;
 }) {
+  const truncationNotice = detectTruncationNotice({
+    text: args.errorText ?? args.outputText,
+    source: "tool_output",
+  });
   return (
     <div className={cn("rounded-sm border border-border/70 bg-background/40 p-2", args.className)}>
       <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">{args.label ?? "Output"}</p>
+      {truncationNotice ? (
+        <TruncationWarningBanner
+          notice={truncationNotice}
+          compact
+          className="mb-2"
+        />
+      ) : null}
       {args.errorText ? (
         <LinkifiedText
           as="p"

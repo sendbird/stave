@@ -16,6 +16,7 @@ import {
   ToolOutput,
   UserInputCard,
   parseSubagentToolInput,
+  TruncationWarningBanner,
 } from "@/components/ai-elements";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import {
@@ -28,6 +29,7 @@ import {
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { getTaskControlOwner, isTaskManaged } from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
 import type { MessagePart } from "@/types/chat";
 import { ChangedFilesBlock, FileChangeToolBlock, ReferencedFilesBlock, ImageAttachmentBlock } from "./chat-panel-file-blocks";
@@ -214,6 +216,13 @@ export function MessagePartRenderer(args: {
             restoreDisabled={!compactBoundaryGitRef}
           />
         );
+      }
+      const truncationNotice = detectTruncationNotice({
+        text: part.content,
+        source: "system",
+      });
+      if (truncationNotice) {
+        return <TruncationWarningBanner notice={truncationNotice} />;
       }
       return (
         <LinkifiedText
