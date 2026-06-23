@@ -513,6 +513,86 @@ test("right panel tabs switch", async ({ page }) => {
   await expect(rightPanel.getByRole("heading", { name: "Information" })).toBeVisible();
 });
 
+test("lens screenshot dropdown trigger is not clipped", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("stave-store", JSON.stringify({
+      state: {
+        projectPath: "/tmp/stave-project",
+        projectName: "stave-project",
+        workspaces: [{ id: "ws-main", name: "main", updatedAt: "2026-03-06T01:00:00.000Z" }],
+        activeWorkspaceId: "ws-main",
+        workspaceBranchById: { "ws-main": "main" },
+        workspacePathById: { "ws-main": "/tmp/stave-project" },
+        workspaceDefaultById: { "ws-main": true },
+      },
+      version: 0,
+    }));
+
+    const unsubscribe = () => {};
+    (window as unknown as { api?: Record<string, unknown> }).api = {
+      provider: {
+        streamTurn: async () => [],
+      },
+      terminal: {
+        runCommand: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }),
+      },
+      sourceControl: {
+        getStatus: async () => ({
+          ok: true,
+          branch: "main",
+          items: [],
+          hasConflicts: false,
+          stderr: "",
+        }),
+        getHistory: async () => ({
+          ok: true,
+          items: [],
+          stderr: "",
+        }),
+      },
+      lens: {
+        createView: async () => ({ ok: true }),
+        setBounds: async () => ({ ok: true }),
+        setVisible: async () => ({ ok: true }),
+        getState: async () => ({
+          ok: true,
+          state: {
+            url: "https://example.com",
+            title: "Example",
+            canGoBack: false,
+            canGoForward: false,
+            isLoading: false,
+          },
+          annotationModeActive: false,
+        }),
+        getAnnotations: async () => ({ ok: true, annotations: [] }),
+        listDownloads: async () => ({ ok: true, entries: [] }),
+        saveScreenshot: async () => ({ ok: true, path: "/tmp/lens.png" }),
+        subscribeNavigationEvents: () => unsubscribe,
+        subscribeCdpApprovalRequests: () => unsubscribe,
+        subscribeDownloadEvents: () => unsubscribe,
+        subscribeAnnotationEvents: () => unsubscribe,
+      },
+      window: {
+        subscribeZoomChanges: () => unsubscribe,
+      },
+    };
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await page.getByTestId("workspace-bar").getByRole("button", { name: "Lens" }).click();
+  const screenshotButton = page.getByRole("button", { name: "Save screenshot" });
+  await expect(screenshotButton).toBeEnabled();
+  await expect
+    .poll(async () => (await screenshotButton.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(34);
+  await screenshotButton.click();
+  await expect(page.getByRole("menuitem", { name: "Viewport" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Full Page" })).toBeVisible();
+});
+
 test("terminal dock opens with the shared surface inset", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("stave-store", JSON.stringify({

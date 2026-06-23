@@ -668,12 +668,26 @@ test("source control actions update status and history surfaces", async ({ page 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.keyboard.press("Control+b");
+  await page
+    .getByTestId("workspace-bar")
+    .getByRole("button", { name: "Source Control" })
+    .click();
   const rightPanel = page.getByTestId("editor-panel");
   await expect(rightPanel.getByText("Source Control")).toBeVisible();
   await expect(rightPanel.getByRole("tab", { name: /Changes/ })).toBeVisible();
   await expect(rightPanel.getByRole("tab", { name: /History/ })).toBeVisible();
   await expect(rightPanel.getByText("1 file changed")).toBeVisible();
+  const autoRefreshButton = rightPanel.getByRole("button", {
+    name: "Auto refresh options",
+  });
+  await expect(autoRefreshButton).toBeVisible();
+  await expect(autoRefreshButton).toContainText("Off");
+  await expect
+    .poll(async () => (await autoRefreshButton.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(40);
+  await autoRefreshButton.click();
+  await page.getByRole("menuitem", { name: "Every 10 seconds" }).click();
+  await expect(autoRefreshButton).toContainText("10s");
   const changeRow = rightPanel.getByRole("button", { name: /README\.md/ }).first();
   await changeRow.hover();
   await expect(rightPanel.getByRole("button", { name: /^Stage$/ })).toBeVisible();

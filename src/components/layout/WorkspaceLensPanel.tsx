@@ -1277,10 +1277,11 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                   <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
-                      size="icon-xs"
+                      size="xs"
                       variant="outline"
                       disabled={lensPageActionDisabled}
                       aria-label="Save screenshot"
+                      className="h-7 gap-0.5 px-1.5"
                     >
                       <Camera className="size-3.5" />
                       <ChevronDown className="size-2.5 opacity-70" />
