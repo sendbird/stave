@@ -7,12 +7,13 @@ import { workspaceFsAdapter } from "@/lib/fs";
 import type { WorkspaceCreateEntryResult, WorkspaceDeleteEntryResult, WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
 import { parseUnifiedDiffToBuffers } from "@/lib/source-control-diff";
 import { hasSourceControlStagedChanges, type SourceControlStatusItem } from "@/lib/source-control-status";
+import { resolveWorkspaceTodoStatus } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { RightRailPanelShell } from "./RightRailPanelShell";
 import { WorkspaceScriptsPanel } from "./WorkspaceScriptsPanel";
 import { WorkspaceSkillsPanel } from "./WorkspaceSkillsPanel";
-import { WorkspaceChangesPanel } from "./WorkspaceChangesPanel";
+import { WorkspaceChangesPanel, type WorkspaceChecksViewModel } from "./WorkspaceChangesPanel";
 import { WorkspaceExplorerPanel } from "./WorkspaceExplorerPanel";
 import { WorkspaceInformationPanel } from "./WorkspaceInformationPanel";
 import { WorkspaceLensPanel } from "./WorkspaceLensPanel";
@@ -111,6 +112,10 @@ export function EditorPanel(props: EditorPanelProps) {
     closeEditorTab,
     updateSettings,
     requestVerificationFix,
+    workspaceTodos,
+    workspacePrInfo,
+    isDefaultWorkspace,
+    fetchWorkspacePrStatus,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
     state.hasHydratedWorkspaces,
@@ -128,6 +133,10 @@ export function EditorPanel(props: EditorPanelProps) {
     state.closeEditorTab,
     state.updateSettings,
     state.requestVerificationFix,
+    state.workspaceInformation.todos,
+    state.workspacePrInfoById[state.activeWorkspaceId] ?? null,
+    Boolean(state.workspaceDefaultById[state.activeWorkspaceId]),
+    state.fetchWorkspacePrStatus,
   ] as const));
 
   const handleFixVerificationWithAgent = useCallback(
@@ -148,6 +157,25 @@ export function EditorPanel(props: EditorPanelProps) {
     },
     [requestVerificationFix, activeWorkspaceId],
   );
+
+  const checks = useMemo<WorkspaceChecksViewModel>(() => {
+    const openTodos = workspaceTodos.filter(
+      (todo) => resolveWorkspaceTodoStatus(todo) !== "completed",
+    );
+    return {
+      prStatus: workspacePrInfo?.derived ?? "no_pr",
+      pr: workspacePrInfo?.pr
+        ? {
+            number: workspacePrInfo.pr.number,
+            title: workspacePrInfo.pr.title,
+            url: workspacePrInfo.pr.url,
+          }
+        : null,
+      openTodoCount: openTodos.length,
+      totalTodoCount: workspaceTodos.length,
+      openTodos: openTodos.map((todo) => todo.text),
+    };
+  }, [workspaceTodos, workspacePrInfo]);
 
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [explorerDirectoryStateByPath, setExplorerDirectoryStateByPath] = useState<Record<string, ExplorerDirectoryState>>({});
@@ -371,6 +399,21 @@ export function EditorPanel(props: EditorPanelProps) {
       void loadScmStatus();
     }
   }, [rightTab, sidebarOverlayVisible, workspaceCwd]);
+
+  // Keep the Checks tab's PR readiness fresh. Gated on the changes tab so it
+  // never double-fetches alongside the Information panel (mutually exclusive
+  // right-rail tabs).
+  useEffect(() => {
+    if (rightTab !== "changes" || !sidebarOverlayVisible) return;
+    if (!activeWorkspaceId || isDefaultWorkspace) return;
+    void fetchWorkspacePrStatus({ workspaceId: activeWorkspaceId });
+  }, [
+    rightTab,
+    sidebarOverlayVisible,
+    activeWorkspaceId,
+    isDefaultWorkspace,
+    fetchWorkspacePrStatus,
+  ]);
 
   const loadScmStatusRef = useRef(loadScmStatus);
   loadScmStatusRef.current = loadScmStatus;
@@ -969,6 +1012,7 @@ export function EditorPanel(props: EditorPanelProps) {
               onAutoRefreshSecondsChange={(seconds) => updateSettings({ patch: { scmAutoRefreshSeconds: seconds } })}
               verification={turnVerification ?? null}
               intentCompliance={turnIntentCompliance ?? null}
+              checks={checks}
               onFixVerificationWithAgent={(args) =>
                 void handleFixVerificationWithAgent(args)
               }
