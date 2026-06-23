@@ -763,7 +763,7 @@ export function WorkspaceChangesPanel(props: {
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
-                size="icon-xs"
+                size="xs"
                 variant="ghost"
                 aria-label="Auto refresh options"
                 title={props.autoRefreshSeconds > 0
@@ -775,7 +775,7 @@ export function WorkspaceChangesPanel(props: {
                 )}
               >
                 <Timer className="size-3.5" />
-                <span className="text-[11px] font-medium tracking-tight">
+                <span className="text-[11px] font-medium">
                   {formatAutoRefreshShortLabel(props.autoRefreshSeconds)}
                 </span>
               </Button>
