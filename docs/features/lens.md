@@ -45,6 +45,7 @@
 - Style: live-edits supported element styles from an annotation and records before/after diffs in the sent payload.
 - Screenshot: saves viewport or full-page PNG captures under the workspace Lens downloads directory.
 - Downloads: lists recent Lens downloads and can download page image, stylesheet, and script assets.
+- Fullscreen: expands Lens over the Stave window while keeping the Lens toolbar, status, and browser session active. Use the same toolbar button or `Escape` to exit.
 - Footer status: shows whether Lens is live, loading, or waiting for a page.
 - Source mapping badges: show whether heuristic hints and React `_debugSource` extraction are enabled.
 
