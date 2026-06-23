@@ -15,6 +15,9 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
   private knownFiles: string[] = [];
 
   isAvailable() {
+    if (typeof window === "undefined") {
+      return false;
+    }
     return Boolean(window.api?.fs?.pickRoot && window.api?.fs?.readFile && window.api?.fs?.writeFile);
   }
 

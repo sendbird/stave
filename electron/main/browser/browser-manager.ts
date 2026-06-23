@@ -16,6 +16,7 @@ import type {
   LensDownloadEntry,
   BrowserNavigationState,
   BrowserNetworkEntry,
+  BrowserNetworkEventPayload,
   LensBounds,
 } from "../../../src/lib/lens/lens.types";
 
@@ -95,6 +96,25 @@ function extractMimeType(
   return undefined;
 }
 
+function extractResponseSize(
+  responseHeaders: Record<string, string | string[]> | undefined,
+): number | undefined {
+  if (!responseHeaders) {
+    return undefined;
+  }
+
+  for (const [headerName, headerValue] of Object.entries(responseHeaders)) {
+    if (headerName.toLowerCase() !== "content-length") {
+      continue;
+    }
+    const rawValue = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -158,6 +178,7 @@ export function createBrowserSession(
       method: details.method,
       status: details.statusCode,
       mimeType: extractMimeType(details.responseHeaders),
+      responseSize: extractResponseSize(details.responseHeaders),
       timestamp: new Date().toISOString(),
     });
   });
@@ -397,5 +418,20 @@ export function pushNetworkEntry(
   workspaceId: string,
   entry: BrowserNetworkEntry,
 ): void {
-  sessions.get(workspaceId)?.networkLog.push(entry);
+  const session = sessions.get(workspaceId);
+  if (!session) {
+    return;
+  }
+
+  session.networkLog.push(entry);
+
+  const renderer = getMainWindow()?.webContents;
+  if (!renderer || renderer.isDestroyed()) {
+    return;
+  }
+
+  renderer.send("lens:network-entry", {
+    workspaceId,
+    entry,
+  } satisfies BrowserNetworkEventPayload);
 }

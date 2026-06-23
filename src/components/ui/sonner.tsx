@@ -1,15 +1,18 @@
 import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react";
 import { toast, Toaster as Sonner, type ToasterProps } from "sonner";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ className, ...props }: ToasterProps) => {
   const isDarkMode = useAppStore((state) => state.isDarkMode);
 
   return (
     <Sonner
       theme={isDarkMode ? "dark" : "light"}
       position="top-right"
-      className="toaster group"
+      className={["toaster group", UI_LAYER_CLASS.popover, className]
+        .filter(Boolean)
+        .join(" ")}
       icons={{
         success: (
           <CircleCheckIcon className="size-4" />

@@ -34,9 +34,13 @@ import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
   MIN_EDITOR_PANEL_WIDTH,
+  MIN_LENS_PANEL_WIDTH,
+  DEFAULT_LENS_PANEL_WIDTH,
+  MAX_LENS_PANEL_WIDTH,
   STAVE_OPEN_SETTINGS_EVENT,
   WORKSPACE_SIDEBAR_MIN_WIDTH,
   useAppStore,
+  type LayoutState,
 } from "@/store/app.store";
 import { EditorMainPanel } from "@/components/layout/EditorMainPanel";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
@@ -109,6 +113,7 @@ export function AppShell() {
     sidebarOverlayVisible,
     sidebarOverlayTab,
     explorerPanelWidth,
+    lensPanelWidthByWorkspaceId,
     terminalDocked,
     terminalDockHeight,
     activeEditorTabId,
@@ -158,6 +163,7 @@ export function AppShell() {
           state.layout.sidebarOverlayVisible,
           state.layout.sidebarOverlayTab,
           state.layout.explorerPanelWidth,
+          state.layout.lensPanelWidthByWorkspaceId,
           state.layout.terminalDocked,
           state.layout.terminalDockHeight ?? 210,
           state.activeEditorTabId,
@@ -189,9 +195,7 @@ export function AppShell() {
   const hasProject = Boolean(projectPath);
   const panelRowRef = useRef<HTMLDivElement>(null);
   const contentRowRef = useRef<HTMLDivElement>(null);
-  const pendingLayoutPatchRef = useRef<Partial<
-    Record<ResizableLayoutKey, number>
-  > | null>(null);
+  const pendingLayoutPatchRef = useRef<Partial<LayoutState> | null>(null);
   const resizeFrameRef = useRef<number | null>(null);
   const [zoomHudPercent, setZoomHudPercent] = useState<number | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
@@ -204,6 +208,7 @@ export function AppShell() {
   >(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [sidebarResizing, setSidebarResizing] = useState(false);
+  const [lensPanelResizing, setLensPanelResizing] = useState(false);
   const [contentRowWidth, setContentRowWidth] = useState(0);
   const [isLargeViewport, setIsLargeViewport] = useState(() =>
     typeof window === "undefined"
@@ -367,10 +372,10 @@ export function AppShell() {
     }
   }
 
-  function scheduleLayoutResizePatch(key: ResizableLayoutKey, value: number) {
+  function scheduleLayoutPatch(patch: Partial<LayoutState>) {
     pendingLayoutPatchRef.current = {
       ...(pendingLayoutPatchRef.current ?? {}),
-      [key]: value,
+      ...patch,
     };
     if (resizeFrameRef.current !== null) {
       return;
@@ -384,6 +389,10 @@ export function AppShell() {
       pendingLayoutPatchRef.current = null;
       setLayout({ patch });
     });
+  }
+
+  function scheduleLayoutResizePatch(key: ResizableLayoutKey, value: number) {
+    scheduleLayoutPatch({ [key]: value } as Partial<LayoutState>);
   }
 
   function OverlayLoadingFallback(args: { title: string }) {
@@ -1000,6 +1009,25 @@ export function AppShell() {
   }
 
   const showOverlayRightPanel = overlayRightPanelMode !== null;
+  const showLensOverlayPanel =
+    overlayRightPanelMode === "sidebar" && sidebarOverlayTab === "lens";
+  const maxLensPanelWidth = hasMeasuredContentRowWidth
+    ? Math.max(
+        MIN_LENS_PANEL_WIDTH,
+        Math.min(
+          MAX_LENS_PANEL_WIDTH,
+          contentRowWidth - MIN_CHAT_PANEL_WIDTH - PANEL_SEPARATOR_WIDTH,
+        ),
+      )
+    : MAX_LENS_PANEL_WIDTH;
+  const lensPanelWidth = clampPanelWidth(
+    activeWorkspaceId
+      ? (lensPanelWidthByWorkspaceId[activeWorkspaceId] ??
+          DEFAULT_LENS_PANEL_WIDTH)
+      : DEFAULT_LENS_PANEL_WIDTH,
+    MIN_LENS_PANEL_WIDTH,
+    maxLensPanelWidth,
+  );
   const modifierLabel = useMemo<"Cmd" | "Ctrl">(
     () =>
       typeof navigator !== "undefined" &&
@@ -1551,7 +1579,9 @@ export function AppShell() {
                         <RenderProfiler id="EditorPanel" thresholdMs={8}>
                           <EditorPanel
                             onOpenSettings={handleOpenSettings}
-                            lensOccluded={hasBlockingOverlayOpen}
+                            lensOccluded={
+                              hasBlockingOverlayOpen || lensPanelResizing
+                            }
                           />
                         </RenderProfiler>
                       </div>
@@ -1559,7 +1589,70 @@ export function AppShell() {
                   </>
                 ) : null}
                 {showOverlayRightPanel ? (
-                  <div className="min-h-0 min-w-0 w-[min(22rem,56vw)] max-w-[22rem] border-l border-border/40">
+                  <>
+                    {showLensOverlayPanel ? (
+                      <div
+                        className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
+                        onMouseDown={(event) => {
+                          if (!activeWorkspaceId) {
+                            return;
+                          }
+                          event.preventDefault();
+                          setLensPanelResizing(true);
+                          const workspaceId = activeWorkspaceId;
+                          const startX = event.clientX;
+                          const startWidth = lensPanelWidth;
+                          const onMove = (moveEvent: MouseEvent) => {
+                            const containerWidth =
+                              contentRowRef.current?.offsetWidth ?? 9999;
+                            const maxWidth = Math.max(
+                              MIN_LENS_PANEL_WIDTH,
+                              Math.min(
+                                MAX_LENS_PANEL_WIDTH,
+                                containerWidth -
+                                  MIN_CHAT_PANEL_WIDTH -
+                                  PANEL_SEPARATOR_WIDTH,
+                              ),
+                            );
+                            const delta = startX - moveEvent.clientX;
+                            const next = clampPanelWidth(
+                              startWidth + delta,
+                              MIN_LENS_PANEL_WIDTH,
+                              maxWidth,
+                            );
+                            const layout = useAppStore.getState().layout;
+                            scheduleLayoutPatch({
+                              lensPanelWidthByWorkspaceId: {
+                                ...layout.lensPanelWidthByWorkspaceId,
+                                [workspaceId]: next,
+                              },
+                            });
+                          };
+                          const onUp = () => {
+                            setLensPanelResizing(false);
+                            flushPendingLayoutPatch();
+                            window.removeEventListener("mousemove", onMove);
+                            window.removeEventListener("mouseup", onUp);
+                          };
+                          window.addEventListener("mousemove", onMove);
+                          window.addEventListener("mouseup", onUp);
+                        }}
+                      >
+                        <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
+                      </div>
+                    ) : null}
+                    <div
+                      className={`min-h-0 min-w-0 border-l border-border/40 ${
+                        showLensOverlayPanel
+                          ? "shrink-0"
+                          : "w-[min(22rem,56vw)] max-w-[22rem]"
+                      }`}
+                      style={
+                        showLensOverlayPanel
+                          ? { width: `${lensPanelWidth}px` }
+                          : undefined
+                      }
+                    >
                     {overlayRightPanelMode === "editor" ? (
                       <RenderProfiler
                         id="EditorMainPanelMobile"
@@ -1578,12 +1671,15 @@ export function AppShell() {
                         <RenderProfiler id="EditorPanelMobile" thresholdMs={8}>
                           <EditorPanel
                             onOpenSettings={handleOpenSettings}
-                            lensOccluded={hasBlockingOverlayOpen}
+                            lensOccluded={
+                              hasBlockingOverlayOpen || lensPanelResizing
+                            }
                           />
                         </RenderProfiler>
                       </Suspense>
                     )}
-                  </div>
+                    </div>
+                  </>
                 ) : null}
               </div>
               <RightRail />

@@ -118,7 +118,7 @@ export function attachBrowserSessionEventListeners(
     sendNavUpdate();
   });
 
-  wc.on("console-message", (_event, level, message, _line, sourceId) => {
+  wc.on("console-message", (_event, level, message, lineNumber, sourceId) => {
     const session = getBrowserSession(workspaceId);
     const annotationPrefix = session?.annotationNonce
       ? `__STAVE_ANN__${session.annotationNonce}`
@@ -151,6 +151,7 @@ export function attachBrowserSessionEventListeners(
       text: message,
       timestamp: toIso(),
       source: sourceId,
+      lineNumber,
     });
   });
 }

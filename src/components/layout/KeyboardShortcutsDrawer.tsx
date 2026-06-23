@@ -291,20 +291,12 @@ export function KeyboardShortcutsDrawer({
             description:
               "Open the workspace scripts runtime, hooks, and services panel.",
           }),
-          {
+          buildShellShortcutItem({
+            actionId: "view.show-lens",
             label: "Open Lens panel",
             description:
               "Open the embedded browser for preview, inspection, and picking.",
-            sequences: [
-              [modifierLabel, "Shift", "B"],
-              ...buildAppShortcutSequences({
-                actionId: "view.show-lens",
-                modifierLabel,
-                shortcutKeys: normalizedAppShortcutKeys,
-              }),
-            ],
-            sequenceJoiner: "or",
-          },
+          }),
           buildShellShortcutItem({
             actionId: "view.toggle-editor",
             label: "Toggle editor",

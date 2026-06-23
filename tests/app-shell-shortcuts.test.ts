@@ -195,7 +195,7 @@ describe("app shell shortcut gating", () => {
     });
   });
 
-  test("opens lens on Cmd/Ctrl+Shift+B without a pending chord", () => {
+  test("does not open lens on Cmd/Ctrl+Shift+B without a pending chord", () => {
     expect(
       resolveShortcutChord({
         key: "b",
@@ -204,10 +204,10 @@ describe("app shell shortcut gating", () => {
         now: 150,
       }),
     ).toEqual({
-      action: "view.show-lens",
+      action: null,
       nextPendingChord: null,
-      preventDefault: true,
-      stopAppHandling: true,
+      preventDefault: false,
+      stopAppHandling: false,
     });
   });
 

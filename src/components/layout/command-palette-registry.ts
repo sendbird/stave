@@ -608,7 +608,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     group: "view",
     icon: Globe,
     keywords: ["lens", "browser", "preview", "inspect", "right rail"],
-    shortcut: (modifierLabel) => `${modifierLabel}+Shift+B`,
+    shortcut: (modifierLabel) => `${modifierLabel}+K L`,
     build: (args) => ({
       id: "view.show-lens",
       title: "Show Lens Panel",
@@ -617,7 +617,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       group: "view",
       icon: Globe,
       keywords: ["lens", "browser", "preview", "inspect", "right rail"],
-      shortcut: `${args.modifierLabel}+Shift+B`,
+      shortcut: `${args.modifierLabel}+K L`,
       run: () => args.commands.showOverlayTab("lens"),
       source: "core",
     }),

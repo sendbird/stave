@@ -22,7 +22,7 @@
 
 ## Quick Start
 
-1. Open the right rail and choose `Lens`, or press `Cmd+Shift+B` on macOS / `Ctrl+Shift+B` elsewhere.
+1. Open the right rail and choose `Lens`, or press `Cmd/Ctrl+K`, then `L`.
 2. Enter a URL such as `http://localhost:3000` or `https://example.com`.
 3. Pick an element, add visual comments with `Annotate`, save a screenshot, or download page assets.
 4. Send the captured Lens context into the active task draft and refine it into an instruction.
@@ -33,7 +33,7 @@
 
 - Right rail `Lens` tab
 - Command Palette: `Show Lens Panel`
-- Keyboard: `Cmd+Shift+B` / `Ctrl+Shift+B`
+- Keyboard: `Cmd/Ctrl+K`, then `L`
 - Settings: `Lens` section for source mapping options
 
 ### Key Controls
@@ -45,6 +45,7 @@
 - Style: live-edits supported element styles from an annotation and records before/after diffs in the sent payload.
 - Screenshot: saves viewport or full-page PNG captures under the workspace Lens downloads directory.
 - Downloads: lists recent Lens downloads and can download page image, stylesheet, and script assets.
+- Console and Network: inspect recent page console output and network requests directly from the Lens panel.
 - Fullscreen: expands Lens over the Stave window while keeping the Lens toolbar, status, and browser session active. Use the same toolbar button or `Escape` to exit.
 - Footer status: shows whether Lens is live, loading, or waiting for a page.
 - Source mapping badges: show whether heuristic hints and React `_debugSource` extraction are enabled.
@@ -137,7 +138,7 @@
 - `React _debugSource` only works in React dev builds. Production builds fall back to heuristic source hints.
 - Console and network logs are buffered, not infinite. Lens keeps the most recent entries only.
 - Download history is buffered in memory, while saved files remain on disk until the user removes them.
-- Lens console messages are mirrored into the Stave window DevTools console with a `[Lens:<workspaceId>]` prefix.
+- Lens console messages are shown in the Lens Console tab and mirrored into the Stave window DevTools console with a `[Lens:<workspaceId>]` prefix.
 - Annotation events use a per-session nonce and are filtered out of the user-visible Lens console log.
 - Lens hides while blocking overlays such as Settings are open so the native `WebContentsView` does not render above dialogs.
 - Lens is ideal for runtime inspection, but exact DOM-to-source mapping is still framework-dependent outside React dev mode.

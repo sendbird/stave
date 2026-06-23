@@ -12,8 +12,10 @@ import { useShallow } from "zustand/react/shallow";
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowDownToLine,
   Camera,
   ChevronDown,
+  Copy,
   Crosshair,
   Download,
   ExternalLink,
@@ -22,11 +24,17 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
+  Monitor,
+  Network,
+  Pause,
+  Play,
   RotateCw,
   ScanSearch,
+  Search,
   Send,
   ShieldAlert,
   SlidersHorizontal,
+  Terminal,
   Trash2,
   X,
 } from "lucide-react";
@@ -73,7 +81,12 @@ import {
   formatAnnotationsForChat,
   formatElementForChat,
 } from "@/lib/lens/lens-element-message";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import type {
+  BrowserConsoleEntry,
+  BrowserConsoleEventPayload,
+  BrowserNetworkEntry,
+  BrowserNetworkEventPayload,
   LensAnnotation,
   LensAnnotationEventPayload,
   BrowserNavigationEventPayload,
@@ -97,6 +110,109 @@ const DEFAULT_NAVIGATION_STATE: BrowserNavigationState = {
   canGoForward: false,
   isLoading: false,
 };
+
+const LENS_LOG_LIMIT = 200;
+type LensPanelTab = "preview" | "console" | "network";
+type ConsoleLevelFilter = "all" | BrowserConsoleEntry["level"];
+
+const CONSOLE_LEVEL_FILTERS: ConsoleLevelFilter[] = [
+  "all",
+  "error",
+  "warn",
+  "info",
+  "log",
+  "debug",
+];
+
+function appendLimited<T>(entries: T[], entry: T): T[] {
+  return [...entries, entry].slice(-LENS_LOG_LIMIT);
+}
+
+function formatLogTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function formatBytes(value: number | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return "-";
+  }
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getConsoleLevelClass(level: BrowserConsoleEntry["level"]) {
+  switch (level) {
+    case "error":
+      return "border-destructive/30 bg-destructive/10 text-destructive";
+    case "warn":
+      return "border-warning/30 bg-warning/10 text-warning";
+    case "info":
+      return "border-primary/30 bg-primary/10 text-primary";
+    case "debug":
+      return "border-muted-foreground/30 bg-muted/50 text-muted-foreground";
+    default:
+      return "border-border bg-muted/60 text-foreground";
+  }
+}
+
+function getNetworkStatusClass(status: number | undefined) {
+  if (!status) {
+    return "text-destructive";
+  }
+  if (status >= 500) {
+    return "text-destructive";
+  }
+  if (status >= 400) {
+    return "text-warning";
+  }
+  if (status >= 300) {
+    return "text-primary";
+  }
+  return "text-success";
+}
+
+function formatConsoleEntries(entries: BrowserConsoleEntry[]): string {
+  return entries
+    .map((entry) => {
+      const source = entry.source ? ` ${entry.source}` : "";
+      return `[${entry.timestamp}] ${entry.level.toUpperCase()}${source} ${entry.text}`;
+    })
+    .join("\n");
+}
+
+function formatNetworkEntries(entries: BrowserNetworkEntry[]): string {
+  return entries
+    .map((entry) => {
+      const status = entry.status ?? "-";
+      const mimeType = entry.mimeType ?? "-";
+      return `[${entry.timestamp}] ${entry.method} ${status} ${mimeType} ${entry.url}`;
+    })
+    .join("\n");
+}
+
+function hasLensOccludingFloatingSurface(): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  return Boolean(
+    document.querySelector(
+      ".t-dropdown, .t-modal, .t-overlay, .cn-toast, [data-sonner-toast]",
+    ),
+  );
+}
 
 function areLensBoundsEqual(
   left: LensBounds | null,
@@ -267,11 +383,13 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     activeTaskId,
     lensSourceMappingHeuristic,
     lensSourceMappingReactDebugSource,
+    isLensFullscreen,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
     state.activeTaskId,
     state.settings.lensSourceMappingHeuristic,
     state.settings.lensSourceMappingReactDebugSource,
+    Boolean(state.layout.lensFullscreenByWorkspaceId[state.activeWorkspaceId]),
   ] as const));
 
   const sourceMappingConfig = useMemo(
@@ -312,17 +430,94 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   const [isAnnotationModeActive, setIsAnnotationModeActive] = useState(false);
   const [isLensFloatingSurfaceOpen, setIsLensFloatingSurfaceOpen] =
     useState(false);
-  const [isLensFullscreen, setIsLensFullscreen] = useState(false);
+  const [lensPanelTab, setLensPanelTab] = useState<LensPanelTab>("preview");
+  const [consoleEntries, setConsoleEntries] = useState<BrowserConsoleEntry[]>(
+    [],
+  );
+  const [networkEntries, setNetworkEntries] = useState<BrowserNetworkEntry[]>(
+    [],
+  );
+  const [consoleLevelFilter, setConsoleLevelFilter] =
+    useState<ConsoleLevelFilter>("all");
+  const [consoleSearch, setConsoleSearch] = useState("");
+  const [networkSearch, setNetworkSearch] = useState("");
+  const [consolePaused, setConsolePaused] = useState(false);
+  const [networkPaused, setNetworkPaused] = useState(false);
+  const [autoScrollLogs, setAutoScrollLogs] = useState(true);
+  const [lastLoadError, setLastLoadError] = useState<string | null>(null);
+  const [hasExternalFloatingSurface, setHasExternalFloatingSurface] =
+    useState(false);
+  const consoleLogRef = useRef<HTMLDivElement>(null);
+  const networkLogRef = useRef<HTMLDivElement>(null);
   const isOccluded = Boolean(args.occluded);
-  const isLensSuppressed = isOccluded || isLensFloatingSurfaceOpen;
+  const isLensSuppressed =
+    isOccluded ||
+    isLensFloatingSurfaceOpen ||
+    hasExternalFloatingSurface ||
+    lensPanelTab !== "preview";
   const cdpApprovalRequestRef =
     useRef<LensCdpApprovalRequestPayload | null>(null);
   const isLensSuppressedRef = useRef(isLensSuppressed);
+  const consolePausedRef = useRef(consolePaused);
+  const networkPausedRef = useRef(networkPaused);
   isLensSuppressedRef.current = isLensSuppressed;
+  consolePausedRef.current = consolePaused;
+  networkPausedRef.current = networkPaused;
 
   useEffect(() => {
     cdpApprovalRequestRef.current = cdpApprovalRequest;
   }, [cdpApprovalRequest]);
+
+  useEffect(() => {
+    if (typeof document === "undefined" || !document.body) {
+      return;
+    }
+
+    let frame = 0;
+    const sync = () => {
+      frame = 0;
+      const next = hasLensOccludingFloatingSurface();
+      setHasExternalFloatingSurface((current) =>
+        current === next ? current : next,
+      );
+    };
+    const scheduleSync = () => {
+      if (frame !== 0) {
+        return;
+      }
+      frame = window.requestAnimationFrame(sync);
+    };
+
+    sync();
+    const observer = new MutationObserver(scheduleSync);
+    observer.observe(document.body, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    return () => {
+      if (frame !== 0) {
+        window.cancelAnimationFrame(frame);
+      }
+      observer.disconnect();
+    };
+  }, []);
+
+  const setLensFullscreen = useCallback((nextFullscreen: boolean) => {
+    const state = useAppStore.getState();
+    const currentWorkspaceId = state.activeWorkspaceId;
+    if (!currentWorkspaceId) {
+      return;
+    }
+    state.setLayout({
+      patch: {
+        lensFullscreenByWorkspaceId: {
+          ...state.layout.lensFullscreenByWorkspaceId,
+          [currentWorkspaceId]: nextFullscreen,
+        },
+      },
+    });
+  }, []);
 
   const applyNavigationState = useCallback((state: BrowserNavigationState) => {
     setUrl(state.url);
@@ -333,6 +528,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     }
     setTitle(state.title);
     setIsLoading(state.isLoading);
+    if (state.isLoading) {
+      setLastLoadError(null);
+    }
     setCanGoBack(state.canGoBack);
     setCanGoForward(state.canGoForward);
   }, []);
@@ -458,12 +656,12 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         return;
       }
       event.preventDefault();
-      setIsLensFullscreen(false);
+      setLensFullscreen(false);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isLensFullscreen]);
+  }, [isLensFullscreen, setLensFullscreen]);
 
   useEffect(() => {
     pendingBoundsRef.current = null;
@@ -472,6 +670,10 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     isViewReadyRef.current = false;
     setAnnotations([]);
     setIsAnnotationModeActive(false);
+    setConsoleEntries([]);
+    setNetworkEntries([]);
+    setLastLoadError(null);
+    setLensPanelTab("preview");
 
     if (!workspaceId) {
       applyNavigationState(DEFAULT_NAVIGATION_STATE);
@@ -690,6 +892,81 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
           return;
         }
         setDownloads((current) => mergeDownloadEntry(current, payload.entry));
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [hasLensApi, workspaceId]);
+
+  useEffect(() => {
+    setConsoleEntries([]);
+    setLastLoadError(null);
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    let cancelled = false;
+    void window.api?.lens
+      ?.getConsoleLog?.({ workspaceId, limit: LENS_LOG_LIMIT })
+      .then((result) => {
+        if (!cancelled && result?.ok && result.entries) {
+          const entries = result.entries.slice(-LENS_LOG_LIMIT);
+          setConsoleEntries(entries);
+          const latestError = entries
+            .slice()
+            .reverse()
+            .find((entry) => entry.level === "error");
+          if (latestError?.text.startsWith("Navigation failed:")) {
+            setLastLoadError(latestError.text);
+          }
+        }
+      });
+
+    const unsubscribe = window.api?.lens?.subscribeConsoleEvents?.(
+      (payload: BrowserConsoleEventPayload) => {
+        if (payload.workspaceId !== workspaceId) {
+          return;
+        }
+        if (payload.entry.text.startsWith("Navigation failed:")) {
+          setLastLoadError(payload.entry.text);
+        }
+        if (consolePausedRef.current) {
+          return;
+        }
+        setConsoleEntries((current) => appendLimited(current, payload.entry));
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [hasLensApi, workspaceId]);
+
+  useEffect(() => {
+    setNetworkEntries([]);
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    let cancelled = false;
+    void window.api?.lens
+      ?.getNetworkLog?.({ workspaceId, limit: LENS_LOG_LIMIT })
+      .then((result) => {
+        if (!cancelled && result?.ok && result.entries) {
+          setNetworkEntries(result.entries.slice(-LENS_LOG_LIMIT));
+        }
+      });
+
+    const unsubscribe = window.api?.lens?.subscribeNetworkEvents?.(
+      (payload: BrowserNetworkEventPayload) => {
+        if (payload.workspaceId !== workspaceId || networkPausedRef.current) {
+          return;
+        }
+        setNetworkEntries((current) => appendLimited(current, payload.entry));
       },
     );
 
@@ -1106,6 +1383,76 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     });
   }, [activeTaskId, annotations, sourceMappingConfig]);
 
+  const filteredConsoleEntries = useMemo(() => {
+    const query = consoleSearch.trim().toLowerCase();
+    return consoleEntries.filter((entry) => {
+      if (consoleLevelFilter !== "all" && entry.level !== consoleLevelFilter) {
+        return false;
+      }
+      if (!query) {
+        return true;
+      }
+      return (
+        entry.text.toLowerCase().includes(query) ||
+        entry.source?.toLowerCase().includes(query)
+      );
+    });
+  }, [consoleEntries, consoleLevelFilter, consoleSearch]);
+
+  const filteredNetworkEntries = useMemo(() => {
+    const query = networkSearch.trim().toLowerCase();
+    if (!query) {
+      return networkEntries;
+    }
+    return networkEntries.filter(
+      (entry) =>
+        entry.url.toLowerCase().includes(query) ||
+        entry.method.toLowerCase().includes(query) ||
+        entry.mimeType?.toLowerCase().includes(query) ||
+        String(entry.status ?? "").includes(query),
+    );
+  }, [networkEntries, networkSearch]);
+
+  useEffect(() => {
+    if (!autoScrollLogs || lensPanelTab !== "console") {
+      return;
+    }
+    const node = consoleLogRef.current;
+    if (node) {
+      node.scrollTop = node.scrollHeight;
+    }
+  }, [autoScrollLogs, filteredConsoleEntries.length, lensPanelTab]);
+
+  useEffect(() => {
+    if (!autoScrollLogs || lensPanelTab !== "network") {
+      return;
+    }
+    const node = networkLogRef.current;
+    if (node) {
+      node.scrollTop = node.scrollHeight;
+    }
+  }, [autoScrollLogs, filteredNetworkEntries.length, lensPanelTab]);
+
+  const copyConsoleLog = useCallback(() => {
+    void copyTextToClipboard(formatConsoleEntries(filteredConsoleEntries))
+      .then(() => {
+        toast.success("Console copied");
+      })
+      .catch(() => {
+        toast.error("Failed to copy console log");
+      });
+  }, [filteredConsoleEntries]);
+
+  const copyNetworkLog = useCallback(() => {
+    void copyTextToClipboard(formatNetworkEntries(filteredNetworkEntries))
+      .then(() => {
+        toast.success("Network log copied");
+      })
+      .catch(() => {
+        toast.error("Failed to copy network log");
+      });
+  }, [filteredNetworkEntries]);
+
   const pickerDisabled = !hasLensApi || !activeTaskId || url === "about:blank";
   const lensPageActionDisabled = !hasLensApi || url === "about:blank";
   const pickerTooltip = useMemo(() => {
@@ -1121,11 +1468,13 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     return "Pick an element and append its structure, styles, and source hints to the active task.";
   }, [activeTaskId, hasLensApi, url]);
 
-  const statusText = title
-    ? title
-    : hasLensApi
-      ? "Open a local or deployed page, then use Pick Element to send UI context into the active task."
-      : "Lens requires the Electron desktop runtime.";
+  const statusText = lastLoadError
+    ? lastLoadError
+    : title
+      ? title
+      : hasLensApi
+        ? "Open a local or deployed page, then use Pick Element to send UI context into the active task."
+        : "Lens requires the Electron desktop runtime.";
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -1366,7 +1715,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                   size="icon-xs"
                   variant={isLensFullscreen ? "secondary" : "outline"}
                   disabled={!hasLensApi}
-                  onClick={() => setIsLensFullscreen((current) => !current)}
+                  onClick={() => setLensFullscreen(!isLensFullscreen)}
                   aria-label={
                     isLensFullscreen
                       ? "Exit fullscreen Lens"
@@ -1402,6 +1751,49 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
             <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] font-medium">
               {sourceMappingConfig.reactDebugSource ? "react source on" : "react source off"}
             </Badge>
+          </div>
+          <div className="flex min-w-0 items-center gap-1 rounded-md border border-border/60 bg-background/70 p-1">
+            {[
+              {
+                id: "preview" as const,
+                label: "Preview",
+                icon: Monitor,
+                count: null,
+              },
+              {
+                id: "console" as const,
+                label: "Console",
+                icon: Terminal,
+                count: consoleEntries.length,
+              },
+              {
+                id: "network" as const,
+                label: "Network",
+                icon: Network,
+                count: networkEntries.length,
+              },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const active = lensPanelTab === tab.id;
+              return (
+                <Button
+                  key={tab.id}
+                  type="button"
+                  size="xs"
+                  variant={active ? "secondary" : "ghost"}
+                  className="h-7 min-w-0 flex-1 gap-1.5 px-2 text-[11px]"
+                  onClick={() => setLensPanelTab(tab.id)}
+                >
+                  <Icon className="size-3.5" />
+                  <span className="truncate">{tab.label}</span>
+                  {tab.count !== null ? (
+                    <span className="rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+                      {tab.count}
+                    </span>
+                  ) : null}
+                </Button>
+              );
+            })}
           </div>
           {annotations.length > 0 ? (
             <div className="max-h-28 space-y-1 overflow-y-auto rounded-md border border-border/60 bg-background/70 p-2">
@@ -1468,30 +1860,268 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         </div>
 
         <div className="relative min-h-0 flex-1 overflow-hidden">
-          <div
-            ref={placeholderRef}
-            className="absolute inset-0 min-h-0 overflow-hidden bg-background"
-          />
-          {!hasLensApi ? (
-            <div className="absolute inset-0 p-3">
-              <Empty className="h-full justify-center rounded-xl border-border/70 bg-background/70 p-6">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <ScanSearch />
-                  </EmptyMedia>
-                  <EmptyTitle>Lens needs the desktop runtime</EmptyTitle>
-                  <EmptyDescription>
-                    The embedded browser is backed by Electron `WebContentsView`, so it is unavailable in browser-only mode.
-                  </EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>Use `bun run dev:desktop` or a packaged desktop build to inspect pages, capture screenshots, and send element context to a task.</p>
+          {lensPanelTab === "preview" ? (
+            <>
+              <div
+                ref={placeholderRef}
+                className="absolute inset-0 min-h-0 overflow-hidden bg-background"
+              />
+              {hasLensApi && isLoading ? (
+                <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-border/70 bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="size-3 animate-spin" />
+                    Loading page
+                  </span>
+                </div>
+              ) : null}
+              {hasLensApi && lastLoadError ? (
+                <div className="absolute inset-x-3 bottom-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive shadow-sm">
+                  {lastLoadError}
+                </div>
+              ) : null}
+              {hasLensApi && isOccluded ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 p-4 text-center text-xs text-muted-foreground">
+                  Lens preview is hidden while another surface is above it.
+                </div>
+              ) : null}
+              {!hasLensApi ? (
+                <div className="absolute inset-0 p-3">
+                  <Empty className="h-full justify-center rounded-xl border-border/70 bg-background/70 p-6">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <ScanSearch />
+                      </EmptyMedia>
+                      <EmptyTitle>Lens needs the desktop runtime</EmptyTitle>
+                      <EmptyDescription>
+                        The embedded browser is backed by Electron `WebContentsView`, so it is unavailable in browser-only mode.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                    <EmptyContent>
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <p>Use `bun run dev:desktop` or a packaged desktop build to inspect pages, capture screenshots, and send element context to a task.</p>
+                      </div>
+                    </EmptyContent>
+                  </Empty>
+                </div>
+              ) : null}
+            </>
+          ) : lensPanelTab === "console" ? (
+            <div className="flex h-full min-h-0 flex-col bg-background">
+              <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 p-2">
+                <div className="relative min-w-36 flex-1">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={consoleSearch}
+                    onChange={(event) => setConsoleSearch(event.target.value)}
+                    placeholder="Search console"
+                    className="h-7 pl-7 text-xs"
+                  />
+                </div>
+                <div className="flex items-center gap-1 overflow-x-auto">
+                  {CONSOLE_LEVEL_FILTERS.map((level) => (
+                    <Button
+                      key={level}
+                      type="button"
+                      size="xs"
+                      variant={consoleLevelFilter === level ? "secondary" : "ghost"}
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => setConsoleLevelFilter(level)}
+                    >
+                      {level}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant={consolePaused ? "secondary" : "ghost"}
+                  onClick={() => setConsolePaused((current) => !current)}
+                  aria-label={consolePaused ? "Resume console log" : "Pause console log"}
+                >
+                  {consolePaused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant={autoScrollLogs ? "secondary" : "ghost"}
+                  onClick={() => setAutoScrollLogs((current) => !current)}
+                  aria-label="Toggle log autoscroll"
+                >
+                  <ArrowDownToLine className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  disabled={filteredConsoleEntries.length === 0}
+                  onClick={copyConsoleLog}
+                  aria-label="Copy console log"
+                >
+                  <Copy className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  disabled={consoleEntries.length === 0}
+                  onClick={() => {
+                    setConsoleEntries([]);
+                    setLastLoadError(null);
+                  }}
+                  aria-label="Clear console log"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+              <div
+                ref={consoleLogRef}
+                className="min-h-0 flex-1 overflow-auto font-mono text-xs"
+              >
+                {filteredConsoleEntries.length > 0 ? (
+                  <div className="divide-y divide-border/50">
+                    {filteredConsoleEntries.map((entry, index) => (
+                      <div
+                        key={`${entry.timestamp}-${index}`}
+                        className="grid grid-cols-[4.5rem_4.25rem_minmax(0,1fr)] gap-2 px-3 py-2"
+                      >
+                        <span className="text-[11px] text-muted-foreground">
+                          {formatLogTime(entry.timestamp)}
+                        </span>
+                        <span
+                          className={cn(
+                            "h-5 rounded border px-1.5 text-center text-[10px] uppercase leading-5",
+                            getConsoleLevelClass(entry.level),
+                          )}
+                        >
+                          {entry.level}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="whitespace-pre-wrap break-words text-foreground">
+                            {entry.text}
+                          </div>
+                          {entry.source ? (
+                            <div className="mt-1 truncate text-[10px] text-muted-foreground">
+                              {entry.source}
+                              {entry.lineNumber ? `:${entry.lineNumber}` : ""}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </EmptyContent>
-              </Empty>
+                ) : (
+                  <div className="flex h-full items-center justify-center p-4 text-xs text-muted-foreground">
+                    No console entries.
+                  </div>
+                )}
+              </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex h-full min-h-0 flex-col bg-background">
+              <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 p-2">
+                <div className="relative min-w-40 flex-1">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={networkSearch}
+                    onChange={(event) => setNetworkSearch(event.target.value)}
+                    placeholder="Search network"
+                    className="h-7 pl-7 text-xs"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant={networkPaused ? "secondary" : "ghost"}
+                  onClick={() => setNetworkPaused((current) => !current)}
+                  aria-label={networkPaused ? "Resume network log" : "Pause network log"}
+                >
+                  {networkPaused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant={autoScrollLogs ? "secondary" : "ghost"}
+                  onClick={() => setAutoScrollLogs((current) => !current)}
+                  aria-label="Toggle log autoscroll"
+                >
+                  <ArrowDownToLine className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  disabled={filteredNetworkEntries.length === 0}
+                  onClick={copyNetworkLog}
+                  aria-label="Copy network log"
+                >
+                  <Copy className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  disabled={networkEntries.length === 0}
+                  onClick={() => setNetworkEntries([])}
+                  aria-label="Clear network log"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+              <div
+                ref={networkLogRef}
+                className="min-h-0 flex-1 overflow-auto text-xs"
+              >
+                {filteredNetworkEntries.length > 0 ? (
+                  <div className="min-w-[560px]">
+                    <div className="grid grid-cols-[4.5rem_4rem_4rem_minmax(8rem,1fr)_6rem_4.5rem] gap-2 border-b border-border/60 px-3 py-2 text-[10px] font-medium uppercase text-muted-foreground">
+                      <span>Time</span>
+                      <span>Method</span>
+                      <span>Status</span>
+                      <span>URL</span>
+                      <span>Type</span>
+                      <span>Size</span>
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {filteredNetworkEntries.map((entry) => (
+                        <div
+                          key={entry.requestId}
+                          className="grid grid-cols-[4.5rem_4rem_4rem_minmax(8rem,1fr)_6rem_4.5rem] gap-2 px-3 py-2"
+                        >
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {formatLogTime(entry.timestamp)}
+                          </span>
+                          <span className="font-mono text-[11px] font-medium">
+                            {entry.method}
+                          </span>
+                          <span
+                            className={cn(
+                              "font-mono text-[11px] font-semibold",
+                              getNetworkStatusClass(entry.status),
+                            )}
+                          >
+                            {entry.status ?? "ERR"}
+                          </span>
+                          <span className="truncate font-mono text-[11px]">
+                            {entry.url}
+                          </span>
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            {entry.mimeType ?? "-"}
+                          </span>
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {formatBytes(entry.responseSize)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center p-4 text-xs text-muted-foreground">
+                    No network entries.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border/60 px-3 py-1.5">

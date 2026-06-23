@@ -25,6 +25,8 @@ export function RightRail() {
   const [isLargeViewport, setIsLargeViewport] = useState(() =>
     typeof window === "undefined" ? true : window.matchMedia("(min-width: 1024px)").matches
   );
+  const hasLensApi =
+    typeof window !== "undefined" && Boolean(window.api?.lens);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -94,25 +96,34 @@ export function RightRail() {
           {RIGHT_RAIL_PANEL_IDS.map((panelId) => {
             const Icon = RIGHT_RAIL_PANEL_ICONS[panelId];
             const isActive = sidebarOverlayVisible && sidebarOverlayTab === panelId;
+            const lensUnavailable = panelId === "lens" && !hasLensApi;
+            const disabled = !hasProject || lensUnavailable;
+            const tooltip = !hasProject
+              ? RIGHT_RAIL_PANEL_TITLES[panelId]
+              : lensUnavailable
+                ? "Lens is available in the desktop app"
+                : RIGHT_RAIL_PANEL_TITLES[panelId];
 
             return (
               <Tooltip key={panelId}>
                 <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant={isActive ? "default" : "ghost"}
-                    disabled={!hasProject}
-                    className={cn(
-                      "h-9 w-9 rounded-md border border-transparent p-0 lg:h-10 lg:w-10",
-                      !isActive && "hover:border-border/80 hover:bg-secondary/70"
-                    )}
-                    onClick={() => toggleSidebarTab(panelId)}
-                    aria-label={RIGHT_RAIL_PANEL_TITLES[panelId]}
-                  >
-                    <Icon className="size-3.5 lg:size-4" />
-                  </Button>
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant={isActive ? "default" : "ghost"}
+                      disabled={disabled}
+                      className={cn(
+                        "h-9 w-9 rounded-md border border-transparent p-0 lg:h-10 lg:w-10",
+                        !isActive && "hover:border-border/80 hover:bg-secondary/70"
+                      )}
+                      onClick={() => toggleSidebarTab(panelId)}
+                      aria-label={RIGHT_RAIL_PANEL_TITLES[panelId]}
+                    >
+                      <Icon className="size-3.5 lg:size-4" />
+                    </Button>
+                  </span>
                 </TooltipTrigger>
-                <TooltipContent side="left">{RIGHT_RAIL_PANEL_TITLES[panelId]}</TooltipContent>
+                <TooltipContent side="left">{tooltip}</TooltipContent>
               </Tooltip>
             );
           })}
