@@ -265,6 +265,7 @@ import {
   normalizeComparablePath,
   parseGitWorktrees,
 } from "@/lib/source-control-worktrees";
+import { worktreeStatusHasMeaningfulChanges } from "@/lib/workspace-archive-status";
 import {
   type LayoutState,
   WORKSPACE_SIDEBAR_MIN_WIDTH,
@@ -2475,6 +2476,15 @@ async function closeTerminalSessionsForWorkspaces(workspaceIds: string[]) {
 
 const activeWorkspaceArchiveCleanups = new Set<Promise<void>>();
 
+/**
+ * Normalized worktree paths the user explicitly archived this session. When a
+ * worktree is genuinely dirty, archive intentionally preserves it on disk to
+ * protect uncommitted work — but `refreshWorkspaces` would then re-discover and
+ * re-register it ("resurrection"). This tombstone tells the discovery pass to
+ * skip those paths so an archived workspace stays archived.
+ */
+const archivedWorktreePaths = new Set<string>();
+
 type WorkspaceArchiveCommandRunner = (args: {
   cwd?: string;
   command: string;
@@ -2505,6 +2515,14 @@ function startWorkspaceArchiveCleanup(args: {
   workspaceBranch?: string;
   projectPath?: string | null;
 }): void {
+  // Tombstone the path synchronously so a refresh racing the detached cleanup
+  // below does not re-register the workspace being archived.
+  if (args.workspacePath) {
+    const normalizedArchivedPath = normalizeComparablePath(args.workspacePath);
+    if (normalizedArchivedPath) {
+      archivedWorktreePaths.add(normalizedArchivedPath);
+    }
+  }
   const promise = performWorkspaceArchiveCleanup(args);
   activeWorkspaceArchiveCleanups.add(promise);
   promise
@@ -2537,7 +2555,10 @@ async function workspaceHasLocalChanges(args: {
     });
     return true;
   }
-  return statusResult.stdout.trim().length > 0;
+  // Ignore Stave's own self-managed untracked entries (the linked node_modules
+  // symlink), which `.gitignore`'s `node_modules/` dir-only pattern misses and
+  // would otherwise make every symlinked worktree look permanently dirty.
+  return worktreeStatusHasMeaningfulChanges(statusResult.stdout);
 }
 
 async function workspaceBranchHasUnpushedCommits(args: {
@@ -4946,7 +4967,10 @@ export const useAppStore = create<AppState>()(
               !worktree.branch ||
               !normalizedWorktreePath ||
               normalizedWorktreePath === currentProjectPath ||
-              knownPathToId.has(normalizedWorktreePath)
+              knownPathToId.has(normalizedWorktreePath) ||
+              // Skip worktrees the user archived this session; re-registering
+              // them is the "archive resurrection" bug.
+              archivedWorktreePaths.has(normalizedWorktreePath)
             ) {
               continue;
             }
