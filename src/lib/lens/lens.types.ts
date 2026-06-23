@@ -51,6 +51,11 @@ export interface BrowserNetworkEntry {
   timestamp: string;
 }
 
+export interface BrowserNetworkEventPayload {
+  workspaceId: string;
+  entry: BrowserNetworkEntry;
+}
+
 export interface BrowserScreenshotOptions {
   fullPage?: boolean;
   clip?: { x: number; y: number; width: number; height: number };

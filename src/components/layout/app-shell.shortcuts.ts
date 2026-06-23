@@ -89,15 +89,6 @@ export function resolveShortcutChord(args: {
       ? args.pendingChord
       : null;
 
-  if (hasMod && args.shiftKey && !args.altKey && normalizedKey === "b") {
-    return {
-      action: "view.show-lens",
-      nextPendingChord: null,
-      preventDefault: true,
-      stopAppHandling: true,
-    };
-  }
-
   if (
     hasMod &&
     !args.altKey &&

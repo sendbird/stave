@@ -1442,6 +1442,34 @@ interface LensNavigationEventPayload {
   state: LensNavigationState;
 }
 
+interface LensConsoleEntry {
+  level: "log" | "warn" | "error" | "info" | "debug";
+  text: string;
+  timestamp: string;
+  source?: string;
+  lineNumber?: number;
+}
+
+interface LensConsoleEventPayload {
+  workspaceId: string;
+  entry: LensConsoleEntry;
+}
+
+interface LensNetworkEntry {
+  requestId: string;
+  url: string;
+  method: string;
+  status?: number;
+  mimeType?: string;
+  responseSize?: number;
+  timestamp: string;
+}
+
+interface LensNetworkEventPayload {
+  workspaceId: string;
+  entry: LensNetworkEntry;
+}
+
 interface LensSecurityConfig {
   allowedHosts: string[];
   blockedHosts: string[];
@@ -1630,22 +1658,12 @@ interface WindowLensApi {
   }) => Promise<{ ok: boolean; result?: unknown; message?: string }>;
   getConsoleLog?: (args: { workspaceId: string; limit?: number }) => Promise<{
     ok: boolean;
-    entries?: Array<{
-      level: string;
-      text: string;
-      timestamp: string;
-      source?: string;
-    }>;
+    entries?: LensConsoleEntry[];
     message?: string;
   }>;
   getNetworkLog?: (args: { workspaceId: string; limit?: number }) => Promise<{
     ok: boolean;
-    entries?: Array<{
-      url: string;
-      method: string;
-      status?: number;
-      timestamp: string;
-    }>;
+    entries?: LensNetworkEntry[];
     message?: string;
   }>;
   startElementPicker?: (args: {
@@ -1688,6 +1706,12 @@ interface WindowLensApi {
   ) => () => void;
   subscribeAnnotationEvents?: (
     listener: (payload: LensAnnotationEventPayload) => void,
+  ) => () => void;
+  subscribeConsoleEvents?: (
+    listener: (payload: LensConsoleEventPayload) => void,
+  ) => () => void;
+  subscribeNetworkEvents?: (
+    listener: (payload: LensNetworkEventPayload) => void,
   ) => () => void;
 }
 

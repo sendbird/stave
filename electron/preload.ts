@@ -61,6 +61,7 @@ import type {
 } from "../src/lib/workspace-scripts/types";
 import type {
   BrowserConsoleEventPayload,
+  BrowserNetworkEventPayload,
   LensAnnotation,
   LensAnnotationEventPayload,
   LensCdpApprovalRequestPayload,
@@ -174,6 +175,14 @@ ipcRenderer.on(
     }
   },
 );
+
+const lensConsoleEventSubscribers = new Set<
+  (payload: BrowserConsoleEventPayload) => void
+>();
+
+const lensNetworkEventSubscribers = new Set<
+  (payload: BrowserNetworkEventPayload) => void
+>();
 
 const zoomChangeSubscribers = new Set<
   (payload: { factor: number; percent: number }) => void
@@ -413,6 +422,10 @@ ipcRenderer.on(
 ipcRenderer.on(
   "lens:console-entry",
   (_event, payload: BrowserConsoleEventPayload) => {
+    for (const subscriber of lensConsoleEventSubscribers) {
+      subscriber(payload);
+    }
+
     const prefix = `[Lens:${payload.workspaceId}]`;
     const message = payload.entry.source
       ? `${prefix} ${payload.entry.text} (${payload.entry.source})`
@@ -433,6 +446,14 @@ ipcRenderer.on(
       default:
         console.log(message);
         break;
+    }
+  },
+);
+ipcRenderer.on(
+  "lens:network-entry",
+  (_event, payload: BrowserNetworkEventPayload) => {
+    for (const subscriber of lensNetworkEventSubscribers) {
+      subscriber(payload);
     }
   },
 );
@@ -1547,6 +1568,22 @@ contextBridge.exposeInMainWorld("api", {
       lensAnnotationEventSubscribers.add(listener);
       return () => {
         lensAnnotationEventSubscribers.delete(listener);
+      };
+    },
+    subscribeConsoleEvents: (
+      listener: (payload: BrowserConsoleEventPayload) => void,
+    ) => {
+      lensConsoleEventSubscribers.add(listener);
+      return () => {
+        lensConsoleEventSubscribers.delete(listener);
+      };
+    },
+    subscribeNetworkEvents: (
+      listener: (payload: BrowserNetworkEventPayload) => void,
+    ) => {
+      lensNetworkEventSubscribers.add(listener);
+      return () => {
+        lensNetworkEventSubscribers.delete(listener);
       };
     },
   },

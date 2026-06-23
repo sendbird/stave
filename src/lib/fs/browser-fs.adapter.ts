@@ -62,6 +62,9 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
   private fileHandleMap = new Map<string, FileSystemFileHandle>();
 
   isAvailable() {
+    if (typeof window === "undefined") {
+      return false;
+    }
     return typeof (window as WindowWithPicker).showDirectoryPicker === "function";
   }
 

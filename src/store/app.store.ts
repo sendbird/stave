@@ -270,6 +270,9 @@ import {
   WORKSPACE_SIDEBAR_MIN_WIDTH,
   MIN_EDITOR_PANEL_WIDTH,
   DEFAULT_EDITOR_PANEL_WIDTH,
+  MIN_LENS_PANEL_WIDTH,
+  DEFAULT_LENS_PANEL_WIDTH,
+  MAX_LENS_PANEL_WIDTH,
   mergeLayoutPatch,
   normalizeLayoutState,
   isDiffEditorTab,
@@ -354,6 +357,9 @@ export {
   WORKSPACE_SIDEBAR_MIN_WIDTH,
   MIN_EDITOR_PANEL_WIDTH,
   DEFAULT_EDITOR_PANEL_WIDTH,
+  MIN_LENS_PANEL_WIDTH,
+  DEFAULT_LENS_PANEL_WIDTH,
+  MAX_LENS_PANEL_WIDTH,
 } from "@/store/layout.utils";
 export type { LayoutState } from "@/store/layout.utils";
 export type AppShellMode = "stave" | "zen";
@@ -4234,6 +4240,8 @@ export const useAppStore = create<AppState>()(
           workspaceSidebarCollapsed: false,
           editorPanelWidth: DEFAULT_EDITOR_PANEL_WIDTH,
           explorerPanelWidth: 300,
+          lensPanelWidthByWorkspaceId: {},
+          lensFullscreenByWorkspaceId: {},
           terminalDockHeight: 210,
           editorVisible: false,
           sidebarOverlayVisible: false,
