@@ -34,7 +34,7 @@ Both transports provide the same tools and task flows:
 
 When the bundled Claude provider runs inside Stave, it also injects the same local MCP server directly into the in-app Claude runtime. That means Claude task chats can call the workspace-information tools even when Claude setting sources are limited to project-local config.
 
-When Lens is open in a workspace, the same Local MCP server also exposes optional `stave_lens_*` inspection tools for that workspace browser session. Use those when an external agent needs screenshots, DOM, console logs, network logs, or element-level inspection from the live page.
+The same Local MCP server also exposes optional `stave_lens_*` inspection tools for workspace browser sessions. Use `stave_lens_open_session` to create a hidden Lens session, then call the inspection tools when an external agent needs screenshots, DOM, console logs, network logs, or element-level inspection from the live page.
 
 If a provider needs extra user input while using Local MCP, Stave surfaces that request through the same inline task-chat input card used for approvals and other structured question flows. Form-mode elicitation is answered directly in chat, and URL-mode elicitation shows the target link plus an explicit continue / decline action.
 
@@ -135,8 +135,9 @@ For workspace Information panel management, also use:
 
 If the workflow also needs live UI inspection:
 
-6. Open Lens inside the same workspace in Stave
+6. Call `stave_lens_open_session` for the target workspace, optionally with a URL
 7. Call `stave_lens_navigate`, `stave_lens_screenshot`, `stave_lens_get_html`, or the other `stave_lens_*` tools as needed
+8. Call `stave_lens_close_session` to close MCP-managed sessions when the workflow is done
 
 ## Example Manifest
 
@@ -222,6 +223,6 @@ Managed tasks poll persisted state while the external turn is active. If a finis
 
 ### Lens tools say no browser session exists
 
-- open the `Lens` panel inside the target workspace first
+- call `stave_lens_open_session` for the target workspace, or open the `Lens` panel manually
 - make sure the external agent is using the same workspace ID
-- retry the `stave_lens_*` call after the panel is visible
+- retry the `stave_lens_*` call after the session exists

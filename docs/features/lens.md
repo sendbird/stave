@@ -18,7 +18,7 @@
 - To send picked elements into chat, select an active task first.
 - For exact React file and line mapping, enable `Settings > Lens > React _debugSource` and run the target app in a React dev build.
 - CDP-backed actions such as screenshots, JavaScript evaluation, element clicks, and live style edits require `Settings > Lens > Developer Mode` plus per-host approval. Approved hosts are currently global across workspaces.
-- External agents only reach Lens through Stave Local MCP, not through the renderer UI directly.
+- External agents reach Lens through Stave Local MCP, not through the renderer UI directly. They can open a hidden Lens browser session with `stave_lens_open_session` before inspecting a page.
 
 ## Quick Start
 
@@ -88,9 +88,10 @@
 ### Use Lens From An External Agent
 
 1. Enable `Settings > Providers > Stave > Local MCP Server`.
-2. Open Lens for the target workspace so the browser session exists.
-3. Call the `stave_lens_*` tools through Local MCP.
-4. Use the returned page data together with normal Stave task tools or your own external workflow.
+2. Call `stave_lens_open_session` for the target workspace, optionally with a URL.
+3. Call the other `stave_lens_*` tools through Local MCP.
+4. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
+5. Use the returned page data together with normal Stave task tools or your own external workflow.
 
 ## Files And Data
 
@@ -113,7 +114,9 @@
 {
   "toolPrefix": "stave_lens_",
   "examples": [
+    "stave_lens_open_session",
     "stave_lens_navigate",
+    "stave_lens_close_session",
     "stave_lens_screenshot",
     "stave_lens_download",
     "stave_lens_list_downloads",
@@ -129,6 +132,7 @@
 
 - Lens uses Electron's `WebContentsView` plus Stave's own CDP bridge. It does not embed the `chrome-devtools-mcp` server directly because Stave already owns the browser process and can talk to CDP natively without launching a separate Chrome target.
 - External agents need Local MCP because the Lens browser lives inside the desktop app. Without MCP, only the current renderer UI can access it.
+- `stave_lens_open_session` creates a hidden browser view for MCP inspection. If the user later opens the Lens panel for that workspace, the UI reuses the same session and becomes its owner.
 - `React _debugSource` only works in React dev builds. Production builds fall back to heuristic source hints.
 - Console and network logs are buffered, not infinite. Lens keeps the most recent entries only.
 - Download history is buffered in memory, while saved files remain on disk until the user removes them.
@@ -166,8 +170,8 @@
 ### Local MCP cannot call Lens tools
 
 - Symptom: `stave_lens_*` tools report that no browser session exists.
-- Cause: Lens has not been opened for that workspace yet.
-- Fix: open the Lens panel in the matching workspace first, then retry the MCP call.
+- Cause: a Lens browser session has not been opened for that workspace yet.
+- Fix: call `stave_lens_open_session` for the matching workspace, or open the Lens panel manually, then retry the MCP call.
 
 ## Related Docs
 

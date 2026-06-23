@@ -8,10 +8,13 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  destroyBrowserSession,
   getBrowserSession,
   getWebContentsForSession,
   listBrowserSessions,
+  setViewVisible,
 } from "./browser-manager";
+import { ensureBrowserSessionWithEvents } from "./browser-session-events";
 import { normalizeLensUrl } from "./browser-url";
 
 const NAVIGATE_TIMEOUT_MS = 30_000;
@@ -45,7 +48,7 @@ function requireSession(workspaceId: string) {
   const session = getBrowserSession(workspaceId);
   if (!session) {
     throw new Error(
-      `No browser session for workspace "${workspaceId}". Open the Lens panel first.`,
+      `No browser session for workspace "${workspaceId}". Open the Lens panel or call stave_lens_open_session first.`,
     );
   }
   return session;
@@ -56,12 +59,96 @@ function requireSession(workspaceId: string) {
 // ---------------------------------------------------------------------------
 
 export function registerBrowserTools(server: McpServer): void {
+  // ---- Open session ----
+  server.registerTool(
+    "stave_lens_open_session",
+    {
+      description:
+        "Open or reuse a hidden workspace Lens browser session so agents can inspect a live page without the user opening the right rail panel first.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        url: z
+          .string()
+          .optional()
+          .describe("Optional URL to navigate to after opening the session"),
+      },
+    },
+    async ({ workspaceId, url }) => {
+      const { session, created } = ensureBrowserSessionWithEvents(workspaceId, {
+        managedByMcp: true,
+      });
+      if (created) {
+        setViewVisible(workspaceId, false);
+      }
+
+      if (url?.trim()) {
+        const targetUrl = normalizeLensUrl(url);
+        assertNavigationAllowed(targetUrl);
+        await Promise.race([
+          session.view.webContents.loadURL(targetUrl),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `Navigation timed out after ${NAVIGATE_TIMEOUT_MS / 1000}s`,
+                  ),
+                ),
+              NAVIGATE_TIMEOUT_MS,
+            ),
+          ),
+        ]);
+      }
+
+      return toStructuredResult({
+        ok: true,
+        created,
+        session: {
+          workspaceId,
+          url: session.view.webContents.getURL(),
+          title: session.view.webContents.getTitle(),
+          isLoading: session.view.webContents.isLoading(),
+        },
+      });
+    },
+  );
+
+  // ---- Close session ----
+  server.registerTool(
+    "stave_lens_close_session",
+    {
+      description:
+        "Close a workspace Lens browser session that was opened for MCP inspection. User-opened Lens panel sessions require force=true.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        force: z
+          .boolean()
+          .optional()
+          .describe("Close the session even if it is currently owned by the Lens panel UI"),
+      },
+    },
+    async ({ workspaceId, force }) => {
+      const session = getBrowserSession(workspaceId);
+      const existed = Boolean(session);
+      if (session && !session.managedByMcp && force !== true) {
+        return toStructuredResult({
+          ok: false,
+          closed: false,
+          message:
+            "Lens session is owned by the UI panel. Pass force=true to close it.",
+        });
+      }
+      destroyBrowserSession(workspaceId);
+      return toStructuredResult({ ok: true, closed: existed });
+    },
+  );
+
   // ---- Navigate ----
   server.registerTool(
     "stave_lens_navigate",
     {
       description:
-        "Navigate the workspace Lens browser to a URL. The browser must be open in the right rail panel.",
+        "Navigate the workspace Lens browser to a URL. Open a session first with stave_lens_open_session or the right rail Lens panel.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         url: z.string().describe("URL to navigate to"),
@@ -438,7 +525,7 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_list_sessions",
     {
       description:
-        "List all active Lens browser sessions. Use this to discover valid workspaceId values for other stave_lens_* tools. A session exists only while the Lens panel has been opened for that workspace.",
+        "List all active Lens browser sessions. Use this to discover valid workspaceId values for other stave_lens_* tools.",
       inputSchema: {},
     },
     async () => {
