@@ -14,6 +14,7 @@ import {
   Contrast,
   FileAudio,
   Globe,
+  Loader2,
   Monitor,
   Moon,
   RefreshCcw,
@@ -36,7 +37,8 @@ import {
 import { type SectionId } from "@/components/layout/settings-dialog.schema";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useShallow } from "zustand/react/shallow";
-import { Badge, Button, Slider, Textarea } from "@/components/ui";
+import { Badge, Button, Slider, Textarea, toast } from "@/components/ui";
+import type { LensSessionScope } from "@/lib/lens/lens.types";
 import {
   CUSTOM_AUDIO_ACCEPTED_TYPES,
   CUSTOM_AUDIO_MAX_SIZE_BYTES,
@@ -3499,24 +3501,33 @@ function LensSection() {
   const [
     heuristic,
     reactDebugSource,
+    sessionScope,
     developerModeCdp,
     cdpApprovedHosts,
     allowedHosts,
     blockedHosts,
+    activeWorkspaceId,
+    projectPath,
   ] = useAppStore(
     useShallow(
       (state) =>
         [
           state.settings.lensSourceMappingHeuristic,
           state.settings.lensSourceMappingReactDebugSource,
+          state.settings.lensSessionScope,
           state.settings.lensDeveloperModeCdp,
           state.settings.lensCdpApprovedHosts,
           state.settings.lensAllowedHosts,
           state.settings.lensBlockedHosts,
+          state.activeWorkspaceId,
+          state.projectPath,
         ] as const,
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const [clearingScope, setClearingScope] = useState<LensSessionScope | null>(
+    null,
+  );
   const allowedHostsText = useMemo(
     () => formatLensHostList(allowedHosts),
     [allowedHosts],
@@ -3524,6 +3535,47 @@ function LensSection() {
   const blockedHostsText = useMemo(
     () => formatLensHostList(blockedHosts),
     [blockedHosts],
+  );
+  const clearLensSessionData = useCallback(
+    async (scope: LensSessionScope) => {
+      if (!activeWorkspaceId) {
+        toast.error("Select a workspace before clearing Lens data.");
+        return;
+      }
+
+      const clearSessionData = window.api?.lens?.clearSessionData;
+      if (!clearSessionData) {
+        toast.error("Lens session controls are unavailable.");
+        return;
+      }
+
+      setClearingScope(scope);
+      try {
+        const result = await clearSessionData({
+          workspaceId: activeWorkspaceId,
+          sessionScope: scope,
+          projectKey: projectPath,
+        });
+        if (!result.ok) {
+          toast.error("Failed to clear Lens data", {
+            description: result.message,
+          });
+          return;
+        }
+        toast.success(
+          scope === "project"
+            ? "Project Lens data cleared"
+            : "Workspace Lens data cleared",
+        );
+      } catch (err) {
+        toast.error("Failed to clear Lens data", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        setClearingScope(null);
+      }
+    },
+    [activeWorkspaceId, projectPath],
   );
 
   return (
@@ -3533,6 +3585,72 @@ function LensSection() {
         description="Configure the built-in browser for inspecting your running application."
       />
       <SectionStack>
+        <SettingsCard
+          title="Session & Sign-in"
+          description="Control where Lens keeps website cookies and local browser storage. Stave does not store passwords."
+        >
+          <ChoiceButtons<LensSessionScope>
+            value={sessionScope}
+            columns={2}
+            options={[
+              {
+                value: "project",
+                label: "Project profile",
+                description:
+                  "Share Lens sign-in across workspaces for this project.",
+              },
+              {
+                value: "workspace",
+                label: "Workspace isolated",
+                description:
+                  "Keep Lens sign-in separate for the active workspace.",
+              },
+            ]}
+            onChange={(value) =>
+              updateSettings({ patch: { lensSessionScope: value } })
+            }
+          />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={
+                !activeWorkspaceId ||
+                !projectPath ||
+                clearingScope !== null
+              }
+              onClick={() => {
+                void clearLensSessionData("project");
+              }}
+              className="justify-start gap-2"
+            >
+              {clearingScope === "project" ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="size-3.5" />
+              )}
+              Clear project data
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!activeWorkspaceId || clearingScope !== null}
+              onClick={() => {
+                void clearLensSessionData("workspace");
+              }}
+              className="justify-start gap-2"
+            >
+              {clearingScope === "workspace" ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="size-3.5" />
+              )}
+              Clear workspace data
+            </Button>
+          </div>
+        </SettingsCard>
         <SettingsCard
           title="Source Code Mapping"
           description="Choose which strategies the element picker uses to help AI locate source files."

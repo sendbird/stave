@@ -14,11 +14,11 @@ describe("app shell mode settings", () => {
     expect(useAppStore.getInitialState().settings.appShellMode).toBe("stave");
     (
       useAppStore as typeof useAppStore & {
-        persist: {
+        persist?: {
           setOptions: (options: { storage: typeof noopStorage }) => void;
         };
       }
-    ).persist.setOptions({ storage: noopStorage });
+    ).persist?.setOptions({ storage: noopStorage });
 
     useAppStore.getState().updateSettings({
       patch: {
@@ -45,5 +45,29 @@ describe("app shell mode settings", () => {
     } as typeof initialLayout & { zenMode: boolean });
 
     expect("zenMode" in normalized).toBe(false);
+  });
+});
+
+describe("lens session scope settings", () => {
+  test("defaults to project scope and normalizes invalid updates", () => {
+    expect(useAppStore.getInitialState().settings.lensSessionScope).toBe(
+      "project",
+    );
+
+    useAppStore.getState().updateSettings({
+      patch: {
+        lensSessionScope: "workspace",
+      },
+    });
+
+    expect(useAppStore.getState().settings.lensSessionScope).toBe("workspace");
+
+    useAppStore.getState().updateSettings({
+      patch: {
+        lensSessionScope: "invalid" as never,
+      },
+    });
+
+    expect(useAppStore.getState().settings.lensSessionScope).toBe("project");
   });
 });

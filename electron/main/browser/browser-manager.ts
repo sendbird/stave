@@ -5,11 +5,20 @@
 // IPC-driven bounds synchronization (ResizeObserver → setBounds).
 // ---------------------------------------------------------------------------
 
-import { WebContentsView, session as electronSession } from "electron";
+import {
+  BrowserWindow,
+  WebContentsView,
+  session as electronSession,
+} from "electron";
 import { attachDownloadHandler } from "./browser-downloads";
 import { isDevToolsShortcut } from "../keyboard-shortcuts";
 import { getMainWindow, toggleMainWindowDevTools } from "../window";
 import { openExternalWithFallback } from "../utils/external-url";
+import { assertNavigationAllowed } from "./browser-security";
+import {
+  resolveLensSessionProfile,
+  type ResolvedLensSessionProfile,
+} from "./browser-session-profile";
 import type {
   BrowserConsoleEventPayload,
   BrowserConsoleEntry,
@@ -18,6 +27,7 @@ import type {
   BrowserNetworkEntry,
   BrowserNetworkEventPayload,
   LensBounds,
+  LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
 
 // ---------------------------------------------------------------------------
@@ -54,7 +64,9 @@ export class RingBuffer<T> {
 
 export interface BrowserSessionState {
   workspaceId: string;
+  sessionProfile: ResolvedLensSessionProfile;
   view: WebContentsView;
+  authPopups: Set<BrowserWindow>;
   debuggerAttached: boolean;
   consoleLog: RingBuffer<BrowserConsoleEntry>;
   networkLog: RingBuffer<BrowserNetworkEntry>;
@@ -77,6 +89,15 @@ const NETWORK_BUFFER_SIZE = 200;
 const DOWNLOAD_BUFFER_SIZE = 200;
 
 const sessions = new Map<string, BrowserSessionState>();
+
+function isHttpOrHttpsUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 function extractMimeType(
   responseHeaders: Record<string, string | string[]> | undefined,
@@ -115,12 +136,116 @@ function extractResponseSize(
   return undefined;
 }
 
+function openLensAuthPopup(args: {
+  parent: BrowserWindow;
+  session: Electron.Session;
+  url: string;
+  workspaceId: string;
+}): void {
+  if (!isHttpOrHttpsUrl(args.url)) {
+    void openExternalWithFallback({ url: args.url });
+    return;
+  }
+
+  try {
+    assertNavigationAllowed(args.url);
+  } catch (err) {
+    pushConsoleEntry(args.workspaceId, {
+      level: "warn",
+      text: `Lens popup blocked: ${err instanceof Error ? err.message : String(err)}`,
+      timestamp: new Date().toISOString(),
+      source: args.url,
+    });
+    return;
+  }
+
+  const popup = new BrowserWindow({
+    parent: args.parent,
+    modal: false,
+    width: 520,
+    height: 720,
+    title: "Lens Sign-in",
+    autoHideMenuBar: true,
+    webPreferences: {
+      session: args.session,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+    },
+  });
+
+  const session = sessions.get(args.workspaceId);
+  session?.authPopups.add(popup);
+  popup.on("closed", () => {
+    session?.authPopups.delete(popup);
+  });
+
+  popup.webContents.on("will-navigate", (event, targetUrl) => {
+    if (!isHttpOrHttpsUrl(targetUrl)) {
+      event.preventDefault();
+      void openExternalWithFallback({ url: targetUrl });
+      return;
+    }
+
+    try {
+      assertNavigationAllowed(targetUrl);
+    } catch (err) {
+      event.preventDefault();
+      pushConsoleEntry(args.workspaceId, {
+        level: "warn",
+        text: `Lens popup navigation blocked: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        timestamp: new Date().toISOString(),
+        source: targetUrl,
+      });
+    }
+  });
+
+  popup.webContents.setWindowOpenHandler(({ url }) => {
+    if (!isHttpOrHttpsUrl(url)) {
+      void openExternalWithFallback({ url });
+      return { action: "deny" };
+    }
+
+    try {
+      assertNavigationAllowed(url);
+    } catch (err) {
+      pushConsoleEntry(args.workspaceId, {
+        level: "warn",
+        text: `Lens popup blocked: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: new Date().toISOString(),
+        source: url,
+      });
+      return { action: "deny" };
+    }
+
+    void popup.webContents.loadURL(url);
+    return { action: "deny" };
+  });
+
+  void popup.webContents.loadURL(args.url).catch((err) => {
+    pushConsoleEntry(args.workspaceId, {
+      level: "error",
+      text: `Lens popup failed: ${err instanceof Error ? err.message : String(err)}`,
+      timestamp: new Date().toISOString(),
+      source: args.url,
+    });
+    if (!popup.isDestroyed()) {
+      popup.close();
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export function createBrowserSession(
   workspaceId: string,
+  options?: Omit<LensSessionProfileArgs, "workspaceId">,
 ): BrowserSessionState {
   // Clean up any existing session for this workspace
   destroyBrowserSession(workspaceId);
@@ -130,8 +255,12 @@ export function createBrowserSession(
     throw new Error("No main window available to attach WebContentsView");
   }
 
-  const partition = `persist:lens-${workspaceId}`;
-  const ses = electronSession.fromPartition(partition);
+  const sessionProfile = resolveLensSessionProfile({
+    workspaceId,
+    sessionScope: options?.sessionScope,
+    projectKey: options?.projectKey,
+  });
+  const ses = electronSession.fromPartition(sessionProfile.partition);
 
   const view = new WebContentsView({
     webPreferences: {
@@ -195,13 +324,20 @@ export function createBrowserSession(
 
   // Open external links in system browser instead of navigating
   view.webContents.setWindowOpenHandler(({ url }) => {
-    void openExternalWithFallback({ url });
+    openLensAuthPopup({
+      parent: win,
+      session: ses,
+      url,
+      workspaceId,
+    });
     return { action: "deny" as const };
   });
 
   const session: BrowserSessionState = {
     workspaceId,
+    sessionProfile,
     view,
+    authPopups: new Set(),
     debuggerAttached: false,
     consoleLog: new RingBuffer<BrowserConsoleEntry>(CONSOLE_BUFFER_SIZE),
     networkLog: new RingBuffer<BrowserNetworkEntry>(NETWORK_BUFFER_SIZE),
@@ -233,6 +369,48 @@ export function createBrowserSession(
   return session;
 }
 
+export async function clearBrowserSessionData(
+  args: LensSessionProfileArgs,
+): Promise<ResolvedLensSessionProfile> {
+  const sessionProfile = resolveLensSessionProfile(args);
+  const matchingSessions = [...sessions.values()].filter(
+    (session) => session.sessionProfile.partition === sessionProfile.partition,
+  );
+
+  const ses = electronSession.fromPartition(sessionProfile.partition);
+  await ses.clearStorageData();
+  await ses.clearCache();
+
+  for (const session of matchingSessions) {
+    session.consoleLog.clear();
+    session.networkLog.clear();
+    session.downloadLog.clear();
+    const wc = session.view.webContents;
+    if (!wc.isDestroyed() && wc.getURL() !== "about:blank") {
+      wc.reloadIgnoringCache();
+    }
+  }
+
+  return sessionProfile;
+}
+
+export function browserSessionUsesProfile(
+  workspaceId: string,
+  options?: Omit<LensSessionProfileArgs, "workspaceId">,
+): boolean {
+  const session = sessions.get(workspaceId);
+  if (!session) {
+    return false;
+  }
+
+  const nextProfile = resolveLensSessionProfile({
+    workspaceId,
+    sessionScope: options?.sessionScope,
+    projectKey: options?.projectKey,
+  });
+  return session.sessionProfile.partition === nextProfile.partition;
+}
+
 export function getBrowserSession(
   workspaceId: string,
 ): BrowserSessionState | undefined {
@@ -246,6 +424,7 @@ export function listBrowserSessions(): Array<{
   title: string;
   isLoading: boolean;
   managedByMcp: boolean;
+  sessionScope: LensSessionProfileArgs["sessionScope"];
 }> {
   return [...sessions.values()].map((s) => ({
     workspaceId: s.workspaceId,
@@ -253,6 +432,7 @@ export function listBrowserSessions(): Array<{
     title: s.navigationState.title,
     isLoading: s.navigationState.isLoading,
     managedByMcp: s.managedByMcp,
+    sessionScope: s.sessionProfile.scope,
   }));
 }
 
@@ -305,6 +485,17 @@ export function destroyBrowserSession(workspaceId: string): void {
 
   session.downloadHandlerCleanup?.();
   session.downloadHandlerCleanup = null;
+
+  for (const popup of [...session.authPopups]) {
+    try {
+      if (!popup.isDestroyed()) {
+        popup.close();
+      }
+    } catch {
+      // Popup may already be closing.
+    }
+  }
+  session.authPopups.clear();
 
   // Remove view from window
   try {

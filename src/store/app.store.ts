@@ -77,6 +77,7 @@ import {
   type NotificationSoundMode,
   type NotificationSoundPreset,
 } from "@/lib/notifications/notification-sound";
+import type { LensSessionScope } from "@/lib/lens/lens.types";
 import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-request";
 import {
   getDefaultModelForProvider,
@@ -1033,6 +1034,8 @@ export interface AppSettings {
   lensSourceMappingHeuristic: boolean;
   /** React _debugSource: extract file:line from React fiber (dev builds). */
   lensSourceMappingReactDebugSource: boolean;
+  /** Browser session storage scope for Lens sign-in cookies and site storage. */
+  lensSessionScope: LensSessionScope;
   /** Hosts always allowed for Lens navigation. Empty = no allowlist restriction. */
   lensAllowedHosts: string[];
   /** Hosts always blocked for Lens navigation (wins over the allowlist). */
@@ -2162,6 +2165,7 @@ const defaultSettings: AppSettings = {
   // Lens
   lensSourceMappingHeuristic: true,
   lensSourceMappingReactDebugSource: false,
+  lensSessionScope: "project",
   lensAllowedHosts: [],
   lensBlockedHosts: [],
   lensDeveloperModeCdp: true,
@@ -2190,6 +2194,10 @@ function normalizeLensHostSettings(
     hosts.push(host);
   }
   return hosts;
+}
+
+function normalizeLensSessionScope(value: unknown): LensSessionScope {
+  return value === "workspace" ? "workspace" : "project";
 }
 
 function createDefaultProviderAvailability() {
@@ -6939,6 +6947,13 @@ export const useAppStore = create<AppState>()(
               : {
                   taskPresets: normalizePersistedTaskPresets(patch.taskPresets),
                 }),
+            ...(patch.lensSessionScope === undefined
+              ? {}
+              : {
+                  lensSessionScope: normalizeLensSessionScope(
+                    patch.lensSessionScope,
+                  ),
+                }),
             ...(patch.lensAllowedHosts === undefined
               ? {}
               : {
@@ -11687,6 +11702,9 @@ export const useAppStore = create<AppState>()(
         state.settings.lensCdpApprovedHosts = normalizeLensHostSettings(
           raw.lensCdpApprovedHosts,
           defaultSettings.lensCdpApprovedHosts,
+        );
+        state.settings.lensSessionScope = normalizeLensSessionScope(
+          raw.lensSessionScope,
         );
         state.settings.lensDeveloperModeCdp =
           typeof raw.lensDeveloperModeCdp === "boolean"

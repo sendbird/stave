@@ -180,6 +180,19 @@ export interface LensDownloadEventPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Session profiles
+// ---------------------------------------------------------------------------
+
+export type LensSessionScope = "project" | "workspace";
+
+export interface LensSessionProfileArgs {
+  workspaceId: string;
+  sessionScope?: LensSessionScope;
+  /** Stable project/repository identity. Main hashes this before using it in a partition name. */
+  projectKey?: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Security configuration (renderer settings pushed to main)
 // ---------------------------------------------------------------------------
 

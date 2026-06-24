@@ -18,7 +18,6 @@ import {
   Copy,
   Crosshair,
   Download,
-  ExternalLink,
   Globe,
   Highlighter,
   Loader2,
@@ -39,7 +38,6 @@ import {
   X,
 } from "lucide-react";
 import {
-  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -81,6 +79,7 @@ import {
   formatAnnotationsForChat,
   formatElementForChat,
 } from "@/lib/lens/lens-element-message";
+import { hasLensOccludingFloatingSurface } from "@/lib/lens/lens-occlusion";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import type {
   BrowserConsoleEntry,
@@ -201,17 +200,6 @@ function formatNetworkEntries(entries: BrowserNetworkEntry[]): string {
       return `[${entry.timestamp}] ${entry.method} ${status} ${mimeType} ${entry.url}`;
     })
     .join("\n");
-}
-
-function hasLensOccludingFloatingSurface(): boolean {
-  if (typeof document === "undefined") {
-    return false;
-  }
-  return Boolean(
-    document.querySelector(
-      ".t-dropdown, .t-modal, .t-overlay, .cn-toast, [data-sonner-toast]",
-    ),
-  );
 }
 
 function areLensBoundsEqual(
@@ -380,15 +368,19 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   // 19 ref/update loops on tooltip-heavy surfaces like Lens.
   const [
     workspaceId,
+    projectPath,
     activeTaskId,
     lensSourceMappingHeuristic,
     lensSourceMappingReactDebugSource,
+    lensSessionScope,
     isLensFullscreen,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
+    state.projectPath,
     state.activeTaskId,
     state.settings.lensSourceMappingHeuristic,
     state.settings.lensSourceMappingReactDebugSource,
+    state.settings.lensSessionScope,
     Boolean(state.layout.lensFullscreenByWorkspaceId[state.activeWorkspaceId]),
   ] as const));
 
@@ -689,7 +681,11 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     let cancelled = false;
 
     void (async () => {
-      const createResult = await lensApi?.createView?.({ workspaceId });
+      const createResult = await lensApi?.createView?.({
+        workspaceId,
+        sessionScope: lensSessionScope,
+        projectKey: projectPath,
+      });
       if (cancelled || !createResult?.ok) {
         if (!cancelled && createResult && !createResult.ok) {
           toast.error("Lens failed to start", {
@@ -744,7 +740,15 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       // Keep the workspace-scoped session alive so returning to the workspace
       // restores its Lens page, annotation overlay, and navigation history.
     };
-  }, [applyNavigationState, hasLensApi, lensApi, syncBounds, workspaceId]);
+  }, [
+    applyNavigationState,
+    hasLensApi,
+    lensApi,
+    lensSessionScope,
+    projectPath,
+    syncBounds,
+    workspaceId,
+  ]);
 
   useEffect(() => {
     const el = placeholderRef.current;
@@ -1468,14 +1472,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     return "Pick an element and append its structure, styles, and source hints to the active task.";
   }, [activeTaskId, hasLensApi, url]);
 
-  const statusText = lastLoadError
-    ? lastLoadError
-    : title
-      ? title
-      : hasLensApi
-        ? "Open a local or deployed page, then use Pick Element to send UI context into the active task."
-        : "Lens requires the Electron desktop runtime.";
-
   return (
     <TooltipProvider delayDuration={120}>
       <div
@@ -1577,6 +1573,54 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               </InputGroup>
             </form>
 
+            <div className="flex shrink-0 items-center rounded-md border border-border/60 bg-background/70 p-0.5">
+              {[
+                {
+                  id: "preview" as const,
+                  label: "Preview",
+                  icon: Monitor,
+                  count: null,
+                },
+                {
+                  id: "console" as const,
+                  label: "Console",
+                  icon: Terminal,
+                  count: consoleEntries.length,
+                },
+                {
+                  id: "network" as const,
+                  label: "Network",
+                  icon: Network,
+                  count: networkEntries.length,
+                },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const active = lensPanelTab === tab.id;
+                return (
+                  <Tooltip key={tab.id}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant={active ? "secondary" : "ghost"}
+                        className="relative"
+                        onClick={() => setLensPanelTab(tab.id)}
+                        aria-label={`Show ${tab.label.toLowerCase()}`}
+                      >
+                        <Icon className="size-3.5" />
+                        {tab.count ? (
+                          <span className="absolute -right-1 -top-1 min-w-3.5 rounded-full bg-primary px-1 text-[9px] leading-3.5 text-primary-foreground">
+                            {tab.count > 99 ? "99+" : tab.count}
+                          </span>
+                        ) : null}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{tab.label}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -1605,16 +1649,15 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  size="sm"
+                  size="icon-xs"
                   variant={isAnnotationModeActive ? "secondary" : "outline"}
                   disabled={lensPageActionDisabled}
                   onClick={() => {
                     void toggleAnnotationMode();
                   }}
-                  className="h-7 gap-1 px-2 text-xs"
+                  aria-label="Toggle visual comments"
                 >
                   <Highlighter className="size-3.5" />
-                  <span>Annotate</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Visual comments</TooltipContent>
@@ -1736,66 +1779,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
             </Tooltip>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] font-medium">
-              {workspaceId ? `workspace ${workspaceId}` : "no workspace"}
-            </Badge>
-            <Badge
-              variant={activeTaskId ? "secondary" : "outline"}
-              className="h-5 rounded-md px-1.5 text-[10px] font-medium"
-            >
-              {activeTaskId ? "task linked" : "select task to send"}
-            </Badge>
-            <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] font-medium">
-              {sourceMappingConfig.heuristic ? "heuristic hints on" : "heuristic hints off"}
-            </Badge>
-            <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] font-medium">
-              {sourceMappingConfig.reactDebugSource ? "react source on" : "react source off"}
-            </Badge>
-          </div>
-          <div className="flex min-w-0 items-center gap-1 rounded-md border border-border/60 bg-background/70 p-1">
-            {[
-              {
-                id: "preview" as const,
-                label: "Preview",
-                icon: Monitor,
-                count: null,
-              },
-              {
-                id: "console" as const,
-                label: "Console",
-                icon: Terminal,
-                count: consoleEntries.length,
-              },
-              {
-                id: "network" as const,
-                label: "Network",
-                icon: Network,
-                count: networkEntries.length,
-              },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const active = lensPanelTab === tab.id;
-              return (
-                <Button
-                  key={tab.id}
-                  type="button"
-                  size="xs"
-                  variant={active ? "secondary" : "ghost"}
-                  className="h-7 min-w-0 flex-1 gap-1.5 px-2 text-[11px]"
-                  onClick={() => setLensPanelTab(tab.id)}
-                >
-                  <Icon className="size-3.5" />
-                  <span className="truncate">{tab.label}</span>
-                  {tab.count !== null ? (
-                    <span className="rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground">
-                      {tab.count}
-                    </span>
-                  ) : null}
-                </Button>
-              );
-            })}
-          </div>
           {annotations.length > 0 ? (
             <div className="max-h-28 space-y-1 overflow-y-auto rounded-md border border-border/60 bg-background/70 p-2">
               <div className="flex items-center justify-between gap-2">
@@ -2125,18 +2108,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border/60 px-3 py-1.5">
-          <div className="min-w-0 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1 truncate">
-              {isLoading ? <Loader2 className="size-3 animate-spin" /> : null}
-              {statusText}
-            </span>
-          </div>
-          <div className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
-            <ExternalLink className="size-3" />
-            <span>{url === "about:blank" ? "ready" : "live"}</span>
-          </div>
-        </div>
       </div>
       <Dialog
         open={cdpApprovalRequest !== null}
