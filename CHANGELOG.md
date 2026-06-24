@@ -2,6 +2,12 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.8.0](https://github.com/sendbird/stave/compare/v0.7.1...v0.8.0) (2026-06-24)
+
+### Notes
+
+* No user-facing code changes have landed since `v0.7.1`; this release advances the current main line to the next minor version.
+
 ## [0.7.1](https://github.com/sendbird/stave/compare/v0.7.0...v0.7.1) (2026-06-24)
 
 ### Bug Fixes
