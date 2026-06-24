@@ -1,5 +1,11 @@
 import { GitBranch, X } from "lucide-react";
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
 import { resolveDefaultCreateWorkspaceBaseBranch } from "@/components/layout/CreateWorkspaceBranchPicker.utils";
 import { Badge, Button, Card, Input, Textarea, toast } from "@/components/ui";
@@ -67,6 +73,7 @@ export function CreateWorkspaceDialog({
     string[]
   >([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
+  const titleId = useId();
 
   useEffect(() => {
     if (!open) {
@@ -261,8 +268,11 @@ export function CreateWorkspaceDialog({
     <div
       className={cn(
         UI_LAYER_CLASS.dialog,
-        "fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]",
+        "t-overlay fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]",
       )}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
       onMouseDown={() => {
         if (creatingWorkspace) {
           return;
@@ -271,12 +281,14 @@ export function CreateWorkspaceDialog({
       }}
     >
       <Card
-        className="animate-dropdown-in w-full max-w-3xl rounded-lg border-border/80 bg-card p-6"
+        className="t-modal animate-dropdown-in w-full max-w-3xl rounded-lg border-border/80 bg-card p-6"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-3xl font-semibold">New workspace</h3>
+            <h3 id={titleId} className="text-3xl font-semibold">
+              New workspace
+            </h3>
             <Button
               type="button"
               size="sm"

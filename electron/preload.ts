@@ -70,6 +70,7 @@ import type {
   LensDownloadEventPayload,
   BrowserNavigationEventPayload,
   LensSecurityConfig,
+  LensSessionProfileArgs,
   LensStyleEdit,
 } from "../src/lib/lens/lens.types";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
@@ -1341,14 +1342,21 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         message?: string;
       }>,
-    createView: (args: { workspaceId: string }) =>
+    createView: (args: LensSessionProfileArgs) =>
       ipcRenderer.invoke("lens:create-view", args) as Promise<{
         ok: boolean;
+        sessionScope?: LensSessionProfileArgs["sessionScope"];
         message?: string;
       }>,
     destroyView: (args: { workspaceId: string }) =>
       ipcRenderer.invoke("lens:destroy-view", args) as Promise<{
         ok: boolean;
+      }>,
+    clearSessionData: (args: LensSessionProfileArgs) =>
+      ipcRenderer.invoke("lens:clear-session-data", args) as Promise<{
+        ok: boolean;
+        sessionScope?: LensSessionProfileArgs["sessionScope"];
+        message?: string;
       }>,
     setBounds: (args: {
       workspaceId: string;

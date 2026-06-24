@@ -14,7 +14,8 @@
 ## Before You Start
 
 - Lens works in the Electron desktop runtime. Browser-only Vite mode does not expose the embedded view.
-- Each workspace gets its own Lens browser session and storage partition.
+- Lens keeps website cookies and browser storage in an Electron Chromium profile. Stave does not store page passwords.
+- Lens uses a project-scoped browser profile by default, so workspaces for the same project can share website sign-in. Use the workspace-isolated profile setting for sensitive work.
 - To send picked elements into chat, select an active task first.
 - For exact React file and line mapping, enable `Settings > Lens > React _debugSource` and run the target app in a React dev build.
 - CDP-backed actions such as screenshots, JavaScript evaluation, element clicks, and live style edits require `Settings > Lens > Developer Mode` plus per-host approval. Approved hosts are currently global across workspaces.
@@ -40,15 +41,23 @@
 
 - Address bar: loads local or remote pages into the current workspace session.
 - Back, forward, reload: standard navigation for the current workspace browser.
+- Preview, Console, Network: compact view switcher beside the address bar. Preview is the primary Lens surface; Console and Network are diagnostic views.
 - Pick Element: captures selector, styles, HTML, and source hints, then appends the result to the active task draft.
 - Annotate: places numbered visual comments on elements or selected areas, then sends the comments to the active task draft.
 - Style: live-edits supported element styles from an annotation and records before/after diffs in the sent payload.
 - Screenshot: saves viewport or full-page PNG captures under the workspace Lens downloads directory.
 - Downloads: lists recent Lens downloads and can download page image, stylesheet, and script assets.
-- Console and Network: inspect recent page console output and network requests directly from the Lens panel.
-- Fullscreen: expands Lens over the Stave window while keeping the Lens toolbar, status, and browser session active. Use the same toolbar button or `Escape` to exit.
-- Footer status: shows whether Lens is live, loading, or waiting for a page.
-- Source mapping badges: show whether heuristic hints and React `_debugSource` extraction are enabled.
+- Fullscreen: expands Lens over the Stave window while keeping the Lens toolbar and browser session active. Use the same toolbar button or `Escape` to exit.
+
+### Configure Sign-In Storage
+
+1. Open `Settings > Lens`.
+2. Use `Session & Sign-in` to choose the browser storage scope.
+3. `Project profile` shares Lens website sign-in across workspaces for the current project.
+4. `Workspace isolated` keeps cookies and site storage separate for the active workspace.
+5. Use `Clear project data` or `Clear workspace data` to remove Lens cookies, localStorage, IndexedDB, cache, and related browser storage.
+
+OAuth and SSO popup windows opened from a page use the same Lens browser profile as the page, so sign-in cookies land in the selected project or workspace profile.
 
 ## Common Workflows
 
@@ -103,6 +112,7 @@
 {
   "lensSourceMappingHeuristic": true,
   "lensSourceMappingReactDebugSource": false,
+  "lensSessionScope": "project",
   "lensAllowedHosts": [],
   "lensBlockedHosts": [],
   "lensDeveloperModeCdp": true,

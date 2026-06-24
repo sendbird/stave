@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { resolveLensSessionProfile } from "../electron/main/browser/browser-session-profile";
 import { assertNavigationAllowed } from "../electron/main/browser/browser-security";
 import { normalizeLensUrl } from "../electron/main/browser/browser-url";
 
@@ -84,5 +85,47 @@ describe("assertNavigationAllowed", () => {
         cdpApprovedHosts: [],
       }),
     ).toThrow("Invalid Lens URL");
+  });
+});
+
+describe("resolveLensSessionProfile", () => {
+  test("uses a project-scoped hashed partition when a project key is available", () => {
+    const first = resolveLensSessionProfile({
+      workspaceId: "workspace-a",
+      sessionScope: "project",
+      projectKey: "/tmp/stave-project",
+    });
+    const second = resolveLensSessionProfile({
+      workspaceId: "workspace-b",
+      sessionScope: "project",
+      projectKey: "/tmp/stave-project",
+    });
+
+    expect(first.scope).toBe("project");
+    expect(first.partition).toBe(second.partition);
+    expect(first.partition.startsWith("persist:lens-project-")).toBe(true);
+    expect(first.partition).not.toContain("/tmp/stave-project");
+  });
+
+  test("keeps the existing workspace partition for isolated sessions", () => {
+    const profile = resolveLensSessionProfile({
+      workspaceId: "workspace-a",
+      sessionScope: "workspace",
+      projectKey: "/tmp/stave-project",
+    });
+
+    expect(profile.scope).toBe("workspace");
+    expect(profile.partition).toBe("persist:lens-workspace-a");
+  });
+
+  test("falls back to workspace scope when project scope has no project key", () => {
+    const profile = resolveLensSessionProfile({
+      workspaceId: "workspace-a",
+      sessionScope: "project",
+      projectKey: "",
+    });
+
+    expect(profile.scope).toBe("workspace");
+    expect(profile.partition).toBe("persist:lens-workspace-a");
   });
 });

@@ -1,8 +1,10 @@
 import type {
   BrowserConsoleEntry,
   LensAnnotationEventPayload,
+  LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
 import {
+  browserSessionUsesProfile,
   createBrowserSession,
   getBrowserSession,
   pushConsoleEntry,
@@ -158,17 +160,29 @@ export function attachBrowserSessionEventListeners(
 
 export function ensureBrowserSessionWithEvents(
   workspaceId: string,
-  options?: { managedByMcp?: boolean },
+  options?: { managedByMcp?: boolean } & Omit<
+    LensSessionProfileArgs,
+    "workspaceId"
+  >,
 ): {
   session: BrowserSessionState;
   created: boolean;
 } {
   const existing = getBrowserSession(workspaceId);
-  if (existing) {
+  if (
+    existing &&
+    browserSessionUsesProfile(workspaceId, {
+      sessionScope: options?.sessionScope,
+      projectKey: options?.projectKey,
+    })
+  ) {
     return { session: existing, created: false };
   }
 
-  const session = createBrowserSession(workspaceId);
+  const session = createBrowserSession(workspaceId, {
+    sessionScope: options?.sessionScope,
+    projectKey: options?.projectKey,
+  });
   session.managedByMcp = options?.managedByMcp === true;
   attachBrowserSessionEventListeners(workspaceId, session.view.webContents);
   return { session, created: true };

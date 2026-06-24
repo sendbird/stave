@@ -1491,6 +1491,14 @@ interface LensCdpApprovalResponse {
   remember?: boolean;
 }
 
+type LensSessionScope = "project" | "workspace";
+
+interface LensSessionProfileArgs {
+  workspaceId: string;
+  sessionScope?: LensSessionScope;
+  projectKey?: string | null;
+}
+
 type LensDownloadState =
   | "progressing"
   | "completed"
@@ -1589,10 +1597,13 @@ interface WindowLensApi {
   respondCdpApproval?: (
     args: LensCdpApprovalResponse,
   ) => Promise<{ ok: boolean; message?: string }>;
-  createView?: (args: {
-    workspaceId: string;
-  }) => Promise<{ ok: boolean; message?: string }>;
+  createView?: (
+    args: LensSessionProfileArgs,
+  ) => Promise<{ ok: boolean; sessionScope?: LensSessionScope; message?: string }>;
   destroyView?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
+  clearSessionData?: (
+    args: LensSessionProfileArgs,
+  ) => Promise<{ ok: boolean; sessionScope?: LensSessionScope; message?: string }>;
   setBounds?: (args: {
     workspaceId: string;
     bounds: { x: number; y: number; width: number; height: number };

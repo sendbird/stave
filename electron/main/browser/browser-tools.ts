@@ -71,11 +71,21 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe("Optional URL to navigate to after opening the session"),
+        sessionScope: z
+          .enum(["project", "workspace"])
+          .optional()
+          .describe("Optional Lens browser storage scope. Defaults to workspace when projectKey is omitted."),
+        projectKey: z
+          .string()
+          .optional()
+          .describe("Stable project/repository identity used with sessionScope=project. Stave hashes this before selecting a partition."),
       },
     },
-    async ({ workspaceId, url }) => {
+    async ({ workspaceId, url, sessionScope, projectKey }) => {
       const { session, created } = ensureBrowserSessionWithEvents(workspaceId, {
         managedByMcp: true,
+        sessionScope,
+        projectKey,
       });
       if (created) {
         setViewVisible(workspaceId, false);

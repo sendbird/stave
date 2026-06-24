@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+  clearBrowserSessionData,
   destroyBrowserSession,
   getBrowserSession,
   getWebContentsForSession,
@@ -46,6 +47,7 @@ import type {
   LensCdpApprovalResponse,
   LensDownloadEntry,
   LensSecurityConfig,
+  LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
 
 // ---------------------------------------------------------------------------
@@ -114,11 +116,14 @@ export function registerBrowserHandlers() {
   // ---- Create view: create WebContentsView in main process (idempotent) ----
   ipcMain.handle(
     "lens:create-view",
-    async (_event, args: { workspaceId: string }) => {
+    async (_event, args: LensSessionProfileArgs) => {
       try {
-        const { session } = ensureBrowserSessionWithEvents(args.workspaceId);
+        const { session } = ensureBrowserSessionWithEvents(args.workspaceId, {
+          sessionScope: args.sessionScope,
+          projectKey: args.projectKey,
+        });
         session.managedByMcp = false;
-        return { ok: true };
+        return { ok: true, sessionScope: session.sessionProfile.scope };
       } catch (err) {
         return {
           ok: false,
@@ -134,6 +139,24 @@ export function registerBrowserHandlers() {
     async (_event, args: { workspaceId: string }) => {
       destroyBrowserSession(args.workspaceId);
       return { ok: true };
+    },
+  );
+
+  ipcMain.handle(
+    "lens:clear-session-data",
+    async (_event, args: LensSessionProfileArgs) => {
+      try {
+        const sessionProfile = await clearBrowserSessionData(args);
+        return {
+          ok: true,
+          sessionScope: sessionProfile.scope,
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
     },
   );
 
