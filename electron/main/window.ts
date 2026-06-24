@@ -1,7 +1,10 @@
 import { BrowserWindow } from "electron";
-import path from "node:path";
 import { isDevToolsShortcut } from "./keyboard-shortcuts";
 import { openExternalWithFallback } from "./utils/external-url";
+import {
+  resolvePreloadScriptPath,
+  resolveRendererEntryPath,
+} from "./window-paths";
 
 const MIN_ZOOM_FACTOR = 0.5;
 const MAX_ZOOM_FACTOR = 2;
@@ -46,7 +49,7 @@ export function createMainWindow() {
     trafficLightPosition: isMac ? { x: 12, y: 16 } : undefined,
     title: "Stave",
     webPreferences: {
-      preload: path.join(runtimeDir, "../preload/index.js"),
+      preload: resolvePreloadScriptPath(runtimeDir),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -85,7 +88,7 @@ export function createMainWindow() {
   if (devServerUrl) {
     void window.loadURL(devServerUrl);
   } else {
-    void window.loadFile(path.join(runtimeDir, "../renderer/index.html"));
+    void window.loadFile(resolveRendererEntryPath(runtimeDir));
   }
 
   window.webContents.on("before-input-event", (event, input) => {
