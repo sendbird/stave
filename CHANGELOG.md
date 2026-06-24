@@ -2,6 +2,17 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.7.1](https://github.com/sendbird/stave/compare/v0.7.0...v0.7.1) (2026-06-24)
+
+### Bug Fixes
+
+* Fix the packaged desktop white screen by resolving preload and renderer entries from emitted main chunks.
+* Add regression coverage for packaged Electron asset paths from both `out/main` and `out/main/chunks`.
+
+### References
+
+* [#59](https://github.com/sendbird/stave/pull/59)
+
 ## [0.7.0](https://github.com/sendbird/stave/compare/v0.6.0...v0.7.0) (2026-06-24)
 
 ### Features
