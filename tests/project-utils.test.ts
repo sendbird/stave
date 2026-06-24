@@ -430,6 +430,24 @@ describe("project name normalization", () => {
       cwd: "/tmp/owned",
     });
   });
+
+  test("does not fall back to the project root for stale task workspace ownership", () => {
+    expect(
+      resolveTaskWorkspaceContext({
+        taskId: "task-1",
+        activeWorkspaceId: "ws-active",
+        taskWorkspaceIdById: { "task-1": "ws-stale" },
+        workspacePathById: {
+          "ws-active": "/tmp/active",
+        },
+        workspaceDefaultById: { "ws-active": false },
+        projectPath: "/tmp/project",
+      }),
+    ).toEqual({
+      workspaceId: "ws-stale",
+      cwd: undefined,
+    });
+  });
 });
 
 describe("sanitizeBranchName", () => {

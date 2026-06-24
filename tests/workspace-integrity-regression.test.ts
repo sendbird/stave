@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createJSONStorage } from "zustand/middleware";
 import { buildProjectDefaultWorkspaceId } from "@/store/project.utils";
+import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 
 interface StorageLike {
   getItem: (key: string) => string | null;
@@ -15,6 +16,37 @@ const FOREIGN_PROJECT_PATH = "/tmp/sbdashboard";
 const DEFAULT_WORKSPACE_ID = buildProjectDefaultWorkspaceId({
   projectPath: PROJECT_PATH,
 });
+
+function createTask(id: string, title = id) {
+  return {
+    id,
+    title,
+    provider: "codex" as const,
+    updatedAt: "2026-03-31T00:00:00.000Z",
+    unread: false,
+    archivedAt: null,
+  };
+}
+
+function createWorkspaceShell(args: { taskId: string; taskTitle?: string }) {
+  const task = createTask(args.taskId, args.taskTitle);
+  return {
+    activeTaskId: args.taskId,
+    tasks: [task],
+    promptDraftByTask: {},
+    providerSessionByTask: {},
+    editorTabs: [],
+    activeEditorTabId: null,
+    terminalTabs: [],
+    activeTerminalTabId: null,
+    terminalDocked: false,
+    cliSessionTabs: [],
+    activeCliSessionTabId: null,
+    activeSurface: { kind: "task" as const, taskId: args.taskId },
+    workspaceInformation: createEmptyWorkspaceInformation(),
+    messageCountByTask: { [args.taskId]: 0 },
+  };
+}
 
 function createMemoryStorage(): StorageLike {
   const values = new Map<string, string>();
@@ -203,6 +235,174 @@ describe("workspace integrity regressions", () => {
       cwd: "/tmp/project-a/.stave/workspaces/feature-a",
       command: "git status --porcelain",
     });
+  });
+
+  test("stale switchWorkspace results cannot overwrite a newer workspace switch", async () => {
+    const localStorage = createMemoryStorage();
+    let releaseSlowShell!: () => void;
+    const slowShellStarted = new Promise<void>((resolve) => {
+      releaseSlowShell = resolve;
+    });
+    let unblockSlowShell!: () => void;
+    const slowShellBlock = new Promise<void>((resolve) => {
+      unblockSlowShell = resolve;
+    });
+    (globalThis as { window?: unknown }).window = {
+      localStorage,
+      api: {
+        fs: {
+          listFiles: async () => ({ ok: true, files: [] }),
+        },
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          upsertWorkspace: async () => ({ ok: true }),
+          loadWorkspaceShellForRestore: async ({
+            workspaceId,
+          }: {
+            workspaceId: string;
+          }) => {
+            if (workspaceId === "ws-slow") {
+              releaseSlowShell();
+              await slowShellBlock;
+            }
+            return {
+              ok: true,
+              shell: createWorkspaceShell({
+                taskId:
+                  workspaceId === "ws-fast" ? "task-fast" : "task-slow",
+              }),
+            };
+          },
+          listActiveWorkspaceTurns: async () => ({ ok: true, turns: [] }),
+        },
+      },
+    };
+
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      projectPath: "/tmp/project-a",
+      projectName: "project-a",
+      workspaces: [
+        {
+          id: "ws-main",
+          name: "Default Workspace",
+          updatedAt: "2026-03-31T00:00:00.000Z",
+        },
+        {
+          id: "ws-slow",
+          name: "slow",
+          updatedAt: "2026-03-31T00:01:00.000Z",
+        },
+        {
+          id: "ws-fast",
+          name: "fast",
+          updatedAt: "2026-03-31T00:02:00.000Z",
+        },
+      ],
+      activeWorkspaceId: "ws-main",
+      workspacePathById: {
+        "ws-main": "/tmp/project-a",
+        "ws-slow": "/tmp/project-a/.stave/workspaces/slow",
+        "ws-fast": "/tmp/project-a/.stave/workspaces/fast",
+      },
+      workspaceBranchById: {
+        "ws-main": "main",
+        "ws-slow": "slow",
+        "ws-fast": "fast",
+      },
+      workspaceDefaultById: {
+        "ws-main": true,
+        "ws-slow": false,
+        "ws-fast": false,
+      },
+    });
+
+    const slowSwitch = useAppStore
+      .getState()
+      .switchWorkspace({ workspaceId: "ws-slow" });
+    await slowShellStarted;
+    await useAppStore.getState().switchWorkspace({ workspaceId: "ws-fast" });
+
+    expect(useAppStore.getState().activeWorkspaceId).toBe("ws-fast");
+    expect(useAppStore.getState().activeTaskId).toBe("task-fast");
+
+    unblockSlowShell();
+    await slowSwitch;
+
+    expect(useAppStore.getState().activeWorkspaceId).toBe("ws-fast");
+    expect(useAppStore.getState().activeTaskId).toBe("task-fast");
+  });
+
+  test("notification contexts ignore workspace ids outside the active project", async () => {
+    const localStorage = createMemoryStorage();
+    (globalThis as { window?: unknown }).window = {
+      localStorage,
+      api: {
+        fs: {
+          listFiles: async () => ({ ok: true, files: [] }),
+        },
+      },
+    };
+
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      projectPath: "/tmp/project-a",
+      projectName: "project-a",
+      workspaces: [
+        {
+          id: "ws-main",
+          name: "Default Workspace",
+          updatedAt: "2026-03-31T00:00:00.000Z",
+        },
+      ],
+      activeWorkspaceId: "ws-main",
+      workspacePathById: { "ws-main": "/tmp/project-a" },
+      workspaceBranchById: { "ws-main": "main" },
+      workspaceDefaultById: { "ws-main": true },
+      activeTaskId: "task-active",
+      tasks: [createTask("task-active"), createTask("task-collision")],
+      notifications: [
+        {
+          id: "notification-foreign-workspace",
+          kind: "task.turn_completed",
+          title: "Foreign Task",
+          body: "Latest run finished elsewhere.",
+          projectPath: "/tmp/project-a",
+          projectName: "project-a",
+          workspaceId: "ws-foreign",
+          workspaceName: "Foreign Workspace",
+          taskId: "task-collision",
+          taskTitle: "Collision Task",
+          turnId: "turn-1",
+          providerId: "codex",
+          action: null,
+          payload: {},
+          createdAt: "2026-03-31T00:02:00.000Z",
+          readAt: null,
+        },
+      ],
+      messagesByTask: {
+        "task-active": [],
+        "task-collision": [],
+      },
+      taskWorkspaceIdById: {
+        "task-active": "ws-main",
+        "task-collision": "ws-main",
+      },
+    });
+
+    const result = await useAppStore
+      .getState()
+      .openNotificationContext({
+        notificationId: "notification-foreign-workspace",
+      });
+
+    expect(result).toEqual({ status: "opened" });
+    expect(useAppStore.getState().activeTaskId).toBe("task-active");
+    expect(useAppStore.getState().notifications[0]?.readAt).toBeString();
   });
 
   test("rehydration realigns the current workspace state with the normalized current project", async () => {

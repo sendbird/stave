@@ -429,6 +429,8 @@ const workspaceSwitchMetricsByWorkspaceId = new Map<
   WorkspaceSwitchMetric
 >();
 let workspaceSwitchMetricTokenCounter = 0;
+let workspaceIdentityRequestTokenCounter = 0;
+let activeWorkspaceIdentityRequestToken = 0;
 export {
   DEFAULT_PROVIDER_TIMEOUT_MS,
   PROVIDER_TIMEOUT_OPTIONS,
@@ -801,6 +803,16 @@ function getWorkspaceSwitchMetricNow() {
     typeof performance.now === "function"
     ? performance.now()
     : Date.now();
+}
+
+function beginWorkspaceIdentityRequest() {
+  workspaceIdentityRequestTokenCounter += 1;
+  activeWorkspaceIdentityRequestToken = workspaceIdentityRequestTokenCounter;
+  return activeWorkspaceIdentityRequestToken;
+}
+
+function isCurrentWorkspaceIdentityRequest(token: number) {
+  return token === activeWorkspaceIdentityRequestToken;
 }
 
 function roundWorkspaceSwitchDuration(value: number) {
@@ -1490,6 +1502,49 @@ function resolveWorkspacePathForId(args: {
   return (
     args.workspacePathById[workspaceId] ??
     (args.workspaceDefaultById[workspaceId] ? (args.projectPath ?? null) : null)
+  );
+}
+
+function isWorkspaceTargetCurrent(args: {
+  state: {
+    projectPath: string | null;
+    workspaces: WorkspaceSummary[];
+    activeWorkspaceId: string;
+    workspacePathById: Record<string, string>;
+    workspaceDefaultById: Record<string, boolean>;
+  };
+  workspaceId: string;
+  workspacePath?: string | null;
+  projectPath?: string | null;
+}) {
+  if (
+    args.projectPath !== undefined &&
+    normalizeComparablePath(args.state.projectPath) !==
+      normalizeComparablePath(args.projectPath)
+  ) {
+    return false;
+  }
+  if (
+    !args.state.workspaces.some(
+      (workspace) => workspace.id === args.workspaceId,
+    )
+  ) {
+    return false;
+  }
+  if (args.workspacePath === undefined) {
+    return true;
+  }
+
+  const currentWorkspacePath = resolveWorkspacePathForId({
+    activeWorkspaceId: args.state.activeWorkspaceId,
+    workspaceId: args.workspaceId,
+    workspacePathById: args.state.workspacePathById,
+    workspaceDefaultById: args.state.workspaceDefaultById,
+    projectPath: args.state.projectPath,
+  });
+  return (
+    normalizeComparablePath(currentWorkspacePath) ===
+    normalizeComparablePath(args.workspacePath)
   );
 }
 
@@ -3640,12 +3695,18 @@ export const useAppStore = create<AppState>()(
 
         const afterProjectOpen = get();
         const workspaceId = notification.workspaceId?.trim();
-        if (workspaceId && afterProjectOpen.activeWorkspaceId !== workspaceId) {
+        if (workspaceId) {
           const workspaceExists = afterProjectOpen.workspaces.some(
             (workspace) => workspace.id === workspaceId,
           );
-          if (workspaceExists) {
+          if (!workspaceExists) {
+            return { status: "opened" };
+          }
+          if (afterProjectOpen.activeWorkspaceId !== workspaceId) {
             await afterProjectOpen.switchWorkspace({ workspaceId });
+          }
+          if (get().activeWorkspaceId !== workspaceId) {
+            return { status: "opened" };
           }
         }
 
@@ -4179,10 +4240,33 @@ export const useAppStore = create<AppState>()(
         workspacePath: string;
         switchMetricToken?: number;
       }) => {
+        const stateBeforeRefresh = get();
+        const activeWorkspacePath = resolveWorkspacePathForId({
+          activeWorkspaceId: stateBeforeRefresh.activeWorkspaceId,
+          workspacePathById: stateBeforeRefresh.workspacePathById,
+          workspaceDefaultById: stateBeforeRefresh.workspaceDefaultById,
+          projectPath: stateBeforeRefresh.projectPath,
+        });
+        if (
+          stateBeforeRefresh.activeWorkspaceId !== args.workspaceId ||
+          normalizeComparablePath(activeWorkspacePath) !==
+            normalizeComparablePath(args.workspacePath) ||
+          normalizeComparablePath(workspaceFsAdapter.getRootPath?.()) !==
+            normalizeComparablePath(args.workspacePath)
+        ) {
+          return;
+        }
         void workspaceFsAdapter
           .listFiles()
           .then((files) => {
             set((state) => {
+              if (
+                state.activeWorkspaceId !== args.workspaceId ||
+                normalizeComparablePath(workspaceFsAdapter.getRootPath?.()) !==
+                  normalizeComparablePath(args.workspacePath)
+              ) {
+                return state;
+              }
               const nextWorkspaceFileCacheByPath = rememberCachedWorkspaceFiles(
                 {
                   workspaceFileCacheByPath: state.workspaceFileCacheByPath,
@@ -4380,6 +4464,7 @@ export const useAppStore = create<AppState>()(
           });
         },
         hydrateWorkspaces: async () => {
+          const workspaceIdentityRequestToken = beginWorkspaceIdentityRequest();
           await get().hydrateProjectRegistry();
           let initialRows = await listWorkspaceSummaries();
           const stateBeforeHydrate = get();
@@ -4766,6 +4851,15 @@ export const useAppStore = create<AppState>()(
           }
 
           set((state) => {
+            if (
+              !isCurrentWorkspaceIdentityRequest(
+                workspaceIdentityRequestToken,
+              ) ||
+              normalizeComparablePath(state.projectPath) !==
+                normalizeComparablePath(stateBeforeHydrate.projectPath)
+            ) {
+              return state;
+            }
             const workspaceState =
               (preferLoadedWorkspaceState
                 ? loadedWorkspaceShellState?.workspaceState
@@ -4873,6 +4967,12 @@ export const useAppStore = create<AppState>()(
               },
             };
           });
+          if (
+            !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
+            get().activeWorkspaceId !== preferredWorkspaceId
+          ) {
+            return;
+          }
           if (
             loadedWorkspaceShellState &&
             (preferLoadedWorkspaceState || !cachedWorkspaceState)
@@ -6284,6 +6384,7 @@ export const useAppStore = create<AppState>()(
           if (!workspacePath) {
             return;
           }
+          const workspaceIdentityRequestToken = beginWorkspaceIdentityRequest();
           const cachedFiles = getCachedWorkspaceFiles({
             workspacePath,
             workspaceFileCacheByPath: current.workspaceFileCacheByPath,
@@ -6299,30 +6400,49 @@ export const useAppStore = create<AppState>()(
             ? switchStartedAt
             : undefined;
           let setRootResolvedAt = switchStartedAt;
-          const loadedWorkspaceShellState = !shouldLoadWorkspaceShellState
+          const resolvedWorkspaceShellState = !shouldLoadWorkspaceShellState
             ? null
-            : loadWorkspaceShellStateFromPersistence({
+            : await loadWorkspaceShellStateFromPersistence({
                 workspaceId,
               }).then((result) => {
                 shellResolvedAt = getWorkspaceSwitchMetricNow();
                 return result;
               });
-          await Promise.all([
-            loadedWorkspaceShellState,
-            Promise.resolve(
-              workspaceFsAdapter.setRoot?.({
-                rootPath: workspacePath,
-                rootName: current.projectName ?? "project",
-                files: cachedFiles,
-              }),
-            ).then(() => {
-              setRootResolvedAt = getWorkspaceSwitchMetricNow();
+          if (
+            !isCurrentWorkspaceIdentityRequest(
+              workspaceIdentityRequestToken,
+            ) ||
+            !isWorkspaceTargetCurrent({
+              state: get(),
+              workspaceId,
+              workspacePath,
+              projectPath: current.projectPath,
+            })
+          ) {
+            return;
+          }
+          await Promise.resolve(
+            workspaceFsAdapter.setRoot?.({
+              rootPath: workspacePath,
+              rootName: current.projectName ?? "project",
+              files: cachedFiles,
             }),
-          ]);
-          const nextWorkspaces = current.workspaces;
-          const resolvedWorkspaceShellState = !shouldLoadWorkspaceShellState
-            ? null
-            : await loadedWorkspaceShellState;
+          ).then(() => {
+            setRootResolvedAt = getWorkspaceSwitchMetricNow();
+          });
+          if (
+            !isCurrentWorkspaceIdentityRequest(
+              workspaceIdentityRequestToken,
+            ) ||
+            !isWorkspaceTargetCurrent({
+              state: get(),
+              workspaceId,
+              workspacePath,
+              projectPath: current.projectPath,
+            })
+          ) {
+            return;
+          }
           const preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
             cachedWorkspaceState,
             loadedWorkspaceShellState: resolvedWorkspaceShellState,
@@ -6333,18 +6453,31 @@ export const useAppStore = create<AppState>()(
               : (cachedWorkspaceState ??
                 resolvedWorkspaceShellState?.workspaceState)) ??
             buildWorkspaceSessionState({ snapshot: null });
-          const workspaceIds = nextWorkspaces.map((workspace) => workspace.id);
-          const nextRuntimeCacheById = saveActiveWorkspaceRuntimeCache({
-            state: current,
-          });
-          if (preferLoadedWorkspaceState) {
-            delete nextRuntimeCacheById[workspaceId];
-          }
-
           set((state) => {
+            if (
+              !isCurrentWorkspaceIdentityRequest(
+                workspaceIdentityRequestToken,
+              ) ||
+              !isWorkspaceTargetCurrent({
+                state,
+                workspaceId,
+                workspacePath,
+                projectPath: current.projectPath,
+              })
+            ) {
+              return state;
+            }
+            const workspaceIds = state.workspaces.map(
+              (workspace) => workspace.id,
+            );
+            const nextRuntimeCacheById = saveActiveWorkspaceRuntimeCache({
+              state,
+            });
+            if (preferLoadedWorkspaceState) {
+              delete nextRuntimeCacheById[workspaceId];
+            }
             return {
-              workspaces:
-                nextWorkspaces.length > 0 ? nextWorkspaces : state.workspaces,
+              workspaces: state.workspaces,
               activeWorkspaceId: workspaceId,
               activeAppSurface: WORKSPACE_APP_SURFACE,
               workspaceSnapshotVersion: 0,
@@ -6372,6 +6505,9 @@ export const useAppStore = create<AppState>()(
               projectFiles: cachedFiles,
             };
           });
+          if (get().activeWorkspaceId !== workspaceId) {
+            return;
+          }
           registerWorkspaceSwitchMetric({
             workspaceId,
             metric: {
@@ -8692,6 +8828,7 @@ export const useAppStore = create<AppState>()(
           const cwd = state.workspacePathById[workspaceId];
           if (!cwd) return;
           if (state.workspaceDefaultById[workspaceId]) return;
+          const projectPath = state.projectPath;
 
           const getPrStatus = window.api?.sourceControl?.getPrStatus;
           if (!getPrStatus) return;
@@ -8708,12 +8845,25 @@ export const useAppStore = create<AppState>()(
               lastFetched: Date.now(),
             };
 
-            set((s) => ({
-              workspacePrInfoById: {
-                ...s.workspacePrInfoById,
-                [workspaceId]: info,
-              },
-            }));
+            set((s) => {
+              if (
+                s.workspaceDefaultById[workspaceId] ||
+                !isWorkspaceTargetCurrent({
+                  state: s,
+                  workspaceId,
+                  workspacePath: cwd,
+                  projectPath,
+                })
+              ) {
+                return s;
+              }
+              return {
+                workspacePrInfoById: {
+                  ...s.workspacePrInfoById,
+                  [workspaceId]: info,
+                },
+              };
+            });
           } catch {
             // Silently ignore – PR status is best-effort.
           }
@@ -8743,13 +8893,15 @@ export const useAppStore = create<AppState>()(
             ) {
               return [];
             }
-            return [{ wsId, cwd }];
+            return [{ wsId, cwd, projectPath: state.projectPath }];
           });
           if (targets.length === 0) {
             return;
           }
 
-          const updates: Array<[string, WorkspacePrInfo]> = [];
+          const updates: Array<
+            [string, string, string | null, WorkspacePrInfo]
+          > = [];
           let targetIndex = 0;
           const fetchNext = async () => {
             while (targetIndex < targets.length) {
@@ -8767,6 +8919,8 @@ export const useAppStore = create<AppState>()(
                 const derived = pr ? derivePrStatus(pr) : ("no_pr" as const);
                 updates.push([
                   target.wsId,
+                  target.cwd,
+                  target.projectPath,
                   {
                     pr,
                     derived,
@@ -8793,12 +8947,32 @@ export const useAppStore = create<AppState>()(
           if (updates.length === 0) {
             return;
           }
-          set((s) => ({
-            workspacePrInfoById: {
-              ...s.workspacePrInfoById,
-              ...Object.fromEntries(updates),
-            },
-          }));
+          set((s) => {
+            const freshUpdates = updates.filter(
+              ([workspaceId, cwd, projectPath]) =>
+                !s.workspaceDefaultById[workspaceId] &&
+                isWorkspaceTargetCurrent({
+                  state: s,
+                  workspaceId,
+                  workspacePath: cwd,
+                  projectPath,
+                }),
+            );
+            if (freshUpdates.length === 0) {
+              return s;
+            }
+            return {
+              workspacePrInfoById: {
+                ...s.workspacePrInfoById,
+                ...Object.fromEntries(
+                  freshUpdates.map(([workspaceId, , , info]) => [
+                    workspaceId,
+                    info,
+                  ]),
+                ),
+              },
+            };
+          });
         },
         setLayout: ({ patch }) =>
           set((state) => {

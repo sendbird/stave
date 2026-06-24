@@ -5755,6 +5755,72 @@ describe("workspace store hydration ordering", () => {
     });
   });
 
+  test("fetchWorkspacePrStatus discards stale workspace path results", async () => {
+    const localStorage = createMemoryStorage();
+    let releaseStatus!: () => void;
+    const statusBlock = new Promise<void>((resolve) => {
+      releaseStatus = resolve;
+    });
+    const calls: string[] = [];
+    setWindowContext({
+      localStorage,
+      api: {
+        sourceControl: {
+          getPrStatus: async ({ cwd }: { cwd?: string }) => {
+            calls.push(cwd ?? "");
+            await statusBlock;
+            return { ok: true, pr: null };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-active",
+      projectPath: "/tmp/stave-project",
+      workspaces: [
+        {
+          id: "ws-active",
+          name: "Active",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-pr",
+          name: "PR",
+          updatedAt: "2026-04-07T00:01:00.000Z",
+        },
+      ],
+      workspaceDefaultById: {
+        "ws-active": false,
+        "ws-pr": false,
+      },
+      workspacePathById: {
+        "ws-active": "/tmp/active",
+        "ws-pr": "/tmp/pr-old",
+      },
+    });
+
+    const fetchPromise = useAppStore
+      .getState()
+      .fetchWorkspacePrStatus({ workspaceId: "ws-pr" });
+    expect(calls).toEqual(["/tmp/pr-old"]);
+
+    useAppStore.setState((state) => ({
+      workspacePathById: {
+        ...state.workspacePathById,
+        "ws-pr": "/tmp/pr-new",
+      },
+    }));
+
+    releaseStatus();
+    await fetchPromise;
+
+    expect(useAppStore.getState().workspacePrInfoById["ws-pr"]).toBeUndefined();
+  });
+
   test("resolveApproval keeps pending state when no active turn exists", async () => {
     setWindowContext({
       localStorage: createMemoryStorage(),
