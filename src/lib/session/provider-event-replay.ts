@@ -1,6 +1,7 @@
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { sanitizeMessagePartPayload } from "@/lib/file-context-sanitization";
 import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
+import { appendProviderOutputTruncationNotice } from "@/lib/truncation-visibility";
 import type {
   NormalizedProviderEvent,
   ProviderGoalSnapshot,
@@ -622,24 +623,32 @@ export function appendProviderEventToAssistant(args: {
 
   if (args.event.type === "done") {
     const completedAt = buildRecentTimestamp();
-    if (!hasRenderableAssistantContent({ message })) {
+    const partsWithTruncationNotice = appendProviderOutputTruncationNotice({
+      parts: message.parts,
+      stopReason: args.event.stop_reason,
+    });
+    const messageWithTruncationNotice =
+      partsWithTruncationNotice === message.parts
+        ? message
+        : { ...message, parts: partsWithTruncationNotice };
+
+    if (!hasRenderableAssistantContent({ message: messageWithTruncationNotice })) {
       return {
-        ...message,
+        ...messageWithTruncationNotice,
         content: "No response returned.",
         completedAt,
         isStreaming: false,
         parts: interruptPendingToolInteractionParts({
           parts: [
-            ...message.parts,
+            ...messageWithTruncationNotice.parts,
             { type: "system_event", content: "No response returned." },
           ],
         }),
       };
     }
 
-    const truncated = args.event.stop_reason === "max_tokens";
     const finalizedMessage = finalizeAssistantMessage({
-      message,
+      message: messageWithTruncationNotice,
       completedAt,
     });
 
@@ -651,19 +660,11 @@ export function appendProviderEventToAssistant(args: {
     // cases leaving the parts in `*-requested` state keeps `isTurnActive`
     // true via `findLatestPendingToolInteractionPart`, which locks the
     // PlanViewer's Approve/Revise controls and any dependent UI.
-    const nextParts = truncated
-      ? [
-          ...finalizedMessage.parts,
-          {
-            type: "system_event" as const,
-            content: "Response was cut off because the output limit was reached.",
-          },
-        ]
-      : finalizedMessage.parts;
-
     return {
       ...finalizedMessage,
-      parts: interruptPendingToolInteractionParts({ parts: nextParts }),
+      parts: interruptPendingToolInteractionParts({
+        parts: finalizedMessage.parts,
+      }),
     };
   }
 

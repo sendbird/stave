@@ -1,4 +1,5 @@
 import type { ChatMessage, CodeDiffPart, FileContextPart, ImageContextPart, MessagePart, ToolUsePart } from "@/types/chat";
+import { detectTruncationNotice } from "@/lib/truncation-visibility";
 
 export function isPendingDiffStatus(status: CodeDiffPart["status"]) {
   return status === "pending";
@@ -363,6 +364,9 @@ export function shouldRenderInlineSystemEvent(args: { content: string }): boolea
   const normalized = args.content.trim().toLowerCase();
   if (!normalized) {
     return false;
+  }
+  if (detectTruncationNotice({ text: args.content, source: "system" })) {
+    return true;
   }
   if (isCodeDiffSummarySystemEvent(args.content)) {
     return false;

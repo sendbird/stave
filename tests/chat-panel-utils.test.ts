@@ -363,6 +363,12 @@ describe("system event visibility", () => {
     })).toBe(true);
   });
 
+  test("keeps truncation warnings visible even when wording includes failure", () => {
+    expect(shouldRenderInlineSystemEvent({
+      content: "Tool output truncated after the failure log exceeded the limit.",
+    })).toBe(true);
+  });
+
   test("treats hidden file-change summary notices as empty when no other content exists", () => {
     expect(getMessageBodyFallbackState({
       isActivelyStreaming: false,
