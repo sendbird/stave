@@ -2,6 +2,18 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.7.2](https://github.com/sendbird/stave/compare/v0.7.1...v0.7.2) (2026-06-24)
+
+### Fixes
+
+* Improve Lens browser session handling by using a project-scoped profile by default, with a workspace-isolated option.
+* Route OAuth and SSO popup windows through the Lens browser profile and add clear-session controls.
+* Hide the native Lens view behind app dialogs and overlays while simplifying the Lens toolbar layout.
+
+### References
+
+* [#61](https://github.com/sendbird/stave/pull/61)
+
 ## [0.7.1](https://github.com/sendbird/stave/compare/v0.7.0...v0.7.1) (2026-06-24)
 
 ### Bug Fixes
