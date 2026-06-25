@@ -1,4 +1,5 @@
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
+import type { PromptInputGoalStatus } from "@/components/ai-elements/prompt-input-goal-status";
 import { resolveEffectiveCodexFileAccessMode } from "@/lib/providers/codex-runtime-options";
 import type {
   ProviderGoalSnapshot,
@@ -44,6 +45,9 @@ interface ChatInputRuntimeArgs {
   codexFastMode: boolean;
   codexPlanMode: boolean;
   codexBinaryPath: string;
+}
+
+interface ChatInputGoalStatusArgs {
   providerGoal?: ProviderGoalSnapshot | null;
 }
 
@@ -117,18 +121,34 @@ function formatGoalTokenCount(value: number) {
     return "0";
   }
   if (value >= 1000) {
-    const compact = value % 1000 === 0
-      ? String(value / 1000)
-      : (value / 1000).toFixed(1).replace(/\.0$/, "");
+    const compact =
+      value % 1000 === 0
+        ? String(value / 1000)
+        : (value / 1000).toFixed(1).replace(/\.0$/, "");
     return `${compact}k`;
   }
   return String(Math.floor(value));
 }
 
-function formatGoalTokenValue(goal: ProviderGoalSnapshot) {
+function getGoalProgressPercent(goal: ProviderGoalSnapshot) {
+  if (typeof goal.tokenBudget !== "number" || goal.tokenBudget <= 0) {
+    return null;
+  }
+  const rawPercent = (goal.tokensUsed / goal.tokenBudget) * 100;
+  if (!Number.isFinite(rawPercent)) {
+    return null;
+  }
+  return Math.min(100, Math.max(0, Math.round(rawPercent)));
+}
+
+function formatGoalTokenProgressValue(goal: ProviderGoalSnapshot) {
   const used = formatGoalTokenCount(goal.tokensUsed);
+  const progressPercent = getGoalProgressPercent(goal);
   if (typeof goal.tokenBudget === "number" && goal.tokenBudget > 0) {
-    return `${used}/${formatGoalTokenCount(goal.tokenBudget)} tokens`;
+    const budget = formatGoalTokenCount(goal.tokenBudget);
+    return progressPercent == null
+      ? `${used} / ${budget} tokens`
+      : `${used} / ${budget} tokens (${progressPercent}%)`;
   }
   return `${used} tokens`;
 }
@@ -149,21 +169,33 @@ function formatGoalElapsedValue(totalSeconds: number) {
   return `${seconds}s`;
 }
 
-function formatGoalObjectiveValue(objective: string) {
-  const normalized = objective.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 48) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 45).trimEnd()}...`;
+function normalizeGoalObjectiveValue(objective: string) {
+  return objective.replace(/\s+/g, " ").trim();
 }
 
-export function formatProviderGoalRuntimeValue(goal: ProviderGoalSnapshot) {
-  return [
-    formatGoalStatusValue(goal.status),
-    formatGoalTokenValue(goal),
-    formatGoalElapsedValue(goal.timeUsedSeconds),
-    formatGoalObjectiveValue(goal.objective),
-  ].join(" | ");
+export function buildChatInputGoalStatus(
+  args: ChatInputGoalStatusArgs,
+): PromptInputGoalStatus | null {
+  const goal = args.providerGoal;
+  if (!goal) {
+    return null;
+  }
+
+  const tone =
+    goal.status === "complete"
+      ? "success"
+      : goal.status === "active"
+        ? "default"
+        : "warning";
+
+  return {
+    statusLabel: formatGoalStatusValue(goal.status),
+    objective: normalizeGoalObjectiveValue(goal.objective),
+    tokenLabel: formatGoalTokenProgressValue(goal),
+    elapsedLabel: `${formatGoalElapsedValue(goal.timeUsedSeconds)} elapsed`,
+    progressPercent: getGoalProgressPercent(goal),
+    tone,
+  };
 }
 
 export function buildChatInputRuntimeStatusItems(
@@ -245,20 +277,6 @@ export function buildChatInputRuntimeStatusItems(
       label: "Network",
       value: args.codexNetworkAccess ? "On" : "Off",
     },
-    ...(args.providerGoal
-      ? [
-          {
-            id: "goal",
-            label: "Goal",
-            value: formatProviderGoalRuntimeValue(args.providerGoal),
-            tone:
-              args.providerGoal.status === "active"
-              || args.providerGoal.status === "complete"
-                ? "default"
-                : "warning",
-          } satisfies PromptInputRuntimeStatusItem,
-        ]
-      : []),
     {
       id: "raw-reasoning",
       label: "Raw Reasoning",

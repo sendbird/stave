@@ -997,10 +997,6 @@ export async function runCodexGoalSlashCommand(args: {
     );
     return [
       buildCodexGoalStatusEvent(response.goal),
-      {
-        type: "text",
-        text: `Set Codex goal.\n\n${formatCodexGoal(response.goal)}`,
-      },
       { type: "done" },
     ];
   } catch (error) {
