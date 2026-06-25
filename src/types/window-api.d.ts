@@ -364,12 +364,18 @@ interface WindowFsApi {
     ok: boolean;
     content: string;
     revision: string;
+    tooLarge?: boolean;
+    sizeBytes?: number;
+    maxSizeBytes?: number;
     stderr?: string;
   }>;
   readFileDataUrl?: (args: { rootPath: string; filePath: string }) => Promise<{
     ok: boolean;
     dataUrl: string;
     revision: string;
+    tooLarge?: boolean;
+    sizeBytes?: number;
+    maxSizeBytes?: number;
     stderr?: string;
   }>;
   writeFile?: (args: {
@@ -981,10 +987,12 @@ interface WindowPersistenceApi {
         kind?: "text" | "image";
         language: string;
         content?: string;
-        contentState?: "ready" | "deferred" | "loading";
+        contentState?: "ready" | "deferred" | "loading" | "too-large";
         originalContent?: string;
         savedContent?: string;
         baseRevision?: string | null;
+        fileSizeBytes?: number;
+        fileSizeLimitBytes?: number;
         hasConflict: boolean;
         isDirty: boolean;
       }>;
@@ -1027,10 +1035,12 @@ interface WindowPersistenceApi {
         kind?: "text" | "image";
         language: string;
         content?: string;
-        contentState?: "ready" | "deferred" | "loading";
+        contentState?: "ready" | "deferred" | "loading" | "too-large";
         originalContent?: string;
         savedContent?: string;
         baseRevision?: string | null;
+        fileSizeBytes?: number;
+        fileSizeLimitBytes?: number;
         hasConflict: boolean;
         isDirty: boolean;
       }>;
@@ -1137,10 +1147,12 @@ interface WindowPersistenceApi {
         kind?: "text" | "image";
         language: string;
         content: string;
-        contentState?: "ready" | "deferred" | "loading";
+        contentState?: "ready" | "deferred" | "loading" | "too-large";
         originalContent?: string;
         savedContent?: string;
         baseRevision?: string | null;
+        fileSizeBytes?: number;
+        fileSizeLimitBytes?: number;
         hasConflict: boolean;
         isDirty: boolean;
       }>;
@@ -1253,10 +1265,12 @@ interface WindowPersistenceApi {
         kind?: "text" | "image";
         language: string;
         content: string;
-        contentState?: "ready" | "deferred" | "loading";
+        contentState?: "ready" | "deferred" | "loading" | "too-large";
         originalContent?: string;
         savedContent?: string;
         baseRevision?: string | null;
+        fileSizeBytes?: number;
+        fileSizeLimitBytes?: number;
         hasConflict: boolean;
         isDirty: boolean;
       }>;

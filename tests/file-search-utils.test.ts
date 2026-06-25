@@ -46,4 +46,27 @@ describe("file search utils", () => {
 
     expect(results[0]?.filePath).toBe("src/components/layout/TopBar.tsx");
   });
+
+  test("returns the same top results when a limit is applied", () => {
+    const files = [
+      "zeta/readme.md",
+      "src/components/layout/TopBar.tsx",
+      "src/components/layout/AppShell.tsx",
+      "docs/topbar-notes.md",
+      "src/store/app.store.ts",
+      "src/components/session/ChatInput.tsx",
+    ];
+
+    const fullResults = rankFileSearchResults({
+      files,
+      query: "src component",
+    }).slice(0, 3);
+    const limitedResults = rankFileSearchResults({
+      files,
+      query: "src component",
+      limit: 3,
+    });
+
+    expect(limitedResults).toEqual(fullResults);
+  });
 });

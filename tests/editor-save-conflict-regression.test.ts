@@ -351,6 +351,55 @@ describe("editor save/conflict behavior", () => {
     expect(useAppStore.getState().editorTabs).toHaveLength(1);
   });
 
+  test("opens oversized files as non-editable metadata tabs", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "large.log";
+    await writeFile(path.join(rootPath, filePath), "placeholder\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    const fsApi = (globalThis as {
+      window?: {
+        api?: {
+          fs?: {
+            readFile?: (req: {
+              rootPath: string;
+              filePath: string;
+            }) => FsApiResult<{
+              ok: boolean;
+              content: string;
+              revision: string;
+              tooLarge?: boolean;
+              sizeBytes?: number;
+              maxSizeBytes?: number;
+            }>;
+          };
+        };
+      };
+    }).window?.api?.fs;
+    fsApi!.readFile = async () => ({
+      ok: false,
+      content: "",
+      revision: "node:2097152:1",
+      tooLarge: true,
+      sizeBytes: 2 * 1024 * 1024,
+      maxSizeBytes: 1024 * 1024,
+    });
+
+    await useAppStore.getState().openFileFromTree({ filePath });
+
+    const opened = useAppStore.getState().editorTabs[0];
+    expect(opened).toBeDefined();
+    expect(opened?.filePath).toBe(filePath);
+    expect(opened?.content).toBe("");
+    expect(opened?.contentState).toBe("too-large");
+    expect(opened?.fileSizeBytes).toBe(2 * 1024 * 1024);
+    expect(opened?.fileSizeLimitBytes).toBe(1024 * 1024);
+    expect(opened?.isDirty).toBe(false);
+    expect(await useAppStore.getState().saveActiveEditorTab()).toEqual({
+      ok: false,
+    });
+  });
+
   test("closes the editor panel when the last open tab is closed", async () => {
     const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
     const filePath = "note.txt";

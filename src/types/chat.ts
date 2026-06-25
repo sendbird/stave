@@ -194,7 +194,11 @@ export interface ChatMessage {
   parts: MessagePart[];
 }
 
-export type EditorTabContentState = "ready" | "deferred" | "loading";
+export type EditorTabContentState =
+  | "ready"
+  | "deferred"
+  | "loading"
+  | "too-large";
 
 export type TaskControlMode = "interactive" | "managed";
 export type TaskControlOwner = "stave" | "external";
@@ -224,6 +228,8 @@ export interface EditorTab {
   originalContent?: string;
   savedContent?: string;
   baseRevision?: string | null;
+  fileSizeBytes?: number;
+  fileSizeLimitBytes?: number;
   hasConflict: boolean;
   isDirty: boolean;
 }

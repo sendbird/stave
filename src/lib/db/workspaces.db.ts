@@ -63,6 +63,12 @@ export interface WorkspaceEditorTabBody {
   savedContent?: string;
 }
 
+function restoreWorkspaceShellEditorTabContentState(
+  contentState: EditorTab["contentState"],
+): EditorTab["contentState"] {
+  return contentState === "too-large" ? "too-large" : "ready";
+}
+
 export interface WorkspaceShellLite {
   activeTaskId: string;
   tasks: Task[];
@@ -325,7 +331,9 @@ export async function loadWorkspaceShellForRestore(args: {
           ...shell,
           editorTabs: shell.editorTabs?.map((tab) => ({
             ...tab,
-            contentState: "ready",
+            contentState: restoreWorkspaceShellEditorTabContentState(
+              tab.contentState,
+            ),
           })),
         }
       : null;
@@ -338,7 +346,9 @@ export async function loadWorkspaceShellForRestore(args: {
           ...shell,
           editorTabs: shell.editorTabs?.map((tab) => ({
             ...tab,
-            contentState: "ready",
+            contentState: restoreWorkspaceShellEditorTabContentState(
+              tab.contentState,
+            ),
           })),
         }
       : null;

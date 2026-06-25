@@ -134,8 +134,62 @@ export function getFileSearchScore(args: { filePath: string; query: string }) {
   return score;
 }
 
+function compareFileSearchResults(
+  normalizedQuery: string,
+  left: RankedFileSearchResult,
+  right: RankedFileSearchResult,
+) {
+  if (normalizedQuery) {
+    const scoreDelta = right.score - left.score;
+    if (scoreDelta !== 0) {
+      return scoreDelta;
+    }
+  }
+
+  const fileNameCompare = FILE_SEARCH_COLLATOR.compare(
+    left.fileName,
+    right.fileName,
+  );
+  if (fileNameCompare !== 0) {
+    return fileNameCompare;
+  }
+
+  return FILE_SEARCH_COLLATOR.compare(left.filePath, right.filePath);
+}
+
+function insertBoundedFileSearchResult(args: {
+  results: RankedFileSearchResult[];
+  item: RankedFileSearchResult;
+  normalizedQuery: string;
+  limit: number;
+}) {
+  const { results, item, normalizedQuery, limit } = args;
+  const currentLastResult = results[results.length - 1];
+  if (
+    results.length >= limit &&
+    currentLastResult &&
+    compareFileSearchResults(
+      normalizedQuery,
+      item,
+      currentLastResult,
+    ) >= 0
+  ) {
+    return;
+  }
+
+  const insertIndex = results.findIndex(
+    (existing) =>
+      compareFileSearchResults(normalizedQuery, item, existing) < 0,
+  );
+  results.splice(insertIndex < 0 ? results.length : insertIndex, 0, item);
+  if (results.length > limit) {
+    results.pop();
+  }
+}
+
 export function rankFileSearchResults(args: { files: string[]; query: string; limit?: number }) {
   const normalizedQuery = args.query.trim().toLowerCase();
+  const limit = args.limit && args.limit > 0 ? args.limit : null;
   const results: RankedFileSearchResult[] = [];
 
   for (const filePath of args.files) {
@@ -145,29 +199,31 @@ export function rankFileSearchResults(args: { files: string[]; query: string; li
     }
 
     const { fileName, directoryPath } = splitFileSearchPath({ filePath });
-    results.push({
+    const item = {
       filePath,
       fileName,
       directoryPath,
       score,
-    });
+    };
+
+    if (limit) {
+      insertBoundedFileSearchResult({
+        results,
+        item,
+        normalizedQuery,
+        limit,
+      });
+      continue;
+    }
+
+    results.push(item);
   }
 
-  results.sort((left, right) => {
-    if (normalizedQuery) {
-      const scoreDelta = right.score - left.score;
-      if (scoreDelta !== 0) {
-        return scoreDelta;
-      }
-    }
+  if (!limit) {
+    results.sort((left, right) =>
+      compareFileSearchResults(normalizedQuery, left, right),
+    );
+  }
 
-    const fileNameCompare = FILE_SEARCH_COLLATOR.compare(left.fileName, right.fileName);
-    if (fileNameCompare !== 0) {
-      return fileNameCompare;
-    }
-
-    return FILE_SEARCH_COLLATOR.compare(left.filePath, right.filePath);
-  });
-
-  return args.limit ? results.slice(0, args.limit) : results;
+  return results;
 }

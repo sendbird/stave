@@ -166,9 +166,9 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
 
   async function handleSelectItem(item: SearchCommandItem) {
     getInputElement()?.blur();
-    await openFileFromTree({ filePath: item.filePath });
     setQuery("");
     closeSearch();
+    await openFileFromTree({ filePath: item.filePath });
   }
 
   function handleCompactButtonClick() {

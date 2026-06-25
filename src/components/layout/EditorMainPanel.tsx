@@ -15,6 +15,7 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { resolvePathBaseName } from "@/lib/path-utils";
+import { formatFileSize } from "@/lib/fs/file-preview-limits";
 import { useAppStore } from "@/store/app.store";
 import {
   Empty,
@@ -227,9 +228,14 @@ export function EditorMainPanel() {
   const activeTab =
     editorTabs.find((tab) => tab.id === activeEditorTabId) ?? null;
   const activeFilePath = activeTab?.filePath ?? null;
+  const activeTabContentTooLarge = activeTab?.contentState === "too-large";
   const activeTabContentPending = Boolean(
-    activeTab && activeTab.contentState && activeTab.contentState !== "ready",
+    activeTab &&
+      (activeTab.contentState === "deferred" ||
+        activeTab.contentState === "loading"),
   );
+  const activeTabContentUnavailable =
+    activeTabContentPending || activeTabContentTooLarge;
   const isImageTab = (
     tab: { kind?: "text" | "image"; language: string } | null,
   ) => Boolean(tab && (tab.kind === "image" || tab.language === "image"));
@@ -261,7 +267,7 @@ export function EditorMainPanel() {
     activeTaskId &&
       activeTab &&
       activeDiffSessionKey &&
-      !activeTabContentPending,
+      !activeTabContentUnavailable,
   );
   const canSubmitReviewFeedback = Boolean(
     activeTaskId && reviewCommentsForActiveTask.length > 0,
@@ -271,7 +277,7 @@ export function EditorMainPanel() {
       taskId: activeTaskId,
       hasActiveEditorTab: Boolean(activeTab),
       isTaskResponding: activeTaskIsResponding,
-    }) || activeTabContentPending;
+    }) || activeTabContentUnavailable;
   const shouldLoadWorkspaceSupport = Boolean(
     workspaceRootPath &&
     activeTab &&
@@ -788,7 +794,28 @@ export function EditorMainPanel() {
 
         <div className="min-h-0 flex-1 overflow-hidden">
           {activeTab ? (
-            activeTabContentPending ? (
+            activeTabContentTooLarge ? (
+              <div className="flex h-full items-center justify-center bg-editor p-6">
+                <Empty className="border-none bg-transparent p-0">
+                  <EmptyHeader className="gap-3">
+                    <EmptyMedia
+                      variant="icon"
+                      className="size-14 rounded-2xl bg-primary/10 text-primary [&_svg:not([class*='size-'])]:size-7"
+                    >
+                      <FileCode2 strokeWidth={1.5} />
+                    </EmptyMedia>
+                    <div className="flex flex-col gap-1">
+                      <EmptyTitle className="text-xl font-semibold">
+                        File is too large to preview
+                      </EmptyTitle>
+                      <EmptyDescription className="max-w-md text-sm">
+                        {`This file is ${formatFileSize(activeTab.fileSizeBytes)}. The built-in editor previews files up to ${formatFileSize(activeTab.fileSizeLimitBytes)}.`}
+                      </EmptyDescription>
+                    </div>
+                  </EmptyHeader>
+                </Empty>
+              </div>
+            ) : activeTabContentPending ? (
               <div className="flex h-full items-center justify-center bg-editor p-6">
                 <Empty className="border-none bg-transparent p-0">
                   <EmptyHeader className="gap-3">

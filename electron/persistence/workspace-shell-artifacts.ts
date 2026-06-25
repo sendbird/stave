@@ -42,7 +42,14 @@ function normalizePersistedEditorTab(tab: PersistedEditorTab): PersistedEditorTa
 }
 
 function canExternalizeEditorTabBody(tab: PersistedEditorTab) {
-  return tab.id.startsWith("file:") && !tab.isDirty;
+  return tab.id.startsWith("file:") && !tab.isDirty && tab.contentState !== "too-large";
+}
+
+function restoreMetadataOnlyContentState(tab: PersistedEditorTab) {
+  if (tab.contentState === "deferred" || tab.contentState === "too-large") {
+    return tab.contentState;
+  }
+  return "ready";
 }
 
 export function prepareWorkspaceShellEditorTabsPersistence(args: {
@@ -145,7 +152,7 @@ export function hydratePersistedWorkspaceEditorTabs(args: {
     return persistedEditorTabs.map((tab) => ({
       ...tab,
       content: tab.content ?? "",
-      contentState: "ready" as const,
+      contentState: restoreMetadataOnlyContentState(tab),
     }));
   }
 
@@ -160,7 +167,7 @@ export function hydratePersistedWorkspaceEditorTabs(args: {
       return {
         ...tab,
         content: tab.content ?? "",
-        contentState: tab.contentState === "deferred" ? "deferred" : "ready",
+        contentState: restoreMetadataOnlyContentState(tab),
       };
     }
     return {
@@ -188,7 +195,7 @@ export function restorePersistedWorkspaceEditorTabs(args: {
     return persistedEditorTabs.map((tab) => ({
       ...tab,
       content: tab.content ?? "",
-      contentState: "ready" as const,
+      contentState: restoreMetadataOnlyContentState(tab),
     }));
   }
 
@@ -215,11 +222,11 @@ export function restorePersistedWorkspaceEditorTabs(args: {
       };
     }
 
-    if (tab.contentState === "deferred") {
+    if (tab.contentState === "deferred" || tab.contentState === "too-large") {
       return {
         ...tab,
         content: tab.content ?? "",
-        contentState: "deferred" as const,
+        contentState: tab.contentState,
       };
     }
 
