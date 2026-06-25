@@ -55,6 +55,7 @@ import {
   type PrePrReviewFinding,
 } from "../../src/lib/source-control-review";
 import {
+  resolveCodexAppServerReasoningEffort,
   resolveEffectiveCodexApprovalPolicy,
   resolveEffectiveCodexFileAccessMode,
 } from "../../src/lib/providers/codex-runtime-options";
@@ -358,7 +359,8 @@ async function hasConnectedStaveLocalMcpForCodex() {
 }
 
 function toCodexUserFacingErrorMessage(args: { message: string }) {
-  const lower = args.message.toLowerCase();
+  const message = formatCodexAppServerErrorMessage(args.message);
+  const lower = message.toLowerCase();
   if (
     lower.includes("auth") ||
     lower.includes("api key") ||
@@ -383,7 +385,41 @@ function toCodexUserFacingErrorMessage(args: { message: string }) {
   ) {
     return "Codex network/model endpoint is unreachable. Check internet/proxy/firewall and retry.";
   }
-  return args.message;
+  return message;
+}
+
+export function formatCodexAppServerErrorMessage(message: string) {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return "Codex App Server error.";
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+  if (!isRecord(parsed)) {
+    return trimmed;
+  }
+
+  const error = isRecord(parsed.error) ? parsed.error : null;
+  const nestedMessage =
+    toTrimmedString(error?.message) ?? toTrimmedString(parsed.message);
+  if (!nestedMessage) {
+    return trimmed;
+  }
+
+  const details = [
+    toTrimmedString(error?.param) ?? toTrimmedString(parsed.param)
+      ? `param: ${toTrimmedString(error?.param) ?? toTrimmedString(parsed.param)}`
+      : null,
+    typeof parsed.status === "number" ? `status: ${parsed.status}` : null,
+  ].filter(Boolean);
+  return details.length > 0
+    ? `${nestedMessage} (${details.join(", ")})`
+    : nestedMessage;
 }
 
 function appendBoundedCodexBuffer(args: {
@@ -412,6 +448,9 @@ export function buildCodexConfigOverrides(args: {
 }) {
   const config: Record<string, string | boolean> = {};
   const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
+  const reasoningEffort = resolveCodexAppServerReasoningEffort({
+    reasoningEffort: args.runtimeOptions?.codexReasoningEffort,
+  });
   const developerInstructions = buildCodexDeveloperInstructions({
     runtimeOptions: args.runtimeOptions,
   });
@@ -450,9 +489,8 @@ export function buildCodexConfigOverrides(args: {
   }
   if (planModeEnabled) {
     config.collaboration_mode_kind = "plan";
-    if (args.runtimeOptions?.codexReasoningEffort) {
-      config.plan_mode_reasoning_effort =
-        args.runtimeOptions.codexReasoningEffort;
+    if (reasoningEffort) {
+      config.plan_mode_reasoning_effort = reasoningEffort;
     }
   }
 
@@ -466,6 +504,9 @@ export function buildCodexTurnStartParams(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   outputSchema?: unknown;
 }) {
+  const reasoningEffort = resolveCodexAppServerReasoningEffort({
+    reasoningEffort: args.runtimeOptions?.codexReasoningEffort,
+  });
   const approvalPolicy = resolveApprovalPolicy({
     runtimeValue: args.runtimeOptions?.codexApprovalPolicy,
     envValue: process.env.STAVE_CODEX_APPROVAL_POLICY?.trim(),
@@ -489,9 +530,7 @@ export function buildCodexTurnStartParams(args: {
       runtimeOptions: args.runtimeOptions,
     }),
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
-    ...(args.runtimeOptions?.codexReasoningEffort
-      ? { effort: args.runtimeOptions.codexReasoningEffort }
-      : {}),
+    ...(reasoningEffort ? { effort: reasoningEffort } : {}),
     ...(args.runtimeOptions?.codexReasoningSummary
       ? { summary: args.runtimeOptions.codexReasoningSummary }
       : {}),
@@ -1117,7 +1156,6 @@ export function summarizeCodexAppServerDebugMessage(message: JsonRpcMessage) {
   const params = isRecord(message.params) ? message.params : null;
   const turn = params && isRecord(params.turn) ? params.turn : null;
   const item = params && isRecord(params.item) ? params.item : null;
-  const error = params && isRecord(params.error) ? params.error : null;
   const turnError = turn && isRecord(turn.error) ? turn.error : null;
 
   return {
@@ -1140,13 +1178,8 @@ export function summarizeCodexAppServerDebugMessage(message: JsonRpcMessage) {
           ? item.status
           : undefined,
     errorMessage:
-      typeof params?.message === "string"
-        ? params.message
-        : typeof error?.message === "string"
-          ? error.message
-          : typeof turnError?.message === "string"
-            ? turnError.message
-            : undefined,
+      extractCodexAppServerErrorMessage(params) ??
+      (typeof turnError?.message === "string" ? turnError.message : undefined),
   };
 }
 
@@ -1154,6 +1187,28 @@ function toTrimmedString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : null;
+}
+
+function extractCodexAppServerErrorMessage(
+  params: Record<string, unknown> | null,
+) {
+  if (!params) {
+    return null;
+  }
+  const directMessage = toTrimmedString(params.message);
+  if (directMessage) {
+    return directMessage;
+  }
+  const error = isRecord(params.error) ? params.error : null;
+  if (!error) {
+    return null;
+  }
+  const errorMessage = toTrimmedString(error.message);
+  if (errorMessage) {
+    return errorMessage;
+  }
+  const nestedError = isRecord(error.error) ? error.error : null;
+  return toTrimmedString(nestedError?.message);
 }
 
 function parseStringOptions(args: {
@@ -3537,9 +3592,8 @@ export async function reviewCodexWorktreeDiff(args: {
 
       if (message.method === "error") {
         failureMessage =
-          typeof params.message === "string"
-            ? params.message
-            : "Codex App Server review turn failed.";
+          extractCodexAppServerErrorMessage(params) ??
+          "Codex App Server review turn failed.";
         resolveCompletion?.();
       }
     });
@@ -4322,9 +4376,8 @@ export async function streamCodexWithAppServer(
       }
       case "error": {
         const errorMessage =
-          typeof params.message === "string"
-            ? params.message
-            : "Codex App Server error.";
+          extractCodexAppServerErrorMessage(params) ??
+          "Codex App Server error.";
         emitBridgeEvent({
           type: "error",
           message: toCodexUserFacingErrorMessage({ message: errorMessage }),

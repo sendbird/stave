@@ -254,6 +254,9 @@ If you want the user-facing setup workflow instead of the runtime internals, use
   - `minimal` / `low`: fastest.
   - `medium`: balanced default.
   - `high` / `xhigh`: slower, more deliberate.
+  - Codex App Server turns normalize `minimal` to `low` because the current
+    upstream model API rejects built-in tools such as `image_gen` and
+    `web_search` with `reasoning.effort = minimal`.
 - `reasoning summary`
   - `auto`: let Codex decide.
   - `concise`: short summary.

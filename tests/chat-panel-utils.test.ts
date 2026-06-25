@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  formatInlineSystemEventContent,
   getLatestRenderableAssistantMessage,
   getReasoningTraceExpansionMode,
   getVisibleMessageParts,
@@ -346,10 +347,33 @@ describe("system event visibility", () => {
     expect(isCodeDiffSummarySystemEvent("Skipped inline diff for file(s): src/a.ts")).toBe(true);
   });
 
-  test("hides inline error-like system events", () => {
-    expect(shouldRenderInlineSystemEvent({ content: "[error] provider unavailable" })).toBe(false);
+  test("shows provider errors inline while hiding generic failure notices", () => {
+    expect(shouldRenderInlineSystemEvent({ content: "[error] provider unavailable" })).toBe(true);
+    expect(shouldRenderInlineSystemEvent({
+      content: "[error] Codex App Server error.",
+    })).toBe(true);
+    expect(shouldRenderInlineSystemEvent({
+      content: "Provider error: Codex authentication failed.",
+    })).toBe(true);
     expect(shouldRenderInlineSystemEvent({ content: "Approval delivery failed: timeout" })).toBe(false);
     expect(hasVisibleMessagePartContent({ type: "system_event", content: "Rollback failed." })).toBe(false);
+  });
+
+  test("formats raw provider JSON errors for inline display", () => {
+    expect(formatInlineSystemEventContent({
+      content: `[error] ${JSON.stringify({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message:
+            "The following tools cannot be used with reasoning.effort 'minimal': image_gen, web_search.",
+          param: "tools",
+        },
+        status: 400,
+      })}`,
+    })).toBe(
+      "Provider error: The following tools cannot be used with reasoning.effort 'minimal': image_gen, web_search. (param: tools, status: 400)",
+    );
   });
 
   test("keeps useful non-error notices visible inline", () => {

@@ -6,6 +6,7 @@ import {
   buildCodexThreadStartParams,
   buildCodexTurnStartParams,
   createCodexAppServerElicitationPauseController,
+  formatCodexAppServerErrorMessage,
   formatCodexGoal,
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
@@ -447,6 +448,20 @@ describe("Codex App Server plan-mode payloads", () => {
     });
   });
 
+  test("normalizes minimal plan reasoning to low for app-server tool compatibility", () => {
+    const config = buildCodexConfigOverrides({
+      runtimeOptions: {
+        codexPlanMode: true,
+        codexReasoningEffort: "minimal",
+      },
+    });
+
+    expect(config).toMatchObject({
+      collaboration_mode_kind: "plan",
+      plan_mode_reasoning_effort: "low",
+    });
+  });
+
   test("keeps thread/start payload within generated schema keys", () => {
     const params = buildCodexThreadStartParams({
       cwd: "/tmp/project",
@@ -561,6 +576,23 @@ describe("Codex App Server plan-mode payloads", () => {
       },
     });
   });
+
+  test("normalizes minimal turn reasoning to low for app-server tool compatibility", () => {
+    const params = buildCodexTurnStartParams({
+      threadId: "thread-1",
+      prompt: "Run a normal turn.",
+      cwd: "/tmp/project",
+      runtimeOptions: {
+        codexReasoningEffort: "minimal",
+        codexWebSearch: "cached",
+      },
+    });
+
+    expectGeneratedTurnStartParamKeys(params);
+    expect(params).toMatchObject({
+      effort: "low",
+    });
+  });
 });
 
 describe("summarizeCodexAppServerDebugMessage", () => {
@@ -609,6 +641,21 @@ describe("summarizeCodexAppServerDebugMessage", () => {
       status: "failed",
       errorMessage: "Codex turn timed out waiting for completion.",
     });
+  });
+
+  test("formats nested model API JSON errors", () => {
+    expect(formatCodexAppServerErrorMessage(JSON.stringify({
+      type: "error",
+      error: {
+        type: "invalid_request_error",
+        message:
+          "The following tools cannot be used with reasoning.effort 'minimal': image_gen, web_search.",
+        param: "tools",
+      },
+      status: 400,
+    }))).toBe(
+      "The following tools cannot be used with reasoning.effort 'minimal': image_gen, web_search. (param: tools, status: 400)",
+    );
   });
 });
 

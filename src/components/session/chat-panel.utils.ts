@@ -360,6 +360,66 @@ export function isSubagentProgressSystemEvent(content: string): boolean {
   return content.trimStart().startsWith("Subagent progress:");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function toTrimmedString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function stripProviderErrorPrefix(content: string) {
+  return content.trim().replace(/^\[error\]\s*/i, "");
+}
+
+export function isProviderErrorSystemEvent(content: string): boolean {
+  const normalized = content.trim().toLowerCase();
+  return (
+    normalized.startsWith("[error]") || normalized.startsWith("provider error:")
+  );
+}
+
+export function formatInlineSystemEventContent(args: { content: string }) {
+  if (!isProviderErrorSystemEvent(args.content)) {
+    return args.content;
+  }
+
+  const body = stripProviderErrorPrefix(args.content);
+  if (!body) {
+    return "Provider error.";
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return body.toLowerCase().startsWith("provider error:")
+      ? body
+      : `Provider error: ${body}`;
+  }
+
+  if (!isRecord(parsed)) {
+    return `Provider error: ${body}`;
+  }
+  const error = isRecord(parsed.error) ? parsed.error : null;
+  const message =
+    toTrimmedString(error?.message) ?? toTrimmedString(parsed.message);
+  if (!message) {
+    return `Provider error: ${body}`;
+  }
+  const details = [
+    toTrimmedString(error?.param) ?? toTrimmedString(parsed.param)
+      ? `param: ${toTrimmedString(error?.param) ?? toTrimmedString(parsed.param)}`
+      : null,
+    typeof parsed.status === "number" ? `status: ${parsed.status}` : null,
+  ].filter(Boolean);
+  return details.length > 0
+    ? `Provider error: ${message} (${details.join(", ")})`
+    : `Provider error: ${message}`;
+}
+
 export function shouldRenderInlineSystemEvent(args: { content: string }): boolean {
   const normalized = args.content.trim().toLowerCase();
   if (!normalized) {
@@ -370,6 +430,9 @@ export function shouldRenderInlineSystemEvent(args: { content: string }): boolea
   }
   if (isCodeDiffSummarySystemEvent(args.content)) {
     return false;
+  }
+  if (isProviderErrorSystemEvent(args.content)) {
+    return true;
   }
   if (normalized.startsWith("[error]")) {
     return false;

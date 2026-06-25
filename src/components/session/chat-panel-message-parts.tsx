@@ -24,6 +24,7 @@ import {
   isSubagentToolPart,
   isTodoToolPart,
   shouldAutoOpenToolPart,
+  formatInlineSystemEventContent,
   shouldRenderInlineSystemEvent,
 } from "@/components/session/chat-panel.utils";
 import { copyTextToClipboard } from "@/lib/clipboard";
@@ -224,10 +225,13 @@ export function MessagePartRenderer(args: {
       if (truncationNotice) {
         return <TruncationWarningBanner notice={truncationNotice} />;
       }
+      const displayContent = formatInlineSystemEventContent({
+        content: part.content,
+      });
       return (
         <LinkifiedText
           as="p"
-          text={part.content}
+          text={displayContent}
           className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[0.875em] italic text-muted-foreground"
         />
       );
