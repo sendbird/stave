@@ -21,6 +21,11 @@ import {
 import { openExternalWithFallback } from "../utils/external-url";
 import { toAsarUnpackedPath } from "../../providers/executable-path";
 import {
+  WORKSPACE_IMAGE_PREVIEW_MAX_BYTES,
+  WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES,
+  formatFileSize,
+} from "../../../src/lib/fs/file-preview-limits";
+import {
   listDirectoryEntries,
   listFilesRecursive,
   mimeTypeFromFilePath,
@@ -424,11 +429,28 @@ export function registerFilesystemHandlers() {
       return { ok: false, content: "", revision: "", stderr: "Invalid file path." };
     }
     try {
-      const [content, stat] = await Promise.all([fs.readFile(absolutePath, "utf8"), fs.stat(absolutePath)]);
+      const stat = await fs.stat(absolutePath);
+      if (!stat.isFile()) {
+        return { ok: false, content: "", revision: "", stderr: "Path is not a file." };
+      }
+      const revision = revisionFromStat({ size: stat.size, mtimeMs: stat.mtimeMs });
+      if (stat.size > WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES) {
+        return {
+          ok: false,
+          content: "",
+          revision,
+          tooLarge: true,
+          sizeBytes: stat.size,
+          maxSizeBytes: WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES,
+          stderr: `File is too large to preview (${formatFileSize(stat.size)}).`,
+        };
+      }
+
+      const content = await fs.readFile(absolutePath, "utf8");
       return {
         ok: true,
         content,
-        revision: revisionFromStat({ size: stat.size, mtimeMs: stat.mtimeMs }),
+        revision,
       };
     } catch (error) {
       return { ok: false, content: "", revision: "", stderr: String(error) };
@@ -445,12 +467,29 @@ export function registerFilesystemHandlers() {
       return { ok: false, dataUrl: "", revision: "", stderr: "Invalid file path." };
     }
     try {
-      const [buffer, stat] = await Promise.all([fs.readFile(absolutePath), fs.stat(absolutePath)]);
+      const stat = await fs.stat(absolutePath);
+      if (!stat.isFile()) {
+        return { ok: false, dataUrl: "", revision: "", stderr: "Path is not a file." };
+      }
+      const revision = revisionFromStat({ size: stat.size, mtimeMs: stat.mtimeMs });
+      if (stat.size > WORKSPACE_IMAGE_PREVIEW_MAX_BYTES) {
+        return {
+          ok: false,
+          dataUrl: "",
+          revision,
+          tooLarge: true,
+          sizeBytes: stat.size,
+          maxSizeBytes: WORKSPACE_IMAGE_PREVIEW_MAX_BYTES,
+          stderr: `Image is too large to preview (${formatFileSize(stat.size)}).`,
+        };
+      }
+
+      const buffer = await fs.readFile(absolutePath);
       const mimeType = mimeTypeFromFilePath({ filePath: parsed.data.filePath });
       return {
         ok: true,
         dataUrl: `data:${mimeType};base64,${buffer.toString("base64")}`,
-        revision: revisionFromStat({ size: stat.size, mtimeMs: stat.mtimeMs }),
+        revision,
       };
     } catch (error) {
       return { ok: false, dataUrl: "", revision: "", stderr: String(error) };

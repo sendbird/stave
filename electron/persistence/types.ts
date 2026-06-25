@@ -51,10 +51,12 @@ export interface PersistenceWorkspaceSnapshot {
     kind?: "text" | "image";
     language: string;
     content?: string;
-    contentState?: "ready" | "deferred" | "loading";
+    contentState?: "ready" | "deferred" | "loading" | "too-large";
     originalContent?: string;
     savedContent?: string;
     baseRevision?: string | null;
+    fileSizeBytes?: number;
+    fileSizeLimitBytes?: number;
     hasConflict: boolean;
     isDirty: boolean;
   }>;
@@ -82,10 +84,12 @@ export interface PersistenceWorkspaceShell {
     kind?: "text" | "image";
     language: string;
     content?: string;
-    contentState?: "ready" | "deferred" | "loading";
+    contentState?: "ready" | "deferred" | "loading" | "too-large";
     originalContent?: string;
     savedContent?: string;
     baseRevision?: string | null;
+    fileSizeBytes?: number;
+    fileSizeLimitBytes?: number;
     hasConflict: boolean;
     isDirty: boolean;
   }>;

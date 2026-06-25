@@ -9,6 +9,10 @@ import type {
   WorkspaceRootInfo,
   WorkspaceWriteResult,
 } from "@/lib/fs/fs.types";
+import {
+  WORKSPACE_IMAGE_PREVIEW_MAX_BYTES,
+  WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES,
+} from "@/lib/fs/file-preview-limits";
 
 interface WindowWithPicker extends Window {
   showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
@@ -156,9 +160,20 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     }
 
     const file = await handle.getFile();
+    const revision = buildRevision({ size: file.size, lastModified: file.lastModified });
+    if (file.size > WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES) {
+      return {
+        content: "",
+        revision,
+        tooLarge: true,
+        sizeBytes: file.size,
+        maxSizeBytes: WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES,
+      };
+    }
+
     return {
       content: await file.text(),
-      revision: buildRevision({ size: file.size, lastModified: file.lastModified }),
+      revision,
     };
   }
 
@@ -169,11 +184,22 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     }
 
     const file = await handle.getFile();
+    const revision = buildRevision({ size: file.size, lastModified: file.lastModified });
+    if (file.size > WORKSPACE_IMAGE_PREVIEW_MAX_BYTES) {
+      return {
+        dataUrl: "",
+        revision,
+        tooLarge: true,
+        sizeBytes: file.size,
+        maxSizeBytes: WORKSPACE_IMAGE_PREVIEW_MAX_BYTES,
+      };
+    }
+
     const bytes = new Uint8Array(await file.arrayBuffer());
     const mimeType = file.type || "application/octet-stream";
     return {
       dataUrl: `data:${mimeType};base64,${toBase64({ bytes })}`,
-      revision: buildRevision({ size: file.size, lastModified: file.lastModified }),
+      revision,
     };
   }
 

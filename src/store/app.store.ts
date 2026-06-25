@@ -17,6 +17,10 @@ import {
   markNotificationRead as markPersistedNotificationRead,
 } from "@/lib/db/notifications.db";
 import { workspaceFsAdapter } from "@/lib/fs";
+import type {
+  WorkspaceFileData,
+  WorkspaceImageData,
+} from "@/lib/fs/fs.types";
 import { formatWithEslint } from "@/components/layout/editor-language-intelligence";
 import {
   listWorkspaceSummaries,
@@ -759,7 +763,10 @@ async function getDraftFileContexts(args: {
     seenFilePaths.add(filePath);
 
     const openTab = args.session.editorTabs.find(
-      (tab) => tab.filePath === filePath && tab.kind !== "image",
+      (tab) =>
+        tab.filePath === filePath &&
+        tab.kind !== "image" &&
+        (!tab.contentState || tab.contentState === "ready"),
     );
     if (openTab) {
       nextFileContexts.push({
@@ -804,6 +811,24 @@ function getWorkspaceSwitchMetricNow() {
     typeof performance.now === "function"
     ? performance.now()
     : Date.now();
+}
+
+function getTooLargeEditorTabMetadata(
+  data: WorkspaceFileData | WorkspaceImageData | null | undefined,
+): Pick<
+  EditorTab,
+  "contentState" | "baseRevision" | "fileSizeBytes" | "fileSizeLimitBytes"
+> | null {
+  if (!data?.tooLarge) {
+    return null;
+  }
+
+  return {
+    contentState: "too-large",
+    baseRevision: data.revision || null,
+    fileSizeBytes: data.sizeBytes,
+    fileSizeLimitBytes: data.maxSizeBytes,
+  };
 }
 
 function beginWorkspaceIdentityRequest() {
@@ -3859,7 +3884,8 @@ export const useAppStore = create<AppState>()(
           if (
             !targetTab ||
             targetTab.contentState === "ready" ||
-            targetTab.contentState === "loading"
+            targetTab.contentState === "loading" ||
+            targetTab.contentState === "too-large"
           ) {
             return {};
           }
@@ -3884,6 +3910,9 @@ export const useAppStore = create<AppState>()(
         let body = null as
           | Awaited<ReturnType<typeof loadWorkspaceEditorTabBodies>>[number]
           | null;
+        let tooLargeMetadata: ReturnType<
+          typeof getTooLargeEditorTabMetadata
+        > = null;
         try {
           body =
             (
@@ -3913,12 +3942,15 @@ export const useAppStore = create<AppState>()(
             });
           }
           if (fileData) {
-            body = {
-              id: args.tabId,
-              content: fileData.content,
-              originalContent: fileData.content,
-              savedContent: fileData.content,
-            };
+            tooLargeMetadata = getTooLargeEditorTabMetadata(fileData);
+            if (!tooLargeMetadata) {
+              body = {
+                id: args.tabId,
+                content: fileData.content,
+                originalContent: fileData.content,
+                savedContent: fileData.content,
+              };
+            }
           }
         }
 
@@ -3936,6 +3968,20 @@ export const useAppStore = create<AppState>()(
             editorTabs: state.editorTabs.map((tab) => {
               if (tab.id !== args.tabId) {
                 return tab;
+              }
+              if (tooLargeMetadata) {
+                return {
+                  ...tab,
+                  content: "",
+                  contentState: "too-large",
+                  originalContent: undefined,
+                  savedContent: undefined,
+                  baseRevision: tooLargeMetadata.baseRevision,
+                  fileSizeBytes: tooLargeMetadata.fileSizeBytes,
+                  fileSizeLimitBytes: tooLargeMetadata.fileSizeLimitBytes,
+                  hasConflict: false,
+                  isDirty: false,
+                };
               }
               if (!body) {
                 return {
@@ -11123,9 +11169,14 @@ export const useAppStore = create<AppState>()(
               };
             }
 
+            const tooLargeMetadata = getTooLargeEditorTabMetadata(
+              isImageFile ? imageData : fileData,
+            );
             const fileContent = isImageFile
-              ? (imageData?.dataUrl ?? "")
-              : (fileData?.content ?? fallbackContent ?? "");
+              ? (tooLargeMetadata ? "" : (imageData?.dataUrl ?? ""))
+              : (tooLargeMetadata
+                  ? ""
+                  : (fileData?.content ?? fallbackContent ?? ""));
             const baseRevision = isImageFile
               ? (imageData?.revision ?? null)
               : (fileData?.revision ?? null);
@@ -11135,10 +11186,14 @@ export const useAppStore = create<AppState>()(
               kind: isImageFile ? "image" : "text",
               language: resolveLanguage({ filePath: normalizedFilePath }),
               content: fileContent,
-              contentState: "ready",
-              originalContent: isImageFile ? undefined : fileContent,
-              savedContent: isImageFile ? undefined : fileContent,
-              baseRevision,
+              contentState: tooLargeMetadata?.contentState ?? "ready",
+              originalContent:
+                isImageFile || tooLargeMetadata ? undefined : fileContent,
+              savedContent:
+                isImageFile || tooLargeMetadata ? undefined : fileContent,
+              baseRevision: tooLargeMetadata?.baseRevision ?? baseRevision,
+              fileSizeBytes: tooLargeMetadata?.fileSizeBytes,
+              fileSizeLimitBytes: tooLargeMetadata?.fileSizeLimitBytes,
               hasConflict: false,
               isDirty: false,
             };
@@ -11438,14 +11493,33 @@ export const useAppStore = create<AppState>()(
             revision: string;
             dirty: boolean;
             kind: "text" | "image";
+            tooLarge?: boolean;
+            sizeBytes?: number;
+            maxSizeBytes?: number;
           }> = [];
 
           for (const tab of state.editorTabs) {
+            if (tab.contentState && tab.contentState !== "ready") {
+              continue;
+            }
             if (tab.kind === "image") {
               const imageDisk = await workspaceFsAdapter.readFileDataUrl({
                 filePath: tab.filePath,
               });
               if (!imageDisk) {
+                continue;
+              }
+              if (imageDisk.tooLarge) {
+                updates.push({
+                  tabId: tab.id,
+                  fromDisk: "",
+                  revision: imageDisk.revision,
+                  dirty: tab.isDirty,
+                  kind: "image",
+                  tooLarge: true,
+                  sizeBytes: imageDisk.sizeBytes,
+                  maxSizeBytes: imageDisk.maxSizeBytes,
+                });
                 continue;
               }
               if (tab.baseRevision && imageDisk.revision === tab.baseRevision) {
@@ -11465,6 +11539,19 @@ export const useAppStore = create<AppState>()(
               filePath: tab.filePath,
             });
             if (!disk) {
+              continue;
+            }
+            if (disk.tooLarge) {
+              updates.push({
+                tabId: tab.id,
+                fromDisk: "",
+                revision: disk.revision,
+                dirty: tab.isDirty,
+                kind: "text",
+                tooLarge: true,
+                sizeBytes: disk.sizeBytes,
+                maxSizeBytes: disk.maxSizeBytes,
+              });
               continue;
             }
 
@@ -11497,6 +11584,21 @@ export const useAppStore = create<AppState>()(
                   ...tab,
                   hasConflict: true,
                   baseRevision: update.revision,
+                };
+              }
+
+              if (update.tooLarge) {
+                return {
+                  ...tab,
+                  content: "",
+                  contentState: "too-large",
+                  originalContent: undefined,
+                  savedContent: undefined,
+                  baseRevision: update.revision,
+                  fileSizeBytes: update.sizeBytes,
+                  fileSizeLimitBytes: update.maxSizeBytes,
+                  hasConflict: false,
+                  isDirty: false,
                 };
               }
 

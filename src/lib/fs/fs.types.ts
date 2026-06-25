@@ -15,11 +15,17 @@ export interface WorkspaceDirectoryEntry {
 export interface WorkspaceFileData {
   content: string;
   revision: string;
+  tooLarge?: boolean;
+  sizeBytes?: number;
+  maxSizeBytes?: number;
 }
 
 export interface WorkspaceImageData {
   dataUrl: string;
   revision: string;
+  tooLarge?: boolean;
+  sizeBytes?: number;
+  maxSizeBytes?: number;
 }
 
 export interface WorkspaceWriteResult {

@@ -103,13 +103,16 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     }
 
     const result = await readFile({ rootPath: this.rootPath, filePath: args.filePath });
-    if (!result.ok) {
+    if (!result.ok && !result.tooLarge) {
       return null;
     }
 
     return {
       content: result.content,
       revision: result.revision,
+      tooLarge: result.tooLarge,
+      sizeBytes: result.sizeBytes,
+      maxSizeBytes: result.maxSizeBytes,
     };
   }
 
@@ -122,12 +125,15 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
       return null;
     }
     const result = await readFileDataUrl({ rootPath: this.rootPath, filePath: args.filePath });
-    if (!result.ok) {
+    if (!result.ok && !result.tooLarge) {
       return null;
     }
     return {
       dataUrl: result.dataUrl,
       revision: result.revision,
+      tooLarge: result.tooLarge,
+      sizeBytes: result.sizeBytes,
+      maxSizeBytes: result.maxSizeBytes,
     };
   }
 

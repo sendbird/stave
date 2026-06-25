@@ -247,12 +247,19 @@ const EditorTabSchema = z.object({
   language: z.string(),
   content: z.string().optional().default(""),
   contentState: z
-    .union([z.literal("ready"), z.literal("deferred"), z.literal("loading")])
+    .union([
+      z.literal("ready"),
+      z.literal("deferred"),
+      z.literal("loading"),
+      z.literal("too-large"),
+    ])
     .optional()
     .default("ready"),
   originalContent: z.string().optional(),
   savedContent: z.string().optional(),
   baseRevision: z.string().nullable().optional(),
+  fileSizeBytes: z.number().optional(),
+  fileSizeLimitBytes: z.number().optional(),
   hasConflict: z.boolean(),
   isDirty: z.boolean(),
 });
