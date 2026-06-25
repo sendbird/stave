@@ -1,3 +1,15 @@
+## [0.7.3](https://github.com/sendbird/stave/compare/v0.7.2...v0.7.3) (2026-06-25)
+
+### Fixes
+
+* Normalize Codex App Server `minimal` reasoning effort to `low` to avoid API rejections, and extract nested error messages for clearer inline display.
+* Prevent application freeze when loading large files by checking file size before reading; oversized files report a `too-large` state with actionable size metadata instead of blocking the renderer.
+
+### References
+
+* [#64](https://github.com/sendbird/stave/pull/64)
+* [#65](https://github.com/sendbird/stave/pull/65)
+
 # Changelog
 
 All notable changes to Stave are documented in this file.
