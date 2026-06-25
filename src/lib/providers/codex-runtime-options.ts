@@ -2,6 +2,9 @@ import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 
 export type CodexApprovalPolicy = NonNullable<ProviderRuntimeOptions["codexApprovalPolicy"]>;
 export type CodexFileAccessMode = NonNullable<ProviderRuntimeOptions["codexFileAccess"]>;
+export type CodexReasoningEffort = NonNullable<
+  ProviderRuntimeOptions["codexReasoningEffort"]
+>;
 
 export function resolveEffectiveCodexApprovalPolicy(args: {
   approvalPolicy?: string;
@@ -42,4 +45,23 @@ export function resolveEffectiveCodexFileAccessMode(args: {
   }
 
   return args.fallback ?? "workspace-write";
+}
+
+export function resolveCodexAppServerReasoningEffort(args: {
+  reasoningEffort?: ProviderRuntimeOptions["codexReasoningEffort"];
+}): CodexReasoningEffort | undefined {
+  if (
+    args.reasoningEffort !== "minimal" &&
+    args.reasoningEffort !== "low" &&
+    args.reasoningEffort !== "medium" &&
+    args.reasoningEffort !== "high" &&
+    args.reasoningEffort !== "xhigh"
+  ) {
+    return undefined;
+  }
+
+  // Current Codex App Server exposes built-in tools such as image_gen and
+  // web_search on ordinary turns, and the upstream model API rejects those
+  // tools when reasoning.effort is "minimal".
+  return args.reasoningEffort === "minimal" ? "low" : args.reasoningEffort;
 }
