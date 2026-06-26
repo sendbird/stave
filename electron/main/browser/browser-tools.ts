@@ -24,7 +24,9 @@ import {
   evaluateExpression,
   getAccessibilitySnapshot,
   getDocumentHTML,
+  getElementBoxModel,
   getTextContent,
+  measureElements,
   setElementStyle,
   typeText,
 } from "./browser-cdp";
@@ -470,6 +472,47 @@ export function registerBrowserTools(server: McpServer): void {
         style,
       );
       return toStructuredResult({ ok: true, edits });
+    },
+  );
+
+  // ---- Inspect box model ----
+  server.registerTool(
+    "stave_lens_inspect",
+    {
+      description:
+        "Inspect an element's box model in the workspace Lens browser - like the Figma/DevTools inspector. Returns the border-box rect, content size, and per-side padding, border, and margin values (in CSS pixels).",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        selector: z.string().describe("CSS selector of the element to inspect"),
+      },
+    },
+    async ({ workspaceId, selector }) => {
+      const session = requireSession(workspaceId);
+      const box = await getElementBoxModel(session.view.webContents.id, selector);
+      return toStructuredResult({ ok: true, box });
+    },
+  );
+
+  // ---- Measure distance between two elements ----
+  server.registerTool(
+    "stave_lens_measure",
+    {
+      description:
+        "Measure the pixel gap between two elements in the workspace Lens browser (Figma-style spacing). Returns the horizontal and vertical gaps between their nearest facing edges plus each element's box model.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        selectorA: z.string().describe("CSS selector of the first element"),
+        selectorB: z.string().describe("CSS selector of the second element"),
+      },
+    },
+    async ({ workspaceId, selectorA, selectorB }) => {
+      const session = requireSession(workspaceId);
+      const result = await measureElements(
+        session.view.webContents.id,
+        selectorA,
+        selectorB,
+      );
+      return toStructuredResult({ ok: true, ...result });
     },
   );
 

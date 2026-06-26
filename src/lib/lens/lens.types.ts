@@ -109,6 +109,46 @@ export interface LensStyleEdit {
   after: string;
 }
 
+// ---------------------------------------------------------------------------
+// Box model inspection (Figma/DevTools-style padding / border / margin)
+// ---------------------------------------------------------------------------
+
+/** Per-side CSS-pixel values for one box-model ring. */
+export interface LensBoxEdges {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+export interface LensBoxModel {
+  selector: string;
+  tagName: string;
+  id: string;
+  classList: string[];
+  /** Viewport-relative border-box rect (matches getBoundingClientRect). */
+  rect: LensRect;
+  /** Content-box size in CSS pixels. */
+  content: { width: number; height: number };
+  padding: LensBoxEdges;
+  border: LensBoxEdges;
+  margin: LensBoxEdges;
+  /** Resolved box-sizing (content-box | border-box). */
+  boxSizing: string;
+}
+
+/** Gap measurement between two elements' nearest facing edges. */
+export interface LensMeasurement {
+  /** Horizontal gap in CSS px; 0 when the boxes overlap on the X axis. */
+  horizontal: number;
+  /** Vertical gap in CSS px; 0 when the boxes overlap on the Y axis. */
+  vertical: number;
+  /** True when the two boxes overlap horizontally. */
+  overlapX: boolean;
+  /** True when the two boxes overlap vertically. */
+  overlapY: boolean;
+}
+
 export interface LensAnnotation {
   /** Stable id generated in-page. */
   id: string;

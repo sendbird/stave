@@ -12,6 +12,7 @@ import {
   type BrowserSessionState,
 } from "./browser-manager";
 import { getAnnotationOverlayScript } from "./browser-annotation-overlay";
+import { getBoxInspectScript } from "./browser-box-inspect";
 import { getMainWindow } from "../window";
 
 function toIso(): string {
@@ -61,6 +62,17 @@ export async function injectAnnotationOverlay(
   );
 }
 
+export async function injectBoxInspectOverlay(
+  workspaceId: string,
+  wc: Electron.WebContents,
+): Promise<void> {
+  const session = getBrowserSession(workspaceId);
+  if (!session?.boxInspectActive) {
+    return;
+  }
+  await wc.executeJavaScript(getBoxInspectScript());
+}
+
 export function attachBrowserSessionEventListeners(
   workspaceId: string,
   wc: Electron.WebContents,
@@ -92,6 +104,16 @@ export function attachBrowserSessionEventListeners(
       pushConsoleEntry(workspaceId, {
         level: "warn",
         text: `Annotation overlay reinjection failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        timestamp: toIso(),
+        source: wc.getURL(),
+      });
+    });
+    void injectBoxInspectOverlay(workspaceId, wc).catch((error) => {
+      pushConsoleEntry(workspaceId, {
+        level: "warn",
+        text: `Box inspect overlay reinjection failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
         timestamp: toIso(),

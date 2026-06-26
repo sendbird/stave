@@ -1637,6 +1637,7 @@ interface WindowLensApi {
     ok: boolean;
     state?: LensNavigationState;
     annotationModeActive?: boolean;
+    boxInspectModeActive?: boolean;
     message?: string;
   }>;
   screenshot?: (args: {
@@ -1704,6 +1705,12 @@ interface WindowLensApi {
     options?: { extractDebugSource?: boolean };
   }) => Promise<{ ok: boolean; message?: string }>;
   stopAnnotationMode?: (args: {
+    workspaceId: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  startBoxInspect?: (args: {
+    workspaceId: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  stopBoxInspect?: (args: {
     workspaceId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
   getAnnotations?: (args: { workspaceId: string }) => Promise<{
