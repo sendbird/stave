@@ -24,6 +24,7 @@ import type {
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import {
+  openOrbitUrlWithLensPriority,
   buildScriptRunFailureState,
   type ScriptUiState,
   reduceScriptUiState,
@@ -41,17 +42,36 @@ function openExternalUrl(url: string) {
   void window.api?.shell?.openExternal?.({ url: url.trim() });
 }
 
+function isLargeViewportNow() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+  return window.matchMedia("(min-width: 1024px)").matches;
+}
+
 /* ---------- Orbit URL pill ---------- */
-function OrbitUrlBadge(props: { url: string }) {
+function OrbitUrlBadge(props: {
+  url: string;
+  lensAvailable: boolean;
+  onOpenInLens: (url: string) => Promise<void>;
+}) {
   return (
     <button
       type="button"
-      className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-primary/25 bg-primary/8 px-2 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15 active:bg-primary/20"
-      onClick={() => openExternalUrl(props.url)}
+      className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-md border border-primary/25 bg-primary/8 px-2 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15 active:bg-primary/20"
+      onClick={() => void props.onOpenInLens(props.url)}
+      title={props.lensAvailable ? "Open in Lens" : "Open in browser"}
+      aria-label={props.lensAvailable ? "Open Orbit URL in Lens" : "Open Orbit URL in browser"}
     >
       <Globe className="size-3 shrink-0" />
       <span className="truncate">{props.url}</span>
-      <ExternalLink className="size-3 shrink-0 opacity-60" />
+      {props.lensAvailable ? (
+        <span className="shrink-0 rounded-sm bg-primary/10 px-1 text-[10px] leading-4">
+          Lens
+        </span>
+      ) : (
+        <ExternalLink className="size-3 shrink-0 opacity-60" />
+      )}
     </button>
   );
 }
@@ -140,6 +160,8 @@ function ScriptEntryRow(props: {
   targetLabel: string;
   orbitEnabled: boolean;
   state: ScriptUiState | undefined;
+  lensAvailable: boolean;
+  onOpenOrbitUrlInLens: (url: string) => Promise<void>;
   onRun: (args: { scriptId: string; scriptKind: ScriptKind }) => Promise<void>;
   onStop: (args: { scriptId: string; scriptKind: ScriptKind }) => Promise<void>;
 }) {
@@ -176,19 +198,38 @@ function ScriptEntryRow(props: {
           {state?.sourceLabel ? (
             <p className="text-[11px] text-muted-foreground/70">{state.sourceLabel}</p>
           ) : null}
-          {state?.orbitUrl ? <OrbitUrlBadge url={state.orbitUrl} /> : null}
+          {state?.orbitUrl ? (
+            <OrbitUrlBadge
+              url={state.orbitUrl}
+              lensAvailable={props.lensAvailable}
+              onOpenInLens={props.onOpenOrbitUrlInLens}
+            />
+          ) : null}
         </div>
         <div className="flex items-center gap-1.5">
           {state?.orbitUrl ? (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-7 rounded-md"
-              onClick={() => void copyTextToClipboard(state.orbitUrl ?? "")}
-              title="Copy URL"
-            >
-              <Copy className="size-3.5" />
-            </Button>
+            <>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-7 rounded-md"
+                onClick={() => openExternalUrl(state.orbitUrl ?? "")}
+                title="Open in browser"
+                aria-label="Open Orbit URL in browser"
+              >
+                <ExternalLink className="size-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-7 rounded-md"
+                onClick={() => void copyTextToClipboard(state.orbitUrl ?? "")}
+                title="Copy URL"
+                aria-label="Copy Orbit URL"
+              >
+                <Copy className="size-3.5" />
+              </Button>
+            </>
           ) : null}
           <Button
             size="sm"
@@ -229,6 +270,8 @@ export function WorkspaceScriptsPanel(props: {
     workspaces,
     tasks,
     activeTurnIdsByTask,
+    lensSessionScope,
+    setLayout,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
     state.activeTaskId,
@@ -238,6 +281,8 @@ export function WorkspaceScriptsPanel(props: {
     state.workspaces,
     state.tasks,
     state.activeTurnIdsByTask,
+    state.settings.lensSessionScope,
+    state.setLayout,
   ] as const));
 
   const workspaceName = useMemo(
@@ -389,6 +434,25 @@ export function WorkspaceScriptsPanel(props: {
     }
   }, [activeWorkspaceId]);
 
+  const openOrbitUrlInLens = useCallback(async (url: string) => {
+    const result = await openOrbitUrlWithLensPriority({
+      url,
+      workspaceId: activeWorkspaceId,
+      projectPath,
+      lensSessionScope,
+      lensApi: window.api?.lens ?? null,
+      isLargeViewport: isLargeViewportNow(),
+      setLayout,
+      openExternalUrl,
+    });
+
+    if (!result.ok) {
+      toast.error("Lens navigation failed", {
+        description: result.message,
+      });
+    }
+  }, [activeWorkspaceId, lensSessionScope, projectPath, setLayout]);
+
   const runHook = useCallback(async (trigger: ScriptTrigger) => {
     const api = window.api?.scripts?.runHook;
     if (!api || !activeWorkspaceId || !projectPath || !workspacePath) {
@@ -432,6 +496,9 @@ export function WorkspaceScriptsPanel(props: {
   const hookCount = hookEntries.length;
   const hasScripts = actionCount > 0 || serviceCount > 0 || hookCount > 0;
   const hasWorkspaceOverride = Boolean(projectPath && workspacePath && workspacePath !== projectPath);
+  const lensAvailable =
+    typeof window !== "undefined" &&
+    Boolean(window.api?.lens?.createView && window.api?.lens?.navigate);
 
   const openScriptSettings = useCallback(() => {
     props.onOpenSettings?.({
@@ -542,6 +609,8 @@ export function WorkspaceScriptsPanel(props: {
                 targetLabel={entry.target.label}
                 orbitEnabled={Boolean(entry.orbit)}
                 state={entryStateByKey[scriptEntryKey(entry)]}
+                lensAvailable={lensAvailable}
+                onOpenOrbitUrlInLens={openOrbitUrlInLens}
                 onRun={runEntry}
                 onStop={stopEntry}
               />
@@ -563,6 +632,8 @@ export function WorkspaceScriptsPanel(props: {
                 targetLabel={entry.target.label}
                 orbitEnabled={Boolean(entry.orbit)}
                 state={entryStateByKey[scriptEntryKey(entry)]}
+                lensAvailable={lensAvailable}
+                onOpenOrbitUrlInLens={openOrbitUrlInLens}
                 onRun={runEntry}
                 onStop={stopEntry}
               />
