@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildChatInputGoalStatus,
   buildChatInputRuntimeStatusItems,
   buildCommandCatalogRuntimeOptions,
   cycleClaudeEffortValue,
@@ -64,11 +65,11 @@ describe("chat-input runtime helpers", () => {
     expect(items.find((item) => item.id === "codex-binary")?.value).toBe(
       ".../bin/codex",
     );
+    expect(items.find((item) => item.id === "goal")).toBeUndefined();
   });
 
   test("surfaces Codex goal status with compact progress", () => {
-    const items = buildChatInputRuntimeStatusItems({
-      ...baseArgs,
+    const status = buildChatInputGoalStatus({
       providerGoal: {
         providerId: "codex",
         nativeSessionId: "thread-1",
@@ -82,10 +83,36 @@ describe("chat-input runtime helpers", () => {
       },
     });
 
-    expect(items.find((item) => item.id === "goal")).toMatchObject({
-      label: "Goal",
-      value: "budget limited | 2.5k/10k tokens | 2m | Finish the migration and keep the provider te...",
+    expect(status).toEqual({
+      statusLabel: "budget limited",
+      objective: "Finish the migration and keep the provider tests green",
+      tokenLabel: "2.5k / 10k tokens (25%)",
+      elapsedLabel: "2m elapsed",
+      progressPercent: 25,
       tone: "warning",
+    });
+  });
+
+  test("keeps an active Codex goal label distinct from turn running state", () => {
+    const status = buildChatInputGoalStatus({
+      providerGoal: {
+        providerId: "codex",
+        nativeSessionId: "thread-1",
+        objective: "Ship the goal progress indicator",
+        status: "active",
+        tokenBudget: null,
+        tokensUsed: 120,
+        timeUsedSeconds: 0,
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    });
+
+    expect(status).toMatchObject({
+      statusLabel: "active",
+      tokenLabel: "120 tokens",
+      progressPercent: null,
+      tone: "default",
     });
   });
 

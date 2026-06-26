@@ -197,16 +197,6 @@ describe("Codex /goal slash command helpers", () => {
           updatedAt: 0,
         },
       },
-      {
-        type: "text",
-        text: [
-          "Set Codex goal.",
-          "",
-          "Codex goal: Finish the migration",
-          "Status: active",
-          "Usage: 0 tokens, 0s",
-        ].join("\n"),
-      },
       { type: "done" },
     ]);
   });

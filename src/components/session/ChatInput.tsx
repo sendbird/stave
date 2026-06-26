@@ -92,6 +92,7 @@ import {
 import type { Attachment, ChatMessage, PromptDraft } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 import {
+  buildChatInputGoalStatus,
   buildChatInputRuntimeStatusItems,
   buildCommandCatalogRuntimeOptions,
   cycleClaudeEffortValue,
@@ -177,6 +178,7 @@ interface ChatInputComposerProps {
   providerModeStatus?: PromptInputProviderModeStatus | null;
   providerModePresets: readonly ProviderModePresetDefinition[];
   activeProviderModePresetId: ProviderModePresetId | null;
+  goalStatus: ReturnType<typeof buildChatInputGoalStatus>;
   runtimeStatusItems: readonly PromptInputRuntimeStatusItem[];
   effortLabel?: string;
   effortValue?: string;
@@ -866,6 +868,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           providerModeStatus={args.providerModeStatus}
           providerModePresets={args.providerModePresets}
           activeProviderModePresetId={args.activeProviderModePresetId}
+          goalStatus={args.goalStatus}
           onProviderModeSelect={
             args.onProviderModeSelect
               ? (presetId) => {
@@ -1286,6 +1289,13 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
     }
     return undefined;
   }, [activeProvider, claudeEffort, codexReasoningEffort, updateSettings]);
+  const goalStatus = useMemo(
+    () =>
+      buildChatInputGoalStatus({
+        providerGoal: activeProvider === "codex" ? activeProviderGoal : null,
+      }),
+    [activeProvider, activeProviderGoal],
+  );
   const runtimeStatusItems = useMemo(() => {
     return buildChatInputRuntimeStatusItems({
       activeProvider,
@@ -1311,12 +1321,10 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
       codexFastMode,
       codexPlanMode: effectiveCodexPlanMode,
       codexBinaryPath,
-      providerGoal: activeProvider === "codex" ? activeProviderGoal : null,
       claudePermissionModeBeforePlan: effectiveClaudePermissionModeBeforePlan,
     });
   }, [
     activeProvider,
-    activeProviderGoal,
     claudeAllowDangerouslySkipPermissions,
     claudeAgentProgressSummaries,
     claudeAllowUnsandboxedCommands,
@@ -1606,9 +1614,9 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
     if (lastAssistantProviderId === "codex") return "claude-code";
     return null;
   }, [lastAssistantProviderId, isTurnActive]);
-  const crossReviewReturnProviderRef = useRef<
-    "claude-code" | "codex" | null
-  >(null);
+  const crossReviewReturnProviderRef = useRef<"claude-code" | "codex" | null>(
+    null,
+  );
   const handleCrossReview = useCallback(
     async (reviewArgs: { instructions?: string }) => {
       if (!crossReviewProvider || !activeTaskId) return;
@@ -1714,6 +1722,7 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
       providerModeStatus={providerModeStatus}
       providerModePresets={providerModePresets}
       activeProviderModePresetId={activeProviderModePresetId}
+      goalStatus={goalStatus}
       onProviderModeSelect={onProviderModeSelect}
       runtimeStatusItems={runtimeStatusItems}
       effortLabel={effortLabel}

@@ -296,9 +296,7 @@ describe("PromptInput queue mode", () => {
           selectedModel: MODEL_OPTION,
           modelOptions: [MODEL_OPTION],
           attachedFilePaths: [],
-          runtimeStatusItems: [
-            { id: "mode", label: "Mode", value: "Plan" },
-          ],
+          runtimeStatusItems: [{ id: "mode", label: "Mode", value: "Plan" }],
           onValueChange: () => {},
           onModelSelect: () => {},
           onAttachFilesChange: () => {},
@@ -309,5 +307,47 @@ describe("PromptInput queue mode", () => {
 
     expect(html).toContain('aria-label="Current Runtime"');
     expect(html).not.toContain(">Runtime</span>");
+  });
+
+  test("renders goal progress above the composer without another Running label", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "",
+          isTurnActive: true,
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          goalStatus: {
+            statusLabel: "active",
+            objective: "Finish the migration and keep tests green",
+            tokenLabel: "2.5k / 10k tokens (25%)",
+            elapsedLabel: "2m elapsed",
+            progressPercent: 25,
+            tone: "default" as const,
+          },
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onSubmit: () => {},
+          onAbort: () => {},
+        }),
+      ),
+    );
+
+    expect(html).toContain("Goal active");
+    expect(html).toContain("Finish the migration and keep tests green");
+    expect(html).toContain("2.5k / 10k tokens (25%)");
+    expect(html).toContain("2m elapsed");
+    expect(html).toContain("width:25%");
+    expect(html).toContain('aria-label="Abort"');
+    expect(html).not.toContain("Running");
   });
 });
