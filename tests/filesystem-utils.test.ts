@@ -64,6 +64,7 @@ describe("filesystem path helpers", () => {
     writeText(path.join(workspaceRoot, ".env"), "A=1\n");
     writeText(path.join(workspaceRoot, ".github/workflows/ci.yml"), "name: ci\n");
     writeText(path.join(workspaceRoot, "src/index.ts"), "export {};\n");
+    writeText(path.join(workspaceRoot, ".stave/workspaces/slow/src/generated.ts"), "export {};\n");
     writeText(path.join(workspaceRoot, ".git/config"), "[core]\n");
     writeText(path.join(workspaceRoot, "node_modules/pkg/index.js"), "module.exports = {};\n");
 
@@ -72,6 +73,7 @@ describe("filesystem path helpers", () => {
     expect(files).toContain(".env");
     expect(files).toContain(".github/workflows/ci.yml");
     expect(files).toContain("src/index.ts");
+    expect(files).not.toContain(".stave/workspaces/slow/src/generated.ts");
     expect(files).not.toContain(".git/config");
     expect(files).not.toContain("node_modules/pkg/index.js");
   });

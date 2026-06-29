@@ -11,6 +11,7 @@ export async function readWorkspaceSourceFiles(args: { rootPath?: string | null;
   const files: Array<{ content: string; filePath: string }> = [];
   const MAX_TOTAL = 2000;
   const EXCLUDED_DIRS = new Set([
+    ".stave",
     "node_modules",
     ".git",
     "dist",

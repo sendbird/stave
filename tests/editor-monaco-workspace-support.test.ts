@@ -107,25 +107,36 @@ afterEach(async () => {
 });
 
 describe("syncWorkspaceMonacoSupport", () => {
-  test("replaces the focused workspace support context instead of accumulating models", async () => {
+  test("replaces focused source models without reloading workspace type definitions", async () => {
     const workspaceRoot = createTempWorkspace();
     const fakeMonaco = createFakeMonaco();
+    const readTypeDefsEntryFilePaths: Array<string | undefined> = [];
+    const readSourceFilesEntryFilePaths: Array<string | undefined> = [];
 
     globalThis.window = {
       api: {
         fs: {
-          readTypeDefs: async ({ entryFilePath }: { entryFilePath?: string }) => ({
-            ok: true,
-            libs: entryFilePath === "src/a.ts"
-              ? [{ content: "export {};", filePath: "file:///node_modules/@types/a/index.d.ts" }]
-              : [{ content: "export {};", filePath: "file:///node_modules/@types/b/index.d.ts" }],
-          }),
-          readSourceFiles: async ({ entryFilePath }: { entryFilePath?: string }) => ({
-            ok: true,
-            files: entryFilePath === "src/a.ts"
-              ? [{ content: "export const a = true;", filePath: "file:///src/support/a-dep.ts" }]
-              : [{ content: "export const b = true;", filePath: "file:///src/support/b-dep.ts" }],
-          }),
+          readTypeDefs: async ({ entryFilePath }: { entryFilePath?: string }) => {
+            readTypeDefsEntryFilePaths.push(entryFilePath);
+            return {
+              ok: true,
+              libs: [
+                {
+                  content: "export {};",
+                  filePath: "file:///node_modules/@types/shared/index.d.ts",
+                },
+              ],
+            };
+          },
+          readSourceFiles: async ({ entryFilePath }: { entryFilePath?: string }) => {
+            readSourceFilesEntryFilePaths.push(entryFilePath);
+            return {
+              ok: true,
+              files: entryFilePath === "src/a.ts"
+                ? [{ content: "export const a = true;", filePath: "file:///src/support/a-dep.ts" }]
+                : [{ content: "export const b = true;", filePath: "file:///src/support/b-dep.ts" }],
+            };
+          },
         },
       },
     } as typeof window;
@@ -155,15 +166,17 @@ describe("syncWorkspaceMonacoSupport", () => {
     );
     expect(
       fakeMonaco.extraLibDisposeCounts.get(
-        "file:///node_modules/@types/a/index.d.ts",
+        "file:///node_modules/@types/shared/index.d.ts",
       ),
-    ).toBe(2);
+    ).toBeUndefined();
     expect(
       fakeMonaco.extraLibDisposeCounts.get("file:///src/support/a-dep.ts"),
     ).toBe(2);
     expect(Array.from(fakeMonaco.models.keys())).toEqual([
       "file:///src/support/b-dep.ts",
     ]);
+    expect(readTypeDefsEntryFilePaths).toEqual([undefined]);
+    expect(readSourceFilesEntryFilePaths).toEqual(["src/a.ts", "src/b.ts"]);
   });
 
   test("clears focused workspace support when the active tab no longer needs it", async () => {
