@@ -1,3 +1,22 @@
+# Changelog
+
+All notable changes to Stave are documented in this file.
+
+## [0.7.4](https://github.com/sendbird/stave/compare/v0.7.3...v0.7.4) (2026-06-29)
+
+### Features
+
+* Add a Lens box-model inspector for content, padding, border, and margin, including MCP tools for element inspection and spacing measurement.
+
+### Fixes
+
+* Surface Codex goal progress near the prompt composer without redundant `/goal` transcript messages, while keeping turn and tool running indicators separate.
+* Open generated Orbit service URLs in Lens by default, with external browser open and copy URL kept as secondary actions.
+
+### References
+
+* [#67](https://github.com/sendbird/stave/pull/67), [#68](https://github.com/sendbird/stave/pull/68), [#69](https://github.com/sendbird/stave/pull/69)
+
 ## [0.7.3](https://github.com/sendbird/stave/compare/v0.7.2...v0.7.3) (2026-06-25)
 
 ### Fixes
@@ -9,10 +28,6 @@
 
 * [#64](https://github.com/sendbird/stave/pull/64)
 * [#65](https://github.com/sendbird/stave/pull/65)
-
-# Changelog
-
-All notable changes to Stave are documented in this file.
 
 ## [0.7.2](https://github.com/sendbird/stave/compare/v0.7.1...v0.7.2) (2026-06-24)
 
