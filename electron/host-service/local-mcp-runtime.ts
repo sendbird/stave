@@ -46,6 +46,7 @@ import {
   buildImportedWorktreeWorkspaceId,
   buildWorkspaceCreationNotice,
   buildWorkspaceRootNodeModulesSymlinkCommand,
+  mergeArchivedWorkspacePaths,
   normalizeProjectDisplayName,
   normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
   normalizeRecentProjectStates,
@@ -1769,6 +1770,10 @@ export async function createWorkspace(args: {
       ...project.workspaceDefaultById,
       [workspaceId]: false,
     },
+    archivedWorkspacePaths: mergeArchivedWorkspacePaths({
+      current: project.archivedWorkspacePaths,
+      remove: [workspacePath],
+    }),
   };
   const { projects } = await loadNormalizedProjects();
   await saveNormalizedProjects(

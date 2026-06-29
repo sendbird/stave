@@ -332,6 +332,7 @@ import {
   resolveImportedWorktreeName,
   resolveCurrentProjectDefaultWorkspaceId,
   normalizeCurrentProjectState,
+  normalizeArchivedWorkspacePaths,
   cloneRecentProjectState,
   normalizeRecentProjectStates,
   upsertRecentProjectState,
@@ -2573,6 +2574,25 @@ const activeWorkspaceArchiveCleanups = new Set<Promise<void>>();
  */
 const archivedWorktreePaths = new Set<string>();
 
+function getArchivedWorktreePathSetForProject(args: {
+  projectPath?: string | null;
+  recentProjects: RecentProjectState[];
+}) {
+  const normalizedProjectPath = normalizeComparablePath(args.projectPath);
+  const project = normalizedProjectPath
+    ? (args.recentProjects.find(
+        (item) =>
+          normalizeComparablePath(item.projectPath) === normalizedProjectPath,
+      ) ?? null)
+    : null;
+  return new Set([
+    ...normalizeArchivedWorkspacePaths({
+      paths: project?.archivedWorkspacePaths,
+    }),
+    ...archivedWorktreePaths,
+  ]);
+}
+
 type WorkspaceArchiveCommandRunner = (args: {
   cwd?: string;
   command: string;
@@ -4607,6 +4627,34 @@ export const useAppStore = create<AppState>()(
             ...(currentProject?.workspacePathById ??
               stateBeforeHydrate.workspacePathById),
           };
+          const archivedWorktreePathSet = getArchivedWorktreePathSetForProject({
+            projectPath: stateBeforeHydrate.projectPath,
+            recentProjects: stateBeforeHydrate.recentProjects,
+          });
+          if (archivedWorktreePathSet.size > 0) {
+            const archivedRowIds = rows
+              .filter((row) => {
+                if (row.id === defaultWorkspaceId) {
+                  return false;
+                }
+                const comparablePath = normalizeComparablePath(
+                  pathById[row.id] ??
+                    (stateBeforeHydrate.projectPath
+                      ? `${stateBeforeHydrate.projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`
+                      : null),
+                );
+                return archivedWorktreePathSet.has(comparablePath);
+              })
+              .map((row) => row.id);
+            if (archivedRowIds.length > 0) {
+              const archivedRowIdSet = new Set(archivedRowIds);
+              rows = rows.filter((row) => !archivedRowIdSet.has(row.id));
+              for (const workspaceId of archivedRowIds) {
+                delete branchById[workspaceId];
+                delete pathById[workspaceId];
+              }
+            }
+          }
 
           // Worktree cleanup: remove DB workspaces whose git worktrees no longer exist
           const runner = window.api?.terminal?.runCommand;
@@ -4739,7 +4787,8 @@ export const useAppStore = create<AppState>()(
                   !worktree.branch ||
                   !normalizedWorktreePath ||
                   normalizedWorktreePath === currentProjectPath ||
-                  knownPaths.has(normalizedWorktreePath)
+                  knownPaths.has(normalizedWorktreePath) ||
+                  archivedWorktreePathSet.has(normalizedWorktreePath)
                 ) {
                   continue;
                 }
@@ -5087,6 +5136,10 @@ export const useAppStore = create<AppState>()(
             workspaceDefaultById: state.workspaceDefaultById,
             workspacePathById: state.workspacePathById,
           });
+          const archivedWorktreePathSet = getArchivedWorktreePathSetForProject({
+            projectPath,
+            recentProjects: state.recentProjects,
+          });
 
           // Build set of known workspace paths for quick lookup.
           const knownPathToId = new Map<string, string>();
@@ -5122,9 +5175,9 @@ export const useAppStore = create<AppState>()(
               !normalizedWorktreePath ||
               normalizedWorktreePath === currentProjectPath ||
               knownPathToId.has(normalizedWorktreePath) ||
-              // Skip worktrees the user archived this session; re-registering
-              // them is the "archive resurrection" bug.
-              archivedWorktreePaths.has(normalizedWorktreePath)
+              // Skip worktrees the user archived; re-registering preserved
+              // dirty worktrees is the "archive resurrection" bug.
+              archivedWorktreePathSet.has(normalizedWorktreePath)
             ) {
               continue;
             }
@@ -5995,9 +6048,8 @@ export const useAppStore = create<AppState>()(
             // Keep workspace registration and use the existing file list as fallback.
           }
 
-          set((state) => ({
-            workspaceSnapshotVersion: 0,
-            workspaces: state.workspaces.some(
+          set((state) => {
+            const nextWorkspaces = state.workspaces.some(
               (workspace) => workspace.id === workspaceId,
             )
               ? state.workspaces
@@ -6008,35 +6060,54 @@ export const useAppStore = create<AppState>()(
                     name: branchName,
                     updatedAt: new Date().toISOString(),
                   },
-                ],
-            activeWorkspaceId: workspaceId,
-            workspaceBranchById: {
+                ];
+            const nextBranchById = {
               ...state.workspaceBranchById,
               [workspaceId]: branchName,
-            },
-            workspacePathById: {
+            };
+            const nextPathById = {
               ...state.workspacePathById,
               [workspaceId]: workspacePath,
-            },
-            workspaceDefaultById: {
+            };
+            const nextDefaultById = {
               ...state.workspaceDefaultById,
               [workspaceId]: false,
-            },
-            workspaceFileCacheByPath: rememberCachedWorkspaceFiles({
-              workspaceFileCacheByPath: state.workspaceFileCacheByPath,
-              workspacePath,
-              files,
-            }),
-            workspaceRuntimeCacheById: nextRuntimeCacheById,
-            activeAppSurface: WORKSPACE_APP_SURFACE,
-            taskWorkspaceIdById: registerTaskWorkspaceOwnership({
-              taskWorkspaceIdById: state.taskWorkspaceIdById,
-              workspaceId,
-              tasks: workspaceState.tasks,
-            }),
-            ...workspaceState,
-            projectFiles: files,
-          }));
+            };
+            return {
+              workspaceSnapshotVersion: 0,
+              workspaces: nextWorkspaces,
+              activeWorkspaceId: workspaceId,
+              workspaceBranchById: nextBranchById,
+              workspacePathById: nextPathById,
+              workspaceDefaultById: nextDefaultById,
+              recentProjects: captureCurrentProjectState({
+                recentProjects: state.recentProjects,
+                projectPath: state.projectPath,
+                projectName: state.projectName,
+                defaultBranch: state.defaultBranch,
+                workspaces: nextWorkspaces,
+                activeWorkspaceId: workspaceId,
+                workspaceBranchById: nextBranchById,
+                workspacePathById: nextPathById,
+                workspaceDefaultById: nextDefaultById,
+                archivedWorkspacePathsToRemove: [workspacePath],
+              }),
+              workspaceFileCacheByPath: rememberCachedWorkspaceFiles({
+                workspaceFileCacheByPath: state.workspaceFileCacheByPath,
+                workspacePath,
+                files,
+              }),
+              workspaceRuntimeCacheById: nextRuntimeCacheById,
+              activeAppSurface: WORKSPACE_APP_SURFACE,
+              taskWorkspaceIdById: registerTaskWorkspaceOwnership({
+                taskWorkspaceIdById: state.taskWorkspaceIdById,
+                workspaceId,
+                tasks: workspaceState.tasks,
+              }),
+              ...workspaceState,
+              projectFiles: files,
+            };
+          });
           runScriptHookInBackground({
             workspaceId,
             trigger: "task.created",
@@ -6329,6 +6400,9 @@ export const useAppStore = create<AppState>()(
               delete nextBranchById[workspaceId];
               delete nextPathById[workspaceId];
               delete nextDefaultById[workspaceId];
+              const nextWorkspaces = nextState.workspaces.filter(
+                (item) => item.id !== workspaceId,
+              );
               const nextRuntimeCacheById = removeWorkspaceRuntimeCacheEntries({
                 workspaceRuntimeCacheById: nextState.workspaceRuntimeCacheById,
                 workspaceIds: [workspaceId],
@@ -6339,13 +6413,23 @@ export const useAppStore = create<AppState>()(
                 ),
               );
               return {
-                workspaces: nextState.workspaces.filter(
-                  (item) => item.id !== workspaceId,
-                ),
+                workspaces: nextWorkspaces,
                 workspaceBranchById: nextBranchById,
                 workspacePathById: nextPathById,
                 workspaceDefaultById: nextDefaultById,
                 activeWorkspaceId: "",
+                recentProjects: captureCurrentProjectState({
+                  recentProjects: nextState.recentProjects,
+                  projectPath: nextState.projectPath,
+                  projectName: nextState.projectName,
+                  defaultBranch: nextState.defaultBranch,
+                  workspaces: nextWorkspaces,
+                  activeWorkspaceId: "",
+                  workspaceBranchById: nextBranchById,
+                  workspacePathById: nextPathById,
+                  workspaceDefaultById: nextDefaultById,
+                  archivedWorkspacePathsToAdd: [workspacePath],
+                }),
                 workspaceSnapshotVersion: 0,
                 workspaceFileCacheByPath: removeCachedWorkspaceFiles({
                   workspaceFileCacheByPath: nextState.workspaceFileCacheByPath,
@@ -6371,6 +6455,15 @@ export const useAppStore = create<AppState>()(
               workspaceBranch,
               projectPath,
             });
+            try {
+              await get().flushProjectRegistry();
+            } catch (error) {
+              console.error(
+                "[workspace-archive] flushProjectRegistry failed",
+                { workspaceId },
+                error,
+              );
+            }
             return;
           }
           await get().switchWorkspace({ workspaceId: nextWorkspace.id });
@@ -6381,6 +6474,9 @@ export const useAppStore = create<AppState>()(
             delete nextBranchById[workspaceId];
             delete nextPathById[workspaceId];
             delete nextDefaultById[workspaceId];
+            const nextWorkspaces = nextState.workspaces.filter(
+              (item) => item.id !== workspaceId,
+            );
             const nextRuntimeCacheById = removeWorkspaceRuntimeCacheEntries({
               workspaceRuntimeCacheById: nextState.workspaceRuntimeCacheById,
               workspaceIds: [workspaceId],
@@ -6391,12 +6487,22 @@ export const useAppStore = create<AppState>()(
               ),
             );
             return {
-              workspaces: nextState.workspaces.filter(
-                (item) => item.id !== workspaceId,
-              ),
+              workspaces: nextWorkspaces,
               workspaceBranchById: nextBranchById,
               workspacePathById: nextPathById,
               workspaceDefaultById: nextDefaultById,
+              recentProjects: captureCurrentProjectState({
+                recentProjects: nextState.recentProjects,
+                projectPath: nextState.projectPath,
+                projectName: nextState.projectName,
+                defaultBranch: nextState.defaultBranch,
+                workspaces: nextWorkspaces,
+                activeWorkspaceId: nextState.activeWorkspaceId,
+                workspaceBranchById: nextBranchById,
+                workspacePathById: nextPathById,
+                workspaceDefaultById: nextDefaultById,
+                archivedWorkspacePathsToAdd: [workspacePath],
+              }),
               workspaceFileCacheByPath: removeCachedWorkspaceFiles({
                 workspaceFileCacheByPath: nextState.workspaceFileCacheByPath,
                 workspacePaths: [workspacePath],
@@ -6411,6 +6517,15 @@ export const useAppStore = create<AppState>()(
             workspaceBranch,
             projectPath,
           });
+          try {
+            await get().flushProjectRegistry();
+          } catch (error) {
+            console.error(
+              "[workspace-archive] flushProjectRegistry failed",
+              { workspaceId },
+              error,
+            );
+          }
         },
         switchWorkspace: async ({ workspaceId }) => {
           const current = get();
