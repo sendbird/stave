@@ -5,6 +5,7 @@ import { resolveRootFilePath } from "../utils/filesystem";
 const SOURCE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?|d\.[cm]?ts)$/;
 const TYPE_DECLARATION_FILE_PATTERN = /\.d\.[cm]?ts$/;
 const AMBIENT_SCAN_EXCLUDED_DIRS = new Set([
+  ".stave",
   "node_modules",
   ".git",
   "dist",

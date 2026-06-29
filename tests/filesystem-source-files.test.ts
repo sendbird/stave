@@ -49,6 +49,7 @@ describe("readWorkspaceSourceFiles", () => {
     writeText(path.join(workspaceRoot, "src/App.stories.tsx"), "export const AppStory = () => null;\n");
     writeText(path.join(workspaceRoot, "__mocks__/api.ts"), "export const mockApi = {};\n");
     writeText(path.join(workspaceRoot, "docs/generated.ts"), "export const generated = {};\n");
+    writeText(path.join(workspaceRoot, ".stave/workspaces/slow/src/App.tsx"), "export const RuntimeApp = () => null;\n");
 
     const files = await readWorkspaceSourceFiles({ rootPath: workspaceRoot });
     const filePaths = files.map((file) => file.filePath).sort();

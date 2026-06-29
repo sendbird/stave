@@ -3,6 +3,7 @@ import path from "node:path";
 import type { RootFileEntry } from "../types";
 
 const IGNORED_DIRECTORY_NAMES = new Set([
+  ".stave",
   ".git",
   "node_modules",
   "dist",
