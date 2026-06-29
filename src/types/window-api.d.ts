@@ -414,22 +414,6 @@ interface WindowFsApi {
     ok: boolean;
     stderr?: string;
   }>;
-  readTypeDefs?: (args: {
-    rootPath: string;
-    entryFilePath?: string;
-  }) => Promise<{
-    ok: boolean;
-    libs: Array<{ content: string; filePath: string }>;
-    stderr?: string;
-  }>;
-  readSourceFiles?: (args: {
-    rootPath: string;
-    entryFilePath?: string;
-  }) => Promise<{
-    ok: boolean;
-    files: Array<{ content: string; filePath: string }>;
-    stderr?: string;
-  }>;
   searchContent?: (args: { rootPath: string; query: string }) => Promise<{
     ok: boolean;
     results: Array<{

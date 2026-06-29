@@ -10,7 +10,6 @@ import {
   FilesystemDeleteFileArgsSchema,
   FilesystemDirectoryArgsSchema,
   FilesystemFileArgsSchema,
-  FilesystemInspectArgsSchema,
   FilesystemPickFilesArgsSchema,
   FilesystemRepoMapArgsSchema,
   FilesystemRootArgsSchema,
@@ -40,8 +39,6 @@ import {
   normalizeFilesystemSearchQuery,
   parseFilesystemSearchMatchLine,
 } from "./filesystem-search";
-import { readWorkspaceSourceFiles } from "./filesystem-source-files";
-import { readWorkspaceTypeDefinitionFiles } from "./filesystem-type-libs";
 
 async function statIfExists(targetPath: string) {
   try {
@@ -513,38 +510,6 @@ export function registerFilesystemHandlers() {
       });
     } catch (error) {
       return { ok: false, stderr: String(error) };
-    }
-  });
-
-  ipcMain.handle("fs:read-type-defs", async (_event, args: unknown) => {
-    const parsed = FilesystemInspectArgsSchema.safeParse(args);
-    if (!parsed.success) {
-      return { ok: false, libs: [], stderr: "Invalid type definition request." };
-    }
-    try {
-      const libs = await readWorkspaceTypeDefinitionFiles({
-        rootPath: parsed.data.rootPath,
-        entryFilePath: parsed.data.entryFilePath,
-      });
-      return { ok: true, libs };
-    } catch (error) {
-      return { ok: false, libs: [], stderr: String(error) };
-    }
-  });
-
-  ipcMain.handle("fs:read-source-files", async (_event, args: unknown) => {
-    const parsed = FilesystemInspectArgsSchema.safeParse(args);
-    if (!parsed.success) {
-      return { ok: false, files: [], stderr: "Invalid source file request." };
-    }
-    try {
-      const files = await readWorkspaceSourceFiles({
-        rootPath: parsed.data.rootPath,
-        entryFilePath: parsed.data.entryFilePath,
-      });
-      return { ok: true, files };
-    } catch (error) {
-      return { ok: false, files: [], stderr: String(error) };
     }
   });
 

@@ -6,15 +6,22 @@ Stave's built-in editor understands TypeScript, JavaScript, and Python. This pag
 
 ## What You Get Out Of The Box
 
-TypeScript and JavaScript work immediately. You get:
+TypeScript and JavaScript work immediately with lightweight Monaco support for the open editor model. You get:
 
-- module resolution based on your `tsconfig.json`
-- diagnostics as you type
+- syntax highlighting and editor-aware completion
+- lightweight diagnostics for the open file
+- compiler options loaded from the workspace `tsconfig.json`
+
+This keeps file opening fast in large workspaces. Stave does not mirror the full project source tree or `node_modules` type graph into Monaco.
+
+For project-aware behavior, turn on Project Language Servers. With LSP enabled, you get:
+
+- module resolution based on your project config
 - hover info
 - completion
 - go to definition
 
-This is powered by Monaco's built-in TypeScript worker, so it works with no configuration.
+The LSP path follows the same basic shape as VS Code: opened documents are synced to a language server, and the language server resolves the rest of the project from the filesystem.
 
 ## Turning On Project Language Servers
 
@@ -25,7 +32,7 @@ Supported today:
 - TypeScript and JavaScript via `typescript-language-server`
 - Python via `pyright-langserver` or `basedpyright-langserver`
 
-When enabled, Stave starts one language-server session per workspace root and forwards the editor through that server. You still keep Monaco's fast in-browser checks on top.
+When enabled, Stave starts one language-server session per workspace root and forwards the opened editor document through that server. You still keep Monaco's fast in-browser checks on top.
 
 ### Quick Start
 
@@ -57,7 +64,7 @@ When enabled, Stave starts one language-server session per workspace root and fo
 
 ## macOS Keeps Asking For File Access
 
-If your project lives in `~/Desktop`, `~/Documents`, `~/Downloads`, or iCloud Drive, macOS may prompt you to allow Stave to read those folders. Stave needs access to read source files and `node_modules` type definitions.
+If your project lives in `~/Desktop`, `~/Documents`, `~/Downloads`, or iCloud Drive, macOS may prompt you to allow Stave to read those folders. Stave needs access for normal editor, search, and language-server operations.
 
 - Packaged release builds: approve the prompt once and macOS remembers it.
 - Development builds: the prompt can return after every rebuild. Grant folder access in `System Settings > Privacy & Security > Files and Folders > Stave` to suppress it.

@@ -1042,10 +1042,6 @@ export const FilesystemRepoMapArgsSchema = FilesystemRootArgsSchema.extend({
   refresh: z.boolean().optional(),
 }).strict();
 
-export const FilesystemInspectArgsSchema = FilesystemRootArgsSchema.extend({
-  entryFilePath: z.string().max(4096).optional(),
-}).strict();
-
 export const FilesystemDirectoryArgsSchema = z
   .object({
     rootPath: FilesystemRootPathSchema,
