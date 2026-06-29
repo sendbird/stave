@@ -110,14 +110,6 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Track approvals, task completions, and follow-up work across workspaces from the top-bar bell.",
         previewImage: "screenshots/notifications.png",
       },
-      {
-        routePath: "zen-mode",
-        sourcePath: "docs/features/zen-mode.md",
-        title: "Zen Mode",
-        description:
-          "Hide the surrounding chrome when you want to focus on a single task at a time.",
-        previewImage: "screenshots/workspace-mode.png",
-      },
     ],
   },
   {

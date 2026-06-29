@@ -43,18 +43,22 @@ export function mergeLayoutPatch(args: { layout: LayoutState; patch: Partial<Lay
 }
 
 export function normalizeLayoutState(layout: LayoutState): LayoutState {
-  const { zenMode: _legacyZenMode, ...rest } = layout as LayoutState & {
-    zenMode?: boolean;
-  };
   return {
-    ...rest,
+    workspaceSidebarWidth: layout.workspaceSidebarWidth,
+    workspaceSidebarCollapsed: layout.workspaceSidebarCollapsed,
     editorPanelWidth: Math.max(MIN_EDITOR_PANEL_WIDTH, layout.editorPanelWidth),
+    explorerPanelWidth: layout.explorerPanelWidth,
     lensPanelWidthByWorkspaceId: normalizeLensPanelWidthByWorkspaceId(
       layout.lensPanelWidthByWorkspaceId,
     ),
     lensFullscreenByWorkspaceId: normalizeLensFullscreenByWorkspaceId(
       layout.lensFullscreenByWorkspaceId,
     ),
+    terminalDockHeight: layout.terminalDockHeight,
+    editorVisible: layout.editorVisible,
+    sidebarOverlayVisible: layout.sidebarOverlayVisible,
+    terminalDocked: layout.terminalDocked,
+    editorDiffMode: layout.editorDiffMode,
     editorMarkdownPreviewMode: Boolean(layout.editorMarkdownPreviewMode),
     sidebarOverlayTab: RIGHT_RAIL_PANEL_IDS.includes(layout.sidebarOverlayTab)
       ? layout.sidebarOverlayTab

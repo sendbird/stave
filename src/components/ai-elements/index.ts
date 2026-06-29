@@ -14,7 +14,6 @@ export {
   MessageResponse,
   MessageToolbar,
 } from "./message";
-export { ZenMessageContent } from "./zen-message";
 export {
   CodeBlock,
   CodeBlockActions,
@@ -34,7 +33,7 @@ export { Tool, ToolContent, ToolGroup, ToolHeader, ToolInput, ToolOutput } from 
 export { TruncationWarningBanner } from "./truncation-warning";
 export { ConfirmationCompact } from "./confirmation";
 export { UserInputCard } from "./user-input-card";
-export { PromptInput, ZenPromptInput } from "./prompt-input";
+export { PromptInput } from "./prompt-input";
 export { PromptSuggestion, PromptSuggestions, Suggestion, Suggestions } from "./suggestion";
 export { ModelSelector } from "./model-selector";
 export { PermissionModeSelector, cyclePermissionMode, type PermissionModeValue, type ClaudePermissionMode, type CodexApprovalPolicy } from "./permission-mode-selector";

@@ -32,7 +32,6 @@ The palette is global. You do not need to focus the chat composer first.
 
 - toggle the workspace sidebar
 - show or hide Explorer, Information, editor, or terminal surfaces
-- enter or exit Zen Mode
 
 ### Task
 
@@ -67,7 +66,7 @@ The palette is global. You do not need to focus the chat composer first.
 ### Jump To An Action You Use Often
 
 1. Open the palette.
-2. Type a short keyword such as `explorer`, `zen`, or `new task`.
+2. Type a short keyword such as `explorer`, `terminal`, or `new task`.
 3. Run the command directly from the result list.
 
 This is the fastest way to learn Stave's navigation model without memorizing every button location first.
@@ -107,7 +106,6 @@ That separation matters: the Command Palette controls Stave itself, while slash 
 - `Cmd/Ctrl+Shift+B` toggles the changes panel.
 - `Cmd/Ctrl+E` opens Explorer.
 - `Cmd/Ctrl+I` toggles the Information panel.
-- `Cmd/Ctrl+K`, then `Z` toggles Zen Mode.
 - `Alt+P` opens the prompt model selector.
 - `Alt+1..0` selects your mapped prompt models.
 
@@ -128,5 +126,4 @@ That separation matters: the Command Palette controls Stave itself, while slash 
 ## Related Docs
 
 - [Integrated Terminal](integrated-terminal.md)
-- [Zen Mode](zen-mode.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)

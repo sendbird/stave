@@ -43,10 +43,8 @@ async function loadAssistantMessageBodies() {
   });
 
   const standardModule = await import("@/components/session/message/assistant-trace");
-  const zenModule = await import("@/components/session/message/ZenAssistantMessageBody");
   return {
     AssistantMessageBody: standardModule.AssistantMessageBody,
-    ZenAssistantMessageBody: zenModule.ZenAssistantMessageBody,
   };
 }
 
@@ -98,22 +96,6 @@ describe("AssistantMessageBody", () => {
 
     expect(html).toContain("https://example.com/docs");
     expect(html).not.toContain("<a");
-  });
-
-  test("suppresses reasoning details in zen mode while keeping a minimal working state", async () => {
-    const { ZenAssistantMessageBody } = await loadAssistantMessageBodies();
-    const html = renderToStaticMarkup(createElement(ZenAssistantMessageBody, {
-      message: createAssistantMessage({
-        isStreaming: true,
-        parts: [{ type: "thinking", text: "Inspecting files.", isStreaming: true }],
-      }),
-      taskId: "task-1",
-      messageId: "message-1",
-      streamingEnabled: true,
-    }));
-
-    expect(html).not.toContain("Inspecting files.");
-    expect(html).toContain("Working...");
   });
 
   test("keeps assistant trace collapsed in manual expansion mode", async () => {
@@ -201,21 +183,4 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain("Patched the issue.");
   });
 
-  test("keeps final response text visible in zen mode", async () => {
-    const { ZenAssistantMessageBody } = await loadAssistantMessageBodies();
-    const html = renderToStaticMarkup(createElement(ZenAssistantMessageBody, {
-      message: createAssistantMessage({
-        parts: [
-          { type: "thinking", text: "Inspecting files.", isStreaming: false },
-          { type: "text", text: "Patch applied successfully." },
-        ],
-      }),
-      taskId: "task-1",
-      messageId: "message-1",
-      streamingEnabled: true,
-    }));
-
-    expect(html).not.toContain("Inspecting files.");
-    expect(html).toContain("Patch applied successfully.");
-  });
 });

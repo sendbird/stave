@@ -368,7 +368,6 @@ export {
   MAX_LENS_PANEL_WIDTH,
 } from "@/store/layout.utils";
 export type { LayoutState } from "@/store/layout.utils";
-export type AppShellMode = "stave" | "zen";
 export {
   THEME_TOKEN_NAMES,
   PRESET_THEME_TOKENS,
@@ -893,7 +892,6 @@ function logWorkspaceSwitchMetric(args: {
 }
 
 export interface AppSettings {
-  appShellMode: AppShellMode;
   showPresetBar: boolean;
   themeMode: "light" | "dark" | "system";
   /** ID of the active custom theme preset, or `null` for the default. */
@@ -2029,10 +2027,6 @@ export const STAVE_OPEN_SETTINGS_EVENT = "stave:open-settings";
 const WORKSPACE_PR_STATUS_FRESH_MS = 4 * 60 * 1000;
 const WORKSPACE_PR_STATUS_POLL_CONCURRENCY = 3;
 
-function normalizeAppShellMode(value: unknown): AppShellMode {
-  return value === "zen" ? "zen" : "stave";
-}
-
 function normalizeReasoningExpansionMode(value: unknown): "auto" | "manual" {
   return value === "auto" ? "auto" : "manual";
 }
@@ -2066,7 +2060,6 @@ function normalizeBorderBeamStrength(value: unknown): number {
 }
 
 const defaultSettings: AppSettings = {
-  appShellMode: "stave",
   showPresetBar: true,
   themeMode: "dark",
   customThemeId: null,
@@ -6927,11 +6920,6 @@ export const useAppStore = create<AppState>()(
         updateSettings: ({ patch }) => {
           const normalizedPatch: Partial<AppSettings> = {
             ...patch,
-            ...(patch.appShellMode === undefined
-              ? {}
-              : {
-                  appShellMode: normalizeAppShellMode(patch.appShellMode),
-                }),
             ...(patch.sharedSkillsHome === undefined
               ? {}
               : {
@@ -11721,19 +11709,14 @@ export const useAppStore = create<AppState>()(
         // Merge with defaultSettings so newly added fields are never undefined
         // for users whose persisted state pre-dates those fields.
         state.settings = { ...defaultSettings, ...persistedSettings };
+        delete (
+          state.settings as AppSettings & {
+            appShellMode?: unknown;
+          }
+        ).appShellMode;
         // Migrate legacy fastModeVisible → per-provider fields.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const raw = state.settings as any;
-        const legacyLayoutZenMode =
-          (
-            state.layout as LayoutState & {
-              zenMode?: boolean;
-            }
-          ).zenMode === true;
-        state.settings.appShellMode = normalizeAppShellMode(
-          persistedSettings?.appShellMode ??
-            (legacyLayoutZenMode ? "zen" : defaultSettings.appShellMode),
-        );
         state.settings.showPresetBar =
           typeof raw.showPresetBar === "boolean"
             ? raw.showPresetBar

@@ -180,8 +180,7 @@ export function KeyboardShortcutsDrawer({
         | "view.show-scripts"
         | "view.show-lens"
         | "view.toggle-editor"
-        | "view.toggle-terminal"
-        | "view.toggle-zen-mode";
+        | "view.toggle-terminal";
     },
   ): ShortcutItem => {
     const sequences = buildAppShortcutSequences({
@@ -306,12 +305,6 @@ export function KeyboardShortcutsDrawer({
             actionId: "view.toggle-terminal",
             label: "Toggle terminal",
             description: "Dock or hide the terminal panel.",
-          }),
-          buildShellShortcutItem({
-            actionId: "view.toggle-zen-mode",
-            label: "Toggle Zen mode",
-            description:
-              "Hide surrounding workspace chrome and suppress thinking details to focus on chat and results.",
           }),
         ],
       },

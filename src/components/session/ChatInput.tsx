@@ -1,4 +1,4 @@
-import { PromptInput, ZenPromptInput } from "@/components/ai-elements";
+import { PromptInput } from "@/components/ai-elements";
 import {
   useCallback,
   useDeferredValue,
@@ -74,12 +74,7 @@ import {
 } from "@/lib/tasks";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
-import { resolvePathBaseName } from "@/lib/path-utils";
 import { useAppStore } from "@/store/app.store";
-import {
-  isDefaultWorkspaceName,
-  resolveProjectNameFromPath,
-} from "@/store/project.utils";
 import {
   findPendingApprovals,
   findLatestPendingUserInputPart,
@@ -109,10 +104,6 @@ import {
   shouldHandleApprovalEnterShortcut,
   shouldHandleApprovalTabShortcut,
 } from "./chat-input.utils";
-
-interface BaseChatInputProps {
-  compact?: boolean;
-}
 
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
   text: "",
@@ -154,14 +145,10 @@ const INACTIVE_CODEX_SETTINGS = [
 const EMPTY_PROVIDER_MODE_PRESETS: readonly ProviderModePresetDefinition[] = [];
 
 interface ChatInputComposerProps {
-  compact?: boolean;
   isEmpty: boolean;
   activeTaskId: string;
   activeProvider: ModelSelectorOption["providerId"];
   workspaceCwd?: string;
-  workspaceBranch?: string;
-  workspaceProjectLabel?: string;
-  workspacePathLabel?: string;
   providerSelectionTarget: string;
   isTurnActive: boolean;
   approvalActionsDisabled?: boolean;
@@ -639,52 +626,17 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     resolveApproval,
   ]);
 
-  const PromptInputComponent = args.compact ? ZenPromptInput : PromptInput;
-
   return (
     <div
       className={cn(
-        args.compact
-          ? "bg-transparent px-0 py-0"
-          : "bg-background px-3 py-2.5 sm:px-4",
-        args.isEmpty && !args.compact && "pb-6",
+        "bg-background px-3 py-2.5 sm:px-4",
+        args.isEmpty && "pb-6",
       )}
     >
-      <div className={cn("mx-auto", args.compact ? "max-w-5xl" : "max-w-6xl")}>
-        {args.compact ? (
-          <div className="mb-3 flex flex-col gap-1 border-b border-border/50 pb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-primary/85">
-                {args.workspaceProjectLabel ?? "user@stave"}
-              </span>
-              {args.workspaceBranch ? (
-                <span>
-                  <span className="text-muted-foreground/55">branch:</span>{" "}
-                  <span className="text-foreground">
-                    {args.workspaceBranch}
-                  </span>
-                </span>
-              ) : null}
-              {args.workspacePathLabel ? (
-                <span>
-                  <span className="text-muted-foreground/55">worktree:</span>{" "}
-                  <span className="text-foreground">
-                    {args.workspacePathLabel}
-                  </span>
-                </span>
-              ) : null}
-            </div>
-            {args.workspaceCwd ? (
-              <div className="truncate text-[10px] normal-case tracking-normal text-muted-foreground/65">
-                {args.workspaceCwd}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+      <div className="mx-auto max-w-6xl">
         {pendingApprovals.length > 0 ? (
           <ChatInputApprovalQueue
             approvals={pendingApprovals}
-            compact={args.compact}
             disabled={args.approvalActionsDisabled}
             disabledReason={args.approvalDisabledReason}
             guidanceFocusNonce={guidanceFocusNonce}
@@ -758,7 +710,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             </div>
           </div>
         ) : null}
-        <PromptInputComponent
+        <PromptInput
           focusToken={`${args.providerSelectionTarget}:${focusNonce}`}
           value={draftText}
           onBlur={commitCurrentDraftText}
@@ -969,7 +921,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   );
 }
 
-function BaseChatInput(args: BaseChatInputProps = {}) {
+function BaseChatInput() {
   const [providerCommandCatalog, setProviderCommandCatalog] = useState(() =>
     getCachedProviderCommandCatalog({
       providerId: "claude-code",
@@ -1027,18 +979,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
       state.workspacePathById[state.activeWorkspaceId] ??
       state.projectPath ??
       undefined,
-  );
-  const [activeWorkspaceBranch, activeWorkspaceName, projectPath] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.workspaceBranchById[state.activeWorkspaceId] ?? undefined,
-          state.workspaces.find(
-            (workspace) => workspace.id === state.activeWorkspaceId,
-          )?.name ?? null,
-          state.projectPath,
-        ] as const,
-    ),
   );
   const activeMessageCount = useAppStore(
     (state) =>
@@ -1238,21 +1178,6 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
     () => normalizeModelShortcutKeys(modelShortcutKeys),
     [modelShortcutKeys],
   );
-  const workspacePathLabel = useMemo(() => {
-    return resolvePathBaseName({ path: workspaceCwd }) || undefined;
-  }, [workspaceCwd]);
-  const workspaceProjectLabel = useMemo(() => {
-    const projectLabel = projectPath
-      ? resolveProjectNameFromPath({ projectPath })
-      : "stave";
-    if (
-      activeWorkspaceName?.trim() &&
-      !isDefaultWorkspaceName(activeWorkspaceName)
-    ) {
-      return `user@${projectLabel}:${activeWorkspaceName.trim()}`;
-    }
-    return `user@${projectLabel}`;
-  }, [activeWorkspaceName, projectPath]);
   const approvalActionsDisabled = isTaskManaged(activeTask);
   const approvalDisabledReason = approvalActionsDisabled
     ? `This request is managed by ${getTaskControlOwner(activeTask) === "external" ? "an external controller" : "Stave"}. Respond from the originating client or take over after the run ends.`
@@ -1698,14 +1623,10 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
 
   return (
     <ChatInputComposer
-      compact={args.compact}
       isEmpty={isEmpty}
       activeTaskId={activeTaskId}
       activeProvider={activeProvider}
       workspaceCwd={workspaceCwd}
-      workspaceBranch={activeWorkspaceBranch}
-      workspaceProjectLabel={workspaceProjectLabel}
-      workspacePathLabel={workspacePathLabel}
       providerSelectionTarget={providerSelectionTarget}
       isTurnActive={isTurnActive}
       approvalActionsDisabled={approvalActionsDisabled}
@@ -1844,8 +1765,4 @@ function BaseChatInput(args: BaseChatInputProps = {}) {
 
 export function ChatInput() {
   return <BaseChatInput />;
-}
-
-export function ZenChatInput() {
-  return <BaseChatInput compact />;
 }

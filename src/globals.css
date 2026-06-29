@@ -470,43 +470,6 @@
     }
   }
 
-  .zen-conversation-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in oklab, var(--foreground) 36%, transparent)
-      transparent;
-    scrollbar-gutter: stable;
-  }
-
-  .zen-conversation-scroll::-webkit-scrollbar {
-    width: 10px;
-  }
-
-  .zen-conversation-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .zen-conversation-scroll::-webkit-scrollbar-thumb {
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--foreground) 42%, transparent) 0%,
-      color-mix(in oklab, var(--foreground) 24%, transparent) 100%
-    );
-    border: 3px solid transparent;
-    border-radius: 999px;
-    background-clip: padding-box;
-    box-shadow: inset 0 0 0 1px
-      color-mix(in oklab, var(--foreground) 14%, transparent);
-  }
-
-  .zen-conversation-scroll::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--primary) 52%, transparent) 0%,
-      color-mix(in oklab, var(--foreground) 34%, transparent) 100%
-    );
-    background-clip: padding-box;
-  }
-
   .tab-strip-scroll {
     -ms-overflow-style: none;
     scrollbar-width: none;

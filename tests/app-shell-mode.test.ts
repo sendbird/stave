@@ -9,9 +9,20 @@ const noopStorage = createJSONStorage(() => ({
   removeItem: () => {},
 }));
 
-describe("app shell mode settings", () => {
-  test("defaults to Stave mode and switches through settings", () => {
-    expect(useAppStore.getInitialState().settings.appShellMode).toBe("stave");
+describe("layout settings", () => {
+  test("strips unknown layout fields during normalization", () => {
+    const initialLayout = useAppStore.getInitialState().layout;
+    const normalized = normalizeLayoutState({
+      ...initialLayout,
+      unexpectedFlag: true,
+    } as typeof initialLayout & { unexpectedFlag: boolean });
+
+    expect("unexpectedFlag" in normalized).toBe(false);
+  });
+});
+
+describe("lens session scope settings", () => {
+  test("defaults to project scope and normalizes invalid updates", () => {
     (
       useAppStore as typeof useAppStore & {
         persist?: {
@@ -20,36 +31,6 @@ describe("app shell mode settings", () => {
       }
     ).persist?.setOptions({ storage: noopStorage });
 
-    useAppStore.getState().updateSettings({
-      patch: {
-        appShellMode: "zen",
-      },
-    });
-
-    expect(useAppStore.getState().settings.appShellMode).toBe("zen");
-
-    useAppStore.getState().updateSettings({
-      patch: {
-        appShellMode: "stave",
-      },
-    });
-
-    expect(useAppStore.getState().settings.appShellMode).toBe("stave");
-  });
-
-  test("strips the legacy layout zen flag during normalization", () => {
-    const initialLayout = useAppStore.getInitialState().layout;
-    const normalized = normalizeLayoutState({
-      ...initialLayout,
-      zenMode: true,
-    } as typeof initialLayout & { zenMode: boolean });
-
-    expect("zenMode" in normalized).toBe(false);
-  });
-});
-
-describe("lens session scope settings", () => {
-  test("defaults to project scope and normalizes invalid updates", () => {
     expect(useAppStore.getInitialState().settings.lensSessionScope).toBe(
       "project",
     );

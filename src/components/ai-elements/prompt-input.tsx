@@ -2068,7 +2068,3 @@ export function PromptInput(args: PromptInputProps) {
     </>
   );
 }
-
-export function ZenPromptInput(args: Omit<PromptInputProps, "minimal">) {
-  return <PromptInput {...args} minimal />;
-}

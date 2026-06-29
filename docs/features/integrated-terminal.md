@@ -103,5 +103,4 @@ You do not need to create a task first just to open a provider session.
 ## Related Docs
 
 - [Command Palette](command-palette.md)
-- [Zen Mode](zen-mode.md)
 - [Install Guide](../install-guide.md)

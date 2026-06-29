@@ -27,7 +27,6 @@ function createContext(
       sidebarOverlayVisible: false,
       terminalDocked: false,
       workspaceSidebarCollapsed: false,
-      zenMode: false,
     },
     modifierLabel: "Cmd",
     preferences: {
@@ -108,7 +107,6 @@ function createContext(
       toggleEditor: () => {},
       toggleInformationPanel: () => {},
       toggleTerminal: () => {},
-      toggleZenMode: () => {},
       toggleWorkspaceSidebar: () => {},
     },
     ...overrides,
@@ -221,33 +219,6 @@ describe("command palette registry", () => {
         (item) => item.id === "view.show-lens" && item.shortcut === "Cmd+K L",
       ),
     ).toBe(true);
-    expect(
-      view?.items.some(
-        (item) =>
-          item.id === "view.toggle-zen-mode" && item.shortcut === "Cmd+K Z",
-      ),
-    ).toBe(true);
-  });
-
-  test("switches zen-mode command label when zen mode is active", () => {
-    const groups = buildCommandPaletteGroups(
-      createContext({
-        layout: {
-          editorVisible: true,
-          sidebarOverlayTab: "explorer",
-          sidebarOverlayVisible: false,
-          terminalDocked: false,
-          workspaceSidebarCollapsed: false,
-          zenMode: true,
-        },
-      }),
-    );
-    const view = groups.find((group) => group.key === "view");
-    const zenModeAction = view?.items.find(
-      (item) => item.id === "view.toggle-zen-mode",
-    );
-
-    expect(zenModeAction?.title).toBe("Exit Zen Mode");
   });
 
   test("uses customized shell chord labels for panel actions", () => {

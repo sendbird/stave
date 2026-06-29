@@ -71,7 +71,7 @@ Recommended next steps:
 - Monaco editor, docked terminal, quick open, command palette, and source control actions
 - workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
 - git worktree-aware project and workspace management
-- attachments, notifications, skill selection, custom model shortcuts, theme presets, and Zen mode
+- attachments, notifications, skill selection, custom model shortcuts, and theme presets
 - local-only MCP access for same-machine automation and tool-driven workflows
 
 ## Documentation
