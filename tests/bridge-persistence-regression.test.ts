@@ -2499,6 +2499,125 @@ describe("workspace store hydration ordering", () => {
     );
   });
 
+  test("hydrateWorkspaces skips worktrees archived in the project registry", async () => {
+    const localStorage = createMemoryStorage();
+    const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
+      [];
+    const projectPath = "/tmp/stave-project";
+    const defaultWorkspaceId = buildProjectDefaultWorkspaceId({ projectPath });
+    const archivedWorkspacePath =
+      "/tmp/stave-project/.stave/workspaces/feature__perf";
+
+    setWindowContext({
+      localStorage,
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({
+            ok: true,
+            rows: [
+              {
+                id: defaultWorkspaceId,
+                name: "Default Workspace",
+                updatedAt: "2026-03-10T00:00:00.000Z",
+              },
+            ],
+          }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
+          loadProjectRegistry: async () => ({
+            ok: true,
+            projects: [
+              {
+                projectPath,
+                projectName: "stave-project",
+                lastOpenedAt: "2026-03-10T00:00:00.000Z",
+                defaultBranch: "main",
+                workspaces: [
+                  {
+                    id: defaultWorkspaceId,
+                    name: "Default Workspace",
+                    updatedAt: "2026-03-10T00:00:00.000Z",
+                  },
+                ],
+                activeWorkspaceId: defaultWorkspaceId,
+                workspaceBranchById: { [defaultWorkspaceId]: "main" },
+                workspacePathById: { [defaultWorkspaceId]: projectPath },
+                workspaceDefaultById: { [defaultWorkspaceId]: true },
+                archivedWorkspacePaths: [archivedWorkspacePath],
+              },
+            ],
+          }),
+          saveProjectRegistry: async () => ({ ok: true }),
+          upsertWorkspace: async (args: {
+            id: string;
+            name: string;
+            snapshot: unknown;
+          }) => {
+            upsertCalls.push(args);
+            return { ok: true };
+          },
+        },
+        terminal: {
+          runCommand: async ({
+            command,
+          }: {
+            cwd?: string;
+            command: string;
+          }) => {
+            if (command === "git worktree prune") {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (command === "git worktree list --porcelain") {
+              return {
+                ok: true,
+                code: 0,
+                stdout: [
+                  "worktree /tmp/stave-project",
+                  "HEAD abc123",
+                  "branch refs/heads/main",
+                  "",
+                  "worktree /tmp/stave-project/.stave/workspaces/feature__perf",
+                  "HEAD def456",
+                  "branch refs/heads/feature/perf",
+                ].join("\n"),
+                stderr: "",
+              };
+            }
+            return {
+              ok: false,
+              code: 1,
+              stdout: "",
+              stderr: `Unexpected command: ${command}`,
+            };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      projectPath,
+      projectName: "stave-project",
+      defaultBranch: "main",
+      hasHydratedWorkspaces: false,
+    });
+
+    await useAppStore.getState().hydrateWorkspaces();
+
+    const nextState = useAppStore.getState();
+    expect(nextState.workspaces.map((workspace) => workspace.id)).toEqual([
+      defaultWorkspaceId,
+    ]);
+    expect(
+      nextState.workspaces.some(
+        (workspace) => workspace.name === "feature/perf",
+      ),
+    ).toBe(false);
+    expect(upsertCalls).toHaveLength(0);
+  });
+
   test("refreshWorkspaces does not overwrite an already persisted imported worktree with an empty snapshot", async () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
@@ -4786,6 +4905,119 @@ describe("workspace store hydration ordering", () => {
     expect(runCalls.map((call) => call.command)).toEqual([
       "git status --porcelain --untracked-files=all",
     ]);
+  });
+
+  test("closeWorkspace persists archived worktree tombstones", async () => {
+    const localStorage = createMemoryStorage();
+    const savedProjects: Array<
+      Array<{
+        projectPath: string;
+        archivedWorkspacePaths?: string[];
+      }>
+    > = [];
+    const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
+      setWindowContext({
+        localStorage,
+        api: {
+          persistence: {
+            listWorkspaces: async () => ({ ok: true, rows: [] }),
+            loadWorkspace: async () => ({ ok: true, snapshot: null }),
+            upsertWorkspace: async () => ({ ok: true }),
+            closeWorkspace: async () => ({ ok: true }),
+            saveProjectRegistry: async ({
+              projects,
+            }: {
+              projects: unknown[];
+            }) => {
+              savedProjects.push(
+                projects as Array<{
+                  projectPath: string;
+                  archivedWorkspacePaths?: string[];
+                }>,
+              );
+              return { ok: true };
+            },
+          },
+          fs: {
+            listFiles: async () => ({ ok: true, files: [] }),
+            readFile: async () => ({ ok: false }),
+            writeFile: async () => ({ ok: false }),
+          },
+          terminal: {
+            runCommand: async (call: { cwd?: string; command: string }) => {
+              if (
+                call.cwd === workspacePath &&
+                call.command === "git status --porcelain --untracked-files=all"
+              ) {
+                return {
+                  ok: true,
+                  code: 0,
+                  stdout: " M src/app.ts\n",
+                  stderr: "",
+                };
+              }
+              return {
+                ok: false,
+                code: 1,
+                stdout: "",
+                stderr: `Unexpected command: ${call.command}`,
+              };
+            },
+          },
+        },
+      });
+
+      const { useAppStore, waitForPendingWorkspaceArchiveCleanups } =
+        await import("../src/store/app.store");
+      const initialState = useAppStore.getInitialState();
+      useAppStore.setState({
+        ...initialState,
+        hasHydratedWorkspaces: true,
+        workspaces: [
+          {
+            id: "ws-main-close",
+            name: "Main",
+            updatedAt: "2026-03-10T00:00:00.000Z",
+          },
+          {
+            id: "ws-feature-close",
+            name: "feature",
+            updatedAt: "2026-03-10T00:01:00.000Z",
+          },
+        ],
+        activeWorkspaceId: "ws-main-close",
+        projectPath: "/tmp/stave-project-close",
+        projectName: "stave-project-close",
+        defaultBranch: "main",
+        workspacePathById: {
+          "ws-main-close": "/tmp/stave-project-close",
+          "ws-feature-close": workspacePath,
+        },
+        workspaceBranchById: {
+          "ws-main-close": "main",
+          "ws-feature-close": "feature",
+        },
+        workspaceDefaultById: {
+          "ws-main-close": true,
+          "ws-feature-close": false,
+        },
+      });
+
+      await useAppStore
+        .getState()
+        .closeWorkspace({ workspaceId: "ws-feature-close" });
+      await waitForPendingWorkspaceArchiveCleanups();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    const savedProject = savedProjects
+      .at(-1)
+      ?.find((project) => project.projectPath === "/tmp/stave-project-close");
+    expect(savedProject?.archivedWorkspacePaths).toEqual([workspacePath]);
   });
 
   test("closeWorkspace cleanup preserves unpushed branches after worktree removal", async () => {

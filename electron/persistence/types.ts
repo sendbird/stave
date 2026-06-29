@@ -154,6 +154,7 @@ export interface PersistenceProjectRegistryEntry {
   projectBasePrompt?: string;
   newWorkspaceInitCommand?: string;
   newWorkspaceUseRootNodeModulesSymlink?: boolean;
+  archivedWorkspacePaths?: string[];
 }
 
 export interface PersistenceTurnSummary {

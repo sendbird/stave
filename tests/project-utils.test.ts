@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildProjectDefaultWorkspaceId,
+  captureCurrentProjectState,
   formatWorkspacePathLabel,
   isDefaultWorkspaceName,
   normalizeCurrentProjectState,
@@ -151,6 +152,61 @@ describe("project name normalization", () => {
 
     expect(projects[0]?.projectBasePrompt).toBe("Prefer bun over npm.");
     expect(normalizeProjectBasePrompt({ value: undefined })).toBe("");
+  });
+
+  test("preserves and clears archived workspace path tombstones", () => {
+    const defaultWorkspace = {
+      id: DEFAULT_WORKSPACE_ID,
+      name: "Default Workspace",
+      updatedAt: "2026-03-31T13:36:33.211Z",
+    };
+    const archivedProjects = captureCurrentProjectState({
+      recentProjects: [],
+      projectPath: PROJECT_PATH,
+      projectName: "stave",
+      defaultBranch: "main",
+      workspaces: [defaultWorkspace],
+      activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+      workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
+      workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
+      archivedWorkspacePathsToAdd: [FEATURE_WORKSPACE_PATH],
+    });
+
+    expect(archivedProjects[0]?.archivedWorkspacePaths).toEqual([
+      FEATURE_WORKSPACE_PATH,
+    ]);
+
+    const restoredProjects = captureCurrentProjectState({
+      recentProjects: archivedProjects,
+      projectPath: PROJECT_PATH,
+      projectName: "stave",
+      defaultBranch: "main",
+      workspaces: [
+        defaultWorkspace,
+        {
+          id: "workspace-feature",
+          name: "feat/auto-update-on-mac",
+          updatedAt: "2026-03-31T13:37:33.211Z",
+        },
+      ],
+      activeWorkspaceId: "workspace-feature",
+      workspaceBranchById: {
+        [DEFAULT_WORKSPACE_ID]: "main",
+        "workspace-feature": "feat/auto-update-on-mac",
+      },
+      workspacePathById: {
+        [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+        "workspace-feature": FEATURE_WORKSPACE_PATH,
+      },
+      workspaceDefaultById: {
+        [DEFAULT_WORKSPACE_ID]: true,
+        "workspace-feature": false,
+      },
+      archivedWorkspacePathsToRemove: [FEATURE_WORKSPACE_PATH],
+    });
+
+    expect(restoredProjects[0]?.archivedWorkspacePaths).toBeUndefined();
   });
 
   test("rejects a foreign default workspace when its path points at another project", () => {
