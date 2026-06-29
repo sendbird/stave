@@ -14,7 +14,6 @@ import {
   EmptyTitle,
 } from "@/components/ui";
 import { getMessageScrollFingerprint, shouldShowConversationLoadingState } from "@/components/session/chat-panel.utils";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
@@ -33,14 +32,11 @@ export interface ChatPanelRowRenderArgs {
 }
 
 interface ChatPanelMessageListScaffoldProps {
-  layout?: "default" | "zen";
   filterMessage?: (message: ChatMessage) => boolean;
-  bottomSpacerHeight?: number;
   renderMessageRow: (args: ChatPanelRowRenderArgs) => ReactNode;
 }
 
 export function ChatPanelMessageListScaffold(args: ChatPanelMessageListScaffoldProps) {
-  const layout = args.layout ?? "default";
   const [activeWorkspaceId, activeTaskId, activeTurnId, chatStreamingEnabled, loadTaskMessages] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
     state.activeTaskId,
@@ -103,14 +99,10 @@ export function ChatPanelMessageListScaffold(args: ChatPanelMessageListScaffoldP
       forceScrollKey={forceScrollKey}
       scrollScopeKey={scrollContextKey}
       forceScrollScopeKey={scrollContextKey}
-      withInnerLayout={layout === "default" && visibleMessages.length === 0 && !showConversationLoadingState}
-      className={layout === "zen" ? "zen-conversation-scroll" : undefined}
+      withInnerLayout={visibleMessages.length === 0 && !showConversationLoadingState}
     >
       {hasOlderMessages ? (
-        <div className={cn(
-          "mx-auto mb-3 flex w-full pt-3",
-          layout === "zen" ? "max-w-[82ch] px-2 sm:px-0" : "max-w-6xl px-3 sm:px-5 sm:pt-4",
-        )}>
+        <div className="mx-auto mb-3 flex w-full max-w-6xl px-3 pt-3 sm:px-5 sm:pt-4">
           <Button
             type="button"
             size="sm"
@@ -134,7 +126,7 @@ export function ChatPanelMessageListScaffold(args: ChatPanelMessageListScaffoldP
           description="Fetching the latest messages for this task."
         />
       ) : visibleMessages.length === 0 ? (
-        <div className={cn(layout === "zen" && "mx-auto flex w-full max-w-[82ch] flex-1 px-2 py-4 sm:px-0")}>
+        <div>
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -152,8 +144,6 @@ export function ChatPanelMessageListScaffold(args: ChatPanelMessageListScaffoldP
           data={visibleMessages}
           forceScrollKey={forceScrollKey}
           forceScrollScopeKey={scrollContextKey}
-          layout={layout}
-          extraBottomPadding={layout === "zen" ? args.bottomSpacerHeight : undefined}
           itemKey={(_, message) => message.id}
           itemContent={(index, message) => args.renderMessageRow({
             activeTaskId,

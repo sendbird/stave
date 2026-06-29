@@ -19,8 +19,7 @@ export type AppShortcutCommandId =
   | "view.show-scripts"
   | "view.show-lens"
   | "view.toggle-editor"
-  | "view.toggle-terminal"
-  | "view.toggle-zen-mode";
+  | "view.toggle-terminal";
 
 export interface AppShortcutDefinition {
   commandId: AppShortcutCommandId;
@@ -91,13 +90,6 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     title: "Toggle terminal",
     description: "Dock or hide the terminal panel.",
     defaultKey: "`",
-  },
-  {
-    commandId: "view.toggle-zen-mode",
-    title: "Toggle Zen mode",
-    description:
-      "Hide surrounding workspace chrome and focus on chat and results.",
-    defaultKey: "z",
   },
 ] as const;
 

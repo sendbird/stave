@@ -10,7 +10,6 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import { TopBar } from "@/components/layout/TopBar";
-import { ZenAppShellLayout } from "@/components/layout/ZenAppShellLayout";
 import { FleetView } from "@/components/layout/FleetView";
 import { CompareRunPanel } from "@/components/compare/CompareRunPanel";
 import {
@@ -117,7 +116,6 @@ export function AppShell() {
     terminalDocked,
     terminalDockHeight,
     activeEditorTabId,
-    appShellMode,
     appShortcutKeys,
     commandPaletteHiddenCommandIds,
     commandPalettePinnedCommandIds,
@@ -167,7 +165,6 @@ export function AppShell() {
           state.layout.terminalDocked,
           state.layout.terminalDockHeight ?? 210,
           state.activeEditorTabId,
-          state.settings.appShellMode,
           state.settings.appShortcutKeys,
           state.settings.commandPaletteHiddenCommandIds,
           state.settings.commandPalettePinnedCommandIds,
@@ -191,7 +188,6 @@ export function AppShell() {
     ),
   );
   const showPresetBar = useAppStore((state) => state.settings.showPresetBar);
-  const zenMode = appShellMode === "zen";
   const hasProject = Boolean(projectPath);
   const panelRowRef = useRef<HTMLDivElement>(null);
   const contentRowRef = useRef<HTMLDivElement>(null);
@@ -278,14 +274,6 @@ export function AppShell() {
   }, []);
   const handleContinueWorkspace = useCallback(() => {
     dispatchTopBarPrAction("continue");
-  }, []);
-  const handleToggleZenMode = useCallback(() => {
-    const store = useAppStore.getState();
-    store.updateSettings({
-      patch: {
-        appShellMode: store.settings.appShellMode === "zen" ? "stave" : "zen",
-      },
-    });
   }, []);
   const handleStartCompareRun = useCallback(async () => {
     const result = await startCompareRunFromActiveDraft();
@@ -554,9 +542,6 @@ export function AppShell() {
       }
 
       switch (shortcutChord.action) {
-        case "view.toggle-zen-mode":
-          handleToggleZenMode();
-          return;
         case "navigation.home":
           store.clearTaskSelection();
           return;
@@ -814,7 +799,6 @@ export function AppShell() {
     handleOpenCommandPalette,
     handleOpenExplorerSearch,
     handleOpenKeyboardShortcuts,
-    handleToggleZenMode,
   ]);
 
   useEffect(
@@ -1002,12 +986,6 @@ export function AppShell() {
       }));
   }
 
-  if (zenMode) {
-    showDesktopEditor = false;
-    showDesktopSidebar = false;
-    overlayRightPanelMode = null;
-  }
-
   const showOverlayRightPanel = overlayRightPanelMode !== null;
   const showLensOverlayPanel =
     overlayRightPanelMode === "sidebar" && sidebarOverlayTab === "lens";
@@ -1064,7 +1042,6 @@ export function AppShell() {
         sidebarOverlayVisible,
         terminalDocked,
         workspaceSidebarCollapsed,
-        zenMode,
       },
       modifierLabel,
       appShortcutKeys,
@@ -1191,7 +1168,6 @@ export function AppShell() {
               terminalDocked: !useAppStore.getState().layout.terminalDocked,
             },
           }),
-        toggleZenMode: handleToggleZenMode,
         toggleWorkspaceSidebar: () =>
           setLayout({
             patch: {
@@ -1242,7 +1218,6 @@ export function AppShell() {
       sidebarOverlayTab,
       tasks,
       terminalDocked,
-      zenMode,
       workspaceBranchById,
       workspaceDefaultById,
       workspacePathById,
@@ -1250,7 +1225,6 @@ export function AppShell() {
       workspaceSidebarCollapsed,
       workspaces,
       switchWorkspace,
-      handleToggleZenMode,
     ],
   );
   const showCliSurface =
@@ -1345,10 +1319,7 @@ export function AppShell() {
           />
         </Suspense>
       ) : null}
-      {zenMode ? (
-        <ZenAppShellLayout />
-      ) : (
-        <>
+      <>
           <RenderProfiler id="ProjectWorkspaceSidebar">
             <ProjectWorkspaceSidebar
               width={Math.max(
@@ -1688,8 +1659,7 @@ export function AppShell() {
           {monacoWarmupActive && !editorVisible ? (
             <EditorMonacoWarmup onReady={handleMonacoWarmed} />
           ) : null}
-        </>
-      )}
+      </>
     </div>
   );
 }

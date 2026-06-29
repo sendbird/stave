@@ -1,7 +1,6 @@
 import {
   Bot,
   Command as CommandIcon,
-  Focus,
   FolderOpen,
   GitBranch,
   GitPullRequest,
@@ -107,7 +106,6 @@ export interface CommandPaletteLayoutState {
   sidebarOverlayVisible: boolean;
   terminalDocked: boolean;
   workspaceSidebarCollapsed: boolean;
-  zenMode: boolean;
 }
 
 export interface CommandPaletteCommandHandlers {
@@ -142,7 +140,6 @@ export interface CommandPaletteCommandHandlers {
   toggleEditor: () => void;
   toggleInformationPanel: () => void;
   toggleTerminal: () => void;
-  toggleZenMode: () => void;
   toggleWorkspaceSidebar: () => void;
 }
 
@@ -659,33 +656,6 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       keywords: ["terminal", "console", "shell"],
       shortcut: `${args.modifierLabel}+\``,
       run: args.commands.toggleTerminal,
-      source: "core",
-    }),
-  },
-  {
-    id: "view.toggle-zen-mode",
-    title: "Toggle Zen Mode",
-    description:
-      "Hide surrounding workspace chrome and focus on chat and results.",
-    group: "view",
-    icon: Focus,
-    keywords: ["zen", "focus", "distraction free", "full screen", "chat only"],
-    shortcut: (modifierLabel) => `${modifierLabel}+K Z`,
-    build: (args) => ({
-      id: "view.toggle-zen-mode",
-      title: args.layout.zenMode ? "Exit Zen Mode" : "Enter Zen Mode",
-      subtitle: "Focus the app on chat, results, and the prompt composer.",
-      group: "view",
-      icon: Focus,
-      keywords: [
-        "zen",
-        "focus",
-        "distraction free",
-        "full screen",
-        "chat only",
-      ],
-      shortcut: `${args.modifierLabel}+K Z`,
-      run: args.commands.toggleZenMode,
       source: "core",
     }),
   },

@@ -685,7 +685,6 @@ function buildSettingsState() {
         },
       ],
       settings: {
-        appShellMode: "stave",
         claudePermissionMode: "acceptEdits",
         claudeSandboxEnabled: true,
         claudeAllowUnsandboxedCommands: false,
@@ -1461,20 +1460,6 @@ async function openSettingsSidebarSection(settingsDialog, label) {
     .click();
 }
 
-async function captureWorkspaceModeSettings(browser) {
-  console.log("[capture] workspace-mode-settings");
-  const { context, page } = await createPage(browser);
-  await installState(page, buildSettingsState());
-  await openApp(page);
-  const settingsDialog = await openSettingsDialog(page);
-  await settingsDialog.getByText("Workspace Mode").waitFor();
-  await settingsDialog.screenshot({
-    path: path.join(outputDir, "workspace-mode.png"),
-  });
-  await context.close();
-  console.log("[capture] workspace-mode-settings done");
-}
-
 async function captureProjectInstructionsSettings(browser) {
   console.log("[capture] project-instructions-settings");
   const { context, page } = await createPage(browser);
@@ -1623,7 +1608,6 @@ const CAPTURE_STEPS = [
   ["scripts-panel", captureScriptsPanel],
   ["notifications", captureNotifications],
   ["mcp-settings", captureMcpSettings],
-  ["workspace-mode", captureWorkspaceModeSettings],
   ["project-instructions", captureProjectInstructionsSettings],
   ["provider-controls", captureProviderControls],
   ["language-intelligence", captureLanguageIntelligenceSettings],

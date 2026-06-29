@@ -1,6 +1,5 @@
 import type {
   ComponentPropsWithoutRef,
-  CSSProperties,
   ForwardedRef,
   HTMLAttributes,
   MutableRefObject,
@@ -80,20 +79,6 @@ function debugConversationScroll(
 
 function getDistanceFromBottom(container: HTMLDivElement) {
   return container.scrollHeight - container.scrollTop - container.clientHeight;
-}
-
-function withExtraPaddingBottom(
-  style: CSSProperties | undefined,
-  extra: number,
-): CSSProperties {
-  const paddingBottom = style?.paddingBottom;
-  if (typeof paddingBottom === "number") {
-    return { ...style, paddingBottom: paddingBottom + extra };
-  }
-  if (typeof paddingBottom === "string" && paddingBottom.length > 0) {
-    return { ...style, paddingBottom: `calc(${paddingBottom} + ${extra}px)` };
-  }
-  return { ...style, paddingBottom: extra };
 }
 
 function useConversationContext() {
@@ -392,8 +377,6 @@ interface ConversationVirtualListProps<T> {
   restoreItemId?: string;
   restoreItemOffset?: number;
   listRef?: MutableRefObject<VirtuosoHandle | null>;
-  layout?: "default" | "zen";
-  extraBottomPadding?: number;
 }
 
 export function ConversationVirtualList<T>(
@@ -421,35 +404,19 @@ export function ConversationVirtualList<T>(
     scope: props.listKey,
   });
   const lastIndex = props.data.length - 1;
-  const extraBottomPadding = props.extraBottomPadding ?? 0;
-  // Ref allows the List component to read the latest padding without
-  // recreating the component reference (which causes Virtuoso to remount).
-  const extraBottomPaddingRef = useRef(extraBottomPadding);
-  extraBottomPaddingRef.current = extraBottomPadding;
 
-  // Stable component references — only recreated when layout changes.
-  // extraBottomPadding is read from a ref so the components object identity
-  // never changes on padding updates, preventing Virtuoso remounts.
+  // Stable component references prevent Virtuoso remounts.
   const components = useMemo(() => {
-    const listLayout = props.layout ?? "default";
-    const paddingRef = extraBottomPaddingRef;
     return {
       List: forwardRef(function ConversationListContainer(
         listProps: ComponentPropsWithoutRef<"div">,
         ref: ForwardedRef<HTMLDivElement>,
       ) {
-        const { className, style, ...rest } = listProps;
-        const extra = paddingRef.current;
+        const { className, ...rest } = listProps;
         return (
           <div
             ref={ref}
-            className={cn(
-              listLayout === "zen"
-                ? "mx-auto w-full max-w-[82ch] px-2 pt-4 sm:px-0"
-                : "mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 sm:pt-5",
-              className,
-            )}
-            style={extra > 0 ? withExtraPaddingBottom(style, extra) : style}
+            className={cn("mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 sm:pt-5", className)}
             {...rest}
           />
         );
@@ -460,16 +427,13 @@ export function ConversationVirtualList<T>(
         const { className, ...rest } = itemProps;
         return (
           <div
-            className={cn(
-              listLayout === "zen" ? "pb-8" : "pb-3 last:pb-6",
-              className,
-            )}
+            className={cn("pb-3 last:pb-6", className)}
             {...rest}
           />
         );
       },
     };
-  }, [props.layout]);
+  }, []);
 
   useEffect(() => {
     setScrollToBottomOverride(() => (args?: ScrollToBottomArgs) => {

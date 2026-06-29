@@ -667,7 +667,6 @@ function ProjectsSection(args: {
 
 function GeneralSection() {
   const [
-    appShellMode,
     confirmBeforeClose,
     notificationSoundEnabled,
     notificationSoundPreset,
@@ -679,7 +678,6 @@ function GeneralSection() {
     useShallow(
       (state) =>
         [
-          state.settings.appShellMode,
           state.settings.confirmBeforeClose,
           state.settings.notificationSoundEnabled,
           state.settings.notificationSoundPreset,
@@ -753,36 +751,6 @@ function GeneralSection() {
         description="Global preferences for the app window and reserved future defaults."
       />
       <SectionStack>
-        <SettingsCard
-          title="Workspace Mode"
-          description="Choose the default shell shown when the app opens and when Zen mode is toggled."
-        >
-          <LabeledField
-            title="Mode"
-            description="Stave keeps the full workspace chrome visible. Zen keeps the focused chat-only shell active until you switch back."
-          >
-            <ChoiceButtons
-              value={appShellMode}
-              onChange={(value) =>
-                updateSettings({ patch: { appShellMode: value } })
-              }
-              options={[
-                {
-                  value: "stave",
-                  label: "Stave",
-                  description:
-                    "Default workspace shell with sidebar, tabs, editor, terminal, and right rail.",
-                },
-                {
-                  value: "zen",
-                  label: "Zen",
-                  description:
-                    "Focused shell that stays in Zen mode until you switch back to Stave.",
-                },
-              ]}
-            />
-          </LabeledField>
-        </SettingsCard>
         <SettingsCard
           title="Window Behavior"
           description="Control how the app handles the close shortcut."

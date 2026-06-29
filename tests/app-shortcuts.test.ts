@@ -16,7 +16,7 @@ describe("app shortcuts", () => {
 
     expect(normalized["view.show-explorer"]).toBe("x");
     expect(normalized["navigation.home"]).toBe("h");
-    expect(normalized["view.toggle-zen-mode"]).toBe("z");
+    expect(normalized["view.toggle-terminal"]).toBe("`");
   });
 
   test("preserves explicit disabled bindings", () => {

@@ -3,7 +3,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 
-const originalWindow = globalThis.window;
+const originalWindowDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "window",
+);
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -22,26 +25,30 @@ function createMemoryStorage() {
 }
 
 function setWindowContext() {
-  (globalThis as { window?: unknown }).window = {
-    api: {},
-    localStorage: createMemoryStorage(),
-    location: {
-      href: "https://stave.test/workspace",
+  Object.defineProperty(globalThis, "window", {
+    value: {
+      api: {},
+      localStorage: createMemoryStorage(),
+      location: {
+        href: "https://stave.test/workspace",
+      },
+      // `border-beam` (PromptInput decoration) calls `window.matchMedia` during
+      // its initial render for `theme="auto"` detection. The server-render path
+      // below needs a stub so the lib doesn't throw.
+      matchMedia: (_query: string) => ({
+        matches: false,
+        media: _query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }),
     },
-    // `border-beam` (PromptInput decoration) calls `window.matchMedia` during
-    // its initial render for `theme="auto"` detection. The server-render path
-    // below needs a stub so the lib doesn't throw.
-    matchMedia: (_query: string) => ({
-      matches: false,
-      media: _query,
-      onchange: null,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-      addListener: () => {},
-      removeListener: () => {},
-      dispatchEvent: () => false,
-    }),
-  } as unknown;
+    configurable: true,
+    writable: true,
+  });
 }
 
 function getCrossReviewButtonMarkup(html: string) {
@@ -51,7 +58,11 @@ function getCrossReviewButtonMarkup(html: string) {
 }
 
 afterEach(() => {
-  (globalThis as { window?: unknown }).window = originalWindow;
+  if (originalWindowDescriptor) {
+    Object.defineProperty(globalThis, "window", originalWindowDescriptor);
+  } else {
+    delete (globalThis as { window?: unknown }).window;
+  }
 });
 
 const MODEL_OPTION: ModelSelectorOption = {
@@ -195,7 +206,7 @@ describe("PromptInput queue mode", () => {
 
   test("keeps the cross-review CTA understated in minimal mode", async () => {
     setWindowContext();
-    const [{ ZenPromptInput }, { TooltipProvider }] = await Promise.all([
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
       import("@/components/ui"),
     ]);
@@ -203,7 +214,8 @@ describe("PromptInput queue mode", () => {
       createElement(
         TooltipProvider,
         null,
-        createElement(ZenPromptInput, {
+        createElement(PromptInput, {
+          minimal: true,
           value: "",
           selectedModel: MODEL_OPTION,
           modelOptions: [MODEL_OPTION],

@@ -87,7 +87,7 @@ describe("app shell shortcut gating", () => {
     ).toBe(false);
   });
 
-  test("starts the zen-mode chord on Cmd/Ctrl+K", () => {
+  test("starts the app-command chord on Cmd/Ctrl+K", () => {
     expect(
       resolveShortcutChord({
         key: "k",
@@ -105,7 +105,7 @@ describe("app shell shortcut gating", () => {
     });
   });
 
-  test("toggles zen mode when Z follows the chord before timeout", () => {
+  test("does not resolve removed Z chord binding", () => {
     expect(
       resolveShortcutChord({
         key: "z",
@@ -116,10 +116,10 @@ describe("app shell shortcut gating", () => {
         now: 100 + APP_SHORTCUT_CHORD_TIMEOUT_MS - 1,
       }),
     ).toEqual({
-      action: "view.toggle-zen-mode",
+      action: null,
       nextPendingChord: null,
-      preventDefault: true,
-      stopAppHandling: true,
+      preventDefault: false,
+      stopAppHandling: false,
     });
   });
 
@@ -211,10 +211,10 @@ describe("app shell shortcut gating", () => {
     });
   });
 
-  test("keeps the chord valid when Cmd/Ctrl stays held for the second Z key", () => {
+  test("keeps the chord valid when Cmd/Ctrl stays held for the second shortcut key", () => {
     expect(
       resolveShortcutChord({
-        key: "z",
+        key: "e",
         metaKey: true,
         pendingChord: {
           type: "app-command",
@@ -223,14 +223,14 @@ describe("app shell shortcut gating", () => {
         now: 150,
       }),
     ).toEqual({
-      action: "view.toggle-zen-mode",
+      action: "view.show-explorer",
       nextPendingChord: null,
       preventDefault: true,
       stopAppHandling: true,
     });
   });
 
-  test("cancels expired zen-mode chords", () => {
+  test("cancels expired app-command chords", () => {
     expect(
       resolveShortcutChord({
         key: "z",
@@ -248,7 +248,7 @@ describe("app shell shortcut gating", () => {
     });
   });
 
-  test("cancels the zen-mode chord on Escape without swallowing dialog handling", () => {
+  test("cancels the app-command chord on Escape without swallowing dialog handling", () => {
     expect(
       resolveShortcutChord({
         key: "Escape",
