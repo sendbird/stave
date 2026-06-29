@@ -75,6 +75,8 @@ export interface BrowserSessionState {
   annotationOverlayActive: boolean;
   annotationNonce: string | null;
   annotationExtractDebugSource: boolean;
+  /** True when the box-model inspect overlay is active for this session. */
+  boxInspectActive: boolean;
   /** True when the session was opened only for MCP/headless inspection. */
   managedByMcp: boolean;
   navigationState: BrowserNavigationState;
@@ -346,6 +348,7 @@ export function createBrowserSession(
     annotationOverlayActive: false,
     annotationNonce: null,
     annotationExtractDebugSource: false,
+    boxInspectActive: false,
     managedByMcp: false,
     navigationState: {
       url: "about:blank",

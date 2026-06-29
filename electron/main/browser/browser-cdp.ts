@@ -6,10 +6,13 @@
 import { webContents } from "electron";
 import type {
   BrowserScreenshotOptions,
+  LensBoxModel,
+  LensMeasurement,
   LensStyleEdit,
 } from "../../../src/lib/lens/lens.types";
 import { getWorkspaceIdForWebContentsId } from "./browser-manager";
 import { assertCdpAllowed } from "./browser-security";
+import { getLensBoxModelScript } from "./browser-style-capture";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -175,6 +178,85 @@ export async function evaluateExpression(
     );
   }
   return result.result.value;
+}
+
+// ---------------------------------------------------------------------------
+// Box model inspection (Figma/DevTools-style padding / border / margin)
+// ---------------------------------------------------------------------------
+
+export async function getElementBoxModel(
+  webContentsId: number,
+  selector: string,
+): Promise<LensBoxModel> {
+  await assertCdpAllowedForWebContentsId(webContentsId, "read element box model");
+
+  const expression = `(() => {
+    ${getLensBoxModelScript()}
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el) return null;
+    return staveBoxModelForElement(el);
+  })()`;
+
+  const result = (await sendCommand(webContentsId, "Runtime.evaluate", {
+    expression,
+    returnByValue: true,
+  })) as RuntimeEvaluateResult;
+
+  if (result.exceptionDetails) {
+    throw new Error(
+      `Box model error: ${JSON.stringify(result.exceptionDetails)}`,
+    );
+  }
+  const value = result.result.value as LensBoxModel | null;
+  if (!value) {
+    throw new Error(`Element not found: ${selector}`);
+  }
+  return value;
+}
+
+export async function measureElements(
+  webContentsId: number,
+  selectorA: string,
+  selectorB: string,
+): Promise<{ measurement: LensMeasurement; from: LensBoxModel; to: LensBoxModel }> {
+  await assertCdpAllowedForWebContentsId(webContentsId, "measure elements");
+
+  const expression = `(() => {
+    ${getLensBoxModelScript()}
+    const a = document.querySelector(${JSON.stringify(selectorA)});
+    const b = document.querySelector(${JSON.stringify(selectorB)});
+    if (!a || !b) {
+      return { ok: false, missing: [a ? null : ${JSON.stringify(selectorA)}, b ? null : ${JSON.stringify(selectorB)}].filter(Boolean) };
+    }
+    return {
+      ok: true,
+      measurement: staveMeasureRects(a.getBoundingClientRect(), b.getBoundingClientRect()),
+      from: staveBoxModelForElement(a),
+      to: staveBoxModelForElement(b),
+    };
+  })()`;
+
+  const result = (await sendCommand(webContentsId, "Runtime.evaluate", {
+    expression,
+    returnByValue: true,
+  })) as RuntimeEvaluateResult;
+
+  if (result.exceptionDetails) {
+    throw new Error(
+      `Measure error: ${JSON.stringify(result.exceptionDetails)}`,
+    );
+  }
+  const value = result.result.value as
+    | { ok: true; measurement: LensMeasurement; from: LensBoxModel; to: LensBoxModel }
+    | { ok: false; missing: string[] }
+    | null;
+  if (!value?.ok) {
+    const missing = value && "missing" in value ? value.missing.join(", ") : "";
+    throw new Error(
+      missing ? `Element(s) not found: ${missing}` : "Unable to measure elements.",
+    );
+  }
+  return { measurement: value.measurement, from: value.from, to: value.to };
 }
 
 // ---------------------------------------------------------------------------

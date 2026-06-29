@@ -1401,6 +1401,7 @@ contextBridge.exposeInMainWorld("api", {
           isLoading: boolean;
         };
         annotationModeActive?: boolean;
+        boxInspectModeActive?: boolean;
         message?: string;
       }>,
     screenshot: (args: {
@@ -1519,6 +1520,16 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     stopAnnotationMode: (args: { workspaceId: string }) =>
       ipcRenderer.invoke("lens:stop-annotation-mode", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    startBoxInspect: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("lens:start-box-inspect", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    stopBoxInspect: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("lens:stop-box-inspect", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,

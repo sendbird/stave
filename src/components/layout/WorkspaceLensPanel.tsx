@@ -28,6 +28,7 @@ import {
   Pause,
   Play,
   RotateCw,
+  Ruler,
   ScanSearch,
   Search,
   Send,
@@ -420,6 +421,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   const [downloads, setDownloads] = useState<LensDownloadEntry[]>([]);
   const [annotations, setAnnotations] = useState<LensAnnotation[]>([]);
   const [isAnnotationModeActive, setIsAnnotationModeActive] = useState(false);
+  const [isBoxInspectActive, setIsBoxInspectActive] = useState(false);
   const [isLensFloatingSurfaceOpen, setIsLensFloatingSurfaceOpen] =
     useState(false);
   const [lensPanelTab, setLensPanelTab] = useState<LensPanelTab>("preview");
@@ -662,6 +664,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     isViewReadyRef.current = false;
     setAnnotations([]);
     setIsAnnotationModeActive(false);
+    setIsBoxInspectActive(false);
     setConsoleEntries([]);
     setNetworkEntries([]);
     setLastLoadError(null);
@@ -705,6 +708,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       if (!cancelled && stateResult?.ok && stateResult.state) {
         applyNavigationState(stateResult.state);
         setIsAnnotationModeActive(Boolean(stateResult.annotationModeActive));
+        setIsBoxInspectActive(Boolean(stateResult.boxInspectModeActive));
       }
 
       const annotationsResult = await lensApi?.getAnnotations?.({ workspaceId });
@@ -1265,6 +1269,13 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       return;
     }
 
+    // Annotation and inspect overlays both capture pointer events - keep them
+    // mutually exclusive so they never fight over the same hover/click.
+    if (isBoxInspectActive) {
+      await window.api?.lens?.stopBoxInspect?.({ workspaceId });
+      setIsBoxInspectActive(false);
+    }
+
     const result = await window.api?.lens?.startAnnotationMode?.({
       workspaceId,
       options: {
@@ -1281,9 +1292,43 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   }, [
     hasLensApi,
     isAnnotationModeActive,
+    isBoxInspectActive,
     sourceMappingConfig.reactDebugSource,
     workspaceId,
   ]);
+
+  const toggleBoxInspect = useCallback(async () => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    if (isBoxInspectActive) {
+      const result = await window.api?.lens?.stopBoxInspect?.({ workspaceId });
+      if (!result?.ok) {
+        toast.error("Inspect mode failed", {
+          description: result?.message ?? "Lens could not stop inspect mode.",
+        });
+        return;
+      }
+      setIsBoxInspectActive(false);
+      return;
+    }
+
+    // Inspect and annotation overlays are mutually exclusive (see above).
+    if (isAnnotationModeActive) {
+      await window.api?.lens?.stopAnnotationMode?.({ workspaceId });
+      setIsAnnotationModeActive(false);
+    }
+
+    const result = await window.api?.lens?.startBoxInspect?.({ workspaceId });
+    if (!result?.ok) {
+      toast.error("Inspect mode failed", {
+        description: result?.message ?? "Lens could not start inspect mode.",
+      });
+      return;
+    }
+    setIsBoxInspectActive(true);
+  }, [hasLensApi, isAnnotationModeActive, isBoxInspectActive, workspaceId]);
 
   const removeAnnotation = useCallback(
     async (annotationId: string) => {
@@ -1661,6 +1706,27 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Visual comments</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant={isBoxInspectActive ? "secondary" : "outline"}
+                  disabled={lensPageActionDisabled}
+                  onClick={() => {
+                    void toggleBoxInspect();
+                  }}
+                  aria-label="Toggle box-model inspect"
+                >
+                  <Ruler className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-64 text-pretty">
+                Inspect padding, border &amp; margin on hover. Click an element,
+                then hover another to measure the gap between them.
+              </TooltipContent>
             </Tooltip>
 
             <DropdownMenu onOpenChange={setIsLensFloatingSurfaceOpen}>

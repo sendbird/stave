@@ -17,6 +17,7 @@ import {
 import {
   ensureBrowserSessionWithEvents,
   injectAnnotationOverlay,
+  injectBoxInspectOverlay,
   sendAnnotationEvent,
 } from "../browser/browser-session-events";
 import {
@@ -271,6 +272,7 @@ export function registerBrowserHandlers() {
         ok: true,
         state: { ...session.navigationState },
         annotationModeActive: session.annotationOverlayActive,
+        boxInspectModeActive: session.boxInspectActive,
       };
     },
   );
@@ -576,6 +578,45 @@ export function registerBrowserHandlers() {
       session.annotationNonce = null;
       session.annotationExtractDebugSource = false;
       sendAnnotationEvent({ workspaceId: args.workspaceId, type: "clear" });
+      return { ok: true };
+    },
+  );
+
+  // ---- Box-model inspect overlay ----
+  ipcMain.handle(
+    "lens:start-box-inspect",
+    async (_event, args: { workspaceId: string }) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        session.boxInspectActive = true;
+        await injectBoxInspectOverlay(args.workspaceId, session.view.webContents);
+        return { ok: true };
+      } catch (err) {
+        session.boxInspectActive = false;
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:stop-box-inspect",
+    async (_event, args: { workspaceId: string }) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        await session.view.webContents.executeJavaScript(
+          "window.__staveTeardownInspect?.()",
+        );
+      } catch {
+        // Ignore teardown failures; navigation may already have destroyed page state.
+      }
+      session.boxInspectActive = false;
       return { ok: true };
     },
   );

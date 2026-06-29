@@ -36,6 +36,8 @@ All tools require a `workspaceId` parameter.
 | `stave_lens_click` | Click an element by CSS selector |
 | `stave_lens_type` | Type text into a focused or specified element |
 | `stave_lens_snapshot` | Get accessibility tree snapshot |
+| `stave_lens_inspect` | Get an element's box model (content size, padding, border, margin per side) |
+| `stave_lens_measure` | Measure the pixel gap between two elements (Figma-style spacing) |
 
 ## Element Picker
 
