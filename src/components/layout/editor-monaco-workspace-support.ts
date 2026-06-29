@@ -6,21 +6,8 @@ export type MonacoDisposable = { dispose(): void };
 
 interface WorkspaceMonacoSupportState {
   rootPath: string;
-  typeDefDisposables: MonacoDisposable[];
-  sourceFileDisposables: MonacoDisposable[];
   compilerOptionsLoaded: boolean;
-  activeContextKey: string | null;
-  contextVersion: number;
-  workspaceSupportEnabled: boolean;
-  loadedTypeDefContextKeys: Set<string>;
-  loadedSourceContextKeys: Set<string>;
-  loadedTypeDefPaths: Set<string>;
-  loadedSourceFilePaths: Set<string>;
-  bootstrapPromises: Map<string, Promise<void>>;
-  typeDefsPromises: Map<string, Promise<void>>;
-  sourceFilesPromises: Map<string, Promise<void>>;
   compilerOptionsPromise?: Promise<void>;
-  cancelDeferredSourceLoad?: (() => void) | null;
 }
 
 export interface PendingEditorNavigation {
@@ -30,7 +17,6 @@ export interface PendingEditorNavigation {
 
 let monacoDefaultsConfigured = false;
 let activeWorkspaceMonacoSupport: WorkspaceMonacoSupportState | null = null;
-let activeTypeScriptBootstrapSequence = 0;
 
 function getMonacoEnumValue(args: {
   enumValues: Record<string, number>;
@@ -39,17 +25,6 @@ function getMonacoEnumValue(args: {
 }) {
   const value = args.enumValues[args.key];
   return typeof value === "number" ? value : args.fallback;
-}
-
-function resolveMonacoSourceLanguage(filePath: string) {
-  const lower = filePath.toLowerCase();
-  if (/\.(tsx?|mts|cts)$/.test(lower) || lower.endsWith(".d.ts")) {
-    return "typescript";
-  }
-  if (/\.(jsx?|mjs|cjs)$/.test(lower)) {
-    return "javascript";
-  }
-  return undefined;
 }
 
 function toMonacoBaseUrl(baseUrl?: string) {
@@ -133,32 +108,6 @@ export function toMonacoSelection(selectionOrPosition?: IRange | IPosition) {
   };
 }
 
-function toWorkspaceSupportContextKey(entryFilePath?: string | null) {
-  const normalized = (entryFilePath ?? "").trim();
-  return normalized || "__workspace__";
-}
-
-function syncMonacoModels(args: {
-  monaco: Monaco;
-  files: Array<{ content: string; filePath: string }>;
-}) {
-  const disposables: MonacoDisposable[] = [];
-  for (const file of args.files) {
-    const modelUri = args.monaco.Uri.parse(file.filePath);
-    const existingModel = args.monaco.editor.getModel(modelUri);
-    if (existingModel) {
-      continue;
-    }
-    const model = args.monaco.editor.createModel(
-      file.content,
-      resolveMonacoSourceLanguage(file.filePath),
-      modelUri,
-    );
-    disposables.push(model);
-  }
-  return disposables;
-}
-
 export function toWorkspaceFilePath(resource: { scheme: string; path: string }) {
   if (resource.scheme !== "file") {
     return null;
@@ -167,45 +116,7 @@ export function toWorkspaceFilePath(resource: { scheme: string; path: string }) 
   return normalized || null;
 }
 
-function disposeMonacoDisposables(disposables: MonacoDisposable[]) {
-  for (const disposable of disposables) {
-    disposable.dispose();
-  }
-  disposables.length = 0;
-}
-
-function resetWorkspaceSourceContext(args: {
-  state: WorkspaceMonacoSupportState;
-  nextContextKey: string | null;
-}) {
-  args.state.activeContextKey = args.nextContextKey;
-  args.state.contextVersion += 1;
-  disposeMonacoDisposables(args.state.sourceFileDisposables);
-  args.state.loadedSourceContextKeys.clear();
-  args.state.loadedSourceFilePaths.clear();
-  args.state.bootstrapPromises.clear();
-  args.state.sourceFilesPromises.clear();
-}
-
-function resetWorkspaceMonacoSupportContext(args: {
-  state: WorkspaceMonacoSupportState;
-  nextContextKey: string | null;
-}) {
-  resetWorkspaceSourceContext(args);
-  disposeMonacoDisposables(args.state.typeDefDisposables);
-  args.state.loadedTypeDefContextKeys.clear();
-  args.state.loadedTypeDefPaths.clear();
-  args.state.typeDefsPromises.clear();
-}
-
 function disposeWorkspaceMonacoSupport(state: WorkspaceMonacoSupportState) {
-  state.workspaceSupportEnabled = false;
-  state.cancelDeferredSourceLoad?.();
-  state.cancelDeferredSourceLoad = null;
-  resetWorkspaceMonacoSupportContext({
-    state,
-    nextContextKey: null,
-  });
   if (activeWorkspaceMonacoSupport === state) {
     activeWorkspaceMonacoSupport = null;
   }
@@ -220,34 +131,9 @@ function getWorkspaceMonacoSupportState(rootPath: string) {
   }
   activeWorkspaceMonacoSupport = {
     rootPath,
-    typeDefDisposables: [],
-    sourceFileDisposables: [],
     compilerOptionsLoaded: false,
-    activeContextKey: null,
-    contextVersion: 0,
-    workspaceSupportEnabled: false,
-    loadedTypeDefContextKeys: new Set<string>(),
-    loadedSourceContextKeys: new Set<string>(),
-    loadedTypeDefPaths: new Set<string>(),
-    loadedSourceFilePaths: new Set<string>(),
-    bootstrapPromises: new Map<string, Promise<void>>(),
-    typeDefsPromises: new Map<string, Promise<void>>(),
-    sourceFilesPromises: new Map<string, Promise<void>>(),
-    cancelDeferredSourceLoad: null,
   };
   return activeWorkspaceMonacoSupport;
-}
-
-function addMonacoExtraLibs(args: {
-  monaco: Monaco;
-  files: Array<{ content: string; filePath: string }>;
-}) {
-  const disposables: MonacoDisposable[] = [];
-  for (const file of args.files) {
-    disposables.push(args.monaco.languages.typescript.typescriptDefaults.addExtraLib(file.content, file.filePath));
-    disposables.push(args.monaco.languages.typescript.javascriptDefaults.addExtraLib(file.content, file.filePath));
-  }
-  return disposables;
 }
 
 function buildMonacoCompilerOptions(args: {
@@ -327,8 +213,8 @@ export function configureMonacoDefaults(monaco: Monaco) {
     return;
   }
 
-  // Large workspaces can register hundreds or thousands of models for inspect support.
-  // Eagerly mirroring all of them into the TS worker can leave hover/definition stuck loading.
+  // Keep Monaco aligned with VS Code-style sync: only opened editor models are
+  // mirrored to the TypeScript worker. Project-wide intelligence belongs to LSP.
   monaco.languages.typescript.typescriptDefaults.setEagerModelSync(false);
   monaco.languages.typescript.javascriptDefaults.setEagerModelSync(false);
   setMonacoTypeScriptSemanticDiagnosticsEnabled({
@@ -365,185 +251,6 @@ async function ensureWorkspaceCompilerOptionsLoaded(args: {
   return args.state.compilerOptionsPromise;
 }
 
-async function ensureWorkspaceTypeDefsLoaded(args: {
-  monaco: Monaco;
-  state: WorkspaceMonacoSupportState;
-}) {
-  const contextKey = "__workspace__";
-  if (args.state.loadedTypeDefContextKeys.has(contextKey)) {
-    return undefined;
-  }
-  const existingPromise = args.state.typeDefsPromises.get(contextKey);
-  if (existingPromise) {
-    return existingPromise;
-  }
-
-  const readTypeDefs = window.api?.fs?.readTypeDefs;
-  if (!readTypeDefs) {
-    args.state.loadedTypeDefContextKeys.add(contextKey);
-    return undefined;
-  }
-
-  const typeDefsPromise = readTypeDefs({
-    rootPath: args.state.rootPath,
-  })
-    .then((result) => {
-      if (
-        activeWorkspaceMonacoSupport !== args.state
-        || !args.state.workspaceSupportEnabled
-      ) {
-        return;
-      }
-      args.state.loadedTypeDefContextKeys.add(contextKey);
-      if (!result.ok) {
-        return;
-      }
-      const nextFiles = result.libs.filter((file) => !args.state.loadedTypeDefPaths.has(file.filePath));
-      if (nextFiles.length === 0) {
-        return;
-      }
-      for (const file of nextFiles) {
-        args.state.loadedTypeDefPaths.add(file.filePath);
-      }
-      args.state.typeDefDisposables.push(...addMonacoExtraLibs({
-        monaco: args.monaco,
-        files: nextFiles,
-      }));
-    })
-    .finally(() => {
-      if (args.state.typeDefsPromises.get(contextKey) === typeDefsPromise) {
-        args.state.typeDefsPromises.delete(contextKey);
-      }
-    });
-
-  args.state.typeDefsPromises.set(contextKey, typeDefsPromise);
-  return typeDefsPromise;
-}
-
-async function ensureWorkspaceSourceFilesLoaded(args: {
-  monaco: Monaco;
-  state: WorkspaceMonacoSupportState;
-  entryFilePath?: string;
-}) {
-  const contextKey = toWorkspaceSupportContextKey(args.entryFilePath);
-  if (args.state.activeContextKey !== contextKey) {
-    resetWorkspaceSourceContext({
-      state: args.state,
-      nextContextKey: contextKey,
-    });
-  }
-  if (args.state.loadedSourceContextKeys.has(contextKey)) {
-    return undefined;
-  }
-  const existingPromise = args.state.sourceFilesPromises.get(contextKey);
-  if (existingPromise) {
-    return existingPromise;
-  }
-
-  const readSourceFiles = window.api?.fs?.readSourceFiles;
-  if (!readSourceFiles) {
-    args.state.loadedSourceContextKeys.add(contextKey);
-    return undefined;
-  }
-
-  const contextVersion = args.state.contextVersion;
-  const sourceFilesPromise = readSourceFiles({
-    rootPath: args.state.rootPath,
-    entryFilePath: args.entryFilePath,
-  })
-    .then((result) => {
-      if (
-        activeWorkspaceMonacoSupport !== args.state
-        || args.state.activeContextKey !== contextKey
-        || args.state.contextVersion !== contextVersion
-      ) {
-        return;
-      }
-      args.state.loadedSourceContextKeys.add(contextKey);
-      if (!result.ok) {
-        return;
-      }
-      const nextFiles = result.files.filter((file) => !args.state.loadedSourceFilePaths.has(file.filePath));
-      if (nextFiles.length === 0) {
-        return;
-      }
-      for (const file of nextFiles) {
-        args.state.loadedSourceFilePaths.add(file.filePath);
-      }
-      args.state.sourceFileDisposables.push(...syncMonacoModels({
-        monaco: args.monaco,
-        files: nextFiles,
-      }));
-      args.state.sourceFileDisposables.push(...addMonacoExtraLibs({
-        monaco: args.monaco,
-        files: nextFiles,
-      }));
-    })
-    .finally(() => {
-      if (args.state.sourceFilesPromises.get(contextKey) === sourceFilesPromise) {
-        args.state.sourceFilesPromises.delete(contextKey);
-      }
-    });
-
-  args.state.sourceFilesPromises.set(contextKey, sourceFilesPromise);
-  return sourceFilesPromise;
-}
-
-async function ensureWorkspaceTypeScriptBootstrapLoaded(args: {
-  monaco: Monaco;
-  state: WorkspaceMonacoSupportState;
-  entryFilePath?: string;
-}) {
-  const contextKey = toWorkspaceSupportContextKey(args.entryFilePath);
-  const existingPromise = args.state.bootstrapPromises.get(contextKey);
-  if (existingPromise) {
-    return existingPromise;
-  }
-  if (args.state.activeContextKey !== contextKey) {
-    resetWorkspaceSourceContext({
-      state: args.state,
-      nextContextKey: contextKey,
-    });
-  }
-
-  const bootstrapSequence = ++activeTypeScriptBootstrapSequence;
-  const contextVersion = args.state.contextVersion;
-  setMonacoTypeScriptSemanticDiagnosticsEnabled({
-    monaco: args.monaco,
-    enabled: false,
-  });
-
-  const bootstrapPromise: Promise<void> = Promise.all([
-    ensureWorkspaceCompilerOptionsLoaded(args),
-    ensureWorkspaceTypeDefsLoaded({
-      monaco: args.monaco,
-      state: args.state,
-    }),
-    ensureWorkspaceSourceFilesLoaded({
-      ...args,
-      entryFilePath: args.entryFilePath,
-    }),
-  ]).then(() => undefined).finally(() => {
-    if (args.state.bootstrapPromises.get(contextKey) === bootstrapPromise) {
-      args.state.bootstrapPromises.delete(contextKey);
-    }
-    if (
-      activeWorkspaceMonacoSupport === args.state
-      && args.state.activeContextKey === contextKey
-      && args.state.contextVersion === contextVersion
-      && activeTypeScriptBootstrapSequence === bootstrapSequence
-    ) {
-      setMonacoTypeScriptSemanticDiagnosticsEnabled({
-        monaco: args.monaco,
-        enabled: true,
-      });
-    }
-  });
-
-  args.state.bootstrapPromises.set(contextKey, bootstrapPromise);
-  return bootstrapPromise;
-}
-
 export function supportsWorkspaceTypeLibraries(language: string) {
   return language === "typescript" || language === "javascript";
 }
@@ -572,40 +279,9 @@ export function syncWorkspaceMonacoSupport(args: {
     monaco: args.monaco,
     state: supportState,
   });
-  if (args.shouldLoadWorkspaceSupport && args.entryFilePath) {
-    supportState.workspaceSupportEnabled = true;
-    supportState.cancelDeferredSourceLoad?.();
-    supportState.cancelDeferredSourceLoad = null;
-    void ensureWorkspaceTypeScriptBootstrapLoaded({
-      monaco: args.monaco,
-      state: supportState,
-      entryFilePath: args.entryFilePath,
-    });
-    return;
-  }
-
-  if (!args.shouldLoadWorkspaceSupport) {
-    supportState.workspaceSupportEnabled = false;
-    supportState.cancelDeferredSourceLoad?.();
-    supportState.cancelDeferredSourceLoad = null;
-    resetWorkspaceMonacoSupportContext({
-      state: supportState,
-      nextContextKey: null,
-    });
-    setMonacoTypeScriptSemanticDiagnosticsEnabled({
-      monaco: args.monaco,
-      enabled: true,
-    });
-    return;
-  }
-
-  resetWorkspaceMonacoSupportContext({
-    state: supportState,
-    nextContextKey: null,
-  });
   setMonacoTypeScriptSemanticDiagnosticsEnabled({
     monaco: args.monaco,
-    enabled: true,
+    enabled: args.shouldLoadWorkspaceSupport,
   });
 }
 

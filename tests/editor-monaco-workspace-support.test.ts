@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { syncWorkspaceMonacoSupport } from "../src/components/layout/editor-monaco-workspace-support";
@@ -15,8 +15,9 @@ function createTempWorkspace() {
 
 function createFakeMonaco() {
   const models = new Map<string, { dispose(): void }>();
-  const modelDisposeCounts = new Map<string, number>();
-  const extraLibDisposeCounts = new Map<string, number>();
+  const extraLibAddCounts = new Map<string, number>();
+  const compilerOptions: unknown[] = [];
+  const diagnosticsOptions: unknown[] = [];
 
   function incrementCount(map: Map<string, number>, key: string) {
     map.set(key, (map.get(key) ?? 0) + 1);
@@ -28,33 +29,32 @@ function createFakeMonaco() {
     },
     editor: {
       getModel: (uri: string) => models.get(uri) ?? null,
-      createModel: (_content: string, _language: string | undefined, uri: string) => {
-        const model = {
-          dispose: () => {
-            incrementCount(modelDisposeCounts, uri);
-            models.delete(uri);
-          },
-        };
-        models.set(uri, model);
-        return model;
+      createModel: () => {
+        throw new Error("Workspace support should not create hidden Monaco models.");
       },
     },
     languages: {
       typescript: {
         typescriptDefaults: {
-          addExtraLib: (_content: string, filePath: string) => ({
-            dispose: () => incrementCount(extraLibDisposeCounts, filePath),
-          }),
-          setCompilerOptions: (_options: unknown) => {},
-          setDiagnosticsOptions: (_options: unknown) => {},
+          addExtraLib: (_content: string, filePath: string) => {
+            incrementCount(extraLibAddCounts, filePath);
+            return {
+              dispose: () => {},
+            };
+          },
+          setCompilerOptions: (options: unknown) => compilerOptions.push(options),
+          setDiagnosticsOptions: (options: unknown) => diagnosticsOptions.push(options),
           setEagerModelSync: (_enabled: boolean) => {},
         },
         javascriptDefaults: {
-          addExtraLib: (_content: string, filePath: string) => ({
-            dispose: () => incrementCount(extraLibDisposeCounts, filePath),
-          }),
-          setCompilerOptions: (_options: unknown) => {},
-          setDiagnosticsOptions: (_options: unknown) => {},
+          addExtraLib: (_content: string, filePath: string) => {
+            incrementCount(extraLibAddCounts, filePath);
+            return {
+              dispose: () => {},
+            };
+          },
+          setCompilerOptions: (options: unknown) => compilerOptions.push(options),
+          setDiagnosticsOptions: (options: unknown) => diagnosticsOptions.push(options),
           setEagerModelSync: (_enabled: boolean) => {},
         },
         ScriptTarget: {
@@ -78,8 +78,9 @@ function createFakeMonaco() {
   return {
     monaco,
     models,
-    modelDisposeCounts,
-    extraLibDisposeCounts,
+    extraLibAddCounts,
+    compilerOptions,
+    diagnosticsOptions,
   };
 }
 
@@ -107,34 +108,30 @@ afterEach(async () => {
 });
 
 describe("syncWorkspaceMonacoSupport", () => {
-  test("replaces focused source models without reloading workspace type definitions", async () => {
+  test("applies tsconfig compiler options without creating hidden models or extra libs", async () => {
     const workspaceRoot = createTempWorkspace();
     const fakeMonaco = createFakeMonaco();
-    const readTypeDefsEntryFilePaths: Array<string | undefined> = [];
-    const readSourceFilesEntryFilePaths: Array<string | undefined> = [];
+    const readFilePaths: string[] = [];
+    writeFileSync(
+      path.join(workspaceRoot, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          baseUrl: "./src",
+          paths: {
+            "@/*": ["./*"],
+          },
+        },
+      }),
+    );
 
     globalThis.window = {
       api: {
         fs: {
-          readTypeDefs: async ({ entryFilePath }: { entryFilePath?: string }) => {
-            readTypeDefsEntryFilePaths.push(entryFilePath);
+          readFile: async ({ filePath }: { filePath: string }) => {
+            readFilePaths.push(filePath);
             return {
               ok: true,
-              libs: [
-                {
-                  content: "export {};",
-                  filePath: "file:///node_modules/@types/shared/index.d.ts",
-                },
-              ],
-            };
-          },
-          readSourceFiles: async ({ entryFilePath }: { entryFilePath?: string }) => {
-            readSourceFilesEntryFilePaths.push(entryFilePath);
-            return {
-              ok: true,
-              files: entryFilePath === "src/a.ts"
-                ? [{ content: "export const a = true;", filePath: "file:///src/support/a-dep.ts" }]
-                : [{ content: "export const b = true;", filePath: "file:///src/support/b-dep.ts" }],
+              content: readFileSync(path.join(workspaceRoot, filePath), "utf8"),
             };
           },
         },
@@ -149,9 +146,44 @@ describe("syncWorkspaceMonacoSupport", () => {
     });
     await flushAsyncWork();
 
-    expect(Array.from(fakeMonaco.models.keys())).toEqual([
-      "file:///src/support/a-dep.ts",
-    ]);
+    expect(fakeMonaco.models.size).toBe(0);
+    expect(fakeMonaco.extraLibAddCounts.size).toBe(0);
+    expect(readFilePaths).toEqual(["tsconfig.json"]);
+    expect(fakeMonaco.compilerOptions).toContainEqual(
+      expect.objectContaining({
+        baseUrl: "file:///src",
+        paths: { "@/*": ["*"] },
+      }),
+    );
+    expect(fakeMonaco.diagnosticsOptions.at(-1)).toEqual(
+      expect.objectContaining({ noSemanticValidation: false }),
+    );
+  });
+
+  test("does not reload compiler options when switching files in the same workspace", async () => {
+    const workspaceRoot = createTempWorkspace();
+    const fakeMonaco = createFakeMonaco();
+    const readFilePaths: string[] = [];
+    writeFileSync(path.join(workspaceRoot, "tsconfig.json"), "{}");
+
+    globalThis.window = {
+      api: {
+        fs: {
+          readFile: async ({ filePath }: { filePath: string }) => {
+            readFilePaths.push(filePath);
+            return { ok: true, content: "{}" };
+          },
+        },
+      },
+    } as typeof window;
+
+    syncWorkspaceMonacoSupport({
+      monaco: fakeMonaco.monaco as never,
+      workspaceRootPath: workspaceRoot,
+      shouldLoadWorkspaceSupport: true,
+      entryFilePath: "src/a.ts",
+    });
+    await flushAsyncWork();
 
     syncWorkspaceMonacoSupport({
       monaco: fakeMonaco.monaco as never,
@@ -161,49 +193,18 @@ describe("syncWorkspaceMonacoSupport", () => {
     });
     await flushAsyncWork();
 
-    expect(fakeMonaco.modelDisposeCounts.get("file:///src/support/a-dep.ts")).toBe(
-      1,
-    );
-    expect(
-      fakeMonaco.extraLibDisposeCounts.get(
-        "file:///node_modules/@types/shared/index.d.ts",
-      ),
-    ).toBeUndefined();
-    expect(
-      fakeMonaco.extraLibDisposeCounts.get("file:///src/support/a-dep.ts"),
-    ).toBe(2);
-    expect(Array.from(fakeMonaco.models.keys())).toEqual([
-      "file:///src/support/b-dep.ts",
-    ]);
-    expect(readTypeDefsEntryFilePaths).toEqual([undefined]);
-    expect(readSourceFilesEntryFilePaths).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(readFilePaths).toEqual(["tsconfig.json"]);
+    expect(fakeMonaco.extraLibAddCounts.size).toBe(0);
   });
 
-  test("clears focused workspace support when the active tab no longer needs it", async () => {
+  test("disables TypeScript semantic diagnostics when the active tab does not need workspace support", async () => {
     const workspaceRoot = createTempWorkspace();
     const fakeMonaco = createFakeMonaco();
 
     globalThis.window = {
       api: {
         fs: {
-          readTypeDefs: async () => ({
-            ok: true,
-            libs: [
-              {
-                content: "export {};",
-                filePath: "file:///node_modules/@types/a/index.d.ts",
-              },
-            ],
-          }),
-          readSourceFiles: async () => ({
-            ok: true,
-            files: [
-              {
-                content: "export const a = true;",
-                filePath: "file:///src/support/a-dep.ts",
-              },
-            ],
-          }),
+          readFile: async () => ({ ok: false, stderr: "missing" }),
         },
       },
     } as typeof window;
@@ -225,16 +226,9 @@ describe("syncWorkspaceMonacoSupport", () => {
     await flushAsyncWork();
 
     expect(fakeMonaco.models.size).toBe(0);
-    expect(fakeMonaco.modelDisposeCounts.get("file:///src/support/a-dep.ts")).toBe(
-      1,
+    expect(fakeMonaco.extraLibAddCounts.size).toBe(0);
+    expect(fakeMonaco.diagnosticsOptions.at(-1)).toEqual(
+      expect.objectContaining({ noSemanticValidation: true }),
     );
-    expect(
-      fakeMonaco.extraLibDisposeCounts.get(
-        "file:///node_modules/@types/a/index.d.ts",
-      ),
-    ).toBe(2);
-    expect(
-      fakeMonaco.extraLibDisposeCounts.get("file:///src/support/a-dep.ts"),
-    ).toBe(2);
   });
 });

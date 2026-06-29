@@ -872,10 +872,6 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("fs:delete-file", args),
     deleteDirectory: (args: { rootPath: string; directoryPath: string }) =>
       ipcRenderer.invoke("fs:delete-directory", args),
-    readTypeDefs: (args: { rootPath: string; entryFilePath?: string }) =>
-      ipcRenderer.invoke("fs:read-type-defs", args),
-    readSourceFiles: (args: { rootPath: string; entryFilePath?: string }) =>
-      ipcRenderer.invoke("fs:read-source-files", args),
     searchContent: (args: { rootPath: string; query: string }) =>
       ipcRenderer.invoke("fs:search-content", args) as Promise<{
         ok: boolean;
