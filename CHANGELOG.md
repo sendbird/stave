@@ -2,6 +2,17 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.7.5](https://github.com/sendbird/stave/compare/v0.7.4...v0.7.5) (2026-06-29)
+
+### Fixes
+
+* Speed up file opening by excluding `.stave` worktree data from filesystem and source-file scans.
+* Avoid reloading shared workspace TypeScript declaration libraries for every focused source file while still refreshing file-specific source models.
+
+### References
+
+* [#71](https://github.com/sendbird/stave/pull/71)
+
 ## [0.7.4](https://github.com/sendbird/stave/compare/v0.7.3...v0.7.4) (2026-06-29)
 
 ### Features
