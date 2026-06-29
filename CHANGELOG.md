@@ -2,6 +2,22 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.7.6](https://github.com/sendbird/stave/compare/v0.7.5...v0.7.6) (2026-06-30)
+
+### Fixes
+
+* Prevent archived workspaces from reappearing after restart by persisting archived workspace paths and filtering them during store hydration.
+* Keep file opening fast in large workspaces by removing project-wide source and `node_modules` type graph mirroring from the built-in Monaco path.
+
+### Changes
+
+* Remove the Zen Mode feature, including its layout components, command palette action, keyboard shortcut, tests, and public docs.
+* Clarify language intelligence docs so project-wide module resolution and navigation are described as Project Language Server behavior.
+
+### References
+
+* [#73](https://github.com/sendbird/stave/pull/73), [#74](https://github.com/sendbird/stave/pull/74), [#75](https://github.com/sendbird/stave/pull/75)
+
 ## [0.7.5](https://github.com/sendbird/stave/compare/v0.7.4...v0.7.5) (2026-06-29)
 
 ### Fixes
