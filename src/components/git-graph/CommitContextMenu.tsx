@@ -194,6 +194,7 @@ function NameInputDialog({
 type PendingDialog =
   | { kind: "createBranch" }
   | { kind: "createTag" }
+  | { kind: "cherryPick" }
   | { kind: "revert" }
   | { kind: "resetSoft" }
   | { kind: "resetMixed" }
@@ -259,7 +260,7 @@ export function CommitContextMenu({
           alignOffset={0}
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
-          <DropdownMenuLabel className="font-mono text-[11px] text-muted-foreground truncate">
+          <DropdownMenuLabel className="font-mono text-xs text-muted-foreground truncate">
             {shortHash} {subject}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -299,7 +300,7 @@ export function CommitContextMenu({
           <DropdownMenuItem
             onSelect={() => {
               onClose();
-              void onCherryPick(hash);
+              setPendingDialog({ kind: "cherryPick" });
             }}
           >
             <Cherry className="size-4" />
@@ -383,6 +384,16 @@ export function CommitContextMenu({
         placeholder="v1.0.0"
         confirmLabel="Create tag"
         onConfirm={(name) => void onCreateTag(hash, name)}
+      />
+
+      {/* Cherry-pick confirm dialog */}
+      <ConfirmDialog
+        open={pendingDialog?.kind === "cherryPick"}
+        onOpenChange={(open) => { if (!open) setPendingDialog(null); }}
+        title="Cherry-pick commit"
+        description={`Apply the changes from ${shortHash} ("${subject}") onto the current branch as a new commit.`}
+        confirmLabel="Cherry-pick"
+        onConfirm={() => void onCherryPick(hash)}
       />
 
       {/* Revert confirm dialog */}
