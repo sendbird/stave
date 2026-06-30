@@ -240,16 +240,15 @@ export function formatAnnotationsForChat(
     lines.push(
       ``,
       `## ${annotation.pin}. ${annotation.kind === "area" ? "Area" : "Element"} Comment`,
-      `- Comment: ${annotation.comment}`,
-      `- Position: (${annotation.rect.x}, ${annotation.rect.y}) ${annotation.rect.width}x${annotation.rect.height}`,
+      `**Comment:** ${annotation.comment}`,
+      `**Position:** (${annotation.rect.x}, ${annotation.rect.y}) ${annotation.rect.width}x${annotation.rect.height}`,
     );
 
     if (annotation.styleEdits && annotation.styleEdits.length > 0) {
       lines.push(
-        `- Style edits:`,
+        `**Style edits:**`,
         ...annotation.styleEdits.map(
-          (edit) =>
-            `  - ${edit.property}: \`${edit.before}\` → \`${edit.after}\``,
+          (edit) => `- ${edit.property}: \`${edit.before}\` → \`${edit.after}\``,
         ),
       );
     }
@@ -257,46 +256,71 @@ export function formatAnnotationsForChat(
     const elementResult = annotationToElementResult(annotation);
     if (elementResult) {
       lines.push(
-        `- Selector: \`${elementResult.selector}\``,
-        `- Element: \`${formatElementIdentity(elementResult)}\``,
+        `**Selector:** \`${elementResult.selector}\``,
+        `**Tag:** \`<${elementResult.tagName}>\``,
       );
 
       if (elementResult.id) {
-        lines.push(`- ID: \`#${elementResult.id}\``);
+        lines.push(`**ID:** \`#${elementResult.id}\``);
       }
 
-      const annotationClassSummary = formatClassSummary(
-        elementResult.classList,
-      );
-      if (annotationClassSummary) {
-        lines.push(`- Classes: ${annotationClassSummary}`);
-      }
-
-      const annotationStyleSummary = formatStyleSummary(
-        elementResult.computedStyles,
-      );
-      if (annotationStyleSummary) {
-        lines.push(`- Key styles: \`${annotationStyleSummary}\``);
+      if (elementResult.classList.length > 0) {
+        lines.push(
+          `**Classes:** ${elementResult.classList.map((c) => `\`.${c}\``).join(", ")}`,
+        );
       }
 
       const debugSourceHint = buildDebugSourceHint(elementResult);
       if (debugSourceHint && config?.reactDebugSource !== false) {
-        lines.push(`- ${debugSourceHint}`);
+        lines.push(`**${debugSourceHint}**`);
       }
 
       if (elementResult.textContent) {
-        lines.push(`- Text: "${truncateText(elementResult.textContent)}"`);
+        lines.push(`**Text:** "${elementResult.textContent}"`);
+      }
+
+      if (elementResult.outerHTML) {
+        lines.push(`**HTML:**`, "```html", elementResult.outerHTML, "```");
       }
 
       if (config?.heuristic !== false) {
         const hints = buildSearchHints(elementResult);
         if (hints.length > 0) {
           lines.push(
-            `- Source search hints:`,
+            `**Source search hints:**`,
             ...hints.map((hint) => `- ${hint}`),
           );
         }
       }
+    }
+  }
+
+  return lines.join("\n");
+}
+
+export function formatAnnotationsDisplayForChat(
+  annotations: LensAnnotation[],
+): string {
+  const lines: string[] = [
+    `[Lens Visual Comments]`,
+    ``,
+    `The user left ${annotations.length} visual comment${annotations.length === 1 ? "" : "s"} on the live page. Each comment is paired with an attached screenshot of the selected region.`,
+  ];
+
+  for (const annotation of annotations) {
+    lines.push(
+      ``,
+      `## ${annotation.pin}. Visual Comment`,
+      `**Comment:** ${annotation.comment}`,
+    );
+
+    if (annotation.styleEdits && annotation.styleEdits.length > 0) {
+      lines.push(
+        `**Style edits:**`,
+        ...annotation.styleEdits.map(
+          (edit) => `- ${edit.property}: \`${edit.before}\` -> \`${edit.after}\``,
+        ),
+      );
     }
   }
 

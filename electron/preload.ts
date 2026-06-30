@@ -177,6 +177,29 @@ ipcRenderer.on(
   },
 );
 
+type LensVisualCommentShortcutPayload = {
+  workspaceId: string;
+  key: string;
+  code?: string;
+  shiftKey?: boolean;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  isComposing?: boolean;
+};
+
+const lensVisualCommentShortcutSubscribers = new Set<
+  (payload: LensVisualCommentShortcutPayload) => void
+>();
+ipcRenderer.on(
+  "lens:visual-comment-shortcut",
+  (_event, payload: LensVisualCommentShortcutPayload) => {
+    for (const subscriber of lensVisualCommentShortcutSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
 const lensConsoleEventSubscribers = new Set<
   (payload: BrowserConsoleEventPayload) => void
 >();
@@ -1563,6 +1586,11 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         message?: string;
       }>,
+    clearAnnotations: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("lens:clear-annotations", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
     setElementStyle: (args: {
       workspaceId: string;
       selector: string;
@@ -1603,6 +1631,14 @@ contextBridge.exposeInMainWorld("api", {
       lensAnnotationEventSubscribers.add(listener);
       return () => {
         lensAnnotationEventSubscribers.delete(listener);
+      };
+    },
+    subscribeVisualCommentShortcutEvents: (
+      listener: (payload: LensVisualCommentShortcutPayload) => void,
+    ) => {
+      lensVisualCommentShortcutSubscribers.add(listener);
+      return () => {
+        lensVisualCommentShortcutSubscribers.delete(listener);
       };
     },
     subscribeConsoleEvents: (

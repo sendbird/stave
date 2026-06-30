@@ -188,6 +188,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   const [
     promptDraft,
     promptFocusNonce,
+    promptCommentShortcut,
     clearPromptDraft,
     updatePromptDraft,
     sendUserMessage,
@@ -204,6 +205,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.promptDraftByTask[args.providerSelectionTarget] ??
             EMPTY_PROMPT_DRAFT,
           state.promptFocusNonce,
+          state.settings.promptCommentShortcut,
           state.clearPromptDraft,
           state.updatePromptDraft,
           state.sendUserMessage,
@@ -252,6 +254,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   );
   const pendingApproval = pendingApprovals[0] ?? null;
   const queuedNextTurn = promptDraft.queuedNextTurn ?? null;
+  const queuedTurns = promptDraft.queuedTurns ?? [];
+  const promptBatch = promptDraft.promptBatch ?? [];
   const latestUserPromptMessage = useMemo(
     () => getLatestUserPromptMessage(activeTaskMessages),
     [activeTaskMessages],
@@ -365,6 +369,16 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     });
   }
 
+  function clearLensAnnotationsOnMessageSubmit(taskId: string) {
+    const store = useAppStore.getState();
+    const workspaceId =
+      store.taskWorkspaceIdById[taskId] ?? store.activeWorkspaceId;
+    if (!workspaceId) {
+      return;
+    }
+    void window.api?.lens?.clearAnnotations?.({ workspaceId });
+  }
+
   function stageApprovalGuidance(guidanceArgs: {
     toolName: string;
     description: string;
@@ -396,6 +410,60 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     updatePromptDraft({
       taskId: args.providerSelectionTarget,
       patch,
+    });
+  }
+
+  function createDraftItemId(prefix: string) {
+    return typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  function stagePromptBatchItem() {
+    const content = draftTextRef.current.trim();
+    if (!content) {
+      return;
+    }
+    cancelPendingDraftSave();
+    updatePromptDraft({
+      taskId: args.providerSelectionTarget,
+      patch: {
+        text: "",
+        promptBatch: [
+          ...promptBatch,
+          {
+            id: createDraftItemId("batch"),
+            createdAt: new Date().toISOString(),
+            content,
+          },
+        ],
+      },
+    });
+    adoptPromptDraftText({
+      taskId: args.providerSelectionTarget,
+      text: "",
+    });
+  }
+
+  function removePromptBatchItem(itemId: string) {
+    updateNonTextPromptDraft({
+      promptBatch: promptBatch.filter((item) => item.id !== itemId),
+    });
+  }
+
+  function updateQueuedTurn(args: { itemId: string; content: string }) {
+    updateNonTextPromptDraft({
+      queuedTurns: queuedTurns
+        .map((item) =>
+          item.id === args.itemId ? { ...item, content: args.content } : item,
+        )
+        .filter((item) => item.content.trim().length > 0),
+    });
+  }
+
+  function removeQueuedTurn(itemId: string) {
+    updateNonTextPromptDraft({
+      queuedTurns: queuedTurns.filter((item) => item.id !== itemId),
     });
   }
 
@@ -523,7 +591,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         isTurnActive: args.isTurnActive,
         draftText: draftTextRef.current,
         latestUserPrompt: latestUserPromptMessage.content,
-        queuedNextTurn,
+        queuedNextTurn:
+          queuedNextTurn ??
+          (queuedTurns[0] ? { queuedAt: queuedTurns[0].queuedAt } : null),
       })
     ) {
       return;
@@ -542,6 +612,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     clearPromptDraft,
     latestUserPromptMessage,
     queuedNextTurn,
+    queuedTurns,
   ]);
 
   useEffect(
@@ -718,14 +789,19 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           isTurnActive={args.isTurnActive}
           submitMode={args.isTurnActive ? "queue-next" : "send"}
           queuedNextTurn={queuedNextTurn}
+          queuedTurns={queuedTurns}
+          promptBatch={promptBatch}
+          promptCommentShortcut={promptCommentShortcut}
           onClearQueuedNextTurn={
-            queuedNextTurn
+            queuedNextTurn || queuedTurns.length > 0
               ? () => {
                   cancelPendingDraftSave();
-                  clearPromptDraft({ taskId: args.providerSelectionTarget });
-                  adoptPromptDraftText({
+                  updatePromptDraft({
                     taskId: args.providerSelectionTarget,
-                    text: "",
+                    patch: {
+                      queuedNextTurn: undefined,
+                      queuedTurns: undefined,
+                    },
                   });
                 }
               : undefined
@@ -750,8 +826,13 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               text: value,
             });
           }}
+          onStagePromptBatch={stagePromptBatchItem}
+          onRemovePromptBatchItem={({ itemId }) => removePromptBatchItem(itemId)}
+          onUpdateQueuedTurn={updateQueuedTurn}
+          onRemoveQueuedTurn={({ itemId }) => removeQueuedTurn(itemId)}
           onSuggestionSelect={async (suggestion) => {
             cancelPendingDraftSave();
+            clearLensAnnotationsOnMessageSubmit(args.activeTaskId);
             const result = await sendUserMessage({
               taskId: args.activeTaskId,
               content: suggestion,
@@ -898,6 +979,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   label: a.label,
                   mimeType: "image/png",
                 }));
+              clearLensAnnotationsOnMessageSubmit(args.activeTaskId);
               const result = await sendUserMessage({
                 taskId: args.activeTaskId,
                 content: text,

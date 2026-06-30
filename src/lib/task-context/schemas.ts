@@ -146,6 +146,17 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     dataUrl: z.string(),
     label: z.string(),
   }),
+  z.object({
+    kind: z.literal("lens-annotations"),
+    id: z.string(),
+    workspaceId: z.string().optional(),
+    label: z.string(),
+    count: z.number(),
+    summary: z.string(),
+    content: z.string(),
+    displayContent: z.string().optional(),
+    annotations: z.array(z.unknown()).optional(),
+  }),
 ]);
 
 const PromptDraftRuntimeOverridesSchema = z
@@ -183,6 +194,25 @@ const PromptDraftQueuedNextTurnSchema = z
   })
   .strict();
 
+const PromptDraftQueuedTurnSchema = z
+  .object({
+    id: z.string(),
+    queuedAt: z.string(),
+    sourceTurnId: z.string().optional(),
+    content: z.string(),
+    attachedFilePaths: z.array(z.string()).optional().default([]),
+    attachments: z.array(AttachmentSchema).optional().default([]),
+  })
+  .strict();
+
+const PromptDraftBatchItemSchema = z
+  .object({
+    id: z.string(),
+    createdAt: z.string(),
+    content: z.string(),
+  })
+  .strict();
+
 const ChatMessageSchema = z.object({
   id: z.string(),
   role: z.union([z.literal("user"), z.literal("assistant")]),
@@ -193,6 +223,7 @@ const ChatMessageSchema = z.object({
     z.literal("user"),
   ]),
   content: z.string(),
+  displayContent: z.string().optional(),
   startedAt: z.string().optional(),
   completedAt: z.string().optional(),
   isStreaming: z.boolean().optional(),
@@ -210,6 +241,7 @@ const ChatMessageSchema = z.object({
     .optional(),
   promptSuggestions: z.array(z.string()).optional(),
   parts: z.array(MessagePartSchema),
+  displayParts: z.array(MessagePartSchema).optional(),
 });
 
 const TaskSchema = z.object({
@@ -517,6 +549,8 @@ export const WorkspaceSnapshotSchema = z.object({
         attachedFilePaths: z.array(z.string()).optional().default([]),
         attachments: z.array(AttachmentSchema).optional().default([]),
         runtimeOverrides: PromptDraftRuntimeOverridesSchema.optional(),
+        promptBatch: z.array(PromptDraftBatchItemSchema).optional(),
+        queuedTurns: z.array(PromptDraftQueuedTurnSchema).optional(),
         queuedNextTurn: PromptDraftQueuedNextTurnSchema.optional(),
       }),
     )

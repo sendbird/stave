@@ -3154,7 +3154,7 @@ describe("workspace store hydration ordering", () => {
     );
   });
 
-  test("queues the next prompt during an active turn and auto-dispatches it on completion", async () => {
+  test("queues multiple prompts during an active turn and auto-dispatches one on completion", async () => {
     const localStorage = createMemoryStorage();
     const startedPrompts: string[] = [];
     let streamListener:
@@ -3252,8 +3252,17 @@ describe("workspace store hydration ordering", () => {
       taskId: "task-main",
       content: "Second prompt",
     });
+    const queuedAgain = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Third prompt",
+    });
 
     expect(queued).toEqual({
+      status: "queued",
+      taskId: "task-main",
+      workspaceId: "ws-main",
+    });
+    expect(queuedAgain).toEqual({
       status: "queued",
       taskId: "task-main",
       workspaceId: "ws-main",
@@ -3264,11 +3273,14 @@ describe("workspace store hydration ordering", () => {
       text: "",
     });
     expect(
-      queuedState.promptDraftByTask["task-main"]?.queuedNextTurn,
-    ).toMatchObject({
-      sourceTurnId: started.turnId,
-      content: "Second prompt",
-    });
+      queuedState.promptDraftByTask["task-main"]?.queuedTurns?.map((item) => ({
+        sourceTurnId: item.sourceTurnId,
+        content: item.content,
+      })),
+    ).toEqual([
+      { sourceTurnId: started.turnId, content: "Second prompt" },
+      { sourceTurnId: started.turnId, content: "Third prompt" },
+    ]);
 
     streamListener?.({
       streamId: "stream-1",
@@ -3295,8 +3307,10 @@ describe("workspace store hydration ordering", () => {
       "",
     );
     expect(
-      autoDispatchedState.promptDraftByTask["task-main"]?.queuedNextTurn,
-    ).toBeUndefined();
+      autoDispatchedState.promptDraftByTask["task-main"]?.queuedTurns?.map(
+        (item) => item.content,
+      ),
+    ).toEqual(["Third prompt"]);
     expect(
       autoDispatchedState.messagesByTask["task-main"]?.map(
         (message) => message.role,
@@ -3399,11 +3413,12 @@ describe("workspace store hydration ordering", () => {
     });
     expect(startedPrompts).toEqual(["/goal Fix the stalled goal turn"]);
     expect(
-      useAppStore.getState().promptDraftByTask["task-main"]?.queuedNextTurn,
-    ).toMatchObject({
-      sourceTurnId: started.turnId,
-      content: "Fix the stalled goal turn",
-    });
+      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns?.map(
+        (item) => ({ sourceTurnId: item.sourceTurnId, content: item.content }),
+      ),
+    ).toEqual([
+      { sourceTurnId: started.turnId, content: "Fix the stalled goal turn" },
+    ]);
 
     streamListener?.({
       streamId: "goal-stream-1",
@@ -3430,7 +3445,7 @@ describe("workspace store hydration ordering", () => {
       started.turnId,
     );
     expect(
-      autoDispatchedState.promptDraftByTask["task-main"]?.queuedNextTurn,
+      autoDispatchedState.promptDraftByTask["task-main"]?.queuedTurns,
     ).toBeUndefined();
     expect(
       autoDispatchedState.messagesByTask["task-main"]?.map(
@@ -3553,11 +3568,20 @@ describe("workspace store hydration ordering", () => {
       workspaceId: "ws-main",
     });
     expect(
-      useAppStore.getState().promptDraftByTask["task-main"]?.queuedNextTurn,
-    ).toMatchObject({
-      sourceTurnId: started.turnId,
-      content: "",
-    });
+      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns?.map(
+        (item) => ({
+          sourceTurnId: item.sourceTurnId,
+          content: item.content,
+          attachedFilePaths: item.attachedFilePaths,
+        }),
+      ),
+    ).toEqual([
+      {
+        sourceTurnId: started.turnId,
+        content: "",
+        attachedFilePaths: ["README.md"],
+      },
+    ]);
 
     streamListener?.({
       streamId: "stream-attachment-1",
@@ -3582,7 +3606,7 @@ describe("workspace store hydration ordering", () => {
       started.turnId,
     );
     expect(
-      autoDispatchedState.promptDraftByTask["task-main"]?.queuedNextTurn,
+      autoDispatchedState.promptDraftByTask["task-main"]?.queuedTurns,
     ).toBeUndefined();
   });
 

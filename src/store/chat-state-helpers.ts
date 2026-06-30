@@ -25,6 +25,31 @@ export function createUserTextPart(args: { text: string }): TextPart {
   };
 }
 
+const LENS_VISUAL_COMMENTS_MARKER = "[Lens Visual Comments]";
+
+function stripLensVisualCommentsFromDisplayText(text: string): string {
+  const markerIndex = text.indexOf(LENS_VISUAL_COMMENTS_MARKER);
+  if (markerIndex === -1) {
+    return text;
+  }
+  return text.slice(0, markerIndex).trimEnd();
+}
+
+function sanitizeDisplayParts(parts: MessagePart[]): MessagePart[] {
+  const sanitizedParts: MessagePart[] = [];
+  for (const part of parts) {
+    if (part.type !== "text") {
+      sanitizedParts.push(part);
+      continue;
+    }
+    const text = stripLensVisualCommentsFromDisplayText(part.text);
+    if (text.trim()) {
+      sanitizedParts.push({ ...part, text });
+    }
+  }
+  return sanitizedParts;
+}
+
 export function createFileContextPart(args: {
   filePath: string;
   content: string;
@@ -146,6 +171,8 @@ export function buildPendingProviderTurnState(args: {
   provider: ProviderId;
   activeModel: string;
   content: string;
+  displayContent?: string;
+  displayParts?: MessagePart[];
   fileContexts?: Array<{
     filePath: string;
     content: string;
@@ -194,13 +221,34 @@ export function buildPendingProviderTurnState(args: {
     userParts.push(createUserTextPart({ text: args.content }));
   }
 
+  const displayContent = args.displayContent
+    ? stripLensVisualCommentsFromDisplayText(args.displayContent)
+    : undefined;
+  let displayParts: MessagePart[] | undefined;
+  if (args.displayParts) {
+    displayParts = sanitizeDisplayParts(args.displayParts);
+  } else if (displayContent) {
+    displayParts = [];
+    for (const part of userParts) {
+      if (part.type === "text") {
+        if (displayContent.trim()) {
+          displayParts.push(createUserTextPart({ text: displayContent }));
+        }
+        continue;
+      }
+      displayParts.push(part);
+    }
+  }
+
   const userMessage: ChatMessage = {
     id: userMessageId,
     role: "user",
     model: "user",
     providerId: "user",
     content: args.content,
+    ...(displayContent ? { displayContent } : {}),
     parts: userParts.length > 0 ? userParts : [createUserTextPart({ text: args.content })],
+    ...(displayParts && displayParts.length > 0 ? { displayParts } : {}),
   };
 
   const assistantMessage: ChatMessage = {

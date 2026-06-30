@@ -87,11 +87,16 @@ function shouldIncludeSystemEvent(part: SystemEventPart) {
 }
 
 export function buildAssistantTrace(args: {
-  message: Pick<ChatMessage, "content" | "parts" | "isStreaming">;
+  message: Pick<
+    ChatMessage,
+    "content" | "parts" | "displayContent" | "displayParts" | "isStreaming"
+  >;
 }): AssistantTraceData {
   const renderableParts = getRenderableMessageParts({
     content: args.message.content,
     parts: args.message.parts,
+    displayContent: args.message.displayContent,
+    displayParts: args.message.displayParts,
   });
   const responseStartIndex = getAssistantResponseTextStartIndex(renderableParts);
 

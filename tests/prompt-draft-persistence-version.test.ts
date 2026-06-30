@@ -72,7 +72,7 @@ describe("prompt draft persistence version", () => {
     expect(afterAttachmentUpdate.promptDraftPersistenceVersion).toBe(2);
   });
 
-  test("queued-next-turn metadata uses workspace snapshot persistence", async () => {
+  test("queued turn metadata uses workspace snapshot persistence", async () => {
     const { useAppStore } = await import("../src/store/app.store");
     const initialState = useAppStore.getInitialState();
 
@@ -92,10 +92,14 @@ describe("prompt draft persistence version", () => {
     useAppStore.getState().updatePromptDraft({
       taskId: "task-1",
       patch: {
-        queuedNextTurn: {
+        queuedTurns: [{
+          id: "queue-1",
           queuedAt: "2026-04-09T00:00:00.000Z",
           sourceTurnId: "turn-1",
-        },
+          content: "Follow up",
+          attachedFilePaths: [],
+          attachments: [],
+        }],
       },
     });
 

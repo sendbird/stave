@@ -23,12 +23,24 @@ import type {
   BrowserConsoleEventPayload,
   BrowserConsoleEntry,
   LensDownloadEntry,
+  LensAnnotation,
   BrowserNavigationState,
   BrowserNetworkEntry,
   BrowserNetworkEventPayload,
   LensBounds,
   LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
+
+function isVisualCommentShortcutCandidate(input: Electron.Input) {
+  if (input.type !== "keyDown" || input.isComposing) {
+    return false;
+  }
+  const hasMod = input.control || input.meta;
+  if (!hasMod) {
+    return false;
+  }
+  return input.key === "." || input.code === "Period";
+}
 
 // ---------------------------------------------------------------------------
 // Ring buffer – bounded array with FIFO eviction
@@ -75,6 +87,7 @@ export interface BrowserSessionState {
   annotationOverlayActive: boolean;
   annotationNonce: string | null;
   annotationExtractDebugSource: boolean;
+  annotations: LensAnnotation[];
   /** True when the box-model inspect overlay is active for this session. */
   boxInspectActive: boolean;
   /** True when the session was opened only for MCP/headless inspection. */
@@ -280,6 +293,23 @@ export function createBrowserSession(
 
   // Keep app DevTools shortcuts working while the native browser view holds focus.
   view.webContents.on("before-input-event", (event, input) => {
+    if (isVisualCommentShortcutCandidate(input)) {
+      const renderer = getMainWindow()?.webContents;
+      if (renderer && !renderer.isDestroyed()) {
+        event.preventDefault();
+        renderer.send("lens:visual-comment-shortcut", {
+          workspaceId,
+          key: input.key,
+          code: input.code,
+          shiftKey: input.shift,
+          altKey: input.alt,
+          ctrlKey: input.control,
+          metaKey: input.meta,
+          isComposing: input.isComposing,
+        });
+      }
+      return;
+    }
     if (!isDevToolsShortcut(input)) {
       return;
     }
@@ -348,6 +378,7 @@ export function createBrowserSession(
     annotationOverlayActive: false,
     annotationNonce: null,
     annotationExtractDebugSource: false,
+    annotations: [],
     boxInspectActive: false,
     managedByMcp: false,
     navigationState: {

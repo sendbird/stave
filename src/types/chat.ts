@@ -1,3 +1,5 @@
+import type { LensAnnotation } from "@/lib/lens/lens.types";
+
 export type MessageRole = "user" | "assistant";
 
 export type MessagePartType =
@@ -13,7 +15,18 @@ export type MessagePartType =
 
 export type Attachment =
   | { kind: "file"; filePath: string }
-  | { kind: "image"; id: string; dataUrl: string; label: string };
+  | { kind: "image"; id: string; dataUrl: string; label: string }
+  | {
+      kind: "lens-annotations";
+      id: string;
+      workspaceId?: string;
+      label: string;
+      count: number;
+      summary: string;
+      content: string;
+      displayContent?: string;
+      annotations?: LensAnnotation[];
+    };
 
 export type ClaudePermissionMode =
   | "default"
@@ -70,11 +83,29 @@ export interface PromptDraftQueuedNextTurn {
   content?: string;
 }
 
+export interface PromptDraftQueuedTurn {
+  id: string;
+  queuedAt: string;
+  sourceTurnId?: string;
+  content: string;
+  attachedFilePaths: string[];
+  attachments: Attachment[];
+}
+
+export interface PromptDraftBatchItem {
+  id: string;
+  createdAt: string;
+  content: string;
+}
+
 export interface PromptDraft {
   text: string;
   attachedFilePaths: string[];
   attachments: Attachment[];
   runtimeOverrides?: PromptDraftRuntimeOverrides;
+  promptBatch?: PromptDraftBatchItem[];
+  queuedTurns?: PromptDraftQueuedTurn[];
+  /** Legacy single-item queue kept for reading older persisted drafts. */
   queuedNextTurn?: PromptDraftQueuedNextTurn;
 }
 
@@ -207,6 +238,7 @@ export interface ChatMessage {
   model: string;
   providerId: "claude-code" | "codex" | "user";
   content: string;
+  displayContent?: string;
   startedAt?: string;
   completedAt?: string;
   isStreaming?: boolean;
@@ -222,6 +254,7 @@ export interface ChatMessage {
   };
   promptSuggestions?: string[];
   parts: MessagePart[];
+  displayParts?: MessagePart[];
 }
 
 export type EditorTabContentState =

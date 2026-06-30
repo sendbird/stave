@@ -1772,6 +1772,9 @@ interface WindowLensApi {
     workspaceId: string;
     annotationId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
+  clearAnnotations?: (args: {
+    workspaceId: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   setElementStyle?: (args: {
     workspaceId: string;
     selector: string;
@@ -1788,6 +1791,18 @@ interface WindowLensApi {
   ) => () => void;
   subscribeAnnotationEvents?: (
     listener: (payload: LensAnnotationEventPayload) => void,
+  ) => () => void;
+  subscribeVisualCommentShortcutEvents?: (
+    listener: (payload: {
+      workspaceId: string;
+      key: string;
+      code?: string;
+      shiftKey?: boolean;
+      altKey?: boolean;
+      ctrlKey?: boolean;
+      metaKey?: boolean;
+      isComposing?: boolean;
+    }) => void,
   ) => () => void;
   subscribeConsoleEvents?: (
     listener: (payload: LensConsoleEventPayload) => void,

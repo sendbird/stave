@@ -1,5 +1,6 @@
 import type {
   BrowserConsoleEntry,
+  LensAnnotation,
   LensAnnotationEventPayload,
   LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
@@ -54,9 +55,21 @@ export async function injectAnnotationOverlay(
   if (!session?.annotationOverlayActive || !session.annotationNonce) {
     return;
   }
+  let initialAnnotations: LensAnnotation[] = [];
+  try {
+    initialAnnotations = await wc.executeJavaScript(
+      "window.__staveGetAnnotations?.() ?? []",
+    );
+  } catch {
+    initialAnnotations = [];
+  }
+  if (initialAnnotations.length === 0) {
+    initialAnnotations = session.annotations;
+  }
   await wc.executeJavaScript(
     getAnnotationOverlayScript({
       extractDebugSource: session.annotationExtractDebugSource,
+      initialAnnotations,
       nonce: session.annotationNonce,
     }),
   );
@@ -89,9 +102,6 @@ export function attachBrowserSessionEventListeners(
   };
 
   wc.on("did-navigate", sendNavUpdate);
-  wc.on("did-navigate", () => {
-    sendAnnotationEvent({ workspaceId, type: "clear" });
-  });
   wc.on("did-navigate-in-page", sendNavUpdate);
   wc.on("did-start-loading", () => {
     updateNavigationState(workspaceId, { isLoading: true });
@@ -153,13 +163,37 @@ export function attachBrowserSessionEventListeners(
           | Omit<LensAnnotationEventPayload, "workspaceId">
           | null;
         if (payload?.type) {
+          if (
+            (payload.type === "add" || payload.type === "update") &&
+            payload.annotation
+          ) {
+            session.annotations = [
+              ...session.annotations.filter(
+                (annotation) => annotation.id !== payload.annotation?.id,
+              ),
+              payload.annotation,
+            ].sort((left, right) => left.pin - right.pin);
+          } else if (payload.type === "remove" && payload.annotation) {
+            session.annotations = session.annotations.filter(
+              (annotation) => annotation.id !== payload.annotation?.id,
+            );
+          } else if (payload.type === "submit" && payload.annotations) {
+            session.annotations = payload.annotations;
+          } else if (payload.type === "clear") {
+            session.annotations = [];
+          }
           sendAnnotationEvent({
             workspaceId,
             ...payload,
           } as LensAnnotationEventPayload);
         }
       } catch {
-        sendAnnotationEvent({ workspaceId, type: "clear" });
+        pushConsoleEntry(workspaceId, {
+          level: "warn",
+          text: "Ignored malformed Lens annotation event.",
+          timestamp: toIso(),
+          source: "lens",
+        });
       }
       return;
     }

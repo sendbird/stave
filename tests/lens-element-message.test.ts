@@ -1,12 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+  formatAnnotationsDisplayForChat,
   formatAnnotationsForChat,
   formatElementForChat,
 } from "@/lib/lens/lens-element-message";
-import type {
-  ElementPickerResult,
-  LensAnnotation,
-} from "@/lib/lens/lens.types";
+import type { ElementPickerResult, LensAnnotation } from "@/lib/lens/lens.types";
 
 const baseResult: ElementPickerResult = {
   selector: "#hero > button:nth-child(1)",
@@ -188,39 +186,45 @@ describe("formatElementForChat", () => {
 });
 
 describe("formatAnnotationsForChat", () => {
-  const baseAnnotation: LensAnnotation = {
-    id: "ann-1",
+  const annotation: LensAnnotation = {
+    id: "annotation-1",
     kind: "element",
     pin: 1,
-    rect: { x: 20, y: 30, width: 120, height: 40 },
-    comment: "Button padding looks tight",
+    rect: { x: 32, y: 64, width: 180, height: 44 },
+    comment: "Button is cramped",
     createdAt: "2026-06-30T00:00:00.000Z",
-    selector: "#launch-cta",
+    selector: "#hero > button:nth-child(1)",
     tagName: "button",
     elementId: "launch-cta",
     classList: ["ButtonRoot", "hero-button", "primary"],
-    computedStyles: baseResult.computedStyles,
-    outerHTML: baseResult.outerHTML,
+    outerHTML:
+      '<button id="launch-cta" class="ButtonRoot hero-button primary">Launch</button>',
     textContent: "Launch",
-    debugSource: baseResult.debugSource,
-    styleEdits: [
-      { property: "padding", before: "8px 12px", after: "10px 16px" },
-    ],
   };
 
-  it("formats visual comments without injecting raw element HTML", () => {
-    const text = formatAnnotationsForChat([baseAnnotation], {
+  it("keeps full source context in the provider prompt", () => {
+    const text = formatAnnotationsForChat([annotation], {
       heuristic: true,
       reactDebugSource: true,
     });
 
     expect(text).toContain("[Lens Visual Comments]");
-    expect(text).toContain("- Comment: Button padding looks tight");
-    expect(text).toContain("- Selector: `#launch-cta`");
-    expect(text).toContain("- Key styles:");
-    expect(text).toContain("padding: `8px 12px` → `10px 16px`");
-    expect(text).toContain("React source:");
-    expect(text).not.toContain("```html");
-    expect(text).not.toContain(baseResult.outerHTML);
+    expect(text).toContain("**Comment:** Button is cramped");
+    expect(text).toContain("**Selector:**");
+    expect(text).toContain("**HTML:**");
+    expect(text).toContain("Source search hints");
+    expect(text).toContain("launch-cta");
+  });
+
+  it("keeps display text focused on screenshots and comment text", () => {
+    const text = formatAnnotationsDisplayForChat([annotation]);
+
+    expect(text).toContain("[Lens Visual Comments]");
+    expect(text).toContain("attached screenshot");
+    expect(text).toContain("**Comment:** Button is cramped");
+    expect(text).not.toContain("**Selector:**");
+    expect(text).not.toContain("**HTML:**");
+    expect(text).not.toContain("Source search hints");
+    expect(text).not.toContain("launch-cta");
   });
 });

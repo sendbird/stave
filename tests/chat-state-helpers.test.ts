@@ -67,3 +67,84 @@ describe("buildPendingProviderTurnState — message IDs", () => {
     expect(appended.map((m) => m.id)).toEqual([`${taskId}-m-3`, `${taskId}-m-4`]);
   });
 });
+
+describe("buildPendingProviderTurnState — display content", () => {
+  test("keeps raw prompt content separate from rendered display content", () => {
+    const taskId = "task-display";
+    const next = buildPendingProviderTurnState({
+      ...sharedArgs,
+      tasks: [task(taskId)],
+      messagesByTask: { [taskId]: [] },
+      messageCountByTask: { [taskId]: 0 },
+      taskId,
+      content: "raw selector and html",
+      displayContent: "comment plus screenshot",
+      imageContexts: [
+        {
+          dataUrl: "data:image/png;base64,abc",
+          label: "Visual comment 1",
+          mimeType: "image/png",
+        },
+      ],
+    });
+
+    const userMessage = next.messagesByTask[taskId]?.[0];
+    expect(userMessage?.content).toBe("raw selector and html");
+    expect(userMessage?.displayContent).toBe("comment plus screenshot");
+    expect(userMessage?.parts.at(-1)).toEqual({
+      type: "text",
+      text: "raw selector and html",
+    });
+    expect(userMessage?.displayParts?.at(-1)).toEqual({
+      type: "text",
+      text: "comment plus screenshot",
+    });
+  });
+
+  test("strips raw Lens visual comment details from rendered display parts", () => {
+    const taskId = "task-lens-display";
+    const rawLensBlock = [
+      "고쳐봐 이것들",
+      "",
+      "[Lens Visual Comments]",
+      "",
+      "The user left 2 visual comments on the live page.",
+      "",
+      "1. Element Comment",
+      "",
+      "Comment: 구글검색",
+      "Selector: input[aria-label=\"Google 검색\"]",
+      "HTML:",
+      "<input aria-label=\"Google 검색\" />",
+    ].join("\n");
+    const next = buildPendingProviderTurnState({
+      ...sharedArgs,
+      tasks: [task(taskId)],
+      messagesByTask: { [taskId]: [] },
+      messageCountByTask: { [taskId]: 0 },
+      taskId,
+      content: rawLensBlock,
+      displayParts: [
+        { type: "text", text: rawLensBlock },
+        {
+          type: "image_context",
+          dataUrl: "data:image/png;base64,abc",
+          label: "구글검색",
+          mimeType: "image/png",
+        },
+      ],
+    });
+
+    const userMessage = next.messagesByTask[taskId]?.[0];
+    expect(userMessage?.content).toContain("[Lens Visual Comments]");
+    expect(userMessage?.displayParts).toEqual([
+      { type: "text", text: "고쳐봐 이것들" },
+      {
+        type: "image_context",
+        dataUrl: "data:image/png;base64,abc",
+        label: "구글검색",
+        mimeType: "image/png",
+      },
+    ]);
+  });
+});

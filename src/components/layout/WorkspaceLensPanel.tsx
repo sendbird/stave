@@ -31,7 +31,6 @@ import {
   Ruler,
   ScanSearch,
   Search,
-  Send,
   ShieldAlert,
   SlidersHorizontal,
   Terminal,
@@ -77,9 +76,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  formatAnnotationsForChat,
   formatElementForChat,
 } from "@/lib/lens/lens-element-message";
+import {
+  getLensCommentImageId,
+  isLensCommentImageAttachment,
+  upsertLensAnnotationsAttachment,
+} from "@/lib/lens/lens-annotation-attachment";
 import { hasLensOccludingFloatingSurface } from "@/lib/lens/lens-occlusion";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import type {
@@ -102,6 +105,11 @@ import type {
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
+import {
+  DEFAULT_VISUAL_COMMENT_SHORTCUT,
+  isVisualCommentShortcut,
+} from "@/lib/visual-comment-shortcuts";
 
 const DEFAULT_NAVIGATION_STATE: BrowserNavigationState = {
   url: "about:blank",
@@ -379,22 +387,17 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     lensSourceMappingReactDebugSource,
     lensSessionScope,
     isLensFullscreen,
-  ] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.activeWorkspaceId,
-          state.projectPath,
-          state.activeTaskId,
-          state.settings.lensSourceMappingHeuristic,
-          state.settings.lensSourceMappingReactDebugSource,
-          state.settings.lensSessionScope,
-          Boolean(
-            state.layout.lensFullscreenByWorkspaceId[state.activeWorkspaceId],
-          ),
-        ] as const,
-    ),
-  );
+    visualCommentShortcut,
+  ] = useAppStore(useShallow((state) => [
+    state.activeWorkspaceId,
+    state.projectPath,
+    state.activeTaskId,
+    state.settings.lensSourceMappingHeuristic,
+    state.settings.lensSourceMappingReactDebugSource,
+    state.settings.lensSessionScope,
+    Boolean(state.layout.lensFullscreenByWorkspaceId[state.activeWorkspaceId]),
+    state.settings.visualCommentShortcut,
+  ] as const));
 
   const sourceMappingConfig = useMemo(
     () =>
@@ -1019,6 +1022,64 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       return;
     }
 
+    const captureAnnotationScreenshot = async (annotation: LensAnnotation) => {
+      if (!activeTaskId) {
+        return;
+      }
+      const imageId = getLensCommentImageId({
+        workspaceId,
+        annotationId: annotation.id,
+      });
+      const storeBeforeCapture = useAppStore.getState();
+      const currentDraftBeforeCapture =
+        storeBeforeCapture.promptDraftByTask[activeTaskId];
+      if (
+        currentDraftBeforeCapture?.attachments.some(
+          (attachment) => attachment.kind === "image" && attachment.id === imageId,
+        )
+      ) {
+        return;
+      }
+      const result = await window.api?.lens?.screenshot?.({
+        workspaceId,
+        options: {
+          clip: {
+            x: Math.max(0, Math.round(annotation.rect.x)),
+            y: Math.max(0, Math.round(annotation.rect.y)),
+            width: Math.max(1, Math.round(annotation.rect.width)),
+            height: Math.max(1, Math.round(annotation.rect.height)),
+          },
+        },
+      });
+      if (!result?.ok || !result.dataUrl) {
+        return;
+      }
+      const store = useAppStore.getState();
+      const currentDraft = store.promptDraftByTask[activeTaskId];
+      const currentAttachments = currentDraft?.attachments ?? [];
+      if (
+        currentAttachments.some(
+          (attachment) => attachment.kind === "image" && attachment.id === imageId,
+        )
+      ) {
+        return;
+      }
+      store.updatePromptDraft({
+        taskId: activeTaskId,
+        patch: {
+          attachments: [
+            ...currentAttachments,
+            {
+              kind: "image",
+              id: imageId,
+              dataUrl: result.dataUrl,
+              label: annotation.comment.trim() || `Visual comment ${annotation.pin}`,
+            },
+          ],
+        },
+      });
+    };
+
     const unsubscribe = window.api?.lens?.subscribeAnnotationEvents?.(
       (payload: LensAnnotationEventPayload) => {
         if (payload.workspaceId !== workspaceId) {
@@ -1044,6 +1105,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
           setAnnotations((current) =>
             mergeAnnotationEntry(current, payload.annotation!),
           );
+          if (payload.type === "add") {
+            void captureAnnotationScreenshot(payload.annotation);
+          }
         }
       },
     );
@@ -1051,7 +1115,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     return () => {
       unsubscribe?.();
     };
-  }, [hasLensApi, workspaceId]);
+  }, [activeTaskId, hasLensApi, workspaceId]);
 
   const navigate = useCallback(
     async (targetUrl: string) => {
@@ -1295,23 +1359,12 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     void window.api?.shell?.showInFinder?.({ path: savePath });
   }, []);
 
-  const toggleAnnotationMode = useCallback(async () => {
+  const startAnnotationMode = useCallback(async () => {
     if (!workspaceId || !hasLensApi) {
       return;
     }
 
     if (isAnnotationModeActive) {
-      const result = await window.api?.lens?.stopAnnotationMode?.({
-        workspaceId,
-      });
-      if (!result?.ok) {
-        toast.error("Annotation mode failed", {
-          description:
-            result?.message ?? "Lens could not stop annotation mode.",
-        });
-        return;
-      }
-      setIsAnnotationModeActive(false);
       return;
     }
 
@@ -1343,6 +1396,102 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     workspaceId,
   ]);
 
+  const stopAnnotationMode = useCallback(async () => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const result = await window.api?.lens?.stopAnnotationMode?.({ workspaceId });
+    if (!result?.ok) {
+      toast.error("Annotation mode failed", {
+        description: result?.message ?? "Lens could not stop annotation mode.",
+      });
+      return;
+    }
+    setIsAnnotationModeActive(false);
+  }, [hasLensApi, workspaceId]);
+
+  const toggleAnnotationMode = useCallback(async () => {
+    if (isAnnotationModeActive) {
+      await stopAnnotationMode();
+      return;
+    }
+    await startAnnotationMode();
+  }, [isAnnotationModeActive, startAnnotationMode, stopAnnotationMode]);
+
+  useEffect(() => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (isEditableShortcutTarget(event.target)) {
+        return;
+      }
+      if (
+        !isVisualCommentShortcut({
+          shortcut: visualCommentShortcut ?? DEFAULT_VISUAL_COMMENT_SHORTCUT,
+          key: event.key,
+          code: event.code,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          isComposing: event.isComposing,
+        })
+      ) {
+        return;
+      }
+      event.preventDefault();
+      void toggleAnnotationMode();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    hasLensApi,
+    toggleAnnotationMode,
+    visualCommentShortcut,
+    workspaceId,
+  ]);
+
+  useEffect(() => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const unsubscribe =
+      window.api?.lens?.subscribeVisualCommentShortcutEvents?.((payload) => {
+        if (payload.workspaceId !== workspaceId) {
+          return;
+        }
+        if (
+          !isVisualCommentShortcut({
+            shortcut: visualCommentShortcut ?? DEFAULT_VISUAL_COMMENT_SHORTCUT,
+            key: payload.key,
+            code: payload.code,
+            shiftKey: payload.shiftKey,
+            altKey: payload.altKey,
+            ctrlKey: payload.ctrlKey,
+            metaKey: payload.metaKey,
+            isComposing: payload.isComposing,
+          })
+        ) {
+          return;
+        }
+        void toggleAnnotationMode();
+      });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [
+    hasLensApi,
+    toggleAnnotationMode,
+    visualCommentShortcut,
+    workspaceId,
+  ]);
+
   const toggleBoxInspect = useCallback(async () => {
     if (!workspaceId || !hasLensApi) {
       return;
@@ -1362,8 +1511,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     // Inspect and annotation overlays are mutually exclusive (see above).
     if (isAnnotationModeActive) {
-      await window.api?.lens?.stopAnnotationMode?.({ workspaceId });
-      setIsAnnotationModeActive(false);
+      await stopAnnotationMode();
     }
 
     const result = await window.api?.lens?.startBoxInspect?.({ workspaceId });
@@ -1374,7 +1522,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       return;
     }
     setIsBoxInspectActive(true);
-  }, [hasLensApi, isAnnotationModeActive, isBoxInspectActive, workspaceId]);
+  }, [hasLensApi, isAnnotationModeActive, isBoxInspectActive, stopAnnotationMode, workspaceId]);
 
   const removeAnnotation = useCallback(
     async (annotationId: string) => {
@@ -1440,43 +1588,49 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     [hasLensApi, workspaceId],
   );
 
-  const sendAnnotationsToDraft = useCallback(async () => {
-    if (!activeTaskId) {
-      toast.warning("Select a task first", {
-        description: "Lens sends visual comments into the active task draft.",
-      });
+  useEffect(() => {
+    if (!activeTaskId || !workspaceId) {
       return;
     }
 
-    if (annotations.length === 0) {
-      return;
-    }
-
-    const annotationText = formatAnnotationsForChat(
+    const store = useAppStore.getState();
+    const currentDraft = store.promptDraftByTask[activeTaskId];
+    const currentAttachments = currentDraft?.attachments ?? [];
+    const currentAnnotationIds = new Set(
+      annotations.map((annotation) =>
+        getLensCommentImageId({
+          workspaceId,
+          annotationId: annotation.id,
+        }),
+      ),
+    );
+    const retainedAttachments = currentAttachments.filter(
+      (attachment) => {
+        if (
+          attachment.kind !== "image" ||
+          !isLensCommentImageAttachment(attachment, workspaceId)
+        ) {
+          return true;
+        }
+        return currentAnnotationIds.has(attachment.id);
+      },
+    );
+    const nextAttachments = upsertLensAnnotationsAttachment({
+      attachments: retainedAttachments,
+      workspaceId,
       annotations,
       sourceMappingConfig,
-    );
-    const currentText =
-      useAppStore.getState().promptDraftByTask[activeTaskId]?.text?.trim() ??
-      "";
-    useAppStore.getState().updatePromptDraft({
+    });
+    if (JSON.stringify(currentAttachments) === JSON.stringify(nextAttachments)) {
+      return;
+    }
+    store.updatePromptDraft({
       taskId: activeTaskId,
       patch: {
-        text: currentText
-          ? `${currentText}\n\n${annotationText}`
-          : annotationText,
+        attachments: nextAttachments,
       },
     });
-    useAppStore.setState((state) => ({
-      promptFocusNonce: state.promptFocusNonce + 1,
-    }));
-
-    toast.success("Lens comments added", {
-      description: `${annotations.length} visual comment${
-        annotations.length === 1 ? "" : "s"
-      } appended to the active task draft.`,
-    });
-  }, [activeTaskId, annotations, sourceMappingConfig]);
+  }, [activeTaskId, annotations, sourceMappingConfig, workspaceId]);
 
   const filteredConsoleEntries = useMemo(() => {
     const query = consoleSearch.trim().toLowerCase();
@@ -1940,95 +2094,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
             </Tooltip>
           </div>
 
-          {isPickerActive || isAnnotationModeActive || isBoxInspectActive ? (
-            <div
-              className="flex flex-wrap items-center gap-1.5 text-[11px]"
-              aria-live="polite"
-            >
-              {isPickerActive ? (
-                <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 font-medium text-primary">
-                  <Crosshair className="size-3.5" />
-                  Pick active
-                </span>
-              ) : null}
-              {isAnnotationModeActive ? (
-                <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 font-medium text-primary">
-                  <Highlighter className="size-3.5" />
-                  Annotate active
-                  {annotations.length > 0 ? ` (${annotations.length})` : ""}
-                </span>
-              ) : null}
-              {isBoxInspectActive ? (
-                <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 font-medium text-primary">
-                  <Ruler className="size-3.5" />
-                  Inspect padding
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-
-          {annotations.length > 0 ? (
-            <div className="max-h-28 space-y-1 overflow-y-auto rounded-md border border-border/60 bg-background/70 p-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-medium">
-                  {annotations.length} comment
-                  {annotations.length === 1 ? "" : "s"}
-                </div>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="secondary"
-                  disabled={!activeTaskId}
-                  onClick={() => {
-                    void sendAnnotationsToDraft();
-                  }}
-                  className="h-6 gap-1 px-2 text-[11px]"
-                >
-                  <Send className="size-3" />
-                  Send
-                </Button>
-              </div>
-              <div className="space-y-1">
-                {annotations.map((annotation) => (
-                  <div
-                    key={annotation.id}
-                    className="flex items-start gap-2 rounded border border-border/50 bg-muted/30 px-2 py-1.5 text-xs"
-                  >
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                      {annotation.pin}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">
-                        {annotation.comment}
-                      </div>
-                      <div className="truncate text-[10px] text-muted-foreground">
-                        {annotation.kind === "area"
-                          ? "area"
-                          : annotation.selector}
-                      </div>
-                    </div>
-                    <AnnotationStylePopover
-                      annotation={annotation}
-                      disabled={!hasLensApi || annotation.kind !== "element"}
-                      onOpenChange={setIsLensFloatingSurfaceOpen}
-                      onApply={applyAnnotationStyle}
-                    />
-                    <Button
-                      type="button"
-                      size="icon-xs"
-                      variant="ghost"
-                      aria-label={`Remove annotation ${annotation.pin}`}
-                      onClick={() => {
-                        void removeAnnotation(annotation.id);
-                      }}
-                    >
-                      <Trash2 className="size-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <div className="relative min-h-0 flex-1 overflow-hidden">
