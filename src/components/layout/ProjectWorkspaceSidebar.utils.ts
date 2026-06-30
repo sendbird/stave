@@ -12,6 +12,12 @@ export interface ProjectSidebarCollapsedProjectView {
   projectPath: string;
   projectName: string;
   workspaces: ProjectSidebarWorkspaceView[];
+  /**
+   * Per-project map of workspace id -> filesystem path. Scoped to THIS
+   * project so non-current project rows resolve their own worktree paths
+   * instead of falling back to the active project's top-level store map.
+   */
+  workspacePathById: Record<string, string>;
   activeWorkspaceId: string;
   isCurrent: boolean;
 }

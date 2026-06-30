@@ -1,6 +1,7 @@
 import { memo, useEffect, useState, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { CircleHelp } from "lucide-react";
 import {
+  Badge,
   Button,
   Card,
   Input,
@@ -16,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ToolingStatusState, WorkspaceSyncStatus } from "@/lib/tooling-status";
 import { cn } from "@/lib/utils";
 
 export function readInt(value: string, fallback: number) {
@@ -26,6 +28,53 @@ export function readInt(value: string, fallback: number) {
 export function readFloat(value: string, fallback: number) {
   const parsed = Number.parseFloat(value);
   return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+export function StatusBadge(args: {
+  state: ToolingStatusState | WorkspaceSyncStatus["state"];
+  label: string;
+}) {
+  const className =
+    args.state === "ready" || args.state === "synced"
+      ? "border-success/30 bg-success/10 text-success dark:bg-success/15"
+      : args.state === "warning"
+          || args.state === "behind"
+          || args.state === "ahead"
+          || args.state === "dirty"
+        ? "border-warning/40 bg-warning/10 text-warning dark:bg-warning/15"
+        : "border-destructive/30 bg-destructive/10 text-destructive";
+
+  return (
+    <Badge
+      variant="secondary"
+      className={cn(
+        "h-6 border px-2.5 font-medium tracking-normal",
+        className,
+      )}
+    >
+      {args.label}
+    </Badge>
+  );
+}
+
+export function InfoRow(args: {
+  label: string;
+  value: string | null;
+  monospace?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-sm">
+      <span className="text-muted-foreground">{args.label}</span>
+      <span
+        className={cn(
+          "max-w-[70%] text-right text-foreground break-all",
+          args.monospace && "font-mono text-xs",
+        )}
+      >
+        {args.value ?? "-"}
+      </span>
+    </div>
+  );
 }
 
 export function SectionHeading(args: { title: string; description: string }) {
