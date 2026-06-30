@@ -494,6 +494,7 @@ const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
       type: z.literal("approval"),
       toolName: z.string().max(200),
       description: z.string().max(5000),
+      input: z.string().max(500_000).optional(),
       requestId: z.string().max(200),
       state: z.union([
         z.literal("approval-requested"),
