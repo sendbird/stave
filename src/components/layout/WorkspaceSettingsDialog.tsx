@@ -55,8 +55,12 @@ export function WorkspaceSettingsContent(props: {
         </p>
       </div>
 
-      <Tabs defaultValue="sync" className="w-full">
-        <TabsList>
+      <Tabs
+        defaultValue="sync"
+        orientation="vertical"
+        className="w-full gap-4 pt-2"
+      >
+        <TabsList className="min-w-36 shrink-0">
           <TabsTrigger value="sync">Sync</TabsTrigger>
           <TabsTrigger value="scripts">Scripts</TabsTrigger>
         </TabsList>
