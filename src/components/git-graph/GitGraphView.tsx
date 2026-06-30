@@ -1,13 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { GitGraph, LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { parseUnifiedDiffToBuffers } from "@/lib/source-control-diff";
 import type { GraphCommit } from "@/lib/git-graph/types";
-import { loadCommitFiles, loadGraph } from "./git-graph-actions";
+import {
+  loadCommitFiles,
+  loadGraph,
+  revertCommit,
+  resetCommit,
+  createTag,
+  cherryPickCommit,
+  createBranchFrom,
+  checkoutCommit,
+} from "./git-graph-actions";
 import { GitGraphCanvas } from "./GitGraphCanvas";
 import { CommitDetailPanel } from "./CommitDetailPanel";
+import { CommitContextMenu, type CommitContextMenuAnchor } from "./CommitContextMenu";
 
 type Scope = "all" | "current";
 
@@ -33,6 +43,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
   const [filesLoading, setFilesLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadMorePending, setLoadMorePending] = useState(false);
+  const [contextMenuAnchor, setContextMenuAnchor] = useState<CommitContextMenuAnchor | null>(null);
 
   const openDiffInEditor = useAppStore((s) => s.openDiffInEditor);
   const setLayout = useAppStore((s) => s.setLayout);
@@ -136,6 +147,83 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
     void fetchGraph({ scope });
   }
 
+  // Context menu open
+  function handleCommitContextMenu(e: MouseEvent, hash: string) {
+    e.preventDefault();
+    const commit = commits.find((c) => c.hash === hash);
+    setContextMenuAnchor({
+      x: e.clientX,
+      y: e.clientY,
+      hash,
+      subject: commit?.subject ?? "",
+    });
+  }
+
+  // Context menu actions — each calls the API then refreshes on success or sets error
+  async function handleContextCheckout(hash: string) {
+    if (!workspaceCwd) return;
+    const result = await checkoutCommit(workspaceCwd, hash);
+    if (!result.ok) {
+      setError(result.stderr ?? "Checkout failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleContextCreateBranch(hash: string, name: string) {
+    if (!workspaceCwd) return;
+    const result = await createBranchFrom(workspaceCwd, name, hash);
+    if (!result.ok) {
+      setError(result.stderr ?? "Create branch failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleContextCreateTag(hash: string, name: string) {
+    if (!workspaceCwd) return;
+    const result = await createTag(workspaceCwd, name, hash);
+    if (!result.ok) {
+      setError(result.stderr ?? "Create tag failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleContextCherryPick(hash: string) {
+    if (!workspaceCwd) return;
+    const result = await cherryPickCommit(workspaceCwd, hash);
+    if (!result.ok) {
+      setError(result.stderr ?? "Cherry-pick failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleContextRevert(hash: string) {
+    if (!workspaceCwd) return;
+    const result = await revertCommit(workspaceCwd, hash);
+    if (!result.ok) {
+      setError(result.stderr ?? "Revert failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleContextReset(hash: string, mode: "soft" | "mixed" | "hard") {
+    if (!workspaceCwd) return;
+    const result = await resetCommit(workspaceCwd, hash, mode);
+    if (!result.ok) {
+      setError(result.stderr ?? "Reset failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  function handleCopyHash(hash: string) {
+    void navigator.clipboard.writeText(hash);
+  }
+
   const selectedCommit = selectedHash
     ? (commits.find((c) => c.hash === selectedHash) ?? null)
     : null;
@@ -237,7 +325,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
               commits={commits}
               selectedHash={selectedHash}
               onSelect={(hash) => void handleSelect(hash)}
-              onCommitContextMenu={() => undefined}
+              onCommitContextMenu={handleCommitContextMenu}
               onRefContextMenu={() => undefined}
             />
           </div>
@@ -253,6 +341,19 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
           </div>
         </div>
       )}
+
+      {/* Commit context menu — rendered outside the canvas scroll container */}
+      <CommitContextMenu
+        anchor={contextMenuAnchor}
+        onClose={() => setContextMenuAnchor(null)}
+        onCopyHash={handleCopyHash}
+        onCheckout={(hash) => void handleContextCheckout(hash)}
+        onCreateBranch={(hash, name) => handleContextCreateBranch(hash, name)}
+        onCreateTag={(hash, name) => handleContextCreateTag(hash, name)}
+        onCherryPick={(hash) => handleContextCherryPick(hash)}
+        onRevert={(hash) => handleContextRevert(hash)}
+        onReset={(hash, mode) => handleContextReset(hash, mode)}
+      />
     </div>
   );
 }
