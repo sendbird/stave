@@ -105,7 +105,7 @@ import {
   syncWorkspaceWithOriginMain,
 } from "./main/utils/tooling-status";
 import { isDoneEvent } from "./main/utils/provider-events";
-import { quotePath, runCommand } from "./main/utils/command";
+import { runCommand, runCommandArgs } from "./main/utils/command";
 import type { BridgeEvent, StreamTurnArgs } from "./providers/types";
 import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
@@ -694,8 +694,12 @@ function startPushProviderTurn(args: StreamTurnArgs) {
 async function suggestProviderCommitMessage(args: { cwd?: string }) {
   const cwd = args.cwd;
   const [diffResult, statusResult] = await Promise.all([
-    runCommand({ command: "git diff HEAD", cwd }),
-    runCommand({ command: "git status --porcelain", cwd }),
+    runCommandArgs({ command: "git", commandArgs: ["diff", "HEAD"], cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["status", "--porcelain"],
+      cwd,
+    }),
   ]);
 
   const diff = diffResult.ok ? diffResult.stdout.trim() : "";
@@ -712,8 +716,9 @@ async function collectProviderPullRequestContext(args: {
   const baseBranch = args.baseBranch?.trim() || "main";
   const expectedBranch = args.headBranch?.trim() || undefined;
 
-  const remoteBranchesResult = await runCommand({
-    command: "git branch -r --format='%(refname:short)'",
+  const remoteBranchesResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["branch", "-r", "--format=%(refname:short)"],
     cwd,
   });
   const comparisonBaseRef = resolvePullRequestComparisonBaseRef({
@@ -725,8 +730,6 @@ async function collectProviderPullRequestContext(args: {
           .filter(Boolean)
       : [],
   });
-  const safeComparisonBaseRef = quotePath({ value: comparisonBaseRef });
-
   const [
     diffResult,
     workingTreeDiffResult,
@@ -737,23 +740,42 @@ async function collectProviderPullRequestContext(args: {
     agentsResult,
     branchResult,
   ] = await Promise.all([
-    runCommand({ command: `git diff "${safeComparisonBaseRef}"...HEAD`, cwd }),
-    runCommand({ command: "git diff HEAD", cwd }),
-    runCommand({
-      command: `git log "${safeComparisonBaseRef}"..HEAD --pretty=format:"%h %s" --no-merges`,
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["diff", `${comparisonBaseRef}...HEAD`],
       cwd,
     }),
-    runCommand({
-      command: `git diff "${safeComparisonBaseRef}"...HEAD --stat`,
+    runCommandArgs({ command: "git", commandArgs: ["diff", "HEAD"], cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: [
+        "log",
+        `${comparisonBaseRef}..HEAD`,
+        "--pretty=format:%h %s",
+        "--no-merges",
+      ],
       cwd,
     }),
-    runCommand({ command: "git status --porcelain", cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["diff", `${comparisonBaseRef}...HEAD`, "--stat"],
+      cwd,
+    }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["status", "--porcelain"],
+      cwd,
+    }),
     runCommand({
       command: "cat .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null || true",
       cwd,
     }),
     runCommand({ command: "cat AGENTS.md 2>/dev/null || true", cwd }),
-    runCommand({ command: "git rev-parse --abbrev-ref HEAD", cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
+      cwd,
+    }),
   ]);
 
   const gitDetectedBranch = branchResult.ok
