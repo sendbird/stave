@@ -946,6 +946,22 @@ interface WindowSourceControlApi {
     name: string;
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
+  renameBranch?: (args: {
+    from: string;
+    to: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  deleteBranch?: (args: {
+    name: string;
+    force?: boolean;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  push?: (args: {
+    branch?: string;
+    remote?: string;
+    force?: boolean;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
   createPR?: (args: {
     title: string;
     body?: string;

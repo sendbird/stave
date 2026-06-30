@@ -125,6 +125,15 @@ export function registerScmHandlers() {
   ipcMain.handle("scm:delete-tag", (_e, a: { name: string; cwd?: string }) =>
     invokeHostService("scm.delete-tag", a));
 
+  ipcMain.handle("scm:rename-branch", (_e, a: { from: string; to: string; cwd?: string }) =>
+    invokeHostService("scm.rename-branch", a));
+
+  ipcMain.handle("scm:delete-branch", (_e, a: { name: string; force?: boolean; cwd?: string }) =>
+    invokeHostService("scm.delete-branch", a));
+
+  ipcMain.handle("scm:push", (_e, a: { branch?: string; remote?: string; force?: boolean; cwd?: string }) =>
+    invokeHostService("scm.push", a));
+
   ipcMain.handle("scm:get-pr-status", (_event, args: { cwd?: string }) =>
     invokeHostService("scm.get-pr-status", args),
   );

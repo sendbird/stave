@@ -25,6 +25,7 @@ import {
   createScmBranch,
   createScmPullRequest,
   createScmTag,
+  deleteScmBranch,
   deleteScmTag,
   diffSourceControlFile,
   discardSourceControlPath,
@@ -38,7 +39,9 @@ import {
   mergeScmBranch,
   mergeScmPr,
   pullScmBranch,
+  pushScmBranch,
   rebaseScmBranch,
+  renameScmBranch,
   resetScmCommit,
   revertScmCommit,
   setScmPrReady,
@@ -1269,6 +1272,15 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.delete-tag":
       await respond(request.id, await deleteScmTag(request.params));
+      return;
+    case "scm.rename-branch":
+      await respond(request.id, await renameScmBranch(request.params));
+      return;
+    case "scm.delete-branch":
+      await respond(request.id, await deleteScmBranch(request.params));
+      return;
+    case "scm.push":
+      await respond(request.id, await pushScmBranch(request.params));
       return;
     case "scm.get-pr-status":
       await respond(request.id, await fetchGitHubPrStatus(request.params));

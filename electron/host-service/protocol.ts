@@ -614,6 +614,9 @@ export interface HostServiceRequestMap {
   "scm.reset": { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string };
   "scm.create-tag": { name: string; commit?: string; message?: string; cwd?: string };
   "scm.delete-tag": { name: string; cwd?: string };
+  "scm.rename-branch": { from: string; to: string; cwd?: string };
+  "scm.delete-branch": { name: string; force?: boolean; cwd?: string };
+  "scm.push": { branch?: string; remote?: string; force?: boolean; cwd?: string };
   "scm.get-pr-status": {
     cwd?: string;
   };
@@ -759,6 +762,9 @@ export interface HostServiceResponseMap {
   "scm.reset": CommandResult;
   "scm.create-tag": CommandResult;
   "scm.delete-tag": CommandResult;
+  "scm.rename-branch": CommandResult;
+  "scm.delete-branch": CommandResult;
+  "scm.push": CommandResult;
   "scm.get-pr-status": HostScmPrStatusResult;
   "scm.get-pr-status-for-url": HostScmPrStatusResult;
   "scm.set-pr-ready":

@@ -1173,6 +1173,12 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("scm:create-tag", args),
     deleteTag: (args: { name: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:delete-tag", args),
+    renameBranch: (args: { from: string; to: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:rename-branch", args),
+    deleteBranch: (args: { name: string; force?: boolean; cwd?: string }) =>
+      ipcRenderer.invoke("scm:delete-branch", args),
+    push: (args: { branch?: string; remote?: string; force?: boolean; cwd?: string }) =>
+      ipcRenderer.invoke("scm:push", args),
     createPR: (args: {
       title: string;
       body?: string;

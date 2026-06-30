@@ -754,6 +754,47 @@ export function deleteScmTag(args: { name: string; cwd?: string }) {
   });
 }
 
+export function renameScmBranch(args: { from: string; to: string; cwd?: string }) {
+  const from = args.from.trim();
+  const to = args.to.trim();
+  if (!from || !to) {
+    return Promise.resolve({ ok: false, code: -1, stdout: "", stderr: "Both branch names are required." });
+  }
+  return runCommand({
+    command: `git branch -m "${quotePath({ value: from })}" "${quotePath({ value: to })}"`,
+    cwd: args.cwd,
+  });
+}
+
+export function deleteScmBranch(args: { name: string; force?: boolean; cwd?: string }) {
+  const flag = args.force ? "-D" : "-d";
+  return runScmBranchCommand({
+    value: args.name,
+    cwd: args.cwd,
+    template: (q) => `git branch ${flag} "${q}"`,
+    requiredMessage: "Branch name is required.",
+  });
+}
+
+export function pushScmBranch(args: {
+  branch?: string;
+  remote?: string;
+  force?: boolean;
+  cwd?: string;
+}) {
+  const remote = (args.remote ?? "origin").trim();
+  const branch = args.branch?.trim();
+  const parts = ["git", "push"];
+  if (args.force) {
+    parts.push("--force-with-lease");
+  }
+  parts.push(`"${quotePath({ value: remote })}"`);
+  if (branch) {
+    parts.push(`"${quotePath({ value: branch })}"`);
+  }
+  return runCommand({ command: parts.join(" "), cwd: args.cwd });
+}
+
 export async function setScmPrReady(args: { cwd?: string }) {
   const authResult = await runCommand({
     command: "gh auth status",
