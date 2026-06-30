@@ -5,6 +5,7 @@ import {
   Copy,
   GitBranch,
   GitPullRequest,
+  RefreshCcw,
   TerminalSquare,
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -361,6 +362,23 @@ export function ToolingSection() {
         <SettingsCard
           title="Native Tooling Status"
           description="These checks mirror the native binaries and auth surfaces Stave uses for provider turns, PR actions, and terminal-backed workflows."
+          titleAccessory={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={viewState.status === "loading"}
+              onClick={() => setRefreshNonce((value) => value + 1)}
+            >
+              <RefreshCcw
+                className={cn(
+                  "size-4",
+                  viewState.status === "loading" && "animate-spin",
+                )}
+              />
+              Refresh
+            </Button>
+          }
         >
           {snapshot ? (
             <div className="grid gap-3">
