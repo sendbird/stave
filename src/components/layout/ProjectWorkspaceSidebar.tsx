@@ -697,7 +697,7 @@ function WorkspaceRowActions(args: {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-              Workspace settings…
+              Settings
             </DropdownMenuItem>
             {args.canArchiveWorkspace ? (
               <>
