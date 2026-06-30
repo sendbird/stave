@@ -26,6 +26,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -104,7 +105,11 @@ function ConfirmDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -175,7 +180,11 @@ function NameInputDialog({
           }}
         />
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button size="sm" disabled={!value.trim()} onClick={handleSubmit}>
@@ -217,7 +226,9 @@ export function CommitContextMenu({
 
   // Snapshot the anchor at the time the menu opens so dialogs still
   // have access to the hash/subject after anchor is cleared.
-  const [snapshot, setSnapshot] = useState<CommitContextMenuAnchor | null>(null);
+  const [snapshot, setSnapshot] = useState<CommitContextMenuAnchor | null>(
+    null,
+  );
 
   useEffect(() => {
     if (anchor) setSnapshot(anchor);
@@ -322,33 +333,42 @@ export function CommitContextMenu({
               <ChevronsUp className="size-4" />
               Reset to here
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuItem
-                onSelect={() => {
-                  onClose();
-                  setPendingDialog({ kind: "resetSoft" });
-                }}
-              >
-                Soft
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => {
-                  onClose();
-                  setPendingDialog({ kind: "resetMixed" });
-                }}
-              >
-                Mixed
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => {
-                  onClose();
-                  setPendingDialog({ kind: "resetHard" });
-                }}
-              >
-                Hard
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
+            {/*
+              Portal the submenu to <body> so it escapes the parent content's
+              containing block. The parent DropdownMenuContent has
+              `will-change: transform` (via .t-dropdown) + `overflow-x-hidden`,
+              which would otherwise clip this fixed-positioned submenu where it
+              flips out to the side.
+            */}
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onClose();
+                    setPendingDialog({ kind: "resetSoft" });
+                  }}
+                >
+                  Soft
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onClose();
+                    setPendingDialog({ kind: "resetMixed" });
+                  }}
+                >
+                  Mixed
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => {
+                    onClose();
+                    setPendingDialog({ kind: "resetHard" });
+                  }}
+                >
+                  Hard
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
           </DropdownMenuSub>
 
           <DropdownMenuSeparator />
@@ -368,7 +388,9 @@ export function CommitContextMenu({
       {/* Create branch dialog */}
       <NameInputDialog
         open={pendingDialog?.kind === "createBranch"}
-        onOpenChange={(open) => { if (!open) setPendingDialog(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDialog(null);
+        }}
         title="Create branch"
         placeholder="branch-name"
         confirmLabel="Create"
@@ -378,7 +400,9 @@ export function CommitContextMenu({
       {/* Create tag dialog */}
       <NameInputDialog
         open={pendingDialog?.kind === "createTag"}
-        onOpenChange={(open) => { if (!open) setPendingDialog(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDialog(null);
+        }}
         title="Create tag"
         placeholder="v1.0.0"
         confirmLabel="Create tag"
@@ -388,7 +412,9 @@ export function CommitContextMenu({
       {/* Cherry-pick confirm dialog */}
       <ConfirmDialog
         open={pendingDialog?.kind === "cherryPick"}
-        onOpenChange={(open) => { if (!open) setPendingDialog(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDialog(null);
+        }}
         title="Cherry-pick commit"
         description={`Apply the changes from ${shortHash} ("${subject}") onto the current branch as a new commit.`}
         confirmLabel="Cherry-pick"
@@ -398,7 +424,9 @@ export function CommitContextMenu({
       {/* Revert confirm dialog */}
       <ConfirmDialog
         open={pendingDialog?.kind === "revert"}
-        onOpenChange={(open) => { if (!open) setPendingDialog(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDialog(null);
+        }}
         title="Revert commit"
         description={`Create a new commit that undoes the changes from ${shortHash} ("${subject}"). The working tree must be clean.`}
         confirmLabel="Revert"
@@ -409,7 +437,9 @@ export function CommitContextMenu({
       {/* Reset — soft */}
       <ConfirmDialog
         open={pendingDialog?.kind === "resetSoft"}
-        onOpenChange={(open) => { if (!open) setPendingDialog(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDialog(null);
+        }}
         title="Reset (soft)"
         description={`Move HEAD to ${shortHash}. Staged changes are preserved; working tree is untouched.`}
         confirmLabel="Reset soft"
@@ -419,7 +449,9 @@ export function CommitContextMenu({
       {/* Reset — mixed */}
       <ConfirmDialog
         open={pendingDialog?.kind === "resetMixed"}
-        onOpenChange={(open) => { if (!open) setPendingDialog(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDialog(null);
+        }}
         title="Reset (mixed)"
         description={`Move HEAD to ${shortHash}. Staged changes become unstaged; working tree is untouched.`}
         confirmLabel="Reset mixed"
@@ -429,7 +461,9 @@ export function CommitContextMenu({
       {/* Reset — hard (destructive) */}
       <ConfirmDialog
         open={pendingDialog?.kind === "resetHard"}
-        onOpenChange={(open) => { if (!open) setPendingDialog(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDialog(null);
+        }}
         title="Hard reset — all local changes will be lost"
         description={`Move HEAD to ${shortHash} and discard ALL staged and unstaged changes. This cannot be undone.`}
         confirmLabel="Hard reset"

@@ -453,7 +453,10 @@ export async function getScmGraph(args: {
     commits,
     head,
     hasMore,
-    stderr: [logResult.stderr, branchResult.stderr].filter(Boolean).join("\n").trim(),
+    stderr: [logResult.stderr, branchResult.stderr]
+      .filter(Boolean)
+      .join("\n")
+      .trim(),
   };
 }
 
@@ -477,7 +480,10 @@ export async function getScmCommitFiles(args: { hash: string; cwd?: string }) {
           const status = parts[0] ?? "";
           // Rename/copy lines: "R100\told-path\tnew-path" — use new path as
           // the canonical path; preserve old path in oldPath for display.
-          if ((status.startsWith("R") || status.startsWith("C")) && parts.length >= 3) {
+          if (
+            (status.startsWith("R") || status.startsWith("C")) &&
+            parts.length >= 3
+          ) {
             const oldPath = parts[1] ?? "";
             const newPath = parts[2] ?? "";
             return { status: status.charAt(0), path: newPath, oldPath };
@@ -499,7 +505,12 @@ export async function getScmCommitDiff(args: {
   const hash = args.hash.trim();
   const path = args.path.trim();
   if (!hash || !path) {
-    return { ok: false, oldContent: "", newContent: "", stderr: "hash and path are required." };
+    return {
+      ok: false,
+      oldContent: "",
+      newContent: "",
+      stderr: "hash and path are required.",
+    };
   }
 
   // newContent: content of the file in this commit
@@ -578,10 +589,7 @@ export async function listScmBranches(args: {
     await Promise.all([
       runCommandArgs({
         command: "git",
-        commandArgs: [
-          "branch",
-          "--format=%(refname:short)|%(upstream:track)",
-        ],
+        commandArgs: ["branch", "--format=%(refname:short)|%(upstream:track)"],
         cwd: args.cwd,
       }),
       runCommandArgs({
@@ -635,10 +643,7 @@ export async function listScmBranches(args: {
   };
 }
 
-async function assertScmBranchMatches(args: {
-  cwd?: string;
-  branch?: string;
-}) {
+async function assertScmBranchMatches(args: { cwd?: string; branch?: string }) {
   const expectedBranch = args.branch?.trim();
   if (!expectedBranch) {
     return { ok: true, currentBranch: "" };
@@ -669,10 +674,7 @@ async function assertScmBranchMatches(args: {
   return { ok: true, currentBranch };
 }
 
-export async function fetchScmBranch(args: {
-  cwd?: string;
-  branch?: string;
-}) {
+export async function fetchScmBranch(args: { cwd?: string; branch?: string }) {
   const branchCheck = await assertScmBranchMatches(args);
   if (!branchCheck.ok) {
     return {
@@ -729,10 +731,7 @@ export function checkoutScmBranch(args: { name: string; cwd?: string }) {
   });
 }
 
-export async function pullScmBranch(args: {
-  cwd?: string;
-  branch?: string;
-}) {
+export async function pullScmBranch(args: { cwd?: string; branch?: string }) {
   const branchCheck = await assertScmBranchMatches(args);
   if (!branchCheck.ok) {
     return {
@@ -813,13 +812,42 @@ export function resetScmCommit(args: {
   mode: "soft" | "mixed" | "hard";
   cwd?: string;
 }) {
-  const mode = args.mode === "soft" || args.mode === "hard" ? args.mode : "mixed";
+  const mode =
+    args.mode === "soft" || args.mode === "hard" ? args.mode : "mixed";
   return runScmBranchCommand({
     value: args.commit,
     cwd: args.cwd,
     args: (value) => ["reset", `--${mode}`, value],
     requiredMessage: "Commit hash is required.",
   });
+}
+
+/**
+ * Build the `git tag` argument vector.
+ *
+ * When no message is supplied the UI wants a lightweight tag, so we pass
+ * `--no-sign` explicitly. Without it, a user's `tag.gpgsign=true` git config
+ * turns the bare `git tag <name>` into a signed/annotated tag, which then fails
+ * with "fatal: no tag message?" because no `-m` was given.
+ */
+export function buildCreateTagArgs(args: {
+  name: string;
+  commit?: string;
+  message?: string;
+}): string[] {
+  const name = args.name.trim();
+  const target = args.commit?.trim();
+  const message = args.message?.trim();
+  const commandArgs = ["tag"];
+  if (message) {
+    commandArgs.push("-a", name, "-m", message);
+  } else {
+    commandArgs.push("--no-sign", name);
+  }
+  if (target) {
+    commandArgs.push(target);
+  }
+  return commandArgs;
 }
 
 export function createScmTag(args: {
@@ -830,20 +858,18 @@ export function createScmTag(args: {
 }) {
   const name = args.name.trim();
   if (!name) {
-    return Promise.resolve({ ok: false, code: -1, stdout: "", stderr: "Tag name is required." });
+    return Promise.resolve({
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: "Tag name is required.",
+    });
   }
-  const target = args.commit?.trim();
-  const message = args.message?.trim();
-  const commandArgs = ["tag"];
-  if (message) {
-    commandArgs.push("-a", name, "-m", message);
-  } else {
-    commandArgs.push(name);
-  }
-  if (target) {
-    commandArgs.push(target);
-  }
-  return runCommandArgs({ command: "git", commandArgs, cwd: args.cwd });
+  return runCommandArgs({
+    command: "git",
+    commandArgs: buildCreateTagArgs(args),
+    cwd: args.cwd,
+  });
 }
 
 export function deleteScmTag(args: { name: string; cwd?: string }) {
@@ -855,11 +881,20 @@ export function deleteScmTag(args: { name: string; cwd?: string }) {
   });
 }
 
-export function renameScmBranch(args: { from: string; to: string; cwd?: string }) {
+export function renameScmBranch(args: {
+  from: string;
+  to: string;
+  cwd?: string;
+}) {
   const from = args.from.trim();
   const to = args.to.trim();
   if (!from || !to) {
-    return Promise.resolve({ ok: false, code: -1, stdout: "", stderr: "Both branch names are required." });
+    return Promise.resolve({
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: "Both branch names are required.",
+    });
   }
   return runCommandArgs({
     command: "git",
@@ -868,7 +903,11 @@ export function renameScmBranch(args: { from: string; to: string; cwd?: string }
   });
 }
 
-export function deleteScmBranch(args: { name: string; force?: boolean; cwd?: string }) {
+export function deleteScmBranch(args: {
+  name: string;
+  force?: boolean;
+  cwd?: string;
+}) {
   const flag = args.force ? "-D" : "-d";
   return runScmBranchCommand({
     value: args.name,
