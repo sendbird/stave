@@ -91,3 +91,81 @@ export async function checkoutCommit(cwd: string, hash: string): Promise<ActionR
   if (!api) return unavailable();
   return api({ name: hash, cwd });
 }
+
+// ---------------------------------------------------------------------------
+// Branch / ref action wrappers
+// ---------------------------------------------------------------------------
+
+export async function checkoutBranch(cwd: string, name: string): Promise<ActionResult> {
+  const api = window.api?.sourceControl?.checkoutBranch;
+  if (!api) return unavailable();
+  return api({ name, cwd });
+}
+
+export async function renameBranch(cwd: string, from: string, to: string): Promise<ActionResult> {
+  const api = window.api?.sourceControl?.renameBranch;
+  if (!api) return unavailable();
+  return api({ from, to, cwd });
+}
+
+export async function deleteBranch(
+  cwd: string,
+  name: string,
+  force?: boolean,
+): Promise<ActionResult> {
+  const api = window.api?.sourceControl?.deleteBranch;
+  if (!api) return unavailable();
+  return api({ name, force, cwd });
+}
+
+export async function mergeBranch(cwd: string, branch: string): Promise<ActionResult> {
+  const api = window.api?.sourceControl?.mergeBranch;
+  if (!api) return unavailable();
+  return api({ branch, cwd });
+}
+
+export async function rebaseBranch(cwd: string, branch: string): Promise<ActionResult> {
+  const api = window.api?.sourceControl?.rebaseBranch;
+  if (!api) return unavailable();
+  return api({ branch, cwd });
+}
+
+export async function pullBranch(cwd: string, branch?: string): Promise<ActionResult> {
+  const api = window.api?.sourceControl?.pullBranch;
+  if (!api) return unavailable();
+  return api({ branch, cwd });
+}
+
+export async function pushBranch(
+  cwd: string,
+  branch?: string,
+  force?: boolean,
+): Promise<ActionResult> {
+  const api = window.api?.sourceControl?.push;
+  if (!api) return unavailable();
+  return api({ branch, force, cwd });
+}
+
+export interface ListBranchesResult {
+  ok: boolean;
+  current: string;
+  branches: string[];
+  remoteBranches: string[];
+  worktreePathByBranch: Record<string, string>;
+  stderr: string;
+}
+
+export async function listBranches(cwd: string): Promise<ListBranchesResult> {
+  const api = window.api?.sourceControl?.listBranches;
+  if (!api) {
+    return {
+      ok: false,
+      current: "",
+      branches: [],
+      remoteBranches: [],
+      worktreePathByBranch: {},
+      stderr: "API unavailable",
+    };
+  }
+  return api({ cwd }) as Promise<ListBranchesResult>;
+}

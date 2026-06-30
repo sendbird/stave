@@ -4,7 +4,7 @@ import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { parseUnifiedDiffToBuffers } from "@/lib/source-control-diff";
-import type { GraphCommit } from "@/lib/git-graph/types";
+import type { GraphCommit, GraphRef } from "@/lib/git-graph/types";
 import {
   loadCommitFiles,
   loadGraph,
@@ -14,10 +14,19 @@ import {
   cherryPickCommit,
   createBranchFrom,
   checkoutCommit,
+  listBranches,
+  checkoutBranch,
+  renameBranch,
+  deleteBranch,
+  mergeBranch,
+  rebaseBranch,
+  pullBranch,
+  pushBranch,
 } from "./git-graph-actions";
 import { GitGraphCanvas } from "./GitGraphCanvas";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { CommitContextMenu, type CommitContextMenuAnchor } from "./CommitContextMenu";
+import { RefContextMenu, type RefContextMenuAnchor } from "./RefContextMenu";
 
 type Scope = "all" | "current";
 
@@ -44,9 +53,23 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
   const [error, setError] = useState("");
   const [loadMorePending, setLoadMorePending] = useState(false);
   const [contextMenuAnchor, setContextMenuAnchor] = useState<CommitContextMenuAnchor | null>(null);
+  const [refContextMenuAnchor, setRefContextMenuAnchor] = useState<RefContextMenuAnchor | null>(null);
+
+  // Branch / worktree metadata (loaded alongside the graph)
+  const [currentBranch, setCurrentBranch] = useState("");
+  const [worktreePathByBranch, setWorktreePathByBranch] = useState<Record<string, string>>({});
 
   const openDiffInEditor = useAppStore((s) => s.openDiffInEditor);
   const setLayout = useAppStore((s) => s.setLayout);
+
+  const fetchBranchMeta = useCallback(async () => {
+    if (!workspaceCwd) return;
+    const result = await listBranches(workspaceCwd);
+    if (result.ok) {
+      setCurrentBranch(result.current);
+      setWorktreePathByBranch(result.worktreePathByBranch);
+    }
+  }, [workspaceCwd]);
 
   const fetchGraph = useCallback(
     async (args: { scope: Scope; skip?: number; append?: boolean }) => {
@@ -81,12 +104,14 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
         }
         setHead(result.head);
         setHasMore(result.hasMore);
+        // Load branch/worktree metadata in parallel with graph
+        void fetchBranchMeta();
       } finally {
         setLoading(false);
         setLoadMorePending(false);
       }
     },
-    [workspaceCwd],
+    [workspaceCwd, fetchBranchMeta],
   );
 
   // Load on mount, scope change, or workspaceCwd change.
@@ -224,6 +249,90 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
     void navigator.clipboard.writeText(hash);
   }
 
+  // Ref context menu open
+  function handleRefContextMenu(e: MouseEvent, _hash: string, ref: GraphRef) {
+    e.preventDefault();
+    e.stopPropagation();
+    setRefContextMenuAnchor({ x: e.clientX, y: e.clientY, ref });
+  }
+
+  // Ref action handlers — refresh graph + branch metadata on success
+  async function handleRefCheckout(ref: GraphRef) {
+    if (!workspaceCwd) return;
+    const result = await checkoutBranch(workspaceCwd, ref.name);
+    if (!result.ok) {
+      setError(result.stderr ?? "Checkout failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleRefRename(ref: GraphRef, newName: string) {
+    if (!workspaceCwd) return;
+    const result = await renameBranch(workspaceCwd, ref.name, newName);
+    if (!result.ok) {
+      setError(result.stderr ?? "Rename failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleRefDelete(ref: GraphRef, force: boolean) {
+    if (!workspaceCwd) return;
+    const result = await deleteBranch(workspaceCwd, ref.name, force);
+    if (!result.ok) {
+      setError(result.stderr ?? "Delete failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleRefMergeInto(ref: GraphRef) {
+    if (!workspaceCwd) return;
+    const result = await mergeBranch(workspaceCwd, ref.name);
+    if (!result.ok) {
+      setError(result.stderr ?? "Merge failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleRefRebaseOnto(ref: GraphRef) {
+    if (!workspaceCwd) return;
+    const result = await rebaseBranch(workspaceCwd, ref.name);
+    if (!result.ok) {
+      setError(result.stderr ?? "Rebase failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleRefPush(ref: GraphRef, force: boolean) {
+    if (!workspaceCwd) return;
+    const result = await pushBranch(workspaceCwd, ref.name, force);
+    if (!result.ok) {
+      setError(result.stderr ?? "Push failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  async function handleRefPull(ref: GraphRef) {
+    if (!workspaceCwd) return;
+    // For remote branches like "origin/main", extract just the branch part
+    const branch = ref.name.includes("/") ? ref.name.split("/").slice(1).join("/") : ref.name;
+    const result = await pullBranch(workspaceCwd, branch);
+    if (!result.ok) {
+      setError(result.stderr ?? "Pull failed.");
+    } else {
+      handleRefresh();
+    }
+  }
+
+  function handleRefCopyName(ref: GraphRef) {
+    void navigator.clipboard.writeText(ref.name);
+  }
+
   const selectedCommit = selectedHash
     ? (commits.find((c) => c.hash === selectedHash) ?? null)
     : null;
@@ -326,7 +435,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
               selectedHash={selectedHash}
               onSelect={(hash) => void handleSelect(hash)}
               onCommitContextMenu={handleCommitContextMenu}
-              onRefContextMenu={() => undefined}
+              onRefContextMenu={handleRefContextMenu}
             />
           </div>
 
@@ -353,6 +462,23 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
         onCherryPick={(hash) => handleContextCherryPick(hash)}
         onRevert={(hash) => handleContextRevert(hash)}
         onReset={(hash, mode) => handleContextReset(hash, mode)}
+      />
+
+      {/* Ref context menu — rendered outside the canvas scroll container */}
+      <RefContextMenu
+        anchor={refContextMenuAnchor}
+        onClose={() => setRefContextMenuAnchor(null)}
+        currentBranch={currentBranch}
+        worktreePathByBranch={worktreePathByBranch}
+        workspacePath={workspaceCwd}
+        onCheckout={(ref) => handleRefCheckout(ref)}
+        onRename={(ref, newName) => handleRefRename(ref, newName)}
+        onDelete={(ref, force) => handleRefDelete(ref, force)}
+        onMergeInto={(ref) => handleRefMergeInto(ref)}
+        onRebaseOnto={(ref) => handleRefRebaseOnto(ref)}
+        onPush={(ref, force) => handleRefPush(ref, force)}
+        onPull={(ref) => handleRefPull(ref)}
+        onCopyName={handleRefCopyName}
       />
     </div>
   );
