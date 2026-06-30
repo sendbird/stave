@@ -9,6 +9,91 @@ import type {
   LensSourceMappingConfig,
 } from "./lens.types";
 
+const MAX_DISPLAY_CLASSES = 6;
+const MAX_DISPLAY_TEXT_LENGTH = 180;
+const MAX_STYLE_SUMMARY_ITEMS = 8;
+const CORE_STYLE_KEYS = [
+  "display",
+  "position",
+  "fontSize",
+  "color",
+  "backgroundColor",
+  "visibleBackgroundColor",
+  "padding",
+  "margin",
+  "width",
+  "height",
+  "fontWeight",
+  "borderRadius",
+  "opacity",
+] as const;
+
+function truncateText(
+  value: string,
+  maxLength = MAX_DISPLAY_TEXT_LENGTH,
+): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (compact.length <= maxLength) {
+    return compact;
+  }
+  return `${compact.slice(0, maxLength - 3)}...`;
+}
+
+function formatClassSummary(classList: string[]): string | null {
+  if (classList.length === 0) {
+    return null;
+  }
+
+  const visible = classList.slice(0, MAX_DISPLAY_CLASSES);
+  const suffix =
+    classList.length > visible.length
+      ? ` (+${classList.length - visible.length} more)`
+      : "";
+  return `${visible.map((className) => `\`.${className}\``).join(", ")}${suffix}`;
+}
+
+function formatElementIdentity(result: ElementPickerResult): string {
+  const id = result.id ? `#${result.id}` : "";
+  const classes = result.classList
+    .slice(0, 3)
+    .map((className) => `.${className}`)
+    .join("");
+  return `<${result.tagName}${id}${classes}>`;
+}
+
+function isInformativeStyleValue(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized !== "" &&
+    normalized !== "none" &&
+    normalized !== "normal" &&
+    normalized !== "auto" &&
+    normalized !== "initial" &&
+    normalized !== "inherit"
+  );
+}
+
+function formatStyleSummary(styles: Record<string, string>): string | null {
+  const entries: Array<[string, string]> = [];
+  for (const key of CORE_STYLE_KEYS) {
+    const value = styles[key];
+    if (typeof value === "string" && isInformativeStyleValue(value)) {
+      entries.push([key, value]);
+    }
+    if (entries.length >= MAX_STYLE_SUMMARY_ITEMS) {
+      break;
+    }
+  }
+
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return entries
+    .map(([key, value]) => `${key}: ${truncateText(value, 72)}`)
+    .join("; ");
+}
+
 /**
  * Build search hint strings that help an AI agent locate the source file
  * responsible for the picked element.
@@ -19,22 +104,35 @@ export function buildSearchHints(result: ElementPickerResult): string[] {
   // Distinctive class combination (skip very common utility-only combos)
   const distinctive = result.classList.filter(
     (c) =>
-      !["flex", "block", "inline", "relative", "absolute", "hidden", "w-full", "h-full"].includes(c),
+      ![
+        "flex",
+        "block",
+        "inline",
+        "relative",
+        "absolute",
+        "hidden",
+        "w-full",
+        "h-full",
+      ].includes(c),
   );
   if (distinctive.length >= 2) {
-    hints.push(
-      `Search classes: \`${distinctive.slice(0, 4).join(".*")}\``,
-    );
+    hints.push(`Search classes: \`${distinctive.slice(0, 4).join(".*")}\``);
   }
 
   // Text content (good for buttons, headings, labels)
-  if (result.textContent && result.textContent.length >= 3 && result.textContent.length <= 60) {
+  if (
+    result.textContent &&
+    result.textContent.length >= 3 &&
+    result.textContent.length <= 60
+  ) {
     hints.push(`Search text: \`"${result.textContent}"\``);
   }
 
   // ID is often unique and maps directly to JSX
   if (result.id) {
-    hints.push(`Search id: \`id="${result.id}"\` or \`id=\\{.*${result.id}\\}\``);
+    hints.push(
+      `Search id: \`id="${result.id}"\` or \`id=\\{.*${result.id}\\}\``,
+    );
   }
 
   // Component-style class names (PascalCase or BEM-like)
@@ -42,9 +140,7 @@ export function buildSearchHints(result: ElementPickerResult): string[] {
     (c) => /^[A-Z]/.test(c) || /^[a-z]+-[a-z]+-/.test(c) || c.includes("__"),
   );
   if (componentClasses.length > 0) {
-    hints.push(
-      `Likely component class: \`${componentClasses[0]}\``,
-    );
+    hints.push(`Likely component class: \`${componentClasses[0]}\``);
   }
 
   return hints;
@@ -53,7 +149,9 @@ export function buildSearchHints(result: ElementPickerResult): string[] {
 /**
  * Build a React source location hint from _debugSource data.
  */
-export function buildDebugSourceHint(result: ElementPickerResult): string | null {
+export function buildDebugSourceHint(
+  result: ElementPickerResult,
+): string | null {
   if (!result.debugSource) return null;
   const { fileName, lineNumber, columnNumber } = result.debugSource;
   const loc =
@@ -70,53 +168,38 @@ export function formatElementForChat(
   const lines: string[] = [
     `[Lens Element Selection]`,
     ``,
-    `**Selector:** \`${result.selector}\``,
-    `**Tag:** \`<${result.tagName}>\``,
+    `- Selector: \`${result.selector}\``,
+    `- Element: \`${formatElementIdentity(result)}\``,
+    `- Position: (${result.boundingBox.x}, ${result.boundingBox.y}) ${result.boundingBox.width}x${result.boundingBox.height}`,
   ];
 
   if (result.id) {
-    lines.push(`**ID:** \`#${result.id}\``);
+    lines.push(`- ID: \`#${result.id}\``);
   }
 
-  if (result.classList.length > 0) {
-    lines.push(
-      `**Classes:** ${result.classList.map((c) => `\`.${c}\``).join(", ")}`,
-    );
+  const classSummary = formatClassSummary(result.classList);
+  if (classSummary) {
+    lines.push(`- Classes: ${classSummary}`);
   }
 
-  const { boundingBox: bb } = result;
-  lines.push(`**Position:** (${bb.x}, ${bb.y}) ${bb.width}x${bb.height}`);
-
-  // Show relevant styles in a compact format
-  const styleEntries = Object.entries(result.computedStyles).filter(
-    ([, v]) => v && v !== "none" && v !== "normal" && v !== "auto",
-  );
-  if (styleEntries.length > 0) {
-    const formatted = styleEntries.map(([k, v]) => `${k}: ${v}`).join("; ");
-    lines.push(`**Styles:** \`${formatted}\``);
+  const styleSummary = formatStyleSummary(result.computedStyles);
+  if (styleSummary) {
+    lines.push(`- Key styles: \`${styleSummary}\``);
   }
 
   if (result.textContent) {
-    lines.push(`**Text:** "${result.textContent}"`);
+    lines.push(`- Text: "${truncateText(result.textContent)}"`);
   }
 
-  // React _debugSource (exact file:line when available)
   const debugSourceHint = buildDebugSourceHint(result);
-  if (debugSourceHint && (config?.reactDebugSource !== false)) {
-    lines.push(``, `**${debugSourceHint}**`);
+  if (debugSourceHint && config?.reactDebugSource !== false) {
+    lines.push(`- ${debugSourceHint}`);
   }
 
-  lines.push(``, `**HTML:**`, "```html", result.outerHTML, "```");
-
-  // Heuristic search hints for AI source-code lookup
   if (config?.heuristic !== false) {
     const hints = buildSearchHints(result);
     if (hints.length > 0) {
-      lines.push(
-        ``,
-        `**Source search hints** (use grep/file search to find the component):`,
-        ...hints.map((h) => `- ${h}`),
-      );
+      lines.push(``, `Source search hints:`, ...hints.map((h) => `- ${h}`));
     }
   }
 
@@ -157,15 +240,16 @@ export function formatAnnotationsForChat(
     lines.push(
       ``,
       `## ${annotation.pin}. ${annotation.kind === "area" ? "Area" : "Element"} Comment`,
-      `**Comment:** ${annotation.comment}`,
-      `**Position:** (${annotation.rect.x}, ${annotation.rect.y}) ${annotation.rect.width}x${annotation.rect.height}`,
+      `- Comment: ${annotation.comment}`,
+      `- Position: (${annotation.rect.x}, ${annotation.rect.y}) ${annotation.rect.width}x${annotation.rect.height}`,
     );
 
     if (annotation.styleEdits && annotation.styleEdits.length > 0) {
       lines.push(
-        `**Style edits:**`,
+        `- Style edits:`,
         ...annotation.styleEdits.map(
-          (edit) => `- ${edit.property}: \`${edit.before}\` → \`${edit.after}\``,
+          (edit) =>
+            `  - ${edit.property}: \`${edit.before}\` → \`${edit.after}\``,
         ),
       );
     }
@@ -173,38 +257,42 @@ export function formatAnnotationsForChat(
     const elementResult = annotationToElementResult(annotation);
     if (elementResult) {
       lines.push(
-        `**Selector:** \`${elementResult.selector}\``,
-        `**Tag:** \`<${elementResult.tagName}>\``,
+        `- Selector: \`${elementResult.selector}\``,
+        `- Element: \`${formatElementIdentity(elementResult)}\``,
       );
 
       if (elementResult.id) {
-        lines.push(`**ID:** \`#${elementResult.id}\``);
+        lines.push(`- ID: \`#${elementResult.id}\``);
       }
 
-      if (elementResult.classList.length > 0) {
-        lines.push(
-          `**Classes:** ${elementResult.classList.map((c) => `\`.${c}\``).join(", ")}`,
-        );
+      const annotationClassSummary = formatClassSummary(
+        elementResult.classList,
+      );
+      if (annotationClassSummary) {
+        lines.push(`- Classes: ${annotationClassSummary}`);
+      }
+
+      const annotationStyleSummary = formatStyleSummary(
+        elementResult.computedStyles,
+      );
+      if (annotationStyleSummary) {
+        lines.push(`- Key styles: \`${annotationStyleSummary}\``);
       }
 
       const debugSourceHint = buildDebugSourceHint(elementResult);
       if (debugSourceHint && config?.reactDebugSource !== false) {
-        lines.push(`**${debugSourceHint}**`);
+        lines.push(`- ${debugSourceHint}`);
       }
 
       if (elementResult.textContent) {
-        lines.push(`**Text:** "${elementResult.textContent}"`);
-      }
-
-      if (elementResult.outerHTML) {
-        lines.push(`**HTML:**`, "```html", elementResult.outerHTML, "```");
+        lines.push(`- Text: "${truncateText(elementResult.textContent)}"`);
       }
 
       if (config?.heuristic !== false) {
         const hints = buildSearchHints(elementResult);
         if (hints.length > 0) {
           lines.push(
-            `**Source search hints:**`,
+            `- Source search hints:`,
             ...hints.map((hint) => `- ${hint}`),
           );
         }

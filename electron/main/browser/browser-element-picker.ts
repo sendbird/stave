@@ -23,7 +23,15 @@ export function getElementPickerScript(
 
   return `
 (function staveElementPicker() {
+  if (typeof window.__staveTeardownElementPicker === "function") {
+    try { window.__staveTeardownElementPicker(); } catch (_) { /* ignore */ }
+  }
+
   return new Promise((resolve) => {
+    const PICKER_TIMEOUT_MS = 45000;
+    let done = false;
+    let timeoutId = 0;
+
     // Overlay for highlight — attach to body, not documentElement, to avoid
     // breaking layouts that expect documentElement to have no extra children.
     const overlay = document.createElement("div");
@@ -102,10 +110,9 @@ export function getElementPickerScript(
     function onClick(e) {
       e.preventDefault();
       e.stopPropagation();
-      cleanup();
 
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (!el) { resolve(null); return; }
+      if (!el) { finish(null); return; }
 
       const r = el.getBoundingClientRect();
       ${getLensStyleCaptureScript()}
@@ -141,7 +148,7 @@ export function getElementPickerScript(
           : "// _debugSource extraction disabled by settings"
       }
 
-      resolve({
+      finish({
         selector: buildSelector(el),
         tagName: el.tagName.toLowerCase(),
         id: el.id || "",
@@ -158,20 +165,42 @@ export function getElementPickerScript(
     }
 
     function onKeyDown(e) {
-      if (e.key === "Escape") { cleanup(); resolve(null); }
+      if (e.key === "Escape") { finish(null); }
     }
 
     function cleanup() {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+        timeoutId = 0;
+      }
       document.removeEventListener("mousemove", onMouseMove, true);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("keydown", onKeyDown, true);
       overlay.remove();
       label.remove();
+      if (window.__staveTeardownElementPicker === teardown) {
+        delete window.__staveTeardownElementPicker;
+      }
     }
 
+    function finish(result) {
+      if (done) return;
+      done = true;
+      cleanup();
+      resolve(result);
+    }
+
+    function teardown() {
+      finish(null);
+    }
+
+    window.__staveTeardownElementPicker = teardown;
     document.addEventListener("mousemove", onMouseMove, true);
     document.addEventListener("click", onClick, true);
     document.addEventListener("keydown", onKeyDown, true);
+    timeoutId = window.setTimeout(function() {
+      finish(null);
+    }, PICKER_TIMEOUT_MS);
   });
 })()
 `;
