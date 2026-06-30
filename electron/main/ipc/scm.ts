@@ -60,6 +60,12 @@ export function registerScmHandlers() {
   );
 
   ipcMain.handle(
+    "scm:commit-diff",
+    (_event, args: { hash: string; path: string; oldPath?: string; cwd?: string }) =>
+      invokeHostService("scm.commit-diff", args),
+  );
+
+  ipcMain.handle(
     "scm:history",
     (_event, args: { cwd?: string; limit?: number }) =>
       invokeHostService("scm.history", args),

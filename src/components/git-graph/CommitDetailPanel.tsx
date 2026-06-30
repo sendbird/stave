@@ -12,7 +12,7 @@ interface CommitDetailPanelProps {
   commit: GraphCommit | null;
   files: CommitFile[];
   loading: boolean;
-  onOpenFile: (path: string) => void;
+  onOpenFile: (file: CommitFile) => void;
 }
 
 function formatDate(isoDate: string): string {
@@ -133,9 +133,7 @@ export function CommitDetailPanel({
                 <button
                   key={`${file.status}:${file.path}`}
                   type="button"
-                  // NOTE: This opens the working-tree-vs-HEAD diff for the file,
-                  // not a commit-specific diff. A per-commit diff IPC can be added later.
-                  onClick={() => onOpenFile(file.path)}
+                  onClick={() => onOpenFile(file)}
                   className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-muted/30"
                   title={
                     file.oldPath

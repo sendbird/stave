@@ -27,6 +27,19 @@ export async function loadCommitFiles(cwd: string, hash: string) {
   return api({ cwd, hash });
 }
 
+export async function loadCommitDiff(
+  cwd: string,
+  hash: string,
+  path: string,
+  oldPath?: string,
+): Promise<{ ok: boolean; oldContent: string; newContent: string; stderr: string }> {
+  const api = window.api?.sourceControl?.getCommitDiff;
+  if (!api) {
+    return { ok: false, oldContent: "", newContent: "", stderr: "Unavailable" };
+  }
+  return api({ cwd, hash, path, oldPath });
+}
+
 // ---------------------------------------------------------------------------
 // Commit action wrappers
 // ---------------------------------------------------------------------------

@@ -490,6 +490,52 @@ export async function getScmCommitFiles(args: { hash: string; cwd?: string }) {
   return { ok: result.ok, files, stderr: result.stderr };
 }
 
+export async function getScmCommitDiff(args: {
+  hash: string;
+  path: string;
+  oldPath?: string;
+  cwd?: string;
+}) {
+  const hash = args.hash.trim();
+  const path = args.path.trim();
+  if (!hash || !path) {
+    return { ok: false, oldContent: "", newContent: "", stderr: "hash and path are required." };
+  }
+
+  // newContent: content of the file in this commit
+  const newResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["show", `${hash}:${path}`],
+    cwd: args.cwd,
+  });
+  const newContent = newResult.ok ? newResult.stdout : "";
+
+  // oldContent: content in parent commit (use oldPath for rename case)
+  const oldPathOrPath = args.oldPath?.trim() || path;
+  const oldResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["show", `${hash}^:${oldPathOrPath}`],
+    cwd: args.cwd,
+  });
+  const oldContent = oldResult.ok ? oldResult.stdout : "";
+
+  // Collect stderr only from unexpected failures (not added/deleted/root cases)
+  const stderrParts: string[] = [];
+  if (!newResult.ok && newResult.stderr && newContent === "") {
+    stderrParts.push(newResult.stderr.trim());
+  }
+  if (!oldResult.ok && oldResult.stderr && oldContent === "") {
+    stderrParts.push(oldResult.stderr.trim());
+  }
+
+  return {
+    ok: true,
+    oldContent,
+    newContent,
+    stderr: stderrParts.join("\n").trim(),
+  };
+}
+
 export async function getScmHistory(args: { cwd?: string; limit?: number }) {
   const limit = Math.max(1, Math.min(50, args.limit ?? 20));
   const result = await runCommandArgs({

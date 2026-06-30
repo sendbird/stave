@@ -3,9 +3,9 @@ import { GitGraph, LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
-import { parseUnifiedDiffToBuffers } from "@/lib/source-control-diff";
 import type { GraphCommit, GraphRef } from "@/lib/git-graph/types";
 import {
+  loadCommitDiff,
   loadCommitFiles,
   loadGraph,
   revertCommit,
@@ -147,22 +147,18 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
     }
   }
 
-  async function handleOpenFile(filePath: string) {
-    // NOTE: This opens the working-tree-vs-HEAD diff for the file, not a
-    // commit-specific diff. A per-commit diff IPC (e.g. `git show <hash> -- <path>`)
-    // can be added later when the IPC layer supports it.
-    const getDiff = window.api?.sourceControl?.getDiff;
-    if (!getDiff || !workspaceCwd) return;
-    const result = await getDiff({ path: filePath, cwd: workspaceCwd });
-    const parsed =
-      result.oldContent != null && result.newContent != null
-        ? { oldContent: result.oldContent, newContent: result.newContent }
-        : parseUnifiedDiffToBuffers({ patch: result.content });
+  async function handleOpenFile(file: CommitFile) {
+    if (!workspaceCwd || !selectedHash) return;
+    const result = await loadCommitDiff(workspaceCwd, selectedHash, file.path, file.oldPath);
+    if (!result.ok) {
+      setError(result.stderr || "Failed to load commit diff.");
+      return;
+    }
     openDiffInEditor({
-      editorTabId: `scm-diff:${filePath}`,
-      filePath,
-      oldContent: parsed.oldContent,
-      newContent: parsed.newContent,
+      editorTabId: `commit-diff:${selectedHash}:${file.path}`,
+      filePath: file.path,
+      oldContent: result.oldContent,
+      newContent: result.newContent,
     });
     setLayout({ patch: { editorVisible: true } });
   }
@@ -449,7 +445,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
               commit={selectedCommit}
               files={files}
               loading={filesLoading}
-              onOpenFile={(path) => void handleOpenFile(path)}
+              onOpenFile={(file) => void handleOpenFile(file)}
             />
           </div>
         </div>

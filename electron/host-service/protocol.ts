@@ -573,6 +573,12 @@ export interface HostServiceRequestMap {
     hash: string;
     cwd?: string;
   };
+  "scm.commit-diff": {
+    hash: string;
+    path: string;
+    oldPath?: string;
+    cwd?: string;
+  };
   "scm.history": {
     cwd?: string;
     limit?: number;
@@ -747,6 +753,12 @@ export interface HostServiceResponseMap {
   "scm.commit-files": {
     ok: boolean;
     files: Array<{ path: string; status: string }>;
+    stderr: string;
+  };
+  "scm.commit-diff": {
+    ok: boolean;
+    oldContent: string;
+    newContent: string;
     stderr: string;
   };
   "scm.history": HostScmHistoryResult;

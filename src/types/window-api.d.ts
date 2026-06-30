@@ -885,6 +885,17 @@ interface WindowSourceControlApi {
     files: Array<{ path: string; status: string; oldPath?: string }>;
     stderr: string;
   }>;
+  getCommitDiff?: (args: {
+    hash: string;
+    path: string;
+    oldPath?: string;
+    cwd?: string;
+  }) => Promise<{
+    ok: boolean;
+    oldContent: string;
+    newContent: string;
+    stderr: string;
+  }>;
   getHistory?: (args: { cwd?: string; limit?: number }) => Promise<{
     ok: boolean;
     items: Array<{ hash: string; relativeDate: string; subject: string }>;
