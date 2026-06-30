@@ -882,7 +882,7 @@ interface WindowSourceControlApi {
   }) => Promise<SourceControlGraphResult>;
   getCommitFiles?: (args: { hash: string; cwd?: string }) => Promise<{
     ok: boolean;
-    files: Array<{ path: string; status: string }>;
+    files: Array<{ path: string; status: string; oldPath?: string }>;
     stderr: string;
   }>;
   getHistory?: (args: { cwd?: string; limit?: number }) => Promise<{
