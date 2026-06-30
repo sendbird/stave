@@ -482,7 +482,10 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     let frame = 0;
     const sync = () => {
       frame = 0;
-      const next = hasLensOccludingFloatingSurface();
+      const next = hasLensOccludingFloatingSurface(
+        document,
+        placeholderRef.current?.getBoundingClientRect() ?? null,
+      );
       setHasExternalFloatingSurface((current) =>
         current === next ? current : next,
       );
@@ -501,13 +504,26 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       childList: true,
       subtree: true,
     });
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(scheduleSync);
+    const placeholder = placeholderRef.current;
+    if (placeholder) {
+      resizeObserver?.observe(placeholder);
+    }
+    window.addEventListener("resize", scheduleSync);
+
     return () => {
       if (frame !== 0) {
         window.cancelAnimationFrame(frame);
       }
       observer.disconnect();
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleSync);
     };
-  }, []);
+  }, [isLensFullscreen, lensPanelTab, workspaceId]);
 
   const setLensFullscreen = useCallback((nextFullscreen: boolean) => {
     const state = useAppStore.getState();
