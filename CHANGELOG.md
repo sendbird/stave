@@ -2,6 +2,25 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.7.7](https://github.com/sendbird/stave/compare/v0.7.6...v0.7.7) (2026-06-30)
+
+### Features
+
+* Add a Git Graph editor view with lane visualization, commit detail/diff loading, and commit/ref context-menu actions backed by shell-safe git invocation.
+* Add configurable Claude plan-mode approval scopes so read-only Bash, Task, and MCP tool classes can be auto-allowed while mutating tools stay denied.
+* Open Markdown files in preview mode by default and add a persisted workspace-sidebar row display mode for expanded or compact workspace rows.
+
+### Fixes
+
+* Stop Claude plan-mode turns from continuing to run tools after `ExitPlanMode`, allowing the user to review the presented plan immediately.
+* Preserve serialized tool input on approval message parts so approval history includes the full command or argument context.
+* Improve Lens element picking and annotation prompts with compact selector/style/source summaries, safer picker teardown, and no raw HTML payload injection.
+* Keep Lens visible only when floating surfaces actually intersect the preview, and move toast placement away from the embedded browser surface.
+
+### References
+
+* [#77](https://github.com/sendbird/stave/pull/77), [#78](https://github.com/sendbird/stave/pull/78), [#79](https://github.com/sendbird/stave/pull/79), [#80](https://github.com/sendbird/stave/pull/80), [#81](https://github.com/sendbird/stave/pull/81), [#82](https://github.com/sendbird/stave/pull/82), [#83](https://github.com/sendbird/stave/pull/83), [#84](https://github.com/sendbird/stave/pull/84)
+
 ## [0.7.6](https://github.com/sendbird/stave/compare/v0.7.5...v0.7.6) (2026-06-30)
 
 ### Fixes
