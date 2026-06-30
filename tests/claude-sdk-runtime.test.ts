@@ -13,7 +13,10 @@ import {
   extractClaudeRequestedSkillSlug,
   mapClaudeMessageToEvents,
   resolveClaudeDisallowedTools,
+  resolveClaudePlanModeApprovalScope,
   shouldAutoAllowClaudeTool,
+  shouldAutoAllowPlanModeScopedTool,
+  isReadOnlyMcpLeafToolName,
   shouldRedirectClaudePreloadedSkillToolUse,
   shouldDenyClaudeToolInPlanMode,
   SubagentProgressTracker,
@@ -457,10 +460,13 @@ describe("Claude permission mode decisions", () => {
     })).toBe("prompt");
   });
 
-  test("still prompts for Bash in plan mode so command-level inspection runs", () => {
-    // Bash must keep going through the canUseTool prompt path in plan mode —
-    // the hard-deny check in shouldDenyClaudeToolInPlanMode inspects the
-    // command and we don't want to short-circuit that.
+  test("decision function still returns prompt for Bash in plan mode", () => {
+    // The decision function must NOT short-circuit Bash to "allow" in plan
+    // mode: the canUseTool flow first runs the mutating-command hard-deny
+    // (shouldDenyClaudeToolInPlanMode), and only then may auto-allow a
+    // *non-mutating* Bash command based on the plan-mode approval scope
+    // (shouldAutoAllowPlanModeScopedTool). Keeping this "prompt" preserves
+    // that ordering so mutating commands are always inspected first.
     expect(resolveClaudePermissionModeDecision({
       permissionMode: "plan",
       toolName: "Bash",
@@ -479,6 +485,158 @@ describe("Claude permission mode decisions", () => {
       permissionMode: "plan",
       toolName: "TodoWrite",
     })).toBe(true);
+  });
+});
+
+describe("resolveClaudePlanModeApprovalScope", () => {
+  test("uses the runtime value when valid", () => {
+    expect(
+      resolveClaudePlanModeApprovalScope({ runtimeValue: "bash" }),
+    ).toBe("bash");
+  });
+
+  test("falls back to the env value when no runtime value", () => {
+    expect(
+      resolveClaudePlanModeApprovalScope({ envValue: "bashAndTask" }),
+    ).toBe("bashAndTask");
+  });
+
+  test("defaults to the broadest scope for missing or invalid input", () => {
+    expect(resolveClaudePlanModeApprovalScope({})).toBe("bashTaskAndMcp");
+    expect(
+      resolveClaudePlanModeApprovalScope({ runtimeValue: undefined, envValue: "nope" }),
+    ).toBe("bashTaskAndMcp");
+  });
+});
+
+describe("isReadOnlyMcpLeafToolName", () => {
+  test("classifies read-verb tool names as read-only", () => {
+    for (const leaf of [
+      "get_file_contents",
+      "slack_search_public",
+      "stave_lens_get_html",
+      "stave_lens_screenshot",
+      "list_issues",
+      "searchJiraIssuesUsingJql",
+    ]) {
+      expect(isReadOnlyMcpLeafToolName(leaf)).toBe(true);
+    }
+  });
+
+  test("treats write-verb tool names as not read-only", () => {
+    for (const leaf of [
+      "create_pull_request",
+      "slack_send_message",
+      "stave_lens_navigate",
+      "stave_lens_evaluate",
+      "editJiraIssue",
+      "merge_pull_request",
+    ]) {
+      expect(isReadOnlyMcpLeafToolName(leaf)).toBe(false);
+    }
+  });
+
+  test("returns false when no read verb is present", () => {
+    expect(isReadOnlyMcpLeafToolName("whatever")).toBe(false);
+    expect(isReadOnlyMcpLeafToolName("")).toBe(false);
+  });
+});
+
+describe("shouldAutoAllowPlanModeScopedTool", () => {
+  test("strict scope never auto-allows extra tools", () => {
+    for (const toolName of ["Bash", "Task", "mcp__claude_ai_Github__get_me"]) {
+      expect(
+        shouldAutoAllowPlanModeScopedTool({
+          scope: "strict",
+          toolName,
+          input: { command: "git status" },
+        }),
+      ).toBe(false);
+    }
+  });
+
+  test("bash scope auto-allows non-mutating Bash only", () => {
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bash",
+        toolName: "Bash",
+        input: { command: "git status" },
+      }),
+    ).toBe(true);
+    // Mutating Bash is hard-denied upstream; the helper also refuses it.
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bash",
+        toolName: "Bash",
+        input: { command: "rm -rf build" },
+      }),
+    ).toBe(false);
+    // Task and MCP are not part of the "bash" scope.
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bash",
+        toolName: "Task",
+        input: {},
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bash",
+        toolName: "mcp__claude_ai_Github__get_me",
+        input: {},
+      }),
+    ).toBe(false);
+  });
+
+  test("bashAndTask scope adds subagents but not MCP", () => {
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bashAndTask",
+        toolName: "Task",
+        input: {},
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bashAndTask",
+        toolName: "mcp__claude_ai_Github__get_me",
+        input: {},
+      }),
+    ).toBe(false);
+  });
+
+  test("bashTaskAndMcp scope adds read-only MCP tools", () => {
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bashTaskAndMcp",
+        toolName: "mcp__claude_ai_Github__get_file_contents",
+        input: {},
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bashTaskAndMcp",
+        toolName: "Task",
+        input: {},
+      }),
+    ).toBe(true);
+    // Mutating-looking MCP tools still prompt.
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bashTaskAndMcp",
+        toolName: "mcp__claude_ai_Github__create_pull_request",
+        input: {},
+      }),
+    ).toBe(false);
+    // Stave workspace MCP tools are auto-allowed elsewhere, so they are not
+    // matched as read-only by name here (they carry no read verb).
+    expect(
+      shouldAutoAllowPlanModeScopedTool({
+        scope: "bashTaskAndMcp",
+        toolName: "Bash",
+        input: { command: "cat package.json" },
+      }),
+    ).toBe(true);
   });
 });
 

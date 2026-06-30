@@ -235,10 +235,12 @@ import type {
   ChatMessage,
   ClaudePermissionMode,
   ClaudePermissionModeBeforePlan,
+  ClaudePlanModeApprovalScope,
   EditorTab,
   PromptDraft,
   Task,
 } from "@/types/chat";
+import { DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE } from "@/types/chat";
 import {
   arePromptDraftRuntimeOverridesEqual,
   resolvePromptDraftModelForProvider,
@@ -1001,6 +1003,8 @@ export interface AppSettings {
   claudePermissionMode: ClaudePermissionMode;
   /** Stores the permission mode that was active before entering plan mode, so it can be restored when plan mode is exited. */
   claudePermissionModeBeforePlan: ClaudePermissionModeBeforePlan;
+  /** How much plan mode auto-approves non-mutating tool calls (Bash/Task/MCP). */
+  claudePlanModeApprovalScope: ClaudePlanModeApprovalScope;
   claudeAllowDangerouslySkipPermissions: boolean;
   claudeSandboxEnabled: boolean;
   claudeAllowUnsandboxedCommands: boolean;
@@ -2142,6 +2146,7 @@ const defaultSettings: AppSettings = {
   claudeBinaryPath: "",
   claudePermissionMode: "auto",
   claudePermissionModeBeforePlan: null,
+  claudePlanModeApprovalScope: DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: false,
   claudeAllowUnsandboxedCommands: true,

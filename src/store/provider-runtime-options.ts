@@ -32,6 +32,7 @@ type RuntimeSettings = Pick<
   | "providerTimeoutMs"
   | "claudeBinaryPath"
   | "claudePermissionMode"
+  | "claudePlanModeApprovalScope"
   | "claudeAllowDangerouslySkipPermissions"
   | "claudeSandboxEnabled"
   | "claudeAllowUnsandboxedCommands"
@@ -201,6 +202,7 @@ export function buildProviderRuntimeOptions(args: {
     providerTimeoutMs: settings.providerTimeoutMs,
     claudeBinaryPath: settings.claudeBinaryPath || undefined,
     claudePermissionMode: settings.claudePermissionMode,
+    claudePlanModeApprovalScope: settings.claudePlanModeApprovalScope,
     claudeAllowDangerouslySkipPermissions:
       settings.claudeAllowDangerouslySkipPermissions,
     claudeSandboxEnabled: settings.claudeSandboxEnabled,
