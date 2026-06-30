@@ -1,5 +1,6 @@
-import { Check, ClipboardList, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, GitPullRequest, History, ListChecks, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer, Wrench } from "lucide-react";
+import { Check, ClipboardList, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, GitGraph, GitPullRequest, History, ListChecks, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer, Wrench } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useAppStore } from "@/store/app.store";
 import { Badge, Button, Input, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -537,6 +538,7 @@ export function WorkspaceChangesPanel(props: {
   checks?: WorkspaceChecksViewModel | null;
 }) {
   const [view, setView] = useState<SourceControlPanelView>("changes");
+  const openGitGraph = useAppStore((s) => s.openGitGraph);
   const verificationFailureCount = props.verification?.failures.length ?? 0;
   const showChecksTab = Boolean(props.checks);
   // Count the actionable, merge-blocking signals surfaced on the Checks tab.
@@ -747,6 +749,17 @@ export function WorkspaceChangesPanel(props: {
           )
         ) : null}
         <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            aria-label="Open Git Graph"
+            title="Open Git Graph"
+            className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+            onClick={() => openGitGraph()}
+          >
+            <GitGraph className="size-3.5" />
+          </Button>
           <Button
             type="button"
             size="icon-xs"
