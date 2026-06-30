@@ -1,6 +1,14 @@
-import { FileCode2, LoaderCircle, User, Calendar, Hash } from "lucide-react";
+import { useState } from "react";
+import { FileCode2, FolderOpen, LoaderCircle, User, Calendar, Hash } from "lucide-react";
 import type { GraphCommit } from "@/lib/git-graph/types";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAppStore } from "@/store/app.store";
 
 interface CommitFile {
   path: string;
@@ -55,6 +63,9 @@ export function CommitDetailPanel({
   loading,
   onOpenFile,
 }: CommitDetailPanelProps) {
+  const openFileFromTree = useAppStore((s) => s.openFileFromTree);
+  const [fileMenuAnchor, setFileMenuAnchor] = useState<{ x: number; y: number; filePath: string } | null>(null);
+
   if (!commit) {
     return (
       <div className="flex h-full items-center justify-center p-4">
@@ -134,6 +145,10 @@ export function CommitDetailPanel({
                   key={`${file.status}:${file.path}`}
                   type="button"
                   onClick={() => onOpenFile(file)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setFileMenuAnchor({ x: e.clientX, y: e.clientY, filePath: file.path });
+                  }}
                   className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-muted/30"
                   title={
                     file.oldPath
@@ -162,6 +177,43 @@ export function CommitDetailPanel({
           )}
         </div>
       </div>
+
+      {/* File row right-click context menu */}
+      <DropdownMenu
+        open={fileMenuAnchor !== null}
+        onOpenChange={(open) => { if (!open) setFileMenuAnchor(null); }}
+      >
+        <DropdownMenuTrigger asChild>
+          <div
+            aria-hidden="true"
+            style={{
+              position: "fixed",
+              top: fileMenuAnchor?.y ?? 0,
+              left: fileMenuAnchor?.x ?? 0,
+              width: 0,
+              height: 0,
+              pointerEvents: "none",
+            }}
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          collisionPadding={8}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
+          <DropdownMenuItem
+            onSelect={() => {
+              if (fileMenuAnchor) {
+                void openFileFromTree({ filePath: fileMenuAnchor.filePath });
+              }
+              setFileMenuAnchor(null);
+            }}
+          >
+            <FolderOpen className="size-4" />
+            Open file
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

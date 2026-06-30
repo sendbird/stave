@@ -340,9 +340,8 @@ export function RefContextMenu({
         <DropdownMenuContent
           className="w-60"
           align="start"
-          side="bottom"
-          sideOffset={0}
           alignOffset={0}
+          collisionPadding={8}
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
           {/* Header label */}

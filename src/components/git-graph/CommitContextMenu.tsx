@@ -255,9 +255,8 @@ export function CommitContextMenu({
         <DropdownMenuContent
           className="w-56"
           align="start"
-          side="bottom"
-          sideOffset={0}
           alignOffset={0}
+          collisionPadding={8}
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
           <DropdownMenuLabel className="font-mono text-xs text-muted-foreground truncate">
