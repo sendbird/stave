@@ -73,6 +73,8 @@ interface SvgLayerProps {
   nodes: GraphNode[];
   /** hash → GraphNode look-up built from layout.nodes */
   nodeByHash: ReadonlyMap<string, GraphNode>;
+  /** hash → GraphCommit look-up for ref/HEAD detection */
+  commitByHash: ReadonlyMap<string, GraphCommit>;
   /** commit list so we can resolve parent hash → parentNode */
   commits: GraphCommit[];
   laneCount: number;
@@ -83,6 +85,7 @@ function SvgLayer({
   edges,
   nodes,
   nodeByHash,
+  commitByHash,
   commits,
   laneCount,
   totalRows,
@@ -188,8 +191,9 @@ function SvgLayer({
         const cx = node.lane * LANE_WIDTH + LANE_WIDTH / 2;
         const cy = node.row * ROW_HEIGHT + ROW_HEIGHT / 2;
         const color = laneColor(node.color);
-        // HEAD node: draw a ring around the filled circle
-        const isHead = node.row === 0;
+        // HEAD node: detected via refs containing isHead===true, NOT by row index
+        const commit = commitByHash.get(node.hash);
+        const isHead = commit?.refs.some((r) => r.isHead) ?? false;
         return (
           <g key={node.hash}>
             {isHead && (
@@ -241,6 +245,15 @@ export function GitGraphCanvas({
     return m;
   }, [layout.nodes]);
 
+  // Build a hash → commit map so SvgLayer can detect HEAD via refs.isHead
+  const commitByHash = React.useMemo(() => {
+    const m = new Map<string, GraphCommit>();
+    for (const commit of commits) {
+      m.set(commit.hash, commit);
+    }
+    return m;
+  }, [commits]);
+
   const totalRows = commits.length;
   const svgWidth = layout.laneCount * LANE_WIDTH;
   const totalHeight = totalRows * ROW_HEIGHT;
@@ -256,6 +269,7 @@ export function GitGraphCanvas({
         edges={layout.edges}
         nodes={layout.nodes}
         nodeByHash={nodeByHash}
+        commitByHash={commitByHash}
         commits={commits}
         laneCount={Math.max(layout.laneCount, 1)}
         totalRows={totalRows}
