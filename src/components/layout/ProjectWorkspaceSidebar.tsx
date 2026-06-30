@@ -832,6 +832,7 @@ export function ProjectWorkspaceSidebar(args: {
             isDefault: Boolean(workspaceDefaultById[workspace.id]),
             branch: workspaceBranchById[workspace.id],
           })),
+          workspacePathById,
           activeWorkspaceId,
           isCurrent: true,
         } satisfies ProjectSidebarView)
@@ -848,6 +849,7 @@ export function ProjectWorkspaceSidebar(args: {
             isDefault: Boolean(project.workspaceDefaultById[workspace.id]),
             branch: project.workspaceBranchById[workspace.id],
           })),
+          workspacePathById: project.workspacePathById,
           activeWorkspaceId: project.activeWorkspaceId,
           isCurrent: project.projectPath === currentProjectPath,
         }) satisfies ProjectSidebarView,
@@ -1732,7 +1734,8 @@ export function ProjectWorkspaceSidebar(args: {
                                                                 project.projectPath
                                                               }
                                                               workspacePath={
-                                                                workspacePathById[
+                                                                project
+                                                                  .workspacePathById[
                                                                   workspace.id
                                                                 ] ??
                                                                 project.projectPath
@@ -1789,7 +1792,8 @@ export function ProjectWorkspaceSidebar(args: {
                                                                   project.projectPath
                                                                 }
                                                                 workspacePath={
-                                                                  workspacePathById[
+                                                                  project
+                                                                    .workspacePathById[
                                                                     workspace.id
                                                                   ] ??
                                                                   project.projectPath
