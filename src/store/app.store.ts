@@ -353,6 +353,7 @@ import {
   resolveLanguage,
   normalizeProviderTimeoutMs,
   isImageFilePath,
+  isMarkdownEditorTab,
   canSendEditorContextToTask,
   canSendWorkspaceFileToTask,
   updateMessageById,
@@ -11265,12 +11266,16 @@ export const useAppStore = create<AppState>()(
             if (existing) {
               existingDeferredTabId =
                 existing.contentState === "deferred" ? existing.id : null;
+              const shouldPreviewMarkdown = isMarkdownEditorTab(existing);
               return {
                 activeEditorTabId: existing.id,
                 layout: {
                   ...state.layout,
                   editorVisible: true,
                   editorDiffMode: false,
+                  editorMarkdownPreviewMode: shouldPreviewMarkdown
+                    ? true
+                    : state.layout.editorMarkdownPreviewMode,
                 },
                 pendingEditorSelection: pendingSelection,
                 workspaceSnapshotVersion:
@@ -11291,11 +11296,14 @@ export const useAppStore = create<AppState>()(
             const baseRevision = isImageFile
               ? (imageData?.revision ?? null)
               : (fileData?.revision ?? null);
+            const nextLanguage = resolveLanguage({
+              filePath: normalizedFilePath,
+            });
             const nextTab: EditorTab = {
               id: tabId,
               filePath: normalizedFilePath,
               kind: isImageFile ? "image" : "text",
-              language: resolveLanguage({ filePath: normalizedFilePath }),
+              language: nextLanguage,
               content: fileContent,
               contentState: tooLargeMetadata?.contentState ?? "ready",
               originalContent:
@@ -11316,6 +11324,9 @@ export const useAppStore = create<AppState>()(
                 ...state.layout,
                 editorVisible: true,
                 editorDiffMode: false,
+                editorMarkdownPreviewMode: isMarkdownEditorTab(nextTab)
+                  ? true
+                  : state.layout.editorMarkdownPreviewMode,
               },
               pendingEditorSelection: pendingSelection,
               workspaceSnapshotVersion:

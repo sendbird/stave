@@ -1,6 +1,5 @@
 import {
   AlignJustify,
-  Code2,
   Columns2,
   Eye,
   FileCode2,
@@ -107,7 +106,12 @@ export function EditorMainToolbar(args: {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                    className={cn(
+                      "h-7 w-7 rounded-sm p-0 transition-colors",
+                      args.editorMarkdownPreviewMode
+                        ? "border-primary/40 bg-primary/10 text-primary ring-1 ring-primary/25 hover:bg-primary/20 hover:text-primary"
+                        : "text-muted-foreground",
+                    )}
                     disabled={args.activeTabIsImage}
                     onClick={args.onToggleEditorMarkdownPreviewMode}
                     aria-label={
@@ -118,11 +122,10 @@ export function EditorMainToolbar(args: {
                     aria-pressed={args.editorMarkdownPreviewMode}
                     data-testid="editor-markdown-preview-toggle"
                   >
-                    {args.editorMarkdownPreviewMode ? (
-                      <Code2 className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
+                    <Eye
+                      className="size-4"
+                      strokeWidth={args.editorMarkdownPreviewMode ? 2.25 : 2}
+                    />
                   </Button>
                 </span>
               </TooltipTrigger>

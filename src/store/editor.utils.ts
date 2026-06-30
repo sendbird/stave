@@ -7,7 +7,7 @@ import {
   updateApprovalPartsByRequestId,
   updateUserInputPartsByRequestId,
 } from "@/store/provider-message.utils";
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMessage, EditorTab } from "@/types/chat";
 
 export function resolveLanguage(args: { filePath: string }) {
   if (isImageFilePath({ filePath: args.filePath })) {
@@ -100,6 +100,12 @@ export function isImageFilePath(args: { filePath: string }) {
     || value.endsWith(".bmp")
     || value.endsWith(".ico")
     || value.endsWith(".avif");
+}
+
+export function isMarkdownEditorTab(
+  tab: Pick<EditorTab, "kind" | "language"> | null | undefined,
+) {
+  return Boolean(tab && tab.kind !== "image" && tab.language === "markdown");
 }
 
 export function canSendEditorContextToTask(args: {
