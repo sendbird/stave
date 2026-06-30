@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { GitGraph, LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -18,6 +24,7 @@ import {
   checkoutBranch,
   renameBranch,
   deleteBranch,
+  deleteTag,
   mergeBranch,
   rebaseBranch,
   pullBranch,
@@ -25,7 +32,10 @@ import {
 } from "./git-graph-actions";
 import { GitGraphCanvas } from "./GitGraphCanvas";
 import { CommitDetailPanel } from "./CommitDetailPanel";
-import { CommitContextMenu, type CommitContextMenuAnchor } from "./CommitContextMenu";
+import {
+  CommitContextMenu,
+  type CommitContextMenuAnchor,
+} from "./CommitContextMenu";
 import { RefContextMenu, type RefContextMenuAnchor } from "./RefContextMenu";
 
 type Scope = "all" | "current";
@@ -53,12 +63,16 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
   const [filesLoading, setFilesLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadMorePending, setLoadMorePending] = useState(false);
-  const [contextMenuAnchor, setContextMenuAnchor] = useState<CommitContextMenuAnchor | null>(null);
-  const [refContextMenuAnchor, setRefContextMenuAnchor] = useState<RefContextMenuAnchor | null>(null);
+  const [contextMenuAnchor, setContextMenuAnchor] =
+    useState<CommitContextMenuAnchor | null>(null);
+  const [refContextMenuAnchor, setRefContextMenuAnchor] =
+    useState<RefContextMenuAnchor | null>(null);
 
   // Branch / worktree metadata (loaded alongside the graph)
   const [currentBranch, setCurrentBranch] = useState("");
-  const [worktreePathByBranch, setWorktreePathByBranch] = useState<Record<string, string>>({});
+  const [worktreePathByBranch, setWorktreePathByBranch] = useState<
+    Record<string, string>
+  >({});
 
   const openDiffInEditor = useAppStore((s) => s.openDiffInEditor);
   const setLayout = useAppStore((s) => s.setLayout);
@@ -149,7 +163,12 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
 
   async function handleOpenFile(file: CommitFile) {
     if (!workspaceCwd || !selectedHash) return;
-    const result = await loadCommitDiff(workspaceCwd, selectedHash, file.path, file.oldPath);
+    const result = await loadCommitDiff(
+      workspaceCwd,
+      selectedHash,
+      file.path,
+      file.oldPath,
+    );
     if (!result.ok) {
       setError(result.stderr || "Failed to load commit diff.");
       return;
@@ -235,7 +254,10 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
     }
   }
 
-  async function handleContextReset(hash: string, mode: "soft" | "mixed" | "hard") {
+  async function handleContextReset(
+    hash: string,
+    mode: "soft" | "mixed" | "hard",
+  ) {
     if (!workspaceCwd) return;
     const result = await resetCommit(workspaceCwd, hash, mode);
     if (!result.ok) {
@@ -279,7 +301,10 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
 
   async function handleRefDelete(ref: GraphRef, force: boolean) {
     if (!workspaceCwd) return;
-    const result = await deleteBranch(workspaceCwd, ref.name, force);
+    const result =
+      ref.type === "tag"
+        ? await deleteTag(workspaceCwd, ref.name)
+        : await deleteBranch(workspaceCwd, ref.name, force);
     if (!result.ok) {
       setError(result.stderr ?? "Delete failed.");
     } else {
@@ -320,7 +345,9 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
   async function handleRefPull(ref: GraphRef) {
     if (!workspaceCwd) return;
     // For remote branches like "origin/main", extract just the branch part
-    const branch = ref.name.includes("/") ? ref.name.split("/").slice(1).join("/") : ref.name;
+    const branch = ref.name.includes("/")
+      ? ref.name.split("/").slice(1).join("/")
+      : ref.name;
     const result = await pullBranch(workspaceCwd, branch);
     if (!result.ok) {
       setError(result.stderr ?? "Pull failed.");

@@ -109,7 +109,11 @@ function ConfirmDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -181,7 +185,11 @@ function NameInputDialog({
           }}
         />
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button size="sm" disabled={!value.trim()} onClick={handleSubmit}>
@@ -204,7 +212,12 @@ interface DeleteBranchDialogProps {
   onConfirm: (force: boolean) => void;
 }
 
-function DeleteBranchDialog({ open, onOpenChange, refName, onConfirm }: DeleteBranchDialogProps) {
+function DeleteBranchDialog({
+  open,
+  onOpenChange,
+  refName,
+  onConfirm,
+}: DeleteBranchDialogProps) {
   const [force, setForce] = useState(false);
 
   useEffect(() => {
@@ -217,11 +230,13 @@ function DeleteBranchDialog({ open, onOpenChange, refName, onConfirm }: DeleteBr
         <DialogHeader>
           <div className="mb-1 flex items-center gap-2 text-destructive">
             <AlertTriangle className="size-4 shrink-0" />
-            <DialogTitle className="text-destructive">Delete branch</DialogTitle>
+            <DialogTitle className="text-destructive">
+              Delete branch
+            </DialogTitle>
           </div>
           <DialogDescription>
-            Delete branch &ldquo;{refName}&rdquo;? This cannot be undone if the branch has
-            unmerged changes.
+            Delete branch &ldquo;{refName}&rdquo;? This cannot be undone if the
+            branch has unmerged changes.
           </DialogDescription>
         </DialogHeader>
 
@@ -233,13 +248,19 @@ function DeleteBranchDialog({ open, onOpenChange, refName, onConfirm }: DeleteBr
             checked={force}
             onChange={(e) => setForce(e.target.checked)}
           />
-          <span className={force ? "text-destructive" : "text-muted-foreground"}>
+          <span
+            className={force ? "text-destructive" : "text-muted-foreground"}
+          >
             Force delete (discard unmerged commits)
           </span>
         </label>
 
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -265,6 +286,7 @@ function DeleteBranchDialog({ open, onOpenChange, refName, onConfirm }: DeleteBr
 type PendingDialog =
   | { kind: "rename" }
   | { kind: "delete" }
+  | { kind: "deleteTag" }
   | { kind: "merge" }
   | { kind: "rebase" }
   | { kind: "push" }
@@ -312,7 +334,8 @@ export function RefContextMenu({
     : undefined;
 
   // Whether this ref IS the current HEAD branch
-  const isCurrentBranch = refType === "localBranch" && refName === currentBranch;
+  const isCurrentBranch =
+    refType === "localBranch" && refName === currentBranch;
 
   return (
     <>
@@ -346,7 +369,11 @@ export function RefContextMenu({
         >
           {/* Header label */}
           <DropdownMenuLabel className="font-mono text-xs text-muted-foreground truncate">
-            {refType === "remoteBranch" ? "remote: " : refType === "tag" ? "tag: " : ""}
+            {refType === "remoteBranch"
+              ? "remote: "
+              : refType === "tag"
+                ? "tag: "
+                : ""}
             {refName}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -386,7 +413,11 @@ export function RefContextMenu({
 
               <DropdownMenuItem
                 disabled={isCurrentBranch}
-                title={isCurrentBranch ? "Cannot merge the current branch into itself" : undefined}
+                title={
+                  isCurrentBranch
+                    ? "Cannot merge the current branch into itself"
+                    : undefined
+                }
                 onSelect={() => {
                   onClose();
                   setPendingDialog({ kind: "merge" });
@@ -398,7 +429,11 @@ export function RefContextMenu({
 
               <DropdownMenuItem
                 disabled={isCurrentBranch}
-                title={isCurrentBranch ? "Cannot rebase current branch onto itself" : undefined}
+                title={
+                  isCurrentBranch
+                    ? "Cannot rebase current branch onto itself"
+                    : undefined
+                }
                 onSelect={() => {
                   onClose();
                   setPendingDialog({ kind: "rebase" });
@@ -513,6 +548,19 @@ export function RefContextMenu({
                 <GitBranch className="size-4" />
                 Checkout (detached)
               </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  onClose();
+                  setPendingDialog({ kind: "deleteTag" });
+                }}
+              >
+                <Trash2 className="size-4" />
+                Delete tag
+              </DropdownMenuItem>
             </>
           )}
 
@@ -552,6 +600,19 @@ export function RefContextMenu({
         }}
         refName={refName}
         onConfirm={(force) => void onDelete(ref!, force)}
+      />
+
+      {/* Delete tag confirm dialog */}
+      <ConfirmDialog
+        open={pendingDialog?.kind === "deleteTag"}
+        onOpenChange={(open) => {
+          if (!open) setPendingDialog(null);
+        }}
+        title="Delete tag"
+        description={`Delete tag "${refName}"? This removes the local tag; it does not affect any remote.`}
+        confirmLabel="Delete tag"
+        destructive
+        onConfirm={() => void onDelete(ref!, false)}
       />
 
       {/* Merge into current confirm */}

@@ -14,7 +14,13 @@ export async function loadGraph(
 ): Promise<LoadGraphResult> {
   const api = window.api?.sourceControl?.getGraph;
   if (!api) {
-    return { ok: false, commits: [], head: null, hasMore: false, stderr: "Unavailable" };
+    return {
+      ok: false,
+      commits: [],
+      head: null,
+      hasMore: false,
+      stderr: "Unavailable",
+    };
   }
   return api({ cwd, ...opts });
 }
@@ -22,7 +28,11 @@ export async function loadGraph(
 export async function loadCommitFiles(cwd: string, hash: string) {
   const api = window.api?.sourceControl?.getCommitFiles;
   if (!api) {
-    return { ok: false, files: [] as Array<{ path: string; status: string; oldPath?: string }>, stderr: "Unavailable" };
+    return {
+      ok: false,
+      files: [] as Array<{ path: string; status: string; oldPath?: string }>,
+      stderr: "Unavailable",
+    };
   }
   return api({ cwd, hash });
 }
@@ -32,7 +42,12 @@ export async function loadCommitDiff(
   hash: string,
   path: string,
   oldPath?: string,
-): Promise<{ ok: boolean; oldContent: string; newContent: string; stderr: string }> {
+): Promise<{
+  ok: boolean;
+  oldContent: string;
+  newContent: string;
+  stderr: string;
+}> {
   const api = window.api?.sourceControl?.getCommitDiff;
   if (!api) {
     return { ok: false, oldContent: "", newContent: "", stderr: "Unavailable" };
@@ -55,7 +70,10 @@ function unavailable(): ActionResult {
   return { ok: false, stderr: "API unavailable" };
 }
 
-export async function revertCommit(cwd: string, commit: string): Promise<ActionResult> {
+export async function revertCommit(
+  cwd: string,
+  commit: string,
+): Promise<ActionResult> {
   const api = window.api?.sourceControl?.revert;
   if (!api) return unavailable();
   return api({ commit, cwd });
@@ -82,7 +100,10 @@ export async function createTag(
   return api({ name, commit, message, cwd });
 }
 
-export async function cherryPickCommit(cwd: string, commit: string): Promise<ActionResult> {
+export async function cherryPickCommit(
+  cwd: string,
+  commit: string,
+): Promise<ActionResult> {
   const api = window.api?.sourceControl?.cherryPick;
   if (!api) return unavailable();
   return api({ commit, cwd });
@@ -98,7 +119,10 @@ export async function createBranchFrom(
   return api({ name, cwd, from });
 }
 
-export async function checkoutCommit(cwd: string, hash: string): Promise<ActionResult> {
+export async function checkoutCommit(
+  cwd: string,
+  hash: string,
+): Promise<ActionResult> {
   // Checkout a detached HEAD at the given commit hash.
   const api = window.api?.sourceControl?.checkoutBranch;
   if (!api) return unavailable();
@@ -109,13 +133,20 @@ export async function checkoutCommit(cwd: string, hash: string): Promise<ActionR
 // Branch / ref action wrappers
 // ---------------------------------------------------------------------------
 
-export async function checkoutBranch(cwd: string, name: string): Promise<ActionResult> {
+export async function checkoutBranch(
+  cwd: string,
+  name: string,
+): Promise<ActionResult> {
   const api = window.api?.sourceControl?.checkoutBranch;
   if (!api) return unavailable();
   return api({ name, cwd });
 }
 
-export async function renameBranch(cwd: string, from: string, to: string): Promise<ActionResult> {
+export async function renameBranch(
+  cwd: string,
+  from: string,
+  to: string,
+): Promise<ActionResult> {
   const api = window.api?.sourceControl?.renameBranch;
   if (!api) return unavailable();
   return api({ from, to, cwd });
@@ -131,19 +162,37 @@ export async function deleteBranch(
   return api({ name, force, cwd });
 }
 
-export async function mergeBranch(cwd: string, branch: string): Promise<ActionResult> {
+export async function deleteTag(
+  cwd: string,
+  name: string,
+): Promise<ActionResult> {
+  const api = window.api?.sourceControl?.deleteTag;
+  if (!api) return unavailable();
+  return api({ name, cwd });
+}
+
+export async function mergeBranch(
+  cwd: string,
+  branch: string,
+): Promise<ActionResult> {
   const api = window.api?.sourceControl?.mergeBranch;
   if (!api) return unavailable();
   return api({ branch, cwd });
 }
 
-export async function rebaseBranch(cwd: string, branch: string): Promise<ActionResult> {
+export async function rebaseBranch(
+  cwd: string,
+  branch: string,
+): Promise<ActionResult> {
   const api = window.api?.sourceControl?.rebaseBranch;
   if (!api) return unavailable();
   return api({ branch, cwd });
 }
 
-export async function pullBranch(cwd: string, branch?: string): Promise<ActionResult> {
+export async function pullBranch(
+  cwd: string,
+  branch?: string,
+): Promise<ActionResult> {
   const api = window.api?.sourceControl?.pullBranch;
   if (!api) return unavailable();
   return api({ branch, cwd });
