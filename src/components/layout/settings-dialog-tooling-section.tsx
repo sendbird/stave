@@ -24,9 +24,11 @@ import type {
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import {
+  InfoRow,
   SectionHeading,
   SectionStack,
   SettingsCard,
+  StatusBadge,
 } from "./settings-dialog.shared";
 
 const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
@@ -42,33 +44,6 @@ const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = {
   claude: "claude auth login",
   codex: "codex login",
 };
-
-function StatusBadge(args: {
-  state: ToolingStatusState | WorkspaceSyncStatus["state"];
-  label: string;
-}) {
-  const className =
-    args.state === "ready" || args.state === "synced"
-      ? "border-success/30 bg-success/10 text-success dark:bg-success/15"
-      : args.state === "warning"
-        || args.state === "behind"
-        || args.state === "ahead"
-        || args.state === "dirty"
-      ? "border-warning/40 bg-warning/10 text-warning dark:bg-warning/15"
-      : "border-destructive/30 bg-destructive/10 text-destructive";
-
-  return (
-    <Badge
-      variant="secondary"
-      className={cn(
-        "h-6 border px-2.5 font-medium tracking-normal",
-        className,
-      )}
-    >
-      {args.label}
-    </Badge>
-  );
-}
 
 function AuthBadge(args: { tool: ToolingStatusEntry }) {
   const label =
@@ -148,26 +123,6 @@ function ToolIcon(args: { id: ToolingStatusId }) {
           : Code2;
 
   return <Icon className="size-4" />;
-}
-
-function InfoRow(args: {
-  label: string;
-  value: string | null;
-  monospace?: boolean;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{args.label}</span>
-      <span
-        className={cn(
-          "max-w-[70%] text-right text-foreground break-all",
-          args.monospace && "font-mono text-xs",
-        )}
-      >
-        {args.value ?? "-"}
-      </span>
-    </div>
-  );
 }
 
 function PathRow(args: { label: string; value: string | null }) {
