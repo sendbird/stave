@@ -268,7 +268,6 @@ function CliSessionPanelImpl() {
           key={`${activeTabKey ?? "no-cli-session"}:${rendererRestartToken}`}
           ref={terminalContainerRef}
           data-terminal-surface
-          data-cli-terminal-surface
           className={cn(
             "h-full w-full outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-border/70",
             !activeTab && "opacity-60",
