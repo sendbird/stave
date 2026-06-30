@@ -21,11 +21,14 @@ import {
   ChevronRight,
   FolderOpen,
   FolderTree,
+  GitBranch,
   GripVertical,
   LoaderCircle,
   PanelLeft,
   Plus,
   RefreshCw,
+  Rows2,
+  Rows3,
   Settings,
 } from "lucide-react";
 import {
@@ -62,6 +65,13 @@ import {
   Badge,
   BorderBeam,
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -78,6 +88,7 @@ import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
 import { isDefaultWorkspaceName } from "@/store/project.utils";
 import type { ChatMessage, Task } from "@/types/chat";
 
@@ -114,8 +125,11 @@ function resolveRespondingToneClass(args: {
     respondingTaskCount: summary.respondingTaskCount,
     respondingToneClass: summary.hasWarningTask
       ? "text-warning"
-      : summary.respondingProviderIds.length === 1 && summary.respondingProviderIds[0]
-        ? getProviderWaveToneClass({ providerId: summary.respondingProviderIds[0] })
+      : summary.respondingProviderIds.length === 1 &&
+          summary.respondingProviderIds[0]
+        ? getProviderWaveToneClass({
+            providerId: summary.respondingProviderIds[0],
+          })
         : "text-primary",
   };
 }
@@ -134,6 +148,20 @@ function formatWorkspaceName(name: string, branch?: string) {
     );
   }
   return name;
+}
+
+function formatWorkspaceTitle(name: string) {
+  return isDefaultWorkspaceName(name) ? "Default" : name;
+}
+
+function formatWorkspaceBranchLabel(args: {
+  branch?: string;
+  isDefault: boolean;
+}) {
+  if (args.branch?.trim()) {
+    return args.branch;
+  }
+  return args.isDefault ? "default" : "worktree";
 }
 
 function formatCountLabel(count: number, singular: string) {
@@ -159,14 +187,14 @@ function useWorkspaceSidebarActivityState(workspaceId: string) {
         ] as const;
       }
       const runtimeState = state.workspaceRuntimeCacheById[workspaceId];
-        return [
-          runtimeState?.tasks ?? EMPTY_TASKS,
-          runtimeState?.messagesByTask ?? EMPTY_MESSAGES_BY_TASK,
-          runtimeState?.activeTurnIdsByTask ?? EMPTY_ACTIVE_TURN_IDS_BY_TASK,
-          state.providerTurnActivityByTask,
-          state.workspacePrInfoById[workspaceId]?.derived ?? null,
-        ] as const;
-      }),
+      return [
+        runtimeState?.tasks ?? EMPTY_TASKS,
+        runtimeState?.messagesByTask ?? EMPTY_MESSAGES_BY_TASK,
+        runtimeState?.activeTurnIdsByTask ?? EMPTY_ACTIVE_TURN_IDS_BY_TASK,
+        state.providerTurnActivityByTask,
+        state.workspacePrInfoById[workspaceId]?.derived ?? null,
+      ] as const;
+    }),
   );
 
   return useMemo(
@@ -445,6 +473,91 @@ const WorkspaceRespondingCountBadge = memo(
   },
 );
 
+const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
+  workspaceId: string;
+  branch?: string;
+  isDefault: boolean;
+  shortcutLabel?: string | null;
+  hasHoverActions: boolean;
+  isClosing: boolean;
+}) {
+  const { respondingTaskCount } = useWorkspaceSidebarActivityState(
+    args.workspaceId,
+  );
+  const branchLabel = formatWorkspaceBranchLabel({
+    branch: args.branch,
+    isDefault: args.isDefault,
+  });
+
+  const hasMetaActions = Boolean(args.shortcutLabel) || respondingTaskCount > 0;
+
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
+      <span className="inline-flex min-w-0 flex-1 items-center gap-1">
+        <GitBranch className="size-3 shrink-0 text-muted-foreground/70" />
+        <span className="truncate">{branchLabel}</span>
+      </span>
+      {hasMetaActions ? (
+        <span
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 transition-opacity",
+            getWorkspaceRespondingCountVisibilityClasses({
+              hasHoverActions: args.hasHoverActions,
+              isClosing: args.isClosing,
+            }),
+          )}
+        >
+          {args.shortcutLabel ? (
+            <WorkspaceShortcutChip
+              modifier={workspaceShortcutModifierLabel}
+              label={args.shortcutLabel}
+              className="h-4 shrink-0 px-1 text-[10px]"
+            />
+          ) : null}
+          {respondingTaskCount > 0 ? (
+            <Badge
+              variant="outline"
+              className="h-4 min-w-5 shrink-0 justify-center rounded-sm border-primary/30 bg-primary/10 px-1 text-[10px] font-medium tabular-nums text-primary"
+            >
+              {respondingTaskCount}
+            </Badge>
+          ) : null}
+        </span>
+      ) : null}
+    </span>
+  );
+});
+
+function WorkspaceArchiveButton(args: {
+  workspaceId: string;
+  isClosing: boolean;
+  onArchive: () => void;
+  side?: "top" | "right";
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 rounded-md p-0 text-muted-foreground hover:text-destructive focus-visible:text-destructive"
+          disabled={args.isClosing}
+          onClick={args.onArchive}
+          aria-label={`archive-workspace-${args.workspaceId}`}
+        >
+          {args.isClosing ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <Archive className="size-3.5" />
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side={args.side ?? "right"}>Archive</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
  * Wrap the workspace row with the `border-beam` library's animated glow when a
  * task in the workspace is streaming and the user opted into the Border Beam
@@ -462,9 +575,7 @@ const WorkspaceBorderBeam = memo(function WorkspaceBorderBeam(args: {
   const borderBeamEnabled = useAppStore(
     (state) => state.settings.borderBeamEnabled,
   );
-  const borderBeamSize = useAppStore(
-    (state) => state.settings.borderBeamSize,
-  );
+  const borderBeamSize = useAppStore((state) => state.settings.borderBeamSize);
   const borderBeamVariant = useAppStore(
     (state) => state.settings.borderBeamVariant,
   );
@@ -598,6 +709,7 @@ export function ProjectWorkspaceSidebar(args: {
     workspaceBranchById,
     activeWorkspaceBranch,
     activeWorkspaceCwd,
+    workspaceSidebarItemDisplayMode,
     defaultBranch,
     projectWorkspaceInitCommand,
     projectUseRootNodeModulesSymlink,
@@ -626,6 +738,7 @@ export function ProjectWorkspaceSidebar(args: {
         state.workspacePathById[state.activeWorkspaceId] ??
           state.projectPath ??
           undefined,
+        state.layout.workspaceSidebarItemDisplayMode,
         state.defaultBranch,
         (state.projectPath
           ? state.recentProjects.find(
@@ -919,6 +1032,18 @@ export function ProjectWorkspaceSidebar(args: {
     }
   }
 
+  function handleWorkspaceItemDisplayModeChange(value: string) {
+    if (value !== "expanded" && value !== "compact") {
+      return;
+    }
+    setLayout({
+      patch: {
+        workspaceSidebarItemDisplayMode:
+          value as WorkspaceSidebarItemDisplayMode,
+      },
+    });
+  }
+
   return (
     <>
       <aside
@@ -1082,6 +1207,50 @@ export function ProjectWorkspaceSidebar(args: {
                     </TooltipTrigger>
                     <TooltipContent side="top">Open Project</TooltipContent>
                   </Tooltip>
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-background/20 hover:text-foreground"
+                              aria-label="workspace-item-display-mode"
+                            >
+                              {workspaceSidebarItemDisplayMode ===
+                              "expanded" ? (
+                                <Rows3 className="size-4" />
+                              ) : (
+                                <Rows2 className="size-4" />
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        Workspace row display
+                      </TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuLabel>Workspace rows</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuRadioGroup
+                        value={workspaceSidebarItemDisplayMode}
+                        onValueChange={handleWorkspaceItemDisplayModeChange}
+                      >
+                        <DropdownMenuRadioItem value="expanded">
+                          <Rows3 className="size-4" />
+                          Expanded
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="compact">
+                          <Rows2 className="size-4" />
+                          Compact
+                        </DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -1340,10 +1509,23 @@ export function ProjectWorkspaceSidebar(args: {
                                                 const canArchiveWorkspace =
                                                   project.isCurrent &&
                                                   !workspace.isDefault;
-                                                const hasHoverActions = Boolean(
-                                                  workspaceShortcutLabel ||
-                                                  canArchiveWorkspace,
-                                                );
+                                                const isExpandedWorkspaceItem =
+                                                  workspaceSidebarItemDisplayMode ===
+                                                  "expanded";
+                                                const isClosingWorkspace =
+                                                  closingWorkspaceId ===
+                                                  workspace.id;
+                                                const compactHasHoverActions =
+                                                  Boolean(
+                                                    workspaceShortcutLabel ||
+                                                    canArchiveWorkspace,
+                                                  );
+                                                const expandedHasHoverActions =
+                                                  canArchiveWorkspace;
+                                                const hasHoverActions =
+                                                  isExpandedWorkspaceItem
+                                                    ? expandedHasHoverActions
+                                                    : compactHasHoverActions;
 
                                                 return (
                                                   <SortableSidebarItem
@@ -1364,130 +1546,203 @@ export function ProjectWorkspaceSidebar(args: {
                                                           workspace.id
                                                         }
                                                       >
-                                                      <div
-                                                        className={cn(
-                                                          "group/workspace-row relative flex items-center gap-1 rounded-lg border transition-[background-color,border-color,box-shadow,color]",
-                                                          isActive
-                                                            ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:pointer-events-none before:absolute before:-left-px before:-top-px before:h-3 before:w-3 before:rounded-tl-lg before:border-l-2 before:border-t-2 before:border-primary hover:bg-primary/16"
-                                                            : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-background/20 hover:text-foreground hover:shadow-sm",
-                                                          isDragging &&
-                                                            "border-sidebar-border/45 bg-background/22 shadow-sm",
-                                                        )}
-                                                      >
-                                                        {dragHandle}
-                                                        <WorkspaceHoverPreviewTooltip
-                                                          workspaceId={
-                                                            workspace.id
-                                                          }
-                                                          workspaceName={
-                                                            workspace.name
-                                                          }
-                                                          branch={
-                                                            workspace.branch
-                                                          }
-                                                          shortcutLabel={
-                                                            workspaceShortcutLabel
-                                                          }
-                                                          side="right"
+                                                        <div
+                                                          className={cn(
+                                                            "group/workspace-row relative flex rounded-lg border transition-[background-color,border-color,box-shadow,color]",
+                                                            isExpandedWorkspaceItem
+                                                              ? "items-stretch gap-1"
+                                                              : "items-center gap-1",
+                                                            isActive
+                                                              ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:pointer-events-none before:absolute before:-left-px before:-top-px before:h-3 before:w-3 before:rounded-tl-lg before:border-l-2 before:border-t-2 before:border-primary hover:bg-primary/16"
+                                                              : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-background/20 hover:text-foreground hover:shadow-sm",
+                                                            isDragging &&
+                                                              "border-sidebar-border/45 bg-background/22 shadow-sm",
+                                                          )}
                                                         >
-                                                          <button
-                                                            type="button"
-                                                            className={cn(
-                                                              "flex min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left text-sm",
-                                                            )}
-                                                            onClick={() =>
-                                                              void handleProjectWorkspaceOpen(
-                                                                {
-                                                                  projectPath:
-                                                                    project.projectPath,
-                                                                  workspaceId:
-                                                                    workspace.id,
-                                                                },
-                                                              )
-                                                            }
-                                                          >
-                                                            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                                                              <WorkspaceLeadingStatusIcon
-                                                                workspaceId={
-                                                                  workspace.id
-                                                                }
-                                                                workspaceName={
-                                                                  workspace.name
-                                                                }
-                                                                isDefault={
-                                                                  workspace.isDefault
-                                                                }
-                                                                busy={
-                                                                  workspaceBusy
-                                                                }
-                                                              />
-                                                            </span>
-                                                            <span
-                                                              className={cn(
-                                                                "min-w-0 flex-1 truncate",
-                                                                isActive &&
-                                                                  "font-medium text-foreground",
-                                                              )}
-                                                            >
-                                                              {formatWorkspaceName(
-                                                                workspace.name,
-                                                                workspace.branch,
-                                                              )}
-                                                            </span>
-                                                          </button>
-                                                        </WorkspaceHoverPreviewTooltip>
-                                                        <div className="relative shrink-0">
-                                                          <WorkspaceRespondingCountBadge
+                                                          {dragHandle}
+                                                          <WorkspaceHoverPreviewTooltip
                                                             workspaceId={
                                                               workspace.id
                                                             }
-                                                            hasHoverActions={
-                                                              hasHoverActions
+                                                            workspaceName={
+                                                              workspace.name
                                                             }
-                                                            isClosing={
-                                                              closingWorkspaceId ===
-                                                              workspace.id
+                                                            branch={
+                                                              workspace.branch
                                                             }
-                                                          />
-                                                          {hasHoverActions ? (
-                                                            <div
+                                                            shortcutLabel={
+                                                              workspaceShortcutLabel
+                                                            }
+                                                            side="right"
+                                                          >
+                                                            <button
+                                                              type="button"
                                                               className={cn(
-                                                                "absolute inset-y-0 right-0 flex items-center gap-1 pr-1 transition-opacity",
-                                                                getWorkspaceHoverActionVisibilityClasses(
+                                                                "flex min-w-0 flex-1 gap-2 text-left text-sm",
+                                                                isExpandedWorkspaceItem
+                                                                  ? "items-start px-2 py-2.5 pr-9"
+                                                                  : "items-center px-2 py-2",
+                                                              )}
+                                                              onClick={() =>
+                                                                void handleProjectWorkspaceOpen(
                                                                   {
-                                                                    isClosing:
-                                                                      closingWorkspaceId ===
+                                                                    projectPath:
+                                                                      project.projectPath,
+                                                                    workspaceId:
                                                                       workspace.id,
                                                                   },
-                                                                ),
-                                                              )}
+                                                                )
+                                                              }
                                                             >
-                                                              {workspaceShortcutLabel ? (
-                                                                <WorkspaceShortcutChip
-                                                                  modifier={
-                                                                    workspaceShortcutModifierLabel
+                                                              <span
+                                                                className={cn(
+                                                                  "flex h-4 w-4 shrink-0 items-center justify-center",
+                                                                  isExpandedWorkspaceItem &&
+                                                                    "mt-0.5",
+                                                                )}
+                                                              >
+                                                                <WorkspaceLeadingStatusIcon
+                                                                  workspaceId={
+                                                                    workspace.id
                                                                   }
-                                                                  label={
-                                                                    workspaceShortcutLabel
+                                                                  workspaceName={
+                                                                    workspace.name
                                                                   }
-                                                                  className="shrink-0"
+                                                                  isDefault={
+                                                                    workspace.isDefault
+                                                                  }
+                                                                  busy={
+                                                                    workspaceBusy
+                                                                  }
                                                                 />
-                                                              ) : null}
-                                                              {canArchiveWorkspace ? (
-                                                                <Tooltip>
-                                                                  <TooltipTrigger
-                                                                    asChild
+                                                              </span>
+                                                              {isExpandedWorkspaceItem ? (
+                                                                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                                                                  <span
+                                                                    className={cn(
+                                                                      "min-w-0 truncate leading-5",
+                                                                      isActive &&
+                                                                        "font-medium text-foreground",
+                                                                    )}
                                                                   >
-                                                                    <Button
-                                                                      type="button"
-                                                                      variant="ghost"
-                                                                      size="sm"
-                                                                      className="h-7 w-7 rounded-md p-0 text-muted-foreground hover:text-destructive focus-visible:text-destructive"
-                                                                      disabled={
-                                                                        closingWorkspaceId ===
+                                                                    {formatWorkspaceTitle(
+                                                                      workspace.name,
+                                                                    )}
+                                                                  </span>
+                                                                  <WorkspaceExpandedMeta
+                                                                    workspaceId={
+                                                                      workspace.id
+                                                                    }
+                                                                    branch={
+                                                                      workspace.branch
+                                                                    }
+                                                                    isDefault={
+                                                                      workspace.isDefault
+                                                                    }
+                                                                    shortcutLabel={
+                                                                      workspaceShortcutLabel
+                                                                    }
+                                                                    hasHoverActions={
+                                                                      hasHoverActions
+                                                                    }
+                                                                    isClosing={
+                                                                      isClosingWorkspace
+                                                                    }
+                                                                  />
+                                                                </span>
+                                                              ) : (
+                                                                <span
+                                                                  className={cn(
+                                                                    "min-w-0 flex-1 truncate",
+                                                                    isActive &&
+                                                                      "font-medium text-foreground",
+                                                                  )}
+                                                                >
+                                                                  {formatWorkspaceName(
+                                                                    workspace.name,
+                                                                    workspace.branch,
+                                                                  )}
+                                                                </span>
+                                                              )}
+                                                            </button>
+                                                          </WorkspaceHoverPreviewTooltip>
+                                                          {isExpandedWorkspaceItem ? (
+                                                            hasHoverActions ? (
+                                                              <div
+                                                                className={cn(
+                                                                  "absolute bottom-1.5 right-1 flex items-center transition-opacity",
+                                                                  getWorkspaceHoverActionVisibilityClasses(
+                                                                    {
+                                                                      isClosing:
+                                                                        isClosingWorkspace,
+                                                                    },
+                                                                  ),
+                                                                )}
+                                                              >
+                                                                <WorkspaceArchiveButton
+                                                                  workspaceId={
+                                                                    workspace.id
+                                                                  }
+                                                                  isClosing={
+                                                                    isClosingWorkspace
+                                                                  }
+                                                                  onArchive={() =>
+                                                                    setWorkspaceToClose(
+                                                                      {
+                                                                        id: workspace.id,
+                                                                        name: workspace.name,
+                                                                      },
+                                                                    )
+                                                                  }
+                                                                  side="right"
+                                                                />
+                                                              </div>
+                                                            ) : null
+                                                          ) : (
+                                                            <div className="relative shrink-0">
+                                                              <WorkspaceRespondingCountBadge
+                                                                workspaceId={
+                                                                  workspace.id
+                                                                }
+                                                                hasHoverActions={
+                                                                  hasHoverActions
+                                                                }
+                                                                isClosing={
+                                                                  isClosingWorkspace
+                                                                }
+                                                              />
+                                                              {hasHoverActions ? (
+                                                                <div
+                                                                  className={cn(
+                                                                    "absolute inset-y-0 right-0 flex items-center gap-1 pr-1 transition-opacity",
+                                                                    getWorkspaceHoverActionVisibilityClasses(
+                                                                      {
+                                                                        isClosing:
+                                                                          isClosingWorkspace,
+                                                                      },
+                                                                    ),
+                                                                  )}
+                                                                >
+                                                                  {workspaceShortcutLabel ? (
+                                                                    <WorkspaceShortcutChip
+                                                                      modifier={
+                                                                        workspaceShortcutModifierLabel
+                                                                      }
+                                                                      label={
+                                                                        workspaceShortcutLabel
+                                                                      }
+                                                                      className="shrink-0"
+                                                                    />
+                                                                  ) : null}
+                                                                  {canArchiveWorkspace ? (
+                                                                    <WorkspaceArchiveButton
+                                                                      workspaceId={
                                                                         workspace.id
                                                                       }
-                                                                      onClick={() =>
+                                                                      isClosing={
+                                                                        isClosingWorkspace
+                                                                      }
+                                                                      onArchive={() =>
                                                                         setWorkspaceToClose(
                                                                           {
                                                                             id: workspace.id,
@@ -1495,25 +1750,14 @@ export function ProjectWorkspaceSidebar(args: {
                                                                           },
                                                                         )
                                                                       }
-                                                                      aria-label={`archive-workspace-${workspace.id}`}
-                                                                    >
-                                                                      {closingWorkspaceId ===
-                                                                      workspace.id ? (
-                                                                        <LoaderCircle className="size-3.5 animate-spin" />
-                                                                      ) : (
-                                                                        <Archive className="size-3.5" />
-                                                                      )}
-                                                                    </Button>
-                                                                  </TooltipTrigger>
-                                                                  <TooltipContent side="right">
-                                                                    Archive
-                                                                  </TooltipContent>
-                                                                </Tooltip>
+                                                                      side="right"
+                                                                    />
+                                                                  ) : null}
+                                                                </div>
                                                               ) : null}
                                                             </div>
-                                                          ) : null}
+                                                          )}
                                                         </div>
-                                                      </div>
                                                       </WorkspaceBorderBeam>
                                                     )}
                                                   </SortableSidebarItem>

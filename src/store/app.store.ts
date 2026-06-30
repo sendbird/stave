@@ -275,6 +275,7 @@ import {
 import { worktreeStatusHasMeaningfulChanges } from "@/lib/workspace-archive-status";
 import {
   type LayoutState,
+  DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
   WORKSPACE_SIDEBAR_MIN_WIDTH,
   MIN_EDITOR_PANEL_WIDTH,
   DEFAULT_EDITOR_PANEL_WIDTH,
@@ -4414,6 +4415,8 @@ export const useAppStore = create<AppState>()(
         layout: {
           workspaceSidebarWidth: WORKSPACE_SIDEBAR_MIN_WIDTH,
           workspaceSidebarCollapsed: false,
+          workspaceSidebarItemDisplayMode:
+            DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
           editorPanelWidth: DEFAULT_EDITOR_PANEL_WIDTH,
           explorerPanelWidth: 300,
           lensPanelWidthByWorkspaceId: {},
@@ -12151,7 +12154,8 @@ export const useAppStore = create<AppState>()(
             }),
           }));
         }
-        state.layout = normalizeLayoutState(state.layout);        const isDark = resolveDarkModeForTheme({
+        state.layout = normalizeLayoutState(state.layout);
+        const isDark = resolveDarkModeForTheme({
           themeMode: state.settings?.themeMode ?? "dark",
           fallback: state.isDarkMode,
         });

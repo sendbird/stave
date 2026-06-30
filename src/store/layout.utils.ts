@@ -1,9 +1,13 @@
-import { RIGHT_RAIL_PANEL_IDS, type RightRailPanelId } from "@/lib/right-rail-panels";
+import {
+  RIGHT_RAIL_PANEL_IDS,
+  type RightRailPanelId,
+} from "@/lib/right-rail-panels";
 import type { EditorTab } from "@/types/chat";
 
 export interface LayoutState {
   workspaceSidebarWidth: number;
   workspaceSidebarCollapsed: boolean;
+  workspaceSidebarItemDisplayMode: WorkspaceSidebarItemDisplayMode;
   editorPanelWidth: number;
   explorerPanelWidth: number;
   lensPanelWidthByWorkspaceId: Record<string, number>;
@@ -17,6 +21,14 @@ export interface LayoutState {
   editorMarkdownPreviewMode: boolean;
 }
 
+export const WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODES = [
+  "expanded",
+  "compact",
+] as const;
+export type WorkspaceSidebarItemDisplayMode =
+  (typeof WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODES)[number];
+export const DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE: WorkspaceSidebarItemDisplayMode =
+  "expanded";
 export const WORKSPACE_SIDEBAR_MIN_WIDTH = 290;
 export const MIN_EDITOR_PANEL_WIDTH = 600;
 export const DEFAULT_EDITOR_PANEL_WIDTH = 720;
@@ -24,7 +36,10 @@ export const MIN_LENS_PANEL_WIDTH = 320;
 export const DEFAULT_LENS_PANEL_WIDTH = 520;
 export const MAX_LENS_PANEL_WIDTH = 900;
 
-export function mergeLayoutPatch(args: { layout: LayoutState; patch: Partial<LayoutState> }) {
+export function mergeLayoutPatch(args: {
+  layout: LayoutState;
+  patch: Partial<LayoutState>;
+}) {
   let changed = false;
   const nextLayout: LayoutState = normalizeLayoutState({ ...args.layout });
 
@@ -46,6 +61,9 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
   return {
     workspaceSidebarWidth: layout.workspaceSidebarWidth,
     workspaceSidebarCollapsed: layout.workspaceSidebarCollapsed,
+    workspaceSidebarItemDisplayMode: normalizeWorkspaceSidebarItemDisplayMode(
+      layout.workspaceSidebarItemDisplayMode,
+    ),
     editorPanelWidth: Math.max(MIN_EDITOR_PANEL_WIDTH, layout.editorPanelWidth),
     explorerPanelWidth: layout.explorerPanelWidth,
     lensPanelWidthByWorkspaceId: normalizeLensPanelWidthByWorkspaceId(
@@ -64,6 +82,16 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
       ? layout.sidebarOverlayTab
       : "explorer",
   };
+}
+
+export function normalizeWorkspaceSidebarItemDisplayMode(
+  value: unknown,
+): WorkspaceSidebarItemDisplayMode {
+  return WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODES.includes(
+    value as WorkspaceSidebarItemDisplayMode,
+  )
+    ? (value as WorkspaceSidebarItemDisplayMode)
+    : DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE;
 }
 
 function normalizeLensPanelWidthByWorkspaceId(
@@ -102,12 +130,14 @@ function normalizeLensFullscreenByWorkspaceId(
   );
 }
 
-export function isDiffEditorTab(tab: Pick<EditorTab, "id" | "kind" | "originalContent"> | null | undefined) {
+export function isDiffEditorTab(
+  tab: Pick<EditorTab, "id" | "kind" | "originalContent"> | null | undefined,
+) {
   return Boolean(
-    tab
-    && tab.kind !== "image"
-    && !tab.id.startsWith("file:")
-    && tab.originalContent !== undefined
+    tab &&
+    tab.kind !== "image" &&
+    !tab.id.startsWith("file:") &&
+    tab.originalContent !== undefined,
   );
 }
 
@@ -115,6 +145,8 @@ export function resolveEditorDiffMode(args: {
   editorTabs: EditorTab[];
   activeEditorTabId: string | null;
 }) {
-  const activeTab = args.editorTabs.find((tab) => tab.id === args.activeEditorTabId);
+  const activeTab = args.editorTabs.find(
+    (tab) => tab.id === args.activeEditorTabId,
+  );
   return isDiffEditorTab(activeTab);
 }
