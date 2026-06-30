@@ -16,6 +16,7 @@ import {
   resolveClaudePlanModeApprovalScope,
   shouldAutoAllowClaudeTool,
   shouldAutoAllowPlanModeScopedTool,
+  shouldDenyClaudePostPlanTool,
   isReadOnlyMcpLeafToolName,
   shouldRedirectClaudePreloadedSkillToolUse,
   shouldDenyClaudeToolInPlanMode,
@@ -637,6 +638,63 @@ describe("shouldAutoAllowPlanModeScopedTool", () => {
         input: { command: "cat package.json" },
       }),
     ).toBe(true);
+  });
+});
+
+describe("shouldDenyClaudePostPlanTool", () => {
+  test("denies post-plan tool calls in plan mode so the turn ends", () => {
+    for (const toolName of [
+      "Bash",
+      "Write",
+      "Task",
+      "Read",
+      "mcp__claude_ai_Github__get_me",
+    ]) {
+      expect(
+        shouldDenyClaudePostPlanTool({
+          permissionMode: "plan",
+          planPresented: true,
+          toolName,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  test("still allows re-presenting an updated plan via ExitPlanMode", () => {
+    expect(
+      shouldDenyClaudePostPlanTool({
+        permissionMode: "plan",
+        planPresented: true,
+        toolName: "ExitPlanMode",
+      }),
+    ).toBe(false);
+  });
+
+  test("does not gate tools before a plan is presented", () => {
+    expect(
+      shouldDenyClaudePostPlanTool({
+        permissionMode: "plan",
+        planPresented: false,
+        toolName: "Bash",
+      }),
+    ).toBe(false);
+  });
+
+  test("never gates outside plan mode", () => {
+    for (const permissionMode of [
+      "default",
+      "acceptEdits",
+      "auto",
+      "bypassPermissions",
+    ] as const) {
+      expect(
+        shouldDenyClaudePostPlanTool({
+          permissionMode,
+          planPresented: true,
+          toolName: "Bash",
+        }),
+      ).toBe(false);
+    }
   });
 });
 
