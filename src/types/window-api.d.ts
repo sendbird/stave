@@ -64,6 +64,7 @@ import type {
   WorkspaceScriptStatusEntry,
 } from "@/lib/workspace-scripts/types";
 import type { PersistenceBootstrapStatus } from "@/lib/persistence/bootstrap-status";
+import type { GraphCommit } from "@/lib/git-graph/types";
 
 interface ProviderStreamTurnArgs {
   turnId?: string;
@@ -824,6 +825,14 @@ interface SourceControlStatusResult {
   stderr: string;
 }
 
+interface SourceControlGraphResult {
+  ok: boolean;
+  commits: GraphCommit[];
+  head: string | null;
+  hasMore: boolean;
+  stderr: string;
+}
+
 interface SourceControlCommandResult {
   ok: boolean;
   code: number;
@@ -863,6 +872,28 @@ interface WindowSourceControlApi {
     content: string;
     oldContent?: string;
     newContent?: string;
+    stderr: string;
+  }>;
+  getGraph?: (args: {
+    cwd?: string;
+    limit?: number;
+    skip?: number;
+    scope?: "current" | "all" | string;
+  }) => Promise<SourceControlGraphResult>;
+  getCommitFiles?: (args: { hash: string; cwd?: string }) => Promise<{
+    ok: boolean;
+    files: Array<{ path: string; status: string; oldPath?: string }>;
+    stderr: string;
+  }>;
+  getCommitDiff?: (args: {
+    hash: string;
+    path: string;
+    oldPath?: string;
+    cwd?: string;
+  }) => Promise<{
+    ok: boolean;
+    oldContent: string;
+    newContent: string;
     stderr: string;
   }>;
   getHistory?: (args: { cwd?: string; limit?: number }) => Promise<{
@@ -905,6 +936,41 @@ interface WindowSourceControlApi {
   }) => Promise<SourceControlCommandResult>;
   cherryPick?: (args: {
     commit: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  revert?: (args: {
+    commit: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  reset?: (args: {
+    commit: string;
+    mode: "soft" | "mixed" | "hard";
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  createTag?: (args: {
+    name: string;
+    commit?: string;
+    message?: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  deleteTag?: (args: {
+    name: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  renameBranch?: (args: {
+    from: string;
+    to: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  deleteBranch?: (args: {
+    name: string;
+    force?: boolean;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  push?: (args: {
+    branch?: string;
+    remote?: string;
+    force?: boolean;
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
   createPR?: (args: {
@@ -1383,7 +1449,7 @@ interface WindowPersistenceApi {
       editorTabs?: Array<{
         id: string;
         filePath: string;
-        kind?: "text" | "image";
+        kind?: "text" | "image" | "git-graph";
         language: string;
         content: string;
         originalContent?: string;

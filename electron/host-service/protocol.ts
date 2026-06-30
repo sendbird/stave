@@ -246,6 +246,14 @@ export interface HostScmHistoryResult {
   stderr: string;
 }
 
+export interface HostScmGraphResult {
+  ok: boolean;
+  commits: import("../../src/lib/git-graph/types").GraphCommit[];
+  head: string | null;
+  hasMore: boolean;
+  stderr: string;
+}
+
 export interface HostScmListBranchesResult {
   ok: boolean;
   current: string;
@@ -555,6 +563,22 @@ export interface HostServiceRequestMap {
     path: string;
     cwd?: string;
   };
+  "scm.graph": {
+    cwd?: string;
+    limit?: number;
+    skip?: number;
+    scope?: "current" | "all" | string;
+  };
+  "scm.commit-files": {
+    hash: string;
+    cwd?: string;
+  };
+  "scm.commit-diff": {
+    hash: string;
+    path: string;
+    oldPath?: string;
+    cwd?: string;
+  };
   "scm.history": {
     cwd?: string;
     limit?: number;
@@ -592,6 +616,13 @@ export interface HostServiceRequestMap {
     commit: string;
     cwd?: string;
   };
+  "scm.revert": { commit: string; cwd?: string };
+  "scm.reset": { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string };
+  "scm.create-tag": { name: string; commit?: string; message?: string; cwd?: string };
+  "scm.delete-tag": { name: string; cwd?: string };
+  "scm.rename-branch": { from: string; to: string; cwd?: string };
+  "scm.delete-branch": { name: string; force?: boolean; cwd?: string };
+  "scm.push": { branch?: string; remote?: string; force?: boolean; cwd?: string };
   "scm.get-pr-status": {
     cwd?: string;
   };
@@ -718,6 +749,18 @@ export interface HostServiceResponseMap {
   "scm.unstage-file": CommandResult;
   "scm.discard-file": CommandResult;
   "scm.diff": HostScmDiffResult;
+  "scm.graph": HostScmGraphResult;
+  "scm.commit-files": {
+    ok: boolean;
+    files: Array<{ path: string; status: string }>;
+    stderr: string;
+  };
+  "scm.commit-diff": {
+    ok: boolean;
+    oldContent: string;
+    newContent: string;
+    stderr: string;
+  };
   "scm.history": HostScmHistoryResult;
   "scm.list-branches": HostScmListBranchesResult;
   "scm.fetch-branch": CommandResult;
@@ -727,6 +770,13 @@ export interface HostServiceResponseMap {
   "scm.merge-branch": CommandResult;
   "scm.rebase-branch": CommandResult;
   "scm.cherry-pick": CommandResult;
+  "scm.revert": CommandResult;
+  "scm.reset": CommandResult;
+  "scm.create-tag": CommandResult;
+  "scm.delete-tag": CommandResult;
+  "scm.rename-branch": CommandResult;
+  "scm.delete-branch": CommandResult;
+  "scm.push": CommandResult;
   "scm.get-pr-status": HostScmPrStatusResult;
   "scm.get-pr-status-for-url": HostScmPrStatusResult;
   "scm.set-pr-ready":

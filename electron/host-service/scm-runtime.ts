@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { parseGraphLog } from "../../src/lib/git-graph/graph-log";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
 import {
   buildSourceControlDiffPreview,
@@ -7,15 +8,16 @@ import {
 import {
   hasConflictItems,
   parseStatusLines,
-  quotePath,
   resolveCommandCwd,
-  runCommand,
   runCommandArgs,
 } from "../main/utils/command";
 import { resolveRootFilePath } from "../main/utils/filesystem";
 
-const GIT_STATUS_PORCELAIN_ALL_UNTRACKED =
-  "git status --porcelain --untracked-files=all";
+const GIT_STATUS_PORCELAIN_ALL_UNTRACKED_ARGS = [
+  "status",
+  "--porcelain",
+  "--untracked-files=all",
+];
 
 const GITHUB_PR_JSON_FIELDS = [
   "number",
@@ -32,15 +34,10 @@ const GITHUB_PR_JSON_FIELDS = [
   "headRefName",
 ].join(",");
 
-function toGitPathspecArg(paths: string[]) {
-  return paths
-    .map((filePath) => `"${quotePath({ value: filePath })}"`)
-    .join(" ");
-}
-
 async function readGitHeadFile(args: { cwd?: string; filePath: string }) {
-  const result = await runCommand({
-    command: `git show HEAD:"${quotePath({ value: args.filePath })}"`,
+  const result = await runCommandArgs({
+    command: "git",
+    commandArgs: ["show", `HEAD:${args.filePath}`],
     cwd: args.cwd,
   });
   return result.ok ? result.stdout : "";
@@ -68,9 +65,9 @@ export async function discardSourceControlPath(args: {
   path: string;
 }) {
   const paths = resolveSourceControlDiffPaths({ rawPath: args.path });
-  const pathspecArg = toGitPathspecArg(paths.pathspecs);
-  const restoreResult = await runCommand({
-    command: `git restore -- ${pathspecArg}`,
+  const restoreResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["restore", "--", ...paths.pathspecs],
     cwd: args.cwd,
   });
 
@@ -78,8 +75,9 @@ export async function discardSourceControlPath(args: {
     return restoreResult;
   }
 
-  const cleanResult = await runCommand({
-    command: `git clean -f -- ${pathspecArg}`,
+  const cleanResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["clean", "-f", "--", ...paths.pathspecs],
     cwd: args.cwd,
   });
   if (cleanResult.ok) {
@@ -103,8 +101,9 @@ export async function fetchGitHubPrStatus(args: {
   cwd?: string;
   target?: string;
 }) {
-  const authResult = await runCommand({
-    command: "gh auth status",
+  const authResult = await runCommandArgs({
+    command: "gh",
+    commandArgs: ["auth", "status"],
     cwd: args.cwd,
   });
   if (!authResult.ok) {
@@ -226,12 +225,14 @@ export async function fetchGitHubPrStatus(args: {
 }
 
 export async function getScmStatus(args: { cwd?: string }) {
-  const statusResult = await runCommand({
-    command: GIT_STATUS_PORCELAIN_ALL_UNTRACKED,
+  const statusResult = await runCommandArgs({
+    command: "git",
+    commandArgs: GIT_STATUS_PORCELAIN_ALL_UNTRACKED_ARGS,
     cwd: args.cwd,
   });
-  const branchResult = await runCommand({
-    command: "git rev-parse --abbrev-ref HEAD",
+  const branchResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
     cwd: args.cwd,
   });
   const items = statusResult.ok
@@ -250,7 +251,11 @@ export async function getScmStatus(args: { cwd?: string }) {
 }
 
 export function stageAllSourceControl(args: { cwd?: string }) {
-  return runCommand({ command: "git add -A", cwd: args.cwd });
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["add", "-A"],
+    cwd: args.cwd,
+  });
 }
 
 /**
@@ -260,8 +265,9 @@ export function stageAllSourceControl(args: { cwd?: string }) {
  * whether any remaining errors persist.
  */
 export async function tryAutoFixLintErrors(args: { cwd?: string }) {
-  const stagedResult = await runCommand({
-    command: "git diff --cached --name-only --diff-filter=ACMR",
+  const stagedResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
     cwd: args.cwd,
   });
   if (!stagedResult.ok || !stagedResult.stdout.trim()) {
@@ -284,24 +290,26 @@ export async function tryAutoFixLintErrors(args: { cwd?: string }) {
     };
   }
 
-  const fileArgs = lintableFiles
-    .map((f) => `"${quotePath({ value: f })}"`)
-    .join(" ");
-
   // Try eslint --fix (best-effort; ignore exit code since unfixable errors remain)
-  const eslintResult = await runCommand({
-    command: `npx eslint --fix ${fileArgs}`,
+  const eslintResult = await runCommandArgs({
+    command: "npx",
+    commandArgs: ["eslint", "--fix", ...lintableFiles],
     cwd: args.cwd,
   });
 
   // Try prettier --write (best-effort)
-  const prettierResult = await runCommand({
-    command: `npx prettier --write ${fileArgs}`,
+  const prettierResult = await runCommandArgs({
+    command: "npx",
+    commandArgs: ["prettier", "--write", ...lintableFiles],
     cwd: args.cwd,
   });
 
   // Re-stage the auto-fixed files
-  await runCommand({ command: "git add -A", cwd: args.cwd });
+  await runCommandArgs({
+    command: "git",
+    commandArgs: ["add", "-A"],
+    cwd: args.cwd,
+  });
 
   return {
     ok: true,
@@ -316,7 +324,11 @@ export async function tryAutoFixLintErrors(args: { cwd?: string }) {
 }
 
 export function unstageAllSourceControl(args: { cwd?: string }) {
-  return runCommand({ command: "git restore --staged .", cwd: args.cwd });
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["restore", "--staged", "."],
+    cwd: args.cwd,
+  });
 }
 
 export function commitSourceControl(args: { message: string; cwd?: string }) {
@@ -329,27 +341,27 @@ export function commitSourceControl(args: { message: string; cwd?: string }) {
       stderr: "Commit message is required.",
     });
   }
-  const escapedMessage = message.replaceAll('"', '\\"');
-  return runCommand({
-    command: `git commit -m "${escapedMessage}"`,
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["commit", "-m", message],
     cwd: args.cwd,
   });
 }
 
 export function stageSourceControlFile(args: { path: string; cwd?: string }) {
   const paths = resolveSourceControlDiffPaths({ rawPath: args.path });
-  const pathspecArg = toGitPathspecArg(paths.pathspecs);
-  return runCommand({
-    command: `git add -- ${pathspecArg}`,
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["add", "--", ...paths.pathspecs],
     cwd: args.cwd,
   });
 }
 
 export function unstageSourceControlFile(args: { path: string; cwd?: string }) {
   const paths = resolveSourceControlDiffPaths({ rawPath: args.path });
-  const pathspecArg = toGitPathspecArg(paths.pathspecs);
-  return runCommand({
-    command: `git restore --staged -- ${pathspecArg}`,
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["restore", "--staged", "--", ...paths.pathspecs],
     cwd: args.cwd,
   });
 }
@@ -359,13 +371,17 @@ export async function diffSourceControlFile(args: {
   cwd?: string;
 }) {
   const paths = resolveSourceControlDiffPaths({ rawPath: args.path });
-  const pathspecArg = toGitPathspecArg(paths.pathspecs);
   const [staged, unstaged, oldContent, newContent] = await Promise.all([
-    runCommand({
-      command: `git diff --cached -- ${pathspecArg}`,
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["diff", "--cached", "--", ...paths.pathspecs],
       cwd: args.cwd,
     }),
-    runCommand({ command: `git diff -- ${pathspecArg}`, cwd: args.cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["diff", "--", ...paths.pathspecs],
+      cwd: args.cwd,
+    }),
     readGitHeadFile({ cwd: args.cwd, filePath: paths.headPath }),
     readWorkingTreeFile({ cwd: args.cwd, filePath: paths.workingTreePath }),
   ]);
@@ -383,10 +399,169 @@ export async function diffSourceControlFile(args: {
   };
 }
 
+const GRAPH_LOG_FORMAT = "%H%x1f%P%x1f%an%x1f%aI%x1f%D%x1f%s";
+
+export async function getScmGraph(args: {
+  cwd?: string;
+  limit?: number;
+  skip?: number;
+  scope?: "current" | "all" | string;
+}) {
+  const limit = Math.max(1, Math.min(2000, args.limit ?? 500));
+  const skip = Math.max(0, args.skip ?? 0);
+  const scope = args.scope ?? "all";
+
+  let rangeArg = "--all";
+  if (scope === "current") {
+    rangeArg = "HEAD";
+  } else if (scope !== "all") {
+    // a specific branch/ref name
+    rangeArg = scope;
+  }
+
+  // request limit+1 to detect hasMore without a second query
+  const logResult = await runCommandArgs({
+    command: "git",
+    commandArgs: [
+      "log",
+      rangeArg,
+      "--parents",
+      "--date-order",
+      // Full ref paths (refs/heads/…, refs/remotes/…, refs/tags/…) so the parser
+      // can classify refs by prefix instead of guessing from a slash, which
+      // misclassified slash-containing local branches like `feature/login`.
+      "--decorate=full",
+      `--skip=${skip}`,
+      "-n",
+      String(limit + 1),
+      `--pretty=format:${GRAPH_LOG_FORMAT}`,
+    ],
+    cwd: args.cwd,
+  });
+  const branchResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
+    cwd: args.cwd,
+  });
+
+  const parsed = logResult.ok ? parseGraphLog(logResult.stdout) : [];
+  const hasMore = parsed.length > limit;
+  const commits = hasMore ? parsed.slice(0, limit) : parsed;
+  const head =
+    branchResult.ok && branchResult.stdout.trim() !== "HEAD"
+      ? branchResult.stdout.trim()
+      : null;
+
+  return {
+    ok: logResult.ok,
+    commits,
+    head,
+    hasMore,
+    stderr: [logResult.stderr, branchResult.stderr]
+      .filter(Boolean)
+      .join("\n")
+      .trim(),
+  };
+}
+
+export async function getScmCommitFiles(args: { hash: string; cwd?: string }) {
+  const hash = args.hash.trim();
+  if (!hash) {
+    return { ok: false, files: [], stderr: "Commit hash is required." };
+  }
+  const result = await runCommandArgs({
+    command: "git",
+    commandArgs: ["show", "--name-status", "--pretty=format:", hash],
+    cwd: args.cwd,
+  });
+  const files = result.ok
+    ? result.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const parts = line.split("\t");
+          const status = parts[0] ?? "";
+          // Rename/copy lines: "R100\told-path\tnew-path" — use new path as
+          // the canonical path; preserve old path in oldPath for display.
+          if (
+            (status.startsWith("R") || status.startsWith("C")) &&
+            parts.length >= 3
+          ) {
+            const oldPath = parts[1] ?? "";
+            const newPath = parts[2] ?? "";
+            return { status: status.charAt(0), path: newPath, oldPath };
+          }
+          const path = parts[1] ?? "";
+          return { status, path };
+        })
+        .filter((f) => f.path)
+    : [];
+  return { ok: result.ok, files, stderr: result.stderr };
+}
+
+export async function getScmCommitDiff(args: {
+  hash: string;
+  path: string;
+  oldPath?: string;
+  cwd?: string;
+}) {
+  const hash = args.hash.trim();
+  const path = args.path.trim();
+  if (!hash || !path) {
+    return {
+      ok: false,
+      oldContent: "",
+      newContent: "",
+      stderr: "hash and path are required.",
+    };
+  }
+
+  // newContent: content of the file in this commit
+  const newResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["show", `${hash}:${path}`],
+    cwd: args.cwd,
+  });
+  const newContent = newResult.ok ? newResult.stdout : "";
+
+  // oldContent: content in parent commit (use oldPath for rename case)
+  const oldPathOrPath = args.oldPath?.trim() || path;
+  const oldResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["show", `${hash}^:${oldPathOrPath}`],
+    cwd: args.cwd,
+  });
+  const oldContent = oldResult.ok ? oldResult.stdout : "";
+
+  // Collect stderr only from unexpected failures (not added/deleted/root cases)
+  const stderrParts: string[] = [];
+  if (!newResult.ok && newResult.stderr && newContent === "") {
+    stderrParts.push(newResult.stderr.trim());
+  }
+  if (!oldResult.ok && oldResult.stderr && oldContent === "") {
+    stderrParts.push(oldResult.stderr.trim());
+  }
+
+  return {
+    ok: true,
+    oldContent,
+    newContent,
+    stderr: stderrParts.join("\n").trim(),
+  };
+}
+
 export async function getScmHistory(args: { cwd?: string; limit?: number }) {
   const limit = Math.max(1, Math.min(50, args.limit ?? 20));
-  const result = await runCommand({
-    command: `git log -n ${limit} --pretty=format:%h%x09%ad%x09%s --date=relative`,
+  const result = await runCommandArgs({
+    command: "git",
+    commandArgs: [
+      "log",
+      "-n",
+      String(limit),
+      "--pretty=format:%h%x09%ad%x09%s",
+      "--date=relative",
+    ],
     cwd: args.cwd,
   });
   const items = result.ok
@@ -406,29 +581,34 @@ export async function listScmBranches(args: {
   cwd?: string;
   refreshRemote?: boolean;
 }) {
-  const refreshResult = await runCommand({
-    command: args.refreshRemote
-      ? "git fetch --all --prune"
-      : "git remote prune origin",
+  const refreshResult = await runCommandArgs({
+    command: "git",
+    commandArgs: args.refreshRemote
+      ? ["fetch", "--all", "--prune"]
+      : ["remote", "prune", "origin"],
     cwd: args.cwd,
   });
 
   const [listResult, listRemoteResult, currentResult, worktreeResult] =
     await Promise.all([
-      runCommand({
-        command: "git branch --format='%(refname:short)|%(upstream:track)'",
+      runCommandArgs({
+        command: "git",
+        commandArgs: ["branch", "--format=%(refname:short)|%(upstream:track)"],
         cwd: args.cwd,
       }),
-      runCommand({
-        command: "git branch -r --format='%(refname:short)'",
+      runCommandArgs({
+        command: "git",
+        commandArgs: ["branch", "-r", "--format=%(refname:short)"],
         cwd: args.cwd,
       }),
-      runCommand({
-        command: "git rev-parse --abbrev-ref HEAD",
+      runCommandArgs({
+        command: "git",
+        commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
         cwd: args.cwd,
       }),
-      runCommand({
-        command: "git worktree list --porcelain",
+      runCommandArgs({
+        command: "git",
+        commandArgs: ["worktree", "list", "--porcelain"],
         cwd: args.cwd,
       }),
     ]);
@@ -467,17 +647,15 @@ export async function listScmBranches(args: {
   };
 }
 
-async function assertScmBranchMatches(args: {
-  cwd?: string;
-  branch?: string;
-}) {
+async function assertScmBranchMatches(args: { cwd?: string; branch?: string }) {
   const expectedBranch = args.branch?.trim();
   if (!expectedBranch) {
     return { ok: true, currentBranch: "" };
   }
 
-  const currentResult = await runCommand({
-    command: "git rev-parse --abbrev-ref HEAD",
+  const currentResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
     cwd: args.cwd,
   });
   if (!currentResult.ok) {
@@ -500,10 +678,7 @@ async function assertScmBranchMatches(args: {
   return { ok: true, currentBranch };
 }
 
-export async function fetchScmBranch(args: {
-  cwd?: string;
-  branch?: string;
-}) {
+export async function fetchScmBranch(args: { cwd?: string; branch?: string }) {
   const branchCheck = await assertScmBranchMatches(args);
   if (!branchCheck.ok) {
     return {
@@ -514,8 +689,9 @@ export async function fetchScmBranch(args: {
     };
   }
 
-  return runCommand({
-    command: "git fetch --all --prune",
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["fetch", "--all", "--prune"],
     cwd: args.cwd,
   });
 }
@@ -534,12 +710,12 @@ export function createScmBranch(args: {
       stderr: "Branch name is required.",
     });
   }
-  const safeName = quotePath({ value: name });
   const fromRef = args.from?.trim();
-  const command = fromRef
-    ? `git branch "${safeName}" "${quotePath({ value: fromRef })}"`
-    : `git branch "${safeName}"`;
-  return runCommand({ command, cwd: args.cwd });
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["branch", name, ...(fromRef ? [fromRef] : [])],
+    cwd: args.cwd,
+  });
 }
 
 export function checkoutScmBranch(args: { name: string; cwd?: string }) {
@@ -552,17 +728,14 @@ export function checkoutScmBranch(args: { name: string; cwd?: string }) {
       stderr: "Branch name is required.",
     });
   }
-  const safeName = quotePath({ value: name });
-  return runCommand({
-    command: `git checkout "${safeName}"`,
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["checkout", name],
     cwd: args.cwd,
   });
 }
 
-export async function pullScmBranch(args: {
-  cwd?: string;
-  branch?: string;
-}) {
+export async function pullScmBranch(args: { cwd?: string; branch?: string }) {
   const branchCheck = await assertScmBranchMatches(args);
   if (!branchCheck.ok) {
     return {
@@ -573,8 +746,9 @@ export async function pullScmBranch(args: {
     };
   }
 
-  return runCommand({
-    command: "git pull --ff-only",
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["pull", "--ff-only"],
     cwd: args.cwd,
   });
 }
@@ -582,7 +756,7 @@ export async function pullScmBranch(args: {
 function runScmBranchCommand(args: {
   value: string;
   cwd?: string;
-  template: (quotedValue: string) => string;
+  args: (value: string) => string[];
   requiredMessage: string;
 }) {
   const value = args.value.trim();
@@ -594,8 +768,9 @@ function runScmBranchCommand(args: {
       stderr: args.requiredMessage,
     });
   }
-  return runCommand({
-    command: args.template(quotePath({ value })),
+  return runCommandArgs({
+    command: "git",
+    commandArgs: args.args(value),
     cwd: args.cwd,
   });
 }
@@ -604,7 +779,7 @@ export function mergeScmBranch(args: { branch: string; cwd?: string }) {
   return runScmBranchCommand({
     value: args.branch,
     cwd: args.cwd,
-    template: (quotedValue) => `git merge "${quotedValue}"`,
+    args: (value) => ["merge", value],
     requiredMessage: "Branch name is required.",
   });
 }
@@ -613,7 +788,7 @@ export function rebaseScmBranch(args: { branch: string; cwd?: string }) {
   return runScmBranchCommand({
     value: args.branch,
     cwd: args.cwd,
-    template: (quotedValue) => `git rebase "${quotedValue}"`,
+    args: (value) => ["rebase", value],
     requiredMessage: "Branch name is required.",
   });
 }
@@ -622,43 +797,190 @@ export function cherryPickScmCommit(args: { commit: string; cwd?: string }) {
   return runScmBranchCommand({
     value: args.commit,
     cwd: args.cwd,
-    template: (quotedValue) => `git cherry-pick "${quotedValue}"`,
+    args: (value) => ["cherry-pick", value],
     requiredMessage: "Commit hash is required.",
   });
 }
 
+export function revertScmCommit(args: { commit: string; cwd?: string }) {
+  return runScmBranchCommand({
+    value: args.commit,
+    cwd: args.cwd,
+    args: (value) => ["revert", "--no-edit", value],
+    requiredMessage: "Commit hash is required.",
+  });
+}
+
+export function resetScmCommit(args: {
+  commit: string;
+  mode: "soft" | "mixed" | "hard";
+  cwd?: string;
+}) {
+  const mode =
+    args.mode === "soft" || args.mode === "hard" ? args.mode : "mixed";
+  return runScmBranchCommand({
+    value: args.commit,
+    cwd: args.cwd,
+    args: (value) => ["reset", `--${mode}`, value],
+    requiredMessage: "Commit hash is required.",
+  });
+}
+
+/**
+ * Build the `git tag` argument vector.
+ *
+ * When no message is supplied the UI wants a lightweight tag, so we pass
+ * `--no-sign` explicitly. Without it, a user's `tag.gpgsign=true` git config
+ * turns the bare `git tag <name>` into a signed/annotated tag, which then fails
+ * with "fatal: no tag message?" because no `-m` was given.
+ */
+export function buildCreateTagArgs(args: {
+  name: string;
+  commit?: string;
+  message?: string;
+}): string[] {
+  const name = args.name.trim();
+  const target = args.commit?.trim();
+  const message = args.message?.trim();
+  const commandArgs = ["tag"];
+  if (message) {
+    commandArgs.push("-a", name, "-m", message);
+  } else {
+    commandArgs.push("--no-sign", name);
+  }
+  if (target) {
+    commandArgs.push(target);
+  }
+  return commandArgs;
+}
+
+export function createScmTag(args: {
+  name: string;
+  commit?: string;
+  message?: string;
+  cwd?: string;
+}) {
+  const name = args.name.trim();
+  if (!name) {
+    return Promise.resolve({
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: "Tag name is required.",
+    });
+  }
+  return runCommandArgs({
+    command: "git",
+    commandArgs: buildCreateTagArgs(args),
+    cwd: args.cwd,
+  });
+}
+
+export function deleteScmTag(args: { name: string; cwd?: string }) {
+  return runScmBranchCommand({
+    value: args.name,
+    cwd: args.cwd,
+    args: (value) => ["tag", "-d", value],
+    requiredMessage: "Tag name is required.",
+  });
+}
+
+export function renameScmBranch(args: {
+  from: string;
+  to: string;
+  cwd?: string;
+}) {
+  const from = args.from.trim();
+  const to = args.to.trim();
+  if (!from || !to) {
+    return Promise.resolve({
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: "Both branch names are required.",
+    });
+  }
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["branch", "-m", from, to],
+    cwd: args.cwd,
+  });
+}
+
+export function deleteScmBranch(args: {
+  name: string;
+  force?: boolean;
+  cwd?: string;
+}) {
+  const flag = args.force ? "-D" : "-d";
+  return runScmBranchCommand({
+    value: args.name,
+    cwd: args.cwd,
+    args: (value) => ["branch", flag, value],
+    requiredMessage: "Branch name is required.",
+  });
+}
+
+export function pushScmBranch(args: {
+  branch?: string;
+  remote?: string;
+  force?: boolean;
+  cwd?: string;
+}) {
+  const remote = (args.remote ?? "origin").trim();
+  const branch = args.branch?.trim();
+  return runCommandArgs({
+    command: "git",
+    commandArgs: [
+      "push",
+      ...(args.force ? ["--force-with-lease"] : []),
+      remote,
+      ...(branch ? [branch] : []),
+    ],
+    cwd: args.cwd,
+  });
+}
+
 export async function setScmPrReady(args: { cwd?: string }) {
-  const authResult = await runCommand({
-    command: "gh auth status",
+  const authResult = await runCommandArgs({
+    command: "gh",
+    commandArgs: ["auth", "status"],
     cwd: args.cwd,
   });
   if (!authResult.ok) {
     return { ok: false, stderr: "GitHub CLI is not authenticated." };
   }
-  return runCommand({ command: "gh pr ready", cwd: args.cwd });
+  return runCommandArgs({
+    command: "gh",
+    commandArgs: ["pr", "ready"],
+    cwd: args.cwd,
+  });
 }
 
 export async function mergeScmPr(args: {
   method?: "merge" | "squash" | "rebase";
   cwd?: string;
 }) {
-  const authResult = await runCommand({
-    command: "gh auth status",
+  const authResult = await runCommandArgs({
+    command: "gh",
+    commandArgs: ["auth", "status"],
     cwd: args.cwd,
   });
   if (!authResult.ok) {
     return { ok: false, stderr: "GitHub CLI is not authenticated." };
   }
   const method = args.method ?? "squash";
-  return runCommand({
-    command: `gh pr merge --${method} --delete-branch`,
+  return runCommandArgs({
+    command: "gh",
+    commandArgs: ["pr", "merge", `--${method}`, "--delete-branch"],
     cwd: args.cwd,
   });
 }
 
 export async function updateScmPrBranch(args: { cwd?: string }) {
-  const authResult = await runCommand({
-    command: "gh auth status",
+  const authResult = await runCommandArgs({
+    command: "gh",
+    commandArgs: ["auth", "status"],
     cwd: args.cwd,
   });
   if (!authResult.ok) {
@@ -670,14 +992,16 @@ export async function updateScmPrBranch(args: { cwd?: string }) {
     };
   }
 
-  const baseResult = await runCommand({
-    command: "gh pr view --json baseRefName -q .baseRefName",
+  const baseResult = await runCommandArgs({
+    command: "gh",
+    commandArgs: ["pr", "view", "--json", "baseRefName", "-q", ".baseRefName"],
     cwd: args.cwd,
   });
   const baseBranch = baseResult.ok ? baseResult.stdout.trim() : "main";
 
-  const fetchResult = await runCommand({
-    command: "git fetch origin",
+  const fetchResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["fetch", "origin"],
     cwd: args.cwd,
   });
   if (!fetchResult.ok) {
@@ -689,8 +1013,9 @@ export async function updateScmPrBranch(args: { cwd?: string }) {
     };
   }
 
-  return runCommand({
-    command: `git rebase "origin/${baseBranch}"`,
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["rebase", `origin/${baseBranch}`],
     cwd: args.cwd,
   });
 }

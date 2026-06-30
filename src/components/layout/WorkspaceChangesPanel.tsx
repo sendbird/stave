@@ -1,5 +1,6 @@
-import { Check, ClipboardList, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, GitPullRequest, History, ListChecks, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer, Wrench } from "lucide-react";
+import { Check, ClipboardList, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, GitGraph, GitPullRequest, History, ListChecks, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer, Wrench } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useAppStore } from "@/store/app.store";
 import { Badge, Button, Input, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -537,6 +538,7 @@ export function WorkspaceChangesPanel(props: {
   checks?: WorkspaceChecksViewModel | null;
 }) {
   const [view, setView] = useState<SourceControlPanelView>("changes");
+  const openGitGraph = useAppStore((s) => s.openGitGraph);
   const verificationFailureCount = props.verification?.failures.length ?? 0;
   const showChecksTab = Boolean(props.checks);
   // Count the actionable, merge-blocking signals surfaced on the Checks tab.
@@ -751,6 +753,17 @@ export function WorkspaceChangesPanel(props: {
             type="button"
             size="icon-xs"
             variant="ghost"
+            aria-label="Open Git Graph"
+            title="Open Git Graph"
+            className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+            onClick={() => openGitGraph()}
+          >
+            <GitGraph className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
             aria-label="Refresh source control"
             title="Refresh"
             className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
@@ -951,15 +964,25 @@ export function WorkspaceChangesPanel(props: {
             </div>
           ) : (
             <div className="space-y-0">
-              {props.sourceHistory.map((item, index) => (
+              {props.sourceHistory.slice(0, 10).map((item, index) => (
                 <SourceControlHistoryRow
                   key={`${item.hash}:${item.subject}`}
                   item={item}
-                  isLast={index === props.sourceHistory.length - 1}
+                  isLast={index === Math.min(props.sourceHistory.length, 10) - 1}
                 />
               ))}
             </div>
           )}
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2 rounded-xl border-border/70 text-sm font-medium"
+            onClick={() => openGitGraph()}
+          >
+            <GitGraph className="size-4 text-muted-foreground" />
+            Open Git Graph
+          </Button>
         </div>
       </TabsContent>
 
