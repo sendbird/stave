@@ -102,6 +102,11 @@ import {
   type PromptCommentShortcut,
 } from "@/lib/prompt-comment-shortcuts";
 import {
+  DEFAULT_VISUAL_COMMENT_SHORTCUT,
+  normalizeVisualCommentShortcut,
+  type VisualCommentShortcut,
+} from "@/lib/visual-comment-shortcuts";
+import {
   DEFAULT_PROMPT_RESPONSE_STYLE,
   DEFAULT_PROMPT_PR_DESCRIPTION,
   DEFAULT_PROMPT_INLINE_COMPLETION,
@@ -242,10 +247,12 @@ import type {
   ClaudePermissionModeBeforePlan,
   ClaudePlanModeApprovalScope,
   EditorTab,
+  MessagePart,
   PromptDraft,
   PromptDraftQueuedTurn,
   Task,
 } from "@/types/chat";
+import { getLensCommentImageId } from "@/lib/lens/lens-annotation-attachment";
 import { DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE } from "@/types/chat";
 import {
   arePromptDraftRuntimeOverridesEqual,
@@ -583,6 +590,86 @@ function buildPromptDraftContentForSend(draft: PromptDraft): string {
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+function buildPromptDraftDisplayContentForSend(draft: PromptDraft): string {
+  return [
+    ...(draft.promptBatch ?? []).map((item) => item.content.trim()),
+    draft.text.trim(),
+    ...draft.attachments
+      .filter(
+        (
+          attachment,
+        ): attachment is Extract<Attachment, { kind: "lens-annotations" }> =>
+          attachment.kind === "lens-annotations",
+      )
+      .map((attachment) =>
+        (attachment.displayContent ?? attachment.content).trim(),
+      ),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] | undefined {
+  const parts: MessagePart[] = [];
+  let hasLensAnnotation = false;
+
+  for (const item of draft.promptBatch ?? []) {
+    const text = item.content.trim();
+    if (text) {
+      parts.push({ type: "text", text });
+    }
+  }
+
+  const draftText = draft.text.trim();
+  if (draftText) {
+    parts.push({ type: "text", text: draftText });
+  }
+
+  const imageAttachmentsById = new Map(
+    draft.attachments
+      .filter(
+        (attachment): attachment is Extract<Attachment, { kind: "image" }> =>
+          attachment.kind === "image",
+      )
+      .map((attachment) => [attachment.id, attachment]),
+  );
+
+  for (const attachment of draft.attachments) {
+    if (attachment.kind !== "lens-annotations") {
+      continue;
+    }
+    hasLensAnnotation = true;
+    for (const annotation of attachment.annotations ?? []) {
+      const screenshot = attachment.workspaceId
+        ? imageAttachmentsById.get(
+            getLensCommentImageId({
+              workspaceId: attachment.workspaceId,
+              annotationId: annotation.id,
+            }),
+          )
+        : null;
+      if (screenshot) {
+        parts.push({
+          type: "image_context",
+          dataUrl: screenshot.dataUrl,
+          label: annotation.comment.trim() || `Visual comment ${annotation.pin}`,
+          mimeType: "image/png",
+        });
+        continue;
+      }
+      const comment = annotation.comment.trim();
+      if (comment) {
+        parts.push({
+          type: "text",
+          text: comment,
+        });
+      }
+    }
+  }
+
+  return hasLensAnnotation && parts.length > 0 ? parts : undefined;
 }
 
 function buildQueuedTurnFromDraft(args: {
@@ -1073,6 +1160,8 @@ export interface AppSettings {
   modelShortcutKeys: string[];
   /** Composer shortcut that stages the current prompt text as a comment. */
   promptCommentShortcut: PromptCommentShortcut;
+  /** Lens shortcut that toggles visual comment mode. */
+  visualCommentShortcut: VisualCommentShortcut;
   reviewStrictMode: boolean;
   reviewChecklistPreset: string;
   prePrReviewEnabled: boolean;
@@ -2222,6 +2311,7 @@ const defaultSettings: AppSettings = {
   appShortcutKeys: { ...DEFAULT_APP_SHORTCUT_KEYS },
   modelShortcutKeys: normalizeModelShortcutKeys(),
   promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
+  visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   reviewStrictMode: true,
   reviewChecklistPreset: "safety-first",
   prePrReviewEnabled: false,
@@ -7180,6 +7270,13 @@ export const useAppStore = create<AppState>()(
                     patch.promptCommentShortcut,
                   ),
                 }),
+            ...(patch.visualCommentShortcut === undefined
+              ? {}
+              : {
+                  visualCommentShortcut: normalizeVisualCommentShortcut(
+                    patch.visualCommentShortcut,
+                  ),
+                }),
             ...(patch.trustedTools === undefined
               ? {}
               : {
@@ -9883,6 +9980,10 @@ export const useAppStore = create<AppState>()(
             queuedNextTurn: undefined,
           });
           const promptContent = buildPromptDraftContentForSend(promptDraft);
+          const promptDisplayContent =
+            buildPromptDraftDisplayContentForSend(promptDraft);
+          const promptDisplayParts =
+            buildPromptDraftDisplayPartsForSend(promptDraft);
           const activeTurnId =
             taskWorkspaceSession.activeTurnIdsByTask[resolvedTaskId];
           if (activeTurnId) {
@@ -10208,6 +10309,8 @@ export const useAppStore = create<AppState>()(
                   provider,
                   activeModel,
                   content: promptContent,
+                  displayContent: promptDisplayContent,
+                  displayParts: promptDisplayParts,
                   fileContexts:
                     resolvedFileContexts.length > 0
                       ? resolvedFileContexts
@@ -10261,6 +10364,8 @@ export const useAppStore = create<AppState>()(
                   provider,
                   activeModel,
                   content: promptContent,
+                  displayContent: promptDisplayContent,
+                  displayParts: promptDisplayParts,
                   fileContexts:
                     resolvedFileContexts.length > 0
                       ? resolvedFileContexts
@@ -12131,6 +12236,10 @@ export const useAppStore = create<AppState>()(
         state.settings.promptCommentShortcut = normalizePromptCommentShortcut(
           raw.promptCommentShortcut,
         );
+        state.settings.visualCommentShortcut =
+          raw.visualCommentShortcut === "mod-period"
+            ? DEFAULT_VISUAL_COMMENT_SHORTCUT
+            : normalizeVisualCommentShortcut(raw.visualCommentShortcut);
         state.settings.trustedTools = normalizeTrustedToolEntries(
           raw.trustedTools,
         );

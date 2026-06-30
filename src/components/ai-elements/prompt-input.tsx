@@ -116,7 +116,11 @@ import type {
   LensStyleEdit,
   LensSourceMappingConfig,
 } from "@/lib/lens/lens.types";
-import { buildLensAnnotationsAttachment } from "@/lib/lens/lens-annotation-attachment";
+import {
+  buildLensAnnotationsAttachment,
+  getLensCommentImageId,
+  isAnyLensCommentImageAttachment,
+} from "@/lib/lens/lens-annotation-attachment";
 import { ModelSelector, type ModelSelectorOption } from "./model-selector";
 import {
   PromptInputProviderModePill,
@@ -578,6 +582,14 @@ export function PromptInput(args: PromptInputProps) {
         (a): a is Extract<Attachment, { kind: "image" }> => a.kind === "image",
       ),
     [attachments],
+  );
+  const standaloneImageAttachments = useMemo(
+    () => imageAttachments.filter((a) => !isAnyLensCommentImageAttachment(a)),
+    [imageAttachments],
+  );
+  const imageAttachmentsById = useMemo(
+    () => new Map(imageAttachments.map((attachment) => [attachment.id, attachment])),
+    [imageAttachments],
   );
   const lensAnnotationAttachments = useMemo(
     () =>
@@ -2177,7 +2189,10 @@ export function PromptInput(args: PromptInputProps) {
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
-                                  title={attachment.content}
+                                  title={
+                                    attachment.displayContent ??
+                                    attachment.content
+                                  }
                                   className="flex min-w-0 items-center gap-1.5 px-2 py-1 hover:bg-secondary/70"
                                 >
                                   <FileText className="size-3.5 shrink-0" />
@@ -2203,7 +2218,7 @@ export function PromptInput(args: PromptInputProps) {
                             className="max-h-96 w-[min(42rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-border/80 bg-popover p-3 shadow-lg"
                           >
                             <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-popover-foreground">
-                              {attachment.content}
+                              {attachment.displayContent ?? attachment.content}
                             </pre>
                           </PopoverContent>
                         </Popover>
@@ -2229,83 +2244,113 @@ export function PromptInput(args: PromptInputProps) {
                       </div>
                     );
                   }
-                  return annotationItems.map((annotation) => (
-                    <div
-                      key={`${attachment.id}:${annotation.id}`}
-                      className="flex max-w-full items-start gap-2 rounded-md border border-border/70 bg-secondary/50 px-2 py-1.5 text-xs text-foreground"
-                    >
-                      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                        {annotation.pin}
-                      </span>
-                      <Popover modal={false}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <PopoverTrigger asChild>
-                              <button
-                                type="button"
-                                title={annotation.comment}
-                                className="min-w-0 flex-1 text-left hover:text-foreground"
-                              >
-                                <span className="block truncate font-medium">
-                                  {annotation.comment}
-                                </span>
-                                <span className="block truncate text-[10px] text-muted-foreground">
-                                  {annotation.kind === "area"
-                                    ? "area"
-                                    : annotation.selector}
-                                </span>
-                              </button>
-                            </PopoverTrigger>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-80">
-                            {annotation.comment}
-                          </TooltipContent>
-                        </Tooltip>
-                        <PopoverContent
-                          side="top"
-                          align="start"
-                          className="max-h-96 w-[min(42rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-border/80 bg-popover p-3 shadow-lg"
-                        >
-                          <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-popover-foreground">
-                            {attachment.content}
-                          </pre>
-                        </PopoverContent>
-                      </Popover>
-                      <LensAnnotationStylePopover
-                        annotation={annotation}
-                        disabled={
-                          interactionsDisabled ||
-                          !attachment.workspaceId ||
-                          annotation.kind !== "element"
-                        }
-                        onApply={(targetAnnotation, patch) =>
-                          applyLensAnnotationStyle(
-                            attachment,
-                            targetAnnotation,
-                            patch,
-                          )
-                        }
-                      />
-                      <Button
-                        type="button"
-                        size="icon-xs"
-                        variant="ghost"
-                        disabled={interactionsDisabled}
-                        aria-label={`Remove comment ${annotation.pin}`}
-                        onClick={() => {
-                          void removeLensAnnotation(attachment, annotation);
-                        }}
+                  return annotationItems.map((annotation) => {
+                    const screenshot = attachment.workspaceId
+                      ? imageAttachmentsById.get(
+                          getLensCommentImageId({
+                            workspaceId: attachment.workspaceId,
+                            annotationId: annotation.id,
+                          }),
+                        )
+                      : null;
+                    return (
+                      <div
+                        key={`${attachment.id}:${annotation.id}`}
+                        className="flex max-w-full items-start gap-2 rounded-md border border-border/70 bg-secondary/50 px-2 py-1.5 text-xs text-foreground"
                       >
-                        <Trash2 className="size-3" />
-                      </Button>
-                    </div>
-                  ));
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                          {annotation.pin}
+                        </span>
+                        {screenshot ? (
+                          <button
+                            type="button"
+                            className="shrink-0 rounded-sm border border-border/70 bg-background p-0.5 hover:border-border"
+                            title="View visual comment screenshot"
+                            onClick={() =>
+                              setImagePreviewSrc({
+                                dataUrl: screenshot.dataUrl,
+                                label: screenshot.label,
+                              })
+                            }
+                          >
+                            <img
+                              src={screenshot.dataUrl}
+                              alt={screenshot.label}
+                              className="h-10 w-16 rounded-[2px] object-cover"
+                            />
+                          </button>
+                        ) : null}
+                        <Popover modal={false}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  title={annotation.comment}
+                                  className="min-w-0 flex-1 text-left hover:text-foreground"
+                                >
+                                  <span className="block truncate font-medium">
+                                    {annotation.comment}
+                                  </span>
+                                  <span className="block truncate text-[10px] text-muted-foreground">
+                                    {annotation.kind === "area"
+                                      ? "area"
+                                      : annotation.selector}
+                                  </span>
+                                </button>
+                              </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-80">
+                              {annotation.comment}
+                            </TooltipContent>
+                          </Tooltip>
+                          <PopoverContent
+                            side="top"
+                            align="start"
+                            className="max-h-96 w-[min(42rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-border/80 bg-popover p-3 shadow-lg"
+                          >
+                            <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-popover-foreground">
+                              {attachment.displayContent ?? attachment.content}
+                            </pre>
+                          </PopoverContent>
+                        </Popover>
+                        <LensAnnotationStylePopover
+                          annotation={annotation}
+                          disabled={
+                            interactionsDisabled ||
+                            !attachment.workspaceId ||
+                            annotation.kind !== "element"
+                          }
+                          onApply={(targetAnnotation, patch) =>
+                            applyLensAnnotationStyle(
+                              attachment,
+                              targetAnnotation,
+                              patch,
+                            )
+                          }
+                        />
+                        <Button
+                          type="button"
+                          size="icon-xs"
+                          variant="ghost"
+                          disabled={interactionsDisabled}
+                          aria-label={`Remove comment ${annotation.pin}`}
+                          onClick={() => {
+                            void removeLensAnnotation(attachment, annotation);
+                          }}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    );
+                  });
                 })}
               </div>
             </div>
           ) : null}
           {visibleQueuedTurns.length === 0 &&
-          (attachedFilePaths.length > 0 || imageAttachments.length > 0) ? (
+          (attachedFilePaths.length > 0 ||
+            standaloneImageAttachments.length > 0) ? (
             <div className="flex flex-wrap gap-1.5">
               {attachedFilePaths.map((filePath) => (
                 <div
@@ -2334,7 +2379,7 @@ export function PromptInput(args: PromptInputProps) {
                   </button>
                 </div>
               ))}
-              {imageAttachments.map((img) => (
+              {standaloneImageAttachments.map((img) => (
                 <div
                   key={img.id}
                   className={cn(

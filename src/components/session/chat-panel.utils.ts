@@ -240,7 +240,20 @@ export function groupMessageParts(parts: MessagePart[]): MessagePartSegment[] {
   return segments;
 }
 
-export function getRenderableMessageParts(message: Pick<ChatMessage, "content" | "parts">): MessagePart[] {
+export function getRenderableMessageParts(
+  message: Pick<
+    ChatMessage,
+    "content" | "parts" | "displayContent" | "displayParts"
+  >,
+): MessagePart[] {
+  if (message.displayParts && message.displayParts.length > 0) {
+    return message.displayParts;
+  }
+
+  if (message.displayContent?.trim()) {
+    return [{ type: "text", text: message.displayContent }];
+  }
+
   if (message.parts.length > 0) {
     return message.parts;
   }
@@ -252,7 +265,12 @@ export function getRenderableMessageParts(message: Pick<ChatMessage, "content" |
   return [{ type: "text", text: message.content }];
 }
 
-export function hasRenderableMessageBody(message: Pick<ChatMessage, "content" | "parts" | "isStreaming">) {
+export function hasRenderableMessageBody(
+  message: Pick<
+    ChatMessage,
+    "content" | "parts" | "displayContent" | "displayParts" | "isStreaming"
+  >,
+) {
   return getMessageBodyFallbackState({
     isActivelyStreaming: Boolean(message.isStreaming),
     renderableParts: getRenderableMessageParts(message),

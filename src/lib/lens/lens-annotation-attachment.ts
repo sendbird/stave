@@ -3,7 +3,36 @@ import type {
   LensAnnotation,
   LensSourceMappingConfig,
 } from "@/lib/lens/lens.types";
-import { formatAnnotationsForChat } from "@/lib/lens/lens-element-message";
+import {
+  formatAnnotationsDisplayForChat,
+  formatAnnotationsForChat,
+} from "@/lib/lens/lens-element-message";
+
+export const LENS_COMMENT_IMAGE_ID_PREFIX = "lens-comment-image:";
+
+export function getLensCommentImageId(args: {
+  workspaceId: string;
+  annotationId: string;
+}) {
+  return `${LENS_COMMENT_IMAGE_ID_PREFIX}${args.workspaceId}:${args.annotationId}`;
+}
+
+export function isLensCommentImageAttachment(
+  attachment: Attachment,
+  workspaceId: string,
+) {
+  return (
+    attachment.kind === "image" &&
+    attachment.id.startsWith(`${LENS_COMMENT_IMAGE_ID_PREFIX}${workspaceId}:`)
+  );
+}
+
+export function isAnyLensCommentImageAttachment(attachment: Attachment) {
+  return (
+    attachment.kind === "image" &&
+    attachment.id.startsWith(LENS_COMMENT_IMAGE_ID_PREFIX)
+  );
+}
 
 export function buildLensAnnotationsAttachment(args: {
   id?: string;
@@ -25,6 +54,7 @@ export function buildLensAnnotationsAttachment(args: {
       .filter(Boolean)
       .join(" · "),
     content: formatAnnotationsForChat(annotations, args.sourceMappingConfig),
+    displayContent: formatAnnotationsDisplayForChat(annotations),
     annotations,
   };
 }

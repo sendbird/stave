@@ -1,7 +1,9 @@
 import { getLensStyleCaptureScript } from "./browser-style-capture";
+import type { LensAnnotation } from "../../../src/lib/lens/lens.types";
 
 interface AnnotationOverlayOptions {
   extractDebugSource?: boolean;
+  initialAnnotations?: LensAnnotation[];
   nonce: string;
 }
 
@@ -9,11 +11,13 @@ export function getAnnotationOverlayScript(
   options: AnnotationOverlayOptions,
 ): string {
   const extractDebugSource = options.extractDebugSource ?? false;
+  const initialAnnotations = JSON.stringify(options.initialAnnotations ?? []);
   const nonce = JSON.stringify(options.nonce);
 
   return `
 (function staveAnnotationOverlay() {
   const nonce = ${nonce};
+  const initialAnnotations = ${initialAnnotations};
   const BEACON_PREFIX = "__STAVE_ANN__" + nonce;
   if (window.__staveTeardownAnnotations) {
     window.__staveTeardownAnnotations();
@@ -81,6 +85,7 @@ export function getAnnotationOverlayScript(
   let hoverElement = null;
   let pendingInput = null;
   let dragStart = null;
+  let captureActive = true;
 
   function rectToPlain(r) {
     return {
@@ -261,6 +266,22 @@ export function getAnnotationOverlayScript(
     return true;
   }
 
+  function clearAnnotations() {
+    annotations.clear();
+    for (const pin of pins.values()) {
+      pin.remove();
+    }
+    pins.clear();
+    nextPin = 1;
+    clearPendingInput();
+    hover.style.display = "none";
+    label.style.display = "none";
+    areaBox.style.display = "none";
+    dragStart = null;
+    emit("clear");
+    return true;
+  }
+
   function clearPendingInput() {
     pendingInput?.remove();
     pendingInput = null;
@@ -330,6 +351,7 @@ export function getAnnotationOverlayScript(
   }
 
   function onMouseMove(event) {
+    if (!captureActive) return;
     if (pendingInput || dragStart) return;
     const el = document.elementFromPoint(event.clientX, event.clientY);
     if (!el || root.contains(el)) return;
@@ -350,6 +372,7 @@ export function getAnnotationOverlayScript(
   }
 
   function onMouseDown(event) {
+    if (!captureActive) return;
     if (!event.shiftKey || root.contains(event.target)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -364,6 +387,7 @@ export function getAnnotationOverlayScript(
   }
 
   function onDragMove(event) {
+    if (!captureActive) return;
     if (!dragStart) return;
     event.preventDefault();
     const x = Math.min(dragStart.x, event.clientX);
@@ -379,6 +403,7 @@ export function getAnnotationOverlayScript(
   }
 
   function onMouseUp(event) {
+    if (!captureActive) return;
     if (!dragStart) return;
     event.preventDefault();
     event.stopPropagation();
@@ -397,6 +422,7 @@ export function getAnnotationOverlayScript(
   }
 
   function onClick(event) {
+    if (!captureActive) return;
     if (root.contains(event.target) || pendingInput || dragStart) return;
     event.preventDefault();
     event.stopPropagation();
@@ -409,9 +435,22 @@ export function getAnnotationOverlayScript(
   }
 
   function onKeyDown(event) {
+    if (!captureActive) return;
     if (event.key === "Escape") {
       clearPendingInput();
     }
+  }
+
+  function setCaptureActive(active) {
+    captureActive = Boolean(active);
+    if (!captureActive) {
+      hover.style.display = "none";
+      label.style.display = "none";
+      areaBox.style.display = "none";
+      clearPendingInput();
+      dragStart = null;
+    }
+    return true;
   }
 
   function teardown() {
@@ -425,7 +464,9 @@ export function getAnnotationOverlayScript(
     delete window.__staveAnnotations;
     delete window.__staveGetAnnotations;
     delete window.__staveRemoveAnnotation;
+    delete window.__staveClearAnnotations;
     delete window.__staveSetStyle;
+    delete window.__staveSetAnnotationCaptureActive;
     delete window.__staveTeardownAnnotations;
   }
 
@@ -434,8 +475,17 @@ export function getAnnotationOverlayScript(
     return Array.from(annotations.values());
   };
   window.__staveRemoveAnnotation = removeAnnotation;
+  window.__staveClearAnnotations = clearAnnotations;
   window.__staveSetStyle = setInlineStyle;
+  window.__staveSetAnnotationCaptureActive = setCaptureActive;
   window.__staveTeardownAnnotations = teardown;
+
+  for (const annotation of initialAnnotations) {
+    if (!annotation || !annotation.id) continue;
+    annotations.set(annotation.id, annotation);
+    nextPin = Math.max(nextPin, Number(annotation.pin || 0) + 1);
+    createPin(annotation);
+  }
 
   document.addEventListener("mousemove", onMouseMove, true);
   document.addEventListener("mousedown", onMouseDown, true);

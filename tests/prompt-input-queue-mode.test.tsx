@@ -364,6 +364,12 @@ describe("PromptInput queue mode", () => {
           attachedFilePaths: [],
           attachments: [
             {
+              kind: "image" as const,
+              id: "lens-comment-image:workspace-1:annotation-1",
+              dataUrl: "data:image/png;base64,abc",
+              label: "Visual comment 1",
+            },
+            {
               kind: "lens-annotations" as const,
               id: "lens-1",
               workspaceId: "workspace-1",
@@ -396,10 +402,12 @@ describe("PromptInput queue mode", () => {
 
     expect(html).toContain("Comment");
     expect(html).toContain("1 item will send as one prompt");
+    expect(html).toContain('alt="Visual comment 1"');
     expect(html).toContain("Header cramped");
     expect(html).toContain("#root h1");
     expect(html).toContain('aria-label="Edit styles for comment 1"');
     expect(html).toContain('aria-label="Remove comment 1"');
+    expect(html.match(/alt="Visual comment 1"/g)?.length ?? 0).toBe(1);
   });
 
   test("renders the runtime drawer trigger as an icon-only button", async () => {

@@ -43,7 +43,7 @@ import {
 import { MessagePartRenderer, toToolDisplayName } from "@/components/session/chat-panel-message-parts";
 import { parseFileChangeToolInput } from "@/components/session/chat-panel.utils";
 import { cn } from "@/lib/utils";
-import type { ChatMessage, CodeDiffPart, ThinkingPart } from "@/types/chat";
+import type { ChatMessage, CodeDiffPart, MessagePart, ThinkingPart } from "@/types/chat";
 import {
   deriveTodoTraceItems,
   deriveTodoTraceStatus,
@@ -607,10 +607,53 @@ function AssistantTraceEntryView(args: {
   }
 }
 
+function DisplayPartList(args: {
+  parts: MessagePart[];
+  taskId: string;
+  messageId: string;
+  isStreaming: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      {args.parts.map((part, index) => {
+        if (part.type === "text") {
+          return (
+            <MessageResponse
+              key={`${args.messageId}-display-${index}`}
+              isStreaming={args.isStreaming && index === args.parts.length - 1}
+            >
+              {part.text}
+            </MessageResponse>
+          );
+        }
+        if (part.type === "image_context") {
+          return (
+            <ImageAttachmentBlock
+              key={`${args.messageId}-display-${index}`}
+              parts={[part]}
+            />
+          );
+        }
+        return (
+          <MessagePartRenderer
+            key={`${args.messageId}-display-${index}`}
+            part={part}
+            taskId={args.taskId}
+            messageId={args.messageId}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 /* ─── Main export ─────────────────────────────────────────────────── */
 
 export function AssistantMessageBody(args: {
-  message: Pick<ChatMessage, "content" | "parts" | "isStreaming">;
+  message: Pick<
+    ChatMessage,
+    "content" | "parts" | "displayContent" | "displayParts" | "isStreaming"
+  >;
   taskId: string;
   messageId: string;
   streamingEnabled: boolean;
@@ -629,6 +672,7 @@ export function AssistantMessageBody(args: {
   const isStreaming = streamingEnabled && isActivelyStreaming;
   const shouldAutoExpandTrace = traceExpansionMode === "auto";
   const trace = useMemo(() => buildAssistantTrace({ message }), [message]);
+
   const summaryItems = useMemo(() => buildTraceSummary(trace.entries), [trace.entries]);
   const allDiffParts = useMemo<CodeDiffPart[]>(
     () => trace.entries.flatMap((entry) => entry.kind === "diff" ? entry.parts : []),
@@ -651,6 +695,17 @@ export function AssistantMessageBody(args: {
   );
   const showDiffResults = allDiffParts.length > 0 && !isStreaming;
   const showFileChangeSummary = unresolvedFileChangeRows.length > 0 && !isStreaming;
+
+  if (message.displayParts && message.displayParts.length > 0) {
+    return (
+      <DisplayPartList
+        parts={message.displayParts}
+        taskId={taskId}
+        messageId={messageId}
+        isStreaming={isStreaming}
+      />
+    );
+  }
 
   if (
     !trace.showStreamingPlaceholder

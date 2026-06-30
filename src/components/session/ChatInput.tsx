@@ -369,6 +369,16 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     });
   }
 
+  function clearLensAnnotationsOnMessageSubmit(taskId: string) {
+    const store = useAppStore.getState();
+    const workspaceId =
+      store.taskWorkspaceIdById[taskId] ?? store.activeWorkspaceId;
+    if (!workspaceId) {
+      return;
+    }
+    void window.api?.lens?.clearAnnotations?.({ workspaceId });
+  }
+
   function stageApprovalGuidance(guidanceArgs: {
     toolName: string;
     description: string;
@@ -822,6 +832,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           onRemoveQueuedTurn={({ itemId }) => removeQueuedTurn(itemId)}
           onSuggestionSelect={async (suggestion) => {
             cancelPendingDraftSave();
+            clearLensAnnotationsOnMessageSubmit(args.activeTaskId);
             const result = await sendUserMessage({
               taskId: args.activeTaskId,
               content: suggestion,
@@ -968,6 +979,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   label: a.label,
                   mimeType: "image/png",
                 }));
+              clearLensAnnotationsOnMessageSubmit(args.activeTaskId);
               const result = await sendUserMessage({
                 taskId: args.activeTaskId,
                 content: text,

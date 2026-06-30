@@ -255,20 +255,40 @@ export function sanitizeChatMessagePayload(message: ChatMessage): ChatMessage {
     value: message.content,
     label: `${message.role} message content`,
   });
+  const displayContent = message.displayContent == null
+    ? message.displayContent
+    : sanitizeTextField({
+        value: message.displayContent,
+        label: `${message.role} message display content`,
+      });
   const planText = message.planText == null
     ? message.planText
     : sanitizeTextField({ value: message.planText, label: "plan text" });
   const parts = message.parts.map((part) => sanitizeMessagePartPayload(part));
+  const displayParts = message.displayParts?.map((part) =>
+    sanitizeMessagePartPayload(part),
+  );
   const partsChanged = parts.some((part, index) => part !== message.parts[index]);
+  const displayPartsChanged = Boolean(
+    displayParts?.some((part, index) => part !== message.displayParts?.[index]),
+  );
 
-  if (content === message.content && planText === message.planText && !partsChanged) {
+  if (
+    content === message.content &&
+    displayContent === message.displayContent &&
+    planText === message.planText &&
+    !partsChanged &&
+    !displayPartsChanged
+  ) {
     return message;
   }
 
   return {
     ...message,
     content,
+    ...(displayContent !== undefined ? { displayContent } : {}),
     ...(planText !== undefined ? { planText } : {}),
     parts,
+    ...(displayParts !== undefined ? { displayParts } : {}),
   };
 }

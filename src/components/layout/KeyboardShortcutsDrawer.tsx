@@ -34,6 +34,10 @@ import {
   normalizePromptCommentShortcut,
 } from "@/lib/prompt-comment-shortcuts";
 import {
+  DEFAULT_VISUAL_COMMENT_SHORTCUT,
+  normalizeVisualCommentShortcut,
+} from "@/lib/visual-comment-shortcuts";
+import {
   getTaskPresetShortcutLabel,
   TASK_PRESET_SHORTCUT_SLOT_LABELS,
 } from "@/lib/task-presets";
@@ -100,6 +104,7 @@ export function KeyboardShortcutsDrawer({
     storedModelShortcutKeys,
     storedAppShortcutKeys,
     storedPromptCommentShortcut,
+    storedVisualCommentShortcut,
     taskPresets,
   ] = useAppStore(
     useShallow(
@@ -108,6 +113,7 @@ export function KeyboardShortcutsDrawer({
           state.settings.modelShortcutKeys,
           state.settings.appShortcutKeys,
           state.settings.promptCommentShortcut,
+          state.settings.visualCommentShortcut,
           state.settings.taskPresets,
         ] as const,
     ),
@@ -131,6 +137,20 @@ export function KeyboardShortcutsDrawer({
           ? [["Shift", "Enter"]]
           : [["Disabled"]],
     [modifierLabel, normalizedPromptCommentShortcut],
+  );
+  const normalizedVisualCommentShortcut = normalizeVisualCommentShortcut(
+    storedVisualCommentShortcut ?? DEFAULT_VISUAL_COMMENT_SHORTCUT,
+  );
+  const visualCommentShortcutSequences = useMemo(
+    () =>
+      normalizedVisualCommentShortcut === "mod-alt-period"
+        ? [[modifierLabel, "Alt", "."]]
+        : normalizedVisualCommentShortcut === "mod-period"
+        ? [[modifierLabel, "."]]
+        : normalizedVisualCommentShortcut === "mod-shift-period"
+          ? [[modifierLabel, "Shift", "."]]
+          : [["Disabled"]],
+    [modifierLabel, normalizedVisualCommentShortcut],
   );
   const modelShortcutItems = useMemo<ShortcutItem[]>(() => {
     const assignedItems = MODEL_SHORTCUT_SLOT_LABELS.map((slotLabel, index) => {
@@ -317,6 +337,12 @@ export function KeyboardShortcutsDrawer({
             description:
               "Open the embedded browser for preview, inspection, and picking.",
           }),
+          {
+            label: "Visual comment",
+            description:
+              "Toggle Lens visual comment mode while the Lens panel is available.",
+            sequences: visualCommentShortcutSequences,
+          },
           buildShellShortcutItem({
             actionId: "view.toggle-editor",
             label: "Toggle editor",
@@ -425,6 +451,7 @@ export function KeyboardShortcutsDrawer({
       normalizedAppShortcutKeys,
       promptCommentShortcutSequences,
       presetShortcutItems,
+      visualCommentShortcutSequences,
     ],
   );
 

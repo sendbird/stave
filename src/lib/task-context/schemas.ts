@@ -154,6 +154,7 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     count: z.number(),
     summary: z.string(),
     content: z.string(),
+    displayContent: z.string().optional(),
     annotations: z.array(z.unknown()).optional(),
   }),
 ]);
@@ -222,6 +223,7 @@ const ChatMessageSchema = z.object({
     z.literal("user"),
   ]),
   content: z.string(),
+  displayContent: z.string().optional(),
   startedAt: z.string().optional(),
   completedAt: z.string().optional(),
   isStreaming: z.boolean().optional(),
@@ -239,6 +241,7 @@ const ChatMessageSchema = z.object({
     .optional(),
   promptSuggestions: z.array(z.string()).optional(),
   parts: z.array(MessagePartSchema),
+  displayParts: z.array(MessagePartSchema).optional(),
 });
 
 const TaskSchema = z.object({

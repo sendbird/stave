@@ -24,6 +24,7 @@ export type Attachment =
       count: number;
       summary: string;
       content: string;
+      displayContent?: string;
       annotations?: LensAnnotation[];
     };
 
@@ -237,6 +238,7 @@ export interface ChatMessage {
   model: string;
   providerId: "claude-code" | "codex" | "user";
   content: string;
+  displayContent?: string;
   startedAt?: string;
   completedAt?: string;
   isStreaming?: boolean;
@@ -252,6 +254,7 @@ export interface ChatMessage {
   };
   promptSuggestions?: string[];
   parts: MessagePart[];
+  displayParts?: MessagePart[];
 }
 
 export type EditorTabContentState =
