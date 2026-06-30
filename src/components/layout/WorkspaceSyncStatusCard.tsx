@@ -190,8 +190,8 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
 
   return (
     <SettingsCard
-      title="Current Workspace"
-      description="Track how the active workspace relates to the default remote branch (origin/main or origin/master), then fast-forward safely when no local commits or uncommitted edits block the update."
+      title="Workspace Sync"
+      description="Track how this workspace relates to the default remote branch (origin/main or origin/master), then fast-forward safely when no local commits or uncommitted edits block the update."
     >
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/80 bg-background/80 px-4 py-3">
         <div className="space-y-2">
@@ -213,7 +213,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
               {workspace?.summary ?? "Open a workspace to inspect sync status."}
             </p>
             <p className="break-all text-sm text-muted-foreground">
-              {workspaceCwd ?? "No active workspace path is selected."}
+              {workspaceCwd ?? "No workspace path is selected."}
             </p>
           </div>
         </div>

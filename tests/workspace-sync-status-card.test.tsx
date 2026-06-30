@@ -50,6 +50,6 @@ describe("WorkspaceSyncStatusCard", () => {
     const html = renderToStaticMarkup(
       createElement(WorkspaceSyncStatusCard, { cwd: null }),
     );
-    expect(html).toContain("No active workspace path");
+    expect(html).toContain("No workspace path is selected.");
   });
 });
