@@ -107,6 +107,17 @@ export function WorkspaceSettingsDialog(
     }
   }, [props.open, loadConfig]);
 
+  const sharedContent = (
+    <WorkspaceSettingsContent
+      workspaceName={props.workspaceName}
+      branch={props.branch}
+      workspacePath={props.workspacePath}
+      projectPath={props.projectPath}
+      resolvedConfig={resolvedConfig}
+      onSaved={loadConfig}
+    />
+  );
+
   // Keep server/static render paths testable: when there is no DOM (e.g.
   // renderToStaticMarkup in tests), Radix Dialog portals and context are
   // unavailable. Fall back to rendering the content directly, mirroring the
@@ -114,14 +125,7 @@ export function WorkspaceSettingsDialog(
   if (props.open && (typeof document === "undefined" || !document.body)) {
     return (
       <div data-slot="dialog-content" className="max-w-2xl">
-        <WorkspaceSettingsContent
-          workspaceName={props.workspaceName}
-          branch={props.branch}
-          workspacePath={props.workspacePath}
-          projectPath={props.projectPath}
-          resolvedConfig={resolvedConfig}
-          onSaved={loadConfig}
-        />
+        {sharedContent}
       </div>
     );
   }
@@ -130,43 +134,9 @@ export function WorkspaceSettingsDialog(
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Workspace settings</DialogTitle>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-sm font-semibold text-foreground">
-              {props.workspaceName}
-            </span>
-            {props.branch ? (
-              <Badge variant="secondary">{props.branch}</Badge>
-            ) : null}
-          </div>
-          <p className="break-all pt-1 text-xs text-muted-foreground">
-            {props.workspacePath}
-          </p>
+          <DialogTitle className="sr-only">Workspace settings</DialogTitle>
         </DialogHeader>
-
-        <Tabs defaultValue="sync" className="w-full">
-          <TabsList>
-            <TabsTrigger value="sync">Sync</TabsTrigger>
-            <TabsTrigger value="scripts">Scripts</TabsTrigger>
-          </TabsList>
-          <TabsContent
-            value="sync"
-            className="max-h-[60vh] overflow-y-auto pt-2"
-          >
-            <WorkspaceSyncStatusCard cwd={props.workspacePath} />
-          </TabsContent>
-          <TabsContent
-            value="scripts"
-            className="max-h-[60vh] overflow-y-auto pt-2"
-          >
-            <WorkspaceScriptsManager
-              projectPath={props.projectPath}
-              workspacePath={props.workspacePath}
-              resolvedConfig={resolvedConfig}
-              onSaved={loadConfig}
-            />
-          </TabsContent>
-        </Tabs>
+        {sharedContent}
       </DialogContent>
     </Dialog>
   );
