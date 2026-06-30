@@ -243,7 +243,9 @@ const TaskProviderSessionStateSchema = z.object({
 const EditorTabSchema = z.object({
   id: z.string(),
   filePath: z.string(),
-  kind: z.union([z.literal("text"), z.literal("image")]).optional(),
+  kind: z
+    .union([z.literal("text"), z.literal("image"), z.literal("git-graph")])
+    .optional(),
   language: z.string(),
   content: z.string().optional().default(""),
   contentState: z

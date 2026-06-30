@@ -427,6 +427,10 @@ export async function getScmGraph(args: {
       rangeArg,
       "--parents",
       "--date-order",
+      // Full ref paths (refs/heads/…, refs/remotes/…, refs/tags/…) so the parser
+      // can classify refs by prefix instead of guessing from a slash, which
+      // misclassified slash-containing local branches like `feature/login`.
+      "--decorate=full",
       `--skip=${skip}`,
       "-n",
       String(limit + 1),

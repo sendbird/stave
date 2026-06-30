@@ -11,8 +11,10 @@ describe("parseRefDecoration", () => {
     expect(parseRefDecoration("")).toEqual([]);
   });
 
-  it("parses HEAD pointer, remote, and tag", () => {
-    const refs = parseRefDecoration("HEAD -> main, origin/main, tag: v1.0");
+  it("parses HEAD pointer, remote, and tag from full ref paths", () => {
+    const refs = parseRefDecoration(
+      "HEAD -> refs/heads/main, refs/remotes/origin/main, tag: refs/tags/v1.0",
+    );
     expect(refs).toEqual([
       { type: "localBranch", name: "main", isHead: true },
       { type: "remoteBranch", name: "origin/main", isHead: false },
@@ -21,13 +23,24 @@ describe("parseRefDecoration", () => {
   });
 
   it("parses detached HEAD", () => {
-    const refs = parseRefDecoration("HEAD, origin/dev");
+    const refs = parseRefDecoration("HEAD, refs/remotes/origin/dev");
     expect(refs[0]).toEqual({ type: "head", name: "HEAD", isHead: true });
     expect(refs[1]).toEqual({
       type: "remoteBranch",
       name: "origin/dev",
       isHead: false,
     });
+  });
+
+  it("classifies a slash-containing local branch as local, not remote", () => {
+    // Regression: short decoration (`feature/login`) could not be told apart
+    // from a remote by the old `includes('/')` heuristic. Full ref paths fix it.
+    expect(parseRefDecoration("refs/heads/feature/login")).toEqual([
+      { type: "localBranch", name: "feature/login", isHead: false },
+    ]);
+    expect(parseRefDecoration("HEAD -> refs/heads/feature/login")).toEqual([
+      { type: "localBranch", name: "feature/login", isHead: true },
+    ]);
   });
 });
 
@@ -42,7 +55,7 @@ describe("parseGraphLog", () => {
       "bbb222 ccc333",
       "Jane Dev",
       "2026-06-30T10:00:00+09:00",
-      "HEAD -> main",
+      "HEAD -> refs/heads/main",
       "Merge feature",
     ]);
     const commits = parseGraphLog(stdout);
@@ -65,7 +78,14 @@ describe("parseGraphLog", () => {
   });
 
   it("keeps subjects containing the field delimiter-free commas intact", () => {
-    const stdout = row(["h1", "p1", "A", "2026-01-01T00:00:00Z", "", "fix: a, b, c"]);
+    const stdout = row([
+      "h1",
+      "p1",
+      "A",
+      "2026-01-01T00:00:00Z",
+      "",
+      "fix: a, b, c",
+    ]);
     expect(parseGraphLog(stdout)[0]?.subject).toBe("fix: a, b, c");
   });
 });

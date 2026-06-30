@@ -198,6 +198,31 @@ describe("task-context workspace schemas", () => {
     });
   });
 
+  test("accepts a git-graph editor tab so the workspace shell still restores", () => {
+    // Regression: a persisted tab with kind "git-graph" must not make the whole
+    // workspace payload fail to parse (which would block shell restoration).
+    const parsed = parseWorkspaceShell({
+      payload: {
+        ...createWorkspaceBase(),
+        messageCountByTask: {},
+        editorTabs: [
+          {
+            id: "git-graph",
+            filePath: "Git Graph",
+            kind: "git-graph",
+            language: "",
+            content: "",
+            hasConflict: false,
+            isDirty: false,
+          },
+        ],
+      },
+    });
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.editorTabs[0]?.kind).toBe("git-graph");
+  });
+
   test("defaults editor tab content state to ready", () => {
     const parsed = parseWorkspaceShell({
       payload: {
