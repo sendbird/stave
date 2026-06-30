@@ -9,7 +9,12 @@ const Toaster = ({ className, ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={isDarkMode ? "dark" : "light"}
-      position="top-right"
+      position="top-center"
+      visibleToasts={3}
+      expand={false}
+      gap={8}
+      offset={12}
+      mobileOffset={8}
       className={["toaster group", UI_LAYER_CLASS.popover, className]
         .filter(Boolean)
         .join(" ")}
@@ -36,6 +41,7 @@ const Toaster = ({ className, ...props }: ToasterProps) => {
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
           "--border-radius": "var(--radius)",
+          "--width": "min(24rem, calc(100vw - 1.5rem))",
         } as React.CSSProperties
       }
       toastOptions={{
