@@ -64,6 +64,7 @@ import type {
   WorkspaceScriptStatusEntry,
 } from "@/lib/workspace-scripts/types";
 import type { PersistenceBootstrapStatus } from "@/lib/persistence/bootstrap-status";
+import type { GraphCommit } from "@/lib/git-graph/types";
 
 interface ProviderStreamTurnArgs {
   turnId?: string;
@@ -824,6 +825,14 @@ interface SourceControlStatusResult {
   stderr: string;
 }
 
+interface SourceControlGraphResult {
+  ok: boolean;
+  commits: GraphCommit[];
+  head: string | null;
+  hasMore: boolean;
+  stderr: string;
+}
+
 interface SourceControlCommandResult {
   ok: boolean;
   code: number;
@@ -865,6 +874,12 @@ interface WindowSourceControlApi {
     newContent?: string;
     stderr: string;
   }>;
+  getGraph?: (args: {
+    cwd?: string;
+    limit?: number;
+    skip?: number;
+    scope?: "current" | "all" | string;
+  }) => Promise<SourceControlGraphResult>;
   getHistory?: (args: { cwd?: string; limit?: number }) => Promise<{
     ok: boolean;
     items: Array<{ hash: string; relativeDate: string; subject: string }>;

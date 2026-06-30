@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { parseGraphLog } from "../../src/lib/git-graph/graph-log";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
 import {
   buildSourceControlDiffPreview,
@@ -380,6 +381,53 @@ export async function diffSourceControlFile(args: {
     oldContent,
     newContent,
     stderr: [staged.stderr, unstaged.stderr].filter(Boolean).join("\n").trim(),
+  };
+}
+
+const GRAPH_LOG_FORMAT = "%H%x1f%P%x1f%an%x1f%aI%x1f%D%x1f%s";
+
+export async function getScmGraph(args: {
+  cwd?: string;
+  limit?: number;
+  skip?: number;
+  scope?: "current" | "all" | string;
+}) {
+  const limit = Math.max(1, Math.min(2000, args.limit ?? 500));
+  const skip = Math.max(0, args.skip ?? 0);
+  const scope = args.scope ?? "all";
+
+  let rangeArg = "--all";
+  if (scope === "current") {
+    rangeArg = "HEAD";
+  } else if (scope !== "all") {
+    // a specific branch/ref name
+    rangeArg = `"${quotePath({ value: scope })}"`;
+  }
+
+  // request limit+1 to detect hasMore without a second query
+  const logResult = await runCommand({
+    command: `git log ${rangeArg} --parents --date-order --skip=${skip} -n ${limit + 1} --pretty=format:${GRAPH_LOG_FORMAT}`,
+    cwd: args.cwd,
+  });
+  const branchResult = await runCommand({
+    command: "git rev-parse --abbrev-ref HEAD",
+    cwd: args.cwd,
+  });
+
+  const parsed = logResult.ok ? parseGraphLog(logResult.stdout) : [];
+  const hasMore = parsed.length > limit;
+  const commits = hasMore ? parsed.slice(0, limit) : parsed;
+  const head =
+    branchResult.ok && branchResult.stdout.trim() !== "HEAD"
+      ? branchResult.stdout.trim()
+      : null;
+
+  return {
+    ok: logResult.ok,
+    commits,
+    head,
+    hasMore,
+    stderr: [logResult.stderr, branchResult.stderr].filter(Boolean).join("\n").trim(),
   };
 }
 

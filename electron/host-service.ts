@@ -28,6 +28,7 @@ import {
   discardSourceControlPath,
   fetchScmBranch,
   fetchGitHubPrStatus,
+  getScmGraph,
   getScmHistory,
   getScmStatus,
   listScmBranches,
@@ -1218,6 +1219,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.diff":
       await respond(request.id, await diffSourceControlFile(request.params));
+      return;
+    case "scm.graph":
+      await respond(request.id, await getScmGraph(request.params));
       return;
     case "scm.history":
       await respond(request.id, await getScmHistory(request.params));

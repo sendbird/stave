@@ -48,6 +48,12 @@ export function registerScmHandlers() {
   );
 
   ipcMain.handle(
+    "scm:graph",
+    (_event, args: { cwd?: string; limit?: number; skip?: number; scope?: string }) =>
+      invokeHostService("scm.graph", args),
+  );
+
+  ipcMain.handle(
     "scm:history",
     (_event, args: { cwd?: string; limit?: number }) =>
       invokeHostService("scm.history", args),
