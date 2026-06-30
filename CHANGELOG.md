@@ -2,6 +2,23 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.8.0](https://github.com/sendbird/stave/compare/v0.7.7...v0.8.0) (2026-06-30)
+
+### Features
+
+* Queue multiple follow-up prompts while a task is running, with FIFO delivery, inline edit/delete controls, and automatic send of the next queued prompt after the active turn completes.
+* Stage prompt fragments with `Shift+Enter` and merge the staged batch with the composer body on send.
+* Attach Lens visual comments from the browser annotation overlay through Lens, chat state, assistant traces, and the composer as compact structured chips.
+* Strengthen Lens element picker and box-inspect flows across browser session events, IPC, preload, and the Lens panel.
+
+### Changes
+
+* Extend prompt draft persistence for multi-turn queues, staged prompt batches, and structured annotation attachments while preserving legacy `queuedNextTurn` compatibility.
+
+### References
+
+* [#86](https://github.com/sendbird/stave/pull/86)
+
 ## [0.7.7](https://github.com/sendbird/stave/compare/v0.7.6...v0.7.7) (2026-06-30)
 
 ### Features
