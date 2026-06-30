@@ -964,15 +964,25 @@ export function WorkspaceChangesPanel(props: {
             </div>
           ) : (
             <div className="space-y-0">
-              {props.sourceHistory.map((item, index) => (
+              {props.sourceHistory.slice(0, 10).map((item, index) => (
                 <SourceControlHistoryRow
                   key={`${item.hash}:${item.subject}`}
                   item={item}
-                  isLast={index === props.sourceHistory.length - 1}
+                  isLast={index === Math.min(props.sourceHistory.length, 10) - 1}
                 />
               ))}
             </div>
           )}
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2 rounded-xl border-border/70 text-sm font-medium"
+            onClick={() => openGitGraph()}
+          >
+            <GitGraph className="size-4 text-muted-foreground" />
+            Open Git Graph
+          </Button>
         </div>
       </TabsContent>
 
