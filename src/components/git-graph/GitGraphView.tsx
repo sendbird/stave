@@ -35,6 +35,7 @@ const INITIAL_LIMIT = 500;
 interface CommitFile {
   path: string;
   status: string;
+  oldPath?: string;
 }
 
 interface GitGraphViewProps {
@@ -137,6 +138,9 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
       const result = await loadCommitFiles(workspaceCwd, hash);
       if (result.ok) {
         setFiles(result.files);
+      } else {
+        setError(result.stderr || "Failed to load commit files.");
+        setFiles([]);
       }
     } finally {
       setFilesLoading(false);

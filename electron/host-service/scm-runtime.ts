@@ -446,8 +446,17 @@ export async function getScmCommitFiles(args: { hash: string; cwd?: string }) {
         .map((line) => line.trim())
         .filter(Boolean)
         .map((line) => {
-          const [status = "", ...rest] = line.split("\t");
-          return { status, path: rest.join("\t") };
+          const parts = line.split("\t");
+          const status = parts[0] ?? "";
+          // Rename/copy lines: "R100\told-path\tnew-path" — use new path as
+          // the canonical path; preserve old path in oldPath for display.
+          if ((status.startsWith("R") || status.startsWith("C")) && parts.length >= 3) {
+            const oldPath = parts[1] ?? "";
+            const newPath = parts[2] ?? "";
+            return { status: status.charAt(0), path: newPath, oldPath };
+          }
+          const path = parts[1] ?? "";
+          return { status, path };
         })
         .filter((f) => f.path)
     : [];

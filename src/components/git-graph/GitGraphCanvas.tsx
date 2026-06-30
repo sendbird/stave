@@ -7,17 +7,26 @@ import type { GraphRef } from "@/lib/git-graph/types";
 // ---------------------------------------------------------------------------
 // Theme-derived lane palette
 // ---------------------------------------------------------------------------
-// The theme defines --chart-1 … --chart-5 as its data-visualisation colour
-// set (globals.css). We reference them as CSS variable strings so SVG fill /
-// stroke inherit the current theme (light/dark/custom) at render time.
-// If the palette is exhausted we cycle with modulo — the 5-colour set is
-// sufficient for typical lane counts.
+// The default theme's --chart-1…5 are all hue ~130 (green family), which
+// makes adjacent lanes look identical.  We mix the chart tokens with semantic
+// colour tokens that carry distinct hues across ALL built-in themes:
+//
+//   var(--chart-1)   → primary data colour (green in default, varies by theme)
+//   var(--destructive) → red/orange   (hue ~27 in all themes)
+//   var(--warning)   → amber/yellow   (hue ~84 in all themes)
+//   var(--success)   → teal-green     (hue ~156 in all themes — distinct from
+//                                      chart-1's ~130)
+//   var(--chart-2)   → second chart colour (distinct in all non-default themes;
+//                      slightly lighter green in default — acceptable as 5th lane)
+//
+// Referencing CSS variables (not hex) ensures the palette adapts to
+// light/dark/custom themes at render time.
 const LANE_PALETTE: readonly string[] = [
   "var(--chart-1)",
+  "var(--destructive)",
+  "var(--warning)",
+  "var(--success)",
   "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
 ];
 
 function laneColor(colorIndex: number): string {

@@ -194,6 +194,71 @@ function NameInputDialog({
 }
 
 // ---------------------------------------------------------------------------
+// DeleteBranchDialog — extends ConfirmDialog with a force-delete option
+// ---------------------------------------------------------------------------
+
+interface DeleteBranchDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  refName: string;
+  onConfirm: (force: boolean) => void;
+}
+
+function DeleteBranchDialog({ open, onOpenChange, refName, onConfirm }: DeleteBranchDialogProps) {
+  const [force, setForce] = useState(false);
+
+  useEffect(() => {
+    if (open) setForce(false);
+  }, [open]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton={false} className="max-w-sm">
+        <DialogHeader>
+          <div className="mb-1 flex items-center gap-2 text-destructive">
+            <AlertTriangle className="size-4 shrink-0" />
+            <DialogTitle className="text-destructive">Delete branch</DialogTitle>
+          </div>
+          <DialogDescription>
+            Delete branch &ldquo;{refName}&rdquo;? This cannot be undone if the branch has
+            unmerged changes.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Force-delete toggle */}
+        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm hover:bg-muted/30">
+          <input
+            type="checkbox"
+            className="accent-destructive"
+            checked={force}
+            onChange={(e) => setForce(e.target.checked)}
+          />
+          <span className={force ? "text-destructive" : "text-muted-foreground"}>
+            Force delete (discard unmerged commits)
+          </span>
+        </label>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              onConfirm(force);
+              onOpenChange(false);
+            }}
+          >
+            {force ? "Force delete" : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // RefContextMenu
 // ---------------------------------------------------------------------------
 
@@ -356,6 +421,17 @@ export function RefContextMenu({
                 Push
               </DropdownMenuItem>
 
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  onClose();
+                  setPendingDialog({ kind: "forcePush" });
+                }}
+              >
+                <Upload className="size-4" />
+                Force push
+              </DropdownMenuItem>
+
               <DropdownMenuSeparator />
 
               <DropdownMenuItem
@@ -469,17 +545,14 @@ export function RefContextMenu({
         onConfirm={(newName) => void onRename(ref!, newName)}
       />
 
-      {/* Delete branch confirm dialog */}
-      <ConfirmDialog
+      {/* Delete branch confirm dialog — with optional force-delete */}
+      <DeleteBranchDialog
         open={pendingDialog?.kind === "delete"}
         onOpenChange={(open) => {
           if (!open) setPendingDialog(null);
         }}
-        title="Delete branch"
-        description={`Delete branch "${refName}"? This cannot be undone if the branch has unmerged changes.`}
-        confirmLabel="Delete"
-        destructive
-        onConfirm={() => void onDelete(ref!, false)}
+        refName={refName}
+        onConfirm={(force) => void onDelete(ref!, force)}
       />
 
       {/* Merge into current confirm */}

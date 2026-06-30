@@ -22,7 +22,7 @@ export async function loadGraph(
 export async function loadCommitFiles(cwd: string, hash: string) {
   const api = window.api?.sourceControl?.getCommitFiles;
   if (!api) {
-    return { ok: false, files: [] as Array<{ path: string; status: string }>, stderr: "Unavailable" };
+    return { ok: false, files: [] as Array<{ path: string; status: string; oldPath?: string }>, stderr: "Unavailable" };
   }
   return api({ cwd, hash });
 }

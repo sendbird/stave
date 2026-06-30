@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 interface CommitFile {
   path: string;
   status: string;
+  oldPath?: string;
 }
 
 interface CommitDetailPanelProps {
@@ -130,19 +131,33 @@ export function CommitDetailPanel({
             <div className="space-y-0.5">
               {files.map((file) => (
                 <button
-                  key={file.path}
+                  key={`${file.status}:${file.path}`}
                   type="button"
                   // NOTE: This opens the working-tree-vs-HEAD diff for the file,
                   // not a commit-specific diff. A per-commit diff IPC can be added later.
                   onClick={() => onOpenFile(file.path)}
                   className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-muted/30"
-                  title={`Open diff for ${file.path}`}
+                  title={
+                    file.oldPath
+                      ? `Renamed: ${file.oldPath} → ${file.path}`
+                      : `Open diff for ${file.path}`
+                  }
                 >
                   <span className={cn("w-3 shrink-0 font-mono font-medium", fileStatusClass(file.status))}>
                     {fileStatusLabel(file.status)}
                   </span>
                   <FileCode2 className="size-3 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 truncate text-foreground">{file.path}</span>
+                  <span className="min-w-0 truncate text-foreground">
+                    {file.oldPath ? (
+                      <>
+                        <span className="text-muted-foreground/70">{file.oldPath}</span>
+                        <span className="mx-1 text-muted-foreground/50">→</span>
+                        {file.path}
+                      </>
+                    ) : (
+                      file.path
+                    )}
+                  </span>
                 </button>
               ))}
             </div>
