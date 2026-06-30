@@ -698,6 +698,62 @@ export function cherryPickScmCommit(args: { commit: string; cwd?: string }) {
   });
 }
 
+export function revertScmCommit(args: { commit: string; cwd?: string }) {
+  return runScmBranchCommand({
+    value: args.commit,
+    cwd: args.cwd,
+    template: (q) => `git revert --no-edit "${q}"`,
+    requiredMessage: "Commit hash is required.",
+  });
+}
+
+export function resetScmCommit(args: {
+  commit: string;
+  mode: "soft" | "mixed" | "hard";
+  cwd?: string;
+}) {
+  const mode = args.mode === "soft" || args.mode === "hard" ? args.mode : "mixed";
+  return runScmBranchCommand({
+    value: args.commit,
+    cwd: args.cwd,
+    template: (q) => `git reset --${mode} "${q}"`,
+    requiredMessage: "Commit hash is required.",
+  });
+}
+
+export function createScmTag(args: {
+  name: string;
+  commit?: string;
+  message?: string;
+  cwd?: string;
+}) {
+  const name = args.name.trim();
+  if (!name) {
+    return Promise.resolve({ ok: false, code: -1, stdout: "", stderr: "Tag name is required." });
+  }
+  const target = args.commit?.trim();
+  const message = args.message?.trim();
+  const parts = ["git", "tag"];
+  if (message) {
+    parts.push("-a", `"${quotePath({ value: name })}"`, "-m", `"${message.replaceAll('"', '\\"')}"`);
+  } else {
+    parts.push(`"${quotePath({ value: name })}"`);
+  }
+  if (target) {
+    parts.push(`"${quotePath({ value: target })}"`);
+  }
+  return runCommand({ command: parts.join(" "), cwd: args.cwd });
+}
+
+export function deleteScmTag(args: { name: string; cwd?: string }) {
+  return runScmBranchCommand({
+    value: args.name,
+    cwd: args.cwd,
+    template: (q) => `git tag -d "${q}"`,
+    requiredMessage: "Tag name is required.",
+  });
+}
+
 export async function setScmPrReady(args: { cwd?: string }) {
   const authResult = await runCommand({
     command: "gh auth status",

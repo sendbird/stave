@@ -113,6 +113,18 @@ export function registerScmHandlers() {
       invokeHostService("scm.cherry-pick", args),
   );
 
+  ipcMain.handle("scm:revert", (_e, a: { commit: string; cwd?: string }) =>
+    invokeHostService("scm.revert", a));
+
+  ipcMain.handle("scm:reset", (_e, a: { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string }) =>
+    invokeHostService("scm.reset", a));
+
+  ipcMain.handle("scm:create-tag", (_e, a: { name: string; commit?: string; message?: string; cwd?: string }) =>
+    invokeHostService("scm.create-tag", a));
+
+  ipcMain.handle("scm:delete-tag", (_e, a: { name: string; cwd?: string }) =>
+    invokeHostService("scm.delete-tag", a));
+
   ipcMain.handle("scm:get-pr-status", (_event, args: { cwd?: string }) =>
     invokeHostService("scm.get-pr-status", args),
   );

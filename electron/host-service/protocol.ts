@@ -610,6 +610,10 @@ export interface HostServiceRequestMap {
     commit: string;
     cwd?: string;
   };
+  "scm.revert": { commit: string; cwd?: string };
+  "scm.reset": { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string };
+  "scm.create-tag": { name: string; commit?: string; message?: string; cwd?: string };
+  "scm.delete-tag": { name: string; cwd?: string };
   "scm.get-pr-status": {
     cwd?: string;
   };
@@ -751,6 +755,10 @@ export interface HostServiceResponseMap {
   "scm.merge-branch": CommandResult;
   "scm.rebase-branch": CommandResult;
   "scm.cherry-pick": CommandResult;
+  "scm.revert": CommandResult;
+  "scm.reset": CommandResult;
+  "scm.create-tag": CommandResult;
+  "scm.delete-tag": CommandResult;
   "scm.get-pr-status": HostScmPrStatusResult;
   "scm.get-pr-status-for-url": HostScmPrStatusResult;
   "scm.set-pr-ready":

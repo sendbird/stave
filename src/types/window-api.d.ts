@@ -927,6 +927,25 @@ interface WindowSourceControlApi {
     commit: string;
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
+  revert?: (args: {
+    commit: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  reset?: (args: {
+    commit: string;
+    mode: "soft" | "mixed" | "hard";
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  createTag?: (args: {
+    name: string;
+    commit?: string;
+    message?: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  deleteTag?: (args: {
+    name: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
   createPR?: (args: {
     title: string;
     body?: string;

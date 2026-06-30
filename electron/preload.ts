@@ -1165,6 +1165,14 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("scm:rebase-branch", args),
     cherryPick: (args: { commit: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:cherry-pick", args),
+    revert: (args: { commit: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:revert", args),
+    reset: (args: { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string }) =>
+      ipcRenderer.invoke("scm:reset", args),
+    createTag: (args: { name: string; commit?: string; message?: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:create-tag", args),
+    deleteTag: (args: { name: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:delete-tag", args),
     createPR: (args: {
       title: string;
       body?: string;

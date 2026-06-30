@@ -24,6 +24,8 @@ import {
   commitSourceControl,
   createScmBranch,
   createScmPullRequest,
+  createScmTag,
+  deleteScmTag,
   diffSourceControlFile,
   discardSourceControlPath,
   fetchScmBranch,
@@ -37,6 +39,8 @@ import {
   mergeScmPr,
   pullScmBranch,
   rebaseScmBranch,
+  resetScmCommit,
+  revertScmCommit,
   setScmPrReady,
   stageAllSourceControl,
   stageSourceControlFile,
@@ -1253,6 +1257,18 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.cherry-pick":
       await respond(request.id, await cherryPickScmCommit(request.params));
+      return;
+    case "scm.revert":
+      await respond(request.id, await revertScmCommit(request.params));
+      return;
+    case "scm.reset":
+      await respond(request.id, await resetScmCommit(request.params));
+      return;
+    case "scm.create-tag":
+      await respond(request.id, await createScmTag(request.params));
+      return;
+    case "scm.delete-tag":
+      await respond(request.id, await deleteScmTag(request.params));
       return;
     case "scm.get-pr-status":
       await respond(request.id, await fetchGitHubPrStatus(request.params));
