@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseGraphLog, parseRefDecoration } from "./graph-log";
+import { parseGraphLog, parseRefDecoration } from "@/lib/git-graph/graph-log";
 
 const US = "\x1f";
 function row(parts: string[]) {
@@ -60,12 +60,12 @@ describe("parseGraphLog", () => {
   it("parses a root commit with no parents and no refs", () => {
     const stdout = row(["root0", "", "A", "2026-01-01T00:00:00Z", "", "init"]);
     const commits = parseGraphLog(stdout);
-    expect(commits[0].parents).toEqual([]);
-    expect(commits[0].refs).toEqual([]);
+    expect(commits[0]?.parents).toEqual([]);
+    expect(commits[0]?.refs).toEqual([]);
   });
 
   it("keeps subjects containing the field delimiter-free commas intact", () => {
     const stdout = row(["h1", "p1", "A", "2026-01-01T00:00:00Z", "", "fix: a, b, c"]);
-    expect(parseGraphLog(stdout)[0].subject).toBe("fix: a, b, c");
+    expect(parseGraphLog(stdout)[0]?.subject).toBe("fix: a, b, c");
   });
 });

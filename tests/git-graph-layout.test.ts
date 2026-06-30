@@ -1,7 +1,6 @@
-// src/lib/git-graph/graph-layout.test.ts
 import { describe, expect, it } from "bun:test";
-import { buildGraphLayout } from "./graph-layout";
-import type { GraphCommit } from "./types";
+import { buildGraphLayout } from "@/lib/git-graph/graph-layout";
+import type { GraphCommit } from "@/lib/git-graph/types";
 
 function commit(hash: string, parents: string[]): GraphCommit {
   return { hash, parents, author: "A", authorDate: "", subject: hash, refs: [] };
