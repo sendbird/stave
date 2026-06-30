@@ -1413,6 +1413,7 @@ interface AppState {
     oldContent: string;
     newContent: string;
   }) => void;
+  openGitGraph: () => void;
   openFileFromTree: (args: {
     filePath: string;
     line?: number;
@@ -11183,6 +11184,51 @@ export const useAppStore = create<AppState>()(
                 ...state.layout,
                 editorVisible: true,
                 editorDiffMode: true,
+                editorMarkdownPreviewMode: false,
+              },
+              workspaceSnapshotVersion:
+                incrementWorkspaceSnapshotVersion(state),
+            };
+          });
+        },
+        openGitGraph: () => {
+          set((state) => {
+            const workspaceId = state.activeWorkspaceId;
+            const tabId = `git-graph:${workspaceId}`;
+            const existing = state.editorTabs.find((tab) => tab.id === tabId);
+            if (existing) {
+              return {
+                activeEditorTabId: existing.id,
+                layout: {
+                  ...state.layout,
+                  editorVisible: true,
+                  editorDiffMode: false,
+                  editorMarkdownPreviewMode: false,
+                },
+                workspaceSnapshotVersion:
+                  state.activeEditorTabId !== existing.id
+                    ? incrementWorkspaceSnapshotVersion(state)
+                    : state.workspaceSnapshotVersion,
+              };
+            }
+
+            const nextTab: EditorTab = {
+              id: tabId,
+              filePath: "Git Graph",
+              kind: "git-graph",
+              language: "",
+              content: "",
+              hasConflict: false,
+              isDirty: false,
+            };
+
+            return {
+              editorTabs: [...state.editorTabs, nextTab],
+              activeEditorTabId: nextTab.id,
+              layout: {
+                ...state.layout,
+                editorVisible: true,
+                editorDiffMode: false,
                 editorMarkdownPreviewMode: false,
               },
               workspaceSnapshotVersion:

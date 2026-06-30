@@ -237,7 +237,7 @@ export function EditorMainPanel() {
   const activeTabContentUnavailable =
     activeTabContentPending || activeTabContentTooLarge;
   const isImageTab = (
-    tab: { kind?: "text" | "image"; language: string } | null,
+    tab: { kind?: "text" | "image" | "git-graph"; language: string } | null,
   ) => Boolean(tab && (tab.kind === "image" || tab.language === "image"));
   const activeTabIsImage = isImageTab(activeTab);
   const activeTabIsMarkdown = Boolean(

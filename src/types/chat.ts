@@ -251,7 +251,7 @@ export interface Task {
 export interface EditorTab {
   id: string;
   filePath: string;
-  kind?: "text" | "image";
+  kind?: "text" | "image" | "git-graph";
   language: string;
   content: string;
   contentState?: EditorTabContentState;
