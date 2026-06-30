@@ -54,6 +54,12 @@ export function registerScmHandlers() {
   );
 
   ipcMain.handle(
+    "scm:commit-files",
+    (_event, args: { hash: string; cwd?: string }) =>
+      invokeHostService("scm.commit-files", args),
+  );
+
+  ipcMain.handle(
     "scm:history",
     (_event, args: { cwd?: string; limit?: number }) =>
       invokeHostService("scm.history", args),

@@ -880,6 +880,11 @@ interface WindowSourceControlApi {
     skip?: number;
     scope?: "current" | "all" | string;
   }) => Promise<SourceControlGraphResult>;
+  getCommitFiles?: (args: { hash: string; cwd?: string }) => Promise<{
+    ok: boolean;
+    files: Array<{ path: string; status: string }>;
+    stderr: string;
+  }>;
   getHistory?: (args: { cwd?: string; limit?: number }) => Promise<{
     ok: boolean;
     items: Array<{ hash: string; relativeDate: string; subject: string }>;

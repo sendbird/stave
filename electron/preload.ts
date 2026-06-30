@@ -1145,6 +1145,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("scm:diff", args),
     getGraph: (args: { cwd?: string; limit?: number; skip?: number; scope?: string }) =>
       ipcRenderer.invoke("scm:graph", args),
+    getCommitFiles: (args: { hash: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:commit-files", args),
     getHistory: (args: { cwd?: string; limit?: number }) =>
       ipcRenderer.invoke("scm:history", args),
     listBranches: (args: { cwd?: string; refreshRemote?: boolean }) =>

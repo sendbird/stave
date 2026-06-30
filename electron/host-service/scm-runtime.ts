@@ -431,6 +431,29 @@ export async function getScmGraph(args: {
   };
 }
 
+export async function getScmCommitFiles(args: { hash: string; cwd?: string }) {
+  const hash = args.hash.trim();
+  if (!hash) {
+    return { ok: false, files: [], stderr: "Commit hash is required." };
+  }
+  const result = await runCommand({
+    command: `git show --name-status --pretty=format: "${quotePath({ value: hash })}"`,
+    cwd: args.cwd,
+  });
+  const files = result.ok
+    ? result.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [status = "", ...rest] = line.split("\t");
+          return { status, path: rest.join("\t") };
+        })
+        .filter((f) => f.path)
+    : [];
+  return { ok: result.ok, files, stderr: result.stderr };
+}
+
 export async function getScmHistory(args: { cwd?: string; limit?: number }) {
   const limit = Math.max(1, Math.min(50, args.limit ?? 20));
   const result = await runCommand({

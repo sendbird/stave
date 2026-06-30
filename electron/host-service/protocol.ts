@@ -569,6 +569,10 @@ export interface HostServiceRequestMap {
     skip?: number;
     scope?: "current" | "all" | string;
   };
+  "scm.commit-files": {
+    hash: string;
+    cwd?: string;
+  };
   "scm.history": {
     cwd?: string;
     limit?: number;
@@ -733,6 +737,11 @@ export interface HostServiceResponseMap {
   "scm.discard-file": CommandResult;
   "scm.diff": HostScmDiffResult;
   "scm.graph": HostScmGraphResult;
+  "scm.commit-files": {
+    ok: boolean;
+    files: Array<{ path: string; status: string }>;
+    stderr: string;
+  };
   "scm.history": HostScmHistoryResult;
   "scm.list-branches": HostScmListBranchesResult;
   "scm.fetch-branch": CommandResult;
