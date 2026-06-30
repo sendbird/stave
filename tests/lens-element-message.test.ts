@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { formatElementForChat } from "@/lib/lens/lens-element-message";
-import type { ElementPickerResult } from "@/lib/lens/lens.types";
+import {
+  formatAnnotationsForChat,
+  formatElementForChat,
+} from "@/lib/lens/lens-element-message";
+import type {
+  ElementPickerResult,
+  LensAnnotation,
+} from "@/lib/lens/lens.types";
 
 const baseResult: ElementPickerResult = {
   selector: "#hero > button:nth-child(1)",
@@ -15,7 +21,8 @@ const baseResult: ElementPickerResult = {
     display: "inline-flex",
     position: "relative",
   },
-  outerHTML: '<button id="launch-cta" class="ButtonRoot hero-button primary">Launch</button>',
+  outerHTML:
+    '<button id="launch-cta" class="ButtonRoot hero-button primary">Launch</button>',
   textContent: "Launch",
   debugSource: {
     fileName: "src/components/Hero.tsx",
@@ -25,13 +32,27 @@ const baseResult: ElementPickerResult = {
 };
 
 describe("formatElementForChat", () => {
-  it("includes heuristic source hints by default", () => {
+  it("includes a compact element summary and heuristic source hints by default", () => {
     const text = formatElementForChat(baseResult);
 
     expect(text).toContain("[Lens Element Selection]");
+    expect(text).toContain("- Selector:");
+    expect(text).toContain(
+      "- Element: `<button#launch-cta.ButtonRoot.hero-button.primary>`",
+    );
+    expect(text).toContain("- Position: (32, 64) 180x44");
+    expect(text).toContain("- Key styles:");
     expect(text).toContain("Source search hints");
     expect(text).toContain('Search text: `"Launch"`');
     expect(text).toContain("Likely component class");
+  });
+
+  it("omits raw HTML from the default prompt payload", () => {
+    const text = formatElementForChat(baseResult);
+
+    expect(text).not.toContain("**HTML:**");
+    expect(text).not.toContain("```html");
+    expect(text).not.toContain(baseResult.outerHTML);
   });
 
   it("omits heuristic hints when disabled", () => {
@@ -82,7 +103,10 @@ describe("formatElementForChat", () => {
       id: "",
       textContent: "",
     };
-    const text = formatElementForChat(result, { heuristic: true, reactDebugSource: false });
+    const text = formatElementForChat(result, {
+      heuristic: true,
+      reactDebugSource: false,
+    });
     // No class, id, or text means no search hints
     expect(text).not.toContain("Source search hints");
   });
@@ -94,8 +118,11 @@ describe("formatElementForChat", () => {
       classList: [],
       textContent: "OK",
     };
-    const text = formatElementForChat(result, { heuristic: true, reactDebugSource: false });
-    expect(text).not.toContain('Search text:');
+    const text = formatElementForChat(result, {
+      heuristic: true,
+      reactDebugSource: false,
+    });
+    expect(text).not.toContain("Search text:");
   });
 
   it("suppresses text hint when textContent is longer than 60 chars", () => {
@@ -105,7 +132,10 @@ describe("formatElementForChat", () => {
       classList: [],
       textContent: "x".repeat(61),
     };
-    const text = formatElementForChat(result, { heuristic: true, reactDebugSource: false });
+    const text = formatElementForChat(result, {
+      heuristic: true,
+      reactDebugSource: false,
+    });
     expect(text).not.toContain("Search text:");
   });
 
@@ -116,7 +146,10 @@ describe("formatElementForChat", () => {
       classList: ["flex", "block", "relative", "w-full"],
       textContent: "",
     };
-    const text = formatElementForChat(result, { heuristic: true, reactDebugSource: false });
+    const text = formatElementForChat(result, {
+      heuristic: true,
+      reactDebugSource: false,
+    });
     // Utility-only classes should not generate a class search hint
     expect(text).not.toContain("Search classes:");
   });
@@ -126,30 +159,68 @@ describe("formatElementForChat", () => {
       heuristic: true,
       reactDebugSource: false,
     });
-    expect(text).toContain('Search id:');
+    expect(text).toContain("Search id:");
     expect(text).toContain("launch-cta");
   });
 
-  it("always includes selector, tag, position, and html sections", () => {
+  it("always includes selector, element identity, and position", () => {
     const text = formatElementForChat(
-      { ...baseResult, classList: [], id: "", textContent: "", debugSource: undefined },
+      {
+        ...baseResult,
+        classList: [],
+        id: "",
+        textContent: "",
+        debugSource: undefined,
+      },
       { heuristic: false, reactDebugSource: false },
     );
-    expect(text).toContain("**Selector:**");
-    expect(text).toContain("**Tag:**");
-    expect(text).toContain("**Position:**");
-    expect(text).toContain("**HTML:**");
-    expect(text).toContain("```html");
+    expect(text).toContain("- Selector:");
+    expect(text).toContain("- Element: `<button>`");
+    expect(text).toContain("- Position:");
+    expect(text).not.toContain("```html");
   });
 
-  it("uses default config (heuristic on, reactDebugSource off) when config is omitted", () => {
+  it("uses default config when config is omitted", () => {
     const text = formatElementForChat(baseResult);
-    // heuristic should be on → search hints present
     expect(text).toContain("Source search hints");
-    // reactDebugSource defaults to off via undefined check
-    // debugSource is present but reactDebugSource default is not explicitly false,
-    // config is undefined so condition is: config?.reactDebugSource !== false → true
-    // meaning debug source IS included when config is omitted (same as both true)
     expect(text).toContain("React source:");
+  });
+});
+
+describe("formatAnnotationsForChat", () => {
+  const baseAnnotation: LensAnnotation = {
+    id: "ann-1",
+    kind: "element",
+    pin: 1,
+    rect: { x: 20, y: 30, width: 120, height: 40 },
+    comment: "Button padding looks tight",
+    createdAt: "2026-06-30T00:00:00.000Z",
+    selector: "#launch-cta",
+    tagName: "button",
+    elementId: "launch-cta",
+    classList: ["ButtonRoot", "hero-button", "primary"],
+    computedStyles: baseResult.computedStyles,
+    outerHTML: baseResult.outerHTML,
+    textContent: "Launch",
+    debugSource: baseResult.debugSource,
+    styleEdits: [
+      { property: "padding", before: "8px 12px", after: "10px 16px" },
+    ],
+  };
+
+  it("formats visual comments without injecting raw element HTML", () => {
+    const text = formatAnnotationsForChat([baseAnnotation], {
+      heuristic: true,
+      reactDebugSource: true,
+    });
+
+    expect(text).toContain("[Lens Visual Comments]");
+    expect(text).toContain("- Comment: Button padding looks tight");
+    expect(text).toContain("- Selector: `#launch-cta`");
+    expect(text).toContain("- Key styles:");
+    expect(text).toContain("padding: `8px 12px` → `10px 16px`");
+    expect(text).toContain("React source:");
+    expect(text).not.toContain("```html");
+    expect(text).not.toContain(baseResult.outerHTML);
   });
 });

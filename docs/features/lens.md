@@ -42,7 +42,7 @@
 - Address bar: loads local or remote pages into the current workspace session.
 - Back, forward, reload: standard navigation for the current workspace browser.
 - Preview, Console, Network: compact view switcher beside the address bar. Preview is the primary Lens surface; Console and Network are diagnostic views.
-- Pick Element: captures selector, styles, HTML, and source hints, then appends the result to the active task draft.
+- Pick Element: captures selector, position, key text/styles, and source hints, then appends a compact summary to the active task draft. The picker exits on click, `Escape`, or timeout.
 - Annotate: places numbered visual comments on elements or selected areas, then sends the comments to the active task draft.
 - Inspect (ruler icon): hover any element to see a Figma/DevTools-style box-model overlay (content, padding, border, margin) with a measurement tooltip. Click an element to pin it, then hover another element to read the pixel gap between them. `Escape` clears the pinned element. Inspect and Annotate are mutually exclusive.
 - Style: live-edits supported element styles from an annotation and records before/after diffs in the sent payload.
