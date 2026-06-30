@@ -292,6 +292,14 @@ export const RuntimeOptionsObjectSchema = z
         z.literal("auto"),
       ])
       .optional(),
+    claudePlanModeApprovalScope: z
+      .union([
+        z.literal("strict"),
+        z.literal("bash"),
+        z.literal("bashAndTask"),
+        z.literal("bashTaskAndMcp"),
+      ])
+      .optional(),
     claudeAllowDangerouslySkipPermissions: z.boolean().optional(),
     claudeSandboxEnabled: z.boolean().optional(),
     claudeAllowUnsandboxedCommands: z.boolean().optional(),

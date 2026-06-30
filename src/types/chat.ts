@@ -27,6 +27,36 @@ export type ClaudePermissionModeBeforePlan = Exclude<
   "plan"
 > | null;
 
+/**
+ * How aggressively Stave auto-approves tool calls while Claude is in plan mode.
+ *
+ * Plan mode is read-only by construction: mutating file tools (Edit/Write/…)
+ * and mutating Bash commands are hard-denied regardless of this setting. These
+ * levels only relax the approval *prompt* for tool calls that cannot mutate the
+ * workspace, so higher levels mean fewer interruptions during planning.
+ *
+ * - `strict`: only the built-in read-only tools (Read/Grep/Glob/…) and Stave
+ *   workspace MCP tools are auto-allowed; non-mutating Bash, subagents (Task),
+ *   and third-party MCP tools still prompt. This is the original behavior.
+ * - `bash`: additionally auto-allow non-mutating Bash commands.
+ * - `bashAndTask`: additionally auto-allow spawning subagents via the Task tool.
+ * - `bashTaskAndMcp`: additionally auto-allow read-only third-party / lens MCP
+ *   tools (classified by tool-name verbs). Mutating-looking MCP tools still
+ *   prompt.
+ */
+export type ClaudePlanModeApprovalScope =
+  | "strict"
+  | "bash"
+  | "bashAndTask"
+  | "bashTaskAndMcp";
+
+/**
+ * Default plan-mode approval scope. The broadest level, so plan mode feels as
+ * frictionless as auto mode while still hard-denying every mutating action.
+ */
+export const DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE: ClaudePlanModeApprovalScope =
+  "bashTaskAndMcp";
+
 export interface PromptDraftRuntimeOverrides {
   claudePermissionMode?: ClaudePermissionMode;
   claudePermissionModeBeforePlan?: ClaudePermissionModeBeforePlan;

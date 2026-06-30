@@ -504,6 +504,8 @@ export interface ProviderRuntimeOptions {
   providerTimeoutMs?: number;
   claudeBinaryPath?: string;
   claudePermissionMode?: "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk" | "auto";
+  /** How much plan-mode auto-approves non-mutating tool calls (Bash/Task/MCP). */
+  claudePlanModeApprovalScope?: "strict" | "bash" | "bashAndTask" | "bashTaskAndMcp";
   claudeAllowDangerouslySkipPermissions?: boolean;
   claudeSandboxEnabled?: boolean;
   claudeAllowUnsandboxedCommands?: boolean;

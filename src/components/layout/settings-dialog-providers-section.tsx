@@ -140,6 +140,42 @@ const CLAUDE_PERMISSION_MODE_HELP = [
   NonNullable<ProviderRuntimeOptions["claudePermissionMode"]>
 >[];
 
+const CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP = [
+  {
+    value: "strict",
+    label: "Strict",
+    description:
+      "Only read-only built-ins (Read/Grep/Glob/…) and Stave workspace tools auto-run. Bash, subagents, and other MCP tools each prompt. Most interruptions.",
+    example:
+      "Pick this when you want to confirm every shell command and tool call during planning.",
+  },
+  {
+    value: "bash",
+    label: "Read-only Bash",
+    description:
+      "Also auto-runs Bash commands that don't mutate files or task state (git status, cat, ls, typecheck). Mutating commands stay hard-denied.",
+    example:
+      "Good when you mostly want quiet read-only inspection but keep subagents and MCP gated.",
+  },
+  {
+    value: "bashAndTask",
+    label: "Bash + Subagents",
+    description:
+      "Also auto-runs read-only Bash and lets Claude spawn subagents (Task) without a prompt. Subagent mutations are still hard-denied.",
+    example: "Useful when planning fans out research across Explore subagents.",
+  },
+  {
+    value: "bashTaskAndMcp",
+    label: "Bash + Subagents + MCP reads",
+    description:
+      "Broadest. Also auto-runs read-only third-party / lens MCP tools (classified by name). Mutating-looking MCP tools still prompt. Closest to auto mode.",
+    example:
+      "Default. Fewest plan-mode interruptions while every mutation stays blocked.",
+  },
+] as const satisfies readonly ExplainedSelectOption<
+  NonNullable<ProviderRuntimeOptions["claudePlanModeApprovalScope"]>
+>[];
+
 const CLAUDE_THINKING_MODE_HELP = [
   {
     value: "adaptive",
@@ -546,6 +582,7 @@ export function ProvidersSection() {
   const [
     modelClaude,
     claudePermissionMode,
+    claudePlanModeApprovalScope,
     claudeAllowDangerouslySkipPermissions,
     claudeSandboxEnabled,
     claudeAllowUnsandboxedCommands,
@@ -581,6 +618,7 @@ export function ProvidersSection() {
         [
           state.settings.modelClaude,
           state.settings.claudePermissionMode,
+          state.settings.claudePlanModeApprovalScope,
           state.settings.claudeAllowDangerouslySkipPermissions,
           state.settings.claudeSandboxEnabled,
           state.settings.claudeAllowUnsandboxedCommands,
@@ -1022,6 +1060,32 @@ export function ProvidersSection() {
                   })
                 }
               />
+              <LabeledField
+                title="Plan Mode Approvals"
+                guide={
+                  <SettingsFieldGuide
+                    title="Claude Plan Mode Approvals"
+                    summary="Controls how many approval prompts plan mode shows. Plan mode is always read-only — mutating file edits and mutating Bash are hard-denied at every level; these options only relax the prompt for non-mutating Bash, subagents, and read-only MCP tools."
+                    items={buildGuideItems(CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP)}
+                    examples={buildGuideExamples(
+                      CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP,
+                    )}
+                    tooltip="Compare plan-mode approval scopes"
+                  />
+                }
+              >
+                <DescribedSelect
+                  value={claudePlanModeApprovalScope}
+                  options={CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP}
+                  onValueChange={(value) =>
+                    updateSettings({
+                      patch: {
+                        claudePlanModeApprovalScope: value,
+                      },
+                    })
+                  }
+                />
+              </LabeledField>
               <LabeledField
                 title="Skills"
                 description="Comma- or newline-separated Claude skill names. Use `all` to enable every discovered skill."

@@ -25,6 +25,13 @@ export const CLAUDE_PERMISSION_MODE_OPTIONS = [
   { value: "auto", label: "auto" },
 ] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["claudePermissionMode"]>>[];
 
+export const CLAUDE_PLAN_MODE_APPROVAL_SCOPE_OPTIONS = [
+  { value: "strict", label: "Strict" },
+  { value: "bash", label: "Read-only Bash" },
+  { value: "bashAndTask", label: "Bash + Subagents" },
+  { value: "bashTaskAndMcp", label: "Bash + Subagents + MCP reads" },
+] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["claudePlanModeApprovalScope"]>>[];
+
 export const CLAUDE_THINKING_OPTIONS = [
   { value: "adaptive", label: "Adaptive" },
   { value: "enabled", label: "Enabled" },
@@ -92,6 +99,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "providerTimeoutMs",
   "claudeBinaryPath",
   "claudePermissionMode",
+  "claudePlanModeApprovalScope",
   "claudeAllowDangerouslySkipPermissions",
   "claudeSandboxEnabled",
   "claudeAllowUnsandboxedCommands",
