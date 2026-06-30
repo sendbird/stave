@@ -15,7 +15,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Archive,
   ArrowUpDown,
   ChevronDown,
   ChevronRight,
@@ -24,6 +23,7 @@ import {
   GitBranch,
   GripVertical,
   LoaderCircle,
+  MoreVertical,
   PanelLeft,
   Plus,
   RefreshCw,
@@ -67,6 +67,7 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -78,6 +79,7 @@ import {
   TooltipTrigger,
   WaveIndicator,
 } from "@/components/ui";
+import { WorkspaceSettingsDialog } from "./WorkspaceSettingsDialog";
 import {
   loadWorkspaceShellSummary,
   type WorkspaceShellSummary,
@@ -528,36 +530,6 @@ const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
   );
 });
 
-function WorkspaceArchiveButton(args: {
-  workspaceId: string;
-  isClosing: boolean;
-  onArchive: () => void;
-  side?: "top" | "right";
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 rounded-md p-0 text-muted-foreground hover:text-destructive focus-visible:text-destructive"
-          disabled={args.isClosing}
-          onClick={args.onArchive}
-          aria-label={`archive-workspace-${args.workspaceId}`}
-        >
-          {args.isClosing ? (
-            <LoaderCircle className="size-3.5 animate-spin" />
-          ) : (
-            <Archive className="size-3.5" />
-          )}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side={args.side ?? "right"}>Archive</TooltipContent>
-    </Tooltip>
-  );
-}
-
 /**
  * Wrap the workspace row with the `border-beam` library's animated glow when a
  * task in the workspace is streaming and the user opted into the Border Beam
@@ -672,6 +644,88 @@ function SortableSidebarItem(args: SortableSidebarItemProps) {
   );
 }
 
+function WorkspaceRowActions(args: {
+  workspaceId: string;
+  workspaceName: string;
+  branch?: string;
+  projectPath: string;
+  workspacePath: string;
+  canArchiveWorkspace: boolean;
+  closingWorkspaceId: string | null;
+  onArchive: () => void;
+  shortcutLabel?: string | null;
+  shortcutModifier: string;
+}) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const isClosing = args.closingWorkspaceId === args.workspaceId;
+  const forceVisible = dropdownOpen || settingsOpen || isClosing;
+
+  return (
+    <>
+      <div
+        className={cn(
+          "absolute inset-y-0 right-0 flex items-center gap-1 pr-1 transition-opacity",
+          forceVisible
+            ? "pointer-events-auto opacity-100"
+            : getWorkspaceHoverActionVisibilityClasses({ isClosing }),
+        )}
+      >
+        {args.shortcutLabel ? (
+          <WorkspaceShortcutChip
+            modifier={args.shortcutModifier}
+            label={args.shortcutLabel}
+            className="shrink-0"
+          />
+        ) : null}
+        <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 rounded-md p-0 text-muted-foreground"
+              disabled={isClosing}
+              aria-label={`workspace-actions-${args.workspaceId}`}
+            >
+              {isClosing ? (
+                <LoaderCircle className="size-3.5 animate-spin" />
+              ) : (
+                <MoreVertical className="size-3.5" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+              Workspace settings…
+            </DropdownMenuItem>
+            {args.canArchiveWorkspace ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={args.onArchive}
+                >
+                  Archive
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <WorkspaceSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        workspaceId={args.workspaceId}
+        workspaceName={args.workspaceName}
+        branch={args.branch}
+        projectPath={args.projectPath}
+        workspacePath={args.workspacePath}
+      />
+    </>
+  );
+}
+
 export function ProjectWorkspaceSidebar(args: {
   width: number;
   collapsed: boolean;
@@ -707,6 +761,7 @@ export function ProjectWorkspaceSidebar(args: {
     recentProjects,
     workspaceDefaultById,
     workspaceBranchById,
+    workspacePathById,
     activeWorkspaceBranch,
     activeWorkspaceCwd,
     workspaceSidebarItemDisplayMode,
@@ -734,6 +789,7 @@ export function ProjectWorkspaceSidebar(args: {
         state.recentProjects,
         state.workspaceDefaultById,
         state.workspaceBranchById,
+        state.workspacePathById,
         state.workspaceBranchById[state.activeWorkspaceId] ?? "main",
         state.workspacePathById[state.activeWorkspaceId] ??
           state.projectPath ??
@@ -1515,17 +1571,10 @@ export function ProjectWorkspaceSidebar(args: {
                                                 const isClosingWorkspace =
                                                   closingWorkspaceId ===
                                                   workspace.id;
-                                                const compactHasHoverActions =
-                                                  Boolean(
-                                                    workspaceShortcutLabel ||
-                                                    canArchiveWorkspace,
-                                                  );
-                                                const expandedHasHoverActions =
-                                                  canArchiveWorkspace;
-                                                const hasHoverActions =
-                                                  isExpandedWorkspaceItem
-                                                    ? expandedHasHoverActions
-                                                    : compactHasHoverActions;
+                                                // The ⋮ row-actions menu is always shown, so hover
+                                                // actions are always present (compact: chip + ⋮,
+                                                // expanded: ⋮; the chip lives in WorkspaceExpandedMeta).
+                                                const hasHoverActions = true;
 
                                                 return (
                                                   <SortableSidebarItem
@@ -1667,95 +1716,106 @@ export function ProjectWorkspaceSidebar(args: {
                                                             </button>
                                                           </WorkspaceHoverPreviewTooltip>
                                                           {isExpandedWorkspaceItem ? (
-                                                            hasHoverActions ? (
-                                                              <div
-                                                                className={cn(
-                                                                  "absolute bottom-1.5 right-1 flex items-center transition-opacity",
-                                                                  getWorkspaceHoverActionVisibilityClasses(
-                                                                    {
-                                                                      isClosing:
-                                                                        isClosingWorkspace,
-                                                                    },
-                                                                  ),
-                                                                )}
-                                                              >
-                                                                <WorkspaceArchiveButton
+                                                            <WorkspaceRowActions
+                                                              workspaceId={
+                                                                workspace.id
+                                                              }
+                                                              workspaceName={
+                                                                workspace.name
+                                                              }
+                                                              branch={
+                                                                workspaceBranchById[
+                                                                  workspace.id
+                                                                ]
+                                                              }
+                                                              projectPath={
+                                                                project.projectPath
+                                                              }
+                                                              workspacePath={
+                                                                workspacePathById[
+                                                                  workspace.id
+                                                                ] ??
+                                                                project.projectPath
+                                                              }
+                                                              canArchiveWorkspace={
+                                                                canArchiveWorkspace
+                                                              }
+                                                              closingWorkspaceId={
+                                                                closingWorkspaceId
+                                                              }
+                                                              onArchive={() =>
+                                                                setWorkspaceToClose(
+                                                                  {
+                                                                    id: workspace.id,
+                                                                    name: workspace.name,
+                                                                  },
+                                                                )
+                                                              }
+                                                              shortcutLabel={
+                                                                undefined
+                                                              }
+                                                              shortcutModifier={
+                                                                workspaceShortcutModifierLabel
+                                                              }
+                                                            />
+                                                          ) : (
+                                                            <>
+                                                              <div className="relative shrink-0">
+                                                                <WorkspaceRespondingCountBadge
                                                                   workspaceId={
                                                                     workspace.id
+                                                                  }
+                                                                  hasHoverActions={
+                                                                    hasHoverActions
                                                                   }
                                                                   isClosing={
                                                                     isClosingWorkspace
                                                                   }
-                                                                  onArchive={() =>
-                                                                    setWorkspaceToClose(
-                                                                      {
-                                                                        id: workspace.id,
-                                                                        name: workspace.name,
-                                                                      },
-                                                                    )
-                                                                  }
-                                                                  side="right"
                                                                 />
                                                               </div>
-                                                            ) : null
-                                                          ) : (
-                                                            <div className="relative shrink-0">
-                                                              <WorkspaceRespondingCountBadge
+                                                              <WorkspaceRowActions
                                                                 workspaceId={
                                                                   workspace.id
                                                                 }
-                                                                hasHoverActions={
-                                                                  hasHoverActions
+                                                                workspaceName={
+                                                                  workspace.name
                                                                 }
-                                                                isClosing={
-                                                                  isClosingWorkspace
+                                                                branch={
+                                                                  workspaceBranchById[
+                                                                    workspace.id
+                                                                  ]
+                                                                }
+                                                                projectPath={
+                                                                  project.projectPath
+                                                                }
+                                                                workspacePath={
+                                                                  workspacePathById[
+                                                                    workspace.id
+                                                                  ] ??
+                                                                  project.projectPath
+                                                                }
+                                                                canArchiveWorkspace={
+                                                                  canArchiveWorkspace
+                                                                }
+                                                                closingWorkspaceId={
+                                                                  closingWorkspaceId
+                                                                }
+                                                                onArchive={() =>
+                                                                  setWorkspaceToClose(
+                                                                    {
+                                                                      id: workspace.id,
+                                                                      name: workspace.name,
+                                                                    },
+                                                                  )
+                                                                }
+                                                                shortcutLabel={
+                                                                  workspaceShortcutLabel
+                                                                }
+                                                                shortcutModifier={
+                                                                  workspaceShortcutModifierLabel
                                                                 }
                                                               />
-                                                              {hasHoverActions ? (
-                                                                <div
-                                                                  className={cn(
-                                                                    "absolute inset-y-0 right-0 flex items-center gap-1 pr-1 transition-opacity",
-                                                                    getWorkspaceHoverActionVisibilityClasses(
-                                                                      {
-                                                                        isClosing:
-                                                                          isClosingWorkspace,
-                                                                      },
-                                                                    ),
-                                                                  )}
-                                                                >
-                                                                  {workspaceShortcutLabel ? (
-                                                                    <WorkspaceShortcutChip
-                                                                      modifier={
-                                                                        workspaceShortcutModifierLabel
-                                                                      }
-                                                                      label={
-                                                                        workspaceShortcutLabel
-                                                                      }
-                                                                      className="shrink-0"
-                                                                    />
-                                                                  ) : null}
-                                                                  {canArchiveWorkspace ? (
-                                                                    <WorkspaceArchiveButton
-                                                                      workspaceId={
-                                                                        workspace.id
-                                                                      }
-                                                                      isClosing={
-                                                                        isClosingWorkspace
-                                                                      }
-                                                                      onArchive={() =>
-                                                                        setWorkspaceToClose(
-                                                                          {
-                                                                            id: workspace.id,
-                                                                            name: workspace.name,
-                                                                          },
-                                                                        )
-                                                                      }
-                                                                      side="right"
-                                                                    />
-                                                                  ) : null}
-                                                                </div>
-                                                              ) : null}
-                                                            </div>
+                                                            </>
                                                           )}
                                                         </div>
                                                       </WorkspaceBorderBeam>
