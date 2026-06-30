@@ -771,6 +771,23 @@ export function shouldAutoAllowPlanModeScopedTool(args: {
   return false;
 }
 
+/**
+ * Once a plan was presented via ExitPlanMode in a plan-mode turn, every later
+ * tool call (except re-presenting an updated plan) must be denied so the agent
+ * stops and the turn completes — Stave has already captured the plan for review.
+ */
+export function shouldDenyClaudePostPlanTool(args: {
+  permissionMode: ClaudePermissionMode;
+  planPresented: boolean;
+  toolName: string;
+}): boolean {
+  return (
+    args.permissionMode === "plan" &&
+    args.planPresented &&
+    args.toolName.trim().toLowerCase() !== "exitplanmode"
+  );
+}
+
 function resolveTrustedApprovalInput(args: {
   toolName: string;
   input: Record<string, unknown>;
@@ -2857,6 +2874,11 @@ export async function streamClaudeWithSdk(
       runtimeValue: args.runtimeOptions?.claudePlanModeApprovalScope,
       envValue: process.env.STAVE_CLAUDE_PLAN_MODE_APPROVAL_SCOPE?.trim(),
     });
+    // Set once the agent presents its plan via ExitPlanMode during a plan-mode
+    // turn. After that point Stave has the plan (captured + persisted + shown
+    // in the PlanViewer for review), so the turn must wind down; further tool
+    // calls are denied so the agent stops and the turn can complete.
+    let planPresentedInTurn = false;
     const approvalDecisionTimeoutMs = resolveClaudeApprovalDecisionTimeoutMs({
       envValue: process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS,
     });
@@ -3024,6 +3046,32 @@ export async function streamClaudeWithSdk(
               message: `Skill "${redirectedSkillSlug}" is already activated by Stave. Do not call the Skill tool for it; follow the [Activated Skills] instructions directly.`,
               context: "skill:activated-skill-redirect",
             });
+          }
+
+          // In plan mode, once the agent has presented a plan via ExitPlanMode,
+          // Stave captures it, persists it under .stave/context/plans, and shows
+          // it in the PlanViewer for explicit review — the turn must end there
+          // so the user can reply. Some workspace instructions (e.g. the handoff
+          // convention) tell the agent to keep working after ExitPlanMode, and
+          // with broad plan-mode approval scopes those follow-up calls would
+          // auto-run and the turn would never finish (stuck "loading"). Deny
+          // every post-plan tool call except re-presenting an updated plan, so
+          // the agent stops and the turn completes.
+          if (
+            shouldDenyClaudePostPlanTool({
+              permissionMode: claudePermissionMode,
+              planPresented: planPresentedInTurn,
+              toolName,
+            })
+          ) {
+            return buildClaudeDenyPermissionResult({
+              message:
+                "Your plan was already presented to the user for review in Stave and saved under .stave/context/plans. Stop now and wait — do not run any more tools. The user will approve or revise the plan in a separate turn.",
+              context: "approval:plan-already-presented",
+            });
+          }
+          if (toolName.trim().toLowerCase() === "exitplanmode") {
+            planPresentedInTurn = true;
           }
 
           const permissionModeDecision = resolveClaudePermissionModeDecision({
