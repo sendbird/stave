@@ -124,7 +124,7 @@ export function WorkspaceSettingsDialog(
   // ImageLightbox pattern so tests can assert on structure without a browser DOM.
   if (props.open && (typeof document === "undefined" || !document.body)) {
     return (
-      <div data-slot="dialog-content" className="max-w-2xl">
+      <div data-slot="dialog-content" className="max-w-4xl">
         {sharedContent}
       </div>
     );
@@ -132,7 +132,7 @@ export function WorkspaceSettingsDialog(
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="sr-only">Workspace settings</DialogTitle>
         </DialogHeader>
