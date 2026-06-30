@@ -30,6 +30,10 @@ import {
   normalizeAppShortcutKeys,
 } from "@/lib/app-shortcuts";
 import {
+  DEFAULT_PROMPT_COMMENT_SHORTCUT,
+  normalizePromptCommentShortcut,
+} from "@/lib/prompt-comment-shortcuts";
+import {
   getTaskPresetShortcutLabel,
   TASK_PRESET_SHORTCUT_SLOT_LABELS,
 } from "@/lib/task-presets";
@@ -92,17 +96,22 @@ export function KeyboardShortcutsDrawer({
         : "Ctrl",
     [],
   );
-  const [storedModelShortcutKeys, storedAppShortcutKeys, taskPresets] =
-    useAppStore(
-      useShallow(
-        (state) =>
-          [
-            state.settings.modelShortcutKeys,
-            state.settings.appShortcutKeys,
-            state.settings.taskPresets,
-          ] as const,
-      ),
-    );
+  const [
+    storedModelShortcutKeys,
+    storedAppShortcutKeys,
+    storedPromptCommentShortcut,
+    taskPresets,
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.settings.modelShortcutKeys,
+          state.settings.appShortcutKeys,
+          state.settings.promptCommentShortcut,
+          state.settings.taskPresets,
+        ] as const,
+    ),
+  );
   const normalizedAppShortcutKeys = useMemo(
     () => normalizeAppShortcutKeys(storedAppShortcutKeys),
     [storedAppShortcutKeys],
@@ -110,6 +119,18 @@ export function KeyboardShortcutsDrawer({
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(storedModelShortcutKeys),
     [storedModelShortcutKeys],
+  );
+  const normalizedPromptCommentShortcut = normalizePromptCommentShortcut(
+    storedPromptCommentShortcut ?? DEFAULT_PROMPT_COMMENT_SHORTCUT,
+  );
+  const promptCommentShortcutSequences = useMemo(
+    () =>
+      normalizedPromptCommentShortcut === "mod-enter"
+        ? [[modifierLabel, "Enter"]]
+        : normalizedPromptCommentShortcut === "shift-enter"
+          ? [["Shift", "Enter"]]
+          : [["Disabled"]],
+    [modifierLabel, normalizedPromptCommentShortcut],
   );
   const modelShortcutItems = useMemo<ShortcutItem[]>(() => {
     const assignedItems = MODEL_SHORTCUT_SLOT_LABELS.map((slotLabel, index) => {
@@ -345,6 +366,12 @@ export function KeyboardShortcutsDrawer({
             sequences: [[modifierLabel, "Shift", "P"]],
           },
           {
+            label: "Stage comment",
+            description:
+              "Move the current composer text into the Comment strip instead of sending it.",
+            sequences: promptCommentShortcutSequences,
+          },
+          {
             label: "Toggle plan mode",
             description:
               "Switch the active prompt between normal and plan mode from anywhere in the app.",
@@ -396,6 +423,7 @@ export function KeyboardShortcutsDrawer({
       modelShortcutItems,
       modifierLabel,
       normalizedAppShortcutKeys,
+      promptCommentShortcutSequences,
       presetShortcutItems,
     ],
   );

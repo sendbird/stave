@@ -31,7 +31,6 @@ import {
   Ruler,
   ScanSearch,
   Search,
-  Send,
   ShieldAlert,
   SlidersHorizontal,
   Terminal,
@@ -77,9 +76,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  formatAnnotationsForChat,
   formatElementForChat,
 } from "@/lib/lens/lens-element-message";
+import { upsertLensAnnotationsAttachment } from "@/lib/lens/lens-annotation-attachment";
 import { hasLensOccludingFloatingSurface } from "@/lib/lens/lens-occlusion";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import type {
@@ -1440,43 +1439,29 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     [hasLensApi, workspaceId],
   );
 
-  const sendAnnotationsToDraft = useCallback(async () => {
-    if (!activeTaskId) {
-      toast.warning("Select a task first", {
-        description: "Lens sends visual comments into the active task draft.",
-      });
+  useEffect(() => {
+    if (!activeTaskId || !workspaceId) {
       return;
     }
-
-    if (annotations.length === 0) {
-      return;
-    }
-
-    const annotationText = formatAnnotationsForChat(
+    const store = useAppStore.getState();
+    const currentDraft = store.promptDraftByTask[activeTaskId];
+    const currentAttachments = currentDraft?.attachments ?? [];
+    const nextAttachments = upsertLensAnnotationsAttachment({
+      attachments: currentAttachments,
+      workspaceId,
       annotations,
       sourceMappingConfig,
-    );
-    const currentText =
-      useAppStore.getState().promptDraftByTask[activeTaskId]?.text?.trim() ??
-      "";
-    useAppStore.getState().updatePromptDraft({
+    });
+    if (JSON.stringify(currentAttachments) === JSON.stringify(nextAttachments)) {
+      return;
+    }
+    store.updatePromptDraft({
       taskId: activeTaskId,
       patch: {
-        text: currentText
-          ? `${currentText}\n\n${annotationText}`
-          : annotationText,
+        attachments: nextAttachments,
       },
     });
-    useAppStore.setState((state) => ({
-      promptFocusNonce: state.promptFocusNonce + 1,
-    }));
-
-    toast.success("Lens comments added", {
-      description: `${annotations.length} visual comment${
-        annotations.length === 1 ? "" : "s"
-      } appended to the active task draft.`,
-    });
-  }, [activeTaskId, annotations, sourceMappingConfig]);
+  }, [activeTaskId, annotations, sourceMappingConfig, workspaceId]);
 
   const filteredConsoleEntries = useMemo(() => {
     const query = consoleSearch.trim().toLowerCase();
@@ -1940,95 +1925,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
             </Tooltip>
           </div>
 
-          {isPickerActive || isAnnotationModeActive || isBoxInspectActive ? (
-            <div
-              className="flex flex-wrap items-center gap-1.5 text-[11px]"
-              aria-live="polite"
-            >
-              {isPickerActive ? (
-                <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 font-medium text-primary">
-                  <Crosshair className="size-3.5" />
-                  Pick active
-                </span>
-              ) : null}
-              {isAnnotationModeActive ? (
-                <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 font-medium text-primary">
-                  <Highlighter className="size-3.5" />
-                  Annotate active
-                  {annotations.length > 0 ? ` (${annotations.length})` : ""}
-                </span>
-              ) : null}
-              {isBoxInspectActive ? (
-                <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 font-medium text-primary">
-                  <Ruler className="size-3.5" />
-                  Inspect padding
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-
-          {annotations.length > 0 ? (
-            <div className="max-h-28 space-y-1 overflow-y-auto rounded-md border border-border/60 bg-background/70 p-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-medium">
-                  {annotations.length} comment
-                  {annotations.length === 1 ? "" : "s"}
-                </div>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="secondary"
-                  disabled={!activeTaskId}
-                  onClick={() => {
-                    void sendAnnotationsToDraft();
-                  }}
-                  className="h-6 gap-1 px-2 text-[11px]"
-                >
-                  <Send className="size-3" />
-                  Send
-                </Button>
-              </div>
-              <div className="space-y-1">
-                {annotations.map((annotation) => (
-                  <div
-                    key={annotation.id}
-                    className="flex items-start gap-2 rounded border border-border/50 bg-muted/30 px-2 py-1.5 text-xs"
-                  >
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                      {annotation.pin}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">
-                        {annotation.comment}
-                      </div>
-                      <div className="truncate text-[10px] text-muted-foreground">
-                        {annotation.kind === "area"
-                          ? "area"
-                          : annotation.selector}
-                      </div>
-                    </div>
-                    <AnnotationStylePopover
-                      annotation={annotation}
-                      disabled={!hasLensApi || annotation.kind !== "element"}
-                      onOpenChange={setIsLensFloatingSurfaceOpen}
-                      onApply={applyAnnotationStyle}
-                    />
-                    <Button
-                      type="button"
-                      size="icon-xs"
-                      variant="ghost"
-                      aria-label={`Remove annotation ${annotation.pin}`}
-                      onClick={() => {
-                        void removeAnnotation(annotation.id);
-                      }}
-                    >
-                      <Trash2 className="size-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <div className="relative min-h-0 flex-1 overflow-hidden">

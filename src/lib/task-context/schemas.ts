@@ -146,6 +146,16 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     dataUrl: z.string(),
     label: z.string(),
   }),
+  z.object({
+    kind: z.literal("lens-annotations"),
+    id: z.string(),
+    workspaceId: z.string().optional(),
+    label: z.string(),
+    count: z.number(),
+    summary: z.string(),
+    content: z.string(),
+    annotations: z.array(z.unknown()).optional(),
+  }),
 ]);
 
 const PromptDraftRuntimeOverridesSchema = z
@@ -180,6 +190,25 @@ const PromptDraftQueuedNextTurnSchema = z
     queuedAt: z.string(),
     sourceTurnId: z.string().optional(),
     content: z.string().optional(),
+  })
+  .strict();
+
+const PromptDraftQueuedTurnSchema = z
+  .object({
+    id: z.string(),
+    queuedAt: z.string(),
+    sourceTurnId: z.string().optional(),
+    content: z.string(),
+    attachedFilePaths: z.array(z.string()).optional().default([]),
+    attachments: z.array(AttachmentSchema).optional().default([]),
+  })
+  .strict();
+
+const PromptDraftBatchItemSchema = z
+  .object({
+    id: z.string(),
+    createdAt: z.string(),
+    content: z.string(),
   })
   .strict();
 
@@ -517,6 +546,8 @@ export const WorkspaceSnapshotSchema = z.object({
         attachedFilePaths: z.array(z.string()).optional().default([]),
         attachments: z.array(AttachmentSchema).optional().default([]),
         runtimeOverrides: PromptDraftRuntimeOverridesSchema.optional(),
+        promptBatch: z.array(PromptDraftBatchItemSchema).optional(),
+        queuedTurns: z.array(PromptDraftQueuedTurnSchema).optional(),
         queuedNextTurn: PromptDraftQueuedNextTurnSchema.optional(),
       }),
     )

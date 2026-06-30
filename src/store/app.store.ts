@@ -97,6 +97,11 @@ import {
   type AppShortcutKeys,
 } from "@/lib/app-shortcuts";
 import {
+  DEFAULT_PROMPT_COMMENT_SHORTCUT,
+  normalizePromptCommentShortcut,
+  type PromptCommentShortcut,
+} from "@/lib/prompt-comment-shortcuts";
+import {
   DEFAULT_PROMPT_RESPONSE_STYLE,
   DEFAULT_PROMPT_PR_DESCRIPTION,
   DEFAULT_PROMPT_INLINE_COMPLETION,
@@ -238,6 +243,7 @@ import type {
   ClaudePlanModeApprovalScope,
   EditorTab,
   PromptDraft,
+  PromptDraftQueuedTurn,
   Task,
 } from "@/types/chat";
 import { DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE } from "@/types/chat";
@@ -458,12 +464,14 @@ function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
 }
 
 function hasPromptDraftPayload(
-  draft: Pick<PromptDraft, "text" | "attachedFilePaths" | "attachments">,
+  draft: Pick<PromptDraft, "text" | "attachedFilePaths" | "attachments"> &
+    Pick<Partial<PromptDraft>, "promptBatch">,
 ) {
   return (
     draft.text.trim().length > 0 ||
     draft.attachedFilePaths.length > 0 ||
-    draft.attachments.length > 0
+    draft.attachments.length > 0 ||
+    (draft.promptBatch ?? []).some((item) => item.content.trim().length > 0)
   );
 }
 
@@ -479,25 +487,120 @@ function buildClearedPromptDraft(draft?: PromptDraft | null): PromptDraft {
 }
 
 function normalizePromptDraftForStorage(draft: PromptDraft): PromptDraft {
-  if (hasPromptDraftPayload(draft) || !draft.queuedNextTurn) {
-    return draft;
+  const promptBatch = (draft.promptBatch ?? []).filter(
+    (item) => item.content.trim().length > 0,
+  );
+  const legacyQueuedTurn =
+    draft.queuedNextTurn?.content?.trim()
+      ? [
+          {
+            id: `legacy-${draft.queuedNextTurn.queuedAt}`,
+            queuedAt: draft.queuedNextTurn.queuedAt,
+            sourceTurnId: draft.queuedNextTurn.sourceTurnId,
+            content: draft.queuedNextTurn.content,
+            attachedFilePaths: [],
+            attachments: [],
+          },
+        ]
+      : [];
+  const queuedTurns = [
+    ...(draft.queuedTurns ?? []),
+    ...legacyQueuedTurn,
+  ].filter(
+    (item) =>
+      item.content.trim().length > 0 ||
+      item.attachedFilePaths.length > 0 ||
+      item.attachments.length > 0,
+  );
+  const nextDraft: PromptDraft = {
+    ...draft,
+    ...(promptBatch.length > 0 ? { promptBatch } : { promptBatch: undefined }),
+    ...(queuedTurns.length > 0 ? { queuedTurns } : { queuedTurns: undefined }),
+    queuedNextTurn: undefined,
+  };
+  if (hasPromptDraftPayload(nextDraft) || (nextDraft.queuedTurns?.length ?? 0) > 0) {
+    return nextDraft;
   }
-  if (draft.queuedNextTurn.content?.trim()) {
-    return draft;
-  }
-  const { queuedNextTurn: _unused, ...nextDraft } = draft;
-  return nextDraft;
+  const { queuedNextTurn: _unused, queuedTurns: _queued, promptBatch: _batch, ...emptyDraft } = nextDraft;
+  return emptyDraft;
 }
 
-function arePromptDraftQueuedNextTurnEqual(
-  left?: PromptDraft["queuedNextTurn"],
-  right?: PromptDraft["queuedNextTurn"],
+function arePromptDraftQueuedTurnsEqual(
+  left?: PromptDraft["queuedTurns"],
+  right?: PromptDraft["queuedTurns"],
 ) {
+  const leftItems = left ?? [];
+  const rightItems = right ?? [];
   return (
-    left?.queuedAt === right?.queuedAt &&
-    left?.sourceTurnId === right?.sourceTurnId &&
-    left?.content === right?.content
+    leftItems.length === rightItems.length &&
+    leftItems.every((item, index) => {
+      const other = rightItems[index];
+      return (
+        other?.id === item.id &&
+        other.queuedAt === item.queuedAt &&
+        other.sourceTurnId === item.sourceTurnId &&
+        other.content === item.content &&
+        other.attachedFilePaths.length === item.attachedFilePaths.length &&
+        other.attachedFilePaths.every((path, pathIndex) => path === item.attachedFilePaths[pathIndex]) &&
+        other.attachments.length === item.attachments.length &&
+        other.attachments.every((attachment, attachmentIndex) => attachment === item.attachments[attachmentIndex])
+      );
+    })
   );
+}
+
+function arePromptDraftBatchItemsEqual(
+  left?: PromptDraft["promptBatch"],
+  right?: PromptDraft["promptBatch"],
+) {
+  const leftItems = left ?? [];
+  const rightItems = right ?? [];
+  return (
+    leftItems.length === rightItems.length &&
+    leftItems.every((item, index) => {
+      const other = rightItems[index];
+      return (
+        other?.id === item.id &&
+        other.createdAt === item.createdAt &&
+        other.content === item.content
+      );
+    })
+  );
+}
+
+function buildPromptDraftContentForSend(draft: PromptDraft): string {
+  return [
+    ...(draft.promptBatch ?? []).map((item) => item.content.trim()),
+    draft.text.trim(),
+    ...draft.attachments
+      .filter(
+        (
+          attachment,
+        ): attachment is Extract<Attachment, { kind: "lens-annotations" }> =>
+          attachment.kind === "lens-annotations",
+      )
+      .map((attachment) => attachment.content.trim()),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function buildQueuedTurnFromDraft(args: {
+  draft: PromptDraft;
+  sourceTurnId?: string;
+  content?: string;
+}): PromptDraftQueuedTurn {
+  return {
+    id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `queued-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    queuedAt: buildRecentTimestamp(),
+    sourceTurnId: args.sourceTurnId,
+    content: args.content ?? buildPromptDraftContentForSend(args.draft),
+    attachedFilePaths: args.draft.attachedFilePaths,
+    attachments: args.draft.attachments,
+  };
 }
 
 function parseCodexGoalSetObjective(content: string): string | null {
@@ -525,13 +628,14 @@ function parseCodexGoalSetObjective(content: string): string | null {
 
 function buildClearedPromptDraftWithQueuedNextTurn(args: {
   draft?: PromptDraft | null;
-  queuedNextTurn?: PromptDraft["queuedNextTurn"];
+  queuedTurns?: PromptDraft["queuedTurns"];
 }): PromptDraft {
   const clearedDraft = buildClearedPromptDraft(args.draft);
-  return args.queuedNextTurn
+  const queuedTurns = args.queuedTurns ?? args.draft?.queuedTurns;
+  return queuedTurns?.length
     ? {
         ...clearedDraft,
-        queuedNextTurn: args.queuedNextTurn,
+        queuedTurns,
       }
     : clearedDraft;
 }
@@ -967,6 +1071,8 @@ export interface AppSettings {
   appShortcutKeys: AppShortcutKeys;
   /** Alt+1..0 prompt-model bindings, stored as `provider:model` keys. */
   modelShortcutKeys: string[];
+  /** Composer shortcut that stages the current prompt text as a comment. */
+  promptCommentShortcut: PromptCommentShortcut;
   reviewStrictMode: boolean;
   reviewChecklistPreset: string;
   prePrReviewEnabled: boolean;
@@ -2115,6 +2221,7 @@ const defaultSettings: AppSettings = {
   commandPaletteRecentCommandIds: [],
   appShortcutKeys: { ...DEFAULT_APP_SHORTCUT_KEYS },
   modelShortcutKeys: normalizeModelShortcutKeys(),
+  promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
   reviewStrictMode: true,
   reviewChecklistPreset: "safety-first",
   prePrReviewEnabled: false,
@@ -7066,6 +7173,13 @@ export const useAppStore = create<AppState>()(
                     patch.modelShortcutKeys,
                   ),
                 }),
+            ...(patch.promptCommentShortcut === undefined
+              ? {}
+              : {
+                  promptCommentShortcut: normalizePromptCommentShortcut(
+                    patch.promptCommentShortcut,
+                  ),
+                }),
             ...(patch.trustedTools === undefined
               ? {}
               : {
@@ -7730,6 +7844,8 @@ export const useAppStore = create<AppState>()(
               attachedFilePaths: currentDraft.attachedFilePaths,
               attachments: currentDraft.attachments,
               runtimeOverrides: currentDraft.runtimeOverrides,
+              promptBatch: currentDraft.promptBatch,
+              queuedTurns: currentDraft.queuedTurns,
               queuedNextTurn: currentDraft.queuedNextTurn,
               ...patch,
             });
@@ -7751,16 +7867,21 @@ export const useAppStore = create<AppState>()(
                 nextDraft.runtimeOverrides,
                 currentDraft.runtimeOverrides,
               );
-            const queuedNextTurnChanged = !arePromptDraftQueuedNextTurnEqual(
-              nextDraft.queuedNextTurn,
-              currentDraft.queuedNextTurn,
+            const promptBatchChanged = !arePromptDraftBatchItemsEqual(
+              nextDraft.promptBatch,
+              currentDraft.promptBatch,
+            );
+            const queuedTurnsChanged = !arePromptDraftQueuedTurnsEqual(
+              nextDraft.queuedTurns,
+              currentDraft.queuedTurns,
             );
             if (
               !textChanged &&
               !attachedFilePathsChanged &&
               !attachmentsChanged &&
               !runtimeOverridesChanged &&
-              !queuedNextTurnChanged
+              !promptBatchChanged &&
+              !queuedTurnsChanged
             ) {
               return state;
             }
@@ -7783,7 +7904,8 @@ export const useAppStore = create<AppState>()(
               !attachedFilePathsChanged &&
               !attachmentsChanged &&
               !runtimeOverridesChanged &&
-              !queuedNextTurnChanged;
+              !promptBatchChanged &&
+              !queuedTurnsChanged;
             return {
               promptDraftByTask: {
                 ...state.promptDraftByTask,
@@ -7907,7 +8029,8 @@ export const useAppStore = create<AppState>()(
               promptDraftByTask[taskId] ?? EMPTY_PROMPT_DRAFT;
             if (
               !hasPromptDraftPayload(currentDraft) &&
-              !currentDraft.queuedNextTurn
+              !currentDraft.queuedNextTurn &&
+              (currentDraft.queuedTurns?.length ?? 0) === 0
             ) {
               return state;
             }
@@ -9692,13 +9815,16 @@ export const useAppStore = create<AppState>()(
             task?.provider ?? state.draftProvider ?? "claude-code";
           const codexGoalObjective =
             provider === "codex" ? parseCodexGoalSetObjective(content) : null;
-          const codexGoalQueuedNextTurn: PromptDraft["queuedNextTurn"] =
+          const codexGoalQueuedTurns: PromptDraft["queuedTurns"] =
             codexGoalObjective
-              ? {
+              ? [{
+                  id: `codex-goal-${turnId}`,
                   queuedAt: buildRecentTimestamp(),
                   sourceTurnId: turnId,
                   content: codexGoalObjective,
-                }
+                  attachedFilePaths: [],
+                  attachments: [],
+                }]
               : undefined;
           const { workspaceId: taskWorkspaceId, cwd: workspaceCwd } =
             resolveTaskWorkspaceContext({
@@ -9752,20 +9878,32 @@ export const useAppStore = create<AppState>()(
             ...(taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
               sourcePromptDraft),
             text: content,
+            queuedTurns: taskWorkspaceSession.promptDraftByTask[resolvedTaskId]
+              ?.queuedTurns,
             queuedNextTurn: undefined,
           });
+          const promptContent = buildPromptDraftContentForSend(promptDraft);
           const activeTurnId =
             taskWorkspaceSession.activeTurnIdsByTask[resolvedTaskId];
           if (activeTurnId) {
+            const queuedTurn = buildQueuedTurnFromDraft({
+              draft: promptDraft,
+              sourceTurnId: activeTurnId,
+              content: promptContent,
+            });
             const queuedPromptDraft = normalizePromptDraftForStorage({
               ...(taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
                 sourcePromptDraft),
               text: "",
-              queuedNextTurn: {
-                queuedAt: buildRecentTimestamp(),
-                sourceTurnId: activeTurnId,
-                content,
-              },
+              attachedFilePaths: [],
+              attachments: [],
+              promptBatch: undefined,
+              queuedTurns: [
+                ...((taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
+                  sourcePromptDraft).queuedTurns ?? []),
+                queuedTurn,
+              ],
+              queuedNextTurn: undefined,
             });
             set((nextState) => {
               if (taskWorkspaceId === nextState.activeWorkspaceId) {
@@ -9853,7 +9991,7 @@ export const useAppStore = create<AppState>()(
             updatePromptDraftsForWorkspace({
               [resolvedTaskId]: buildClearedPromptDraftWithQueuedNextTurn({
                 draft: promptDraft,
-                queuedNextTurn: codexGoalQueuedNextTurn,
+                queuedTurns: codexGoalQueuedTurns,
               }),
               ...(sourcePromptDraftTaskId !== resolvedTaskId
                 ? {
@@ -9905,7 +10043,7 @@ export const useAppStore = create<AppState>()(
                   });
 
             const skillSelection = resolveSkillSelections({
-              text: content,
+              text: promptContent,
               skills: state.skillCatalog.skills,
               providerId: provider,
             });
@@ -9950,7 +10088,7 @@ export const useAppStore = create<AppState>()(
             // Runs fully async — never blocks the main turn.
             {
               const capturedTaskId = resolvedTaskId;
-              const promptForTitle = normalizedPrompt || content;
+              const promptForTitle = normalizedPrompt || promptContent;
               const historyForTitle = latestHistory.slice(-6).map((m) => ({
                 role: m.role as string,
                 content: m.content,
@@ -10021,7 +10159,7 @@ export const useAppStore = create<AppState>()(
               }
             }
             const referencedTaskContext = buildReferencedTaskRetrievedContext({
-              prompt: normalizedPrompt || content,
+              prompt: normalizedPrompt || promptContent,
               currentTaskId: resolvedTaskId,
               tasks: taskWorkspaceTasks,
               messagesByTask: latestWorkspaceSession.messagesByTask,
@@ -10069,7 +10207,7 @@ export const useAppStore = create<AppState>()(
                   turnId,
                   provider,
                   activeModel,
-                  content,
+                  content: promptContent,
                   fileContexts:
                     resolvedFileContexts.length > 0
                       ? resolvedFileContexts
@@ -10088,7 +10226,7 @@ export const useAppStore = create<AppState>()(
                       draft:
                         nextState.promptDraftByTask[resolvedTaskId] ??
                         promptDraft,
-                      queuedNextTurn: codexGoalQueuedNextTurn,
+                      queuedTurns: codexGoalQueuedTurns,
                     }),
                     ...(sourcePromptDraftTaskId !== resolvedTaskId
                       ? {
@@ -10122,7 +10260,7 @@ export const useAppStore = create<AppState>()(
                   turnId,
                   provider,
                   activeModel,
-                  content,
+                  content: promptContent,
                   fileContexts:
                     resolvedFileContexts.length > 0
                       ? resolvedFileContexts
@@ -10150,7 +10288,7 @@ export const useAppStore = create<AppState>()(
                               cachedSession.promptDraftByTask[
                                 resolvedTaskId
                               ] ?? promptDraft,
-                            queuedNextTurn: codexGoalQueuedNextTurn,
+                            queuedTurns: codexGoalQueuedTurns,
                           }),
                       },
                     },
@@ -10424,14 +10562,16 @@ export const useAppStore = create<AppState>()(
                     });
                     const queuedPromptDraft =
                       latestWorkspaceSession?.promptDraftByTask[resolvedTaskId];
-                    if (queuedPromptDraft?.queuedNextTurn) {
-                      const queuedContent =
-                        queuedPromptDraft.queuedNextTurn.content ??
-                        queuedPromptDraft.text;
+                    const [nextQueuedTurn, ...remainingQueuedTurns] =
+                      queuedPromptDraft?.queuedTurns ?? [];
+                    if (nextQueuedTurn) {
                       const autoDispatchDraft = normalizePromptDraftForStorage({
                         ...queuedPromptDraft,
-                        text: queuedContent,
-                        queuedNextTurn: undefined,
+                        text: nextQueuedTurn.content,
+                        attachedFilePaths: nextQueuedTurn.attachedFilePaths,
+                        attachments: nextQueuedTurn.attachments,
+                        promptBatch: undefined,
+                        queuedTurns: remainingQueuedTurns,
                       });
                       // Restore the queued payload as a normal draft before
                       // dispatch so attachment-only follow-ups and blocked
@@ -10443,7 +10583,11 @@ export const useAppStore = create<AppState>()(
                           attachedFilePaths:
                             autoDispatchDraft.attachedFilePaths,
                           attachments: autoDispatchDraft.attachments,
-                          queuedNextTurn: undefined,
+                          promptBatch: undefined,
+                          queuedTurns:
+                            remainingQueuedTurns.length > 0
+                              ? remainingQueuedTurns
+                              : undefined,
                         },
                       });
                       if (hasPromptDraftPayload(autoDispatchDraft)) {
@@ -11983,6 +12127,9 @@ export const useAppStore = create<AppState>()(
         );
         state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
           raw.modelShortcutKeys,
+        );
+        state.settings.promptCommentShortcut = normalizePromptCommentShortcut(
+          raw.promptCommentShortcut,
         );
         state.settings.trustedTools = normalizeTrustedToolEntries(
           raw.trustedTools,

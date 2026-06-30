@@ -82,6 +82,11 @@ import {
   MODEL_SHORTCUT_SLOT_LABELS,
   normalizeModelShortcutKeys,
 } from "@/lib/providers/model-shortcuts";
+import {
+  formatPromptCommentShortcutLabel,
+  normalizePromptCommentShortcut,
+  PROMPT_COMMENT_SHORTCUT_OPTIONS,
+} from "@/lib/prompt-comment-shortcuts";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { BOOLEAN_TOGGLE_OPTIONS } from "@/lib/providers/runtime-option-contract";
 import { cn } from "@/lib/utils";
@@ -2373,6 +2378,7 @@ function CommandPaletteSection() {
     commandPaletteRecentCommandIds,
     appShortcutKeys,
     modelShortcutKeys,
+    promptCommentShortcut,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -2383,6 +2389,7 @@ function CommandPaletteSection() {
           state.settings.commandPaletteRecentCommandIds,
           state.settings.appShortcutKeys,
           state.settings.modelShortcutKeys,
+          state.settings.promptCommentShortcut,
         ] as const,
     ),
   );
@@ -2401,6 +2408,9 @@ function CommandPaletteSection() {
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(modelShortcutKeys),
     [modelShortcutKeys],
+  );
+  const normalizedPromptCommentShortcut = normalizePromptCommentShortcut(
+    promptCommentShortcut,
   );
   const {
     options: modelShortcutOptions,
@@ -2661,6 +2671,47 @@ function CommandPaletteSection() {
               );
             })}
           </div>
+        </SettingsCard>
+
+        <SettingsCard
+          title="Composer Shortcut"
+          description="Choose the shortcut that stages the current prompt text as a comment instead of sending it."
+          titleAccessory={
+            <Badge variant="secondary">
+              {formatPromptCommentShortcutLabel(normalizedPromptCommentShortcut)}
+            </Badge>
+          }
+        >
+          <LabeledField
+            title="Stage Comment"
+            description="The staged comment appears under the composer and is merged into the next sent prompt."
+          >
+            <Select
+              value={normalizedPromptCommentShortcut}
+              onValueChange={(value) =>
+                updateSettings({
+                  patch: {
+                    promptCommentShortcut:
+                      normalizePromptCommentShortcut(value),
+                  },
+                })
+              }
+            >
+              <SelectTrigger className="h-10 w-full rounded-md border-border/80 bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Shortcut</SelectLabel>
+                  {PROMPT_COMMENT_SHORTCUT_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </LabeledField>
         </SettingsCard>
 
         <SettingsCard

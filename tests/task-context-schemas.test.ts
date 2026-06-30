@@ -142,7 +142,7 @@ describe("task-context workspace schemas", () => {
     });
   });
 
-  test("parses prompt draft runtime overrides and queued-next-turn content from snapshots", () => {
+  test("parses prompt draft runtime overrides, queues, batch fragments, and annotation gadgets from snapshots", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {
         ...createWorkspaceBase(),
@@ -165,7 +165,33 @@ describe("task-context workspace schemas", () => {
           "task-1": {
             text: "",
             attachedFilePaths: [],
-            attachments: [],
+            attachments: [
+              {
+                kind: "lens-annotations",
+                id: "lens-1",
+                label: "Lens comments",
+                count: 2,
+                summary: "1. Header is cramped",
+                content: "[Lens Visual Comments]\n\nraw details",
+              },
+            ],
+            promptBatch: [
+              {
+                id: "batch-1",
+                createdAt: "2026-04-11T00:00:01.000Z",
+                content: "first fragment",
+              },
+            ],
+            queuedTurns: [
+              {
+                id: "queue-1",
+                queuedAt: "2026-04-11T00:00:02.000Z",
+                sourceTurnId: "turn-1",
+                content: "follow-up prompt",
+                attachedFilePaths: ["src/app.tsx"],
+                attachments: [],
+              },
+            ],
             runtimeOverrides: {
               claudePermissionMode: "auto",
               claudePermissionModeBeforePlan: "auto",
@@ -184,7 +210,33 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.promptDraftByTask["task-1"]).toEqual({
       text: "",
       attachedFilePaths: [],
-      attachments: [],
+      attachments: [
+        {
+          kind: "lens-annotations",
+          id: "lens-1",
+          label: "Lens comments",
+          count: 2,
+          summary: "1. Header is cramped",
+          content: "[Lens Visual Comments]\n\nraw details",
+        },
+      ],
+      promptBatch: [
+        {
+          id: "batch-1",
+          createdAt: "2026-04-11T00:00:01.000Z",
+          content: "first fragment",
+        },
+      ],
+      queuedTurns: [
+        {
+          id: "queue-1",
+          queuedAt: "2026-04-11T00:00:02.000Z",
+          sourceTurnId: "turn-1",
+          content: "follow-up prompt",
+          attachedFilePaths: ["src/app.tsx"],
+          attachments: [],
+        },
+      ],
       runtimeOverrides: {
         claudePermissionMode: "auto",
         claudePermissionModeBeforePlan: "auto",

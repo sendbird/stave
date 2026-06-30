@@ -1,20 +1,25 @@
 import {
   Brain,
   ClipboardCheck,
+  FileText,
   FolderOpen,
   GitPullRequest,
   Globe2,
   OctagonX,
   Paperclip,
+  Pencil,
   Send,
   SlidersHorizontal,
   Sparkles,
+  Trash2,
   UserRound,
   X,
   Zap,
 } from "lucide-react";
 import type {
   Attachment,
+  PromptDraftBatchItem,
+  PromptDraftQueuedTurn,
   PromptDraftQueuedNextTurn,
   UserInputPart,
 } from "@/types/chat";
@@ -45,16 +50,21 @@ import {
   DrawerTitle,
   DrawerTrigger,
   ImageLightbox,
+  Input,
   Kbd,
   KbdGroup,
   Popover,
   PopoverAnchor,
   PopoverContent,
+  PopoverDescription,
+  PopoverTrigger,
+  PopoverTitle,
   Textarea,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
   buttonVariants,
+  toast,
 } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
 import { UserInputCard } from "./user-input-card";
@@ -96,6 +106,17 @@ import {
   findModelShortcutOption,
   resolveModelShortcutSlot,
 } from "@/lib/providers/model-shortcuts";
+import {
+  DEFAULT_PROMPT_COMMENT_SHORTCUT,
+  isPromptCommentShortcut,
+  type PromptCommentShortcut,
+} from "@/lib/prompt-comment-shortcuts";
+import type {
+  LensAnnotation,
+  LensStyleEdit,
+  LensSourceMappingConfig,
+} from "@/lib/lens/lens.types";
+import { buildLensAnnotationsAttachment } from "@/lib/lens/lens-annotation-attachment";
 import { ModelSelector, type ModelSelectorOption } from "./model-selector";
 import {
   PromptInputProviderModePill,
@@ -111,6 +132,16 @@ import {
 } from "./prompt-input-runtime-bar";
 import { ModelIcon } from "./model-icon";
 import { Suggestion, Suggestions } from "./suggestion";
+import { hasPromptSubmitPayload } from "./prompt-input-submit";
+
+const LENS_ANNOTATION_STYLE_FIELDS = [
+  "fontSize",
+  "fontWeight",
+  "color",
+  "backgroundColor",
+  "padding",
+  "margin",
+] as const;
 
 interface PromptInputProps {
   value: string;
@@ -119,6 +150,9 @@ interface PromptInputProps {
   isTurnActive?: boolean;
   submitMode?: "send" | "queue-next";
   queuedNextTurn?: PromptDraftQueuedNextTurn | null;
+  queuedTurns?: readonly PromptDraftQueuedTurn[];
+  promptBatch?: readonly PromptDraftBatchItem[];
+  promptCommentShortcut?: PromptCommentShortcut;
   focusToken?: string;
   selectedModel: ModelSelectorOption;
   modelOptions: readonly ModelSelectorOption[];
@@ -170,6 +204,10 @@ interface PromptInputProps {
     text: string;
     filePaths: string[];
   }) => void | Promise<void>;
+  onStagePromptBatch?: () => void;
+  onRemovePromptBatchItem?: (args: { itemId: string }) => void;
+  onUpdateQueuedTurn?: (args: { itemId: string; content: string }) => void;
+  onRemoveQueuedTurn?: (args: { itemId: string }) => void;
   onClearQueuedNextTurn?: () => void;
   onAbort?: () => void;
 }
@@ -348,6 +386,111 @@ function CrossReviewPopover(args: {
   );
 }
 
+function resolveLensAnnotationStyleValue(
+  annotation: LensAnnotation,
+  field: (typeof LENS_ANNOTATION_STYLE_FIELDS)[number],
+): string {
+  const edit = annotation.styleEdits
+    ?.slice()
+    .reverse()
+    .find((candidate) => candidate.property === field);
+  return edit?.after ?? annotation.computedStyles?.[field] ?? "";
+}
+
+function LensAnnotationStylePopover(args: {
+  annotation: LensAnnotation;
+  disabled: boolean;
+  onApply: (
+    annotation: LensAnnotation,
+    patch: Record<string, string>,
+  ) => Promise<void>;
+}) {
+  const { annotation, disabled, onApply } = args;
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    for (const field of LENS_ANNOTATION_STYLE_FIELDS) {
+      next[field] = resolveLensAnnotationStyleValue(annotation, field);
+    }
+    setDraft(next);
+  }, [annotation]);
+
+  const patch = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(draft).filter(([field, value]) => {
+          const trimmed = value.trim();
+          return (
+            trimmed !== "" &&
+            trimmed !==
+              resolveLensAnnotationStyleValue(
+                annotation,
+                field as (typeof LENS_ANNOTATION_STYLE_FIELDS)[number],
+              )
+          );
+        }),
+      ),
+    [annotation, draft],
+  );
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          disabled={disabled || !annotation.selector}
+          aria-label={`Edit styles for comment ${annotation.pin}`}
+        >
+          <SlidersHorizontal className="size-3" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 space-y-3">
+        <div>
+          <PopoverTitle>Style</PopoverTitle>
+          <PopoverDescription>
+            Live inline edits for the selected element.
+          </PopoverDescription>
+        </div>
+        <div className="grid gap-2">
+          {LENS_ANNOTATION_STYLE_FIELDS.map((field) => (
+            <label key={field} className="grid gap-1 text-xs">
+              <span className="font-medium text-muted-foreground">
+                {field}
+              </span>
+              <Input
+                value={draft[field] ?? ""}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    [field]: event.target.value,
+                  }))
+                }
+                className="h-7 font-mono text-xs"
+              />
+            </label>
+          ))}
+        </div>
+        <Button
+          type="button"
+          size="xs"
+          className="w-full"
+          disabled={saving || Object.keys(patch).length === 0}
+          onClick={() => {
+            setSaving(true);
+            void onApply(annotation, patch).finally(() => setSaving(false));
+          }}
+        >
+          Apply
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function PromptInput(args: PromptInputProps) {
   const {
     disabled,
@@ -355,6 +498,9 @@ export function PromptInput(args: PromptInputProps) {
     isTurnActive,
     submitMode = "send",
     queuedNextTurn,
+    queuedTurns = [],
+    promptBatch = [],
+    promptCommentShortcut = DEFAULT_PROMPT_COMMENT_SHORTCUT,
     focusToken,
     value,
     selectedModel,
@@ -401,11 +547,31 @@ export function PromptInput(args: PromptInputProps) {
     crossReviewProvider,
     onCrossReview,
     onSubmit,
+    onStagePromptBatch,
+    onRemovePromptBatchItem,
+    onUpdateQueuedTurn,
+    onRemoveQueuedTurn,
     onClearQueuedNextTurn,
     onAbort,
   } = args;
-  const queuedPromptPreview = queuedNextTurn?.content?.trim() ?? "";
-  const queuedPromptSummary = queuedPromptPreview.replace(/\s+/g, " ").trim();
+  const legacyQueuedTurns = useMemo<readonly PromptDraftQueuedTurn[]>(
+    () =>
+      queuedNextTurn?.content?.trim()
+        ? [
+            {
+              id: `legacy-${queuedNextTurn.queuedAt}`,
+              queuedAt: queuedNextTurn.queuedAt,
+              sourceTurnId: queuedNextTurn.sourceTurnId,
+              content: queuedNextTurn.content,
+              attachedFilePaths: [],
+              attachments: [],
+            },
+          ]
+        : [],
+    [queuedNextTurn],
+  );
+  const visibleQueuedTurns =
+    queuedTurns.length > 0 ? queuedTurns : legacyQueuedTurns;
   const imageAttachments = useMemo(
     () =>
       (attachments ?? []).filter(
@@ -413,8 +579,33 @@ export function PromptInput(args: PromptInputProps) {
       ),
     [attachments],
   );
-  const queuedFileCount = queuedNextTurn ? attachedFilePaths.length : 0;
-  const queuedImageCount = queuedNextTurn ? imageAttachments.length : 0;
+  const lensAnnotationAttachments = useMemo(
+    () =>
+      (attachments ?? []).filter(
+        (
+          attachment,
+        ): attachment is Extract<Attachment, { kind: "lens-annotations" }> =>
+          attachment.kind === "lens-annotations",
+      ),
+    [attachments],
+  );
+  const queuedFileCount = visibleQueuedTurns.reduce(
+    (count, item) => count + item.attachedFilePaths.length,
+    0,
+  );
+  const queuedImageCount = visibleQueuedTurns.reduce(
+    (count, item) =>
+      count +
+      item.attachments.filter((attachment) => attachment.kind === "image")
+        .length,
+    0,
+  );
+  const lensCommentCount = lensAnnotationAttachments.reduce(
+    (count, attachment) =>
+      count + (attachment.annotations?.length ?? attachment.count),
+    0,
+  );
+  const commentItemCount = promptBatch.length + lensCommentCount;
   const [imagePreviewSrc, setImagePreviewSrc] = useState<{
     dataUrl: string;
     label: string;
@@ -436,6 +627,10 @@ export function PromptInput(args: PromptInputProps) {
   const [caretIndex, setCaretIndex] = useState(value.length);
   const [isPromptInputFocused, setIsPromptInputFocused] = useState(false);
   const [modelSelectorOpenNonce, setModelSelectorOpenNonce] = useState(0);
+  const [editingQueuedTurnId, setEditingQueuedTurnId] = useState<string | null>(
+    null,
+  );
+  const [editingQueuedTurnContent, setEditingQueuedTurnContent] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const textareaAutosizeFrameRef = useRef<number | null>(null);
   const commandListRef = useRef<HTMLDivElement | null>(null);
@@ -450,12 +645,27 @@ export function PromptInput(args: PromptInputProps) {
   const borderBeamStrength = useAppStore(
     (state) => state.settings.borderBeamStrength,
   );
+  const lensSourceMappingHeuristic = useAppStore(
+    (state) => state.settings.lensSourceMappingHeuristic,
+  );
+  const lensSourceMappingReactDebugSource = useAppStore(
+    (state) => state.settings.lensSourceMappingReactDebugSource,
+  );
+  const lensSourceMappingConfig = useMemo(
+    (): LensSourceMappingConfig => ({
+      heuristic: lensSourceMappingHeuristic,
+      reactDebugSource: lensSourceMappingReactDebugSource,
+    }),
+    [lensSourceMappingHeuristic, lensSourceMappingReactDebugSource],
+  );
   const showBorderBeam = borderBeamEnabled && !minimal && Boolean(isTurnActive);
   const interactionsDisabled = Boolean(disabled);
   const hasDraftPayload =
     value.trim().length > 0 ||
     attachedFilePaths.length > 0 ||
-    imageAttachments.length > 0;
+    imageAttachments.length > 0 ||
+    lensAnnotationAttachments.length > 0 ||
+    promptBatch.length > 0;
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
   const isQueueNextMode = submitMode === "queue-next";
   const modifierLabel = useMemo(
@@ -591,7 +801,8 @@ export function PromptInput(args: PromptInputProps) {
     !isPromptInputFocused &&
     !interactionsDisabled &&
     !hasDraftPayload &&
-    !queuedNextTurn;
+    visibleQueuedTurns.length === 0 &&
+    promptBatch.length === 0;
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -861,9 +1072,13 @@ export function PromptInput(args: PromptInputProps) {
   async function submitCurrentMessage() {
     const nextText = value.trim();
     if (
-      !nextText &&
-      attachedFilePaths.length === 0 &&
-      imageAttachments.length === 0
+      !hasPromptSubmitPayload({
+        text: nextText,
+        attachedFilePaths,
+        imageAttachments,
+        lensAnnotationAttachments,
+        promptBatch,
+      })
     ) {
       return;
     }
@@ -871,6 +1086,115 @@ export function PromptInput(args: PromptInputProps) {
     setSelectedPromptHistoryIndex(NO_PROMPT_HISTORY_SELECTION);
     setDraftBeforeHistory("");
   }
+
+  const updateLensAnnotationAttachment = useCallback(
+    (args: {
+      attachment: Extract<Attachment, { kind: "lens-annotations" }>;
+      annotations: readonly LensAnnotation[];
+    }) => {
+      if (!args.attachment.workspaceId || !onAttachmentsChange) {
+        return;
+      }
+      const currentAttachments = attachments ?? [];
+      const nextAttachment =
+        args.annotations.length > 0
+          ? buildLensAnnotationsAttachment({
+              id: args.attachment.id,
+              workspaceId: args.attachment.workspaceId,
+              annotations: args.annotations,
+              sourceMappingConfig: lensSourceMappingConfig,
+            })
+          : null;
+      onAttachmentsChange({
+        attachments: currentAttachments.flatMap((candidate) => {
+          if (
+            candidate.kind === "lens-annotations" &&
+            candidate.id === args.attachment.id
+          ) {
+            return nextAttachment ? [nextAttachment] : [];
+          }
+          return [candidate];
+        }),
+      });
+    },
+    [attachments, lensSourceMappingConfig, onAttachmentsChange],
+  );
+
+  const removeLensAnnotation = useCallback(
+    async (
+      attachment: Extract<Attachment, { kind: "lens-annotations" }>,
+      annotation: LensAnnotation,
+    ) => {
+      if (attachment.workspaceId) {
+        const result = await window.api?.lens?.removeAnnotation?.({
+          workspaceId: attachment.workspaceId,
+          annotationId: annotation.id,
+        });
+        if (!result?.ok) {
+          toast.error("Comment removal failed", {
+            description: result?.message ?? "Lens could not remove that comment.",
+          });
+        }
+      }
+      updateLensAnnotationAttachment({
+        attachment,
+        annotations: (attachment.annotations ?? []).filter(
+          (candidate) => candidate.id !== annotation.id,
+        ),
+      });
+    },
+    [updateLensAnnotationAttachment],
+  );
+
+  const applyLensAnnotationStyle = useCallback(
+    async (
+      attachment: Extract<Attachment, { kind: "lens-annotations" }>,
+      annotation: LensAnnotation,
+      patch: Record<string, string>,
+    ) => {
+      if (!attachment.workspaceId || !annotation.selector) {
+        return;
+      }
+
+      const result = await window.api?.lens?.setElementStyle?.({
+        workspaceId: attachment.workspaceId,
+        selector: annotation.selector,
+        patch,
+      });
+
+      if (!result?.ok || !result.edits) {
+        toast.error("Style edit failed", {
+          description: result?.message ?? "Lens could not edit that element.",
+        });
+        return;
+      }
+
+      const edits: LensStyleEdit[] = result.edits;
+      updateLensAnnotationAttachment({
+        attachment,
+        annotations: (attachment.annotations ?? []).map((candidate) => {
+          if (candidate.id !== annotation.id) {
+            return candidate;
+          }
+          return {
+            ...candidate,
+            computedStyles: {
+              ...(candidate.computedStyles ?? {}),
+              ...Object.fromEntries(
+                edits.map((edit) => [edit.property, edit.after]),
+              ),
+            },
+            styleEdits: [...(candidate.styleEdits ?? []), ...edits],
+          };
+        }),
+      });
+
+      toast.success("Style updated", {
+        description: `${edits.length} propert${edits.length === 1 ? "y" : "ies"} changed.`,
+      });
+    },
+    [updateLensAnnotationAttachment],
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1060,60 +1384,152 @@ export function PromptInput(args: PromptInputProps) {
               ))}
             </Suggestions>
           ) : null}
-          {queuedNextTurn ? (
-            <div className="flex flex-wrap items-start gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
-              <Badge
-                variant="secondary"
-                className="mt-0.5 h-5 px-1.5 text-[10px] uppercase tracking-wide"
-              >
-                Queued next
-              </Badge>
-              <div className="min-w-0 flex-1 space-y-1">
-                {queuedPromptSummary ? (
-                  <p
-                    className="truncate text-sm font-medium text-foreground"
-                    title={queuedPromptPreview}
-                  >
-                    {queuedPromptSummary}
-                  </p>
-                ) : (
-                  <p className="text-sm font-medium text-foreground">
-                    {queuedFileCount > 0 || queuedImageCount > 0
-                      ? "Queued follow-up with attached context."
-                      : "Next-turn draft is staged."}
-                  </p>
-                )}
-                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>
-                    {isTurnActive
-                      ? "Sends automatically when the current response finishes."
-                      : "Queued follow-up is ready to send."}
-                  </span>
-                  {queuedFileCount > 0 ? (
-                    <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                      {queuedFileCount}{" "}
-                      {queuedFileCount === 1 ? "file" : "files"}
-                    </Badge>
-                  ) : null}
-                  {queuedImageCount > 0 ? (
-                    <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                      {queuedImageCount}{" "}
-                      {queuedImageCount === 1 ? "image" : "images"}
-                    </Badge>
-                  ) : null}
-                </div>
-              </div>
-              {onClearQueuedNextTurn ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onClearQueuedNextTurn()}
-                  className="ml-auto h-7 px-2 text-xs"
+          {visibleQueuedTurns.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="secondary"
+                  className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
                 >
-                  Clear
-                </Button>
-              ) : null}
+                  Queue
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {visibleQueuedTurns.length} queued follow-up
+                  {visibleQueuedTurns.length === 1 ? "" : "s"}
+                  {isTurnActive
+                    ? " · next sends automatically when the current response finishes"
+                    : ""}
+                </span>
+                {queuedFileCount > 0 ? (
+                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                    {queuedFileCount} {queuedFileCount === 1 ? "file" : "files"}
+                  </Badge>
+                ) : null}
+                {queuedImageCount > 0 ? (
+                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                    {queuedImageCount}{" "}
+                    {queuedImageCount === 1 ? "image" : "images"}
+                  </Badge>
+                ) : null}
+                {onClearQueuedNextTurn ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onClearQueuedNextTurn()}
+                    className="ml-auto h-7 px-2 text-xs"
+                  >
+                    Clear all
+                  </Button>
+                ) : null}
+              </div>
+              <div className="space-y-1.5">
+                {visibleQueuedTurns.map((item, index) => {
+                  const isEditing = editingQueuedTurnId === item.id;
+                  const summary =
+                    item.content.replace(/\s+/g, " ").trim() ||
+                    "Queued follow-up with attached context.";
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-md border border-border/60 bg-background/70 px-2.5 py-2"
+                    >
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editingQueuedTurnContent}
+                            onChange={(event) =>
+                              setEditingQueuedTurnContent(event.target.value)
+                            }
+                            onKeyDown={(event) => {
+                              if (
+                                event.key === "Enter" &&
+                                !event.shiftKey &&
+                                !event.altKey &&
+                                !event.ctrlKey &&
+                                !event.metaKey
+                              ) {
+                                event.preventDefault();
+                                onUpdateQueuedTurn?.({
+                                  itemId: item.id,
+                                  content: editingQueuedTurnContent.trim(),
+                                });
+                                setEditingQueuedTurnId(null);
+                                setEditingQueuedTurnContent("");
+                              }
+                            }}
+                            className="min-h-20 resize-y text-sm"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingQueuedTurnId(null);
+                                setEditingQueuedTurnContent("");
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                onUpdateQueuedTurn?.({
+                                  itemId: item.id,
+                                  content: editingQueuedTurnContent.trim(),
+                                });
+                                setEditingQueuedTurnId(null);
+                                setEditingQueuedTurnContent("");
+                              }}
+                            >
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex min-w-0 items-start gap-2">
+                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm bg-muted text-[10px] font-medium text-muted-foreground">
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 text-sm font-medium text-foreground">
+                              {summary}
+                            </p>
+                            {index === 0 ? (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Next to send
+                              </p>
+                            ) : null}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label={`Edit queued prompt ${index + 1}`}
+                            onClick={() => {
+                              setEditingQueuedTurnId(item.id);
+                              setEditingQueuedTurnContent(item.content);
+                            }}
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label={`Delete queued prompt ${index + 1}`}
+                            onClick={() => onRemoveQueuedTurn?.({ itemId: item.id })}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : null}
           <Popover open={activePalette !== null} modal={false}>
@@ -1399,6 +1815,19 @@ export function PromptInput(args: PromptInputProps) {
                             return;
                           }
                           if (event.key !== "Enter") {
+                            return;
+                          }
+                          if (isPromptCommentShortcut({
+                            shortcut: promptCommentShortcut,
+                            key: event.key,
+                            shiftKey: event.shiftKey,
+                            altKey: event.altKey,
+                            ctrlKey: event.ctrlKey,
+                            metaKey: event.metaKey,
+                            isComposing: event.nativeEvent.isComposing,
+                          })) {
+                            event.preventDefault();
+                            onStagePromptBatch?.();
                             return;
                           }
                           if (
@@ -1692,7 +2121,190 @@ export function PromptInput(args: PromptInputProps) {
               </Command>
             </PopoverContent>
           </Popover>
-          {!queuedNextTurn &&
+          {commentItemCount > 0 ? (
+            <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/15 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                >
+                  Comment
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {commentItemCount} item
+                  {commentItemCount === 1 ? "" : "s"}{" "}
+                  will send as one prompt
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {promptBatch.map((item, index) => {
+                  const summary = item.content.replace(/\s+/g, " ").trim();
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex max-w-full items-center gap-1.5 rounded-md border border-border/70 bg-background/75 px-2 py-1 text-xs"
+                      title={item.content}
+                    >
+                      <span className="shrink-0 font-medium text-muted-foreground">
+                        {index + 1}
+                      </span>
+                      <span className="truncate text-foreground">{summary}</span>
+                      <button
+                        type="button"
+                        disabled={interactionsDisabled}
+                        onClick={() =>
+                          onRemovePromptBatchItem?.({ itemId: item.id })
+                        }
+                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove comment ${index + 1}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+                {lensAnnotationAttachments.map((attachment) => {
+                  const annotationItems = attachment.annotations ?? [];
+                  if (annotationItems.length === 0) {
+                    return (
+                      <div
+                        key={attachment.id}
+                        className="flex max-w-full items-center rounded-md border border-border/70 bg-secondary/50 text-xs text-foreground"
+                      >
+                        <Popover modal={false}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  title={attachment.content}
+                                  className="flex min-w-0 items-center gap-1.5 px-2 py-1 hover:bg-secondary/70"
+                                >
+                                  <FileText className="size-3.5 shrink-0" />
+                                  <span className="truncate">
+                                    {attachment.label}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className="h-5 px-1.5 text-[10px]"
+                                  >
+                                    {attachment.count}
+                                  </Badge>
+                                </button>
+                              </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-80">
+                              {attachment.summary}
+                            </TooltipContent>
+                          </Tooltip>
+                          <PopoverContent
+                            side="top"
+                            align="start"
+                            className="max-h-96 w-[min(42rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-border/80 bg-popover p-3 shadow-lg"
+                          >
+                            <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-popover-foreground">
+                              {attachment.content}
+                            </pre>
+                          </PopoverContent>
+                        </Popover>
+                        <button
+                          type="button"
+                          disabled={interactionsDisabled}
+                          onClick={() =>
+                            onAttachmentsChange?.({
+                              attachments: (attachments ?? []).filter(
+                                (candidate) =>
+                                  !(
+                                    candidate.kind === "lens-annotations" &&
+                                    candidate.id === attachment.id
+                                  ),
+                              ),
+                            })
+                          }
+                          className="border-l border-border/70 px-1.5 py-1 text-muted-foreground hover:text-foreground"
+                          aria-label={`Remove ${attachment.label}`}
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    );
+                  }
+                  return annotationItems.map((annotation) => (
+                    <div
+                      key={`${attachment.id}:${annotation.id}`}
+                      className="flex max-w-full items-start gap-2 rounded-md border border-border/70 bg-secondary/50 px-2 py-1.5 text-xs text-foreground"
+                    >
+                      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                        {annotation.pin}
+                      </span>
+                      <Popover modal={false}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                title={annotation.comment}
+                                className="min-w-0 flex-1 text-left hover:text-foreground"
+                              >
+                                <span className="block truncate font-medium">
+                                  {annotation.comment}
+                                </span>
+                                <span className="block truncate text-[10px] text-muted-foreground">
+                                  {annotation.kind === "area"
+                                    ? "area"
+                                    : annotation.selector}
+                                </span>
+                              </button>
+                            </PopoverTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-80">
+                            {annotation.comment}
+                          </TooltipContent>
+                        </Tooltip>
+                        <PopoverContent
+                          side="top"
+                          align="start"
+                          className="max-h-96 w-[min(42rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-border/80 bg-popover p-3 shadow-lg"
+                        >
+                          <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-popover-foreground">
+                            {attachment.content}
+                          </pre>
+                        </PopoverContent>
+                      </Popover>
+                      <LensAnnotationStylePopover
+                        annotation={annotation}
+                        disabled={
+                          interactionsDisabled ||
+                          !attachment.workspaceId ||
+                          annotation.kind !== "element"
+                        }
+                        onApply={(targetAnnotation, patch) =>
+                          applyLensAnnotationStyle(
+                            attachment,
+                            targetAnnotation,
+                            patch,
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant="ghost"
+                        disabled={interactionsDisabled}
+                        aria-label={`Remove comment ${annotation.pin}`}
+                        onClick={() => {
+                          void removeLensAnnotation(attachment, annotation);
+                        }}
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                    </div>
+                  ));
+                })}
+              </div>
+            </div>
+          ) : null}
+          {visibleQueuedTurns.length === 0 &&
           (attachedFilePaths.length > 0 || imageAttachments.length > 0) ? (
             <div className="flex flex-wrap gap-1.5">
               {attachedFilePaths.map((filePath) => (
@@ -2032,17 +2644,13 @@ export function PromptInput(args: PromptInputProps) {
                   disabled={primaryActionDisabled}
                   aria-label={
                     isQueueNextMode
-                      ? queuedNextTurn
-                        ? "Update queued next turn"
-                        : "Queue next turn"
+                      ? "Queue next turn"
                       : "Send"
                   }
                 >
                   <Send className="size-3.5" />
                   {isQueueNextMode ? (
-                    <span>
-                      {queuedNextTurn ? "Update queued" : "Queue next"}
-                    </span>
+                    <span>Queue next</span>
                   ) : null}
                 </TooltipTrigger>
                 <TooltipContent side="top">
