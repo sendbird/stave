@@ -46,6 +46,7 @@ import type {
 import {
   DEFAULT_CLAUDE_OPUS_1M_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
+  DEFAULT_CLAUDE_SONNET_MODEL,
   getDefaultModelForProvider,
 } from "@/lib/providers/model-catalog";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
@@ -73,7 +74,7 @@ const CLAUDE_ADVISOR_SOURCE_MODEL_OPTIONS = buildModelSelectorOptions({
   modelsByProvider: {
     "claude-code": [
       "claude-haiku-4-5",
-      "claude-sonnet-4-6",
+      DEFAULT_CLAUDE_SONNET_MODEL,
       DEFAULT_CLAUDE_OPUS_MODEL,
       DEFAULT_CLAUDE_OPUS_1M_MODEL,
     ],
@@ -486,7 +487,7 @@ function resolveClaudeAdvisorSourceModel(args: {
     return "claude-haiku-4-5";
   }
   if (normalized.includes("sonnet")) {
-    return "claude-sonnet-4-6";
+    return DEFAULT_CLAUDE_SONNET_MODEL;
   }
   if (normalized.includes("opus")) {
     return DEFAULT_CLAUDE_OPUS_MODEL;
@@ -683,7 +684,7 @@ export function ProvidersSection() {
   });
   const defaultClaudeAdvisorSourceModel = resolveClaudeAdvisorSourceModel({
     model: defaultClaudeAdvisorModel,
-    fallback: "claude-sonnet-4-6",
+    fallback: DEFAULT_CLAUDE_SONNET_MODEL,
   });
   const claudeAdvisorModelEnabled = claudeAdvisorModel.trim().length > 0;
   const activeClaudeAdvisorSourceModel = resolveClaudeAdvisorSourceModel({
@@ -1132,7 +1133,7 @@ export function ProvidersSection() {
                 <DraftInput
                   className="h-10 rounded-md border-border/80 bg-background"
                   value={claudeFallbackModel}
-                  placeholder="claude-sonnet-4-6"
+                  placeholder="claude-sonnet-5"
                   onCommit={(value) =>
                     updateSettings({ patch: { claudeFallbackModel: value } })
                   }

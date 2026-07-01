@@ -88,7 +88,7 @@ import {
   inferProviderIdFromModel,
   listProviderIds,
   normalizeModelSelection,
-  upgradeSettingsScopedClaudeOpusModel,
+  upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import { normalizeModelShortcutKeys } from "@/lib/providers/model-shortcuts";
 import {
@@ -12342,11 +12342,11 @@ export const useAppStore = create<AppState>()(
         state.settings.reasoningExpansionMode = normalizeReasoningExpansionMode(
           state.settings.reasoningExpansionMode,
         );
-        state.settings.modelClaude = upgradeSettingsScopedClaudeOpusModel({
+        state.settings.modelClaude = upgradeSettingsScopedClaudeModel({
           model: state.settings.modelClaude,
         });
         state.settings.claudeAdvisorModel =
-          upgradeSettingsScopedClaudeOpusModel({
+          upgradeSettingsScopedClaudeModel({
             model: state.settings.claudeAdvisorModel,
           });
         state.settings.providerTimeoutMs = normalizeProviderTimeoutMs({

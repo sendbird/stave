@@ -3795,7 +3795,7 @@ export async function reviewClaudeWorktreeDiff(args: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: args.model?.trim() || "claude-sonnet-4-6",
+        model: args.model?.trim() || "claude-sonnet-5",
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),
