@@ -8,6 +8,7 @@ const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
 export const STAVE_LOGO_URL = `${import.meta.env.BASE_URL}stave-logo.svg`;
 export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-4-8";
 export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-4-8[1m]";
+export const CLAUDE_FABLE_MODEL = "claude-fable-5";
 // Claude Sonnet 5 surfaced in the Claude CLI picker from 2.1.197, but the
 // model ID is passed straight through to the Anthropic API, which decides
 // availability — so no CLI-version gating is needed on our side.
@@ -30,6 +31,7 @@ const LEGACY_AUTOMATIC_CLAUDE_MODELS: Record<string, string> = {
 // The [1m] suffix activates the 1M-token context window; the Claude SDK
 // parses it and auto-injects the `context-1m-2025-08-07` beta header.
 export const CLAUDE_SDK_MODEL_OPTIONS = [
+  CLAUDE_FABLE_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "opusplan",
@@ -212,7 +214,7 @@ export function resolveDefaultClaudeEffortForModel(args: {
   model: string;
 }): NonNullable<ProviderRuntimeOptions["claudeEffort"]> {
   const normalizedModel = args.model.trim().toLowerCase();
-  if (normalizedModel.includes("opus")) {
+  if (normalizedModel.includes("fable") || normalizedModel.includes("opus")) {
     return "xhigh";
   }
   if (normalizedModel.includes("sonnet")) {
@@ -270,6 +272,7 @@ export function toHumanModelName(args: { model: string }) {
 
   // 2. Static known names
   const known: Record<string, string> = {
+    [CLAUDE_FABLE_MODEL]: "Claude Fable 5",
     [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 4.8",
     [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 4.8 (1M)",
     // Legacy labels kept so historical chat/turn records still render a
