@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  CLAUDE_FABLE_MODEL,
   CLAUDE_SDK_MODEL_OPTIONS,
   CODEX_MODEL_OPTIONS,
   DEFAULT_CLAUDE_OPUS_MODEL,
@@ -22,6 +23,16 @@ import {
 } from "@/lib/providers/model-catalog";
 
 describe("model catalog", () => {
+  test("includes Claude Fable 5 without making it the Claude default", () => {
+    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(CLAUDE_FABLE_MODEL);
+    expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
+      "claude-sonnet-5",
+    );
+    expect(getDefaultModelForProvider({ providerId: "claude-code" })).not.toBe(
+      CLAUDE_FABLE_MODEL,
+    );
+  });
+
   test("includes the verified Codex model set", () => {
     expect(CODEX_MODEL_OPTIONS).toEqual([
       "gpt-5.5",
@@ -57,6 +68,12 @@ describe("model catalog", () => {
     );
   });
 
+  test("formats Claude Fable 5 with canonical labels", () => {
+    expect(toHumanModelName({ model: CLAUDE_FABLE_MODEL })).toBe(
+      "Claude Fable 5",
+    );
+  });
+
   test("returns provider labels from the descriptor registry", () => {
     expect(
       getProviderLabel({ providerId: "claude-code", variant: "full" }),
@@ -73,7 +90,10 @@ describe("model catalog", () => {
     );
   });
 
-  test("uses xhigh for Opus and high for Sonnet as the Claude effort default", () => {
+  test("uses xhigh for Fable and Opus and high for Sonnet as the Claude effort default", () => {
+    expect(
+      resolveDefaultClaudeEffortForModel({ model: CLAUDE_FABLE_MODEL }),
+    ).toBe("xhigh");
     expect(
       resolveDefaultClaudeEffortForModel({ model: DEFAULT_CLAUDE_OPUS_MODEL }),
     ).toBe("xhigh");
