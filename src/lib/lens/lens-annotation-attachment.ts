@@ -34,6 +34,16 @@ export function isAnyLensCommentImageAttachment(attachment: Attachment) {
   );
 }
 
+export function shouldIncludeImageAttachmentAsProviderContext(
+  attachment: Attachment,
+  includeLensCommentImages: boolean,
+): attachment is Extract<Attachment, { kind: "image" }> {
+  return (
+    attachment.kind === "image" &&
+    (includeLensCommentImages || !isAnyLensCommentImageAttachment(attachment))
+  );
+}
+
 export function buildLensAnnotationsAttachment(args: {
   id?: string;
   workspaceId: string;

@@ -79,6 +79,7 @@ import {
   findPendingApprovals,
   findLatestPendingUserInputPart,
 } from "@/store/provider-message.utils";
+import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-annotation-attachment";
 import {
   resolvePromptDraftPlanModeChange,
   resolvePromptDraftModelForProvider,
@@ -198,6 +199,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     resolveUserInput,
     updateSettings,
     trustedTools,
+    lensVisualCommentScreenshotsAsImageContext,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -215,6 +217,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.resolveUserInput,
           state.updateSettings,
           state.settings.trustedTools,
+          state.settings.lensVisualCommentScreenshotsAsImageContext,
         ] as const,
     ),
   );
@@ -429,12 +432,16 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       taskId: args.providerSelectionTarget,
       patch: {
         text: "",
+        attachedFilePaths: [],
+        attachments: [],
         promptBatch: [
           ...promptBatch,
           {
             id: createDraftItemId("batch"),
             createdAt: new Date().toISOString(),
             content,
+            attachedFilePaths: promptDraft.attachedFilePaths,
+            attachments: promptDraft.attachments,
           },
         ],
       },
@@ -972,7 +979,10 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               const imageContexts = currentAttachments
                 .filter(
                   (a): a is Extract<Attachment, { kind: "image" }> =>
-                    a.kind === "image",
+                    shouldIncludeImageAttachmentAsProviderContext(
+                      a,
+                      lensVisualCommentScreenshotsAsImageContext,
+                    ),
                 )
                 .map((a) => ({
                   dataUrl: a.dataUrl,

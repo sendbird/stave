@@ -180,6 +180,15 @@ describe("task-context workspace schemas", () => {
                 id: "batch-1",
                 createdAt: "2026-04-11T00:00:01.000Z",
                 content: "first fragment",
+                attachedFilePaths: ["src/comment-context.ts"],
+                attachments: [
+                  {
+                    kind: "image",
+                    id: "image-1",
+                    dataUrl: "data:image/png;base64,comment",
+                    label: "Comment image",
+                  },
+                ],
               },
             ],
             queuedTurns: [
@@ -225,6 +234,15 @@ describe("task-context workspace schemas", () => {
           id: "batch-1",
           createdAt: "2026-04-11T00:00:01.000Z",
           content: "first fragment",
+          attachedFilePaths: ["src/comment-context.ts"],
+          attachments: [
+            {
+              kind: "image",
+              id: "image-1",
+              dataUrl: "data:image/png;base64,comment",
+              label: "Comment image",
+            },
+          ],
         },
       ],
       queuedTurns: [

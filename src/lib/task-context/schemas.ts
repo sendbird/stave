@@ -210,6 +210,8 @@ const PromptDraftBatchItemSchema = z
     id: z.string(),
     createdAt: z.string(),
     content: z.string(),
+    attachedFilePaths: z.array(z.string()).optional().default([]),
+    attachments: z.array(AttachmentSchema).optional().default([]),
   })
   .strict();
 

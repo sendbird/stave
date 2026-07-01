@@ -2151,6 +2151,11 @@ export function PromptInput(args: PromptInputProps) {
               <div className="flex flex-wrap gap-1.5">
                 {promptBatch.map((item, index) => {
                   const summary = item.content.replace(/\s+/g, " ").trim();
+                  const attachmentCount =
+                    (item.attachedFilePaths?.length ?? 0) +
+                    (item.attachments?.filter(
+                      (attachment) => attachment.kind === "image",
+                    ).length ?? 0);
                   return (
                     <div
                       key={item.id}
@@ -2161,6 +2166,15 @@ export function PromptInput(args: PromptInputProps) {
                         {index + 1}
                       </span>
                       <span className="truncate text-foreground">{summary}</span>
+                      {attachmentCount > 0 ? (
+                        <span
+                          className="inline-flex shrink-0 items-center gap-0.5 text-muted-foreground"
+                          title={`${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}`}
+                        >
+                          <Paperclip className="size-3" />
+                          {attachmentCount}
+                        </span>
+                      ) : null}
                       <button
                         type="button"
                         disabled={interactionsDisabled}

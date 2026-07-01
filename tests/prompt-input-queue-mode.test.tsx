@@ -314,6 +314,15 @@ describe("PromptInput queue mode", () => {
               id: "batch-1",
               createdAt: "2026-04-09T00:00:00.000Z",
               content: "First staged fragment",
+              attachedFilePaths: ["src/comment-context.ts"],
+              attachments: [
+                {
+                  kind: "image" as const,
+                  id: "batch-image-1",
+                  dataUrl: "data:image/png;base64,batch",
+                  label: "Comment image",
+                },
+              ],
             },
           ],
           selectedModel: MODEL_OPTION,
@@ -341,6 +350,7 @@ describe("PromptInput queue mode", () => {
 
     expect(html).toContain("Comment");
     expect(html).toContain("First staged fragment");
+    expect(html).toContain("2 attachments");
     expect(html).toContain('aria-label="Remove comment 1"');
     expect(html).toContain("Lens comments");
     expect(html).toContain("raw readable detail");

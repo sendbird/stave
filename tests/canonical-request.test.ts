@@ -110,6 +110,31 @@ describe("canonical request builder", () => {
     expect(prompt).toContain("Add a migration plan.");
   });
 
+  test("includes image attachment data in the legacy provider prompt", () => {
+    const dataUrl = "data:image/png;base64,abc123";
+    const request = buildCanonicalConversationRequest({
+      providerId: "claude-code",
+      model: "claude-sonnet-4-6",
+      history: [],
+      userInput: "What is in this image?",
+      mode: "chat",
+      imageContexts: [
+        {
+          dataUrl,
+          label: "Visual comment 1",
+          mimeType: "image/png",
+        },
+      ],
+    });
+
+    const prompt = buildLegacyPromptFromCanonicalRequest({ request });
+
+    expect(prompt).toContain("[Image Attachment]");
+    expect(prompt).toContain("label: Visual comment 1");
+    expect(prompt).toContain("type: image/png");
+    expect(prompt).toContain(`dataUrl: ${dataUrl}`);
+  });
+
   test("prefers the trailing response text over accumulated assistant commentary", () => {
     const request = buildCanonicalConversationRequest({
       providerId: "codex",

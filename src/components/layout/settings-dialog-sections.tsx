@@ -3573,6 +3573,7 @@ function LensSection() {
     reactDebugSource,
     sessionScope,
     developerModeCdp,
+    visualCommentScreenshotsAsImageContext,
     cdpApprovedHosts,
     allowedHosts,
     blockedHosts,
@@ -3586,6 +3587,7 @@ function LensSection() {
           state.settings.lensSourceMappingReactDebugSource,
           state.settings.lensSessionScope,
           state.settings.lensDeveloperModeCdp,
+          state.settings.lensVisualCommentScreenshotsAsImageContext,
           state.settings.lensCdpApprovedHosts,
           state.settings.lensAllowedHosts,
           state.settings.lensBlockedHosts,
@@ -3742,6 +3744,23 @@ function LensSection() {
             onCheckedChange={(checked) =>
               updateSettings({
                 patch: { lensSourceMappingReactDebugSource: checked },
+              })
+            }
+          />
+        </SettingsCard>
+        <SettingsCard
+          title="Visual Comments"
+          description="Control whether visual comment screenshots are used only as local UI context or also sent to the selected AI provider."
+        >
+          <SwitchField
+            title="Send screenshots as AI image context"
+            description="Off by default. When enabled, screenshots captured through visual comment are included with the next message so the AI can inspect the selected region."
+            checked={visualCommentScreenshotsAsImageContext}
+            onCheckedChange={(checked) =>
+              updateSettings({
+                patch: {
+                  lensVisualCommentScreenshotsAsImageContext: checked,
+                },
               })
             }
           />
