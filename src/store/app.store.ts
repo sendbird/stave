@@ -169,6 +169,7 @@ import {
   clearProviderTurnActivity,
   markProviderTurnInteractionResolved,
   markProviderTurnStalled,
+  resolveProviderTurnDisplayState,
   resolveProviderTurnStallThresholdMs,
   startProviderTurnActivity,
   type ProviderTurnActivitySnapshot,
@@ -9986,7 +9987,24 @@ export const useAppStore = create<AppState>()(
             buildPromptDraftDisplayPartsForSend(promptDraft);
           const activeTurnId =
             taskWorkspaceSession.activeTurnIdsByTask[resolvedTaskId];
-          if (activeTurnId) {
+          // A "stalled" turn is one whose provider stream has gone silent past the
+          // stall threshold with no pending approval/user_input interaction — e.g. a
+          // background task that never emitted `done`, or one whose runtime died. In
+          // that state, queuing would strand the user in a spinner forever, so instead
+          // interrupt the dead turn and send this message as a fresh turn. This mirrors
+          // the manual "Stop, then send" flow (and, like it, does not resume the
+          // aborted provider session). Live/streaming turns and turns waiting on an
+          // approval or AskUserQuestion prompt are NOT stalled and still queue.
+          const activeTurnStalled =
+            !!activeTurnId &&
+            resolveProviderTurnDisplayState({
+              activeTurnId,
+              activity: get().providerTurnActivityByTask[resolvedTaskId],
+            }) === "stalled";
+          if (activeTurnId && activeTurnStalled) {
+            get().abortTaskTurn({ taskId: resolvedTaskId });
+          }
+          if (activeTurnId && !activeTurnStalled) {
             const queuedTurn = buildQueuedTurnFromDraft({
               draft: promptDraft,
               sourceTurnId: activeTurnId,

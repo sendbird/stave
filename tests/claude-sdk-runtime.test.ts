@@ -719,10 +719,17 @@ describe("buildClaudeSystemPrompt", () => {
       baseSystemPrompt: "Follow repository conventions.",
     });
 
-    // Static prefix is parts[0] (before boundary).
-    expect(parts[0].startsWith("Follow repository conventions.")).toBe(true);
+    // Base system prompt lives in the static (cacheable) prefix, parts[0].
+    expect(parts[0]).toContain("Follow repository conventions.");
     // Workspace context sits in the dynamic suffix (parts[2]).
     expect(parts[2]).toContain("Resolve every relative filesystem path against the workspace root above.");
+  });
+
+  test("always includes the Stave turn-behavior guardrail in the static prefix", () => {
+    const parts = buildClaudeSystemPrompt({ cwd: workspaceRoot });
+    // Guardrail is always present even when no base prompt is provided.
+    expect(parts[0]).toContain("Stave runtime constraints");
+    expect(parts[0]).toContain("AskUserQuestion");
   });
 });
 

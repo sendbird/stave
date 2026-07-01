@@ -817,6 +817,26 @@ function buildClaudePlanModeDenyMessage(args: { toolName: string }) {
   return `Claude plan mode denied ${args.toolName}. Planning turns cannot modify files or task state.`;
 }
 
+/**
+ * Always-on behavioral guardrail injected into every Claude turn.
+ *
+ * Stave drives the provider one turn at a time and has no persistent loop that can
+ * re-invoke the model after a turn ends, so the CLI's "notify you when the background
+ * task finishes" pattern is not available here. Without this directive the model
+ * routinely ends a turn promising an unprompted follow-up (which never arrives) or
+ * leaves a plain-text question that Stave cannot surface an answer control for,
+ * stranding the user in a loading/queue-only state.
+ *
+ * Kept as a module-level constant so it stays byte-stable in the cacheable static
+ * prefix of the system prompt.
+ */
+export const STAVE_TURN_BEHAVIOR_DIRECTIVE = [
+  "Stave runtime constraints (read carefully):",
+  "- You run inside Stave, which drives you one turn at a time. After a turn ends you CANNOT send an unprompted follow-up message, and there is no channel to autonomously notify the user later. Never promise things like \"I'll let you know when this finishes\" or \"I'll continue automatically once the background task completes.\"",
+  "- Do not end a turn while expecting to resume on your own. If work must continue, either keep doing it within the current turn or finish with a concrete recommendation the user can act on.",
+  "- To ask a question that must block on the user's decision, use the AskUserQuestion tool so Stave can render a real answer control. A plain-text question at the end of a turn cannot receive an inline answer and will strand the user in a waiting state.",
+].join("\n");
+
 export function buildClaudeSystemPrompt(args: {
   cwd: string;
   baseSystemPrompt?: string;
@@ -831,7 +851,7 @@ export function buildClaudeSystemPrompt(args: {
   ].join("\n");
 
   // Static prefix — eligible for cross-session prompt caching.
-  const staticParts: string[] = [];
+  const staticParts: string[] = [STAVE_TURN_BEHAVIOR_DIRECTIVE];
   const baseSystemPrompt = args.baseSystemPrompt?.trim();
   if (baseSystemPrompt) {
     staticParts.push(baseSystemPrompt);
