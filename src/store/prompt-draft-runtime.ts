@@ -136,6 +136,7 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.claudePermissionMode === right?.claudePermissionMode &&
     left?.claudePermissionModeBeforePlan ===
       right?.claudePermissionModeBeforePlan &&
-    left?.codexPlanMode === right?.codexPlanMode
+    left?.codexPlanMode === right?.codexPlanMode &&
+    left?.autoRouting === right?.autoRouting
   );
 }

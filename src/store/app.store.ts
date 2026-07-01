@@ -90,6 +90,12 @@ import {
   normalizeModelSelection,
   upgradeSettingsScopedClaudeOpusModel,
 } from "@/lib/providers/model-catalog";
+import {
+  normalizeAutoRoutingEligibleModels,
+  normalizeAutoRoutingObjective,
+  resolveAutoRoutingDecision,
+  type AutoRoutingClassifierResult,
+} from "@/store/auto-routing";
 import { normalizeModelShortcutKeys } from "@/lib/providers/model-shortcuts";
 import {
   DEFAULT_APP_SHORTCUT_KEYS,
@@ -940,6 +946,13 @@ export interface AppSettings {
   codexFastModeVisible: boolean;
   modelClaude: string;
   modelCodex: string;
+  autoRoutingEnabled: boolean;
+  autoRoutingUseClassifier: boolean;
+  autoRoutingObjective: number;
+  autoRoutingSafetyEscalation: boolean;
+  autoRoutingAllowProviderSwitch: boolean;
+  autoRoutingEligibleClaudeModels: string[];
+  autoRoutingEligibleCodexModels: string[];
   /**
    * User-configurable presets rendered in the preset bar between the task
    * tab strip and the chat panel. Each preset either seeds a new task with a
@@ -2092,6 +2105,13 @@ const defaultSettings: AppSettings = {
   codexFastModeVisible: true,
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
+  autoRoutingEnabled: false,
+  autoRoutingUseClassifier: false,
+  autoRoutingObjective: 0.5,
+  autoRoutingSafetyEscalation: true,
+  autoRoutingAllowProviderSwitch: false,
+  autoRoutingEligibleClaudeModels: [],
+  autoRoutingEligibleCodexModels: [],
   taskPresets: cloneDefaultTaskPresets(),
   rulesPresetPrimary: "typescript-best-practices",
   rulesPresetSecondary: "no-target-brand-keyword",
@@ -7077,6 +7097,29 @@ export const useAppStore = create<AppState>()(
                     value: patch.providerTimeoutMs,
                   }),
                 }),
+            ...(patch.autoRoutingObjective === undefined
+              ? {}
+              : {
+                  autoRoutingObjective: normalizeAutoRoutingObjective(
+                    patch.autoRoutingObjective,
+                  ),
+                }),
+            ...(patch.autoRoutingEligibleClaudeModels === undefined
+              ? {}
+              : {
+                  autoRoutingEligibleClaudeModels:
+                    normalizeAutoRoutingEligibleModels(
+                      patch.autoRoutingEligibleClaudeModels,
+                    ),
+                }),
+            ...(patch.autoRoutingEligibleCodexModels === undefined
+              ? {}
+              : {
+                  autoRoutingEligibleCodexModels:
+                    normalizeAutoRoutingEligibleModels(
+                      patch.autoRoutingEligibleCodexModels,
+                    ),
+                }),
             ...(patch.claudeTaskBudgetTokens === undefined
               ? {}
               : {
@@ -9678,7 +9721,7 @@ export const useAppStore = create<AppState>()(
           if (isManagedTaskReadOnly({ state, taskId: resolvedTaskId })) {
             return { status: "blocked" } satisfies SendUserMessageResult;
           }
-          const provider =
+          let provider =
             task?.provider ?? state.draftProvider ?? "claude-code";
           const codexGoalObjective =
             provider === "codex" ? parseCodexGoalSetObjective(content) : null;
@@ -9881,7 +9924,7 @@ export const useAppStore = create<AppState>()(
                   codexPlanMode: state.settings.codexPlanMode,
                 },
               });
-            const activeModel =
+            let activeModel =
               provider === "claude-code"
                 ? resolvePromptDraftModelForProvider({
                     providerId: provider,
@@ -9894,12 +9937,6 @@ export const useAppStore = create<AppState>()(
                     fallbackModel: state.settings.modelCodex,
                   });
 
-            const skillSelection = resolveSkillSelections({
-              text: content,
-              skills: state.skillCatalog.skills,
-              providerId: provider,
-            });
-            const normalizedPrompt = skillSelection.normalizedText;
             const resolvedFileContexts = await getDraftFileContexts({
               promptDraft,
               session: taskWorkspaceSession,
@@ -9933,6 +9970,88 @@ export const useAppStore = create<AppState>()(
               restoreSubmittedPromptDraft();
               return { status: "blocked" } satisfies SendUserMessageResult;
             }
+
+            let autoRoutingDecision: Awaited<
+              ReturnType<typeof resolveAutoRoutingDecision>
+            > | null = null;
+            if (
+              state.settings.autoRoutingEnabled &&
+              promptDraft.runtimeOverrides?.autoRouting === true
+            ) {
+              const classifyRoute =
+                state.settings.autoRoutingUseClassifier
+                  ? window.api?.provider?.classifyRoute
+                  : undefined;
+              autoRoutingDecision = await resolveAutoRoutingDecision({
+                settings: {
+                  autoRoutingEnabled: state.settings.autoRoutingEnabled,
+                  autoRoutingUseClassifier:
+                    state.settings.autoRoutingUseClassifier,
+                  autoRoutingObjective: state.settings.autoRoutingObjective,
+                  autoRoutingSafetyEscalation:
+                    state.settings.autoRoutingSafetyEscalation,
+                  autoRoutingAllowProviderSwitch:
+                    state.settings.autoRoutingAllowProviderSwitch,
+                  autoRoutingEligibleClaudeModels:
+                    state.settings.autoRoutingEligibleClaudeModels,
+                  autoRoutingEligibleCodexModels:
+                    state.settings.autoRoutingEligibleCodexModels,
+                },
+                runtimeOverrides: promptDraft.runtimeOverrides,
+                currentProviderId: provider,
+                currentModel: activeModel,
+                prompt: content,
+                history: latestHistory.map((message) => ({
+                  role: message.role,
+                  content: message.content,
+                  providerId:
+                    message.providerId === "claude-code" ||
+                    message.providerId === "codex"
+                      ? message.providerId
+                      : undefined,
+                  model: message.model,
+                })),
+                fileContextCount: resolvedFileContexts.length,
+                classifyRoute: classifyRoute
+                  ? async (request) => {
+                      const result = await classifyRoute({
+                        prompt: request.prompt,
+                        history: request.history.map((message) => ({
+                          role: message.role,
+                          content: message.content,
+                          providerId:
+                            message.providerId === "claude-code" ||
+                            message.providerId === "codex"
+                              ? message.providerId
+                              : undefined,
+                          model: message.model,
+                        })),
+                        fileContextCount: request.fileContextCount,
+                      });
+                      return result?.ok && result.classification
+                        ? ({
+                            taskType: result.classification.taskType,
+                            complexity: result.classification.complexity,
+                            recommendedTier:
+                              result.classification.recommendedTier,
+                            confidence: result.classification.confidence,
+                            rationale: result.classification.rationale,
+                            stick: result.classification.stick,
+                          } satisfies AutoRoutingClassifierResult)
+                        : null;
+                    }
+                  : undefined,
+              });
+              provider = autoRoutingDecision.providerId;
+              activeModel = autoRoutingDecision.model;
+            }
+
+            const skillSelection = resolveSkillSelections({
+              text: content,
+              skills: state.skillCatalog.skills,
+              providerId: provider,
+            });
+            const normalizedPrompt = skillSelection.normalizedText;
 
             // ── Auto task naming ──────────────────────────────────────────────────
             // On every prompt, fire a lightweight single-turn Claude query to keep
@@ -10477,6 +10596,17 @@ export const useAppStore = create<AppState>()(
               turnId,
             });
 
+            if (
+              autoRoutingDecision &&
+              autoRoutingDecision.source !== "disabled"
+            ) {
+              providerTurnEventController.handleEvent({
+                type: "model_resolved",
+                resolvedProviderId: provider,
+                resolvedModel: activeModel,
+              });
+            }
+
             runProviderTurn({
               turnId,
               provider,
@@ -10495,6 +10625,15 @@ export const useAppStore = create<AppState>()(
                       resolvedPromptDraftRuntimeState.claudePermissionMode,
                     codexPlanMode:
                       resolvedPromptDraftRuntimeState.codexPlanMode,
+                    ...(autoRoutingDecision?.claudeEffort
+                      ? { claudeEffort: autoRoutingDecision.claudeEffort }
+                      : {}),
+                    ...(autoRoutingDecision?.codexReasoningEffort
+                      ? {
+                          codexReasoningEffort:
+                            autoRoutingDecision.codexReasoningEffort,
+                        }
+                      : {}),
                   },
                   providerSession,
                 }),
@@ -11919,6 +12058,13 @@ export const useAppStore = create<AppState>()(
         state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
           raw.modelShortcutKeys,
         );
+        state.settings.autoRoutingObjective = normalizeAutoRoutingObjective(
+          raw.autoRoutingObjective,
+        );
+        state.settings.autoRoutingEligibleClaudeModels =
+          normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleClaudeModels);
+        state.settings.autoRoutingEligibleCodexModels =
+          normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleCodexModels);
         state.settings.trustedTools = normalizeTrustedToolEntries(
           raw.trustedTools,
         );

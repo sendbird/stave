@@ -31,6 +31,7 @@ export interface PromptDraftRuntimeOverrides {
   claudePermissionMode?: ClaudePermissionMode;
   claudePermissionModeBeforePlan?: ClaudePermissionModeBeforePlan;
   codexPlanMode?: boolean;
+  autoRouting?: boolean;
   model?: string;
 }
 

@@ -163,6 +163,36 @@ export interface HostProviderSuggestTaskNameResult {
   title?: string;
 }
 
+export interface HostProviderClassifyRouteArgs {
+  prompt: string;
+  history?: Array<{
+    role: "user" | "assistant";
+    content: string;
+    providerId?: StreamTurnArgs["providerId"];
+    model?: string;
+  }>;
+  fileContextCount?: number;
+}
+
+export interface HostProviderClassifyRouteResult {
+  ok: boolean;
+  classification?: {
+    taskType:
+      | "quick_edit"
+      | "plan"
+      | "implementation"
+      | "debug"
+      | "review"
+      | "general"
+      | "safety";
+    complexity: "low" | "medium" | "high";
+    recommendedTier: "light" | "standard" | "heavy" | "frontier";
+    confidence: number;
+    rationale?: string;
+    stick?: boolean;
+  };
+}
+
 export interface HostProviderSuggestCommitMessageArgs {
   cwd?: string;
 }
@@ -518,6 +548,7 @@ export interface HostServiceRequestMap {
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.suggest-task-name": HostProviderSuggestTaskNameArgs;
+  "provider.classify-route": HostProviderClassifyRouteArgs;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageArgs;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionArgs;
   "provider.review-diff": HostProviderReviewDiffArgs;
@@ -698,6 +729,7 @@ export interface HostServiceResponseMap {
   "provider.write-codex-config-value": CodexMutationResponse;
   "provider.batch-write-codex-config": CodexMutationResponse;
   "provider.suggest-task-name": HostProviderSuggestTaskNameResult;
+  "provider.classify-route": HostProviderClassifyRouteResult;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageResult;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionResult;
   "provider.review-diff": HostProviderReviewDiffResult;

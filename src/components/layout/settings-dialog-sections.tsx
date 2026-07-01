@@ -18,6 +18,7 @@ import {
   Monitor,
   Moon,
   RefreshCcw,
+  Sparkles,
   Sun,
   Trash2,
   Upload,
@@ -62,6 +63,7 @@ import {
 import {
   getDefaultModelForProvider,
   getProviderLabel,
+  getSdkModelOptions,
   normalizeModelSelection,
   resolveClaudeEffortForModelSwitch,
 } from "@/lib/providers/model-catalog";
@@ -1583,7 +1585,19 @@ function TerminalSection() {
 }
 
 function ModelsSection() {
-  const [modelClaude, modelCodex, claudeEffort, codexBinaryPath] = useAppStore(
+  const [
+    modelClaude,
+    modelCodex,
+    claudeEffort,
+    codexBinaryPath,
+    autoRoutingEnabled,
+    autoRoutingUseClassifier,
+    autoRoutingObjective,
+    autoRoutingSafetyEscalation,
+    autoRoutingAllowProviderSwitch,
+    autoRoutingEligibleClaudeModels,
+    autoRoutingEligibleCodexModels,
+  ] = useAppStore(
     useShallow(
       (state) =>
         [
@@ -1591,6 +1605,13 @@ function ModelsSection() {
           state.settings.modelCodex,
           state.settings.claudeEffort,
           state.settings.codexBinaryPath,
+          state.settings.autoRoutingEnabled,
+          state.settings.autoRoutingUseClassifier,
+          state.settings.autoRoutingObjective,
+          state.settings.autoRoutingSafetyEscalation,
+          state.settings.autoRoutingAllowProviderSwitch,
+          state.settings.autoRoutingEligibleClaudeModels,
+          state.settings.autoRoutingEligibleCodexModels,
         ] as const,
     ),
   );
@@ -1632,6 +1653,65 @@ function ModelsSection() {
   const recommendedModelOptions = useMemo(
     () => buildRecommendedModelSelectorOptions({ options: modelOptions }),
     [modelOptions],
+  );
+  const claudeRoutingOptions = useMemo(
+    () => modelOptions.filter((option) => option.providerId === "claude-code"),
+    [modelOptions],
+  );
+  const codexRoutingOptions = useMemo(
+    () => modelOptions.filter((option) => option.providerId === "codex"),
+    [modelOptions],
+  );
+  const updateEligibleModels = useCallback(
+    (args: { providerId: "claude-code" | "codex"; models: string[] }) => {
+      updateSettings({
+        patch:
+          args.providerId === "claude-code"
+            ? { autoRoutingEligibleClaudeModels: args.models }
+            : { autoRoutingEligibleCodexModels: args.models },
+      });
+    },
+    [updateSettings],
+  );
+  const renderEligibleModelButtons = (
+    providerId: "claude-code" | "codex",
+    options: typeof modelOptions,
+    selectedModels: readonly string[],
+  ) => (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        type="button"
+        variant={selectedModels.length === 0 ? "default" : "outline"}
+        size="sm"
+        className="h-8 rounded-md"
+        onClick={() => updateEligibleModels({ providerId, models: [] })}
+      >
+        All
+      </Button>
+      {options.map((option) => {
+        const selected = selectedModels.includes(option.model);
+        return (
+          <Button
+            key={option.key}
+            type="button"
+            variant={selected ? "default" : "outline"}
+            size="sm"
+            className="h-8 max-w-full justify-start gap-1.5 rounded-md"
+            onClick={() =>
+              updateEligibleModels({
+                providerId,
+                models: selected
+                  ? selectedModels.filter((model) => model !== option.model)
+                  : [...selectedModels, option.model],
+              })
+            }
+          >
+            {selected ? <Check className="size-3.5" /> : null}
+            <span className="truncate">{option.label}</span>
+          </Button>
+        );
+      })}
+    </div>
   );
 
   return (
@@ -1716,6 +1796,110 @@ function ModelsSection() {
               }
             />
           </LabeledField>
+          <div className="space-y-3 border-t border-border/70 pt-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="size-4 text-primary" />
+                  <p className="text-sm font-medium">Auto</p>
+                  <Badge variant="secondary">v1</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Route Auto-selected drafts through deterministic heuristics,
+                  optional classification, and provider stickiness.
+                </p>
+              </div>
+            </div>
+            <SwitchField
+              title="Enable Auto Routing"
+              description="Global kill switch. Off keeps the existing provider and model path."
+              checked={autoRoutingEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ patch: { autoRoutingEnabled: checked } })
+              }
+            />
+            <LabeledField
+              title="Objective"
+              description="Bias routing toward lower cost or higher quality."
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-12 text-xs text-muted-foreground">Cost</span>
+                <Slider
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={[autoRoutingObjective]}
+                  onValueChange={(value) =>
+                    updateSettings({
+                      patch: { autoRoutingObjective: value[0] ?? 0.5 },
+                    })
+                  }
+                />
+                <span className="w-14 text-right text-xs text-muted-foreground">
+                  Quality
+                </span>
+              </div>
+            </LabeledField>
+            <div className="grid gap-3 md:grid-cols-3">
+              <SwitchField
+                title="Classifier"
+                description="Use the Claude classifier for low-confidence prompts."
+                checked={autoRoutingUseClassifier}
+                onCheckedChange={(checked) =>
+                  updateSettings({
+                    patch: { autoRoutingUseClassifier: checked },
+                  })
+                }
+              />
+              <SwitchField
+                title="Safety Escalation"
+                description="Lift sensitive domains to stronger tiers."
+                checked={autoRoutingSafetyEscalation}
+                onCheckedChange={(checked) =>
+                  updateSettings({
+                    patch: { autoRoutingSafetyEscalation: checked },
+                  })
+                }
+              />
+              <SwitchField
+                title="Provider Switch"
+                description="Allow Auto to move between Claude and Codex after a task starts."
+                checked={autoRoutingAllowProviderSwitch}
+                onCheckedChange={(checked) =>
+                  updateSettings({
+                    patch: { autoRoutingAllowProviderSwitch: checked },
+                  })
+                }
+              />
+            </div>
+            <LabeledField
+              title="Claude Eligible Models"
+              description="Empty selection means every catalog Claude model can be used."
+            >
+              {renderEligibleModelButtons(
+                "claude-code",
+                claudeRoutingOptions,
+                autoRoutingEligibleClaudeModels,
+              )}
+            </LabeledField>
+            <LabeledField
+              title="Codex Eligible Models"
+              description="Empty selection means every available Codex model can be used."
+            >
+              {renderEligibleModelButtons(
+                "codex",
+                codexRoutingOptions.length > 0
+                  ? codexRoutingOptions
+                  : getSdkModelOptions({ providerId: "codex" }).map((model) =>
+                      buildModelSelectorValue({
+                        providerId: "codex",
+                        model,
+                      }),
+                    ),
+                autoRoutingEligibleCodexModels,
+              )}
+            </LabeledField>
+          </div>
         </SettingsCard>
       </SectionStack>
     </>

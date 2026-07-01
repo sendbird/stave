@@ -3289,6 +3289,190 @@ export async function suggestClaudeTaskName(args: {
   }
 }
 
+const ROUTE_CLASSIFIER_TASK_TYPES = [
+  "quick_edit",
+  "plan",
+  "implementation",
+  "debug",
+  "review",
+  "general",
+  "safety",
+] as const;
+
+const ROUTE_CLASSIFIER_COMPLEXITIES = ["low", "medium", "high"] as const;
+const ROUTE_CLASSIFIER_TIERS = [
+  "light",
+  "standard",
+  "heavy",
+  "frontier",
+] as const;
+
+type RouteClassifierTaskType = (typeof ROUTE_CLASSIFIER_TASK_TYPES)[number];
+type RouteClassifierComplexity = (typeof ROUTE_CLASSIFIER_COMPLEXITIES)[number];
+type RouteClassifierTier = (typeof ROUTE_CLASSIFIER_TIERS)[number];
+
+export interface ClaudeRouteClassification {
+  taskType: RouteClassifierTaskType;
+  complexity: RouteClassifierComplexity;
+  recommendedTier: RouteClassifierTier;
+  confidence: number;
+  rationale?: string;
+  stick?: boolean;
+}
+
+function isRouteClassifierTaskType(
+  value: unknown,
+): value is RouteClassifierTaskType {
+  return (
+    typeof value === "string" &&
+    ROUTE_CLASSIFIER_TASK_TYPES.includes(value as RouteClassifierTaskType)
+  );
+}
+
+function isRouteClassifierComplexity(
+  value: unknown,
+): value is RouteClassifierComplexity {
+  return (
+    typeof value === "string" &&
+    ROUTE_CLASSIFIER_COMPLEXITIES.includes(value as RouteClassifierComplexity)
+  );
+}
+
+function isRouteClassifierTier(value: unknown): value is RouteClassifierTier {
+  return (
+    typeof value === "string" &&
+    ROUTE_CLASSIFIER_TIERS.includes(value as RouteClassifierTier)
+  );
+}
+
+function extractJsonObject(text: string) {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end < start) {
+    return null;
+  }
+  return text.slice(start, end + 1);
+}
+
+export function parseClaudeRouteClassificationJson(text: string): {
+  ok: boolean;
+  classification?: ClaudeRouteClassification;
+} {
+  const jsonText = extractJsonObject(text);
+  if (!jsonText) {
+    return { ok: false };
+  }
+
+  try {
+    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+    if (
+      !isRouteClassifierTaskType(parsed.taskType) ||
+      !isRouteClassifierComplexity(parsed.complexity) ||
+      !isRouteClassifierTier(parsed.recommendedTier)
+    ) {
+      return { ok: false };
+    }
+    const confidence =
+      typeof parsed.confidence === "number" &&
+      Number.isFinite(parsed.confidence)
+        ? Math.min(1, Math.max(0, parsed.confidence))
+        : 0;
+    return {
+      ok: true,
+      classification: {
+        taskType: parsed.taskType,
+        complexity: parsed.complexity,
+        recommendedTier: parsed.recommendedTier,
+        confidence,
+        ...(typeof parsed.rationale === "string"
+          ? { rationale: parsed.rationale.slice(0, 400) }
+          : {}),
+        ...(typeof parsed.stick === "boolean" ? { stick: parsed.stick } : {}),
+      },
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function classifyClaudeRoute(args: {
+  prompt: string;
+  history?: Array<{
+    role: "user" | "assistant";
+    content: string;
+    providerId?: "claude-code" | "codex";
+    model?: string;
+  }>;
+  fileContextCount?: number;
+}): Promise<{ ok: boolean; classification?: ClaudeRouteClassification }> {
+  try {
+    const mod = await getPrewarmedSdkModule();
+    const queryFn = (
+      mod as { query?: typeof import("@anthropic-ai/claude-agent-sdk").query }
+    ).query;
+    if (!queryFn) {
+      return { ok: false };
+    }
+
+    const claudeExecutablePath = getPrewarmedExecutablePath();
+    const historyLines = (args.history ?? [])
+      .slice(-8)
+      .map((message) => {
+        const provider = message.providerId ? ` ${message.providerId}` : "";
+        const model = message.model ? ` ${message.model}` : "";
+        return `${message.role}${provider}${model}: ${message.content.slice(0, 500)}`;
+      })
+      .join("\n");
+
+    const classifierPrompt = [
+      "Classify the next Stave coding turn for model routing.",
+      "Return ONLY valid compact JSON. Do not include markdown.",
+      "Shape: {\"taskType\":\"quick_edit|plan|implementation|debug|review|general|safety\",\"complexity\":\"low|medium|high\",\"recommendedTier\":\"light|standard|heavy|frontier\",\"confidence\":0.0,\"rationale\":\"short\",\"stick\":false}",
+      "Use stick=true when confidence is low or the existing provider should not be changed.",
+      `Attached file context count: ${Math.max(0, args.fileContextCount ?? 0)}`,
+      "",
+      ...(historyLines ? [`History:\n${historyLines}`, ""] : []),
+      `Prompt:\n${args.prompt.slice(0, 4000)}`,
+    ].join("\n");
+
+    const stream = queryFn({
+      prompt: classifierPrompt,
+      options: {
+        permissionMode: "default",
+        maxTurns: 1,
+        cwd: process.cwd(),
+        model: "claude-haiku-4-5",
+        ...(claudeExecutablePath
+          ? { pathToClaudeCodeExecutable: claudeExecutablePath }
+          : {}),
+        env: buildClaudeEnv({ executablePath: claudeExecutablePath }),
+      },
+    }) as Query;
+
+    const textParts: string[] = [];
+    for await (const message of stream) {
+      if (message.type !== "assistant") {
+        continue;
+      }
+      const assistantMsg = message as SDKAssistantMessage;
+      const contentBlocks = assistantMsg.message?.content;
+      if (!Array.isArray(contentBlocks)) {
+        continue;
+      }
+      for (const block of contentBlocks) {
+        const typedBlock = block as { type?: string; text?: string };
+        if (typedBlock.type === "text" && typedBlock.text) {
+          textParts.push(typedBlock.text);
+        }
+      }
+    }
+
+    return parseClaudeRouteClassificationJson(textParts.join("").trim());
+  } catch {
+    return { ok: false };
+  }
+}
+
 // ── Auto commit message suggestion ────────────────────────────────────────────
 // Runs a lightweight, single-turn Claude query to produce a conventional commit
 // message based on the git diff of changed files.  Intentionally isolated from

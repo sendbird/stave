@@ -721,6 +721,34 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         title?: string;
       }>,
+    classifyRoute: (args: {
+      prompt: string;
+      history?: Array<{
+        role: "user" | "assistant";
+        content: string;
+        providerId?: ProviderId;
+        model?: string;
+      }>;
+      fileContextCount?: number;
+    }) =>
+      ipcRenderer.invoke("provider:classify-route", args) as Promise<{
+        ok: boolean;
+        classification?: {
+          taskType:
+            | "quick_edit"
+            | "plan"
+            | "implementation"
+            | "debug"
+            | "review"
+            | "general"
+            | "safety";
+          complexity: "low" | "medium" | "high";
+          recommendedTier: "light" | "standard" | "heavy" | "frontier";
+          confidence: number;
+          rationale?: string;
+          stick?: boolean;
+        };
+      }>,
     suggestCommitMessage: (args: { cwd?: string }) =>
       ipcRenderer.invoke("provider:suggest-commit-message", args) as Promise<{
         ok: boolean;

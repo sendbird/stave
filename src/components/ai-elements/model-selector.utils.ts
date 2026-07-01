@@ -13,6 +13,7 @@ export interface ModelSelectorOption {
   label: string;
   description?: string;
   isDefault?: boolean;
+  isAuto?: boolean;
   available: boolean;
 }
 
@@ -60,6 +61,21 @@ export function buildModelSelectorValue(args: {
     model: args.model,
     available: args.available,
   });
+}
+
+export function buildAutoModelSelectorOption(args: {
+  providerId: ProviderId;
+  available?: boolean;
+}): ModelSelectorOption {
+  return {
+    key: "auto",
+    providerId: args.providerId,
+    model: "",
+    label: "Auto",
+    description: "Stave chooses the provider, model, and effort.",
+    isAuto: true,
+    available: args.available ?? true,
+  };
 }
 
 export interface ModelEnrichment {

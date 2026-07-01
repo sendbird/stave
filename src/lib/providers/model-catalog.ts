@@ -23,6 +23,7 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "opusplan",
+  "claude-sonnet-5",
   "claude-sonnet-4-6",
   "claude-sonnet-4-6[1m]",
   "claude-haiku-4-5",
@@ -178,6 +179,180 @@ export function getSdkModelOptions(args: { providerId: ProviderId }) {
   return getProviderDescriptor(args).models;
 }
 
+export type ModelTier = "light" | "standard" | "heavy" | "frontier";
+export type TaskType =
+  | "quick_edit"
+  | "plan"
+  | "implementation"
+  | "debug"
+  | "review"
+  | "general"
+  | "safety";
+
+export interface ModelCapability {
+  providerId: ProviderId;
+  model: string;
+  tier: ModelTier;
+  taskTypes: readonly TaskType[];
+  defaultClaudeEffort?: NonNullable<ProviderRuntimeOptions["claudeEffort"]>;
+  defaultCodexReasoningEffort?: NonNullable<
+    ProviderRuntimeOptions["codexReasoningEffort"]
+  >;
+}
+
+export const MODEL_TIER_ORDER = [
+  "light",
+  "standard",
+  "heavy",
+  "frontier",
+] as const satisfies readonly ModelTier[];
+
+const GENERAL_CODING_TASK_TYPES = [
+  "quick_edit",
+  "implementation",
+  "debug",
+  "review",
+  "general",
+] as const satisfies readonly TaskType[];
+
+export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
+  [DEFAULT_CLAUDE_OPUS_MODEL]: {
+    providerId: "claude-code",
+    model: DEFAULT_CLAUDE_OPUS_MODEL,
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultClaudeEffort: "xhigh",
+  },
+  [DEFAULT_CLAUDE_OPUS_1M_MODEL]: {
+    providerId: "claude-code",
+    model: DEFAULT_CLAUDE_OPUS_1M_MODEL,
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultClaudeEffort: "xhigh",
+  },
+  opusplan: {
+    providerId: "claude-code",
+    model: "opusplan",
+    tier: "frontier",
+    taskTypes: ["plan", "review", "safety"],
+    defaultClaudeEffort: "xhigh",
+  },
+  "claude-sonnet-5": {
+    providerId: "claude-code",
+    model: "claude-sonnet-5",
+    tier: "heavy",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultClaudeEffort: "high",
+  },
+  "claude-sonnet-4-6": {
+    providerId: "claude-code",
+    model: "claude-sonnet-4-6",
+    tier: "standard",
+    taskTypes: GENERAL_CODING_TASK_TYPES,
+    defaultClaudeEffort: "high",
+  },
+  "claude-sonnet-4-6[1m]": {
+    providerId: "claude-code",
+    model: "claude-sonnet-4-6[1m]",
+    tier: "standard",
+    taskTypes: ["plan", "implementation", "debug", "review", "general"],
+    defaultClaudeEffort: "high",
+  },
+  "claude-haiku-4-5": {
+    providerId: "claude-code",
+    model: "claude-haiku-4-5",
+    tier: "light",
+    taskTypes: ["quick_edit", "general"],
+    defaultClaudeEffort: "medium",
+  },
+  "gpt-5.5": {
+    providerId: "codex",
+    model: "gpt-5.5",
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultCodexReasoningEffort: "high",
+  },
+  "gpt-5.4": {
+    providerId: "codex",
+    model: "gpt-5.4",
+    tier: "standard",
+    taskTypes: GENERAL_CODING_TASK_TYPES,
+    defaultCodexReasoningEffort: "medium",
+  },
+  "gpt-5.4-mini": {
+    providerId: "codex",
+    model: "gpt-5.4-mini",
+    tier: "light",
+    taskTypes: ["quick_edit", "general"],
+    defaultCodexReasoningEffort: "low",
+  },
+  "gpt-5.3-codex-spark": {
+    providerId: "codex",
+    model: "gpt-5.3-codex-spark",
+    tier: "heavy",
+    taskTypes: ["implementation", "debug", "review"],
+    defaultCodexReasoningEffort: "high",
+  },
+};
+
+function getTierIndex(tier: ModelTier) {
+  return MODEL_TIER_ORDER.indexOf(tier);
+}
+
+export function getModelCapability(args: {
+  model: string;
+}): ModelCapability | null {
+  return MODEL_CAPABILITIES[args.model.trim()] ?? null;
+}
+
+export function listModelCapabilities(args?: {
+  providerId?: ProviderId;
+}): ModelCapability[] {
+  return Object.values(MODEL_CAPABILITIES).filter(
+    (capability) =>
+      args?.providerId === undefined ||
+      capability.providerId === args.providerId,
+  );
+}
+
+export function resolveTierModel(args: {
+  tier: ModelTier;
+  providerId: ProviderId;
+  eligibleModels?: readonly string[];
+}) {
+  const candidateModels =
+    args.eligibleModels && args.eligibleModels.length > 0
+      ? args.eligibleModels
+      : getSdkModelOptions({ providerId: args.providerId });
+  const candidates = candidateModels
+    .map((model) => getModelCapability({ model }))
+    .filter(
+      (capability): capability is ModelCapability =>
+        capability !== null && capability.providerId === args.providerId,
+    );
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const exact = candidates.find((capability) => capability.tier === args.tier);
+  if (exact) {
+    return exact.model;
+  }
+
+  const requestedIndex = getTierIndex(args.tier);
+  const [nearest] = [...candidates].sort((left, right) => {
+    const leftDistance = Math.abs(getTierIndex(left.tier) - requestedIndex);
+    const rightDistance = Math.abs(getTierIndex(right.tier) - requestedIndex);
+    if (leftDistance !== rightDistance) {
+      return leftDistance - rightDistance;
+    }
+    return getTierIndex(right.tier) - getTierIndex(left.tier);
+  });
+
+  return nearest?.model ?? null;
+}
+
 export function normalizeModelSelection(args: {
   value: string;
   fallback: string;
@@ -205,7 +380,32 @@ export function resolveDefaultClaudeEffortForModel(args: {
   if (normalizedModel.includes("opus")) {
     return "xhigh";
   }
+  // TODO(fable): return "xhigh" for claude-fable-5 once the model is available.
+  if (normalizedModel.includes("sonnet-5")) {
+    return "high";
+  }
   if (normalizedModel.includes("sonnet-4-6")) {
+    return "high";
+  }
+  return "medium";
+}
+
+export function resolveDefaultCodexEffortForModel(args: {
+  model: string;
+}): NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]> {
+  const capability = getModelCapability({ model: args.model });
+  if (
+    capability?.providerId === "codex" &&
+    capability.defaultCodexReasoningEffort
+  ) {
+    return capability.defaultCodexReasoningEffort;
+  }
+
+  const normalizedModel = args.model.trim().toLowerCase();
+  if (normalizedModel.includes("mini")) {
+    return "low";
+  }
+  if (normalizedModel.includes("spark") || normalizedModel.includes("5.5")) {
     return "high";
   }
   return "medium";
@@ -269,6 +469,7 @@ export function toHumanModelName(args: { model: string }) {
     "claude-opus-4-6": "Claude Opus 4.6",
     "claude-opus-4-6[1m]": "Claude Opus 4.6 (1M)",
     opusplan: "Claude Opus Plan",
+    "claude-sonnet-5": "Claude Sonnet 5",
     "claude-sonnet-4-6": "Claude Sonnet 4.6",
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
     "claude-haiku-4-5": "Claude Haiku 4.5",
