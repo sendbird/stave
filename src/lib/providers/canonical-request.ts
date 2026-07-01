@@ -305,6 +305,7 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
         "[Image Attachment]",
         `label: ${part.label}`,
         `type: ${part.mimeType}`,
+        `dataUrl: ${part.dataUrl}`,
       );
       return;
     }

@@ -177,6 +177,29 @@ ipcRenderer.on(
   },
 );
 
+type LensVisualCommentShortcutPayload = {
+  workspaceId: string;
+  key: string;
+  code?: string;
+  shiftKey?: boolean;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  isComposing?: boolean;
+};
+
+const lensVisualCommentShortcutSubscribers = new Set<
+  (payload: LensVisualCommentShortcutPayload) => void
+>();
+ipcRenderer.on(
+  "lens:visual-comment-shortcut",
+  (_event, payload: LensVisualCommentShortcutPayload) => {
+    for (const subscriber of lensVisualCommentShortcutSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
 const lensConsoleEventSubscribers = new Set<
   (payload: BrowserConsoleEventPayload) => void
 >();
@@ -1171,6 +1194,12 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("scm:discard-file", args),
     getDiff: (args: { path: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:diff", args),
+    getGraph: (args: { cwd?: string; limit?: number; skip?: number; scope?: string }) =>
+      ipcRenderer.invoke("scm:graph", args),
+    getCommitFiles: (args: { hash: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:commit-files", args),
+    getCommitDiff: (args: { hash: string; path: string; oldPath?: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:commit-diff", args),
     getHistory: (args: { cwd?: string; limit?: number }) =>
       ipcRenderer.invoke("scm:history", args),
     listBranches: (args: { cwd?: string; refreshRemote?: boolean }) =>
@@ -1189,6 +1218,20 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("scm:rebase-branch", args),
     cherryPick: (args: { commit: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:cherry-pick", args),
+    revert: (args: { commit: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:revert", args),
+    reset: (args: { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string }) =>
+      ipcRenderer.invoke("scm:reset", args),
+    createTag: (args: { name: string; commit?: string; message?: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:create-tag", args),
+    deleteTag: (args: { name: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:delete-tag", args),
+    renameBranch: (args: { from: string; to: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:rename-branch", args),
+    deleteBranch: (args: { name: string; force?: boolean; cwd?: string }) =>
+      ipcRenderer.invoke("scm:delete-branch", args),
+    push: (args: { branch?: string; remote?: string; force?: boolean; cwd?: string }) =>
+      ipcRenderer.invoke("scm:push", args),
     createPR: (args: {
       title: string;
       body?: string;
@@ -1571,6 +1614,11 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         message?: string;
       }>,
+    clearAnnotations: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("lens:clear-annotations", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
     setElementStyle: (args: {
       workspaceId: string;
       selector: string;
@@ -1611,6 +1659,14 @@ contextBridge.exposeInMainWorld("api", {
       lensAnnotationEventSubscribers.add(listener);
       return () => {
         lensAnnotationEventSubscribers.delete(listener);
+      };
+    },
+    subscribeVisualCommentShortcutEvents: (
+      listener: (payload: LensVisualCommentShortcutPayload) => void,
+    ) => {
+      lensVisualCommentShortcutSubscribers.add(listener);
+      return () => {
+        lensVisualCommentShortcutSubscribers.delete(listener);
       };
     },
     subscribeConsoleEvents: (

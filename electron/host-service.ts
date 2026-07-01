@@ -24,17 +24,27 @@ import {
   commitSourceControl,
   createScmBranch,
   createScmPullRequest,
+  createScmTag,
+  deleteScmBranch,
+  deleteScmTag,
   diffSourceControlFile,
   discardSourceControlPath,
   fetchScmBranch,
   fetchGitHubPrStatus,
+  getScmCommitDiff,
+  getScmCommitFiles,
+  getScmGraph,
   getScmHistory,
   getScmStatus,
   listScmBranches,
   mergeScmBranch,
   mergeScmPr,
   pullScmBranch,
+  pushScmBranch,
   rebaseScmBranch,
+  renameScmBranch,
+  resetScmCommit,
+  revertScmCommit,
   setScmPrReady,
   stageAllSourceControl,
   stageSourceControlFile,
@@ -97,7 +107,7 @@ import {
   syncWorkspaceWithOriginMain,
 } from "./main/utils/tooling-status";
 import { isDoneEvent } from "./main/utils/provider-events";
-import { quotePath, runCommand } from "./main/utils/command";
+import { runCommand, runCommandArgs } from "./main/utils/command";
 import type { BridgeEvent, StreamTurnArgs } from "./providers/types";
 import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
@@ -686,8 +696,12 @@ function startPushProviderTurn(args: StreamTurnArgs) {
 async function suggestProviderCommitMessage(args: { cwd?: string }) {
   const cwd = args.cwd;
   const [diffResult, statusResult] = await Promise.all([
-    runCommand({ command: "git diff HEAD", cwd }),
-    runCommand({ command: "git status --porcelain", cwd }),
+    runCommandArgs({ command: "git", commandArgs: ["diff", "HEAD"], cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["status", "--porcelain"],
+      cwd,
+    }),
   ]);
 
   const diff = diffResult.ok ? diffResult.stdout.trim() : "";
@@ -704,8 +718,9 @@ async function collectProviderPullRequestContext(args: {
   const baseBranch = args.baseBranch?.trim() || "main";
   const expectedBranch = args.headBranch?.trim() || undefined;
 
-  const remoteBranchesResult = await runCommand({
-    command: "git branch -r --format='%(refname:short)'",
+  const remoteBranchesResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["branch", "-r", "--format=%(refname:short)"],
     cwd,
   });
   const comparisonBaseRef = resolvePullRequestComparisonBaseRef({
@@ -717,8 +732,6 @@ async function collectProviderPullRequestContext(args: {
           .filter(Boolean)
       : [],
   });
-  const safeComparisonBaseRef = quotePath({ value: comparisonBaseRef });
-
   const [
     diffResult,
     workingTreeDiffResult,
@@ -729,23 +742,42 @@ async function collectProviderPullRequestContext(args: {
     agentsResult,
     branchResult,
   ] = await Promise.all([
-    runCommand({ command: `git diff "${safeComparisonBaseRef}"...HEAD`, cwd }),
-    runCommand({ command: "git diff HEAD", cwd }),
-    runCommand({
-      command: `git log "${safeComparisonBaseRef}"..HEAD --pretty=format:"%h %s" --no-merges`,
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["diff", `${comparisonBaseRef}...HEAD`],
       cwd,
     }),
-    runCommand({
-      command: `git diff "${safeComparisonBaseRef}"...HEAD --stat`,
+    runCommandArgs({ command: "git", commandArgs: ["diff", "HEAD"], cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: [
+        "log",
+        `${comparisonBaseRef}..HEAD`,
+        "--pretty=format:%h %s",
+        "--no-merges",
+      ],
       cwd,
     }),
-    runCommand({ command: "git status --porcelain", cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["diff", `${comparisonBaseRef}...HEAD`, "--stat"],
+      cwd,
+    }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["status", "--porcelain"],
+      cwd,
+    }),
     runCommand({
       command: "cat .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null || true",
       cwd,
     }),
     runCommand({ command: "cat AGENTS.md 2>/dev/null || true", cwd }),
-    runCommand({ command: "git rev-parse --abbrev-ref HEAD", cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
+      cwd,
+    }),
   ]);
 
   const gitDetectedBranch = branchResult.ok
@@ -1223,6 +1255,15 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "scm.diff":
       await respond(request.id, await diffSourceControlFile(request.params));
       return;
+    case "scm.graph":
+      await respond(request.id, await getScmGraph(request.params));
+      return;
+    case "scm.commit-files":
+      await respond(request.id, await getScmCommitFiles(request.params));
+      return;
+    case "scm.commit-diff":
+      await respond(request.id, await getScmCommitDiff(request.params));
+      return;
     case "scm.history":
       await respond(request.id, await getScmHistory(request.params));
       return;
@@ -1249,6 +1290,27 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.cherry-pick":
       await respond(request.id, await cherryPickScmCommit(request.params));
+      return;
+    case "scm.revert":
+      await respond(request.id, await revertScmCommit(request.params));
+      return;
+    case "scm.reset":
+      await respond(request.id, await resetScmCommit(request.params));
+      return;
+    case "scm.create-tag":
+      await respond(request.id, await createScmTag(request.params));
+      return;
+    case "scm.delete-tag":
+      await respond(request.id, await deleteScmTag(request.params));
+      return;
+    case "scm.rename-branch":
+      await respond(request.id, await renameScmBranch(request.params));
+      return;
+    case "scm.delete-branch":
+      await respond(request.id, await deleteScmBranch(request.params));
+      return;
+    case "scm.push":
+      await respond(request.id, await pushScmBranch(request.params));
       return;
     case "scm.get-pr-status":
       await respond(request.id, await fetchGitHubPrStatus(request.params));

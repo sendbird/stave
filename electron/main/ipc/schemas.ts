@@ -312,6 +312,14 @@ export const RuntimeOptionsObjectSchema = z
         z.literal("auto"),
       ])
       .optional(),
+    claudePlanModeApprovalScope: z
+      .union([
+        z.literal("strict"),
+        z.literal("bash"),
+        z.literal("bashAndTask"),
+        z.literal("bashTaskAndMcp"),
+      ])
+      .optional(),
     claudeAllowDangerouslySkipPermissions: z.boolean().optional(),
     claudeSandboxEnabled: z.boolean().optional(),
     claudeAllowUnsandboxedCommands: z.boolean().optional(),
@@ -514,6 +522,7 @@ const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
       type: z.literal("approval"),
       toolName: z.string().max(200),
       description: z.string().max(5000),
+      input: z.string().max(500_000).optional(),
       requestId: z.string().max(200),
       state: z.union([
         z.literal("approval-requested"),

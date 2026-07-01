@@ -20,6 +20,10 @@ import {
   type PrePrReviewFinding,
 } from "../../src/lib/source-control-review";
 import { isTrustedApproval } from "../../src/lib/providers/trusted-tools";
+import {
+  DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
+  type ClaudePlanModeApprovalScope,
+} from "../../src/types/chat";
 import type {
   ClaudeContextUsageResponse,
   ClaudeMcpServerStatusSnapshot,
@@ -155,6 +159,115 @@ const CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES = new Set([
   "stave_add_workspace_custom_field",
   "stave_set_workspace_custom_field",
   "stave_remove_workspace_custom_field",
+]);
+/**
+ * Tokens that mark a (non-Stave) MCP tool as read-only vs. mutating, used to
+ * decide whether plan mode can auto-allow third-party / lens MCP calls when the
+ * approval scope is `bashTaskAndMcp`. An MCP tool is treated as read-only only
+ * when it contains a read verb AND no write verb — anything ambiguous keeps
+ * prompting, so misclassification fails safe (toward asking the user).
+ */
+const CLAUDE_MCP_READ_VERB_TOKENS = new Set([
+  "get",
+  "list",
+  "search",
+  "read",
+  "fetch",
+  "query",
+  "describe",
+  "inspect",
+  "view",
+  "snapshot",
+  "screenshot",
+  "measure",
+  "lookup",
+  "resolve",
+  "status",
+  "log",
+  "logs",
+  "show",
+  "find",
+  "count",
+  "whoami",
+  "info",
+  "summary",
+  "summarize",
+  "summarise",
+  "history",
+]);
+const CLAUDE_MCP_WRITE_VERB_TOKENS = new Set([
+  "create",
+  "update",
+  "delete",
+  "write",
+  "add",
+  "remove",
+  "set",
+  "post",
+  "put",
+  "patch",
+  "send",
+  "merge",
+  "upload",
+  "edit",
+  "move",
+  "rename",
+  "transition",
+  "comment",
+  "reply",
+  "schedule",
+  "run",
+  "execute",
+  "install",
+  "push",
+  "fork",
+  "assign",
+  "react",
+  "cancel",
+  "close",
+  "open",
+  "navigate",
+  "click",
+  "type",
+  "download",
+  "evaluate",
+  "start",
+  "stop",
+  "apply",
+  "submit",
+  "approve",
+  "reject",
+  "clear",
+  "replace",
+  "mutate",
+  "destroy",
+  "drop",
+  "truncate",
+  "revoke",
+  "grant",
+  "modify",
+  "disable",
+  "enable",
+  "toggle",
+  "trigger",
+  "fire",
+  "dispatch",
+  "publish",
+  "archive",
+  "restore",
+  "import",
+  "export",
+  "sync",
+  "refresh",
+  "invalidate",
+  "purge",
+  "flush",
+  "register",
+  "unregister",
+  "link",
+  "unlink",
+  "attach",
+  "detach",
 ]);
 const CLAUDE_EVENT_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const CLAUDE_OVERFLOW_TAIL_EVENTS: BridgeEvent[] = [
@@ -573,6 +686,105 @@ export function shouldAutoAllowClaudeTool(args: {
       permissionMode: args.permissionMode ?? "default",
       toolName: args.toolName,
     }) === "allow"
+  );
+}
+
+export function resolveClaudePlanModeApprovalScope(args: {
+  runtimeValue?: ClaudePlanModeApprovalScope;
+  envValue?: string;
+}): ClaudePlanModeApprovalScope {
+  const candidate = args.runtimeValue ?? args.envValue;
+  if (
+    candidate === "strict" ||
+    candidate === "bash" ||
+    candidate === "bashAndTask" ||
+    candidate === "bashTaskAndMcp"
+  ) {
+    return candidate;
+  }
+  return DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE;
+}
+
+/**
+ * Classifies a non-Stave MCP tool (by its leaf name, e.g. `get_file_contents`
+ * or `slack_search_public`) as read-only. Returns true only when the name
+ * carries a read verb and no write verb, so anything ambiguous (e.g.
+ * `lens_navigate`, `create_pull_request`) stays gated behind an approval.
+ */
+export function isReadOnlyMcpLeafToolName(leafToolName: string): boolean {
+  const tokens = leafToolName
+    // Split camelCase boundaries ("searchJiraIssues" → "search Jira Issues")
+    // before lowercasing so camelCase MCP tool names tokenize like snake_case.
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    return false;
+  }
+  if (tokens.some((token) => CLAUDE_MCP_WRITE_VERB_TOKENS.has(token))) {
+    return false;
+  }
+  return tokens.some((token) => CLAUDE_MCP_READ_VERB_TOKENS.has(token));
+}
+
+/**
+ * Plan mode is read-only by construction — mutating file tools and mutating
+ * Bash are hard-denied before this runs. This decides whether a *non-mutating*
+ * tool call should skip the approval prompt based on the user's configured
+ * plan-mode approval scope, so planning feels as frictionless as auto mode
+ * without ever letting a mutation through.
+ */
+export function shouldAutoAllowPlanModeScopedTool(args: {
+  scope: ClaudePlanModeApprovalScope;
+  toolName: string;
+  input: Record<string, unknown>;
+}): boolean {
+  if (args.scope === "strict") {
+    return false;
+  }
+  const normalizedToolName = args.toolName.trim().toLowerCase();
+
+  // Bash: only non-mutating commands. Mutating Bash is hard-denied upstream,
+  // but re-check here so the helper is correct in isolation.
+  if (normalizedToolName === "bash") {
+    const command = extractClaudeBashCommand(args.input);
+    return typeof command === "string" && !isMutatingClaudeBashCommand(command);
+  }
+
+  // Subagents (Task). The nested subagent's own tool calls still flow through
+  // this same canUseTool gate, so mutations remain hard-denied even when the
+  // spawn itself is auto-allowed.
+  if (normalizedToolName === "task") {
+    return args.scope === "bashAndTask" || args.scope === "bashTaskAndMcp";
+  }
+
+  // Read-only third-party / lens MCP tools, only at the broadest scope. Stave
+  // workspace MCP tools are already auto-allowed earlier, so this targets
+  // external servers (github, slack, lens, …).
+  if (args.scope === "bashTaskAndMcp" && normalizedToolName.startsWith("mcp__")) {
+    const leafToolName =
+      normalizedToolName.split("__").at(-1) ?? normalizedToolName;
+    return isReadOnlyMcpLeafToolName(leafToolName);
+  }
+
+  return false;
+}
+
+/**
+ * Once a plan was presented via ExitPlanMode in a plan-mode turn, every later
+ * tool call (except re-presenting an updated plan) must be denied so the agent
+ * stops and the turn completes — Stave has already captured the plan for review.
+ */
+export function shouldDenyClaudePostPlanTool(args: {
+  permissionMode: ClaudePermissionMode;
+  planPresented: boolean;
+  toolName: string;
+}): boolean {
+  return (
+    args.permissionMode === "plan" &&
+    args.planPresented &&
+    args.toolName.trim().toLowerCase() !== "exitplanmode"
   );
 }
 
@@ -2658,6 +2870,15 @@ export async function streamClaudeWithSdk(
       envValue: process.env.STAVE_CLAUDE_PERMISSION_MODE?.trim(),
       fallback: "acceptEdits",
     });
+    const planModeApprovalScope = resolveClaudePlanModeApprovalScope({
+      runtimeValue: args.runtimeOptions?.claudePlanModeApprovalScope,
+      envValue: process.env.STAVE_CLAUDE_PLAN_MODE_APPROVAL_SCOPE?.trim(),
+    });
+    // Set once the agent presents its plan via ExitPlanMode during a plan-mode
+    // turn. After that point Stave has the plan (captured + persisted + shown
+    // in the PlanViewer for review), so the turn must wind down; further tool
+    // calls are denied so the agent stops and the turn can complete.
+    let planPresentedInTurn = false;
     const approvalDecisionTimeoutMs = resolveClaudeApprovalDecisionTimeoutMs({
       envValue: process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS,
     });
@@ -2827,6 +3048,32 @@ export async function streamClaudeWithSdk(
             });
           }
 
+          // In plan mode, once the agent has presented a plan via ExitPlanMode,
+          // Stave captures it, persists it under .stave/context/plans, and shows
+          // it in the PlanViewer for explicit review — the turn must end there
+          // so the user can reply. Some workspace instructions (e.g. the handoff
+          // convention) tell the agent to keep working after ExitPlanMode, and
+          // with broad plan-mode approval scopes those follow-up calls would
+          // auto-run and the turn would never finish (stuck "loading"). Deny
+          // every post-plan tool call except re-presenting an updated plan, so
+          // the agent stops and the turn completes.
+          if (
+            shouldDenyClaudePostPlanTool({
+              permissionMode: claudePermissionMode,
+              planPresented: planPresentedInTurn,
+              toolName,
+            })
+          ) {
+            return buildClaudeDenyPermissionResult({
+              message:
+                "Your plan was already presented to the user for review in Stave and saved under .stave/context/plans. Stop now and wait — do not run any more tools. The user will approve or revise the plan in a separate turn.",
+              context: "approval:plan-already-presented",
+            });
+          }
+          if (toolName.trim().toLowerCase() === "exitplanmode") {
+            planPresentedInTurn = true;
+          }
+
           const permissionModeDecision = resolveClaudePermissionModeDecision({
             permissionMode: claudePermissionMode,
             toolName,
@@ -2906,6 +3153,25 @@ export async function streamClaudeWithSdk(
             return buildClaudeDenyPermissionResult({
               message: buildClaudePlanModeDenyMessage({ toolName }),
               context: "approval:plan-mode-hard-deny",
+            });
+          }
+
+          // Plan mode reaches here only for non-mutating tool calls (mutating
+          // file tools and mutating Bash were hard-denied above). Skip the
+          // approval prompt for the tool classes the user opted into via the
+          // plan-mode approval scope, so planning feels like auto mode.
+          if (
+            claudePermissionMode === "plan" &&
+            shouldAutoAllowPlanModeScopedTool({
+              scope: planModeApprovalScope,
+              toolName,
+              input: normalizedInput,
+            })
+          ) {
+            return buildClaudeApprovalPermissionResult({
+              approved: true,
+              normalizedInput,
+              denialMessage: `Claude plan mode auto-allowed ${toolName}.`,
             });
           }
 
@@ -3713,7 +3979,7 @@ export async function reviewClaudeWorktreeDiff(args: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: args.model?.trim() || "claude-sonnet-4-6",
+        model: args.model?.trim() || "claude-sonnet-5",
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),

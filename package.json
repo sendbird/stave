@@ -1,7 +1,7 @@
 {
   "name": "stave",
   "private": true,
-  "version": "0.7.6",
+  "version": "0.8.0",
   "description": "Stave: AI coding workspace for Claude and Codex.",
   "author": {
     "name": "Sendbird, Inc.",
@@ -34,8 +34,8 @@
     "server-dev": "bun run server/dev-server.ts",
     "dev": "vite",
     "dev:all": "concurrently -n server,client -c blue,green \"bun run server-dev\" \"bun run dev\"",
-    "dev:desktop": "electron-vite dev",
-    "dev:desktop:poll": "CHOKIDAR_USEPOLLING=1 CHOKIDAR_INTERVAL=120 electron-vite dev",
+    "dev:desktop": "unset ELECTRON_RUN_AS_NODE && electron-vite dev",
+    "dev:desktop:poll": "unset ELECTRON_RUN_AS_NODE && CHOKIDAR_USEPOLLING=1 CHOKIDAR_INTERVAL=120 electron-vite dev",
     "build": "tsc --noEmit && vite build",
     "build:pages": "bun run scripts/build-pages-site.ts",
     "build:desktop": "tsc --noEmit && electron-vite build",

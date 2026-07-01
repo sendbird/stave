@@ -42,6 +42,7 @@ import { EditorImagePreviewOverlay } from "./editor-image-preview-overlay";
 import { EditorMainTabStrip } from "./editor-main-tab-strip";
 import { EditorMainToolbar } from "./editor-main-toolbar";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
+import { GitGraphView } from "@/components/git-graph/GitGraphView";
 import {
   EditorReviewPanel,
   type EditorReviewDraft,
@@ -237,7 +238,7 @@ export function EditorMainPanel() {
   const activeTabContentUnavailable =
     activeTabContentPending || activeTabContentTooLarge;
   const isImageTab = (
-    tab: { kind?: "text" | "image"; language: string } | null,
+    tab: { kind?: "text" | "image" | "git-graph"; language: string } | null,
   ) => Boolean(tab && (tab.kind === "image" || tab.language === "image"));
   const activeTabIsImage = isImageTab(activeTab);
   const activeTabIsMarkdown = Boolean(
@@ -794,7 +795,9 @@ export function EditorMainPanel() {
 
         <div className="min-h-0 flex-1 overflow-hidden">
           {activeTab ? (
-            activeTabContentTooLarge ? (
+            activeTab.kind === "git-graph" ? (
+              <GitGraphView workspaceCwd={workspaceRootPath || undefined} />
+            ) : activeTabContentTooLarge ? (
               <div className="flex h-full items-center justify-center bg-editor p-6">
                 <Empty className="border-none bg-transparent p-0">
                   <EmptyHeader className="gap-3">

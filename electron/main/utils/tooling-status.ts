@@ -928,8 +928,9 @@ export async function syncWorkspaceWithOriginMain(
     };
   }
 
-  const mergeResult = await runCommand({
-    command: `git merge --ff-only ${effectiveBaseBranch}`,
+  const mergeResult = await runCommandArgs({
+    command: "git",
+    commandArgs: ["merge", "--ff-only", effectiveBaseBranch],
     cwd: workspace.cwd ?? args.cwd,
   });
   const nextWorkspace = await inspectWorkspaceSyncStatus({

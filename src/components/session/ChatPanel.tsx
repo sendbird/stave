@@ -123,9 +123,11 @@ interface MessageRowProps {
     providerId: "claude-code" | "codex" | "user";
     model: string;
     content: string;
+    displayContent?: string;
     startedAt?: string;
     completedAt?: string;
     parts: MessagePart[];
+    displayParts?: MessagePart[];
     isStreaming?: boolean;
     usage?: MessageUsage;
   };
@@ -218,7 +220,10 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   {elapsedLabel}
                 </MessageAction>
               ) : null}
-              <CopyButton key="copy-action" text={message.content} />
+              <CopyButton
+                key="copy-action"
+                text={message.displayContent ?? message.content}
+              />
               {message.role === "assistant" &&
               message.usage &&
               !showRespondingWave ? (

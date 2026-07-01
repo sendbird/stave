@@ -1,3 +1,5 @@
+import type { LensAnnotation } from "@/lib/lens/lens.types";
+
 export type MessageRole = "user" | "assistant";
 
 export type MessagePartType =
@@ -13,7 +15,18 @@ export type MessagePartType =
 
 export type Attachment =
   | { kind: "file"; filePath: string }
-  | { kind: "image"; id: string; dataUrl: string; label: string };
+  | { kind: "image"; id: string; dataUrl: string; label: string }
+  | {
+      kind: "lens-annotations";
+      id: string;
+      workspaceId?: string;
+      label: string;
+      count: number;
+      summary: string;
+      content: string;
+      displayContent?: string;
+      annotations?: LensAnnotation[];
+    };
 
 export type ClaudePermissionMode =
   | "default"
@@ -26,6 +39,36 @@ export type ClaudePermissionModeBeforePlan = Exclude<
   ClaudePermissionMode,
   "plan"
 > | null;
+
+/**
+ * How aggressively Stave auto-approves tool calls while Claude is in plan mode.
+ *
+ * Plan mode is read-only by construction: mutating file tools (Edit/Write/…)
+ * and mutating Bash commands are hard-denied regardless of this setting. These
+ * levels only relax the approval *prompt* for tool calls that cannot mutate the
+ * workspace, so higher levels mean fewer interruptions during planning.
+ *
+ * - `strict`: only the built-in read-only tools (Read/Grep/Glob/…) and Stave
+ *   workspace MCP tools are auto-allowed; non-mutating Bash, subagents (Task),
+ *   and third-party MCP tools still prompt. This is the original behavior.
+ * - `bash`: additionally auto-allow non-mutating Bash commands.
+ * - `bashAndTask`: additionally auto-allow spawning subagents via the Task tool.
+ * - `bashTaskAndMcp`: additionally auto-allow read-only third-party / lens MCP
+ *   tools (classified by tool-name verbs). Mutating-looking MCP tools still
+ *   prompt.
+ */
+export type ClaudePlanModeApprovalScope =
+  | "strict"
+  | "bash"
+  | "bashAndTask"
+  | "bashTaskAndMcp";
+
+/**
+ * Default plan-mode approval scope. The broadest level, so plan mode feels as
+ * frictionless as auto mode while still hard-denying every mutating action.
+ */
+export const DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE: ClaudePlanModeApprovalScope =
+  "bashTaskAndMcp";
 
 export interface PromptDraftRuntimeOverrides {
   claudePermissionMode?: ClaudePermissionMode;
@@ -41,11 +84,31 @@ export interface PromptDraftQueuedNextTurn {
   content?: string;
 }
 
+export interface PromptDraftQueuedTurn {
+  id: string;
+  queuedAt: string;
+  sourceTurnId?: string;
+  content: string;
+  attachedFilePaths: string[];
+  attachments: Attachment[];
+}
+
+export interface PromptDraftBatchItem {
+  id: string;
+  createdAt: string;
+  content: string;
+  attachedFilePaths?: string[];
+  attachments?: Attachment[];
+}
+
 export interface PromptDraft {
   text: string;
   attachedFilePaths: string[];
   attachments: Attachment[];
   runtimeOverrides?: PromptDraftRuntimeOverrides;
+  promptBatch?: PromptDraftBatchItem[];
+  queuedTurns?: PromptDraftQueuedTurn[];
+  /** Legacy single-item queue kept for reading older persisted drafts. */
   queuedNextTurn?: PromptDraftQueuedNextTurn;
 }
 
@@ -178,6 +241,7 @@ export interface ChatMessage {
   model: string;
   providerId: "claude-code" | "codex" | "user";
   content: string;
+  displayContent?: string;
   startedAt?: string;
   completedAt?: string;
   isStreaming?: boolean;
@@ -193,6 +257,7 @@ export interface ChatMessage {
   };
   promptSuggestions?: string[];
   parts: MessagePart[];
+  displayParts?: MessagePart[];
 }
 
 export type EditorTabContentState =
@@ -222,7 +287,7 @@ export interface Task {
 export interface EditorTab {
   id: string;
   filePath: string;
-  kind?: "text" | "image";
+  kind?: "text" | "image" | "git-graph";
   language: string;
   content: string;
   contentState?: EditorTabContentState;

@@ -8,24 +8,33 @@ const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
 export const STAVE_LOGO_URL = `${import.meta.env.BASE_URL}stave-logo.svg`;
 export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-4-8";
 export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-4-8[1m]";
-const LEGACY_AUTOMATIC_CLAUDE_OPUS_MODELS: Record<string, string> = {
+// Claude Sonnet 5 surfaced in the Claude CLI picker from 2.1.197, but the
+// model ID is passed straight through to the Anthropic API, which decides
+// availability — so no CLI-version gating is needed on our side.
+export const DEFAULT_CLAUDE_SONNET_MODEL = "claude-sonnet-5";
+export const DEFAULT_CLAUDE_SONNET_1M_MODEL = "claude-sonnet-5[1m]";
+// Settings-scoped model IDs that should silently upgrade to the current
+// catalog default of the same family. Historical chat/turn records keep their
+// original IDs and render via the legacy display names below.
+const LEGACY_AUTOMATIC_CLAUDE_MODELS: Record<string, string> = {
   "claude-opus-4-7": DEFAULT_CLAUDE_OPUS_MODEL,
   "claude-opus-4-7[1m]": DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "claude-opus-4-6": DEFAULT_CLAUDE_OPUS_MODEL,
   "claude-opus-4-6[1m]": DEFAULT_CLAUDE_OPUS_1M_MODEL,
+  "claude-sonnet-4-6": DEFAULT_CLAUDE_SONNET_MODEL,
+  "claude-sonnet-4-6[1m]": DEFAULT_CLAUDE_SONNET_1M_MODEL,
 };
 
 // Source: https://platform.claude.com/docs/en/about-claude/models/overview
-// Latest models comparison (as of 2026-06-17)
+// Latest models comparison (as of 2026-07-01)
 // The [1m] suffix activates the 1M-token context window; the Claude SDK
 // parses it and auto-injects the `context-1m-2025-08-07` beta header.
 export const CLAUDE_SDK_MODEL_OPTIONS = [
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "opusplan",
-  "claude-sonnet-5",
-  "claude-sonnet-4-6",
-  "claude-sonnet-4-6[1m]",
+  DEFAULT_CLAUDE_SONNET_MODEL,
+  DEFAULT_CLAUDE_SONNET_1M_MODEL,
   "claude-haiku-4-5",
 ] as const;
 
@@ -61,7 +70,7 @@ export const PROVIDER_DESCRIPTORS = [
     iconUrl: CLAUDE_COLOR_ICON_URL,
     fallbackLabel: "C",
     models: CLAUDE_SDK_MODEL_OPTIONS,
-    defaultModel: "claude-sonnet-4-6",
+    defaultModel: DEFAULT_CLAUDE_SONNET_MODEL,
     sessionLabel: "Claude session ID",
     capabilities: {
       nativeCommandCatalog: true,
@@ -237,25 +246,18 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     taskTypes: ["plan", "review", "safety"],
     defaultClaudeEffort: "xhigh",
   },
-  "claude-sonnet-5": {
+  [DEFAULT_CLAUDE_SONNET_MODEL]: {
     providerId: "claude-code",
-    model: "claude-sonnet-5",
+    model: DEFAULT_CLAUDE_SONNET_MODEL,
     tier: "heavy",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
     defaultClaudeEffort: "high",
   },
-  "claude-sonnet-4-6": {
+  [DEFAULT_CLAUDE_SONNET_1M_MODEL]: {
     providerId: "claude-code",
-    model: "claude-sonnet-4-6",
-    tier: "standard",
-    taskTypes: GENERAL_CODING_TASK_TYPES,
-    defaultClaudeEffort: "high",
-  },
-  "claude-sonnet-4-6[1m]": {
-    providerId: "claude-code",
-    model: "claude-sonnet-4-6[1m]",
-    tier: "standard",
-    taskTypes: ["plan", "implementation", "debug", "review", "general"],
+    model: DEFAULT_CLAUDE_SONNET_1M_MODEL,
+    tier: "heavy",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
     defaultClaudeEffort: "high",
   },
   "claude-haiku-4-5": {
@@ -364,9 +366,9 @@ export function normalizeModelSelection(args: {
   return trimmed;
 }
 
-export function upgradeSettingsScopedClaudeOpusModel(args: { model: string }) {
+export function upgradeSettingsScopedClaudeModel(args: { model: string }) {
   const normalizedModel = args.model.trim().toLowerCase();
-  const upgraded = LEGACY_AUTOMATIC_CLAUDE_OPUS_MODELS[normalizedModel];
+  const upgraded = LEGACY_AUTOMATIC_CLAUDE_MODELS[normalizedModel];
   if (upgraded) {
     return upgraded;
   }
@@ -381,10 +383,7 @@ export function resolveDefaultClaudeEffortForModel(args: {
     return "xhigh";
   }
   // TODO(fable): return "xhigh" for claude-fable-5 once the model is available.
-  if (normalizedModel.includes("sonnet-5")) {
-    return "high";
-  }
-  if (normalizedModel.includes("sonnet-4-6")) {
+  if (normalizedModel.includes("sonnet")) {
     return "high";
   }
   return "medium";
@@ -469,7 +468,8 @@ export function toHumanModelName(args: { model: string }) {
     "claude-opus-4-6": "Claude Opus 4.6",
     "claude-opus-4-6[1m]": "Claude Opus 4.6 (1M)",
     opusplan: "Claude Opus Plan",
-    "claude-sonnet-5": "Claude Sonnet 5",
+    [DEFAULT_CLAUDE_SONNET_MODEL]: "Claude Sonnet 5",
+    [DEFAULT_CLAUDE_SONNET_1M_MODEL]: "Claude Sonnet 5 (1M)",
     "claude-sonnet-4-6": "Claude Sonnet 4.6",
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
     "claude-haiku-4-5": "Claude Haiku 4.5",

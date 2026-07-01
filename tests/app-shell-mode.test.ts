@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { createJSONStorage } from "zustand/middleware";
 import { useAppStore } from "@/store/app.store";
-import { normalizeLayoutState } from "@/store/layout.utils";
+import {
+  DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
+  normalizeLayoutState,
+} from "@/store/layout.utils";
 
 const noopStorage = createJSONStorage(() => ({
   getItem: () => null,
@@ -18,6 +21,22 @@ describe("layout settings", () => {
     } as typeof initialLayout & { unexpectedFlag: boolean });
 
     expect("unexpectedFlag" in normalized).toBe(false);
+  });
+
+  test("defaults workspace sidebar items to expanded mode", () => {
+    expect(
+      useAppStore.getInitialState().layout.workspaceSidebarItemDisplayMode,
+    ).toBe(DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE);
+  });
+
+  test("normalizes invalid workspace sidebar item display mode", () => {
+    const initialLayout = useAppStore.getInitialState().layout;
+    const normalized = normalizeLayoutState({
+      ...initialLayout,
+      workspaceSidebarItemDisplayMode: "wide" as never,
+    });
+
+    expect(normalized.workspaceSidebarItemDisplayMode).toBe("expanded");
   });
 });
 

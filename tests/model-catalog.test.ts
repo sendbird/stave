@@ -18,7 +18,7 @@ import {
   inferProviderIdFromModel,
   registerDynamicDisplayNames,
   toHumanModelName,
-  upgradeSettingsScopedClaudeOpusModel,
+  upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 
 describe("model catalog", () => {
@@ -31,11 +31,12 @@ describe("model catalog", () => {
     ]);
   });
 
-  test("includes Sonnet 5 in the Claude SDK options without promoting the default", () => {
+  test("includes Sonnet 5 variants in the Claude SDK options", () => {
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5");
+    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5[1m]");
     expect(CLAUDE_SDK_MODEL_OPTIONS).not.toContain("claude-fable-5");
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
-      "claude-sonnet-4-6",
+      "claude-sonnet-5",
     );
   });
 
@@ -44,6 +45,15 @@ describe("model catalog", () => {
     expect(toHumanModelName({ model: "gpt-5.4" })).toBe("GPT-5.4");
     expect(toHumanModelName({ model: "claude-sonnet-5" })).toBe(
       "Claude Sonnet 5",
+    );
+  });
+
+  test("formats Claude Sonnet 5 with canonical labels", () => {
+    expect(toHumanModelName({ model: "claude-sonnet-5" })).toBe(
+      "Claude Sonnet 5",
+    );
+    expect(toHumanModelName({ model: "claude-sonnet-5[1m]" })).toBe(
+      "Claude Sonnet 5 (1M)",
     );
   });
 
@@ -56,20 +66,27 @@ describe("model catalog", () => {
 
   test("returns provider defaults from the descriptor registry", () => {
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
-      "claude-sonnet-4-6",
+      "claude-sonnet-5",
     );
     expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
       "gpt-5.5",
     );
   });
 
-  test("uses xhigh as the Claude effort default for Opus models", () => {
+  test("uses xhigh for Opus and high for Sonnet as the Claude effort default", () => {
     expect(
       resolveDefaultClaudeEffortForModel({ model: DEFAULT_CLAUDE_OPUS_MODEL }),
     ).toBe("xhigh");
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-opus-4-7[1m]" }),
     ).toBe("xhigh");
+    expect(
+      resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-5" }),
+    ).toBe("high");
+    expect(
+      resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-5[1m]" }),
+    ).toBe("high");
+    // Legacy Sonnet 4.6 ids that still appear in historical records resolve too.
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-4-6" }),
     ).toBe("high");
@@ -148,16 +165,26 @@ describe("model catalog", () => {
     ).toBe("max");
   });
 
-  test("upgrades settings-scoped Opus 4.6 aliases to Opus 4.8 while preserving the 1M suffix", () => {
+  test("upgrades settings-scoped Opus and Sonnet aliases to the current default while preserving the 1M suffix", () => {
     expect(
-      upgradeSettingsScopedClaudeOpusModel({ model: "claude-opus-4-6" }),
+      upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6" }),
     ).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
     expect(
-      upgradeSettingsScopedClaudeOpusModel({ model: "claude-opus-4-6[1m]" }),
+      upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6[1m]" }),
     ).toBe("claude-opus-4-8[1m]");
     expect(
-      upgradeSettingsScopedClaudeOpusModel({ model: "claude-opus-4-6-fast" }),
+      upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6-fast" }),
     ).toBe("claude-opus-4-6-fast");
+    expect(
+      upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-4-6" }),
+    ).toBe("claude-sonnet-5");
+    expect(
+      upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-4-6[1m]" }),
+    ).toBe("claude-sonnet-5[1m]");
+    // Already-current Sonnet 5 ids pass through unchanged.
+    expect(
+      upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-5" }),
+    ).toBe("claude-sonnet-5");
   });
 
   test("returns provider wave tone classes", () => {

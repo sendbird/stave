@@ -111,6 +111,46 @@ describe("provider IPC schemas", () => {
     });
   });
 
+  test("accepts conversation history approval parts that carry tool input", () => {
+    const parsed = StreamTurnArgsSchema.safeParse({
+      providerId: "claude-code",
+      prompt: "continue",
+      conversation: {
+        target: { providerId: "claude-code" },
+        mode: "chat",
+        history: [
+          {
+            role: "user",
+            content: "hi",
+            parts: [{ type: "text", text: "hi" }],
+          },
+          {
+            role: "assistant",
+            content: "done",
+            parts: [
+              {
+                type: "approval",
+                toolName: "Bash",
+                description: "Run a command",
+                input: "{\"command\":\"ls -la\"}",
+                requestId: "req-1",
+                state: "approval-responded",
+              },
+            ],
+          },
+        ],
+        input: {
+          role: "user",
+          content: "continue",
+          parts: [{ type: "text", text: "continue" }],
+        },
+        contextParts: [],
+      },
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
   test("accepts repo-map filesystem requests with optional refresh", () => {
     expect(FilesystemRepoMapArgsSchema.safeParse({
       rootPath: "/tmp/project",

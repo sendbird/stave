@@ -5,11 +5,21 @@ import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-re
 import type { ChatMessage } from "@/types/chat";
 
 function createAssistantMessage(
-  args: Partial<Pick<ChatMessage, "content" | "parts" | "isStreaming">>,
-): Pick<ChatMessage, "content" | "parts" | "isStreaming"> {
+  args: Partial<
+    Pick<
+      ChatMessage,
+      "content" | "parts" | "displayContent" | "displayParts" | "isStreaming"
+    >
+  >,
+): Pick<
+  ChatMessage,
+  "content" | "parts" | "displayContent" | "displayParts" | "isStreaming"
+> {
   return {
     content: args.content ?? "",
     parts: args.parts ?? [],
+    displayContent: args.displayContent,
+    displayParts: args.displayParts,
     isStreaming: args.isStreaming,
   };
 }
@@ -49,6 +59,63 @@ async function loadAssistantMessageBodies() {
 }
 
 describe("AssistantMessageBody", () => {
+  test("renders display parts instead of raw provider prompt content", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        content: "Selector: body > div\nHTML:\n<div>raw</div>",
+        parts: [
+          {
+            type: "text",
+            text: "Selector: body > div\nHTML:\n<div>raw</div>",
+          },
+        ],
+        displayParts: [
+          {
+            type: "text",
+            text: "이게 왜이래",
+          },
+        ],
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: false,
+    }));
+
+    expect(html).toContain("이게 왜이래");
+    expect(html).not.toContain("Comment:");
+    expect(html).not.toContain("Selector:");
+    expect(html).not.toContain("body &gt; div");
+    expect(html).not.toContain("HTML:");
+  });
+
+  test("preserves visual comment display part order", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        content: "raw prompt",
+        parts: [{ type: "text", text: "raw prompt" }],
+        displayParts: [
+          {
+            type: "image_context",
+            dataUrl: "data:image/png;base64,abc",
+            label: "야호",
+            mimeType: "image/png",
+          },
+        ],
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: false,
+    }));
+
+    expect(html).toContain('alt="야호"');
+    expect(html).toContain(">야호</p>");
+    expect(html).not.toContain("Visual comment 1");
+    expect(html).not.toContain("Comment:");
+    expect(html).not.toContain("raw prompt");
+  });
+
   test("shows only the CoT trigger before the first streaming trace entry arrives", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {

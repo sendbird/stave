@@ -82,7 +82,7 @@ import { ensureHostServicePersistenceReady } from "./persistence";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
-import { runCommand } from "../main/utils/command";
+import { runCommand, runCommandArgs } from "../main/utils/command";
 
 export interface RegisteredWorkspaceInfo {
   id: string;
@@ -1619,22 +1619,30 @@ export async function createWorkspace(args: {
           fromBranchKind: args.fromBranchKind,
           verifyRef: async (ref) =>
             (
-              await runCommand({
+              await runCommandArgs({
                 cwd: projectPath,
-                command: `git show-ref --verify --quiet ${JSON.stringify(ref)}`,
+                command: "git",
+                commandArgs: ["show-ref", "--verify", "--quiet", ref],
               })
             ).ok,
         })
       : null;
   if (remoteTarget) {
-    const fetchResult = await runCommand({
+    const fetchResult = await runCommandArgs({
       cwd: projectPath,
-      command: `git fetch ${remoteTarget.remoteName} --prune`,
+      command: "git",
+      commandArgs: ["fetch", remoteTarget.remoteName, "--prune"],
     });
     if (!fetchResult.ok) {
-      const localBranchProbe = await runCommand({
+      const localBranchProbe = await runCommandArgs({
         cwd: projectPath,
-        command: `git show-ref --verify --quiet ${JSON.stringify(`refs/heads/${remoteTarget.localBranch}`)}`,
+        command: "git",
+        commandArgs: [
+          "show-ref",
+          "--verify",
+          "--quiet",
+          `refs/heads/${remoteTarget.localBranch}`,
+        ],
       });
       baseBranch = localBranchProbe.ok ? remoteTarget.localBranch : baseBranch;
       notices.push({
@@ -1662,17 +1670,19 @@ export async function createWorkspace(args: {
     cwd: projectPath,
     command: "mkdir -p .stave/workspaces",
   });
-  const addResult = await runCommand({
+  const addResult = await runCommandArgs({
     cwd: projectPath,
-    command:
+    command: "git",
+    commandArgs:
       args.mode === "clean"
-        ? `git worktree add -b ${JSON.stringify(branchName)} ${JSON.stringify(workspacePath)}`
-        : `git worktree add -b ${JSON.stringify(branchName)} ${JSON.stringify(workspacePath)} ${JSON.stringify(baseBranch)}`,
+        ? ["worktree", "add", "-b", branchName, workspacePath]
+        : ["worktree", "add", "-b", branchName, workspacePath, baseBranch],
   });
   if (!addResult.ok) {
-    const fallbackResult = await runCommand({
+    const fallbackResult = await runCommandArgs({
       cwd: projectPath,
-      command: `git worktree add ${JSON.stringify(workspacePath)} ${JSON.stringify(branchName)}`,
+      command: "git",
+      commandArgs: ["worktree", "add", workspacePath, branchName],
     });
     if (!fallbackResult.ok) {
       throw new Error(

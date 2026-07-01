@@ -44,6 +44,7 @@ import {
 } from "../browser/browser-security";
 import { normalizeLensUrl } from "../browser/browser-url";
 import type {
+  LensAnnotation,
   LensBounds,
   LensCdpApprovalResponse,
   LensDownloadEntry,
@@ -75,6 +76,19 @@ async function existingNames(directory: string): Promise<Set<string>> {
     return new Set(await fs.readdir(directory));
   } catch {
     return new Set();
+  }
+}
+
+async function readPageAnnotations(
+  session: NonNullable<ReturnType<typeof getBrowserSession>>,
+): Promise<LensAnnotation[]> {
+  try {
+    const annotations = await session.view.webContents.executeJavaScript(
+      "window.__staveGetAnnotations?.() ?? []",
+    );
+    return Array.isArray(annotations) ? annotations : [];
+  } catch {
+    return [];
   }
 }
 
@@ -291,6 +305,14 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
+        await session.view.webContents
+          .executeJavaScript(
+            `new Promise((resolve) => {
+              window.__staveSetAnnotationScreenshotCaptureActive?.(false);
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve(true)));
+            })`,
+          )
+          .catch(() => false);
         const dataUrl = await captureScreenshot(
           session.view.webContents.id,
           args.options,
@@ -301,6 +323,12 @@ export function registerBrowserHandlers() {
           ok: false,
           message: err instanceof Error ? err.message : String(err),
         };
+      } finally {
+        await session.view.webContents
+          .executeJavaScript(
+            "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
+          )
+          .catch(() => false);
       }
     },
   );
@@ -544,8 +572,22 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
+        if (session.annotationOverlayActive) {
+          return { ok: true };
+        }
+        const revivedExistingOverlay = await session.view.webContents
+          .executeJavaScript(
+            "window.__staveSetAnnotationCaptureActive?.(true) === true",
+          )
+          .catch(() => false);
+        if (revivedExistingOverlay && session.annotationNonce) {
+          session.annotationOverlayActive = true;
+          session.annotationExtractDebugSource =
+            args.options?.extractDebugSource ?? false;
+          return { ok: true };
+        }
         session.annotationOverlayActive = true;
-        session.annotationNonce = randomUUID();
+        session.annotationNonce = session.annotationNonce ?? randomUUID();
         session.annotationExtractDebugSource =
           args.options?.extractDebugSource ?? false;
         await injectAnnotationOverlay(args.workspaceId, session.view.webContents);
@@ -568,16 +610,18 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
+        const annotations = await readPageAnnotations(session);
+        if (annotations.length > 0) {
+          session.annotations = annotations;
+        }
         await session.view.webContents.executeJavaScript(
-          "window.__staveTeardownAnnotations?.()",
+          "window.__staveSetAnnotationCaptureActive?.(false)",
         );
       } catch {
-        // Ignore teardown failures; navigation may already have destroyed page state.
+        // Ignore overlay failures; navigation may already have destroyed page state.
       }
       session.annotationOverlayActive = false;
-      session.annotationNonce = null;
       session.annotationExtractDebugSource = false;
-      sendAnnotationEvent({ workspaceId: args.workspaceId, type: "clear" });
       return { ok: true };
     },
   );
@@ -628,15 +672,19 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        const annotations = await session.view.webContents.executeJavaScript(
-          "window.__staveGetAnnotations?.() ?? []",
-        );
-        return { ok: true, annotations };
-      } catch (err) {
+        const annotations = await readPageAnnotations(session);
+        if (Array.isArray(annotations) && annotations.length > 0) {
+          session.annotations = annotations;
+        }
         return {
-          ok: false,
-          message: err instanceof Error ? err.message : String(err),
+          ok: true,
+          annotations:
+            Array.isArray(annotations) && annotations.length > 0
+              ? annotations
+              : session.annotations,
         };
+      } catch (err) {
+        return { ok: true, annotations: session.annotations };
       }
     },
   );
@@ -651,6 +699,11 @@ export function registerBrowserHandlers() {
         const removed = await session.view.webContents.executeJavaScript(
           `window.__staveRemoveAnnotation?.(${JSON.stringify(args.annotationId)}) ?? false`,
         );
+        if (removed) {
+          session.annotations = session.annotations.filter(
+            (annotation) => annotation.id !== args.annotationId,
+          );
+        }
         return { ok: Boolean(removed) };
       } catch (err) {
         return {
@@ -658,6 +711,25 @@ export function registerBrowserHandlers() {
           message: err instanceof Error ? err.message : String(err),
         };
       }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:clear-annotations",
+    async (_event, args: { workspaceId: string }) => {
+      const session = getBrowserSession(args.workspaceId);
+      if (!session) return { ok: false, message: "No browser session" };
+
+      try {
+        await session.view.webContents.executeJavaScript(
+          "window.__staveClearAnnotations?.()",
+        );
+      } catch {
+        // Ignore overlay failures; navigation may already have destroyed page state.
+      }
+      session.annotations = [];
+      sendAnnotationEvent({ workspaceId: args.workspaceId, type: "clear" });
+      return { ok: true };
     },
   );
 

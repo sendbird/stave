@@ -48,6 +48,24 @@ export function registerScmHandlers() {
   );
 
   ipcMain.handle(
+    "scm:graph",
+    (_event, args: { cwd?: string; limit?: number; skip?: number; scope?: string }) =>
+      invokeHostService("scm.graph", args),
+  );
+
+  ipcMain.handle(
+    "scm:commit-files",
+    (_event, args: { hash: string; cwd?: string }) =>
+      invokeHostService("scm.commit-files", args),
+  );
+
+  ipcMain.handle(
+    "scm:commit-diff",
+    (_event, args: { hash: string; path: string; oldPath?: string; cwd?: string }) =>
+      invokeHostService("scm.commit-diff", args),
+  );
+
+  ipcMain.handle(
     "scm:history",
     (_event, args: { cwd?: string; limit?: number }) =>
       invokeHostService("scm.history", args),
@@ -100,6 +118,27 @@ export function registerScmHandlers() {
     (_event, args: { commit: string; cwd?: string }) =>
       invokeHostService("scm.cherry-pick", args),
   );
+
+  ipcMain.handle("scm:revert", (_e, a: { commit: string; cwd?: string }) =>
+    invokeHostService("scm.revert", a));
+
+  ipcMain.handle("scm:reset", (_e, a: { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string }) =>
+    invokeHostService("scm.reset", a));
+
+  ipcMain.handle("scm:create-tag", (_e, a: { name: string; commit?: string; message?: string; cwd?: string }) =>
+    invokeHostService("scm.create-tag", a));
+
+  ipcMain.handle("scm:delete-tag", (_e, a: { name: string; cwd?: string }) =>
+    invokeHostService("scm.delete-tag", a));
+
+  ipcMain.handle("scm:rename-branch", (_e, a: { from: string; to: string; cwd?: string }) =>
+    invokeHostService("scm.rename-branch", a));
+
+  ipcMain.handle("scm:delete-branch", (_e, a: { name: string; force?: boolean; cwd?: string }) =>
+    invokeHostService("scm.delete-branch", a));
+
+  ipcMain.handle("scm:push", (_e, a: { branch?: string; remote?: string; force?: boolean; cwd?: string }) =>
+    invokeHostService("scm.push", a));
 
   ipcMain.handle("scm:get-pr-status", (_event, args: { cwd?: string }) =>
     invokeHostService("scm.get-pr-status", args),

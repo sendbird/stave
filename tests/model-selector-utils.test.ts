@@ -16,8 +16,8 @@ describe("model selector utils", () => {
     expect(options).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          key: "claude-code:claude-sonnet-4-6",
-          model: "claude-sonnet-4-6",
+          key: "claude-code:claude-sonnet-5",
+          model: "claude-sonnet-5",
           providerId: "claude-code",
         }),
         expect.objectContaining({

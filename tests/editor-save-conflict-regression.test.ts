@@ -138,6 +138,12 @@ async function setupStore(args: { rootPath: string; filePath: string }) {
     workspacePathById: { "ws-main": args.rootPath },
     workspaceBranchById: { "ws-main": "main" },
     workspaceDefaultById: { "ws-main": true },
+    layout: {
+      ...state.layout,
+      editorVisible: false,
+      editorDiffMode: false,
+      editorMarkdownPreviewMode: false,
+    },
     editorTabs: [],
     activeEditorTabId: null,
   }));
@@ -173,6 +179,25 @@ describe("editor save/conflict behavior", () => {
     );
   });
 
+  test("opens markdown files in preview mode by default", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "README.md";
+    await writeFile(path.join(rootPath, filePath), "# Hello\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    await useAppStore.getState().openFileFromTree({ filePath });
+
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(true);
+    expect(useAppStore.getState().layout.editorDiffMode).toBe(false);
+
+    useAppStore.getState().toggleEditorMarkdownPreviewMode();
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(false);
+
+    await useAppStore.getState().openFileFromTree({ filePath });
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(true);
+    expect(useAppStore.getState().editorTabs).toHaveLength(1);
+  });
+
   test("keeps markdown preview and diff mode mutually exclusive", async () => {
     const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
     const filePath = "README.md";
@@ -181,7 +206,6 @@ describe("editor save/conflict behavior", () => {
     const { useAppStore } = await setupStore({ rootPath, filePath });
     await useAppStore.getState().openFileFromTree({ filePath });
 
-    useAppStore.getState().toggleEditorMarkdownPreviewMode();
     expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(true);
     expect(useAppStore.getState().layout.editorDiffMode).toBe(false);
 

@@ -142,7 +142,7 @@ describe("task-context workspace schemas", () => {
     });
   });
 
-  test("parses prompt draft runtime overrides and queued-next-turn content from snapshots", () => {
+  test("parses prompt draft runtime overrides, queues, batch fragments, and annotation gadgets from snapshots", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {
         ...createWorkspaceBase(),
@@ -165,7 +165,42 @@ describe("task-context workspace schemas", () => {
           "task-1": {
             text: "",
             attachedFilePaths: [],
-            attachments: [],
+            attachments: [
+              {
+                kind: "lens-annotations",
+                id: "lens-1",
+                label: "Lens comments",
+                count: 2,
+                summary: "1. Header is cramped",
+                content: "[Lens Visual Comments]\n\nraw details",
+              },
+            ],
+            promptBatch: [
+              {
+                id: "batch-1",
+                createdAt: "2026-04-11T00:00:01.000Z",
+                content: "first fragment",
+                attachedFilePaths: ["src/comment-context.ts"],
+                attachments: [
+                  {
+                    kind: "image",
+                    id: "image-1",
+                    dataUrl: "data:image/png;base64,comment",
+                    label: "Comment image",
+                  },
+                ],
+              },
+            ],
+            queuedTurns: [
+              {
+                id: "queue-1",
+                queuedAt: "2026-04-11T00:00:02.000Z",
+                sourceTurnId: "turn-1",
+                content: "follow-up prompt",
+                attachedFilePaths: ["src/app.tsx"],
+                attachments: [],
+              },
+            ],
             runtimeOverrides: {
               claudePermissionMode: "auto",
               claudePermissionModeBeforePlan: "auto",
@@ -184,7 +219,42 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.promptDraftByTask["task-1"]).toEqual({
       text: "",
       attachedFilePaths: [],
-      attachments: [],
+      attachments: [
+        {
+          kind: "lens-annotations",
+          id: "lens-1",
+          label: "Lens comments",
+          count: 2,
+          summary: "1. Header is cramped",
+          content: "[Lens Visual Comments]\n\nraw details",
+        },
+      ],
+      promptBatch: [
+        {
+          id: "batch-1",
+          createdAt: "2026-04-11T00:00:01.000Z",
+          content: "first fragment",
+          attachedFilePaths: ["src/comment-context.ts"],
+          attachments: [
+            {
+              kind: "image",
+              id: "image-1",
+              dataUrl: "data:image/png;base64,comment",
+              label: "Comment image",
+            },
+          ],
+        },
+      ],
+      queuedTurns: [
+        {
+          id: "queue-1",
+          queuedAt: "2026-04-11T00:00:02.000Z",
+          sourceTurnId: "turn-1",
+          content: "follow-up prompt",
+          attachedFilePaths: ["src/app.tsx"],
+          attachments: [],
+        },
+      ],
       runtimeOverrides: {
         claudePermissionMode: "auto",
         claudePermissionModeBeforePlan: "auto",
@@ -196,6 +266,31 @@ describe("task-context workspace schemas", () => {
         content: "follow-up prompt",
       },
     });
+  });
+
+  test("accepts a git-graph editor tab so the workspace shell still restores", () => {
+    // Regression: a persisted tab with kind "git-graph" must not make the whole
+    // workspace payload fail to parse (which would block shell restoration).
+    const parsed = parseWorkspaceShell({
+      payload: {
+        ...createWorkspaceBase(),
+        messageCountByTask: {},
+        editorTabs: [
+          {
+            id: "git-graph",
+            filePath: "Git Graph",
+            kind: "git-graph",
+            language: "",
+            content: "",
+            hasConflict: false,
+            isDirty: false,
+          },
+        ],
+      },
+    });
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.editorTabs[0]?.kind).toBe("git-graph");
   });
 
   test("defaults editor tab content state to ready", () => {

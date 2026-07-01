@@ -251,22 +251,27 @@ describe("PromptInput queue mode", () => {
           value: "Follow up after this finishes",
           isTurnActive: true,
           submitMode: "queue-next" as const,
-          queuedNextTurn: {
-            queuedAt: "2026-04-09T00:00:00.000Z",
-            sourceTurnId: "turn-1",
-            content: "Follow up after this finishes",
-          },
-          selectedModel: MODEL_OPTION,
-          modelOptions: [MODEL_OPTION],
-          attachedFilePaths: ["README.md"],
-          attachments: [
+          queuedTurns: [
             {
-              kind: "image" as const,
-              id: "image-1",
-              dataUrl: "data:image/png;base64,abc",
-              label: "diagram.png",
+              id: "queue-1",
+              queuedAt: "2026-04-09T00:00:00.000Z",
+              sourceTurnId: "turn-1",
+              content: "Follow up after this finishes",
+              attachedFilePaths: ["README.md"],
+              attachments: [
+                {
+                  kind: "image" as const,
+                  id: "image-1",
+                  dataUrl: "data:image/png;base64,abc",
+                  label: "diagram.png",
+                },
+              ],
             },
           ],
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          attachments: [],
           onValueChange: () => {},
           onModelSelect: () => {},
           onAttachFilesChange: () => {},
@@ -277,20 +282,142 @@ describe("PromptInput queue mode", () => {
       ),
     );
 
-    expect(html).toContain("Queued next");
+    expect(html).toContain("Queue");
     expect(html).toContain("Follow up after this finishes");
-    expect(html).toContain(
-      "Sends automatically when the current response finishes.",
-    );
+    expect(html).toContain("1 queued follow-up");
+    expect(html).toContain("Next to send");
     expect(html).toContain("1 file");
     expect(html).toContain("1 image");
-    expect(html).toContain("Update queued");
-    expect(html).toContain("Clear");
+    expect(html).toContain("Queue next");
+    expect(html).toContain("Clear all");
     expect(html).toContain('aria-label="Abort"');
     expect(html).toContain("dark:bg-transparent");
     expect(html).not.toContain("absolute right-4 top-4");
     expect(html).not.toContain("README.md");
     expect(html).not.toContain("Focus");
+  });
+
+  test("renders comments and lens annotation gadgets outside the textarea", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "",
+          promptBatch: [
+            {
+              id: "batch-1",
+              createdAt: "2026-04-09T00:00:00.000Z",
+              content: "First staged fragment",
+              attachedFilePaths: ["src/comment-context.ts"],
+              attachments: [
+                {
+                  kind: "image" as const,
+                  id: "batch-image-1",
+                  dataUrl: "data:image/png;base64,batch",
+                  label: "Comment image",
+                },
+              ],
+            },
+          ],
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          attachments: [
+            {
+              kind: "lens-annotations" as const,
+              id: "lens-1",
+              label: "Lens comments",
+              count: 2,
+              summary: "1. Header cramped",
+              content: "[Lens Visual Comments]\n\nraw readable detail",
+            },
+          ],
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onAttachmentsChange: () => {},
+          onSubmit: () => {},
+          onRemovePromptBatchItem: () => {},
+        }),
+      ),
+    );
+
+    expect(html).toContain("Comment");
+    expect(html).toContain("First staged fragment");
+    expect(html).toContain("2 attachments");
+    expect(html).toContain('aria-label="Remove comment 1"');
+    expect(html).toContain("Lens comments");
+    expect(html).toContain("raw readable detail");
+    expect(html).not.toContain("Focus");
+  });
+
+  test("renders Lens annotations as editable comments in the composer strip", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "",
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          attachments: [
+            {
+              kind: "image" as const,
+              id: "lens-comment-image:workspace-1:annotation-1",
+              dataUrl: "data:image/png;base64,abc",
+              label: "Visual comment 1",
+            },
+            {
+              kind: "lens-annotations" as const,
+              id: "lens-1",
+              workspaceId: "workspace-1",
+              label: "Lens comments",
+              count: 1,
+              summary: "1. Header cramped",
+              content: "[Lens Visual Comments]\n\nraw readable detail",
+              annotations: [
+                {
+                  id: "annotation-1",
+                  kind: "element" as const,
+                  pin: 1,
+                  rect: { x: 0, y: 0, width: 100, height: 40 },
+                  comment: "Header cramped",
+                  createdAt: "2026-04-09T00:00:00.000Z",
+                  selector: "#root h1",
+                  computedStyles: { fontSize: "16px" },
+                },
+              ],
+            },
+          ],
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onAttachmentsChange: () => {},
+          onSubmit: () => {},
+        }),
+      ),
+    );
+
+    expect(html).toContain("Comment");
+    expect(html).toContain("1 item will send as one prompt");
+    expect(html).toContain('alt="Visual comment 1"');
+    expect(html).toContain("Header cramped");
+    expect(html).toContain("#root h1");
+    expect(html).toContain('aria-label="Edit styles for comment 1"');
+    expect(html).toContain('aria-label="Remove comment 1"');
+    expect(html.match(/alt="Visual comment 1"/g)?.length ?? 0).toBe(1);
   });
 
   test("renders the runtime drawer trigger as an icon-only button", async () => {

@@ -224,7 +224,7 @@ describe("buildProviderRuntimeOptions", () => {
   test.each([
     {
       sourceModel: "claude-haiku-4-5",
-      expectedAdvisorModel: "claude-sonnet-4-6",
+      expectedAdvisorModel: "claude-sonnet-5",
     },
     {
       sourceModel: "claude-sonnet-4-6",

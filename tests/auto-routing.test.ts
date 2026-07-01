@@ -38,7 +38,7 @@ function resolveDecision(args: {
     },
     runtimeOverrides: args.runtimeOverrides ?? { autoRouting: true },
     currentProviderId: args.currentProviderId ?? "claude-code",
-    currentModel: args.currentModel ?? "claude-sonnet-4-6",
+    currentModel: args.currentModel ?? "claude-sonnet-5",
     prompt: args.prompt,
     history: args.history ?? [],
     fileContextCount: args.fileContextCount,
@@ -103,7 +103,7 @@ describe("resolveAutoRoutingDecision", () => {
     });
 
     expect(lowCost.tier).toBe("standard");
-    expect(lowCost.model).toBe("claude-sonnet-4-6");
+    expect(lowCost.model).toBe("claude-sonnet-5");
     expect(highQuality.tier).toBe("frontier");
     expect(highQuality.model).toBe("claude-opus-4-8");
   });
@@ -159,7 +159,7 @@ describe("resolveAutoRoutingDecision", () => {
     });
 
     expect(decision.source).toBe("classifier_fallback");
-    expect(decision.model).toBe("claude-sonnet-4-6");
+    expect(decision.model).toBe("claude-sonnet-5");
   });
 
   test("manual model override short-circuits auto routing", async () => {

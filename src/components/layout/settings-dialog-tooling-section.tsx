@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   Bot,
-  CheckCircle2,
   Code2,
   Copy,
   GitBranch,
   GitPullRequest,
-  LoaderCircle,
   RefreshCcw,
-  ShieldAlert,
   TerminalSquare,
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -19,14 +16,15 @@ import type {
   ToolingStatusId,
   ToolingStatusSnapshot,
   ToolingStatusState,
-  WorkspaceSyncStatus,
 } from "@/lib/tooling-status";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import {
+  InfoRow,
   SectionHeading,
   SectionStack,
   SettingsCard,
+  StatusBadge,
 } from "./settings-dialog.shared";
 
 const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
@@ -42,33 +40,6 @@ const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = {
   claude: "claude auth login",
   codex: "codex login",
 };
-
-function StatusBadge(args: {
-  state: ToolingStatusState | WorkspaceSyncStatus["state"];
-  label: string;
-}) {
-  const className =
-    args.state === "ready" || args.state === "synced"
-      ? "border-success/30 bg-success/10 text-success dark:bg-success/15"
-      : args.state === "warning"
-        || args.state === "behind"
-        || args.state === "ahead"
-        || args.state === "dirty"
-      ? "border-warning/40 bg-warning/10 text-warning dark:bg-warning/15"
-      : "border-destructive/30 bg-destructive/10 text-destructive";
-
-  return (
-    <Badge
-      variant="secondary"
-      className={cn(
-        "h-6 border px-2.5 font-medium tracking-normal",
-        className,
-      )}
-    >
-      {args.label}
-    </Badge>
-  );
-}
 
 function AuthBadge(args: { tool: ToolingStatusEntry }) {
   const label =
@@ -100,29 +71,6 @@ function AuthBadge(args: { tool: ToolingStatusEntry }) {
   );
 }
 
-function WorkspaceStateLabel(state: WorkspaceSyncStatus["state"]) {
-  switch (state) {
-    case "synced":
-      return "Synced";
-    case "behind":
-      return "Behind";
-    case "ahead":
-      return "Ahead";
-    case "diverged":
-      return "Diverged";
-    case "dirty":
-      return "Dirty";
-    case "missing-origin":
-      return "No Origin";
-    case "missing-origin-main":
-      return "No default branch";
-    case "not-git":
-      return "Not Git";
-    default:
-      return "Unknown";
-  }
-}
-
 function ToolStateLabel(state: ToolingStatusState) {
   switch (state) {
     case "ready":
@@ -148,26 +96,6 @@ function ToolIcon(args: { id: ToolingStatusId }) {
           : Code2;
 
   return <Icon className="size-4" />;
-}
-
-function InfoRow(args: {
-  label: string;
-  value: string | null;
-  monospace?: boolean;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{args.label}</span>
-      <span
-        className={cn(
-          "max-w-[70%] text-right text-foreground break-all",
-          args.monospace && "font-mono text-xs",
-        )}
-      >
-        {args.value ?? "-"}
-      </span>
-    </div>
-  );
 }
 
 function PathRow(args: { label: string; value: string | null }) {
@@ -332,8 +260,6 @@ export function ToolingSection() {
     detail: "Refreshing native tooling status...",
   });
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const [syncBusy, setSyncBusy] = useState(false);
-  const [actionDetail, setActionDetail] = useState("");
 
   useEffect(() => {
     const getStatus = window.api?.tooling?.getStatus;
@@ -424,54 +350,7 @@ export function ToolingSection() {
     await handleOpenTerminal();
   }
 
-  async function handleCopyWorkspaceCommand(command: string) {
-    try {
-      await copyTextToClipboard(command);
-      toast.success("Workspace command copied", {
-        description: command,
-      });
-    } catch (error) {
-      toast.error("Failed to copy workspace command", {
-        description: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  async function handleSyncOriginMain() {
-    const syncOriginMain = window.api?.tooling?.syncOriginMain;
-    if (!workspaceCwd || !syncOriginMain) {
-      toast.error("Workspace sync unavailable");
-      return;
-    }
-
-    setSyncBusy(true);
-    try {
-      const result = await syncOriginMain({ cwd: workspaceCwd });
-      setActionDetail(result.detail);
-      if (result.ok) {
-        toast.success(result.summary);
-      } else {
-        toast.error(result.summary, {
-          description: result.detail,
-        });
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setActionDetail(message);
-      toast.error("Workspace sync failed", {
-        description: message,
-      });
-    } finally {
-      setSyncBusy(false);
-      setRefreshNonce((value) => value + 1);
-    }
-  }
-
   const snapshot = viewState.snapshot;
-  const workspace = snapshot?.workspace ?? null;
-  const checkedAt = snapshot?.checkedAt
-    ? new Date(snapshot.checkedAt).toLocaleString()
-    : null;
 
   return (
     <>
@@ -481,181 +360,25 @@ export function ToolingSection() {
       />
       <SectionStack>
         <SettingsCard
-          title="Current Workspace"
-          description="Track how the active workspace relates to the default remote branch (origin/main or origin/master), then fast-forward safely when no local commits or uncommitted edits block the update."
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/80 bg-background/80 px-4 py-3">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge
-                  state={workspace?.state ?? "unknown"}
-                  label={WorkspaceStateLabel(workspace?.state ?? "unknown")}
-                />
-                {workspace?.dirty ? (
-                  <Badge variant="destructive">
-                    {workspace.dirtyFileCount} dirty
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary">
-                    clean
-                  </Badge>
-                )}
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-foreground">
-                  {workspace?.summary
-                    ?? "Open a workspace to inspect sync status."}
-                </p>
-                <p className="break-all text-sm text-muted-foreground">
-                  {workspaceCwd ?? "No active workspace path is selected."}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={viewState.status === "loading"}
-                onClick={() => setRefreshNonce((value) => value + 1)}
-              >
-                <RefreshCcw
-                  className={cn(
-                    "size-4",
-                    viewState.status === "loading" && "animate-spin",
-                  )}
-                />
-                Refresh
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={!workspaceCwd}
-                onClick={() => void handleOpenTerminal()}
-              >
-                <TerminalSquare className="size-4" />
-                Open Terminal
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={!workspace?.canFastForwardOriginMain || syncBusy}
-                onClick={() => void handleSyncOriginMain()}
-              >
-                {syncBusy ? (
-                  <LoaderCircle className="size-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="size-4" />
-                )}
-                Sync {workspace?.baseBranch ?? "origin/main"}
-              </Button>
-            </div>
-          </div>
-
-          {workspace ? (
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="rounded-xl border border-border/80 bg-background/80 p-4">
-                <div className="space-y-2">
-                  <InfoRow label="Branch" value={workspace.branch} />
-                  <InfoRow
-                    label="Tracking"
-                    value={workspace.trackingBranch}
-                  />
-                  <InfoRow
-                    label="origin"
-                    value={workspace.originUrl}
-                    monospace
-                  />
-                  <InfoRow
-                    label="Relation"
-                    value={
-                      workspace.ahead !== null && workspace.behind !== null
-                        ? `${workspace.ahead} ahead / ${workspace.behind} behind`
-                        : workspace.summary
-                    }
-                  />
-                  <InfoRow
-                    label="Last Checked"
-                    value={checkedAt}
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border/80 bg-background/80 p-4">
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-foreground">
-                    Next step
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {workspace.detail}
-                  </p>
-                  {workspace.recommendedCommand ? (
-                    <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                        Suggested Command
-                      </p>
-                      <p className="font-mono text-xs leading-5 text-foreground break-all">
-                        {workspace.recommendedCommand}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            void handleCopyWorkspaceCommand(
-                              workspace.recommendedCommand ?? "",
-                            )}
-                        >
-                          <Copy className="size-4" />
-                          Copy Command
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={!workspaceCwd}
-                          onClick={() =>
-                            void handleCopyRepairAndOpenTerminal(
-                              workspace.recommendedCommand ?? "",
-                              "Workspace",
-                            )}
-                        >
-                          <TerminalSquare className="size-4" />
-                          Copy + Open Terminal
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {actionDetail ? (
-            <div className="rounded-xl border border-border/80 bg-muted/20 px-4 py-3">
-              <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <ShieldAlert className="size-4 text-muted-foreground" />
-                Last action output
-              </p>
-              <p className="mt-2 font-mono text-xs leading-5 text-muted-foreground whitespace-pre-wrap">
-                {actionDetail}
-              </p>
-            </div>
-          ) : null}
-
-          {viewState.status === "error" ? (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {viewState.detail}
-            </div>
-          ) : null}
-        </SettingsCard>
-
-        <SettingsCard
           title="Native Tooling Status"
           description="These checks mirror the native binaries and auth surfaces Stave uses for provider turns, PR actions, and terminal-backed workflows."
+          titleAccessory={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={viewState.status === "loading"}
+              onClick={() => setRefreshNonce((value) => value + 1)}
+            >
+              <RefreshCcw
+                className={cn(
+                  "size-4",
+                  viewState.status === "loading" && "animate-spin",
+                )}
+              />
+              Refresh
+            </Button>
+          }
         >
           {snapshot ? (
             <div className="grid gap-3">

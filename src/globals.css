@@ -239,25 +239,19 @@
  * xterm.css ships its viewport background as an unlayered rule:
  * `.xterm .xterm-viewport { background-color: #000; }`
  *
- * Keep the CLI-session overrides unlayered as well so they win in the
- * cascade and the terminal padding / outer edge follows the current theme
- * token instead of leaking xterm's hard-coded black.
- */
-[data-cli-terminal-surface] > .xterm {
-  padding: 1rem 1.25rem;
-  background-color: var(--color-terminal);
-}
-
-[data-cli-terminal-surface] > .xterm > .xterm-viewport {
-  background-color: var(--color-terminal);
-}
-
-/*
- * Dock terminal surface uses the same xterm renderer. Its container already
- * supplies the shell inset padding, so only the viewport background is
- * overridden here to stop xterm.css's hard-coded black from leaking.
+ * Keep these overrides unlayered so they win in the cascade and the terminal
+ * edge follows the current theme token instead of leaking xterm's hard-coded
+ * black.
+ *
+ * The shell inset padding is applied to the `.xterm` element itself rather than
+ * the mount container: xterm's fit addon measures the mount container's height
+ * and only subtracts padding found on `.xterm`, so container padding sizes the
+ * terminal too tall and clips the bottom rows (cutting off the bottom inset).
+ * Both the dock and CLI surfaces carry `data-terminal-surface`, so this single
+ * rule covers both.
  */
 [data-terminal-surface] > .xterm {
+  padding: 1rem 1.25rem;
   background-color: var(--color-terminal);
 }
 

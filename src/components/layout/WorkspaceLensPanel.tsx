@@ -31,7 +31,6 @@ import {
   Ruler,
   ScanSearch,
   Search,
-  Send,
   ShieldAlert,
   SlidersHorizontal,
   Terminal,
@@ -77,9 +76,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  formatAnnotationsForChat,
   formatElementForChat,
 } from "@/lib/lens/lens-element-message";
+import {
+  getLensCommentImageId,
+  isLensCommentImageAttachment,
+  upsertLensAnnotationsAttachment,
+} from "@/lib/lens/lens-annotation-attachment";
 import { hasLensOccludingFloatingSurface } from "@/lib/lens/lens-occlusion";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import type {
@@ -102,6 +105,11 @@ import type {
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
+import {
+  DEFAULT_VISUAL_COMMENT_SHORTCUT,
+  isVisualCommentShortcut,
+} from "@/lib/visual-comment-shortcuts";
 
 const DEFAULT_NAVIGATION_STATE: BrowserNavigationState = {
   url: "about:blank",
@@ -112,6 +120,10 @@ const DEFAULT_NAVIGATION_STATE: BrowserNavigationState = {
 };
 
 const LENS_LOG_LIMIT = 200;
+const LENS_TOOL_ACTIVE_CLASS =
+  "border-primary/50 bg-primary/10 text-primary shadow-sm hover:bg-primary/15 hover:text-primary dark:bg-primary/15";
+const LENS_TOOL_INACTIVE_CLASS = "text-muted-foreground hover:text-foreground";
+const LENS_TOOL_ICON_CLASS = "size-4";
 type LensPanelTab = "preview" | "console" | "network";
 type ConsoleLevelFilter = "all" | BrowserConsoleEntry["level"];
 
@@ -245,7 +257,9 @@ function mergeAnnotationEntry(
       candidateIndex === index ? annotation : candidate,
     );
   }
-  return [...annotations, annotation].sort((left, right) => left.pin - right.pin);
+  return [...annotations, annotation].sort(
+    (left, right) => left.pin - right.pin,
+  );
 }
 
 const ANNOTATION_STYLE_FIELDS = [
@@ -330,9 +344,7 @@ function AnnotationStylePopover(args: {
         <div className="grid gap-2">
           {ANNOTATION_STYLE_FIELDS.map((field) => (
             <label key={field} className="grid gap-1 text-xs">
-              <span className="font-medium text-muted-foreground">
-                {field}
-              </span>
+              <span className="font-medium text-muted-foreground">{field}</span>
               <Input
                 value={draft[field] ?? ""}
                 onChange={(event) =>
@@ -375,6 +387,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     lensSourceMappingReactDebugSource,
     lensSessionScope,
     isLensFullscreen,
+    visualCommentShortcut,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
     state.projectPath,
@@ -383,6 +396,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     state.settings.lensSourceMappingReactDebugSource,
     state.settings.lensSessionScope,
     Boolean(state.layout.lensFullscreenByWorkspaceId[state.activeWorkspaceId]),
+    state.settings.visualCommentShortcut,
   ] as const));
 
   const sourceMappingConfig = useMemo(
@@ -390,7 +404,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       ({
         heuristic: lensSourceMappingHeuristic,
         reactDebugSource: lensSourceMappingReactDebugSource,
-      } satisfies LensSourceMappingConfig),
+      }) satisfies LensSourceMappingConfig,
     [lensSourceMappingHeuristic, lensSourceMappingReactDebugSource],
   );
 
@@ -449,8 +463,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     isLensFloatingSurfaceOpen ||
     hasExternalFloatingSurface ||
     lensPanelTab !== "preview";
-  const cdpApprovalRequestRef =
-    useRef<LensCdpApprovalRequestPayload | null>(null);
+  const cdpApprovalRequestRef = useRef<LensCdpApprovalRequestPayload | null>(
+    null,
+  );
   const isLensSuppressedRef = useRef(isLensSuppressed);
   const consolePausedRef = useRef(consolePaused);
   const networkPausedRef = useRef(networkPaused);
@@ -470,7 +485,10 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     let frame = 0;
     const sync = () => {
       frame = 0;
-      const next = hasLensOccludingFloatingSurface();
+      const next = hasLensOccludingFloatingSurface(
+        document,
+        placeholderRef.current?.getBoundingClientRect() ?? null,
+      );
       setHasExternalFloatingSurface((current) =>
         current === next ? current : next,
       );
@@ -489,13 +507,26 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       childList: true,
       subtree: true,
     });
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(scheduleSync);
+    const placeholder = placeholderRef.current;
+    if (placeholder) {
+      resizeObserver?.observe(placeholder);
+    }
+    window.addEventListener("resize", scheduleSync);
+
     return () => {
       if (frame !== 0) {
         window.cancelAnimationFrame(frame);
       }
       observer.disconnect();
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleSync);
     };
-  }, []);
+  }, [isLensFullscreen, lensPanelTab, workspaceId]);
 
   const setLensFullscreen = useCallback((nextFullscreen: boolean) => {
     const state = useAppStore.getState();
@@ -579,50 +610,53 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       });
   }, [hasLensApi, workspaceId]);
 
-  const syncBounds = useCallback((options?: { immediate?: boolean }) => {
-    const el = placeholderRef.current;
-    if (
-      !workspaceId ||
-      !el ||
-      !hasLensApi ||
-      !isViewReadyRef.current ||
-      isLensSuppressedRef.current
-    ) {
-      return;
-    }
-
-    const measureBounds = () => {
-      const rect = el.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
+  const syncBounds = useCallback(
+    (options?: { immediate?: boolean }) => {
+      const el = placeholderRef.current;
+      if (
+        !workspaceId ||
+        !el ||
+        !hasLensApi ||
+        !isViewReadyRef.current ||
+        isLensSuppressedRef.current
+      ) {
         return;
       }
 
-      pendingBoundsRef.current = {
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
+      const measureBounds = () => {
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+          return;
+        }
+
+        pendingBoundsRef.current = {
+          x: Math.round(rect.left),
+          y: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        };
+
+        cancelAnimationFrame(flushRafRef.current);
+        if (options?.immediate) {
+          flushPendingBounds();
+          return;
+        }
+
+        flushRafRef.current = requestAnimationFrame(() => {
+          flushPendingBounds();
+        });
       };
 
-      cancelAnimationFrame(flushRafRef.current);
+      cancelAnimationFrame(measureRafRef.current);
       if (options?.immediate) {
-        flushPendingBounds();
+        measureBounds();
         return;
       }
 
-      flushRafRef.current = requestAnimationFrame(() => {
-        flushPendingBounds();
-      });
-    };
-
-    cancelAnimationFrame(measureRafRef.current);
-    if (options?.immediate) {
-      measureBounds();
-      return;
-    }
-
-    measureRafRef.current = requestAnimationFrame(measureBounds);
-  }, [flushPendingBounds, hasLensApi, workspaceId]);
+      measureRafRef.current = requestAnimationFrame(measureBounds);
+    },
+    [flushPendingBounds, hasLensApi, workspaceId],
+  );
 
   useLayoutEffect(() => {
     if (!workspaceId || !hasLensApi || isLensSuppressed) {
@@ -692,7 +726,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       if (cancelled || !createResult?.ok) {
         if (!cancelled && createResult && !createResult.ok) {
           toast.error("Lens failed to start", {
-            description: createResult.message ?? "Could not create the embedded browser view.",
+            description:
+              createResult.message ??
+              "Could not create the embedded browser view.",
           });
         }
         return;
@@ -711,7 +747,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         setIsBoxInspectActive(Boolean(stateResult.boxInspectModeActive));
       }
 
-      const annotationsResult = await lensApi?.getAnnotations?.({ workspaceId });
+      const annotationsResult = await lensApi?.getAnnotations?.({
+        workspaceId,
+      });
       if (!cancelled && annotationsResult?.ok) {
         setAnnotations(annotationsResult.annotations ?? []);
       }
@@ -805,12 +843,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     void window.api?.lens?.setVisible?.({ workspaceId, visible: true });
     syncBounds();
-  }, [
-    hasLensApi,
-    isLensSuppressed,
-    syncBounds,
-    workspaceId,
-  ]);
+  }, [hasLensApi, isLensSuppressed, syncBounds, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi || !cdpApprovalRequest) {
@@ -989,6 +1022,64 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       return;
     }
 
+    const captureAnnotationScreenshot = async (annotation: LensAnnotation) => {
+      if (!activeTaskId) {
+        return;
+      }
+      const imageId = getLensCommentImageId({
+        workspaceId,
+        annotationId: annotation.id,
+      });
+      const storeBeforeCapture = useAppStore.getState();
+      const currentDraftBeforeCapture =
+        storeBeforeCapture.promptDraftByTask[activeTaskId];
+      if (
+        currentDraftBeforeCapture?.attachments.some(
+          (attachment) => attachment.kind === "image" && attachment.id === imageId,
+        )
+      ) {
+        return;
+      }
+      const result = await window.api?.lens?.screenshot?.({
+        workspaceId,
+        options: {
+          clip: {
+            x: Math.max(0, Math.round(annotation.rect.x)),
+            y: Math.max(0, Math.round(annotation.rect.y)),
+            width: Math.max(1, Math.round(annotation.rect.width)),
+            height: Math.max(1, Math.round(annotation.rect.height)),
+          },
+        },
+      });
+      if (!result?.ok || !result.dataUrl) {
+        return;
+      }
+      const store = useAppStore.getState();
+      const currentDraft = store.promptDraftByTask[activeTaskId];
+      const currentAttachments = currentDraft?.attachments ?? [];
+      if (
+        currentAttachments.some(
+          (attachment) => attachment.kind === "image" && attachment.id === imageId,
+        )
+      ) {
+        return;
+      }
+      store.updatePromptDraft({
+        taskId: activeTaskId,
+        patch: {
+          attachments: [
+            ...currentAttachments,
+            {
+              kind: "image",
+              id: imageId,
+              dataUrl: result.dataUrl,
+              label: annotation.comment.trim() || `Visual comment ${annotation.pin}`,
+            },
+          ],
+        },
+      });
+    };
+
     const unsubscribe = window.api?.lens?.subscribeAnnotationEvents?.(
       (payload: LensAnnotationEventPayload) => {
         if (payload.workspaceId !== workspaceId) {
@@ -1014,6 +1105,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
           setAnnotations((current) =>
             mergeAnnotationEntry(current, payload.annotation!),
           );
+          if (payload.type === "add") {
+            void captureAnnotationScreenshot(payload.annotation);
+          }
         }
       },
     );
@@ -1021,7 +1115,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     return () => {
       unsubscribe?.();
     };
-  }, [hasLensApi, workspaceId]);
+  }, [activeTaskId, hasLensApi, workspaceId]);
 
   const navigate = useCallback(
     async (targetUrl: string) => {
@@ -1030,7 +1124,8 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       }
       if (!hasLensApi) {
         toast.error("Lens is unavailable", {
-          description: "The embedded browser only works in the Electron desktop runtime.",
+          description:
+            "The embedded browser only works in the Electron desktop runtime.",
         });
         return;
       }
@@ -1087,12 +1182,16 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   }, [workspaceId]);
 
   const startElementPicker = useCallback(async () => {
+    if (isPickerActive) {
+      return;
+    }
     if (!workspaceId) {
       return;
     }
     if (!hasLensApi) {
       toast.error("Lens is unavailable", {
-        description: "The embedded browser only works in the Electron desktop runtime.",
+        description:
+          "The embedded browser only works in the Electron desktop runtime.",
       });
       return;
     }
@@ -1114,7 +1213,8 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
       if (!result?.ok) {
         toast.error("Element picker failed", {
-          description: result?.message ?? "Lens could not start the element picker.",
+          description:
+            result?.message ?? "Lens could not start the element picker.",
         });
         return;
       }
@@ -1133,11 +1233,14 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       // render, but we call through the store action to preserve its equality
       // guards and field merging logic.
       const currentText =
-        useAppStore.getState().promptDraftByTask[activeTaskId]?.text?.trim() ?? "";
+        useAppStore.getState().promptDraftByTask[activeTaskId]?.text?.trim() ??
+        "";
       useAppStore.getState().updatePromptDraft({
         taskId: activeTaskId,
         patch: {
-          text: currentText ? `${currentText}\n\n${selectionText}` : selectionText,
+          text: currentText
+            ? `${currentText}\n\n${selectionText}`
+            : selectionText,
         },
       });
       useAppStore.setState((state) => ({
@@ -1150,7 +1253,13 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     } finally {
       setIsPickerActive(false);
     }
-  }, [activeTaskId, hasLensApi, sourceMappingConfig, workspaceId]);
+  }, [
+    activeTaskId,
+    hasLensApi,
+    isPickerActive,
+    sourceMappingConfig,
+    workspaceId,
+  ]);
 
   const respondToCdpApproval = useCallback(
     async (approved: boolean) => {
@@ -1250,22 +1359,12 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     void window.api?.shell?.showInFinder?.({ path: savePath });
   }, []);
 
-  const toggleAnnotationMode = useCallback(async () => {
+  const startAnnotationMode = useCallback(async () => {
     if (!workspaceId || !hasLensApi) {
       return;
     }
 
     if (isAnnotationModeActive) {
-      const result = await window.api?.lens?.stopAnnotationMode?.({
-        workspaceId,
-      });
-      if (!result?.ok) {
-        toast.error("Annotation mode failed", {
-          description: result?.message ?? "Lens could not stop annotation mode.",
-        });
-        return;
-      }
-      setIsAnnotationModeActive(false);
       return;
     }
 
@@ -1297,6 +1396,102 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     workspaceId,
   ]);
 
+  const stopAnnotationMode = useCallback(async () => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const result = await window.api?.lens?.stopAnnotationMode?.({ workspaceId });
+    if (!result?.ok) {
+      toast.error("Annotation mode failed", {
+        description: result?.message ?? "Lens could not stop annotation mode.",
+      });
+      return;
+    }
+    setIsAnnotationModeActive(false);
+  }, [hasLensApi, workspaceId]);
+
+  const toggleAnnotationMode = useCallback(async () => {
+    if (isAnnotationModeActive) {
+      await stopAnnotationMode();
+      return;
+    }
+    await startAnnotationMode();
+  }, [isAnnotationModeActive, startAnnotationMode, stopAnnotationMode]);
+
+  useEffect(() => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (isEditableShortcutTarget(event.target)) {
+        return;
+      }
+      if (
+        !isVisualCommentShortcut({
+          shortcut: visualCommentShortcut ?? DEFAULT_VISUAL_COMMENT_SHORTCUT,
+          key: event.key,
+          code: event.code,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          isComposing: event.isComposing,
+        })
+      ) {
+        return;
+      }
+      event.preventDefault();
+      void toggleAnnotationMode();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    hasLensApi,
+    toggleAnnotationMode,
+    visualCommentShortcut,
+    workspaceId,
+  ]);
+
+  useEffect(() => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const unsubscribe =
+      window.api?.lens?.subscribeVisualCommentShortcutEvents?.((payload) => {
+        if (payload.workspaceId !== workspaceId) {
+          return;
+        }
+        if (
+          !isVisualCommentShortcut({
+            shortcut: visualCommentShortcut ?? DEFAULT_VISUAL_COMMENT_SHORTCUT,
+            key: payload.key,
+            code: payload.code,
+            shiftKey: payload.shiftKey,
+            altKey: payload.altKey,
+            ctrlKey: payload.ctrlKey,
+            metaKey: payload.metaKey,
+            isComposing: payload.isComposing,
+          })
+        ) {
+          return;
+        }
+        void toggleAnnotationMode();
+      });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [
+    hasLensApi,
+    toggleAnnotationMode,
+    visualCommentShortcut,
+    workspaceId,
+  ]);
+
   const toggleBoxInspect = useCallback(async () => {
     if (!workspaceId || !hasLensApi) {
       return;
@@ -1316,8 +1511,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     // Inspect and annotation overlays are mutually exclusive (see above).
     if (isAnnotationModeActive) {
-      await window.api?.lens?.stopAnnotationMode?.({ workspaceId });
-      setIsAnnotationModeActive(false);
+      await stopAnnotationMode();
     }
 
     const result = await window.api?.lens?.startBoxInspect?.({ workspaceId });
@@ -1328,7 +1522,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       return;
     }
     setIsBoxInspectActive(true);
-  }, [hasLensApi, isAnnotationModeActive, isBoxInspectActive, workspaceId]);
+  }, [hasLensApi, isAnnotationModeActive, isBoxInspectActive, stopAnnotationMode, workspaceId]);
 
   const removeAnnotation = useCallback(
     async (annotationId: string) => {
@@ -1394,43 +1588,49 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     [hasLensApi, workspaceId],
   );
 
-  const sendAnnotationsToDraft = useCallback(async () => {
-    if (!activeTaskId) {
-      toast.warning("Select a task first", {
-        description: "Lens sends visual comments into the active task draft.",
-      });
+  useEffect(() => {
+    if (!activeTaskId || !workspaceId) {
       return;
     }
 
-    if (annotations.length === 0) {
-      return;
-    }
-
-    const annotationText = formatAnnotationsForChat(
+    const store = useAppStore.getState();
+    const currentDraft = store.promptDraftByTask[activeTaskId];
+    const currentAttachments = currentDraft?.attachments ?? [];
+    const currentAnnotationIds = new Set(
+      annotations.map((annotation) =>
+        getLensCommentImageId({
+          workspaceId,
+          annotationId: annotation.id,
+        }),
+      ),
+    );
+    const retainedAttachments = currentAttachments.filter(
+      (attachment) => {
+        if (
+          attachment.kind !== "image" ||
+          !isLensCommentImageAttachment(attachment, workspaceId)
+        ) {
+          return true;
+        }
+        return currentAnnotationIds.has(attachment.id);
+      },
+    );
+    const nextAttachments = upsertLensAnnotationsAttachment({
+      attachments: retainedAttachments,
+      workspaceId,
       annotations,
       sourceMappingConfig,
-    );
-    const currentText =
-      useAppStore.getState().promptDraftByTask[activeTaskId]?.text?.trim() ??
-      "";
-    useAppStore.getState().updatePromptDraft({
+    });
+    if (JSON.stringify(currentAttachments) === JSON.stringify(nextAttachments)) {
+      return;
+    }
+    store.updatePromptDraft({
       taskId: activeTaskId,
       patch: {
-        text: currentText
-          ? `${currentText}\n\n${annotationText}`
-          : annotationText,
+        attachments: nextAttachments,
       },
     });
-    useAppStore.setState((state) => ({
-      promptFocusNonce: state.promptFocusNonce + 1,
-    }));
-
-    toast.success("Lens comments added", {
-      description: `${annotations.length} visual comment${
-        annotations.length === 1 ? "" : "s"
-      } appended to the active task draft.`,
-    });
-  }, [activeTaskId, annotations, sourceMappingConfig]);
+  }, [activeTaskId, annotations, sourceMappingConfig, workspaceId]);
 
   const filteredConsoleEntries = useMemo(() => {
     const query = consoleSearch.trim().toLowerCase();
@@ -1505,6 +1705,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   const pickerDisabled = !hasLensApi || !activeTaskId || url === "about:blank";
   const lensPageActionDisabled = !hasLensApi || url === "about:blank";
   const pickerTooltip = useMemo(() => {
+    if (isPickerActive) {
+      return "Pick mode is active. Click an element in the page or press Escape to cancel.";
+    }
     if (!hasLensApi) {
       return "Lens is only available in the Electron desktop runtime.";
     }
@@ -1514,8 +1717,8 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     if (url === "about:blank") {
       return "Open a page first.";
     }
-    return "Pick an element and append its structure, styles, and source hints to the active task.";
-  }, [activeTaskId, hasLensApi, url]);
+    return "Pick an element and append a compact selector, style, and source summary to the active task.";
+  }, [activeTaskId, hasLensApi, isPickerActive, url]);
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -1527,18 +1730,19 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         )}
       >
         <div className="flex shrink-0 flex-col gap-2 border-b border-border/60 px-3 py-2">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  size="icon-xs"
+                  size="icon-sm"
                   variant="ghost"
+                  className={LENS_TOOL_INACTIVE_CLASS}
                   disabled={!canGoBack || !hasLensApi}
                   onClick={goBack}
                   aria-label="Go back"
                 >
-                  <ArrowLeft className="size-3.5" />
+                  <ArrowLeft className={LENS_TOOL_ICON_CLASS} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Back</TooltipContent>
@@ -1548,13 +1752,14 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  size="icon-xs"
+                  size="icon-sm"
                   variant="ghost"
+                  className={LENS_TOOL_INACTIVE_CLASS}
                   disabled={!canGoForward || !hasLensApi}
                   onClick={goForward}
                   aria-label="Go forward"
                 >
-                  <ArrowRight className="size-3.5" />
+                  <ArrowRight className={LENS_TOOL_ICON_CLASS} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Forward</TooltipContent>
@@ -1564,26 +1769,32 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  size="icon-xs"
+                  size="icon-sm"
                   variant="ghost"
+                  className={LENS_TOOL_INACTIVE_CLASS}
                   disabled={!hasLensApi}
                   onClick={reload}
                   aria-label={isLoading ? "Stop loading" : "Reload page"}
                 >
                   {isLoading ? (
-                    <Loader2 className="size-3.5 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                   ) : (
-                    <RotateCw className="size-3.5" />
+                    <RotateCw className={LENS_TOOL_ICON_CLASS} />
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{isLoading ? "Loading" : "Reload"}</TooltipContent>
+              <TooltipContent>
+                {isLoading ? "Loading" : "Reload"}
+              </TooltipContent>
             </Tooltip>
 
             <form onSubmit={handleSubmit} className="min-w-0 flex-1">
-              <InputGroup className="h-8 bg-background/80">
-                <InputGroupAddon align="inline-start" className="gap-1.5 pl-2 text-xs text-muted-foreground">
-                  <Globe className="size-3.5" />
+              <InputGroup className="h-9 bg-background/80">
+                <InputGroupAddon
+                  align="inline-start"
+                  className="gap-1.5 pl-2.5 text-sm text-muted-foreground"
+                >
+                  <Globe className={LENS_TOOL_ICON_CLASS} />
                 </InputGroupAddon>
                 <InputGroupInput
                   ref={urlInputRef}
@@ -1600,18 +1811,22 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                     // Discard any uncommitted edit and restore the current page URL.
                     setInputUrl(url === "about:blank" ? "" : url);
                   }}
-                  placeholder={hasLensApi ? "http://localhost:3000 or https://example.com" : "Lens is unavailable in browser-only mode"}
-                  className="text-xs"
+                  placeholder={
+                    hasLensApi
+                      ? "http://localhost:3000 or https://example.com"
+                      : "Lens is unavailable in browser-only mode"
+                  }
+                  className="text-sm"
                   disabled={!hasLensApi}
                 />
                 {inputUrl ? (
                   <InputGroupAddon align="inline-end" className="pr-1">
                     <InputGroupButton
-                      size="icon-xs"
+                      size="icon-sm"
                       aria-label="Clear address"
                       onClick={() => setInputUrl("")}
                     >
-                      <X className="size-3" />
+                      <X className="size-3.5" />
                     </InputGroupButton>
                   </InputGroupAddon>
                 ) : null}
@@ -1646,13 +1861,19 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                     <TooltipTrigger asChild>
                       <Button
                         type="button"
-                        size="icon-xs"
+                        size="icon-sm"
                         variant={active ? "secondary" : "ghost"}
-                        className="relative"
+                        className={cn(
+                          "relative",
+                          active
+                            ? LENS_TOOL_ACTIVE_CLASS
+                            : LENS_TOOL_INACTIVE_CLASS,
+                        )}
                         onClick={() => setLensPanelTab(tab.id)}
                         aria-label={`Show ${tab.label.toLowerCase()}`}
+                        aria-pressed={active}
                       >
-                        <Icon className="size-3.5" />
+                        <Icon className={LENS_TOOL_ICON_CLASS} />
                         {tab.count ? (
                           <span className="absolute -right-1 -top-1 min-w-3.5 rounded-full bg-primary px-1 text-[9px] leading-3.5 text-primary-foreground">
                             {tab.count > 99 ? "99+" : tab.count}
@@ -1670,19 +1891,21 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  size="icon-xs"
-                  variant="outline"
-                  disabled={pickerDisabled || isPickerActive}
+                  size="icon-sm"
+                  variant={isPickerActive ? "secondary" : "outline"}
+                  className={cn(
+                    isPickerActive
+                      ? LENS_TOOL_ACTIVE_CLASS
+                      : LENS_TOOL_INACTIVE_CLASS,
+                  )}
+                  disabled={pickerDisabled}
                   onClick={() => {
                     void startElementPicker();
                   }}
                   aria-label="Pick element"
+                  aria-pressed={isPickerActive}
                 >
-                  {isPickerActive ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Crosshair className="size-3.5" />
-                  )}
+                  <Crosshair className={LENS_TOOL_ICON_CLASS} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="max-w-64 text-pretty">
@@ -1694,33 +1917,49 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  size="icon-xs"
+                  size="icon-sm"
                   variant={isAnnotationModeActive ? "secondary" : "outline"}
+                  className={cn(
+                    isAnnotationModeActive
+                      ? LENS_TOOL_ACTIVE_CLASS
+                      : LENS_TOOL_INACTIVE_CLASS,
+                  )}
                   disabled={lensPageActionDisabled}
                   onClick={() => {
                     void toggleAnnotationMode();
                   }}
                   aria-label="Toggle visual comments"
+                  aria-pressed={isAnnotationModeActive}
                 >
-                  <Highlighter className="size-3.5" />
+                  <Highlighter className={LENS_TOOL_ICON_CLASS} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Visual comments</TooltipContent>
+              <TooltipContent>
+                {isAnnotationModeActive
+                  ? "Visual comments active"
+                  : "Visual comments"}
+              </TooltipContent>
             </Tooltip>
 
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  size="icon-xs"
+                  size="icon-sm"
                   variant={isBoxInspectActive ? "secondary" : "outline"}
+                  className={cn(
+                    isBoxInspectActive
+                      ? LENS_TOOL_ACTIVE_CLASS
+                      : LENS_TOOL_INACTIVE_CLASS,
+                  )}
                   disabled={lensPageActionDisabled}
                   onClick={() => {
                     void toggleBoxInspect();
                   }}
                   aria-label="Toggle box-model inspect"
+                  aria-pressed={isBoxInspectActive}
                 >
-                  <Ruler className="size-3.5" />
+                  <Ruler className={LENS_TOOL_ICON_CLASS} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="max-w-64 text-pretty">
@@ -1735,14 +1974,14 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                   <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
-                      size="xs"
+                      size="sm"
                       variant="outline"
                       disabled={lensPageActionDisabled}
                       aria-label="Save screenshot"
-                      className="h-7 gap-0.5 px-1.5"
+                      className={cn("h-8 gap-1 px-2", LENS_TOOL_INACTIVE_CLASS)}
                     >
-                      <Camera className="size-3.5" />
-                      <ChevronDown className="size-2.5 opacity-70" />
+                      <Camera className={LENS_TOOL_ICON_CLASS} />
+                      <ChevronDown className="size-3 opacity-70" />
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
@@ -1772,12 +2011,17 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                   <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
-                      size="icon-xs"
+                      size="icon-sm"
                       variant={downloads.length > 0 ? "secondary" : "outline"}
+                      className={
+                        downloads.length > 0
+                          ? undefined
+                          : LENS_TOOL_INACTIVE_CLASS
+                      }
                       disabled={!hasLensApi}
                       aria-label="Downloads"
                     >
-                      <Download className="size-3.5" />
+                      <Download className={LENS_TOOL_ICON_CLASS} />
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
@@ -1822,8 +2066,13 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  size="icon-xs"
+                  size="icon-sm"
                   variant={isLensFullscreen ? "secondary" : "outline"}
+                  className={cn(
+                    isLensFullscreen
+                      ? LENS_TOOL_ACTIVE_CLASS
+                      : LENS_TOOL_INACTIVE_CLASS,
+                  )}
                   disabled={!hasLensApi}
                   onClick={() => setLensFullscreen(!isLensFullscreen)}
                   aria-label={
@@ -1833,9 +2082,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                   }
                 >
                   {isLensFullscreen ? (
-                    <Minimize2 className="size-3.5" />
+                    <Minimize2 className={LENS_TOOL_ICON_CLASS} />
                   ) : (
-                    <Maximize2 className="size-3.5" />
+                    <Maximize2 className={LENS_TOOL_ICON_CLASS} />
                   )}
                 </Button>
               </TooltipTrigger>
@@ -1845,68 +2094,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
             </Tooltip>
           </div>
 
-          {annotations.length > 0 ? (
-            <div className="max-h-28 space-y-1 overflow-y-auto rounded-md border border-border/60 bg-background/70 p-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-medium">
-                  {annotations.length} comment
-                  {annotations.length === 1 ? "" : "s"}
-                </div>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="secondary"
-                  disabled={!activeTaskId}
-                  onClick={() => {
-                    void sendAnnotationsToDraft();
-                  }}
-                  className="h-6 gap-1 px-2 text-[11px]"
-                >
-                  <Send className="size-3" />
-                  Send
-                </Button>
-              </div>
-              <div className="space-y-1">
-                {annotations.map((annotation) => (
-                  <div
-                    key={annotation.id}
-                    className="flex items-start gap-2 rounded border border-border/50 bg-muted/30 px-2 py-1.5 text-xs"
-                  >
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                      {annotation.pin}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">
-                        {annotation.comment}
-                      </div>
-                      <div className="truncate text-[10px] text-muted-foreground">
-                        {annotation.kind === "area"
-                          ? "area"
-                          : annotation.selector}
-                      </div>
-                    </div>
-                    <AnnotationStylePopover
-                      annotation={annotation}
-                      disabled={!hasLensApi || annotation.kind !== "element"}
-                      onOpenChange={setIsLensFloatingSurfaceOpen}
-                      onApply={applyAnnotationStyle}
-                    />
-                    <Button
-                      type="button"
-                      size="icon-xs"
-                      variant="ghost"
-                      aria-label={`Remove annotation ${annotation.pin}`}
-                      onClick={() => {
-                        void removeAnnotation(annotation.id);
-                      }}
-                    >
-                      <Trash2 className="size-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -1943,12 +2130,18 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                       </EmptyMedia>
                       <EmptyTitle>Lens needs the desktop runtime</EmptyTitle>
                       <EmptyDescription>
-                        The embedded browser is backed by Electron `WebContentsView`, so it is unavailable in browser-only mode.
+                        The embedded browser is backed by Electron
+                        `WebContentsView`, so it is unavailable in browser-only
+                        mode.
                       </EmptyDescription>
                     </EmptyHeader>
                     <EmptyContent>
                       <div className="space-y-1 text-xs text-muted-foreground">
-                        <p>Use `bun run dev:desktop` or a packaged desktop build to inspect pages, capture screenshots, and send element context to a task.</p>
+                        <p>
+                          Use `bun run dev:desktop` or a packaged desktop build
+                          to inspect pages, capture screenshots, and send
+                          element context to a task.
+                        </p>
                       </div>
                     </EmptyContent>
                   </Empty>
@@ -1973,7 +2166,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                       key={level}
                       type="button"
                       size="xs"
-                      variant={consoleLevelFilter === level ? "secondary" : "ghost"}
+                      variant={
+                        consoleLevelFilter === level ? "secondary" : "ghost"
+                      }
                       className="h-7 px-2 text-[11px]"
                       onClick={() => setConsoleLevelFilter(level)}
                     >
@@ -1986,9 +2181,15 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                   size="icon-xs"
                   variant={consolePaused ? "secondary" : "ghost"}
                   onClick={() => setConsolePaused((current) => !current)}
-                  aria-label={consolePaused ? "Resume console log" : "Pause console log"}
+                  aria-label={
+                    consolePaused ? "Resume console log" : "Pause console log"
+                  }
                 >
-                  {consolePaused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+                  {consolePaused ? (
+                    <Play className="size-3.5" />
+                  ) : (
+                    <Pause className="size-3.5" />
+                  )}
                 </Button>
                 <Button
                   type="button"
@@ -2083,9 +2284,15 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                   size="icon-xs"
                   variant={networkPaused ? "secondary" : "ghost"}
                   onClick={() => setNetworkPaused((current) => !current)}
-                  aria-label={networkPaused ? "Resume network log" : "Pause network log"}
+                  aria-label={
+                    networkPaused ? "Resume network log" : "Pause network log"
+                  }
                 >
-                  {networkPaused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+                  {networkPaused ? (
+                    <Play className="size-3.5" />
+                  ) : (
+                    <Pause className="size-3.5" />
+                  )}
                 </Button>
                 <Button
                   type="button"
@@ -2173,7 +2380,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
             </div>
           )}
         </div>
-
       </div>
       <Dialog
         open={cdpApprovalRequest !== null}
@@ -2207,7 +2413,8 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               </div>
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
-              Approving remembers this host in Settings &gt; Lens &gt; Developer Mode.
+              Approving remembers this host in Settings &gt; Lens &gt; Developer
+              Mode.
             </p>
           </div>
           <DialogFooter>
