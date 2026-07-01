@@ -655,6 +655,7 @@ function WorkspaceRowActions(args: {
   onArchive: () => void;
   shortcutLabel?: string | null;
   shortcutModifier: string;
+  placement?: "center" | "top";
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -665,7 +666,9 @@ function WorkspaceRowActions(args: {
     <>
       <div
         className={cn(
-          "absolute inset-y-0 right-0 flex items-center gap-1 pr-1 transition-opacity",
+          args.placement === "top"
+            ? "absolute right-1 top-1.5 flex items-center gap-1 transition-opacity"
+            : "absolute inset-y-0 right-0 flex items-center gap-1 pr-1 transition-opacity",
           forceVisible
             ? "pointer-events-auto opacity-100"
             : getWorkspaceHoverActionVisibilityClasses({ isClosing }),
@@ -1631,7 +1634,7 @@ export function ProjectWorkspaceSidebar(args: {
                                                               className={cn(
                                                                 "flex min-w-0 flex-1 gap-2 text-left text-sm",
                                                                 isExpandedWorkspaceItem
-                                                                  ? "items-start px-2 py-2.5 pr-9"
+                                                                  ? "items-start px-2 py-2.5"
                                                                   : "items-center px-2 py-2",
                                                               )}
                                                               onClick={() =>
@@ -1671,7 +1674,7 @@ export function ProjectWorkspaceSidebar(args: {
                                                                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                                                                   <span
                                                                     className={cn(
-                                                                      "min-w-0 truncate leading-5",
+                                                                      "min-w-0 truncate pr-8 leading-5",
                                                                       isActive &&
                                                                         "font-medium text-foreground",
                                                                     )}
@@ -1760,6 +1763,7 @@ export function ProjectWorkspaceSidebar(args: {
                                                               shortcutModifier={
                                                                 workspaceShortcutModifierLabel
                                                               }
+                                                              placement="top"
                                                             />
                                                           ) : (
                                                             <>
