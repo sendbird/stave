@@ -12,6 +12,7 @@ import {
   buildClaudeUserInputPermissionResult,
   extractClaudeRequestedSkillSlug,
   mapClaudeMessageToEvents,
+  parseClaudeRouteClassificationJson,
   resolveClaudeDisallowedTools,
   resolveClaudePlanModeApprovalScope,
   shouldAutoAllowClaudeTool,
@@ -25,6 +26,37 @@ import {
 } from "../electron/providers/claude-sdk-runtime";
 
 const workspaceRoot = "/workspace/stave";
+
+describe("parseClaudeRouteClassificationJson", () => {
+  test("parses strict route classification JSON", () => {
+    expect(
+      parseClaudeRouteClassificationJson(
+        '{"taskType":"plan","complexity":"high","recommendedTier":"heavy","confidence":0.82,"rationale":"planning","stick":false}',
+      ),
+    ).toEqual({
+      ok: true,
+      classification: {
+        taskType: "plan",
+        complexity: "high",
+        recommendedTier: "heavy",
+        confidence: 0.82,
+        rationale: "planning",
+        stick: false,
+      },
+    });
+  });
+
+  test("returns ok false for malformed route classification JSON", () => {
+    expect(parseClaudeRouteClassificationJson("not json")).toEqual({
+      ok: false,
+    });
+    expect(
+      parseClaudeRouteClassificationJson(
+        '{"taskType":"unknown","complexity":"high","recommendedTier":"heavy","confidence":0.82}',
+      ),
+    ).toEqual({ ok: false });
+  });
+});
 
 describe("mapClaudeMessageToEvents", () => {
   test("surfaces Claude init session ids as provider conversation metadata", () => {
@@ -719,10 +751,17 @@ describe("buildClaudeSystemPrompt", () => {
       baseSystemPrompt: "Follow repository conventions.",
     });
 
-    // Static prefix is parts[0] (before boundary).
-    expect(parts[0].startsWith("Follow repository conventions.")).toBe(true);
+    // Base system prompt lives in the static (cacheable) prefix, parts[0].
+    expect(parts[0]).toContain("Follow repository conventions.");
     // Workspace context sits in the dynamic suffix (parts[2]).
     expect(parts[2]).toContain("Resolve every relative filesystem path against the workspace root above.");
+  });
+
+  test("always includes the Stave turn-behavior guardrail in the static prefix", () => {
+    const parts = buildClaudeSystemPrompt({ cwd: workspaceRoot });
+    // Guardrail is always present even when no base prompt is provided.
+    expect(parts[0]).toContain("Stave runtime constraints");
+    expect(parts[0]).toContain("AskUserQuestion");
   });
 });
 

@@ -91,6 +91,7 @@ import {
   prewarmClaudeSdk,
   reloadClaudePlugins,
   reviewClaudeWorktreeDiff,
+  classifyClaudeRoute,
   suggestClaudeCommitMessage,
   suggestClaudePRDescription,
   suggestClaudeTaskName,
@@ -1199,6 +1200,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.suggest-task-name":
       await respond(request.id, await suggestClaudeTaskName(request.params));
+      return;
+    case "provider.classify-route":
+      await respond(request.id, await classifyClaudeRoute(request.params));
       return;
     case "provider.suggest-commit-message":
       await respond(

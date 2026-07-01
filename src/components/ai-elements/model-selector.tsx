@@ -29,6 +29,7 @@ import {
 } from "./model-selector.utils";
 
 export {
+  buildAutoModelSelectorOption,
   buildModelSelectorOptions,
   buildModelSelectorValue,
   buildRecommendedModelSelectorOptions,
@@ -65,11 +66,15 @@ export function ModelSelector(args: ModelSelectorProps) {
     () => new Set(recommendedOptions.map((option) => option.key)),
     [recommendedOptions],
   );
+  const autoOptions = useMemo(
+    () => options.filter((option) => option.isAuto),
+    [options],
+  );
 
   const groupedOptions = useMemo(() => {
     const groups: Record<string, ModelSelectorOption[]> = {};
     for (const option of options) {
-      if (recommendedOptionKeys.has(option.key)) {
+      if (option.isAuto || recommendedOptionKeys.has(option.key)) {
         continue;
       }
       const bucket = groups[option.providerId] ?? [];
@@ -93,11 +98,15 @@ export function ModelSelector(args: ModelSelectorProps) {
       }}
       className="gap-3 rounded-lg px-3 py-2.5"
     >
-      <ModelIcon
-        providerId={option.providerId}
-        model={option.model}
-        className="size-4"
-      />
+      {option.isAuto ? (
+        <Sparkles className="size-4 shrink-0 text-primary" />
+      ) : (
+        <ModelIcon
+          providerId={option.providerId}
+          model={option.model}
+          className="size-4"
+        />
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-center gap-1.5 truncate">
           <span className="font-medium">{option.label}</span>
@@ -145,11 +154,15 @@ export function ModelSelector(args: ModelSelectorProps) {
             title="Open model selector (Alt+P). Use Alt+1..0 for mapped models."
           >
             <span className="flex min-w-0 items-center gap-1.5">
-              <ModelIcon
-                providerId={value.providerId}
-                model={value.model}
-                className="size-3.5"
-              />
+              {value.isAuto ? (
+                <Sparkles className="size-3.5 shrink-0 text-primary" />
+              ) : (
+                <ModelIcon
+                  providerId={value.providerId}
+                  model={value.model}
+                  className="size-3.5"
+                />
+              )}
               <span className="truncate">{value.label}</span>
             </span>
             <ChevronDown className="size-3.5 text-muted-foreground" />
@@ -173,6 +186,15 @@ export function ModelSelector(args: ModelSelectorProps) {
           <CommandInput autoFocus placeholder="Search model" />
           <CommandList className="max-h-[22rem] px-1 pb-1">
             <CommandEmpty>No models found.</CommandEmpty>
+            {autoOptions.length > 0 ? (
+              <CommandGroup>
+                {autoOptions.map(renderOption)}
+              </CommandGroup>
+            ) : null}
+            {autoOptions.length > 0 &&
+            (recommendedOptions.length > 0 || groupedOptions.length > 0) ? (
+              <CommandSeparator />
+            ) : null}
             {recommendedOptions.length > 0 ? (
               <CommandGroup
                 heading={

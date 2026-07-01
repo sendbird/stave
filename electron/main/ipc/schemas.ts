@@ -24,6 +24,26 @@ export const SuggestTaskNameArgsSchema = z
   })
   .strict();
 
+export const ClassifyRouteArgsSchema = z
+  .object({
+    prompt: z.string().max(8000),
+    history: z
+      .array(
+        z
+          .object({
+            role: z.union([z.literal("user"), z.literal("assistant")]),
+            content: z.string().max(4000),
+            providerId: ProviderIdSchema.optional(),
+            model: z.string().max(200).optional(),
+          })
+          .strict(),
+      )
+      .max(20)
+      .optional(),
+    fileContextCount: z.number().int().min(0).max(200).optional(),
+  })
+  .strict();
+
 export const SuggestCommitMessageArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),

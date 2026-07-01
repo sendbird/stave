@@ -280,6 +280,33 @@ interface WindowProviderApi {
     prompt: string;
     history?: Array<{ role: string; content: string }>;
   }) => Promise<{ ok: boolean; title?: string }>;
+  classifyRoute?: (args: {
+    prompt: string;
+    history?: Array<{
+      role: "user" | "assistant";
+      content: string;
+      providerId?: ProviderId;
+      model?: string;
+    }>;
+    fileContextCount?: number;
+  }) => Promise<{
+    ok: boolean;
+    classification?: {
+      taskType:
+        | "quick_edit"
+        | "plan"
+        | "implementation"
+        | "debug"
+        | "review"
+        | "general"
+        | "safety";
+      complexity: "low" | "medium" | "high";
+      recommendedTier: "light" | "standard" | "heavy" | "frontier";
+      confidence: number;
+      rationale?: string;
+      stick?: boolean;
+    };
+  }>;
   /** Generates a conventional commit message from the current git diff in the
    *  given working directory using a lightweight single-turn Claude query. */
   suggestCommitMessage?: (args: {

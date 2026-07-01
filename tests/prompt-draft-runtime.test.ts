@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 import {
+  arePromptDraftRuntimeOverridesEqual,
   resolvePromptDraftPlanModeChange,
   resolvePromptDraftModelForProvider,
   resolvePromptDraftRuntimeState,
@@ -67,6 +68,21 @@ describe("prompt-draft runtime state", () => {
         fallbackModel: "gpt-5.4",
       }),
     ).toBe("gpt-5.4");
+  });
+
+  test("compares auto routing overrides as part of draft runtime state", () => {
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { autoRouting: true },
+        { autoRouting: false },
+      ),
+    ).toBe(false);
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { autoRouting: true, codexPlanMode: true },
+        { autoRouting: true, codexPlanMode: true },
+      ),
+    ).toBe(true);
   });
 
   test("restores the prior Claude mode without clearing Codex sessions when plan mode is disabled", () => {
@@ -185,6 +201,7 @@ describe("prompt-draft runtime state", () => {
               claudePermissionMode: "plan",
               claudePermissionModeBeforePlan: "acceptEdits",
               codexPlanMode: true,
+              autoRouting: true,
             },
           },
         },
@@ -199,6 +216,7 @@ describe("prompt-draft runtime state", () => {
       claudePermissionMode: "plan",
       claudePermissionModeBeforePlan: "acceptEdits",
       codexPlanMode: true,
+      autoRouting: true,
     });
   });
 });
