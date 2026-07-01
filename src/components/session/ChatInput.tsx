@@ -783,7 +783,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               <span>
                 No provider events for {stalledDurationLabel ?? "a while"}. This
                 run may be stuck. Press <Kbd>Esc</Kbd> or use stop to interrupt
-                it.
+                it — or just send a new message to interrupt this run and
+                continue.
               </span>
             </div>
           </div>
@@ -794,7 +795,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           onBlur={commitCurrentDraftText}
           disabled={isInputBlocked}
           isTurnActive={args.isTurnActive}
-          submitMode={args.isTurnActive ? "queue-next" : "send"}
+          submitMode={
+            args.isTurnActive && providerTurnDisplayState !== "stalled"
+              ? "queue-next"
+              : "send"
+          }
           queuedNextTurn={queuedNextTurn}
           queuedTurns={queuedTurns}
           promptBatch={promptBatch}
