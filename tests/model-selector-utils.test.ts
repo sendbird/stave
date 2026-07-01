@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildAutoModelSelectorOption,
   buildModelSelectorOptions,
   buildRecommendedModelSelectorOptions,
   buildModelSelectorValue,
@@ -15,8 +16,8 @@ describe("model selector utils", () => {
     expect(options).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          key: "claude-code:claude-sonnet-4-6",
-          model: "claude-sonnet-4-6",
+          key: "claude-code:claude-sonnet-5",
+          model: "claude-sonnet-5",
           providerId: "claude-code",
         }),
         expect.objectContaining({
@@ -35,6 +36,19 @@ describe("model selector utils", () => {
 
     expect(options.map((option) => option.providerId)).toEqual(
       expect.not.arrayContaining(["stave"]),
+    );
+  });
+
+  test("builds Auto as a flagged selector option without a magic model id", () => {
+    expect(buildAutoModelSelectorOption({ providerId: "claude-code" })).toEqual(
+      expect.objectContaining({
+        key: "auto",
+        providerId: "claude-code",
+        model: "",
+        label: "Auto",
+        isAuto: true,
+        available: true,
+      }),
     );
   });
 

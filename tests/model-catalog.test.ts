@@ -1,10 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import {
+  CLAUDE_SDK_MODEL_OPTIONS,
   CODEX_MODEL_OPTIONS,
   DEFAULT_CLAUDE_OPUS_MODEL,
   getDynamicDisplayNames,
+  getModelCapability,
+  listModelCapabilities,
+  MODEL_CAPABILITIES,
   resolveClaudeEffortForModelSwitch,
+  resolveDefaultCodexEffortForModel,
   resolveDefaultClaudeEffortForModel,
+  resolveTierModel,
   getDefaultModelForProvider,
   getNextProviderId,
   getProviderLabel,
@@ -25,9 +31,21 @@ describe("model catalog", () => {
     ]);
   });
 
+  test("includes Sonnet 5 variants in the Claude SDK options", () => {
+    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5");
+    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5[1m]");
+    expect(CLAUDE_SDK_MODEL_OPTIONS).not.toContain("claude-fable-5");
+    expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
+      "claude-sonnet-5",
+    );
+  });
+
   test("formats current GPT models with canonical labels", () => {
     expect(toHumanModelName({ model: "gpt-5.5" })).toBe("GPT-5.5");
     expect(toHumanModelName({ model: "gpt-5.4" })).toBe("GPT-5.4");
+    expect(toHumanModelName({ model: "claude-sonnet-5" })).toBe(
+      "Claude Sonnet 5",
+    );
   });
 
   test("formats Claude Sonnet 5 with canonical labels", () => {
@@ -72,6 +90,55 @@ describe("model catalog", () => {
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-4-6" }),
     ).toBe("high");
+    expect(
+      resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-5" }),
+    ).toBe("high");
+  });
+
+  test("returns the default Codex effort from model capabilities", () => {
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.4-mini" })).toBe(
+      "low",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.4" })).toBe(
+      "medium",
+    );
+    expect(
+      resolveDefaultCodexEffortForModel({ model: "gpt-5.3-codex-spark" }),
+    ).toBe("high");
+  });
+
+  test("keeps model capability metadata aligned with catalog models", () => {
+    const catalogModels = [...CLAUDE_SDK_MODEL_OPTIONS, ...CODEX_MODEL_OPTIONS];
+    expect(Object.keys(MODEL_CAPABILITIES).sort()).toEqual(
+      [...catalogModels].sort(),
+    );
+    for (const model of catalogModels) {
+      expect(getModelCapability({ model })).toEqual(
+        expect.objectContaining({ model }),
+      );
+    }
+    expect(listModelCapabilities({ providerId: "codex" }).length).toBe(
+      CODEX_MODEL_OPTIONS.length,
+    );
+  });
+
+  test("resolves tier models within provider eligibility", () => {
+    expect(
+      resolveTierModel({ providerId: "claude-code", tier: "heavy" }),
+    ).toBe("claude-sonnet-5");
+    expect(
+      resolveTierModel({ providerId: "claude-code", tier: "frontier" }),
+    ).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    expect(resolveTierModel({ providerId: "codex", tier: "light" })).toBe(
+      "gpt-5.4-mini",
+    );
+    expect(
+      resolveTierModel({
+        providerId: "claude-code",
+        tier: "frontier",
+        eligibleModels: ["claude-haiku-4-5"],
+      }),
+    ).toBe("claude-haiku-4-5");
   });
 
   test("only updates Claude effort on model switch when the current value is still the previous model default", () => {

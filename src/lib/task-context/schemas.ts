@@ -183,6 +183,7 @@ const PromptDraftRuntimeOverridesSchema = z
       ])
       .optional(),
     codexPlanMode: z.boolean().optional(),
+    autoRouting: z.boolean().optional(),
   })
   .strict();
 

@@ -5,6 +5,7 @@ import {
 } from "../host-service-client";
 import {
   ApprovalResponseArgsSchema,
+  ClassifyRouteArgsSchema,
   ClaudeRuntimeActionArgsSchema,
   CheckAvailabilityArgsSchema,
   ConnectedToolStatusArgsSchema,
@@ -569,6 +570,14 @@ export function registerProviderHandlers() {
       return { ok: false };
     }
     return invokeHostService("provider.suggest-task-name", parsed.data);
+  });
+
+  ipcMain.handle("provider:classify-route", (_event, args: unknown) => {
+    const parsed = ClassifyRouteArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false };
+    }
+    return invokeHostService("provider.classify-route", parsed.data);
   });
 
   ipcMain.handle("provider:suggest-commit-message", (_event, args: unknown) => {

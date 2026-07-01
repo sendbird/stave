@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import {
+  buildAutoModelSelectorOption,
   buildModelSelectorOptions,
   buildRecommendedModelSelectorOptions,
   buildModelSelectorValue,
@@ -1103,6 +1104,7 @@ function BaseChatInput() {
     skillsAutoSuggest,
     providerTimeoutMs,
     modelShortcutKeys,
+    autoRoutingEnabled,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -1114,6 +1116,7 @@ function BaseChatInput() {
           state.settings.skillsAutoSuggest,
           state.settings.providerTimeoutMs,
           state.settings.modelShortcutKeys,
+          state.settings.autoRoutingEnabled,
         ] as const,
     ),
   );
@@ -1223,14 +1226,31 @@ function BaseChatInput() {
           fallbackModel: modelCodex,
         });
   const activeProviderAvailable = providerAvailability[activeProvider];
+  const isAutoRoutingSelected = promptDraftRuntimeOverrides?.autoRouting === true;
+  const autoModelOption = useMemo<ModelSelectorOption>(
+    () =>
+      buildAutoModelSelectorOption({
+        providerId: activeProvider,
+        available: autoRoutingEnabled,
+      }),
+    [activeProvider, autoRoutingEnabled],
+  );
   const selectedModelOption = useMemo<ModelSelectorOption>(
     () =>
-      buildModelSelectorValue({
-        providerId: activeProvider,
-        model: activeModel,
-        available: activeProviderAvailable,
-      }),
-    [activeModel, activeProvider, activeProviderAvailable],
+      isAutoRoutingSelected
+        ? autoModelOption
+        : buildModelSelectorValue({
+            providerId: activeProvider,
+            model: activeModel,
+            available: activeProviderAvailable,
+          }),
+    [
+      activeModel,
+      activeProvider,
+      activeProviderAvailable,
+      autoModelOption,
+      isAutoRoutingSelected,
+    ],
   );
   const codexModelCatalog = useCodexModelCatalog({
     enabled: true,
@@ -1256,8 +1276,9 @@ function BaseChatInput() {
     return map.size > 0 ? map : undefined;
   }, [codexModelCatalog.entries]);
   const modelOptions = useMemo<ModelSelectorOption[]>(
-    () =>
-      buildModelSelectorOptions({
+    () => [
+      autoModelOption,
+      ...buildModelSelectorOptions({
         providerIds: PROVIDER_IDS,
         availabilityByProvider: providerAvailability,
         modelsByProvider: {
@@ -1265,7 +1286,13 @@ function BaseChatInput() {
         },
         enrichmentByModel: codexModelEnrichment,
       }),
-    [codexModelCatalog.models, codexModelEnrichment, providerAvailability],
+    ],
+    [
+      autoModelOption,
+      codexModelCatalog.models,
+      codexModelEnrichment,
+      providerAvailability,
+    ],
   );
   const recommendedModelOptions = useMemo<ModelSelectorOption[]>(
     () => buildRecommendedModelSelectorOptions({ options: modelOptions }),
@@ -1749,6 +1776,20 @@ function BaseChatInput() {
       crossReviewProvider={crossReviewProvider}
       onCrossReview={crossReviewProvider ? handleCrossReview : undefined}
       onModelSelect={({ selection }) => {
+        if (selection.isAuto) {
+          const { model: _model, ...restRuntimeOverrides } =
+            promptDraftRuntimeOverrides ?? {};
+          updatePromptDraft({
+            taskId: providerSelectionTarget,
+            patch: {
+              runtimeOverrides: {
+                ...restRuntimeOverrides,
+                autoRouting: true,
+              },
+            },
+          });
+          return;
+        }
         const nextModel = normalizeModelSelection({
           value: selection.model,
           fallback: getDefaultModelForProvider({
@@ -1764,6 +1805,7 @@ function BaseChatInput() {
           patch: {
             runtimeOverrides: {
               ...(promptDraftRuntimeOverrides ?? {}),
+              autoRouting: false,
               model: nextModel,
             },
           },
