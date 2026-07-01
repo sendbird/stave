@@ -453,6 +453,15 @@ export function getAnnotationOverlayScript(
     return true;
   }
 
+  function setScreenshotCaptureActive(active) {
+    const visible = Boolean(active);
+    hover.style.display = visible && captureActive && hoverElement ? "block" : "none";
+    label.style.display = visible && captureActive && hoverElement ? "block" : "none";
+    areaBox.style.display = "none";
+    root.style.opacity = visible ? "1" : "0";
+    return true;
+  }
+
   function teardown() {
     document.removeEventListener("mousemove", onMouseMove, true);
     document.removeEventListener("mousedown", onMouseDown, true);
@@ -467,6 +476,7 @@ export function getAnnotationOverlayScript(
     delete window.__staveClearAnnotations;
     delete window.__staveSetStyle;
     delete window.__staveSetAnnotationCaptureActive;
+    delete window.__staveSetAnnotationScreenshotCaptureActive;
     delete window.__staveTeardownAnnotations;
   }
 
@@ -478,6 +488,7 @@ export function getAnnotationOverlayScript(
   window.__staveClearAnnotations = clearAnnotations;
   window.__staveSetStyle = setInlineStyle;
   window.__staveSetAnnotationCaptureActive = setCaptureActive;
+  window.__staveSetAnnotationScreenshotCaptureActive = setScreenshotCaptureActive;
   window.__staveTeardownAnnotations = teardown;
 
   for (const annotation of initialAnnotations) {

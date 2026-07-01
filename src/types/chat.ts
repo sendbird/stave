@@ -96,6 +96,8 @@ export interface PromptDraftBatchItem {
   id: string;
   createdAt: string;
   content: string;
+  attachedFilePaths?: string[];
+  attachments?: Attachment[];
 }
 
 export interface PromptDraft {

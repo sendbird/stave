@@ -305,6 +305,14 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
+        await session.view.webContents
+          .executeJavaScript(
+            `new Promise((resolve) => {
+              window.__staveSetAnnotationScreenshotCaptureActive?.(false);
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve(true)));
+            })`,
+          )
+          .catch(() => false);
         const dataUrl = await captureScreenshot(
           session.view.webContents.id,
           args.options,
@@ -315,6 +323,12 @@ export function registerBrowserHandlers() {
           ok: false,
           message: err instanceof Error ? err.message : String(err),
         };
+      } finally {
+        await session.view.webContents
+          .executeJavaScript(
+            "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
+          )
+          .catch(() => false);
       }
     },
   );

@@ -23,6 +23,15 @@ describe("hasPromptSubmitPayload", () => {
     ).toBe(true);
   });
 
+  test("accepts staged comment attachments without textarea text", () => {
+    expect(
+      hasPromptSubmitPayload({
+        ...emptyArgs,
+        promptBatch: [{ content: "   ", attachments: [{}] }],
+      }),
+    ).toBe(true);
+  });
+
   test("accepts lens comments without textarea text", () => {
     expect(
       hasPromptSubmitPayload({

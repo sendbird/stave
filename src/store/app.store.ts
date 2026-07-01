@@ -252,7 +252,10 @@ import type {
   PromptDraftQueuedTurn,
   Task,
 } from "@/types/chat";
-import { getLensCommentImageId } from "@/lib/lens/lens-annotation-attachment";
+import {
+  getLensCommentImageId,
+  shouldIncludeImageAttachmentAsProviderContext,
+} from "@/lib/lens/lens-annotation-attachment";
 import { DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE } from "@/types/chat";
 import {
   arePromptDraftRuntimeOverridesEqual,
@@ -478,7 +481,12 @@ function hasPromptDraftPayload(
     draft.text.trim().length > 0 ||
     draft.attachedFilePaths.length > 0 ||
     draft.attachments.length > 0 ||
-    (draft.promptBatch ?? []).some((item) => item.content.trim().length > 0)
+    (draft.promptBatch ?? []).some(
+      (item) =>
+        item.content.trim().length > 0 ||
+        (item.attachedFilePaths?.length ?? 0) > 0 ||
+        (item.attachments?.length ?? 0) > 0,
+    )
   );
 }
 
@@ -495,7 +503,10 @@ function buildClearedPromptDraft(draft?: PromptDraft | null): PromptDraft {
 
 function normalizePromptDraftForStorage(draft: PromptDraft): PromptDraft {
   const promptBatch = (draft.promptBatch ?? []).filter(
-    (item) => item.content.trim().length > 0,
+    (item) =>
+      item.content.trim().length > 0 ||
+      (item.attachedFilePaths?.length ?? 0) > 0 ||
+      (item.attachments?.length ?? 0) > 0,
   );
   const legacyQueuedTurn =
     draft.queuedNextTurn?.content?.trim()
@@ -566,10 +577,23 @@ function arePromptDraftBatchItemsEqual(
     leftItems.length === rightItems.length &&
     leftItems.every((item, index) => {
       const other = rightItems[index];
+      const itemFilePaths = item.attachedFilePaths ?? [];
+      const otherFilePaths = other?.attachedFilePaths ?? [];
+      const itemAttachments = item.attachments ?? [];
+      const otherAttachments = other?.attachments ?? [];
       return (
         other?.id === item.id &&
         other.createdAt === item.createdAt &&
-        other.content === item.content
+        other.content === item.content &&
+        otherFilePaths.length === itemFilePaths.length &&
+        otherFilePaths.every(
+          (path, pathIndex) => path === itemFilePaths[pathIndex],
+        ) &&
+        otherAttachments.length === itemAttachments.length &&
+        otherAttachments.every(
+          (attachment, attachmentIndex) =>
+            attachment === itemAttachments[attachmentIndex],
+        )
       );
     })
   );
@@ -620,6 +644,16 @@ function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] 
     if (text) {
       parts.push({ type: "text", text });
     }
+    for (const attachment of item.attachments ?? []) {
+      if (shouldIncludeImageAttachmentAsProviderContext(attachment, true)) {
+        parts.push({
+          type: "image_context",
+          dataUrl: attachment.dataUrl,
+          label: attachment.label,
+          mimeType: "image/png",
+        });
+      }
+    }
   }
 
   const draftText = draft.text.trim();
@@ -669,7 +703,29 @@ function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] 
     }
   }
 
-  return hasLensAnnotation && parts.length > 0 ? parts : undefined;
+  const hasBatchAttachment = (draft.promptBatch ?? []).some(
+    (item) => (item.attachments?.length ?? 0) > 0,
+  );
+
+  return (hasLensAnnotation || hasBatchAttachment) && parts.length > 0
+    ? parts
+    : undefined;
+}
+
+function getPromptDraftAttachedFilePaths(draft: PromptDraft) {
+  return [
+    ...draft.attachedFilePaths,
+    ...(draft.promptBatch ?? []).flatMap(
+      (item) => item.attachedFilePaths ?? [],
+    ),
+  ];
+}
+
+function getPromptDraftAttachments(draft: PromptDraft) {
+  return [
+    ...draft.attachments,
+    ...(draft.promptBatch ?? []).flatMap((item) => item.attachments ?? []),
+  ];
 }
 
 function buildQueuedTurnFromDraft(args: {
@@ -685,8 +741,8 @@ function buildQueuedTurnFromDraft(args: {
     queuedAt: buildRecentTimestamp(),
     sourceTurnId: args.sourceTurnId,
     content: args.content ?? buildPromptDraftContentForSend(args.draft),
-    attachedFilePaths: args.draft.attachedFilePaths,
-    attachments: args.draft.attachments,
+    attachedFilePaths: getPromptDraftAttachedFilePaths(args.draft),
+    attachments: getPromptDraftAttachments(args.draft),
   };
 }
 
@@ -896,24 +952,53 @@ function getDraftImageContexts(args: {
     label: string;
     mimeType: string;
   }>;
+  includeLensCommentImages?: boolean;
 }): Array<{
   dataUrl: string;
   label: string;
   mimeType: string;
 }> {
-  if ((args.imageContexts?.length ?? 0) > 0) {
-    return args.imageContexts ?? [];
+  const contexts: Array<{
+    dataUrl: string;
+    label: string;
+    mimeType: string;
+  }> = [];
+  const seen = new Set<string>();
+  const addContext = (context: {
+    dataUrl: string;
+    label: string;
+    mimeType: string;
+  }) => {
+    const key = `${context.mimeType}\n${context.label}\n${context.dataUrl}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    contexts.push(context);
+  };
+
+  for (const context of args.imageContexts ?? []) {
+    addContext(context);
   }
-  return args.promptDraft.attachments
-    .filter(
-      (attachment): attachment is Extract<Attachment, { kind: "image" }> =>
-        attachment.kind === "image",
-    )
-    .map((attachment) => ({
+
+  const includeLensCommentImages = args.includeLensCommentImages === true;
+  const imageAttachments = getPromptDraftAttachments(args.promptDraft).filter(
+    (attachment): attachment is Extract<Attachment, { kind: "image" }> =>
+      shouldIncludeImageAttachmentAsProviderContext(
+        attachment,
+        includeLensCommentImages,
+      ),
+  );
+
+  for (const attachment of imageAttachments) {
+    addContext({
       dataUrl: attachment.dataUrl,
       label: attachment.label,
       mimeType: "image/png",
-    }));
+    });
+  }
+
+  return contexts;
 }
 
 async function getDraftFileContexts(args: {
@@ -934,14 +1019,6 @@ async function getDraftFileContexts(args: {
     instruction?: string;
   }>
 > {
-  if ((args.fileContexts?.length ?? 0) > 0) {
-    return args.fileContexts ?? [];
-  }
-
-  if (args.promptDraft.attachedFilePaths.length === 0) {
-    return [];
-  }
-
   const nextFileContexts: Array<{
     filePath: string;
     content: string;
@@ -950,8 +1027,17 @@ async function getDraftFileContexts(args: {
   }> = [];
   const seenFilePaths = new Set<string>();
   const readFile = window.api?.fs?.readFile;
+  for (const context of args.fileContexts ?? []) {
+    if (!context.filePath || seenFilePaths.has(context.filePath)) {
+      continue;
+    }
+    seenFilePaths.add(context.filePath);
+    nextFileContexts.push(context);
+  }
 
-  for (const filePath of args.promptDraft.attachedFilePaths) {
+  const attachedFilePaths = getPromptDraftAttachedFilePaths(args.promptDraft);
+
+  for (const filePath of attachedFilePaths) {
     if (!filePath || seenFilePaths.has(filePath)) {
       continue;
     }
@@ -1162,6 +1248,8 @@ export interface AppSettings {
   promptCommentShortcut: PromptCommentShortcut;
   /** Lens shortcut that toggles visual comment mode. */
   visualCommentShortcut: VisualCommentShortcut;
+  /** When enabled, visual comment screenshots are included as provider image context. */
+  lensVisualCommentScreenshotsAsImageContext: boolean;
   reviewStrictMode: boolean;
   reviewChecklistPreset: string;
   prePrReviewEnabled: boolean;
@@ -2312,6 +2400,7 @@ const defaultSettings: AppSettings = {
   modelShortcutKeys: normalizeModelShortcutKeys(),
   promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
+  lensVisualCommentScreenshotsAsImageContext: false,
   reviewStrictMode: true,
   reviewChecklistPreset: "safety-first",
   prePrReviewEnabled: false,
@@ -10158,6 +10247,8 @@ export const useAppStore = create<AppState>()(
             const resolvedImageContexts = getDraftImageContexts({
               promptDraft,
               imageContexts,
+              includeLensCommentImages:
+                state.settings.lensVisualCommentScreenshotsAsImageContext,
             });
             state = get();
             const latestWorkspaceSession = getWorkspaceSessionForState({
@@ -12240,6 +12331,10 @@ export const useAppStore = create<AppState>()(
           raw.visualCommentShortcut === "mod-period"
             ? DEFAULT_VISUAL_COMMENT_SHORTCUT
             : normalizeVisualCommentShortcut(raw.visualCommentShortcut);
+        state.settings.lensVisualCommentScreenshotsAsImageContext =
+          typeof raw.lensVisualCommentScreenshotsAsImageContext === "boolean"
+            ? raw.lensVisualCommentScreenshotsAsImageContext
+            : defaultSettings.lensVisualCommentScreenshotsAsImageContext;
         state.settings.trustedTools = normalizeTrustedToolEntries(
           raw.trustedTools,
         );
