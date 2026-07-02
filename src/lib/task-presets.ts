@@ -5,6 +5,10 @@ import {
   getDefaultModelForProvider,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import {
+  CLAUDE_EFFORT_OPTIONS,
+  CODEX_EFFORT_OPTIONS,
+} from "@/lib/providers/runtime-option-contract";
 import type { CliSessionContextMode } from "@/lib/terminal/types";
 
 /**
@@ -23,11 +27,39 @@ export interface TaskPreset {
   provider: ProviderId;
   /** Model id used for `task` presets. Ignored for CLI sessions. */
   model?: string;
+  /**
+   * Reasoning effort applied to `task` presets. Claude presets accept
+   * `low | medium | high | xhigh | max`; Codex presets accept
+   * `minimal | low | medium | high | xhigh`. When omitted, the model's
+   * default effort is used at launch. Ignored for CLI sessions.
+   */
+  effort?: TaskPresetEffort;
   /** CLI session seed context. Defaults to `workspace`. */
   contextMode?: CliSessionContextMode;
 }
 
 export type TaskPresetKind = "task" | "cli-session";
+
+export type TaskPresetEffort =
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
+
+/**
+ * Effort options selectable for a `task` preset, scoped to the provider's
+ * supported reasoning-effort scale.
+ */
+export function listEffortsForPresetProvider(
+  providerId: ProviderId,
+): readonly { value: TaskPresetEffort; label: string }[] {
+  if (providerId === "codex") {
+    return CODEX_EFFORT_OPTIONS;
+  }
+  return CLAUDE_EFFORT_OPTIONS;
+}
 
 export const TASK_PRESET_KINDS: readonly TaskPresetKind[] = [
   "task",
@@ -129,6 +161,17 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
         ? candidateModel
         : getDefaultModelForProvider({ providerId: provider });
 
+  const allowedEfforts = listEffortsForPresetProvider(provider).map(
+    (option) => option.value,
+  );
+  const effort =
+    kind === "cli-session"
+      ? undefined
+      : typeof input.effort === "string" &&
+          allowedEfforts.includes(input.effort as TaskPresetEffort)
+        ? (input.effort as TaskPresetEffort)
+        : undefined;
+
   const contextMode: CliSessionContextMode =
     input.contextMode === "active-task" ? "active-task" : "workspace";
 
@@ -148,6 +191,7 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
     kind,
     provider,
     model,
+    effort,
     contextMode: kind === "cli-session" ? contextMode : undefined,
   };
 }

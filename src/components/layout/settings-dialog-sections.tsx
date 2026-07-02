@@ -96,7 +96,11 @@ import {
   VISUAL_COMMENT_SHORTCUT_OPTIONS,
 } from "@/lib/visual-comment-shortcuts";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
-import { BOOLEAN_TOGGLE_OPTIONS } from "@/lib/providers/runtime-option-contract";
+import {
+  BOOLEAN_TOGGLE_OPTIONS,
+  CLAUDE_EFFORT_OPTIONS,
+  CODEX_EFFORT_OPTIONS,
+} from "@/lib/providers/runtime-option-contract";
 import { cn } from "@/lib/utils";
 import {
   BUILTIN_CUSTOM_THEMES,
@@ -1632,6 +1636,7 @@ function ModelsSection() {
     modelClaude,
     modelCodex,
     claudeEffort,
+    codexReasoningEffort,
     codexBinaryPath,
     autoRoutingEnabled,
     autoRoutingUseClassifier,
@@ -1647,6 +1652,7 @@ function ModelsSection() {
           state.settings.modelClaude,
           state.settings.modelCodex,
           state.settings.claudeEffort,
+          state.settings.codexReasoningEffort,
           state.settings.codexBinaryPath,
           state.settings.autoRoutingEnabled,
           state.settings.autoRoutingUseClassifier,
@@ -1804,6 +1810,32 @@ function ModelsSection() {
             />
           </LabeledField>
           <LabeledField
+            title="Claude Effort"
+            description="Default reasoning effort applied to new Claude turns."
+          >
+            <Select
+              value={claudeEffort}
+              onValueChange={(value) =>
+                updateSettings({
+                  patch: {
+                    claudeEffort: value as typeof claudeEffort,
+                  },
+                })
+              }
+            >
+              <SelectTrigger className="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CLAUDE_EFFORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </LabeledField>
+          <LabeledField
             title="Codex"
             description={
               codexModelCatalog.detail.trim().length > 0
@@ -1838,6 +1870,32 @@ function ModelsSection() {
                 })
               }
             />
+          </LabeledField>
+          <LabeledField
+            title="Codex Effort"
+            description="Default reasoning effort applied to new Codex turns."
+          >
+            <Select
+              value={codexReasoningEffort}
+              onValueChange={(value) =>
+                updateSettings({
+                  patch: {
+                    codexReasoningEffort: value as typeof codexReasoningEffort,
+                  },
+                })
+              }
+            >
+              <SelectTrigger className="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CODEX_EFFORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </LabeledField>
           <div className="space-y-3 border-t border-border/70 pt-3">
             <div className="flex items-start justify-between gap-3">

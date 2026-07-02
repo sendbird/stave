@@ -93,6 +93,8 @@ import {
   inferProviderIdFromModel,
   listProviderIds,
   normalizeModelSelection,
+  resolveDefaultClaudeEffortForModel,
+  resolveDefaultCodexEffortForModel,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import {
@@ -9219,8 +9221,16 @@ export const useAppStore = create<AppState>()(
           if (preset.model) {
             if (preset.provider === "claude-code") {
               settingsPatch.modelClaude = preset.model;
+              settingsPatch.claudeEffort =
+                (preset.effort as AppSettings["claudeEffort"] | undefined) ??
+                resolveDefaultClaudeEffortForModel({ model: preset.model });
             } else if (preset.provider === "codex") {
               settingsPatch.modelCodex = preset.model;
+              settingsPatch.codexReasoningEffort =
+                (preset.effort as
+                  | AppSettings["codexReasoningEffort"]
+                  | undefined) ??
+                resolveDefaultCodexEffortForModel({ model: preset.model });
             }
           }
           if (Object.keys(settingsPatch).length > 0) {

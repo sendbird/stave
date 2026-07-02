@@ -14,11 +14,15 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
+  listEffortsForPresetProvider,
   listModelsForPresetProvider,
   normalizeTaskPreset,
   type TaskPreset,
+  type TaskPresetEffort,
   type TaskPresetKind,
 } from "@/lib/task-presets";
+
+const DEFAULT_EFFORT_VALUE = "__default__";
 
 interface TaskPresetEditorProps {
   initialPreset: TaskPreset;
@@ -36,6 +40,9 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
       getDefaultModelForProvider({ providerId: initialPreset.provider }),
   );
   const [label, setLabel] = useState<string>(initialPreset.label);
+  const [effort, setEffort] = useState<TaskPresetEffort | typeof DEFAULT_EFFORT_VALUE>(
+    initialPreset.effort ?? DEFAULT_EFFORT_VALUE,
+  );
 
   useEffect(() => {
     setKind(initialPreset.kind);
@@ -45,10 +52,15 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
         getDefaultModelForProvider({ providerId: initialPreset.provider }),
     );
     setLabel(initialPreset.label);
+    setEffort(initialPreset.effort ?? DEFAULT_EFFORT_VALUE);
   }, [initialPreset]);
 
   const modelOptions = useMemo(
     () => listModelsForPresetProvider(provider),
+    [provider],
+  );
+  const effortOptions = useMemo(
+    () => listEffortsForPresetProvider(provider),
     [provider],
   );
   const providerOptions = useMemo<
@@ -82,6 +94,15 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     if (!nextModels.includes(model)) {
       setModel(getDefaultModelForProvider({ providerId }));
     }
+    const nextEfforts = listEffortsForPresetProvider(providerId).map(
+      (option) => option.value,
+    );
+    if (
+      effort !== DEFAULT_EFFORT_VALUE &&
+      !nextEfforts.includes(effort as TaskPresetEffort)
+    ) {
+      setEffort(DEFAULT_EFFORT_VALUE);
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -92,6 +113,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
       kind,
       provider,
       model,
+      effort: effort === DEFAULT_EFFORT_VALUE ? undefined : effort,
       contextMode: initialPreset.contextMode,
     });
     onSave(normalized);
@@ -156,6 +178,33 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
               {modelOptions.map((option) => (
                 <SelectItem key={option} value={option}>
                   {toHumanModelName({ model: option })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
+      {kind === "task" ? (
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted-foreground">
+            Effort
+          </span>
+          <Select
+            value={effort}
+            onValueChange={(value) =>
+              setEffort(value as TaskPresetEffort | typeof DEFAULT_EFFORT_VALUE)
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={DEFAULT_EFFORT_VALUE}>
+                Default (per model)
+              </SelectItem>
+              {effortOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
