@@ -4,9 +4,11 @@ import {
 } from "./constants";
 import type {
   ScriptKind,
+  ScriptTargetScope,
   ScriptTrigger,
   ResolvedWorkspaceScriptsConfig,
   WorkspaceScriptsConfig,
+  WorkspaceScriptTargetConfig,
 } from "./types";
 
 export interface ScriptEditorEntry {
@@ -30,10 +32,24 @@ export interface ScriptEditorHookLink {
   blocking: boolean;
 }
 
+export interface ScriptEditorEnvRow {
+  key: string;
+  value: string;
+}
+
+export interface ScriptEditorTargetEntry {
+  id: string;
+  label: string;
+  cwd: ScriptTargetScope;
+  shell: string;
+  envRows: ScriptEditorEnvRow[];
+}
+
 export interface ScriptEditorState {
   actions: ScriptEditorEntry[];
   services: ScriptEditorEntry[];
   hooks: Partial<Record<ScriptTrigger, ScriptEditorHookLink[]>>;
+  targets: ScriptEditorTargetEntry[];
 }
 
 export interface ScriptEditorCandidate {
@@ -102,12 +118,27 @@ export function createEmptyScriptEditorEntry(
   };
 }
 
+export function createEmptyScriptEditorTargetEntry(): ScriptEditorTargetEntry {
+  return {
+    id: "",
+    label: "",
+    cwd: "workspace",
+    shell: "",
+    envRows: [],
+  };
+}
+
 export function createEmptyScriptEditorState(): ScriptEditorState {
   return {
     actions: [],
     services: [],
     hooks: {},
+    targets: [],
   };
+}
+
+function normalizeEnvRows(env: Record<string, string> | undefined): ScriptEditorEnvRow[] {
+  return Object.entries(env ?? {}).map(([key, value]) => ({ key, value }));
 }
 
 export function buildScriptEditorState(args: {
@@ -184,10 +215,19 @@ export function buildScriptEditorState(args: {
     return acc;
   }, {});
 
+  const targets = Object.entries(args.config.targets ?? {}).map(([id, target]) => ({
+    id,
+    label: target.label ?? "",
+    cwd: target.cwd ?? "workspace",
+    shell: target.shell ?? "",
+    envRows: normalizeEnvRows(target.env),
+  }));
+
   return {
     actions,
     services,
     hooks,
+    targets,
   };
 }
 
@@ -205,6 +245,22 @@ function buildEntryConfig(entry: ScriptEditorEntry) {
     target: entry.target.trim() || DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE,
     ...(timeoutMs ? { timeoutMs: Number(timeoutMs) } : {}),
     ...(entry.enabled ? {} : { enabled: false }),
+  };
+}
+
+function buildTargetConfig(target: ScriptEditorTargetEntry): WorkspaceScriptTargetConfig {
+  const env: Record<string, string> = {};
+  for (const row of target.envRows) {
+    const key = row.key.trim();
+    if (key) {
+      env[key] = row.value;
+    }
+  }
+  return {
+    ...(target.label.trim() ? { label: target.label.trim() } : {}),
+    cwd: target.cwd,
+    ...(Object.keys(env).length > 0 ? { env } : {}),
+    ...(target.shell.trim() ? { shell: target.shell.trim() } : {}),
   };
 }
 
@@ -271,11 +327,18 @@ export function buildScriptConfigFromEditorState(
     return acc;
   }, undefined);
 
+  const targets = Object.fromEntries(
+    state.targets
+      .map((target) => [target.id.trim(), buildTargetConfig(target)] as const)
+      .filter(([id]) => Boolean(id)),
+  );
+
   return {
     version: 2,
     ...(Object.keys(actions).length > 0 ? { actions } : {}),
     ...(Object.keys(services).length > 0 ? { services } : {}),
     ...(hooks && Object.keys(hooks).length > 0 ? { hooks } : {}),
+    ...(Object.keys(targets).length > 0 ? { targets } : {}),
   };
 }
 
@@ -297,6 +360,13 @@ export function mergeScriptConfigIntoRaw(args: {
   }
   if (!args.config.hooks || Object.keys(args.config.hooks).length === 0) {
     delete next.hooks;
+  }
+  // Targets are now editor-managed. When present, the serialized `config.targets`
+  // replaces the raw block wholesale (dropping per-target unknown keys); when
+  // empty, the block is removed. Top-level unknown keys (`notes`, etc.) survive
+  // via the `...rawConfig` spread above.
+  if (!args.config.targets || Object.keys(args.config.targets).length === 0) {
+    delete next.targets;
   }
 
   return next;
@@ -404,4 +474,84 @@ export function validateScriptEditorState(state: ScriptEditorState) {
   }
 
   return issues;
+}
+
+export interface ScriptEntryFieldIssues {
+  id?: string;
+  commands?: string;
+  timeoutMs?: string;
+  target?: string;
+  orbitProxyPort?: string;
+}
+
+/**
+ * Per-field validation for a single entry, used to surface inline errors in the
+ * card editor. `duplicateId` is computed by the caller (it needs cross-entry
+ * context). The aggregate `validateScriptEditorState` remains the source of
+ * truth for save-time gating and its exact message strings.
+ */
+export function validateScriptEditorEntry(args: {
+  entry: ScriptEditorEntry;
+  kind: ScriptKind;
+  duplicateId?: boolean;
+}): ScriptEntryFieldIssues {
+  const { entry, kind } = args;
+  const issues: ScriptEntryFieldIssues = {};
+
+  const id = entry.id.trim();
+  if (!id) {
+    issues.id = "ID is required.";
+  } else if (args.duplicateId) {
+    issues.id = `Duplicate ID "${id}".`;
+  }
+
+  const commands = entry.commandsText
+    .split("\n")
+    .map((command) => command.trim())
+    .filter(Boolean);
+  if (commands.length === 0) {
+    issues.commands = "Add at least one command.";
+  }
+
+  if (entry.timeoutMs.trim()) {
+    const timeout = Number(entry.timeoutMs);
+    if (!Number.isInteger(timeout) || timeout <= 0) {
+      issues.timeoutMs = "Timeout must be a positive integer.";
+    }
+  }
+
+  if (kind === "service" && entry.orbitEnabled) {
+    if (entry.target !== DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE) {
+      issues.target = "Orbit services must target the workspace.";
+    }
+    if (entry.orbitProxyPort.trim()) {
+      const orbitProxyPort = Number(entry.orbitProxyPort);
+      if (!Number.isInteger(orbitProxyPort) || orbitProxyPort <= 0) {
+        issues.orbitProxyPort = "Proxy port must be a positive integer.";
+      }
+    }
+  }
+
+  return issues;
+}
+
+/** Produce a duplicate of an entry with a unique `-copy` id and " (copy)" label. */
+export function duplicateScriptEditorEntry(
+  entry: ScriptEditorEntry,
+  existingIds: Iterable<string>,
+): ScriptEditorEntry {
+  const taken = new Set([...existingIds].map((id) => id.trim()).filter(Boolean));
+  const base = entry.id.trim() || "script";
+  let candidate = `${base}-copy`;
+  let suffix = 2;
+  while (taken.has(candidate)) {
+    candidate = `${base}-copy-${suffix}`;
+    suffix += 1;
+  }
+  const baseLabel = entry.label.trim() || entry.id.trim() || base;
+  return {
+    ...entry,
+    id: candidate,
+    label: `${baseLabel} (copy)`,
+  };
 }

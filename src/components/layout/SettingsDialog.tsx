@@ -295,6 +295,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                   currentProjectPath={projectPath}
                   projects={projects}
                   selectedProjectPath={selectedProjectPath}
+                  onNavigateSection={setActiveSection}
                 />
               </div>
             </div>

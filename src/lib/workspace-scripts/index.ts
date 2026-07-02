@@ -49,6 +49,53 @@ export {
   resolveScriptConfigFromTiers,
 } from "./config";
 
+export type { ScriptUiState } from "./runtime-state";
+export {
+  appendScriptLog,
+  buildEntryStateFromStatus,
+  buildScriptRunFailureState,
+  formatScriptDuration,
+  formatScriptRelativeTime,
+  getScriptRunSourceLabel,
+  getScriptSourceLabel,
+  reduceScriptUiState,
+  scriptEntryKey,
+} from "./runtime-state";
+
+export { stripAnsiControlSequences } from "./ansi";
+
+export type {
+  ScriptEntryOrigin,
+  ScriptEntryOrigins,
+  ScriptOriginTier,
+} from "./origins";
+export {
+  deriveScriptEntryOrigins,
+  parseScriptsConfigContent,
+  parseScriptsLocalConfigContent,
+} from "./origins";
+
+export type {
+  ScriptsConfigStatus,
+  ScriptsRuntimeContext,
+  ScriptsRuntimeSnapshot,
+} from "./runtime-store";
+export {
+  acquireScriptsRuntime,
+  clearScriptLog,
+  EMPTY_SNAPSHOT,
+  getScriptsRuntimeSnapshot,
+  refreshScriptsRuntime,
+  runScriptEntry,
+  runScriptHook,
+  stopAllScripts,
+  stopScriptEntry,
+  subscribeScriptsRuntime,
+  subscribeScriptsRuntimeAny,
+} from "./runtime-store";
+
+export { useWorkspaceScriptsRuntime } from "./use-workspace-scripts-runtime";
+
 export type {
   FileVerificationStatus,
   TurnVerificationResult,
