@@ -251,7 +251,7 @@
  * rule covers both.
  */
 [data-terminal-surface] > .xterm {
-  padding: 1rem 1.25rem;
+  padding: 0.5rem 0.625rem;
   background-color: var(--color-terminal);
 }
 
