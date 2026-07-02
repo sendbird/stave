@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useState, type JSX } from "react";
-import { Badge } from "@/components/ui";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+  type JSX,
+} from "react";
+import { Badge, Button, Input } from "@/components/ui";
 import {
   Dialog,
   DialogContent,
@@ -21,9 +27,14 @@ export interface WorkspaceSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
   workspaceId: string;
   workspaceName: string;
+  isDefault?: boolean;
   branch?: string;
   projectPath: string;
   workspacePath: string;
+  onRename?: (args: {
+    workspaceId: string;
+    name: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
 }
 
 // Exported for direct testing in static-render environments where Radix
@@ -31,11 +42,57 @@ export interface WorkspaceSettingsDialogProps {
 export function WorkspaceSettingsContent(props: {
   workspaceName: string;
   branch?: string;
+  workspaceId: string;
+  isDefault?: boolean;
   workspacePath: string;
   projectPath: string;
   resolvedConfig: ResolvedWorkspaceScriptsConfig | null;
   onSaved: () => void;
+  onRename?: (args: {
+    workspaceId: string;
+    name: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
 }): JSX.Element {
+  const [label, setLabel] = useState(props.workspaceName);
+  const [labelMessage, setLabelMessage] = useState<string | null>(null);
+  const [isSavingLabel, setIsSavingLabel] = useState(false);
+  const canEditLabel = props.isDefault !== true && Boolean(props.onRename);
+  const normalizedLabel = label.trim();
+  const currentLabel = props.workspaceName.trim();
+  const labelChanged = normalizedLabel.length > 0 && normalizedLabel !== currentLabel;
+
+  useEffect(() => {
+    setLabel(props.workspaceName);
+    setLabelMessage(null);
+  }, [props.workspaceName]);
+
+  async function handleLabelSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canEditLabel || !props.onRename || isSavingLabel) {
+      return;
+    }
+    if (!normalizedLabel) {
+      setLabelMessage("Label is required.");
+      return;
+    }
+    if (!labelChanged) {
+      setLabelMessage(null);
+      return;
+    }
+
+    setIsSavingLabel(true);
+    setLabelMessage(null);
+    try {
+      const result = await props.onRename({
+        workspaceId: props.workspaceId,
+        name: normalizedLabel,
+      });
+      setLabelMessage(result.ok ? "Saved." : (result.message ?? "Save failed."));
+    } finally {
+      setIsSavingLabel(false);
+    }
+  }
+
   return (
     <>
       <div data-slot="dialog-header" className="flex flex-col gap-2">
@@ -54,6 +111,44 @@ export function WorkspaceSettingsContent(props: {
           {props.workspacePath}
         </p>
       </div>
+      <form
+        className="rounded-md border border-border/70 bg-muted/20 p-3"
+        onSubmit={handleLabelSubmit}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
+            Label
+            <Input
+              value={label}
+              onChange={(event) => {
+                setLabel(event.target.value);
+                setLabelMessage(null);
+              }}
+              disabled={!canEditLabel || isSavingLabel}
+              className="mt-1 h-8 bg-background"
+              placeholder="Workspace label"
+            />
+          </label>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={!canEditLabel || !labelChanged || isSavingLabel}
+            className="h-8"
+          >
+            Save label
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {props.isDefault
+            ? "Default workspace labels are fixed."
+            : props.branch
+              ? `Shown as ${normalizedLabel || "label"} (${props.branch}).`
+              : "Shown in the project sidebar."}
+        </p>
+        {labelMessage ? (
+          <p className="mt-2 text-xs text-muted-foreground">{labelMessage}</p>
+        ) : null}
+      </form>
 
       <Tabs
         defaultValue="sync"
@@ -114,11 +209,14 @@ export function WorkspaceSettingsDialog(
   const sharedContent = (
     <WorkspaceSettingsContent
       workspaceName={props.workspaceName}
+      workspaceId={props.workspaceId}
+      isDefault={props.isDefault}
       branch={props.branch}
       workspacePath={props.workspacePath}
       projectPath={props.projectPath}
       resolvedConfig={resolvedConfig}
       onSaved={loadConfig}
+      onRename={props.onRename}
     />
   );
 

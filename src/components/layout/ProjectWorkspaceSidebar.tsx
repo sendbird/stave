@@ -29,14 +29,18 @@ import {
   RefreshCw,
   Rows2,
   Rows3,
+  Search,
   Settings,
+  X,
 } from "lucide-react";
 import {
   memo,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -44,6 +48,8 @@ import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { PANEL_BAR_HEIGHT_CLASS } from "@/components/layout/panel-bar.constants";
 import {
   buildCollapsedWorkspaceEntries,
+  filterProjectSidebarProjects,
+  formatWorkspaceDisplayName,
   buildWorkspaceHoverPreview,
   buildVisibleWorkspaceShortcutTargets,
   getWorkspaceShortcutLabel,
@@ -78,6 +84,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
   WaveIndicator,
+  Input,
 } from "@/components/ui";
 import { WorkspaceSettingsDialog } from "./WorkspaceSettingsDialog";
 import {
@@ -137,7 +144,8 @@ function resolveRespondingToneClass(args: {
 }
 
 function formatWorkspaceName(name: string, branch?: string) {
-  if (isDefaultWorkspaceName(name)) {
+  const isDefault = isDefaultWorkspaceName(name);
+  if (isDefault) {
     return (
       <>
         Default
@@ -149,11 +157,19 @@ function formatWorkspaceName(name: string, branch?: string) {
       </>
     );
   }
-  return name;
+  return formatWorkspaceDisplayName({ name, branch, isDefault });
 }
 
-function formatWorkspaceTitle(name: string) {
-  return isDefaultWorkspaceName(name) ? "Default" : name;
+function formatWorkspaceTitle(args: {
+  name: string;
+  branch?: string;
+  isDefault: boolean;
+}) {
+  return formatWorkspaceDisplayName(args);
+}
+
+function isWorkspaceActivationKey(event: ReactKeyboardEvent<HTMLElement>) {
+  return event.key === "Enter" || event.key === " ";
 }
 
 function formatWorkspaceBranchLabel(args: {
@@ -475,6 +491,131 @@ const WorkspaceRespondingCountBadge = memo(
   },
 );
 
+function InlineWorkspaceLabel(args: {
+  workspaceId: string;
+  workspaceName: string;
+  branch?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  compact: boolean;
+  showBranchContext: boolean;
+  onRename: (args: {
+    workspaceId: string;
+    name: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(args.workspaceName);
+  const [saving, setSaving] = useState(false);
+  const canEdit = args.isActive && !args.isDefault;
+  const displayName = formatWorkspaceTitle({
+    name: args.workspaceName,
+    branch: args.showBranchContext ? args.branch : undefined,
+    isDefault: args.isDefault,
+  });
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(args.workspaceName);
+    }
+  }, [args.workspaceName, editing]);
+
+  useEffect(() => {
+    if (!editing) {
+      return;
+    }
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [editing]);
+
+  async function commitDraft() {
+    if (!editing || saving) {
+      return;
+    }
+    const nextName = draft.trim();
+    if (!nextName || nextName === args.workspaceName.trim()) {
+      setDraft(args.workspaceName);
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await args.onRename({
+        workspaceId: args.workspaceId,
+        name: nextName,
+      });
+      if (!result.ok) {
+        setDraft(args.workspaceName);
+      }
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <Input
+        ref={inputRef}
+        value={draft}
+        disabled={saving}
+        onChange={(event) => setDraft(event.target.value)}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === "Enter") {
+            event.preventDefault();
+            void commitDraft();
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setDraft(args.workspaceName);
+            setEditing(false);
+          }
+        }}
+        onBlur={() => void commitDraft()}
+        className={cn(
+          "h-7 min-w-0 bg-background px-2 text-sm",
+          args.compact ? "flex-1" : "w-full",
+        )}
+        aria-label={`edit-workspace-label-${args.workspaceId}`}
+      />
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        "min-w-0 truncate leading-5",
+        args.compact && "flex-1",
+        args.isActive && "font-medium text-foreground",
+        canEdit &&
+          "cursor-text rounded-sm outline-none hover:bg-background/30 focus-visible:ring-1 focus-visible:ring-ring",
+      )}
+      title={canEdit ? "Edit workspace label" : String(displayName)}
+      tabIndex={canEdit ? 0 : undefined}
+      onClick={(event) => {
+        if (!canEdit) {
+          return;
+        }
+        event.stopPropagation();
+        setEditing(true);
+      }}
+      onKeyDown={(event) => {
+        if (!canEdit || !isWorkspaceActivationKey(event)) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        setEditing(true);
+      }}
+    >
+      {displayName}
+    </span>
+  );
+}
+
 const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
   workspaceId: string;
   branch?: string;
@@ -647,12 +788,18 @@ function SortableSidebarItem(args: SortableSidebarItemProps) {
 function WorkspaceRowActions(args: {
   workspaceId: string;
   workspaceName: string;
+  isDefault: boolean;
   branch?: string;
   projectPath: string;
   workspacePath: string;
   canArchiveWorkspace: boolean;
   closingWorkspaceId: string | null;
   onArchive: () => void;
+  onRename: (args: {
+    projectPath: string;
+    workspaceId: string;
+    name: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   shortcutLabel?: string | null;
   shortcutModifier: string;
 }) {
@@ -718,9 +865,17 @@ function WorkspaceRowActions(args: {
         onOpenChange={setSettingsOpen}
         workspaceId={args.workspaceId}
         workspaceName={args.workspaceName}
+        isDefault={args.isDefault}
         branch={args.branch}
         projectPath={args.projectPath}
         workspacePath={args.workspacePath}
+        onRename={({ workspaceId, name }) =>
+          args.onRename({
+            projectPath: args.projectPath,
+            workspaceId,
+            name,
+          })
+        }
       />
     </>
   );
@@ -746,6 +901,7 @@ export function ProjectWorkspaceSidebar(args: {
   const [reorderMode, setReorderMode] = useState(false);
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [openPathDialogOpen, setOpenPathDialogOpen] = useState(false);
+  const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState("");
   const [workspaceToClose, setWorkspaceToClose] = useState<{
     id: string;
     name: string;
@@ -776,6 +932,7 @@ export function ProjectWorkspaceSidebar(args: {
     moveWorkspaceInProjectList,
     createWorkspace,
     closeWorkspace,
+    renameWorkspace,
     setLayout,
     fetchAllWorkspacePrStatuses,
     hydrateWorkspaces,
@@ -814,6 +971,7 @@ export function ProjectWorkspaceSidebar(args: {
         state.moveWorkspaceInProjectList,
         state.createWorkspace,
         state.closeWorkspace,
+        state.renameWorkspace,
         state.setLayout,
         state.fetchAllWorkspacePrStatuses,
         state.hydrateWorkspaces,
@@ -876,8 +1034,17 @@ export function ProjectWorkspaceSidebar(args: {
     recentProjects,
     workspaceBranchById,
     workspaceDefaultById,
+    workspacePathById,
     workspaces,
   ]);
+  const visibleProjects = useMemo(
+    () =>
+      filterProjectSidebarProjects({
+        projects,
+        query: workspaceSearchQuery,
+      }),
+    [projects, workspaceSearchQuery],
+  );
   const collapsedWorkspaceEntries = useMemo(
     () =>
       buildCollapsedWorkspaceEntries({
@@ -1335,9 +1502,37 @@ export function ProjectWorkspaceSidebar(args: {
                   </Tooltip>
                 </div>
               </div>
+              <div className="relative mb-2 px-2">
+                <Search className="pointer-events-none absolute left-4 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
+                <Input
+                  value={workspaceSearchQuery}
+                  onChange={(event) =>
+                    setWorkspaceSearchQuery(event.target.value)
+                  }
+                  placeholder="Search labels or branches"
+                  className="h-8 rounded-md border-sidebar-border/60 bg-background/45 pl-7 pr-7 text-xs"
+                  aria-label="search-workspaces"
+                />
+                {workspaceSearchQuery.trim() ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-md p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => setWorkspaceSearchQuery("")}
+                    aria-label="clear-workspace-search"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                ) : null}
+              </div>
               {projects.length === 0 ? (
                 <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
                   No projects yet.
+                </div>
+              ) : visibleProjects.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+                  No matching workspaces.
                 </div>
               ) : (
                 <>
@@ -1347,11 +1542,13 @@ export function ProjectWorkspaceSidebar(args: {
                     onDragEnd={handleProjectDragEnd}
                   >
                     <SortableContext
-                      items={projects.map((project) => project.projectPath)}
+                      items={visibleProjects.map(
+                        (project) => project.projectPath,
+                      )}
                       strategy={verticalListSortingStrategy}
                     >
                       <div className="space-y-2">
-                        {projects.map((project) => {
+                        {visibleProjects.map((project) => {
                           const collapsed =
                             collapsedByProjectPath[project.projectPath] ??
                             false;
@@ -1626,8 +1823,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                             }
                                                             side="right"
                                                           >
-                                                            <button
-                                                              type="button"
+                                                            <div
+                                                              role="button"
+                                                              tabIndex={0}
                                                               className={cn(
                                                                 "flex min-w-0 flex-1 gap-2 text-left text-sm",
                                                                 isExpandedWorkspaceItem
@@ -1644,6 +1842,26 @@ export function ProjectWorkspaceSidebar(args: {
                                                                   },
                                                                 )
                                                               }
+                                                              onKeyDown={(
+                                                                event,
+                                                              ) => {
+                                                                if (
+                                                                  !isWorkspaceActivationKey(
+                                                                    event,
+                                                                  )
+                                                                ) {
+                                                                  return;
+                                                                }
+                                                                event.preventDefault();
+                                                                void handleProjectWorkspaceOpen(
+                                                                  {
+                                                                    projectPath:
+                                                                      project.projectPath,
+                                                                    workspaceId:
+                                                                      workspace.id,
+                                                                  },
+                                                                );
+                                                              }}
                                                             >
                                                               <span
                                                                 className={cn(
@@ -1669,17 +1887,42 @@ export function ProjectWorkspaceSidebar(args: {
                                                               </span>
                                                               {isExpandedWorkspaceItem ? (
                                                                 <span className="flex min-w-0 flex-1 flex-col gap-1">
-                                                                  <span
-                                                                    className={cn(
-                                                                      "min-w-0 truncate leading-5",
-                                                                      isActive &&
-                                                                        "font-medium text-foreground",
-                                                                    )}
-                                                                  >
-                                                                    {formatWorkspaceTitle(
-                                                                      workspace.name,
-                                                                    )}
-                                                                  </span>
+                                                                  <InlineWorkspaceLabel
+                                                                    workspaceId={
+                                                                      workspace.id
+                                                                    }
+                                                                    workspaceName={
+                                                                      workspace.name
+                                                                    }
+                                                                    branch={
+                                                                      workspace.branch
+                                                                    }
+                                                                    isDefault={
+                                                                      workspace.isDefault
+                                                                    }
+                                                                    isActive={
+                                                                      isActive
+                                                                    }
+                                                                    compact={
+                                                                      false
+                                                                    }
+                                                                    showBranchContext={
+                                                                      false
+                                                                    }
+                                                                    onRename={({
+                                                                      workspaceId,
+                                                                      name,
+                                                                    }) =>
+                                                                      renameWorkspace(
+                                                                        {
+                                                                          projectPath:
+                                                                            project.projectPath,
+                                                                          workspaceId,
+                                                                          name,
+                                                                        },
+                                                                      )
+                                                                    }
+                                                                  />
                                                                   <WorkspaceExpandedMeta
                                                                     workspaceId={
                                                                       workspace.id
@@ -1702,20 +1945,40 @@ export function ProjectWorkspaceSidebar(args: {
                                                                   />
                                                                 </span>
                                                               ) : (
-                                                                <span
-                                                                  className={cn(
-                                                                    "min-w-0 flex-1 truncate",
-                                                                    isActive &&
-                                                                      "font-medium text-foreground",
-                                                                  )}
-                                                                >
-                                                                  {formatWorkspaceName(
-                                                                    workspace.name,
-                                                                    workspace.branch,
-                                                                  )}
-                                                                </span>
+                                                                <InlineWorkspaceLabel
+                                                                  workspaceId={
+                                                                    workspace.id
+                                                                  }
+                                                                  workspaceName={
+                                                                    workspace.name
+                                                                  }
+                                                                  branch={
+                                                                    workspace.branch
+                                                                  }
+                                                                  isDefault={
+                                                                    workspace.isDefault
+                                                                  }
+                                                                  isActive={
+                                                                    isActive
+                                                                  }
+                                                                  compact
+                                                                  showBranchContext
+                                                                  onRename={({
+                                                                    workspaceId,
+                                                                    name,
+                                                                  }) =>
+                                                                    renameWorkspace(
+                                                                      {
+                                                                        projectPath:
+                                                                          project.projectPath,
+                                                                        workspaceId,
+                                                                        name,
+                                                                      },
+                                                                    )
+                                                                  }
+                                                                />
                                                               )}
-                                                            </button>
+                                                            </div>
                                                           </WorkspaceHoverPreviewTooltip>
                                                           {isExpandedWorkspaceItem ? (
                                                             <WorkspaceRowActions
@@ -1724,6 +1987,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                               }
                                                               workspaceName={
                                                                 workspace.name
+                                                              }
+                                                              isDefault={
+                                                                workspace.isDefault
                                                               }
                                                               branch={
                                                                 workspaceBranchById[
@@ -1754,6 +2020,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                                   },
                                                                 )
                                                               }
+                                                              onRename={
+                                                                renameWorkspace
+                                                              }
                                                               shortcutLabel={
                                                                 undefined
                                                               }
@@ -1783,6 +2052,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                                 workspaceName={
                                                                   workspace.name
                                                                 }
+                                                                isDefault={
+                                                                  workspace.isDefault
+                                                                }
                                                                 branch={
                                                                   workspaceBranchById[
                                                                     workspace.id
@@ -1811,6 +2083,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                                       name: workspace.name,
                                                                     },
                                                                   )
+                                                                }
+                                                                onRename={
+                                                                  renameWorkspace
                                                                 }
                                                                 shortcutLabel={
                                                                   workspaceShortcutLabel

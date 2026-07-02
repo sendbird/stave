@@ -1454,6 +1454,7 @@ interface AppState {
   }) => void;
   createWorkspace: (args: {
     name: string;
+    label?: string;
     mode: "branch" | "clean";
     fromBranch?: string;
     fromBranchKind?: "local" | "remote";
@@ -1475,6 +1476,11 @@ interface AppState {
   }>;
   closeWorkspace: (args: { workspaceId: string }) => Promise<void>;
   switchWorkspace: (args: { workspaceId: string }) => Promise<void>;
+  renameWorkspace: (args: {
+    projectPath?: string;
+    workspaceId: string;
+    name: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   moveWorkspaceInProjectList: (args: {
     projectPath: string;
     workspaceId: string;
@@ -6063,6 +6069,7 @@ export const useAppStore = create<AppState>()(
         },
         createWorkspace: async ({
           name,
+          label,
           mode,
           fromBranch,
           fromBranchKind,
@@ -6090,6 +6097,7 @@ export const useAppStore = create<AppState>()(
           if (!branchName) {
             return { ok: false, message: "Workspace branch name is invalid." };
           }
+          const workspaceDisplayName = label?.trim() || branchName;
           const projectWorkspaceInitCommand =
             resolveProjectWorkspaceInitCommand({
               projectPath: current.projectPath,
@@ -6231,7 +6239,7 @@ export const useAppStore = create<AppState>()(
           });
           await persistWorkspaceSnapshot({
             workspaceId,
-            workspaceName: branchName,
+            workspaceName: workspaceDisplayName,
             activeTaskId: snapshot.activeTaskId,
             tasks: snapshot.tasks,
             messagesByTask: snapshot.messagesByTask,
@@ -6255,7 +6263,7 @@ export const useAppStore = create<AppState>()(
           try {
             await workspaceFsAdapter.setRoot?.({
               rootPath: workspacePath,
-              rootName: branchName,
+              rootName: workspaceDisplayName,
             });
           } catch {
             // Worktree may be created successfully before filesystem bridge catches up.
@@ -6346,7 +6354,7 @@ export const useAppStore = create<AppState>()(
                   ...state.workspaces,
                   {
                     id: workspaceId,
-                    name: branchName,
+                    name: workspaceDisplayName,
                     updatedAt: new Date().toISOString(),
                   },
                 ];
@@ -7110,6 +7118,122 @@ export const useAppStore = create<AppState>()(
               ),
             };
           });
+        },
+        renameWorkspace: async ({ projectPath, workspaceId, name }) => {
+          const normalizedWorkspaceId = workspaceId.trim();
+          const normalizedName = name.trim();
+          if (!normalizedWorkspaceId) {
+            return { ok: false, message: "Workspace is required." };
+          }
+          if (!normalizedName) {
+            return { ok: false, message: "Label is required." };
+          }
+
+          const stateBefore = get();
+          const normalizedProjectPath =
+            projectPath?.trim() || stateBefore.projectPath?.trim() || "";
+          const targetProject =
+            normalizedProjectPath &&
+            normalizedProjectPath !== stateBefore.projectPath
+              ? (stateBefore.recentProjects.find(
+                  (project) => project.projectPath === normalizedProjectPath,
+                ) ?? null)
+              : null;
+          const targetWorkspace =
+            stateBefore.workspaces.find(
+              (workspace) => workspace.id === normalizedWorkspaceId,
+            ) ??
+            targetProject?.workspaces.find(
+              (workspace) => workspace.id === normalizedWorkspaceId,
+            ) ??
+            null;
+          const isDefaultWorkspace =
+            stateBefore.workspaceDefaultById[normalizedWorkspaceId] === true ||
+            targetProject?.workspaceDefaultById[normalizedWorkspaceId] === true;
+
+          if (!targetWorkspace) {
+            return { ok: false, message: "Workspace not found." };
+          }
+          if (isDefaultWorkspace) {
+            return {
+              ok: false,
+              message: "Default workspace labels cannot be changed.",
+            };
+          }
+          if (targetWorkspace.name === normalizedName) {
+            return { ok: true };
+          }
+
+          set((state) => {
+            const isCurrentProject =
+              !normalizedProjectPath ||
+              normalizedProjectPath === state.projectPath;
+            const nextWorkspaces = isCurrentProject
+              ? state.workspaces.map((workspace) =>
+                  workspace.id === normalizedWorkspaceId
+                    ? { ...workspace, name: normalizedName }
+                    : workspace,
+                )
+              : state.workspaces;
+            const currentProjects = captureCurrentProjectState({
+              recentProjects: state.recentProjects,
+              projectPath: state.projectPath,
+              projectName: state.projectName,
+              defaultBranch: state.defaultBranch,
+              workspaces: nextWorkspaces,
+              activeWorkspaceId: state.activeWorkspaceId,
+              workspaceBranchById: state.workspaceBranchById,
+              workspacePathById: state.workspacePathById,
+              workspaceDefaultById: state.workspaceDefaultById,
+            });
+            const nextRecentProjects = currentProjects.map((project) => {
+              if (project.projectPath !== normalizedProjectPath) {
+                return cloneRecentProjectState(project);
+              }
+              return {
+                ...cloneRecentProjectState(project),
+                workspaces: project.workspaces.map((workspace) =>
+                  workspace.id === normalizedWorkspaceId
+                    ? { ...workspace, name: normalizedName }
+                    : workspace,
+                ),
+              };
+            });
+
+            return {
+              workspaces: nextWorkspaces,
+              recentProjects: nextRecentProjects,
+            };
+          });
+
+          const snapshot = await loadWorkspaceSnapshot({
+            workspaceId: normalizedWorkspaceId,
+          });
+          if (snapshot) {
+            await persistWorkspaceSnapshot({
+              workspaceId: normalizedWorkspaceId,
+              workspaceName: normalizedName,
+              activeTaskId: snapshot.activeTaskId,
+              tasks: snapshot.tasks,
+              messagesByTask: snapshot.messagesByTask,
+              promptDraftByTask: snapshot.promptDraftByTask,
+              workspaceInformation: snapshot.workspaceInformation,
+              editorTabs: snapshot.editorTabs ?? [],
+              activeEditorTabId: snapshot.activeEditorTabId ?? null,
+              terminalTabs: snapshot.terminalTabs ?? [],
+              activeTerminalTabId: snapshot.activeTerminalTabId ?? null,
+              terminalDocked: snapshot.terminalDocked ?? false,
+              cliSessionTabs: snapshot.cliSessionTabs ?? [],
+              activeCliSessionTabId: snapshot.activeCliSessionTabId ?? null,
+              activeSurface: snapshot.activeSurface ?? {
+                kind: "task",
+                taskId: snapshot.activeTaskId,
+              },
+              providerSessionByTask: snapshot.providerSessionByTask,
+            });
+          }
+          await get().flushProjectRegistry();
+          return { ok: true };
         },
         setProjectWorkspaceInitCommand: ({ projectPath, command }) => {
           set((state) => {

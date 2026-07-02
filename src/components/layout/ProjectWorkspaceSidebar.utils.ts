@@ -101,6 +101,79 @@ export function buildWorkspaceHoverPreview(args: {
   };
 }
 
+export function formatWorkspaceDisplayName(args: {
+  name: string;
+  branch?: string;
+  isDefault: boolean;
+}) {
+  if (args.isDefault) {
+    return "Default";
+  }
+
+  const name = args.name.trim();
+  const branch = args.branch?.trim() ?? "";
+  if (!name) {
+    return branch || "worktree";
+  }
+  if (branch && name !== branch) {
+    return `${name} (${branch})`;
+  }
+  return name;
+}
+
+function normalizeWorkspaceSearchText(value: string) {
+  return value.trim().toLowerCase();
+}
+
+export function workspaceMatchesSidebarSearch(args: {
+  workspace: ProjectSidebarWorkspaceView;
+  projectName: string;
+  query: string;
+}) {
+  const query = normalizeWorkspaceSearchText(args.query);
+  if (!query) {
+    return true;
+  }
+
+  const searchable = [
+    args.projectName,
+    args.workspace.name,
+    args.workspace.branch ?? "",
+    formatWorkspaceDisplayName({
+      name: args.workspace.name,
+      branch: args.workspace.branch,
+      isDefault: args.workspace.isDefault,
+    }),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return searchable.includes(query);
+}
+
+export function filterProjectSidebarProjects(args: {
+  projects: ProjectSidebarCollapsedProjectView[];
+  query: string;
+}) {
+  const query = normalizeWorkspaceSearchText(args.query);
+  if (!query) {
+    return args.projects;
+  }
+
+  return args.projects
+    .map((project) => ({
+      ...project,
+      workspaces: project.workspaces.filter((workspace) =>
+        workspaceMatchesSidebarSearch({
+          workspace,
+          projectName: project.projectName,
+          query,
+        }),
+      ),
+    }))
+    .filter((project) => project.workspaces.length > 0);
+}
+
 export function buildCollapsedWorkspaceEntries(args: {
   projects: ProjectSidebarCollapsedProjectView[];
   activeWorkspaceId: string;
