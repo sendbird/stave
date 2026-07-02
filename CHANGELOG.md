@@ -1,4 +1,4 @@
-## [0.8.4](https://github.com/sendbird/stave/compare/v0.8.3...v0.8.4) (2026-07-02)
+## [0.8.5](https://github.com/sendbird/stave/compare/v0.8.3...v0.8.5) (2026-07-02)
 
 ### Features
 
@@ -6,9 +6,14 @@
 * Add Information autocomplete via `@`, with support for section/item references included in provider context.
 * Support chip stability across multiple insertions, Enter/Tab chip selection, Backspace chip deletion, and updated placeholder hint (`@ for Information`).
 
+### Fixes
+
+* Remove the accidental `packageManager` field that pinned the project to Yarn so the release build again follows the Bun dependency traversal path used by electron-builder.
+
 ### References
 
-* [#104](https://github.com/sendbird/stave/pull/104)
+* [#104](https://github.com/sendbird/stave/pull/104), [#107](https://github.com/sendbird/stave/pull/107)
+
 # Changelog
 
 All notable changes to Stave are documented in this file.
