@@ -35,6 +35,7 @@ export type CommandPaletteGroup =
   | "navigation"
   | "view"
   | "task"
+  | "scripts"
   | "provider"
   | "settings"
   | "external";
@@ -48,6 +49,7 @@ export const COMMAND_PALETTE_GROUP_LABELS: Record<
   navigation: "Navigation",
   view: "View",
   task: "Task",
+  scripts: "Scripts",
   provider: "Provider",
   settings: "Settings",
   external: "External",
@@ -57,6 +59,7 @@ const COMMAND_PALETTE_GROUP_ORDER: CommandPaletteGroup[] = [
   "navigation",
   "view",
   "task",
+  "scripts",
   "provider",
   "settings",
   "external",
@@ -156,6 +159,9 @@ export interface CommandPaletteRuntimeContext {
   preferences: CommandPalettePreferences;
   projectPath: string | null;
   projects: CommandPaletteProjectSummary[];
+  /** Bumped when the active workspace's scripts runtime snapshot changes, so
+   * memoized consumers re-run the scripts contributor. */
+  scriptsRevision?: number;
   tasks: CommandPaletteTaskSummary[];
   workspacePath: string | null;
   workspaces: CommandPaletteWorkspaceSummary[];

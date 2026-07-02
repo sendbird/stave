@@ -1,7 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, ExternalLink, Globe, LoaderCircle, Play, RefreshCcw, Settings2, Sparkles, Square, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  Globe,
+  LoaderCircle,
+  Play,
+  RefreshCcw,
+  Settings2,
+  Sparkles,
+  Square,
+  Zap,
+} from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   Badge,
   Button,
   Empty,
@@ -11,31 +28,57 @@ import {
   EmptyTitle,
   toast,
 } from "@/components/ui";
+import { ScriptLogView } from "@/components/scripts";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { isTaskArchived } from "@/lib/tasks";
-import { SCRIPT_TRIGGER_METADATA } from "@/lib/workspace-scripts";
+import {
+  clearScriptLog,
+  formatScriptDuration,
+  formatScriptRelativeTime,
+  refreshScriptsRuntime,
+  runScriptEntry,
+  runScriptHook,
+  scriptEntryKey,
+  stopAllScripts,
+  stopScriptEntry,
+  useWorkspaceScriptsRuntime,
+  SCRIPT_TRIGGER_METADATA,
+  type ScriptEntryOrigin,
+  type ScriptUiState,
+} from "@/lib/workspace-scripts";
 import type {
   ScriptKind,
   ScriptTrigger,
   ResolvedWorkspaceScriptsConfig,
-  WorkspaceScriptStatusEntry,
 } from "@/lib/workspace-scripts/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
-import {
-  openOrbitUrlWithLensPriority,
-  buildScriptRunFailureState,
-  type ScriptUiState,
-  reduceScriptUiState,
-} from "./workspace-scripts-panel.utils";
+import { openOrbitUrlWithLensPriority } from "./workspace-scripts-panel.utils";
 
-function scriptKey(args: { scriptId: string; scriptKind: ScriptKind }) {
-  return `${args.scriptKind}:${args.scriptId}`;
-}
+const SCRIPTS_ACCORDION_STORAGE_KEY = "stave:workspace-scripts-open-sections:v1";
+const SCRIPT_SECTION_IDS = ["services", "actions", "hooks"] as const;
+type ScriptSectionId = (typeof SCRIPT_SECTION_IDS)[number];
 
-function scriptEntryKey(args: { id: string; kind: ScriptKind }) {
-  return `${args.kind}:${args.id}`;
+function readStoredSections(): ScriptSectionId[] {
+  if (typeof window === "undefined") {
+    return [...SCRIPT_SECTION_IDS];
+  }
+  try {
+    const raw = window.localStorage.getItem(SCRIPTS_ACCORDION_STORAGE_KEY);
+    if (!raw) {
+      return [...SCRIPT_SECTION_IDS];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [...SCRIPT_SECTION_IDS];
+    }
+    return parsed.filter((value): value is ScriptSectionId =>
+      SCRIPT_SECTION_IDS.includes(value as ScriptSectionId),
+    );
+  } catch {
+    return [...SCRIPT_SECTION_IDS];
+  }
 }
 
 function openExternalUrl(url: string) {
@@ -47,6 +90,36 @@ function isLargeViewportNow() {
     return true;
   }
   return window.matchMedia("(min-width: 1024px)").matches;
+}
+
+/* ---------- Live duration (ticks only while running) ---------- */
+function LiveDuration(props: { startedAt: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, []);
+  const label = formatScriptDuration(Math.max(0, now - props.startedAt));
+  return label ? <span className="tabular-nums">{label}</span> : null;
+}
+
+/* ---------- Origin badges ---------- */
+function OriginBadges(props: { origin?: ScriptEntryOrigin }) {
+  if (!props.origin) {
+    return null;
+  }
+  return (
+    <>
+      <Badge variant="outline" className="rounded-sm px-1.5 py-0 text-[10px] font-normal">
+        {props.origin.tier === "workspace" ? "Workspace" : "Project"}
+      </Badge>
+      {props.origin.localOverride ? (
+        <Badge variant="secondary" className="rounded-sm px-1.5 py-0 text-[10px] font-normal">
+          Local
+        </Badge>
+      ) : null}
+    </>
+  );
 }
 
 /* ---------- Orbit URL pill ---------- */
@@ -76,39 +149,37 @@ function OrbitUrlBadge(props: {
   );
 }
 
-/* ---------- Terminal log block ---------- */
-function TerminalLogBlock(props: { log: string }) {
-  const logRef = useRef<HTMLPreElement>(null);
-
-  useEffect(() => {
-    const el = logRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [props.log]);
-
-  return (
-    <pre
-      ref={logRef}
-      className="mt-2.5 max-h-44 overflow-auto rounded-md border border-border/50 bg-neutral-950 px-3 py-2 font-mono text-[11px] leading-[1.6] text-neutral-300 whitespace-pre-wrap dark:border-neutral-800 dark:bg-neutral-950/80"
-    >
-      {props.log}
-    </pre>
-  );
-}
-
-/* ---------- Section header ---------- */
-function SectionHeader(props: {
+/* ---------- Accordion section ---------- */
+function ScriptSection(props: {
+  value: ScriptSectionId;
   title: string;
   count: number;
+  first?: boolean;
+  children: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 pt-1">
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{props.title}</h3>
-      <Badge variant="outline" className="rounded-full px-1.5 py-0 text-[10px]">
-        {props.count}
-      </Badge>
-    </div>
+    <AccordionItem
+      value={props.value}
+      className={cn("border-b border-border/50", props.first && "border-t-0")}
+    >
+      <AccordionTrigger className="group/accordion-trigger gap-2 py-2.5 pr-1 hover:no-underline [&>svg[data-slot=accordion-trigger-icon]]:hidden">
+        <div className="flex items-center gap-2 text-left">
+          <span className="relative flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+            <ChevronRight className="size-4 transition-transform group-aria-expanded/accordion-trigger:hidden" />
+            <ChevronDown className="hidden size-4 group-aria-expanded/accordion-trigger:block" />
+          </span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {props.title}
+          </span>
+          <Badge variant="outline" className="rounded-full px-1.5 py-0 text-[10px]">
+            {props.count}
+          </Badge>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className="space-y-2 pb-3 pt-0">
+        {props.children}
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -121,7 +192,7 @@ function HookRow(props: {
 }) {
   const triggerMeta = SCRIPT_TRIGGER_METADATA[props.trigger];
   return (
-    <div className="group flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5 transition-colors hover:bg-muted/20">
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5 transition-colors hover:bg-muted/20">
       <div className="min-w-0 space-y-1">
         <p className="text-sm font-medium text-foreground">{triggerMeta.label}</p>
         <p className="text-xs text-muted-foreground">{triggerMeta.description}</p>
@@ -140,7 +211,7 @@ function HookRow(props: {
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 rounded-md px-2 opacity-0 transition-opacity group-hover:opacity-100"
+        className="h-7 rounded-md px-2"
         onClick={() => void props.onRun(props.trigger)}
         disabled={props.running}
       >
@@ -160,13 +231,16 @@ function ScriptEntryRow(props: {
   targetLabel: string;
   orbitEnabled: boolean;
   state: ScriptUiState | undefined;
+  origin?: ScriptEntryOrigin;
   lensAvailable: boolean;
   onOpenOrbitUrlInLens: (url: string) => Promise<void>;
-  onRun: (args: { scriptId: string; scriptKind: ScriptKind }) => Promise<void>;
-  onStop: (args: { scriptId: string; scriptKind: ScriptKind }) => Promise<void>;
+  onRun: (args: { scriptId: string; scriptKind: ScriptKind }) => void;
+  onStop: (args: { scriptId: string; scriptKind: ScriptKind }) => void;
+  onClearLog: (args: { scriptId: string; scriptKind: ScriptKind }) => void;
 }) {
   const state = props.state;
   const isRunning = state?.running ?? false;
+  const isFinished = !isRunning && state?.endedAt !== undefined;
 
   return (
     <div className={cn(
@@ -187,10 +261,31 @@ function ScriptEntryRow(props: {
                 Orbit
               </Badge>
             ) : null}
+            <OriginBadges origin={props.origin} />
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px]">
             {isRunning ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary">
+              <span className="inline-flex items-center gap-1 font-medium text-primary">
                 <span className="size-1.5 animate-pulse rounded-full bg-primary" />
                 Running
+                {state?.startedAt !== undefined ? (
+                  <>
+                    <span className="text-muted-foreground/60">·</span>
+                    <span className="text-muted-foreground"><LiveDuration startedAt={state.startedAt} /></span>
+                  </>
+                ) : null}
+              </span>
+            ) : isFinished ? (
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <span className={cn("font-medium", (state?.exitCode ?? 0) === 0 ? "text-success" : "text-destructive")}>
+                  {state?.exitCode !== undefined ? `Exit ${state.exitCode}` : "Done"}
+                </span>
+                {state?.endedAt !== undefined ? (
+                  <>
+                    <span className="text-muted-foreground/60">·</span>
+                    <span>{formatScriptRelativeTime(state.endedAt)}</span>
+                  </>
+                ) : null}
               </span>
             ) : null}
           </div>
@@ -235,7 +330,7 @@ function ScriptEntryRow(props: {
             size="sm"
             className="h-7 rounded-md px-2.5"
             variant={isRunning ? "outline" : "default"}
-            onClick={() => void (isRunning
+            onClick={() => (isRunning
               ? props.onStop({ scriptId: props.scriptId, scriptKind: props.scriptKind })
               : props.onRun({ scriptId: props.scriptId, scriptKind: props.scriptKind }))}
           >
@@ -244,12 +339,15 @@ function ScriptEntryRow(props: {
           </Button>
         </div>
       </div>
-      {state?.error ? (
-        <div className="mt-2.5 rounded-md border border-destructive/30 bg-destructive/8 px-2.5 py-2 text-xs text-destructive">
-          {state.error}
-        </div>
-      ) : null}
-      {state?.log ? <TerminalLogBlock log={state.log} /> : null}
+      <ScriptLogView
+        log={state?.log ?? ""}
+        running={isRunning}
+        error={state?.error}
+        exitCode={state?.exitCode}
+        startedAt={state?.startedAt}
+        endedAt={state?.endedAt}
+        onClear={() => props.onClearLog({ scriptId: props.scriptId, scriptKind: props.scriptKind })}
+      />
     </div>
   );
 }
@@ -285,6 +383,19 @@ export function WorkspaceScriptsPanel(props: {
     state.setLayout,
   ] as const));
 
+  const [openSections, setOpenSections] = useState<ScriptSectionId[]>(() => readStoredSections());
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem(SCRIPTS_ACCORDION_STORAGE_KEY, JSON.stringify(openSections));
+    } catch {
+      // Ignore localStorage write failures for this UI preference.
+    }
+  }, [openSections]);
+
   const workspaceName = useMemo(
     () => (workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ?? workspaceBranch) || "workspace",
     [activeWorkspaceId, workspaceBranch, workspaces],
@@ -295,143 +406,39 @@ export function WorkspaceScriptsPanel(props: {
   );
   const activeTurnId = activeTaskId ? activeTurnIdsByTask[activeTaskId] : undefined;
 
-  const [configState, setConfigState] = useState<{
-    status: "idle" | "loading" | "ready" | "error";
-    config: ResolvedWorkspaceScriptsConfig | null;
-    error: string;
-  }>({
-    status: "idle",
-    config: null,
-    error: "",
-  });
-  const [entryStateByKey, setEntryStateByKey] = useState<Record<string, ScriptUiState>>({});
-  const [runningHooks, setRunningHooks] = useState<Record<string, boolean>>({});
+  const runtime = useWorkspaceScriptsRuntime(
+    activeWorkspaceId && projectPath && workspacePath
+      ? {
+          workspaceId: activeWorkspaceId,
+          projectPath,
+          workspacePath,
+          workspaceName,
+          branch: workspaceBranch || workspaceName,
+        }
+      : null,
+  );
 
-  const loadConfig = useCallback(async () => {
-    if (!projectPath || !workspacePath) {
-      setConfigState({ status: "idle", config: null, error: "" });
-      setEntryStateByKey({});
+  const runEntry = useCallback((args: { scriptId: string; scriptKind: ScriptKind }) => {
+    if (!activeWorkspaceId) {
+      toast.error("Scripts bridge unavailable");
       return;
     }
-
-    const api = window.api?.scripts;
-    if (!api?.getConfig || !api.getStatus) {
-      setConfigState({
-        status: "error",
-        config: null,
-        error: "Scripts bridge unavailable.",
-      });
-      return;
-    }
-
-    setConfigState((current) => ({ ...current, status: "loading", error: "" }));
-    const [configResult, statusResult] = await Promise.all([
-      api.getConfig({ projectPath, workspacePath }),
-      activeWorkspaceId ? api.getStatus({ workspaceId: activeWorkspaceId }) : Promise.resolve({ ok: true, statuses: [] as WorkspaceScriptStatusEntry[] }),
-    ]);
-
-    if (!configResult.ok) {
-      setConfigState({
-        status: "error",
-        config: null,
-        error: configResult.error ?? "Failed to load scripts.",
-      });
-      return;
-    }
-
-    const nextStateByKey: Record<string, ScriptUiState> = {};
-    if (statusResult.ok) {
-      statusResult.statuses.forEach((status) => {
-        nextStateByKey[scriptKey(status)] = {
-          running: status.running,
-          runId: status.runId,
-          sessionId: status.sessionId,
-          log: status.log,
-          error: status.error,
-          orbitUrl: status.orbitUrl,
-          sourceLabel: status.source?.kind === "hook" ? `Hook · ${SCRIPT_TRIGGER_METADATA[status.source.trigger].label}` : "Manual",
-        };
-      });
-    }
-
-    setEntryStateByKey(nextStateByKey);
-    setConfigState({
-      status: "ready",
-      config: configResult.config,
-      error: "",
-    });
-  }, [activeWorkspaceId, projectPath, workspacePath]);
-
-  useEffect(() => {
-    void loadConfig();
-  }, [loadConfig]);
-
-  useEffect(() => {
-    const subscribeEvents = window.api?.scripts?.subscribeEvents;
-    if (!subscribeEvents || !activeWorkspaceId) {
-      return undefined;
-    }
-
-    return subscribeEvents({ workspaceId: activeWorkspaceId }, (payload) => {
-      const key = scriptKey(payload);
-      setEntryStateByKey((current) => {
-        return {
-          ...current,
-          [key]: reduceScriptUiState(current[key], payload),
-        };
-      });
-    });
+    void runScriptEntry({ workspaceId: activeWorkspaceId, ...args });
   }, [activeWorkspaceId]);
 
-  const runEntry = useCallback(async (args: { scriptId: string; scriptKind: ScriptKind }) => {
-    const api = window.api?.scripts?.runEntry;
-    if (!api || !activeWorkspaceId || !projectPath || !workspacePath) {
+  const stopEntry = useCallback((args: { scriptId: string; scriptKind: ScriptKind }) => {
+    if (!activeWorkspaceId) {
       toast.error("Scripts bridge unavailable");
       return;
     }
-    const result = await api({
-      workspaceId: activeWorkspaceId,
-      scriptId: args.scriptId,
-      scriptKind: args.scriptKind,
-      projectPath,
-      workspacePath,
-      workspaceName,
-      branch: workspaceBranch || workspaceName,
-    });
-    if (!result.ok) {
-      setEntryStateByKey((current) => ({
-        ...current,
-        [scriptKey(args)]: buildScriptRunFailureState({
-          existing: current[scriptKey(args)],
-          error: result.error ?? "Unknown error",
-        }),
-      }));
-      toast.error("Script failed to start", {
-        description: result.error ?? "Unknown error",
-      });
-      return;
-    }
-    if (result.alreadyRunning) {
-      toast.message("Service already running");
-    }
-  }, [activeWorkspaceId, projectPath, workspaceBranch, workspaceName, workspacePath]);
+    void stopScriptEntry({ workspaceId: activeWorkspaceId, ...args });
+  }, [activeWorkspaceId]);
 
-  const stopEntry = useCallback(async (args: { scriptId: string; scriptKind: ScriptKind }) => {
-    const api = window.api?.scripts?.stopEntry;
-    if (!api || !activeWorkspaceId) {
-      toast.error("Scripts bridge unavailable");
+  const clearLog = useCallback((args: { scriptId: string; scriptKind: ScriptKind }) => {
+    if (!activeWorkspaceId) {
       return;
     }
-    const result = await api({
-      workspaceId: activeWorkspaceId,
-      scriptId: args.scriptId,
-      scriptKind: args.scriptKind,
-    });
-    if (!result.ok) {
-      toast.error("Failed to stop script", {
-        description: result.error ?? "Unknown error",
-      });
-    }
+    clearScriptLog({ workspaceId: activeWorkspaceId, ...args });
   }, [activeWorkspaceId]);
 
   const openOrbitUrlInLens = useCallback(async (url: string) => {
@@ -454,40 +461,34 @@ export function WorkspaceScriptsPanel(props: {
   }, [activeWorkspaceId, lensSessionScope, projectPath, setLayout]);
 
   const runHook = useCallback(async (trigger: ScriptTrigger) => {
-    const api = window.api?.scripts?.runHook;
-    if (!api || !activeWorkspaceId || !projectPath || !workspacePath) {
+    if (!activeWorkspaceId) {
       toast.error("Scripts bridge unavailable");
       return;
     }
-    const triggerMeta = SCRIPT_TRIGGER_METADATA[trigger];
-    setRunningHooks((current) => ({ ...current, [trigger]: true }));
-    try {
-      const result = await api({
-        workspaceId: activeWorkspaceId,
-        trigger,
-        projectPath,
-        workspacePath,
-        workspaceName,
-        branch: workspaceBranch || workspaceName,
+    await runScriptHook({
+      workspaceId: activeWorkspaceId,
+      trigger,
+      context: {
         ...(activeTask?.id ? { taskId: activeTask.id } : {}),
         ...(activeTask?.title ? { taskTitle: activeTask.title } : {}),
         ...(activeTurnId ? { turnId: activeTurnId } : {}),
-      });
-      if (!result.ok) {
-        toast.error("Hook execution failed", {
-          description: result.error ?? result.summary?.failures[0]?.message ?? "Unknown error",
-        });
-        return;
-      }
-      toast.success("Hook executed", {
-        description: `${result.summary?.executedEntries ?? 0} script(s) ran for ${triggerMeta.label}.`,
-      });
-    } finally {
-      setRunningHooks((current) => ({ ...current, [trigger]: false }));
-    }
-  }, [activeTask, activeTurnId, activeWorkspaceId, projectPath, workspaceBranch, workspaceName, workspacePath]);
+      },
+    });
+  }, [activeTask, activeTurnId, activeWorkspaceId]);
 
-  const config = configState.config;
+  const refresh = useCallback(() => {
+    if (activeWorkspaceId) {
+      void refreshScriptsRuntime(activeWorkspaceId);
+    }
+  }, [activeWorkspaceId]);
+
+  const stopAll = useCallback(() => {
+    if (activeWorkspaceId) {
+      void stopAllScripts(activeWorkspaceId);
+    }
+  }, [activeWorkspaceId]);
+
+  const config = runtime.config;
   const hookEntries = config
     ? Object.entries(config.hooks) as Array<[ScriptTrigger, NonNullable<ResolvedWorkspaceScriptsConfig["hooks"][ScriptTrigger]>]>
     : [];
@@ -495,17 +496,31 @@ export function WorkspaceScriptsPanel(props: {
   const serviceCount = config?.services.length ?? 0;
   const hookCount = hookEntries.length;
   const hasScripts = actionCount > 0 || serviceCount > 0 || hookCount > 0;
-  const hasWorkspaceOverride = Boolean(projectPath && workspacePath && workspacePath !== projectPath);
+  const runningCount = useMemo(
+    () => Object.values(runtime.entries).filter((entry) => entry.running).length,
+    [runtime.entries],
+  );
   const lensAvailable =
     typeof window !== "undefined" &&
     Boolean(window.api?.lens?.createView && window.api?.lens?.navigate);
 
+  const scopeSummary = runtime.origins.activeTier === "workspace"
+    ? "Workspace scripts"
+    : runtime.origins.activeTier === "project"
+      ? "Project scripts"
+      : "Scripts config";
+
   const openScriptSettings = useCallback(() => {
     props.onOpenSettings?.({
-      section: "projects",
+      section: "scripts",
       projectPath: projectPath ?? null,
     });
   }, [projectPath, props.onOpenSettings]);
+
+  const originFor = useCallback(
+    (kind: ScriptKind, id: string) => runtime.origins.originByKey[scriptEntryKey(kind, id)],
+    [runtime.origins],
+  );
 
   if (!workspacePath) {
     return (
@@ -522,57 +537,63 @@ export function WorkspaceScriptsPanel(props: {
   }
 
   return (
-    <div className="h-full overflow-auto px-3 py-2">
-      <div className="space-y-4">
-        {/* ── Header bar ── */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-foreground">Scripts</h2>
-            {hasWorkspaceOverride ? (
-              <Badge variant="secondary" className="rounded-sm px-1.5 py-0 text-[10px]">
-                Override
-              </Badge>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1.5">
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* ── Toolbar ── */}
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+        <p className="min-w-0 truncate text-xs text-muted-foreground">{scopeSummary}</p>
+        <div className="flex items-center gap-1.5">
+          {runningCount > 0 ? (
             <Button
               type="button"
-              size="icon"
+              size="sm"
               variant="ghost"
-              className="size-7 rounded-md"
-              onClick={openScriptSettings}
-              disabled={!projectPath}
-              title="Edit Config"
+              className="h-7 rounded-md px-2 text-destructive hover:text-destructive"
+              onClick={stopAll}
+              title="Stop all running scripts"
             >
-              <Settings2 className="size-3.5" />
+              <Square className="mr-1 size-3.5" />
+              Stop all
             </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="size-7 rounded-md"
-              onClick={() => void loadConfig()}
-              disabled={configState.status === "loading"}
-              title="Refresh"
-            >
-              <RefreshCcw className={cn("size-3.5", configState.status === "loading" && "animate-spin")} />
-            </Button>
-          </div>
+          ) : null}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-7 rounded-md"
+            onClick={refresh}
+            disabled={runtime.configStatus === "loading"}
+            title="Refresh"
+          >
+            <RefreshCcw className={cn("size-3.5", runtime.configStatus === "loading" && "animate-spin")} />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-7 rounded-md"
+            onClick={openScriptSettings}
+            disabled={!projectPath}
+            title="Open Scripts settings"
+          >
+            <Settings2 className="size-3.5" />
+          </Button>
         </div>
+      </div>
 
-        {configState.error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs text-destructive">
-            {configState.error}
+      <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
+        {runtime.configError ? (
+          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs text-destructive">
+            {runtime.configError}
           </div>
         ) : null}
 
-        {configState.status === "loading" ? (
+        {runtime.configStatus === "loading" && !config ? (
           <div className="px-1 py-4 text-xs text-muted-foreground">
             Loading scripts config…
           </div>
         ) : null}
 
-        {configState.status === "ready" && config && !hasScripts ? (
+        {runtime.configStatus === "ready" && config && !hasScripts ? (
           <Empty className="border border-dashed border-border/70 bg-muted/15">
             <EmptyHeader>
               <EmptyMedia>
@@ -590,71 +611,82 @@ export function WorkspaceScriptsPanel(props: {
               disabled={!projectPath}
             >
               <Settings2 className="mr-1 size-4" />
-              Open Project Settings
+              Open Scripts Settings
             </Button>
           </Empty>
         ) : null}
 
-        {/* ── Services ── */}
-        {config?.services.length ? (
-          <div className="space-y-2">
-            <SectionHeader title="Services" count={config.services.length} />
-            {config.services.map((entry) => (
-              <ScriptEntryRow
-                key={scriptEntryKey(entry)}
-                scriptId={entry.id}
-                scriptKind={entry.kind}
-                label={entry.label}
-                description={entry.description}
-                targetLabel={entry.target.label}
-                orbitEnabled={Boolean(entry.orbit)}
-                state={entryStateByKey[scriptEntryKey(entry)]}
-                lensAvailable={lensAvailable}
-                onOpenOrbitUrlInLens={openOrbitUrlInLens}
-                onRun={runEntry}
-                onStop={stopEntry}
-              />
-            ))}
-          </div>
-        ) : null}
+        {config && hasScripts ? (
+          <Accordion
+            type="multiple"
+            value={openSections}
+            onValueChange={(value) => setOpenSections(value as ScriptSectionId[])}
+          >
+            {serviceCount > 0 ? (
+              <ScriptSection value="services" title="Services" count={serviceCount} first>
+                {config.services.map((entry) => (
+                  <ScriptEntryRow
+                    key={scriptEntryKey(entry.kind, entry.id)}
+                    scriptId={entry.id}
+                    scriptKind={entry.kind}
+                    label={entry.label}
+                    description={entry.description}
+                    targetLabel={entry.target.label}
+                    orbitEnabled={Boolean(entry.orbit)}
+                    state={runtime.entries[scriptEntryKey(entry.kind, entry.id)]}
+                    origin={originFor(entry.kind, entry.id)}
+                    lensAvailable={lensAvailable}
+                    onOpenOrbitUrlInLens={openOrbitUrlInLens}
+                    onRun={runEntry}
+                    onStop={stopEntry}
+                    onClearLog={clearLog}
+                  />
+                ))}
+              </ScriptSection>
+            ) : null}
 
-        {/* ── Actions ── */}
-        {config?.actions.length ? (
-          <div className="space-y-2">
-            <SectionHeader title="Actions" count={config.actions.length} />
-            {config.actions.map((entry) => (
-              <ScriptEntryRow
-                key={scriptEntryKey(entry)}
-                scriptId={entry.id}
-                scriptKind={entry.kind}
-                label={entry.label}
-                description={entry.description}
-                targetLabel={entry.target.label}
-                orbitEnabled={Boolean(entry.orbit)}
-                state={entryStateByKey[scriptEntryKey(entry)]}
-                lensAvailable={lensAvailable}
-                onOpenOrbitUrlInLens={openOrbitUrlInLens}
-                onRun={runEntry}
-                onStop={stopEntry}
-              />
-            ))}
-          </div>
-        ) : null}
+            {actionCount > 0 ? (
+              <ScriptSection value="actions" title="Actions" count={actionCount} first={serviceCount === 0}>
+                {config.actions.map((entry) => (
+                  <ScriptEntryRow
+                    key={scriptEntryKey(entry.kind, entry.id)}
+                    scriptId={entry.id}
+                    scriptKind={entry.kind}
+                    label={entry.label}
+                    description={entry.description}
+                    targetLabel={entry.target.label}
+                    orbitEnabled={Boolean(entry.orbit)}
+                    state={runtime.entries[scriptEntryKey(entry.kind, entry.id)]}
+                    origin={originFor(entry.kind, entry.id)}
+                    lensAvailable={lensAvailable}
+                    onOpenOrbitUrlInLens={openOrbitUrlInLens}
+                    onRun={runEntry}
+                    onStop={stopEntry}
+                    onClearLog={clearLog}
+                  />
+                ))}
+              </ScriptSection>
+            ) : null}
 
-        {/* ── Hooks ── */}
-        {hookEntries.length ? (
-          <div className="space-y-2">
-            <SectionHeader title="Hooks" count={hookEntries.length} />
-            {hookEntries.map(([trigger, refs]) => (
-              <HookRow
-                key={trigger}
-                trigger={trigger}
-                refs={refs}
-                onRun={runHook}
-                running={Boolean(runningHooks[trigger])}
-              />
-            ))}
-          </div>
+            {hookCount > 0 ? (
+              <ScriptSection
+                value="hooks"
+                title="Hooks"
+                count={hookCount}
+                first={serviceCount === 0 && actionCount === 0}
+              >
+                {hookEntries.map(([trigger, refs]) => (
+                  <HookRow
+                    key={trigger}
+                    trigger={trigger}
+                    refs={refs}
+                    onRun={runHook}
+                    running={Boolean(runtime.hookRunningByTrigger[trigger])}
+                  />
+                ))}
+              </ScriptSection>
+            ) : null}
+          </Accordion>
         ) : null}
       </div>
     </div>

@@ -135,7 +135,7 @@ import { CodexSection } from "./settings-dialog-codex-section";
 import { McpSection } from "./settings-dialog-mcp-section";
 import { ProvidersSection } from "./settings-dialog-providers-section";
 import { ToolingSection } from "./settings-dialog-tooling-section";
-import { WorkspaceScriptsManager } from "./WorkspaceScriptsManager";
+import { ScriptsSection } from "./settings-dialog-scripts-section";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
 import {
   ChoiceButtons,
@@ -246,6 +246,7 @@ function ProjectSettingsPanel(args: {
   project: RecentProjectState;
   isCurrent: boolean;
   onRequestRemove: (args: { projectPath: string; projectName: string }) => void;
+  onNavigateSection?: (id: SectionId) => void;
 }) {
   const setProjectBasePrompt = useAppStore(
     (state) => state.setProjectBasePrompt,
@@ -587,12 +588,41 @@ function ProjectSettingsPanel(args: {
         </div>
       </SettingsCard>
 
-      <WorkspaceScriptsManager
-        projectPath={args.project.projectPath}
-        workspacePath={scriptsWorkspacePath}
-        resolvedConfig={resolvedScriptsConfig}
-        onSaved={loadResolvedScriptsConfig}
-      />
+      <SettingsCard
+        title="Scripts"
+        description="Actions, services, hooks, and targets for this project's shared scripts config."
+        titleAccessory={
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => args.onNavigateSection?.("scripts")}
+          >
+            <Sparkles className="size-3.5" />
+            Open Scripts settings
+            <ChevronRight className="size-3.5" />
+          </Button>
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["Actions", resolvedScriptsConfig?.actions.length ?? 0],
+              ["Services", resolvedScriptsConfig?.services.length ?? 0],
+              ["Hooks", Object.keys(resolvedScriptsConfig?.hooks ?? {}).length],
+              ["Targets", Object.keys(resolvedScriptsConfig?.targets ?? {}).length],
+            ] as const
+          ).map(([label, count]) => (
+            <Badge key={label} variant="secondary" className="rounded-md px-2 py-0.5 text-xs font-normal">
+              {count} {label}
+            </Badge>
+          ))}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Edit and run scripts from the dedicated Scripts settings section.
+        </p>
+      </SettingsCard>
     </div>
   );
 }
@@ -601,6 +631,7 @@ function ProjectsSection(args: {
   currentProjectPath?: string | null;
   projects: RecentProjectState[];
   selectedProjectPath?: string | null;
+  onNavigateSection?: (id: SectionId) => void;
 }) {
   const removeProjectFromList = useAppStore(
     (state) => state.removeProjectFromList,
@@ -639,6 +670,7 @@ function ProjectsSection(args: {
                 selectedProject.projectPath === args.currentProjectPath
               }
               onRequestRemove={setProjectToRemove}
+              onNavigateSection={args.onNavigateSection}
             />
           ) : (
             <SettingsCard
@@ -3368,6 +3400,7 @@ export function SettingsDialogSectionContent(args: {
   currentProjectPath?: string | null;
   projects: RecentProjectState[];
   selectedProjectPath?: string | null;
+  onNavigateSection?: (id: SectionId) => void;
 }) {
   switch (args.sectionId) {
     case "general":
@@ -3375,6 +3408,15 @@ export function SettingsDialogSectionContent(args: {
     case "projects":
       return (
         <ProjectsSection
+          currentProjectPath={args.currentProjectPath}
+          projects={args.projects}
+          selectedProjectPath={args.selectedProjectPath}
+          onNavigateSection={args.onNavigateSection}
+        />
+      );
+    case "scripts":
+      return (
+        <ScriptsSection
           currentProjectPath={args.currentProjectPath}
           projects={args.projects}
           selectedProjectPath={args.selectedProjectPath}

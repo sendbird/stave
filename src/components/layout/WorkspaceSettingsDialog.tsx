@@ -19,7 +19,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
-import { WorkspaceScriptsManager } from "./WorkspaceScriptsManager";
+import { ScriptsManager } from "@/components/scripts";
 import { WorkspaceSyncStatusCard } from "./WorkspaceSyncStatusCard";
 
 export interface WorkspaceSettingsDialogProps {
@@ -169,11 +169,21 @@ export function WorkspaceSettingsContent(props: {
           value="scripts"
           className="max-h-[60vh] overflow-y-auto pt-2"
         >
-          <WorkspaceScriptsManager
+          <ScriptsManager
             projectPath={props.projectPath}
             workspacePath={props.workspacePath}
             resolvedConfig={props.resolvedConfig}
             onSaved={props.onSaved}
+            hideTitle
+            {...(props.workspaceId
+              ? {
+                  runtime: {
+                    workspaceId: props.workspaceId,
+                    workspaceName: props.workspaceName,
+                    branch: props.branch ?? props.workspaceName,
+                  },
+                }
+              : {})}
           />
         </TabsContent>
       </Tabs>

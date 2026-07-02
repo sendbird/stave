@@ -20,6 +20,7 @@ import { PresetBar } from "@/components/layout/PresetBar";
 import { WorkspaceTaskTabs } from "@/components/layout/WorkspaceTaskTabs";
 import { CliSessionPanel } from "@/components/layout/CliSessionPanel";
 import { resolveLatestCompletedTurnTarget } from "@/components/layout/command-palette-navigation";
+import { useScriptsCommandPaletteContributor } from "@/components/layout/command-palette-scripts";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import { ChatArea } from "@/components/session/ChatArea";
 import { TerminalDock } from "@/components/layout/TerminalDock";
@@ -1017,6 +1018,24 @@ export function AppShell() {
   const activeWorkspacePath =
     workspacePathById[activeWorkspaceId] ?? projectPath;
   const hasProjectContext = Boolean(projectPath?.trim());
+  const activeWorkspaceName = useMemo(
+    () =>
+      workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ??
+      workspaceBranchById[activeWorkspaceId] ??
+      "workspace",
+    [activeWorkspaceId, workspaceBranchById, workspaces],
+  );
+  const scriptsRevision = useScriptsCommandPaletteContributor(
+    activeWorkspaceId && projectPath && activeWorkspacePath
+      ? {
+          workspaceId: activeWorkspaceId,
+          projectPath,
+          workspacePath: activeWorkspacePath,
+          workspaceName: activeWorkspaceName,
+          branch: workspaceBranchById[activeWorkspaceId] || activeWorkspaceName,
+        }
+      : null,
+  );
   const activeWorkspaceIsDefault = Boolean(
     workspaceDefaultById[activeWorkspaceId],
   );
@@ -1052,6 +1071,7 @@ export function AppShell() {
         showRecent: commandPaletteShowRecent,
       },
       projectPath,
+      scriptsRevision,
       projects: (() => {
         const remembered = recentProjects.map((project) => ({
           isCurrent: project.projectPath === projectPath,
@@ -1207,6 +1227,7 @@ export function AppShell() {
       refreshProjectFiles,
       refreshWorkspaces,
       saveActiveEditorTab,
+      scriptsRevision,
       selectTask,
       setLayout,
       setTaskProvider,

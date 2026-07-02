@@ -3,7 +3,9 @@ import {
   buildScriptConfigFromEditorState,
   buildScriptEditorState,
   createEmptyScriptEditorEntry,
+  duplicateScriptEditorEntry,
   mergeScriptConfigIntoRaw,
+  validateScriptEditorEntry,
   validateScriptEditorState,
 } from "../src/lib/workspace-scripts/editor";
 import type {
@@ -161,6 +163,7 @@ describe("buildScriptConfigFromEditorState", () => {
           },
         ],
       },
+      targets: [],
     });
 
     expect(config).toEqual({
@@ -206,7 +209,7 @@ describe("buildScriptConfigFromEditorState", () => {
 });
 
 describe("mergeScriptConfigIntoRaw", () => {
-  test("preserves untouched target definitions and extra metadata", () => {
+  test("preserves top-level metadata but drops per-target unknown keys", () => {
     const rawConfig = {
       version: 2,
       notes: {
@@ -219,6 +222,8 @@ describe("mergeScriptConfigIntoRaw", () => {
           env: {
             CI: "1",
           },
+          // Unknown per-target key — dropped now that targets are editor-managed.
+          legacyOnly: "keep-me?",
         },
       },
       actions: {
@@ -230,6 +235,7 @@ describe("mergeScriptConfigIntoRaw", () => {
 
     const merged = mergeScriptConfigIntoRaw({
       rawConfig,
+      // Targets are now round-tripped through the editor (known keys only).
       config: {
         version: 2,
         actions: {
@@ -238,11 +244,21 @@ describe("mergeScriptConfigIntoRaw", () => {
             target: "workspace",
           },
         },
+        targets: {
+          ci: {
+            label: "CI Runtime",
+            cwd: "project",
+            env: {
+              CI: "1",
+            },
+          },
+        },
       },
     });
 
     expect(merged).toEqual({
       version: 2,
+      // Top-level unknown keys survive.
       notes: {
         owner: "team-desktop",
       },
@@ -263,6 +279,149 @@ describe("mergeScriptConfigIntoRaw", () => {
       },
     });
   });
+
+  test("removes the raw targets block when the editor has no targets", () => {
+    const merged = mergeScriptConfigIntoRaw({
+      rawConfig: {
+        version: 2,
+        targets: { ci: { cwd: "project" } },
+      },
+      config: { version: 2 },
+    });
+    expect(merged).toEqual({ version: 2 });
+  });
+});
+
+describe("targets round-trip", () => {
+  test("hydrates and serializes targets, dropping empty env/shell", () => {
+    const config: WorkspaceScriptsConfig = {
+      version: 2,
+      targets: {
+        api: {
+          label: "API",
+          cwd: "project",
+          env: { PORT: "3000" },
+          shell: "/bin/zsh",
+        },
+        bare: {
+          cwd: "workspace",
+        },
+      },
+    };
+
+    const state = buildScriptEditorState({ config });
+    expect(state.targets).toEqual([
+      {
+        id: "api",
+        label: "API",
+        cwd: "project",
+        shell: "/bin/zsh",
+        envRows: [{ key: "PORT", value: "3000" }],
+      },
+      {
+        id: "bare",
+        label: "",
+        cwd: "workspace",
+        shell: "",
+        envRows: [],
+      },
+    ]);
+
+    const roundTripped = buildScriptConfigFromEditorState(state);
+    expect(roundTripped.targets).toEqual({
+      api: {
+        label: "API",
+        cwd: "project",
+        env: { PORT: "3000" },
+        shell: "/bin/zsh",
+      },
+      bare: {
+        cwd: "workspace",
+      },
+    });
+  });
+
+  test("skips targets with a blank id and blank env keys", () => {
+    const config = buildScriptConfigFromEditorState({
+      actions: [],
+      services: [],
+      hooks: {},
+      targets: [
+        {
+          id: "  ",
+          label: "ignored",
+          cwd: "workspace",
+          shell: "",
+          envRows: [],
+        },
+        {
+          id: "api",
+          label: "",
+          cwd: "workspace",
+          shell: "",
+          envRows: [
+            { key: "  ", value: "dropme" },
+            { key: "OK", value: "1" },
+          ],
+        },
+      ],
+    });
+    expect(config.targets).toEqual({
+      api: {
+        cwd: "workspace",
+        env: { OK: "1" },
+      },
+    });
+  });
+});
+
+describe("duplicateScriptEditorEntry", () => {
+  test("assigns a unique -copy id and (copy) label", () => {
+    const entry = createEmptyScriptEditorEntry("action");
+    entry.id = "lint";
+    entry.label = "Lint";
+    entry.commandsText = "eslint .";
+
+    const first = duplicateScriptEditorEntry(entry, ["lint"]);
+    expect(first).toMatchObject({ id: "lint-copy", label: "Lint (copy)", commandsText: "eslint ." });
+
+    const second = duplicateScriptEditorEntry(entry, ["lint", "lint-copy"]);
+    expect(second.id).toBe("lint-copy-2");
+  });
+
+  test("falls back to a script base when the source has no id", () => {
+    const entry = createEmptyScriptEditorEntry("service");
+    const dup = duplicateScriptEditorEntry(entry, []);
+    expect(dup.id).toBe("script-copy");
+    expect(dup.label).toBe("script (copy)");
+  });
+});
+
+describe("validateScriptEditorEntry", () => {
+  test("reports per-field issues for an empty action", () => {
+    const entry = createEmptyScriptEditorEntry("action");
+    entry.timeoutMs = "0";
+    expect(validateScriptEditorEntry({ entry, kind: "action" })).toEqual({
+      id: "ID is required.",
+      commands: "Add at least one command.",
+      timeoutMs: "Timeout must be a positive integer.",
+    });
+  });
+
+  test("flags duplicate ids and Orbit target constraints", () => {
+    const entry = createEmptyScriptEditorEntry("service");
+    entry.id = "dev";
+    entry.commandsText = "bun run dev";
+    entry.orbitEnabled = true;
+    entry.target = "project";
+    entry.orbitProxyPort = "-1";
+
+    expect(validateScriptEditorEntry({ entry, kind: "service", duplicateId: true })).toEqual({
+      id: 'Duplicate ID "dev".',
+      target: "Orbit services must target the workspace.",
+      orbitProxyPort: "Proxy port must be a positive integer.",
+    });
+  });
 });
 
 describe("validateScriptEditorState", () => {
@@ -274,6 +433,7 @@ describe("validateScriptEditorState", () => {
       actions: [entry],
       services: [],
       hooks: {},
+      targets: [],
     })).toEqual([
       'actions: "action 1" is missing an id.',
       'actions: "action 1" needs at least one command.',
