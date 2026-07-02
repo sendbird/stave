@@ -2,6 +2,22 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.8.2](https://github.com/sendbird/stave/compare/v0.8.1...v0.8.2) (2026-07-02)
+
+### Features
+
+* Add editable workspace labels in the project sidebar, including inline rename support for active workspaces.
+* Allow optional labels when creating a workspace while preserving the underlying git branch name.
+* Filter project workspaces by label or branch name.
+
+### Fixes
+
+* Constrain the New Workspace dialog to the viewport height and allow the form content to scroll when it grows taller than the screen.
+
+### References
+
+* [#97](https://github.com/sendbird/stave/pull/97), [#98](https://github.com/sendbird/stave/pull/98)
+
 ## [0.8.1](https://github.com/sendbird/stave/compare/v0.8.0...v0.8.1) (2026-07-02)
 
 ### Features
