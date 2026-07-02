@@ -557,6 +557,31 @@ const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
     .strict(),
   z
     .object({
+      type: z.literal("workspace_information_context"),
+      reference: z
+        .object({
+          section: z.union([
+            z.literal("turn-summary"),
+            z.literal("notes"),
+            z.literal("todo"),
+            z.literal("pr"),
+            z.literal("jira"),
+            z.literal("confluence"),
+            z.literal("storybook"),
+            z.literal("slack"),
+            z.literal("figma"),
+            z.literal("custom"),
+          ]),
+          scope: z.union([z.literal("section"), z.literal("item")]),
+          itemId: z.string().max(4096).optional(),
+          label: z.string().max(500),
+          token: z.string().max(500),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("system_event"),
       content: z.string().max(500_000),
       compactBoundary: z

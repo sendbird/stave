@@ -1,4 +1,5 @@
 import type { LensAnnotation } from "@/lib/lens/lens.types";
+import type { WorkspaceInformationReference } from "@/lib/workspace-information-references";
 
 export type MessageRole = "user" | "assistant";
 
@@ -9,6 +10,7 @@ export type MessagePartType =
   | "code_diff"
   | "file_context"
   | "image_context"
+  | "workspace_information_context"
   | "approval"
   | "user_input"
   | "system_event";
@@ -16,6 +18,11 @@ export type MessagePartType =
 export type Attachment =
   | { kind: "file"; filePath: string }
   | { kind: "image"; id: string; dataUrl: string; label: string }
+  | {
+      kind: "workspace-information";
+      id: string;
+      reference: WorkspaceInformationReference;
+    }
   | {
       kind: "lens-annotations";
       id: string;
@@ -215,6 +222,11 @@ export interface ImageContextPart extends MessagePartBase {
   mimeType: string;
 }
 
+export interface WorkspaceInformationContextPart extends MessagePartBase {
+  type: "workspace_information_context";
+  reference: WorkspaceInformationReference;
+}
+
 export interface SystemEventPart extends MessagePartBase {
   type: "system_event";
   content: string;
@@ -231,6 +243,7 @@ export type MessagePart =
   | CodeDiffPart
   | FileContextPart
   | ImageContextPart
+  | WorkspaceInformationContextPart
   | ApprovalPart
   | UserInputPart
   | SystemEventPart;

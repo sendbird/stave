@@ -139,6 +139,8 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
         dataUrl: "",
       } as T;
     }
+    case "workspace_information_context":
+      return part;
     case "system_event": {
       const content = sanitizeTextField({ value: part.content, label: "system event" });
       return content === part.content ? part : { ...part, content } as T;

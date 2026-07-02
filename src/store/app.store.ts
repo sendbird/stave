@@ -50,6 +50,11 @@ import { getRepoMapContextCache } from "@/lib/fs/repo-map-context-cache";
 import { buildCurrentTaskAwarenessRetrievedContext } from "@/lib/task-context/current-task-awareness";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
 import {
+  extractWorkspaceInformationReferencesFromText,
+  formatWorkspaceInformationReferencesContext,
+  type WorkspaceInformationReference,
+} from "@/lib/workspace-information-references";
+import {
   buildWorkspaceContinueSummaryFilePath,
   buildWorkspaceContinueSummaryMarkdown,
 } from "@/lib/workspace-continue";
@@ -645,6 +650,7 @@ function buildPromptDraftDisplayContentForSend(draft: PromptDraft): string {
 function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] | undefined {
   const parts: MessagePart[] = [];
   let hasLensAnnotation = false;
+  let hasWorkspaceInformationReference = false;
 
   for (const item of draft.promptBatch ?? []) {
     const text = item.content.trim();
@@ -666,6 +672,17 @@ function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] 
   const draftText = draft.text.trim();
   if (draftText) {
     parts.push({ type: "text", text: draftText });
+  }
+
+  for (const attachment of draft.attachments) {
+    if (attachment.kind !== "workspace-information") {
+      continue;
+    }
+    hasWorkspaceInformationReference = true;
+    parts.push({
+      type: "workspace_information_context",
+      reference: attachment.reference,
+    });
   }
 
   const imageAttachmentsById = new Map(
@@ -714,9 +731,65 @@ function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] 
     (item) => (item.attachments?.length ?? 0) > 0,
   );
 
-  return (hasLensAnnotation || hasBatchAttachment) && parts.length > 0
+  return (hasLensAnnotation || hasBatchAttachment || hasWorkspaceInformationReference) && parts.length > 0
     ? parts
     : undefined;
+}
+
+function buildWorkspaceInformationReferencesRetrievedContext(args: {
+  promptDraft: PromptDraft;
+  workspaceInformation: WorkspaceInformationState;
+}): CanonicalRetrievedContextPart | null {
+  const referencesByKey = new Map<string, WorkspaceInformationReference>();
+  const addReference = (reference: WorkspaceInformationReference) => {
+    const key =
+      reference.scope === "section"
+        ? `${reference.section}:section`
+        : `${reference.section}:item:${reference.itemId ?? ""}`;
+    referencesByKey.set(key, reference);
+  };
+
+  getPromptDraftAttachments(args.promptDraft)
+    .filter(
+      (
+        attachment,
+      ): attachment is Extract<Attachment, { kind: "workspace-information" }> =>
+        attachment.kind === "workspace-information",
+    )
+    .forEach((attachment) => addReference(attachment.reference));
+
+  [
+    args.promptDraft.text,
+    ...(args.promptDraft.promptBatch ?? []).map((item) => item.content),
+    ...(args.promptDraft.queuedTurns ?? []).map((item) => item.content),
+  ].forEach((text) => {
+    extractWorkspaceInformationReferencesFromText(text).forEach(addReference);
+  });
+
+  const references = [...referencesByKey.values()];
+  if (references.length === 0) {
+    return null;
+  }
+
+  const content = formatWorkspaceInformationReferencesContext({
+    info: args.workspaceInformation,
+    references,
+  });
+  if (!content.trim()) {
+    return null;
+  }
+
+  return {
+    type: "retrieved_context",
+    sourceId: "stave:workspace-information-references",
+    title: "Explicit Information Panel References",
+    content: [
+      "The user explicitly referenced these Information panel entries from the prompt composer.",
+      "Treat section references as the full current section and item references as the specific item.",
+      "",
+      content,
+    ].join("\n"),
+  };
 }
 
 function getPromptDraftAttachedFilePaths(draft: PromptDraft) {
@@ -10600,6 +10673,14 @@ export const useAppStore = create<AppState>()(
                 workspaceInformation: taskWorkspaceInformation,
               }),
             ];
+            const workspaceInformationReferencesContext =
+              buildWorkspaceInformationReferencesRetrievedContext({
+                promptDraft,
+                workspaceInformation: taskWorkspaceInformation,
+              });
+            if (workspaceInformationReferencesContext) {
+              retrievedContextParts.push(workspaceInformationReferencesContext);
+            }
             if (existingHistory.length === 0 && workspaceCwd) {
               const repoMapText = getRepoMapContextCache(workspaceCwd);
               if (repoMapText) {

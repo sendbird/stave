@@ -81,6 +81,7 @@ import {
   findLatestPendingUserInputPart,
 } from "@/store/provider-message.utils";
 import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-annotation-attachment";
+import { buildWorkspaceInformationReferenceOptions } from "@/lib/workspace-information-references";
 import {
   resolvePromptDraftPlanModeChange,
   resolvePromptDraftModelForProvider,
@@ -201,6 +202,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     updateSettings,
     trustedTools,
     lensVisualCommentScreenshotsAsImageContext,
+    workspaceInformation,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -219,6 +221,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.updateSettings,
           state.settings.trustedTools,
           state.settings.lensVisualCommentScreenshotsAsImageContext,
+          state.workspaceInformation,
         ] as const,
     ),
   );
@@ -316,6 +319,10 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         ? []
         : getLatestPromptSuggestions(activeTaskMessages),
     [activeTaskMessages, args.isTurnActive, isInputBlocked],
+  );
+  const workspaceInformationReferenceOptions = useMemo(
+    () => buildWorkspaceInformationReferenceOptions(workspaceInformation),
+    [workspaceInformation],
   );
   const [draftText, setDraftText] = useState(promptDraft.text);
   const draftTextRef = useRef(promptDraft.text);
@@ -831,6 +838,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           skillsEnabled={args.skillsEnabled}
           skillsAutoSuggest={args.skillsAutoSuggest}
           skillPaletteItems={args.skillPaletteItems}
+          workspaceInformationReferenceOptions={
+            workspaceInformationReferenceOptions
+          }
           onValueChange={(value) => {
             draftTextRef.current = value;
             setDraftText(value);

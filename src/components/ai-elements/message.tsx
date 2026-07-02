@@ -15,6 +15,8 @@ import {
 } from "./code-block";
 import { MarkdownMessage, MessageFileLink } from "./message-markdown";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
+import { PromptTokenChip } from "./prompt-token-chip";
+import { parsePromptTokenSegments } from "@/lib/prompt-token-chips";
 
 interface MessageProps extends HTMLAttributes<HTMLDivElement> {
   from: "user" | "assistant";
@@ -85,9 +87,17 @@ export function MessageContent({ className, ...props }: HTMLAttributes<HTMLDivEl
 
 interface MessageResponseProps extends HTMLAttributes<HTMLDivElement> {
   isStreaming?: boolean;
+  tokenizePromptTokens?: boolean;
 }
 
-export function MessageResponse({ isStreaming, ...props }: MessageResponseProps) {
+export function MessageResponse({
+  isStreaming,
+  tokenizePromptTokens,
+  children,
+  className,
+  style,
+  ...props
+}: MessageResponseProps) {
   const [openFileFromTree, setLayout, messageFontSize, messageCodeFontSize, workspaceCwd] = useAppStore(useShallow((state) => [
     state.openFileFromTree,
     state.setLayout,
@@ -95,7 +105,20 @@ export function MessageResponse({ isStreaming, ...props }: MessageResponseProps)
     state.settings.messageCodeFontSize,
     state.workspacePathById[state.activeWorkspaceId] ?? state.projectPath ?? "",
   ] as const));
-  const content = typeof props.children === "string" ? props.children : "";
+  const content = typeof children === "string" ? children : "";
+  const tokenSegments = useMemo(
+    () =>
+      tokenizePromptTokens
+        ? parsePromptTokenSegments(content, {
+            allowGenericCommandTokens: true,
+            allowGenericSkillTokens: true,
+          })
+        : [],
+    [content, tokenizePromptTokens],
+  );
+  const hasPromptTokenSegments = tokenSegments.some(
+    (segment) => segment.type === "token",
+  );
 
   function resolveFileLink(args: { href?: string; allowUnknownPath?: boolean }) {
     return resolveWorkspaceFileLink({
@@ -128,6 +151,37 @@ export function MessageResponse({ isStreaming, ...props }: MessageResponseProps)
     }
     args.event.preventDefault();
     await openResolvedFileLink({ resolved, fallbackContent: args.code });
+  }
+
+  if (hasPromptTokenSegments) {
+    return (
+      <div
+        className={cn(
+          "min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+          className,
+        )}
+        style={{
+          fontSize: `${messageFontSize}px`,
+          lineHeight: MESSAGE_BODY_LINE_HEIGHT,
+          ...style,
+        }}
+        data-streaming={isStreaming ? "true" : undefined}
+        {...props}
+      >
+        {tokenSegments.map((segment, index) =>
+          segment.type === "text" ? (
+            <span key={`text-${index}`}>{segment.text}</span>
+          ) : (
+            <PromptTokenChip
+              key={`token-${index}-${segment.descriptor.token}`}
+              descriptor={segment.descriptor}
+              compact
+              className="mx-0.5"
+            />
+          ),
+        )}
+      </div>
+    );
   }
 
   return (
@@ -167,6 +221,8 @@ export function MessageResponse({ isStreaming, ...props }: MessageResponseProps)
           </CodeBlockHeader>
         </CodeBlock>
       )}
+      className={className}
+      style={style}
       {...props}
     />
   );

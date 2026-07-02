@@ -17,6 +17,7 @@ import {
   Loader2,
   Monitor,
   Moon,
+  Plus,
   RefreshCcw,
   Sparkles,
   Sun,
@@ -38,7 +39,7 @@ import {
 import { type SectionId } from "@/components/layout/settings-dialog.schema";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useShallow } from "zustand/react/shallow";
-import { Badge, Button, Slider, Textarea, toast } from "@/components/ui";
+import { Badge, Button, Input, Slider, Textarea, toast } from "@/components/ui";
 import type { LensSessionScope } from "@/lib/lens/lens.types";
 import {
   CUSTOM_AUDIO_ACCEPTED_TYPES,
@@ -3791,6 +3792,31 @@ function parseLensHostList(value: string): string[] {
   return hosts;
 }
 
+function normalizeLensHostEntry(value: string): string | null {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) {
+    return null;
+  }
+
+  const withoutWildcard = trimmed.startsWith("*.") ? trimmed.slice(2) : trimmed;
+  try {
+    const url = new URL(
+      /^[a-z][a-z0-9+.-]*:\/\//i.test(withoutWildcard)
+        ? withoutWildcard
+        : `http://${withoutWildcard}`,
+    );
+    const host = url.hostname.toLowerCase().replace(/\.$/, "");
+    return host && !/\s/.test(host) ? host : null;
+  } catch {
+    const host = withoutWildcard
+      .split(/[/?#:]/, 1)[0]
+      ?.replace(/^\[/, "")
+      .replace(/\]$/, "")
+      .replace(/\.$/, "");
+    return host && !/\s/.test(host) ? host : null;
+  }
+}
+
 function formatLensHostList(hosts: readonly string[]): string {
   return hosts.join("\n");
 }
@@ -3828,6 +3854,7 @@ function LensSection() {
   const [clearingScope, setClearingScope] = useState<LensSessionScope | null>(
     null,
   );
+  const [cdpHostDraft, setCdpHostDraft] = useState("");
   const allowedHostsText = useMemo(
     () => formatLensHostList(allowedHosts),
     [allowedHosts],
@@ -3877,6 +3904,31 @@ function LensSection() {
     },
     [activeWorkspaceId, projectPath],
   );
+  const addCdpApprovedHost = useCallback(() => {
+    const host = normalizeLensHostEntry(cdpHostDraft);
+    if (!host) {
+      toast.error("Enter a valid host or URL.");
+      return;
+    }
+
+    const alreadyApproved = cdpApprovedHosts.some(
+      (entry) => normalizeLensHostEntry(entry) === host,
+    );
+    if (alreadyApproved) {
+      toast.message("Host is already approved", {
+        description: host,
+      });
+      setCdpHostDraft("");
+      return;
+    }
+
+    updateSettings({
+      patch: {
+        lensCdpApprovedHosts: [...cdpApprovedHosts, host],
+      },
+    });
+    setCdpHostDraft("");
+  }, [cdpApprovedHosts, cdpHostDraft, updateSettings]);
 
   return (
     <>
@@ -4010,6 +4062,31 @@ function LensSection() {
           <div className="space-y-2">
             <div className="text-xs font-medium text-muted-foreground">
               Approved Hosts
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                value={cdpHostDraft}
+                placeholder="localhost or https://example.com"
+                aria-label="CDP approved host"
+                className="h-8 font-mono text-xs"
+                onChange={(event) => setCdpHostDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addCdpApprovedHost();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="justify-center gap-1.5 sm:w-auto"
+                onClick={addCdpApprovedHost}
+              >
+                <Plus className="size-3.5" />
+                Add host
+              </Button>
             </div>
             {cdpApprovedHosts.length > 0 ? (
               <div className="flex flex-wrap gap-2">

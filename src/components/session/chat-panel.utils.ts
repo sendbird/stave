@@ -350,6 +350,8 @@ function getMessagePartScrollFingerprint(part: MessagePart): string {
       return `file:${part.filePath}:${part.content.length}:${part.instruction?.length ?? 0}`;
     case "image_context":
       return `image:${part.label}`;
+    case "workspace_information_context":
+      return `workspace-information:${part.reference.token}:${part.reference.label}`;
     case "approval":
       return `approval:${part.toolName}:${part.state}:${part.description.length}`;
     case "user_input":

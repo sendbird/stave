@@ -5,6 +5,7 @@ import {
   FolderOpen,
   GitPullRequest,
   Globe2,
+  Info,
   OctagonX,
   Paperclip,
   Pencil,
@@ -71,6 +72,7 @@ import { UserInputCard } from "./user-input-card";
 import type {
   CommandPaletteItem,
   CommandPaletteProviderNote,
+  SlashCommandTokenMatch,
 } from "@/lib/commands";
 import type {
   ProviderModePresetDefinition,
@@ -86,7 +88,7 @@ import {
   getActiveSkillTokenMatch,
   replaceSkillToken,
 } from "@/lib/skills/catalog";
-import type { SkillCatalogEntry } from "@/lib/skills/types";
+import type { SkillCatalogEntry, SkillTokenMatch } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
 import {
   collectClipboardFiles,
@@ -136,7 +138,18 @@ import {
 } from "./prompt-input-runtime-bar";
 import { ModelIcon } from "./model-icon";
 import { Suggestion, Suggestions } from "./suggestion";
+import {
+  PromptLexicalEditor,
+  type PromptLexicalEditorHandle,
+  type PromptLexicalEditorSelectionRange,
+} from "./prompt-lexical-editor";
 import { hasPromptSubmitPayload } from "./prompt-input-submit";
+import {
+  getActiveWorkspaceInformationTokenMatch,
+  replaceWorkspaceInformationToken,
+  type WorkspaceInformationReferenceOption,
+} from "@/lib/workspace-information-references";
+import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
   "fontSize",
@@ -176,6 +189,7 @@ interface PromptInputProps {
   skillsEnabled?: boolean;
   skillsAutoSuggest?: boolean;
   skillPaletteItems?: readonly SkillCatalogEntry[];
+  workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
   onValueChange: (value: string) => void;
   onSuggestionSelect?: (suggestion: string) => void;
   onFocus?: () => void;
@@ -216,13 +230,12 @@ interface PromptInputProps {
   onAbort?: () => void;
 }
 
-const SUPPORTS_FIELD_SIZING_CONTENT =
-  typeof CSS !== "undefined" &&
-  typeof CSS.supports === "function" &&
-  CSS.supports("field-sizing", "content");
 const PALETTE_ITEM_INDEX_ATTRIBUTE = "data-palette-index";
 const PROMPT_SURFACE_FOCUS_VISIBLE_RESET =
   "focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0";
+type WorkspaceInformationTokenMatch = NonNullable<
+  ReturnType<typeof getActiveWorkspaceInformationTokenMatch>
+>;
 const PROMPT_SURFACE_PRIMARY_FOCUS = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} focus-visible:border-transparent`;
 const PROMPT_FLOATING_SURFACE =
   "border border-border/60 bg-background/90 text-foreground hover:bg-background/95";
@@ -525,6 +538,7 @@ export function PromptInput(args: PromptInputProps) {
     skillsEnabled,
     skillsAutoSuggest,
     skillPaletteItems,
+    workspaceInformationReferenceOptions,
     onValueChange,
     onSuggestionSelect,
     onFocus,
@@ -601,6 +615,16 @@ export function PromptInput(args: PromptInputProps) {
       ),
     [attachments],
   );
+  const workspaceInformationAttachments = useMemo(
+    () =>
+      (attachments ?? []).filter(
+        (
+          attachment,
+        ): attachment is Extract<Attachment, { kind: "workspace-information" }> =>
+          attachment.kind === "workspace-information",
+      ),
+    [attachments],
+  );
   const queuedFileCount = visibleQueuedTurns.reduce(
     (count, item) => count + item.attachedFilePaths.length,
     0,
@@ -625,6 +649,10 @@ export function PromptInput(args: PromptInputProps) {
   const [dismissedCommandToken, setDismissedCommandToken] = useState<
     string | null
   >(null);
+  const [suppressedAutocompleteValue, setSuppressedAutocompleteValue] =
+    useState<{ palette: "command" | "skill" | "info"; value: string } | null>(
+      null,
+    );
   const [selectedCommandIndex, setSelectedCommandIndex] =
     useState(NO_COMMAND_SELECTION);
   const [dismissedSkillToken, setDismissedSkillToken] = useState<string | null>(
@@ -632,21 +660,39 @@ export function PromptInput(args: PromptInputProps) {
   );
   const [selectedSkillIndex, setSelectedSkillIndex] =
     useState(NO_COMMAND_SELECTION);
+  const [dismissedWorkspaceInformationToken, setDismissedWorkspaceInformationToken] =
+    useState<string | null>(null);
+  const [
+    selectedWorkspaceInformationIndex,
+    setSelectedWorkspaceInformationIndex,
+  ] = useState(NO_COMMAND_SELECTION);
   const [selectedPromptHistoryIndex, setSelectedPromptHistoryIndex] = useState(
     NO_PROMPT_HISTORY_SELECTION,
   );
   const [draftBeforeHistory, setDraftBeforeHistory] = useState("");
   const [caretIndex, setCaretIndex] = useState(value.length);
+  const editorSelectionRange = useMemo(
+    () => ({ start: caretIndex, end: caretIndex }),
+    [caretIndex],
+  );
   const [isPromptInputFocused, setIsPromptInputFocused] = useState(false);
   const [modelSelectorOpenNonce, setModelSelectorOpenNonce] = useState(0);
   const [editingQueuedTurnId, setEditingQueuedTurnId] = useState<string | null>(
     null,
   );
   const [editingQueuedTurnContent, setEditingQueuedTurnContent] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const promptEditorRef = useRef<PromptLexicalEditorHandle | null>(null);
+  const valueRef = useRef(value);
+  const caretIndexRef = useRef(caretIndex);
+  const pendingCommandTokenRef = useRef<SlashCommandTokenMatch | null>(null);
+  const pendingSkillTokenRef = useRef<SkillTokenMatch | null>(null);
+  const pendingWorkspaceInformationTokenRef =
+    useRef<WorkspaceInformationTokenMatch | null>(null);
   const textareaAutosizeFrameRef = useRef<number | null>(null);
   const commandListRef = useRef<HTMLDivElement | null>(null);
   const wasTurnActiveRef = useRef(Boolean(isTurnActive));
+  valueRef.current = value;
+  caretIndexRef.current = caretIndex;
   const borderBeamEnabled = useAppStore(
     (state) => state.settings.borderBeamEnabled,
   );
@@ -677,6 +723,7 @@ export function PromptInput(args: PromptInputProps) {
     attachedFilePaths.length > 0 ||
     imageAttachments.length > 0 ||
     lensAnnotationAttachments.length > 0 ||
+    workspaceInformationAttachments.length > 0 ||
     promptBatch.length > 0;
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
   const isQueueNextMode = submitMode === "queue-next";
@@ -716,6 +763,17 @@ export function PromptInput(args: PromptInputProps) {
     [caretIndex, skillsEnabled, value],
   );
   const deferredSkillQuery = useDeferredValue(activeSkillToken?.query ?? "");
+  const activeWorkspaceInformationToken = useMemo(
+    () =>
+      getActiveWorkspaceInformationTokenMatch({
+        text: value,
+        caretIndex,
+      }),
+    [caretIndex, value],
+  );
+  const deferredWorkspaceInformationQuery = useDeferredValue(
+    activeWorkspaceInformationToken?.query ?? "",
+  );
   const filteredCommandItems = useMemo(
     () =>
       filterCommandPaletteItems({
@@ -741,6 +799,14 @@ export function PromptInput(args: PromptInputProps) {
       return haystacks.some((entry) => entry.toLowerCase().includes(query));
     });
   }, [deferredSkillQuery, skillPaletteItems]);
+  const filteredWorkspaceInformationItems = useMemo(() => {
+    const query = deferredWorkspaceInformationQuery.trim().toLowerCase();
+    const items = workspaceInformationReferenceOptions ?? [];
+    if (!query) {
+      return items;
+    }
+    return items.filter((item) => item.searchText.includes(query));
+  }, [deferredWorkspaceInformationQuery, workspaceInformationReferenceOptions]);
   const indexedCommandItems = useMemo(
     () => filteredCommandItems.map((item, index) => ({ item, index })),
     [filteredCommandItems],
@@ -748,6 +814,14 @@ export function PromptInput(args: PromptInputProps) {
   const indexedSkillItems = useMemo(
     () => filteredSkillItems.map((item, index) => ({ item, index })),
     [filteredSkillItems],
+  );
+  const indexedWorkspaceInformationItems = useMemo(
+    () =>
+      filteredWorkspaceInformationItems.map((item, index) => ({
+        item,
+        index,
+      })),
+    [filteredWorkspaceInformationItems],
   );
   const providerCommandItems = useMemo(
     () =>
@@ -768,8 +842,26 @@ export function PromptInput(args: PromptInputProps) {
     () => indexedSkillItems.filter(({ item }) => item.scope === "global"),
     [indexedSkillItems],
   );
+  const workspaceInformationSectionItems = useMemo(
+    () =>
+      indexedWorkspaceInformationItems.filter(
+        ({ item }) => item.kind === "section",
+      ),
+    [indexedWorkspaceInformationItems],
+  );
+  const workspaceInformationEntryItems = useMemo(
+    () =>
+      indexedWorkspaceInformationItems.filter(
+        ({ item }) => item.kind === "item",
+      ),
+    [indexedWorkspaceInformationItems],
+  );
   const commandPaletteOpen = Boolean(
     activeCommandToken &&
+    !(
+      suppressedAutocompleteValue?.palette === "command" &&
+      suppressedAutocompleteValue.value === value
+    ) &&
     dismissedCommandToken !== activeCommandToken.token &&
     (filteredCommandItems.length > 0 || commandPaletteProviderNote),
   );
@@ -777,14 +869,37 @@ export function PromptInput(args: PromptInputProps) {
     skillsEnabled &&
     skillsAutoSuggest &&
     activeSkillToken &&
+    !(
+      suppressedAutocompleteValue?.palette === "skill" &&
+      suppressedAutocompleteValue.value === value
+    ) &&
     dismissedSkillToken !== activeSkillToken.token,
   );
-  const activePalette = skillPaletteOpen
+  const workspaceInformationPaletteOpen = Boolean(
+    activeWorkspaceInformationToken &&
+    !(
+      suppressedAutocompleteValue?.palette === "info" &&
+      suppressedAutocompleteValue.value === value
+    ) &&
+    dismissedWorkspaceInformationToken !== activeWorkspaceInformationToken.token,
+  );
+  const activePalette = workspaceInformationPaletteOpen
+    ? "info"
+    : skillPaletteOpen
     ? "skill"
     : commandPaletteOpen
       ? "command"
       : null;
   const paletteValue = useMemo(() => {
+    if (
+      activePalette === "info" &&
+      selectedWorkspaceInformationIndex !== NO_COMMAND_SELECTION
+    ) {
+      return (
+        filteredWorkspaceInformationItems[selectedWorkspaceInformationIndex]
+          ?.reference.token ?? ""
+      );
+    }
     if (
       activePalette === "skill" &&
       selectedSkillIndex !== NO_COMMAND_SELECTION
@@ -800,8 +915,10 @@ export function PromptInput(args: PromptInputProps) {
     return "";
   }, [
     activePalette,
+    selectedWorkspaceInformationIndex,
     selectedSkillIndex,
     selectedCommandIndex,
+    filteredWorkspaceInformationItems,
     filteredSkillItems,
     filteredCommandItems,
   ]);
@@ -817,26 +934,19 @@ export function PromptInput(args: PromptInputProps) {
     promptBatch.length === 0;
 
   useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) {
-      return;
-    }
-    if (SUPPORTS_FIELD_SIZING_CONTENT) {
-      textarea.style.height = "";
-      textarea.style.overflowY = "auto";
-      return;
-    }
+    const editorElement = promptEditorRef.current?.getRootElement();
+    if (!editorElement) return;
     const measureHeight = () => {
-      textarea.style.height = "auto";
-      const scrollHeight = textarea.scrollHeight;
+      editorElement.style.height = "auto";
+      const scrollHeight = editorElement.scrollHeight;
       const nextHeight = Math.min(scrollHeight, maxTextareaHeight);
       const nextOverflowY =
         scrollHeight > maxTextareaHeight ? "auto" : "hidden";
-      if (textarea.style.height !== `${nextHeight}px`) {
-        textarea.style.height = `${nextHeight}px`;
+      if (editorElement.style.height !== `${nextHeight}px`) {
+        editorElement.style.height = `${nextHeight}px`;
       }
-      if (textarea.style.overflowY !== nextOverflowY) {
-        textarea.style.overflowY = nextOverflowY;
+      if (editorElement.style.overflowY !== nextOverflowY) {
+        editorElement.style.overflowY = nextOverflowY;
       }
       textareaAutosizeFrameRef.current = null;
     };
@@ -855,7 +965,7 @@ export function PromptInput(args: PromptInputProps) {
       return;
     }
     const frameId = window.requestAnimationFrame(() => {
-      textareaRef.current?.focus();
+      promptEditorRef.current?.focus();
     });
     return () => window.cancelAnimationFrame(frameId);
   }, [focusToken, interactionsDisabled]);
@@ -864,31 +974,37 @@ export function PromptInput(args: PromptInputProps) {
     const wasTurnActive = wasTurnActiveRef.current;
     const isTurnNowActive = Boolean(isTurnActive);
     if (wasTurnActive && !isTurnNowActive) {
-      textareaRef.current?.focus();
+      promptEditorRef.current?.focus();
     }
     wasTurnActiveRef.current = isTurnNowActive;
   }, [isTurnActive]);
 
   const focusComposer = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) {
+    const editor = promptEditorRef.current;
+    if (!editor) {
       return;
     }
-    textarea.focus();
-    const nextCaretIndex = textarea.value.length;
-    textarea.setSelectionRange(nextCaretIndex, nextCaretIndex);
+    editor.focus();
+    const nextCaretIndex = value.length;
+    editor.setSelectionRange(nextCaretIndex, nextCaretIndex);
+    caretIndexRef.current = nextCaretIndex;
     setCaretIndex(nextCaretIndex);
-  }, []);
+  }, [value.length]);
 
   const syncComposerFocus = useCallback(() => {
+    const rootElement = promptEditorRef.current?.getRootElement();
     setIsPromptInputFocused(
       typeof document !== "undefined" &&
-        document.activeElement === textareaRef.current,
+        Boolean(
+          rootElement &&
+            document.activeElement &&
+            rootElement.contains(document.activeElement),
+        ),
     );
   }, []);
 
   const handleShiftTabShortcut = useCallback(
-    (event: KeyboardEvent | ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    (event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>) => {
       if (
         event.key !== "Tab" ||
         !event.shiftKey ||
@@ -931,9 +1047,11 @@ export function PromptInput(args: PromptInputProps) {
         !event.shiftKey &&
         (event.key.toLowerCase() === "l" || event.key.toLowerCase() === "j")
       ) {
+        const rootElement = promptEditorRef.current?.getRootElement();
         if (
-          !textareaRef.current ||
-          document.activeElement === textareaRef.current
+          !rootElement ||
+          (document.activeElement &&
+            rootElement.contains(document.activeElement))
         ) {
           return;
         }
@@ -1012,6 +1130,15 @@ export function PromptInput(args: PromptInputProps) {
 
   useEffect(() => {
     if (
+      suppressedAutocompleteValue &&
+      suppressedAutocompleteValue.value !== value
+    ) {
+      setSuppressedAutocompleteValue(null);
+    }
+  }, [suppressedAutocompleteValue, value]);
+
+  useEffect(() => {
+    if (
       dismissedCommandToken &&
       activeCommandToken?.token !== dismissedCommandToken
     ) {
@@ -1029,12 +1156,29 @@ export function PromptInput(args: PromptInputProps) {
   }, [activeSkillToken?.token, dismissedSkillToken]);
 
   useEffect(() => {
+    if (
+      dismissedWorkspaceInformationToken &&
+      activeWorkspaceInformationToken?.token !==
+        dismissedWorkspaceInformationToken
+    ) {
+      setDismissedWorkspaceInformationToken(null);
+    }
+  }, [
+    activeWorkspaceInformationToken?.token,
+    dismissedWorkspaceInformationToken,
+  ]);
+
+  useEffect(() => {
     setSelectedCommandIndex(NO_COMMAND_SELECTION);
   }, [activeCommandToken?.token]);
 
   useEffect(() => {
     setSelectedSkillIndex(NO_COMMAND_SELECTION);
   }, [activeSkillToken?.token]);
+
+  useEffect(() => {
+    setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
+  }, [activeWorkspaceInformationToken?.token]);
 
   useEffect(() => {
     if (!commandPaletteOpen) {
@@ -1063,12 +1207,35 @@ export function PromptInput(args: PromptInputProps) {
   }, [filteredSkillItems.length, skillPaletteOpen]);
 
   useEffect(() => {
+    if (!workspaceInformationPaletteOpen) {
+      setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
+      return;
+    }
+    setSelectedWorkspaceInformationIndex((current) => {
+      if (current === NO_COMMAND_SELECTION) {
+        return NO_COMMAND_SELECTION;
+      }
+      return Math.min(
+        current,
+        Math.max(filteredWorkspaceInformationItems.length - 1, 0),
+      );
+    });
+  }, [
+    filteredWorkspaceInformationItems.length,
+    workspaceInformationPaletteOpen,
+  ]);
+
+  useEffect(() => {
     const list = commandListRef.current;
     if (!list || activePalette === null) {
       return;
     }
     const selectedIndex =
-      activePalette === "skill" ? selectedSkillIndex : selectedCommandIndex;
+      activePalette === "info"
+        ? selectedWorkspaceInformationIndex
+        : activePalette === "skill"
+          ? selectedSkillIndex
+          : selectedCommandIndex;
     if (selectedIndex === NO_COMMAND_SELECTION) {
       return;
     }
@@ -1079,7 +1246,12 @@ export function PromptInput(args: PromptInputProps) {
       selectedItem?.scrollIntoView({ block: "nearest" });
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [activePalette, selectedCommandIndex, selectedSkillIndex]);
+  }, [
+    activePalette,
+    selectedCommandIndex,
+    selectedSkillIndex,
+    selectedWorkspaceInformationIndex,
+  ]);
 
   async function submitCurrentMessage() {
     const nextText = value.trim();
@@ -1089,6 +1261,7 @@ export function PromptInput(args: PromptInputProps) {
         attachedFilePaths,
         imageAttachments,
         lensAnnotationAttachments,
+        workspaceInformationAttachments,
         promptBatch,
       })
     ) {
@@ -1213,71 +1386,220 @@ export function PromptInput(args: PromptInputProps) {
     await submitCurrentMessage();
   }
 
-  function syncCaretPosition(nextTarget: HTMLTextAreaElement | null) {
-    setCaretIndex(nextTarget?.selectionStart ?? 0);
+  function syncCaretPosition(
+    nextRange?: PromptLexicalEditorSelectionRange | null,
+  ) {
+    const nextCaretIndex = nextRange?.end ?? 0;
+    caretIndexRef.current = nextCaretIndex;
+    setCaretIndex(nextCaretIndex);
+  }
+
+  function restoreComposerSelection(nextCaretIndex: number) {
+    caretIndexRef.current = nextCaretIndex;
+    setCaretIndex(nextCaretIndex);
+    window.requestAnimationFrame(() => {
+      const editor = promptEditorRef.current;
+      if (!editor) {
+        return;
+      }
+      editor.focus();
+      editor.setSelectionRange(nextCaretIndex, nextCaretIndex);
+    });
+  }
+
+  function getLiveCaretIndex(currentValue: string) {
+    const liveRange = promptEditorRef.current?.getSelectionRange();
+    const nextCaretIndex = liveRange?.end ?? caretIndexRef.current;
+    return Math.max(0, Math.min(nextCaretIndex, currentValue.length));
+  }
+
+  function isCurrentTokenMatch(
+    currentValue: string,
+    match:
+      | SlashCommandTokenMatch
+      | SkillTokenMatch
+      | WorkspaceInformationTokenMatch
+      | null,
+  ) {
+    return Boolean(
+      match &&
+        match.start >= 0 &&
+        match.end <= currentValue.length &&
+        currentValue.slice(match.start, match.end) === match.token,
+    );
+  }
+
+  function resolveCommandTokenSelection() {
+    const currentValue = valueRef.current;
+    const pendingToken = pendingCommandTokenRef.current;
+    if (isCurrentTokenMatch(currentValue, pendingToken)) {
+      return pendingToken;
+    }
+    const liveToken = getActiveSlashCommandTokenMatch({
+      value: currentValue,
+      caretIndex: getLiveCaretIndex(currentValue),
+    });
+    if (liveToken) {
+      return liveToken;
+    }
+    if (isCurrentTokenMatch(currentValue, activeCommandToken)) {
+      return activeCommandToken;
+    }
+    return getActiveSlashCommandTokenMatch({
+      value: currentValue,
+      caretIndex: currentValue.length,
+    });
+  }
+
+  function resolveSkillTokenSelection() {
+    const currentValue = valueRef.current;
+    const pendingToken = pendingSkillTokenRef.current;
+    if (isCurrentTokenMatch(currentValue, pendingToken)) {
+      return pendingToken;
+    }
+    const liveToken = getActiveSkillTokenMatch({
+      value: currentValue,
+      caretIndex: getLiveCaretIndex(currentValue),
+    });
+    if (liveToken) {
+      return liveToken;
+    }
+    if (isCurrentTokenMatch(currentValue, activeSkillToken)) {
+      return activeSkillToken;
+    }
+    return getActiveSkillTokenMatch({
+      value: currentValue,
+      caretIndex: currentValue.length,
+    });
+  }
+
+  function resolveWorkspaceInformationTokenSelection() {
+    const currentValue = valueRef.current;
+    const pendingToken = pendingWorkspaceInformationTokenRef.current;
+    if (isCurrentTokenMatch(currentValue, pendingToken)) {
+      return pendingToken;
+    }
+    const liveToken = getActiveWorkspaceInformationTokenMatch({
+      text: currentValue,
+      caretIndex: getLiveCaretIndex(currentValue),
+    });
+    if (liveToken) {
+      return liveToken;
+    }
+    if (isCurrentTokenMatch(currentValue, activeWorkspaceInformationToken)) {
+      return activeWorkspaceInformationToken;
+    }
+    return getActiveWorkspaceInformationTokenMatch({
+      text: currentValue,
+      caretIndex: currentValue.length,
+    });
+  }
+
+  function rememberActivePaletteTokenSelection() {
+    const currentValue = valueRef.current;
+    const caretPosition = getLiveCaretIndex(currentValue);
+    pendingCommandTokenRef.current =
+      activePalette === "command"
+        ? getActiveSlashCommandTokenMatch({
+            value: currentValue,
+            caretIndex: caretPosition,
+          }) ?? activeCommandToken
+        : null;
+    pendingSkillTokenRef.current =
+      activePalette === "skill"
+        ? getActiveSkillTokenMatch({
+            value: currentValue,
+            caretIndex: caretPosition,
+          }) ?? activeSkillToken
+        : null;
+    pendingWorkspaceInformationTokenRef.current =
+      activePalette === "info"
+        ? getActiveWorkspaceInformationTokenMatch({
+            text: currentValue,
+            caretIndex: caretPosition,
+          }) ?? activeWorkspaceInformationToken
+        : null;
   }
 
   function applyCommandSelection(item: CommandPaletteItem) {
-    if (!activeCommandToken) {
+    const match = resolveCommandTokenSelection();
+    pendingCommandTokenRef.current = null;
+    if (!match) {
       return;
     }
+    const currentValue = valueRef.current;
     const nextValue = replaceSlashCommandToken({
-      value,
-      match: activeCommandToken,
+      value: currentValue,
+      match,
       command: item,
     });
-    const nextCaretIndex = activeCommandToken.start + item.command.length + 1;
+    const nextCaretIndex = match.start + item.command.length + 1;
+    valueRef.current = nextValue;
     onValueChange(nextValue);
-    setDismissedCommandToken(null);
-    setCaretIndex(nextCaretIndex);
-    window.requestAnimationFrame(() => {
-      const textarea = textareaRef.current;
-      if (!textarea) {
-        return;
-      }
-      textarea.focus();
-      textarea.setSelectionRange(nextCaretIndex, nextCaretIndex);
-    });
+    setSuppressedAutocompleteValue({ palette: "command", value: nextValue });
+    setDismissedCommandToken(item.command);
+    setSelectedCommandIndex(NO_COMMAND_SELECTION);
+    restoreComposerSelection(nextCaretIndex);
   }
 
   function applySkillSelection(item: SkillCatalogEntry) {
-    if (!activeSkillToken) {
+    const match = resolveSkillTokenSelection();
+    pendingSkillTokenRef.current = null;
+    if (!match) {
       return;
     }
+    const currentValue = valueRef.current;
     const nextValue = replaceSkillToken({
-      value,
-      match: activeSkillToken,
+      value: currentValue,
+      match,
       skill: item,
     });
-    const nextCaretIndex = activeSkillToken.start + item.slug.length + 2;
+    const nextCaretIndex = match.start + item.slug.length + 2;
+    valueRef.current = nextValue;
     onValueChange(nextValue);
-    setDismissedSkillToken(null);
-    setCaretIndex(nextCaretIndex);
-    window.requestAnimationFrame(() => {
-      const textarea = textareaRef.current;
-      if (!textarea) {
-        return;
-      }
-      textarea.focus();
-      textarea.setSelectionRange(nextCaretIndex, nextCaretIndex);
+    setSuppressedAutocompleteValue({ palette: "skill", value: nextValue });
+    setDismissedSkillToken(`$${item.slug}`);
+    setSelectedSkillIndex(NO_COMMAND_SELECTION);
+    restoreComposerSelection(nextCaretIndex);
+  }
+
+  function applyWorkspaceInformationSelection(
+    item: WorkspaceInformationReferenceOption,
+  ) {
+    const match = resolveWorkspaceInformationTokenSelection();
+    pendingWorkspaceInformationTokenRef.current = null;
+    if (!match) {
+      return;
+    }
+    const currentValue = valueRef.current;
+    const nextValue = replaceWorkspaceInformationToken({
+      text: currentValue,
+      match,
+      reference: item.reference,
     });
+    const nextCaretIndex = match.start + item.reference.token.length + 1;
+    valueRef.current = nextValue;
+    onValueChange(nextValue);
+    setSuppressedAutocompleteValue({ palette: "info", value: nextValue });
+    setDismissedWorkspaceInformationToken(item.reference.token);
+    setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
+    restoreComposerSelection(nextCaretIndex);
   }
 
   function applyPromptHistoryNavigation(direction: "previous" | "next") {
-    const textarea = textareaRef.current;
+    const editor = promptEditorRef.current;
     const shouldUseBoundaryCheck =
       selectedPromptHistoryIndex === NO_PROMPT_HISTORY_SELECTION;
 
     if (shouldUseBoundaryCheck) {
-      if (!textarea) {
+      if (!editor) {
         return false;
       }
-      const selectionStart = textarea.selectionStart ?? 0;
-      const selectionEnd = textarea.selectionEnd ?? selectionStart;
+      const selection = editor.getSelectionRange();
       const boundaryReached = isPromptHistoryBoundaryReached({
         value,
-        selectionStart,
-        selectionEnd,
+        selectionStart: selection.start,
+        selectionEnd: selection.end,
         direction,
       });
       if (!boundaryReached) {
@@ -1297,18 +1619,11 @@ export function PromptInput(args: PromptInputProps) {
     }
 
     onValueChange(navigation.value);
+    valueRef.current = navigation.value;
     setSelectedPromptHistoryIndex(navigation.selectedIndex);
     setDraftBeforeHistory(navigation.draftBeforeHistory);
     const nextCaretIndex = navigation.value.length;
-    setCaretIndex(nextCaretIndex);
-    window.requestAnimationFrame(() => {
-      const nextTextarea = textareaRef.current;
-      if (!nextTextarea) {
-        return;
-      }
-      nextTextarea.focus();
-      nextTextarea.setSelectionRange(nextCaretIndex, nextCaretIndex);
-    });
+    restoreComposerSelection(nextCaretIndex);
     return true;
   }
 
@@ -1598,28 +1913,28 @@ export function PromptInput(args: PromptInputProps) {
                           </Button>
                         </div>
                       ) : null}
-                      <Textarea
-                        ref={textareaRef}
+                      <PromptLexicalEditor
+                        ref={promptEditorRef}
                         value={value}
+                        selectionRange={editorSelectionRange}
                         disabled={interactionsDisabled}
-                        onChange={(event) => {
-                          syncCaretPosition(event.target);
-                          onValueChange(event.target.value);
+                        minimal={minimal}
+                        commandPaletteItems={commandPaletteItems}
+                        skillPaletteItems={skillPaletteItems}
+                        workspaceInformationReferenceOptions={
+                          workspaceInformationReferenceOptions
+                        }
+                        onChange={(nextValue) => {
+                          onValueChange(nextValue);
                         }}
-                        onFocus={(event) => {
-                          syncCaretPosition(event.currentTarget);
+                        onSelectionChange={syncCaretPosition}
+                        onFocus={() => {
+                          syncCaretPosition(
+                            promptEditorRef.current?.getSelectionRange(),
+                          );
                           onFocus?.();
                         }}
                         onBlur={() => onBlur?.()}
-                        onClick={(event) =>
-                          syncCaretPosition(event.currentTarget)
-                        }
-                        onKeyUp={(event) =>
-                          syncCaretPosition(event.currentTarget)
-                        }
-                        onSelect={(event) =>
-                          syncCaretPosition(event.currentTarget)
-                        }
                         onPaste={(event) => {
                           const clipboardData = event.clipboardData;
                           if (!clipboardData) {
@@ -1692,6 +2007,57 @@ export function PromptInput(args: PromptInputProps) {
                           }
                         }}
                         onKeyDown={(event) => {
+                          if (
+                            activePalette === "info" &&
+                            filteredWorkspaceInformationItems.length > 0 &&
+                            !event.shiftKey &&
+                            !event.altKey &&
+                            !event.ctrlKey &&
+                            !event.metaKey
+                          ) {
+                            if (event.key === "ArrowDown") {
+                              event.preventDefault();
+                              setSelectedWorkspaceInformationIndex((current) =>
+                                getNextCommandSelectionIndex({
+                                  currentIndex: current,
+                                  itemCount:
+                                    filteredWorkspaceInformationItems.length,
+                                  direction: "next",
+                                }),
+                              );
+                              return;
+                            }
+                            if (event.key === "ArrowUp") {
+                              event.preventDefault();
+                              setSelectedWorkspaceInformationIndex((current) =>
+                                getNextCommandSelectionIndex({
+                                  currentIndex: current,
+                                  itemCount:
+                                    filteredWorkspaceInformationItems.length,
+                                  direction: "previous",
+                                }),
+                              );
+                              return;
+                            }
+                            if (event.key === "Enter" || event.key === "Tab") {
+                              if (event.nativeEvent.isComposing) {
+                                return;
+                              }
+                              const selectedItem = getAcceptedPaletteItem({
+                                items: filteredWorkspaceInformationItems,
+                                selectedIndex:
+                                  selectedWorkspaceInformationIndex,
+                                triggerKey: event.key,
+                              });
+                              if (selectedItem) {
+                                event.preventDefault();
+                                applyWorkspaceInformationSelection(
+                                  selectedItem,
+                                );
+                                return;
+                              }
+                            }
+                          }
                           if (
                             activePalette === "skill" &&
                             filteredSkillItems.length > 0 &&
@@ -1786,6 +2152,16 @@ export function PromptInput(args: PromptInputProps) {
                             }
                           }
                           if (
+                            activePalette === "info" &&
+                            event.key === "Escape"
+                          ) {
+                            event.preventDefault();
+                            setDismissedWorkspaceInformationToken(
+                              activeWorkspaceInformationToken?.token ?? null,
+                            );
+                            return;
+                          }
+                          if (
                             activePalette === "skill" &&
                             event.key === "Escape"
                           ) {
@@ -1854,7 +2230,9 @@ export function PromptInput(args: PromptInputProps) {
                             return;
                           }
                           const paletteHasAcceptedItems =
-                            activePalette === "skill"
+                            activePalette === "info"
+                              ? filteredWorkspaceInformationItems.length > 0
+                              : activePalette === "skill"
                               ? filteredSkillItems.length > 0
                               : activePalette === "command"
                                 ? filteredCommandItems.length > 0
@@ -1874,10 +2252,9 @@ export function PromptInput(args: PromptInputProps) {
                                 ? "Type the next turn..."
                                 : "Type a request..."
                               : isQueueNextMode
-                                ? "Use / for commands, $ for skills (Enter to queue next)"
-                                : "Use / for commands, $ for skills (Enter to send)"
+                                ? "Use / for commands, $ for skills, @ for Information (Enter to queue next)"
+                                : "Use / for commands, $ for skills, @ for Information (Enter to send)"
                         }
-                        rows={minimal ? 1 : undefined}
                         className={cn(
                           "resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 shadow-none dark:bg-transparent",
                           minimal
@@ -1903,6 +2280,12 @@ export function PromptInput(args: PromptInputProps) {
               sideOffset={8}
               onOpenAutoFocus={(event) => event.preventDefault()}
               onInteractOutside={() => {
+                if (activePalette === "info") {
+                  setDismissedWorkspaceInformationToken(
+                    activeWorkspaceInformationToken?.token ?? null,
+                  );
+                  return;
+                }
                 if (activePalette === "skill") {
                   setDismissedSkillToken(activeSkillToken?.token ?? null);
                   return;
@@ -1921,7 +2304,10 @@ export function PromptInput(args: PromptInputProps) {
                   ref={commandListRef}
                   className="max-h-[32rem] scroll-py-2"
                 >
-                  {activePalette === "skill" &&
+                  {activePalette === "info" &&
+                  filteredWorkspaceInformationItems.length === 0 ? (
+                    <CommandEmpty>No matching Information reference.</CommandEmpty>
+                  ) : activePalette === "skill" &&
                   filteredSkillItems.length === 0 ? (
                     <CommandEmpty>No matching skill.</CommandEmpty>
                   ) : activePalette === "command" &&
@@ -1929,6 +2315,96 @@ export function PromptInput(args: PromptInputProps) {
                     <CommandEmpty>No matching slash command.</CommandEmpty>
                   ) : (
                     <>
+                      {activePalette === "info" &&
+                      workspaceInformationSectionItems.length > 0 ? (
+                        <CommandGroup heading="Information sections">
+                          {workspaceInformationSectionItems.map(
+                            ({ item, index }) => (
+                              <CommandItem
+                                key={item.reference.token}
+                                value={item.reference.token}
+                                className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
+                                data-palette-index={index}
+                                onMouseEnter={() =>
+                                  setSelectedWorkspaceInformationIndex(index)
+                                }
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  rememberActivePaletteTokenSelection();
+                                }}
+                                onSelect={() =>
+                                  applyWorkspaceInformationSelection(item)
+                                }
+                              >
+                                <div className="flex items-start pt-0.5 text-primary">
+                                  <Info className="size-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">
+                                      {item.title}
+                                    </span>
+                                    <Badge
+                                      variant="secondary"
+                                      className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                    >
+                                      Section
+                                    </Badge>
+                                  </div>
+                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                    {item.description}
+                                  </p>
+                                </div>
+                              </CommandItem>
+                            ),
+                          )}
+                        </CommandGroup>
+                      ) : null}
+                      {activePalette === "info" &&
+                      workspaceInformationEntryItems.length > 0 ? (
+                        <CommandGroup heading="Information items">
+                          {workspaceInformationEntryItems.map(
+                            ({ item, index }) => (
+                              <CommandItem
+                                key={item.reference.token}
+                                value={item.reference.token}
+                                className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
+                                data-palette-index={index}
+                                onMouseEnter={() =>
+                                  setSelectedWorkspaceInformationIndex(index)
+                                }
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  rememberActivePaletteTokenSelection();
+                                }}
+                                onSelect={() =>
+                                  applyWorkspaceInformationSelection(item)
+                                }
+                              >
+                                <div className="flex items-start pt-0.5 text-primary">
+                                  <Info className="size-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">
+                                      {item.title}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                    >
+                                      Item
+                                    </Badge>
+                                  </div>
+                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                    {item.description}
+                                  </p>
+                                </div>
+                              </CommandItem>
+                            ),
+                          )}
+                        </CommandGroup>
+                      ) : null}
                       {activePalette === "skill" &&
                       localSkillItems.length > 0 ? (
                         <CommandGroup heading="Workspace skills">
@@ -1939,7 +2415,10 @@ export function PromptInput(args: PromptInputProps) {
                               className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedSkillIndex(index)}
-                              onMouseDown={(event) => event.preventDefault()}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                rememberActivePaletteTokenSelection();
+                              }}
                               onSelect={() => applySkillSelection(item)}
                             >
                               <div className="flex items-start pt-0.5">
@@ -1979,7 +2458,10 @@ export function PromptInput(args: PromptInputProps) {
                               className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedSkillIndex(index)}
-                              onMouseDown={(event) => event.preventDefault()}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                rememberActivePaletteTokenSelection();
+                              }}
                               onSelect={() => applySkillSelection(item)}
                             >
                               <div className="flex items-start pt-0.5">
@@ -2019,7 +2501,10 @@ export function PromptInput(args: PromptInputProps) {
                               className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedSkillIndex(index)}
-                              onMouseDown={(event) => event.preventDefault()}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                rememberActivePaletteTokenSelection();
+                              }}
                               onSelect={() => applySkillSelection(item)}
                             >
                               <div className="flex items-start pt-0.5">
@@ -2069,7 +2554,10 @@ export function PromptInput(args: PromptInputProps) {
                               onMouseEnter={() =>
                                 setSelectedCommandIndex(index)
                               }
-                              onMouseDown={(event) => event.preventDefault()}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                rememberActivePaletteTokenSelection();
+                              }}
                               onSelect={() => applyCommandSelection(item)}
                             >
                               <div className="min-w-0 flex-1">
@@ -2099,12 +2587,24 @@ export function PromptInput(args: PromptInputProps) {
                     </>
                   )}
                 </CommandList>
-                {activePalette === "skill" ? (
+                {activePalette === "info" ? (
+                  <div className="border-t border-border/70 px-3 py-2.5 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-2 font-medium text-foreground">
+                      <Info className="size-3.5" />
+                      Enter or Tab inserts the highlighted Information reference.
+                    </p>
+                    <p className="mt-2">
+                      Type `@` to search Information. Selection inserts
+                      `@info:section` for a full section or
+                      `@info:section/item` for one item.
+                    </p>
+                  </div>
+                ) : activePalette === "skill" ? (
                   <div className="border-t border-border/70 px-3 py-2.5 text-xs text-muted-foreground">
                     <p className="flex items-center gap-2 font-medium text-foreground">
                       <Sparkles className="size-3.5" />
-                      Tab inserts the highlighted skill token. Selected skills
-                      are normalized on send.
+                      Enter or Tab inserts the highlighted skill token. Selected
+                      skills are normalized on send.
                     </p>
                     <p className="mt-2">
                       `$skill` activates Stave skill instructions for both
@@ -2115,8 +2615,7 @@ export function PromptInput(args: PromptInputProps) {
                 ) : activePalette === "command" ? (
                   <div className="border-t border-border/70 px-3 py-2.5 text-xs text-muted-foreground">
                     <p className="font-medium text-foreground">
-                      Tab inserts the highlighted command. Enter sends normally
-                      when nothing is selected.
+                      Enter or Tab inserts the highlighted command.
                     </p>
                     {commandPaletteProviderNote ? (
                       <>
@@ -2364,8 +2863,28 @@ export function PromptInput(args: PromptInputProps) {
           ) : null}
           {visibleQueuedTurns.length === 0 &&
           (attachedFilePaths.length > 0 ||
-            standaloneImageAttachments.length > 0) ? (
+            standaloneImageAttachments.length > 0 ||
+            workspaceInformationAttachments.length > 0) ? (
             <div className="flex flex-wrap gap-1.5">
+              {workspaceInformationAttachments.map((attachment) => (
+                <WorkspaceInformationReferenceChip
+                  key={attachment.id}
+                  reference={attachment.reference}
+                  disabled={interactionsDisabled}
+                  compact={minimal}
+                  onRemove={() =>
+                    onAttachmentsChange?.({
+                      attachments: (attachments ?? []).filter(
+                        (candidate) =>
+                          !(
+                            candidate.kind === "workspace-information" &&
+                            candidate.id === attachment.id
+                          ),
+                      ),
+                    })
+                  }
+                />
+              ))}
               {attachedFilePaths.map((filePath) => (
                 <div
                   key={filePath}

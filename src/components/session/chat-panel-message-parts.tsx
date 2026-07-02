@@ -33,6 +33,7 @@ import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
 import type { MessagePart } from "@/types/chat";
+import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 import { ChangedFilesBlock, FileChangeToolBlock, ReferencedFilesBlock, ImageAttachmentBlock } from "./chat-panel-file-blocks";
 
 export function toProviderStartCase(args: { providerId: "claude-code" | "codex" }) {
@@ -146,6 +147,8 @@ export function MessagePartRenderer(args: {
       return <ReferencedFilesBlock parts={[part]} />;
     case "image_context":
       return <ImageAttachmentBlock parts={[part]} />;
+    case "workspace_information_context":
+      return <WorkspaceInformationReferenceChip reference={part.reference} />;
     case "approval":
       return (
         <ConfirmationCompact
