@@ -18,6 +18,10 @@ import {
   sanitizeBranchName,
   toWorkspaceFolderName,
 } from "@/store/project.utils";
+import {
+  filterProjectSidebarProjects,
+  formatWorkspaceDisplayName,
+} from "@/components/layout/ProjectWorkspaceSidebar.utils";
 
 const PROJECT_PATH = "/tmp/workspace/stave";
 const FOREIGN_PROJECT_PATH = "/tmp/sbdashboard";
@@ -27,6 +31,71 @@ const DEFAULT_WORKSPACE_ID = buildProjectDefaultWorkspaceId({
 });
 
 describe("project name normalization", () => {
+  test("formats custom workspace labels with branch context", () => {
+    expect(
+      formatWorkspaceDisplayName({
+        name: "Customer issue",
+        branch: "feat/noah/DFE-2587",
+        isDefault: false,
+      }),
+    ).toBe("Customer issue (feat/noah/DFE-2587)");
+    expect(
+      formatWorkspaceDisplayName({
+        name: "feat/noah/DFE-2587",
+        branch: "feat/noah/DFE-2587",
+        isDefault: false,
+      }),
+    ).toBe("feat/noah/DFE-2587");
+    expect(
+      formatWorkspaceDisplayName({
+        name: "Default Workspace",
+        branch: "main",
+        isDefault: true,
+      }),
+    ).toBe("Default");
+  });
+
+  test("filters sidebar workspaces by custom label and branch", () => {
+    const sourceProjects = [
+      {
+        projectPath: PROJECT_PATH,
+        projectName: "stave",
+        activeWorkspaceId: "ws-1",
+        isCurrent: true,
+        workspacePathById: {},
+        workspaces: [
+          {
+            id: "ws-1",
+            name: "Quota UI",
+            branch: "feat/noah/DFE-2587",
+            isDefault: false,
+          },
+          {
+            id: "ws-2",
+            name: "feat/noah/tool-mock",
+            branch: "feat/noah/tool-mock",
+            isDefault: false,
+          },
+        ],
+      },
+    ];
+    const projects = filterProjectSidebarProjects({
+      query: "quota",
+      projects: sourceProjects,
+    });
+
+    expect(projects).toHaveLength(1);
+    expect(projects[0]?.workspaces.map((workspace) => workspace.id)).toEqual([
+      "ws-1",
+    ]);
+    expect(
+      filterProjectSidebarProjects({
+        query: "tool-mock",
+        projects: sourceProjects,
+      })[0]?.workspaces,
+    ).toHaveLength(1);
+  });
+
   test("resolves path basenames after trimming trailing separators", () => {
     expect(resolvePathBaseName({ path: "/tmp/workspace/stave/" })).toBe(
       "stave",
