@@ -3400,6 +3400,8 @@ export function SettingsDialogSectionContent(args: {
       return <EditorSection />;
     case "providers":
       return <ProvidersSection />;
+    case "models":
+      return <ModelsSection />;
     case "codex":
       return <CodexSection />;
     case "mcp":
