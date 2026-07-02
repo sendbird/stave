@@ -62,6 +62,11 @@ function cloneMessagePart(part: MessagePart): MessagePart {
         label: part.label,
         mimeType: part.mimeType,
       };
+    case "workspace_information_context":
+      return {
+        type: "workspace_information_context",
+        reference: { ...part.reference },
+      };
     case "approval":
       return {
         type: "approval",
@@ -231,6 +236,8 @@ function canonicalPartToContextText(part: CanonicalConversationMessage["parts"][
       return `[file_context:${part.filePath}] ${part.instruction ?? ""}`.trim();
     case "image_context":
       return `[image: ${part.label}]`;
+    case "workspace_information_context":
+      return `[workspace_information:${part.reference.token}] ${part.reference.label}`;
     case "approval":
       return `[approval:${part.toolName}] ${part.description} state=${part.state}`;
     case "user_input":

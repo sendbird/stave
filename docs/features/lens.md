@@ -72,7 +72,7 @@ OAuth and SSO popup windows opened from a page use the same Lens browser profile
 
 1. Open `Settings > Lens`.
 2. Use `Site Access` to set newline-delimited allowed and blocked hosts. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation.
-3. Use `Developer Mode` to enable or disable CDP-backed Lens actions and remove approved CDP hosts.
+3. Use `Developer Mode` to enable or disable CDP-backed Lens actions and add or remove approved CDP hosts.
 4. When Lens asks for CDP access, approve only hosts you expect agents to inspect or control.
 
 ### Inspect A Page And Send A Fix Request
@@ -160,7 +160,7 @@ OAuth and SSO popup windows opened from a page use the same Lens browser profile
 
 - Symptom: screenshots, page HTML reads, evaluation, clicks, or style edits fail before running.
 - Cause: CDP is disabled or the current host has not been approved.
-- Fix: enable `Settings > Lens > Developer Mode`, open Lens for that workspace, and approve the host when prompted.
+- Fix: enable `Settings > Lens > Developer Mode`, then approve the host when prompted or add it manually under Approved Hosts.
 
 ## Troubleshooting
 

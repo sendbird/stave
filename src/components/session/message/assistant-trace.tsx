@@ -612,6 +612,7 @@ function DisplayPartList(args: {
   taskId: string;
   messageId: string;
   isStreaming: boolean;
+  tokenizePromptTokens?: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -621,6 +622,7 @@ function DisplayPartList(args: {
             <MessageResponse
               key={`${args.messageId}-display-${index}`}
               isStreaming={args.isStreaming && index === args.parts.length - 1}
+              tokenizePromptTokens={args.tokenizePromptTokens}
             >
               {part.text}
             </MessageResponse>
@@ -652,7 +654,12 @@ function DisplayPartList(args: {
 export function AssistantMessageBody(args: {
   message: Pick<
     ChatMessage,
-    "content" | "parts" | "displayContent" | "displayParts" | "isStreaming"
+    | "content"
+    | "parts"
+    | "displayContent"
+    | "displayParts"
+    | "isStreaming"
+    | "role"
   >;
   taskId: string;
   messageId: string;
@@ -703,6 +710,7 @@ export function AssistantMessageBody(args: {
         taskId={taskId}
         messageId={messageId}
         isStreaming={isStreaming}
+        tokenizePromptTokens={message.role === "user"}
       />
     );
   }
@@ -753,7 +761,10 @@ export function AssistantMessageBody(args: {
           )}
         >
           {trace.interimTextParts.map((part, index) => (
-            <MessageResponse key={`${messageId}-interim-${index}`}>
+            <MessageResponse
+              key={`${messageId}-interim-${index}`}
+              tokenizePromptTokens={message.role === "user"}
+            >
               {part.text}
             </MessageResponse>
           ))}
@@ -771,6 +782,7 @@ export function AssistantMessageBody(args: {
             <MessageResponse
               key={`${messageId}-response-${index}`}
               isStreaming={isStreaming && index === trace.responseParts.length - 1}
+              tokenizePromptTokens={message.role === "user"}
             >
               {part.text}
             </MessageResponse>

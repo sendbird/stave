@@ -115,6 +115,30 @@ const ImageContextPartSchema = z.object({
   mimeType: z.string(),
 });
 
+const WorkspaceInformationReferenceSchema = z.object({
+  section: z.union([
+    z.literal("turn-summary"),
+    z.literal("notes"),
+    z.literal("todo"),
+    z.literal("pr"),
+    z.literal("jira"),
+    z.literal("confluence"),
+    z.literal("storybook"),
+    z.literal("slack"),
+    z.literal("figma"),
+    z.literal("custom"),
+  ]),
+  scope: z.union([z.literal("section"), z.literal("item")]),
+  itemId: z.string().optional(),
+  label: z.string(),
+  token: z.string(),
+});
+
+const WorkspaceInformationContextPartSchema = z.object({
+  type: z.literal("workspace_information_context"),
+  reference: WorkspaceInformationReferenceSchema,
+});
+
 const SystemEventPartSchema = z.object({
   type: z.literal("system_event"),
   content: z.string(),
@@ -133,6 +157,7 @@ const MessagePartSchema = z.discriminatedUnion("type", [
   CodeDiffPartSchema,
   FileContextPartSchema,
   ImageContextPartSchema,
+  WorkspaceInformationContextPartSchema,
   ApprovalPartSchema,
   UserInputPartSchema,
   SystemEventPartSchema,
@@ -145,6 +170,11 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     id: z.string(),
     dataUrl: z.string(),
     label: z.string(),
+  }),
+  z.object({
+    kind: z.literal("workspace-information"),
+    id: z.string(),
+    reference: WorkspaceInformationReferenceSchema,
   }),
   z.object({
     kind: z.literal("lens-annotations"),

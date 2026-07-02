@@ -41,6 +41,15 @@ describe("hasPromptSubmitPayload", () => {
     ).toBe(true);
   });
 
+  test("accepts Information references without textarea text", () => {
+    expect(
+      hasPromptSubmitPayload({
+        ...emptyArgs,
+        workspaceInformationAttachments: [{}],
+      }),
+    ).toBe(true);
+  });
+
   test("ignores blank staged comments", () => {
     expect(
       hasPromptSubmitPayload({

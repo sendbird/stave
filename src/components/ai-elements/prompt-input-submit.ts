@@ -3,6 +3,7 @@ export function hasPromptSubmitPayload(args: {
   attachedFilePaths: readonly unknown[];
   imageAttachments: readonly unknown[];
   lensAnnotationAttachments: readonly unknown[];
+  workspaceInformationAttachments?: readonly unknown[];
   promptBatch: readonly {
     content: string;
     attachedFilePaths?: readonly unknown[];
@@ -14,6 +15,7 @@ export function hasPromptSubmitPayload(args: {
     args.attachedFilePaths.length > 0 ||
     args.imageAttachments.length > 0 ||
     args.lensAnnotationAttachments.length > 0 ||
+    (args.workspaceInformationAttachments?.length ?? 0) > 0 ||
     args.promptBatch.some(
       (item) =>
         item.content.trim().length > 0 ||
