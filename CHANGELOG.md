@@ -2,6 +2,25 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.8.1](https://github.com/sendbird/stave/compare/v0.8.0...v0.8.1) (2026-07-02)
+
+### Features
+
+* Add Auto Routing with deterministic heuristics, optional Claude classification, provider stickiness, objective tuning, safety escalation, and eligible-model controls.
+* Add a per-workspace settings dialog from workspace rows, grouping sync status and workspace scripts while simplifying the global Tooling settings section.
+* Add Claude Sonnet 5, Claude Sonnet 5 (1M), and Claude Fable 5 to the model catalog while upgrading settings-scoped legacy Sonnet aliases.
+* Preserve image attachments through prompt batch staging and provider context, with Lens visual comment screenshots gated by the image-context setting.
+
+### Fixes
+
+* Interrupt stalled provider turns when the user sends a new message and add Claude turn-behavior guardrails against impossible autonomous follow-up promises.
+* Preserve bottom inset padding in docked terminals by moving terminal shell padding onto `.xterm`.
+* Refine workspace-row action placement so expanded workspace rows keep title padding and hover controls aligned.
+
+### References
+
+* [#88](https://github.com/sendbird/stave/pull/88), [#89](https://github.com/sendbird/stave/pull/89), [#90](https://github.com/sendbird/stave/pull/90), [#91](https://github.com/sendbird/stave/pull/91), [#92](https://github.com/sendbird/stave/pull/92), [#93](https://github.com/sendbird/stave/pull/93), [#94](https://github.com/sendbird/stave/pull/94), [#95](https://github.com/sendbird/stave/pull/95)
+
 ## [0.8.0](https://github.com/sendbird/stave/compare/v0.7.7...v0.8.0) (2026-06-30)
 
 ### Features
