@@ -1,3 +1,14 @@
+## [0.8.4](https://github.com/sendbird/stave/compare/v0.8.3...v0.8.4) (2026-07-02)
+
+### Features
+
+* Replace the prompt textarea with a Lexical-backed editor that renders slash commands, skills, and Information references as inline chips.
+* Add Information autocomplete via `@`, with support for section/item references included in provider context.
+* Support chip stability across multiple insertions, Enter/Tab chip selection, Backspace chip deletion, and updated placeholder hint (`@ for Information`).
+
+### References
+
+* [#104](https://github.com/sendbird/stave/pull/104)
 # Changelog
 
 All notable changes to Stave are documented in this file.
