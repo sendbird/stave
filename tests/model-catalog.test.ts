@@ -42,10 +42,10 @@ describe("model catalog", () => {
     ]);
   });
 
-  test("includes Sonnet 5 variants in the Claude SDK options", () => {
+  test("includes Fable 5 and Sonnet 5 variants in the Claude SDK options", () => {
+    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(CLAUDE_FABLE_MODEL);
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5");
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5[1m]");
-    expect(CLAUDE_SDK_MODEL_OPTIONS).not.toContain("claude-fable-5");
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
       "claude-sonnet-5",
     );
@@ -148,7 +148,7 @@ describe("model catalog", () => {
     ).toBe("claude-sonnet-5");
     expect(
       resolveTierModel({ providerId: "claude-code", tier: "frontier" }),
-    ).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    ).toBe(CLAUDE_FABLE_MODEL);
     expect(resolveTierModel({ providerId: "codex", tier: "light" })).toBe(
       "gpt-5.4-mini",
     );

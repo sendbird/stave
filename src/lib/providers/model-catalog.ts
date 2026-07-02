@@ -227,6 +227,13 @@ const GENERAL_CODING_TASK_TYPES = [
 ] as const satisfies readonly TaskType[];
 
 export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
+  [CLAUDE_FABLE_MODEL]: {
+    providerId: "claude-code",
+    model: CLAUDE_FABLE_MODEL,
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultClaudeEffort: "xhigh",
+  },
   [DEFAULT_CLAUDE_OPUS_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_OPUS_MODEL,
