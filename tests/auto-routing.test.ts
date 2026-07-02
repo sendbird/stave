@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { CLAUDE_FABLE_MODEL } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   resolveAutoRoutingDecision,
@@ -105,7 +106,7 @@ describe("resolveAutoRoutingDecision", () => {
     expect(lowCost.tier).toBe("standard");
     expect(lowCost.model).toBe("claude-sonnet-5");
     expect(highQuality.tier).toBe("frontier");
-    expect(highQuality.model).toBe("claude-opus-4-8");
+    expect(highQuality.model).toBe(CLAUDE_FABLE_MODEL);
   });
 
   test("honors a single eligible provider model", async () => {
