@@ -285,7 +285,7 @@ export function CreateWorkspaceDialog({
       }}
     >
       <Card
-        className="t-modal animate-dropdown-in w-full max-w-3xl rounded-lg border-border/80 bg-card p-6"
+        className="t-modal animate-dropdown-in max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-lg border-border/80 bg-card p-6"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
