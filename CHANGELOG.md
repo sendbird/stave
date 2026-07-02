@@ -1,3 +1,16 @@
+## [0.8.1](https://github.com/sendbird/stave/compare/v0.8.0...v0.8.1) (2026-07-02)
+
+### Features
+
+* **annotations:** carry image attachments through prompt batch and provider context ([d970830](https://github.com/sendbird/stave/commit/d970830f476e1172d35f6bca5a0758bbf11c084c))
+* claude sonnet 5 ([#90](https://github.com/sendbird/stave/issues/90)) ([06682ba](https://github.com/sendbird/stave/commit/06682ba3db4eb7d6798378fbb51e8d5b142fa124))
+* per-workspace settings dialog with sync status and scripts ([#88](https://github.com/sendbird/stave/issues/88)) ([559f1aa](https://github.com/sendbird/stave/commit/559f1aac6710b60ca7386560a40143634b50a65f))
+* **workspace:** add editable workspace labels ([b53d9d5](https://github.com/sendbird/stave/commit/b53d9d503f6240e636c5db0457916d2bfa696040))
+
+### Bug Fixes
+
+* **terminal:** apply shell inset padding on .xterm so dock bottom isn't clipped ([#89](https://github.com/sendbird/stave/issues/89)) ([8e72ee8](https://github.com/sendbird/stave/commit/8e72ee870c1009b6f63f4d864f111bc587ee7584))
+* **workspace:** constrain create workspace dialog height ([d38d17c](https://github.com/sendbird/stave/commit/d38d17ce8d6da341eb41689086bb971e3c6d2216))
 # Changelog
 
 All notable changes to Stave are documented in this file.
