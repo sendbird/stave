@@ -2,6 +2,20 @@
 
 All notable changes to Stave are documented in this file.
 
+## [0.8.3](https://github.com/sendbird/stave/compare/v0.8.2...v0.8.3) (2026-07-02)
+
+### Fixes
+
+* Add direct Settings navigation for Models and keep Auto routing model controls discoverable from the command palette.
+* Move script editing into a dedicated Scripts settings section with reusable script manager tabs for actions, services, hooks, targets, environment values, and logs.
+* Add command-palette actions for runnable workspace scripts and hooks, backed by the active workspace scripts runtime.
+* Improve workspace script runtime state, origin handling, ANSI log rendering, and panel behavior for running, stopping, and inspecting scripts.
+* Reduce terminal panel inset padding for both docked terminals and CLI session terminals.
+
+### References
+
+* [#100](https://github.com/sendbird/stave/pull/100), [#101](https://github.com/sendbird/stave/pull/101), [#102](https://github.com/sendbird/stave/pull/102)
+
 ## [0.8.2](https://github.com/sendbird/stave/compare/v0.8.1...v0.8.2) (2026-07-02)
 
 ### Features
