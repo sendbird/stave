@@ -22,6 +22,7 @@ interface CreateWorkspaceDialogProps {
   onOpenChange: (open: boolean) => void;
   onCreateWorkspace: (args: {
     name: string;
+    label?: string;
     mode: "branch" | "clean";
     fromBranch?: string;
     fromBranchKind?: "local" | "remote";
@@ -53,6 +54,7 @@ export function CreateWorkspaceDialog({
   onCreateWorkspace,
 }: CreateWorkspaceDialogProps) {
   const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceLabel, setWorkspaceLabel] = useState("");
   const [createWorkspaceError, setCreateWorkspaceError] = useState<
     string | null
   >(null);
@@ -156,6 +158,7 @@ export function CreateWorkspaceDialog({
       return;
     }
     setWorkspaceName("");
+    setWorkspaceLabel("");
     setCreateWorkspaceError(null);
     setCreatingWorkspace(false);
     setCreationMode("branch");
@@ -207,6 +210,7 @@ export function CreateWorkspaceDialog({
     try {
       const result = await onCreateWorkspace({
         name: workspaceName,
+        label: workspaceLabel,
         mode: creationMode,
         fromBranch,
         fromBranchKind,
@@ -311,6 +315,18 @@ export function CreateWorkspaceDialog({
               onChange={(event) => setWorkspaceName(event.target.value)}
               className="h-10 rounded-sm border-border/80 bg-background"
             />
+          </div>
+          <div className="mb-4">
+            <p className="mb-2 text-sm font-medium">Workspace Label</p>
+            <Input
+              value={workspaceLabel}
+              placeholder="Optional display label"
+              onChange={(event) => setWorkspaceLabel(event.target.value)}
+              className="h-10 rounded-sm border-border/80 bg-background"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Optional. Leave blank to use the branch name in the project list.
+            </p>
           </div>
           <p className="mb-2 text-sm font-medium">Creation Methods</p>
           <div

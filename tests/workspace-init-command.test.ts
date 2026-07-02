@@ -280,6 +280,77 @@ describe("new workspace init command", () => {
     );
   });
 
+  test("uses an optional label as the workspace display name while preserving the branch", async () => {
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+
+    setWindowContext({
+      api: {
+        terminal: {
+          runCommand: async (args: { cwd?: string; command: string }) => {
+            runCalls.push(args);
+            return {
+              ok: true,
+              code: 0,
+              stdout: "",
+              stderr: "",
+            };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+
+    useAppStore.setState({
+      ...initialState,
+      projectPath: "/tmp/stave-project",
+      projectName: "stave-project",
+      defaultBranch: "main",
+      recentProjects: [
+        {
+          projectPath: "/tmp/stave-project",
+          projectName: "stave-project",
+          lastOpenedAt: "2026-03-26T00:00:00.000Z",
+          defaultBranch: "main",
+          workspaces: [],
+          activeWorkspaceId: "",
+          workspaceBranchById: {},
+          workspacePathById: {},
+          workspaceDefaultById: {},
+        },
+      ],
+      workspaces: [],
+      activeWorkspaceId: "",
+      workspaceBranchById: {},
+      workspacePathById: {},
+      workspaceDefaultById: {},
+      projectFiles: [],
+    });
+
+    const result = await useAppStore.getState().createWorkspace({
+      name: "feature/customer-quota",
+      label: "Customer quota",
+      mode: "branch",
+      fromBranch: "main",
+    });
+
+    expect(result).toEqual({ ok: true });
+    const state = useAppStore.getState();
+    const workspace = state.workspaces[0];
+    expect(workspace?.name).toBe("Customer quota");
+    expect(workspace?.id ? state.workspaceBranchById[workspace.id] : null).toBe(
+      "feature/customer-quota",
+    );
+    expect(
+      runCalls
+        .map((call) => call.command)
+        .some((command) =>
+          command.includes('git worktree add -b "feature/customer-quota"'),
+        ),
+    ).toBe(true);
+  });
+
   test("reuses the repository root node_modules via symlink before the post-create command when configured", async () => {
     const runCalls: Array<{ cwd?: string; command: string }> = [];
 
