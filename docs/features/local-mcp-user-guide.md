@@ -133,11 +133,16 @@ For workspace Information panel management, also use:
 - `stave_set_workspace_custom_field`
 - `stave_remove_workspace_custom_field`
 
+Agents that already receive Stave task awareness context should treat that injected context as current.
+Call `stave_get_workspace_information` only when the injected summary is missing a detail needed for the next action.
+Keep notes and todos compact; store long handoff or execution details in `.stave/context/plans/` and reference the plan path from notes.
+
 If the workflow also needs live UI inspection:
 
 6. Call `stave_lens_open_session` for the target workspace, optionally with a URL
-7. Call `stave_lens_navigate`, `stave_lens_screenshot`, `stave_lens_get_html`, or the other `stave_lens_*` tools as needed
-8. Call `stave_lens_close_session` to close MCP-managed sessions when the workflow is done
+7. Prefer low-token reads first: `stave_lens_snapshot` for page structure, scoped `stave_lens_get_text` for copy, and selector screenshots for visual checks
+8. Use raw or high-volume reads only when needed: pass `selector` and `maxChars` to `stave_lens_get_html`, and keep `limit` small for `stave_lens_get_console`, `stave_lens_get_network`, and `stave_lens_list_downloads`
+9. Call `stave_lens_close_session` to close MCP-managed sessions when the workflow is done
 
 ## Example Manifest
 

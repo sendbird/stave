@@ -98,6 +98,13 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     expect(context.content).toContain(
       "new workspace plan files belong under `.stave/context/plans`",
     );
+    expect(context.content).toContain("Token Budget Guidance:");
+    expect(context.content).toContain(
+      "Do not call `stave_get_workspace_information` just to re-read fields already shown here.",
+    );
+    expect(context.content).toContain(
+      "prefer `stave_lens_snapshot`, scoped `stave_lens_get_text`, or screenshots before raw HTML",
+    );
     expect(context.content).toContain("Handoff procedure:");
     expect(context.content).toContain(
       "Write a plan file at the target's `.stave/context/plans/<taskIdPrefix>_<timestamp>.md`",

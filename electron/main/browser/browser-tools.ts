@@ -17,7 +17,6 @@ import {
 import { ensureBrowserSessionWithEvents } from "./browser-session-events";
 import { normalizeLensUrl } from "./browser-url";
 
-const NAVIGATE_TIMEOUT_MS = 30_000;
 import {
   captureScreenshot,
   clickElement,
@@ -32,6 +31,12 @@ import {
 } from "./browser-cdp";
 import { triggerDownloadByUrl } from "./browser-downloads";
 import { assertNavigationAllowed } from "./browser-security";
+
+const NAVIGATE_TIMEOUT_MS = 30_000;
+const DEFAULT_HTML_MAX_CHARS = 20_000;
+const MAX_HTML_CHARS = 50_000;
+const DEFAULT_LOG_LIMIT = 25;
+const MAX_LOG_LIMIT = 100;
 
 // ---------------------------------------------------------------------------
 // Helpers (same pattern as stave-mcp-server.ts)
@@ -54,6 +59,26 @@ function requireSession(workspaceId: string) {
     );
   }
   return session;
+}
+
+function clampPositiveInteger(value: number | undefined, args: {
+  defaultValue: number;
+  maxValue: number;
+}) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return args.defaultValue;
+  }
+  return Math.max(1, Math.min(args.maxValue, Math.floor(value)));
+}
+
+function truncateWithMarker(value: string, maxChars: number) {
+  if (value.length <= maxChars) {
+    return { value, truncated: false };
+  }
+  return {
+    value: `${value.slice(0, Math.max(0, maxChars))}\n<!-- truncated -->`,
+    truncated: true,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +227,7 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_screenshot",
     {
       description:
-        "Take a screenshot of the current page in the workspace Lens browser. Returns a base64-encoded PNG data URL.",
+        "Take a screenshot of the current page in the workspace Lens browser. Prefer selector screenshots for focused visual checks. Returns a base64-encoded PNG data URL.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         fullPage: z
@@ -261,24 +286,38 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_get_html",
     {
       description:
-        "Get the outerHTML of the page or a specific element in the workspace Lens browser.",
+        "Get bounded outerHTML from the workspace Lens browser. Prefer stave_lens_snapshot or scoped stave_lens_get_text first; pass selector and maxChars when raw HTML is necessary.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         selector: z
           .string()
           .optional()
           .describe(
-            "CSS selector. If omitted returns the full document HTML (truncated to 50 000 chars).",
+            "CSS selector. If omitted returns document HTML bounded by maxChars.",
+          ),
+        maxChars: z
+          .number()
+          .optional()
+          .describe(
+            "Maximum characters to return (default 20 000, capped at 50 000).",
           ),
       },
     },
-    async ({ workspaceId, selector }) => {
+    async ({ workspaceId, selector, maxChars }) => {
       const session = requireSession(workspaceId);
       let html = await getDocumentHTML(session.view.webContents.id, selector);
-      if (html.length > 50_000) {
-        html = html.slice(0, 50_000) + "\n<!-- truncated -->";
-      }
-      return toStructuredResult({ ok: true, html });
+      const resolvedMaxChars = clampPositiveInteger(maxChars, {
+        defaultValue: DEFAULT_HTML_MAX_CHARS,
+        maxValue: MAX_HTML_CHARS,
+      });
+      const truncated = truncateWithMarker(html, resolvedMaxChars);
+      html = truncated.value;
+      return toStructuredResult({
+        ok: true,
+        html,
+        truncated: truncated.truncated,
+        maxChars: resolvedMaxChars,
+      });
     },
   );
 
@@ -287,7 +326,7 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_get_text",
     {
       description:
-        "Get the text content of a specific element in the workspace Lens browser.",
+        "Get the text content of a specific element in the workspace Lens browser. This is the preferred low-token read path for page copy.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         selector: z.string().describe("CSS selector of the target element"),
@@ -328,22 +367,28 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_get_console",
     {
       description:
-        "Get recent console messages from the workspace Lens browser (up to 200 buffered).",
+        "Get recent console messages from the workspace Lens browser. Keep limit small unless debugging a specific console-heavy issue.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         limit: z
           .number()
           .optional()
-          .describe("Number of recent entries to return (default 50)"),
+          .describe(
+            "Number of recent entries to return (default 25, capped at 100)",
+          ),
       },
     },
     async ({ workspaceId, limit }) => {
       const session = requireSession(workspaceId);
       const entries = session.consoleLog.toArray();
-      const n = limit ?? 50;
+      const n = clampPositiveInteger(limit, {
+        defaultValue: DEFAULT_LOG_LIMIT,
+        maxValue: MAX_LOG_LIMIT,
+      });
       return toStructuredResult({
         ok: true,
         entries: entries.slice(-n),
+        limit: n,
         total: entries.length,
       });
     },
@@ -354,22 +399,28 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_get_network",
     {
       description:
-        "Get recent network requests from the workspace Lens browser (up to 200 buffered).",
+        "Get recent network requests from the workspace Lens browser. Keep limit small unless debugging request ordering or failures.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         limit: z
           .number()
           .optional()
-          .describe("Number of recent entries to return (default 50)"),
+          .describe(
+            "Number of recent entries to return (default 25, capped at 100)",
+          ),
       },
     },
     async ({ workspaceId, limit }) => {
       const session = requireSession(workspaceId);
       const entries = session.networkLog.toArray();
-      const n = limit ?? 50;
+      const n = clampPositiveInteger(limit, {
+        defaultValue: DEFAULT_LOG_LIMIT,
+        maxValue: MAX_LOG_LIMIT,
+      });
       return toStructuredResult({
         ok: true,
         entries: entries.slice(-n),
+        limit: n,
         total: entries.length,
       });
     },
@@ -414,16 +465,22 @@ export function registerBrowserTools(server: McpServer): void {
         limit: z
           .number()
           .optional()
-          .describe("Number of recent entries to return (default 50)"),
+          .describe(
+            "Number of recent entries to return (default 25, capped at 100)",
+          ),
       },
     },
     async ({ workspaceId, limit }) => {
       const session = requireSession(workspaceId);
       const entries = session.downloadLog.toArray();
-      const n = limit ?? 50;
+      const n = clampPositiveInteger(limit, {
+        defaultValue: DEFAULT_LOG_LIMIT,
+        maxValue: MAX_LOG_LIMIT,
+      });
       return toStructuredResult({
         ok: true,
         entries: entries.slice(-n),
+        limit: n,
         total: entries.length,
       });
     },
@@ -561,7 +618,7 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_snapshot",
     {
       description:
-        "Get an accessibility tree snapshot of the current page, useful for understanding page structure without reading raw HTML.",
+        "Get a compact accessibility tree snapshot of the current page. Use this as the first Lens read before raw HTML, console, or network dumps.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
       },
