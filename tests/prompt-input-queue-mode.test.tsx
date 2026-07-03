@@ -297,6 +297,77 @@ describe("PromptInput queue mode", () => {
     expect(html).not.toContain("Focus");
   });
 
+  test("defaults to Enter=queue, Tab=steer during a steerable active turn", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "Also update the README",
+          isTurnActive: true,
+          submitMode: "steer-or-queue" as const,
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          attachments: [],
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onSubmit: () => {},
+          onAbort: () => {},
+        }),
+      ),
+    );
+
+    // The primary submit button mirrors Enter, which defaults to queue, while
+    // the visible secondary action mirrors Tab and steers the current work.
+    expect(html).toContain('aria-label="Queue next turn"');
+    expect(html).toContain('aria-label="Adjust current work"');
+    expect(html).toContain(">Adjust current work</span>");
+    expect(html).toContain("Enter to queue, Tab to steer");
+  });
+
+  test("respects steerQueueEnterAction=steer during a steerable active turn", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "Also update the README",
+          isTurnActive: true,
+          submitMode: "steer-or-queue" as const,
+          steerQueueEnterAction: "steer" as const,
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          attachments: [],
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onSubmit: () => {},
+          onAbort: () => {},
+        }),
+      ),
+    );
+
+    // The primary submit button mirrors Enter (steer), while the visible
+    // secondary action mirrors Tab and queues the next turn.
+    expect(html).toContain('aria-label="Steer this turn"');
+    expect(html).toContain('aria-label="Queue next"');
+    expect(html).toContain(">Queue next</span>");
+    expect(html).toContain("Enter to steer, Tab to queue");
+  });
+
   test("renders comments and lens annotation gadgets outside the textarea", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([

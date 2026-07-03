@@ -121,6 +121,11 @@ import {
   type VisualCommentShortcut,
 } from "@/lib/visual-comment-shortcuts";
 import {
+  DEFAULT_STEER_QUEUE_ENTER_ACTION,
+  normalizeSteerQueueEnterAction,
+  type SteerQueueEnterAction,
+} from "@/lib/steer-queue-shortcuts";
+import {
   DEFAULT_PROMPT_RESPONSE_STYLE,
   DEFAULT_PROMPT_PR_DESCRIPTION,
   DEFAULT_PROMPT_INLINE_COMPLETION,
@@ -452,6 +457,12 @@ type SendUserMessageResult =
   | { status: "blocked" }
   | { status: "queued"; taskId: string; workspaceId: string }
   | { status: "steered"; taskId: string; workspaceId: string; turnId: string }
+  | {
+      status: "steer-unavailable";
+      taskId: string;
+      workspaceId: string;
+      message: string;
+    }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string };
 
 type AppActiveSurface = { kind: "workspace" } | { kind: "fleet-view" };
@@ -1338,6 +1349,12 @@ export interface AppSettings {
   modelShortcutKeys: string[];
   /** Composer shortcut that stages the current prompt text as a comment. */
   promptCommentShortcut: PromptCommentShortcut;
+  /**
+   * Which key (Enter or Tab) steers vs queues during an active turn's
+   * steer-or-queue composer mode. The other key always does the opposite —
+   * neither is a fallback for the other.
+   */
+  steerQueueEnterAction: SteerQueueEnterAction;
   /** Lens shortcut that toggles visual comment mode. */
   visualCommentShortcut: VisualCommentShortcut;
   /** When enabled, visual comment screenshots are included as provider image context. */
@@ -1761,6 +1778,18 @@ interface AppState {
       label: string;
       mimeType: string;
     }>;
+    /**
+     * Explicit choice of how to deliver this message when a turn is already
+     * running, mirroring Codex CLI's Enter-to-steer / Tab-to-queue split.
+     * There is no automatic priority between the two — omitting this (or any
+     * caller that doesn't thread a keyboard choice through, e.g. suggestion
+     * clicks) always queues, exactly like before mid-turn steering existed.
+     * Only an explicit `"steer"` ever attempts to inject into the live turn,
+     * and it never silently falls back to queueing on failure — the caller
+     * gets `{status: "steer-unavailable"}` and decides what to do (e.g. tell
+     * the user to press Tab to queue instead).
+     */
+    submitIntent?: "steer" | "queue";
   }) => Promise<SendUserMessageResult>;
   /**
    * Forward a workspace's failing verification checks back to its agent as the
@@ -2504,6 +2533,7 @@ const defaultSettings: AppSettings = {
   appShortcutKeys: { ...DEFAULT_APP_SHORTCUT_KEYS },
   modelShortcutKeys: normalizeModelShortcutKeys(),
   promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
+  steerQueueEnterAction: DEFAULT_STEER_QUEUE_ENTER_ACTION,
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
   reviewStrictMode: true,
@@ -7582,6 +7612,13 @@ export const useAppStore = create<AppState>()(
                     patch.promptCommentShortcut,
                   ),
                 }),
+            ...(patch.steerQueueEnterAction === undefined
+              ? {}
+              : {
+                  steerQueueEnterAction: normalizeSteerQueueEnterAction(
+                    patch.steerQueueEnterAction,
+                  ),
+                }),
             ...(patch.visualCommentShortcut === undefined
               ? {}
               : {
@@ -10162,6 +10199,7 @@ export const useAppStore = create<AppState>()(
           content,
           fileContexts,
           imageContexts,
+          submitIntent,
         }) => {
           const turnId = crypto.randomUUID();
           let state = get();
@@ -10346,62 +10384,108 @@ export const useAppStore = create<AppState>()(
           if (activeTurnId && activeTurnStalled) {
             get().abortTaskTurn({ taskId: resolvedTaskId });
           }
-          if (activeTurnId && !activeTurnStalled) {
-            // Mid-turn steering: inject this follow-up into the live turn
-            // instead of queuing it, when the provider supports it, the
-            // follow-up is plain text (no attachments), and the task's
-            // workspace is the active one (steer state mutates the top-level
-            // message maps, which only mirror the active workspace). Any
-            // failure falls through to the unchanged queue path below.
+          if (activeTurnId && !activeTurnStalled && submitIntent === "steer") {
+            // Mid-turn steering: an explicit user choice (Enter, mirroring
+            // Codex CLI), not a priority/fallback pair with queueing (Tab).
+            // Every eligibility gate below is a hard requirement — if any
+            // fails, this returns `steer-unavailable` immediately and does
+            // NOT fall through to the queue path. The caller decides what to
+            // do with that (e.g. tell the user to press Tab to queue).
             const noAttachments =
               (promptDraft.attachments?.length ?? 0) === 0 &&
               (promptDraft.attachedFilePaths?.length ?? 0) === 0;
             const steerTurn = window.api?.provider?.steerTurn;
-            if (
-              steerTurn &&
-              noAttachments &&
-              providerSupportsMidTurnSteering({ providerId: provider }) &&
-              taskWorkspaceId === get().activeWorkspaceId
-            ) {
-              const steerResult = await steerTurn({
-                turnId: activeTurnId,
-                text: promptContent,
-              }).catch(() => ({ ok: false as const }));
-              if (steerResult.ok) {
-                set((nextState) => {
-                  const steeredState = buildSteeredUserMessageState({
-                    messagesByTask: nextState.messagesByTask,
-                    messageCountByTask: nextState.messageCountByTask,
-                    taskId: resolvedTaskId,
-                    content: promptContent,
-                    steeredIntoTurnId: activeTurnId,
-                  });
-                  return {
-                    ...steeredState,
-                    promptDraftByTask: {
-                      ...nextState.promptDraftByTask,
-                      [resolvedTaskId]: normalizePromptDraftForStorage({
-                        ...(nextState.promptDraftByTask[resolvedTaskId] ??
-                          sourcePromptDraft),
-                        text: "",
-                        attachedFilePaths: [],
-                        attachments: [],
-                        promptBatch: undefined,
-                      }),
-                    },
-                    workspaceSnapshotVersion:
-                      incrementWorkspaceSnapshotVersion(nextState),
-                  };
-                });
-                return {
-                  status: "steered",
-                  taskId: resolvedTaskId,
-                  workspaceId: taskWorkspaceId,
-                  turnId: activeTurnId,
-                } satisfies SendUserMessageResult;
-              }
-              // Falls through to the queue path below on any failure.
+            if (!steerTurn) {
+              return {
+                status: "steer-unavailable",
+                taskId: resolvedTaskId,
+                workspaceId: taskWorkspaceId,
+                message: "Mid-turn steering is not available in this build.",
+              } satisfies SendUserMessageResult;
             }
+            if (!noAttachments) {
+              return {
+                status: "steer-unavailable",
+                taskId: resolvedTaskId,
+                workspaceId: taskWorkspaceId,
+                message:
+                  "Attachments can't be steered into a live turn — press Tab to queue instead.",
+              } satisfies SendUserMessageResult;
+            }
+            if (!providerSupportsMidTurnSteering({ providerId: provider })) {
+              return {
+                status: "steer-unavailable",
+                taskId: resolvedTaskId,
+                workspaceId: taskWorkspaceId,
+                message: `${provider} does not support mid-turn steering.`,
+              } satisfies SendUserMessageResult;
+            }
+            if (taskWorkspaceId !== get().activeWorkspaceId) {
+              return {
+                status: "steer-unavailable",
+                taskId: resolvedTaskId,
+                workspaceId: taskWorkspaceId,
+                message:
+                  "Switch to this task's workspace to steer its active turn.",
+              } satisfies SendUserMessageResult;
+            }
+            const steerResult = await steerTurn({
+              turnId: activeTurnId,
+              text: promptContent,
+            }).catch(
+              () =>
+                ({ ok: false, message: undefined }) as {
+                  ok: boolean;
+                  message?: string;
+                },
+            );
+            if (!steerResult.ok) {
+              return {
+                status: "steer-unavailable",
+                taskId: resolvedTaskId,
+                workspaceId: taskWorkspaceId,
+                message:
+                  steerResult.message ||
+                  "The active turn rejected the steer request — press Tab to queue instead.",
+              } satisfies SendUserMessageResult;
+            }
+            set((nextState) => {
+              const steeredState = buildSteeredUserMessageState({
+                messagesByTask: nextState.messagesByTask,
+                messageCountByTask: nextState.messageCountByTask,
+                taskId: resolvedTaskId,
+                content: promptContent,
+                steeredIntoTurnId: activeTurnId,
+              });
+              return {
+                ...steeredState,
+                promptDraftByTask: {
+                  ...nextState.promptDraftByTask,
+                  [resolvedTaskId]: normalizePromptDraftForStorage({
+                    ...(nextState.promptDraftByTask[resolvedTaskId] ??
+                      sourcePromptDraft),
+                    text: "",
+                    attachedFilePaths: [],
+                    attachments: [],
+                    promptBatch: undefined,
+                  }),
+                },
+                workspaceSnapshotVersion:
+                  incrementWorkspaceSnapshotVersion(nextState),
+              };
+            });
+            return {
+              status: "steered",
+              taskId: resolvedTaskId,
+              workspaceId: taskWorkspaceId,
+              turnId: activeTurnId,
+            } satisfies SendUserMessageResult;
+          }
+          if (activeTurnId && !activeTurnStalled) {
+            // submitIntent is "queue" or omitted: queue unconditionally, with
+            // no steer attempt at all — this is byte-for-byte the pre-steering
+            // behavior for every caller that doesn't explicitly opt into
+            // "steer" (suggestion clicks, PlanViewer, etc.).
             const queuedTurn = buildQueuedTurnFromDraft({
               draft: promptDraft,
               sourceTurnId: activeTurnId,
@@ -12763,6 +12847,9 @@ export const useAppStore = create<AppState>()(
           normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleCodexModels);
         state.settings.promptCommentShortcut = normalizePromptCommentShortcut(
           raw.promptCommentShortcut,
+        );
+        state.settings.steerQueueEnterAction = normalizeSteerQueueEnterAction(
+          raw.steerQueueEnterAction,
         );
         state.settings.visualCommentShortcut =
           raw.visualCommentShortcut === "mod-period"
