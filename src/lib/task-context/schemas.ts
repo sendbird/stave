@@ -170,6 +170,7 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     id: z.string(),
     dataUrl: z.string(),
     label: z.string(),
+    mimeType: z.string().optional(),
   }),
   z.object({
     kind: z.literal("workspace-information"),

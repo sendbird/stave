@@ -553,8 +553,7 @@ function normalizePromptDraftForStorage(draft: PromptDraft): PromptDraft {
   if (hasPromptDraftPayload(nextDraft) || (nextDraft.queuedTurns?.length ?? 0) > 0) {
     return nextDraft;
   }
-  const { queuedNextTurn: _unused, queuedTurns: _queued, promptBatch: _batch, ...emptyDraft } = nextDraft;
-  return emptyDraft;
+  return buildClearedPromptDraft(nextDraft);
 }
 
 function arePromptDraftQueuedTurnsEqual(
@@ -665,7 +664,7 @@ function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] 
           type: "image_context",
           dataUrl: attachment.dataUrl,
           label: attachment.label,
-          mimeType: "image/png",
+          mimeType: getImageAttachmentMimeType(attachment),
         });
       }
     }
@@ -715,7 +714,7 @@ function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] 
           type: "image_context",
           dataUrl: screenshot.dataUrl,
           label: annotation.comment.trim() || `Visual comment ${annotation.pin}`,
-          mimeType: "image/png",
+          mimeType: getImageAttachmentMimeType(screenshot),
         });
         continue;
       }
@@ -808,6 +807,12 @@ function getPromptDraftAttachments(draft: PromptDraft) {
     ...draft.attachments,
     ...(draft.promptBatch ?? []).flatMap((item) => item.attachments ?? []),
   ];
+}
+
+function getImageAttachmentMimeType(
+  attachment: Extract<Attachment, { kind: "image" }>,
+) {
+  return attachment.mimeType?.trim() || "image/png";
 }
 
 function buildQueuedTurnFromDraft(args: {
@@ -1076,7 +1081,7 @@ function getDraftImageContexts(args: {
     addContext({
       dataUrl: attachment.dataUrl,
       label: attachment.label,
-      mimeType: "image/png",
+      mimeType: getImageAttachmentMimeType(attachment),
     });
   }
 

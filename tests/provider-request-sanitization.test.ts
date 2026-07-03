@@ -290,6 +290,110 @@ describe("provider request sanitization", () => {
     expect(useAppStore.getState().activeTurnIdsByTask["task-1"]).toBeUndefined();
   });
 
+  test("includes pasted image attachments with prompt text in provider requests", async () => {
+    let startedConversation: Record<string, unknown> | undefined;
+
+    (globalThis as { window?: unknown }).window = {
+      localStorage: {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+        clear: () => {},
+      },
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async (args: Record<string, unknown>) => {
+            startedConversation = args.conversation as Record<string, unknown> | undefined;
+            return {
+              ok: true,
+              streamId: "stream-pasted-image",
+              turnId: "turn-pasted-image",
+            };
+          },
+          subscribeStreamEvents: () => () => {},
+          abortTurn: async () => ({ ok: true, message: "aborted" }),
+          cleanupTask: async () => ({ ok: true, message: "cleaned" }),
+        },
+      },
+    };
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [{ id: "ws-main", name: "Main", updatedAt: "2026-03-15T00:00:00.000Z" }],
+      activeWorkspaceId: "ws-main",
+      projectPath: "/tmp/stave-project",
+      workspacePathById: { "ws-main": "/tmp/stave-project" },
+      workspaceBranchById: { "ws-main": "main" },
+      workspaceDefaultById: { "ws-main": true },
+      tasks: [
+        {
+          id: "task-1",
+          title: "Task 1",
+          provider: "codex",
+          updatedAt: "2026-03-15T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      activeTaskId: "task-1",
+      draftProvider: "codex",
+      messagesByTask: {
+        "task-1": [],
+      },
+      activeTurnIdsByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+      promptDraftByTask: {
+        "task-1": {
+          text: "Describe this image.",
+          attachedFilePaths: [],
+          attachments: [
+            {
+              kind: "image",
+              id: "pasted-image-1",
+              dataUrl: "data:image/jpeg;base64,abc123",
+              label: "Pasted screenshot",
+              mimeType: "image/jpeg",
+            },
+          ],
+        },
+      },
+    });
+
+    await useAppStore.getState().sendUserMessage({
+      taskId: "task-1",
+      content: "Describe this image.",
+    });
+
+    await Bun.sleep(0);
+
+    const contextParts = startedConversation?.contextParts as Array<Record<string, unknown>> | undefined;
+    expect(contextParts).toContainEqual({
+      type: "image_context",
+      dataUrl: "data:image/jpeg;base64,abc123",
+      label: "Pasted screenshot",
+      mimeType: "image/jpeg",
+    });
+
+    const userMessage = useAppStore.getState().messagesByTask["task-1"]?.[0];
+    expect(userMessage?.parts).toContainEqual({
+      type: "image_context",
+      dataUrl: "data:image/jpeg;base64,abc123",
+      label: "Pasted screenshot",
+      mimeType: "image/jpeg",
+    });
+    expect(userMessage?.parts).toContainEqual({
+      type: "text",
+      text: "Describe this image.",
+    });
+  });
+
   test("strips renderer-only tool metadata from historical tool parts before follow-up turns", async () => {
     let startedConversation: Record<string, unknown> | undefined;
 
@@ -458,6 +562,109 @@ describe("provider request sanitization", () => {
     expect(
       JSON.stringify(bounded.conversation?.contextParts ?? []),
     ).not.toContain("r".repeat(100_000));
+  });
+
+  test("preserves image payloads while compacting lower-priority context", () => {
+    const imageDataUrl = `data:image/png;base64,${"a".repeat(32_000)}`;
+    const request = {
+      providerId: "codex" as const,
+      prompt: "What is in this image?",
+      taskId: "task-1",
+      workspaceId: "ws-main",
+      cwd: "/tmp/stave-project",
+      conversation: {
+        target: { providerId: "codex" as const, model: "gpt-5.4" },
+        mode: "chat" as const,
+        history: Array.from({ length: 12 }, (_, index) => ({
+          role: index % 2 === 0 ? "user" as const : "assistant" as const,
+          content: `history-${index} ${"h".repeat(18_000)}`,
+          parts: [],
+        })),
+        input: {
+          role: "user" as const,
+          providerId: "user" as const,
+          model: "user",
+          content: "What is in this image?",
+          parts: [{ type: "text" as const, text: "What is in this image?" }],
+        },
+        contextParts: [
+          {
+            type: "retrieved_context" as const,
+            sourceId: "stave:repo-map",
+            title: "Codebase Map",
+            content: "r".repeat(280_000),
+          },
+          {
+            type: "image_context" as const,
+            dataUrl: imageDataUrl,
+            label: "image.png",
+            mimeType: "image/png",
+          },
+          {
+            type: "file_context" as const,
+            filePath: "src/huge.ts",
+            language: "ts",
+            instruction: "Inspect this file after the image.",
+            content: "f".repeat(240_000),
+          },
+        ],
+      },
+    };
+
+    const bounded = compactProviderTurnRequestForTransport({
+      method: "provider.start-push-turn",
+      request,
+      maxBytes: 160 * 1024,
+    });
+
+    expect(bounded.conversation?.contextParts).toContainEqual({
+      type: "image_context",
+      dataUrl: imageDataUrl,
+      label: "image.png",
+      mimeType: "image/png",
+    });
+  });
+
+  test("drops image context instead of sending empty image payload metadata", () => {
+    const request = {
+      providerId: "codex" as const,
+      prompt: "What is in this image?",
+      taskId: "task-1",
+      workspaceId: "ws-main",
+      cwd: "/tmp/stave-project",
+      conversation: {
+        target: { providerId: "codex" as const, model: "gpt-5.4" },
+        mode: "chat" as const,
+        history: [],
+        input: {
+          role: "user" as const,
+          providerId: "user" as const,
+          model: "user",
+          content: "What is in this image?",
+          parts: [{ type: "text" as const, text: "What is in this image?" }],
+        },
+        contextParts: [
+          {
+            type: "image_context" as const,
+            dataUrl: `data:image/png;base64,${"a".repeat(220_000)}`,
+            label: "image.png",
+            mimeType: "image/png",
+          },
+        ],
+      },
+    };
+
+    const bounded = compactProviderTurnRequestForTransport({
+      method: "provider.start-push-turn",
+      request,
+      maxBytes: 48 * 1024,
+    });
+
+    expect(
+      bounded.conversation?.contextParts.some(
+        (part) => part.type === "image_context" && part.dataUrl === "",
+      ),
+    ).toBe(false);
   });
 
   test("keeps current task awareness and file context before lower-priority context", () => {

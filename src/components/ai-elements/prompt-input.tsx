@@ -1973,6 +1973,7 @@ export function PromptInput(args: PromptInputProps) {
                                         id: crypto.randomUUID(),
                                         dataUrl: reader.result as string,
                                         label: file.name || "Pasted image",
+                                        mimeType: file.type || "image/png",
                                       });
                                     };
                                     reader.readAsDataURL(file);

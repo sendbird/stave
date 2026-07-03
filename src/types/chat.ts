@@ -17,7 +17,13 @@ export type MessagePartType =
 
 export type Attachment =
   | { kind: "file"; filePath: string }
-  | { kind: "image"; id: string; dataUrl: string; label: string }
+  | {
+      kind: "image";
+      id: string;
+      dataUrl: string;
+      label: string;
+      mimeType?: string;
+    }
   | {
       kind: "workspace-information";
       id: string;
