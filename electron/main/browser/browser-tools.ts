@@ -36,7 +36,7 @@ const NAVIGATE_TIMEOUT_MS = 30_000;
 const DEFAULT_HTML_MAX_CHARS = 20_000;
 const MAX_HTML_CHARS = 50_000;
 const DEFAULT_LOG_LIMIT = 25;
-const MAX_LOG_LIMIT = 100;
+const MAX_LOG_LIMIT = 200;
 
 // ---------------------------------------------------------------------------
 // Helpers (same pattern as stave-mcp-server.ts)
@@ -44,9 +44,7 @@ const MAX_LOG_LIMIT = 100;
 
 function toStructuredResult<T>(value: T) {
   return {
-    content: [
-      { type: "text" as const, text: JSON.stringify(value, null, 2) },
-    ],
+    content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }],
     structuredContent: value,
   };
 }
@@ -61,10 +59,13 @@ function requireSession(workspaceId: string) {
   return session;
 }
 
-function clampPositiveInteger(value: number | undefined, args: {
-  defaultValue: number;
-  maxValue: number;
-}) {
+function clampPositiveInteger(
+  value: number | undefined,
+  args: {
+    defaultValue: number;
+    maxValue: number;
+  },
+) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return args.defaultValue;
   }
@@ -101,11 +102,15 @@ export function registerBrowserTools(server: McpServer): void {
         sessionScope: z
           .enum(["project", "workspace"])
           .optional()
-          .describe("Optional Lens browser storage scope. Defaults to workspace when projectKey is omitted."),
+          .describe(
+            "Optional Lens browser storage scope. Defaults to workspace when projectKey is omitted.",
+          ),
         projectKey: z
           .string()
           .optional()
-          .describe("Stable project/repository identity used with sessionScope=project. Stave hashes this before selecting a partition."),
+          .describe(
+            "Stable project/repository identity used with sessionScope=project. Stave hashes this before selecting a partition.",
+          ),
       },
     },
     async ({ workspaceId, url, sessionScope, projectKey }) => {
@@ -161,7 +166,9 @@ export function registerBrowserTools(server: McpServer): void {
         force: z
           .boolean()
           .optional()
-          .describe("Close the session even if it is currently owned by the Lens panel UI"),
+          .describe(
+            "Close the session even if it is currently owned by the Lens panel UI",
+          ),
       },
     },
     async ({ workspaceId, force }) => {
@@ -233,7 +240,9 @@ export function registerBrowserTools(server: McpServer): void {
         fullPage: z
           .boolean()
           .optional()
-          .describe("Capture the full scrollable page (default: viewport only)"),
+          .describe(
+            "Capture the full scrollable page (default: viewport only)",
+          ),
         selector: z
           .string()
           .optional()
@@ -251,16 +260,20 @@ export function registerBrowserTools(server: McpServer): void {
 
       const session = requireSession(workspaceId);
 
-      let clip: { x: number; y: number; width: number; height: number } | undefined;
+      let clip:
+        { x: number; y: number; width: number; height: number } | undefined;
       if (selector) {
-        const box = (await evaluateExpression(session.view.webContents.id, `
+        const box = (await evaluateExpression(
+          session.view.webContents.id,
+          `
           (() => {
             const el = document.querySelector(${JSON.stringify(selector)});
             if (!el) return null;
             const r = el.getBoundingClientRect();
             return { x: r.x, y: r.y, width: r.width, height: r.height };
           })()
-        `)) as { x: number; y: number; width: number; height: number } | null;
+        `,
+        )) as { x: number; y: number; width: number; height: number } | null;
         if (box) clip = box;
       }
 
@@ -374,7 +387,7 @@ export function registerBrowserTools(server: McpServer): void {
           .number()
           .optional()
           .describe(
-            "Number of recent entries to return (default 25, capped at 100)",
+            "Number of recent entries to return (default 25, capped at 200)",
           ),
       },
     },
@@ -406,7 +419,7 @@ export function registerBrowserTools(server: McpServer): void {
           .number()
           .optional()
           .describe(
-            "Number of recent entries to return (default 25, capped at 100)",
+            "Number of recent entries to return (default 25, capped at 200)",
           ),
       },
     },
@@ -466,7 +479,7 @@ export function registerBrowserTools(server: McpServer): void {
           .number()
           .optional()
           .describe(
-            "Number of recent entries to return (default 25, capped at 100)",
+            "Number of recent entries to return (default 25, capped at 200)",
           ),
       },
     },
@@ -545,7 +558,10 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, selector }) => {
       const session = requireSession(workspaceId);
-      const box = await getElementBoxModel(session.view.webContents.id, selector);
+      const box = await getElementBoxModel(
+        session.view.webContents.id,
+        selector,
+      );
       return toStructuredResult({ ok: true, box });
     },
   );
