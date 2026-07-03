@@ -46,13 +46,14 @@ export type SectionId = (typeof settingsSections)[number]["id"];
 
 export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
   [
-    { label: "Workspace", ids: ["general", "presets"] },
+    { label: "Workspace", ids: ["general"] },
     { label: "Appearance", ids: ["theme", "chat", "editor", "terminal"] },
     { label: "Projects", ids: ["projects", "scripts"] },
     {
       label: "Providers",
       ids: [
         "providers",
+        "presets",
         "models",
         "codex",
         "mcp",
