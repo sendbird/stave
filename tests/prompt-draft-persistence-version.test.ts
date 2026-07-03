@@ -118,4 +118,36 @@ describe("prompt draft persistence version", () => {
     expect(afterQueuedTextUpdate.workspaceSnapshotVersion).toBe(10);
     expect(afterQueuedTextUpdate.promptDraftPersistenceVersion).toBe(4);
   });
+
+  test("normalizes whitespace-only prompt text to an empty draft", async () => {
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+
+    useAppStore.setState({
+      ...initialState,
+      workspaceSnapshotVersion: 4,
+      promptDraftPersistenceVersion: 1,
+      promptDraftByTask: {
+        "task-1": {
+          text: "",
+          attachedFilePaths: [],
+          attachments: [],
+        },
+      },
+    });
+
+    useAppStore.getState().updatePromptDraft({
+      taskId: "task-1",
+      patch: { text: "\n" },
+    });
+
+    const afterWhitespaceUpdate = useAppStore.getState();
+    expect(afterWhitespaceUpdate.promptDraftByTask["task-1"]).toEqual({
+      text: "",
+      attachedFilePaths: [],
+      attachments: [],
+    });
+    expect(afterWhitespaceUpdate.workspaceSnapshotVersion).toBe(4);
+    expect(afterWhitespaceUpdate.promptDraftPersistenceVersion).toBe(1);
+  });
 });

@@ -384,10 +384,7 @@ function compactContextPart(args: {
         }),
       };
     case "image_context":
-      return {
-        ...args.part,
-        dataUrl: "",
-      };
+      return args.part;
     case "skill_context":
       return {
         ...args.part,

@@ -147,6 +147,12 @@ const INACTIVE_CODEX_SETTINGS = [
 ] as const;
 const EMPTY_PROVIDER_MODE_PRESETS: readonly ProviderModePresetDefinition[] = [];
 
+function getImageAttachmentMimeType(
+  attachment: Extract<Attachment, { kind: "image" }>,
+) {
+  return attachment.mimeType?.trim() || "image/png";
+}
+
 interface ChatInputComposerProps {
   isEmpty: boolean;
   activeTaskId: string;
@@ -1003,7 +1009,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                 .map((a) => ({
                   dataUrl: a.dataUrl,
                   label: a.label,
-                  mimeType: "image/png",
+                  mimeType: getImageAttachmentMimeType(a),
                 }));
               clearLensAnnotationsOnMessageSubmit(args.activeTaskId);
               const result = await sendUserMessage({
