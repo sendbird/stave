@@ -505,6 +505,8 @@ contextBridge.exposeInMainWorld("api", {
     },
     abortTurn: (args: { turnId: string }) =>
       ipcRenderer.invoke("provider:abort-turn", args),
+    steerTurn: (args: { turnId: string; text: string }) =>
+      ipcRenderer.invoke("provider:steer-turn", args),
     cleanupTask: (args: { taskId: string }) =>
       ipcRenderer.invoke("provider:cleanup-task", args),
     respondApproval: (args: {

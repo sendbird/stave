@@ -43,6 +43,7 @@ import type {
   SDKControlReloadPluginsResponse,
   SDKSystemMessage,
   SDKResultMessage,
+  SDKUserMessage,
   SettingSource,
   SlashCommand,
 } from "@anthropic-ai/claude-agent-sdk";
@@ -2768,6 +2769,79 @@ function rememberSessionId(args: { taskId?: string; sessionId?: string }) {
   sessionIdByTask.set(taskKey, nextSessionId);
 }
 
+/**
+ * A controllable async-iterable used as the `prompt` for a Claude turn so we can
+ * push additional `SDKUserMessage`s into a live turn (mid-turn steering).
+ *
+ * The Claude Agent SDK only permits streaming input (`streamInput()` / pushing
+ * more user messages into the same turn) when `query()` is invoked with an
+ * `AsyncIterable` prompt from the start — a plain string prompt cannot be
+ * upgraded mid-turn. We therefore always wrap the turn's initial prompt in this
+ * queue and keep it open for the turn's lifetime.
+ */
+class SteerableUserMessageQueue implements AsyncIterable<SDKUserMessage> {
+  private buffer: SDKUserMessage[] = [];
+  private waiters: Array<(r: IteratorResult<SDKUserMessage>) => void> = [];
+  private closed = false;
+
+  push(message: SDKUserMessage): boolean {
+    if (this.closed) {
+      return false;
+    }
+    const waiter = this.waiters.shift();
+    if (waiter) {
+      waiter({ value: message, done: false });
+    } else {
+      this.buffer.push(message);
+    }
+    return true;
+  }
+
+  close(): void {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+    while (this.waiters.length > 0) {
+      this.waiters.shift()?.({
+        value: undefined as unknown as SDKUserMessage,
+        done: true,
+      });
+    }
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<SDKUserMessage> {
+    return {
+      next: (): Promise<IteratorResult<SDKUserMessage>> => {
+        if (this.buffer.length > 0) {
+          return Promise.resolve({ value: this.buffer.shift()!, done: false });
+        }
+        if (this.closed) {
+          return Promise.resolve({
+            value: undefined as unknown as SDKUserMessage,
+            done: true,
+          });
+        }
+        return new Promise((resolve) => this.waiters.push(resolve));
+      },
+    };
+  }
+}
+
+/**
+ * Build a minimal `SDKUserMessage` carrying plain text. `priority` and
+ * `shouldQuery` are deliberately omitted — they are undocumented and leaving
+ * them unset defaults to normal processing (query the model), which is exactly
+ * what we want for a steered follow-up.
+ */
+function buildClaudeSDKUserMessage(args: { text: string }): SDKUserMessage {
+  return {
+    type: "user",
+    message: { role: "user", content: args.text },
+    parent_tool_use_id: null,
+  };
+}
+
 export async function streamClaudeWithSdk(
   args: StreamTurnArgs & {
     onEvent?: (event: BridgeEvent) => void;
@@ -2784,6 +2858,9 @@ export async function streamClaudeWithSdk(
         answers?: Record<string, string>;
         denied?: boolean;
       }) => ProviderResponderResult,
+    ) => void;
+    registerSteerResponder?: (
+      responder: (args: { text: string }) => Promise<ProviderResponderResult>,
     ) => void;
   },
 ): Promise<BridgeEvent[] | null> {
@@ -2810,6 +2887,7 @@ export async function streamClaudeWithSdk(
     (response: { answers?: Record<string, string>; denied?: boolean }) => void
   >();
   let stream: Query | null = null;
+  let inputQueue: SteerableUserMessageQueue | null = null;
   try {
     const runtimeCwd =
       args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
@@ -2921,8 +2999,23 @@ export async function streamClaudeWithSdk(
     const activatedSkillSlugs = collectClaudeActivatedSkillSlugs({
       conversation: args.conversation,
     });
+    // Always run in streaming-input mode so a follow-up can be steered into the
+    // live turn. The SDK requires an AsyncIterable prompt from the start for
+    // this to be legal — a plain string prompt cannot be upgraded mid-turn.
+    inputQueue = new SteerableUserMessageQueue();
+    inputQueue.push(buildClaudeSDKUserMessage({ text: providerPrompt }));
+    args.registerSteerResponder?.(async ({ text }) => {
+      if (!inputQueue || !inputQueue.push(buildClaudeSDKUserMessage({ text }))) {
+        return {
+          ok: false,
+          reason: "turn-not-steerable",
+          pendingRequestIds: [],
+        };
+      }
+      return { ok: true };
+    });
     const queryResult = queryFn({
-      prompt: providerPrompt,
+      prompt: inputQueue,
       options: buildClaudeQueryOptions({
         cwd: runtimeCwd,
         claudeExecutablePath,
@@ -3278,6 +3371,7 @@ export async function streamClaudeWithSdk(
 
     // Register abort handler using the official Query.close() method
     args.registerAbort?.(() => {
+      inputQueue?.close();
       stream?.close();
     });
 
@@ -3376,6 +3470,15 @@ export async function streamClaudeWithSdk(
       if (message.type === "result") {
         finalStopReason =
           (message as SDKResultMessage).stop_reason ?? undefined;
+        // In streaming-input mode the SDK keeps the query open waiting for the
+        // next input message; unlike string-prompt mode it will NOT end the
+        // stream after emitting `result`. Close the input queue now so the
+        // `for await` loop can terminate and the turn completes. Any steer
+        // pushed before this point is already buffered and still drains before
+        // the iterator signals done; a steer arriving after close is rejected
+        // (returns false), and the store falls back to queuing it as a new
+        // turn — the correct behavior once the response has finished.
+        inputQueue?.close();
       }
       let normalizedEvents = mapClaudeMessageToEvents({
         message,
@@ -3486,6 +3589,14 @@ export async function streamClaudeWithSdk(
         // Resolver may have already been settled — ignore.
       }
       pendingUserInputResolvers.delete(id);
+    }
+
+    // Close the steering input queue so any racing steer attempt gets a clean
+    // rejection instead of buffering into a closed turn forever.
+    try {
+      inputQueue?.close();
+    } catch {
+      // close() is idempotent — ignore.
     }
 
     // Ensure the SDK stream is closed (idempotent).

@@ -93,6 +93,7 @@ import {
   inferProviderIdFromModel,
   listProviderIds,
   normalizeModelSelection,
+  providerSupportsMidTurnSteering,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
   upgradeSettingsScopedClaudeModel,
@@ -241,6 +242,7 @@ import {
 import {
   buildMessageId,
   buildPendingProviderTurnState,
+  buildSteeredUserMessageState,
   buildRecentTimestamp,
   createFileContextPart,
   createUserTextPart,
@@ -449,6 +451,7 @@ interface SkillCatalogState {
 type SendUserMessageResult =
   | { status: "blocked" }
   | { status: "queued"; taskId: string; workspaceId: string }
+  | { status: "steered"; taskId: string; workspaceId: string; turnId: string }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string };
 
 type AppActiveSurface = { kind: "workspace" } | { kind: "fleet-view" };
@@ -10344,6 +10347,61 @@ export const useAppStore = create<AppState>()(
             get().abortTaskTurn({ taskId: resolvedTaskId });
           }
           if (activeTurnId && !activeTurnStalled) {
+            // Mid-turn steering: inject this follow-up into the live turn
+            // instead of queuing it, when the provider supports it, the
+            // follow-up is plain text (no attachments), and the task's
+            // workspace is the active one (steer state mutates the top-level
+            // message maps, which only mirror the active workspace). Any
+            // failure falls through to the unchanged queue path below.
+            const noAttachments =
+              (promptDraft.attachments?.length ?? 0) === 0 &&
+              (promptDraft.attachedFilePaths?.length ?? 0) === 0;
+            const steerTurn = window.api?.provider?.steerTurn;
+            if (
+              steerTurn &&
+              noAttachments &&
+              providerSupportsMidTurnSteering({ providerId: provider }) &&
+              taskWorkspaceId === get().activeWorkspaceId
+            ) {
+              const steerResult = await steerTurn({
+                turnId: activeTurnId,
+                text: promptContent,
+              }).catch(() => ({ ok: false as const }));
+              if (steerResult.ok) {
+                set((nextState) => {
+                  const steeredState = buildSteeredUserMessageState({
+                    messagesByTask: nextState.messagesByTask,
+                    messageCountByTask: nextState.messageCountByTask,
+                    taskId: resolvedTaskId,
+                    content: promptContent,
+                    steeredIntoTurnId: activeTurnId,
+                  });
+                  return {
+                    ...steeredState,
+                    promptDraftByTask: {
+                      ...nextState.promptDraftByTask,
+                      [resolvedTaskId]: normalizePromptDraftForStorage({
+                        ...(nextState.promptDraftByTask[resolvedTaskId] ??
+                          sourcePromptDraft),
+                        text: "",
+                        attachedFilePaths: [],
+                        attachments: [],
+                        promptBatch: undefined,
+                      }),
+                    },
+                    workspaceSnapshotVersion:
+                      incrementWorkspaceSnapshotVersion(nextState),
+                  };
+                });
+                return {
+                  status: "steered",
+                  taskId: resolvedTaskId,
+                  workspaceId: taskWorkspaceId,
+                  turnId: activeTurnId,
+                } satisfies SendUserMessageResult;
+              }
+              // Falls through to the queue path below on any failure.
+            }
             const queuedTurn = buildQueuedTurnFromDraft({
               draft: promptDraft,
               sourceTurnId: activeTurnId,

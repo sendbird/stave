@@ -61,6 +61,7 @@ export interface ProviderDescriptor {
   sessionLabel: string;
   capabilities: {
     nativeCommandCatalog: boolean;
+    supportsMidTurnSteering: boolean;
   };
 }
 
@@ -76,6 +77,7 @@ export const PROVIDER_DESCRIPTORS = [
     sessionLabel: "Claude session ID",
     capabilities: {
       nativeCommandCatalog: true,
+      supportsMidTurnSteering: true,
     },
   },
   {
@@ -89,6 +91,7 @@ export const PROVIDER_DESCRIPTORS = [
     sessionLabel: "Codex thread ID",
     capabilities: {
       nativeCommandCatalog: true,
+      supportsMidTurnSteering: true,
     },
   },
 ] as const satisfies readonly ProviderDescriptor[];
@@ -169,6 +172,12 @@ export function providerSupportsNativeCommandCatalog(args: {
   providerId: ProviderId;
 }) {
   return getProviderDescriptor(args).capabilities.nativeCommandCatalog;
+}
+
+export function providerSupportsMidTurnSteering(args: {
+  providerId: ProviderId;
+}) {
+  return getProviderDescriptor(args).capabilities.supportsMidTurnSteering;
 }
 
 export function getDefaultModelForProvider(args: { providerId: ProviderId }) {

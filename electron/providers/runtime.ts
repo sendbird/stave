@@ -61,6 +61,7 @@ type ActiveRuntimeSession = {
     answers?: Record<string, string>;
     denied?: boolean;
   }) => ProviderResponderResult;
+  steer?: (args: { text: string }) => Promise<ProviderResponderResult>;
   timeoutController?: TurnTimeoutController;
 };
 
@@ -89,6 +90,7 @@ function upsertActiveSession(args: {
   abort?: () => void;
   respondApproval?: ActiveRuntimeSession["respondApproval"];
   respondUserInput?: ActiveRuntimeSession["respondUserInput"];
+  steer?: ActiveRuntimeSession["steer"];
   timeoutController?: TurnTimeoutController;
 }) {
   const current = activeSessions.get(args.turnId);
@@ -100,6 +102,7 @@ function upsertActiveSession(args: {
     abort: args.abort ?? current?.abort,
     respondApproval: args.respondApproval ?? current?.respondApproval,
     respondUserInput: args.respondUserInput ?? current?.respondUserInput,
+    steer: args.steer ?? current?.steer,
     timeoutController: args.timeoutController ?? current?.timeoutController,
   });
 }
@@ -166,10 +169,26 @@ function emitBridgeWarningForTurn(args: { turnId: string; message: string }) {
   session.updatedAt = Date.now();
 }
 
-type ResponderKind = "approval" | "user-input";
+type ResponderKind = "approval" | "user-input" | "steer";
 
 function describeResponderKind(kind: ResponderKind) {
-  return kind === "approval" ? "approval" : "user-input";
+  if (kind === "approval") {
+    return "approval";
+  }
+  if (kind === "steer") {
+    return "steer";
+  }
+  return "user-input";
+}
+
+function describeResponderSuccessLabel(kind: ResponderKind) {
+  if (kind === "approval") {
+    return "Approval";
+  }
+  if (kind === "steer") {
+    return "Steer";
+  }
+  return "User-input";
 }
 
 /**
@@ -183,16 +202,17 @@ function describeResponderKind(kind: ResponderKind) {
  * - Capturing pending request IDs and active turn IDs in the error message
  *   turns an opaque "didn't land" into a diagnosable "we expected X, got Y".
  */
-function deliverResponderResult<
-  Responder extends (...args: never[]) => ProviderResponderResult,
+async function deliverResponderResult<
+  Responder extends (...args: never[]) => ProviderResponderResult | Promise<ProviderResponderResult>,
 >(args: {
   kind: ResponderKind;
   turnId: string;
   requestId: string;
   selectResponder: (session: ActiveRuntimeSession) => Responder | undefined;
-  invoke: (responder: Responder) => ProviderResponderResult;
-}): { ok: boolean; message: string } {
+  invoke: (responder: Responder) => ProviderResponderResult | Promise<ProviderResponderResult>;
+}): Promise<{ ok: boolean; message: string }> {
   const label = describeResponderKind(args.kind);
+  const successLabel = describeResponderSuccessLabel(args.kind);
   const session = activeSessions.get(args.turnId);
   const responder = session ? args.selectResponder(session) : undefined;
   if (!session || !responder) {
@@ -209,20 +229,26 @@ function deliverResponderResult<
     return { ok: false, message };
   }
 
-  const result = args.invoke(responder);
+  const result = await args.invoke(responder);
   if (result.ok) {
     // The user has made their decision — resume the turn-level timeout so
     // the provider's generation budget resumes from the full allowance.
+    // Steering is additive (it does not answer a paused decision), but the
+    // controller ignores a resume when nothing is paused, so this is safe.
     session.timeoutController?.resumeAfterDecision();
     return {
       ok: true,
-      message: `${label === "approval" ? "Approval" : "User-input"} response delivered to turn ${args.turnId}. requestId=${args.requestId}`,
+      message: `${successLabel} response delivered to turn ${args.turnId}. requestId=${args.requestId}`,
     };
   }
 
   const pendingIds = result.pendingRequestIds.join(", ");
+  const rejectionDetail =
+    result.reason === "turn-not-steerable"
+      ? "turn not steerable"
+      : "unknown request";
   const message =
-    `${label === "approval" ? "Approval" : "User-input"} responder rejected unknown request for turn ${args.turnId}. ` +
+    `${successLabel} responder rejected (${rejectionDetail}) for turn ${args.turnId}. ` +
     `requestId=${args.requestId}. pendingRequestIds=[${pendingIds}]`;
   emitBridgeWarningForTurn({ turnId: args.turnId, message });
   return { ok: false, message };
@@ -548,6 +574,14 @@ async function runProviderTurn(
               respondUserInput: responder,
             });
           },
+          registerSteerResponder: (responder) => {
+            upsertActiveSession({
+              turnId,
+              providerId: args.providerId,
+              taskId: args.taskId,
+              steer: responder,
+            });
+          },
         }),
       );
       if (events && events.length > 0) {
@@ -591,6 +625,14 @@ async function runProviderTurn(
             providerId: args.providerId,
             taskId: args.taskId,
             respondUserInput: responder,
+          });
+        },
+        registerSteerResponder: (responder) => {
+          upsertActiveSession({
+            turnId,
+            providerId: args.providerId,
+            taskId: args.taskId,
+            steer: responder,
           });
         },
       }),
@@ -765,6 +807,21 @@ export const providerRuntime: ProviderRuntime = {
       invoke: (responder) => responder({ requestId, answers, denied }),
       selectResponder: (session) => session.respondUserInput,
     }),
+  steerTurn: ({ turnId, text }) => {
+    if (process.env.STAVE_ENABLE_MID_TURN_STEERING !== "1") {
+      return Promise.resolve({
+        ok: false,
+        message: "Mid-turn steering is disabled (STAVE_ENABLE_MID_TURN_STEERING).",
+      });
+    }
+    return deliverResponderResult({
+      kind: "steer",
+      turnId,
+      requestId: turnId,
+      invoke: (responder) => responder({ text }),
+      selectResponder: (session) => session.steer,
+    });
+  },
   checkAvailability: async ({ providerId, runtimeOptions }) => {
     if (providerId === "claude-code") {
       const result = describeClaudeAvailability({ runtimeOptions });

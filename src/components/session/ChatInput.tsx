@@ -860,7 +860,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               taskId: args.activeTaskId,
               content: suggestion,
             });
-            if (result.status === "started" || result.status === "queued") {
+            if (
+              result.status === "started" ||
+              result.status === "queued" ||
+              result.status === "steered"
+            ) {
               adoptPromptDraftText({
                 taskId: args.providerSelectionTarget,
                 text: "",

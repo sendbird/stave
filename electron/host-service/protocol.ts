@@ -436,6 +436,10 @@ export interface HostServiceRequestMap {
     answers?: Record<string, string>;
     denied?: boolean;
   };
+  "provider.steer-turn": {
+    turnId: string;
+    text: string;
+  };
   "provider.check-availability": {
     providerId: StreamTurnArgs["providerId"];
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -731,6 +735,7 @@ export interface HostServiceResponseMap {
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;
+  "provider.steer-turn": HostProviderMutationResult;
   "provider.check-availability": {
     ok: boolean;
     available: boolean;

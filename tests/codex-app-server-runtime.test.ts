@@ -5,6 +5,7 @@ import {
   buildCodexThreadResumeParams,
   buildCodexThreadStartParams,
   buildCodexTurnStartParams,
+  buildCodexTurnSteerParams,
   createCodexAppServerElicitationPauseController,
   formatCodexAppServerErrorMessage,
   formatCodexGoal,
@@ -533,6 +534,26 @@ describe("Codex App Server plan-mode payloads", () => {
         type: "readOnly",
         networkAccess: false,
       },
+    });
+  });
+
+  test("builds a turn/steer payload wrapping text like turn/start input", () => {
+    const params = buildCodexTurnSteerParams({
+      threadId: "thread-1",
+      expectedTurnId: "turn-42",
+      text: "Also update the changelog.",
+    });
+
+    expect(params).toEqual({
+      threadId: "thread-1",
+      expectedTurnId: "turn-42",
+      input: [
+        {
+          type: "text",
+          text: "Also update the changelog.",
+          text_elements: [],
+        },
+      ],
     });
   });
 

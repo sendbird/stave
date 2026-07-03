@@ -538,6 +538,24 @@ export function buildCodexTurnStartParams(args: {
   };
 }
 
+export function buildCodexTurnSteerParams(args: {
+  threadId: string;
+  expectedTurnId: string;
+  text: string;
+}) {
+  return {
+    threadId: args.threadId,
+    expectedTurnId: args.expectedTurnId,
+    input: [
+      {
+        type: "text" as const,
+        text: args.text,
+        text_elements: [],
+      },
+    ],
+  };
+}
+
 export function buildCodexThreadStartParams(args: {
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -3662,6 +3680,9 @@ export async function streamCodexWithAppServer(
         denied?: boolean;
       }) => ProviderResponderResult,
     ) => void;
+    registerSteerResponder?: (
+      responder: (args: { text: string }) => Promise<ProviderResponderResult>,
+    ) => void;
   },
 ): Promise<BridgeEvent[] | null> {
   const runtimeCwd =
@@ -3977,6 +3998,51 @@ export async function streamCodexWithAppServer(
       })
       .finally(() => elicitationPauseController.end(requestId));
     return { ok: true };
+  });
+
+  args.registerSteerResponder?.(async ({ text }) => {
+    if (!appServerTurnId || completed) {
+      return {
+        ok: false,
+        reason: "turn-not-steerable",
+        pendingRequestIds: [],
+      };
+    }
+    try {
+      const steerResponse = await client.request<{ turnId: string }>(
+        "turn/steer",
+        buildCodexTurnSteerParams({
+          threadId,
+          expectedTurnId: appServerTurnId,
+          text,
+        }),
+      );
+      // CRITICAL: the steer response may carry a *new* turnId. The notification
+      // filter (see the `client.subscribe` handler below) drops any message
+      // whose `params.turnId` doesn't match `appServerTurnId`. If we don't
+      // reassign it here, all subsequent streamed output for the rest of the
+      // turn is silently dropped while the turn still visibly "completes".
+      // Reassigning live also fixes abort-after-steer, since every
+      // `turn/interrupt` call site reads `appServerTurnId` by reference.
+      if (
+        typeof steerResponse?.turnId === "string" &&
+        steerResponse.turnId.length > 0
+      ) {
+        appServerTurnId = steerResponse.turnId;
+      }
+      return { ok: true };
+    } catch (error) {
+      console.warn("[codex-app-server-runtime] turn/steer rejected", {
+        threadId,
+        appServerTurnId,
+        error: toErrorMessage(error),
+      });
+      return {
+        ok: false,
+        reason: "turn-not-steerable",
+        pendingRequestIds: [],
+      };
+    }
   });
 
   const unsubscribe = client.subscribe((message) => {
