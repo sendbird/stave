@@ -12,8 +12,6 @@ test-prompts:
 
 # Worktree PR Flow
 
-Repository-local skill for taking the full current working state and shipping it as a PR, while reusing the current worktree when already inside a workspace worktree.
-
 ## Workflow
 
 1. Confirm the intended scope.
@@ -29,12 +27,12 @@ Repository-local skill for taking the full current working state and shipping it
    - Run `git worktree list --porcelain`.
    - If the current top-level path is under `.stave/workspaces/` or the checkout is already a linked worktree, set mode to `reuse-current-worktree` and do not create another worktree by default.
    - Otherwise set mode to `create-temporary-worktree`, then reconcile any existing worktree for the intended branch and run `git worktree prune` when stale metadata is present.
+   - Steps 3 and 8 apply only in `create-temporary-worktree` mode — skip them entirely in `reuse-current-worktree` mode.
    - Check `git remote -v` and confirm a writable GitHub remote exists.
    - Check `gh auth status` before planning PR creation.
    - If the current branch already has local commits that should not be part of the PR, stop and clarify instead of guessing a partial move.
 
-3. Move the dirty state into a dedicated worktree safely (only in `create-temporary-worktree` mode).
-   - Skip this step entirely in `reuse-current-worktree` mode.
+3. Move the dirty state into a dedicated worktree safely.
    - Use a unique stash message such as `worktree-pr:<branch>:<timestamp>`.
    - Run `git stash push --include-untracked -m "<message>"` only when the current worktree is dirty.
    - Use a deterministic temporary worktree root instead of ad hoc sibling folders, for example `../.worktrees/<repo>/<branch>`.
@@ -45,9 +43,6 @@ Repository-local skill for taking the full current working state and shipping it
    - If stash apply or pop conflicts, stop and surface the conflict instead of hiding it.
 
 4. Validate the target changes in the execution worktree.
-   - Use the execution worktree selected in step 2:
-     - `reuse-current-worktree` mode: current workspace worktree
-     - `create-temporary-worktree` mode: newly created temporary worktree
    - Re-run `git status --short --branch` inside the execution worktree.
    - Inspect the diff so the commit contains exactly the intended work.
    - Run the repo's configured formatter for any edited source files when one exists. If the repo has no formatter, note that explicitly and continue.
@@ -67,13 +62,12 @@ Repository-local skill for taking the full current working state and shipping it
 7. Create the PR.
    - Prefer `gh pr create --base <base> --head <branch> --title <title> --body <body>`.
    - Derive the base branch from the repo default branch unless the user requested another target.
-   - **PR title must follow Conventional Commits format**: `type(scope): description` using the same type and scope as the commit message. The subject (description part) must be lowercase — never capitalise the first letter. Examples: `fix(workspace): reuse root node_modules in worktrees`, `feat(ui): add dark mode toggle`. Do not use plain natural-language titles.
+   - PR title and commit message must follow [PR and Commit Conventions](references/pr-conventions.md).
    - Keep the PR body concise and outcome-focused: summary, key changes, verification.
    - If `gh` is unavailable or unauthenticated, stop after push and tell the user exactly what blocked PR creation.
 
-8. Clean up the temporary worktree (only in `create-temporary-worktree` mode).
-   - Skip cleanup in `reuse-current-worktree` mode; the current workspace worktree must stay intact.
-   - If push and PR creation succeeded and the temporary worktree is clean, first leave the temporary worktree and return to the original checkout (or another safe cwd outside the target worktree).
+8. Clean up the temporary worktree.
+   - If push and PR creation succeeded and the temporary worktree is clean, first return to the original checkout (or another safe cwd outside the target worktree).
    - Then remove it by default with `git worktree remove <path>`.
    - Keep it only when the user explicitly wants to continue working there.
    - If cleanup fails only because the shell is still inside the target worktree, treat that as an execution mistake: change back to the recorded original checkout and retry once before reporting failure.
@@ -93,15 +87,4 @@ Repository-local skill for taking the full current working state and shipping it
 ## Guardrails
 
 - Do not destroy or reset the user's original worktree state.
-- Do not drop untracked files when moving the dirty state.
-- Do not create a non-Conventional commit.
-- Do not use a plain natural-language PR title. The PR title must follow the same Conventional Commits format as the commit message (`type(scope): description`, lowercase subject).
-- Do not silently create the PR against the wrong base branch.
-- Do not use `git push --force`; use `--force-with-lease` when a rewrite is required.
-- Do not create a nested temporary worktree when already running in a workspace-linked worktree unless the user explicitly requests that.
-- Do not create a second worktree at an occupied path without reconciling it first.
-- Do not scatter temporary worktrees as unnamed sibling directories; keep them under one deterministic worktree root.
-- Do not leave stale worktree registrations behind after a successful temporary-flow run.
-- Do not run `git worktree remove <path>` from inside the same worktree path you are trying to remove.
-- Do not remove the current workspace worktree as part of cleanup.
 - Do not create an empty commit or empty PR when there are no dirty changes and no unpublished commits.
