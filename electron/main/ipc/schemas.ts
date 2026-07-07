@@ -922,6 +922,13 @@ export const UserInputResponseArgsSchema = z
   })
   .strict();
 
+export const SteerTurnArgsSchema = z
+  .object({
+    turnId: z.string().min(1).max(200),
+    text: z.string().min(1).max(500_000),
+  })
+  .strict();
+
 export const WorkspaceIdArgsSchema = z
   .object({
     workspaceId: z.string().min(1).max(200),

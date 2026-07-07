@@ -91,6 +91,11 @@ import {
   PROMPT_COMMENT_SHORTCUT_OPTIONS,
 } from "@/lib/prompt-comment-shortcuts";
 import {
+  formatSteerQueueEnterActionLabel,
+  normalizeSteerQueueEnterAction,
+  STEER_QUEUE_ENTER_ACTION_OPTIONS,
+} from "@/lib/steer-queue-shortcuts";
+import {
   formatVisualCommentShortcutLabel,
   normalizeVisualCommentShortcut,
   VISUAL_COMMENT_SHORTCUT_OPTIONS,
@@ -2659,6 +2664,7 @@ function CommandPaletteSection() {
     appShortcutKeys,
     modelShortcutKeys,
     promptCommentShortcut,
+    steerQueueEnterAction,
     visualCommentShortcut,
   ] = useAppStore(
     useShallow(
@@ -2671,6 +2677,7 @@ function CommandPaletteSection() {
           state.settings.appShortcutKeys,
           state.settings.modelShortcutKeys,
           state.settings.promptCommentShortcut,
+          state.settings.steerQueueEnterAction,
           state.settings.visualCommentShortcut,
         ] as const,
     ),
@@ -2693,6 +2700,9 @@ function CommandPaletteSection() {
   );
   const normalizedPromptCommentShortcut = normalizePromptCommentShortcut(
     promptCommentShortcut,
+  );
+  const normalizedSteerQueueEnterAction = normalizeSteerQueueEnterAction(
+    steerQueueEnterAction,
   );
   const normalizedVisualCommentShortcut = normalizeVisualCommentShortcut(
     visualCommentShortcut,
@@ -2989,6 +2999,46 @@ function CommandPaletteSection() {
                 <SelectGroup>
                   <SelectLabel>Shortcut</SelectLabel>
                   {PROMPT_COMMENT_SHORTCUT_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </LabeledField>
+        </SettingsCard>
+
+        <SettingsCard
+          title="Steer / Queue Keys"
+          description="During an active turn, choose which key steers the message into the live turn and which key queues it for after the turn finishes. Neither falls back to the other."
+          titleAccessory={
+            <Badge variant="secondary">
+              {formatSteerQueueEnterActionLabel(normalizedSteerQueueEnterAction)}
+            </Badge>
+          }
+        >
+          <LabeledField
+            title="Active-Turn Keys"
+            description="Applies only while a turn is in progress and the provider supports mid-turn steering."
+          >
+            <Select
+              value={normalizedSteerQueueEnterAction}
+              onValueChange={(value) =>
+                updateSettings({
+                  patch: {
+                    steerQueueEnterAction: normalizeSteerQueueEnterAction(value),
+                  },
+                })
+              }
+            >
+              <SelectTrigger className="h-10 w-full rounded-md border-border/80 bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Enter Key Action</SelectLabel>
+                  {STEER_QUEUE_ENTER_ACTION_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>

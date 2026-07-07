@@ -152,7 +152,7 @@ describe("providerRuntime pausable turn timeout", () => {
 
     // User approves — this should resume the timer AND satisfy the pending
     // approval, unblocking the mocked stream so it can emit done.
-    const result = providerRuntime.respondApproval({
+    const result = await providerRuntime.respondApproval({
       turnId,
       requestId: "approval-req-1",
       approved: true,

@@ -36,6 +36,7 @@ import {
   SuggestPRDescriptionArgsSchema,
   SuggestTaskNameArgsSchema,
   UserInputResponseArgsSchema,
+  SteerTurnArgsSchema,
 } from "./schemas";
 
 function formatSchemaIssuePath(path: PropertyKey[]) {
@@ -261,6 +262,14 @@ export function registerProviderHandlers() {
       return { ok: false, message: "Invalid user-input response request." };
     }
     return invokeHostService("provider.respond-user-input", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:steer-turn", (_event, args: unknown) => {
+    const parsedArgs = SteerTurnArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return { ok: false, message: "Invalid steer-turn request." };
+    }
+    return invokeHostService("provider.steer-turn", parsedArgs.data);
   });
 
   ipcMain.handle("provider:check-availability", (_event, args: unknown) => {

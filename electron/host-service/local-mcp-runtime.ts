@@ -2104,7 +2104,7 @@ export async function respondApproval(args: {
     throw new Error(`Pending approval not found: ${args.requestId}`);
   }
 
-  const result = providerRuntime.respondApproval({
+  const result = await providerRuntime.respondApproval({
     turnId: activeTurnId,
     requestId: args.requestId,
     approved: args.approved,
@@ -2170,7 +2170,7 @@ export async function respondUserInput(args: {
     throw new Error(`Pending user input not found: ${args.requestId}`);
   }
 
-  const result = providerRuntime.respondUserInput({
+  const result = await providerRuntime.respondUserInput({
     turnId: activeTurnId,
     requestId: args.requestId,
     answers: args.answers,

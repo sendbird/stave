@@ -1,6 +1,7 @@
 import {
   Brain,
   ClipboardCheck,
+  CornerUpLeft,
   FileText,
   FolderOpen,
   GitPullRequest,
@@ -113,6 +114,11 @@ import {
   isPromptCommentShortcut,
   type PromptCommentShortcut,
 } from "@/lib/prompt-comment-shortcuts";
+import {
+  DEFAULT_STEER_QUEUE_ENTER_ACTION,
+  tabActionForSteerQueueEnterAction,
+  type SteerQueueEnterAction,
+} from "@/lib/steer-queue-shortcuts";
 import type {
   LensAnnotation,
   LensStyleEdit,
@@ -165,11 +171,23 @@ interface PromptInputProps {
   minimal?: boolean;
   disabled?: boolean;
   isTurnActive?: boolean;
-  submitMode?: "send" | "queue-next";
+  /**
+   * "steer-or-queue" offers the user an explicit choice per Codex CLI's
+   * convention: one key steers into the live turn, the other explicitly
+   * queues for after it finishes. Which key does which is controlled by
+   * `steerQueueEnterAction`. Neither is a fallback for the other — see
+   * `submitCurrentMessage`'s `intent` param.
+   */
+  submitMode?: "send" | "queue-next" | "steer-or-queue";
   queuedNextTurn?: PromptDraftQueuedNextTurn | null;
   queuedTurns?: readonly PromptDraftQueuedTurn[];
   promptBatch?: readonly PromptDraftBatchItem[];
   promptCommentShortcut?: PromptCommentShortcut;
+  /**
+   * Which key (Enter or Tab) steers vs queues in "steer-or-queue" mode.
+   * Defaults to Enter=queue, Tab=steer.
+   */
+  steerQueueEnterAction?: SteerQueueEnterAction;
   focusToken?: string;
   selectedModel: ModelSelectorOption;
   modelOptions: readonly ModelSelectorOption[];
@@ -221,6 +239,8 @@ interface PromptInputProps {
   onSubmit: (args: {
     text: string;
     filePaths: string[];
+    /** Present only in "steer-or-queue" mode; which key the user pressed. */
+    intent?: "steer" | "queue";
   }) => void | Promise<void>;
   onStagePromptBatch?: () => void;
   onRemovePromptBatchItem?: (args: { itemId: string }) => void;
@@ -518,6 +538,7 @@ export function PromptInput(args: PromptInputProps) {
     queuedTurns = [],
     promptBatch = [],
     promptCommentShortcut = DEFAULT_PROMPT_COMMENT_SHORTCUT,
+    steerQueueEnterAction = DEFAULT_STEER_QUEUE_ENTER_ACTION,
     focusToken,
     value,
     selectedModel,
@@ -727,6 +748,18 @@ export function PromptInput(args: PromptInputProps) {
     promptBatch.length > 0;
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
   const isQueueNextMode = submitMode === "queue-next";
+  const isSteerOrQueueMode = submitMode === "steer-or-queue";
+  const steerQueueSecondaryAction = tabActionForSteerQueueEnterAction(
+    steerQueueEnterAction,
+  );
+  const steerQueueSecondaryLabel =
+    steerQueueSecondaryAction === "steer"
+      ? "Adjust current work"
+      : "Queue next";
+  const steerQueueSecondaryDescription =
+    steerQueueSecondaryAction === "steer"
+      ? "Steer this message into the live turn"
+      : "Queue this message for after the current turn finishes";
   const modifierLabel = useMemo(
     () =>
       typeof navigator !== "undefined" &&
@@ -1253,7 +1286,7 @@ export function PromptInput(args: PromptInputProps) {
     selectedWorkspaceInformationIndex,
   ]);
 
-  async function submitCurrentMessage() {
+  async function submitCurrentMessage(intent?: "steer" | "queue") {
     const nextText = value.trim();
     if (
       !hasPromptSubmitPayload({
@@ -1267,7 +1300,7 @@ export function PromptInput(args: PromptInputProps) {
     ) {
       return;
     }
-    await onSubmit({ text: nextText, filePaths: attachedFilePaths });
+    await onSubmit({ text: nextText, filePaths: attachedFilePaths, intent });
     setSelectedPromptHistoryIndex(NO_PROMPT_HISTORY_SELECTION);
     setDraftBeforeHistory("");
   }
@@ -1383,7 +1416,11 @@ export function PromptInput(args: PromptInputProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await submitCurrentMessage();
+    // The submit button mirrors Enter's configured action; the secondary
+    // in-composer action mirrors Tab.
+    await submitCurrentMessage(
+      isSteerOrQueueMode ? steerQueueEnterAction : undefined,
+    );
   }
 
   function syncCaretPosition(
@@ -1880,6 +1917,54 @@ export function PromptInput(args: PromptInputProps) {
                       </span>
                     ) : null}
                     <div className="relative min-w-0 flex-1">
+                      {isSteerOrQueueMode && !minimal ? (
+                        <div
+                          className={cn(
+                            "mb-1 flex justify-end",
+                            UI_LAYER_CLASS.floatingChrome,
+                          )}
+                        >
+                          <Tooltip>
+                            <TooltipTrigger
+                              type="button"
+                              disabled={primaryActionDisabled}
+                              onClick={() => {
+                                void submitCurrentMessage(
+                                  steerQueueSecondaryAction,
+                                );
+                              }}
+                              className={tooltipTriggerButtonClassName({
+                                className: cn(
+                                  PROMPT_TOOLBAR_BUTTON,
+                                  PROMPT_FLOATING_SURFACE,
+                                  "h-7 gap-1.5 px-2.5 text-xs shadow-sm supports-backdrop-filter:backdrop-blur-md",
+                                  steerQueueSecondaryAction === "steer" &&
+                                    "text-primary hover:text-primary",
+                                  primaryActionDisabled &&
+                                    "cursor-not-allowed opacity-60",
+                                ),
+                              })}
+                              aria-label={steerQueueSecondaryLabel}
+                            >
+                              {steerQueueSecondaryAction === "steer" ? (
+                                <CornerUpLeft className="size-3.5" />
+                              ) : (
+                                <Send className="size-3.5" />
+                              )}
+                              <span>{steerQueueSecondaryLabel}</span>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              className="flex-col items-start gap-0.5"
+                            >
+                              <span>{steerQueueSecondaryDescription}</span>
+                              <KbdGroup>
+                                <Kbd>Tab</Kbd>
+                              </KbdGroup>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      ) : null}
                       {shouldShowFocusHint ? (
                         <div
                           className={cn(
@@ -2203,6 +2288,24 @@ export function PromptInput(args: PromptInputProps) {
                           if (handleShiftTabShortcut(event)) {
                             return;
                           }
+                          if (
+                            isSteerOrQueueMode &&
+                            activePalette === null &&
+                            event.key === "Tab" &&
+                            !event.shiftKey &&
+                            !event.altKey &&
+                            !event.ctrlKey &&
+                            !event.metaKey &&
+                            !event.nativeEvent.isComposing
+                          ) {
+                            event.preventDefault();
+                            void submitCurrentMessage(
+                              tabActionForSteerQueueEnterAction(
+                                steerQueueEnterAction,
+                              ),
+                            );
+                            return;
+                          }
                           if (event.key !== "Enter") {
                             return;
                           }
@@ -2243,18 +2346,30 @@ export function PromptInput(args: PromptInputProps) {
                             return;
                           }
                           event.preventDefault();
-                          void submitCurrentMessage();
+                          void submitCurrentMessage(
+                            isSteerOrQueueMode
+                              ? steerQueueEnterAction
+                              : undefined,
+                          );
                         }}
                         placeholder={
                           minimal && isPromptInputFocused
                             ? ""
                             : minimal
-                              ? isQueueNextMode
-                                ? "Type the next turn..."
-                                : "Type a request..."
-                              : isQueueNextMode
-                                ? "Use / for commands, $ for skills, @ for Information (Enter to queue next)"
-                                : "Use / for commands, $ for skills, @ for Information (Enter to send)"
+                              ? isSteerOrQueueMode
+                                ? steerQueueEnterAction === "steer"
+                                  ? "Steer (Enter) or queue (Tab)..."
+                                  : "Queue (Enter) or steer (Tab)..."
+                                : isQueueNextMode
+                                  ? "Type the next turn..."
+                                  : "Type a request..."
+                              : isSteerOrQueueMode
+                                ? steerQueueEnterAction === "steer"
+                                  ? "Use / for commands, $ for skills, @ for Information (Enter to steer, Tab to queue)"
+                                  : "Use / for commands, $ for skills, @ for Information (Enter to queue, Tab to steer)"
+                                : isQueueNextMode
+                                  ? "Use / for commands, $ for skills, @ for Information (Enter to queue next)"
+                                  : "Use / for commands, $ for skills, @ for Information (Enter to send)"
                         }
                         className={cn(
                           "resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 shadow-none dark:bg-transparent",
@@ -3214,17 +3329,25 @@ export function PromptInput(args: PromptInputProps) {
                       isQueueNextMode && "h-8 gap-2 px-3",
                       minimal &&
                         !isQueueNextMode &&
+                        !isSteerOrQueueMode &&
                         "h-8 w-8 border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15",
                       minimal &&
                         isQueueNextMode &&
                         "border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15",
+                      minimal &&
+                        isSteerOrQueueMode &&
+                        "h-8 w-8 border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15",
                     ),
                   })}
                   disabled={primaryActionDisabled}
                   aria-label={
-                    isQueueNextMode
-                      ? "Queue next turn"
-                      : "Send"
+                    isSteerOrQueueMode
+                      ? steerQueueEnterAction === "steer"
+                        ? "Steer this turn"
+                        : "Queue next turn"
+                      : isQueueNextMode
+                        ? "Queue next turn"
+                        : "Send"
                   }
                 >
                   <Send className="size-3.5" />
@@ -3232,13 +3355,43 @@ export function PromptInput(args: PromptInputProps) {
                     <span>Queue next</span>
                   ) : null}
                 </TooltipTrigger>
-                <TooltipContent side="top">
-                  <span>
-                    {isQueueNextMode ? "Queue the next turn" : "Send message"}
-                  </span>
-                  <KbdGroup>
-                    <Kbd>↵</Kbd>
-                  </KbdGroup>
+                <TooltipContent
+                  side="top"
+                  className={
+                    isSteerOrQueueMode
+                      ? "flex-col items-start gap-0.5"
+                      : undefined
+                  }
+                >
+                  {isSteerOrQueueMode ? (
+                    <>
+                      <span className="inline-flex items-center gap-1">
+                        Steer this turn now
+                        <KbdGroup>
+                          <Kbd>
+                            {steerQueueEnterAction === "steer" ? "↵" : "Tab"}
+                          </Kbd>
+                        </KbdGroup>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-background/70">
+                        Queue for after it finishes
+                        <KbdGroup>
+                          <Kbd>
+                            {steerQueueEnterAction === "steer" ? "Tab" : "↵"}
+                          </Kbd>
+                        </KbdGroup>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span>
+                        {isQueueNextMode ? "Queue the next turn" : "Send message"}
+                      </span>
+                      <KbdGroup>
+                        <Kbd>↵</Kbd>
+                      </KbdGroup>
+                    </>
+                  )}
                 </TooltipContent>
               </Tooltip>
             </div>

@@ -1094,13 +1094,19 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "provider.respond-approval":
       await respond(
         request.id,
-        providerRuntime.respondApproval(request.params),
+        await providerRuntime.respondApproval(request.params),
       );
       return;
     case "provider.respond-user-input":
       await respond(
         request.id,
-        providerRuntime.respondUserInput(request.params),
+        await providerRuntime.respondUserInput(request.params),
+      );
+      return;
+    case "provider.steer-turn":
+      await respond(
+        request.id,
+        await providerRuntime.steerTurn(request.params),
       );
       return;
     case "provider.check-availability":

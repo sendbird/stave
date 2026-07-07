@@ -276,6 +276,7 @@ const ChatMessageSchema = z.object({
   promptSuggestions: z.array(z.string()).optional(),
   parts: z.array(MessagePartSchema),
   displayParts: z.array(MessagePartSchema).optional(),
+  steeredIntoTurnId: z.string().optional(),
 });
 
 const TaskSchema = z.object({

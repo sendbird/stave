@@ -1,4 +1,11 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent as ReactClipboardEvent,
+} from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import {
   ArrowDownRight,
@@ -45,6 +52,7 @@ import {
 } from "@/lib/tasks";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
+import { resolveUserMessageClipboardPlainText } from "@/lib/user-message-copy";
 import { useAppStore } from "@/store/app.store";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
 import type { ChatMessage, MessagePart } from "@/types/chat";
@@ -154,6 +162,23 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     () => getMessageElapsedLabel({ message, nowMs: elapsedAnchorMs }),
     [elapsedAnchorMs, message],
   );
+  const userMessageSourceText = message.displayContent ?? message.content;
+
+  function handleUserMessageCopy(event: ReactClipboardEvent<HTMLDivElement>) {
+    if (message.role !== "user") {
+      return;
+    }
+    const selectedText = window.getSelection()?.toString() ?? "";
+    const clipboardText = resolveUserMessageClipboardPlainText({
+      sourceMarkdown: userMessageSourceText,
+      selectedText,
+    });
+    if (!clipboardText) {
+      return;
+    }
+    event.clipboardData.setData("text/plain", clipboardText);
+    event.preventDefault();
+  }
 
   return (
     <div data-message-id={message.id} className={cn(isFirst && "pt-3 sm:pt-4")}>
@@ -168,6 +193,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
         >
           <MessageContent
             className={message.role === "assistant" ? "pb-1" : undefined}
+            onCopy={handleUserMessageCopy}
           >
             <MemoizedAssistantMessageBody
               message={message}

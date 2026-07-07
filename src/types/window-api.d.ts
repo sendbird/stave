@@ -120,6 +120,10 @@ interface WindowProviderApi {
   abortTurn?: (args: {
     turnId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
+  steerTurn?: (args: {
+    turnId: string;
+    text: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   cleanupTask?: (args: {
     taskId: string;
   }) => Promise<{ ok: boolean; message?: string }>;

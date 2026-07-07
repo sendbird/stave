@@ -295,3 +295,55 @@ export function buildPendingProviderTurnState(args: {
     workspaceSnapshotVersion: args.workspaceSnapshotVersion + 1,
   };
 }
+
+/**
+ * Build the message-list mutation for a follow-up that was *steered* into an
+ * already-running turn (mid-turn injection). Unlike
+ * `buildPendingProviderTurnState`, this only appends a single user message —
+ * there is no assistant placeholder and no `activeTurnIdsByTask` mutation,
+ * because the live turn's assistant response continues streaming into its
+ * existing message untouched.
+ */
+export function buildSteeredUserMessageState(args: {
+  messagesByTask: Record<string, ChatMessage[]>;
+  messageCountByTask: Record<string, number>;
+  taskId: string;
+  content: string;
+  steeredIntoTurnId: string;
+}) {
+  const current = args.messagesByTask[args.taskId] ?? [];
+  const baseMessageCount = Math.max(
+    current.length,
+    args.messageCountByTask[args.taskId] ?? 0,
+  );
+  const userMessageId = buildMessageId({
+    taskId: args.taskId,
+    count: baseMessageCount,
+  });
+
+  const userMessage: ChatMessage = {
+    id: userMessageId,
+    role: "user",
+    model: "user",
+    providerId: "user",
+    content: args.content,
+    parts: [createUserTextPart({ text: args.content })],
+    steeredIntoTurnId: args.steeredIntoTurnId,
+  };
+  const nextMessages = [...current, userMessage];
+
+  return {
+    messagesByTask: {
+      ...args.messagesByTask,
+      [args.taskId]: nextMessages,
+    },
+    messageCountByTask: {
+      ...args.messageCountByTask,
+      [args.taskId]: Math.max(
+        nextMessages.length,
+        (args.messageCountByTask[args.taskId] ?? current.length) +
+          (nextMessages.length - current.length),
+      ),
+    },
+  };
+}

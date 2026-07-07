@@ -48,6 +48,7 @@ import {
   getProviderLabel,
   listProviderIds,
   normalizeModelSelection,
+  providerSupportsMidTurnSteering,
   resolveClaudeEffortForModelSwitch,
   providerSupportsNativeCommandCatalog,
 } from "@/lib/providers/model-catalog";
@@ -198,6 +199,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     promptDraft,
     promptFocusNonce,
     promptCommentShortcut,
+    steerQueueEnterAction,
     clearPromptDraft,
     updatePromptDraft,
     sendUserMessage,
@@ -217,6 +219,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             EMPTY_PROMPT_DRAFT,
           state.promptFocusNonce,
           state.settings.promptCommentShortcut,
+          state.settings.steerQueueEnterAction,
           state.clearPromptDraft,
           state.updatePromptDraft,
           state.sendUserMessage,
@@ -282,6 +285,16 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       }),
     [activeTurnId, providerTurnActivity],
   );
+  // Whether Enter/Tab should offer the explicit steer-or-queue choice for the
+  // currently active turn (Codex CLI-style dedicated keys — no fallback
+  // between them, see `sendUserMessage`'s `submitIntent`). Which key does
+  // which is user-configurable via `settings.steerQueueEnterAction`
+  // (defaults to Enter=queue, Tab=steer). Requires plain text only;
+  // attachments always fall back to queue-only mode.
+  const canSteerActiveTurn =
+    providerSupportsMidTurnSteering({ providerId: args.activeProvider }) &&
+    (promptDraft.attachments?.length ?? 0) === 0 &&
+    (promptDraft.attachedFilePaths?.length ?? 0) === 0;
   const stalledDurationLabel = useMemo(
     () =>
       providerTurnDisplayState === "stalled"
@@ -811,13 +824,16 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           isTurnActive={args.isTurnActive}
           submitMode={
             args.isTurnActive && providerTurnDisplayState !== "stalled"
-              ? "queue-next"
+              ? canSteerActiveTurn
+                ? "steer-or-queue"
+                : "queue-next"
               : "send"
           }
           queuedNextTurn={queuedNextTurn}
           queuedTurns={queuedTurns}
           promptBatch={promptBatch}
           promptCommentShortcut={promptCommentShortcut}
+          steerQueueEnterAction={steerQueueEnterAction}
           onClearQueuedNextTurn={
             queuedNextTurn || queuedTurns.length > 0
               ? () => {
@@ -866,7 +882,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               taskId: args.activeTaskId,
               content: suggestion,
             });
-            if (result.status === "started" || result.status === "queued") {
+            if (
+              result.status === "started" ||
+              result.status === "queued" ||
+              result.status === "steered"
+            ) {
               adoptPromptDraftText({
                 taskId: args.providerSelectionTarget,
                 text: "",
@@ -961,7 +981,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           crossReviewProvider={args.crossReviewProvider}
           onCrossReview={args.onCrossReview}
-          onSubmit={async ({ text, filePaths }) => {
+          onSubmit={async ({ text, filePaths, intent }) => {
             cancelPendingDraftSave();
             const submittedDraft = {
               taskId: args.providerSelectionTarget,
@@ -1019,9 +1039,18 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   fileContexts.length > 0 ? fileContexts : undefined,
                 imageContexts:
                   imageContexts.length > 0 ? imageContexts : undefined,
+                submitIntent: intent,
               });
               if (result.status === "blocked") {
                 restoreSubmittedDraft();
+              } else if (result.status === "steer-unavailable") {
+                // Explicit steer request failed — restore the draft instead
+                // of silently queueing it, so the user can see what happened
+                // and choose (edit and retry, or press Tab to queue).
+                restoreSubmittedDraft();
+                toast.error("Couldn't steer this turn", {
+                  description: result.message,
+                });
               }
             } catch (error) {
               restoreSubmittedDraft();

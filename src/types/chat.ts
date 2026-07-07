@@ -277,6 +277,12 @@ export interface ChatMessage {
   promptSuggestions?: string[];
   parts: MessagePart[];
   displayParts?: MessagePart[];
+  /**
+   * Set on a user message that was steered (injected) into an already-running
+   * turn rather than starting a new one. Records the turnId it was injected
+   * into. Absent for normal user messages.
+   */
+  steeredIntoTurnId?: string;
 }
 
 export type EditorTabContentState =

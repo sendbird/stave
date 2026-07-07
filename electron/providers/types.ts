@@ -49,7 +49,8 @@ export interface StreamTurnArgs {
  */
 export type ProviderResponderResult =
   | { ok: true }
-  | { ok: false; reason: "unknown-request"; pendingRequestIds: string[] };
+  | { ok: false; reason: "unknown-request"; pendingRequestIds: string[] }
+  | { ok: false; reason: "turn-not-steerable"; pendingRequestIds: string[] };
 
 export type BridgeEvent =
   | { type: "thinking"; text: string; isStreaming?: boolean }
@@ -120,13 +121,17 @@ export interface ProviderRuntime {
   };
   abortTurn: (args: { turnId: string }) => { ok: boolean; message: string };
   cleanupTask: (args: { taskId: string }) => { ok: boolean; message: string };
-  respondApproval: (args: { turnId: string; requestId: string; approved: boolean }) => { ok: boolean; message: string };
+  respondApproval: (args: { turnId: string; requestId: string; approved: boolean }) => Promise<{ ok: boolean; message: string }>;
   respondUserInput: (args: {
     turnId: string;
     requestId: string;
     answers?: Record<string, string>;
     denied?: boolean;
-  }) => { ok: boolean; message: string };
+  }) => Promise<{ ok: boolean; message: string }>;
+  steerTurn: (args: { turnId: string; text: string }) => Promise<{
+    ok: boolean;
+    message: string;
+  }>;
   checkAvailability: (args: { providerId: ProviderId; runtimeOptions?: StreamTurnArgs["runtimeOptions"] }) => Promise<{
     ok: boolean;
     available: boolean;

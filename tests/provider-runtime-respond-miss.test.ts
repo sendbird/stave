@@ -110,8 +110,8 @@ afterEach(async () => {
 });
 
 describe("providerRuntime.respondApproval / respondUserInput miss diagnostics", () => {
-  test("respondApproval with no active session returns message listing active turn ids", () => {
-    const result = providerRuntime.respondApproval({
+  test("respondApproval with no active session returns message listing active turn ids", async () => {
+    const result = await providerRuntime.respondApproval({
       turnId: "ghost-turn",
       requestId: "req-1",
       approved: true,
@@ -122,8 +122,8 @@ describe("providerRuntime.respondApproval / respondUserInput miss diagnostics", 
     expect(result.message).toContain("activeTurnIds=[");
   });
 
-  test("respondUserInput with no active session returns message listing active turn ids", () => {
-    const result = providerRuntime.respondUserInput({
+  test("respondUserInput with no active session returns message listing active turn ids", async () => {
+    const result = await providerRuntime.respondUserInput({
       turnId: "ghost-turn",
       requestId: "req-2",
     });
@@ -153,13 +153,13 @@ describe("providerRuntime.respondApproval / respondUserInput miss diagnostics", 
     // the responder. The mocked stream awaits holder.release so it stays open.
     await new Promise((resolve) => setTimeout(resolve, 5));
 
-    const result = providerRuntime.respondApproval({
+    const result = await providerRuntime.respondApproval({
       turnId,
       requestId: "wrong-id",
       approved: true,
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("Approval responder rejected unknown request");
+    expect(result.message).toContain("Approval responder rejected (unknown request)");
     expect(result.message).toContain("wrong-id");
     expect(result.message).toContain("pendingRequestIds=[real-approval-id]");
 
@@ -195,13 +195,13 @@ describe("providerRuntime.respondApproval / respondUserInput miss diagnostics", 
     expect(started.ok).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 5));
 
-    const result = providerRuntime.respondUserInput({
+    const result = await providerRuntime.respondUserInput({
       turnId,
       requestId: "wrong-input-id",
       answers: { x: "y" },
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("User-input responder rejected unknown request");
+    expect(result.message).toContain("User-input responder rejected (unknown request)");
     expect(result.message).toContain("wrong-input-id");
     expect(result.message).toContain("pendingRequestIds=[real-input-id]");
 
