@@ -1,3 +1,20 @@
+## [0.8.6](https://github.com/sendbird/stave/compare/v0.8.5...v0.8.6) (2026-07-07)
+
+### Features
+
+* Add explicit mid-turn steer controls so users can choose per message whether to queue a follow-up or inject it into the currently running turn, with a Settings option to swap the Enter/Tab mapping.
+* Add token-budget guidance to injected Stave task awareness context, make Lens MCP reads cheaper by default with bounded HTML/log outputs, and document low-token Local MCP usage patterns.
+* Improve the `stave-worktree-pr-flow` skill by reducing redundant guardrails and extracting PR/commit conventions for better progressive disclosure.
+
+### Fixes
+
+* Preserve pasted image MIME metadata through provider image contexts and stop transport compaction from sending empty image payload metadata.
+* Fix preset settings behavior across the settings dialog, task preset editor, and app store.
+
+### References
+
+* [#109](https://github.com/sendbird/stave/pull/109), [#110](https://github.com/sendbird/stave/pull/110), [#111](https://github.com/sendbird/stave/pull/111), [#112](https://github.com/sendbird/stave/pull/112), [#18](https://github.com/sendbird/stave/pull/18)
+
 ## [0.8.5](https://github.com/sendbird/stave/compare/v0.8.3...v0.8.5) (2026-07-02)
 
 ### Features
