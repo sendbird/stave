@@ -245,6 +245,12 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
     "- new workspace plan files belong under `.stave/context/plans`",
     "- use `.stave/context/plans/<taskIdPrefix>_<timestamp>.md` for new plan markdown files",
   ];
+  const tokenBudgetLines = [
+    "- Treat this injected context as current. Do not call `stave_get_workspace_information` just to re-read fields already shown here.",
+    "- Keep Information panel notes and todos compact. Put long handoff or execution details in `.stave/context/plans/` and reference the plan path instead.",
+    "- For Lens inspection, prefer `stave_lens_snapshot`, scoped `stave_lens_get_text`, or screenshots before raw HTML, console, or network dumps.",
+    "- When using Lens log or HTML tools, pass the narrowest selector or smallest useful limit/maxChars.",
+  ];
   const handoffProcedureLines = [
     "When you create a new Stave workspace to hand off follow-up work:",
     "1. Use `stave_create_workspace` to create the target workspace and capture its `root` path.",
@@ -277,6 +283,9 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
       "",
       "Workspace Conventions:",
       ...workspaceConventionLines,
+      "",
+      "Token Budget Guidance:",
+      ...tokenBudgetLines,
       "",
       "Handoff procedure:",
       ...handoffProcedureLines,
