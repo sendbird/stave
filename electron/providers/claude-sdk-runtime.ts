@@ -3185,6 +3185,24 @@ export async function streamClaudeWithSdk(
           }
           if (toolName.trim().toLowerCase() === "exitplanmode") {
             planPresentedInTurn = true;
+            // Force the turn to end here, mirroring Codex's
+            // requestPlanInterrupt(): the PlanViewer's Approve/Revise actions
+            // and the prompt input stay locked until a `done` event clears
+            // the active-turn flag, and `done` is only synthesized once the
+            // stream's `for await` loop sees a final `result` message. Denying
+            // subsequent tool calls (above) only stops the *next* tool call —
+            // if the model keeps trying to call tools (or narrates) instead of
+            // ending its turn, the loop never reaches `result` and the turn
+            // hangs "waiting" forever. `interrupt()` stops generation for the
+            // current turn without closing the session (unlike `close()`), so
+            // a `result` message still follows and `done` gets emitted
+            // normally, while the query stays alive for the user's next reply.
+            void stream?.interrupt().catch((error) => {
+              console.error(
+                "[claude-sdk-runtime] Failed to interrupt turn after plan was presented",
+                error,
+              );
+            });
           }
 
           const permissionModeDecision = resolveClaudePermissionModeDecision({
