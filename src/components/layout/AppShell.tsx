@@ -387,7 +387,7 @@ export function AppShell() {
   function OverlayLoadingFallback(args: { title: string }) {
     return (
       <div
-        className={`${UI_LAYER_CLASS.dialog} fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]`}
+        className={`${UI_LAYER_CLASS.dialog} fixed inset-0 flex items-center justify-center bg-overlay p-4`}
       >
         <Card className="w-full max-w-md border-border/80 bg-background/95 p-6 shadow-2xl">
           <div className="text-sm text-muted-foreground">
@@ -1263,7 +1263,7 @@ export function AppShell() {
         <div
           className={`pointer-events-none absolute left-1/2 top-16 ${UI_LAYER_CLASS.floatingChrome} -translate-x-1/2`}
         >
-          <div className="rounded-full border border-border/80 bg-card/95 px-3 py-1 text-sm font-medium text-foreground shadow-lg backdrop-blur-sm">
+          <div className="rounded-full border border-border/80 bg-card px-3 py-1 text-sm font-medium text-foreground shadow-lg">
             Zoom {zoomHudPercent}%
           </div>
         </div>
@@ -1397,6 +1397,7 @@ export function AppShell() {
             >
               <div
                 ref={contentRowRef}
+                data-stave-content-row=""
                 className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
               >
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

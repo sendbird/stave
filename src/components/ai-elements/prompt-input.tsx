@@ -1898,7 +1898,7 @@ export function PromptInput(args: PromptInputProps) {
                 <div
                   className={cn(
                     minimal
-                      ? "rounded-md border border-border/60 bg-background/55 px-3 py-2.5 supports-backdrop-filter:backdrop-blur-md"
+                      ? "rounded-md border border-border/60 bg-background px-3 py-2.5"
                       : undefined,
                   )}
                 >
@@ -1928,7 +1928,7 @@ export function PromptInput(args: PromptInputProps) {
                             className={cn(
                               PROMPT_TOOLBAR_BUTTON,
                               PROMPT_FLOATING_SURFACE,
-                              "pointer-events-auto h-8 gap-2 shadow-sm supports-backdrop-filter:backdrop-blur-md",
+                              "pointer-events-auto h-8 gap-2 shadow-sm",
                             )}
                           >
                             <span>Focus</span>
@@ -3193,7 +3193,7 @@ export function PromptInput(args: PromptInputProps) {
                         <SlidersHorizontal className="size-3.5" />
                       </Button>
                     </DrawerTrigger>
-                    <DrawerContent className="border-border/80 bg-background/95 shadow-2xl supports-backdrop-filter:backdrop-blur-xl data-[vaul-drawer-direction=bottom]:max-h-[78vh]">
+                    <DrawerContent className="border-border/80 bg-background shadow-2xl data-[vaul-drawer-direction=bottom]:max-h-[78vh]">
                       <DrawerHeader className="gap-2 border-b border-border/70 px-5 pb-5 pt-5 text-left md:px-6">
                         <DrawerTitle className="text-lg font-semibold">
                           Current Runtime

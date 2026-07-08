@@ -4847,7 +4847,7 @@ export const useAppStore = create<AppState>()(
           editorPanelWidth: DEFAULT_EDITOR_PANEL_WIDTH,
           explorerPanelWidth: 300,
           lensPanelWidthByWorkspaceId: {},
-          lensFullscreenByWorkspaceId: {},
+          lensDisplayModeByWorkspaceId: {},
           terminalDockHeight: 210,
           editorVisible: false,
           sidebarOverlayVisible: false,

@@ -11,7 +11,7 @@ export interface LayoutState {
   editorPanelWidth: number;
   explorerPanelWidth: number;
   lensPanelWidthByWorkspaceId: Record<string, number>;
-  lensFullscreenByWorkspaceId: Record<string, boolean>;
+  lensDisplayModeByWorkspaceId: Record<string, LensDisplayMode>;
   terminalDockHeight: number;
   editorVisible: boolean;
   sidebarOverlayVisible: boolean;
@@ -35,6 +35,9 @@ export const DEFAULT_EDITOR_PANEL_WIDTH = 720;
 export const MIN_LENS_PANEL_WIDTH = 320;
 export const DEFAULT_LENS_PANEL_WIDTH = 520;
 export const MAX_LENS_PANEL_WIDTH = 900;
+
+export const LENS_DISPLAY_MODES = ["normal", "cover-chat", "fullscreen"] as const;
+export type LensDisplayMode = (typeof LENS_DISPLAY_MODES)[number];
 
 export function mergeLayoutPatch(args: {
   layout: LayoutState;
@@ -69,8 +72,11 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
     lensPanelWidthByWorkspaceId: normalizeLensPanelWidthByWorkspaceId(
       layout.lensPanelWidthByWorkspaceId,
     ),
-    lensFullscreenByWorkspaceId: normalizeLensFullscreenByWorkspaceId(
-      layout.lensFullscreenByWorkspaceId,
+    lensDisplayModeByWorkspaceId: normalizeLensDisplayModeByWorkspaceId(
+      layout.lensDisplayModeByWorkspaceId,
+      // Legacy field (pre tri-state mode): `true` meant fullscreen.
+      (layout as Partial<{ lensFullscreenByWorkspaceId: unknown }>)
+        .lensFullscreenByWorkspaceId,
     ),
     terminalDockHeight: layout.terminalDockHeight,
     editorVisible: layout.editorVisible,
@@ -116,18 +122,36 @@ function normalizeLensPanelWidthByWorkspaceId(
   );
 }
 
-function normalizeLensFullscreenByWorkspaceId(
+function normalizeLensDisplayModeByWorkspaceId(
   value: unknown,
-): Record<string, boolean> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
+  legacyFullscreenValue?: unknown,
+): Record<string, LensDisplayMode> {
+  const result: Record<string, LensDisplayMode> = {};
+
+  if (legacyFullscreenValue && typeof legacyFullscreenValue === "object" && !Array.isArray(legacyFullscreenValue)) {
+    for (const [workspaceId, fullscreen] of Object.entries(
+      legacyFullscreenValue as Record<string, unknown>,
+    )) {
+      if (workspaceId.trim().length > 0 && fullscreen === true) {
+        result[workspaceId] = "fullscreen";
+      }
+    }
   }
 
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>)
-      .filter(([workspaceId]) => workspaceId.trim().length > 0)
-      .map(([workspaceId, fullscreen]) => [workspaceId, fullscreen === true]),
-  );
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const [workspaceId, mode] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
+      if (
+        workspaceId.trim().length > 0 &&
+        LENS_DISPLAY_MODES.includes(mode as LensDisplayMode)
+      ) {
+        result[workspaceId] = mode as LensDisplayMode;
+      }
+    }
+  }
+
+  return result;
 }
 
 export function isDiffEditorTab(

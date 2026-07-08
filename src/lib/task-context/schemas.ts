@@ -124,6 +124,7 @@ const WorkspaceInformationReferenceSchema = z.object({
     z.literal("jira"),
     z.literal("confluence"),
     z.literal("storybook"),
+    z.literal("amplify"),
     z.literal("slack"),
     z.literal("figma"),
     z.literal("custom"),
@@ -479,6 +480,13 @@ const WorkspaceSlackThreadSchema = z.object({
   note: z.string().optional().default(""),
 });
 
+const WorkspaceAmplifyLinkSchema = z.object({
+  id: z.string(),
+  url: z.string().optional().default(""),
+  label: z.string().optional().default(""),
+  note: z.string().optional().default(""),
+});
+
 const WorkspaceConfluencePageSchema = z.object({
   id: z.string(),
   title: z.string().optional().default(""),
@@ -565,6 +573,7 @@ const WorkspaceInformationSchema = z.object({
     .array(WorkspaceLinkedPullRequestSchema)
     .optional()
     .default([]),
+  amplifyLinks: z.array(WorkspaceAmplifyLinkSchema).optional().default([]),
   slackThreads: z.array(WorkspaceSlackThreadSchema).optional().default([]),
   turnSummary: WorkspaceTurnSummarySchema.nullable().optional(),
   notes: z.string().optional().default(""),
@@ -612,6 +621,7 @@ export const WorkspaceSnapshotSchema = z.object({
     figmaResources: [],
     storybookResources: [],
     linkedPullRequests: [],
+    amplifyLinks: [],
     slackThreads: [],
     notes: "",
     todos: [],

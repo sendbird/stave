@@ -34,6 +34,7 @@ function summarizeWorkspaceInformation(info: WorkspaceInformationState) {
     `Jira: ${info.jiraIssues.length}`,
     `Confluence: ${info.confluencePages.length}`,
     `Storybook: ${storybookResources.length}`,
+    `Amplify links: ${(info.amplifyLinks ?? []).length}`,
     `Slack: ${info.slackThreads.length}`,
     `Figma: ${info.figmaResources.length}`,
     `Custom fields: ${info.customFields.length}`,
@@ -123,6 +124,13 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
         .filter((value) => value.trim().length > 0)
         .join(" | "),
     );
+  const amplifyItems = (info.amplifyLinks ?? [])
+    .slice(0, MAX_VISIBLE_RESOURCES)
+    .map((link) =>
+      [link.label || "Amplify deploy", link.url, link.note]
+        .filter((value) => value.trim().length > 0)
+        .join(" | "),
+    );
   const linkedPrItems = info.linkedPullRequests
     .slice(0, MAX_VISIBLE_RESOURCES)
     .map((pullRequest) =>
@@ -188,6 +196,11 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
       emptyLabel: "none",
     }),
     ...formatSection({
+      label: "Amplify deploy links",
+      items: amplifyItems,
+      emptyLabel: "none",
+    }),
+    ...formatSection({
       label: "Slack threads",
       items: slackItems,
       emptyLabel: "none",
@@ -244,6 +257,7 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
   const workspaceConventionLines = [
     "- new workspace plan files belong under `.stave/context/plans`",
     "- use `.stave/context/plans/<taskIdPrefix>_<timestamp>.md` for new plan markdown files",
+    "- When you trigger, complete, or learn of an AWS Amplify deploy for this workspace (any *.amplifyapp.com URL, or a deploy URL the user shares), immediately register it with `stave_add_workspace_amplify_link` (workspaceId, url, and a branch/environment label). Do this automatically without being asked; skip only if the exact URL is already listed under Amplify deploy links above.",
   ];
   const tokenBudgetLines = [
     "- Treat this injected context as current. Do not call `stave_get_workspace_information` just to re-read fields already shown here.",

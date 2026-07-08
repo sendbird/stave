@@ -128,7 +128,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     <section
       aria-label="Approval queue"
       className={cn(
-        "mb-3 rounded-xl border border-warning/30 bg-background/90 shadow-sm supports-backdrop-filter:backdrop-blur-xs",
+        "mb-3 rounded-xl border border-warning/30 bg-background shadow-sm",
         compact ? "p-2" : "p-2.5",
       )}
     >

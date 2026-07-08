@@ -1038,7 +1038,7 @@ export function WorkspaceTaskTabs() {
         <div
           className={cn(
             UI_LAYER_CLASS.dialog,
-            "fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]",
+            "fixed inset-0 flex items-center justify-center bg-overlay p-4",
           )}
           onMouseDown={() => setTaskToRename(null)}
         >
@@ -1081,7 +1081,7 @@ export function WorkspaceTaskTabs() {
         <div
           className={cn(
             UI_LAYER_CLASS.dialog,
-            "fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]",
+            "fixed inset-0 flex items-center justify-center bg-overlay p-4",
           )}
           onMouseDown={() => setCliSessionToRename(null)}
         >
@@ -1128,7 +1128,7 @@ export function WorkspaceTaskTabs() {
           ref={sessionIdsDialogRef}
           className={cn(
             UI_LAYER_CLASS.dialog,
-            "fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]",
+            "fixed inset-0 flex items-center justify-center bg-overlay p-4",
           )}
           role="dialog"
           aria-modal="true"

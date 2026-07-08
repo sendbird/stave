@@ -122,6 +122,13 @@ export interface WorkspaceSlackThread {
   note: string;
 }
 
+export interface WorkspaceAmplifyLink {
+  id: string;
+  url: string;
+  label: string;
+  note: string;
+}
+
 export interface WorkspaceConfluencePage {
   id: string;
   title: string;
@@ -241,6 +248,7 @@ export interface WorkspaceInformationState {
   figmaResources: WorkspaceFigmaResource[];
   storybookResources: WorkspaceStorybookResource[];
   linkedPullRequests: WorkspaceLinkedPullRequest[];
+  amplifyLinks: WorkspaceAmplifyLink[];
   slackThreads: WorkspaceSlackThread[];
   turnSummary?: WorkspaceTurnSummary | null;
   notes: string;
@@ -303,6 +311,15 @@ export function createWorkspaceSlackThread(): WorkspaceSlackThread {
     id: buildWorkspaceInformationId("slack"),
     url: "",
     channelName: "",
+    note: "",
+  };
+}
+
+export function createWorkspaceAmplifyLink(): WorkspaceAmplifyLink {
+  return {
+    id: buildWorkspaceInformationId("amplify"),
+    url: "",
+    label: "",
     note: "",
   };
 }
@@ -701,6 +718,40 @@ export function isSlackThreadUrl(value: string) {
   return extractSlackThreadReference(value) !== null;
 }
 
+export interface AmplifyLinkReference {
+  host: string;
+  branch: string;
+  appId: string;
+}
+
+/**
+ * Matches AWS Amplify hosting deploy URLs, e.g.
+ * `https://main.d123abc456.amplifyapp.com`.
+ */
+export function extractAmplifyLinkReference(
+  value: string,
+): AmplifyLinkReference | null {
+  const url = parseWorkspaceInfoUrl(value);
+  if (!url || !url.hostname.endsWith(".amplifyapp.com")) {
+    return null;
+  }
+
+  const match = /^([^.]+)\.([^.]+)\.amplifyapp\.com$/.exec(url.hostname);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    host: formatWorkspaceInfoHostLabel(value),
+    branch: match[1] ?? "",
+    appId: match[2] ?? "",
+  };
+}
+
+export function isAmplifyLinkUrl(value: string) {
+  return extractAmplifyLinkReference(value) !== null;
+}
+
 export interface ConfluencePageReference {
   host: string;
   spaceKey: string;
@@ -766,6 +817,7 @@ export function createEmptyWorkspaceInformation(): WorkspaceInformationState {
     figmaResources: [],
     storybookResources: [],
     linkedPullRequests: [],
+    amplifyLinks: [],
     slackThreads: [],
     notes: "",
     todos: [],
