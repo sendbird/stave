@@ -128,7 +128,11 @@ export interface ProviderRuntime {
     answers?: Record<string, string>;
     denied?: boolean;
   }) => Promise<{ ok: boolean; message: string }>;
-  steerTurn: (args: { turnId: string; text: string }) => Promise<{
+  steerTurn: (args: {
+    turnId: string;
+    text: string;
+    enabled?: boolean;
+  }) => Promise<{
     ok: boolean;
     message: string;
   }>;

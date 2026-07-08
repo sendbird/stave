@@ -200,6 +200,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     promptFocusNonce,
     promptCommentShortcut,
     steerQueueEnterAction,
+    midTurnSteeringEnabled,
     clearPromptDraft,
     updatePromptDraft,
     sendUserMessage,
@@ -220,6 +221,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.promptFocusNonce,
           state.settings.promptCommentShortcut,
           state.settings.steerQueueEnterAction,
+          state.settings.midTurnSteeringEnabled,
           state.clearPromptDraft,
           state.updatePromptDraft,
           state.sendUserMessage,
@@ -289,9 +291,13 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   // currently active turn (Codex CLI-style dedicated keys — no fallback
   // between them, see `sendUserMessage`'s `submitIntent`). Which key does
   // which is user-configurable via `settings.steerQueueEnterAction`
-  // (defaults to Enter=queue, Tab=steer). Requires plain text only;
+  // (defaults to Enter=queue, Tab=steer). Mid-turn steering itself must be
+  // turned on via `settings.midTurnSteeringEnabled` (Settings → Steer /
+  // Queue) — otherwise the option is hidden entirely rather than offered
+  // and then rejected by the main process. Requires plain text only;
   // attachments always fall back to queue-only mode.
   const canSteerActiveTurn =
+    midTurnSteeringEnabled &&
     providerSupportsMidTurnSteering({ providerId: args.activeProvider }) &&
     (promptDraft.attachments?.length ?? 0) === 0 &&
     (promptDraft.attachedFilePaths?.length ?? 0) === 0;

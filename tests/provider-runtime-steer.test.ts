@@ -170,4 +170,46 @@ describe("providerRuntime.steerTurn", () => {
     holder.release?.();
     process.env.STAVE_ENABLE_MID_TURN_STEERING = "1";
   });
+
+  test("settings.midTurnSteeringEnabled (enabled:true) works even when the env flag is off", async () => {
+    process.env.STAVE_ENABLE_MID_TURN_STEERING = "";
+    const turnId = "turn-steer-setting-enabled";
+    const started = providerRuntime.startTurnStream(
+      { providerId: "claude-code", prompt: "run", turnId },
+      { bufferEvents: true },
+    );
+    expect(started.ok).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const result = await providerRuntime.steerTurn({
+      turnId,
+      text: "from-setting",
+      enabled: true,
+    });
+    expect(result.ok).toBe(true);
+    expect(holder.steeredTexts).toEqual(["from-setting"]);
+    holder.release?.();
+    process.env.STAVE_ENABLE_MID_TURN_STEERING = "1";
+  });
+
+  test("enabled:false with the env flag off still returns ok:false", async () => {
+    process.env.STAVE_ENABLE_MID_TURN_STEERING = "";
+    const turnId = "turn-steer-setting-disabled";
+    const started = providerRuntime.startTurnStream(
+      { providerId: "claude-code", prompt: "run", turnId },
+      { bufferEvents: true },
+    );
+    expect(started.ok).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const result = await providerRuntime.steerTurn({
+      turnId,
+      text: "nope",
+      enabled: false,
+    });
+    expect(result.ok).toBe(false);
+    expect(holder.steeredTexts).toEqual([]);
+    holder.release?.();
+    process.env.STAVE_ENABLE_MID_TURN_STEERING = "1";
+  });
 });

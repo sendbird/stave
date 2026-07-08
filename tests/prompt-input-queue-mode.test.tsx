@@ -288,13 +288,50 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain("Next to send");
     expect(html).toContain("1 file");
     expect(html).toContain("1 image");
-    expect(html).toContain("Queue next");
     expect(html).toContain("Clear all");
-    expect(html).toContain('aria-label="Abort"');
     expect(html).toContain("dark:bg-transparent");
     expect(html).not.toContain("absolute right-4 top-4");
     expect(html).not.toContain("README.md");
     expect(html).not.toContain("Focus");
+    // The composer has a draft, so the single morphing button shows
+    // Send/Queue rather than Stop, and the old standalone Abort button is
+    // gone entirely.
+    expect(html).toContain('aria-label="Queue next turn"');
+    expect(html).not.toContain('aria-label="Abort"');
+    expect(html).not.toContain('aria-label="Stop responding"');
+  });
+
+  test("shows Stop instead of Send when a turn is active and the draft is empty", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "",
+          isTurnActive: true,
+          submitMode: "steer-or-queue" as const,
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          attachments: [],
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onSubmit: () => {},
+          onAbort: () => {},
+        }),
+      ),
+    );
+
+    expect(html).toContain('aria-label="Stop responding"');
+    expect(html).not.toContain('aria-label="Send"');
+    expect(html).not.toContain('aria-label="Queue next turn"');
+    expect(html).not.toContain('aria-label="Steer this turn"');
   });
 
   test("defaults to Enter=queue, Tab=steer during a steerable active turn", async () => {
@@ -324,12 +361,16 @@ describe("PromptInput queue mode", () => {
       ),
     );
 
-    // The primary submit button mirrors Enter, which defaults to queue, while
-    // the visible secondary action mirrors Tab and steers the current work.
+    // The single primary button mirrors Enter, which defaults to queue.
+    // There is no separate floating secondary button anymore — Tab's
+    // opposite action (steer) is only surfaced in the button's tooltip,
+    // which Radix doesn't render into static markup; the placeholder copy
+    // (rendered unconditionally behind the editor) reflects the same intent.
     expect(html).toContain('aria-label="Queue next turn"');
-    expect(html).toContain('aria-label="Adjust current work"');
-    expect(html).toContain(">Adjust current work</span>");
-    expect(html).toContain("Enter to queue, Tab to steer");
+    expect(html).not.toContain('aria-label="Adjust current work"');
+    expect(html).not.toContain("Adjust current work");
+    expect(html).not.toContain("Enter to queue, Tab to steer");
+    expect(html).toContain("Queue a follow-up… (↵)");
   });
 
   test("respects steerQueueEnterAction=steer during a steerable active turn", async () => {
@@ -360,12 +401,13 @@ describe("PromptInput queue mode", () => {
       ),
     );
 
-    // The primary submit button mirrors Enter (steer), while the visible
-    // secondary action mirrors Tab and queues the next turn.
+    // The single primary button mirrors Enter (steer) when configured that
+    // way; the old dedicated "Queue next" secondary button is gone.
     expect(html).toContain('aria-label="Steer this turn"');
-    expect(html).toContain('aria-label="Queue next"');
-    expect(html).toContain(">Queue next</span>");
-    expect(html).toContain("Enter to steer, Tab to queue");
+    expect(html).not.toContain('aria-label="Queue next"');
+    expect(html).not.toContain(">Queue next</span>");
+    expect(html).not.toContain("Enter to steer, Tab to queue");
+    expect(html).toContain("Steer this turn… (↵)");
   });
 
   test("renders comments and lens annotation gadgets outside the textarea", async () => {
@@ -557,7 +599,8 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain("2.5k / 10k tokens (25%)");
     expect(html).toContain("2m elapsed");
     expect(html).toContain("width:25%");
-    expect(html).toContain('aria-label="Abort"');
+    expect(html).toContain('aria-label="Stop responding"');
+    expect(html).not.toContain('aria-label="Abort"');
     expect(html).not.toContain("Running");
   });
 });

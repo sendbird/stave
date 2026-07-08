@@ -2665,6 +2665,7 @@ function CommandPaletteSection() {
     modelShortcutKeys,
     promptCommentShortcut,
     steerQueueEnterAction,
+    midTurnSteeringEnabled,
     visualCommentShortcut,
   ] = useAppStore(
     useShallow(
@@ -2678,6 +2679,7 @@ function CommandPaletteSection() {
           state.settings.modelShortcutKeys,
           state.settings.promptCommentShortcut,
           state.settings.steerQueueEnterAction,
+          state.settings.midTurnSteeringEnabled,
           state.settings.visualCommentShortcut,
         ] as const,
     ),
@@ -3010,20 +3012,34 @@ function CommandPaletteSection() {
         </SettingsCard>
 
         <SettingsCard
-          title="Steer / Queue Keys"
-          description="During an active turn, choose which key steers the message into the live turn and which key queues it for after the turn finishes. Neither falls back to the other."
+          title="Steer / Queue"
+          description="Let a follow-up message interrupt a live turn instead of only queueing after it finishes."
           titleAccessory={
-            <Badge variant="secondary">
-              {formatSteerQueueEnterActionLabel(normalizedSteerQueueEnterAction)}
+            <Badge variant={midTurnSteeringEnabled ? "secondary" : "outline"}>
+              {midTurnSteeringEnabled ? "Enabled" : "Disabled"}
             </Badge>
           }
         >
+          <SwitchField
+            title="Mid-Turn Steering"
+            description="When off, follow-ups are always queued for after the current turn finishes — the option to steer into a live turn is hidden. Requires a provider that supports it."
+            checked={midTurnSteeringEnabled}
+            onCheckedChange={(checked) =>
+              updateSettings({ patch: { midTurnSteeringEnabled: checked } })
+            }
+          />
           <LabeledField
             title="Active-Turn Keys"
-            description="Applies only while a turn is in progress and the provider supports mid-turn steering."
+            description="During an active turn, choose which key steers the message into the live turn and which key queues it for after. Neither falls back to the other."
+            guide={
+              <Badge variant="secondary">
+                {formatSteerQueueEnterActionLabel(normalizedSteerQueueEnterAction)}
+              </Badge>
+            }
           >
             <Select
               value={normalizedSteerQueueEnterAction}
+              disabled={!midTurnSteeringEnabled}
               onValueChange={(value) =>
                 updateSettings({
                   patch: {
