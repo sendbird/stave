@@ -1,3 +1,22 @@
+## [0.8.7](https://github.com/sendbird/stave/compare/v0.8.6...v0.8.7) (2026-07-08)
+
+### Features
+
+* Add a Settings toggle (Settings → Steer / Queue) as the primary on/off control for mid-turn steering, keeping the `STAVE_ENABLE_MID_TURN_STEERING` env var as a backward-compatible fallback; hide the steer option in chat input entirely when the setting is off.
+* Add an `@lens` prompt mention that injects the live Lens browser state (current URL, page title, loading status) as retrieved context, with an `@info:browser` alias and a fallback message when the panel is closed or empty.
+* Flatten the app shell to a Superset/Orca-style flat UI: remove glassmorphism app-wide, add a Fleet View entry and "Active workspaces" list above the project list, convert Settings into a full-screen surface, and extend the Information panel with an Amplify Link section, drag-to-reorder sections, markdown-rendered Notes, and a header-integrated Plans count/refresh.
+* Add a "cover chat" display mode to Lens alongside the existing fullscreen mode.
+
+### Fixes
+
+* Redesign the Steer/Queue composer into a single morphing Send/Stop button (Codex-style), remove the floating "Adjust current work" secondary button and its dual-key tooltips, add Esc-to-stop while composing, and restyle queued-turn cards as floating hover-revealed cards.
+* Interrupt the Claude provider turn as soon as `ExitPlanMode` is detected so a plan-mode turn always reaches a final `result`/`done` state instead of getting stuck "in progress".
+* Stabilize the `@`-mention autocomplete palette so it only closes on outside pointer-down clicks, not transient focus changes, fixing autocomplete item clicks inside the portaled popover.
+
+### References
+
+* [#114](https://github.com/sendbird/stave/pull/114), [#115](https://github.com/sendbird/stave/pull/115), [#116](https://github.com/sendbird/stave/pull/116), [#117](https://github.com/sendbird/stave/pull/117), [#118](https://github.com/sendbird/stave/pull/118)
+
 ## [0.8.6](https://github.com/sendbird/stave/compare/v0.8.5...v0.8.6) (2026-07-07)
 
 ### Features
