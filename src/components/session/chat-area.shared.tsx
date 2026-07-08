@@ -127,9 +127,12 @@ export function useChatAreaShellState() {
         return;
       }
 
+      // Popover/palette content is portaled but still bubbles through this
+      // React tree; stealing focus mid-click dismisses the popover before the
+      // click lands (Radix treats the focus shift as an outside interaction).
       if (
         target.closest(
-          "button, a, input, textarea, select, [role='button'], [role='link'], [role='textbox'], [contenteditable='true']",
+          "button, a, input, textarea, select, [role='button'], [role='link'], [role='textbox'], [role='option'], [contenteditable='true'], [data-radix-popper-content-wrapper]",
         )
       ) {
         return;

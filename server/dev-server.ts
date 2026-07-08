@@ -59,10 +59,18 @@ const activeUserInputResponders = new Map<
   }) => ProviderResponderResult
 >();
 
+// The browser-dev client (vite on another port) calls this bridge cross-origin,
+// so every response needs permissive CORS headers for local development.
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "content-type",
+} as const;
+
 function json(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...CORS_HEADERS },
   });
 }
 
@@ -179,6 +187,10 @@ const server = Bun.serve({
   },
   async fetch(req) {
     const url = new URL(req.url);
+
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
 
     if (url.pathname === "/api/provider/turn" && req.method === "POST") {
       const body = await readJson<ProviderTurnRequest>(req);

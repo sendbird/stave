@@ -2353,7 +2353,14 @@ export function PromptInput(args: PromptInputProps) {
               side="top"
               sideOffset={8}
               onOpenAutoFocus={(event) => event.preventDefault()}
-              onInteractOutside={() => {
+              // Focus lives in the composer (outside this content) while the
+              // palette is open, so transient focus churn must not dismiss it.
+              // Dismissal is driven by pointer-down outside only.
+              onFocusOutside={(event) => event.preventDefault()}
+              onInteractOutside={(event) => {
+                if (event.detail.originalEvent.type === "focusin") {
+                  return;
+                }
                 if (activePalette === "info") {
                   setDismissedWorkspaceInformationToken(
                     activeWorkspaceInformationToken?.token ?? null,
@@ -2670,7 +2677,8 @@ export function PromptInput(args: PromptInputProps) {
                     <p className="mt-2">
                       Type `@` to search Information. Selection inserts
                       `@info:section` for a full section or
-                      `@info:section/item` for one item.
+                      `@info:section/item` for one item. `@lens` references the
+                      current Lens browser page.
                     </p>
                   </div>
                 ) : activePalette === "skill" ? (

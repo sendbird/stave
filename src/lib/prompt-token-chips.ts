@@ -31,7 +31,8 @@ export interface PromptTokenParseOptions {
 
 const COMMAND_TOKEN_PATTERN = /^\/[A-Za-z0-9:._-]+/;
 const SKILL_TOKEN_PATTERN = /^\$[A-Za-z0-9._-]+/;
-const INFORMATION_TOKEN_PATTERN = /^@info(?::[^\s.,;!?)]*)?/i;
+const INFORMATION_TOKEN_PATTERN =
+  /^@(?:info(?::[^\s.,;!?)]*)?|lens(?![A-Za-z0-9_-]))/i;
 
 function isTokenBoundaryBefore(text: string, index: number) {
   if (index === 0) {
@@ -127,7 +128,12 @@ function resolveInformationDescriptor(args: {
     kind: "information",
     token: reference.token,
     label: getWorkspaceInformationReferenceLabel(reference),
-    detail: reference.scope === "section" ? "Information section" : "Information item",
+    detail:
+      reference.section === "lens"
+        ? "Lens browser"
+        : reference.scope === "section"
+          ? "Information section"
+          : "Information item",
     informationReference: reference,
   };
 }
