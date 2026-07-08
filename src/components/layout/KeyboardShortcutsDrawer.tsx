@@ -457,7 +457,7 @@ export function KeyboardShortcutsDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="top">
-      <DrawerContent className="overflow-hidden border-border/80 bg-card/95 shadow-2xl supports-backdrop-filter:backdrop-blur-xl data-[vaul-drawer-direction=top]:mb-0 data-[vaul-drawer-direction=top]:h-dvh data-[vaul-drawer-direction=top]:max-h-dvh data-[vaul-drawer-direction=top]:rounded-b-none data-[vaul-drawer-direction=top]:border-b-0">
+      <DrawerContent className="overflow-hidden border-border/80 bg-card shadow-2xl data-[vaul-drawer-direction=top]:mb-0 data-[vaul-drawer-direction=top]:h-dvh data-[vaul-drawer-direction=top]:max-h-dvh data-[vaul-drawer-direction=top]:rounded-b-none data-[vaul-drawer-direction=top]:border-b-0">
         <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
           <DrawerHeader className="shrink-0 gap-0 border-b border-border/70 px-5 pb-5 pt-5 !text-left md:px-6">
             <div className="flex items-center justify-between gap-3">

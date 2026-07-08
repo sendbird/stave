@@ -8,12 +8,14 @@ import {
   ChevronRight,
   Circle,
   CircleDot,
+  CloudUpload,
   ExternalLink,
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
   GitPullRequestDraft,
   Globe,
+  GripVertical,
   Hash,
   Link,
   MessageSquarePlus,
@@ -26,7 +28,31 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Accordion,
@@ -55,6 +81,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
 import {
   changeWorkspaceInfoCustomFieldType,
+  createWorkspaceAmplifyLink,
   createWorkspaceConfluencePage,
   createWorkspaceFigmaResource,
   createWorkspaceInfoCustomField,
@@ -66,6 +93,7 @@ import {
   createWorkspaceTodoItem,
   cycleWorkspaceTodoStatus,
   resolveWorkspaceTodoStatus,
+  extractAmplifyLinkReference,
   extractConfluencePageReference,
   extractFigmaResourceReference,
   extractGitHubPullRequestReference,
@@ -103,6 +131,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { extractPlanTodoItems } from "@/lib/plans";
+import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
 
 // ---------------------------------------------------------------------------
@@ -147,6 +176,7 @@ const WORKSPACE_INFORMATION_SECTION_IDS = [
   "jira",
   "confluence",
   "storybook",
+  "amplify",
   "slack",
   "figma",
   "custom",
@@ -193,6 +223,48 @@ function readStoredWorkspaceInformationSections(): WorkspaceInformationSectionId
     );
   } catch {
     return [...WORKSPACE_INFORMATION_SECTION_IDS];
+  }
+}
+
+const WORKSPACE_INFORMATION_SECTION_ORDER_STORAGE_KEY =
+  "stave:workspace-information-section-order:v1";
+
+/** "overview" (Summary) always leads; the rest follow the stored/default order. */
+function normalizeWorkspaceInformationSectionOrder(
+  stored: unknown,
+): WorkspaceInformationSectionId[] {
+  const valid = Array.isArray(stored)
+    ? stored.filter((value): value is WorkspaceInformationSectionId =>
+        WORKSPACE_INFORMATION_SECTION_IDS.includes(
+          value as WorkspaceInformationSectionId,
+        ),
+      )
+    : [];
+  const seen = new Set(valid);
+  const merged = [
+    ...valid,
+    ...WORKSPACE_INFORMATION_SECTION_IDS.filter((id) => !seen.has(id)),
+  ];
+  return [
+    "overview",
+    ...merged.filter((id): id is WorkspaceInformationSectionId => id !== "overview"),
+  ];
+}
+
+function readStoredWorkspaceInformationSectionOrder(): WorkspaceInformationSectionId[] {
+  if (typeof window === "undefined") {
+    return normalizeWorkspaceInformationSectionOrder(null);
+  }
+
+  try {
+    const raw = window.localStorage.getItem(
+      WORKSPACE_INFORMATION_SECTION_ORDER_STORAGE_KEY,
+    );
+    return normalizeWorkspaceInformationSectionOrder(
+      raw ? JSON.parse(raw) : null,
+    );
+  } catch {
+    return normalizeWorkspaceInformationSectionOrder(null);
   }
 }
 
@@ -424,13 +496,41 @@ function SectionHeader(props: {
   action?: ReactNode;
   children: ReactNode;
   first?: boolean;
+  order?: number;
 }) {
+  const sortable = useSortable({
+    id: props.value,
+    disabled: props.value === "overview",
+  });
+  const style: CSSProperties = {
+    order: props.order,
+    transform: CSS.Transform.toString(sortable.transform),
+    transition: sortable.transition,
+  };
+
   return (
     <AccordionItem
+      ref={sortable.setNodeRef}
+      style={style}
       value={props.value}
-      className={cn("border-b border-border/50", props.first && "border-t-0")}
+      className={cn(
+        "border-b border-border/50",
+        props.first && "border-t-0",
+        sortable.isDragging && "relative z-10 bg-background opacity-90 shadow-sm",
+      )}
     >
       <div className="group/section-row flex items-center">
+        {props.value !== "overview" ? (
+          <button
+            type="button"
+            {...sortable.attributes}
+            {...sortable.listeners}
+            aria-label={`reorder-section-${props.value}`}
+            className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground/0 transition-colors group-hover/section-row:text-muted-foreground/50 hover:text-foreground!"
+          >
+            <GripVertical className="size-3.5" />
+          </button>
+        ) : null}
         <AccordionTrigger className="flex-1 gap-2 py-2.5 pr-1 pl-0 hover:no-underline [&>svg[data-slot=accordion-trigger-icon]]:hidden">
           <div className="flex items-center gap-2 text-left">
             <span className="relative flex size-[18px] shrink-0 items-center justify-center text-muted-foreground">
@@ -1049,6 +1149,94 @@ function EmptyHint(props: { children: ReactNode }) {
 }
 
 // ---------------------------------------------------------------------------
+// Notes — markdown preview by default, click to edit
+// ---------------------------------------------------------------------------
+
+function NotesSectionBody(props: {
+  notes: string;
+  onChange: (value: string) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(props.notes);
+
+  const startEditing = () => {
+    setDraft(props.notes);
+    setIsEditing(true);
+  };
+
+  const commit = () => {
+    setIsEditing(false);
+    if (draft !== props.notes) {
+      props.onChange(draft);
+    }
+  };
+
+  const cancel = () => {
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <Textarea
+        autoFocus
+        className="min-h-24 resize-none text-sm"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onFocus={(event) => {
+          const length = event.currentTarget.value.length;
+          event.currentTarget.setSelectionRange(length, length);
+        }}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            cancel();
+          } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            commit();
+          }
+        }}
+        placeholder="Notes, blockers, handoff details..."
+      />
+    );
+  }
+
+  if (!props.notes.trim()) {
+    return (
+      <button
+        type="button"
+        onClick={startEditing}
+        className="w-full rounded-md px-2 py-3 text-left text-sm text-muted-foreground/50 transition-colors hover:bg-muted/40"
+      >
+        Add notes… (markdown supported)
+      </button>
+    );
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={(event) => {
+        if (event.target instanceof HTMLElement && event.target.closest("a")) {
+          return;
+        }
+        startEditing();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          startEditing();
+        }
+      }}
+      className="w-full cursor-text rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/40"
+    >
+      <EditorMarkdownPreview content={props.notes} fontSize={13} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -1064,6 +1252,7 @@ export function WorkspaceInformationPanel() {
     fetchWorkspacePrStatus,
     infoPanelScale,
     workspacePlansRefreshNonce,
+    notifyWorkspacePlansChanged,
     openFileFromTree,
     createTask,
     sendUserMessage,
@@ -1083,6 +1272,7 @@ export function WorkspaceInformationPanel() {
           state.fetchWorkspacePrStatus,
           state.settings.infoPanelScale,
           state.workspacePlansRefreshNonce,
+          state.notifyWorkspacePlansChanged,
           state.openFileFromTree,
           state.createTask,
           state.sendUserMessage,
@@ -1093,10 +1283,53 @@ export function WorkspaceInformationPanel() {
   const [openSections, setOpenSections] = useState<
     WorkspaceInformationSectionId[]
   >(() => readStoredWorkspaceInformationSections());
+  const [sectionOrder, setSectionOrder] = useState<
+    WorkspaceInformationSectionId[]
+  >(() => readStoredWorkspaceInformationSectionOrder());
+  const sectionOrderIndexById = Object.fromEntries(
+    sectionOrder.map((id, index) => [id, index]),
+  ) as Record<WorkspaceInformationSectionId, number>;
+  const sectionDragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+  const handleSectionDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+    setSectionOrder((current) => {
+      const oldIndex = current.indexOf(
+        active.id as WorkspaceInformationSectionId,
+      );
+      const newIndex = current.indexOf(
+        over.id as WorkspaceInformationSectionId,
+      );
+      if (oldIndex < 0 || newIndex < 0 || newIndex === 0) {
+        return current;
+      }
+      return normalizeWorkspaceInformationSectionOrder(
+        arrayMove(current, oldIndex, newIndex),
+      );
+    });
+  }, []);
   const [linkedPullRequestPreviewById, setLinkedPullRequestPreviewById] =
     useState<Record<string, LinkedPullRequestPreview>>({});
   const [taskSeedInFlightId, setTaskSeedInFlightId] = useState<string | null>(
     null,
+  );
+  const [plansHeader, setPlansHeader] = useState({ count: 0, loading: false });
+  const handlePlansEntriesChange = useCallback(
+    (next: { count: number; loading: boolean }) => {
+      setPlansHeader((current) =>
+        current.count === next.count && current.loading === next.loading
+          ? current
+          : next,
+      );
+    },
+    [],
   );
 
   useEffect(() => {
@@ -1120,6 +1353,21 @@ export function WorkspaceInformationPanel() {
       // Ignore localStorage write failures for this UI preference.
     }
   }, [openSections]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        WORKSPACE_INFORMATION_SECTION_ORDER_STORAGE_KEY,
+        JSON.stringify(sectionOrder),
+      );
+    } catch {
+      // Ignore localStorage write failures for this UI preference.
+    }
+  }, [sectionOrder]);
 
   useEffect(() => {
     const items = workspaceInformation.linkedPullRequests
@@ -1282,6 +1530,12 @@ export function WorkspaceInformationPanel() {
       style={infoPanelScale !== 1 ? { zoom: infoPanelScale } : undefined}
     >
       <div className="px-3 py-2">
+        <DndContext
+          sensors={sectionDragSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleSectionDragEnd}
+        >
+        <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
         <Accordion
           type="multiple"
           value={openSections}
@@ -1291,6 +1545,7 @@ export function WorkspaceInformationPanel() {
         >
           <SectionHeader
             value="overview"
+            order={sectionOrderIndexById.overview}
             title="Summary"
             icon={<Sparkles className="size-4" />}
             first
@@ -1347,6 +1602,7 @@ export function WorkspaceInformationPanel() {
           {/* ── Todo ──────────────────────────────────────────── */}
           <SectionHeader
             value="todo"
+            order={sectionOrderIndexById.todo}
             title="Todos"
             icon={<CheckCircle2 className="size-4" />}
             count={openTodoCount}
@@ -1467,31 +1723,45 @@ export function WorkspaceInformationPanel() {
           {/* ── Note ──────────────────────────────────────────── */}
           <SectionHeader
             value="note"
+            order={sectionOrderIndexById.note}
             title="Notes"
             icon={<StickyNote className="size-4" />}
           >
-            <Textarea
-              className="min-h-24 resize-none text-sm"
-              value={workspaceInformation.notes}
-              onChange={(event) =>
+            <NotesSectionBody
+              notes={workspaceInformation.notes}
+              onChange={(notes) =>
                 patchWorkspaceInformation((current) => ({
                   ...current,
-                  notes: event.target.value,
+                  notes,
                 }))
               }
-              placeholder="Notes, blockers, handoff details..."
             />
           </SectionHeader>
 
           <SectionHeader
             value="plans"
+            order={sectionOrderIndexById.plans}
             title="Plans"
             icon={<ClipboardCheck className="size-4" />}
+            count={plansHeader.count}
+            action={
+              <button
+                type="button"
+                className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => notifyWorkspacePlansChanged()}
+                aria-label="Refresh plans"
+              >
+                <RefreshCcw
+                  className={cn("size-4", plansHeader.loading && "animate-spin")}
+                />
+              </button>
+            }
           >
             <WorkspacePlansSection
               embedded
               workspacePath={workspacePath}
               refreshNonce={workspacePlansRefreshNonce}
+              onEntriesChange={handlePlansEntriesChange}
               onOpenFile={({ filePath }) => openFileFromTree({ filePath })}
               onImportTodos={async ({ filePath }) => {
                 if (!workspacePath) {
@@ -1542,6 +1812,7 @@ export function WorkspaceInformationPanel() {
           {/* ── GitHub ────────────────────────────────────────── */}
           <SectionHeader
             value="github"
+            order={sectionOrderIndexById.github}
             title="Pull Requests"
             icon={<GitHubIcon className="size-4" />}
             count={
@@ -1716,6 +1987,7 @@ export function WorkspaceInformationPanel() {
           {/* ── Jira ──────────────────────────────────────────── */}
           <SectionHeader
             value="jira"
+            order={sectionOrderIndexById.jira}
             title="Jira Issues"
             icon={<JiraIcon className="size-4" />}
             count={workspaceInformation.jiraIssues.length}
@@ -1845,6 +2117,7 @@ export function WorkspaceInformationPanel() {
           {/* ── Confluence ──────────────────────────────────────── */}
           <SectionHeader
             value="confluence"
+            order={sectionOrderIndexById.confluence}
             title="Confluence"
             icon={<ConfluenceIcon className="size-4" />}
             count={(workspaceInformation.confluencePages ?? []).length}
@@ -1952,6 +2225,7 @@ export function WorkspaceInformationPanel() {
           {/* ── Storybook ─────────────────────────────────────── */}
           <SectionHeader
             value="storybook"
+            order={sectionOrderIndexById.storybook}
             title="Storybook"
             icon={<BookOpen className="size-4" />}
             count={workspaceInformation.storybookResources?.length ?? 0}
@@ -2090,9 +2364,98 @@ export function WorkspaceInformationPanel() {
             </div>
           </SectionHeader>
 
+          {/* ── Amplify ───────────────────────────────────────── */}
+          <SectionHeader
+            value="amplify"
+            order={sectionOrderIndexById.amplify}
+            title="Amplify"
+            icon={<CloudUpload className="size-4" />}
+            count={workspaceInformation.amplifyLinks?.length ?? 0}
+            action={
+              <AddButton
+                onClick={() =>
+                  patchWorkspaceInformation((current) => ({
+                    ...current,
+                    amplifyLinks: [
+                      ...(current.amplifyLinks ?? []),
+                      createWorkspaceAmplifyLink(),
+                    ],
+                  }))
+                }
+                label="Add Amplify link"
+              />
+            }
+          >
+            <div className="-mx-2 space-y-0.5">
+              {(workspaceInformation.amplifyLinks?.length ?? 0) === 0 ? (
+                <EmptyHint>No linked Amplify deploys</EmptyHint>
+              ) : null}
+              {(workspaceInformation.amplifyLinks ?? []).map((link) => {
+                const amplifyRef = extractAmplifyLinkReference(link.url);
+                const host =
+                  amplifyRef?.host || formatWorkspaceInfoHostLabel(link.url);
+                const label =
+                  link.label.trim() ||
+                  (amplifyRef ? amplifyRef.branch : "Amplify link");
+
+                if (!isWorkspaceInfoUrl(link.url)) {
+                  return (
+                    <InlineUrlInput
+                      key={link.id}
+                      value={link.url}
+                      icon={<Link className="size-4" />}
+                      placeholder="https://<branch>.<appid>.amplifyapp.com"
+                      onChange={(url) =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          amplifyLinks: updateItemById(
+                            current.amplifyLinks ?? [],
+                            link.id,
+                            (item) => ({ ...item, url }),
+                          ),
+                        }))
+                      }
+                      onRemove={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          amplifyLinks: removeItemById(
+                            current.amplifyLinks ?? [],
+                            link.id,
+                          ),
+                        }))
+                      }
+                    />
+                  );
+                }
+
+                return (
+                  <InlineLinkRow
+                    key={link.id}
+                    icon={
+                      <CloudUpload className="size-4 text-muted-foreground/70" />
+                    }
+                    label={label}
+                    sublabel={host || undefined}
+                    url={link.url}
+                    onRemove={() =>
+                      patchWorkspaceInformation((current) => ({
+                        ...current,
+                        amplifyLinks: removeItemById(
+                          current.amplifyLinks ?? [],
+                          link.id,
+                        ),
+                      }))
+                    }
+                  />
+                );
+              })}
+            </div>
+          </SectionHeader>
+
           {/* ── Slack ─────────────────────────────────────────── */}
           <SectionHeader
             value="slack"
+            order={sectionOrderIndexById.slack}
             title="Slack"
             icon={<SlackIcon className="size-4" />}
             count={workspaceInformation.slackThreads?.length ?? 0}
@@ -2178,6 +2541,7 @@ export function WorkspaceInformationPanel() {
           {/* ── Figma ─────────────────────────────────────────── */}
           <SectionHeader
             value="figma"
+            order={sectionOrderIndexById.figma}
             title="Figma"
             icon={<FigmaIcon className="size-4" />}
             count={workspaceInformation.figmaResources.length}
@@ -2284,6 +2648,7 @@ export function WorkspaceInformationPanel() {
           {/* ── Custom fields ─────────────────────────────────── */}
           <SectionHeader
             value="custom"
+            order={sectionOrderIndexById.custom}
             title="Custom Fields"
             icon={<SlidersHorizontal className="size-4" />}
             count={workspaceInformation.customFields.length}
@@ -2369,6 +2734,8 @@ export function WorkspaceInformationPanel() {
             </div>
           </SectionHeader>
         </Accordion>
+        </SortableContext>
+        </DndContext>
       </div>
     </div>
   );

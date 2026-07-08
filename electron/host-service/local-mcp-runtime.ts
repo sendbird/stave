@@ -12,6 +12,7 @@ import { buildCurrentTaskAwarenessRetrievedContext } from "../../src/lib/task-co
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
 import { workspaceHasActiveTurns } from "../../src/lib/notifications/notification.types";
 import {
+  createWorkspaceAmplifyLink,
   createWorkspaceConfluencePage,
   createWorkspaceFigmaResource,
   createWorkspaceInfoCustomField,
@@ -22,6 +23,7 @@ import {
   applyWorkspaceTodoStatus,
   createWorkspaceTodoItem,
   type WorkspaceTodoStatus,
+  extractAmplifyLinkReference,
   extractConfluencePageReference,
   extractFigmaResourceReference,
   extractJiraIssueReference,
@@ -169,7 +171,8 @@ type WorkspaceInformationResourceKind =
   | "confluence"
   | "figma"
   | "storybook"
-  | "slack";
+  | "slack"
+  | "amplify";
 
 type WorkspaceCustomFieldValueInput = string | number | boolean | null;
 
@@ -512,6 +515,7 @@ function normalizeWorkspaceResourceKind(
     case "figma":
     case "storybook":
     case "slack":
+    case "amplify":
       return value.trim();
     default:
       throw new Error(`Unsupported workspace resource kind: ${value}`);
@@ -895,6 +899,17 @@ export async function addWorkspaceResource(args: {
             slackThreads: [...current.slackThreads, nextLink],
           };
         }
+        case "amplify": {
+          const nextLink = createWorkspaceAmplifyLink();
+          nextLink.url = url;
+          nextLink.label =
+            title || extractAmplifyLinkReference(url)?.branch || "";
+          nextLink.note = note;
+          return {
+            ...current,
+            amplifyLinks: [...(current.amplifyLinks ?? []), nextLink],
+          };
+        }
       }
     },
   });
@@ -983,6 +998,18 @@ export async function removeWorkspaceResource(args: {
           return {
             ...current,
             slackThreads,
+          };
+        }
+        case "amplify": {
+          const amplifyLinks = (current.amplifyLinks ?? []).filter(
+            (item) => item.id !== args.itemId,
+          );
+          if (amplifyLinks.length === (current.amplifyLinks ?? []).length) {
+            throw new Error(`Workspace resource not found: ${args.itemId}`);
+          }
+          return {
+            ...current,
+            amplifyLinks,
           };
         }
       }
@@ -1308,6 +1335,30 @@ export async function addWorkspaceSlackThread(args: {
     workspaceInformation: workspaceInformation.workspaceInformation,
   };
 }
+
+export async function addWorkspaceAmplifyLink(args: {
+  workspaceId: string;
+  url: string;
+  label?: string;
+  note?: string;
+}) {
+  const parsed = extractAmplifyLinkReference(args.url);
+  const workspaceInformation = await addWorkspaceResource({
+    workspaceId: args.workspaceId,
+    kind: "amplify",
+    url: normalizeWorkspaceInfoString(args.url),
+    title: normalizeWorkspaceInfoString(args.label) || parsed?.branch || "",
+    note: normalizeWorkspaceInfoString(args.note),
+  });
+  return {
+    workspaceId: workspaceInformation.workspaceId,
+    added:
+      (workspaceInformation.workspaceInformation.amplifyLinks ?? []).at(-1) ??
+      null,
+    workspaceInformation: workspaceInformation.workspaceInformation,
+  };
+}
+
 function buildTaskTitleFromPrompt(prompt: string) {
   return (
     prompt

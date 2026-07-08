@@ -263,6 +263,18 @@ export async function addWorkspaceSlackThread(args: {
   }>("add-workspace-slack-thread", args);
 }
 
+export async function addWorkspaceAmplifyLink(args: {
+  workspaceId: string;
+  url: string;
+  label?: string;
+  note?: string;
+}) {
+  return invokeLocalMcp<{
+    workspaceId: string;
+    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
+  }>("add-workspace-amplify-link", args);
+}
+
 export async function registerProject(args: {
   projectPath: string;
   projectName?: string;

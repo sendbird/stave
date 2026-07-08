@@ -1,3 +1,5 @@
+import type { FleetTaskStatus } from "@/lib/fleet/task-status";
+import { hasFleetTaskAttentionStatus } from "@/lib/fleet/task-status";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import type { Task } from "@/types/chat";
 
@@ -196,6 +198,93 @@ export function buildCollapsedWorkspaceEntries(args: {
 
     return entries;
   }, []);
+}
+
+export interface SidebarActiveWorkspaceEntry {
+  projectPath: string;
+  projectName: string;
+  workspaceId: string;
+  workspaceName: string;
+  branch?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  status: FleetTaskStatus;
+}
+
+const SIDEBAR_ACTIVE_WORKSPACE_STATUS_RANK: Record<FleetTaskStatus, number> = {
+  "waiting-input": 0,
+  "waiting-approval": 0,
+  error: 1,
+  running: 2,
+  idle: 3,
+};
+
+/**
+ * Ranks and caps a sidebar "Active workspaces" list: attention (waiting on
+ * the user) and error/running workspaces surface first, the remainder is
+ * filled out with the most recently opened workspace per project.
+ */
+export function buildSidebarActiveWorkspaceEntries(args: {
+  projects: ProjectSidebarCollapsedProjectView[];
+  recentProjectLastOpenedAtByPath: Record<string, string>;
+  statusByWorkspaceId: Record<string, FleetTaskStatus>;
+  activeWorkspaceId: string;
+  limit?: number;
+}): SidebarActiveWorkspaceEntry[] {
+  const limit = args.limit ?? 5;
+  const seen = new Set<string>();
+  const entries: (SidebarActiveWorkspaceEntry & { lastOpenedAt: string })[] =
+    [];
+
+  for (const project of args.projects) {
+    for (const workspace of project.workspaces) {
+      if (seen.has(workspace.id)) {
+        continue;
+      }
+      const isActive =
+        project.isCurrent && workspace.id === args.activeWorkspaceId;
+      const isRepresentativeWorkspace =
+        workspace.id === project.activeWorkspaceId;
+      const status = args.statusByWorkspaceId[workspace.id] ?? "idle";
+      const isNoteworthy =
+        hasFleetTaskAttentionStatus(status) ||
+        status === "error" ||
+        status === "running";
+
+      if (!isActive && !isRepresentativeWorkspace && !isNoteworthy) {
+        continue;
+      }
+
+      seen.add(workspace.id);
+      entries.push({
+        projectPath: project.projectPath,
+        projectName: project.projectName,
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        branch: workspace.branch,
+        isDefault: workspace.isDefault,
+        isActive,
+        status,
+        lastOpenedAt:
+          args.recentProjectLastOpenedAtByPath[project.projectPath] ?? "",
+      });
+    }
+  }
+
+  entries.sort((left, right) => {
+    if (left.isActive !== right.isActive) {
+      return left.isActive ? -1 : 1;
+    }
+    const statusDelta =
+      SIDEBAR_ACTIVE_WORKSPACE_STATUS_RANK[left.status] -
+      SIDEBAR_ACTIVE_WORKSPACE_STATUS_RANK[right.status];
+    if (statusDelta !== 0) {
+      return statusDelta;
+    }
+    return right.lastOpenedAt.localeCompare(left.lastOpenedAt);
+  });
+
+  return entries.slice(0, limit).map(({ lastOpenedAt: _lastOpenedAt, ...entry }) => entry);
 }
 
 export function buildVisibleWorkspaceShortcutTargets(args: {

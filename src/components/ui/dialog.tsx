@@ -39,7 +39,7 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       className={cn(
         UI_LAYER_CLASS.dialog,
-        "t-overlay fixed inset-0 isolate bg-overlay supports-backdrop-filter:backdrop-blur-xs",
+        "t-overlay fixed inset-0 isolate bg-overlay",
         className
       )}
       {...props}

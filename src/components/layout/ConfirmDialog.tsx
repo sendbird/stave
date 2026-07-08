@@ -55,7 +55,7 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
   }
 
   return (
-    <div className={cn(UI_LAYER_CLASS.dialog, "fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]")} onMouseDown={loading ? undefined : onCancel}>
+    <div className={cn(UI_LAYER_CLASS.dialog, "fixed inset-0 flex items-center justify-center bg-overlay p-4")} onMouseDown={loading ? undefined : onCancel}>
       <Card className="w-full max-w-md rounded-lg border-border/80 bg-card p-4 shadow-xl" onMouseDown={(event) => event.stopPropagation()}>
         <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
           <h3 className="text-base font-semibold text-foreground">{title}</h3>

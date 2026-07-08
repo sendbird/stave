@@ -5,18 +5,6 @@ function normalizeProjectPath(value?: string | null) {
   return normalized ? normalized : null;
 }
 
-/**
- * Radix overlays such as SelectContent render in a portal, so their mouse events
- * still bubble through the React tree. Only close Settings when the backdrop
- * itself was the direct mouse target.
- */
-export function shouldCloseSettingsDialogFromMouseDown(args: {
-  target: EventTarget | null;
-  currentTarget: EventTarget | null;
-}) {
-  return args.target === args.currentTarget;
-}
-
 function hasProjectPath(args: {
   projects: RecentProjectState[];
   projectPath: string | null;

@@ -560,6 +560,10 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.addWorkspaceSlackThread(
         args as Parameters<typeof localMcpRuntime.addWorkspaceSlackThread>[0],
       );
+    case "add-workspace-amplify-link":
+      return localMcpRuntime.addWorkspaceAmplifyLink(
+        args as Parameters<typeof localMcpRuntime.addWorkspaceAmplifyLink>[0],
+      );
     default:
       action satisfies never;
       throw new Error(`Unsupported local MCP action: ${action}`);

@@ -343,7 +343,8 @@ export type HostLocalMcpAction =
   | "add-workspace-figma-resource"
   | "add-workspace-storybook-resource"
   | "update-workspace-storybook-resource-access"
-  | "add-workspace-slack-thread";
+  | "add-workspace-slack-thread"
+  | "add-workspace-amplify-link";
 
 export interface HostServiceRequestMap {
   "service.shutdown": undefined;

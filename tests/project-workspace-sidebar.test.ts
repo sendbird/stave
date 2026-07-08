@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildCollapsedWorkspaceEntries,
+  buildSidebarActiveWorkspaceEntries,
   buildWorkspaceHoverPreview,
   buildVisibleWorkspaceShortcutTargets,
   getWorkspaceHoverActionVisibilityClasses,
@@ -381,5 +382,69 @@ describe("workspace shortcut targets", () => {
     expect(getWorkspaceShortcutLabel(0)).toBe("1");
     expect(getWorkspaceShortcutLabel(WORKSPACE_SHORTCUT_COUNT - 1)).toBe("9");
     expect(getWorkspaceShortcutLabel(WORKSPACE_SHORTCUT_COUNT)).toBeNull();
+  });
+});
+
+describe("buildSidebarActiveWorkspaceEntries", () => {
+  const baseProjects = [
+    {
+      projectPath: "/tmp/project-a",
+      projectName: "project-a",
+      workspaces: [
+        { id: "ws-active", name: "active-ws", isDefault: true, branch: "main" },
+        { id: "ws-attention", name: "attention-ws", isDefault: false, branch: "feature/a" },
+        { id: "ws-idle", name: "idle-ws", isDefault: false, branch: "feature/idle" },
+      ],
+      activeWorkspaceId: "ws-attention",
+      isCurrent: true,
+    },
+    {
+      projectPath: "/tmp/project-b",
+      projectName: "project-b",
+      workspaces: [
+        { id: "ws-b-recent", name: "recent-ws", isDefault: true, branch: "main" },
+      ],
+      activeWorkspaceId: "ws-b-recent",
+      isCurrent: false,
+    },
+  ];
+
+  test("ranks the current workspace first, then attention/error/running, then recency", () => {
+    const entries = buildSidebarActiveWorkspaceEntries({
+      projects: baseProjects,
+      recentProjectLastOpenedAtByPath: {
+        "/tmp/project-a": "2026-07-01T00:00:00.000Z",
+        "/tmp/project-b": "2026-07-05T00:00:00.000Z",
+      },
+      statusByWorkspaceId: {
+        "ws-active": "idle",
+        "ws-attention": "waiting-input",
+        "ws-b-recent": "idle",
+      },
+      activeWorkspaceId: "ws-active",
+    });
+
+    expect(entries.map((entry) => entry.workspaceId)).toEqual([
+      "ws-active",
+      "ws-attention",
+      "ws-b-recent",
+    ]);
+    expect(entries[0]?.isActive).toBe(true);
+    expect(entries[1]?.status).toBe("waiting-input");
+  });
+
+  test("excludes idle, non-representative workspaces and caps the result", () => {
+    const entries = buildSidebarActiveWorkspaceEntries({
+      projects: baseProjects,
+      recentProjectLastOpenedAtByPath: {},
+      statusByWorkspaceId: {},
+      activeWorkspaceId: "ws-active",
+      limit: 2,
+    });
+
+    // ws-idle is neither active, nor a project's representative workspace,
+    // nor noteworthy — it should never surface.
+    expect(entries.some((entry) => entry.workspaceId === "ws-idle")).toBe(false);
+    expect(entries.length).toBeLessThanOrEqual(2);
   });
 });

@@ -45,6 +45,14 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
         note: "Latest approved mock",
       },
     ];
+    workspaceInformation.amplifyLinks = [
+      {
+        id: "amplify-1",
+        url: "https://main.d123abc456.amplifyapp.com",
+        label: "main",
+        note: "Preview deploy",
+      },
+    ];
     workspaceInformation.storybookResources = [
       {
         id: "storybook-1",
@@ -91,6 +99,14 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     );
     expect(context.content).toContain("Latest turn summary: present");
     expect(context.content).toContain("Storybook: 1");
+    expect(context.content).toContain("Amplify links: 1");
+    expect(context.content).toContain("Amplify deploy links:");
+    expect(context.content).toContain(
+      "main | https://main.d123abc456.amplifyapp.com | Preview deploy",
+    );
+    expect(context.content).toContain(
+      "immediately register it with `stave_add_workspace_amplify_link`",
+    );
     expect(context.content).toContain(
       "Summarise the latest workspace activity in the Information panel. | Prepared the UI plan and identified the Information panel integration points.",
     );

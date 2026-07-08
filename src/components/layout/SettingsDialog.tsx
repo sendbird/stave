@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Folder, X } from "lucide-react";
+import { ArrowLeft, Folder } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { captureCurrentProjectState } from "@/store/project.utils";
 import { settingsSectionGroups, settingsSections, type SectionId } from "./settings-dialog.schema";
-import { resolveSettingsProjectSelection, shouldCloseSettingsDialogFromMouseDown } from "./settings-dialog.utils";
+import { resolveSettingsProjectSelection } from "./settings-dialog.utils";
 import { SettingsDialogSectionContent } from "./settings-dialog-sections";
 
 interface SettingsDialogProps {
@@ -37,6 +37,11 @@ interface SettingsDialogProps {
 }
 
 const sectionsById = Object.fromEntries(settingsSections.map((section) => [section.id, section])) as Record<SectionId, (typeof settingsSections)[number]>;
+
+const IS_MAC =
+  typeof window !== "undefined" && window.api?.platform === "darwin";
+/** Keep this aligned with the native traffic-light placement in `electron/main/window.ts`. */
+const MAC_TRAFFIC_LIGHT_CLEARANCE = 40;
 
 export function SettingsDialog(args: SettingsDialogProps) {
   const { initialProjectPath, initialSection, open, onOpenChange } = args;
@@ -141,32 +146,33 @@ export function SettingsDialog(args: SettingsDialogProps) {
   return (
     <div
       ref={containerRef}
-      className={cn(UI_LAYER_CLASS.dialog, "fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]")}
-      role="dialog"
-      aria-modal="true"
+      className={cn(UI_LAYER_CLASS.dialog, "fixed inset-0 flex h-dvh w-full flex-col bg-background")}
+      role="region"
       aria-label="Settings"
       tabIndex={-1}
       onKeyDown={handleKeyDown}
-      onMouseDown={(event) => {
-        if (!shouldCloseSettingsDialogFromMouseDown({
-          target: event.target,
-          currentTarget: event.currentTarget,
-        })) {
-          return;
-        }
-        onOpenChange({ open: false });
-      }}
     >
-      <Card
-        className="animate-dropdown-in flex h-[92vh] w-full max-w-6xl flex-col gap-0 overflow-hidden rounded-2xl border-border/80 bg-background py-0 shadow-2xl"
-        onMouseDown={(event) => event.stopPropagation()}
+      <SidebarProvider
+        className="h-full min-h-0 flex-1 items-start overflow-hidden"
+        style={{ "--sidebar-width": "220px", height: "100%", minHeight: 0 } as React.CSSProperties}
       >
-        <SidebarProvider
-          className="h-full min-h-0 flex-1 items-start overflow-hidden"
-          style={{ "--sidebar-width": "220px", height: "100%", minHeight: 0 } as React.CSSProperties}
-        >
-          <Sidebar collapsible="none" className="border-r border-border/80 bg-sidebar/60">
-            <SidebarContent className="pt-2">
+        <Sidebar collapsible="none" className="border-r border-border bg-sidebar">
+          <SidebarContent
+            className="pt-2"
+            style={IS_MAC ? { paddingTop: MAC_TRAFFIC_LIGHT_CLEARANCE } : undefined}
+          >
+            <div className="px-2 pb-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-sidebar-foreground/80"
+                onClick={() => onOpenChange({ open: false })}
+                aria-label="back-to-app"
+              >
+                <ArrowLeft className="size-4" />
+                Back to app
+              </Button>
+            </div>
               {settingsSectionGroups.map((group) => (
                 <SidebarGroup key={group.label}>
                   <SidebarGroupLabel className="text-[11px] font-medium uppercase tracking-[0.18em] text-sidebar-foreground/55">
@@ -261,47 +267,36 @@ export function SettingsDialog(args: SettingsDialogProps) {
             </SidebarContent>
           </Sidebar>
 
-          <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-            <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border/80 bg-card/50 px-4">
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    <span className="text-sm text-muted-foreground">Settings</span>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage className="text-sm font-medium">
-                      {activeSectionData.label}
-                    </BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
-              <div className="ml-auto">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-label="close-settings"
-                  onClick={() => onOpenChange({ open: false })}
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
-            </header>
+        <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <span className="text-sm text-muted-foreground">Settings</span>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage className="text-sm font-medium">
+                    {activeSectionData.label}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </header>
 
-            <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-              <div className="mx-auto max-w-4xl">
-                <SettingsDialogSectionContent
-                  sectionId={activeSection}
-                  currentProjectPath={projectPath}
-                  projects={projects}
-                  selectedProjectPath={selectedProjectPath}
-                  onNavigateSection={setActiveSection}
-                />
-              </div>
+          <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
+            <div className="mx-auto max-w-4xl">
+              <SettingsDialogSectionContent
+                sectionId={activeSection}
+                currentProjectPath={projectPath}
+                projects={projects}
+                selectedProjectPath={selectedProjectPath}
+                onNavigateSection={setActiveSection}
+              />
             </div>
-          </main>
-        </SidebarProvider>
-      </Card>
+          </div>
+        </main>
+      </SidebarProvider>
     </div>
   );
 }

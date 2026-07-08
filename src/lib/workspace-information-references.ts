@@ -12,6 +12,7 @@ export const WORKSPACE_INFORMATION_REFERENCE_SECTIONS = [
   "jira",
   "confluence",
   "storybook",
+  "amplify",
   "slack",
   "figma",
   "custom",
@@ -45,6 +46,7 @@ const SECTION_LABELS: Record<WorkspaceInformationReferenceSection, string> = {
   jira: "Jira issues",
   confluence: "Confluence pages",
   storybook: "Storybook resources",
+  amplify: "Amplify links",
   slack: "Slack threads",
   figma: "Figma resources",
   custom: "Custom fields",
@@ -69,6 +71,7 @@ const SECTION_ALIASES: Record<string, WorkspaceInformationReferenceSection> = {
   page: "confluence",
   pages: "confluence",
   storybook: "storybook",
+  amplify: "amplify",
   slack: "slack",
   figma: "figma",
   custom: "custom",
@@ -169,6 +172,7 @@ export function buildWorkspaceInformationReferenceOptions(
     jira: info.jiraIssues.length,
     confluence: (info.confluencePages ?? []).length,
     storybook: (info.storybookResources ?? []).length,
+    amplify: (info.amplifyLinks ?? []).length,
     slack: (info.slackThreads ?? []).length,
     figma: info.figmaResources.length,
     custom: info.customFields.length,
@@ -285,6 +289,22 @@ export function buildWorkspaceInformationReferenceOptions(
             .join(" | "),
         ),
         group: SECTION_LABELS.storybook,
+        kind: "item",
+      }),
+    );
+  }
+
+  for (const item of info.amplifyLinks ?? []) {
+    options.push(
+      optionFromReference({
+        reference: createItemReference({
+          section: "amplify",
+          itemId: item.id,
+          label: item.label || item.url || "Amplify link",
+        }),
+        title: item.label || item.url || "Amplify link",
+        description: truncate([item.url, item.note].filter(Boolean).join(" | ")),
+        group: SECTION_LABELS.amplify,
         kind: "item",
       }),
     );
