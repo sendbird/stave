@@ -6,6 +6,7 @@ import {
 
 export const WORKSPACE_INFORMATION_REFERENCE_SECTIONS = [
   "turn-summary",
+  "lens",
   "notes",
   "todo",
   "pr",
@@ -28,6 +29,13 @@ export interface WorkspaceInformationReference {
   token: string;
 }
 
+/** Live Lens browser state injected when a prompt references `@lens`. */
+export interface LensReferenceState {
+  url: string;
+  title: string;
+  isLoading?: boolean;
+}
+
 export interface WorkspaceInformationReferenceOption {
   reference: WorkspaceInformationReference;
   title: string;
@@ -39,6 +47,7 @@ export interface WorkspaceInformationReferenceOption {
 
 const SECTION_LABELS: Record<WorkspaceInformationReferenceSection, string> = {
   "turn-summary": "Latest turn summary",
+  lens: "Lens browser",
   notes: "Notes",
   todo: "Todos",
   pr: "Linked pull requests",
@@ -54,6 +63,8 @@ const SECTION_ALIASES: Record<string, WorkspaceInformationReferenceSection> = {
   "turn-summary": "turn-summary",
   turnsummary: "turn-summary",
   summary: "turn-summary",
+  lens: "lens",
+  browser: "lens",
   notes: "notes",
   note: "notes",
   todo: "todo",
@@ -97,7 +108,8 @@ function createSectionReference(
     section,
     scope: "section",
     label: SECTION_LABELS[section],
-    token: `@info:${section}`,
+    // Lens is a first-class mention rather than an Information panel entry.
+    token: section === "lens" ? "@lens" : `@info:${section}`,
   };
 }
 
@@ -116,6 +128,9 @@ function createItemReference(args: {
 }
 
 function sectionDescription(section: WorkspaceInformationReferenceSection, count: number) {
+  if (section === "lens") {
+    return "Reference the current Lens browser page.";
+  }
   if (section === "notes") {
     return "Reference the full workspace notes field.";
   }
@@ -163,6 +178,7 @@ export function buildWorkspaceInformationReferenceOptions(
 ): WorkspaceInformationReferenceOption[] {
   const sectionCounts: Record<WorkspaceInformationReferenceSection, number> = {
     "turn-summary": info.turnSummary ? 1 : 0,
+    lens: 1,
     notes: info.notes.trim() ? 1 : 0,
     todo: info.todos.length,
     pr: info.linkedPullRequests.length,
@@ -382,6 +398,9 @@ export function resolveWorkspaceInformationReferenceFromToken(
   token: string,
 ): WorkspaceInformationReference | null {
   const normalized = token.trim();
+  if (/^@lens$/i.test(normalized)) {
+    return createSectionReference("lens");
+  }
   const match = normalized.match(/^@info(?::([^/\s]+)(?:\/([^\s]+))?)?$/i);
   if (!match) {
     return null;
@@ -404,7 +423,9 @@ export function resolveWorkspaceInformationReferenceFromToken(
 
 export function extractWorkspaceInformationReferencesFromText(text: string) {
   const references: WorkspaceInformationReference[] = [];
-  for (const match of text.matchAll(/@info(?::[^\s.,;!?)]*)?/gi)) {
+  for (const match of text.matchAll(
+    /@(?:info(?::[^\s.,;!?)]*)?|lens(?![A-Za-z0-9_-]))/gi,
+  )) {
     const reference = resolveWorkspaceInformationReferenceFromToken(match[0]);
     if (reference) {
       references.push(reference);
@@ -436,10 +457,29 @@ function findReferenceOption(args: {
   });
 }
 
+function formatLensReferenceLines(lens: LensReferenceState | null | undefined) {
+  if (!lens || !lens.url.trim()) {
+    return [
+      "(Lens browser state unavailable — the Lens panel may be closed or blank.)",
+      "Use the Stave Lens tools to open or inspect the built-in browser.",
+    ];
+  }
+  return [
+    `Current URL: ${lens.url}`,
+    `Page title: ${lens.title.trim() || "(untitled)"}`,
+    ...(lens.isLoading ? ["(page is still loading)"] : []),
+    "Use the Stave Lens tools (snapshot, get text, screenshot) to inspect or drive this page.",
+  ];
+}
+
 function formatSectionItemLines(args: {
   info: WorkspaceInformationState;
   section: WorkspaceInformationReferenceSection;
+  lens?: LensReferenceState | null;
 }) {
+  if (args.section === "lens") {
+    return formatLensReferenceLines(args.lens);
+  }
   const optionItems = buildWorkspaceInformationReferenceOptions(args.info)
     .filter(
       (option) =>
@@ -483,6 +523,7 @@ function formatSectionItemLines(args: {
 export function formatWorkspaceInformationReferencesContext(args: {
   info: WorkspaceInformationState;
   references: readonly WorkspaceInformationReference[];
+  lens?: LensReferenceState | null;
 }) {
   const sections: string[] = [];
 
@@ -493,6 +534,7 @@ export function formatWorkspaceInformationReferencesContext(args: {
         ...formatSectionItemLines({
           info: args.info,
           section: reference.section,
+          lens: args.lens,
         }),
         "",
       );

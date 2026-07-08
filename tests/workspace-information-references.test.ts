@@ -64,6 +64,48 @@ test("extractWorkspaceInformationReferencesFromText parses section and item toke
   ]);
 });
 
+test("lens references resolve, extract, and format from @lens tokens", () => {
+  const options = buildWorkspaceInformationReferenceOptions(
+    createEmptyWorkspaceInformation(),
+  );
+  expect(options.some((option) => option.reference.token === "@lens")).toBe(
+    true,
+  );
+
+  expect(resolveWorkspaceInformationReferenceFromToken("@lens")).toMatchObject({
+    section: "lens",
+    scope: "section",
+    token: "@lens",
+  });
+
+  expect(
+    extractWorkspaceInformationReferencesFromText(
+      "Fix the layout on @lens but ignore @lenses.",
+    ),
+  ).toMatchObject([{ section: "lens", token: "@lens" }]);
+
+  const lensReference = resolveWorkspaceInformationReferenceFromToken("@lens");
+  const context = formatWorkspaceInformationReferencesContext({
+    info: createEmptyWorkspaceInformation(),
+    references: [lensReference!],
+    lens: {
+      url: "http://localhost:3000/settings",
+      title: "Settings",
+      isLoading: false,
+    },
+  });
+  expect(context).toContain("Section: Lens browser (@lens)");
+  expect(context).toContain("Current URL: http://localhost:3000/settings");
+  expect(context).toContain("Page title: Settings");
+
+  const closedContext = formatWorkspaceInformationReferencesContext({
+    info: createEmptyWorkspaceInformation(),
+    references: [lensReference!],
+    lens: null,
+  });
+  expect(closedContext).toContain("Lens browser state unavailable");
+});
+
 test("getActiveWorkspaceInformationTokenMatch opens on bare @ and @info tokens", () => {
   expect(
     getActiveWorkspaceInformationTokenMatch({

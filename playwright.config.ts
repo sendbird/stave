@@ -14,12 +14,22 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
-  webServer: {
-    command: `bun run dev -- --host 127.0.0.1 --port ${webPort} --force`,
-    url: baseUrl,
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: `bun run dev -- --host 127.0.0.1 --port ${webPort} --force`,
+      url: baseUrl,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      // Browser-dev bridge; without it workspace hydration hangs on
+      // "Opening workspace" and every scenario times out.
+      command: "bun run server-dev",
+      url: "http://127.0.0.1:3001/health",
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+  ],
   projects: [
     {
       name: "chromium",

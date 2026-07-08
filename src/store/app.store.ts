@@ -52,6 +52,7 @@ import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenc
 import {
   extractWorkspaceInformationReferencesFromText,
   formatWorkspaceInformationReferencesContext,
+  type LensReferenceState,
   type WorkspaceInformationReference,
 } from "@/lib/workspace-information-references";
 import {
@@ -754,6 +755,7 @@ function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] 
 function buildWorkspaceInformationReferencesRetrievedContext(args: {
   promptDraft: PromptDraft;
   workspaceInformation: WorkspaceInformationState;
+  lensState?: LensReferenceState | null;
 }): CanonicalRetrievedContextPart | null {
   const referencesByKey = new Map<string, WorkspaceInformationReference>();
   const addReference = (reference: WorkspaceInformationReference) => {
@@ -789,6 +791,7 @@ function buildWorkspaceInformationReferencesRetrievedContext(args: {
   const content = formatWorkspaceInformationReferencesContext({
     info: args.workspaceInformation,
     references,
+    lens: args.lensState ?? null,
   });
   if (!content.trim()) {
     return null;
@@ -801,10 +804,35 @@ function buildWorkspaceInformationReferencesRetrievedContext(args: {
     content: [
       "The user explicitly referenced these Information panel entries from the prompt composer.",
       "Treat section references as the full current section and item references as the specific item.",
+      ...(references.some((reference) => reference.section === "lens")
+        ? [
+            "`@lens` refers to the built-in Lens browser panel and its currently loaded page.",
+          ]
+        : []),
       "",
       content,
     ].join("\n"),
   };
+}
+
+function promptDraftReferencesLens(draft: PromptDraft) {
+  const attachmentHasLens = getPromptDraftAttachments(draft).some(
+    (attachment) =>
+      attachment.kind === "workspace-information" &&
+      attachment.reference.section === "lens",
+  );
+  if (attachmentHasLens) {
+    return true;
+  }
+  return [
+    draft.text,
+    ...(draft.promptBatch ?? []).map((item) => item.content),
+    ...(draft.queuedTurns ?? []).map((item) => item.content),
+  ].some((text) =>
+    extractWorkspaceInformationReferencesFromText(text).some(
+      (reference) => reference.section === "lens",
+    ),
+  );
 }
 
 function getPromptDraftAttachedFilePaths(draft: PromptDraft) {
@@ -10830,10 +10858,26 @@ export const useAppStore = create<AppState>()(
                 workspaceInformation: taskWorkspaceInformation,
               }),
             ];
+            // `@lens` references resolve against the live Lens browser state.
+            let lensReferenceState: LensReferenceState | null = null;
+            if (promptDraftReferencesLens(promptDraft)) {
+              try {
+                const lensStateResult = await window.api?.lens?.getState?.({
+                  workspaceId: taskWorkspaceId,
+                });
+                lensReferenceState =
+                  lensStateResult?.ok && lensStateResult.state
+                    ? lensStateResult.state
+                    : null;
+              } catch {
+                lensReferenceState = null;
+              }
+            }
             const workspaceInformationReferencesContext =
               buildWorkspaceInformationReferencesRetrievedContext({
                 promptDraft,
                 workspaceInformation: taskWorkspaceInformation,
+                lensState: lensReferenceState,
               });
             if (workspaceInformationReferencesContext) {
               retrievedContextParts.push(workspaceInformationReferencesContext);

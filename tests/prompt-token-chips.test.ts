@@ -72,6 +72,29 @@ describe("parsePromptTokenSegments", () => {
     ]);
   });
 
+  test("parses @lens into a Lens browser chip descriptor", () => {
+    const segments = parsePromptTokenSegments("Inspect @lens and report", {});
+
+    expect(segments).toMatchObject([
+      { type: "text", text: "Inspect " },
+      {
+        type: "token",
+        descriptor: {
+          kind: "information",
+          token: "@lens",
+          label: "Lens browser",
+        },
+      },
+      { type: "text", text: " and report" },
+    ]);
+  });
+
+  test("does not treat @lens-prefixed words as Lens chips", () => {
+    const segments = parsePromptTokenSegments("Check @lenses today", {});
+
+    expect(segments).toEqual([{ type: "text", text: "Check @lenses today" }]);
+  });
+
   test("does not treat incomplete triggers as chips", () => {
     const segments = parsePromptTokenSegments("Try / $ @ @info", {
       commandPaletteItems: [command],
