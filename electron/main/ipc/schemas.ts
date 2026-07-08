@@ -926,6 +926,13 @@ export const SteerTurnArgsSchema = z
   .object({
     turnId: z.string().min(1).max(200),
     text: z.string().min(1).max(500_000),
+    /**
+     * Renderer's `settings.midTurnSteeringEnabled` value. When explicitly
+     * `true` it enables steering regardless of the legacy
+     * `STAVE_ENABLE_MID_TURN_STEERING` env var; when omitted/false the env
+     * var still works as a fallback (see `runtime.ts`'s `steerTurn`).
+     */
+    enabled: z.boolean().optional(),
   })
   .strict();
 

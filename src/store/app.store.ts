@@ -1388,6 +1388,13 @@ export interface AppSettings {
    * neither is a fallback for the other.
    */
   steerQueueEnterAction: SteerQueueEnterAction;
+  /**
+   * Whether mid-turn steering is offered to the user at all. Previously this
+   * was solely gated by the `STAVE_ENABLE_MID_TURN_STEERING` env var on the
+   * main process; that env var still works as a fallback (e.g. for ops/dev
+   * use) but this setting is the primary, user-facing on/off switch.
+   */
+  midTurnSteeringEnabled: boolean;
   /** Lens shortcut that toggles visual comment mode. */
   visualCommentShortcut: VisualCommentShortcut;
   /** When enabled, visual comment screenshots are included as provider image context. */
@@ -2567,6 +2574,7 @@ const defaultSettings: AppSettings = {
   modelShortcutKeys: normalizeModelShortcutKeys(),
   promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
   steerQueueEnterAction: DEFAULT_STEER_QUEUE_ENTER_ACTION,
+  midTurnSteeringEnabled: false,
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
   reviewStrictMode: true,
@@ -10465,6 +10473,7 @@ export const useAppStore = create<AppState>()(
             const steerResult = await steerTurn({
               turnId: activeTurnId,
               text: promptContent,
+              enabled: get().settings.midTurnSteeringEnabled,
             }).catch(
               () =>
                 ({ ok: false, message: undefined }) as {
@@ -12900,6 +12909,10 @@ export const useAppStore = create<AppState>()(
         state.settings.steerQueueEnterAction = normalizeSteerQueueEnterAction(
           raw.steerQueueEnterAction,
         );
+        state.settings.midTurnSteeringEnabled =
+          typeof raw.midTurnSteeringEnabled === "boolean"
+            ? raw.midTurnSteeringEnabled
+            : defaultSettings.midTurnSteeringEnabled;
         state.settings.visualCommentShortcut =
           raw.visualCommentShortcut === "mod-period"
             ? DEFAULT_VISUAL_COMMENT_SHORTCUT

@@ -807,11 +807,16 @@ export const providerRuntime: ProviderRuntime = {
       invoke: (responder) => responder({ requestId, answers, denied }),
       selectResponder: (session) => session.respondUserInput,
     }),
-  steerTurn: ({ turnId, text }) => {
-    if (process.env.STAVE_ENABLE_MID_TURN_STEERING !== "1") {
+  steerTurn: ({ turnId, text, enabled }) => {
+    // `enabled` is the renderer's `settings.midTurnSteeringEnabled` toggle —
+    // the primary, user-facing on/off switch. `STAVE_ENABLE_MID_TURN_STEERING`
+    // remains as a legacy/ops fallback for builds where the setting hasn't
+    // been surfaced or touched.
+    if (enabled !== true && process.env.STAVE_ENABLE_MID_TURN_STEERING !== "1") {
       return Promise.resolve({
         ok: false,
-        message: "Mid-turn steering is disabled (STAVE_ENABLE_MID_TURN_STEERING).",
+        message:
+          "Mid-turn steering is disabled. Enable it in Settings → Steer / Queue (or set STAVE_ENABLE_MID_TURN_STEERING=1).",
       });
     }
     return deliverResponderResult({
