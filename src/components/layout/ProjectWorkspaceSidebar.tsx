@@ -22,6 +22,7 @@ import {
   FolderTree,
   GitBranch,
   GripVertical,
+  LayoutGrid,
   LoaderCircle,
   MoreVertical,
   PanelLeft,
@@ -48,6 +49,7 @@ import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { PANEL_BAR_HEIGHT_CLASS } from "@/components/layout/panel-bar.constants";
 import {
   buildCollapsedWorkspaceEntries,
+  buildSidebarActiveWorkspaceEntries,
   filterProjectSidebarProjects,
   formatWorkspaceDisplayName,
   buildWorkspaceHoverPreview,
@@ -57,6 +59,7 @@ import {
   getWorkspaceRespondingCountVisibilityClasses,
   WORKSPACE_SHORTCUT_COUNT,
   type ProjectSidebarCollapsedProjectView,
+  type SidebarActiveWorkspaceEntry,
 } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import { CreateWorkspaceDialog } from "@/components/layout/CreateWorkspaceDialog";
@@ -91,7 +94,13 @@ import {
   loadWorkspaceShellSummary,
   type WorkspaceShellSummary,
 } from "@/lib/db/workspaces.db";
-import { summarizeFleetRespondingTasks } from "@/lib/fleet/task-status";
+import {
+  classifyTaskStatus,
+  compareFleetTaskStatus,
+  summarizeFleetRespondingTasks,
+  type FleetTaskStatus,
+} from "@/lib/fleet/task-status";
+import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
@@ -940,6 +949,13 @@ export function ProjectWorkspaceSidebar(args: {
     setLayout,
     fetchAllWorkspacePrStatuses,
     hydrateWorkspaces,
+    activeAppSurface,
+    openFleetView,
+    activeTasks,
+    messagesByTask,
+    activeTurnIdsByTask,
+    providerTurnActivityByTask,
+    workspaceRuntimeCacheById,
   ] = useAppStore(
     useShallow((state) => {
       return [
@@ -979,6 +995,13 @@ export function ProjectWorkspaceSidebar(args: {
         state.setLayout,
         state.fetchAllWorkspacePrStatuses,
         state.hydrateWorkspaces,
+        state.activeAppSurface,
+        state.openFleetView,
+        state.tasks,
+        state.messagesByTask,
+        state.activeTurnIdsByTask,
+        state.providerTurnActivityByTask,
+        state.workspaceRuntimeCacheById,
       ] as const;
     }),
   );
@@ -1056,6 +1079,69 @@ export function ProjectWorkspaceSidebar(args: {
         activeWorkspaceId,
       }),
     [activeWorkspaceId, projects],
+  );
+  const recentProjectLastOpenedAtByPath = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const project of recentProjects) {
+      map[project.projectPath] = project.lastOpenedAt;
+    }
+    return map;
+  }, [recentProjects]);
+  const workspaceFleetStatusById = useMemo(() => {
+    const statusById: Record<string, FleetTaskStatus> = {};
+    for (const project of projects) {
+      for (const workspace of project.workspaces) {
+        const isActiveWorkspace =
+          project.isCurrent && workspace.id === activeWorkspaceId;
+        const runtimeState = isActiveWorkspace
+          ? { tasks: activeTasks, messagesByTask, activeTurnIdsByTask }
+          : workspaceRuntimeCacheById[workspace.id];
+        if (!runtimeState) {
+          continue;
+        }
+
+        let bestStatus: FleetTaskStatus = "idle";
+        for (const task of runtimeState.tasks) {
+          if (isTaskArchived(task) || isLegacyBranchTask(task)) {
+            continue;
+          }
+          const status = classifyTaskStatus({
+            task,
+            messages: runtimeState.messagesByTask[task.id],
+            activeTurnId: runtimeState.activeTurnIdsByTask[task.id] ?? null,
+            activity: providerTurnActivityByTask[task.id] ?? null,
+          });
+          if (compareFleetTaskStatus(status, bestStatus) < 0) {
+            bestStatus = status;
+          }
+        }
+        statusById[workspace.id] = bestStatus;
+      }
+    }
+    return statusById;
+  }, [
+    activeTasks,
+    activeTurnIdsByTask,
+    activeWorkspaceId,
+    messagesByTask,
+    projects,
+    providerTurnActivityByTask,
+    workspaceRuntimeCacheById,
+  ]);
+  const activeWorkspaceEntries = useMemo(
+    () =>
+      buildSidebarActiveWorkspaceEntries({
+        projects,
+        recentProjectLastOpenedAtByPath,
+        statusByWorkspaceId: workspaceFleetStatusById,
+        activeWorkspaceId,
+      }),
+    [
+      activeWorkspaceId,
+      projects,
+      recentProjectLastOpenedAtByPath,
+      workspaceFleetStatusById,
+    ],
   );
   const workspaceShortcutTargets = useMemo(
     () =>
@@ -1311,7 +1397,7 @@ export function ProjectWorkspaceSidebar(args: {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-10 w-10 rounded-md bg-background/35 p-0 hover:bg-background/50"
+                      className="h-10 w-10 rounded-md bg-sidebar-accent/60 p-0 hover:bg-sidebar-accent"
                       onClick={() => setOpenPathDialogOpen(true)}
                       aria-label="open-project"
                     >
@@ -1319,6 +1405,25 @@ export function ProjectWorkspaceSidebar(args: {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="right">Open Project</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-10 w-10 rounded-md p-0",
+                        activeAppSurface.kind === "fleet-view"
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "hover:bg-sidebar-accent",
+                      )}
+                      onClick={() => openFleetView()}
+                      aria-label="open-fleet-view"
+                    >
+                      <LayoutGrid className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Fleet View</TooltipContent>
                 </Tooltip>
                 <MemoryUsagePopover collapsed />
               </div>
@@ -1383,7 +1488,7 @@ export function ProjectWorkspaceSidebar(args: {
                             "flex h-10 w-10 items-center justify-center rounded-md border transition-colors",
                             entry.isActive
                               ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
-                              : "border-transparent bg-background/60 text-muted-foreground hover:border-border/70 hover:bg-secondary/70 hover:text-foreground",
+                              : "border-transparent bg-transparent text-muted-foreground hover:border-border/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                           )}
                           onClick={() =>
                             void handleProjectWorkspaceOpen({
@@ -1411,6 +1516,69 @@ export function ProjectWorkspaceSidebar(args: {
         {!args.collapsed ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1.5">
             <TooltipProvider>
+              <div className="mb-2 space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => openFleetView()}
+                  aria-label="open-fleet-view"
+                  className={cn(
+                    "flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors",
+                    activeAppSurface.kind === "fleet-view"
+                      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  )}
+                >
+                  <LayoutGrid className="size-4" />
+                  Fleet View
+                </button>
+                {activeWorkspaceEntries.length > 0 ? (
+                  <>
+                    <div className="px-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Active workspaces
+                    </div>
+                    {activeWorkspaceEntries.map((entry) => (
+                      <WorkspaceHoverPreviewTooltip
+                        key={entry.workspaceId}
+                        workspaceId={entry.workspaceId}
+                        workspaceName={entry.workspaceName}
+                        branch={entry.branch}
+                        projectName={entry.projectName}
+                        side="top"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleProjectWorkspaceOpen({
+                              projectPath: entry.projectPath,
+                              workspaceId: entry.workspaceId,
+                            })
+                          }
+                          aria-label={`active-workspace-${entry.workspaceId}`}
+                          className={cn(
+                            "flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-sm transition-colors",
+                            entry.isActive
+                              ? "bg-primary/12 text-foreground"
+                              : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                          )}
+                        >
+                          <WorkspaceLeadingStatusIcon
+                            workspaceId={entry.workspaceId}
+                            workspaceName={entry.workspaceName}
+                            isDefault={entry.isDefault}
+                            busy={false}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-left">
+                            {entry.workspaceName}
+                          </span>
+                          <span className="shrink-0 truncate text-xs text-muted-foreground">
+                            {entry.projectName}
+                          </span>
+                        </button>
+                      </WorkspaceHoverPreviewTooltip>
+                    ))}
+                  </>
+                ) : null}
+              </div>
               <div
                 className={cn(
                   "mb-1.5 flex items-center justify-between border-b border-sidebar-border/45 px-2",
@@ -1427,7 +1595,7 @@ export function ProjectWorkspaceSidebar(args: {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-background/20 hover:text-foreground"
+                        className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                         onClick={() => setOpenPathDialogOpen(true)}
                         aria-label="open-project"
                       >
@@ -1445,7 +1613,7 @@ export function ProjectWorkspaceSidebar(args: {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-background/20 hover:text-foreground"
+                              className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                               aria-label="workspace-item-display-mode"
                             >
                               {workspaceSidebarItemDisplayMode ===
@@ -1487,7 +1655,7 @@ export function ProjectWorkspaceSidebar(args: {
                         variant="ghost"
                         size="sm"
                         className={cn(
-                          "h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-background/20 hover:text-foreground",
+                          "h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                           reorderMode &&
                             "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                         )}
@@ -1514,7 +1682,7 @@ export function ProjectWorkspaceSidebar(args: {
                     setWorkspaceSearchQuery(event.target.value)
                   }
                   placeholder="Search labels or branches"
-                  className="h-8 rounded-md border-sidebar-border/60 bg-background/45 pl-7 pr-7 text-xs"
+                  className="h-8 rounded-md border-sidebar-border/60 bg-transparent pl-7 pr-7 text-xs"
                   aria-label="search-workspaces"
                 />
                 {workspaceSearchQuery.trim() ? (
@@ -1551,7 +1719,7 @@ export function ProjectWorkspaceSidebar(args: {
                       )}
                       strategy={verticalListSortingStrategy}
                     >
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {visibleProjects.map((project) => {
                           const collapsed =
                             collapsedByProjectPath[project.projectPath] ??
@@ -1572,15 +1740,14 @@ export function ProjectWorkspaceSidebar(args: {
                               {({ dragHandle, isDragging }) => (
                                 <section
                                   className={cn(
-                                    "sidebar-liquid-panel rounded-[20px] border border-sidebar-border/35 transition-colors",
-                                    isDragging && "ring-1 ring-primary/20",
+                                    isDragging && "rounded-md bg-sidebar-accent/60",
                                   )}
                                 >
-                                  <div className="flex items-center gap-1 px-1.5 py-1.5">
+                                  <div className="flex items-center gap-1">
                                     {dragHandle}
                                     <div
                                       className={cn(
-                                        "group/project-row flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-background/20 focus-within:bg-background/20",
+                                        "group/project-row flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-within:bg-sidebar-accent",
                                       )}
                                     >
                                       <Tooltip>
@@ -1729,7 +1896,7 @@ export function ProjectWorkspaceSidebar(args: {
                                     </div>
                                   </div>
                                   {!collapsed ? (
-                                    <div className="border-t border-sidebar-border/35 px-1.5 py-1.5">
+                                    <div className="pl-4 pr-0.5 pb-1 pt-0.5">
                                       <DndContext
                                         sensors={workspaceSensors}
                                         collisionDetection={closestCenter}
@@ -1806,9 +1973,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                               : "items-center gap-1",
                                                             isActive
                                                               ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:pointer-events-none before:absolute before:-left-px before:-top-px before:h-3 before:w-3 before:rounded-tl-lg before:border-l-2 before:border-t-2 before:border-primary hover:bg-primary/16"
-                                                              : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-background/20 hover:text-foreground hover:shadow-sm",
+                                                              : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                                                             isDragging &&
-                                                              "border-sidebar-border/45 bg-background/22 shadow-sm",
+                                                              "border-sidebar-border/45 bg-sidebar-accent shadow-sm",
                                                           )}
                                                         >
                                                           {dragHandle}

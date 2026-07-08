@@ -189,7 +189,7 @@ export function MemoryUsagePopover({ collapsed }: { collapsed?: boolean }) {
         side="right"
         align="start"
         sideOffset={12}
-        className="w-80 gap-0 overflow-hidden border border-border/80 bg-card/96 p-0 shadow-2xl supports-backdrop-filter:backdrop-blur-xl"
+        className="w-80 gap-0 overflow-hidden border border-border/80 bg-card p-0 shadow-2xl"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         {/* Header */}

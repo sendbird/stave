@@ -13,7 +13,7 @@ export function SessionLoadingState(args: SessionLoadingStateProps) {
     <section className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
       <Empty
         data-testid={args.testId}
-        className="max-w-5xl items-stretch gap-5 rounded-[28px] border border-border/70 bg-card/65 p-6 text-left shadow-sm supports-backdrop-filter:backdrop-blur-sm"
+        className="max-w-5xl items-stretch gap-5 rounded-[28px] border border-border/70 bg-card p-6 text-left shadow-sm"
       >
         <EmptyHeader className="max-w-none flex-row items-center gap-4">
           <EmptyMedia variant="icon" className="size-11 rounded-2xl bg-primary/10 text-primary">

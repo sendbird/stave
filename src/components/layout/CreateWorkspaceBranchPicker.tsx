@@ -262,7 +262,7 @@ export function CreateWorkspaceBranchPicker({
       <PopoverContent
         align="start"
         sideOffset={8}
-        className="max-w-[32rem] gap-0 overflow-hidden border border-border/80 bg-card/96 p-0 shadow-2xl supports-backdrop-filter:backdrop-blur-xl"
+        className="max-w-[32rem] gap-0 overflow-hidden border border-border/80 bg-card p-0 shadow-2xl"
         style={{ width: "var(--radix-popover-trigger-width)" }}
         onOpenAutoFocus={(event) => event.preventDefault()}
       >

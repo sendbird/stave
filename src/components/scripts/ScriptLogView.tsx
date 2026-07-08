@@ -112,7 +112,7 @@ export function ScriptLogView(props: ScriptLogViewProps) {
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="pointer-events-auto size-6 rounded-md bg-background/70 text-muted-foreground backdrop-blur hover:text-foreground"
+                className="pointer-events-auto size-6 rounded-md bg-background text-muted-foreground hover:text-foreground"
                 onClick={() => void handleCopy()}
                 title="Copy log"
                 aria-label="Copy log"
@@ -124,7 +124,7 @@ export function ScriptLogView(props: ScriptLogViewProps) {
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="pointer-events-auto size-6 rounded-md bg-background/70 text-muted-foreground backdrop-blur hover:text-foreground"
+                  className="pointer-events-auto size-6 rounded-md bg-background text-muted-foreground hover:text-foreground"
                   onClick={onClear}
                   title="Clear log"
                   aria-label="Clear log"
@@ -137,7 +137,7 @@ export function ScriptLogView(props: ScriptLogViewProps) {
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="pointer-events-auto size-6 rounded-md bg-background/70 text-muted-foreground backdrop-blur hover:text-foreground"
+                  className="pointer-events-auto size-6 rounded-md bg-background text-muted-foreground hover:text-foreground"
                   onClick={() => setExpanded((value) => !value)}
                   title={expanded ? "Collapse log" : "Expand log"}
                   aria-label={expanded ? "Collapse log" : "Expand log"}

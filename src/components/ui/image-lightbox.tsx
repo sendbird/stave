@@ -27,7 +27,7 @@ export function ImageLightbox(args: {
       data-testid="image-lightbox"
       className={cn(
         UI_LAYER_CLASS.lightbox,
-        "fixed inset-0 flex items-center justify-center bg-overlay p-6 backdrop-blur-[2px]",
+        "fixed inset-0 flex items-center justify-center bg-overlay p-6",
       )}
       role="dialog"
       aria-modal="true"

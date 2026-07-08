@@ -4,7 +4,6 @@ import { Badge, Button, Card, CardContent } from "@/components/ui";
 import {
   buildWorkspacePlanListEntries,
   LEGACY_WORKSPACE_PLANS_DIRECTORY,
-  MAX_WORKSPACE_PLANS,
   WORKSPACE_PLANS_DIRECTORY,
   type WorkspacePlanListEntry,
 } from "@/lib/plans";
@@ -16,6 +15,7 @@ interface WorkspacePlansSectionProps {
   embedded?: boolean;
   onOpenFile: (args: { filePath: string }) => Promise<void>;
   onImportTodos?: (args: { filePath: string }) => void | Promise<void>;
+  onEntriesChange?: (args: { count: number; loading: boolean }) => void;
 }
 
 async function listWorkspacePlanEntries(rootPath: string): Promise<WorkspacePlanListEntry[]> {
@@ -50,6 +50,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
     embedded = false,
     onOpenFile,
     onImportTodos,
+    onEntriesChange,
   } = args;
   const [entries, setEntries] = useState<WorkspacePlanListEntry[]>([]);
   const [listLoading, setListLoading] = useState(false);
@@ -72,27 +73,13 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
     void loadPlans();
   }, [loadPlans, refreshNonce]);
 
+  useEffect(() => {
+    onEntriesChange?.({ count: entries.length, loading: listLoading });
+  }, [entries.length, listLoading, onEntriesChange]);
+
   return (
     <div className="space-y-3">
-      {embedded ? (
-        <div className="flex items-center justify-end gap-2">
-          <Badge variant="outline" className="rounded-sm">
-            {entries.length}/{MAX_WORKSPACE_PLANS}
-          </Badge>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 rounded-sm"
-              onClick={() => void loadPlans()}
-            >
-              <RefreshCcw className={cn("size-4", listLoading && "animate-spin")} />
-              <span className="sr-only">Refresh plans</span>
-            </Button>
-          </div>
-        </div>
-      ) : (
+      {!embedded ? (
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">Plans</p>
@@ -116,7 +103,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
       {!workspacePath ? (
         <div className="rounded-lg border border-dashed border-border/70 bg-muted/15 px-3 py-2 text-xs leading-5 text-muted-foreground">

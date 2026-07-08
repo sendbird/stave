@@ -3,7 +3,9 @@ import {
   buildIntentGuardContextInput,
   changeWorkspaceInfoCustomFieldType,
   createEmptyWorkspaceInformation,
+  createWorkspaceAmplifyLink,
   createWorkspaceInfoCustomField,
+  extractAmplifyLinkReference,
   extractConfluencePageReference,
   extractFigmaResourceReference,
   extractGitHubPullRequestReference,
@@ -32,6 +34,7 @@ test("createEmptyWorkspaceInformation returns empty defaults", () => {
     figmaResources: [],
     storybookResources: [],
     linkedPullRequests: [],
+    amplifyLinks: [],
     slackThreads: [],
     notes: "",
     todos: [],
@@ -317,4 +320,28 @@ test("formatWorkspaceInfoTaskSeedPrompt includes source reference url and note",
   expect(prompt).toContain("Reference: sendbird/stave #27");
   expect(prompt).toContain("URL: https://github.com/sendbird/stave/pull/27");
   expect(prompt).toContain("Carry this into a focused implementation task.");
+});
+
+test("extractAmplifyLinkReference parses a valid Amplify deploy URL", () => {
+  const reference = extractAmplifyLinkReference(
+    "https://main.d123abc456.amplifyapp.com",
+  );
+  expect(reference).toEqual({
+    host: "main.d123abc456.amplifyapp.com",
+    branch: "main",
+    appId: "d123abc456",
+  });
+});
+
+test("extractAmplifyLinkReference returns null for non-Amplify hosts", () => {
+  expect(extractAmplifyLinkReference("https://example.com")).toBeNull();
+  expect(extractAmplifyLinkReference("not a url")).toBeNull();
+});
+
+test("createWorkspaceAmplifyLink returns an empty amplify link with a unique id", () => {
+  const link = createWorkspaceAmplifyLink();
+  expect(link.url).toBe("");
+  expect(link.label).toBe("");
+  expect(link.note).toBe("");
+  expect(link.id).toStartWith("amplify-");
 });

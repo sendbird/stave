@@ -91,7 +91,7 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
 
   return (
     <div
-      className={cn(UI_LAYER_CLASS.dialog, "fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]")}
+      className={cn(UI_LAYER_CLASS.dialog, "fixed inset-0 flex items-center justify-center bg-overlay p-4")}
       onMouseDown={close}
     >
       <Card

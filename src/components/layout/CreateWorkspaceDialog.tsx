@@ -272,7 +272,7 @@ export function CreateWorkspaceDialog({
     <div
       className={cn(
         UI_LAYER_CLASS.dialog,
-        "t-overlay fixed inset-0 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px]",
+        "t-overlay fixed inset-0 flex items-center justify-center bg-overlay p-4",
       )}
       role="dialog"
       aria-modal="true"

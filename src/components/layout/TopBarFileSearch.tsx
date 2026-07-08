@@ -245,7 +245,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
           </div>
           {isOpen ? (
             <div
-              className={`absolute left-1/2 top-[calc(100%+2px)] ${UI_LAYER_CLASS.floatingChrome} w-full min-w-[260px] -translate-x-1/2 overflow-hidden rounded-xl border border-border/80 bg-card/96 shadow-2xl supports-backdrop-filter:backdrop-blur-xl lg:min-w-[320px] xl:min-w-[380px]`}
+              className={`absolute left-1/2 top-[calc(100%+2px)] ${UI_LAYER_CLASS.floatingChrome} w-full min-w-[260px] -translate-x-1/2 overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xl lg:min-w-[320px] xl:min-w-[380px]`}
               style={noDragStyle}
             >
               <div className="flex items-center justify-between gap-3 border-b border-border/70 px-3 py-2.5">

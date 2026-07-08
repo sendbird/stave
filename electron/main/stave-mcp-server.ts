@@ -27,6 +27,7 @@ import {
 } from "./stave-mcp-config";
 import { ensurePersistenceReady } from "./state";
 import {
+  addWorkspaceAmplifyLink,
   addWorkspaceCustomField,
   addWorkspaceConfluencePage,
   addWorkspaceFigmaResource,
@@ -598,6 +599,7 @@ function createToolServer() {
             "storybook",
             "slack",
             "figma",
+            "amplify",
           ])
           .describe("Resource kind."),
         url: z.string().url().describe("Resource URL."),
@@ -659,6 +661,7 @@ function createToolServer() {
             "storybook",
             "slack",
             "figma",
+            "amplify",
           ])
           .describe("Resource kind."),
         itemId: z.string().min(1).describe("Stored resource id."),
@@ -990,6 +993,40 @@ function createToolServer() {
           workspaceId,
           url,
           channelName,
+          note,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "stave_add_workspace_amplify_link",
+    {
+      description:
+        "Register an AWS Amplify deploy URL in the Stave Workspace Information panel.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Workspace id."),
+        url: z
+          .string()
+          .min(1)
+          .describe(
+            "Amplify deploy URL, e.g. https://<branch>.<appid>.amplifyapp.com.",
+          ),
+        label: z
+          .string()
+          .optional()
+          .describe("Optional branch/environment label."),
+        note: z
+          .string()
+          .optional()
+          .describe("Optional note stored with the link."),
+      },
+    },
+    async ({ workspaceId, url, label, note }) =>
+      toStructuredResult(
+        await addWorkspaceAmplifyLink({
+          workspaceId,
+          url,
+          label,
           note,
         }),
       ),

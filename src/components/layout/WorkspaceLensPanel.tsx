@@ -18,6 +18,7 @@ import {
   Copy,
   Crosshair,
   Download,
+  Expand,
   Globe,
   Highlighter,
   Loader2,
@@ -26,6 +27,7 @@ import {
   Monitor,
   Network,
   Pause,
+  PanelLeftClose,
   Play,
   RotateCw,
   Ruler,
@@ -105,6 +107,7 @@ import type {
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import type { LensDisplayMode } from "@/store/layout.utils";
 import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
@@ -386,7 +389,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     lensSourceMappingHeuristic,
     lensSourceMappingReactDebugSource,
     lensSessionScope,
-    isLensFullscreen,
+    lensDisplayMode,
     visualCommentShortcut,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
@@ -395,9 +398,12 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     state.settings.lensSourceMappingHeuristic,
     state.settings.lensSourceMappingReactDebugSource,
     state.settings.lensSessionScope,
-    Boolean(state.layout.lensFullscreenByWorkspaceId[state.activeWorkspaceId]),
+    state.layout.lensDisplayModeByWorkspaceId[state.activeWorkspaceId] ??
+      "normal",
     state.settings.visualCommentShortcut,
   ] as const));
+  const isLensFullscreen = lensDisplayMode === "fullscreen";
+  const isLensCoverChat = lensDisplayMode === "cover-chat";
 
   const sourceMappingConfig = useMemo(
     () =>
@@ -455,6 +461,12 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   const [lastLoadError, setLastLoadError] = useState<string | null>(null);
   const [hasExternalFloatingSurface, setHasExternalFloatingSurface] =
     useState(false);
+  const [coverChatRect, setCoverChatRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const consoleLogRef = useRef<HTMLDivElement>(null);
   const networkLogRef = useRef<HTMLDivElement>(null);
   const isOccluded = Boolean(args.occluded);
@@ -526,9 +538,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       resizeObserver?.disconnect();
       window.removeEventListener("resize", scheduleSync);
     };
-  }, [isLensFullscreen, lensPanelTab, workspaceId]);
+  }, [isLensCoverChat, isLensFullscreen, lensPanelTab, workspaceId]);
 
-  const setLensFullscreen = useCallback((nextFullscreen: boolean) => {
+  const setLensDisplayMode = useCallback((mode: LensDisplayMode) => {
     const state = useAppStore.getState();
     const currentWorkspaceId = state.activeWorkspaceId;
     if (!currentWorkspaceId) {
@@ -536,9 +548,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     }
     state.setLayout({
       patch: {
-        lensFullscreenByWorkspaceId: {
-          ...state.layout.lensFullscreenByWorkspaceId,
-          [currentWorkspaceId]: nextFullscreen,
+        lensDisplayModeByWorkspaceId: {
+          ...state.layout.lensDisplayModeByWorkspaceId,
+          [currentWorkspaceId]: mode,
         },
       },
     });
@@ -668,6 +680,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     annotations.length,
     hasLensApi,
     isAnnotationModeActive,
+    isLensCoverChat,
     isLensFullscreen,
     isLensSuppressed,
     syncBounds,
@@ -675,7 +688,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   ]);
 
   useEffect(() => {
-    if (!isLensFullscreen) {
+    if (lensDisplayMode === "normal") {
       return;
     }
 
@@ -684,12 +697,12 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         return;
       }
       event.preventDefault();
-      setLensFullscreen(false);
+      setLensDisplayMode("normal");
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isLensFullscreen, setLensFullscreen]);
+  }, [lensDisplayMode, setLensDisplayMode]);
 
   useEffect(() => {
     pendingBoundsRef.current = null;
@@ -822,6 +835,45 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       unsubscribeZoom?.();
     };
   }, [hasLensApi, syncBounds, workspaceId]);
+
+  // "Cover chat" mode positions Lens as a fixed overlay matching the content
+  // row's rect (chat + lens columns), leaving the workspace sidebar, top bar,
+  // and right rail visible. Re-measure whenever the covered rect can change.
+  useLayoutEffect(() => {
+    if (!isLensCoverChat) {
+      setCoverChatRect(null);
+      return;
+    }
+
+    const el = document.querySelector<HTMLElement>(
+      "[data-stave-content-row]",
+    );
+    if (!el) {
+      return;
+    }
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setCoverChatRect({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    measure();
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(el);
+    window.addEventListener("resize", measure);
+    const unsubscribeZoom = window.api?.window?.subscribeZoomChanges?.(measure);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", measure);
+      unsubscribeZoom?.();
+    };
+  }, [isLensCoverChat]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {
@@ -1726,8 +1778,21 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         className={cn(
           "flex h-full min-h-0 flex-col overflow-hidden bg-sidebar/20",
           isLensFullscreen && "fixed inset-0 h-dvh bg-background shadow-2xl",
-          isLensFullscreen && UI_LAYER_CLASS.floatingChrome,
+          isLensCoverChat &&
+            coverChatRect &&
+            "fixed bg-background shadow-2xl",
+          (isLensFullscreen || isLensCoverChat) && UI_LAYER_CLASS.floatingChrome,
         )}
+        style={
+          isLensCoverChat && coverChatRect
+            ? {
+                top: coverChatRect.top,
+                left: coverChatRect.left,
+                width: coverChatRect.width,
+                height: coverChatRect.height,
+              }
+            : undefined
+        }
       >
         <div className="flex shrink-0 flex-col gap-2 border-b border-border/60 px-3 py-2">
           <div className="flex items-center gap-1.5">
@@ -2067,6 +2132,38 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                 <Button
                   type="button"
                   size="icon-sm"
+                  variant={isLensCoverChat ? "secondary" : "outline"}
+                  className={cn(
+                    isLensCoverChat
+                      ? LENS_TOOL_ACTIVE_CLASS
+                      : LENS_TOOL_INACTIVE_CLASS,
+                  )}
+                  disabled={!hasLensApi}
+                  onClick={() =>
+                    setLensDisplayMode(isLensCoverChat ? "normal" : "cover-chat")
+                  }
+                  aria-label={
+                    isLensCoverChat
+                      ? "Restore Lens panel"
+                      : "Expand Lens over chat"
+                  }
+                >
+                  {isLensCoverChat ? (
+                    <PanelLeftClose className={LENS_TOOL_ICON_CLASS} />
+                  ) : (
+                    <Expand className={LENS_TOOL_ICON_CLASS} />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isLensCoverChat ? "Restore panel" : "Expand over chat"}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-sm"
                   variant={isLensFullscreen ? "secondary" : "outline"}
                   className={cn(
                     isLensFullscreen
@@ -2074,7 +2171,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                       : LENS_TOOL_INACTIVE_CLASS,
                   )}
                   disabled={!hasLensApi}
-                  onClick={() => setLensFullscreen(!isLensFullscreen)}
+                  onClick={() =>
+                    setLensDisplayMode(isLensFullscreen ? "normal" : "fullscreen")
+                  }
                   aria-label={
                     isLensFullscreen
                       ? "Exit fullscreen Lens"
