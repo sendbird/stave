@@ -1,18 +1,17 @@
 import {
   Brain,
   ClipboardCheck,
-  CornerUpLeft,
   FileText,
   FolderOpen,
   GitPullRequest,
   Globe2,
   Info,
-  OctagonX,
   Paperclip,
   Pencil,
   Send,
   SlidersHorizontal,
   Sparkles,
+  Square,
   Trash2,
   UserRound,
   X,
@@ -749,17 +748,6 @@ export function PromptInput(args: PromptInputProps) {
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
   const isQueueNextMode = submitMode === "queue-next";
   const isSteerOrQueueMode = submitMode === "steer-or-queue";
-  const steerQueueSecondaryAction = tabActionForSteerQueueEnterAction(
-    steerQueueEnterAction,
-  );
-  const steerQueueSecondaryLabel =
-    steerQueueSecondaryAction === "steer"
-      ? "Adjust current work"
-      : "Queue next";
-  const steerQueueSecondaryDescription =
-    steerQueueSecondaryAction === "steer"
-      ? "Steer this message into the live turn"
-      : "Queue this message for after the current turn finishes";
   const modifierLabel = useMemo(
     () =>
       typeof navigator !== "undefined" &&
@@ -1749,7 +1737,7 @@ export function PromptInput(args: PromptInputProps) {
             </Suggestions>
           ) : null}
           {visibleQueuedTurns.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+            <div className="space-y-2 rounded-xl border border-border/80 bg-card/95 px-3 py-2.5 shadow-lg supports-backdrop-filter:backdrop-blur-md">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   variant="secondary"
@@ -1796,7 +1784,10 @@ export function PromptInput(args: PromptInputProps) {
                   return (
                     <div
                       key={item.id}
-                      className="rounded-md border border-border/60 bg-background/70 px-2.5 py-2"
+                      className={cn(
+                        "group relative rounded-lg border border-border/50 bg-background/80 px-2.5 py-2 shadow-sm transition-all hover:border-border hover:shadow-md",
+                        index === 0 && !isEditing && "border-primary/30",
+                      )}
                     >
                       {isEditing ? (
                         <div className="space-y-2">
@@ -1854,7 +1845,7 @@ export function PromptInput(args: PromptInputProps) {
                         </div>
                       ) : (
                         <div className="flex min-w-0 items-start gap-2">
-                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm bg-muted text-[10px] font-medium text-muted-foreground">
+                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
                             {index + 1}
                           </span>
                           <div className="min-w-0 flex-1">
@@ -1862,32 +1853,37 @@ export function PromptInput(args: PromptInputProps) {
                               {summary}
                             </p>
                             {index === 0 ? (
-                              <p className="mt-0.5 text-xs text-muted-foreground">
+                              <p className="mt-0.5 text-xs font-medium text-primary/80">
                                 Next to send
                               </p>
                             ) : null}
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label={`Edit queued prompt ${index + 1}`}
-                            onClick={() => {
-                              setEditingQueuedTurnId(item.id);
-                              setEditingQueuedTurnContent(item.content);
-                            }}
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label={`Delete queued prompt ${index + 1}`}
-                            onClick={() => onRemoveQueuedTurn?.({ itemId: item.id })}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
+                          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={`Edit queued prompt ${index + 1}`}
+                              onClick={() => {
+                                setEditingQueuedTurnId(item.id);
+                                setEditingQueuedTurnContent(item.content);
+                              }}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label={`Delete queued prompt ${index + 1}`}
+                              onClick={() =>
+                                onRemoveQueuedTurn?.({ itemId: item.id })
+                              }
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1917,54 +1913,6 @@ export function PromptInput(args: PromptInputProps) {
                       </span>
                     ) : null}
                     <div className="relative min-w-0 flex-1">
-                      {isSteerOrQueueMode && !minimal ? (
-                        <div
-                          className={cn(
-                            "mb-1 flex justify-end",
-                            UI_LAYER_CLASS.floatingChrome,
-                          )}
-                        >
-                          <Tooltip>
-                            <TooltipTrigger
-                              type="button"
-                              disabled={primaryActionDisabled}
-                              onClick={() => {
-                                void submitCurrentMessage(
-                                  steerQueueSecondaryAction,
-                                );
-                              }}
-                              className={tooltipTriggerButtonClassName({
-                                className: cn(
-                                  PROMPT_TOOLBAR_BUTTON,
-                                  PROMPT_FLOATING_SURFACE,
-                                  "h-7 gap-1.5 px-2.5 text-xs shadow-sm",
-                                  steerQueueSecondaryAction === "steer" &&
-                                    "text-primary hover:text-primary",
-                                  primaryActionDisabled &&
-                                    "cursor-not-allowed opacity-60",
-                                ),
-                              })}
-                              aria-label={steerQueueSecondaryLabel}
-                            >
-                              {steerQueueSecondaryAction === "steer" ? (
-                                <CornerUpLeft className="size-3.5" />
-                              ) : (
-                                <Send className="size-3.5" />
-                              )}
-                              <span>{steerQueueSecondaryLabel}</span>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              className="flex-col items-start gap-0.5"
-                            >
-                              <span>{steerQueueSecondaryDescription}</span>
-                              <KbdGroup>
-                                <Kbd>Tab</Kbd>
-                              </KbdGroup>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      ) : null}
                       {shouldShowFocusHint ? (
                         <div
                           className={cn(
@@ -2269,6 +2217,16 @@ export function PromptInput(args: PromptInputProps) {
                           }
                           if (
                             activePalette === null &&
+                            isTurnActive &&
+                            event.key === "Escape" &&
+                            !event.nativeEvent.isComposing
+                          ) {
+                            event.preventDefault();
+                            onAbort?.();
+                            return;
+                          }
+                          if (
+                            activePalette === null &&
                             (event.key === "ArrowUp" ||
                               event.key === "ArrowDown") &&
                             !event.shiftKey &&
@@ -2358,18 +2316,18 @@ export function PromptInput(args: PromptInputProps) {
                             : minimal
                               ? isSteerOrQueueMode
                                 ? steerQueueEnterAction === "steer"
-                                  ? "Steer (Enter) or queue (Tab)..."
-                                  : "Queue (Enter) or steer (Tab)..."
+                                  ? "Steer this turn..."
+                                  : "Queue a follow-up..."
                                 : isQueueNextMode
                                   ? "Type the next turn..."
                                   : "Type a request..."
                               : isSteerOrQueueMode
                                 ? steerQueueEnterAction === "steer"
-                                  ? "Use / for commands, $ for skills, @ for Information (Enter to steer, Tab to queue)"
-                                  : "Use / for commands, $ for skills, @ for Information (Enter to queue, Tab to steer)"
+                                  ? "Steer this turn… (↵)"
+                                  : "Queue a follow-up… (↵)"
                                 : isQueueNextMode
-                                  ? "Use / for commands, $ for skills, @ for Information (Enter to queue next)"
-                                  : "Use / for commands, $ for skills, @ for Information (Enter to send)"
+                                  ? "Queue the next turn… (↵)"
+                                  : "Use / for commands, $ for skills, @ for Information"
                         }
                         className={cn(
                           "resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 shadow-none dark:bg-transparent",
@@ -3286,7 +3244,7 @@ export function PromptInput(args: PromptInputProps) {
                 </TooltipTrigger>
                 <TooltipContent side="top">Attach files</TooltipContent>
               </Tooltip>
-              {isTurnActive ? (
+              {isTurnActive && !hasDraftPayload ? (
                 <Tooltip>
                   <TooltipTrigger
                     type="button"
@@ -3299,101 +3257,78 @@ export function PromptInput(args: PromptInputProps) {
                           "h-8 w-8 rounded-md border border-destructive/30 bg-background/50",
                       ),
                     })}
-                    aria-label="Abort"
+                    aria-label="Stop responding"
                     onClick={() => onAbort?.()}
                   >
-                    <OctagonX className="size-3.5" />
+                    <Square className="size-3 fill-current" />
                   </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    className="max-w-56 flex-col items-start gap-0.5 whitespace-normal break-normal text-left"
-                  >
-                    <span className="inline-flex items-center gap-1 font-medium">
-                      Stop responding <Kbd>Esc</Kbd>
-                    </span>
-                    <span className="text-background/70">
-                      Pending approvals expire; your draft is preserved.
+                  <TooltipContent side="top">
+                    <span className="inline-flex items-center gap-1">
+                      Stop responding
+                      <KbdGroup>
+                        <Kbd>Esc</Kbd>
+                      </KbdGroup>
                     </span>
                   </TooltipContent>
                 </Tooltip>
-              ) : null}
-              <Tooltip>
-                <TooltipTrigger
-                  type="submit"
-                  className={tooltipTriggerButtonClassName({
-                    variant: "default",
-                    size: isQueueNextMode ? "sm" : "icon-sm",
-                    className: cn(
-                      "rounded-md",
-                      PROMPT_SURFACE_PRIMARY_FOCUS,
-                      isQueueNextMode && "h-8 gap-2 px-3",
-                      minimal &&
-                        !isQueueNextMode &&
-                        !isSteerOrQueueMode &&
-                        "h-8 w-8 border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15",
-                      minimal &&
-                        isQueueNextMode &&
-                        "border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15",
-                      minimal &&
-                        isSteerOrQueueMode &&
-                        "h-8 w-8 border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15",
-                    ),
-                  })}
-                  disabled={primaryActionDisabled}
-                  aria-label={
-                    isSteerOrQueueMode
-                      ? steerQueueEnterAction === "steer"
-                        ? "Steer this turn"
-                        : "Queue next turn"
-                      : isQueueNextMode
-                        ? "Queue next turn"
-                        : "Send"
-                  }
-                >
-                  <Send className="size-3.5" />
-                  {isQueueNextMode ? (
-                    <span>Queue next</span>
-                  ) : null}
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  className={
-                    isSteerOrQueueMode
-                      ? "flex-col items-start gap-0.5"
-                      : undefined
-                  }
-                >
-                  {isSteerOrQueueMode ? (
-                    <>
-                      <span className="inline-flex items-center gap-1">
-                        Steer this turn now
-                        <KbdGroup>
-                          <Kbd>
-                            {steerQueueEnterAction === "steer" ? "↵" : "Tab"}
-                          </Kbd>
-                        </KbdGroup>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-background/70">
-                        Queue for after it finishes
-                        <KbdGroup>
-                          <Kbd>
-                            {steerQueueEnterAction === "steer" ? "Tab" : "↵"}
-                          </Kbd>
-                        </KbdGroup>
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span>
-                        {isQueueNextMode ? "Queue the next turn" : "Send message"}
-                      </span>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger
+                    type="submit"
+                    className={tooltipTriggerButtonClassName({
+                      variant: "default",
+                      size: "icon-sm",
+                      className: cn(
+                        "rounded-md",
+                        PROMPT_SURFACE_PRIMARY_FOCUS,
+                        minimal &&
+                          "h-8 w-8 border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15",
+                      ),
+                    })}
+                    disabled={primaryActionDisabled}
+                    aria-label={
+                      isSteerOrQueueMode
+                        ? steerQueueEnterAction === "steer"
+                          ? "Steer this turn"
+                          : "Queue next turn"
+                        : isQueueNextMode
+                          ? "Queue next turn"
+                          : "Send"
+                    }
+                  >
+                    <Send className="size-3.5" />
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    className={
+                      isSteerOrQueueMode
+                        ? "flex-col items-start gap-0.5"
+                        : undefined
+                    }
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {isSteerOrQueueMode
+                        ? steerQueueEnterAction === "steer"
+                          ? "Steer"
+                          : "Queue"
+                        : isQueueNextMode
+                          ? "Queue next turn"
+                          : "Send"}
                       <KbdGroup>
                         <Kbd>↵</Kbd>
                       </KbdGroup>
-                    </>
-                  )}
-                </TooltipContent>
-              </Tooltip>
+                    </span>
+                    {isSteerOrQueueMode ? (
+                      <span className="inline-flex items-center gap-1 text-background/70">
+                        {steerQueueEnterAction === "steer" ? "Queue" : "Steer"}
+                        <KbdGroup>
+                          <Kbd>Tab</Kbd>
+                        </KbdGroup>
+                      </span>
+                    ) : null}
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
           </div>
         </form>
