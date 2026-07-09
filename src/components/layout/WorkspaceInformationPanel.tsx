@@ -1544,7 +1544,7 @@ export function WorkspaceInformationPanel() {
       className="flex h-full min-h-0 flex-col overflow-auto origin-top-left"
       style={infoPanelScale !== 1 ? { zoom: infoPanelScale } : undefined}
     >
-      <div className="py-2">
+      <div className="px-3 py-2">
         <DndContext
           sensors={sectionDragSensors}
           collisionDetection={closestCenter}

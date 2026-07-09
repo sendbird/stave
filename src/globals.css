@@ -150,7 +150,7 @@
   --chart-5: oklch(0.453 0.124 130.933);
   --provider-codex: #b1a7ff;
   --provider-claude: oklch(0.672 0.131 38.76);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: oklch(0.165 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.768 0.233 130.85);
   --sidebar-primary-foreground: oklch(0.274 0.072 132.109);

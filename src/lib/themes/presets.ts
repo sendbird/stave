@@ -59,7 +59,7 @@ export const PRESET_THEME_TOKENS: Record<ThemeModeName, ThemeTokenValues> = {
     border: "oklch(1 0 0 / 10%)",
     input: "oklch(1 0 0 / 15%)",
     ring: "oklch(0.556 0 0)",
-    sidebar: "oklch(0.205 0 0)",
+    sidebar: "oklch(0.165 0 0)",
     "sidebar-foreground": "oklch(0.985 0 0)",
     "sidebar-primary": "oklch(0.768 0.233 130.85)",
     "sidebar-primary-foreground": "oklch(0.274 0.072 132.109)",
