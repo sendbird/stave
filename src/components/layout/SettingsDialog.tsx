@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Folder } from "lucide-react";
+import { ArrowLeft, Folder, Search, X } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { Button } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -25,7 +25,12 @@ import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { captureCurrentProjectState } from "@/store/project.utils";
-import { settingsSectionGroups, settingsSections, type SectionId } from "./settings-dialog.schema";
+import {
+  matchesSettingsSection,
+  settingsSectionGroups,
+  settingsSections,
+  type SectionId,
+} from "./settings-dialog.schema";
 import { resolveSettingsProjectSelection } from "./settings-dialog.utils";
 import { SettingsDialogSectionContent } from "./settings-dialog-sections";
 
@@ -36,7 +41,9 @@ interface SettingsDialogProps {
   initialProjectPath?: string | null;
 }
 
-const sectionsById = Object.fromEntries(settingsSections.map((section) => [section.id, section])) as Record<SectionId, (typeof settingsSections)[number]>;
+const sectionsById = Object.fromEntries(
+  settingsSections.map((section) => [section.id, section]),
+) as Record<SectionId, (typeof settingsSections)[number]>;
 
 const IS_MAC =
   typeof window !== "undefined" && window.api?.platform === "darwin";
@@ -46,7 +53,10 @@ const MAC_TRAFFIC_LIGHT_CLEARANCE = 40;
 export function SettingsDialog(args: SettingsDialogProps) {
   const { initialProjectPath, initialSection, open, onOpenChange } = args;
   const [activeSection, setActiveSection] = useState<SectionId>("general");
-  const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(null);
+  const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(
+    null,
+  );
+  const [searchQuery, setSearchQuery] = useState("");
   const allowHighlightedOverrideRef = useRef(true);
   const lastHighlightedProjectPathRef = useRef<string | null>(null);
   const [
@@ -60,17 +70,20 @@ export function SettingsDialog(args: SettingsDialogProps) {
     workspacePathById,
     workspaceDefaultById,
   ] = useAppStore(
-    useShallow((state) => [
-      state.projectPath,
-      state.projectName,
-      state.recentProjects,
-      state.defaultBranch,
-      state.workspaces,
-      state.activeWorkspaceId,
-      state.workspaceBranchById,
-      state.workspacePathById,
-      state.workspaceDefaultById,
-    ] as const),
+    useShallow(
+      (state) =>
+        [
+          state.projectPath,
+          state.projectName,
+          state.recentProjects,
+          state.defaultBranch,
+          state.workspaces,
+          state.activeWorkspaceId,
+          state.workspaceBranchById,
+          state.workspacePathById,
+          state.workspaceDefaultById,
+        ] as const,
+    ),
   );
   const { containerRef, handleKeyDown } = useDismissibleLayer<HTMLDivElement>({
     enabled: open,
@@ -142,11 +155,28 @@ export function SettingsDialog(args: SettingsDialogProps) {
   }
 
   const activeSectionData = sectionsById[activeSection];
+  const normalizedSearchQuery = searchQuery.trim();
+  const visibleSectionIds = new Set(
+    settingsSections
+      .filter((section) =>
+        matchesSettingsSection(section, normalizedSearchQuery),
+      )
+      .map((section) => section.id),
+  );
+  const visibleGroups = settingsSectionGroups
+    .map((group) => ({
+      ...group,
+      ids: group.ids.filter((sectionId) => visibleSectionIds.has(sectionId)),
+    }))
+    .filter((group) => group.ids.length > 0);
 
   return (
     <div
       ref={containerRef}
-      className={cn(UI_LAYER_CLASS.dialog, "fixed inset-0 flex h-dvh w-full flex-col bg-background")}
+      className={cn(
+        UI_LAYER_CLASS.dialog,
+        "fixed inset-0 flex h-dvh w-full flex-col bg-background",
+      )}
       role="region"
       aria-label="Settings"
       tabIndex={-1}
@@ -154,14 +184,25 @@ export function SettingsDialog(args: SettingsDialogProps) {
     >
       <SidebarProvider
         className="h-full min-h-0 flex-1 items-start overflow-hidden"
-        style={{ "--sidebar-width": "220px", height: "100%", minHeight: 0 } as React.CSSProperties}
+        style={
+          {
+            "--sidebar-width": "220px",
+            height: "100%",
+            minHeight: 0,
+          } as React.CSSProperties
+        }
       >
-        <Sidebar collapsible="none" className="border-r border-border bg-sidebar">
+        <Sidebar
+          collapsible="none"
+          className="border-r border-border bg-sidebar"
+        >
           <SidebarContent
             className="pt-2"
-            style={IS_MAC ? { paddingTop: MAC_TRAFFIC_LIGHT_CLEARANCE } : undefined}
+            style={
+              IS_MAC ? { paddingTop: MAC_TRAFFIC_LIGHT_CLEARANCE } : undefined
+            }
           >
-            <div className="px-2 pb-1">
+            <div className="px-2 pb-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -173,7 +214,32 @@ export function SettingsDialog(args: SettingsDialogProps) {
                 Back to app
               </Button>
             </div>
-              {settingsSectionGroups.map((group) => (
+            <div className="px-2 pb-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-sidebar-foreground/45" />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search settings"
+                  aria-label="Search settings"
+                  className="h-8 border-sidebar-border bg-sidebar-accent/35 pl-8 pr-8 text-xs text-sidebar-foreground placeholder:text-sidebar-foreground/45 focus-visible:ring-sidebar-ring"
+                />
+                {searchQuery ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-sidebar-foreground/55 hover:text-sidebar-foreground"
+                    aria-label="Clear settings search"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            {visibleGroups.length > 0 ? (
+              visibleGroups.map((group) => (
                 <SidebarGroup key={group.label}>
                   <SidebarGroupLabel className="text-[11px] font-medium uppercase tracking-[0.18em] text-sidebar-foreground/55">
                     {group.label}
@@ -196,8 +262,11 @@ export function SettingsDialog(args: SettingsDialogProps) {
                             </SidebarMenuItem>
                           ) : (
                             projects.map((project) => {
-                              const current = project.projectPath === projectPath;
-                              const active = activeSection === "projects" && selectedProjectPath === project.projectPath;
+                              const current =
+                                project.projectPath === projectPath;
+                              const active =
+                                activeSection === "projects" &&
+                                selectedProjectPath === project.projectPath;
 
                               return (
                                 <SidebarMenuItem key={project.projectPath}>
@@ -207,7 +276,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                     title={project.projectPath}
                                     onClick={() => {
                                       allowHighlightedOverrideRef.current = false;
-                                      setSelectedProjectPath(project.projectPath);
+                                      setSelectedProjectPath(
+                                        project.projectPath,
+                                      );
                                       setActiveSection("projects");
                                     }}
                                     className={cn(
@@ -263,16 +334,23 @@ export function SettingsDialog(args: SettingsDialogProps) {
                     </SidebarMenu>
                   </SidebarGroupContent>
                 </SidebarGroup>
-              ))}
-            </SidebarContent>
-          </Sidebar>
+              ))
+            ) : (
+              <div className="px-4 py-6 text-xs leading-5 text-sidebar-foreground/60">
+                No settings match "{normalizedSearchQuery}".
+              </div>
+            )}
+          </SidebarContent>
+        </Sidebar>
 
         <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <span className="text-sm text-muted-foreground">Settings</span>
+                  <span className="text-sm text-muted-foreground">
+                    Settings
+                  </span>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>

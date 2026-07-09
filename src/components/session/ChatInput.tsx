@@ -292,8 +292,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   // between them, see `sendUserMessage`'s `submitIntent`). Which key does
   // which is user-configurable via `settings.steerQueueEnterAction`
   // (defaults to Enter=queue, Tab=steer). Mid-turn steering itself must be
-  // turned on via `settings.midTurnSteeringEnabled` (Settings → Steer /
-  // Queue) — otherwise the option is hidden entirely rather than offered
+  // turned on via `settings.midTurnSteeringEnabled` (Settings → Chat →
+  // Active Turn) — otherwise the option is hidden entirely rather than offered
   // and then rejected by the main process. Requires plain text only;
   // attachments always fall back to queue-only mode.
   const canSteerActiveTurn =
@@ -878,7 +878,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             });
           }}
           onStagePromptBatch={stagePromptBatchItem}
-          onRemovePromptBatchItem={({ itemId }) => removePromptBatchItem(itemId)}
+          onRemovePromptBatchItem={({ itemId }) =>
+            removePromptBatchItem(itemId)
+          }
           onUpdateQueuedTurn={updateQueuedTurn}
           onRemoveQueuedTurn={({ itemId }) => removeQueuedTurn(itemId)}
           onSuggestionSelect={async (suggestion) => {
@@ -1025,12 +1027,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   args.providerSelectionTarget
                 ]?.attachments ?? [];
               const imageContexts = currentAttachments
-                .filter(
-                  (a): a is Extract<Attachment, { kind: "image" }> =>
-                    shouldIncludeImageAttachmentAsProviderContext(
-                      a,
-                      lensVisualCommentScreenshotsAsImageContext,
-                    ),
+                .filter((a): a is Extract<Attachment, { kind: "image" }> =>
+                  shouldIncludeImageAttachmentAsProviderContext(
+                    a,
+                    lensVisualCommentScreenshotsAsImageContext,
+                  ),
                 )
                 .map((a) => ({
                   dataUrl: a.dataUrl,
@@ -1277,7 +1278,8 @@ function BaseChatInput() {
           fallbackModel: modelCodex,
         });
   const activeProviderAvailable = providerAvailability[activeProvider];
-  const isAutoRoutingSelected = promptDraftRuntimeOverrides?.autoRouting === true;
+  const isAutoRoutingSelected =
+    promptDraftRuntimeOverrides?.autoRouting === true;
   const autoModelOption = useMemo<ModelSelectorOption>(
     () =>
       buildAutoModelSelectorOption({
