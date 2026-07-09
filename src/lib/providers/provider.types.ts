@@ -254,12 +254,25 @@ export interface CodexRateLimitWindowSnapshot {
   resetsAt: number | null;
 }
 
+/**
+ * Credit-style usage limit reported by newer Codex plans (e.g. business):
+ * `account/rateLimits/read` returns `primary`/`secondary` as null and puts
+ * the real numbers in `individualLimit` (used/limit credits + reset time).
+ */
+export interface CodexIndividualLimitSnapshot {
+  usedPercent: number;
+  used: number | null;
+  limit: number | null;
+  resetsAt: number | null;
+}
+
 export interface CodexRateLimitSnapshot {
   limitId: string | null;
   limitName: string | null;
   planType: string | null;
   primary: CodexRateLimitWindowSnapshot | null;
   secondary: CodexRateLimitWindowSnapshot | null;
+  individualLimit: CodexIndividualLimitSnapshot | null;
   credits: CodexCreditsSnapshot | null;
 }
 

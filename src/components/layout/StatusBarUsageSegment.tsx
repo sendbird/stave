@@ -90,6 +90,10 @@ function ClaudeDetail({
   );
 }
 
+function formatCredits(value: number): string {
+  return Math.round(value).toLocaleString();
+}
+
 function CodexDetail({ snapshot }: { snapshot: CodexUsageSnapshot | null }) {
   if (
     !snapshot ||
@@ -111,6 +115,11 @@ function CodexDetail({ snapshot }: { snapshot: CodexUsageSnapshot | null }) {
         >
           <p className="text-xs font-medium text-foreground">
             {bucket.limitName ?? bucket.limitId ?? "Rate limit"}
+            {bucket.planType ? (
+              <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                ({bucket.planType})
+              </span>
+            ) : null}
           </p>
           {bucket.primary ? (
             <UsageWindowRow
@@ -125,6 +134,30 @@ function CodexDetail({ snapshot }: { snapshot: CodexUsageSnapshot | null }) {
               usedPercent={bucket.secondary.usedPercent}
               resetsAt={bucket.secondary.resetsAt}
             />
+          ) : null}
+          {bucket.individualLimit ? (
+            <>
+              <UsageWindowRow
+                label="Usage"
+                usedPercent={bucket.individualLimit.usedPercent}
+                resetsAt={bucket.individualLimit.resetsAt}
+              />
+              {bucket.individualLimit.used !== null &&
+              bucket.individualLimit.limit !== null ? (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Credits</span>
+                  <span className="font-mono text-foreground/80">
+                    {formatCredits(bucket.individualLimit.used)} /{" "}
+                    {formatCredits(bucket.individualLimit.limit)}
+                  </span>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          {!bucket.primary && !bucket.secondary && !bucket.individualLimit ? (
+            <p className="text-xs text-muted-foreground">
+              No usage windows reported for this bucket.
+            </p>
           ) : null}
         </div>
       ))}
@@ -152,10 +185,15 @@ export function StatusBarUsageSegment({
   const label = provider === "claude" ? "Claude" : "Codex";
   const claudeSnapshot = provider === "claude" ? (snapshot?.claude ?? null) : null;
   const codexSnapshot = provider === "codex" ? (snapshot?.codex ?? null) : null;
+  const codexHeadlineBucket = codexSnapshot?.buckets[0] ?? null;
   const headlinePercent =
     provider === "claude"
-      ? claudeSnapshot?.session?.usedPercent ?? null
-      : codexSnapshot?.buckets[0]?.primary?.usedPercent ?? null;
+      ? (claudeSnapshot?.session?.usedPercent ??
+        claudeSnapshot?.weekly?.usedPercent ??
+        null)
+      : (codexHeadlineBucket?.primary?.usedPercent ??
+        codexHeadlineBucket?.individualLimit?.usedPercent ??
+        null);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -182,7 +220,7 @@ export function StatusBarUsageSegment({
       </PopoverTrigger>
       <PopoverContent
         side="top"
-        align="end"
+        align="start"
         sideOffset={8}
         className="w-72 gap-0 overflow-hidden border border-border/80 bg-card p-0 shadow-2xl"
         onOpenAutoFocus={(event) => event.preventDefault()}
