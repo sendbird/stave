@@ -1717,7 +1717,8 @@ export function ProjectWorkspaceSidebar(args: {
                                       className={cn(
                                         "group/project-row flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-within:bg-sidebar-accent",
                                         activatorProps &&
-                                          "cursor-grab touch-none active:cursor-grabbing",
+                                          "cursor-pointer touch-none active:cursor-grabbing",
+                                        isDragging && "cursor-grabbing",
                                       )}
                                     >
                                       <Tooltip>
@@ -1986,7 +1987,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                                   ? "items-start px-3 py-2.5"
                                                                   : "items-center px-3 py-2",
                                                                 activatorProps &&
-                                                                  "cursor-grab touch-none active:cursor-grabbing",
+                                                                  "cursor-pointer touch-none active:cursor-grabbing",
+                                                                isDragging &&
+                                                                  "cursor-grabbing",
                                                               )}
                                                               onClick={() => {
                                                                 if (
