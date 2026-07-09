@@ -1,3 +1,24 @@
+## [0.9.0](https://github.com/sendbird/stave/compare/v0.8.7...v0.9.0) (2026-07-09)
+
+### Features
+
+* Add a VSCode-style bottom status bar showing live Codex and Claude usage/rate-limit meters, polled every 60s; relocate the sidebar's memory/CPU popover into the bar as its first segment.
+* Read Claude usage via the Claude Code CLI's own OAuth token (macOS Keychain, falling back to `~/.claude/.credentials.json`) with a hidden-CLI `/usage` fallback when the OAuth endpoint is unavailable — no separate API key needed.
+* Replace the sidebar's dedicated "edit mode" reorder UI with press-and-hold drag directly on rows and section headers, applied to both the project/workspace sidebar and the Information panel's sections.
+* Add `sidebarShowFleetView`, `sidebarShowActiveWorkspaces`, and `sidebarActiveWorkspaceLimit` settings to control sidebar display.
+* Reorganize Settings into a searchable sidebar (command palette and Lens under Interface, provider sections under AI & Agents), standardize settings cards/fields, and move active-turn steering into Chat.
+
+### Fixes
+
+* Restore keyboard-accessible drag reordering via a shared `useLongPressSortableSensors()` hook, since removing the drag-handle buttons had left the pointer-only sensors with no accessible fallback.
+* Guard the sidebar row's click-to-open and the Information panel section header's accordion toggle against firing right after a completed drag reorder.
+* Skip the active-workspace status computation entirely when the "Active Workspaces" sidebar section is hidden, instead of only hiding it at render time.
+* Mark Codex raw config as Advanced and remove an unused Rules section from Settings.
+
+### References
+
+* [#120](https://github.com/sendbird/stave/pull/120), [#121](https://github.com/sendbird/stave/pull/121), [#122](https://github.com/sendbird/stave/pull/122)
+
 ## [0.8.7](https://github.com/sendbird/stave/compare/v0.8.6...v0.8.7) (2026-07-08)
 
 ### Features
