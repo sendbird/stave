@@ -1,3 +1,15 @@
+## [0.9.1](https://github.com/sendbird/stave/compare/v0.9.0...v0.9.1) (2026-07-09)
+
+### Bug Fixes
+
+* Restore the Information panel's horizontal content padding dropped by the long-press-drag change, and darken the sidebar background so it reads as a distinct layer from the GNB/chat panel across the default and built-in themes.
+* Fix Settings cards stacking duplicate padding on top of the base card style, unify three hand-rolled selection-button grids into a shared toggle-chip control, and widen the Settings content column.
+* Fix the status bar showing `—` for both Claude and Codex usage: map the credits-based `individualLimit` response shape for business-plan Codex accounts, probe `CLAUDE_CONFIG_DIR`-aware keychain/credential paths for Claude, and make the CLI `/usage` fallback parser more robust (strip ANSI escapes, wait for an idle prompt, raise the timeout); also swap the bar order so usage sits left of memory.
+
+### References
+
+* [#124](https://github.com/sendbird/stave/pull/124), [#125](https://github.com/sendbird/stave/pull/125), [#126](https://github.com/sendbird/stave/pull/126)
+
 ## [0.9.0](https://github.com/sendbird/stave/compare/v0.8.7...v0.9.0) (2026-07-09)
 
 ### Features
