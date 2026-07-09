@@ -363,7 +363,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
           </header>
 
           <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-            <div className="mx-auto max-w-4xl">
+            <div className="mx-auto max-w-5xl">
               <SettingsDialogSectionContent
                 sectionId={activeSection}
                 currentProjectPath={projectPath}
