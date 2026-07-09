@@ -5,7 +5,7 @@ import {
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
-import { CircleHelp } from "lucide-react";
+import { Check, CircleHelp } from "lucide-react";
 import {
   Badge,
   Button,
@@ -97,9 +97,9 @@ export function InfoRow(args: {
 
 export function SectionHeading(args: { title: string; description: string }) {
   return (
-    <div className="mb-5 border-b border-border/70 pb-4">
+    <div className="mb-4 border-b border-border/70 pb-3">
       <h3 className="text-xl font-semibold tracking-tight">{args.title}</h3>
-      <p className="mt-1.5 max-w-3xl text-sm leading-6 text-muted-foreground">
+      <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
         {args.description}
       </p>
     </div>
@@ -119,12 +119,13 @@ export function SettingsCard(args: {
 }) {
   return (
     <Card
+      size="sm"
       className={cn(
         "overflow-hidden rounded-lg border-border/80 bg-card/70 shadow-xs",
         args.className,
       )}
     >
-      <CardHeader className="border-b border-border/60 bg-muted/15 px-5 py-4">
+      <CardHeader className="border-b border-border/60 bg-muted/15">
         <div className="flex items-start justify-between gap-3">
           <CardTitle className="text-[15px]">{args.title}</CardTitle>
           {args.titleAccessory}
@@ -133,9 +134,7 @@ export function SettingsCard(args: {
           <CardDescription>{args.description}</CardDescription>
         ) : null}
       </CardHeader>
-      <CardContent className="space-y-3.5 px-5 py-4">
-        {args.children}
-      </CardContent>
+      <CardContent className="space-y-3.5">{args.children}</CardContent>
     </Card>
   );
 }
@@ -177,7 +176,7 @@ export function ChoiceButtons<T extends string>(args: {
           className={cn(
             "rounded-md",
             hasDescriptions
-              ? "h-auto min-h-16 items-start justify-start whitespace-normal px-3 py-2.5 text-left"
+              ? "h-auto min-h-12 items-start justify-start whitespace-normal px-3 py-2 text-left"
               : "h-9",
           )}
           variant={args.value === option.value ? "default" : "outline"}
@@ -193,6 +192,65 @@ export function ChoiceButtons<T extends string>(args: {
           )}
         </Button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Compact multi-select chip row shared by settings toggles that pick zero or
+ * more values from a fixed option list (e.g. eligible models, setting
+ * sources). Keeps every such control at the same visual density instead of
+ * mixing bespoke button grids across sections.
+ */
+export function ToggleChipGroup<T extends string>(args: {
+  options: ReadonlyArray<{ value: T; label: string; description?: string }>;
+  selected: readonly T[];
+  onToggle: (value: T) => void;
+  allLabel?: string;
+  onSelectAll?: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {args.allLabel && args.onSelectAll ? (
+        <Button
+          type="button"
+          variant={args.selected.length === 0 ? "default" : "outline"}
+          size="sm"
+          className="h-7 rounded-full px-3 text-xs"
+          onClick={args.onSelectAll}
+        >
+          {args.allLabel}
+        </Button>
+      ) : null}
+      {args.options.map((option) => {
+        const active = args.selected.includes(option.value);
+        const chip = (
+          <Button
+            key={option.value}
+            type="button"
+            variant={active ? "default" : "outline"}
+            size="sm"
+            className="h-7 gap-1 rounded-full px-3 text-xs"
+            onClick={() => args.onToggle(option.value)}
+          >
+            {active ? <Check className="size-3" /> : null}
+            <span className="max-w-40 truncate">{option.label}</span>
+          </Button>
+        );
+
+        if (!option.description) {
+          return chip;
+        }
+
+        return (
+          <Tooltip key={option.value}>
+            <TooltipTrigger asChild>{chip}</TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-64 text-xs">
+              {option.description}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }

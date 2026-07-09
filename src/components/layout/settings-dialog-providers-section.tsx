@@ -55,6 +55,7 @@ import { useAppStore } from "@/store/app.store";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
+  ChoiceButtons,
   DraftInput,
   LabeledField,
   readInt,
@@ -63,6 +64,7 @@ import {
   SettingsFieldGuide,
   SettingsCard,
   SwitchField,
+  ToggleChipGroup,
 } from "./settings-dialog.shared";
 import {
   ClaudeBinaryPathCard,
@@ -561,21 +563,16 @@ function ProviderModePresetButtons(args: {
   onSelect: (presetId: ProviderModePresetId) => void;
 }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      {args.presets.map((preset) => (
-        <Button
-          key={preset.id}
-          className="h-auto min-h-16 items-start justify-start whitespace-normal rounded-md px-3 py-2.5 text-left"
-          variant={args.activePresetId === preset.id ? "default" : "outline"}
-          onClick={() => args.onSelect(preset.id)}
-        >
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{preset.label}</p>
-            <p className="text-xs opacity-80">{preset.description}</p>
-          </div>
-        </Button>
-      ))}
-    </div>
+    <ChoiceButtons
+      columns={3}
+      value={args.activePresetId ?? ""}
+      onChange={(value) => args.onSelect(value as ProviderModePresetId)}
+      options={args.presets.map((preset) => ({
+        value: preset.id,
+        label: preset.label,
+        description: preset.description,
+      }))}
+    />
   );
 }
 
@@ -871,27 +868,11 @@ export function ProvidersSection() {
                   />
                 }
               >
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {CLAUDE_SETTING_SOURCE_HELP.map((option) => (
-                    <Button
-                      key={option.value}
-                      className="h-auto min-h-16 items-start justify-start whitespace-normal rounded-md px-3 py-2.5 text-left"
-                      variant={
-                        claudeSettingSources.includes(option.value)
-                          ? "default"
-                          : "outline"
-                      }
-                      onClick={() => toggleClaudeSettingSource(option.value)}
-                    >
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">{option.label}</p>
-                        <p className="text-xs opacity-80">
-                          {option.description}
-                        </p>
-                      </div>
-                    </Button>
-                  ))}
-                </div>
+                <ToggleChipGroup
+                  options={CLAUDE_SETTING_SOURCE_HELP}
+                  selected={claudeSettingSources}
+                  onToggle={toggleClaudeSettingSource}
+                />
                 <p className="text-xs text-muted-foreground">
                   Active:{" "}
                   {claudeSettingSources.length > 0

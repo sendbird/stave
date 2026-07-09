@@ -160,6 +160,7 @@ import {
   SelectField,
   SettingsCard,
   SwitchField,
+  ToggleChipGroup,
 } from "./settings-dialog.shared";
 
 function formatThemeTokenLabel(token: ThemeTokenName) {
@@ -1804,40 +1805,23 @@ function ModelsSection() {
     options: typeof modelOptions,
     selectedModels: readonly string[],
   ) => (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        type="button"
-        variant={selectedModels.length === 0 ? "default" : "outline"}
-        size="sm"
-        className="h-8 rounded-md"
-        onClick={() => updateEligibleModels({ providerId, models: [] })}
-      >
-        All
-      </Button>
-      {options.map((option) => {
-        const selected = selectedModels.includes(option.model);
-        return (
-          <Button
-            key={option.key}
-            type="button"
-            variant={selected ? "default" : "outline"}
-            size="sm"
-            className="h-8 max-w-full justify-start gap-1.5 rounded-md"
-            onClick={() =>
-              updateEligibleModels({
-                providerId,
-                models: selected
-                  ? selectedModels.filter((model) => model !== option.model)
-                  : [...selectedModels, option.model],
-              })
-            }
-          >
-            {selected ? <Check className="size-3.5" /> : null}
-            <span className="truncate">{option.label}</span>
-          </Button>
-        );
-      })}
-    </div>
+    <ToggleChipGroup
+      allLabel="All"
+      onSelectAll={() => updateEligibleModels({ providerId, models: [] })}
+      selected={selectedModels}
+      onToggle={(model) =>
+        updateEligibleModels({
+          providerId,
+          models: selectedModels.includes(model)
+            ? selectedModels.filter((selectedModel) => selectedModel !== model)
+            : [...selectedModels, model],
+        })
+      }
+      options={options.map((option) => ({
+        value: option.model,
+        label: option.label,
+      }))}
+    />
   );
 
   return (
