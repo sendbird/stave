@@ -16,7 +16,7 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * statusline-style `used_percentage` (0..100), each paired with an
  * epoch-second `resets_at` — see the usage-bar plan's research notes.
  */
-function normalizeWindow(raw: unknown): ClaudeUsageWindow | null {
+export function normalizeWindow(raw: unknown): ClaudeUsageWindow | null {
   if (!raw || typeof raw !== "object") {
     return null;
   }
@@ -31,9 +31,32 @@ function normalizeWindow(raw: unknown): ClaudeUsageWindow | null {
   if (usedPercent === null) {
     return null;
   }
-  const resetsAt =
-    typeof window.resets_at === "number" ? window.resets_at : null;
+  const resetsAt = normalizeResetsAt(window.resets_at);
   return { usedPercent, resetsAt };
+}
+
+/**
+ * `resets_at` has been observed as an epoch-second number, but the OAuth
+ * endpoint's response shape isn't documented and other Anthropic APIs use
+ * ISO-8601 strings for reset timestamps — accept both rather than silently
+ * dropping the value (which showed up as a permanent "unknown" reset time
+ * in the UI even though the server had sent a real value).
+ */
+export function normalizeResetsAt(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsedMs = Date.parse(value);
+    if (!Number.isNaN(parsedMs)) {
+      return Math.floor(parsedMs / 1000);
+    }
+    const parsedNumber = Number(value);
+    if (Number.isFinite(parsedNumber)) {
+      return parsedNumber;
+    }
+  }
+  return null;
 }
 
 /**

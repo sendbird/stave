@@ -24,7 +24,7 @@ function dotColorClass(usedPercent: number): string {
 }
 
 function formatResetsIn(resetsAt: number | null): string {
-  if (!resetsAt) {
+  if (resetsAt === null || Number.isNaN(resetsAt)) {
     return "unknown";
   }
   const deltaMs = resetsAt * 1000 - Date.now();
