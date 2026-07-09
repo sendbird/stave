@@ -157,6 +157,7 @@ import {
   readInt,
   SectionHeading,
   SectionStack,
+  SelectField,
   SettingsCard,
   SwitchField,
 } from "./settings-dialog.shared";
@@ -623,10 +624,17 @@ function ProjectSettingsPanel(args: {
               ["Actions", resolvedScriptsConfig?.actions.length ?? 0],
               ["Services", resolvedScriptsConfig?.services.length ?? 0],
               ["Hooks", Object.keys(resolvedScriptsConfig?.hooks ?? {}).length],
-              ["Targets", Object.keys(resolvedScriptsConfig?.targets ?? {}).length],
+              [
+                "Targets",
+                Object.keys(resolvedScriptsConfig?.targets ?? {}).length,
+              ],
             ] as const
           ).map(([label, count]) => (
-            <Badge key={label} variant="secondary" className="rounded-md px-2 py-0.5 text-xs font-normal">
+            <Badge
+              key={label}
+              variant="secondary"
+              className="rounded-md px-2 py-0.5 text-xs font-normal"
+            >
               {count} {label}
             </Badge>
           ))}
@@ -2076,49 +2084,6 @@ function ModelsSection() {
   );
 }
 
-function RulesSection() {
-  const [rulesPresetPrimary, rulesPresetSecondary] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.settings.rulesPresetPrimary,
-          state.settings.rulesPresetSecondary,
-        ] as const,
-    ),
-  );
-  const updateSettings = useAppStore((state) => state.updateSettings);
-
-  return (
-    <>
-      <SectionHeading
-        title="Rules"
-        description="Default rule presets injected into provider runs."
-      />
-      <SectionStack>
-        <SettingsCard
-          title="Rule Presets"
-          description="Primary and secondary presets are appended to new task turns."
-        >
-          <DraftInput
-            className="h-10 rounded-md border-border/80 bg-background"
-            value={rulesPresetPrimary}
-            onCommit={(nextValue) =>
-              updateSettings({ patch: { rulesPresetPrimary: nextValue } })
-            }
-          />
-          <DraftInput
-            className="h-10 rounded-md border-border/80 bg-background"
-            value={rulesPresetSecondary}
-            onCommit={(nextValue) =>
-              updateSettings({ patch: { rulesPresetSecondary: nextValue } })
-            }
-          />
-        </SettingsCard>
-      </SectionStack>
-    </>
-  );
-}
-
 function ChatSection() {
   const [
     smartSuggestions,
@@ -2134,6 +2099,8 @@ function ChatSection() {
     showInterimMessages,
     thinkingPhraseAnimationStyle,
     codexFastModeVisible,
+    steerQueueEnterAction,
+    midTurnSteeringEnabled,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -2151,10 +2118,15 @@ function ChatSection() {
           state.settings.showInterimMessages,
           state.settings.thinkingPhraseAnimationStyle,
           state.settings.codexFastModeVisible,
+          state.settings.steerQueueEnterAction,
+          state.settings.midTurnSteeringEnabled,
         ] as const,
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const normalizedSteerQueueEnterAction = normalizeSteerQueueEnterAction(
+    steerQueueEnterAction,
+  );
 
   return (
     <>
@@ -2316,34 +2288,27 @@ function ChatSection() {
               updateSettings({ patch: { showInterimMessages: checked } })
             }
           />
-          <LabeledField
+          <SelectField
             title="Reasoning Phrase Animation"
             description="Animation used for in-progress reasoning labels while streaming, including the rotating phrase and the Thinking label in the reasoning step."
-          >
-            <Select
-              value={thinkingPhraseAnimationStyle}
-              onValueChange={(value) =>
-                updateSettings({
-                  patch: {
-                    thinkingPhraseAnimationStyle:
-                      normalizeThinkingPhraseAnimationStyle(value),
-                  },
-                })
-              }
-            >
-              <SelectTrigger className="w-full bg-background">
-                <SelectValue placeholder="Select animation" />
-              </SelectTrigger>
-              <SelectContent>
-                {THINKING_PHRASE_ANIMATION_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                    {option.value === "soft" ? " (Recommended)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </LabeledField>
+            value={thinkingPhraseAnimationStyle}
+            onChange={(value) =>
+              updateSettings({
+                patch: {
+                  thinkingPhraseAnimationStyle:
+                    normalizeThinkingPhraseAnimationStyle(value),
+                },
+              })
+            }
+            options={THINKING_PHRASE_ANIMATION_OPTIONS.map((option) => ({
+              value: option.value,
+              label:
+                option.value === "soft"
+                  ? `${option.label} (Recommended)`
+                  : option.label,
+            }))}
+            placeholder="Select animation"
+          />
           <SwitchField
             title="Show Fast Mode Toggle (Codex)"
             description="Show the Fast mode toggle button when Codex is the active provider."
@@ -2351,6 +2316,48 @@ function ChatSection() {
             onCheckedChange={(checked) =>
               updateSettings({ patch: { codexFastModeVisible: checked } })
             }
+          />
+        </SettingsCard>
+        <SettingsCard
+          title="Active Turn"
+          description="Control what happens when you send a follow-up while an assistant turn is still running."
+          titleAccessory={
+            <Badge variant={midTurnSteeringEnabled ? "secondary" : "outline"}>
+              {midTurnSteeringEnabled ? "Enabled" : "Disabled"}
+            </Badge>
+          }
+        >
+          <SwitchField
+            title="Mid-Turn Steering"
+            description="When off, follow-ups are queued until the current turn finishes. When on, supported providers can receive live steering messages."
+            checked={midTurnSteeringEnabled}
+            onCheckedChange={(checked) =>
+              updateSettings({ patch: { midTurnSteeringEnabled: checked } })
+            }
+          />
+          <SelectField
+            title="Active-Turn Keys"
+            description="Choose which Enter action steers into the live turn and which queues for later."
+            guide={
+              <Badge variant="secondary">
+                {formatSteerQueueEnterActionLabel(
+                  normalizedSteerQueueEnterAction,
+                )}
+              </Badge>
+            }
+            value={normalizedSteerQueueEnterAction}
+            disabled={!midTurnSteeringEnabled}
+            onChange={(value) =>
+              updateSettings({
+                patch: {
+                  steerQueueEnterAction: normalizeSteerQueueEnterAction(value),
+                },
+              })
+            }
+            options={STEER_QUEUE_ENTER_ACTION_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
           />
         </SettingsCard>
       </SectionStack>
@@ -2728,8 +2735,6 @@ function CommandPaletteSection() {
     appShortcutKeys,
     modelShortcutKeys,
     promptCommentShortcut,
-    steerQueueEnterAction,
-    midTurnSteeringEnabled,
     visualCommentShortcut,
   ] = useAppStore(
     useShallow(
@@ -2742,8 +2747,6 @@ function CommandPaletteSection() {
           state.settings.appShortcutKeys,
           state.settings.modelShortcutKeys,
           state.settings.promptCommentShortcut,
-          state.settings.steerQueueEnterAction,
-          state.settings.midTurnSteeringEnabled,
           state.settings.visualCommentShortcut,
         ] as const,
     ),
@@ -2766,9 +2769,6 @@ function CommandPaletteSection() {
   );
   const normalizedPromptCommentShortcut = normalizePromptCommentShortcut(
     promptCommentShortcut,
-  );
-  const normalizedSteerQueueEnterAction = normalizeSteerQueueEnterAction(
-    steerQueueEnterAction,
   );
   const normalizedVisualCommentShortcut = normalizeVisualCommentShortcut(
     visualCommentShortcut,
@@ -3039,7 +3039,9 @@ function CommandPaletteSection() {
           description="Choose the shortcut that stages the current prompt text as a comment instead of sending it."
           titleAccessory={
             <Badge variant="secondary">
-              {formatPromptCommentShortcutLabel(normalizedPromptCommentShortcut)}
+              {formatPromptCommentShortcutLabel(
+                normalizedPromptCommentShortcut,
+              )}
             </Badge>
           }
         >
@@ -3076,65 +3078,13 @@ function CommandPaletteSection() {
         </SettingsCard>
 
         <SettingsCard
-          title="Steer / Queue"
-          description="Let a follow-up message interrupt a live turn instead of only queueing after it finishes."
-          titleAccessory={
-            <Badge variant={midTurnSteeringEnabled ? "secondary" : "outline"}>
-              {midTurnSteeringEnabled ? "Enabled" : "Disabled"}
-            </Badge>
-          }
-        >
-          <SwitchField
-            title="Mid-Turn Steering"
-            description="When off, follow-ups are always queued for after the current turn finishes — the option to steer into a live turn is hidden. Requires a provider that supports it."
-            checked={midTurnSteeringEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { midTurnSteeringEnabled: checked } })
-            }
-          />
-          <LabeledField
-            title="Active-Turn Keys"
-            description="During an active turn, choose which key steers the message into the live turn and which key queues it for after. Neither falls back to the other."
-            guide={
-              <Badge variant="secondary">
-                {formatSteerQueueEnterActionLabel(normalizedSteerQueueEnterAction)}
-              </Badge>
-            }
-          >
-            <Select
-              value={normalizedSteerQueueEnterAction}
-              disabled={!midTurnSteeringEnabled}
-              onValueChange={(value) =>
-                updateSettings({
-                  patch: {
-                    steerQueueEnterAction: normalizeSteerQueueEnterAction(value),
-                  },
-                })
-              }
-            >
-              <SelectTrigger className="h-10 w-full rounded-md border-border/80 bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Enter Key Action</SelectLabel>
-                  {STEER_QUEUE_ENTER_ACTION_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </LabeledField>
-        </SettingsCard>
-
-        <SettingsCard
           title="Lens Shortcut"
           description="Choose the shortcut that toggles Lens visual comment mode."
           titleAccessory={
             <Badge variant="secondary">
-              {formatVisualCommentShortcutLabel(normalizedVisualCommentShortcut)}
+              {formatVisualCommentShortcutLabel(
+                normalizedVisualCommentShortcut,
+              )}
             </Badge>
           }
         >
@@ -4156,9 +4106,7 @@ function LensSection() {
               variant="destructive"
               size="sm"
               disabled={
-                !activeWorkspaceId ||
-                !projectPath ||
-                clearingScope !== null
+                !activeWorkspaceId || !projectPath || clearingScope !== null
               }
               onClick={() => {
                 void clearLensSessionData("project");

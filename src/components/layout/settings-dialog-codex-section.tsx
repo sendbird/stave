@@ -1206,7 +1206,7 @@ export function CodexSection() {
                 value="config"
                 className="h-8 rounded-lg px-3 text-xs font-medium"
               >
-                Config
+                Advanced
               </TabsTrigger>
             </TabsList>
           </div>
@@ -2545,8 +2545,8 @@ export function CodexSection() {
 
                 <div className="space-y-4">
                   <DenseSection
-                    title="Config edits"
-                    description="Advanced utilities for writing specific Codex config keys from inside Stave."
+                    title="Advanced config edits"
+                    description="Raw JSON utilities for targeted Codex config changes. Most users should only inspect this area when diagnosing App Server behavior."
                   >
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -2619,8 +2619,8 @@ export function CodexSection() {
                   </DenseSection>
 
                   <DenseSection
-                    title="Merged config"
-                    description="Raw config payload returned by `config/read`."
+                    title="Merged advanced config"
+                    description="Read-only raw config payload returned by `config/read`."
                   >
                     <ReadOnlyCodeBlock
                       value={JSON.stringify(
