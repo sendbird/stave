@@ -34,7 +34,7 @@ Replace the legacy workspace/task shell with a three-part layout:
 - Workspace hover tooltips should show a compact task-summary preview, with inactive uncached workspaces loading shell data only on first tooltip open.
 - Default workspace icons should use a neutral gray chip, while non-default worktree icons should use deterministic name-hashed blue accents.
 - Project and workspace order should stay stable while navigating.
-- Project and workspace order can be adjusted manually from a dedicated sidebar edit mode.
+- Project and workspace order can be adjusted manually by long-pressing a row and dragging it.
 - Task list order should stay stable and support manual drag-and-drop reordering.
 - The selected workspace should read as the primary active state, while project rows can stay visually neutral.
 - The explorer should lazy-load folder contents, keep empty folders visible, and reuse in-memory directory caches until refresh or structural changes invalidate them.
@@ -72,10 +72,10 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
   - hosts the Stave app menu in a compact top-left header beside the collapse control
   - can collapse into a narrow rail
   - keeps the top-left header aligned to the same height as the main top bar
-  - shows a compact flat `Projects` header with `Open Project` and reorder controls in expanded mode
+  - shows a compact flat `Projects` header with `Open Project` in expanded mode
   - provides `Open Project`, hover-revealed per-project workspace creation, and direct project-settings entry points
   - keeps project order stable instead of re-sorting by recent selection
-  - exposes dedicated drag handles for project and workspace reordering only while reorder mode is enabled
+  - supports project and workspace reordering by long-pressing a row, without a persistent reorder mode or visible drag handles
   - shows a wave indicator plus the count of responding tasks when any task in that workspace is responding, then swaps that trailing slot to `Archive` on hover for archivable workspaces
   - uses stronger visual emphasis for the selected workspace while keeping project rows neutral
   - lets the sidebar background pattern show through project/workspace containers with restrained liquid-glass translucency

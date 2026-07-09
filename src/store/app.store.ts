@@ -1307,6 +1307,12 @@ export interface AppSettings {
   themeMode: "light" | "dark" | "system";
   /** ID of the active custom theme preset, or `null` for the default. */
   customThemeId: string | null;
+  /** Show the Fleet View shortcut in the left workspace sidebar. */
+  sidebarShowFleetView: boolean;
+  /** Show the ranked Active workspaces section in the left workspace sidebar. */
+  sidebarShowActiveWorkspaces: boolean;
+  /** Maximum number of rows shown in the Active workspaces section. */
+  sidebarActiveWorkspaceLimit: number;
   /**
    * When `true`, an animated "border beam" highlight travels around the
    * prompt input and active-workspace rows while a task is streaming. Purely
@@ -2484,6 +2490,9 @@ const ARCHIVED_TASK_TURN_NOTICE =
 export const STAVE_OPEN_SETTINGS_EVENT = "stave:open-settings";
 const WORKSPACE_PR_STATUS_FRESH_MS = 4 * 60 * 1000;
 const WORKSPACE_PR_STATUS_POLL_CONCURRENCY = 3;
+export const SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN = 1;
+export const SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX = 9;
+export const DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT = 5;
 
 function normalizeReasoningExpansionMode(value: unknown): "auto" | "manual" {
   return value === "auto" ? "auto" : "manual";
@@ -2517,10 +2526,23 @@ function normalizeBorderBeamStrength(value: unknown): number {
   return Math.min(1, Math.max(0, value));
 }
 
+function normalizeSidebarActiveWorkspaceLimit(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT;
+  }
+  return Math.min(
+    SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
+    Math.max(SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN, Math.round(value)),
+  );
+}
+
 const defaultSettings: AppSettings = {
   showPresetBar: true,
   themeMode: "dark",
   customThemeId: null,
+  sidebarShowFleetView: true,
+  sidebarShowActiveWorkspaces: true,
+  sidebarActiveWorkspaceLimit: DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
   borderBeamEnabled: false,
   borderBeamSize: "md",
   borderBeamVariant: "colorful",
@@ -7681,6 +7703,14 @@ export const useAppStore = create<AppState>()(
                     patch.reasoningExpansionMode,
                   ),
                 }),
+            ...(patch.sidebarActiveWorkspaceLimit === undefined
+              ? {}
+              : {
+                  sidebarActiveWorkspaceLimit:
+                    normalizeSidebarActiveWorkspaceLimit(
+                      patch.sidebarActiveWorkspaceLimit,
+                    ),
+                }),
             ...(patch.providerTimeoutMs === undefined
               ? {}
               : {
@@ -12822,6 +12852,16 @@ export const useAppStore = create<AppState>()(
         state.settings.borderBeamStrength = normalizeBorderBeamStrength(
           raw.borderBeamStrength,
         );
+        state.settings.sidebarShowFleetView =
+          typeof raw.sidebarShowFleetView === "boolean"
+            ? raw.sidebarShowFleetView
+            : defaultSettings.sidebarShowFleetView;
+        state.settings.sidebarShowActiveWorkspaces =
+          typeof raw.sidebarShowActiveWorkspaces === "boolean"
+            ? raw.sidebarShowActiveWorkspaces
+            : defaultSettings.sidebarShowActiveWorkspaces;
+        state.settings.sidebarActiveWorkspaceLimit =
+          normalizeSidebarActiveWorkspaceLimit(raw.sidebarActiveWorkspaceLimit);
         if (
           typeof persistedSettings?.terminalFontFamily === "string" &&
           persistedSettings.terminalFontFamily.trim() ===

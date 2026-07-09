@@ -1,27 +1,16 @@
-import {
-  closestCenter,
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import { closestCenter, DndContext, type DragEndEvent } from "@dnd-kit/core";
 import {
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  ArrowUpDown,
   ChevronDown,
   ChevronRight,
   FolderOpen,
   FolderTree,
   GitBranch,
-  GripVertical,
   LayoutGrid,
   LoaderCircle,
   MoreVertical,
@@ -70,6 +59,7 @@ import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
+import { useLongPressSortableSensors } from "@/hooks/use-long-press-sortable-sensors";
 import {
   Badge,
   BorderBeam,
@@ -455,13 +445,15 @@ const WorkspaceLeadingStatusIcon = memo(
     }
 
     if (!args.isDefault && prStatus) {
-      return <PrStatusIcon status={prStatus} />;
+      return <PrStatusIcon status={prStatus} className="size-4" />;
     }
 
     return (
       <WorkspaceIdentityMark
         workspaceName={args.workspaceName}
         isDefault={args.isDefault}
+        className="size-4 rounded"
+        iconClassName="size-2.5"
       />
     );
   },
@@ -743,10 +735,12 @@ export const COLLAPSED_PROJECT_SIDEBAR_WIDTH = IS_MAC
 interface SortableSidebarItemProps {
   id: string;
   disabled?: boolean;
-  handleLabel: string;
-  handleVisible?: boolean;
   children: (args: {
-    dragHandle: ReactNode | null;
+    activatorProps: {
+      ref: (element: HTMLElement | null) => void;
+      attributes: ReturnType<typeof useSortable>["attributes"];
+      listeners: ReturnType<typeof useSortable>["listeners"];
+    } | null;
     isDragging: boolean;
   }) => ReactNode;
 }
@@ -762,7 +756,7 @@ function SortableSidebarItem(args: SortableSidebarItemProps) {
     isDragging,
   } = useSortable({
     id: args.id,
-    disabled: args.disabled || !args.handleVisible,
+    disabled: args.disabled,
   });
 
   return (
@@ -773,23 +767,13 @@ function SortableSidebarItem(args: SortableSidebarItemProps) {
     >
       {args.children({
         isDragging,
-        dragHandle: args.handleVisible ? (
-          <button
-            ref={setActivatorNodeRef}
-            type="button"
-            aria-label={args.handleLabel}
-            className={cn(
-              "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors",
-              args.disabled
-                ? "cursor-default opacity-40"
-                : "cursor-grab hover:border-border/80 hover:bg-card/90 hover:text-foreground active:cursor-grabbing",
-            )}
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className="size-4" />
-          </button>
-        ) : null,
+        activatorProps: args.disabled
+          ? null
+          : {
+              ref: setActivatorNodeRef,
+              attributes,
+              listeners,
+            },
       })}
     </div>
   );
@@ -911,7 +895,6 @@ export function ProjectWorkspaceSidebar(args: {
   >({});
   const [busyProjectPath, setBusyProjectPath] = useState<string | null>(null);
   const [busyWorkspaceKey, setBusyWorkspaceKey] = useState<string | null>(null);
-  const [reorderMode, setReorderMode] = useState(false);
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [openPathDialogOpen, setOpenPathDialogOpen] = useState(false);
   const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState("");
@@ -934,6 +917,9 @@ export function ProjectWorkspaceSidebar(args: {
     activeWorkspaceBranch,
     activeWorkspaceCwd,
     workspaceSidebarItemDisplayMode,
+    sidebarShowFleetView,
+    sidebarShowActiveWorkspaces,
+    sidebarActiveWorkspaceLimit,
     defaultBranch,
     projectWorkspaceInitCommand,
     projectUseRootNodeModulesSymlink,
@@ -972,6 +958,9 @@ export function ProjectWorkspaceSidebar(args: {
           state.projectPath ??
           undefined,
         state.layout.workspaceSidebarItemDisplayMode,
+        state.settings.sidebarShowFleetView,
+        state.settings.sidebarShowActiveWorkspaces,
+        state.settings.sidebarActiveWorkspaceLimit,
         state.defaultBranch,
         (state.projectPath
           ? state.recentProjects.find(
@@ -1089,6 +1078,11 @@ export function ProjectWorkspaceSidebar(args: {
   }, [recentProjects]);
   const workspaceFleetStatusById = useMemo(() => {
     const statusById: Record<string, FleetTaskStatus> = {};
+    if (!sidebarShowActiveWorkspaces) {
+      // Nothing downstream reads this when the Active Workspaces section is
+      // hidden — skip the per-task classification pass entirely.
+      return statusById;
+    }
     for (const project of projects) {
       for (const workspace of project.workspaces) {
         const isActiveWorkspace =
@@ -1126,20 +1120,26 @@ export function ProjectWorkspaceSidebar(args: {
     messagesByTask,
     projects,
     providerTurnActivityByTask,
+    sidebarShowActiveWorkspaces,
     workspaceRuntimeCacheById,
   ]);
   const activeWorkspaceEntries = useMemo(
     () =>
-      buildSidebarActiveWorkspaceEntries({
-        projects,
-        recentProjectLastOpenedAtByPath,
-        statusByWorkspaceId: workspaceFleetStatusById,
-        activeWorkspaceId,
-      }),
+      sidebarShowActiveWorkspaces
+        ? buildSidebarActiveWorkspaceEntries({
+            projects,
+            recentProjectLastOpenedAtByPath,
+            statusByWorkspaceId: workspaceFleetStatusById,
+            activeWorkspaceId,
+            limit: sidebarActiveWorkspaceLimit,
+          })
+        : [],
     [
       activeWorkspaceId,
       projects,
       recentProjectLastOpenedAtByPath,
+      sidebarActiveWorkspaceLimit,
+      sidebarShowActiveWorkspaces,
       workspaceFleetStatusById,
     ],
   );
@@ -1162,22 +1162,9 @@ export function ProjectWorkspaceSidebar(args: {
       ),
     [workspaceShortcutTargets],
   );
-  const projectSensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-  const workspaceSensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
+  const projectSensors = useLongPressSortableSensors();
+  const workspaceSensors = useLongPressSortableSensors();
+  const suppressRowClickRef = useRef(false);
 
   useEffect(() => {
     setCollapsedByProjectPath((current) => {
@@ -1192,12 +1179,6 @@ export function ProjectWorkspaceSidebar(args: {
       return changed ? next : current;
     });
   }, [projects]);
-
-  useEffect(() => {
-    if (args.collapsed && reorderMode) {
-      setReorderMode(false);
-    }
-  }, [args.collapsed, reorderMode]);
 
   // Fetch PR status for all non-default workspaces on mount and every 5 min.
   useEffect(() => {
@@ -1310,6 +1291,10 @@ export function ProjectWorkspaceSidebar(args: {
     for (let step = 0; step < steps; step += 1) {
       moveProjectInList({ projectPath, direction });
     }
+    suppressRowClickRef.current = true;
+    window.setTimeout(() => {
+      suppressRowClickRef.current = false;
+    }, 0);
   }
 
   function handleWorkspaceDragEnd(args: {
@@ -1345,6 +1330,10 @@ export function ProjectWorkspaceSidebar(args: {
         direction,
       });
     }
+    suppressRowClickRef.current = true;
+    window.setTimeout(() => {
+      suppressRowClickRef.current = false;
+    }, 0);
   }
 
   function handleWorkspaceItemDisplayModeChange(value: string) {
@@ -1406,25 +1395,27 @@ export function ProjectWorkspaceSidebar(args: {
                   </TooltipTrigger>
                   <TooltipContent side="right">Open Project</TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        "h-10 w-10 rounded-md p-0",
-                        activeAppSurface.kind === "fleet-view"
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "hover:bg-sidebar-accent",
-                      )}
-                      onClick={() => openFleetView()}
-                      aria-label="open-fleet-view"
-                    >
-                      <LayoutGrid className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">Fleet View</TooltipContent>
-                </Tooltip>
+                {sidebarShowFleetView ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "h-10 w-10 rounded-md p-0",
+                          activeAppSurface.kind === "fleet-view"
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "hover:bg-sidebar-accent",
+                        )}
+                        onClick={() => openFleetView()}
+                        aria-label="open-fleet-view"
+                      >
+                        <LayoutGrid className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Fleet View</TooltipContent>
+                  </Tooltip>
+                ) : null}
                 <MemoryUsagePopover collapsed />
               </div>
             ) : (
@@ -1517,21 +1508,24 @@ export function ProjectWorkspaceSidebar(args: {
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1.5">
             <TooltipProvider>
               <div className="mb-2 space-y-0.5">
-                <button
-                  type="button"
-                  onClick={() => openFleetView()}
-                  aria-label="open-fleet-view"
-                  className={cn(
-                    "flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors",
-                    activeAppSurface.kind === "fleet-view"
-                      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  )}
-                >
-                  <LayoutGrid className="size-4" />
-                  Fleet View
-                </button>
-                {activeWorkspaceEntries.length > 0 ? (
+                {sidebarShowFleetView ? (
+                  <button
+                    type="button"
+                    onClick={() => openFleetView()}
+                    aria-label="open-fleet-view"
+                    className={cn(
+                      "flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors",
+                      activeAppSurface.kind === "fleet-view"
+                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    )}
+                  >
+                    <LayoutGrid className="size-4" />
+                    Fleet View
+                  </button>
+                ) : null}
+                {sidebarShowActiveWorkspaces &&
+                activeWorkspaceEntries.length > 0 ? (
                   <>
                     <div className="px-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                       Active workspaces
@@ -1543,7 +1537,7 @@ export function ProjectWorkspaceSidebar(args: {
                         workspaceName={entry.workspaceName}
                         branch={entry.branch}
                         projectName={entry.projectName}
-                        side="top"
+                        side="right"
                       >
                         <button
                           type="button"
@@ -1648,30 +1642,6 @@ export function ProjectWorkspaceSidebar(args: {
                       </DropdownMenuRadioGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className={cn(
-                          "h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                          reorderMode &&
-                            "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
-                        )}
-                        onClick={() => setReorderMode((current) => !current)}
-                        aria-label="toggle-sidebar-reorder-mode"
-                        aria-pressed={reorderMode}
-                      >
-                        <ArrowUpDown className="size-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      {reorderMode
-                        ? "Finish reordering"
-                        : "Reorder projects and workspaces"}
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
               </div>
               <div className="relative mb-2 px-2">
@@ -1727,27 +1697,30 @@ export function ProjectWorkspaceSidebar(args: {
                           const projectBusy =
                             busyProjectPath === project.projectPath;
                           const projectReorderingDisabled =
-                            !reorderMode || projectBusy || projects.length < 2;
+                            projectBusy || projects.length < 2;
 
                           return (
                             <SortableSidebarItem
                               key={project.projectPath}
                               id={project.projectPath}
                               disabled={projectReorderingDisabled}
-                              handleLabel={`reorder-project-${project.projectPath}`}
-                              handleVisible={reorderMode}
                             >
-                              {({ dragHandle, isDragging }) => (
+                              {({ activatorProps, isDragging }) => (
                                 <section
                                   className={cn(
-                                    isDragging && "rounded-md bg-sidebar-accent/60",
+                                    isDragging &&
+                                      "rounded-md bg-sidebar-accent/60",
                                   )}
                                 >
                                   <div className="flex items-center gap-1">
-                                    {dragHandle}
                                     <div
+                                      ref={activatorProps?.ref}
+                                      {...(activatorProps?.attributes ?? {})}
+                                      {...(activatorProps?.listeners ?? {})}
                                       className={cn(
                                         "group/project-row flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-within:bg-sidebar-accent",
+                                        activatorProps &&
+                                          "cursor-grab touch-none active:cursor-grabbing",
                                       )}
                                     >
                                       <Tooltip>
@@ -1812,6 +1785,16 @@ export function ProjectWorkspaceSidebar(args: {
                                       <div className="flex min-w-0 flex-1 items-center gap-2">
                                         <span className="min-w-0 flex-1 truncate font-medium">
                                           {project.projectName}
+                                        </span>
+                                        <span
+                                          className={cn(
+                                            "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm border border-sidebar-border/60 bg-sidebar-accent/45 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground transition-all duration-200",
+                                            "group-hover/project-row:pointer-events-none group-hover/project-row:translate-x-1 group-hover/project-row:opacity-0",
+                                            "group-focus-within/project-row:pointer-events-none group-focus-within/project-row:translate-x-1 group-focus-within/project-row:opacity-0",
+                                          )}
+                                          aria-label={`${project.workspaces.length} workspaces`}
+                                        >
+                                          {project.workspaces.length}
                                         </span>
                                         <div
                                           className={cn(
@@ -1896,7 +1879,7 @@ export function ProjectWorkspaceSidebar(args: {
                                     </div>
                                   </div>
                                   {!collapsed ? (
-                                    <div className="pl-4 pr-0.5 pb-1 pt-0.5">
+                                    <div className="pb-1 pt-0.5">
                                       <DndContext
                                         sensors={workspaceSensors}
                                         collisionDetection={closestCenter}
@@ -1928,7 +1911,6 @@ export function ProjectWorkspaceSidebar(args: {
                                                   workspace.id ===
                                                     activeWorkspaceId;
                                                 const workspaceReorderingDisabled =
-                                                  !reorderMode ||
                                                   projectBusy ||
                                                   workspaceBusy ||
                                                   project.workspaces.length < 2;
@@ -1953,11 +1935,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                     disabled={
                                                       workspaceReorderingDisabled
                                                     }
-                                                    handleLabel={`reorder-workspace-${workspace.id}`}
-                                                    handleVisible={reorderMode}
                                                   >
                                                     {({
-                                                      dragHandle,
+                                                      activatorProps,
                                                       isDragging,
                                                     }) => (
                                                       <WorkspaceBorderBeam
@@ -1967,18 +1947,17 @@ export function ProjectWorkspaceSidebar(args: {
                                                       >
                                                         <div
                                                           className={cn(
-                                                            "group/workspace-row relative flex rounded-lg border transition-[background-color,border-color,box-shadow,color]",
+                                                            "group/workspace-row relative flex rounded-md border transition-[background-color,border-color,box-shadow,color]",
                                                             isExpandedWorkspaceItem
                                                               ? "items-stretch gap-1"
                                                               : "items-center gap-1",
                                                             isActive
-                                                              ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:pointer-events-none before:absolute before:-left-px before:-top-px before:h-3 before:w-3 before:rounded-tl-lg before:border-l-2 before:border-t-2 before:border-primary hover:bg-primary/16"
+                                                              ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:pointer-events-none before:absolute before:-left-px before:-top-px before:h-3 before:w-3 before:rounded-tl-md before:border-l-2 before:border-t-2 before:border-primary hover:bg-primary/16"
                                                               : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                                                             isDragging &&
                                                               "border-sidebar-border/45 bg-sidebar-accent shadow-sm",
                                                           )}
                                                         >
-                                                          {dragHandle}
                                                           <WorkspaceHoverPreviewTooltip
                                                             workspaceId={
                                                               workspace.id
@@ -1995,15 +1974,29 @@ export function ProjectWorkspaceSidebar(args: {
                                                             side="right"
                                                           >
                                                             <div
+                                                              ref={
+                                                                activatorProps?.ref
+                                                              }
+                                                              {...(activatorProps?.attributes ??
+                                                                {})}
+                                                              {...(activatorProps?.listeners ??
+                                                                {})}
                                                               role="button"
                                                               tabIndex={0}
                                                               className={cn(
                                                                 "flex min-w-0 flex-1 gap-2 text-left text-sm",
                                                                 isExpandedWorkspaceItem
-                                                                  ? "items-start px-2 py-2.5"
-                                                                  : "items-center px-2 py-2",
+                                                                  ? "items-start px-3 py-2.5"
+                                                                  : "items-center px-3 py-2",
+                                                                activatorProps &&
+                                                                  "cursor-grab touch-none active:cursor-grabbing",
                                                               )}
-                                                              onClick={() =>
+                                                              onClick={() => {
+                                                                if (
+                                                                  suppressRowClickRef.current
+                                                                ) {
+                                                                  return;
+                                                                }
                                                                 void handleProjectWorkspaceOpen(
                                                                   {
                                                                     projectPath:
@@ -2011,8 +2004,8 @@ export function ProjectWorkspaceSidebar(args: {
                                                                     workspaceId:
                                                                       workspace.id,
                                                                   },
-                                                                )
-                                                              }
+                                                                );
+                                                              }}
                                                               onKeyDown={(
                                                                 event,
                                                               ) => {

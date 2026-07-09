@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { createJSONStorage } from "zustand/middleware";
-import { useAppStore } from "@/store/app.store";
+import {
+  DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
+  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
+  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
+  useAppStore,
+} from "@/store/app.store";
 import {
   DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
   normalizeLayoutState,
@@ -37,6 +42,46 @@ describe("layout settings", () => {
     });
 
     expect(normalized.workspaceSidebarItemDisplayMode).toBe("expanded");
+  });
+});
+
+describe("sidebar settings", () => {
+  test("defaults sidebar navigation controls to the existing visible state", () => {
+    const settings = useAppStore.getInitialState().settings;
+
+    expect(settings.sidebarShowFleetView).toBe(true);
+    expect(settings.sidebarShowActiveWorkspaces).toBe(true);
+    expect(settings.sidebarActiveWorkspaceLimit).toBe(
+      DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
+    );
+  });
+
+  test("normalizes sidebar active workspace row limit updates", () => {
+    (
+      useAppStore as typeof useAppStore & {
+        persist?: {
+          setOptions: (options: { storage: typeof noopStorage }) => void;
+        };
+      }
+    ).persist?.setOptions({ storage: noopStorage });
+
+    useAppStore.getState().updateSettings({
+      patch: {
+        sidebarActiveWorkspaceLimit: SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX + 10,
+      },
+    });
+    expect(useAppStore.getState().settings.sidebarActiveWorkspaceLimit).toBe(
+      SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
+    );
+
+    useAppStore.getState().updateSettings({
+      patch: {
+        sidebarActiveWorkspaceLimit: SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN - 10,
+      },
+    });
+    expect(useAppStore.getState().settings.sidebarActiveWorkspaceLimit).toBe(
+      SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
+    );
   });
 });
 
