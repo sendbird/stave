@@ -16,6 +16,7 @@ import type {
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
   CodexReviewStartResponse,
+  RateLimitsSnapshotResponse,
 } from "../../src/lib/providers/provider.types";
 import type {
   ConnectedToolStatusRequest,
@@ -471,6 +472,10 @@ export interface HostServiceRequestMap {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.get-rate-limits-snapshot": {
+    cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
   "provider.get-codex-plugin-detail": {
     marketplacePath: string;
     pluginName: string;
@@ -749,6 +754,7 @@ export interface HostServiceResponseMap {
   "provider.get-codex-mcp-status": CodexMcpStatusResponse;
   "provider.get-codex-model-catalog": CodexModelCatalogResponse;
   "provider.get-codex-app-server-snapshot": CodexAppServerSnapshotResponse;
+  "provider.get-rate-limits-snapshot": RateLimitsSnapshotResponse;
   "provider.get-codex-plugin-detail": CodexPluginDetailResponse;
   "provider.install-codex-plugin": CodexPluginInstallResponse;
   "provider.uninstall-codex-plugin": CodexMutationResponse;

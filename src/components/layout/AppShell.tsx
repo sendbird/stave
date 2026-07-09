@@ -45,6 +45,7 @@ import {
 import { EditorMainPanel } from "@/components/layout/EditorMainPanel";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { RightRail } from "@/components/layout/RightRail";
+import { StatusBar } from "@/components/layout/StatusBar";
 import { dispatchExplorerSearchRequest } from "@/components/layout/explorer-search-events";
 import {
   MIN_CHAT_PANEL_WIDTH,
@@ -1258,7 +1259,7 @@ export function AppShell() {
     activeSurface.kind === "compare-run";
 
   return (
-    <div className="relative flex h-full w-full bg-background text-foreground">
+    <div className="relative flex h-full w-full flex-col bg-background text-foreground">
       {zoomHudPercent !== null ? (
         <div
           className={`pointer-events-none absolute left-1/2 top-16 ${UI_LAYER_CLASS.floatingChrome} -translate-x-1/2`}
@@ -1340,7 +1341,7 @@ export function AppShell() {
           />
         </Suspense>
       ) : null}
-      <>
+      <div className="flex min-h-0 min-w-0 flex-1">
           <RenderProfiler id="ProjectWorkspaceSidebar">
             <ProjectWorkspaceSidebar
               width={Math.max(
@@ -1681,7 +1682,8 @@ export function AppShell() {
           {monacoWarmupActive && !editorVisible ? (
             <EditorMonacoWarmup onReady={handleMonacoWarmed} />
           ) : null}
-      </>
+      </div>
+      <StatusBar />
     </div>
   );
 }

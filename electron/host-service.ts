@@ -86,6 +86,7 @@ import {
   uninstallCodexPlugin,
   writeCodexConfigValue,
 } from "./providers/codex-app-server-runtime";
+import { getRateLimitsSnapshot } from "./providers/rate-limits/rate-limits-snapshot";
 import {
   getClaudeContextUsage,
   prewarmClaudeSdk,
@@ -1153,6 +1154,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         request.id,
         await getCodexAppServerSnapshot(request.params),
       );
+      return;
+    case "provider.get-rate-limits-snapshot":
+      await respond(request.id, await getRateLimitsSnapshot(request.params));
       return;
     case "provider.get-codex-plugin-detail":
       await respond(request.id, await getCodexPluginDetail(request.params));

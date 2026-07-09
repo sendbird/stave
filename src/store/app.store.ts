@@ -45,6 +45,7 @@ import type {
   ProviderGoalSnapshot,
   ProviderId,
   ProviderTurnRequest,
+  RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import { getRepoMapContextCache } from "@/lib/fs/repo-map-context-cache";
 import { buildCurrentTaskAwarenessRetrievedContext } from "@/lib/task-context/current-task-awareness";
@@ -1528,6 +1529,10 @@ interface AppState {
   workspaceDefaultById: Record<string, boolean>;
   /** PR info cache per workspace – transient, not persisted across sessions. */
   workspacePrInfoById: Record<string, WorkspacePrInfo>;
+  /** Claude/Codex usage for the bottom status bar – transient, not persisted. */
+  rateLimitsSnapshot: RateLimitsSnapshotResponse | null;
+  rateLimitsLoading: boolean;
+  rateLimitsError: string | null;
   isDarkMode: boolean;
   activeTaskId: string;
   draftProvider: ProviderId;
@@ -1780,6 +1785,7 @@ interface AppState {
   toggleEditorMarkdownPreviewMode: () => void;
   openWorkspacePicker: () => Promise<void>;
   refreshProjectFiles: () => Promise<void>;
+  refreshRateLimits: () => Promise<void>;
   refreshProviderAvailability: () => Promise<void>;
   refreshSkillCatalog: (args?: {
     workspacePath?: string | null;
@@ -4885,6 +4891,9 @@ export const useAppStore = create<AppState>()(
         workspacePathById: {},
         workspaceDefaultById: {},
         workspacePrInfoById: {},
+        rateLimitsSnapshot: null,
+        rateLimitsLoading: false,
+        rateLimitsError: null,
         isDarkMode: true,
         activeTaskId: "",
         draftProvider: "claude-code",
@@ -9917,6 +9926,23 @@ export const useAppStore = create<AppState>()(
               workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
             };
           });
+        },
+        refreshRateLimits: async () => {
+          const getSnapshot = window.api?.provider?.getRateLimitsSnapshot;
+          if (!getSnapshot) {
+            return;
+          }
+          set({ rateLimitsLoading: true, rateLimitsError: null });
+          try {
+            const snapshot = await getSnapshot({});
+            set({ rateLimitsSnapshot: snapshot, rateLimitsLoading: false });
+          } catch (error) {
+            set({
+              rateLimitsLoading: false,
+              rateLimitsError:
+                error instanceof Error ? error.message : String(error),
+            });
+          }
         },
         refreshProviderAvailability: async () => {
           const checkAvailability = window.api?.provider?.checkAvailability;

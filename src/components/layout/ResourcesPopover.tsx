@@ -112,7 +112,15 @@ function UsageBar({
   );
 }
 
-export function MemoryUsagePopover({ collapsed }: { collapsed?: boolean }) {
+export function MemoryUsagePopover({
+  collapsed,
+  variant = "sidebar",
+}: {
+  collapsed?: boolean;
+  /** "bar" renders a compact inline trigger for the bottom status bar. */
+  variant?: "sidebar" | "bar";
+}) {
+  const isBar = variant === "bar";
   const [open, setOpen] = useState(false);
   const [metrics, setMetrics] = useState<AppMetrics | null>(null);
   const [loading, setLoading] = useState(false);
@@ -168,27 +176,30 @@ export function MemoryUsagePopover({ collapsed }: { collapsed?: boolean }) {
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
-                  collapsed ? "h-10 w-10" : "h-9 w-9",
+                  "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
+                  isBar
+                    ? "h-6 gap-1.5 rounded-none px-2 text-xs"
+                    : cn("rounded-md p-0", collapsed ? "h-10 w-10" : "h-9 w-9"),
                 )}
                 aria-label="memory-usage"
               >
                 <Activity className="size-4" />
+                {isBar ? <span>Memory</span> : null}
               </Button>
             </PopoverTrigger>
           </span>
         </TooltipTrigger>
         {!open ? (
-          <TooltipContent side={collapsed ? "right" : "bottom"}>
+          <TooltipContent side={collapsed ? "right" : isBar ? "top" : "bottom"}>
             Memory Usage
           </TooltipContent>
         ) : null}
       </Tooltip>
 
       <PopoverContent
-        side="right"
-        align="start"
-        sideOffset={12}
+        side={isBar ? "top" : "right"}
+        align={isBar ? "end" : "start"}
+        sideOffset={isBar ? 8 : 12}
         className="w-80 gap-0 overflow-hidden border border-border/80 bg-card p-0 shadow-2xl"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
