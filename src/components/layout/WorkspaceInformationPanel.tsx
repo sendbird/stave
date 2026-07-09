@@ -15,7 +15,6 @@ import {
   GitPullRequestClosed,
   GitPullRequestDraft,
   Globe,
-  GripVertical,
   Hash,
   Link,
   MessageSquarePlus,
@@ -28,25 +27,18 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import {
-  closestCenter,
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import { closestCenter, DndContext, type DragEndEvent } from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -131,6 +123,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { extractPlanTodoItems } from "@/lib/plans";
+import { useLongPressSortableSensors } from "@/hooks/use-long-press-sortable-sensors";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
 
@@ -247,7 +240,9 @@ function normalizeWorkspaceInformationSectionOrder(
   ];
   return [
     "overview",
-    ...merged.filter((id): id is WorkspaceInformationSectionId => id !== "overview"),
+    ...merged.filter(
+      (id): id is WorkspaceInformationSectionId => id !== "overview",
+    ),
   ];
 }
 
@@ -488,6 +483,13 @@ function ConfluenceIcon({ className }: { className?: string }) {
 // Shared section wrapper — minimal, borderless accordion style
 // ---------------------------------------------------------------------------
 
+// Shared with the panel's DndContext owner so a completed section-reorder
+// drag can suppress the trailing click that would otherwise toggle the
+// AccordionTrigger the drag was performed on.
+const SectionDragSuppressionContext = createContext<{ current: boolean }>({
+  current: false,
+});
+
 function SectionHeader(props: {
   value: WorkspaceInformationSectionId;
   title: string;
@@ -498,15 +500,17 @@ function SectionHeader(props: {
   first?: boolean;
   order?: number;
 }) {
-  const sortable = useSortable({
-    id: props.value,
-    disabled: props.value === "overview",
-  });
+  const isDraggable = props.value !== "overview";
+  const sortable = useSortable({ id: props.value, disabled: !isDraggable });
+  const suppressClickRef = useContext(SectionDragSuppressionContext);
   const style: CSSProperties = {
     order: props.order,
     transform: CSS.Transform.toString(sortable.transform),
     transition: sortable.transition,
   };
+  const dragProps = isDraggable
+    ? { ...sortable.attributes, ...sortable.listeners }
+    : {};
 
   return (
     <AccordionItem
@@ -516,22 +520,25 @@ function SectionHeader(props: {
       className={cn(
         "border-b border-border/50",
         props.first && "border-t-0",
-        sortable.isDragging && "relative z-10 bg-background opacity-90 shadow-sm",
+        sortable.isDragging &&
+          "relative z-10 bg-background opacity-90 shadow-sm",
       )}
     >
       <div className="group/section-row flex items-center">
-        {props.value !== "overview" ? (
-          <button
-            type="button"
-            {...sortable.attributes}
-            {...sortable.listeners}
-            aria-label={`reorder-section-${props.value}`}
-            className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground/0 transition-colors group-hover/section-row:text-muted-foreground/50 hover:text-foreground!"
-          >
-            <GripVertical className="size-3.5" />
-          </button>
-        ) : null}
-        <AccordionTrigger className="flex-1 gap-2 py-2.5 pr-1 pl-0 hover:no-underline [&>svg[data-slot=accordion-trigger-icon]]:hidden">
+        <AccordionTrigger
+          {...dragProps}
+          onClick={(event) => {
+            if (suppressClickRef.current) {
+              // A drag just reordered this section — swallow the trailing
+              // click so it doesn't also toggle the accordion open/closed.
+              event.preventDefault();
+            }
+          }}
+          className={cn(
+            "flex-1 gap-2 py-2.5 pr-1 pl-0 hover:no-underline [&>svg[data-slot=accordion-trigger-icon]]:hidden",
+            isDraggable && "cursor-grab touch-none active:cursor-grabbing",
+          )}
+        >
           <div className="flex items-center gap-2 text-left">
             <span className="relative flex size-[18px] shrink-0 items-center justify-center text-muted-foreground">
               {/* Section icon — visible by default, fades out on row hover */}
@@ -647,11 +654,16 @@ function InlineLinkRow(props: {
                   onClick={props.onTogglePin}
                   aria-pressed={props.pinned}
                   aria-label={
-                    props.pinned ? "Unpin intent anchor" : "Pin as intent anchor"
+                    props.pinned
+                      ? "Unpin intent anchor"
+                      : "Pin as intent anchor"
                   }
                 >
                   <Pin
-                    className={cn("size-3.5", props.pinned ? "fill-current" : "")}
+                    className={cn(
+                      "size-3.5",
+                      props.pinned ? "fill-current" : "",
+                    )}
                   />
                 </button>
               </TooltipTrigger>
@@ -1191,7 +1203,10 @@ function NotesSectionBody(props: {
           if (event.key === "Escape") {
             event.preventDefault();
             cancel();
-          } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          } else if (
+            event.key === "Enter" &&
+            (event.metaKey || event.ctrlKey)
+          ) {
             event.preventDefault();
             commit();
           }
@@ -1289,12 +1304,8 @@ export function WorkspaceInformationPanel() {
   const sectionOrderIndexById = Object.fromEntries(
     sectionOrder.map((id, index) => [id, index]),
   ) as Record<WorkspaceInformationSectionId, number>;
-  const sectionDragSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
+  const sectionDragSensors = useLongPressSortableSensors();
+  const suppressSectionClickRef = useRef(false);
   const handleSectionDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) {
@@ -1310,6 +1321,10 @@ export function WorkspaceInformationPanel() {
       if (oldIndex < 0 || newIndex < 0 || newIndex === 0) {
         return current;
       }
+      suppressSectionClickRef.current = true;
+      window.setTimeout(() => {
+        suppressSectionClickRef.current = false;
+      }, 0);
       return normalizeWorkspaceInformationSectionOrder(
         arrayMove(current, oldIndex, newIndex),
       );
@@ -1529,1212 +1544,1269 @@ export function WorkspaceInformationPanel() {
       className="flex h-full min-h-0 flex-col overflow-auto origin-top-left"
       style={infoPanelScale !== 1 ? { zoom: infoPanelScale } : undefined}
     >
-      <div className="px-3 py-2">
+      <div className="py-2">
         <DndContext
           sensors={sectionDragSensors}
           collisionDetection={closestCenter}
           onDragEnd={handleSectionDragEnd}
         >
-        <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
-        <Accordion
-          type="multiple"
-          value={openSections}
-          onValueChange={(value) =>
-            setOpenSections(value as WorkspaceInformationSectionId[])
-          }
-        >
-          <SectionHeader
-            value="overview"
-            order={sectionOrderIndexById.overview}
-            title="Summary"
-            icon={<Sparkles className="size-4" />}
-            first
-            action={
-              latestTurnSummary ? (
-                <span className="pr-1 text-[11px] text-muted-foreground/70">
-                  {formatTaskUpdatedAt({
-                    value: latestTurnSummary.generatedAt,
-                  })}
-                </span>
-              ) : null
-            }
+          <SortableContext
+            items={sectionOrder}
+            strategy={verticalListSortingStrategy}
           >
-            {latestTurnSummary ? (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  {latestTurnSummary.taskTitle ? (
-                    <span className="min-w-0 truncate font-medium text-foreground/80">
-                      {latestTurnSummary.taskTitle}
-                    </span>
-                  ) : null}
-                  <Badge
-                    variant="outline"
-                    className="h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none"
-                  >
-                    {toHumanModelName({ model: latestTurnSummary.model })}
-                  </Badge>
-                </div>
-
-                <div className="space-y-3">
-                  <SummaryEntry
-                    icon={<UserRound className="size-3.5" />}
-                    label="user"
-                  >
-                    {latestTurnSummary.requestSummary}
-                  </SummaryEntry>
-                  <div className="border-t border-border/40" />
-                  <SummaryEntry
-                    icon={<Bot className="size-3.5" />}
-                    label="ai"
-                    tone="muted"
-                  >
-                    {latestTurnSummary.workSummary}
-                  </SummaryEntry>
-                </div>
-              </div>
-            ) : (
-              <p className="text-[15px] leading-6 text-muted-foreground">
-                No summary yet. Finish a turn.
-              </p>
-            )}
-          </SectionHeader>
-
-          {/* ── Todo ──────────────────────────────────────────── */}
-          <SectionHeader
-            value="todo"
-            order={sectionOrderIndexById.todo}
-            title="Todos"
-            icon={<CheckCircle2 className="size-4" />}
-            count={openTodoCount}
-            action={
-              <AddButton
-                onClick={() =>
-                  patchWorkspaceInformation((current) => ({
-                    ...current,
-                    todos: [...current.todos, createWorkspaceTodoItem()],
-                  }))
+            <SectionDragSuppressionContext.Provider
+              value={suppressSectionClickRef}
+            >
+              <Accordion
+                type="multiple"
+                value={openSections}
+                onValueChange={(value) =>
+                  setOpenSections(value as WorkspaceInformationSectionId[])
                 }
-                label="Add todo"
-              />
-            }
-          >
-            {totalTodoCount > 0 ? (
-              <div className="mb-1.5 flex items-center gap-2 px-0.5">
-                <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{
-                      width: `${Math.round(
-                        (completedTodoCount / totalTodoCount) * 100,
-                      )}%`,
-                    }}
-                  />
-                </div>
-                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                  {completedTodoCount}/{totalTodoCount}
-                </span>
-              </div>
-            ) : null}
-            <div className="-mx-2 space-y-0.5">
-              {workspaceInformation.todos.length === 0 ? (
-                <EmptyHint>No todos yet</EmptyHint>
-              ) : null}
-              {workspaceInformation.todos.map((todo) => (
-                <div
-                  key={todo.id}
-                  className="group/todo flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
-                >
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors",
-                      resolveWorkspaceTodoStatus(todo) === "pending"
-                        ? "text-muted-foreground/40 hover:text-muted-foreground"
-                        : "text-primary",
-                    )}
-                    onClick={() =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        todos: updateItemById(
-                          current.todos,
-                          todo.id,
-                          (item) =>
-                            applyWorkspaceTodoStatus(
-                              item,
-                              cycleWorkspaceTodoStatus(
-                                resolveWorkspaceTodoStatus(item),
-                              ),
-                            ),
-                        ),
-                      }))
-                    }
-                    aria-label={`Todo status: ${resolveWorkspaceTodoStatus(
-                      todo,
-                    )}. Click to advance.`}
-                  >
-                    {resolveWorkspaceTodoStatus(todo) === "completed" ? (
-                      <CheckCircle2 className="size-4" />
-                    ) : resolveWorkspaceTodoStatus(todo) === "in_progress" ? (
-                      <CircleDot className="size-4" />
-                    ) : (
-                      <Circle className="size-4" />
-                    )}
-                  </button>
-                  <Input
-                    value={todo.text}
-                    onChange={(event) =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        todos: updateItemById(
-                          current.todos,
-                          todo.id,
-                          (item) => ({
-                            ...item,
-                            text: event.target.value,
-                          }),
-                        ),
-                      }))
-                    }
-                    placeholder="Todo item"
-                    className={cn(
-                      "h-8 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0",
-                      resolveWorkspaceTodoStatus(todo) === "completed" &&
-                        "text-muted-foreground/50 line-through",
-                    )}
-                  />
-                  <button
-                    type="button"
-                    className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/todo:opacity-100"
-                    onClick={() =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        todos: removeItemById(current.todos, todo.id),
-                      }))
-                    }
-                    aria-label="Remove todo"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </SectionHeader>
-
-          {/* ── Note ──────────────────────────────────────────── */}
-          <SectionHeader
-            value="note"
-            order={sectionOrderIndexById.note}
-            title="Notes"
-            icon={<StickyNote className="size-4" />}
-          >
-            <NotesSectionBody
-              notes={workspaceInformation.notes}
-              onChange={(notes) =>
-                patchWorkspaceInformation((current) => ({
-                  ...current,
-                  notes,
-                }))
-              }
-            />
-          </SectionHeader>
-
-          <SectionHeader
-            value="plans"
-            order={sectionOrderIndexById.plans}
-            title="Plans"
-            icon={<ClipboardCheck className="size-4" />}
-            count={plansHeader.count}
-            action={
-              <button
-                type="button"
-                className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
-                onClick={() => notifyWorkspacePlansChanged()}
-                aria-label="Refresh plans"
               >
-                <RefreshCcw
-                  className={cn("size-4", plansHeader.loading && "animate-spin")}
-                />
-              </button>
-            }
-          >
-            <WorkspacePlansSection
-              embedded
-              workspacePath={workspacePath}
-              refreshNonce={workspacePlansRefreshNonce}
-              onEntriesChange={handlePlansEntriesChange}
-              onOpenFile={({ filePath }) => openFileFromTree({ filePath })}
-              onImportTodos={async ({ filePath }) => {
-                if (!workspacePath) {
-                  return;
-                }
-                const result = await window.api?.fs?.readFile?.({
-                  rootPath: workspacePath,
-                  filePath,
-                });
-                if (!result?.ok || typeof result.content !== "string") {
-                  toast.error("Could not read plan file");
-                  return;
-                }
-                const items = extractPlanTodoItems(result.content);
-                if (items.length === 0) {
-                  toast("No checklist items found in this plan");
-                  return;
-                }
-                patchWorkspaceInformation((current) => ({
-                  ...current,
-                  todos: [
-                    ...current.todos,
-                    ...items.map((item) => {
-                      const base = {
-                        ...createWorkspaceTodoItem(),
-                        text: item.text,
-                      };
-                      return item.completed
-                        ? applyWorkspaceTodoStatus(base, "completed")
-                        : base;
-                    }),
-                  ],
-                }));
-                setOpenSections((sections) =>
-                  sections.includes("todo")
-                    ? sections
-                    : [...sections, "todo"],
-                );
-                toast.success(
-                  `Imported ${items.length} ${
-                    items.length === 1 ? "todo" : "todos"
-                  } from plan`,
-                );
-              }}
-            />
-          </SectionHeader>
-
-          {/* ── GitHub ────────────────────────────────────────── */}
-          <SectionHeader
-            value="github"
-            order={sectionOrderIndexById.github}
-            title="Pull Requests"
-            icon={<GitHubIcon className="size-4" />}
-            count={
-              workspaceInformation.linkedPullRequests.length +
-              (currentBranchPr ? 1 : 0)
-            }
-            action={
-              <div className="flex items-center gap-0.5">
-                {!isDefaultWorkspace ? (
-                  <button
-                    type="button"
-                    className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
-                    onClick={() =>
-                      void fetchWorkspacePrStatus({
-                        workspaceId: activeWorkspaceId,
-                      })
-                    }
-                    aria-label="Refresh"
-                  >
-                    <RefreshCcw className="size-4" />
-                  </button>
-                ) : null}
-                <AddButton
-                  onClick={() =>
-                    patchWorkspaceInformation((current) => ({
-                      ...current,
-                      linkedPullRequests: [
-                        ...current.linkedPullRequests,
-                        createWorkspaceLinkedPullRequest(),
-                      ],
-                    }))
+                <SectionHeader
+                  value="overview"
+                  order={sectionOrderIndexById.overview}
+                  title="Summary"
+                  icon={<Sparkles className="size-4" />}
+                  first
+                  action={
+                    latestTurnSummary ? (
+                      <span className="pr-1 text-[11px] text-muted-foreground/70">
+                        {formatTaskUpdatedAt({
+                          value: latestTurnSummary.generatedAt,
+                        })}
+                      </span>
+                    ) : null
                   }
-                  label="Add pull request"
-                />
-              </div>
-            }
-          >
-            <div className="-mx-2 space-y-0.5">
-              {/* Current branch PR */}
-              {!isDefaultWorkspace &&
-              currentBranchPr &&
-              currentBranchPrStatus ? (
-                <GitHubPrRow
-                  number={currentBranchPr.number}
-                  title={currentBranchPr.title}
-                  status={currentBranchPrStatus}
-                  branch={`${currentBranchPr.headRefName} → ${currentBranchPr.baseRefName}`}
-                  url={currentBranchPr.url}
-                  isCurrent
-                />
-              ) : !isDefaultWorkspace ? (
-                <EmptyHint>No PR for current branch</EmptyHint>
-              ) : null}
-
-              {/* Linked PRs */}
-              {workspaceInformation.linkedPullRequests.map((item) => {
-                const githubRef = extractGitHubPullRequestReference(item.url);
-                const preview = linkedPullRequestPreviewById[item.id];
-                const previewInfo = preview?.info;
-                const previewStatus = previewInfo?.derived;
-
-                if (!isWorkspaceInfoUrl(item.url)) {
-                  return (
-                    <InlineUrlInput
-                      key={item.id}
-                      value={item.url}
-                      icon={<Link className="size-4" />}
-                      placeholder="https://github.com/owner/repo/pull/123"
-                      onChange={(url) =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          linkedPullRequests: updateItemById(
-                            current.linkedPullRequests,
-                            item.id,
-                            (pullRequest) => ({
-                              ...pullRequest,
-                              url,
-                            }),
-                          ),
-                        }))
-                      }
-                      onRemove={() =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          linkedPullRequests: removeItemById(
-                            current.linkedPullRequests,
-                            item.id,
-                          ),
-                        }))
-                      }
-                    />
-                  );
-                }
-
-                const title =
-                  previewInfo?.pr.title ||
-                  item.title.trim() ||
-                  (githubRef
-                    ? `${githubRef.owner}/${githubRef.repo} #${githubRef.number}`
-                    : "Linked PR");
-                const number = previewInfo?.pr.number ?? githubRef?.number ?? 0;
-                const repo = githubRef
-                  ? `${githubRef.owner}/${githubRef.repo}`
-                  : undefined;
-                const referenceLabel =
-                  repo && number > 0
-                    ? `${repo} #${number}`
-                    : number > 0
-                      ? `#${number}`
-                      : repo;
-                const branch =
-                  previewInfo?.pr.headRefName && previewInfo.pr.baseRefName
-                    ? `${previewInfo.pr.headRefName} → ${previewInfo.pr.baseRefName}`
-                    : undefined;
-
-                return (
-                  <GitHubPrRow
-                    key={item.id}
-                    number={number}
-                    title={title}
-                    status={
-                      previewStatus ??
-                      (preview?.loading ? "review_required" : "review_required")
-                    }
-                    repo={repo}
-                    branch={branch}
-                    url={item.url}
-                    loading={preview?.loading}
-                    actions={
-                      <CreateTaskActionButton
-                        disabled={taskSeedInFlightId !== null}
-                        onClick={() =>
-                          void handleCreateTaskFromWorkspaceInfo({
-                            itemId: item.id,
-                            sourceLabel: "GitHub pull request",
-                            title,
-                            url: item.url,
-                            referenceLabel,
-                            note: item.note,
-                          })
-                        }
-                      />
-                    }
-                    onRefresh={() =>
-                      void refreshLinkedPullRequestPreview({
-                        itemId: item.id,
-                        url: item.url.trim(),
-                      })
-                    }
-                    onRemove={() =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        linkedPullRequests: removeItemById(
-                          current.linkedPullRequests,
-                          item.id,
-                        ),
-                      }))
-                    }
-                  />
-                );
-              })}
-
-              {workspaceInformation.linkedPullRequests.length === 0 &&
-              !currentBranchPr &&
-              !isDefaultWorkspace ? null : workspaceInformation
-                  .linkedPullRequests.length === 0 && isDefaultWorkspace ? (
-                <EmptyHint>No linked pull requests</EmptyHint>
-              ) : null}
-            </div>
-          </SectionHeader>
-
-          {/* ── Jira ──────────────────────────────────────────── */}
-          <SectionHeader
-            value="jira"
-            order={sectionOrderIndexById.jira}
-            title="Jira Issues"
-            icon={<JiraIcon className="size-4" />}
-            count={workspaceInformation.jiraIssues.length}
-            action={
-              <AddButton
-                onClick={() =>
-                  patchWorkspaceInformation((current) => ({
-                    ...current,
-                    jiraIssues: [
-                      ...current.jiraIssues,
-                      createWorkspaceJiraIssue(),
-                    ],
-                  }))
-                }
-                label="Add Jira issue"
-              />
-            }
-          >
-            <div className="-mx-2 space-y-0.5">
-              {workspaceInformation.jiraIssues.length === 0 ? (
-                <EmptyHint>No linked Jira issues</EmptyHint>
-              ) : null}
-              {workspaceInformation.jiraIssues.map((issue) => {
-                const issueRef = extractJiraIssueReference(issue.url);
-                const issueKey =
-                  issue.issueKey.trim() || issueRef?.issueKey || "";
-                const host =
-                  issueRef?.host || formatWorkspaceInfoHostLabel(issue.url);
-                const title =
-                  issue.title.trim() || issueKey || "Linked Jira issue";
-                const referenceLabel = issueKey || host || undefined;
-
-                if (!isWorkspaceInfoUrl(issue.url)) {
-                  return (
-                    <InlineUrlInput
-                      key={issue.id}
-                      value={issue.url}
-                      icon={<Link className="size-4" />}
-                      placeholder="https://company.atlassian.net/browse/ABC-123"
-                      onChange={(url) =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          jiraIssues: updateItemById(
-                            current.jiraIssues,
-                            issue.id,
-                            (item) => {
-                              const parsed = extractJiraIssueReference(url);
-                              return {
-                                ...item,
-                                url,
-                                issueKey: parsed?.issueKey ?? item.issueKey,
-                              };
-                            },
-                          ),
-                        }))
-                      }
-                      onRemove={() =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          jiraIssues: removeItemById(
-                            current.jiraIssues,
-                            issue.id,
-                          ),
-                        }))
-                      }
-                    />
-                  );
-                }
-
-                return (
-                  <InlineLinkRow
-                    key={issue.id}
-                    pinned={isWorkspaceIntentAnchor(workspaceInformation, issue.id)}
-                    onTogglePin={() =>
-                      patchWorkspaceInformation((current) =>
-                        toggleWorkspaceIntentAnchor(current, issue.id),
-                      )
-                    }
-                    icon={<Globe className="size-4 text-muted-foreground/70" />}
-                    label={title}
-                    sublabel={
-                      host
-                        ? `${host}${issueKey ? ` · ${issueKey}` : ""}`
-                        : issueKey
-                    }
-                    badge={
-                      issue.status.trim() ? (
+                >
+                  {latestTurnSummary ? (
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        {latestTurnSummary.taskTitle ? (
+                          <span className="min-w-0 truncate font-medium text-foreground/80">
+                            {latestTurnSummary.taskTitle}
+                          </span>
+                        ) : null}
                         <Badge
                           variant="outline"
                           className="h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none"
                         >
-                          {issue.status.trim()}
+                          {toHumanModelName({ model: latestTurnSummary.model })}
                         </Badge>
-                      ) : null
-                    }
-                    url={issue.url}
-                    actions={
-                      <CreateTaskActionButton
-                        disabled={taskSeedInFlightId !== null}
-                        onClick={() =>
-                          void handleCreateTaskFromWorkspaceInfo({
-                            itemId: issue.id,
-                            sourceLabel: "Jira issue",
-                            title,
-                            url: issue.url,
-                            referenceLabel,
-                            note: issue.note,
-                          })
-                        }
-                      />
-                    }
-                    onRemove={() =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        jiraIssues: removeItemById(
-                          current.jiraIssues,
-                          issue.id,
-                        ),
-                      }))
-                    }
-                  />
-                );
-              })}
-            </div>
-          </SectionHeader>
+                      </div>
 
-          {/* ── Confluence ──────────────────────────────────────── */}
-          <SectionHeader
-            value="confluence"
-            order={sectionOrderIndexById.confluence}
-            title="Confluence"
-            icon={<ConfluenceIcon className="size-4" />}
-            count={(workspaceInformation.confluencePages ?? []).length}
-            action={
-              <AddButton
-                onClick={() =>
-                  patchWorkspaceInformation((current) => ({
-                    ...current,
-                    confluencePages: [
-                      ...(current.confluencePages ?? []),
-                      createWorkspaceConfluencePage(),
-                    ],
-                  }))
-                }
-                label="Add Confluence page"
-              />
-            }
-          >
-            <div className="-mx-2 space-y-0.5">
-              {(workspaceInformation.confluencePages ?? []).length === 0 ? (
-                <EmptyHint>No linked Confluence pages</EmptyHint>
-              ) : null}
-              {(workspaceInformation.confluencePages ?? []).map((page) => {
-                const confluenceRef = extractConfluencePageReference(page.url);
-                const title =
-                  page.title.trim() ||
-                  confluenceRef?.title ||
-                  "Linked Confluence page";
-                const host =
-                  confluenceRef?.host || formatWorkspaceInfoHostLabel(page.url);
-                const spaceKey =
-                  page.spaceKey.trim() || confluenceRef?.spaceKey || "";
+                      <div className="space-y-3">
+                        <SummaryEntry
+                          icon={<UserRound className="size-3.5" />}
+                          label="user"
+                        >
+                          {latestTurnSummary.requestSummary}
+                        </SummaryEntry>
+                        <div className="border-t border-border/40" />
+                        <SummaryEntry
+                          icon={<Bot className="size-3.5" />}
+                          label="ai"
+                          tone="muted"
+                        >
+                          {latestTurnSummary.workSummary}
+                        </SummaryEntry>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[15px] leading-6 text-muted-foreground">
+                      No summary yet. Finish a turn.
+                    </p>
+                  )}
+                </SectionHeader>
 
-                if (!isWorkspaceInfoUrl(page.url)) {
-                  return (
-                    <InlineUrlInput
-                      key={page.id}
-                      value={page.url}
-                      icon={<Link className="size-4" />}
-                      placeholder="https://company.atlassian.net/wiki/spaces/..."
-                      onChange={(url) =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          confluencePages: updateItemById(
-                            current.confluencePages ?? [],
-                            page.id,
-                            (item) => {
-                              const parsed =
-                                extractConfluencePageReference(url);
-                              return {
-                                ...item,
-                                url,
-                                title: parsed?.title || item.title,
-                                spaceKey: parsed?.spaceKey || item.spaceKey,
-                              };
-                            },
-                          ),
-                        }))
-                      }
-                      onRemove={() =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          confluencePages: removeItemById(
-                            current.confluencePages ?? [],
-                            page.id,
-                          ),
-                        }))
-                      }
-                    />
-                  );
-                }
-
-                return (
-                  <InlineLinkRow
-                    key={page.id}
-                    pinned={isWorkspaceIntentAnchor(workspaceInformation, page.id)}
-                    onTogglePin={() =>
-                      patchWorkspaceInformation((current) =>
-                        toggleWorkspaceIntentAnchor(current, page.id),
-                      )
-                    }
-                    icon={<Globe className="size-4 text-muted-foreground/70" />}
-                    label={title}
-                    sublabel={
-                      host
-                        ? `${host}${spaceKey ? ` · ${spaceKey}` : ""}`
-                        : spaceKey || undefined
-                    }
-                    url={page.url}
-                    onRemove={() =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        confluencePages: removeItemById(
-                          current.confluencePages ?? [],
-                          page.id,
-                        ),
-                      }))
-                    }
-                  />
-                );
-              })}
-            </div>
-          </SectionHeader>
-
-          {/* ── Storybook ─────────────────────────────────────── */}
-          <SectionHeader
-            value="storybook"
-            order={sectionOrderIndexById.storybook}
-            title="Storybook"
-            icon={<BookOpen className="size-4" />}
-            count={workspaceInformation.storybookResources?.length ?? 0}
-            action={
-              <AddButton
-                onClick={() =>
-                  patchWorkspaceInformation((current) => ({
-                    ...current,
-                    storybookResources: [
-                      ...(current.storybookResources ?? []),
-                      createWorkspaceStorybookResource(),
-                    ],
-                  }))
-                }
-                label="Add Storybook resource"
-              />
-            }
-          >
-            <div className="-mx-2 space-y-0.5">
-              {(workspaceInformation.storybookResources?.length ?? 0) === 0 ? (
-                <EmptyHint>No linked Storybook resources</EmptyHint>
-              ) : null}
-              {(workspaceInformation.storybookResources ?? []).map(
-                (resource) => {
-                  const storybookRef = extractStorybookResourceReference(
-                    resource.url,
-                  );
-                  const title =
-                    resource.title.trim() ||
-                    storybookRef?.title ||
-                    "Storybook resource";
-                  const host =
-                    storybookRef?.host ||
-                    formatWorkspaceInfoHostLabel(resource.url);
-                  const access =
-                    resource.access ??
-                    inferStorybookResourceAccess(resource.url) ??
-                    null;
-                  const accessBadgeLabel =
-                    formatStorybookAccessBadgeLabel(access);
-                  const sublabel = host
-                    ? `${host}${storybookRef?.storyPath ? ` · ${storybookRef.storyPath}` : ""}`
-                    : storybookRef?.storyPath || undefined;
-
-                  if (!isWorkspaceInfoUrl(resource.url)) {
-                    return (
-                      <InlineUrlInput
-                        key={resource.id}
-                        value={resource.url}
-                        icon={<Link className="size-4" />}
-                        placeholder="https://storybook.example.com/?path=/docs/..."
-                        onChange={(url) =>
-                          patchWorkspaceInformation((current) => ({
-                            ...current,
-                            storybookResources: updateItemById(
-                              current.storybookResources ?? [],
-                              resource.id,
-                              (item) => {
-                                const parsed =
-                                  extractStorybookResourceReference(url);
-                                return {
-                                  ...item,
-                                  url,
-                                  title: parsed?.title || item.title,
-                                  access: resolveStorybookResourceAccess({
-                                    url,
-                                  }),
-                                };
-                              },
-                            ),
-                          }))
-                        }
-                        onRemove={() =>
-                          patchWorkspaceInformation((current) => ({
-                            ...current,
-                            storybookResources: removeItemById(
-                              current.storybookResources ?? [],
-                              resource.id,
-                            ),
-                          }))
-                        }
-                      />
-                    );
-                  }
-
-                  return (
-                    <InlineLinkRow
-                      key={resource.id}
-                      icon={
-                        <Globe className="size-4 text-muted-foreground/70" />
-                      }
-                      label={title}
-                      sublabel={sublabel}
-                      badge={
-                        accessBadgeLabel || access?.externalRepo ? (
-                          <>
-                            {accessBadgeLabel ? (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none",
-                                  storybookAccessBadgeClass(access),
-                                )}
-                              >
-                                {accessBadgeLabel}
-                              </Badge>
-                            ) : null}
-                            {access?.externalRepo ? (
-                              <Badge
-                                variant="outline"
-                                className="h-5 max-w-36 rounded-full px-2 py-0 text-[11px] font-normal leading-none text-muted-foreground"
-                                title={access.externalRepo}
-                              >
-                                <span className="truncate">
-                                  repo {access.externalRepo}
-                                </span>
-                              </Badge>
-                            ) : null}
-                          </>
-                        ) : null
-                      }
-                      url={resource.url}
-                      onRemove={() =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          storybookResources: removeItemById(
-                            current.storybookResources ?? [],
-                            resource.id,
-                          ),
-                        }))
-                      }
-                    />
-                  );
-                },
-              )}
-            </div>
-          </SectionHeader>
-
-          {/* ── Amplify ───────────────────────────────────────── */}
-          <SectionHeader
-            value="amplify"
-            order={sectionOrderIndexById.amplify}
-            title="Amplify"
-            icon={<CloudUpload className="size-4" />}
-            count={workspaceInformation.amplifyLinks?.length ?? 0}
-            action={
-              <AddButton
-                onClick={() =>
-                  patchWorkspaceInformation((current) => ({
-                    ...current,
-                    amplifyLinks: [
-                      ...(current.amplifyLinks ?? []),
-                      createWorkspaceAmplifyLink(),
-                    ],
-                  }))
-                }
-                label="Add Amplify link"
-              />
-            }
-          >
-            <div className="-mx-2 space-y-0.5">
-              {(workspaceInformation.amplifyLinks?.length ?? 0) === 0 ? (
-                <EmptyHint>No linked Amplify deploys</EmptyHint>
-              ) : null}
-              {(workspaceInformation.amplifyLinks ?? []).map((link) => {
-                const amplifyRef = extractAmplifyLinkReference(link.url);
-                const host =
-                  amplifyRef?.host || formatWorkspaceInfoHostLabel(link.url);
-                const label =
-                  link.label.trim() ||
-                  (amplifyRef ? amplifyRef.branch : "Amplify link");
-
-                if (!isWorkspaceInfoUrl(link.url)) {
-                  return (
-                    <InlineUrlInput
-                      key={link.id}
-                      value={link.url}
-                      icon={<Link className="size-4" />}
-                      placeholder="https://<branch>.<appid>.amplifyapp.com"
-                      onChange={(url) =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          amplifyLinks: updateItemById(
-                            current.amplifyLinks ?? [],
-                            link.id,
-                            (item) => ({ ...item, url }),
-                          ),
-                        }))
-                      }
-                      onRemove={() =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          amplifyLinks: removeItemById(
-                            current.amplifyLinks ?? [],
-                            link.id,
-                          ),
-                        }))
-                      }
-                    />
-                  );
-                }
-
-                return (
-                  <InlineLinkRow
-                    key={link.id}
-                    icon={
-                      <CloudUpload className="size-4 text-muted-foreground/70" />
-                    }
-                    label={label}
-                    sublabel={host || undefined}
-                    url={link.url}
-                    onRemove={() =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        amplifyLinks: removeItemById(
-                          current.amplifyLinks ?? [],
-                          link.id,
-                        ),
-                      }))
-                    }
-                  />
-                );
-              })}
-            </div>
-          </SectionHeader>
-
-          {/* ── Slack ─────────────────────────────────────────── */}
-          <SectionHeader
-            value="slack"
-            order={sectionOrderIndexById.slack}
-            title="Slack"
-            icon={<SlackIcon className="size-4" />}
-            count={workspaceInformation.slackThreads?.length ?? 0}
-            action={
-              <AddButton
-                onClick={() =>
-                  patchWorkspaceInformation((current) => ({
-                    ...current,
-                    slackThreads: [
-                      ...(current.slackThreads ?? []),
-                      createWorkspaceSlackThread(),
-                    ],
-                  }))
-                }
-                label="Add Slack thread"
-              />
-            }
-          >
-            <div className="-mx-2 space-y-0.5">
-              {(workspaceInformation.slackThreads?.length ?? 0) === 0 ? (
-                <EmptyHint>No linked Slack threads</EmptyHint>
-              ) : null}
-              {(workspaceInformation.slackThreads ?? []).map((thread) => {
-                const slackRef = extractSlackThreadReference(thread.url);
-                const host =
-                  slackRef?.host || formatWorkspaceInfoHostLabel(thread.url);
-                const label =
-                  thread.channelName.trim() ||
-                  (slackRef ? `#${slackRef.channelId}` : "Slack thread");
-
-                if (!isWorkspaceInfoUrl(thread.url)) {
-                  return (
-                    <InlineUrlInput
-                      key={thread.id}
-                      value={thread.url}
-                      icon={<Link className="size-4" />}
-                      placeholder="https://team.slack.com/archives/C.../p..."
-                      onChange={(url) =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          slackThreads: updateItemById(
-                            current.slackThreads ?? [],
-                            thread.id,
-                            (item) => ({ ...item, url }),
-                          ),
-                        }))
-                      }
-                      onRemove={() =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          slackThreads: removeItemById(
-                            current.slackThreads ?? [],
-                            thread.id,
-                          ),
-                        }))
-                      }
-                    />
-                  );
-                }
-
-                return (
-                  <InlineLinkRow
-                    key={thread.id}
-                    icon={<Hash className="size-4 text-muted-foreground/70" />}
-                    label={label}
-                    sublabel={host || undefined}
-                    url={thread.url}
-                    onRemove={() =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        slackThreads: removeItemById(
-                          current.slackThreads ?? [],
-                          thread.id,
-                        ),
-                      }))
-                    }
-                  />
-                );
-              })}
-            </div>
-          </SectionHeader>
-
-          {/* ── Figma ─────────────────────────────────────────── */}
-          <SectionHeader
-            value="figma"
-            order={sectionOrderIndexById.figma}
-            title="Figma"
-            icon={<FigmaIcon className="size-4" />}
-            count={workspaceInformation.figmaResources.length}
-            action={
-              <AddButton
-                onClick={() =>
-                  patchWorkspaceInformation((current) => ({
-                    ...current,
-                    figmaResources: [
-                      ...current.figmaResources,
-                      createWorkspaceFigmaResource(),
-                    ],
-                  }))
-                }
-                label="Add Figma resource"
-              />
-            }
-          >
-            <div className="-mx-2 space-y-0.5">
-              {workspaceInformation.figmaResources.length === 0 ? (
-                <EmptyHint>No linked Figma resources</EmptyHint>
-              ) : null}
-              {workspaceInformation.figmaResources.map((resource) => {
-                const figmaRef = extractFigmaResourceReference(resource.url);
-                const title =
-                  resource.title.trim() ||
-                  figmaRef?.title ||
-                  "Linked Figma resource";
-                const host =
-                  figmaRef?.host || formatWorkspaceInfoHostLabel(resource.url);
-
-                if (!isWorkspaceInfoUrl(resource.url)) {
-                  return (
-                    <InlineUrlInput
-                      key={resource.id}
-                      value={resource.url}
-                      icon={<Link className="size-4" />}
-                      placeholder="https://www.figma.com/file/..."
-                      onChange={(url) =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          figmaResources: updateItemById(
-                            current.figmaResources,
-                            resource.id,
-                            (item) => {
-                              const parsed = extractFigmaResourceReference(url);
-                              return {
-                                ...item,
-                                url,
-                                title: parsed?.title || item.title,
-                                nodeId: parsed?.nodeId ?? item.nodeId,
-                              };
-                            },
-                          ),
-                        }))
-                      }
-                      onRemove={() =>
-                        patchWorkspaceInformation((current) => ({
-                          ...current,
-                          figmaResources: removeItemById(
-                            current.figmaResources,
-                            resource.id,
-                          ),
-                        }))
-                      }
-                    />
-                  );
-                }
-
-                return (
-                  <InlineLinkRow
-                    key={resource.id}
-                    pinned={isWorkspaceIntentAnchor(workspaceInformation, resource.id)}
-                    onTogglePin={() =>
-                      patchWorkspaceInformation((current) =>
-                        toggleWorkspaceIntentAnchor(current, resource.id),
-                      )
-                    }
-                    icon={<Globe className="size-4 text-muted-foreground/70" />}
-                    label={title}
-                    sublabel={
-                      host
-                        ? `${host}${figmaRef?.kind && figmaRef.kind !== "unknown" ? ` · ${formatFigmaKindLabel(figmaRef.kind)}` : ""}`
-                        : figmaRef?.kind
-                          ? formatFigmaKindLabel(figmaRef.kind)
-                          : undefined
-                    }
-                    url={resource.url}
-                    onRemove={() =>
-                      patchWorkspaceInformation((current) => ({
-                        ...current,
-                        figmaResources: removeItemById(
-                          current.figmaResources,
-                          resource.id,
-                        ),
-                      }))
-                    }
-                  />
-                );
-              })}
-            </div>
-          </SectionHeader>
-
-          {/* ── Custom fields ─────────────────────────────────── */}
-          <SectionHeader
-            value="custom"
-            order={sectionOrderIndexById.custom}
-            title="Custom Fields"
-            icon={<SlidersHorizontal className="size-4" />}
-            count={workspaceInformation.customFields.length}
-            action={
-              <AddButton
-                onClick={() =>
-                  patchWorkspaceInformation((current) => ({
-                    ...current,
-                    customFields: [
-                      ...current.customFields,
-                      createWorkspaceInfoCustomField(),
-                    ],
-                  }))
-                }
-                label="Add custom field"
-              />
-            }
-          >
-            <div className="-mx-2 space-y-3">
-              {workspaceInformation.customFields.length === 0 ? (
-                <EmptyHint>No custom fields</EmptyHint>
-              ) : null}
-              {workspaceInformation.customFields.map((field) => (
-                <div key={field.id} className="group/field space-y-1.5 px-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      value={field.label}
-                      onChange={(event) =>
-                        patchCustomField(field.id, (currentField) => ({
-                          ...currentField,
-                          label: event.target.value,
-                        }))
-                      }
-                      placeholder="Label"
-                      className="h-8 flex-1 border-0 bg-transparent px-1 text-sm font-medium shadow-none focus-visible:ring-0"
-                    />
-                    <Select
-                      value={field.type}
-                      onValueChange={(value) =>
-                        patchCustomField(field.id, (currentField) =>
-                          changeWorkspaceInfoCustomFieldType({
-                            field: currentField,
-                            type: value as WorkspaceInfoFieldType,
-                          }),
-                        )
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-auto min-w-[5.5rem] border-0 bg-transparent text-xs text-muted-foreground shadow-none">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {WORKSPACE_INFO_FIELD_TYPES.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {WORKSPACE_INFO_FIELD_TYPE_LABELS[type]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <button
-                      type="button"
-                      className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/field:opacity-100"
+                {/* ── Todo ──────────────────────────────────────────── */}
+                <SectionHeader
+                  value="todo"
+                  order={sectionOrderIndexById.todo}
+                  title="Todos"
+                  icon={<CheckCircle2 className="size-4" />}
+                  count={openTodoCount}
+                  action={
+                    <AddButton
                       onClick={() =>
                         patchWorkspaceInformation((current) => ({
                           ...current,
-                          customFields: removeItemById(
-                            current.customFields,
-                            field.id,
-                          ),
+                          todos: [...current.todos, createWorkspaceTodoItem()],
                         }))
                       }
-                      aria-label="Remove field"
-                    >
-                      <X className="size-3.5" />
-                    </button>
+                      label="Add todo"
+                    />
+                  }
+                >
+                  {totalTodoCount > 0 ? (
+                    <div className="mb-1.5 flex items-center gap-2 px-0.5">
+                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{
+                            width: `${Math.round(
+                              (completedTodoCount / totalTodoCount) * 100,
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                        {completedTodoCount}/{totalTodoCount}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className="-mx-2 space-y-0.5">
+                    {workspaceInformation.todos.length === 0 ? (
+                      <EmptyHint>No todos yet</EmptyHint>
+                    ) : null}
+                    {workspaceInformation.todos.map((todo) => (
+                      <div
+                        key={todo.id}
+                        className="group/todo flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
+                      >
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors",
+                            resolveWorkspaceTodoStatus(todo) === "pending"
+                              ? "text-muted-foreground/40 hover:text-muted-foreground"
+                              : "text-primary",
+                          )}
+                          onClick={() =>
+                            patchWorkspaceInformation((current) => ({
+                              ...current,
+                              todos: updateItemById(
+                                current.todos,
+                                todo.id,
+                                (item) =>
+                                  applyWorkspaceTodoStatus(
+                                    item,
+                                    cycleWorkspaceTodoStatus(
+                                      resolveWorkspaceTodoStatus(item),
+                                    ),
+                                  ),
+                              ),
+                            }))
+                          }
+                          aria-label={`Todo status: ${resolveWorkspaceTodoStatus(
+                            todo,
+                          )}. Click to advance.`}
+                        >
+                          {resolveWorkspaceTodoStatus(todo) === "completed" ? (
+                            <CheckCircle2 className="size-4" />
+                          ) : resolveWorkspaceTodoStatus(todo) ===
+                            "in_progress" ? (
+                            <CircleDot className="size-4" />
+                          ) : (
+                            <Circle className="size-4" />
+                          )}
+                        </button>
+                        <Input
+                          value={todo.text}
+                          onChange={(event) =>
+                            patchWorkspaceInformation((current) => ({
+                              ...current,
+                              todos: updateItemById(
+                                current.todos,
+                                todo.id,
+                                (item) => ({
+                                  ...item,
+                                  text: event.target.value,
+                                }),
+                              ),
+                            }))
+                          }
+                          placeholder="Todo item"
+                          className={cn(
+                            "h-8 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0",
+                            resolveWorkspaceTodoStatus(todo) === "completed" &&
+                              "text-muted-foreground/50 line-through",
+                          )}
+                        />
+                        <button
+                          type="button"
+                          className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/todo:opacity-100"
+                          onClick={() =>
+                            patchWorkspaceInformation((current) => ({
+                              ...current,
+                              todos: removeItemById(current.todos, todo.id),
+                            }))
+                          }
+                          aria-label="Remove todo"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  {renderCustomFieldInput({
-                    field,
-                    onFieldChange: (nextField) =>
-                      patchCustomField(field.id, () => nextField),
-                  })}
-                </div>
-              ))}
-            </div>
-          </SectionHeader>
-        </Accordion>
-        </SortableContext>
+                </SectionHeader>
+
+                {/* ── Note ──────────────────────────────────────────── */}
+                <SectionHeader
+                  value="note"
+                  order={sectionOrderIndexById.note}
+                  title="Notes"
+                  icon={<StickyNote className="size-4" />}
+                >
+                  <NotesSectionBody
+                    notes={workspaceInformation.notes}
+                    onChange={(notes) =>
+                      patchWorkspaceInformation((current) => ({
+                        ...current,
+                        notes,
+                      }))
+                    }
+                  />
+                </SectionHeader>
+
+                <SectionHeader
+                  value="plans"
+                  order={sectionOrderIndexById.plans}
+                  title="Plans"
+                  icon={<ClipboardCheck className="size-4" />}
+                  count={plansHeader.count}
+                  action={
+                    <button
+                      type="button"
+                      className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                      onClick={() => notifyWorkspacePlansChanged()}
+                      aria-label="Refresh plans"
+                    >
+                      <RefreshCcw
+                        className={cn(
+                          "size-4",
+                          plansHeader.loading && "animate-spin",
+                        )}
+                      />
+                    </button>
+                  }
+                >
+                  <WorkspacePlansSection
+                    embedded
+                    workspacePath={workspacePath}
+                    refreshNonce={workspacePlansRefreshNonce}
+                    onEntriesChange={handlePlansEntriesChange}
+                    onOpenFile={({ filePath }) =>
+                      openFileFromTree({ filePath })
+                    }
+                    onImportTodos={async ({ filePath }) => {
+                      if (!workspacePath) {
+                        return;
+                      }
+                      const result = await window.api?.fs?.readFile?.({
+                        rootPath: workspacePath,
+                        filePath,
+                      });
+                      if (!result?.ok || typeof result.content !== "string") {
+                        toast.error("Could not read plan file");
+                        return;
+                      }
+                      const items = extractPlanTodoItems(result.content);
+                      if (items.length === 0) {
+                        toast("No checklist items found in this plan");
+                        return;
+                      }
+                      patchWorkspaceInformation((current) => ({
+                        ...current,
+                        todos: [
+                          ...current.todos,
+                          ...items.map((item) => {
+                            const base = {
+                              ...createWorkspaceTodoItem(),
+                              text: item.text,
+                            };
+                            return item.completed
+                              ? applyWorkspaceTodoStatus(base, "completed")
+                              : base;
+                          }),
+                        ],
+                      }));
+                      setOpenSections((sections) =>
+                        sections.includes("todo")
+                          ? sections
+                          : [...sections, "todo"],
+                      );
+                      toast.success(
+                        `Imported ${items.length} ${
+                          items.length === 1 ? "todo" : "todos"
+                        } from plan`,
+                      );
+                    }}
+                  />
+                </SectionHeader>
+
+                {/* ── GitHub ────────────────────────────────────────── */}
+                <SectionHeader
+                  value="github"
+                  order={sectionOrderIndexById.github}
+                  title="Pull Requests"
+                  icon={<GitHubIcon className="size-4" />}
+                  count={
+                    workspaceInformation.linkedPullRequests.length +
+                    (currentBranchPr ? 1 : 0)
+                  }
+                  action={
+                    <div className="flex items-center gap-0.5">
+                      {!isDefaultWorkspace ? (
+                        <button
+                          type="button"
+                          className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                          onClick={() =>
+                            void fetchWorkspacePrStatus({
+                              workspaceId: activeWorkspaceId,
+                            })
+                          }
+                          aria-label="Refresh"
+                        >
+                          <RefreshCcw className="size-4" />
+                        </button>
+                      ) : null}
+                      <AddButton
+                        onClick={() =>
+                          patchWorkspaceInformation((current) => ({
+                            ...current,
+                            linkedPullRequests: [
+                              ...current.linkedPullRequests,
+                              createWorkspaceLinkedPullRequest(),
+                            ],
+                          }))
+                        }
+                        label="Add pull request"
+                      />
+                    </div>
+                  }
+                >
+                  <div className="-mx-2 space-y-0.5">
+                    {/* Current branch PR */}
+                    {!isDefaultWorkspace &&
+                    currentBranchPr &&
+                    currentBranchPrStatus ? (
+                      <GitHubPrRow
+                        number={currentBranchPr.number}
+                        title={currentBranchPr.title}
+                        status={currentBranchPrStatus}
+                        branch={`${currentBranchPr.headRefName} → ${currentBranchPr.baseRefName}`}
+                        url={currentBranchPr.url}
+                        isCurrent
+                      />
+                    ) : !isDefaultWorkspace ? (
+                      <EmptyHint>No PR for current branch</EmptyHint>
+                    ) : null}
+
+                    {/* Linked PRs */}
+                    {workspaceInformation.linkedPullRequests.map((item) => {
+                      const githubRef = extractGitHubPullRequestReference(
+                        item.url,
+                      );
+                      const preview = linkedPullRequestPreviewById[item.id];
+                      const previewInfo = preview?.info;
+                      const previewStatus = previewInfo?.derived;
+
+                      if (!isWorkspaceInfoUrl(item.url)) {
+                        return (
+                          <InlineUrlInput
+                            key={item.id}
+                            value={item.url}
+                            icon={<Link className="size-4" />}
+                            placeholder="https://github.com/owner/repo/pull/123"
+                            onChange={(url) =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                linkedPullRequests: updateItemById(
+                                  current.linkedPullRequests,
+                                  item.id,
+                                  (pullRequest) => ({
+                                    ...pullRequest,
+                                    url,
+                                  }),
+                                ),
+                              }))
+                            }
+                            onRemove={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                linkedPullRequests: removeItemById(
+                                  current.linkedPullRequests,
+                                  item.id,
+                                ),
+                              }))
+                            }
+                          />
+                        );
+                      }
+
+                      const title =
+                        previewInfo?.pr.title ||
+                        item.title.trim() ||
+                        (githubRef
+                          ? `${githubRef.owner}/${githubRef.repo} #${githubRef.number}`
+                          : "Linked PR");
+                      const number =
+                        previewInfo?.pr.number ?? githubRef?.number ?? 0;
+                      const repo = githubRef
+                        ? `${githubRef.owner}/${githubRef.repo}`
+                        : undefined;
+                      const referenceLabel =
+                        repo && number > 0
+                          ? `${repo} #${number}`
+                          : number > 0
+                            ? `#${number}`
+                            : repo;
+                      const branch =
+                        previewInfo?.pr.headRefName &&
+                        previewInfo.pr.baseRefName
+                          ? `${previewInfo.pr.headRefName} → ${previewInfo.pr.baseRefName}`
+                          : undefined;
+
+                      return (
+                        <GitHubPrRow
+                          key={item.id}
+                          number={number}
+                          title={title}
+                          status={
+                            previewStatus ??
+                            (preview?.loading
+                              ? "review_required"
+                              : "review_required")
+                          }
+                          repo={repo}
+                          branch={branch}
+                          url={item.url}
+                          loading={preview?.loading}
+                          actions={
+                            <CreateTaskActionButton
+                              disabled={taskSeedInFlightId !== null}
+                              onClick={() =>
+                                void handleCreateTaskFromWorkspaceInfo({
+                                  itemId: item.id,
+                                  sourceLabel: "GitHub pull request",
+                                  title,
+                                  url: item.url,
+                                  referenceLabel,
+                                  note: item.note,
+                                })
+                              }
+                            />
+                          }
+                          onRefresh={() =>
+                            void refreshLinkedPullRequestPreview({
+                              itemId: item.id,
+                              url: item.url.trim(),
+                            })
+                          }
+                          onRemove={() =>
+                            patchWorkspaceInformation((current) => ({
+                              ...current,
+                              linkedPullRequests: removeItemById(
+                                current.linkedPullRequests,
+                                item.id,
+                              ),
+                            }))
+                          }
+                        />
+                      );
+                    })}
+
+                    {workspaceInformation.linkedPullRequests.length === 0 &&
+                    !currentBranchPr &&
+                    !isDefaultWorkspace ? null : workspaceInformation
+                        .linkedPullRequests.length === 0 &&
+                      isDefaultWorkspace ? (
+                      <EmptyHint>No linked pull requests</EmptyHint>
+                    ) : null}
+                  </div>
+                </SectionHeader>
+
+                {/* ── Jira ──────────────────────────────────────────── */}
+                <SectionHeader
+                  value="jira"
+                  order={sectionOrderIndexById.jira}
+                  title="Jira Issues"
+                  icon={<JiraIcon className="size-4" />}
+                  count={workspaceInformation.jiraIssues.length}
+                  action={
+                    <AddButton
+                      onClick={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          jiraIssues: [
+                            ...current.jiraIssues,
+                            createWorkspaceJiraIssue(),
+                          ],
+                        }))
+                      }
+                      label="Add Jira issue"
+                    />
+                  }
+                >
+                  <div className="-mx-2 space-y-0.5">
+                    {workspaceInformation.jiraIssues.length === 0 ? (
+                      <EmptyHint>No linked Jira issues</EmptyHint>
+                    ) : null}
+                    {workspaceInformation.jiraIssues.map((issue) => {
+                      const issueRef = extractJiraIssueReference(issue.url);
+                      const issueKey =
+                        issue.issueKey.trim() || issueRef?.issueKey || "";
+                      const host =
+                        issueRef?.host ||
+                        formatWorkspaceInfoHostLabel(issue.url);
+                      const title =
+                        issue.title.trim() || issueKey || "Linked Jira issue";
+                      const referenceLabel = issueKey || host || undefined;
+
+                      if (!isWorkspaceInfoUrl(issue.url)) {
+                        return (
+                          <InlineUrlInput
+                            key={issue.id}
+                            value={issue.url}
+                            icon={<Link className="size-4" />}
+                            placeholder="https://company.atlassian.net/browse/ABC-123"
+                            onChange={(url) =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                jiraIssues: updateItemById(
+                                  current.jiraIssues,
+                                  issue.id,
+                                  (item) => {
+                                    const parsed =
+                                      extractJiraIssueReference(url);
+                                    return {
+                                      ...item,
+                                      url,
+                                      issueKey:
+                                        parsed?.issueKey ?? item.issueKey,
+                                    };
+                                  },
+                                ),
+                              }))
+                            }
+                            onRemove={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                jiraIssues: removeItemById(
+                                  current.jiraIssues,
+                                  issue.id,
+                                ),
+                              }))
+                            }
+                          />
+                        );
+                      }
+
+                      return (
+                        <InlineLinkRow
+                          key={issue.id}
+                          pinned={isWorkspaceIntentAnchor(
+                            workspaceInformation,
+                            issue.id,
+                          )}
+                          onTogglePin={() =>
+                            patchWorkspaceInformation((current) =>
+                              toggleWorkspaceIntentAnchor(current, issue.id),
+                            )
+                          }
+                          icon={
+                            <Globe className="size-4 text-muted-foreground/70" />
+                          }
+                          label={title}
+                          sublabel={
+                            host
+                              ? `${host}${issueKey ? ` · ${issueKey}` : ""}`
+                              : issueKey
+                          }
+                          badge={
+                            issue.status.trim() ? (
+                              <Badge
+                                variant="outline"
+                                className="h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none"
+                              >
+                                {issue.status.trim()}
+                              </Badge>
+                            ) : null
+                          }
+                          url={issue.url}
+                          actions={
+                            <CreateTaskActionButton
+                              disabled={taskSeedInFlightId !== null}
+                              onClick={() =>
+                                void handleCreateTaskFromWorkspaceInfo({
+                                  itemId: issue.id,
+                                  sourceLabel: "Jira issue",
+                                  title,
+                                  url: issue.url,
+                                  referenceLabel,
+                                  note: issue.note,
+                                })
+                              }
+                            />
+                          }
+                          onRemove={() =>
+                            patchWorkspaceInformation((current) => ({
+                              ...current,
+                              jiraIssues: removeItemById(
+                                current.jiraIssues,
+                                issue.id,
+                              ),
+                            }))
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                </SectionHeader>
+
+                {/* ── Confluence ──────────────────────────────────────── */}
+                <SectionHeader
+                  value="confluence"
+                  order={sectionOrderIndexById.confluence}
+                  title="Confluence"
+                  icon={<ConfluenceIcon className="size-4" />}
+                  count={(workspaceInformation.confluencePages ?? []).length}
+                  action={
+                    <AddButton
+                      onClick={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          confluencePages: [
+                            ...(current.confluencePages ?? []),
+                            createWorkspaceConfluencePage(),
+                          ],
+                        }))
+                      }
+                      label="Add Confluence page"
+                    />
+                  }
+                >
+                  <div className="-mx-2 space-y-0.5">
+                    {(workspaceInformation.confluencePages ?? []).length ===
+                    0 ? (
+                      <EmptyHint>No linked Confluence pages</EmptyHint>
+                    ) : null}
+                    {(workspaceInformation.confluencePages ?? []).map(
+                      (page) => {
+                        const confluenceRef = extractConfluencePageReference(
+                          page.url,
+                        );
+                        const title =
+                          page.title.trim() ||
+                          confluenceRef?.title ||
+                          "Linked Confluence page";
+                        const host =
+                          confluenceRef?.host ||
+                          formatWorkspaceInfoHostLabel(page.url);
+                        const spaceKey =
+                          page.spaceKey.trim() || confluenceRef?.spaceKey || "";
+
+                        if (!isWorkspaceInfoUrl(page.url)) {
+                          return (
+                            <InlineUrlInput
+                              key={page.id}
+                              value={page.url}
+                              icon={<Link className="size-4" />}
+                              placeholder="https://company.atlassian.net/wiki/spaces/..."
+                              onChange={(url) =>
+                                patchWorkspaceInformation((current) => ({
+                                  ...current,
+                                  confluencePages: updateItemById(
+                                    current.confluencePages ?? [],
+                                    page.id,
+                                    (item) => {
+                                      const parsed =
+                                        extractConfluencePageReference(url);
+                                      return {
+                                        ...item,
+                                        url,
+                                        title: parsed?.title || item.title,
+                                        spaceKey:
+                                          parsed?.spaceKey || item.spaceKey,
+                                      };
+                                    },
+                                  ),
+                                }))
+                              }
+                              onRemove={() =>
+                                patchWorkspaceInformation((current) => ({
+                                  ...current,
+                                  confluencePages: removeItemById(
+                                    current.confluencePages ?? [],
+                                    page.id,
+                                  ),
+                                }))
+                              }
+                            />
+                          );
+                        }
+
+                        return (
+                          <InlineLinkRow
+                            key={page.id}
+                            pinned={isWorkspaceIntentAnchor(
+                              workspaceInformation,
+                              page.id,
+                            )}
+                            onTogglePin={() =>
+                              patchWorkspaceInformation((current) =>
+                                toggleWorkspaceIntentAnchor(current, page.id),
+                              )
+                            }
+                            icon={
+                              <Globe className="size-4 text-muted-foreground/70" />
+                            }
+                            label={title}
+                            sublabel={
+                              host
+                                ? `${host}${spaceKey ? ` · ${spaceKey}` : ""}`
+                                : spaceKey || undefined
+                            }
+                            url={page.url}
+                            onRemove={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                confluencePages: removeItemById(
+                                  current.confluencePages ?? [],
+                                  page.id,
+                                ),
+                              }))
+                            }
+                          />
+                        );
+                      },
+                    )}
+                  </div>
+                </SectionHeader>
+
+                {/* ── Storybook ─────────────────────────────────────── */}
+                <SectionHeader
+                  value="storybook"
+                  order={sectionOrderIndexById.storybook}
+                  title="Storybook"
+                  icon={<BookOpen className="size-4" />}
+                  count={workspaceInformation.storybookResources?.length ?? 0}
+                  action={
+                    <AddButton
+                      onClick={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          storybookResources: [
+                            ...(current.storybookResources ?? []),
+                            createWorkspaceStorybookResource(),
+                          ],
+                        }))
+                      }
+                      label="Add Storybook resource"
+                    />
+                  }
+                >
+                  <div className="-mx-2 space-y-0.5">
+                    {(workspaceInformation.storybookResources?.length ?? 0) ===
+                    0 ? (
+                      <EmptyHint>No linked Storybook resources</EmptyHint>
+                    ) : null}
+                    {(workspaceInformation.storybookResources ?? []).map(
+                      (resource) => {
+                        const storybookRef = extractStorybookResourceReference(
+                          resource.url,
+                        );
+                        const title =
+                          resource.title.trim() ||
+                          storybookRef?.title ||
+                          "Storybook resource";
+                        const host =
+                          storybookRef?.host ||
+                          formatWorkspaceInfoHostLabel(resource.url);
+                        const access =
+                          resource.access ??
+                          inferStorybookResourceAccess(resource.url) ??
+                          null;
+                        const accessBadgeLabel =
+                          formatStorybookAccessBadgeLabel(access);
+                        const sublabel = host
+                          ? `${host}${storybookRef?.storyPath ? ` · ${storybookRef.storyPath}` : ""}`
+                          : storybookRef?.storyPath || undefined;
+
+                        if (!isWorkspaceInfoUrl(resource.url)) {
+                          return (
+                            <InlineUrlInput
+                              key={resource.id}
+                              value={resource.url}
+                              icon={<Link className="size-4" />}
+                              placeholder="https://storybook.example.com/?path=/docs/..."
+                              onChange={(url) =>
+                                patchWorkspaceInformation((current) => ({
+                                  ...current,
+                                  storybookResources: updateItemById(
+                                    current.storybookResources ?? [],
+                                    resource.id,
+                                    (item) => {
+                                      const parsed =
+                                        extractStorybookResourceReference(url);
+                                      return {
+                                        ...item,
+                                        url,
+                                        title: parsed?.title || item.title,
+                                        access: resolveStorybookResourceAccess({
+                                          url,
+                                        }),
+                                      };
+                                    },
+                                  ),
+                                }))
+                              }
+                              onRemove={() =>
+                                patchWorkspaceInformation((current) => ({
+                                  ...current,
+                                  storybookResources: removeItemById(
+                                    current.storybookResources ?? [],
+                                    resource.id,
+                                  ),
+                                }))
+                              }
+                            />
+                          );
+                        }
+
+                        return (
+                          <InlineLinkRow
+                            key={resource.id}
+                            icon={
+                              <Globe className="size-4 text-muted-foreground/70" />
+                            }
+                            label={title}
+                            sublabel={sublabel}
+                            badge={
+                              accessBadgeLabel || access?.externalRepo ? (
+                                <>
+                                  {accessBadgeLabel ? (
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none",
+                                        storybookAccessBadgeClass(access),
+                                      )}
+                                    >
+                                      {accessBadgeLabel}
+                                    </Badge>
+                                  ) : null}
+                                  {access?.externalRepo ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="h-5 max-w-36 rounded-full px-2 py-0 text-[11px] font-normal leading-none text-muted-foreground"
+                                      title={access.externalRepo}
+                                    >
+                                      <span className="truncate">
+                                        repo {access.externalRepo}
+                                      </span>
+                                    </Badge>
+                                  ) : null}
+                                </>
+                              ) : null
+                            }
+                            url={resource.url}
+                            onRemove={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                storybookResources: removeItemById(
+                                  current.storybookResources ?? [],
+                                  resource.id,
+                                ),
+                              }))
+                            }
+                          />
+                        );
+                      },
+                    )}
+                  </div>
+                </SectionHeader>
+
+                {/* ── Amplify ───────────────────────────────────────── */}
+                <SectionHeader
+                  value="amplify"
+                  order={sectionOrderIndexById.amplify}
+                  title="Amplify"
+                  icon={<CloudUpload className="size-4" />}
+                  count={workspaceInformation.amplifyLinks?.length ?? 0}
+                  action={
+                    <AddButton
+                      onClick={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          amplifyLinks: [
+                            ...(current.amplifyLinks ?? []),
+                            createWorkspaceAmplifyLink(),
+                          ],
+                        }))
+                      }
+                      label="Add Amplify link"
+                    />
+                  }
+                >
+                  <div className="-mx-2 space-y-0.5">
+                    {(workspaceInformation.amplifyLinks?.length ?? 0) === 0 ? (
+                      <EmptyHint>No linked Amplify deploys</EmptyHint>
+                    ) : null}
+                    {(workspaceInformation.amplifyLinks ?? []).map((link) => {
+                      const amplifyRef = extractAmplifyLinkReference(link.url);
+                      const host =
+                        amplifyRef?.host ||
+                        formatWorkspaceInfoHostLabel(link.url);
+                      const label =
+                        link.label.trim() ||
+                        (amplifyRef ? amplifyRef.branch : "Amplify link");
+
+                      if (!isWorkspaceInfoUrl(link.url)) {
+                        return (
+                          <InlineUrlInput
+                            key={link.id}
+                            value={link.url}
+                            icon={<Link className="size-4" />}
+                            placeholder="https://<branch>.<appid>.amplifyapp.com"
+                            onChange={(url) =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                amplifyLinks: updateItemById(
+                                  current.amplifyLinks ?? [],
+                                  link.id,
+                                  (item) => ({ ...item, url }),
+                                ),
+                              }))
+                            }
+                            onRemove={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                amplifyLinks: removeItemById(
+                                  current.amplifyLinks ?? [],
+                                  link.id,
+                                ),
+                              }))
+                            }
+                          />
+                        );
+                      }
+
+                      return (
+                        <InlineLinkRow
+                          key={link.id}
+                          icon={
+                            <CloudUpload className="size-4 text-muted-foreground/70" />
+                          }
+                          label={label}
+                          sublabel={host || undefined}
+                          url={link.url}
+                          onRemove={() =>
+                            patchWorkspaceInformation((current) => ({
+                              ...current,
+                              amplifyLinks: removeItemById(
+                                current.amplifyLinks ?? [],
+                                link.id,
+                              ),
+                            }))
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                </SectionHeader>
+
+                {/* ── Slack ─────────────────────────────────────────── */}
+                <SectionHeader
+                  value="slack"
+                  order={sectionOrderIndexById.slack}
+                  title="Slack"
+                  icon={<SlackIcon className="size-4" />}
+                  count={workspaceInformation.slackThreads?.length ?? 0}
+                  action={
+                    <AddButton
+                      onClick={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          slackThreads: [
+                            ...(current.slackThreads ?? []),
+                            createWorkspaceSlackThread(),
+                          ],
+                        }))
+                      }
+                      label="Add Slack thread"
+                    />
+                  }
+                >
+                  <div className="-mx-2 space-y-0.5">
+                    {(workspaceInformation.slackThreads?.length ?? 0) === 0 ? (
+                      <EmptyHint>No linked Slack threads</EmptyHint>
+                    ) : null}
+                    {(workspaceInformation.slackThreads ?? []).map((thread) => {
+                      const slackRef = extractSlackThreadReference(thread.url);
+                      const host =
+                        slackRef?.host ||
+                        formatWorkspaceInfoHostLabel(thread.url);
+                      const label =
+                        thread.channelName.trim() ||
+                        (slackRef ? `#${slackRef.channelId}` : "Slack thread");
+
+                      if (!isWorkspaceInfoUrl(thread.url)) {
+                        return (
+                          <InlineUrlInput
+                            key={thread.id}
+                            value={thread.url}
+                            icon={<Link className="size-4" />}
+                            placeholder="https://team.slack.com/archives/C.../p..."
+                            onChange={(url) =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                slackThreads: updateItemById(
+                                  current.slackThreads ?? [],
+                                  thread.id,
+                                  (item) => ({ ...item, url }),
+                                ),
+                              }))
+                            }
+                            onRemove={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                slackThreads: removeItemById(
+                                  current.slackThreads ?? [],
+                                  thread.id,
+                                ),
+                              }))
+                            }
+                          />
+                        );
+                      }
+
+                      return (
+                        <InlineLinkRow
+                          key={thread.id}
+                          icon={
+                            <Hash className="size-4 text-muted-foreground/70" />
+                          }
+                          label={label}
+                          sublabel={host || undefined}
+                          url={thread.url}
+                          onRemove={() =>
+                            patchWorkspaceInformation((current) => ({
+                              ...current,
+                              slackThreads: removeItemById(
+                                current.slackThreads ?? [],
+                                thread.id,
+                              ),
+                            }))
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                </SectionHeader>
+
+                {/* ── Figma ─────────────────────────────────────────── */}
+                <SectionHeader
+                  value="figma"
+                  order={sectionOrderIndexById.figma}
+                  title="Figma"
+                  icon={<FigmaIcon className="size-4" />}
+                  count={workspaceInformation.figmaResources.length}
+                  action={
+                    <AddButton
+                      onClick={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          figmaResources: [
+                            ...current.figmaResources,
+                            createWorkspaceFigmaResource(),
+                          ],
+                        }))
+                      }
+                      label="Add Figma resource"
+                    />
+                  }
+                >
+                  <div className="-mx-2 space-y-0.5">
+                    {workspaceInformation.figmaResources.length === 0 ? (
+                      <EmptyHint>No linked Figma resources</EmptyHint>
+                    ) : null}
+                    {workspaceInformation.figmaResources.map((resource) => {
+                      const figmaRef = extractFigmaResourceReference(
+                        resource.url,
+                      );
+                      const title =
+                        resource.title.trim() ||
+                        figmaRef?.title ||
+                        "Linked Figma resource";
+                      const host =
+                        figmaRef?.host ||
+                        formatWorkspaceInfoHostLabel(resource.url);
+
+                      if (!isWorkspaceInfoUrl(resource.url)) {
+                        return (
+                          <InlineUrlInput
+                            key={resource.id}
+                            value={resource.url}
+                            icon={<Link className="size-4" />}
+                            placeholder="https://www.figma.com/file/..."
+                            onChange={(url) =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                figmaResources: updateItemById(
+                                  current.figmaResources,
+                                  resource.id,
+                                  (item) => {
+                                    const parsed =
+                                      extractFigmaResourceReference(url);
+                                    return {
+                                      ...item,
+                                      url,
+                                      title: parsed?.title || item.title,
+                                      nodeId: parsed?.nodeId ?? item.nodeId,
+                                    };
+                                  },
+                                ),
+                              }))
+                            }
+                            onRemove={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                figmaResources: removeItemById(
+                                  current.figmaResources,
+                                  resource.id,
+                                ),
+                              }))
+                            }
+                          />
+                        );
+                      }
+
+                      return (
+                        <InlineLinkRow
+                          key={resource.id}
+                          pinned={isWorkspaceIntentAnchor(
+                            workspaceInformation,
+                            resource.id,
+                          )}
+                          onTogglePin={() =>
+                            patchWorkspaceInformation((current) =>
+                              toggleWorkspaceIntentAnchor(current, resource.id),
+                            )
+                          }
+                          icon={
+                            <Globe className="size-4 text-muted-foreground/70" />
+                          }
+                          label={title}
+                          sublabel={
+                            host
+                              ? `${host}${figmaRef?.kind && figmaRef.kind !== "unknown" ? ` · ${formatFigmaKindLabel(figmaRef.kind)}` : ""}`
+                              : figmaRef?.kind
+                                ? formatFigmaKindLabel(figmaRef.kind)
+                                : undefined
+                          }
+                          url={resource.url}
+                          onRemove={() =>
+                            patchWorkspaceInformation((current) => ({
+                              ...current,
+                              figmaResources: removeItemById(
+                                current.figmaResources,
+                                resource.id,
+                              ),
+                            }))
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                </SectionHeader>
+
+                {/* ── Custom fields ─────────────────────────────────── */}
+                <SectionHeader
+                  value="custom"
+                  order={sectionOrderIndexById.custom}
+                  title="Custom Fields"
+                  icon={<SlidersHorizontal className="size-4" />}
+                  count={workspaceInformation.customFields.length}
+                  action={
+                    <AddButton
+                      onClick={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          customFields: [
+                            ...current.customFields,
+                            createWorkspaceInfoCustomField(),
+                          ],
+                        }))
+                      }
+                      label="Add custom field"
+                    />
+                  }
+                >
+                  <div className="-mx-2 space-y-3">
+                    {workspaceInformation.customFields.length === 0 ? (
+                      <EmptyHint>No custom fields</EmptyHint>
+                    ) : null}
+                    {workspaceInformation.customFields.map((field) => (
+                      <div
+                        key={field.id}
+                        className="group/field space-y-1.5 px-1.5"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            value={field.label}
+                            onChange={(event) =>
+                              patchCustomField(field.id, (currentField) => ({
+                                ...currentField,
+                                label: event.target.value,
+                              }))
+                            }
+                            placeholder="Label"
+                            className="h-8 flex-1 border-0 bg-transparent px-1 text-sm font-medium shadow-none focus-visible:ring-0"
+                          />
+                          <Select
+                            value={field.type}
+                            onValueChange={(value) =>
+                              patchCustomField(field.id, (currentField) =>
+                                changeWorkspaceInfoCustomFieldType({
+                                  field: currentField,
+                                  type: value as WorkspaceInfoFieldType,
+                                }),
+                              )
+                            }
+                          >
+                            <SelectTrigger className="h-8 w-auto min-w-[5.5rem] border-0 bg-transparent text-xs text-muted-foreground shadow-none">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {WORKSPACE_INFO_FIELD_TYPES.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {WORKSPACE_INFO_FIELD_TYPE_LABELS[type]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <button
+                            type="button"
+                            className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/field:opacity-100"
+                            onClick={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                customFields: removeItemById(
+                                  current.customFields,
+                                  field.id,
+                                ),
+                              }))
+                            }
+                            aria-label="Remove field"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </div>
+                        {renderCustomFieldInput({
+                          field,
+                          onFieldChange: (nextField) =>
+                            patchCustomField(field.id, () => nextField),
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </SectionHeader>
+              </Accordion>
+            </SectionDragSuppressionContext.Provider>
+          </SortableContext>
         </DndContext>
       </div>
     </div>

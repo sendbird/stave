@@ -111,6 +111,8 @@ import {
   BUILTIN_CUSTOM_THEMES,
   MAX_USER_THEMES,
   PRESET_THEME_TOKENS,
+  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
+  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
   THEME_TOKEN_NAMES,
   exportCustomThemeJson,
   listAllCustomThemes,
@@ -987,6 +989,15 @@ function ThemeSection() {
     useState<ThemeModeName>("light");
   const themeMode = useAppStore((state) => state.settings.themeMode);
   const customThemeId = useAppStore((state) => state.settings.customThemeId);
+  const sidebarShowFleetView = useAppStore(
+    (state) => state.settings.sidebarShowFleetView,
+  );
+  const sidebarShowActiveWorkspaces = useAppStore(
+    (state) => state.settings.sidebarShowActiveWorkspaces,
+  );
+  const sidebarActiveWorkspaceLimit = useAppStore(
+    (state) => state.settings.sidebarActiveWorkspaceLimit,
+  );
   const borderBeamEnabled = useAppStore(
     (state) => state.settings.borderBeamEnabled,
   );
@@ -1063,6 +1074,59 @@ function ThemeSection() {
               System
             </Button>
           </div>
+        </SettingsCard>
+
+        <SettingsCard
+          title="Sidebar"
+          description="Choose which workspace navigation surfaces appear in the left sidebar."
+        >
+          <SwitchField
+            title="Fleet View Shortcut"
+            description="Show the Fleet View entry in the sidebar header area."
+            checked={sidebarShowFleetView}
+            onCheckedChange={(checked) =>
+              updateSettings({ patch: { sidebarShowFleetView: checked } })
+            }
+          />
+          <SwitchField
+            title="Active Workspaces"
+            description="Show a ranked list of active, attention, and recently used workspaces."
+            checked={sidebarShowActiveWorkspaces}
+            onCheckedChange={(checked) =>
+              updateSettings({
+                patch: { sidebarShowActiveWorkspaces: checked },
+              })
+            }
+          />
+          {sidebarShowActiveWorkspaces ? (
+            <LabeledField
+              title="Active Workspace Rows"
+              description="Maximum number of rows shown before the project list."
+            >
+              <div className="flex items-center gap-3">
+                <Slider
+                  aria-label="Active workspace rows"
+                  className="flex-1"
+                  value={[sidebarActiveWorkspaceLimit]}
+                  min={SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN}
+                  max={SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX}
+                  step={1}
+                  onValueChange={(values) => {
+                    const nextValue = values[0];
+                    if (typeof nextValue !== "number") {
+                      return;
+                    }
+                    updateSettings({
+                      patch: { sidebarActiveWorkspaceLimit: nextValue },
+                    });
+                  }}
+                />
+                <Badge variant="outline" className="min-w-12 justify-center">
+                  {sidebarActiveWorkspaceLimit}
+                </Badge>
+              </div>
+            </LabeledField>
+          ) : null}
         </SettingsCard>
 
         <SettingsCard
