@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { resolveLoginShellEnvVarValue } from "../executable-path";
 
 // Why: this is the same macOS Keychain service name the Claude Code CLI
 // itself writes to when a user runs `claude login` — reading it lets Stave
@@ -9,11 +11,49 @@ import path from "node:path";
 // of asking for a separate API key.
 const MACOS_KEYCHAIN_SERVICE = "Claude Code-credentials";
 
-const CREDENTIALS_FILE_PATH = path.join(
-  homedir(),
-  ".claude",
-  ".credentials.json",
-);
+const DEFAULT_CLAUDE_CONFIG_DIR = path.join(homedir(), ".claude");
+
+/**
+ * Config-dir candidates, mirroring how the CLI itself resolves its home:
+ * `CLAUDE_CONFIG_DIR` wins over `~/.claude`. Stave's host process is a GUI
+ * app and doesn't inherit the user's shell exports, so the login-shell
+ * value is consulted too (users who relocate `~/.claude` — e.g. a symlink
+ * into `~/.agents/claude` — typically export CLAUDE_CONFIG_DIR there).
+ * Symlinks are resolved so a dir and its target count as one candidate.
+ */
+function listClaudeConfigDirCandidates(): string[] {
+  const rawCandidates = [
+    process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
+    resolveLoginShellEnvVarValue({ key: "CLAUDE_SECURESTORAGE_CONFIG_DIR" }),
+    process.env.CLAUDE_CONFIG_DIR,
+    resolveLoginShellEnvVarValue({ key: "CLAUDE_CONFIG_DIR" }),
+    DEFAULT_CLAUDE_CONFIG_DIR,
+  ];
+
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+  for (const raw of rawCandidates) {
+    const trimmed = raw?.trim();
+    if (!trimmed) {
+      continue;
+    }
+    for (const candidate of [trimmed, safeRealpath(trimmed)]) {
+      if (candidate && !seen.has(candidate)) {
+        seen.add(candidate);
+        candidates.push(candidate);
+      }
+    }
+  }
+  return candidates;
+}
+
+function safeRealpath(target: string): string | null {
+  try {
+    return realpathSync(target);
+  } catch {
+    return null;
+  }
+}
 
 function parseOAuthAccessToken(raw: string): string | null {
   try {
@@ -29,31 +69,70 @@ function parseOAuthAccessToken(raw: string): string | null {
   }
 }
 
-function readMacKeychainAccessToken(): string | null {
+/**
+ * Keychain service-name candidates, matching the CLI's own scheme (from
+ * its credential-store code): the default config dir uses the plain
+ * `Claude Code-credentials` entry, while a custom CLAUDE_CONFIG_DIR (or
+ * CLAUDE_SECURESTORAGE_CONFIG_DIR) scopes the entry by appending
+ * `-<first 8 hex chars of sha256(NFC-normalized config dir)>`. Trying the
+ * candidates in order is cheap — the first hit wins and misses fall
+ * through to the credentials file / CLI paths.
+ */
+function listKeychainServiceCandidates(configDirs: string[]): string[] {
+  const services = new Set<string>([MACOS_KEYCHAIN_SERVICE]);
+  for (const dir of configDirs) {
+    if (dir === DEFAULT_CLAUDE_CONFIG_DIR) {
+      continue;
+    }
+    services.add(
+      `${MACOS_KEYCHAIN_SERVICE}-${createHash("sha256")
+        .update(dir.normalize("NFC"))
+        .digest("hex")
+        .slice(0, 8)}`,
+    );
+  }
+  return [...services];
+}
+
+function readMacKeychainAccessToken(configDirs: string[]): string | null {
   if (process.platform !== "darwin") {
     return null;
   }
-  try {
-    const raw = execFileSync(
-      "security",
-      ["find-generic-password", "-s", MACOS_KEYCHAIN_SERVICE, "-w"],
-      { encoding: "utf8", timeout: 5_000 },
-    );
-    return parseOAuthAccessToken(raw);
-  } catch {
-    // Keychain entry missing, access denied, or `security` unavailable —
-    // the caller falls back to the credentials file, then to the CLI.
-    return null;
+  for (const service of listKeychainServiceCandidates(configDirs)) {
+    try {
+      const raw = execFileSync(
+        "security",
+        ["find-generic-password", "-s", service, "-w"],
+        { encoding: "utf8", timeout: 5_000 },
+      );
+      const accessToken = parseOAuthAccessToken(raw);
+      if (accessToken) {
+        return accessToken;
+      }
+    } catch {
+      // Keychain entry missing, access denied, or `security` unavailable —
+      // try the next candidate, then the credentials file, then the CLI.
+    }
   }
+  return null;
 }
 
-function readCredentialsFileAccessToken(): string | null {
-  try {
-    const raw = readFileSync(CREDENTIALS_FILE_PATH, "utf8");
-    return parseOAuthAccessToken(raw);
-  } catch {
-    return null;
+function readCredentialsFileAccessToken(configDirs: string[]): string | null {
+  for (const configDir of configDirs) {
+    try {
+      const raw = readFileSync(
+        path.join(configDir, ".credentials.json"),
+        "utf8",
+      );
+      const accessToken = parseOAuthAccessToken(raw);
+      if (accessToken) {
+        return accessToken;
+      }
+    } catch {
+      // Missing/unreadable in this candidate dir — try the next one.
+    }
   }
+  return null;
 }
 
 /**
@@ -66,5 +145,9 @@ function readCredentialsFileAccessToken(): string | null {
  * to parsing the CLI's own `/usage` panel instead of trying to repair auth.
  */
 export function readClaudeOAuthAccessToken(): string | null {
-  return readMacKeychainAccessToken() ?? readCredentialsFileAccessToken();
+  const configDirs = listClaudeConfigDirCandidates();
+  return (
+    readMacKeychainAccessToken(configDirs) ??
+    readCredentialsFileAccessToken(configDirs)
+  );
 }

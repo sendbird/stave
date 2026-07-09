@@ -2521,6 +2521,47 @@ export async function getCodexModelCatalog(args: {
   }
 }
 
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * Newer Codex plans (e.g. business) report a credit-style `individualLimit`
+ * (used/limit as numeric strings + `remainingPercent`) instead of the
+ * primary/secondary windows — with those set to null. Normalize it so the
+ * status bar has a usable used-percent either way.
+ */
+function mapCodexIndividualLimit(raw: any) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const used = toFiniteNumber(raw.used);
+  const limit = toFiniteNumber(raw.limit);
+  const remainingPercent = toFiniteNumber(raw.remainingPercent);
+  let usedPercent: number | null = null;
+  if (used !== null && limit !== null && limit > 0) {
+    usedPercent = (used / limit) * 100;
+  } else if (remainingPercent !== null) {
+    usedPercent = 100 - remainingPercent;
+  }
+  if (usedPercent === null) {
+    return null;
+  }
+  return {
+    usedPercent,
+    used,
+    limit,
+    resetsAt: typeof raw.resetsAt === "number" ? raw.resetsAt : null,
+  };
+}
+
 function mapCodexRateLimitBuckets(response: any): CodexRateLimitSnapshot[] {
   const buckets =
     response?.rateLimitsByLimitId &&
@@ -2565,6 +2606,7 @@ function mapCodexRateLimitBuckets(response: any): CodexRateLimitSnapshot[] {
               : null,
         }
       : null,
+    individualLimit: mapCodexIndividualLimit(bucket?.individualLimit),
     credits: bucket?.credits
       ? {
           hasCredits: Boolean(bucket.credits.hasCredits),

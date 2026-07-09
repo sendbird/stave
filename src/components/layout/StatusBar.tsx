@@ -31,11 +31,11 @@ export function StatusBar() {
   return (
     <div className="flex h-7 shrink-0 items-center justify-between border-t border-border/70 bg-card px-1 text-xs">
       <div className="flex items-center gap-0.5">
-        <StatusBarMemorySegment />
-      </div>
-      <div className="flex items-center gap-0.5">
         <StatusBarUsageSegment provider="claude" />
         <StatusBarUsageSegment provider="codex" />
+      </div>
+      <div className="flex items-center gap-0.5">
+        <StatusBarMemorySegment />
       </div>
     </div>
   );
