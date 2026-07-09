@@ -1352,7 +1352,7 @@ export function ProjectWorkspaceSidebar(args: {
       <aside
         data-testid="project-workspace-sidebar"
         className={cn(
-          `${UI_LAYER_CLASS.floatingChrome} hidden h-full shrink-0 overflow-hidden text-sidebar-foreground lg:flex lg:flex-col`,
+          `${UI_LAYER_CLASS.floatingChrome} hidden h-full shrink-0 overflow-hidden bg-sidebar text-sidebar-foreground lg:flex lg:flex-col`,
           args.collapsed && "border-r border-sidebar-border/60",
         )}
         style={{
