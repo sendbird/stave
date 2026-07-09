@@ -15,6 +15,7 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
   CodexReviewStartResponse,
+  RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import type {
   ConnectedToolId,
@@ -189,6 +190,10 @@ interface WindowProviderApi {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexAppServerSnapshotResponse>;
+  getRateLimitsSnapshot?: (args: {
+    cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+  }) => Promise<RateLimitsSnapshotResponse>;
   getCodexPluginDetail?: (args: {
     marketplacePath: string;
     pluginName: string;

@@ -27,6 +27,7 @@ import type {
   CodexPluginInstallResponse,
   CodexPluginMarketplaceSnapshot,
   CodexPluginSummarySnapshot,
+  CodexRateLimitSnapshot,
   CodexReviewStartResponse,
   CodexSkillCatalogGroup,
   CodexThreadForkResponse,
@@ -2520,6 +2521,82 @@ export async function getCodexModelCatalog(args: {
   }
 }
 
+function mapCodexRateLimitBuckets(response: any): CodexRateLimitSnapshot[] {
+  const buckets =
+    response?.rateLimitsByLimitId &&
+    typeof response.rateLimitsByLimitId === "object"
+      ? Object.values(response.rateLimitsByLimitId)
+      : response?.rateLimits
+        ? [response.rateLimits]
+        : [];
+  return buckets.map((bucket: any) => ({
+    limitId: typeof bucket?.limitId === "string" ? bucket.limitId : null,
+    limitName: typeof bucket?.limitName === "string" ? bucket.limitName : null,
+    planType: typeof bucket?.planType === "string" ? bucket.planType : null,
+    primary: bucket?.primary
+      ? {
+          usedPercent:
+            typeof bucket.primary.usedPercent === "number"
+              ? bucket.primary.usedPercent
+              : 0,
+          windowDurationMins:
+            typeof bucket.primary.windowDurationMins === "number"
+              ? bucket.primary.windowDurationMins
+              : null,
+          resetsAt:
+            typeof bucket.primary.resetsAt === "number"
+              ? bucket.primary.resetsAt
+              : null,
+        }
+      : null,
+    secondary: bucket?.secondary
+      ? {
+          usedPercent:
+            typeof bucket.secondary.usedPercent === "number"
+              ? bucket.secondary.usedPercent
+              : 0,
+          windowDurationMins:
+            typeof bucket.secondary.windowDurationMins === "number"
+              ? bucket.secondary.windowDurationMins
+              : null,
+          resetsAt:
+            typeof bucket.secondary.resetsAt === "number"
+              ? bucket.secondary.resetsAt
+              : null,
+        }
+      : null,
+    credits: bucket?.credits
+      ? {
+          hasCredits: Boolean(bucket.credits.hasCredits),
+          unlimited: Boolean(bucket.credits.unlimited),
+          balance:
+            typeof bucket.credits.balance === "string"
+              ? bucket.credits.balance
+              : null,
+        }
+      : null,
+  }));
+}
+
+async function requestCodexRateLimitBuckets(
+  client: ReturnType<typeof getCodexAppServerClientFromRuntimeOptions>,
+): Promise<CodexRateLimitSnapshot[]> {
+  const response = await client.request<any>("account/rateLimits/read", {});
+  return mapCodexRateLimitBuckets(response);
+}
+
+/**
+ * Lightweight rate-limit-only fetch for the global status bar. Avoids the
+ * heavy `getCodexAppServerSnapshot` call (account/skills/plugins/threads/...)
+ * so it can be polled on a short interval.
+ */
+export async function fetchCodexRateLimitBuckets(args: {
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<CodexRateLimitSnapshot[]> {
+  const client = getCodexAppServerClientFromRuntimeOptions(args);
+  return requestCodexRateLimitBuckets(client);
+}
+
 export async function getCodexAppServerSnapshot(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -2572,66 +2649,7 @@ export async function getCodexAppServerSnapshot(args: {
         };
       }),
       loadSection("rateLimits", async () => {
-        const response = await client.request<any>(
-          "account/rateLimits/read",
-          {},
-        );
-        const buckets =
-          response?.rateLimitsByLimitId &&
-          typeof response.rateLimitsByLimitId === "object"
-            ? Object.values(response.rateLimitsByLimitId)
-            : response?.rateLimits
-              ? [response.rateLimits]
-              : [];
-        snapshot.rateLimits = buckets.map((bucket: any) => ({
-          limitId: typeof bucket?.limitId === "string" ? bucket.limitId : null,
-          limitName:
-            typeof bucket?.limitName === "string" ? bucket.limitName : null,
-          planType:
-            typeof bucket?.planType === "string" ? bucket.planType : null,
-          primary: bucket?.primary
-            ? {
-                usedPercent:
-                  typeof bucket.primary.usedPercent === "number"
-                    ? bucket.primary.usedPercent
-                    : 0,
-                windowDurationMins:
-                  typeof bucket.primary.windowDurationMins === "number"
-                    ? bucket.primary.windowDurationMins
-                    : null,
-                resetsAt:
-                  typeof bucket.primary.resetsAt === "number"
-                    ? bucket.primary.resetsAt
-                    : null,
-              }
-            : null,
-          secondary: bucket?.secondary
-            ? {
-                usedPercent:
-                  typeof bucket.secondary.usedPercent === "number"
-                    ? bucket.secondary.usedPercent
-                    : 0,
-                windowDurationMins:
-                  typeof bucket.secondary.windowDurationMins === "number"
-                    ? bucket.secondary.windowDurationMins
-                    : null,
-                resetsAt:
-                  typeof bucket.secondary.resetsAt === "number"
-                    ? bucket.secondary.resetsAt
-                    : null,
-              }
-            : null,
-          credits: bucket?.credits
-            ? {
-                hasCredits: Boolean(bucket.credits.hasCredits),
-                unlimited: Boolean(bucket.credits.unlimited),
-                balance:
-                  typeof bucket.credits.balance === "string"
-                    ? bucket.credits.balance
-                    : null,
-              }
-            : null,
-        }));
+        snapshot.rateLimits = await requestCodexRateLimitBuckets(client);
       }),
       loadSection("skills", async () => {
         const response = await client.request<any>("skills/list", {

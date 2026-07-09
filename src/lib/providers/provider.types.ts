@@ -263,6 +263,38 @@ export interface CodexRateLimitSnapshot {
   credits: CodexCreditsSnapshot | null;
 }
 
+/**
+ * Status-bar usage tracking (Claude session/weekly + Codex rate-limit
+ * buckets). "source" tells the renderer which pipeline produced the data so
+ * it can render an accurate provenance hint instead of a generic error.
+ */
+export type ClaudeUsageSource = "oauth" | "cli" | "unavailable";
+
+export interface ClaudeUsageWindow {
+  usedPercent: number;
+  resetsAt: number | null;
+}
+
+export interface ClaudeUsageSnapshot {
+  source: ClaudeUsageSource;
+  session: ClaudeUsageWindow | null;
+  weekly: ClaudeUsageWindow | null;
+  error: string | null;
+}
+
+export type CodexUsageSource = "rpc" | "unavailable";
+
+export interface CodexUsageSnapshot {
+  source: CodexUsageSource;
+  buckets: CodexRateLimitSnapshot[];
+  error: string | null;
+}
+
+export interface RateLimitsSnapshotResponse {
+  claude: ClaudeUsageSnapshot;
+  codex: CodexUsageSnapshot;
+}
+
 export interface CodexThreadSnapshot {
   id: string;
   forkedFromId: string | null;

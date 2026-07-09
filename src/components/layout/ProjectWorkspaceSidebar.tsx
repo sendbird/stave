@@ -64,7 +64,6 @@ import {
 import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import { CreateWorkspaceDialog } from "@/components/layout/CreateWorkspaceDialog";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
-import { MemoryUsagePopover } from "@/components/layout/ResourcesPopover";
 import { StaveAppMenuButton } from "@/components/layout/StaveAppMenuButton";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
@@ -1425,11 +1424,9 @@ export function ProjectWorkspaceSidebar(args: {
                   </TooltipTrigger>
                   <TooltipContent side="right">Fleet View</TooltipContent>
                 </Tooltip>
-                <MemoryUsagePopover collapsed />
               </div>
             ) : (
               <div className="flex w-full items-center justify-end gap-2">
-                <MemoryUsagePopover />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

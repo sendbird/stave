@@ -16,6 +16,7 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
   CodexReviewStartResponse,
+  RateLimitsSnapshotResponse,
 } from "../src/lib/providers/provider.types";
 import type {
   ConnectedToolId,
@@ -585,6 +586,14 @@ contextBridge.exposeInMainWorld("api", {
         "provider:get-codex-app-server-snapshot",
         args,
       ) as Promise<CodexAppServerSnapshotResponse>,
+    getRateLimitsSnapshot: (args: {
+      cwd?: string;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:get-rate-limits-snapshot",
+        args,
+      ) as Promise<RateLimitsSnapshotResponse>,
     getCodexPluginDetail: (args: {
       marketplacePath: string;
       pluginName: string;

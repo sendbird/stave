@@ -731,6 +731,8 @@ export const ClaudeRuntimeActionArgsSchema = z
 
 export const CodexRuntimeActionArgsSchema = ClaudeRuntimeActionArgsSchema;
 
+export const RateLimitsSnapshotArgsSchema = ClaudeRuntimeActionArgsSchema;
+
 export const CodexPluginDetailArgsSchema = z
   .object({
     marketplacePath: z.string().min(1).max(4096),

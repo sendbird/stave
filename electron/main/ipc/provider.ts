@@ -20,6 +20,7 @@ import {
   CodexPluginUninstallArgsSchema,
   CodexReviewStartArgsSchema,
   CodexRuntimeActionArgsSchema,
+  RateLimitsSnapshotArgsSchema,
   CodexThreadArchiveArgsSchema,
   CodexThreadCompactArgsSchema,
   CodexThreadForkArgsSchema,
@@ -371,6 +372,29 @@ export function registerProviderHandlers() {
     }
     return invokeHostService(
       "provider.get-codex-app-server-snapshot",
+      parsedArgs.data,
+    );
+  });
+
+  ipcMain.handle("provider:get-rate-limits-snapshot", (_event, args: unknown) => {
+    const parsedArgs = RateLimitsSnapshotArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        claude: {
+          source: "unavailable",
+          session: null,
+          weekly: null,
+          error: "Invalid rate-limits snapshot request.",
+        },
+        codex: {
+          source: "unavailable",
+          buckets: [],
+          error: "Invalid rate-limits snapshot request.",
+        },
+      };
+    }
+    return invokeHostService(
+      "provider.get-rate-limits-snapshot",
       parsedArgs.data,
     );
   });
