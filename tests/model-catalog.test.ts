@@ -35,10 +35,10 @@ describe("model catalog", () => {
 
   test("includes the verified Codex model set", () => {
     expect(CODEX_MODEL_OPTIONS).toEqual([
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-5.6-luna",
       "gpt-5.5",
-      "gpt-5.4",
-      "gpt-5.4-mini",
-      "gpt-5.3-codex-spark",
     ]);
   });
 
@@ -52,8 +52,10 @@ describe("model catalog", () => {
   });
 
   test("formats current GPT models with canonical labels", () => {
+    expect(toHumanModelName({ model: "gpt-5.6-sol" })).toBe("GPT-5.6 Sol");
+    expect(toHumanModelName({ model: "gpt-5.6-terra" })).toBe("GPT-5.6 Terra");
+    expect(toHumanModelName({ model: "gpt-5.6-luna" })).toBe("GPT-5.6 Luna");
     expect(toHumanModelName({ model: "gpt-5.5" })).toBe("GPT-5.5");
-    expect(toHumanModelName({ model: "gpt-5.4" })).toBe("GPT-5.4");
     expect(toHumanModelName({ model: "claude-sonnet-5" })).toBe(
       "Claude Sonnet 5",
     );
@@ -86,7 +88,7 @@ describe("model catalog", () => {
       "claude-sonnet-5",
     );
     expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
-      "gpt-5.5",
+      "gpt-5.6-terra",
     );
   });
 
@@ -116,6 +118,20 @@ describe("model catalog", () => {
   });
 
   test("returns the default Codex effort from model capabilities", () => {
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-luna" })).toBe(
+      "low",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-terra" })).toBe(
+      "medium",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-sol" })).toBe(
+      "high",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.5" })).toBe(
+      "high",
+    );
+    // Legacy models removed from the picker still resolve via the heuristic
+    // fallback so historical settings keep sane defaults.
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.4-mini" })).toBe(
       "low",
     );
@@ -150,7 +166,7 @@ describe("model catalog", () => {
       resolveTierModel({ providerId: "claude-code", tier: "frontier" }),
     ).toBe(CLAUDE_FABLE_MODEL);
     expect(resolveTierModel({ providerId: "codex", tier: "light" })).toBe(
-      "gpt-5.4-mini",
+      "gpt-5.6-luna",
     );
     expect(
       resolveTierModel({

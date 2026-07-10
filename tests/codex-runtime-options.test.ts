@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  resolveCodexAppServerReasoningEffort,
   resolveEffectiveCodexApprovalPolicy,
   resolveEffectiveCodexFileAccessMode,
 } from "@/lib/providers/codex-runtime-options";
@@ -40,5 +41,28 @@ describe("resolveEffectiveCodexApprovalPolicy", () => {
       approvalPolicy: undefined,
       planMode: false,
     })).toBe("untrusted");
+  });
+});
+
+describe("resolveCodexAppServerReasoningEffort", () => {
+  test("passes through the GPT-5.6 max and ultra effort tiers", () => {
+    expect(
+      resolveCodexAppServerReasoningEffort({ reasoningEffort: "max" }),
+    ).toBe("max");
+    expect(
+      resolveCodexAppServerReasoningEffort({ reasoningEffort: "ultra" }),
+    ).toBe("ultra");
+  });
+
+  test("normalizes legacy minimal to low", () => {
+    expect(
+      resolveCodexAppServerReasoningEffort({ reasoningEffort: "minimal" }),
+    ).toBe("low");
+  });
+
+  test("returns undefined for unknown or missing efforts", () => {
+    expect(
+      resolveCodexAppServerReasoningEffort({ reasoningEffort: undefined }),
+    ).toBeUndefined();
   });
 });

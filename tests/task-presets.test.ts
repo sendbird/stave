@@ -16,7 +16,7 @@ describe("task preset defaults", () => {
     expect(presets).toHaveLength(4);
     expect(presets.map((preset) => preset.id)).toEqual([
       "default-claude-opus-4-8-task",
-      "default-gpt-5-5-task",
+      "default-gpt-5-6-task",
       "default-claude-cli-session",
       "default-codex-cli-session",
     ]);

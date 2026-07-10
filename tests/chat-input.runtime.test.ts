@@ -45,11 +45,15 @@ describe("chat-input runtime helpers", () => {
     expect(cycleClaudeEffortValue("max")).toBe("low");
   });
 
-  test("cycles Codex effort with minimal at the end of the loop", () => {
+  test("cycles Codex effort through max and ultra, mapping legacy minimal to low", () => {
     expect(cycleCodexEffortValue("low")).toBe("medium");
     expect(cycleCodexEffortValue("medium")).toBe("high");
     expect(cycleCodexEffortValue("high")).toBe("xhigh");
-    expect(cycleCodexEffortValue("xhigh")).toBe("minimal");
+    expect(cycleCodexEffortValue("xhigh")).toBe("max");
+    expect(cycleCodexEffortValue("max")).toBe("ultra");
+    expect(cycleCodexEffortValue("ultra")).toBe("low");
+    // Legacy persisted "minimal" is no longer in the cycle; it falls back to
+    // the first entry.
     expect(cycleCodexEffortValue("minimal")).toBe("low");
   });
 

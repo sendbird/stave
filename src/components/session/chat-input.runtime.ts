@@ -70,12 +70,15 @@ type CommandCatalogRuntimeArgs = Pick<
 const CLAUDE_EFFORT_CYCLE_ORDER = CLAUDE_EFFORT_OPTIONS.map(
   (option) => option.value,
 );
+// Legacy "minimal" is intentionally absent — cycling from a persisted
+// "minimal" value falls back to the first entry ("low").
 const CODEX_EFFORT_CYCLE_ORDER = [
   "low",
   "medium",
   "high",
   "xhigh",
-  "minimal",
+  "max",
+  "ultra",
 ] as const satisfies readonly AppSettings["codexReasoningEffort"][];
 
 function cycleOptionValue<T extends string>(args: {

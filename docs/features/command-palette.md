@@ -88,8 +88,8 @@ This is usually faster than opening Settings and browsing manually.
 Default bindings:
 
 - `Alt+1` → `Claude Opus 4.8`
-- `Alt+2` → `GPT-5.5`
-- `Alt+3` → `GPT-5.4`
+- `Alt+2` → `GPT-5.6 Terra`
+- `Alt+3` → `GPT-5.6 Sol`
 
 ### Work Mostly From The Keyboard
 

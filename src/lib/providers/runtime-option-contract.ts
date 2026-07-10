@@ -65,12 +65,16 @@ export const CODEX_SANDBOX_MODE_OPTIONS = [
   { value: "danger-full-access", label: "danger-full-access" },
 ] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexFileAccess"]>>[];
 
+// "minimal" was dropped from the Codex CLI effort scale with GPT-5.6 and is
+// no longer selectable; legacy persisted values still validate and map to
+// "low" at runtime (see resolveCodexAppServerReasoningEffort).
 export const CODEX_EFFORT_OPTIONS = [
-  { value: "minimal", label: "Minimal" },
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
   { value: "xhigh", label: "X-High" },
+  { value: "max", label: "Max" },
+  { value: "ultra", label: "Ultra" },
 ] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>>[];
 
 export const CODEX_WEB_SEARCH_OPTIONS = [

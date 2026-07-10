@@ -42,12 +42,15 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
 
 // Source:
 // - local `codex app-server` / CLI baseline support
-// - https://developers.openai.com/codex/models
+// - https://developers.openai.com/codex/models (GPT-5.6 family, 2026-07-09)
+// GPT-5.6 ships as Sol (flagship), Terra (balanced), and Luna (fast/cheap).
+// gpt-5.5 is kept as the previous-generation fallback; gpt-5.4 variants and
+// codex-spark moved to legacy display names only.
 export const CODEX_MODEL_OPTIONS = [
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
   "gpt-5.5",
-  "gpt-5.4",
-  "gpt-5.4-mini",
-  "gpt-5.3-codex-spark",
 ] as const;
 
 export interface ProviderDescriptor {
@@ -87,7 +90,7 @@ export const PROVIDER_DESCRIPTORS = [
     iconUrl: CODEX_COLOR_ICON_URL,
     fallbackLabel: "O",
     models: CODEX_MODEL_OPTIONS,
-    defaultModel: "gpt-5.5",
+    defaultModel: "gpt-5.6-terra",
     sessionLabel: "Codex thread ID",
     capabilities: {
       nativeCommandCatalog: true,
@@ -227,14 +230,6 @@ export const MODEL_TIER_ORDER = [
   "frontier",
 ] as const satisfies readonly ModelTier[];
 
-const GENERAL_CODING_TASK_TYPES = [
-  "quick_edit",
-  "implementation",
-  "debug",
-  "review",
-  "general",
-] as const satisfies readonly TaskType[];
-
 export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   [CLAUDE_FABLE_MODEL]: {
     providerId: "claude-code",
@@ -285,32 +280,32 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     taskTypes: ["quick_edit", "general"],
     defaultClaudeEffort: "medium",
   },
+  "gpt-5.6-sol": {
+    providerId: "codex",
+    model: "gpt-5.6-sol",
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultCodexReasoningEffort: "high",
+  },
+  "gpt-5.6-terra": {
+    providerId: "codex",
+    model: "gpt-5.6-terra",
+    tier: "heavy",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultCodexReasoningEffort: "medium",
+  },
+  "gpt-5.6-luna": {
+    providerId: "codex",
+    model: "gpt-5.6-luna",
+    tier: "light",
+    taskTypes: ["quick_edit", "general"],
+    defaultCodexReasoningEffort: "low",
+  },
   "gpt-5.5": {
     providerId: "codex",
     model: "gpt-5.5",
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultCodexReasoningEffort: "high",
-  },
-  "gpt-5.4": {
-    providerId: "codex",
-    model: "gpt-5.4",
-    tier: "standard",
-    taskTypes: GENERAL_CODING_TASK_TYPES,
-    defaultCodexReasoningEffort: "medium",
-  },
-  "gpt-5.4-mini": {
-    providerId: "codex",
-    model: "gpt-5.4-mini",
-    tier: "light",
-    taskTypes: ["quick_edit", "general"],
-    defaultCodexReasoningEffort: "low",
-  },
-  "gpt-5.3-codex-spark": {
-    providerId: "codex",
-    model: "gpt-5.3-codex-spark",
-    tier: "heavy",
-    taskTypes: ["implementation", "debug", "review"],
     defaultCodexReasoningEffort: "high",
   },
 };
@@ -419,10 +414,14 @@ export function resolveDefaultCodexEffortForModel(args: {
   }
 
   const normalizedModel = args.model.trim().toLowerCase();
-  if (normalizedModel.includes("mini")) {
+  if (normalizedModel.includes("mini") || normalizedModel.includes("luna")) {
     return "low";
   }
-  if (normalizedModel.includes("spark") || normalizedModel.includes("5.5")) {
+  if (
+    normalizedModel.includes("spark") ||
+    normalizedModel.includes("sol") ||
+    normalizedModel.includes("5.5")
+  ) {
     return "high";
   }
   return "medium";
@@ -492,7 +491,12 @@ export function toHumanModelName(args: { model: string }) {
     "claude-sonnet-4-6": "Claude Sonnet 4.6",
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
     "claude-haiku-4-5": "Claude Haiku 4.5",
+    "gpt-5.6-sol": "GPT-5.6 Sol",
+    "gpt-5.6-terra": "GPT-5.6 Terra",
+    "gpt-5.6-luna": "GPT-5.6 Luna",
     "gpt-5.5": "GPT-5.5",
+    // Legacy Codex labels kept so historical chat/turn records still render
+    // recognizable names after the picker lineup moved to GPT-5.6.
     "gpt-5.4": "GPT-5.4",
     "gpt-5.4-mini": "GPT-5.4 Mini",
     "gpt-5-codex": "GPT-5-Codex",

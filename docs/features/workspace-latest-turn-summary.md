@@ -64,7 +64,7 @@ This rendered example shows the Information panel with the latest-turn summary p
 
 ```json
 {
-  "workspaceTurnSummaryPrimaryModel": "gpt-5.4-mini",
+  "workspaceTurnSummaryPrimaryModel": "gpt-5.6-luna",
   "workspaceTurnSummaryFallbackModel": "claude-haiku-4-5"
 }
 ```

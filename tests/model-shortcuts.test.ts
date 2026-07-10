@@ -10,10 +10,10 @@ import {
 describe("model shortcuts", () => {
   test("fills missing slots from the default shortcut map", () => {
     expect(normalizeModelShortcutKeys()).toEqual(DEFAULT_MODEL_SHORTCUT_KEYS);
-    expect(normalizeModelShortcutKeys(["codex:gpt-5.4-mini", ""])).toEqual([
-      "codex:gpt-5.4-mini",
+    expect(normalizeModelShortcutKeys(["codex:gpt-5.6-luna", ""])).toEqual([
+      "codex:gpt-5.6-luna",
       "",
-      "codex:gpt-5.4",
+      "codex:gpt-5.6-sol",
       "",
       "",
       "",

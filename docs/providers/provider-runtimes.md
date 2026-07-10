@@ -251,12 +251,15 @@ If you want the user-facing setup workflow instead of the runtime internals, use
   - `untrusted`: App Server-aligned low-friction default; pause only for actions treated as untrusted.
   - `on-request`: ask when approval is needed.
 - `reasoning effort`
-  - `minimal` / `low`: fastest.
+  - `low`: fastest.
   - `medium`: balanced default.
   - `high` / `xhigh`: slower, more deliberate.
-  - Codex App Server turns normalize `minimal` to `low` because the current
-    upstream model API rejects built-in tools such as `image_gen` and
-    `web_search` with `reasoning.effort = minimal`.
+  - `max` / `ultra`: deepest reasoning tiers introduced with the GPT-5.6
+    Codex CLI scale.
+  - `minimal` is a legacy persisted value that is no longer selectable in the
+    UI; Codex App Server turns normalize it to `low` because the upstream
+    model API rejects built-in tools such as `image_gen` and `web_search`
+    with `reasoning.effort = minimal`.
 - `reasoning summary`
   - `auto`: let Codex decide.
   - `concise`: short summary.
@@ -283,7 +286,7 @@ When a task switches from one Codex model to another, Stave does not attempt to 
 
 - Codex App Server transport: local `codex app-server` from Codex CLI `0.142.0`
 - Codex CLI baseline: `0.142.0`
-- Current Stave-supported Codex model IDs: `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex-spark`
+- Current Stave-supported Codex model IDs: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5` (default: `gpt-5.6-terra`)
 
 Stave requires a user-installed Codex CLI (`codex` ≥ 0.142.0). Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery.
 

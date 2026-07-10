@@ -55,7 +55,9 @@ export function resolveCodexAppServerReasoningEffort(args: {
     args.reasoningEffort !== "low" &&
     args.reasoningEffort !== "medium" &&
     args.reasoningEffort !== "high" &&
-    args.reasoningEffort !== "xhigh"
+    args.reasoningEffort !== "xhigh" &&
+    args.reasoningEffort !== "max" &&
+    args.reasoningEffort !== "ultra"
   ) {
     return undefined;
   }

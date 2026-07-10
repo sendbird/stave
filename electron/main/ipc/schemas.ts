@@ -392,6 +392,8 @@ export const RuntimeOptionsObjectSchema = z
         z.literal("medium"),
         z.literal("high"),
         z.literal("xhigh"),
+        z.literal("max"),
+        z.literal("ultra"),
       ])
       .optional(),
     codexWebSearch: z

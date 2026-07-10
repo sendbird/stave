@@ -45,6 +45,20 @@ describe("provider IPC schemas", () => {
     expect(parsed.success).toBe(true);
   });
 
+  test("accepts Codex max/ultra efforts and legacy minimal in runtime options", () => {
+    for (const effort of ["max", "ultra", "minimal"] as const) {
+      const parsed = StreamTurnArgsSchema.safeParse({
+        providerId: "codex",
+        prompt: "continue",
+        runtimeOptions: {
+          codexReasoningEffort: effort,
+        },
+      });
+
+      expect(parsed.success).toBe(true);
+    }
+  });
+
   test("accepts provider timeout windows up to 24 hours", () => {
     expect(StreamTurnArgsSchema.safeParse({
       providerId: "codex",
