@@ -48,6 +48,7 @@ import {
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
   getDefaultModelForProvider,
+  listCodexReasoningEffortsForModel,
 } from "@/lib/providers/model-catalog";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
@@ -366,6 +367,22 @@ const CODEX_REASONING_EFFORT_HELP = [
     example:
       "Reserve this for genuinely complex work where you want Codex to think much longer.",
   },
+  {
+    value: "max",
+    label: "Max",
+    description:
+      "Highest deliberation on the GPT-5.6 effort scale, above `xhigh`.",
+    example:
+      "Reserve this for hard multi-step implementation or debugging work where accuracy matters more than speed.",
+  },
+  {
+    value: "ultra",
+    label: "Ultra",
+    description:
+      "The deepest reasoning budget Codex offers and the highest latency cost. Not every model accepts this tier (e.g. GPT-5.6 Luna caps at `max`).",
+    example:
+      "Reserve this for the hardest frontier-model tasks where you want Codex to think as long as possible.",
+  },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
 >[];
@@ -604,6 +621,7 @@ export function ProvidersSection() {
     codexNetworkAccess,
     codexApprovalPolicy,
     codexReasoningEffort,
+    modelCodex,
     codexWebSearch,
     codexShowRawReasoning,
     codexReasoningSummary,
@@ -640,6 +658,7 @@ export function ProvidersSection() {
           state.settings.codexNetworkAccess,
           state.settings.codexApprovalPolicy,
           state.settings.codexReasoningEffort,
+          state.settings.modelCodex,
           state.settings.codexWebSearch,
           state.settings.codexShowRawReasoning,
           state.settings.codexReasoningSummary,
@@ -683,6 +702,18 @@ export function ProvidersSection() {
     model: defaultClaudeAdvisorModel,
     fallback: DEFAULT_CLAUDE_SONNET_MODEL,
   });
+  // Scoped to the default Codex model so, e.g., GPT-5.6 Luna never offers
+  // "Ultra" here — a value only Sol/Terra accept. "Minimal" is always kept
+  // available since it's a legacy value Stave still maps to "low" at
+  // runtime, not part of the current model-reported effort scale.
+  const codexReasoningEffortOptions = useMemo(() => {
+    const supported = listCodexReasoningEffortsForModel({ model: modelCodex });
+    return CODEX_REASONING_EFFORT_HELP.filter(
+      (option) =>
+        option.value === "minimal" ||
+        (supported as readonly string[]).includes(option.value),
+    );
+  }, [modelCodex]);
   const claudeAdvisorModelEnabled = claudeAdvisorModel.trim().length > 0;
   const activeClaudeAdvisorSourceModel = resolveClaudeAdvisorSourceModel({
     model: claudeAdvisorModel.trim() || modelClaude,
@@ -1237,15 +1268,15 @@ export function ProvidersSection() {
                   <SettingsFieldGuide
                     title="Codex Reasoning Effort"
                     summary="Higher effort gives Codex more room to reason, but it also tends to slow the turn down."
-                    items={buildGuideItems(CODEX_REASONING_EFFORT_HELP)}
-                    examples={buildGuideExamples(CODEX_REASONING_EFFORT_HELP)}
+                    items={buildGuideItems(codexReasoningEffortOptions)}
+                    examples={buildGuideExamples(codexReasoningEffortOptions)}
                     tooltip="Compare Codex reasoning effort levels"
                   />
                 }
               >
                 <DescribedSelect
                   value={codexReasoningEffort}
-                  options={CODEX_REASONING_EFFORT_HELP}
+                  options={codexReasoningEffortOptions}
                   onValueChange={(value) =>
                     updateSettings({
                       patch: {

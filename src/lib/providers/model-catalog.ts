@@ -43,6 +43,9 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
 // Source:
 // - local `codex app-server` / CLI baseline support
 // - https://developers.openai.com/codex/models (GPT-5.6 family, 2026-07-09)
+// - verified against codex-cli 0.144.1 `model/list` (2026-07-10): the server
+//   catalog now ships gpt-5.6-sol/terra/luna (default effort xhigh; sol/terra
+//   support up to "ultra", luna up to "max") alongside gpt-5.5/5.4/5.4-mini.
 // GPT-5.6 ships as Sol (flagship), Terra (balanced), and Luna (fast/cheap).
 // gpt-5.5 is kept as the previous-generation fallback; gpt-5.4 variants and
 // codex-spark moved to legacy display names only.
@@ -221,7 +224,35 @@ export interface ModelCapability {
   defaultCodexReasoningEffort?: NonNullable<
     ProviderRuntimeOptions["codexReasoningEffort"]
   >;
+  /**
+   * Reasoning-effort values the model actually accepts, per the Codex
+   * `model/list` catalog. Omitted for models where every effort level is
+   * accepted (or the constraint is unknown) — callers should treat a missing
+   * value as "no restriction" rather than "nothing supported".
+   */
+  supportedCodexReasoningEfforts?: readonly NonNullable<
+    ProviderRuntimeOptions["codexReasoningEffort"]
+  >[];
 }
+
+/**
+ * Full selectable Codex reasoning-effort scale, in low-to-high order. Kept
+ * local to this module (rather than imported from
+ * `runtime-option-contract.ts`) so model-catalog has no dependency on the UI
+ * option-label layer. "minimal" is intentionally excluded — it was dropped
+ * from the Codex CLI effort scale with GPT-5.6 (see
+ * `runtime-option-contract.ts`).
+ */
+export const ALL_CODEX_REASONING_EFFORTS = [
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+] as const satisfies readonly NonNullable<
+  ProviderRuntimeOptions["codexReasoningEffort"]
+>[];
 
 export const MODEL_TIER_ORDER = [
   "light",
@@ -280,33 +311,56 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     taskTypes: ["quick_edit", "general"],
     defaultClaudeEffort: "medium",
   },
+  // Codex default efforts and supported-effort scales mirror
+  // `defaultReasoningEffort` / `supportedReasoningEfforts` reported by the
+  // codex-cli 0.144.1 App Server `model/list` catalog. Notably Luna does not
+  // accept "ultra" and GPT-5.5 caps out at "xhigh" (no "max"/"ultra").
   "gpt-5.6-sol": {
     providerId: "codex",
     model: "gpt-5.6-sol",
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultCodexReasoningEffort: "high",
+    defaultCodexReasoningEffort: "xhigh",
+    supportedCodexReasoningEfforts: [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra",
+    ],
   },
   "gpt-5.6-terra": {
     providerId: "codex",
     model: "gpt-5.6-terra",
     tier: "heavy",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultCodexReasoningEffort: "medium",
+    defaultCodexReasoningEffort: "xhigh",
+    supportedCodexReasoningEfforts: [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra",
+    ],
   },
   "gpt-5.6-luna": {
     providerId: "codex",
     model: "gpt-5.6-luna",
     tier: "light",
     taskTypes: ["quick_edit", "general"],
-    defaultCodexReasoningEffort: "low",
+    defaultCodexReasoningEffort: "xhigh",
+    // Luna is the one GPT-5.6 variant that does not accept "ultra".
+    supportedCodexReasoningEfforts: ["low", "medium", "high", "xhigh", "max"],
   },
   "gpt-5.5": {
     providerId: "codex",
     model: "gpt-5.5",
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultCodexReasoningEffort: "high",
+    defaultCodexReasoningEffort: "xhigh",
+    supportedCodexReasoningEfforts: ["low", "medium", "high", "xhigh"],
   },
 };
 
@@ -405,6 +459,18 @@ export function resolveDefaultClaudeEffortForModel(args: {
 export function resolveDefaultCodexEffortForModel(args: {
   model: string;
 }): NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]> {
+  // 1. Codex's own recommendation for the model, whether it comes from the
+  // live App Server catalog (`model/list.defaultReasoningEffort`, registered
+  // via registerDynamicDefaultReasoningEffort) or our static, verified
+  // MODEL_CAPABILITIES entry. The dynamic value wins when present since it
+  // reflects the installed Codex binary's current recommendation.
+  const dynamicDefault = dynamicDefaultReasoningEfforts.get(
+    args.model.trim(),
+  );
+  if (dynamicDefault) {
+    return dynamicDefault;
+  }
+
   const capability = getModelCapability({ model: args.model });
   if (
     capability?.providerId === "codex" &&
@@ -413,17 +479,8 @@ export function resolveDefaultCodexEffortForModel(args: {
     return capability.defaultCodexReasoningEffort;
   }
 
-  const normalizedModel = args.model.trim().toLowerCase();
-  if (normalizedModel.includes("mini") || normalizedModel.includes("luna")) {
-    return "low";
-  }
-  if (
-    normalizedModel.includes("spark") ||
-    normalizedModel.includes("sol") ||
-    normalizedModel.includes("5.5")
-  ) {
-    return "high";
-  }
+  // 2. No known Codex recommendation (e.g. a legacy or unrecognized model
+  // id) — fall back to the same "medium" baseline Stave has always used.
   return "medium";
 }
 
@@ -465,6 +522,168 @@ export function registerDynamicDisplayNames(names: Map<string, string>) {
  */
 export function getDynamicDisplayNames(): ReadonlyMap<string, string> {
   return dynamicDisplayNames;
+}
+
+/**
+ * Dynamic per-model default-reasoning-effort registry populated at runtime
+ * from the Codex model catalog (`model/list.defaultReasoningEffort`). Read by
+ * `resolveDefaultCodexEffortForModel` so Stave always prefers Codex's own
+ * recommendation over the static fallback once the App Server catalog has
+ * been fetched.
+ */
+const dynamicDefaultReasoningEfforts = new Map<
+  string,
+  NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
+>();
+
+const VALID_CODEX_REASONING_EFFORTS = new Set<
+  NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
+>(["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]);
+
+function isValidCodexReasoningEffort(
+  value: string,
+): value is NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]> {
+  return VALID_CODEX_REASONING_EFFORTS.has(
+    value as NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>,
+  );
+}
+
+/**
+ * Merge server-provided default reasoning efforts into the runtime registry.
+ * Called from `useCodexModelCatalog` after a successful `model/list` fetch.
+ * Unrecognized effort strings are ignored so a malformed server response
+ * cannot poison the registry.
+ */
+export function registerDynamicDefaultReasoningEfforts(
+  defaults: Map<string, string>,
+) {
+  for (const [model, effort] of defaults) {
+    if (isValidCodexReasoningEffort(effort)) {
+      dynamicDefaultReasoningEfforts.set(model, effort);
+    }
+  }
+}
+
+/**
+ * Read-only access to the current dynamic default-reasoning-effort registry.
+ * Useful for tests and diagnostics.
+ */
+export function getDynamicDefaultReasoningEfforts(): ReadonlyMap<
+  string,
+  NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
+> {
+  return dynamicDefaultReasoningEfforts;
+}
+
+/**
+ * Dynamic per-model supported-reasoning-effort registry populated at runtime
+ * from the Codex model catalog (`model/list.supportedReasoningEfforts`). Read
+ * by `listCodexReasoningEffortsForModel` so effort pickers never offer a
+ * value the currently installed Codex binary would reject for that model
+ * (e.g. GPT-5.6 Luna does not accept "ultra").
+ */
+const dynamicSupportedReasoningEfforts = new Map<
+  string,
+  NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>[]
+>();
+
+/**
+ * Merge server-provided supported-effort lists into the runtime registry.
+ * Called from `useCodexModelCatalog` after a successful `model/list` fetch.
+ * Unrecognized effort strings are dropped so a malformed server response
+ * cannot poison the registry; an entry with no recognizable values is
+ * ignored entirely (falls through to the static catalog / unrestricted).
+ */
+export function registerDynamicSupportedReasoningEfforts(
+  supported: Map<string, readonly string[]>,
+) {
+  for (const [model, efforts] of supported) {
+    const valid = efforts.filter(isValidCodexReasoningEffort);
+    if (valid.length > 0) {
+      dynamicSupportedReasoningEfforts.set(model, valid);
+    }
+  }
+}
+
+/**
+ * Read-only access to the current dynamic supported-reasoning-effort
+ * registry. Useful for tests and diagnostics.
+ */
+export function getDynamicSupportedReasoningEfforts(): ReadonlyMap<
+  string,
+  readonly NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>[]
+> {
+  return dynamicSupportedReasoningEfforts;
+}
+
+/**
+ * Reasoning-effort values selectable for a given Codex model, in
+ * low-to-high order. Prefers the live App Server catalog (registered via
+ * `registerDynamicSupportedReasoningEfforts`) since it reflects the
+ * installed Codex binary; falls back to the verified static catalog entry;
+ * and finally returns the full scale when nothing is known about the model
+ * (never blocks a legacy/unrecognized model from being used).
+ */
+export function listCodexReasoningEffortsForModel(args: {
+  model: string;
+}): readonly NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>[] {
+  const trimmedModel = args.model.trim();
+  const dynamic = dynamicSupportedReasoningEfforts.get(trimmedModel);
+  if (dynamic && dynamic.length > 0) {
+    return dynamic;
+  }
+
+  const capability = getModelCapability({ model: trimmedModel });
+  if (
+    capability?.providerId === "codex" &&
+    capability.supportedCodexReasoningEfforts &&
+    capability.supportedCodexReasoningEfforts.length > 0
+  ) {
+    return capability.supportedCodexReasoningEfforts;
+  }
+
+  return ALL_CODEX_REASONING_EFFORTS;
+}
+
+/**
+ * Clamps a reasoning-effort value to one the target model actually accepts.
+ * Used when switching models (or loading a persisted preset) so a value like
+ * "ultra" carried over from GPT-5.6 Sol doesn't get silently sent to Luna,
+ * which would reject it. Steps down to the nearest lower supported value
+ * first (so "ultra" -> "max" rather than jumping straight to the model's
+ * default), falling back to the model's default effort if the current value
+ * is below every supported level (should not happen in practice).
+ */
+export function clampCodexEffortToModel(args: {
+  model: string;
+  effort: NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>;
+}): NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]> {
+  const supported = listCodexReasoningEffortsForModel({ model: args.model });
+  if ((supported as readonly string[]).includes(args.effort)) {
+    return args.effort;
+  }
+
+  const requestedIndex = ALL_CODEX_REASONING_EFFORTS.indexOf(
+    args.effort as (typeof ALL_CODEX_REASONING_EFFORTS)[number],
+  );
+  const nextLower = [...supported]
+    .filter(
+      (candidate) =>
+        ALL_CODEX_REASONING_EFFORTS.indexOf(
+          candidate as (typeof ALL_CODEX_REASONING_EFFORTS)[number],
+        ) <= requestedIndex,
+    )
+    .sort(
+      (left, right) =>
+        ALL_CODEX_REASONING_EFFORTS.indexOf(
+          right as (typeof ALL_CODEX_REASONING_EFFORTS)[number],
+        ) -
+        ALL_CODEX_REASONING_EFFORTS.indexOf(
+          left as (typeof ALL_CODEX_REASONING_EFFORTS)[number],
+        ),
+    )[0];
+
+  return nextLower ?? resolveDefaultCodexEffortForModel({ model: args.model });
 }
 
 export function toHumanModelName(args: { model: string }) {

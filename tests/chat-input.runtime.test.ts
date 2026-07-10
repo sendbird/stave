@@ -57,6 +57,15 @@ describe("chat-input runtime helpers", () => {
     expect(cycleCodexEffortValue("minimal")).toBe("low");
   });
 
+  test("scopes the Codex effort cycle to the model when provided", () => {
+    // GPT-5.6 Luna has no "ultra" tier — the cycle should wrap from "max"
+    // back to "low" instead of landing on "ultra".
+    expect(cycleCodexEffortValue("max", "gpt-5.6-luna")).toBe("low");
+    expect(cycleCodexEffortValue("xhigh", "gpt-5.6-luna")).toBe("max");
+    // Sol/Terra still cycle through "ultra".
+    expect(cycleCodexEffortValue("max", "gpt-5.6-sol")).toBe("ultra");
+  });
+
   test("surfaces Codex runtime status items including binary override", () => {
     const items = buildChatInputRuntimeStatusItems(baseArgs);
 

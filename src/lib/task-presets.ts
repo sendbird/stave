@@ -8,6 +8,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   CLAUDE_EFFORT_OPTIONS,
   CODEX_EFFORT_OPTIONS,
+  listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
 import type { CliSessionContextMode } from "@/lib/terminal/types";
 
@@ -52,13 +53,16 @@ export type TaskPresetEffort =
 
 /**
  * Effort options selectable for a `task` preset, scoped to the provider's
- * supported reasoning-effort scale.
+ * supported reasoning-effort scale. For Codex, passing `model` further
+ * narrows the list to what that specific model accepts (e.g. GPT-5.6 Luna
+ * has no "ultra" tier) — omit `model` to get the unrestricted Codex scale.
  */
 export function listEffortsForPresetProvider(
   providerId: ProviderId,
+  model?: string,
 ): readonly { value: TaskPresetEffort; label: string }[] {
   if (providerId === "codex") {
-    return CODEX_EFFORT_OPTIONS;
+    return model ? listCodexEffortOptionsForModel({ model }) : CODEX_EFFORT_OPTIONS;
   }
   return CLAUDE_EFFORT_OPTIONS;
 }
@@ -163,7 +167,7 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
         ? candidateModel
         : getDefaultModelForProvider({ providerId: provider });
 
-  const allowedEfforts = listEffortsForPresetProvider(provider).map(
+  const allowedEfforts = listEffortsForPresetProvider(provider, model).map(
     (option) => option.value,
   );
   const effort =

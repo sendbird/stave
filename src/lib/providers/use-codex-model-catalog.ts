@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   getSdkModelOptions,
+  registerDynamicDefaultReasoningEfforts,
   registerDynamicDisplayNames,
+  registerDynamicSupportedReasoningEfforts,
 } from "@/lib/providers/model-catalog";
 import type { CodexModelCatalogEntry } from "@/lib/providers/provider.types";
 
@@ -9,6 +11,24 @@ const FALLBACK_CODEX_MODELS = [
   ...getSdkModelOptions({ providerId: "codex" }),
 ] as string[];
 const CODEX_MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Union of the Stave model catalog and the App Server's dynamic `model/list`
+ * result. The static catalog comes first so newly adopted families (e.g.
+ * GPT-5.6) are always selectable even when the installed Codex binary still
+ * reports an older lineup; server-only models are appended after.
+ */
+export function mergeCodexModelsWithCatalog(
+  dynamicModels: readonly string[],
+): string[] {
+  const merged = [...FALLBACK_CODEX_MODELS];
+  for (const model of dynamicModels) {
+    if (!merged.includes(model)) {
+      merged.push(model);
+    }
+  }
+  return merged;
+}
 
 type CodexModelCatalogCacheEntry = {
   status: "ready" | "error";
@@ -85,23 +105,48 @@ async function loadCodexModelCatalog(args: {
         .map((model) => model.model.trim())
         .filter(Boolean);
 
-      // Register dynamic display names so toHumanModelName() can use them
+      // Register dynamic display names so toHumanModelName() can use them,
+      // dynamic default reasoning efforts so
+      // resolveDefaultCodexEffortForModel() reflects Codex's own
+      // recommendation (`defaultReasoningEffort`) for every catalog model,
+      // and dynamic supported-effort lists so effort pickers never offer a
+      // value the model would reject (e.g. Luna has no "ultra").
       if (models.length > 0) {
         const nameMap = new Map<string, string>();
+        const defaultEffortMap = new Map<string, string>();
+        const supportedEffortsMap = new Map<string, readonly string[]>();
         for (const entry of visibleEntries) {
           const id = entry.model.trim();
-          if (id && entry.displayName && entry.displayName !== id) {
+          if (!id) {
+            continue;
+          }
+          if (entry.displayName && entry.displayName !== id) {
             nameMap.set(id, entry.displayName);
+          }
+          if (entry.defaultReasoningEffort) {
+            defaultEffortMap.set(id, entry.defaultReasoningEffort);
+          }
+          if (entry.supportedReasoningEfforts.length > 0) {
+            supportedEffortsMap.set(id, entry.supportedReasoningEfforts);
           }
         }
         if (nameMap.size > 0) {
           registerDynamicDisplayNames(nameMap);
         }
+        if (defaultEffortMap.size > 0) {
+          registerDynamicDefaultReasoningEfforts(defaultEffortMap);
+        }
+        if (supportedEffortsMap.size > 0) {
+          registerDynamicSupportedReasoningEfforts(supportedEffortsMap);
+        }
       }
 
       const nextEntry: CodexModelCatalogCacheEntry = {
         status: result.ok ? "ready" : "error",
-        models: models.length > 0 ? models : FALLBACK_CODEX_MODELS,
+        models:
+          models.length > 0
+            ? mergeCodexModelsWithCatalog(models)
+            : FALLBACK_CODEX_MODELS,
         entries: visibleEntries,
         detail:
           result.detail ||

@@ -274,7 +274,7 @@ If you want the user-facing setup workflow instead of the runtime internals, use
   - `Guided`: `workspace-write` + `untrusted` + network off + web search cached
   - `Auto`: `danger-full-access` + `never` + network on + web search live
 
-Current Codex defaults follow the App Server-aligned baseline in Stave: `workspace-write` file access, `untrusted` approvals, `network access = off`, `web search = cached`, `reasoning effort = medium`, raw reasoning off, and reasoning summary auto-detection enabled.
+Current Codex defaults follow the App Server-aligned baseline in Stave: `workspace-write` file access, `untrusted` approvals, `network access = off`, `web search = cached`, `reasoning effort = xhigh` (the codex-cli 0.144.1 server-catalog default for the GPT-5.6 family), raw reasoning off, and reasoning summary auto-detection enabled.
 
 Stave now forwards an explicit `show_raw_agent_reasoning: false` override when the Codex UI toggle is off, so local CLI defaults or config files do not leave raw reasoning enabled unexpectedly.
 

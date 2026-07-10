@@ -104,7 +104,7 @@ import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import {
   BOOLEAN_TOGGLE_OPTIONS,
   CLAUDE_EFFORT_OPTIONS,
-  CODEX_EFFORT_OPTIONS,
+  listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
 import { cn } from "@/lib/utils";
 import {
@@ -1789,6 +1789,12 @@ function ModelsSection() {
     () => modelOptions.filter((option) => option.providerId === "codex"),
     [modelOptions],
   );
+  // Scoped to the default Codex model so, e.g., GPT-5.6 Luna never offers
+  // "Ultra" here — a value only Sol/Terra accept.
+  const codexEffortOptions = useMemo(
+    () => listCodexEffortOptionsForModel({ model: modelCodex }),
+    [modelCodex],
+  );
   const updateEligibleModels = useCallback(
     (args: { providerId: "claude-code" | "codex"; models: string[] }) => {
       updateSettings({
@@ -1950,7 +1956,7 @@ function ModelsSection() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CODEX_EFFORT_OPTIONS.map((option) => (
+                {codexEffortOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

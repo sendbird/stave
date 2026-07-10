@@ -2671,7 +2671,9 @@ const defaultSettings: AppSettings = {
   codexNetworkAccess: true,
   codexApprovalPolicy: "never",
   codexBinaryPath: "",
-  codexReasoningEffort: "medium",
+  // Matches the codex-cli 0.144.1 server-catalog default effort (xhigh) for
+  // the default model family (GPT-5.6).
+  codexReasoningEffort: "xhigh",
   codexWebSearch: "live",
   codexShowRawReasoning: false,
   codexReasoningSummary: "auto",
