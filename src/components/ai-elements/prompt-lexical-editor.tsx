@@ -54,6 +54,9 @@ import {
 } from "@/lib/prompt-token-chips";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { cn } from "@/lib/utils";
+import {
+  registerPromptLexicalPreventedEnterCommand,
+} from "./prompt-lexical-editor.commands";
 import { PromptTokenChip } from "./prompt-token-chip";
 
 const PROMPT_SYNC_TAG = "stave-prompt-sync";
@@ -576,6 +579,17 @@ function PromptLexicalTokenDeletionPlugin() {
   return null;
 }
 
+function PromptLexicalPreventedEnterPlugin() {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(
+    () => registerPromptLexicalPreventedEnterCommand(editor),
+    [editor],
+  );
+
+  return null;
+}
+
 function PromptLexicalImperativePlugin(args: {
   forwardedRef: ForwardedRef<PromptLexicalEditorHandle>;
 }) {
@@ -783,6 +797,7 @@ export const PromptLexicalEditor = forwardRef<
       <HistoryPlugin />
       <PromptLexicalEditablePlugin disabled={props.disabled} />
       <PromptLexicalSelectionPlugin onSelectionChange={props.onSelectionChange} />
+      <PromptLexicalPreventedEnterPlugin />
       <PromptLexicalTokenDeletionPlugin />
       <PromptLexicalImperativePlugin forwardedRef={ref} />
       <PromptLexicalExternalSyncPlugin
