@@ -582,7 +582,16 @@ export interface ProviderRuntimeOptions {
   codexNetworkAccess?: boolean;
   codexApprovalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
   codexBinaryPath?: string;
-  codexReasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
+  // "minimal" is a legacy value kept for persisted settings; the runtime maps
+  // it to "low". "max" and "ultra" arrived with the GPT-5.6 Codex CLI scale.
+  codexReasoningEffort?:
+    | "minimal"
+    | "low"
+    | "medium"
+    | "high"
+    | "xhigh"
+    | "max"
+    | "ultra";
   codexWebSearch?: "disabled" | "cached" | "live";
   codexShowRawReasoning?: boolean;
   codexReasoningSummary?: "auto" | "concise" | "detailed" | "none";

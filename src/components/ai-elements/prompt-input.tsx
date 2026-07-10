@@ -300,7 +300,7 @@ function getPromptToolbarAccentClass(
 }
 
 function isHighestEffortValue(value?: string) {
-  return value === "max" || value === "xhigh";
+  return value === "ultra" || value === "max" || value === "xhigh";
 }
 
 function getEffortIconToneClass(value?: string) {

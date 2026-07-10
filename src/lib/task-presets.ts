@@ -30,7 +30,8 @@ export interface TaskPreset {
   /**
    * Reasoning effort applied to `task` presets. Claude presets accept
    * `low | medium | high | xhigh | max`; Codex presets accept
-   * `minimal | low | medium | high | xhigh`. When omitted, the model's
+   * `low | medium | high | xhigh | max | ultra` (legacy persisted `minimal`
+   * still validates and maps to `low` at runtime). When omitted, the model's
    * default effort is used at launch. Ignored for CLI sessions.
    */
   effort?: TaskPresetEffort;
@@ -46,7 +47,8 @@ export type TaskPresetEffort =
   | "medium"
   | "high"
   | "xhigh"
-  | "max";
+  | "max"
+  | "ultra";
 
 /**
  * Effort options selectable for a `task` preset, scoped to the provider's
@@ -91,11 +93,11 @@ export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
     model: DEFAULT_CLAUDE_OPUS_MODEL,
   },
   {
-    id: "default-gpt-5-5-task",
-    label: "GPT-5.5",
+    id: "default-gpt-5-6-task",
+    label: "GPT-5.6",
     kind: "task",
     provider: "codex",
-    model: "gpt-5.5",
+    model: "gpt-5.6-terra",
   },
   {
     id: "default-claude-cli-session",

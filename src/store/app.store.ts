@@ -1470,7 +1470,14 @@ export interface AppSettings {
   codexNetworkAccess: boolean;
   codexApprovalPolicy: "never" | "on-request" | "on-failure" | "untrusted";
   codexBinaryPath: string;
-  codexReasoningEffort: "minimal" | "low" | "medium" | "high" | "xhigh";
+  codexReasoningEffort:
+    | "minimal"
+    | "low"
+    | "medium"
+    | "high"
+    | "xhigh"
+    | "max"
+    | "ultra";
   codexWebSearch: "disabled" | "cached" | "live";
   codexShowRawReasoning: boolean;
   codexReasoningSummary: "auto" | "concise" | "detailed" | "none";
@@ -2675,7 +2682,7 @@ const defaultSettings: AppSettings = {
   promptResponseStyle: DEFAULT_PROMPT_RESPONSE_STYLE,
   promptPrDescription: DEFAULT_PROMPT_PR_DESCRIPTION,
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,
-  workspaceTurnSummaryPrimaryModel: "gpt-5.4-mini",
+  workspaceTurnSummaryPrimaryModel: "gpt-5.6-luna",
   workspaceTurnSummaryFallbackModel: "claude-haiku-4-5",
   workspaceTurnSummaryPrompt: DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
 
