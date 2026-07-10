@@ -1,3 +1,14 @@
+## [0.10.2](https://github.com/sendbird/stave/compare/v0.10.1...v0.10.2) (2026-07-10)
+
+### Bug Fixes
+
+* Refresh Claude and Codex MCP sessions only when their configuration changes, while deferring Codex restarts until active turns finish.
+* Add read-only MCP server discovery in Settings → MCP without exposing secrets or command details to the renderer.
+* Prevent the prompt composer from inserting an extra line break after a message is sent.
+
+### References
+
+* [#135](https://github.com/sendbird/stave/pull/135), [#136](https://github.com/sendbird/stave/pull/136)
 ## [0.10.1](https://github.com/sendbird/stave/compare/v0.10.0...v0.10.1) (2026-07-10)
 
 ### Bug Fixes
