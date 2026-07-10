@@ -1780,13 +1780,13 @@ export function ProjectWorkspaceSidebar(args: {
                                             : "Collapse project"}
                                         </TooltipContent>
                                       </Tooltip>
-                                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                                      <div className="relative flex min-w-0 flex-1 items-center gap-2 transition-[padding] duration-200 group-hover/project-row:pr-[5.75rem] group-focus-within/project-row:pr-[5.75rem]">
                                         <span className="min-w-0 flex-1 truncate font-medium">
                                           {project.projectName}
                                         </span>
                                         <span
                                           className={cn(
-                                            "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm border border-sidebar-border/60 bg-sidebar-accent/45 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground transition-all duration-200",
+                                            "ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm border border-sidebar-border/60 bg-sidebar-accent/45 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground transition-all duration-200",
                                             "group-hover/project-row:pointer-events-none group-hover/project-row:translate-x-1 group-hover/project-row:opacity-0",
                                             "group-focus-within/project-row:pointer-events-none group-focus-within/project-row:translate-x-1 group-focus-within/project-row:opacity-0",
                                           )}
@@ -1796,7 +1796,7 @@ export function ProjectWorkspaceSidebar(args: {
                                         </span>
                                         <div
                                           className={cn(
-                                            "flex shrink-0 items-center gap-0.5 transition-all duration-200",
+                                            "absolute right-0 top-1/2 flex shrink-0 -translate-y-1/2 items-center gap-0.5 transition-all duration-200",
                                             "pointer-events-none translate-x-1 opacity-0",
                                             "group-hover/project-row:pointer-events-auto group-hover/project-row:translate-x-0 group-hover/project-row:opacity-100",
                                             "group-focus-within/project-row:pointer-events-auto group-focus-within/project-row:translate-x-0 group-focus-within/project-row:opacity-100",
