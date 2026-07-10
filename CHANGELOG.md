@@ -1,3 +1,18 @@
+## [0.10.0](https://github.com/sendbird/stave/compare/v0.9.1...v0.10.0) (2026-07-10)
+
+### Features
+
+* Adopt the GPT-5.6 model family for Codex: add `gpt-5.6-sol`/`gpt-5.6-terra`/`gpt-5.6-luna`, make `gpt-5.6-terra` the new Codex default (shortcuts, task presets, recommended selector), and extend `codexReasoningEffort` with `max`/`ultra` tiers; retire `gpt-5.4`/`gpt-5.4-mini`/`gpt-5.3-codex-spark` from the picker and switch the turn-summary light model default to `gpt-5.6-luna`.
+
+### Bug Fixes
+
+* Fix Claude usage reset time showing "unknown" when the OAuth endpoint returns `resets_at` as an ISO-8601 or numeric string instead of a JS number.
+* Show the normal pointer cursor on sidebar project/workspace rows, keeping the grab cursor only during an active long-press drag.
+* Align the project workspace count badge to the far right and keep row actions overlaid on hover/focus without reserving layout space.
+
+### References
+
+* [#128](https://github.com/sendbird/stave/pull/128), [#129](https://github.com/sendbird/stave/pull/129), [#130](https://github.com/sendbird/stave/pull/130), [#131](https://github.com/sendbird/stave/pull/131)
 ## [0.9.1](https://github.com/sendbird/stave/compare/v0.9.0...v0.9.1) (2026-07-09)
 
 ### Bug Fixes
