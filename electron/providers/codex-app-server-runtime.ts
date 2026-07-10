@@ -82,9 +82,18 @@ import {
   buildCodexDeveloperInstructions,
   buildCodexInstructionProfileKey,
 } from "./codex-runtime-config";
+import {
+  getCodexMcpConfigPaths,
+  McpConfigRefreshTracker,
+} from "./mcp-config-refresh";
 
 const threadIdByTask = new Map<string, string>();
+const threadExecutableByTask = new Map<string, string>();
 const clientByExecutablePath = new Map<string, CodexAppServerClient>();
+const codexMcpConfigRefreshTracker = new McpConfigRefreshTracker();
+const freshCodexThreadExecutables = new Set<string>();
+const activeCodexTurnsByExecutable = new Map<string, number>();
+const pendingMcpRefreshExecutables = new Set<string>();
 
 const APP_SERVER_INTERRUPT_GRACE_MS = 10_000;
 const CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES = 32 * 1024 * 1024;
@@ -610,17 +619,25 @@ function buildThreadKey(args: {
 
 function resolveThreadId(args: {
   threadKey: string;
+  executablePath: string;
   fallbackThreadId?: string;
 }) {
-  return threadIdByTask.get(args.threadKey) ?? args.fallbackThreadId?.trim();
+  return threadExecutableByTask.get(args.threadKey) === args.executablePath
+    ? (threadIdByTask.get(args.threadKey) ?? args.fallbackThreadId?.trim())
+    : args.fallbackThreadId?.trim();
 }
 
-function rememberThreadId(args: { threadKey: string; threadId?: string }) {
+function rememberThreadId(args: {
+  threadKey: string;
+  threadId?: string;
+  executablePath: string;
+}) {
   const nextThreadId = args.threadId?.trim();
   if (!nextThreadId) {
     return;
   }
   threadIdByTask.set(args.threadKey, nextThreadId);
+  threadExecutableByTask.set(args.threadKey, args.executablePath);
 }
 
 function resolveCodexResumeThreadFallback(args: {
@@ -2005,8 +2022,36 @@ function getCodexAppServerClient(args: { executablePath: string }) {
   return client;
 }
 
+function restartCodexAppServerForMcpConfigChange(executablePath: string) {
+  clientByExecutablePath
+    .get(executablePath)
+    ?.dispose("Restarting Codex App Server after MCP configuration change.");
+  clientByExecutablePath.delete(executablePath);
+  for (const [threadKey, threadExecutablePath] of threadExecutableByTask) {
+    if (threadExecutablePath === executablePath) {
+      threadIdByTask.delete(threadKey);
+      threadExecutableByTask.delete(threadKey);
+    }
+  }
+  freshCodexThreadExecutables.add(executablePath);
+}
+
+function finishCodexTurn(executablePath: string) {
+  const activeTurns =
+    (activeCodexTurnsByExecutable.get(executablePath) ?? 1) - 1;
+  if (activeTurns > 0) {
+    activeCodexTurnsByExecutable.set(executablePath, activeTurns);
+    return;
+  }
+  activeCodexTurnsByExecutable.delete(executablePath);
+  if (pendingMcpRefreshExecutables.delete(executablePath)) {
+    restartCodexAppServerForMcpConfigChange(executablePath);
+  }
+}
+
 async function ensureCodexThread(args: {
   client: CodexAppServerClient;
+  executablePath: string;
   taskId?: string;
   cwd: string;
   conversation?: StreamTurnArgs["conversation"];
@@ -2019,10 +2064,13 @@ async function ensureCodexThread(args: {
   });
   const resumeThreadId = resolveThreadId({
     threadKey,
-    fallbackThreadId: resolveCodexResumeThreadFallback({
-      conversation: args.conversation,
-      runtimeOptions: args.runtimeOptions,
-    }),
+    executablePath: args.executablePath,
+    fallbackThreadId: freshCodexThreadExecutables.has(args.executablePath)
+      ? undefined
+      : resolveCodexResumeThreadFallback({
+          conversation: args.conversation,
+          runtimeOptions: args.runtimeOptions,
+        }),
   });
 
   const response = resumeThreadId
@@ -2041,7 +2089,11 @@ async function ensureCodexThread(args: {
         }),
       );
   const threadId = response.thread.id;
-  rememberThreadId({ threadKey, threadId });
+  rememberThreadId({
+    threadKey,
+    threadId,
+    executablePath: args.executablePath,
+  });
   return { threadId, threadKey };
 }
 
@@ -2050,6 +2102,7 @@ export function cleanupCodexAppServerTask(taskId: string) {
   for (const threadKey of threadIdByTask.keys()) {
     if (threadKey.startsWith(keyPrefix)) {
       threadIdByTask.delete(threadKey);
+      threadExecutableByTask.delete(threadKey);
     }
   }
 }
@@ -2448,17 +2501,15 @@ function mapCodexConfigSnapshot(response: any): CodexConfigSnapshot {
         : {},
     origins,
     layers: Array.isArray(response?.layers)
-      ? response.layers.map(
-          (layer: any): CodexConfigLayerSnapshot => ({
-            name: toCodexConfigLayerDisplayValue(layer?.name),
-            version: toCodexConfigLayerDisplayValue(layer?.version, ""),
-            disabledReason:
-              typeof layer?.disabledReason === "string"
-                ? layer.disabledReason
-                : null,
-            config: layer?.config ?? null,
-          }),
-        )
+      ? response.layers.map((layer: any): CodexConfigLayerSnapshot => ({
+          name: toCodexConfigLayerDisplayValue(layer?.name),
+          version: toCodexConfigLayerDisplayValue(layer?.version, ""),
+          disabledReason:
+            typeof layer?.disabledReason === "string"
+              ? layer.disabledReason
+              : null,
+          config: layer?.config ?? null,
+        }))
       : [],
   };
 }
@@ -2699,37 +2750,35 @@ export async function getCodexAppServerSnapshot(args: {
           forceReload: false,
         });
         snapshot.skills = Array.isArray(response?.data)
-          ? response.data.map(
-              (entry: any): CodexSkillCatalogGroup => ({
-                cwd: String(entry?.cwd ?? cwd),
-                skills: Array.isArray(entry?.skills)
-                  ? entry.skills.map((skill: any) => ({
-                      name: String(skill?.name ?? ""),
-                      description: String(skill?.description ?? ""),
-                      shortDescription:
-                        typeof skill?.shortDescription === "string"
-                          ? skill.shortDescription
-                          : typeof skill?.interface?.short_description ===
-                              "string"
-                            ? skill.interface.short_description
-                            : null,
-                      path: String(skill?.path ?? ""),
-                      scope:
-                        typeof skill?.scope === "string"
-                          ? skill.scope
-                          : "unknown",
-                      enabled: Boolean(skill?.enabled),
-                    }))
-                  : [],
-                errors: Array.isArray(entry?.errors)
-                  ? entry.errors.map((error: any) =>
-                      typeof error?.message === "string"
-                        ? error.message
-                        : JSON.stringify(error ?? {}),
-                    )
-                  : [],
-              }),
-            )
+          ? response.data.map((entry: any): CodexSkillCatalogGroup => ({
+              cwd: String(entry?.cwd ?? cwd),
+              skills: Array.isArray(entry?.skills)
+                ? entry.skills.map((skill: any) => ({
+                    name: String(skill?.name ?? ""),
+                    description: String(skill?.description ?? ""),
+                    shortDescription:
+                      typeof skill?.shortDescription === "string"
+                        ? skill.shortDescription
+                        : typeof skill?.interface?.short_description ===
+                            "string"
+                          ? skill.interface.short_description
+                          : null,
+                    path: String(skill?.path ?? ""),
+                    scope:
+                      typeof skill?.scope === "string"
+                        ? skill.scope
+                        : "unknown",
+                    enabled: Boolean(skill?.enabled),
+                  }))
+                : [],
+              errors: Array.isArray(entry?.errors)
+                ? entry.errors.map((error: any) =>
+                    typeof error?.message === "string"
+                      ? error.message
+                      : JSON.stringify(error ?? {}),
+                  )
+                : [],
+            }))
           : [];
       }),
       loadSection("plugins", async () => {
@@ -3638,10 +3687,7 @@ export async function reviewCodexWorktreeDiff(args: {
 
       if (message.method === "item/completed") {
         const item = isRecord(params.item) ? params.item : null;
-        if (
-          item?.type === "agentMessage" &&
-          typeof item.text === "string"
-        ) {
+        if (item?.type === "agentMessage" && typeof item.text === "string") {
           latestAgentMessageText = item.text;
         }
         return;
@@ -3697,7 +3743,8 @@ export async function reviewCodexWorktreeDiff(args: {
     }
     if (turnResponse.turn.status === "failed") {
       failureMessage =
-        turnResponse.turn.error?.message ?? "Codex App Server review turn failed.";
+        turnResponse.turn.error?.message ??
+        "Codex App Server review turn failed.";
     }
     if (
       turnResponse.turn.status !== "completed" &&
@@ -3764,9 +3811,34 @@ export async function streamCodexWithAppServer(
     return unavailableEvents;
   }
 
+  const codexRuntimeEnv = buildCodexCliEnv({
+    executablePath: codexExecutablePath,
+  });
+  const codexMcpRefresh = await codexMcpConfigRefreshTracker.check({
+    scopeKey: `codex:${codexRuntimeEnv.CODEX_HOME ?? "default"}`,
+    paths: getCodexMcpConfigPaths({
+      cwd: runtimeCwd,
+      codexHome: codexRuntimeEnv.CODEX_HOME,
+    }),
+  });
+  if (codexMcpRefresh.changed) {
+    // App Server reads config.toml only when its process starts, while resumed
+    // threads retain their MCP catalog. Restart and start fresh native threads
+    // so servers added after the Stave conversation began are usable.
+    if ((activeCodexTurnsByExecutable.get(codexExecutablePath) ?? 0) > 0) {
+      pendingMcpRefreshExecutables.add(codexExecutablePath);
+    } else {
+      restartCodexAppServerForMcpConfigChange(codexExecutablePath);
+    }
+  }
+
   const client = getCodexAppServerClient({
     executablePath: codexExecutablePath,
   });
+  activeCodexTurnsByExecutable.set(
+    codexExecutablePath,
+    (activeCodexTurnsByExecutable.get(codexExecutablePath) ?? 0) + 1,
+  );
   try {
     const account = await client.request<{
       account: unknown | null;
@@ -3782,6 +3854,7 @@ export async function streamCodexWithAppServer(
         { type: "done" },
       ];
       events.forEach((event) => args.onEvent?.(event));
+      finishCodexTurn(codexExecutablePath);
       return events;
     }
   } catch (error) {
@@ -3796,16 +3869,35 @@ export async function streamCodexWithAppServer(
       { type: "done" },
     ];
     events.forEach((event) => args.onEvent?.(event));
+    finishCodexTurn(codexExecutablePath);
     return events;
   }
 
-  const { threadId } = await ensureCodexThread({
-    client,
-    taskId: args.taskId,
-    cwd: runtimeCwd,
-    conversation: args.conversation,
-    runtimeOptions: args.runtimeOptions,
-  });
+  let threadId: string;
+  try {
+    ({ threadId } = await ensureCodexThread({
+      client,
+      executablePath: codexExecutablePath,
+      taskId: args.taskId,
+      cwd: runtimeCwd,
+      conversation: args.conversation,
+      runtimeOptions: args.runtimeOptions,
+    }));
+  } catch (error) {
+    const events: BridgeEvent[] = [
+      {
+        type: "error",
+        message: toCodexUserFacingErrorMessage({
+          message: error instanceof Error ? error.message : String(error),
+        }),
+        recoverable: true,
+      },
+      { type: "done" },
+    ];
+    events.forEach((event) => args.onEvent?.(event));
+    finishCodexTurn(codexExecutablePath);
+    return events;
+  }
 
   const eventCollector = createBoundedBridgeEventCollector({
     maxBytes: CODEX_APP_SERVER_COLLECTED_EVENTS_MAX_BYTES,
@@ -4279,7 +4371,8 @@ export async function streamCodexWithAppServer(
           void client.respond(message.id as JsonRpcId, {});
           return;
         case "account/chatgptAuthTokens/refresh": {
-          const params = (message.params ?? {}) as CodexChatgptAuthTokensRefreshParams;
+          const params = (message.params ??
+            {}) as CodexChatgptAuthTokensRefreshParams;
           void (async () => {
             try {
               const response = await refreshCodexChatgptAuthTokens({
@@ -4313,9 +4406,7 @@ export async function streamCodexWithAppServer(
     if (message.method === "thread/goal/updated") {
       const goal = normalizeCodexThreadGoal(params.goal);
       const eventThreadId =
-        typeof params.threadId === "string"
-          ? params.threadId
-          : goal?.threadId;
+        typeof params.threadId === "string" ? params.threadId : goal?.threadId;
       if (eventThreadId === threadId && goal) {
         emitBridgeEvent(buildCodexGoalStatusEvent(goal));
       }
@@ -4994,5 +5085,6 @@ export async function streamCodexWithAppServer(
     }
     await elicitationPauseController.endAll();
     unsubscribe();
+    finishCodexTurn(codexExecutablePath);
   }
 }

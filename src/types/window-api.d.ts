@@ -8,6 +8,7 @@ import type {
   CanonicalConversationRequest,
   ClaudeContextUsageResponse,
   CodexMcpStatusResponse,
+  McpDiscoveryResponse,
   ClaudePluginReloadResponse,
   CodexMutationResponse,
   CodexPluginDetailResponse,
@@ -182,6 +183,9 @@ interface WindowProviderApi {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexMcpStatusResponse>;
+  discoverMcpServers?: (args: {
+    cwd?: string;
+  }) => Promise<McpDiscoveryResponse>;
   getCodexModelCatalog?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
@@ -1601,10 +1605,7 @@ interface LensSessionProfileArgs {
 }
 
 type LensDownloadState =
-  | "progressing"
-  | "completed"
-  | "cancelled"
-  | "interrupted";
+  "progressing" | "completed" | "cancelled" | "interrupted";
 
 interface LensDownloadEntry {
   id: string;
@@ -1659,12 +1660,7 @@ interface LensAnnotation {
   styleEdits?: LensStyleEdit[];
 }
 
-type LensAnnotationEventType =
-  | "add"
-  | "update"
-  | "remove"
-  | "clear"
-  | "submit";
+type LensAnnotationEventType = "add" | "update" | "remove" | "clear" | "submit";
 
 interface LensAnnotationEventPayload {
   workspaceId: string;
@@ -1700,11 +1696,19 @@ interface WindowLensApi {
   ) => Promise<{ ok: boolean; message?: string }>;
   createView?: (
     args: LensSessionProfileArgs,
-  ) => Promise<{ ok: boolean; sessionScope?: LensSessionScope; message?: string }>;
+  ) => Promise<{
+    ok: boolean;
+    sessionScope?: LensSessionScope;
+    message?: string;
+  }>;
   destroyView?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
   clearSessionData?: (
     args: LensSessionProfileArgs,
-  ) => Promise<{ ok: boolean; sessionScope?: LensSessionScope; message?: string }>;
+  ) => Promise<{
+    ok: boolean;
+    sessionScope?: LensSessionScope;
+    message?: string;
+  }>;
   setBounds?: (args: {
     workspaceId: string;
     bounds: { x: number; y: number; width: number; height: number };
@@ -1760,7 +1764,11 @@ interface WindowLensApi {
   }>;
   listDownloads?: (args: {
     workspaceId: string;
-  }) => Promise<{ ok: boolean; entries?: LensDownloadEntry[]; message?: string }>;
+  }) => Promise<{
+    ok: boolean;
+    entries?: LensDownloadEntry[];
+    message?: string;
+  }>;
   getDom?: (args: {
     workspaceId: string;
     selector?: string;
