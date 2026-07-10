@@ -44,6 +44,7 @@ import {
   type ProviderCommandCatalogState,
 } from "@/lib/providers/provider-command-catalog";
 import {
+  clampCodexEffortToModel,
   getDefaultModelForProvider,
   getProviderLabel,
   listProviderIds,
@@ -1385,12 +1386,21 @@ function BaseChatInput() {
       return () =>
         updateSettings({
           patch: {
-            codexReasoningEffort: cycleCodexEffortValue(codexReasoningEffort),
+            codexReasoningEffort: cycleCodexEffortValue(
+              codexReasoningEffort,
+              activeModel,
+            ),
           },
         });
     }
     return undefined;
-  }, [activeProvider, claudeEffort, codexReasoningEffort, updateSettings]);
+  }, [
+    activeModel,
+    activeProvider,
+    claudeEffort,
+    codexReasoningEffort,
+    updateSettings,
+  ]);
   const goalStatus = useMemo(
     () =>
       buildChatInputGoalStatus({
@@ -1874,6 +1884,20 @@ function BaseChatInput() {
                 }),
                 nextModel,
                 currentEffort: storedClaudeEffort,
+              }),
+            },
+          });
+          return;
+        }
+        if (selection.providerId === "codex") {
+          // Some Codex models accept a narrower effort scale than others
+          // (e.g. GPT-5.6 Luna has no "Ultra") — clamp so switching models
+          // never leaves an unsupported effort selected.
+          updateSettings({
+            patch: {
+              codexReasoningEffort: clampCodexEffortToModel({
+                model: nextModel,
+                effort: codexReasoningEffort,
               }),
             },
           });

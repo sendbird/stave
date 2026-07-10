@@ -1,3 +1,4 @@
+import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import type { ClaudeSettingSource, NormalizedProviderEvent, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 
 type SelectOption<T extends string> = {
@@ -76,6 +77,21 @@ export const CODEX_EFFORT_OPTIONS = [
   { value: "max", label: "Max" },
   { value: "ultra", label: "Ultra" },
 ] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>>[];
+
+/**
+ * `CODEX_EFFORT_OPTIONS` filtered to the values the given Codex model
+ * actually accepts (e.g. GPT-5.6 Luna has no "ultra" tier), preserving the
+ * canonical low-to-high order. Unknown models get the unrestricted list back
+ * so a legacy/unrecognized model id never loses effort options entirely.
+ */
+export function listCodexEffortOptionsForModel(args: {
+  model: string;
+}): readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>>[] {
+  const supported = listCodexReasoningEffortsForModel({ model: args.model });
+  return CODEX_EFFORT_OPTIONS.filter((option) =>
+    (supported as readonly string[]).includes(option.value),
+  );
+}
 
 export const CODEX_WEB_SEARCH_OPTIONS = [
   { value: "cached", label: "Cached" },

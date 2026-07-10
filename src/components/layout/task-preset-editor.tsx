@@ -59,9 +59,11 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     () => listModelsForPresetProvider(provider),
     [provider],
   );
+  // Model-scoped so, e.g., GPT-5.6 Luna never offers "Ultra" — a value only
+  // Sol/Terra accept.
   const effortOptions = useMemo(
-    () => listEffortsForPresetProvider(provider),
-    [provider],
+    () => listEffortsForPresetProvider(provider, model),
+    [provider, model],
   );
   const providerOptions = useMemo<
     { value: ProviderId; label: string }[]
@@ -91,10 +93,30 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
         : "claude-code";
     setProvider(providerId);
     const nextModels = listModelsForPresetProvider(providerId);
-    if (!nextModels.includes(model)) {
-      setModel(getDefaultModelForProvider({ providerId }));
+    const nextModel = nextModels.includes(model)
+      ? model
+      : getDefaultModelForProvider({ providerId });
+    if (nextModel !== model) {
+      setModel(nextModel);
     }
-    const nextEfforts = listEffortsForPresetProvider(providerId).map(
+    const nextEfforts = listEffortsForPresetProvider(
+      providerId,
+      nextModel,
+    ).map((option) => option.value);
+    if (
+      effort !== DEFAULT_EFFORT_VALUE &&
+      !nextEfforts.includes(effort as TaskPresetEffort)
+    ) {
+      setEffort(DEFAULT_EFFORT_VALUE);
+    }
+  }
+
+  function handleModelChange(nextModel: string) {
+    setModel(nextModel);
+    // Some Codex models accept a narrower effort scale than others (e.g.
+    // GPT-5.6 Luna has no "Ultra"); drop back to the default when the
+    // currently selected effort isn't valid for the new model.
+    const nextEfforts = listEffortsForPresetProvider(provider, nextModel).map(
       (option) => option.value,
     );
     if (
@@ -170,7 +192,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
           <span className="text-xs font-medium text-muted-foreground">
             Model
           </span>
-          <Select value={model} onValueChange={setModel}>
+          <Select value={model} onValueChange={handleModelChange}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

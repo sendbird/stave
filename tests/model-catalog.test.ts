@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ALL_CODEX_REASONING_EFFORTS,
   CLAUDE_FABLE_MODEL,
   CLAUDE_SDK_MODEL_OPTIONS,
+  clampCodexEffortToModel,
   CODEX_MODEL_OPTIONS,
   DEFAULT_CLAUDE_OPUS_MODEL,
   getDynamicDisplayNames,
   getModelCapability,
+  listCodexReasoningEffortsForModel,
   listModelCapabilities,
   MODEL_CAPABILITIES,
   resolveClaudeEffortForModelSwitch,
@@ -17,7 +20,9 @@ import {
   getProviderLabel,
   getProviderWaveToneClass,
   inferProviderIdFromModel,
+  registerDynamicDefaultReasoningEfforts,
   registerDynamicDisplayNames,
+  registerDynamicSupportedReasoningEfforts,
   toHumanModelName,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
@@ -118,29 +123,101 @@ describe("model catalog", () => {
   });
 
   test("returns the default Codex effort from model capabilities", () => {
+    // Defaults mirror `defaultReasoningEffort` from the codex-cli 0.144.1
+    // App Server `model/list` catalog (xhigh across GPT-5.6 and GPT-5.5).
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-luna" })).toBe(
-      "low",
+      "xhigh",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-terra" })).toBe(
-      "medium",
+      "xhigh",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-sol" })).toBe(
-      "high",
+      "xhigh",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.5" })).toBe(
-      "high",
+      "xhigh",
     );
-    // Legacy models removed from the picker still resolve via the heuristic
-    // fallback so historical settings keep sane defaults.
+    // Legacy models removed from the picker have no known Codex
+    // recommendation, so they fall back to the flat "medium" baseline.
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.4-mini" })).toBe(
-      "low",
+      "medium",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.4" })).toBe(
       "medium",
     );
     expect(
       resolveDefaultCodexEffortForModel({ model: "gpt-5.3-codex-spark" }),
+    ).toBe("medium");
+  });
+
+  test("prefers a dynamically registered Codex default effort over the static fallback", () => {
+    registerDynamicDefaultReasoningEfforts(
+      new Map([["gpt-5.4-mini", "high"]]),
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.4-mini" })).toBe(
+      "high",
+    );
+  });
+
+  test("ignores unrecognized dynamically registered effort values", () => {
+    registerDynamicDefaultReasoningEfforts(
+      new Map([["gpt-unknown-model", "not-a-real-effort"]]),
+    );
+    expect(
+      resolveDefaultCodexEffortForModel({ model: "gpt-unknown-model" }),
+    ).toBe("medium");
+  });
+
+  test("scopes selectable Codex reasoning efforts per model, per the verified server catalog", () => {
+    // Sol/Terra accept the full scale including "ultra".
+    expect(listCodexReasoningEffortsForModel({ model: "gpt-5.6-sol" })).toEqual(
+      ["low", "medium", "high", "xhigh", "max", "ultra"],
+    );
+    expect(
+      listCodexReasoningEffortsForModel({ model: "gpt-5.6-terra" }),
+    ).toEqual(["low", "medium", "high", "xhigh", "max", "ultra"]);
+    // Luna has no "ultra" tier.
+    expect(
+      listCodexReasoningEffortsForModel({ model: "gpt-5.6-luna" }),
+    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
+    // GPT-5.5 caps out at "xhigh" (no "max"/"ultra").
+    expect(listCodexReasoningEffortsForModel({ model: "gpt-5.5" })).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ]);
+    // Unknown/legacy models are unrestricted.
+    expect(
+      listCodexReasoningEffortsForModel({ model: "gpt-5.4" }),
+    ).toEqual(ALL_CODEX_REASONING_EFFORTS);
+  });
+
+  test("prefers a dynamically registered supported-effort list over the static fallback", () => {
+    // Uses a model id not touched by other tests in this file so the
+    // module-level registry mutation can't leak into later assertions.
+    registerDynamicSupportedReasoningEfforts(
+      new Map([["gpt-5.4-mini", ["low", "medium"]]]),
+    );
+    expect(
+      listCodexReasoningEffortsForModel({ model: "gpt-5.4-mini" }),
+    ).toEqual(["low", "medium"]);
+  });
+
+  test("clamps an unsupported Codex effort down to the model's nearest supported value", () => {
+    // "ultra" carried over from Sol isn't valid for Luna — step down to the
+    // nearest lower supported value ("max"), not straight to the default.
+    expect(
+      clampCodexEffortToModel({ model: "gpt-5.6-luna", effort: "ultra" }),
+    ).toBe("max");
+    // Already-supported values pass through unchanged.
+    expect(
+      clampCodexEffortToModel({ model: "gpt-5.6-luna", effort: "high" }),
     ).toBe("high");
+    // GPT-5.5 caps at "xhigh" — "max" clamps down to it.
+    expect(
+      clampCodexEffortToModel({ model: "gpt-5.5", effort: "max" }),
+    ).toBe("xhigh");
   });
 
   test("keeps model capability metadata aligned with catalog models", () => {

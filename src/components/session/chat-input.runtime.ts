@@ -1,6 +1,7 @@
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import type { PromptInputGoalStatus } from "@/components/ai-elements/prompt-input-goal-status";
 import { resolveEffectiveCodexFileAccessMode } from "@/lib/providers/codex-runtime-options";
+import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import type {
   ProviderGoalSnapshot,
   ProviderId,
@@ -99,12 +100,21 @@ export function cycleClaudeEffortValue(current: AppSettings["claudeEffort"]) {
   });
 }
 
+/**
+ * Cycles the Codex reasoning effort. When `model` is provided, the cycle is
+ * scoped to that model's supported efforts (e.g. GPT-5.6 Luna skips "ultra")
+ * so clicking through the toolbar never lands on a value the model rejects.
+ */
 export function cycleCodexEffortValue(
   current: AppSettings["codexReasoningEffort"],
+  model?: string,
 ) {
+  const order = model
+    ? listCodexReasoningEffortsForModel({ model })
+    : CODEX_EFFORT_CYCLE_ORDER;
   return cycleOptionValue({
     current,
-    order: CODEX_EFFORT_CYCLE_ORDER,
+    order,
   });
 }
 

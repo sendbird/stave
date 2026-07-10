@@ -219,7 +219,14 @@ function PresetChip(props: PresetChipProps) {
                 <Ellipsis className="size-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuContent
+              align="end"
+              className="w-40"
+              // Keep focus where it is when the menu closes after "Edit…".
+              // Radix's default focus-return lands outside the freshly opened
+              // preset editor Popover and immediately dismisses it.
+              onCloseAutoFocus={(event) => event.preventDefault()}
+            >
               <DropdownMenuItem onSelect={() => onRequestEdit()}>
                 Edit…
               </DropdownMenuItem>
