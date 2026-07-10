@@ -1,1267 +1,464 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   ExternalLink,
   GitBranch,
   GitPullRequest,
-  Info,
   LoaderCircle,
   RefreshCw,
-  TriangleAlert,
 } from "lucide-react";
 import { ContinueWorkspaceDialog } from "@/components/layout/ContinueWorkspaceDialog";
-import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
 import {
-  Button,
+  buildCreatePrShipPrompt,
+  isCreatePrWorkspaceStateActive,
+  resolveCreatePrShipAvailability,
+} from "@/components/layout/TopBarOpenPR.utils";
+import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import {
+  TOP_BAR_PR_ACTION_EVENT,
+  type TopBarPrActionDetail,
+} from "@/components/layout/top-bar-pr-events";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
-  Textarea,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
   toast,
 } from "@/components/ui";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  buildPullRequestWorkspaceContext,
-  generateFallbackPullRequestDraft,
-} from "@/lib/source-control-pr";
-import {
-  canApplyCreatePrDialogOpenChange,
-  canSubmitCreatePr,
-  type CreatePrDialogStep,
-  type CreatePrSubmitAction,
-  buildCreatePrTargetBranchOptions,
-  shouldShowCreatePrSubmitSpinner,
-} from "@/components/layout/TopBarOpenPR.utils";
-import { TOP_BAR_PR_ACTION_EVENT, type TopBarPrActionDetail } from "@/components/layout/top-bar-pr-events";
-import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
-import { useAppStore } from "@/store/app.store";
-import {
-  type WorkspacePrStatus,
-  PR_STATUS_VISUAL,
-  PR_STATUS_ACTIONS,
   PR_CREATE_BUTTON_CLASS,
+  PR_STATUS_ACTIONS,
+  PR_STATUS_VISUAL,
   PR_TONE_BADGE_CLASS,
+  type PrAction,
+  type WorkspacePrStatus,
 } from "@/lib/pr-status";
+import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { isTaskArchived } from "@/lib/tasks";
-import {
-  collectIntentContext,
-  type PrePrReviewFinding,
-} from "@/lib/source-control-review";
-import { buildIntentGuardContextInput } from "@/lib/workspace-information";
-import { deriveTurnVerificationStatus } from "@/lib/workspace-scripts";
-import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/store/app.store";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const PRE_COMMIT_HOOK_PATTERNS = [
-  /pre-commit/i,
-  /husky/i,
-  /lint-staged/i,
-  /hook failed/i,
-  /eslint.*error/i,
-  /prettier.*error/i,
-];
-
-/**
- * Heuristic: does the stderr from a failed `git commit` look like a
- * pre-commit hook (husky, lint-staged, eslint, prettier) rejection?
- */
-function looksLikePreCommitHookFailure(stderr: string | undefined): boolean {
-  if (!stderr) return false;
-  return PRE_COMMIT_HOOK_PATTERNS.some((re) => re.test(stderr));
+interface WorkspaceOperation {
+  id: number;
+  workspaceId: string;
+  label: string;
 }
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface ScmStatusItem {
-  path: string;
-  code: string;
-}
-
-type InlineNoticeTone = "info" | "success" | "warning" | "error";
-
-interface InlineNotice {
-  tone: InlineNoticeTone;
-  title: string;
-  description?: string;
-}
-
-type Step = CreatePrDialogStep;
-
-function InlineNoticeBanner(props: { notice: InlineNotice }) {
-  const toneClassName =
-    props.notice.tone === "success"
-      ? "border-success/30 bg-success/10 text-success dark:bg-success/15"
-      : props.notice.tone === "warning"
-        ? "border-warning/40 bg-warning/10 text-warning dark:bg-warning/15"
-        : props.notice.tone === "error"
-          ? "border-destructive/40 bg-destructive/10 text-destructive"
-          : "border-border/70 bg-muted/30 text-foreground";
-
-  const Icon =
-    props.notice.tone === "success"
-      ? CheckCircle2
-      : props.notice.tone === "warning" || props.notice.tone === "error"
-        ? TriangleAlert
-        : Info;
-
-  return (
-    <div className={cn("flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm", toneClassName)} role="status" aria-live="polite">
-      <Icon className="mt-0.5 size-4 shrink-0" />
-      <div className="min-w-0 space-y-1">
-        <p className="break-words font-medium">{props.notice.title}</p>
-        {props.notice.description ? (
-          <p className="break-words text-xs leading-5 opacity-80">{props.notice.description}</p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function CreatePrLoadingSplash(props: { currentBranch?: string; baseBranch: string }) {
-  return (
-    <div className="space-y-4" role="status" aria-live="polite">
-      <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80">
-            <LoaderCircle className="size-4 animate-spin text-primary" />
-          </div>
-          <div className="space-y-1.5">
-            <p className="text-sm font-medium">Preparing a PR draft</p>
-            <p className="text-sm text-muted-foreground">
-              Reviewing {props.currentBranch ?? "HEAD"} against {props.baseBranch}, recent commits, and workspace PR guidance.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-xl border border-border/70 bg-background/80 p-4">
-        <div className="space-y-2">
-          <div className="h-3.5 w-14 animate-pulse rounded-full bg-muted" />
-          <div className="h-9 w-full animate-pulse rounded-md bg-muted/80" />
-        </div>
-
-        <div className="space-y-2">
-          <div className="h-3.5 w-24 animate-pulse rounded-full bg-muted" />
-          <div className="space-y-2 rounded-md border border-border/60 bg-muted/25 p-3">
-            <div className="h-3 w-11/12 animate-pulse rounded-full bg-muted/80" />
-            <div className="h-3 w-4/5 animate-pulse rounded-full bg-muted/70" />
-            <div className="h-3 w-3/5 animate-pulse rounded-full bg-muted/60" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function formatReviewFindingLocation(finding: PrePrReviewFinding) {
-  return finding.line ? `${finding.file}:${finding.line}` : finding.file;
-}
-
-function formatReviewFindingKind(kind: PrePrReviewFinding["kind"]) {
-  return kind.replace(/_/g, " ");
-}
-
-function getReviewSeverityClassName(severity: PrePrReviewFinding["severity"]) {
-  if (severity === "critical" || severity === "high") {
-    return "border-destructive/40 bg-destructive/10 text-destructive";
-  }
-  if (severity === "medium") {
-    return "border-warning/40 bg-warning/10 text-warning";
-  }
-  return "border-border/70 bg-muted text-muted-foreground";
-}
-
-function PrePrReviewFindingsPanel(props: {
-  findings: PrePrReviewFinding[];
-  truncated?: boolean;
-}) {
-  if (props.findings.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/5 p-3">
-      <div className="flex items-start gap-2">
-        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm font-medium text-foreground">
-            AI review found {props.findings.length} issue
-            {props.findings.length === 1 ? "" : "s"}
-          </p>
-          <p className="text-xs leading-5 text-muted-foreground">
-            Stop to fix these before opening the PR, or proceed if they are not
-            relevant.
-            {props.truncated ? " The review used a truncated diff." : ""}
-          </p>
-        </div>
-      </div>
-
-      <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
-        {props.findings.map((finding, index) => (
-          <div
-            key={`${finding.file}:${finding.line ?? "file"}:${index}`}
-            className="rounded-md border border-border/70 bg-background/80 p-2"
-          >
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <span
-                className={cn(
-                  "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase",
-                  getReviewSeverityClassName(finding.severity),
-                )}
-              >
-                {finding.severity}
-              </span>
-              <span className="rounded-sm border border-border/70 bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
-                {formatReviewFindingKind(finding.kind)}
-              </span>
-              <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-                {formatReviewFindingLocation(finding)}
-              </span>
-            </div>
-            <p className="mt-1.5 text-xs leading-5 text-foreground">
-              {finding.message}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PrePrVerificationPanel(props: {
-  failures: Array<{ scriptId: string; message: string; blocking: boolean }>;
-  blocking: boolean;
-}) {
-  if (props.failures.length === 0) {
-    return null;
-  }
-
-  const containerClass = props.blocking
-    ? "border-destructive/40 bg-destructive/5"
-    : "border-warning/40 bg-warning/5";
-  const iconClass = props.blocking ? "text-destructive" : "text-warning";
-
-  return (
-    <div className={cn("space-y-2 rounded-lg border p-3", containerClass)}>
-      <div className="flex items-start gap-2">
-        <TriangleAlert className={cn("mt-0.5 size-4 shrink-0", iconClass)} />
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm font-medium text-foreground">
-            Verification {props.blocking ? "failed" : "reported warnings"} —{" "}
-            {props.failures.length} check
-            {props.failures.length === 1 ? "" : "s"}
-          </p>
-          <p className="text-xs leading-5 text-muted-foreground">
-            {props.blocking
-              ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
-              : "These pr.beforeOpen checks are non-blocking — proceed anyway, or stop to fix them first."}
-          </p>
-        </div>
-      </div>
-
-      <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
-        {props.failures.map((failure, index) => (
-          <div
-            key={`${failure.scriptId}:${index}`}
-            className="rounded-md border border-border/70 bg-background/80 p-2"
-          >
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <span className="rounded-sm border border-border/70 bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
-                {failure.scriptId}
-              </span>
-              <span
-                className={cn(
-                  "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase",
-                  failure.blocking
-                    ? "border-destructive/40 text-destructive"
-                    : "border-warning/40 text-warning",
-                )}
-              >
-                {failure.blocking ? "blocking" : "non-blocking"}
-              </span>
-            </div>
-            <p className="mt-1.5 break-words text-xs leading-5 text-foreground">
-              {failure.message}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PullRequestBranchFields(props: {
-  currentBranch?: string;
-  defaultBranch: string;
-  disabled?: boolean;
-  loading?: boolean;
-  onTargetBranchChange: (branch: string) => void;
-  targetBranch: string;
-  targetBranchOptions: string[];
-}) {
-  const headBranch = props.currentBranch?.trim() || "HEAD";
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-      <div className="min-w-0 space-y-2">
-        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          From Branch
-        </p>
-        <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background/80 px-3 text-sm shadow-xs">
-          <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{headBranch}</span>
-        </div>
-      </div>
-
-      <div className="min-w-0 space-y-2">
-        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          Target Branch
-        </p>
-        <CreateWorkspaceBranchPicker
-          value={props.targetBranch}
-          defaultBranch={props.defaultBranch}
-          disabled={props.disabled}
-          localBranches={[]}
-          loading={props.loading}
-          remoteBranches={props.targetBranchOptions}
-          onChange={props.onTargetBranchChange}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
-  const [step, setStep] = useState<Step>("idle");
-  const [activeSubmitAction, setActiveSubmitAction] = useState<CreatePrSubmitAction | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [continueDialogOpen, setContinueDialogOpen] = useState(false);
-  const [continuingWorkspace, setContinuingWorkspace] = useState(false);
-  const [targetBranch, setTargetBranch] = useState("");
-  const [targetBranchOptions, setTargetBranchOptions] = useState<string[]>([]);
-  const [loadingTargetBranches, setLoadingTargetBranches] = useState(false);
-
-  // PR fields
-  const [prTitle, setPrTitle] = useState("");
-  const [prBody, setPrBody] = useState("");
-  const [inlineNotice, setInlineNotice] = useState<InlineNotice | null>(null);
-  const [reviewFindings, setReviewFindings] = useState<PrePrReviewFinding[]>(
-    [],
-  );
-  const [reviewDiffTruncated, setReviewDiffTruncated] = useState(false);
-  const [verificationFailures, setVerificationFailures] = useState<
-    Array<{ scriptId: string; message: string; blocking: boolean }>
-  >([]);
-  const [verificationBlocking, setVerificationBlocking] = useState(false);
-
-  // Uncommitted changes section
-  const [changedFiles, setChangedFiles] = useState<ScmStatusItem[]>([]);
-  const [commitMessage, setCommitMessage] = useState("");
-  const [changesExpanded, setChangesExpanded] = useState(true);
-  const suggestionRequestIdRef = useRef(0);
+  const [activeOperation, setActiveOperation] =
+    useState<WorkspaceOperation | null>(null);
+  const [continueDialogWorkspaceId, setContinueDialogWorkspaceId] = useState<
+    string | null
+  >(null);
+  const [continuingWorkspaceId, setContinuingWorkspaceId] = useState<
+    string | null
+  >(null);
+  const operationSequenceRef = useRef(0);
 
   const [
     activeWorkspaceId,
-    workspaceDefaultById,
     workspaceBranchById,
     workspacePathById,
     projectPath,
     defaultBranch,
     activeTaskId,
-    promptDraftByTask,
-    workspaceInformation,
     tasks,
     activeTurnIdsByTask,
     workspacePrInfoById,
-    prePrReviewEnabled,
-    prePrReviewProvider,
-    prePrReviewClaudeModel,
-    prePrReviewCodexModel,
-    prePrReviewCodexBinaryPath,
-    prePrReviewCodexReasoningEffort,
+    skillCatalog,
+    draftProvider,
+    refreshSkillCatalog,
     fetchWorkspacePrStatus,
     continueWorkspaceFromSummary,
-  ] = useAppStore(useShallow((state) => [
-    state.activeWorkspaceId,
-    state.workspaceDefaultById,
-    state.workspaceBranchById,
-    state.workspacePathById,
-    state.projectPath,
-    state.defaultBranch,
-    state.activeTaskId,
-    state.promptDraftByTask,
-    state.workspaceInformation,
-    state.tasks,
-    state.activeTurnIdsByTask,
-    state.workspacePrInfoById,
-    state.settings.prePrReviewEnabled,
-    state.settings.prePrReviewProvider,
-    state.settings.modelClaude,
-    state.settings.modelCodex,
-    state.settings.codexBinaryPath,
-    state.settings.codexReasoningEffort,
-    state.fetchWorkspacePrStatus,
-    state.continueWorkspaceFromSummary,
-  ] as const));
+    sendUserMessage,
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.activeWorkspaceId,
+          state.workspaceBranchById,
+          state.workspacePathById,
+          state.projectPath,
+          state.defaultBranch,
+          state.activeTaskId,
+          state.tasks,
+          state.activeTurnIdsByTask,
+          state.workspacePrInfoById,
+          state.skillCatalog,
+          state.draftProvider,
+          state.refreshSkillCatalog,
+          state.fetchWorkspacePrStatus,
+          state.continueWorkspaceFromSummary,
+          state.sendUserMessage,
+        ] as const,
+    ),
+  );
 
-  const isDefaultWorkspace = Boolean(workspaceDefaultById[activeWorkspaceId]);
-  const workspaceCwd = workspacePathById[activeWorkspaceId] ?? projectPath ?? "";
-  const hasWorkspaceContext = Boolean(activeWorkspaceId && workspaceCwd);
+  const workspaceCwd = workspacePathById[activeWorkspaceId] ?? "";
   const currentBranch = workspaceBranchById[activeWorkspaceId];
   const defaultBaseBranch = defaultBranch.trim() || "main";
   const continueBaseBranch = `origin/${defaultBaseBranch}`;
-  const activeTask = tasks.find((task) => task.id === activeTaskId && !isTaskArchived(task)) ?? null;
-  const activeTaskDraft = activeTask?.id ? (promptDraftByTask[activeTask.id] ?? null) : null;
+  const hasWorkspaceContext = Boolean(activeWorkspaceId && workspaceCwd);
+  const isDefaultWorkspace =
+    Boolean(projectPath) &&
+    normalizeComparablePath(workspaceCwd) ===
+      normalizeComparablePath(projectPath);
+  const activeTask =
+    tasks.find((task) => task.id === activeTaskId && !isTaskArchived(task)) ??
+    null;
+  const activeProvider = activeTask?.provider ?? draftProvider;
 
   const prInfo = workspacePrInfoById[activeWorkspaceId];
   const prStatus: WorkspacePrStatus = prInfo?.derived ?? "no_pr";
   const visual = PR_STATUS_VISUAL[prStatus];
   const actions = PR_STATUS_ACTIONS[prStatus];
+  const badgeColorClass = PR_TONE_BADGE_CLASS[visual.tone];
 
-  // -------------------------------------------------------------------------
-  // Polling – fetch PR status for active workspace
-  // -------------------------------------------------------------------------
+  const createPrShipAvailability = useMemo(
+    () =>
+      resolveCreatePrShipAvailability({
+        catalogStatus: skillCatalog.status,
+        catalogWorkspacePath: skillCatalog.workspacePath,
+        workspacePath: workspaceCwd,
+        skills: skillCatalog.skills,
+        providerId: activeProvider,
+      }),
+    [
+      activeProvider,
+      skillCatalog.skills,
+      skillCatalog.status,
+      skillCatalog.workspacePath,
+      workspaceCwd,
+    ],
+  );
+
+  const currentOperation = isCreatePrWorkspaceStateActive({
+    activeWorkspaceId,
+    stateWorkspaceId: activeOperation?.workspaceId,
+  })
+    ? activeOperation
+    : null;
+  const isBusy = currentOperation !== null;
+  const isContinuingWorkspace = isCreatePrWorkspaceStateActive({
+    activeWorkspaceId,
+    stateWorkspaceId: continuingWorkspaceId,
+  });
+  const isContinueDialogOpen = isCreatePrWorkspaceStateActive({
+    activeWorkspaceId,
+    stateWorkspaceId: continueDialogWorkspaceId,
+  });
+  const hasRespondingTask = tasks.some((task) =>
+    Boolean(activeTurnIdsByTask[task.id]),
+  );
+  const canContinueWorkspace =
+    prStatus === "merged" || prStatus === "closed_unmerged";
+
+  const beginWorkspaceOperation = useCallback(
+    (label: string) => {
+      const operation = {
+        id: ++operationSequenceRef.current,
+        workspaceId: activeWorkspaceId,
+        label,
+      };
+      setActiveOperation(operation);
+      return operation;
+    },
+    [activeWorkspaceId],
+  );
+
+  const finishWorkspaceOperation = useCallback(
+    (operation: WorkspaceOperation) => {
+      setActiveOperation((current) =>
+        current?.id === operation.id ? null : current,
+      );
+    },
+    [],
+  );
 
   const fetchStatus = useCallback(() => {
     if (activeWorkspaceId && !isDefaultWorkspace) {
       void fetchWorkspacePrStatus({ workspaceId: activeWorkspaceId });
     }
-  }, [activeWorkspaceId, isDefaultWorkspace, fetchWorkspacePrStatus]);
+  }, [activeWorkspaceId, fetchWorkspacePrStatus, isDefaultWorkspace]);
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 60_000);
-    return () => clearInterval(interval);
+    const interval = window.setInterval(fetchStatus, 60_000);
+    return () => window.clearInterval(interval);
   }, [fetchStatus]);
 
-  // -------------------------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------------------------
-
-  function generateFallbackCommitMessage(files: ScmStatusItem[]) {
-    const added = files.filter((f) => f.code === "?" || f.code === "A").length;
-    const modified = files.filter((f) => f.code === "M").length;
-    const deleted = files.filter((f) => f.code === "D").length;
-    const parts: string[] = [];
-    if (added > 0) parts.push(`${added} added`);
-    if (modified > 0) parts.push(`${modified} modified`);
-    if (deleted > 0) parts.push(`${deleted} deleted`);
-    return `chore: update ${parts.join(", ") || `${files.length} changes`}`;
-  }
-
-  function generateFallbackPRDraft(files: ScmStatusItem[]) {
-    const baseBranch = targetBranch.trim() || defaultBaseBranch;
-    return generateFallbackPullRequestDraft({
-      baseBranch,
-      headBranch: currentBranch,
-      fileList: files.map((file) => `${file.code} ${file.path}`).join("\n"),
-    });
-  }
-
-  const resetCreatePrDialogState = useCallback((args?: { closeDialog?: boolean }) => {
-    suggestionRequestIdRef.current += 1;
-    if (args?.closeDialog) {
-      setDialogOpen(false);
-    }
-    setStep("idle");
-    setActiveSubmitAction(null);
-    setTargetBranch(defaultBaseBranch);
-    setTargetBranchOptions([]);
-    setLoadingTargetBranches(false);
-    setPrTitle("");
-    setPrBody("");
-    setInlineNotice(null);
-    setReviewFindings([]);
-    setReviewDiffTruncated(false);
-    setVerificationFailures([]);
-    setVerificationBlocking(false);
-    setChangedFiles([]);
-    setCommitMessage("");
-    setChangesExpanded(true);
-  }, [defaultBaseBranch]);
-
-  async function buildWorkspaceContextForPrDraft() {
-    const readFile = window.api?.fs?.readFile;
-    const attachedContextSnippets: Array<{ label: string; content: string }> = [];
-
-    if (readFile && workspaceCwd && activeTaskDraft?.attachedFilePaths.length) {
-      const snippetResults = await Promise.all(
-        activeTaskDraft.attachedFilePaths.slice(0, 2).map(async (filePath) => {
-          try {
-            const result = await readFile({ rootPath: workspaceCwd, filePath });
-            if (!result.ok || !result.content.trim()) {
-              return null;
-            }
-            return { label: filePath, content: result.content };
-          } catch {
-            return null;
-          }
-        }),
-      );
-
-      for (const snippet of snippetResults) {
-        if (snippet) {
-          attachedContextSnippets.push(snippet);
-        }
-      }
-    }
-
-    return buildPullRequestWorkspaceContext({
-      activeTaskTitle: activeTask?.title,
-      taskPrompt: activeTaskDraft?.text,
-      attachedContextSnippets,
-      notes: workspaceInformation.notes,
-      openTodos: workspaceInformation.todos
-        .filter((todo) => !todo.completed && todo.text.trim().length > 0)
-        .map((todo) => todo.text.trim()),
-    });
-  }
-
-  // -------------------------------------------------------------------------
-  // PR Creation flow
-  // -------------------------------------------------------------------------
-
-  const previousWorkspaceIdRef = useRef(activeWorkspaceId);
-
   useEffect(() => {
-    if (previousWorkspaceIdRef.current === activeWorkspaceId) {
+    if (
+      !workspaceCwd ||
+      normalizeComparablePath(skillCatalog.workspacePath) ===
+        normalizeComparablePath(workspaceCwd)
+    ) {
       return;
     }
-    previousWorkspaceIdRef.current = activeWorkspaceId;
-    resetCreatePrDialogState({ closeDialog: true });
-  }, [activeWorkspaceId, resetCreatePrDialogState]);
+    void refreshSkillCatalog({ workspacePath: workspaceCwd });
+  }, [refreshSkillCatalog, skillCatalog.workspacePath, workspaceCwd]);
 
-  async function handleCreateClick() {
-    const getStatus = window.api?.sourceControl?.getStatus;
-    const listBranches = window.api?.sourceControl?.listBranches;
-    const suggestPRDescription = window.api?.provider?.suggestPRDescription;
-    if (!getStatus) {
-      toast.error("Unable to create PR", { description: "Source Control bridge unavailable." });
-      return;
-    }
-
-    // Guard: ensure the cwd comes from the workspace's own worktree path,
-    // not a fallback to the project root.  Using the project root for a
-    // non-default workspace would cause git commands to return data from
-    // the wrong branch, producing stale or cross-workspace PR drafts.
-    if (!workspacePathById[activeWorkspaceId]) {
+  const handleCreateClick = useCallback(async () => {
+    if (!workspaceCwd) {
       toast.error("Unable to create PR", {
-        description: "Workspace path is not available yet. Try switching away and back.",
+        description: "The active workspace path is not available yet.",
       });
       return;
     }
 
-    const requestId = suggestionRequestIdRef.current + 1;
-    suggestionRequestIdRef.current = requestId;
-
-    setStep("loading");
-    setDialogOpen(true);
-    setPrTitle("");
-    setPrBody("");
-    setTargetBranch(defaultBaseBranch);
-    setTargetBranchOptions([defaultBaseBranch]);
-    setLoadingTargetBranches(Boolean(listBranches));
-    setActiveSubmitAction(null);
-    setCommitMessage("");
-    setChangedFiles([]);
-    setChangesExpanded(true);
-    setReviewFindings([]);
-    setReviewDiffTruncated(false);
-    setInlineNotice({
-      tone: "info",
-      title: "Preparing PR draft",
-      description: "Reviewing the branch diff, recent commits, and workspace PR guidance.",
-    });
-
-    const statusPromise = getStatus({ cwd: workspaceCwd });
-    const branchPromise = listBranches
-      ? listBranches({ cwd: workspaceCwd }).catch(() => undefined)
-      : Promise.resolve(undefined);
-    const workspaceContextPromise = buildWorkspaceContextForPrDraft();
-    const promptPrDescription = useAppStore.getState().settings.promptPrDescription || undefined;
-    const descPromise = suggestPRDescription
-      ? workspaceContextPromise
-        .then((workspaceContext) => suggestPRDescription({
-          cwd: workspaceCwd,
-          baseBranch: defaultBaseBranch,
-          headBranch: currentBranch || undefined,
-          promptTemplate: promptPrDescription,
-          workspaceContext: workspaceContext || undefined,
-        }))
-        .catch(() => undefined)
-      : undefined;
-
-    const [status, descResult, branchResult] = await Promise.all([
-      statusPromise,
-      descPromise ?? Promise.resolve(undefined),
-      branchPromise,
-    ]);
-    if (suggestionRequestIdRef.current !== requestId) {
+    if (createPrShipAvailability.status !== "ready") {
+      const description =
+        createPrShipAvailability.status === "loading"
+          ? "The ship workflow is still loading for this workspace."
+          : createPrShipAvailability.status === "missing"
+            ? "Install or enable the `ship` skill for the active provider."
+            : "The skill catalog could not be loaded for this workspace.";
+      toast.warning("Create PR is unavailable", { description });
       return;
     }
 
-    if (!status.ok) {
-      toast.error("Unable to check status", { description: status.stderr || "git status failed." });
-      resetCreatePrDialogState({ closeDialog: true });
-      return;
-    }
-
-    const nextTargetBranchOptions = branchResult?.ok
-      ? buildCreatePrTargetBranchOptions({
-        defaultBranch: defaultBaseBranch,
-        headBranch: currentBranch,
-        remoteBranches: branchResult.remoteBranches ?? [],
-      })
-      : [defaultBaseBranch];
-    const nextTargetBranch = nextTargetBranchOptions.includes(defaultBaseBranch)
-      ? defaultBaseBranch
-      : nextTargetBranchOptions[0] ?? defaultBaseBranch;
-    setTargetBranchOptions(nextTargetBranchOptions);
-    setTargetBranch(nextTargetBranch);
-    setLoadingTargetBranches(false);
-
-    setChangedFiles(status.items);
-    const fallbackDraft = generateFallbackPullRequestDraft({
-      baseBranch: nextTargetBranch,
-      headBranch: currentBranch,
-      fileList: status.items.map((file) => `${file.code} ${file.path}`).join("\n"),
-    });
-    const nextTitle = descResult?.ok && descResult.title?.trim()
-      ? descResult.title.trim()
-      : fallbackDraft.title;
-    const nextBody = descResult?.ok && descResult.body?.trim()
-      ? descResult.body.trim()
-      : fallbackDraft.body;
-
-    setPrTitle(nextTitle);
-    setPrBody(nextBody);
-    setStep("ready");
-    setInlineNotice(
-      suggestPRDescription && !descResult?.ok
-        ? {
-          tone: "warning",
-          title: "Using fallback PR draft",
-          description: "Could not generate a tailored title and description. Review the suggested draft before creating the PR.",
-        }
-        : null,
-    );
-  }
-
-  async function handleSubmit(options: { draft: boolean; skipReview?: boolean; skipVerification?: boolean }) {
-    const submitAction: CreatePrSubmitAction = options.draft ? "draft" : "pr";
-    const getStatus = window.api?.sourceControl?.getStatus;
-    const runCommand = window.api?.terminal?.runCommand;
-    const createPR = window.api?.sourceControl?.createPR;
-    const reviewDiff = window.api?.provider?.reviewDiff;
-    const openExternal = window.api?.shell?.openExternal;
-    const runScriptHook = window.api?.scripts?.runHook;
-    const selectedTargetBranch = targetBranch.trim() || defaultBaseBranch;
-    setActiveSubmitAction(submitAction);
-    if (!options.skipReview) {
-      setReviewFindings([]);
-      setReviewDiffTruncated(false);
-    }
-    if (!options.skipVerification) {
-      setVerificationFailures([]);
-      setVerificationBlocking(false);
-    }
-
-    if (!runCommand || !createPR) {
-      setInlineNotice({
-        tone: "error",
-        title: "Unable to create PR",
-        description: "The source control bridge is unavailable in this workspace.",
-      });
-      setStep("ready");
-      return;
-    }
-
-    let pendingFiles = changedFiles;
-    if (getStatus) {
-      const statusResult = await getStatus({ cwd: workspaceCwd });
-      if (!statusResult.ok) {
-        setInlineNotice({
-          tone: "error",
-          title: "Unable to refresh workspace changes",
-          description: statusResult.stderr || "git status failed.",
-        });
-        setStep("ready");
-        setActiveSubmitAction(null);
-        return;
-      }
-      pendingFiles = statusResult.items;
-      setChangedFiles(pendingFiles);
-      setChangesExpanded(pendingFiles.length > 0);
-    }
-
-    const fallbackDraft = generateFallbackPullRequestDraft({
-      baseBranch: selectedTargetBranch,
-      headBranch: currentBranch,
-      fileList: pendingFiles.map((file) => `${file.code} ${file.path}`).join("\n"),
-    });
-    let title = prTitle.trim() || fallbackDraft.title;
-
-    // Step 1: Commit uncommitted changes if any
-    if (pendingFiles.length > 0) {
-      const stageAll = window.api?.sourceControl?.stageAll;
-      const commit = window.api?.sourceControl?.commit;
-      if (!stageAll || !commit) {
-        setInlineNotice({
-          tone: "error",
-          title: "Automatic commit is unavailable",
-          description: "The source control bridge cannot stage and commit the pending files.",
-        });
-        setStep("ready");
-        return;
-      }
-
-      setStep("committing");
-      setInlineNotice({
-        tone: "info",
-        title: "Preparing automatic commit",
-        description: "Uncommitted workspace changes will be staged and committed before the PR is created.",
-      });
-
-      let message = commitMessage.trim();
-      if (!message) {
-        const suggestCommitMessage = window.api?.provider?.suggestCommitMessage;
-        setInlineNotice({
-          tone: "info",
-          title: "Generating commit message",
-          description: "Creating a Conventional Commit message from the current diff.",
-        });
-        if (suggestCommitMessage) {
-          try {
-            const result = await suggestCommitMessage({ cwd: workspaceCwd });
-            if (result.ok && result.message) {
-              message = result.message;
-            }
-          } catch {
-            // fall through
-          }
-        }
-        if (!message) {
-          message = generateFallbackCommitMessage(pendingFiles);
-        }
-      }
-      setCommitMessage(message);
-
-      setInlineNotice({
-        tone: "info",
-        title: "Staging changes",
-        description: `Adding ${pendingFiles.length} pending file${pendingFiles.length !== 1 ? "s" : ""} to the automatic commit.`,
-      });
-      const stageResult = await stageAll({ cwd: workspaceCwd });
-      if (!stageResult.ok) {
-        setInlineNotice({
-          tone: "error",
-          title: "Staging failed",
-          description: stageResult.stderr || "git add failed.",
-        });
-        setStep("ready");
-        return;
-      }
-
-      setInlineNotice({
-        tone: "info",
-        title: "Creating commit",
-        description: message,
-      });
-      let commitResult = await commit({ message, cwd: workspaceCwd });
-
-      // When a pre-commit hook (husky/lint-staged/eslint) fails, try to
-      // auto-fix lint errors and retry the commit once before giving up.
-      if (!commitResult.ok && looksLikePreCommitHookFailure(commitResult.stderr)) {
-        const tryAutoFixLint = window.api?.sourceControl?.tryAutoFixLint;
-        if (tryAutoFixLint) {
-          setInlineNotice({
-            tone: "info",
-            title: "Pre-commit hook failed — attempting auto-fix",
-            description: "Running eslint --fix and prettier --write on staged files…",
-          });
-          const fixResult = await tryAutoFixLint({ cwd: workspaceCwd });
-          if (fixResult.fixAttempted) {
-            // Re-stage and retry the commit
-            await stageAll({ cwd: workspaceCwd });
-            setInlineNotice({
-              tone: "info",
-              title: "Retrying commit after auto-fix",
-              description: message,
-            });
-            commitResult = await commit({ message, cwd: workspaceCwd });
-          }
-        }
-      }
-
-      if (!commitResult.ok) {
-        setInlineNotice({
-          tone: "error",
-          title: "Commit failed",
-          description: commitResult.stderr || "git commit failed.",
-        });
-        setStep("ready");
-        return;
-      }
-
-      setChangedFiles([]);
-      setChangesExpanded(false);
-      setInlineNotice({
-        tone: "success",
-        title: "Changes committed automatically",
-        description: message,
-      });
-    }
-
-    if (prePrReviewEnabled && reviewDiff && !options.skipReview) {
-      const reviewProviderLabel = getProviderLabel({
-        providerId: prePrReviewProvider,
-      });
-      const reviewModel =
-        prePrReviewProvider === "codex"
-          ? prePrReviewCodexModel
-          : prePrReviewClaudeModel;
-      const reviewRuntimeOptions =
-        prePrReviewProvider === "codex"
-          ? {
-              model: reviewModel,
-              codexApprovalPolicy: "never" as const,
-              codexBinaryPath:
-                prePrReviewCodexBinaryPath.trim() || undefined,
-              codexFileAccess: "read-only" as const,
-              codexNetworkAccess: false,
-              codexReasoningEffort: prePrReviewCodexReasoningEffort,
-              codexWebSearch: "disabled" as const,
-            }
-          : { model: reviewModel };
-      setStep("reviewing");
-      setInlineNotice({
-        tone: "info",
-        title: "Running AI pre-PR review",
-        description: `${reviewProviderLabel} is checking the branch diff for concrete bugs, races, and security issues before pushing.`,
-      });
-
-      try {
-        const reviewArgs = {
-          cwd: workspaceCwd,
-          baseBranch: selectedTargetBranch,
-          headBranch: currentBranch || undefined,
-          providerId: prePrReviewProvider,
-          model: reviewModel,
-          runtimeOptions: reviewRuntimeOptions,
-        };
-        const reviewResult = await reviewDiff(reviewArgs);
-
-        const findings: PrePrReviewFinding[] = reviewResult.ok
-          ? [...reviewResult.findings]
-          : [];
-        let truncated = Boolean(reviewResult.truncated);
-
-        // Intent guard: a second single-turn check that compares the diff
-        // against the pinned product intent (PRD / spec / design). Only runs
-        // when the workspace has intent pinned, so it is a no-op otherwise.
-        const intentContext = collectIntentContext(
-          buildIntentGuardContextInput(
-            useAppStore.getState().workspaceInformation,
-          ),
-        );
-        if (intentContext) {
-          setInlineNotice({
-            tone: "info",
-            title: "Running AI intent guard",
-            description: `${reviewProviderLabel} is checking the change against the pinned product intent (PRD / spec / design).`,
-          });
-          try {
-            const intentResult = await reviewDiff({
-              ...reviewArgs,
-              mode: "intent",
-              intentContext,
-            });
-            if (intentResult.ok) {
-              findings.push(...intentResult.findings);
-              truncated = truncated || Boolean(intentResult.truncated);
-            }
-          } catch {
-            // Intent guard is best-effort; ignore failures.
-          }
-        }
-
-        if (findings.length > 0) {
-          const resultProviderLabel = getProviderLabel({
-            providerId: reviewResult.providerId ?? prePrReviewProvider,
-          });
-          setReviewFindings(findings);
-          setReviewDiffTruncated(truncated);
-          setInlineNotice({
-            tone: "warning",
-            title: "Review findings need a decision",
-            description: `${resultProviderLabel} found issues. Stop to fix them, or proceed anyway if they are acceptable for this PR.`,
-          });
-          return;
-        }
-
-        setReviewFindings([]);
-        setReviewDiffTruncated(false);
-        if (!reviewResult.ok) {
-          setInlineNotice({
-            tone: "warning",
-            title: "AI pre-PR review was skipped",
-            description: `${reviewProviderLabel} review failed, so Stave will continue creating the PR.`,
-          });
-        }
-      } catch {
-        setInlineNotice({
-          tone: "warning",
-          title: "AI pre-PR review was skipped",
-          description: `${reviewProviderLabel} review failed, so Stave will continue creating the PR.`,
-        });
-      }
-    }
-
-    if (runScriptHook && activeWorkspaceId && projectPath && !options.skipVerification) {
-      setStep("action");
-      setInlineNotice({
-        tone: "info",
-        title: "Running PR preflight",
-        description: "Executing configured `pr.beforeOpen` verification before push and PR creation.",
-      });
-      const hookResult = await runScriptHook({
-        workspaceId: activeWorkspaceId,
-        trigger: "pr.beforeOpen",
-        projectPath,
-        workspacePath: workspaceCwd,
-        workspaceName: currentBranch ?? "workspace",
-        branch: currentBranch ?? selectedTargetBranch,
-      });
-      if (!hookResult.summary) {
-        // Infra error (invalid config / spawn failure) — hard stop.
-        if (hookResult.error) {
-          setInlineNotice({
-            tone: "error",
-            title: "PR preflight failed",
-            description: hookResult.error,
-          });
-          setStep("ready");
-          setActiveSubmitAction(null);
-          return;
-        }
-      } else if (hookResult.summary.failures.length > 0) {
-        // Gate on verification: blocking failures stop hard, non-blocking
-        // failures warn and allow an explicit "Proceed anyway".
-        const blocking =
-          deriveTurnVerificationStatus(hookResult.summary) === "fail";
-        setVerificationFailures(hookResult.summary.failures);
-        setVerificationBlocking(blocking);
-        setInlineNotice({
-          tone: blocking ? "error" : "warning",
-          title: blocking
-            ? "Verification failed"
-            : "Verification reported warnings",
-          description: blocking
-            ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
-            : "Non-blocking pr.beforeOpen checks failed. Review them, then proceed or fix.",
-        });
-        setStep("ready");
-        return;
-      }
-    }
-
-    // Step 2: Push
-    setStep("pushing");
-    setInlineNotice({
-      tone: "info",
-      title: "Pushing branch",
-      description: `Updating ${currentBranch ?? "HEAD"} on origin before creating the pull request.`,
-    });
-    const pushResult = await runCommand({ command: "git push -u origin HEAD", cwd: workspaceCwd });
-    if (!pushResult.ok) {
-      setInlineNotice({
-        tone: "error",
-        title: "Push failed",
-        description: pushResult.stderr || "git push failed.",
-      });
-      setStep("ready");
-      return;
-    }
-
-    // Step 3: Create PR
-    setStep("creating-pr");
-    setInlineNotice({
-      tone: "info",
-      title: options.draft ? "Creating draft PR" : "Creating pull request",
-      description: `Submitting the prepared title and description to GitHub (target: ${selectedTargetBranch}).`,
-    });
-    const prResult = await createPR({
-      title,
-      body: prBody.trim() || undefined,
-      baseBranch: selectedTargetBranch,
-      draft: options.draft,
-      cwd: workspaceCwd,
-    });
-
-    if (!prResult.ok) {
-      setInlineNotice({
-        tone: "error",
-        title: "PR creation failed",
-        description: prResult.stderr || "gh pr create failed.",
-      });
-      setStep("ready");
-      return;
-    }
-
-    // Success – close dialog, refresh status
-    setDialogOpen(false);
-    setStep("idle");
-    setInlineNotice(null);
-    setActiveSubmitAction(null);
-
-    const label = options.draft ? "Draft PR created" : "PR created";
-    toast.success(label, { description: prResult.prUrl ?? "Pull request created successfully." });
-
-    // Refresh PR status to pick up the new PR
-    fetchStatus();
-
-    if (runScriptHook && activeWorkspaceId && projectPath) {
-      const hookResult = await runScriptHook({
-        workspaceId: activeWorkspaceId,
-        trigger: "pr.afterOpen",
-        projectPath,
-        workspacePath: workspaceCwd,
-        workspaceName: currentBranch ?? "workspace",
-        branch: currentBranch ?? selectedTargetBranch,
-      });
-      if (!hookResult.ok) {
-        toast.warning("Post-PR scripts reported failures", {
-          description: hookResult.error
-            ?? hookResult.summary?.failures.map((failure) => `${failure.scriptId}: ${failure.message}`).join(" ")
-            ?? "Configured `pr.afterOpen` scripts failed.",
-        });
-      }
-    }
-
-    if (prResult.prUrl && openExternal) {
-      try {
-        await openExternal({ url: prResult.prUrl });
-      } catch {
-        // non-critical
-      }
-    }
-  }
-
-  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (step !== "ready") return;
-    void handleSubmit({ draft: false });
-  }
-
-  function handleProceedAfterReview() {
-    const submitAction = activeSubmitAction ?? "pr";
-    setReviewFindings([]);
-    setReviewDiffTruncated(false);
-    void handleSubmit({
-      draft: submitAction === "draft",
-      skipReview: true,
-    });
-  }
-
-  function handleStopAfterReview() {
-    setStep("ready");
-    setActiveSubmitAction(null);
-    setInlineNotice({
-      tone: "warning",
-      title: "PR creation paused",
-      description: "Fix the review findings, then create the PR again when ready.",
-    });
-  }
-
-  function handleProceedAfterVerification() {
-    const submitAction = activeSubmitAction ?? "pr";
-    setVerificationFailures([]);
-    setVerificationBlocking(false);
-    void handleSubmit({
-      draft: submitAction === "draft",
-      skipReview: true,
-      skipVerification: true,
-    });
-  }
-
-  function handleStopAfterVerification() {
-    setVerificationFailures([]);
-    setVerificationBlocking(false);
-    setStep("ready");
-    setActiveSubmitAction(null);
-    setInlineNotice({
-      tone: "warning",
-      title: "PR creation paused",
-      description: "Fix the verification failures, then create the PR again when ready.",
-    });
-  }
-
-  // -------------------------------------------------------------------------
-  // PR Action handlers
-  // -------------------------------------------------------------------------
-
-  async function handleMarkReady() {
-    const setPrReady = window.api?.sourceControl?.setPrReady;
-    if (!setPrReady) { toast.error("Bridge unavailable"); return; }
-
-    setStep("action");
-    const result = await setPrReady({ cwd: workspaceCwd });
-    setStep("idle");
-
-    if (!result.ok) {
-      toast.error("Failed to mark PR as ready", { description: result.stderr });
-      return;
-    }
-    toast.success("PR marked as ready for review");
-    fetchStatus();
-  }
-
-  async function handleMerge() {
-    const mergePr = window.api?.sourceControl?.mergePr;
-    if (!mergePr) { toast.error("Bridge unavailable"); return; }
-
-    setStep("action");
-    const result = await mergePr({ method: "squash", cwd: workspaceCwd });
-    setStep("idle");
-
-    if (!result.ok) {
-      toast.error("Merge failed", { description: result.stderr });
-      return;
-    }
-    toast.success("PR merged successfully");
-    fetchStatus();
-  }
-
-  async function handleUpdateBranch() {
-    const updatePrBranch = window.api?.sourceControl?.updatePrBranch;
-    if (!updatePrBranch) { toast.error("Bridge unavailable"); return; }
-
-    setStep("action");
-    const result = await updatePrBranch({ cwd: workspaceCwd });
-    setStep("idle");
-
-    if (!result.ok) {
-      toast.error("Branch update failed", { description: result.stderr });
-      return;
-    }
-    toast.success("Branch updated");
-    fetchStatus();
-  }
-
-  async function handleContinueWorkspace(args: { name: string; baseBranch?: string }) {
-    setContinuingWorkspace(true);
+    const operation = beginWorkspaceOperation("Starting ship...");
     try {
-      const result = await continueWorkspaceFromSummary({ name: args.name, baseBranch: args.baseBranch });
-      if (!result.ok) {
-        toast.error("Unable to continue in a new workspace", {
-          description: result.message ?? "The continuation brief could not be prepared.",
+      const result = await sendUserMessage({
+        taskId: activeTask?.id ?? "",
+        content: buildCreatePrShipPrompt(
+          createPrShipAvailability.invocationToken,
+        ),
+      });
+
+      if (result.status === "blocked") {
+        toast.error("Unable to start ship workflow", {
+          description:
+            "Resolve the active task's pending approval or input, then try again.",
         });
-        return result;
+        return;
       }
 
-      if (result.noticeLevel === "warning") {
-        toast.warning("Workspace continued with warning", {
-          description: result.message ?? "The workspace was created, but part of the continuation brief setup needs attention.",
+      if (result.status === "queued") {
+        toast.info("Ship workflow queued", {
+          description: "It will start after the current task turn completes.",
         });
-      } else {
-        toast.success("Workspace continued", {
-          description: result.message ?? "The new workspace is ready with a continuation brief attached.",
-        });
+        return;
       }
-      return result;
+
+      if (result.status === "steer-unavailable") {
+        toast.error("Unable to start ship workflow", {
+          description: result.message,
+        });
+        return;
+      }
+
+      toast.success("Ship workflow started", {
+        description:
+          "Follow the active task for validation, commit, push, PR, and auto-merge progress.",
+      });
+    } catch (error) {
+      toast.error("Unable to start ship workflow", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "The task could not be started.",
+      });
     } finally {
-      setContinuingWorkspace(false);
+      finishWorkspaceOperation(operation);
     }
-  }
+  }, [
+    activeTask?.id,
+    beginWorkspaceOperation,
+    createPrShipAvailability,
+    finishWorkspaceOperation,
+    sendUserMessage,
+    workspaceCwd,
+  ]);
 
-  function handleOpenGitHub() {
+  const handleMarkReady = useCallback(async () => {
+    const setPrReady = window.api?.sourceControl?.setPrReady;
+    if (!setPrReady) {
+      toast.error("Bridge unavailable");
+      return;
+    }
+
+    const operation = beginWorkspaceOperation("Working...");
+    try {
+      const result = await setPrReady({ cwd: workspaceCwd });
+      if (!result.ok) {
+        toast.error("Failed to mark PR as ready", {
+          description: result.stderr,
+        });
+        return;
+      }
+      toast.success("PR marked as ready for review");
+      fetchStatus();
+    } finally {
+      finishWorkspaceOperation(operation);
+    }
+  }, [
+    beginWorkspaceOperation,
+    fetchStatus,
+    finishWorkspaceOperation,
+    workspaceCwd,
+  ]);
+
+  const handleMerge = useCallback(async () => {
+    const mergePr = window.api?.sourceControl?.mergePr;
+    if (!mergePr) {
+      toast.error("Bridge unavailable");
+      return;
+    }
+
+    const operation = beginWorkspaceOperation("Working...");
+    try {
+      const result = await mergePr({ method: "squash", cwd: workspaceCwd });
+      if (!result.ok) {
+        toast.error("Merge failed", { description: result.stderr });
+        return;
+      }
+      toast.success("PR merged successfully");
+      fetchStatus();
+    } finally {
+      finishWorkspaceOperation(operation);
+    }
+  }, [
+    beginWorkspaceOperation,
+    fetchStatus,
+    finishWorkspaceOperation,
+    workspaceCwd,
+  ]);
+
+  const handleUpdateBranch = useCallback(async () => {
+    const updatePrBranch = window.api?.sourceControl?.updatePrBranch;
+    if (!updatePrBranch) {
+      toast.error("Bridge unavailable");
+      return;
+    }
+
+    const operation = beginWorkspaceOperation("Working...");
+    try {
+      const result = await updatePrBranch({ cwd: workspaceCwd });
+      if (!result.ok) {
+        toast.error("Branch update failed", { description: result.stderr });
+        return;
+      }
+      toast.success("Branch updated");
+      fetchStatus();
+    } finally {
+      finishWorkspaceOperation(operation);
+    }
+  }, [
+    beginWorkspaceOperation,
+    fetchStatus,
+    finishWorkspaceOperation,
+    workspaceCwd,
+  ]);
+
+  const handleContinueWorkspace = useCallback(
+    async (args: { name: string; baseBranch?: string }) => {
+      const sourceWorkspaceId = activeWorkspaceId;
+      setContinuingWorkspaceId(sourceWorkspaceId);
+      try {
+        const result = await continueWorkspaceFromSummary({
+          name: args.name,
+          baseBranch: args.baseBranch,
+        });
+        if (!result.ok) {
+          toast.error("Unable to continue in a new workspace", {
+            description:
+              result.message ?? "The continuation brief could not be prepared.",
+          });
+          return result;
+        }
+
+        if (result.noticeLevel === "warning") {
+          toast.warning("Workspace continued with warning", {
+            description:
+              result.message ??
+              "The workspace was created, but part of the continuation brief setup needs attention.",
+          });
+        } else {
+          toast.success("Workspace continued", {
+            description:
+              result.message ??
+              "The new workspace is ready with a continuation brief attached.",
+          });
+        }
+        return result;
+      } finally {
+        setContinuingWorkspaceId((current) =>
+          current === sourceWorkspaceId ? null : current,
+        );
+      }
+    },
+    [activeWorkspaceId, continueWorkspaceFromSummary],
+  );
+
+  const handleOpenGitHub = useCallback(() => {
     const url = prInfo?.pr?.url;
     if (url) {
       void window.api?.shell?.openExternal?.({ url });
     }
-  }
+  }, [prInfo?.pr?.url]);
 
-  function handleAction(key: string) {
-    switch (key) {
-      case "create_pr":     void handleCreateClick(); break;
-      case "create_draft":  void handleCreateClick(); break;
-      case "mark_ready":    void handleMarkReady(); break;
-      case "merge":         void handleMerge(); break;
-      case "update_branch": void handleUpdateBranch(); break;
-      case "open_github":   handleOpenGitHub(); break;
-      case "refresh":       fetchStatus(); break;
-    }
-  }
+  const handleAction = useCallback(
+    (key: PrAction) => {
+      switch (key) {
+        case "create_pr":
+          void handleCreateClick();
+          break;
+        case "mark_ready":
+          void handleMarkReady();
+          break;
+        case "merge":
+          void handleMerge();
+          break;
+        case "update_branch":
+          void handleUpdateBranch();
+          break;
+        case "open_github":
+          handleOpenGitHub();
+          break;
+        case "refresh":
+          fetchStatus();
+          break;
+      }
+    },
+    [
+      fetchStatus,
+      handleCreateClick,
+      handleMarkReady,
+      handleMerge,
+      handleOpenGitHub,
+      handleUpdateBranch,
+    ],
+  );
 
-  // -------------------------------------------------------------------------
-  // Derived UI state
-  // -------------------------------------------------------------------------
-
-  const isBusy = step !== "idle" && step !== "ready";
-  const isDialogBusy = step === "committing" || step === "reviewing" || step === "pushing" || step === "creating-pr";
-  const isCreateDraftSubmitting = shouldShowCreatePrSubmitSpinner({
-    step,
-    activeSubmitAction,
-    buttonAction: "draft",
-  });
-  const isCreatePrSubmitting = shouldShowCreatePrSubmitSpinner({
-    step,
-    activeSubmitAction,
-    buttonAction: "pr",
-  });
-  const effectiveTitle = prTitle.trim() || generateFallbackPRDraft(changedFiles).title;
-  const canSubmitPr = canSubmitCreatePr({
-    step,
-    title: effectiveTitle,
-  });
-  const statusLabel =
-    step === "loading" ? "Loading..." :
-    step === "committing" ? "Committing..." :
-    step === "reviewing" ? "Reviewing..." :
-    step === "pushing" ? "Pushing..." :
-    step === "creating-pr" ? "Creating..." :
-    step === "action" ? "Working..." :
-    null;
-  const hasRespondingTask = tasks.some((task) => Boolean(activeTurnIdsByTask[task.id]));
-  const isCreateDisabled = isBusy || hasRespondingTask;
-  const canContinueWorkspace = prStatus === "merged" || prStatus === "closed_unmerged";
-  const isContinueDisabled = isBusy || continuingWorkspace || hasRespondingTask;
-  const effectiveTargetBranch = targetBranch.trim() || defaultBaseBranch;
+  const isCreateDisabled =
+    isBusy || hasRespondingTask || createPrShipAvailability.status !== "ready";
+  const isContinueDisabled =
+    isBusy || isContinuingWorkspace || hasRespondingTask;
   const createPrTooltip = hasRespondingTask
-    ? "Pause or finish the running task before creating a pull request"
-    : "Create a pull request on GitHub";
+    ? "Pause or finish the running task before starting the ship workflow"
+    : createPrShipAvailability.status === "loading"
+      ? "Loading the ship workflow for this workspace"
+      : createPrShipAvailability.status === "missing"
+        ? "Install or enable the ship skill to create pull requests"
+        : createPrShipAvailability.status === "error"
+          ? "The skill catalog is unavailable for this workspace"
+          : "Run the ship skill to validate, commit, push, open a ready PR, and enable auto-merge";
   const continueTooltip = hasRespondingTask
     ? "Pause or finish the running task before continuing into a new workspace"
     : "Create a new workspace and attach a continuation brief from this completed branch";
-
-  const badgeColorClass = PR_TONE_BADGE_CLASS[visual.tone];
 
   useEffect(() => {
     const onTopBarPrAction = (event: Event) => {
@@ -1292,12 +489,14 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         return;
       }
 
-      setContinueDialogOpen(true);
+      setContinueDialogWorkspaceId(activeWorkspaceId);
     };
 
     window.addEventListener(TOP_BAR_PR_ACTION_EVENT, onTopBarPrAction);
-    return () => window.removeEventListener(TOP_BAR_PR_ACTION_EVENT, onTopBarPrAction);
+    return () =>
+      window.removeEventListener(TOP_BAR_PR_ACTION_EVENT, onTopBarPrAction);
   }, [
+    activeWorkspaceId,
     canContinueWorkspace,
     continueTooltip,
     createPrTooltip,
@@ -1308,21 +507,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     isDefaultWorkspace,
   ]);
 
-  // -------------------------------------------------------------------------
-  // Hide on default workspace
-  // -------------------------------------------------------------------------
-
-  if (!hasWorkspaceContext || isDefaultWorkspace) return null;
-
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
+  if (!hasWorkspaceContext || isDefaultWorkspace) {
+    return null;
+  }
 
   return (
     <>
-      {/* --- Trigger button: "Create PR" or PR status dropdown --- */}
       {prStatus === "no_pr" ? (
-        /* No PR – show "Create PR" button */
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -1340,13 +531,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               ) : (
                 <GitPullRequest className="size-3.5 shrink-0" />
               )}
-              {statusLabel ?? "Create PR"}
+              {currentOperation?.label ?? "Create PR"}
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">{createPrTooltip}</TooltipContent>
         </Tooltip>
       ) : (
-        /* Has PR – show status dropdown */
         <div className="flex items-center gap-1.5">
           <DropdownMenu>
             <Tooltip>
@@ -1360,7 +550,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                         badgeColorClass,
                       )}
                       style={props.noDragStyle}
-                      disabled={isBusy || continuingWorkspace}
+                      disabled={isBusy || isContinuingWorkspace}
                       aria-label="open-pr-status-menu"
                     >
                       {isBusy ? (
@@ -1368,7 +558,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                       ) : (
                         <PrStatusIcon status={prStatus} className="size-3.5" />
                       )}
-                      {statusLabel ?? visual.label}
+                      {currentOperation?.label ?? visual.label}
                     </button>
                   </DropdownMenuTrigger>
                 </span>
@@ -1379,19 +569,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             </Tooltip>
 
             <DropdownMenuContent align="end" className="w-64">
-              {/* PR info header */}
               <DropdownMenuLabel className="flex flex-col gap-0.5">
                 <span className="truncate text-xs font-medium">
                   #{prInfo?.pr?.number} {prInfo?.pr?.title}
                 </span>
                 <span className="text-[10px] font-normal text-muted-foreground">
-                  {currentBranch} &rarr; {prInfo?.pr?.baseRefName ?? defaultBaseBranch}
+                  {currentBranch} &rarr;{" "}
+                  {prInfo?.pr?.baseRefName ?? defaultBaseBranch}
                 </span>
               </DropdownMenuLabel>
 
               <DropdownMenuSeparator />
 
-              {/* Primary action */}
               {actions.primary ? (
                 <DropdownMenuItem
                   className="font-medium"
@@ -1401,7 +590,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 </DropdownMenuItem>
               ) : null}
 
-              {/* Secondary actions */}
               {actions.secondary.map((action) => (
                 <DropdownMenuItem
                   key={action.key}
@@ -1431,10 +619,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   type="button"
                   className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent disabled:opacity-50"
                   style={props.noDragStyle}
-                  onClick={() => setContinueDialogOpen(true)}
+                  onClick={() =>
+                    setContinueDialogWorkspaceId(activeWorkspaceId)
+                  }
                   disabled={isContinueDisabled}
                 >
-                  {continuingWorkspace ? (
+                  {isContinuingWorkspace ? (
                     <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
                   ) : (
                     <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
@@ -1448,216 +638,17 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         </div>
       )}
 
-      {/* --- PR Creation Dialog --- */}
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          if (!canApplyCreatePrDialogOpenChange({ open, isDialogBusy })) {
-            return;
-          }
-          if (open) {
-            setDialogOpen(true);
-            return;
-          }
-          resetCreatePrDialogState({ closeDialog: true });
-        }}
-      >
-        <DialogContent
-          className="min-w-0 sm:max-w-lg"
-          showCloseButton={!isDialogBusy}
-          onEscapeKeyDown={(event) => {
-            if (isDialogBusy) {
-              event.preventDefault();
-            }
-          }}
-          onInteractOutside={(event) => {
-            if (isDialogBusy) {
-              event.preventDefault();
-            }
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Create Pull Request</DialogTitle>
-            <DialogDescription className="sr-only">
-              Create a pull request from {currentBranch ?? "HEAD"} into {effectiveTargetBranch}
-            </DialogDescription>
-          </DialogHeader>
-
-          {step === "loading" ? (
-            <div className="min-w-0 pr-1">
-              <CreatePrLoadingSplash currentBranch={currentBranch} baseBranch={effectiveTargetBranch} />
-            </div>
-          ) : (
-            <form className="min-w-0 space-y-4" onSubmit={handleFormSubmit}>
-              <div className="min-w-0 space-y-4 pr-1">
-                <PullRequestBranchFields
-                  currentBranch={currentBranch}
-                  defaultBranch={defaultBaseBranch}
-                  disabled={isDialogBusy}
-                  loading={loadingTargetBranches}
-                  targetBranch={effectiveTargetBranch}
-                  targetBranchOptions={targetBranchOptions}
-                  onTargetBranchChange={(nextBranch) => {
-                    setTargetBranch(nextBranch);
-                  }}
-                />
-
-                {inlineNotice ? <InlineNoticeBanner notice={inlineNotice} /> : null}
-                <PrePrReviewFindingsPanel
-                  findings={reviewFindings}
-                  truncated={reviewDiffTruncated}
-                />
-                <PrePrVerificationPanel
-                  failures={verificationFailures}
-                  blocking={verificationBlocking}
-                />
-
-                {/* PR Title */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="pr-title-input">
-                    Title
-                  </label>
-                  <Input
-                    autoFocus
-                    id="pr-title-input"
-                    className="h-9 text-sm"
-                    placeholder="PR title"
-                    value={prTitle}
-                    onChange={(e) => {
-                      setPrTitle(e.target.value);
-                    }}
-                    disabled={isDialogBusy}
-                  />
-                </div>
-
-                {/* PR Description */}
-                <div className="min-w-0 space-y-2">
-                  <label className="text-sm font-medium" htmlFor="pr-body-input">
-                    Description
-                  </label>
-                  <Textarea
-                    id="pr-body-input"
-                    className="min-h-24 max-h-80 min-w-0 resize-y whitespace-pre-wrap break-words [field-sizing:fixed] [overflow-wrap:anywhere] text-sm"
-                    rows={6}
-                    wrap="soft"
-                    placeholder="Describe your changes..."
-                    value={prBody}
-                    onChange={(e) => {
-                      setPrBody(e.target.value);
-                    }}
-                    disabled={isDialogBusy}
-                  />
-                </div>
-
-                {/* Uncommitted Changes */}
-                {changedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-1 text-sm font-medium text-amber-500"
-                      onClick={() => setChangesExpanded((v) => !v)}
-                    >
-                      {changesExpanded ? (
-                        <ChevronDown className="size-3.5" />
-                      ) : (
-                        <ChevronRight className="size-3.5" />
-                      )}
-                      {changedFiles.length} uncommitted file{changedFiles.length !== 1 ? "s" : ""}
-                      <span className="ml-1 text-xs font-normal text-muted-foreground">
-                        (will be committed before creating PR)
-                      </span>
-                    </button>
-
-                    {changesExpanded && (
-                      <>
-                        <div className="max-h-32 overflow-y-auto rounded-md border border-border bg-muted/30 p-2 text-xs">
-                          {changedFiles.map((file) => (
-                            <div key={file.path} className="flex items-center gap-2 py-0.5">
-                              <span className="w-5 shrink-0 text-center font-mono font-medium text-muted-foreground">{file.code}</span>
-                              <span className="truncate font-mono">{file.path}</span>
-                            </div>
-                          ))}
-                        </div>
-
-                        <Input
-                          id="commit-message-input"
-                          className="h-9 text-sm"
-                          placeholder={generateFallbackCommitMessage(changedFiles)}
-                          value={commitMessage}
-                          onChange={(e) => setCommitMessage(e.target.value)}
-                          disabled={isDialogBusy}
-                        />
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {step === "reviewing" && reviewFindings.length > 0 ? (
-                <DialogFooter className="shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleStopAfterReview}
-                  >
-                    Stop and fix
-                  </Button>
-                  <Button type="button" onClick={handleProceedAfterReview}>
-                    Proceed anyway
-                  </Button>
-                </DialogFooter>
-              ) : verificationFailures.length > 0 ? (
-                <DialogFooter className="shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleStopAfterVerification}
-                  >
-                    Stop and fix
-                  </Button>
-                  {verificationBlocking ? null : (
-                    <Button
-                      type="button"
-                      onClick={handleProceedAfterVerification}
-                    >
-                      Proceed anyway
-                    </Button>
-                  )}
-                </DialogFooter>
-              ) : (
-                <DialogFooter className="shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!canSubmitPr || isDialogBusy}
-                    onClick={() => void handleSubmit({ draft: true })}
-                  >
-                    {isCreateDraftSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
-                    Create Draft
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={!canSubmitPr || isDialogBusy}
-                  >
-                    {isCreatePrSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
-                    Create PR
-                  </Button>
-                </DialogFooter>
-              )}
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
       <ContinueWorkspaceDialog
-        open={continueDialogOpen}
+        open={isContinueDialogOpen}
         sourceBranch={currentBranch}
         sourceWorkspaceName={currentBranch}
         baseBranch={continueBaseBranch}
         cwd={workspaceCwd}
         defaultBranch={defaultBaseBranch}
         prTitle={prInfo?.pr?.title}
-        onOpenChange={setContinueDialogOpen}
+        onOpenChange={(open) =>
+          setContinueDialogWorkspaceId(open ? activeWorkspaceId : null)
+        }
         onContinue={handleContinueWorkspace}
       />
     </>
