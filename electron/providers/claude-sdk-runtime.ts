@@ -76,6 +76,10 @@ import {
   createBoundedBridgeEventCollector,
   measureBridgeEventBytes,
 } from "./provider-buffering";
+import {
+  getClaudeMcpConfigPaths,
+  McpConfigRefreshTracker,
+} from "./mcp-config-refresh";
 
 /**
  * Cache boundary marker for the claude-agent-sdk systemPrompt string[] API.
@@ -2578,7 +2582,10 @@ export function mapClaudeMessageToEvents(args: {
 }
 
 const sessionIdByTask = new Map<string, string>();
+const sessionMcpScopeByTask = new Map<string, string>();
 const activeRunByTask = new Map<string, Promise<void>>();
+const claudeMcpConfigRefreshTracker = new McpConfigRefreshTracker();
+const freshClaudeSessionScopes = new Set<string>();
 
 export async function getClaudeCommandCatalog(args: {
   cwd?: string;
@@ -2750,6 +2757,7 @@ export async function reloadClaudePlugins(args: {
 
 export function cleanupClaudeTask(taskId: string) {
   sessionIdByTask.delete(taskId);
+  sessionMcpScopeByTask.delete(taskId);
   activeRunByTask.delete(taskId);
 }
 
@@ -2761,13 +2769,20 @@ function resolveSessionId(args: {
   return sessionIdByTask.get(taskKey) ?? args.fallbackSessionId?.trim();
 }
 
-function rememberSessionId(args: { taskId?: string; sessionId?: string }) {
+function rememberSessionId(args: {
+  taskId?: string;
+  sessionId?: string;
+  mcpScopeKey?: string;
+}) {
   const nextSessionId = args.sessionId?.trim();
   if (!nextSessionId) {
     return;
   }
   const taskKey = args.taskId ?? "default";
   sessionIdByTask.set(taskKey, nextSessionId);
+  if (args.mcpScopeKey) {
+    sessionMcpScopeByTask.set(taskKey, args.mcpScopeKey);
+  }
 }
 
 /**
@@ -2951,12 +2966,38 @@ export async function streamClaudeWithSdk(
       return { ok: true };
     });
 
+    const claudeRuntimeEnv = buildClaudeEnv({
+      executablePath: claudeExecutablePath,
+    });
+    const claudeMcpConfigPaths = getClaudeMcpConfigPaths({
+      cwd: runtimeCwd,
+      claudeConfigDir: claudeRuntimeEnv.CLAUDE_CONFIG_DIR,
+    });
+    const claudeMcpScopeKey = `claude:${claudeRuntimeEnv.CLAUDE_CONFIG_DIR ?? "default"}:${runtimeCwd}`;
+    const claudeMcpRefresh = await claudeMcpConfigRefreshTracker.check({
+      scopeKey: claudeMcpScopeKey,
+      paths: claudeMcpConfigPaths,
+    });
+    if (claudeMcpRefresh.changed) {
+      // Claude resumes preserve the native session's MCP catalog. Begin fresh
+      // sessions after configuration changes; Stave still provides transcript
+      // context through the rendered provider prompt.
+      for (const [taskKey, scopeKey] of sessionMcpScopeByTask) {
+        if (scopeKey === claudeMcpScopeKey) {
+          sessionIdByTask.delete(taskKey);
+        }
+      }
+      freshClaudeSessionScopes.add(claudeMcpScopeKey);
+    }
+
     const existingSessionId = resolveSessionId({
       taskId: args.taskId,
-      fallbackSessionId: resolveProviderResumeSessionId({
-        conversation: args.conversation,
-        fallbackResumeId: args.runtimeOptions?.claudeResumeSessionId,
-      }),
+      fallbackSessionId: freshClaudeSessionScopes.has(claudeMcpScopeKey)
+        ? undefined
+        : resolveProviderResumeSessionId({
+            conversation: args.conversation,
+            fallbackResumeId: args.runtimeOptions?.claudeResumeSessionId,
+          }),
     });
     const claudeSystemPrompt = buildClaudeSystemPrompt({
       cwd: runtimeCwd,
@@ -3411,6 +3452,7 @@ export async function streamClaudeWithSdk(
         rememberSessionId({
           taskId: args.taskId,
           sessionId: (message as SDKSystemMessage).session_id,
+          mcpScopeKey: claudeMcpScopeKey,
         });
       }
       if (

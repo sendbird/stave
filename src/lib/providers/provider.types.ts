@@ -112,6 +112,21 @@ export interface CodexMcpStatusResponse {
   servers: CodexMcpServerStatusSnapshot[];
 }
 
+export interface McpDiscoveredServer {
+  name: string;
+  sources: Array<"claude-user" | "claude-project" | "codex-user">;
+  claude: { configured: boolean };
+  codex: { configured: boolean };
+  transport: "stdio" | "http" | "unknown";
+}
+
+export interface McpDiscoveryResponse {
+  ok: boolean;
+  servers: McpDiscoveredServer[];
+  errors: string[];
+  discoveredAt: number;
+}
+
 export interface CodexModelCatalogEntry {
   id: string;
   model: string;
@@ -471,7 +486,12 @@ export interface CanonicalConversationRequest {
   mode: "chat" | "review";
   history: CanonicalConversationMessage[];
   input: CanonicalConversationMessage & { role: "user" };
-  contextParts: Array<FileContextPart | CanonicalRetrievedContextPart | ImageContextPart | CanonicalSkillContextPart>;
+  contextParts: Array<
+    | FileContextPart
+    | CanonicalRetrievedContextPart
+    | ImageContextPart
+    | CanonicalSkillContextPart
+  >;
   resume?: {
     nativeSessionId?: string;
   };
@@ -500,37 +520,88 @@ export interface ProviderGoalSnapshot {
 export type NormalizedProviderEvent =
   | { type: "thinking"; text: string; isStreaming?: boolean }
   | { type: "text"; text: string; segmentId?: string }
-  | { type: "provider_session"; providerId: ProviderId; nativeSessionId: string }
-  | { type: "goal_status"; providerId: "codex"; goal: ProviderGoalSnapshot | null }
   | {
-    type: "usage";
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadTokens?: number;
-    cacheCreationTokens?: number;
-    totalCostUsd?: number;
-    ttftMs?: number;
-  }
+      type: "provider_session";
+      providerId: ProviderId;
+      nativeSessionId: string;
+    }
+  | {
+      type: "goal_status";
+      providerId: "codex";
+      goal: ProviderGoalSnapshot | null;
+    }
+  | {
+      type: "usage";
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
+      totalCostUsd?: number;
+      ttftMs?: number;
+    }
   | { type: "prompt_suggestions"; suggestions: string[] }
-  | { type: "tool"; toolUseId?: string; toolName: string; input: string; output?: string; state: ToolUsePart["state"] }
-  | { type: "tool_progress"; toolUseId: string; toolName: string; elapsedSeconds: number }
-  | { type: "tool_result"; tool_use_id: string; output: string; isError?: boolean; isPartial?: boolean }
-  | { type: "diff"; filePath: string; oldContent: string; newContent: string; status?: CodeDiffPart["status"] }
-  | { type: "approval"; toolName: string; requestId: string; description: string; input?: string }
-  | { type: "user_input"; toolName: string; requestId: string; questions: UserInputQuestion[] }
+  | {
+      type: "tool";
+      toolUseId?: string;
+      toolName: string;
+      input: string;
+      output?: string;
+      state: ToolUsePart["state"];
+    }
+  | {
+      type: "tool_progress";
+      toolUseId: string;
+      toolName: string;
+      elapsedSeconds: number;
+    }
+  | {
+      type: "tool_result";
+      tool_use_id: string;
+      output: string;
+      isError?: boolean;
+      isPartial?: boolean;
+    }
+  | {
+      type: "diff";
+      filePath: string;
+      oldContent: string;
+      newContent: string;
+      status?: CodeDiffPart["status"];
+    }
+  | {
+      type: "approval";
+      toolName: string;
+      requestId: string;
+      description: string;
+      input?: string;
+    }
+  | {
+      type: "user_input";
+      toolName: string;
+      requestId: string;
+      questions: UserInputQuestion[];
+    }
   | { type: "plan_ready"; planText: string; sourceSegmentId?: string }
   | {
-    type: "system";
-    content: string;
-    compactBoundary?: {
-      trigger?: string;
-      gitRef?: string;
-    };
-  }
+      type: "system";
+      content: string;
+      compactBoundary?: {
+        trigger?: string;
+        gitRef?: string;
+      };
+    }
   | { type: "subagent_progress"; toolUseId?: string; content: string }
-  | { type: "model_resolved"; resolvedProviderId: ProviderId; resolvedModel: string }
+  | {
+      type: "model_resolved";
+      resolvedProviderId: ProviderId;
+      resolvedModel: string;
+    }
   | { type: "error"; message: string; recoverable: boolean }
-  | { type: "done"; stop_reason?: "end_turn" | "max_tokens" | "stop_sequence" | "tool_use" | string };
+  | {
+      type: "done";
+      stop_reason?:
+        "end_turn" | "max_tokens" | "stop_sequence" | "tool_use" | string;
+    };
 
 export interface ProviderTurnRequest {
   turnId?: string;
@@ -548,9 +619,16 @@ export interface ProviderRuntimeOptions {
   debug?: boolean;
   providerTimeoutMs?: number;
   claudeBinaryPath?: string;
-  claudePermissionMode?: "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk" | "auto";
+  claudePermissionMode?:
+    | "default"
+    | "acceptEdits"
+    | "bypassPermissions"
+    | "plan"
+    | "dontAsk"
+    | "auto";
   /** How much plan-mode auto-approves non-mutating tool calls (Bash/Task/MCP). */
-  claudePlanModeApprovalScope?: "strict" | "bash" | "bashAndTask" | "bashTaskAndMcp";
+  claudePlanModeApprovalScope?:
+    "strict" | "bash" | "bashAndTask" | "bashTaskAndMcp";
   claudeAllowDangerouslySkipPermissions?: boolean;
   claudeSandboxEnabled?: boolean;
   claudeAllowUnsandboxedCommands?: boolean;
@@ -585,13 +663,7 @@ export interface ProviderRuntimeOptions {
   // "minimal" is a legacy value kept for persisted settings; the runtime maps
   // it to "low". "max" and "ultra" arrived with the GPT-5.6 Codex CLI scale.
   codexReasoningEffort?:
-    | "minimal"
-    | "low"
-    | "medium"
-    | "high"
-    | "xhigh"
-    | "max"
-    | "ultra";
+    "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
   codexWebSearch?: "disabled" | "cached" | "live";
   codexShowRawReasoning?: boolean;
   codexReasoningSummary?: "auto" | "concise" | "detailed" | "none";
@@ -610,13 +682,19 @@ export interface ProviderRuntimeOptions {
 
 export interface ProviderAdapter {
   id: ProviderId;
-  runTurn: (args: ProviderTurnRequest) => AsyncGenerator<NormalizedProviderEvent, void, unknown>;
+  runTurn: (
+    args: ProviderTurnRequest,
+  ) => AsyncGenerator<NormalizedProviderEvent, void, unknown>;
 }
 
 export interface ProviderEventSource<TRawEvent> {
-  streamTurn: (args: ProviderTurnRequest) => AsyncGenerator<TRawEvent, void, unknown>;
+  streamTurn: (
+    args: ProviderTurnRequest,
+  ) => AsyncGenerator<TRawEvent, void, unknown>;
 }
 
 export interface ProviderEventNormalizer<TRawEvent> {
-  normalize: (args: { event: TRawEvent }) => NormalizedProviderEvent | NormalizedProviderEvent[];
+  normalize: (args: {
+    event: TRawEvent;
+  }) => NormalizedProviderEvent | NormalizedProviderEvent[];
 }

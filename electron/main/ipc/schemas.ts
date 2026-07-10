@@ -7,6 +7,10 @@ export const ProviderIdSchema = z.union([
   z.literal("codex"),
 ]);
 
+export const McpDiscoveryArgsSchema = z
+  .object({ cwd: z.string().max(4096).optional() })
+  .strict();
+
 export const SuggestTaskNameArgsSchema = z
   .object({
     prompt: z.string().max(2000),
@@ -823,22 +827,30 @@ export const CodexThreadRollbackArgsSchema = z
   .strict();
 
 export const CodexReviewTargetSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("uncommittedChanges"),
-  }).strict(),
-  z.object({
-    type: z.literal("baseBranch"),
-    baseBranch: z.string().min(1).max(200),
-  }).strict(),
-  z.object({
-    type: z.literal("commit"),
-    sha: z.string().min(1).max(200),
-    title: z.string().max(200).optional(),
-  }).strict(),
-  z.object({
-    type: z.literal("custom"),
-    instructions: z.string().min(1).max(20_000),
-  }).strict(),
+  z
+    .object({
+      type: z.literal("uncommittedChanges"),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("baseBranch"),
+      baseBranch: z.string().min(1).max(200),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("commit"),
+      sha: z.string().min(1).max(200),
+      title: z.string().max(200).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("custom"),
+      instructions: z.string().min(1).max(20_000),
+    })
+    .strict(),
 ]);
 
 export const CodexReviewStartArgsSchema = z

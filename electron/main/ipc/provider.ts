@@ -1,8 +1,5 @@
 import { ipcMain, webContents } from "electron";
-import {
-  invokeHostService,
-  onHostServiceEvent,
-} from "../host-service-client";
+import { invokeHostService, onHostServiceEvent } from "../host-service-client";
 import {
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
@@ -15,6 +12,7 @@ import {
   CodexExternalConfigImportArgsSchema,
   CodexMcpOauthLoginArgsSchema,
   CodexMcpResourceReadArgsSchema,
+  McpDiscoveryArgsSchema,
   CodexPluginDetailArgsSchema,
   CodexPluginInstallArgsSchema,
   CodexPluginUninstallArgsSchema,
@@ -39,6 +37,7 @@ import {
   UserInputResponseArgsSchema,
   SteerTurnArgsSchema,
 } from "./schemas";
+import { discoverMcpServers } from "../mcp-discovery";
 
 function formatSchemaIssuePath(path: PropertyKey[]) {
   if (path.length === 0) {
@@ -92,7 +91,9 @@ function registerProviderEventCleanup(contentsId: number) {
   }
   providerCleanupRegisteredContentsIds.add(contentsId);
   contents.once("destroyed", () => {
-    const streamIds = [...(providerStreamIdsByWebContentsId.get(contentsId) ?? [])];
+    const streamIds = [
+      ...(providerStreamIdsByWebContentsId.get(contentsId) ?? []),
+    ];
     for (const streamId of streamIds) {
       forgetProviderStreamOwner(streamId);
     }
@@ -112,8 +113,13 @@ function rememberProviderStreamOwner(args: {
     return;
   }
   forgetProviderStreamOwner(args.streamId);
-  providerOwnerWebContentsIdByStreamId.set(args.streamId, args.ownerWebContentsId);
-  const streamIds = providerStreamIdsByWebContentsId.get(args.ownerWebContentsId) ?? new Set<string>();
+  providerOwnerWebContentsIdByStreamId.set(
+    args.streamId,
+    args.ownerWebContentsId,
+  );
+  const streamIds =
+    providerStreamIdsByWebContentsId.get(args.ownerWebContentsId) ??
+    new Set<string>();
   streamIds.add(args.streamId);
   providerStreamIdsByWebContentsId.set(args.ownerWebContentsId, streamIds);
   registerProviderEventCleanup(args.ownerWebContentsId);
@@ -167,20 +173,23 @@ export function registerProviderHandlers() {
     return invokeHostService("provider.stream-turn", parsedArgs.data);
   });
 
-  ipcMain.handle("provider:start-stream-turn", async (_event, args: unknown) => {
-    const parsedArgs = StreamTurnArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        streamId: "",
-        message: formatSchemaFailureMessage({
-          issues: parsedArgs.error.issues,
-          fallback: "IPC schema rejected provider request.",
-        }),
-      };
-    }
-    return invokeHostService("provider.start-stream-turn", parsedArgs.data);
-  });
+  ipcMain.handle(
+    "provider:start-stream-turn",
+    async (_event, args: unknown) => {
+      const parsedArgs = StreamTurnArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          streamId: "",
+          message: formatSchemaFailureMessage({
+            issues: parsedArgs.error.issues,
+            fallback: "IPC schema rejected provider request.",
+          }),
+        };
+      }
+      return invokeHostService("provider.start-stream-turn", parsedArgs.data);
+    },
+  );
 
   ipcMain.handle("provider:start-push-turn", async (event, args: unknown) => {
     const parsedArgs = StreamTurnArgsSchema.safeParse(args);
@@ -196,7 +205,10 @@ export function registerProviderHandlers() {
       };
     }
 
-    const result = await invokeHostService("provider.start-push-turn", parsedArgs.data);
+    const result = await invokeHostService(
+      "provider.start-push-turn",
+      parsedArgs.data,
+    );
     if (result.ok) {
       rememberProviderStreamOwner({
         streamId: result.streamId,
@@ -302,29 +314,41 @@ export function registerProviderHandlers() {
     });
   });
 
-  ipcMain.handle("provider:get-connected-tool-status", (_event, args: unknown) => {
-    const parsedArgs = ConnectedToolStatusArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        providerId: "claude-code" as const,
-        detail: "Invalid connected-tool status request.",
-        tools: [],
-      };
-    }
-    return invokeHostService("provider.get-connected-tool-status", parsedArgs.data);
-  });
+  ipcMain.handle(
+    "provider:get-connected-tool-status",
+    (_event, args: unknown) => {
+      const parsedArgs = ConnectedToolStatusArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          providerId: "claude-code" as const,
+          detail: "Invalid connected-tool status request.",
+          tools: [],
+        };
+      }
+      return invokeHostService(
+        "provider.get-connected-tool-status",
+        parsedArgs.data,
+      );
+    },
+  );
 
-  ipcMain.handle("provider:get-claude-context-usage", (_event, args: unknown) => {
-    const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        detail: "Invalid Claude context usage request.",
-      };
-    }
-    return invokeHostService("provider.get-claude-context-usage", parsedArgs.data);
-  });
+  ipcMain.handle(
+    "provider:get-claude-context-usage",
+    (_event, args: unknown) => {
+      const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Claude context usage request.",
+        };
+      }
+      return invokeHostService(
+        "provider.get-claude-context-usage",
+        parsedArgs.data,
+      );
+    },
+  );
 
   ipcMain.handle("provider:reload-claude-plugins", (_event, args: unknown) => {
     const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);
@@ -349,66 +373,100 @@ export function registerProviderHandlers() {
     return invokeHostService("provider.get-codex-mcp-status", parsedArgs.data);
   });
 
-  ipcMain.handle("provider:get-codex-model-catalog", (_event, args: unknown) => {
-    const parsedArgs = CodexRuntimeActionArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        detail: "Invalid Codex model catalog request.",
-        models: [],
-      };
-    }
-    return invokeHostService("provider.get-codex-model-catalog", parsedArgs.data);
-  });
+  ipcMain.handle(
+    "provider:discover-mcp-servers",
+    async (_event, args: unknown) => {
+      const parsedArgs = McpDiscoveryArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          servers: [],
+          errors: ["Invalid MCP discovery request."],
+          discoveredAt: Date.now(),
+        };
+      }
+      return discoverMcpServers(parsedArgs.data);
+    },
+  );
 
-  ipcMain.handle("provider:get-codex-app-server-snapshot", (_event, args: unknown) => {
-    const parsedArgs = CodexRuntimeActionArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        detail: "Invalid Codex App Server snapshot request.",
-        sectionErrors: {},
-      };
-    }
-    return invokeHostService(
-      "provider.get-codex-app-server-snapshot",
-      parsedArgs.data,
-    );
-  });
+  ipcMain.handle(
+    "provider:get-codex-model-catalog",
+    (_event, args: unknown) => {
+      const parsedArgs = CodexRuntimeActionArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Codex model catalog request.",
+          models: [],
+        };
+      }
+      return invokeHostService(
+        "provider.get-codex-model-catalog",
+        parsedArgs.data,
+      );
+    },
+  );
 
-  ipcMain.handle("provider:get-rate-limits-snapshot", (_event, args: unknown) => {
-    const parsedArgs = RateLimitsSnapshotArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        claude: {
-          source: "unavailable",
-          session: null,
-          weekly: null,
-          error: "Invalid rate-limits snapshot request.",
-        },
-        codex: {
-          source: "unavailable",
-          buckets: [],
-          error: "Invalid rate-limits snapshot request.",
-        },
-      };
-    }
-    return invokeHostService(
-      "provider.get-rate-limits-snapshot",
-      parsedArgs.data,
-    );
-  });
+  ipcMain.handle(
+    "provider:get-codex-app-server-snapshot",
+    (_event, args: unknown) => {
+      const parsedArgs = CodexRuntimeActionArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Codex App Server snapshot request.",
+          sectionErrors: {},
+        };
+      }
+      return invokeHostService(
+        "provider.get-codex-app-server-snapshot",
+        parsedArgs.data,
+      );
+    },
+  );
 
-  ipcMain.handle("provider:get-codex-plugin-detail", (_event, args: unknown) => {
-    const parsedArgs = CodexPluginDetailArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        detail: "Invalid Codex plugin detail request.",
-      };
-    }
-    return invokeHostService("provider.get-codex-plugin-detail", parsedArgs.data);
-  });
+  ipcMain.handle(
+    "provider:get-rate-limits-snapshot",
+    (_event, args: unknown) => {
+      const parsedArgs = RateLimitsSnapshotArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          claude: {
+            source: "unavailable",
+            session: null,
+            weekly: null,
+            error: "Invalid rate-limits snapshot request.",
+          },
+          codex: {
+            source: "unavailable",
+            buckets: [],
+            error: "Invalid rate-limits snapshot request.",
+          },
+        };
+      }
+      return invokeHostService(
+        "provider.get-rate-limits-snapshot",
+        parsedArgs.data,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "provider:get-codex-plugin-detail",
+    (_event, args: unknown) => {
+      const parsedArgs = CodexPluginDetailArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Codex plugin detail request.",
+        };
+      }
+      return invokeHostService(
+        "provider.get-codex-plugin-detail",
+        parsedArgs.data,
+      );
+    },
+  );
 
   ipcMain.handle("provider:install-codex-plugin", (_event, args: unknown) => {
     const parsedArgs = CodexPluginInstallArgsSchema.safeParse(args);
@@ -431,7 +489,10 @@ export function registerProviderHandlers() {
         detail: "Invalid Codex plugin uninstall request.",
       };
     }
-    return invokeHostService("provider.uninstall-codex-plugin", parsedArgs.data);
+    return invokeHostService(
+      "provider.uninstall-codex-plugin",
+      parsedArgs.data,
+    );
   });
 
   ipcMain.handle(
@@ -452,31 +513,40 @@ export function registerProviderHandlers() {
     },
   );
 
-  ipcMain.handle("provider:start-codex-mcp-oauth-login", (_event, args: unknown) => {
-    const parsedArgs = CodexMcpOauthLoginArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        detail: "Invalid Codex MCP OAuth login request.",
-      };
-    }
-    return invokeHostService(
-      "provider.start-codex-mcp-oauth-login",
-      parsedArgs.data,
-    );
-  });
+  ipcMain.handle(
+    "provider:start-codex-mcp-oauth-login",
+    (_event, args: unknown) => {
+      const parsedArgs = CodexMcpOauthLoginArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Codex MCP OAuth login request.",
+        };
+      }
+      return invokeHostService(
+        "provider.start-codex-mcp-oauth-login",
+        parsedArgs.data,
+      );
+    },
+  );
 
-  ipcMain.handle("provider:read-codex-mcp-resource", (_event, args: unknown) => {
-    const parsedArgs = CodexMcpResourceReadArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        detail: "Invalid Codex MCP resource read request.",
-        contents: [],
-      };
-    }
-    return invokeHostService("provider.read-codex-mcp-resource", parsedArgs.data);
-  });
+  ipcMain.handle(
+    "provider:read-codex-mcp-resource",
+    (_event, args: unknown) => {
+      const parsedArgs = CodexMcpResourceReadArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Codex MCP resource read request.",
+          contents: [],
+        };
+      }
+      return invokeHostService(
+        "provider.read-codex-mcp-resource",
+        parsedArgs.data,
+      );
+    },
+  );
 
   ipcMain.handle("provider:rename-codex-thread", (_event, args: unknown) => {
     const parsedArgs = CodexThreadRenameArgsSchema.safeParse(args);
@@ -555,47 +625,56 @@ export function registerProviderHandlers() {
     return invokeHostService("provider.start-codex-review", parsedArgs.data);
   });
 
-  ipcMain.handle("provider:import-codex-external-config", (_event, args: unknown) => {
-    const parsedArgs = CodexExternalConfigImportArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        detail: "Invalid Codex external config import request.",
-      };
-    }
-    return invokeHostService(
-      "provider.import-codex-external-config",
-      parsedArgs.data,
-    );
-  });
+  ipcMain.handle(
+    "provider:import-codex-external-config",
+    (_event, args: unknown) => {
+      const parsedArgs = CodexExternalConfigImportArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Codex external config import request.",
+        };
+      }
+      return invokeHostService(
+        "provider.import-codex-external-config",
+        parsedArgs.data,
+      );
+    },
+  );
 
-  ipcMain.handle("provider:write-codex-config-value", (_event, args: unknown) => {
-    const parsedArgs = CodexConfigValueWriteArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        detail: "Invalid Codex config write request.",
-      };
-    }
-    return invokeHostService(
-      "provider.write-codex-config-value",
-      parsedArgs.data,
-    );
-  });
+  ipcMain.handle(
+    "provider:write-codex-config-value",
+    (_event, args: unknown) => {
+      const parsedArgs = CodexConfigValueWriteArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Codex config write request.",
+        };
+      }
+      return invokeHostService(
+        "provider.write-codex-config-value",
+        parsedArgs.data,
+      );
+    },
+  );
 
-  ipcMain.handle("provider:batch-write-codex-config", (_event, args: unknown) => {
-    const parsedArgs = CodexConfigBatchWriteArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      return {
-        ok: false,
-        detail: "Invalid Codex config batch write request.",
-      };
-    }
-    return invokeHostService(
-      "provider.batch-write-codex-config",
-      parsedArgs.data,
-    );
-  });
+  ipcMain.handle(
+    "provider:batch-write-codex-config",
+    (_event, args: unknown) => {
+      const parsedArgs = CodexConfigBatchWriteArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Codex config batch write request.",
+        };
+      }
+      return invokeHostService(
+        "provider.batch-write-codex-config",
+        parsedArgs.data,
+      );
+    },
+  );
 
   ipcMain.handle("provider:suggest-task-name", (_event, args: unknown) => {
     const parsed = SuggestTaskNameArgsSchema.safeParse(args);
