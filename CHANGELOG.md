@@ -1,3 +1,17 @@
+## [0.10.1](https://github.com/sendbird/stave/compare/v0.10.0...v0.10.1) (2026-07-10)
+
+### Bug Fixes
+
+* Scope every Codex reasoning-effort picker (preset editor, chat-input cycle, settings default, providers-section help) to what the currently selected model actually supports, clamping to the nearest valid effort on model switch instead of always offering the full scale.
+* Default Codex effort now prefers the model's own recommended default, falling back to `medium` only when unknown.
+* Add the missing `max`/`ultra` reasoning-effort entries to the providers-section reasoning help list.
+* Merge the Codex App Server's live `model/list` catalog with the static GPT-5.6 catalog so newer models stay selectable even against an older installed Codex binary.
+* Fix the preset-edit popover in the preset bar closing itself immediately due to Radix's default focus-return stealing focus from the freshly opened editor.
+
+### References
+
+* [#133](https://github.com/sendbird/stave/pull/133)
+
 ## [0.10.0](https://github.com/sendbird/stave/compare/v0.9.1...v0.10.0) (2026-07-10)
 
 ### Features
