@@ -11408,7 +11408,7 @@ export const useAppStore = create<AppState>()(
             const prompt = normalizedPrompt;
             promptDraftClearedOptimistically = false;
 
-            if (taskWorkspaceId === state.activeWorkspaceId) {
+            if (taskWorkspaceId === get().activeWorkspaceId) {
               set((nextState) => {
                 const pendingTurnState = buildPendingProviderTurnState({
                   tasks: nextState.tasks,
