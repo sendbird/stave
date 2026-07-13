@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 interface EditorMarkdownPreviewProps extends HTMLAttributes<HTMLDivElement> {
   content: string;
   fontSize: number;
+  variant?: "editor" | "embedded";
 }
 
 function renderRelativeLink(href: string | undefined, children: ReactNode) {
@@ -35,15 +36,22 @@ function renderRelativeLink(href: string | undefined, children: ReactNode) {
 export function EditorMarkdownPreview({
   content,
   fontSize,
+  variant = "editor",
   className,
   ...props
 }: EditorMarkdownPreviewProps) {
   const codeFontSize = Math.max(fontSize - 1, 12);
+  const isEmbedded = variant === "embedded";
 
   return (
     <div className={cn("h-full overflow-auto bg-editor", className)} {...props}>
       <div
-        className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-5 text-editor-foreground"
+        className={cn(
+          "flex min-h-full w-full flex-col text-editor-foreground",
+          isEmbedded
+            ? "max-w-none px-0 py-0 text-left"
+            : "mx-auto max-w-4xl px-6 py-5",
+        )}
         style={{ fontSize: `${fontSize}px`, lineHeight: 1.7 }}
       >
         <ReactMarkdown
