@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   BUILTIN_CUSTOM_THEMES,
   BUILTIN_THEME_TOKEN_NAMES,
+  PRESET_THEME_TOKENS,
   buildCustomThemeCss,
   exportCustomThemeJson,
   findCustomThemeById,
@@ -223,6 +224,22 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
     expect(theme!.baseMode).toBe("dark");
     expect(theme!.tokens.background).toBe("#000000");
     expect(theme!.tokens.foreground).toBe("#FFFFFF");
+  });
+
+  it("includes Stave's original light and dark theme pair", () => {
+    const score = BUILTIN_CUSTOM_THEMES.find((t) => t.id === "stave-score");
+    const nocturne = BUILTIN_CUSTOM_THEMES.find(
+      (t) => t.id === "stave-nocturne",
+    );
+
+    expect(score?.baseMode).toBe("light");
+    expect(nocturne?.baseMode).toBe("dark");
+    expect(score?.author).toBe("Stave");
+    expect(nocturne?.author).toBe("Stave");
+    expect(score?.tokens.primary).not.toBe(PRESET_THEME_TOKENS.light.primary);
+    expect(nocturne?.tokens.primary).not.toBe(
+      PRESET_THEME_TOKENS.dark.primary,
+    );
   });
 
   it("includes the new VS Code-inspired presets", () => {

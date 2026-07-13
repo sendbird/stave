@@ -1236,7 +1236,7 @@ function ThemeSection() {
 
         <SettingsCard
           title="Theme Presets"
-          description="Apply a curated palette inspired by popular VS Code themes. Presets override the base light / dark tokens; manual token tweaks below still take priority."
+          description="Choose a Stave original or a curated palette inspired by popular editor themes. Presets override the base light / dark tokens; manual token tweaks below still take priority."
         >
           <div className="grid gap-3">
             {allThemes.map((theme) => (
