@@ -80,10 +80,16 @@ import {
   type AppShortcutCommandId,
 } from "@/lib/app-shortcuts";
 import {
+  DEFAULT_MODEL_SHORTCUT_EFFORTS,
   DEFAULT_MODEL_SHORTCUT_KEYS,
   describeModelShortcutKey,
+  listModelShortcutEffortOptions,
+  MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE,
   MODEL_SHORTCUT_SLOT_LABELS,
+  normalizeModelShortcutEfforts,
   normalizeModelShortcutKeys,
+  resolveModelShortcutEffort,
+  type ModelShortcutEffort,
 } from "@/lib/providers/model-shortcuts";
 import {
   formatPromptCommentShortcutLabel,
@@ -2724,6 +2730,7 @@ function CommandPaletteSection() {
     commandPaletteRecentCommandIds,
     appShortcutKeys,
     modelShortcutKeys,
+    modelShortcutEfforts,
     promptCommentShortcut,
     visualCommentShortcut,
   ] = useAppStore(
@@ -2736,6 +2743,7 @@ function CommandPaletteSection() {
           state.settings.commandPaletteRecentCommandIds,
           state.settings.appShortcutKeys,
           state.settings.modelShortcutKeys,
+          state.settings.modelShortcutEfforts,
           state.settings.promptCommentShortcut,
           state.settings.visualCommentShortcut,
         ] as const,
@@ -2756,6 +2764,10 @@ function CommandPaletteSection() {
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(modelShortcutKeys),
     [modelShortcutKeys],
+  );
+  const normalizedModelShortcutEfforts = useMemo(
+    () => normalizeModelShortcutEfforts(modelShortcutEfforts),
+    [modelShortcutEfforts],
   );
   const normalizedPromptCommentShortcut = normalizePromptCommentShortcut(
     promptCommentShortcut,
@@ -2814,10 +2826,30 @@ function CommandPaletteSection() {
 
   function updateModelShortcutSlot(slotIndex: number, nextShortcutKey: string) {
     const nextKeys = [...normalizedModelShortcutKeys];
+    const nextEfforts = [...normalizedModelShortcutEfforts];
     nextKeys[slotIndex] = nextShortcutKey;
+    nextEfforts[slotIndex] =
+      resolveModelShortcutEffort({
+        shortcutKey: nextShortcutKey,
+        effort: nextEfforts[slotIndex],
+      }) ?? "";
     updateSettings({
       patch: {
         modelShortcutKeys: nextKeys,
+        modelShortcutEfforts: nextEfforts,
+      },
+    });
+  }
+
+  function updateModelShortcutEffort(
+    slotIndex: number,
+    nextEffort: ModelShortcutEffort,
+  ) {
+    const nextEfforts = [...normalizedModelShortcutEfforts];
+    nextEfforts[slotIndex] = nextEffort;
+    updateSettings({
+      patch: {
+        modelShortcutEfforts: nextEfforts,
       },
     });
   }
@@ -3112,7 +3144,7 @@ function CommandPaletteSection() {
 
         <SettingsCard
           title="Model Shortcuts"
-          description="Map Alt+1..0 to prompt models. These shortcuts switch the active task provider and draft model immediately."
+          description="Map Alt+1..0 to prompt models and optional effort overrides. These shortcuts switch the active task provider and draft model immediately."
           titleAccessory={<Badge variant="secondary">Alt+1..0</Badge>}
         >
           <div className="flex flex-wrap gap-2">
@@ -3122,13 +3154,20 @@ function CommandPaletteSection() {
                 updateSettings({
                   patch: {
                     modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS],
+                    modelShortcutEfforts: [...DEFAULT_MODEL_SHORTCUT_EFFORTS],
                   },
                 })
               }
-              disabled={normalizedModelShortcutKeys.every(
-                (value, index) =>
-                  value === (DEFAULT_MODEL_SHORTCUT_KEYS[index] ?? ""),
-              )}
+              disabled={
+                normalizedModelShortcutKeys.every(
+                  (value, index) =>
+                    value === (DEFAULT_MODEL_SHORTCUT_KEYS[index] ?? ""),
+                ) &&
+                normalizedModelShortcutEfforts.every(
+                  (value, index) =>
+                    value === (DEFAULT_MODEL_SHORTCUT_EFFORTS[index] ?? ""),
+                )
+              }
             >
               Reset Default Shortcuts
             </Button>
@@ -3138,12 +3177,18 @@ function CommandPaletteSection() {
                 updateSettings({
                   patch: {
                     modelShortcutKeys: MODEL_SHORTCUT_SLOT_LABELS.map(() => ""),
+                    modelShortcutEfforts: [...DEFAULT_MODEL_SHORTCUT_EFFORTS],
                   },
                 })
               }
-              disabled={normalizedModelShortcutKeys.every(
-                (value) => value.length === 0,
-              )}
+              disabled={
+                normalizedModelShortcutKeys.every(
+                  (value) => value.length === 0,
+                ) &&
+                normalizedModelShortcutEfforts.every(
+                  (value) => value.length === 0,
+                )
+              }
             >
               Clear All Shortcuts
             </Button>
@@ -3163,6 +3208,23 @@ function CommandPaletteSection() {
               )
                 ? selectedShortcutKey
                 : UNASSIGNED_MODEL_SHORTCUT_VALUE;
+              const effortOptions = listModelShortcutEffortOptions({
+                shortcutKey: selectedShortcutKey,
+              });
+              const selectedShortcutEffort =
+                normalizedModelShortcutEfforts[slotIndex] ?? "";
+              const currentEffortValue = effortOptions.some(
+                (option) => option.value === selectedShortcutEffort,
+              )
+                ? selectedShortcutEffort
+                : MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE;
+              const selectedEffortLabel =
+                effortOptions.find(
+                  (option) => option.value === selectedShortcutEffort,
+                )?.label;
+              const selectedEffortDescription = selectedEffortLabel
+                ? `${selectedEffortLabel} effort`
+                : "the current effort setting";
 
               return (
                 <div
@@ -3235,9 +3297,48 @@ function CommandPaletteSection() {
                           </SelectGroup>
                         </SelectContent>
                       </Select>
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                          Effort
+                        </span>
+                        <Select
+                          value={currentEffortValue}
+                          disabled={!selectedShortcutDetails}
+                          onValueChange={(value) =>
+                            updateModelShortcutEffort(
+                              slotIndex,
+                              value === MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE
+                                ? ""
+                                : (value as ModelShortcutEffort),
+                            )
+                          }
+                        >
+                          <SelectTrigger
+                            className="h-9 min-w-0 flex-1 rounded-md border-border/80 bg-background"
+                            aria-label={`Effort for Model Slot ${slotLabel}`}
+                          >
+                            <SelectValue placeholder="Use current effort" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem
+                              value={MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE}
+                            >
+                              Use current effort
+                            </SelectItem>
+                            {effortOptions.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {selectedShortcutDetails
-                          ? `Currently selects ${selectedShortcutDetails.modelLabel} on ${selectedShortcutDetails.providerLabel}.`
+                          ? `Currently selects ${selectedShortcutDetails.modelLabel} on ${selectedShortcutDetails.providerLabel} with ${selectedEffortDescription}.`
                           : "No model assigned. The shortcut stays inactive until you set one."}
                       </p>
                     </div>

@@ -106,7 +106,11 @@ import {
   resolveAutoRoutingDecision,
   type AutoRoutingClassifierResult,
 } from "@/store/auto-routing";
-import { normalizeModelShortcutKeys } from "@/lib/providers/model-shortcuts";
+import {
+  normalizeModelShortcutEfforts,
+  normalizeModelShortcutKeys,
+  type ModelShortcutEffort,
+} from "@/lib/providers/model-shortcuts";
 import {
   DEFAULT_APP_SHORTCUT_KEYS,
   normalizeAppShortcutKeys,
@@ -1387,6 +1391,8 @@ export interface AppSettings {
   appShortcutKeys: AppShortcutKeys;
   /** Alt+1..0 prompt-model bindings, stored as `provider:model` keys. */
   modelShortcutKeys: string[];
+  /** Optional per-slot effort overrides for the Alt+1..0 prompt-model bindings. */
+  modelShortcutEfforts: ModelShortcutEffort[];
   /** Composer shortcut that stages the current prompt text as a comment. */
   promptCommentShortcut: PromptCommentShortcut;
   /**
@@ -2607,6 +2613,7 @@ const defaultSettings: AppSettings = {
   commandPaletteRecentCommandIds: [],
   appShortcutKeys: { ...DEFAULT_APP_SHORTCUT_KEYS },
   modelShortcutKeys: normalizeModelShortcutKeys(),
+  modelShortcutEfforts: normalizeModelShortcutEfforts(),
   promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
   steerQueueEnterAction: DEFAULT_STEER_QUEUE_ENTER_ACTION,
   midTurnSteeringEnabled: false,
@@ -7684,6 +7691,13 @@ export const useAppStore = create<AppState>()(
               : {
                   modelShortcutKeys: normalizeModelShortcutKeys(
                     patch.modelShortcutKeys,
+                  ),
+                }),
+            ...(patch.modelShortcutEfforts === undefined
+              ? {}
+              : {
+                  modelShortcutEfforts: normalizeModelShortcutEfforts(
+                    patch.modelShortcutEfforts,
                   ),
                 }),
             ...(patch.promptCommentShortcut === undefined
@@ -12970,6 +12984,9 @@ export const useAppStore = create<AppState>()(
         );
         state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
           raw.modelShortcutKeys,
+        );
+        state.settings.modelShortcutEfforts = normalizeModelShortcutEfforts(
+          raw.modelShortcutEfforts,
         );
         state.settings.autoRoutingObjective = normalizeAutoRoutingObjective(
           raw.autoRoutingObjective,
