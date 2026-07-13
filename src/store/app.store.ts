@@ -392,6 +392,7 @@ import {
 import {
   type WorkspacePrInfo,
   type GitHubPrPayload,
+  type PrMergeMethod,
   derivePrStatus,
 } from "@/lib/pr-status";
 import {
@@ -1418,6 +1419,10 @@ export interface AppSettings {
   reviewChecklistPreset: string;
   prePrReviewEnabled: boolean;
   prePrReviewProvider: PrePrReviewProviderId;
+  /** Queue the created ready PR for automatic merging. */
+  createPrAutoMergeEnabled: boolean;
+  /** Merge strategy used when automatic merging is queued. */
+  createPrMergeMethod: PrMergeMethod;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -2633,6 +2638,8 @@ const defaultSettings: AppSettings = {
   reviewChecklistPreset: "safety-first",
   prePrReviewEnabled: false,
   prePrReviewProvider: DEFAULT_PRE_PR_REVIEW_PROVIDER,
+  createPrAutoMergeEnabled: true,
+  createPrMergeMethod: "default",
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",
@@ -13489,6 +13496,17 @@ export const useAppStore = create<AppState>()(
         state.settings.prePrReviewProvider = normalizePrePrReviewProvider(
           state.settings.prePrReviewProvider,
         );
+        state.settings.createPrAutoMergeEnabled =
+          typeof raw.createPrAutoMergeEnabled === "boolean"
+            ? raw.createPrAutoMergeEnabled
+            : defaultSettings.createPrAutoMergeEnabled;
+        state.settings.createPrMergeMethod =
+          raw.createPrMergeMethod === "default" ||
+          raw.createPrMergeMethod === "merge" ||
+          raw.createPrMergeMethod === "squash" ||
+          raw.createPrMergeMethod === "rebase"
+            ? raw.createPrMergeMethod
+            : defaultSettings.createPrMergeMethod;
         const legacyProjectInitCommand = normalizeProjectWorkspaceInitCommand({
           value: raw.newWorkspaceInitCommand,
         });

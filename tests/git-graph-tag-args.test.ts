@@ -1,5 +1,50 @@
 import { describe, expect, test } from "bun:test";
-import { buildCreateTagArgs } from "../electron/host-service/scm-runtime";
+import {
+  buildAutoMergePullRequestArgs,
+  buildCreatePullRequestArgs,
+  buildCreateTagArgs,
+} from "../electron/host-service/scm-runtime";
+
+describe("buildCreatePullRequestArgs", () => {
+  test("creates a ready PR with the selected title, body, and base", () => {
+    expect(buildCreatePullRequestArgs({
+      title: "fix(pr): align create flow",
+      body: "## Summary\n- Align the flow.",
+      baseBranch: "main",
+      draft: false,
+    })).toEqual([
+      "pr",
+      "create",
+      "--title",
+      "fix(pr): align create flow",
+      "--body",
+      "## Summary\n- Align the flow.",
+      "--base",
+      "main",
+    ]);
+  });
+});
+
+describe("buildAutoMergePullRequestArgs", () => {
+  test("lets GitHub select the repository default merge strategy", () => {
+    expect(buildAutoMergePullRequestArgs()).toEqual([
+      "pr",
+      "merge",
+      "--auto",
+      "--delete-branch",
+    ]);
+  });
+
+  test("supports the configured merge strategy", () => {
+    expect(buildAutoMergePullRequestArgs("rebase")).toEqual([
+      "pr",
+      "merge",
+      "--auto",
+      "--rebase",
+      "--delete-branch",
+    ]);
+  });
+});
 
 describe("buildCreateTagArgs", () => {
   test("lightweight tag uses --no-sign so tag.gpgsign config can't force a message", () => {

@@ -1,6 +1,10 @@
 import { ipcMain } from "electron";
 import { invokeHostService } from "../host-service-client";
-import { CreatePRArgsSchema, GetPrStatusByUrlArgsSchema } from "./schemas";
+import {
+  CreatePRArgsSchema,
+  GetPrStatusByUrlArgsSchema,
+  TryAutoFixLintArgsSchema,
+} from "./schemas";
 
 export function registerScmHandlers() {
   ipcMain.handle("scm:status", (_event, args: { cwd?: string }) =>
@@ -21,9 +25,13 @@ export function registerScmHandlers() {
       invokeHostService("scm.commit", args),
   );
 
-  ipcMain.handle("scm:try-auto-fix-lint", (_event, args: { cwd?: string }) =>
-    invokeHostService("scm.try-auto-fix-lint", args),
-  );
+  ipcMain.handle("scm:try-auto-fix-lint", (_event, args: unknown) => {
+    const parsed = TryAutoFixLintArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, fixAttempted: false, stderr: "Invalid lint fix request." };
+    }
+    return invokeHostService("scm.try-auto-fix-lint", parsed.data);
+  });
 
   ipcMain.handle(
     "scm:stage-file",
@@ -158,7 +166,7 @@ export function registerScmHandlers() {
 
   ipcMain.handle(
     "scm:merge-pr",
-    (_event, args: { method?: "merge" | "squash" | "rebase"; cwd?: string }) =>
+    (_event, args: { method?: "default" | "merge" | "squash" | "rebase"; cwd?: string }) =>
       invokeHostService("scm.merge-pr", args),
   );
 

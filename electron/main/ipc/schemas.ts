@@ -87,6 +87,15 @@ export const CreatePRArgsSchema = z
     body: z.string().max(50_000).optional(),
     baseBranch: z.string().max(200).optional(),
     draft: z.boolean().optional(),
+    autoMerge: z.boolean().optional(),
+    mergeMethod: z.enum(["default", "merge", "squash", "rebase"]).optional(),
+  })
+  .strict();
+
+export const TryAutoFixLintArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    paths: z.array(z.string().min(1).max(4096)).max(1000).optional(),
   })
   .strict();
 
