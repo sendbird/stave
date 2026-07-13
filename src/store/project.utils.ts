@@ -26,6 +26,7 @@ export interface RecentProjectState {
   newWorkspaceInitCommand?: string;
   newWorkspaceUseRootNodeModulesSymlink?: boolean;
   archivedWorkspacePaths?: string[];
+  linkedWorkspacePaths?: string[];
 }
 
 export function normalizeWorkspaceInitCommand(args: { value?: string | null }) {
@@ -517,6 +518,41 @@ export function buildImportedWorktreeWorkspaceId(args: {
   return `worktree:${hashProjectPath(`${normalizeComparablePath(args.projectPath)}::${normalizeComparablePath(args.worktreePath)}`)}`;
 }
 
+/**
+ * Quote a user-typed path for a shell command while preserving a leading `~`
+ * so the shell can still expand it to the user's home directory.
+ */
+export function toShellPathArgument(args: { path: string }) {
+  const trimmed = args.path.trim();
+  if (trimmed === "~") {
+    return "~";
+  }
+  if (trimmed.startsWith("~/")) {
+    return `~/${JSON.stringify(trimmed.slice(2))}`;
+  }
+  return JSON.stringify(trimmed);
+}
+
+export function buildLinkedWorktreeFolderName(args: { worktreePath: string }) {
+  const readable =
+    resolvePathBaseName({ path: args.worktreePath, fallback: "worktree" })
+      .toLowerCase()
+      .replaceAll(/[^a-z0-9._-]+/g, "-")
+      .replaceAll(/^\-|\-$/g, "") || "worktree";
+  return `${readable}--${hashProjectPath(normalizeComparablePath(args.worktreePath))}`;
+}
+
+export function buildLinkedWorktreeSymlinkPath(args: {
+  projectPath: string;
+  worktreePath: string;
+}) {
+  return `${args.projectPath}/.stave/workspaces/${buildLinkedWorktreeFolderName(
+    {
+      worktreePath: args.worktreePath,
+    },
+  )}`;
+}
+
 export function normalizeArchivedWorkspacePaths(args: {
   paths?: Array<string | null | undefined> | null;
 }) {
@@ -657,6 +693,9 @@ function normalizeRecentProjectStateEntry(
   const archivedWorkspacePaths = normalizeArchivedWorkspacePaths({
     paths: project.archivedWorkspacePaths,
   });
+  const linkedWorkspacePaths = normalizeArchivedWorkspacePaths({
+    paths: project.linkedWorkspacePaths,
+  });
   const providedWorkspaces = Array.isArray(project.workspaces)
     ? project.workspaces.filter((workspace) =>
         Boolean(workspace?.id && workspace?.name),
@@ -751,6 +790,7 @@ function normalizeRecentProjectStateEntry(
     workspacePathById: nextWorkspacePathById,
     workspaceDefaultById: nextWorkspaceDefaultById,
     ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
+    ...(linkedWorkspacePaths.length > 0 ? { linkedWorkspacePaths } : {}),
     ...normalizeRecentProjectPreferences({
       projectBasePrompt: project.projectBasePrompt,
       newWorkspaceInitCommand: project.newWorkspaceInitCommand,
@@ -830,10 +870,16 @@ export function resolveTaskWorkspaceContext(args: {
 export function cloneRecentProjectState(
   project: RecentProjectState,
 ): RecentProjectState {
-  const { archivedWorkspacePaths: rawArchivedWorkspacePaths, ...projectRest } =
-    project;
+  const {
+    archivedWorkspacePaths: rawArchivedWorkspacePaths,
+    linkedWorkspacePaths: rawLinkedWorkspacePaths,
+    ...projectRest
+  } = project;
   const archivedWorkspacePaths = normalizeArchivedWorkspacePaths({
     paths: rawArchivedWorkspacePaths,
+  });
+  const linkedWorkspacePaths = normalizeArchivedWorkspacePaths({
+    paths: rawLinkedWorkspacePaths,
   });
   return {
     ...projectRest,
@@ -842,6 +888,7 @@ export function cloneRecentProjectState(
     workspacePathById: { ...project.workspacePathById },
     workspaceDefaultById: { ...project.workspaceDefaultById },
     ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
+    ...(linkedWorkspacePaths.length > 0 ? { linkedWorkspacePaths } : {}),
     ...normalizeRecentProjectPreferences({
       projectBasePrompt: project.projectBasePrompt,
       newWorkspaceInitCommand: project.newWorkspaceInitCommand,
@@ -882,6 +929,9 @@ export function upsertRecentProjectState(args: {
     archivedWorkspacePaths:
       args.project.archivedWorkspacePaths ??
       existingProject?.archivedWorkspacePaths,
+    linkedWorkspacePaths:
+      args.project.linkedWorkspacePaths ??
+      existingProject?.linkedWorkspacePaths,
   });
   if (!normalizedProject) {
     return args.projects.map((project) => cloneRecentProjectState(project));
@@ -913,6 +963,8 @@ export function captureCurrentProjectState(args: {
   workspaceDefaultById: Record<string, boolean>;
   archivedWorkspacePathsToAdd?: Array<string | null | undefined>;
   archivedWorkspacePathsToRemove?: Array<string | null | undefined>;
+  linkedWorkspacePathsToAdd?: Array<string | null | undefined>;
+  linkedWorkspacePathsToRemove?: Array<string | null | undefined>;
 }): RecentProjectState[] {
   if (!args.projectPath) {
     return args.recentProjects.map((project) =>
@@ -932,6 +984,15 @@ export function captureCurrentProjectState(args: {
     archivedWorkspacePaths.length > 0 ||
     args.archivedWorkspacePathsToAdd !== undefined ||
     args.archivedWorkspacePathsToRemove !== undefined;
+  const linkedWorkspacePaths = mergeArchivedWorkspacePaths({
+    current: rememberedProject?.linkedWorkspacePaths,
+    add: args.linkedWorkspacePathsToAdd,
+    remove: args.linkedWorkspacePathsToRemove,
+  });
+  const shouldWriteLinkedWorkspacePaths =
+    linkedWorkspacePaths.length > 0 ||
+    args.linkedWorkspacePathsToAdd !== undefined ||
+    args.linkedWorkspacePathsToRemove !== undefined;
   return upsertRecentProjectState({
     projects: args.recentProjects,
     project: {
@@ -950,6 +1011,7 @@ export function captureCurrentProjectState(args: {
       ...(shouldWriteArchivedWorkspacePaths
         ? { archivedWorkspacePaths }
         : {}),
+      ...(shouldWriteLinkedWorkspacePaths ? { linkedWorkspacePaths } : {}),
       ...resolveRecentProjectPreferences({
         projectPath: args.projectPath,
         recentProjects: args.recentProjects,

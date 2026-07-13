@@ -929,6 +929,7 @@ export function ProjectWorkspaceSidebar(args: {
     switchWorkspace,
     moveWorkspaceInProjectList,
     createWorkspace,
+    importWorkspaceFromWorktree,
     closeWorkspace,
     renameWorkspace,
     setLayout,
@@ -978,6 +979,7 @@ export function ProjectWorkspaceSidebar(args: {
         state.switchWorkspace,
         state.moveWorkspaceInProjectList,
         state.createWorkspace,
+        state.importWorkspaceFromWorktree,
         state.closeWorkspace,
         state.renameWorkspace,
         state.setLayout,
@@ -2382,6 +2384,7 @@ export function ProjectWorkspaceSidebar(args: {
         defaultUseRootNodeModulesSymlink={projectUseRootNodeModulesSymlink}
         onOpenChange={setCreateWorkspaceOpen}
         onCreateWorkspace={createWorkspace}
+        onImportWorkspace={importWorkspaceFromWorktree}
       />
       <OpenPathDialog
         open={openPathDialogOpen}

@@ -69,6 +69,18 @@ export function registerFilesystemHandlers() {
     }
   });
 
+  ipcMain.handle("fs:pick-directory", async () => {
+    const selected = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    if (selected.canceled || selected.filePaths.length === 0) {
+      return { ok: false as const, stderr: "No folder selected." };
+    }
+    const directoryPath = selected.filePaths[0];
+    if (!directoryPath) {
+      return { ok: false as const, stderr: "No folder selected." };
+    }
+    return { ok: true as const, directoryPath };
+  });
+
   ipcMain.handle("fs:pick-files", async (_event, args: unknown) => {
     const parsed = FilesystemPickFilesArgsSchema.safeParse(args);
     if (!parsed.success) {

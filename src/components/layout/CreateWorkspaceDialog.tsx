@@ -1,4 +1,4 @@
-import { GitBranch, X } from "lucide-react";
+import { FolderSymlink, GitBranch, X } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -33,7 +33,17 @@ interface CreateWorkspaceDialogProps {
     message?: string;
     noticeLevel?: "success" | "warning";
   }>;
+  onImportWorkspace: (args: {
+    worktreePath: string;
+    label?: string;
+  }) => Promise<{
+    ok: boolean;
+    message?: string;
+    noticeLevel?: "success" | "warning";
+  }>;
 }
+
+type CreateWorkspaceCreationMode = "branch" | "clean" | "link";
 
 function resolveSelectedBranchKind(args: {
   branch: string;
@@ -52,16 +62,17 @@ export function CreateWorkspaceDialog({
   defaultUseRootNodeModulesSymlink = false,
   onOpenChange,
   onCreateWorkspace,
+  onImportWorkspace,
 }: CreateWorkspaceDialogProps) {
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceLabel, setWorkspaceLabel] = useState("");
+  const [worktreePath, setWorktreePath] = useState("");
   const [createWorkspaceError, setCreateWorkspaceError] = useState<
     string | null
   >(null);
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
-  const [creationMode, setCreationMode] = useState<"branch" | "clean">(
-    "branch",
-  );
+  const [creationMode, setCreationMode] =
+    useState<CreateWorkspaceCreationMode>("branch");
   const [fromBranch, setFromBranch] = useState("main");
   const [fromBranchKind, setFromBranchKind] = useState<"local" | "remote">(
     "local",
@@ -159,6 +170,7 @@ export function CreateWorkspaceDialog({
     }
     setWorkspaceName("");
     setWorkspaceLabel("");
+    setWorktreePath("");
     setCreateWorkspaceError(null);
     setCreatingWorkspace(false);
     setCreationMode("branch");
@@ -204,19 +216,41 @@ export function CreateWorkspaceDialog({
     onOpenChange(false);
   }
 
+  async function handleBrowseWorktreePath() {
+    const pickDirectory = window.api?.fs?.pickDirectory;
+    if (!pickDirectory) {
+      return;
+    }
+    try {
+      const picked = await pickDirectory();
+      if (picked?.ok && picked.directoryPath) {
+        setCreationMode("link");
+        setWorktreePath(picked.directoryPath);
+      }
+    } catch {
+      // Picker failure — keep the manually typed path.
+    }
+  }
+
   async function handleCreateWorkspace() {
     setCreatingWorkspace(true);
     setCreateWorkspaceError(null);
     try {
-      const result = await onCreateWorkspace({
-        name: workspaceName,
-        label: workspaceLabel,
-        mode: creationMode,
-        fromBranch,
-        fromBranchKind,
-        initCommand,
-        useRootNodeModulesSymlink,
-      });
+      const result =
+        creationMode === "link"
+          ? await onImportWorkspace({
+              worktreePath,
+              label: workspaceLabel,
+            })
+          : await onCreateWorkspace({
+              name: workspaceName,
+              label: workspaceLabel,
+              mode: creationMode,
+              fromBranch,
+              fromBranchKind,
+              initCommand,
+              useRootNodeModulesSymlink,
+            });
       if (!result.ok) {
         setCreateWorkspaceError(
           result.message ?? "Failed to create workspace.",
@@ -229,7 +263,10 @@ export function CreateWorkspaceDialog({
             description: result.message,
           });
         } else {
-          toast.success("Workspace created", { description: result.message });
+          toast.success(
+            creationMode === "link" ? "Worktree linked" : "Workspace created",
+            { description: result.message },
+          );
         }
       }
       onOpenChange(false);
@@ -306,16 +343,18 @@ export function CreateWorkspaceDialog({
           <p className="mb-4 text-sm text-muted-foreground">
             Workspace is a dedicated git worktree bound to a branch.
           </p>
-          <div className="mb-4">
-            <p className="mb-2 text-sm font-medium">Workspace Branch Name</p>
-            <Input
-              autoFocus
-              value={workspaceName}
-              placeholder="feature/your-workspace"
-              onChange={(event) => setWorkspaceName(event.target.value)}
-              className="h-10 rounded-sm border-border/80 bg-background"
-            />
-          </div>
+          {creationMode !== "link" ? (
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-medium">Workspace Branch Name</p>
+              <Input
+                autoFocus
+                value={workspaceName}
+                placeholder="feature/your-workspace"
+                onChange={(event) => setWorkspaceName(event.target.value)}
+                className="h-10 rounded-sm border-border/80 bg-background"
+              />
+            </div>
+          ) : null}
           <div className="mb-4">
             <p className="mb-2 text-sm font-medium">Workspace Label</p>
             <Input
@@ -403,75 +442,137 @@ export function CreateWorkspaceDialog({
                 </p>
               </button>
             </div>
-          </div>
-          <div className="mt-4">
-            <p className="mb-2 text-sm font-medium">Post-Create Command</p>
-            <p className="mb-2 text-sm text-muted-foreground">
-              Optional shell command to run once inside the new workspace root
-              after creation. Useful for `bun install` or `npm install`.
-            </p>
-            <Textarea
-              value={initCommand}
-              placeholder="bun install"
-              onChange={(event) => setInitCommand(event.target.value)}
-              className="min-h-[110px] rounded-sm border-border/80 bg-background font-mono text-sm"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Shortcut: use {submitModifierLabel} to create while editing this
-              field.
-            </p>
-          </div>
-          <div className="mt-4">
-            <p className="mb-2 text-sm font-medium">Dependency Reuse</p>
-            <button
-              type="button"
-              aria-pressed={useRootNodeModulesSymlink}
-              onClick={() =>
-                setUseRootNodeModulesSymlink((current) => !current)
-              }
+            <div
+              role="radio"
+              aria-checked={creationMode === "link"}
               className={cn(
-                "w-full rounded-sm border px-4 py-3 text-left transition-colors",
-                useRootNodeModulesSymlink
+                "w-full rounded-sm border p-3",
+                creationMode === "link"
                   ? "border-primary bg-secondary/50"
-                  : "border-border/80 bg-background hover:border-border",
+                  : "border-border/80 bg-card",
               )}
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
-                  <span>Reuse root</span>
-                  <Badge
-                    variant="outline"
-                    className="h-5 rounded-md px-1.5 font-mono text-[11px] font-medium"
-                  >
-                    node_modules
-                  </Badge>
-                  <span>via symlink</span>
+              <button
+                type="button"
+                className="w-full text-left"
+                onClick={() => setCreationMode("link")}
+              >
+                <p className="flex items-center gap-2 text-base font-semibold">
+                  <FolderSymlink className="size-4" />
+                  Link Existing Worktree
                 </p>
-                <span
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Continue work in a worktree that already exists elsewhere on
+                  disk. Stave symlinks it into `.stave/workspaces/` and keeps
+                  its current branch.
+                </p>
+              </button>
+              {creationMode === "link" ? (
+                <div className="mt-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Worktree Path
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      autoFocus
+                      value={worktreePath}
+                      placeholder="~/worktrees/feature-branch"
+                      onChange={(event) => setWorktreePath(event.target.value)}
+                      className="h-10 flex-1 rounded-sm border-border/80 bg-background font-mono text-sm"
+                    />
+                    {window.api?.fs?.pickDirectory ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10"
+                        disabled={creatingWorkspace}
+                        onClick={() => void handleBrowseWorktreePath()}
+                      >
+                        Browse
+                      </Button>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    The linked worktree stays where it is; archiving the
+                    workspace later removes only the symlink.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          {creationMode !== "link" ? (
+            <>
+              <div className="mt-4">
+                <p className="mb-2 text-sm font-medium">Post-Create Command</p>
+                <p className="mb-2 text-sm text-muted-foreground">
+                  Optional shell command to run once inside the new workspace
+                  root after creation. Useful for `bun install` or `npm
+                  install`.
+                </p>
+                <Textarea
+                  value={initCommand}
+                  placeholder="bun install"
+                  onChange={(event) => setInitCommand(event.target.value)}
+                  className="min-h-[110px] rounded-sm border-border/80 bg-background font-mono text-sm"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Shortcut: use {submitModifierLabel} to create while editing
+                  this field.
+                </p>
+              </div>
+              <div className="mt-4">
+                <p className="mb-2 text-sm font-medium">Dependency Reuse</p>
+                <button
+                  type="button"
+                  aria-pressed={useRootNodeModulesSymlink}
+                  onClick={() =>
+                    setUseRootNodeModulesSymlink((current) => !current)
+                  }
                   className={cn(
-                    "rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]",
+                    "w-full rounded-sm border px-4 py-3 text-left transition-colors",
                     useRootNodeModulesSymlink
-                      ? "border-primary/40 bg-primary/10 text-primary"
-                      : "border-border/80 text-muted-foreground",
+                      ? "border-primary bg-secondary/50"
+                      : "border-border/80 bg-background hover:border-border",
                   )}
                 >
-                  {useRootNodeModulesSymlink ? "On" : "Off"}
-                </span>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                      <span>Reuse root</span>
+                      <Badge
+                        variant="outline"
+                        className="h-5 rounded-md px-1.5 font-mono text-[11px] font-medium"
+                      >
+                        node_modules
+                      </Badge>
+                      <span>via symlink</span>
+                    </p>
+                    <span
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]",
+                        useRootNodeModulesSymlink
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "border-border/80 text-muted-foreground",
+                      )}
+                    >
+                      {useRootNodeModulesSymlink ? "On" : "Off"}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Creates{" "}
+                    <Badge
+                      variant="outline"
+                      className="h-5 rounded-md px-1.5 align-middle font-mono text-[11px] font-medium"
+                    >
+                      node_modules
+                    </Badge>{" "}
+                    in the new workspace as a symlink to the repository root
+                    install. This is fast, but later installs in that workspace
+                    will affect the shared dependency tree.
+                  </p>
+                </button>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Creates{" "}
-                <Badge
-                  variant="outline"
-                  className="h-5 rounded-md px-1.5 align-middle font-mono text-[11px] font-medium"
-                >
-                  node_modules
-                </Badge>{" "}
-                in the new workspace as a symlink to the repository root
-                install. This is fast, but later installs in that workspace will
-                affect the shared dependency tree.
-              </p>
-            </button>
-          </div>
+            </>
+          ) : null}
           <div className="mt-5 flex justify-end gap-2">
             <Button
               type="button"
@@ -482,7 +583,13 @@ export function CreateWorkspaceDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={creatingWorkspace}>
-              {creatingWorkspace ? "Creating..." : "Create"}
+              {creationMode === "link"
+                ? creatingWorkspace
+                  ? "Linking..."
+                  : "Link"
+                : creatingWorkspace
+                  ? "Creating..."
+                  : "Create"}
             </Button>
           </div>
           {createWorkspaceError ? (

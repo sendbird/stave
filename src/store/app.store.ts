@@ -365,12 +365,14 @@ import {
   areStringArraysEqual,
   moveArrayItem,
   sanitizeBranchName,
+  toShellPathArgument,
   toWorkspaceFolderName,
   resolveProjectNameFromPath,
   normalizeProjectDisplayName,
   hashProjectPath,
   buildProjectDefaultWorkspaceId,
   buildImportedWorktreeWorkspaceId,
+  buildLinkedWorktreeSymlinkPath,
   resolveImportedWorktreeName,
   resolveCurrentProjectDefaultWorkspaceId,
   normalizeCurrentProjectState,
@@ -1628,6 +1630,14 @@ interface AppState {
     initCommand?: string;
     useRootNodeModulesSymlink?: boolean;
     initialTaskTitle?: string;
+  }) => Promise<{
+    ok: boolean;
+    message?: string;
+    noticeLevel?: "success" | "warning";
+  }>;
+  importWorkspaceFromWorktree: (args: {
+    worktreePath: string;
+    label?: string;
   }) => Promise<{
     ok: boolean;
     message?: string;
@@ -3093,6 +3103,30 @@ function getArchivedWorktreePathSetForProject(args: {
   ]);
 }
 
+/**
+ * Normalized worktree paths the user explicitly imported from outside this
+ * project checkout ("linked" worktrees). They usually belong to another clone,
+ * so the project's `git worktree list` does not report them — without this set
+ * the stale-workspace cleanup would immediately unregister them again.
+ */
+function getLinkedWorktreePathSetForProject(args: {
+  projectPath?: string | null;
+  recentProjects: RecentProjectState[];
+}) {
+  const normalizedProjectPath = normalizeComparablePath(args.projectPath);
+  const project = normalizedProjectPath
+    ? (args.recentProjects.find(
+        (item) =>
+          normalizeComparablePath(item.projectPath) === normalizedProjectPath,
+      ) ?? null)
+    : null;
+  return new Set(
+    normalizeArchivedWorkspacePaths({
+      paths: project?.linkedWorkspacePaths,
+    }),
+  );
+}
+
 type WorkspaceArchiveCommandRunner = (args: {
   cwd?: string;
   command: string;
@@ -3122,6 +3156,7 @@ function startWorkspaceArchiveCleanup(args: {
   workspacePath?: string;
   workspaceBranch?: string;
   projectPath?: string | null;
+  isLinkedWorktree?: boolean;
 }): void {
   // Tombstone the path synchronously so a refresh racing the detached cleanup
   // below does not re-register the workspace being archived.
@@ -3196,6 +3231,7 @@ async function performWorkspaceArchiveCleanup(args: {
   workspacePath?: string;
   workspaceBranch?: string;
   projectPath?: string | null;
+  isLinkedWorktree?: boolean;
 }) {
   const { workspaceId, workspacePath, workspaceBranch, projectPath } = args;
   try {
@@ -3220,7 +3256,27 @@ async function performWorkspaceArchiveCleanup(args: {
     );
   }
   const runner = window.api?.terminal?.runCommand;
-  if (runner && projectPath && workspacePath) {
+  if (runner && projectPath && workspacePath && args.isLinkedWorktree) {
+    // Linked worktrees live outside this checkout and stay owned by whatever
+    // created them: never remove the worktree or its branch, only the symlink
+    // Stave placed under `.stave/workspaces/`.
+    try {
+      const symlinkPath = buildLinkedWorktreeSymlinkPath({
+        projectPath,
+        worktreePath: workspacePath,
+      });
+      await runner({
+        cwd: projectPath,
+        command: `if [ -L ${JSON.stringify(symlinkPath)} ]; then rm ${JSON.stringify(symlinkPath)}; fi`,
+      });
+    } catch (error) {
+      console.error(
+        "[workspace-archive] linked symlink cleanup failed",
+        { workspaceId, workspacePath },
+        error,
+      );
+    }
+  } else if (runner && projectPath && workspacePath) {
     try {
       const hasLocalChanges = await workspaceHasLocalChanges({
         runner,
@@ -5164,6 +5220,10 @@ export const useAppStore = create<AppState>()(
           // Worktree cleanup: remove DB workspaces whose git worktrees no longer exist
           const runner = window.api?.terminal?.runCommand;
           const projectPath = stateBeforeHydrate.projectPath;
+          const linkedWorktreePathSet = getLinkedWorktreePathSetForProject({
+            projectPath: stateBeforeHydrate.projectPath,
+            recentProjects: stateBeforeHydrate.recentProjects,
+          });
           if (runner && projectPath) {
             await runner({ cwd: projectPath, command: "git worktree prune" });
             const listResult = await runner({
@@ -5241,7 +5301,11 @@ export const useAppStore = create<AppState>()(
                 const wsPath =
                   pathById[row.id] ??
                   `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`;
-                if (!registeredPaths.has(normalizeComparablePath(wsPath))) {
+                const comparableWsPath = normalizeComparablePath(wsPath);
+                if (
+                  !registeredPaths.has(comparableWsPath) &&
+                  !linkedWorktreePathSet.has(comparableWsPath)
+                ) {
                   staleIds.push(row.id);
                 }
               }
@@ -5645,6 +5709,10 @@ export const useAppStore = create<AppState>()(
             projectPath,
             recentProjects: state.recentProjects,
           });
+          const linkedWorktreePathSet = getLinkedWorktreePathSetForProject({
+            projectPath,
+            recentProjects: state.recentProjects,
+          });
 
           // Build set of known workspace paths for quick lookup.
           const knownPathToId = new Map<string, string>();
@@ -5737,7 +5805,11 @@ export const useAppStore = create<AppState>()(
               state.workspacePathById[workspace.id] ??
                 `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: workspace.name })}`,
             );
-            if (wsPath && !registeredWorktreePaths.has(wsPath)) {
+            if (
+              wsPath &&
+              !registeredWorktreePaths.has(wsPath) &&
+              !linkedWorktreePathSet.has(wsPath)
+            ) {
               staleIds.push(workspace.id);
             }
           }
@@ -6628,6 +6700,318 @@ export const useAppStore = create<AppState>()(
             ? { ok: true, ...creationNotice }
             : { ok: true };
         },
+        importWorkspaceFromWorktree: async ({ worktreePath, label }) => {
+          const trimmedInput = worktreePath.trim();
+          if (!trimmedInput) {
+            return { ok: false, message: "Worktree path is required." };
+          }
+
+          const current = get();
+          const projectPath = current.projectPath;
+          if (!projectPath) {
+            return {
+              ok: false,
+              message: "Open a project before linking a worktree.",
+            };
+          }
+          const runner = window.api?.terminal?.runCommand;
+          if (!runner) {
+            return {
+              ok: false,
+              message:
+                "Linking a worktree requires the terminal bridge, which is unavailable.",
+            };
+          }
+
+          const toplevelResult = await runner({
+            cwd: projectPath,
+            command: `git -C ${toShellPathArgument({ path: trimmedInput })} rev-parse --show-toplevel`,
+          });
+          if (!toplevelResult.ok) {
+            return {
+              ok: false,
+              message: summarizeTerminalCommandDetail({
+                stderr: toplevelResult.stderr,
+                stdout: toplevelResult.stdout,
+                fallback: "The path is not inside a git worktree.",
+              }),
+            };
+          }
+          const worktreeRoot = toplevelResult.stdout.trim();
+          if (!worktreeRoot) {
+            return {
+              ok: false,
+              message: "Could not resolve the worktree root for that path.",
+            };
+          }
+          const comparableWorktreeRoot =
+            normalizeComparablePath(worktreeRoot);
+          if (
+            comparableWorktreeRoot === normalizeComparablePath(projectPath)
+          ) {
+            return {
+              ok: false,
+              message:
+                "That path is the project root, which is already available as the default workspace.",
+            };
+          }
+          const existingWorkspaceId = Object.entries(
+            current.workspacePathById,
+          ).find(
+            ([workspaceId, registeredPath]) =>
+              normalizeComparablePath(registeredPath) ===
+                comparableWorktreeRoot &&
+              current.workspaces.some(
+                (workspace) => workspace.id === workspaceId,
+              ),
+          )?.[0];
+          if (existingWorkspaceId) {
+            await get().switchWorkspace({ workspaceId: existingWorkspaceId });
+            return {
+              ok: true,
+              noticeLevel: "success",
+              message:
+                "That worktree is already registered as a workspace. Switched to it.",
+            };
+          }
+
+          const branchResult = await runner({
+            cwd: projectPath,
+            command: `git -C ${JSON.stringify(worktreeRoot)} rev-parse --abbrev-ref HEAD`,
+          });
+          const branchName = branchResult.ok
+            ? branchResult.stdout.trim()
+            : "";
+          if (!branchName || branchName === "HEAD") {
+            return {
+              ok: false,
+              message:
+                "The worktree has no checked-out branch (detached HEAD), so it cannot be linked.",
+            };
+          }
+
+          const nextRuntimeCacheById = saveActiveWorkspaceRuntimeCache({
+            state: current,
+          });
+          const workspaceDisplayName =
+            label?.trim() ||
+            resolveImportedWorktreeName({
+              branch: branchName,
+              worktreePath: worktreeRoot,
+            });
+          const workspaceId = buildImportedWorktreeWorkspaceId({
+            projectPath,
+            worktreePath: worktreeRoot,
+          });
+          const creationNotices: Array<{
+            level: "success" | "warning";
+            message: string;
+          }> = [];
+
+          // Worktrees registered in this checkout survive stale cleanup via
+          // `git worktree list`; external ones need the linked-path exemption.
+          let isExternalWorktree = true;
+          const listResult = await runner({
+            cwd: projectPath,
+            command: "git worktree list --porcelain",
+          });
+          if (listResult.ok) {
+            isExternalWorktree = !parseGitWorktrees({
+              stdout: listResult.stdout,
+            }).some(
+              (worktree) =>
+                normalizeComparablePath(worktree.path) ===
+                comparableWorktreeRoot,
+            );
+          }
+
+          const comparableWorkspacesDir = normalizeComparablePath(
+            `${projectPath}/.stave/workspaces`,
+          );
+          if (
+            comparableWorkspacesDir &&
+            !comparableWorktreeRoot.startsWith(`${comparableWorkspacesDir}/`)
+          ) {
+            await runner({
+              cwd: projectPath,
+              command: "mkdir -p .stave/workspaces",
+            });
+            const symlinkPath = buildLinkedWorktreeSymlinkPath({
+              projectPath,
+              worktreePath: worktreeRoot,
+            });
+            const linkResult = await runner({
+              cwd: projectPath,
+              command: `ln -sfn ${JSON.stringify(worktreeRoot)} ${JSON.stringify(symlinkPath)}`,
+            });
+            if (linkResult.ok) {
+              creationNotices.push({
+                level: "success",
+                message: `Linked the worktree into \`.stave/workspaces/\` via symlink.`,
+              });
+            } else {
+              creationNotices.push({
+                level: "warning",
+                message: `The workspace was registered, but creating the \`.stave/workspaces/\` symlink failed. ${summarizeTerminalCommandDetail(
+                  {
+                    stderr: linkResult.stderr,
+                    stdout: linkResult.stdout,
+                    fallback: "Command failed.",
+                  },
+                )}`,
+              });
+            }
+          }
+
+          // The user explicitly re-linked this worktree; drop any archive
+          // tombstone so discovery and registration stop skipping it.
+          if (comparableWorktreeRoot) {
+            archivedWorktreePaths.delete(comparableWorktreeRoot);
+          }
+
+          const empty = createEmptyWorkspaceState();
+          const seededTask: Task = {
+            id: crypto.randomUUID(),
+            title: "New Task",
+            provider: current.draftProvider,
+            updatedAt: buildRecentTimestamp(),
+            unread: false,
+            archivedAt: null,
+            controlMode: "interactive",
+            controlOwner: "stave",
+          };
+          const snapshot = createWorkspaceSnapshot({
+            activeTaskId: seededTask.id,
+            tasks: [seededTask],
+            messagesByTask: {
+              [seededTask.id]: [],
+            },
+            promptDraftByTask: empty.promptDraftByTask,
+            editorTabs: empty.editorTabs,
+            activeEditorTabId: empty.activeEditorTabId,
+            terminalTabs: empty.terminalTabs,
+            activeTerminalTabId: empty.activeTerminalTabId,
+            terminalDocked: empty.terminalDocked,
+            cliSessionTabs: empty.cliSessionTabs,
+            activeCliSessionTabId: empty.activeCliSessionTabId,
+            activeSurface: { kind: "task", taskId: seededTask.id },
+            providerSessionByTask: {
+              [seededTask.id]: {},
+            },
+          });
+          await persistWorkspaceSnapshot({
+            workspaceId,
+            workspaceName: workspaceDisplayName,
+            activeTaskId: snapshot.activeTaskId,
+            tasks: snapshot.tasks,
+            messagesByTask: snapshot.messagesByTask,
+            promptDraftByTask: snapshot.promptDraftByTask ?? {},
+            editorTabs: snapshot.editorTabs ?? [],
+            activeEditorTabId: snapshot.activeEditorTabId ?? null,
+            terminalTabs: snapshot.terminalTabs ?? [],
+            activeTerminalTabId: snapshot.activeTerminalTabId ?? null,
+            terminalDocked: snapshot.terminalDocked ?? false,
+            cliSessionTabs: snapshot.cliSessionTabs ?? [],
+            activeCliSessionTabId: snapshot.activeCliSessionTabId ?? null,
+            activeSurface: snapshot.activeSurface ?? {
+              kind: "task",
+              taskId: snapshot.activeTaskId,
+            },
+            providerSessionByTask: snapshot.providerSessionByTask ?? {},
+          });
+          const workspaceState = buildWorkspaceSessionState({ snapshot });
+
+          let files = current.projectFiles;
+          try {
+            await workspaceFsAdapter.setRoot?.({
+              rootPath: worktreeRoot,
+              rootName: workspaceDisplayName,
+            });
+            files = await workspaceFsAdapter.listFiles();
+          } catch {
+            // Keep workspace registration and use the existing file list as fallback.
+          }
+
+          set((state) => {
+            const nextWorkspaces = state.workspaces.some(
+              (workspace) => workspace.id === workspaceId,
+            )
+              ? state.workspaces
+              : [
+                  ...state.workspaces,
+                  {
+                    id: workspaceId,
+                    name: workspaceDisplayName,
+                    updatedAt: new Date().toISOString(),
+                  },
+                ];
+            const nextBranchById = {
+              ...state.workspaceBranchById,
+              [workspaceId]: branchName,
+            };
+            const nextPathById = {
+              ...state.workspacePathById,
+              [workspaceId]: worktreeRoot,
+            };
+            const nextDefaultById = {
+              ...state.workspaceDefaultById,
+              [workspaceId]: false,
+            };
+            return {
+              workspaceSnapshotVersion: 0,
+              workspaces: nextWorkspaces,
+              activeWorkspaceId: workspaceId,
+              workspaceBranchById: nextBranchById,
+              workspacePathById: nextPathById,
+              workspaceDefaultById: nextDefaultById,
+              recentProjects: captureCurrentProjectState({
+                recentProjects: state.recentProjects,
+                projectPath: state.projectPath,
+                projectName: state.projectName,
+                defaultBranch: state.defaultBranch,
+                workspaces: nextWorkspaces,
+                activeWorkspaceId: workspaceId,
+                workspaceBranchById: nextBranchById,
+                workspacePathById: nextPathById,
+                workspaceDefaultById: nextDefaultById,
+                archivedWorkspacePathsToRemove: [worktreeRoot],
+                ...(isExternalWorktree
+                  ? { linkedWorkspacePathsToAdd: [worktreeRoot] }
+                  : {}),
+              }),
+              workspaceFileCacheByPath: rememberCachedWorkspaceFiles({
+                workspaceFileCacheByPath: state.workspaceFileCacheByPath,
+                workspacePath: worktreeRoot,
+                files,
+              }),
+              workspaceRuntimeCacheById: nextRuntimeCacheById,
+              activeAppSurface: WORKSPACE_APP_SURFACE,
+              taskWorkspaceIdById: registerTaskWorkspaceOwnership({
+                taskWorkspaceIdById: state.taskWorkspaceIdById,
+                workspaceId,
+                tasks: workspaceState.tasks,
+              }),
+              ...workspaceState,
+              projectFiles: files,
+            };
+          });
+          runScriptHookInBackground({
+            workspaceId,
+            trigger: "task.created",
+            taskId: seededTask.id,
+            taskTitle: seededTask.title,
+          });
+          const creationNotice = buildWorkspaceCreationNotice({
+            notices: creationNotices,
+          });
+          return creationNotice
+            ? { ok: true, ...creationNotice }
+            : {
+                ok: true,
+                noticeLevel: "success",
+                message: `Linked worktree \`${worktreeRoot}\` on branch \`${branchName}\`.`,
+              };
+        },
         continueWorkspaceFromSummary: async ({
           name,
           baseBranch: requestedBaseBranch,
@@ -6890,6 +7274,10 @@ export const useAppStore = create<AppState>()(
           const workspacePath = state.workspacePathById[workspaceId];
           const workspaceBranch = state.workspaceBranchById[workspaceId];
           const projectPath = state.projectPath;
+          const isLinkedWorktree = getLinkedWorktreePathSetForProject({
+            projectPath,
+            recentProjects: state.recentProjects,
+          }).has(normalizeComparablePath(workspacePath));
           // Pick the replacement active workspace, ignoring the one being archived.
           const nextWorkspace =
             state.workspaces.find(
@@ -6936,6 +7324,7 @@ export const useAppStore = create<AppState>()(
                   workspacePathById: nextPathById,
                   workspaceDefaultById: nextDefaultById,
                   archivedWorkspacePathsToAdd: [workspacePath],
+                  linkedWorkspacePathsToRemove: [workspacePath],
                 }),
                 workspaceSnapshotVersion: 0,
                 workspaceFileCacheByPath: removeCachedWorkspaceFiles({
@@ -6961,6 +7350,7 @@ export const useAppStore = create<AppState>()(
               workspacePath,
               workspaceBranch,
               projectPath,
+              isLinkedWorktree,
             });
             try {
               await get().flushProjectRegistry();
@@ -7009,6 +7399,7 @@ export const useAppStore = create<AppState>()(
                 workspacePathById: nextPathById,
                 workspaceDefaultById: nextDefaultById,
                 archivedWorkspacePathsToAdd: [workspacePath],
+                linkedWorkspacePathsToRemove: [workspacePath],
               }),
               workspaceFileCacheByPath: removeCachedWorkspaceFiles({
                 workspaceFileCacheByPath: nextState.workspaceFileCacheByPath,
@@ -7023,6 +7414,7 @@ export const useAppStore = create<AppState>()(
             workspacePath,
             workspaceBranch,
             projectPath,
+            isLinkedWorktree,
           });
           try {
             await get().flushProjectRegistry();

@@ -367,6 +367,11 @@ interface WindowFsApi {
     files: string[];
     stderr?: string;
   }>;
+  pickDirectory?: () => Promise<{
+    ok: boolean;
+    directoryPath?: string;
+    stderr?: string;
+  }>;
   pickFiles?: (args: { rootPath: string }) => Promise<{
     ok: boolean;
     filePaths: string[];

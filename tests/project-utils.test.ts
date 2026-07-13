@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildLinkedWorktreeFolderName,
+  buildLinkedWorktreeSymlinkPath,
   buildProjectDefaultWorkspaceId,
   captureCurrentProjectState,
   formatWorkspacePathLabel,
@@ -16,6 +18,7 @@ import {
   resolveCurrentProjectDefaultWorkspaceId,
   resolveWorkspaceName,
   sanitizeBranchName,
+  toShellPathArgument,
   toWorkspaceFolderName,
 } from "@/store/project.utils";
 import {
@@ -276,6 +279,85 @@ describe("project name normalization", () => {
     });
 
     expect(restoredProjects[0]?.archivedWorkspacePaths).toBeUndefined();
+  });
+
+  test("preserves and clears linked workspace paths", () => {
+    const linkedWorktreePath = "/tmp/worktrees/feature-elsewhere";
+    const defaultWorkspace = {
+      id: DEFAULT_WORKSPACE_ID,
+      name: "Default Workspace",
+      updatedAt: "2026-03-31T13:36:33.211Z",
+    };
+    const linkedProjects = captureCurrentProjectState({
+      recentProjects: [],
+      projectPath: PROJECT_PATH,
+      projectName: "stave",
+      defaultBranch: "main",
+      workspaces: [defaultWorkspace],
+      activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+      workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
+      workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
+      linkedWorkspacePathsToAdd: [linkedWorktreePath],
+    });
+
+    expect(linkedProjects[0]?.linkedWorkspacePaths).toEqual([
+      linkedWorktreePath,
+    ]);
+
+    // Linked paths must survive an unrelated capture (no add/remove args).
+    const untouchedProjects = captureCurrentProjectState({
+      recentProjects: linkedProjects,
+      projectPath: PROJECT_PATH,
+      projectName: "stave",
+      defaultBranch: "main",
+      workspaces: [defaultWorkspace],
+      activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+      workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
+      workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
+    });
+
+    expect(untouchedProjects[0]?.linkedWorkspacePaths).toEqual([
+      linkedWorktreePath,
+    ]);
+
+    const unlinkedProjects = captureCurrentProjectState({
+      recentProjects: untouchedProjects,
+      projectPath: PROJECT_PATH,
+      projectName: "stave",
+      defaultBranch: "main",
+      workspaces: [defaultWorkspace],
+      activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+      workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
+      workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
+      linkedWorkspacePathsToRemove: [linkedWorktreePath],
+    });
+
+    expect(unlinkedProjects[0]?.linkedWorkspacePaths).toBeUndefined();
+  });
+
+  test("keeps linked workspace paths across normalization round-trips", () => {
+    const linkedWorktreePath = "/tmp/worktrees/feature-elsewhere";
+    const projects = normalizeRecentProjectStates({
+      projects: [
+        {
+          projectPath: PROJECT_PATH,
+          projectName: "stave",
+          lastOpenedAt: "2026-03-30T13:35:33.466Z",
+          defaultBranch: "main",
+          workspaces: [],
+          activeWorkspaceId: "",
+          workspaceBranchById: {},
+          workspacePathById: {},
+          workspaceDefaultById: {},
+          linkedWorkspacePaths: [linkedWorktreePath, linkedWorktreePath, ""],
+        },
+      ],
+    });
+
+    expect(projects[0]?.linkedWorkspacePaths).toEqual([linkedWorktreePath]);
   });
 
   test("rejects a foreign default workspace when its path points at another project", () => {
@@ -673,5 +755,62 @@ describe("toWorkspaceFolderName", () => {
     expect(legacy).toBe("feature__MyFeature");
     expect(unique).not.toBe("feature__MyFeature");
     expect(unique).toBe(unique.toLowerCase());
+  });
+});
+
+describe("linked worktree helpers", () => {
+  test("builds a deterministic symlink folder from the worktree path", () => {
+    const first = buildLinkedWorktreeFolderName({
+      worktreePath: "/tmp/worktrees/Feature Branch",
+    });
+    const second = buildLinkedWorktreeFolderName({
+      worktreePath: "/tmp/worktrees/Feature Branch",
+    });
+    expect(first).toBe(second);
+    expect(first).toMatch(/^feature-branch--[a-z0-9]+$/);
+  });
+
+  test("distinguishes worktrees with the same basename in different parents", () => {
+    const first = buildLinkedWorktreeFolderName({
+      worktreePath: "/tmp/worktrees-a/feature",
+    });
+    const second = buildLinkedWorktreeFolderName({
+      worktreePath: "/tmp/worktrees-b/feature",
+    });
+    expect(first).not.toBe(second);
+  });
+
+  test("places the symlink under the project workspaces directory", () => {
+    const symlinkPath = buildLinkedWorktreeSymlinkPath({
+      projectPath: PROJECT_PATH,
+      worktreePath: "/tmp/worktrees/feature",
+    });
+    expect(symlinkPath.startsWith(`${PROJECT_PATH}/.stave/workspaces/`)).toBe(
+      true,
+    );
+    expect(symlinkPath.endsWith(`/feature--${symlinkPath.split("--").at(-1)}`)).toBe(
+      true,
+    );
+  });
+});
+
+describe("toShellPathArgument", () => {
+  test("quotes absolute paths, including spaces", () => {
+    expect(toShellPathArgument({ path: "/tmp/work trees/feature" })).toBe(
+      '"/tmp/work trees/feature"',
+    );
+  });
+
+  test("keeps a leading tilde expandable while quoting the rest", () => {
+    expect(toShellPathArgument({ path: "~" })).toBe("~");
+    expect(toShellPathArgument({ path: "~/worktrees/my feature" })).toBe(
+      '~/"worktrees/my feature"',
+    );
+  });
+
+  test("trims surrounding whitespace before quoting", () => {
+    expect(toShellPathArgument({ path: "  /tmp/worktrees/feature  " })).toBe(
+      '"/tmp/worktrees/feature"',
+    );
   });
 });
