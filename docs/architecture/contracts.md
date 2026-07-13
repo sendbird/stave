@@ -69,7 +69,7 @@ When changing PR status fetching, derivation, or UI rendering:
 - `src/types/window-api.d.ts` — type definitions for the 4 methods
 - `src/store/app.store.ts` — `workspacePrInfoById`, `fetchWorkspacePrStatus`, `fetchAllWorkspacePrStatuses`
 - `src/components/layout/PrStatusIcon.tsx` — icon lookup and color mapping
-- `src/components/layout/TopBarOpenPR.tsx` — PR hub trigger, dropdown, creation dialog
+- `src/components/layout/TopBarOpenPR.tsx` — PR hub trigger, ship-skill dispatch, dropdown actions
 - `src/components/layout/ProjectWorkspaceSidebar.tsx` — sidebar icon rendering
 
 See `docs/features/workspace-pr-status.md` for the full architecture reference.

@@ -1,108 +1,66 @@
-export type CreatePrDialogStep =
-  | "idle"
-  | "loading"
-  | "ready"
-  | "committing"
-  | "reviewing"
-  | "pushing"
-  | "creating-pr"
-  | "action";
+import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
+import type { ProviderId } from "@/lib/providers/provider.types";
+import type { SkillCatalogEntry } from "@/lib/skills/types";
 
-export type CreatePrSubmitAction = "pr" | "draft";
+const CREATE_PR_SHIP_SKILL_SLUG = "ship";
 
-function normalizeRemoteBranchName(branch: string) {
-  const trimmed = branch.trim();
-  if (!trimmed) {
-    return "";
-  }
-  const slashIndex = trimmed.indexOf("/");
-  if (slashIndex < 0 || slashIndex === trimmed.length - 1) {
-    return trimmed;
-  }
-  return trimmed.slice(slashIndex + 1);
+export type CreatePrShipAvailability =
+  | { status: "ready"; invocationToken: string }
+  | { status: "loading" }
+  | { status: "missing" }
+  | { status: "error" };
+
+function normalizeWorkspacePath(value?: string | null) {
+  return (value ?? "").trim().replace(/[\\/]+$/, "");
 }
 
-function uniqueBranches(branches: string[]) {
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-
-  for (const branch of branches) {
-    const trimmed = branch.trim();
-    if (!trimmed || seen.has(trimmed)) {
-      continue;
-    }
-    seen.add(trimmed);
-    normalized.push(trimmed);
+export function resolveCreatePrShipAvailability(args: {
+  catalogStatus: "idle" | "loading" | "ready" | "error";
+  catalogWorkspacePath?: string | null;
+  workspacePath?: string | null;
+  skills: readonly SkillCatalogEntry[];
+  providerId: ProviderId;
+}): CreatePrShipAvailability {
+  if (args.catalogStatus === "error") {
+    return { status: "error" };
   }
 
-  return normalized;
+  if (
+    args.catalogStatus !== "ready" ||
+    !normalizeWorkspacePath(args.workspacePath) ||
+    normalizeWorkspacePath(args.catalogWorkspacePath) !==
+      normalizeWorkspacePath(args.workspacePath)
+  ) {
+    return { status: "loading" };
+  }
+
+  const shipSkill = getEffectiveSkillEntries({
+    skills: args.skills,
+    providerId: args.providerId,
+  }).find((skill) => skill.slug.toLowerCase() === CREATE_PR_SHIP_SKILL_SLUG);
+
+  if (!shipSkill) {
+    return { status: "missing" };
+  }
+
+  return {
+    status: "ready",
+    invocationToken: shipSkill.invocationToken,
+  };
 }
 
-export function buildCreatePrTargetBranchOptions(args: {
-  defaultBranch: string;
-  headBranch?: string;
-  remoteBranches: string[];
+export function buildCreatePrShipPrompt(invocationToken: string) {
+  const normalizedToken = invocationToken.trim() || "$ship";
+  return `${normalizedToken} Ship the completed change in this workspace as a ready pull request and enable auto-merge.`;
+}
+
+export function isCreatePrWorkspaceStateActive(args: {
+  activeWorkspaceId: string;
+  stateWorkspaceId?: string | null;
 }) {
-  const headBranch = args.headBranch?.trim();
-  const normalizedDefaultBranch = args.defaultBranch.trim() || "main";
-  const preferredRemoteBranches = uniqueBranches(args.remoteBranches);
-  const originRemoteBranches = preferredRemoteBranches.filter((branch) => branch.startsWith("origin/"));
-  const candidateRemoteBranches = originRemoteBranches.length > 0 ? originRemoteBranches : preferredRemoteBranches;
-
-  const seen = new Set<string>();
-  const branches: string[] = [];
-
-  for (const branch of candidateRemoteBranches) {
-    const normalizedBranch = normalizeRemoteBranchName(branch);
-    if (!normalizedBranch || normalizedBranch === headBranch || seen.has(normalizedBranch)) {
-      continue;
-    }
-    seen.add(normalizedBranch);
-    branches.push(normalizedBranch);
-  }
-
-  const priorityByBranch = new Map<string, number>(
-    [normalizedDefaultBranch, "main", "master"].map((branch, index) => [branch, index]),
+  return Boolean(
+    args.activeWorkspaceId &&
+    args.stateWorkspaceId &&
+    args.activeWorkspaceId === args.stateWorkspaceId,
   );
-
-  const prioritizedBranches = [...branches].sort((left, right) => {
-    const leftPriority = priorityByBranch.get(left) ?? Number.MAX_SAFE_INTEGER;
-    const rightPriority = priorityByBranch.get(right) ?? Number.MAX_SAFE_INTEGER;
-    if (leftPriority !== rightPriority) {
-      return leftPriority - rightPriority;
-    }
-    return left.localeCompare(right);
-  });
-
-  if (prioritizedBranches.length > 0) {
-    return prioritizedBranches;
-  }
-  return [normalizedDefaultBranch];
-}
-
-export function shouldShowCreatePrSubmitSpinner(args: {
-  step: CreatePrDialogStep;
-  activeSubmitAction: CreatePrSubmitAction | null;
-  buttonAction: CreatePrSubmitAction;
-}) {
-  const isSubmitStep =
-    args.step === "committing"
-    || args.step === "pushing"
-    || args.step === "creating-pr";
-
-  return isSubmitStep && args.activeSubmitAction === args.buttonAction;
-}
-
-export function canSubmitCreatePr(args: {
-  step: CreatePrDialogStep;
-  title?: string;
-}) {
-  return args.step === "ready" && (args.title?.trim().length ?? 0) > 0;
-}
-
-export function canApplyCreatePrDialogOpenChange(args: {
-  open: boolean;
-  isDialogBusy: boolean;
-}) {
-  return args.open || !args.isDialogBusy;
 }
