@@ -105,8 +105,10 @@ import {
   NO_PROMPT_HISTORY_SELECTION,
 } from "./prompt-input.utils";
 import {
+  findModelShortcutEffort,
   findModelShortcutOption,
   resolveModelShortcutSlot,
+  type ModelShortcutEffort,
 } from "@/lib/providers/model-shortcuts";
 import {
   DEFAULT_PROMPT_COMMENT_SHORTCUT,
@@ -192,6 +194,7 @@ interface PromptInputProps {
   modelOptions: readonly ModelSelectorOption[];
   recommendedModelOptions?: readonly ModelSelectorOption[];
   modelShortcutKeys?: readonly string[];
+  modelShortcutEfforts?: readonly ModelShortcutEffort[];
   attachedFilePaths: string[];
   attachments?: Attachment[];
   promptHistoryEntries?: readonly string[];
@@ -211,7 +214,10 @@ interface PromptInputProps {
   onSuggestionSelect?: (suggestion: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
-  onModelSelect: (args: { selection: ModelSelectorOption }) => void;
+  onModelSelect: (args: {
+    selection: ModelSelectorOption;
+    effort?: Exclude<ModelShortcutEffort, "">;
+  }) => void;
   onAttachFilesChange: (args: { filePaths: string[] }) => void;
   onOpenFileSelector?: () => void;
   onAttachmentsChange?: (args: { attachments: Attachment[] }) => void;
@@ -544,6 +550,7 @@ export function PromptInput(args: PromptInputProps) {
     modelOptions,
     recommendedModelOptions,
     modelShortcutKeys,
+    modelShortcutEfforts,
     attachedFilePaths,
     attachments,
     promptHistoryEntries,
@@ -1115,7 +1122,14 @@ export function PromptInput(args: PromptInputProps) {
       }
 
       event.preventDefault();
-      onModelSelect({ selection: shortcutOption });
+      onModelSelect({
+        selection: shortcutOption,
+        effort: findModelShortcutEffort({
+          slotIndex: modelShortcutSlot,
+          shortcutKeys: modelShortcutKeys,
+          shortcutEfforts: modelShortcutEfforts,
+        }),
+      });
       window.requestAnimationFrame(() => focusComposer());
     };
 
@@ -1126,6 +1140,7 @@ export function PromptInput(args: PromptInputProps) {
     handleShiftTabShortcut,
     interactionsDisabled,
     modelOptions,
+    modelShortcutEfforts,
     modelShortcutKeys,
     onModelSelect,
   ]);

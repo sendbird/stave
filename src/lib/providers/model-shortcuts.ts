@@ -3,7 +3,14 @@ import {
   listProviderIds,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import {
+  CLAUDE_EFFORT_OPTIONS,
+  listCodexEffortOptionsForModel,
+} from "@/lib/providers/runtime-option-contract";
+import type {
+  ProviderId,
+  ProviderRuntimeOptions,
+} from "@/lib/providers/provider.types";
 
 export const MODEL_SHORTCUT_SLOT_LABELS = [
   "1",
@@ -31,6 +38,26 @@ export const DEFAULT_MODEL_SHORTCUT_KEYS = [
   "",
 ] as const;
 
+export type ModelShortcutEffort =
+  | ""
+  | NonNullable<ProviderRuntimeOptions["claudeEffort"]>
+  | NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>;
+
+export const DEFAULT_MODEL_SHORTCUT_EFFORTS: readonly ModelShortcutEffort[] =
+  MODEL_SHORTCUT_SLOT_LABELS.map(() => "");
+export const MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE = "__default__";
+
+const MODEL_SHORTCUT_EFFORT_VALUES = new Set<ModelShortcutEffort>([
+  "",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+]);
+
 const PROVIDER_ID_SET = new Set(listProviderIds());
 
 export function normalizeModelShortcutKeys(
@@ -42,6 +69,21 @@ export function normalizeModelShortcutKeys(
       return entry.trim();
     }
     return DEFAULT_MODEL_SHORTCUT_KEYS[index] ?? "";
+  });
+}
+
+export function normalizeModelShortcutEfforts(
+  value?: readonly unknown[] | null,
+): ModelShortcutEffort[] {
+  return MODEL_SHORTCUT_SLOT_LABELS.map((_, index) => {
+    const entry = value?.[index];
+    if (typeof entry !== "string") {
+      return "";
+    }
+    const normalized = entry.trim();
+    return MODEL_SHORTCUT_EFFORT_VALUES.has(normalized as ModelShortcutEffort)
+      ? (normalized as ModelShortcutEffort)
+      : "";
   });
 }
 
@@ -121,6 +163,52 @@ export function describeModelShortcutKey(args: { shortcutKey: string }) {
     modelLabel,
     fullLabel: `${providerLabel} · ${modelLabel}`,
   };
+}
+
+export function listModelShortcutEffortOptions(args: {
+  shortcutKey: string;
+}): readonly { value: Exclude<ModelShortcutEffort, "">; label: string }[] {
+  const parsed = parseModelShortcutKey(args);
+  if (!parsed) {
+    return [];
+  }
+
+  return parsed.providerId === "claude-code"
+    ? CLAUDE_EFFORT_OPTIONS
+    : listCodexEffortOptionsForModel({ model: parsed.model });
+}
+
+export function resolveModelShortcutEffort(args: {
+  shortcutKey: string;
+  effort?: string | null;
+}): Exclude<ModelShortcutEffort, ""> | undefined {
+  const normalizedEffort = args.effort?.trim() ?? "";
+  if (!normalizedEffort) {
+    return undefined;
+  }
+
+  const supportedEfforts = listModelShortcutEffortOptions({
+    shortcutKey: args.shortcutKey,
+  });
+  return supportedEfforts.some((option) => option.value === normalizedEffort)
+    ? (normalizedEffort as Exclude<ModelShortcutEffort, "">)
+    : undefined;
+}
+
+export function findModelShortcutEffort(args: {
+  slotIndex: number;
+  shortcutKeys?: readonly string[] | null;
+  shortcutEfforts?: readonly unknown[] | null;
+}): Exclude<ModelShortcutEffort, ""> | undefined {
+  const shortcutKey =
+    normalizeModelShortcutKeys(args.shortcutKeys)[args.slotIndex] ?? "";
+  const shortcutEffort = normalizeModelShortcutEfforts(args.shortcutEfforts)[
+    args.slotIndex
+  ];
+  return resolveModelShortcutEffort({
+    shortcutKey,
+    effort: shortcutEffort,
+  });
 }
 
 export function findModelShortcutOption<

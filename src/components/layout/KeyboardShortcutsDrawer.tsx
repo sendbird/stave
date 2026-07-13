@@ -22,7 +22,9 @@ import {
 } from "@/components/ui";
 import {
   describeModelShortcutKey,
+  listModelShortcutEffortOptions,
   MODEL_SHORTCUT_SLOT_LABELS,
+  normalizeModelShortcutEfforts,
   normalizeModelShortcutKeys,
 } from "@/lib/providers/model-shortcuts";
 import {
@@ -102,6 +104,7 @@ export function KeyboardShortcutsDrawer({
   );
   const [
     storedModelShortcutKeys,
+    storedModelShortcutEfforts,
     storedAppShortcutKeys,
     storedPromptCommentShortcut,
     storedVisualCommentShortcut,
@@ -111,6 +114,7 @@ export function KeyboardShortcutsDrawer({
       (state) =>
         [
           state.settings.modelShortcutKeys,
+          state.settings.modelShortcutEfforts,
           state.settings.appShortcutKeys,
           state.settings.promptCommentShortcut,
           state.settings.visualCommentShortcut,
@@ -125,6 +129,10 @@ export function KeyboardShortcutsDrawer({
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(storedModelShortcutKeys),
     [storedModelShortcutKeys],
+  );
+  const normalizedModelShortcutEfforts = useMemo(
+    () => normalizeModelShortcutEfforts(storedModelShortcutEfforts),
+    [storedModelShortcutEfforts],
   );
   const normalizedPromptCommentShortcut = normalizePromptCommentShortcut(
     storedPromptCommentShortcut ?? DEFAULT_PROMPT_COMMENT_SHORTCUT,
@@ -160,9 +168,16 @@ export function KeyboardShortcutsDrawer({
       if (!details) {
         return null;
       }
+      const effort = normalizedModelShortcutEfforts[index] ?? "";
+      const effortLabel = listModelShortcutEffortOptions({
+        shortcutKey: details.key,
+      }).find((option) => option.value === effort)?.label;
+      const effortDescription = effortLabel
+        ? ` at ${effortLabel} effort`
+        : " with the current effort setting";
       return {
         label: `Select ${details.modelLabel}`,
-        description: `Switch the active task to ${details.providerLabel} and use ${details.modelLabel}. Customize this slot in Settings → Command Palette.`,
+        description: `Switch the active task to ${details.providerLabel} and use ${details.modelLabel}${effortDescription}. Customize this slot in Settings → Command Palette.`,
         sequences: [["Alt", slotLabel]],
       } satisfies ShortcutItem;
     }).filter((item): item is ShortcutItem => item != null);
@@ -179,7 +194,7 @@ export function KeyboardShortcutsDrawer({
         sequences: [["Alt", "1-0"]],
       },
     ];
-  }, [normalizedModelShortcutKeys]);
+  }, [normalizedModelShortcutEfforts, normalizedModelShortcutKeys]);
   const presetShortcutItems = useMemo<ShortcutItem[]>(() => {
     const assignedItems = taskPresets
       .slice(0, TASK_PRESET_SHORTCUT_SLOT_LABELS.length)

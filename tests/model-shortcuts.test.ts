@@ -2,9 +2,13 @@ import { describe, expect, test } from "bun:test";
 import {
   DEFAULT_MODEL_SHORTCUT_KEYS,
   describeModelShortcutKey,
+  findModelShortcutEffort,
   findModelShortcutOption,
+  listModelShortcutEffortOptions,
+  normalizeModelShortcutEfforts,
   normalizeModelShortcutKeys,
   resolveModelShortcutSlot,
+  resolveModelShortcutEffort,
 } from "@/lib/providers/model-shortcuts";
 
 describe("model shortcuts", () => {
@@ -89,5 +93,46 @@ describe("model shortcuts", () => {
         options,
       }),
     ).toBeNull();
+  });
+
+  test("normalizes per-slot effort overrides and keeps empty slots unset", () => {
+    expect(
+      normalizeModelShortcutEfforts(["xhigh", "ultra", "unsupported", null]),
+    ).toEqual(["xhigh", "ultra", "", "", "", "", "", "", "", ""]);
+  });
+
+  test("scopes shortcut effort options to the selected provider model", () => {
+    expect(
+      listModelShortcutEffortOptions({
+        shortcutKey: "claude-code:claude-opus-4-8",
+      }).map((option) => option.value),
+    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
+    expect(
+      listModelShortcutEffortOptions({
+        shortcutKey: "codex:gpt-5.6-luna",
+      }).map((option) => option.value),
+    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
+  });
+
+  test("resolves only supported effort overrides for a shortcut slot", () => {
+    expect(
+      resolveModelShortcutEffort({
+        shortcutKey: "codex:gpt-5.6-luna",
+        effort: "max",
+      }),
+    ).toBe("max");
+    expect(
+      resolveModelShortcutEffort({
+        shortcutKey: "codex:gpt-5.6-luna",
+        effort: "ultra",
+      }),
+    ).toBeUndefined();
+    expect(
+      findModelShortcutEffort({
+        slotIndex: 0,
+        shortcutKeys: ["claude-code:claude-opus-4-8"],
+        shortcutEfforts: ["xhigh"],
+      }),
+    ).toBe("xhigh");
   });
 });

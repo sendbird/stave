@@ -53,7 +53,12 @@ import {
   resolveClaudeEffortForModelSwitch,
   providerSupportsNativeCommandCatalog,
 } from "@/lib/providers/model-catalog";
-import { normalizeModelShortcutKeys } from "@/lib/providers/model-shortcuts";
+import {
+  normalizeModelShortcutEfforts,
+  normalizeModelShortcutKeys,
+  resolveModelShortcutEffort,
+  type ModelShortcutEffort,
+} from "@/lib/providers/model-shortcuts";
 import {
   addTrustedToolEntry,
   buildTrustedToolEntryForApproval,
@@ -168,6 +173,7 @@ interface ChatInputComposerProps {
   modelOptions: ModelSelectorOption[];
   recommendedModelOptions: readonly ModelSelectorOption[];
   modelShortcutKeys: readonly string[];
+  modelShortcutEfforts: readonly ModelShortcutEffort[];
   commandPaletteItems: readonly CommandPaletteItem[];
   commandPaletteProviderNote?: CommandPaletteProviderNote;
   skillsEnabled: boolean;
@@ -188,7 +194,10 @@ interface ChatInputComposerProps {
   thinkingMode?: "adaptive" | "enabled" | "disabled";
   onThinkingModeChange?: (value: "adaptive" | "enabled" | "disabled") => void;
   onProviderModeSelect?: (presetId: ProviderModePresetId) => void;
-  onModelSelect: (args: { selection: ModelSelectorOption }) => void;
+  onModelSelect: (args: {
+    selection: ModelSelectorOption;
+    effort?: Exclude<ModelShortcutEffort, "">;
+  }) => void;
   crossReviewProvider?: "claude-code" | "codex" | null;
   onCrossReview?: (args: { instructions?: string }) => void;
 }
@@ -859,6 +868,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           modelOptions={args.modelOptions}
           recommendedModelOptions={args.recommendedModelOptions}
           modelShortcutKeys={args.modelShortcutKeys}
+          modelShortcutEfforts={args.modelShortcutEfforts}
           attachedFilePaths={promptDraft.attachedFilePaths}
           promptHistoryEntries={promptHistoryEntries}
           promptSuggestions={promptSuggestions}
@@ -1157,6 +1167,7 @@ function BaseChatInput() {
     skillsAutoSuggest,
     providerTimeoutMs,
     modelShortcutKeys,
+    modelShortcutEfforts,
     autoRoutingEnabled,
   ] = useAppStore(
     useShallow(
@@ -1169,6 +1180,7 @@ function BaseChatInput() {
           state.settings.skillsAutoSuggest,
           state.settings.providerTimeoutMs,
           state.settings.modelShortcutKeys,
+          state.settings.modelShortcutEfforts,
           state.settings.autoRoutingEnabled,
         ] as const,
     ),
@@ -1355,6 +1367,10 @@ function BaseChatInput() {
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(modelShortcutKeys),
     [modelShortcutKeys],
+  );
+  const normalizedModelShortcutEfforts = useMemo(
+    () => normalizeModelShortcutEfforts(modelShortcutEfforts),
+    [modelShortcutEfforts],
   );
   const approvalActionsDisabled = isTaskManaged(activeTask);
   const approvalDisabledReason = approvalActionsDisabled
@@ -1822,6 +1838,7 @@ function BaseChatInput() {
       modelOptions={modelOptions}
       recommendedModelOptions={recommendedModelOptions}
       modelShortcutKeys={normalizedModelShortcutKeys}
+      modelShortcutEfforts={normalizedModelShortcutEfforts}
       commandPaletteItems={deferredCommandPaletteItems}
       commandPaletteProviderNote={commandPalette.providerNote}
       skillsEnabled={skillsEnabled}
@@ -1838,7 +1855,7 @@ function BaseChatInput() {
       onEffortCycle={onEffortCycle}
       crossReviewProvider={crossReviewProvider}
       onCrossReview={crossReviewProvider ? handleCrossReview : undefined}
-      onModelSelect={({ selection }) => {
+      onModelSelect={({ selection, effort }) => {
         if (selection.isAuto) {
           const { model: _model, ...restRuntimeOverrides } =
             promptDraftRuntimeOverrides ?? {};
@@ -1874,17 +1891,27 @@ function BaseChatInput() {
           },
         });
         if (selection.providerId === "claude-code") {
+          const shortcutEffort = resolveModelShortcutEffort({
+            shortcutKey: selection.key,
+            effort,
+          });
           updateSettings({
             patch: {
-              claudeEffort: resolveClaudeEffortForModelSwitch({
-                previousModel: resolvePromptDraftModelForProvider({
-                  providerId: "claude-code",
-                  runtimeOverrides: promptDraftRuntimeOverrides,
-                  fallbackModel: modelClaude,
-                }),
-                nextModel,
-                currentEffort: storedClaudeEffort,
-              }),
+              claudeEffort:
+                shortcutEffort &&
+                CLAUDE_EFFORT_OPTIONS.some(
+                  (option) => option.value === shortcutEffort,
+                )
+                  ? (shortcutEffort as typeof storedClaudeEffort)
+                  : resolveClaudeEffortForModelSwitch({
+                      previousModel: resolvePromptDraftModelForProvider({
+                        providerId: "claude-code",
+                        runtimeOverrides: promptDraftRuntimeOverrides,
+                        fallbackModel: modelClaude,
+                      }),
+                      nextModel,
+                      currentEffort: storedClaudeEffort,
+                    }),
             },
           });
           return;
@@ -1893,11 +1920,17 @@ function BaseChatInput() {
           // Some Codex models accept a narrower effort scale than others
           // (e.g. GPT-5.6 Luna has no "Ultra") — clamp so switching models
           // never leaves an unsupported effort selected.
+          const shortcutEffort = resolveModelShortcutEffort({
+            shortcutKey: selection.key,
+            effort,
+          });
           updateSettings({
             patch: {
               codexReasoningEffort: clampCodexEffortToModel({
                 model: nextModel,
-                effort: codexReasoningEffort,
+                effort: shortcutEffort
+                  ? (shortcutEffort as typeof codexReasoningEffort)
+                  : codexReasoningEffort,
               }),
             },
           });
