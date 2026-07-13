@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import { parseGraphLog } from "../../src/lib/git-graph/graph-log";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
+import type { PrMergeMethod } from "../../src/lib/pr-status";
 import {
   buildSourceControlDiffPreview,
   resolveSourceControlDiffPaths,
@@ -264,13 +265,28 @@ export function stageAllSourceControl(args: { cwd?: string }) {
  * then re-stages the results. Returns whether a fix was attempted and
  * whether any remaining errors persist.
  */
-export async function tryAutoFixLintErrors(args: { cwd?: string }) {
-  const stagedResult = await runCommandArgs({
-    command: "git",
-    commandArgs: ["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
-    cwd: args.cwd,
-  });
-  if (!stagedResult.ok || !stagedResult.stdout.trim()) {
+export async function tryAutoFixLintErrors(args: {
+  cwd?: string;
+  paths?: string[];
+}) {
+  let files = [...new Set(args.paths?.map((path) => path.trim()).filter(Boolean) ?? [])];
+  if (files.length === 0) {
+    const stagedResult = await runCommandArgs({
+      command: "git",
+      commandArgs: ["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+      cwd: args.cwd,
+    });
+    if (!stagedResult.ok || !stagedResult.stdout.trim()) {
+      return {
+        ok: false,
+        fixAttempted: false,
+        stderr: "No staged files to fix.",
+      };
+    }
+    files = stagedResult.stdout.trim().split("\n").filter(Boolean);
+  }
+
+  if (files.length === 0) {
     return {
       ok: false,
       fixAttempted: false,
@@ -278,7 +294,6 @@ export async function tryAutoFixLintErrors(args: { cwd?: string }) {
     };
   }
 
-  const files = stagedResult.stdout.trim().split("\n").filter(Boolean);
   const lintableFiles = files.filter((f) =>
     /\.(js|jsx|ts|tsx|mjs|cjs|vue|svelte)$/.test(f),
   );
@@ -292,22 +307,22 @@ export async function tryAutoFixLintErrors(args: { cwd?: string }) {
 
   // Try eslint --fix (best-effort; ignore exit code since unfixable errors remain)
   const eslintResult = await runCommandArgs({
-    command: "npx",
-    commandArgs: ["eslint", "--fix", ...lintableFiles],
+    command: "bunx",
+    commandArgs: ["--bun", "eslint", "--fix", ...lintableFiles],
     cwd: args.cwd,
   });
 
   // Try prettier --write (best-effort)
   const prettierResult = await runCommandArgs({
-    command: "npx",
-    commandArgs: ["prettier", "--write", ...lintableFiles],
+    command: "bunx",
+    commandArgs: ["--bun", "prettier", "--write", ...lintableFiles],
     cwd: args.cwd,
   });
 
-  // Re-stage the auto-fixed files
+  // Re-stage only the files that were explicitly included in this operation.
   await runCommandArgs({
     command: "git",
-    commandArgs: ["add", "-A"],
+    commandArgs: ["add", "--", ...lintableFiles],
     cwd: args.cwd,
   });
 
@@ -958,7 +973,7 @@ export async function setScmPrReady(args: { cwd?: string }) {
 }
 
 export async function mergeScmPr(args: {
-  method?: "merge" | "squash" | "rebase";
+  method?: PrMergeMethod;
   cwd?: string;
 }) {
   const authResult = await runCommandArgs({
@@ -969,10 +984,15 @@ export async function mergeScmPr(args: {
   if (!authResult.ok) {
     return { ok: false, stderr: "GitHub CLI is not authenticated." };
   }
-  const method = args.method ?? "squash";
+  const method = args.method ?? "default";
   return runCommandArgs({
     command: "gh",
-    commandArgs: ["pr", "merge", `--${method}`, "--delete-branch"],
+    commandArgs: [
+      "pr",
+      "merge",
+      ...(method === "default" ? [] : [`--${method}`]),
+      "--delete-branch",
+    ],
     cwd: args.cwd,
   });
 }
@@ -1020,27 +1040,67 @@ export async function updateScmPrBranch(args: { cwd?: string }) {
   });
 }
 
+export function buildCreatePullRequestArgs(args: {
+  title: string;
+  body?: string;
+  baseBranch?: string;
+  draft?: boolean;
+}) {
+  const commandArgs = ["pr", "create", "--title", args.title];
+
+  if (args.body) {
+    commandArgs.push("--body", args.body);
+  }
+
+  if (args.baseBranch) {
+    commandArgs.push("--base", args.baseBranch);
+  }
+
+  if (args.draft) {
+    commandArgs.push("--draft");
+  }
+
+  return commandArgs;
+}
+
+export function buildAutoMergePullRequestArgs(method: PrMergeMethod = "default") {
+  return [
+    "pr",
+    "merge",
+    "--auto",
+    ...(method === "default" ? [] : [`--${method}`]),
+    "--delete-branch",
+  ];
+}
+
 export async function createScmPullRequest(args: {
   title: string;
   body?: string;
   baseBranch?: string;
   draft?: boolean;
+  autoMerge?: boolean;
+  mergeMethod?: PrMergeMethod;
   cwd?: string;
 }) {
-  const { title, body, baseBranch, draft, cwd } = args;
-  const commandArgs = ["pr", "create", "--title", title];
-
-  if (body) {
-    commandArgs.push("--body", body);
+  const { title, body, baseBranch, draft, autoMerge, mergeMethod = "default", cwd } = args;
+  const authResult = await runCommandArgs({
+    command: "gh",
+    commandArgs: ["auth", "status"],
+    cwd,
+  });
+  if (!authResult.ok) {
+    return {
+      ok: false,
+      stderr: "GitHub CLI is not authenticated. Run `gh auth login` first.",
+    };
   }
 
-  if (baseBranch) {
-    commandArgs.push("--base", baseBranch);
-  }
-
-  if (draft) {
-    commandArgs.push("--draft");
-  }
+  const commandArgs = buildCreatePullRequestArgs({
+    title,
+    body,
+    baseBranch,
+    draft,
+  });
 
   const result = await runCommandArgs({ command: "gh", commandArgs, cwd });
 
@@ -1062,5 +1122,24 @@ export async function createScmPullRequest(args: {
   }
 
   const prUrl = result.stdout.trim().split("\n").pop()?.trim();
-  return { ok: true, prUrl, stderr: "" };
+  if (!autoMerge) {
+    return { ok: true, prUrl, autoMergeEnabled: false, stderr: "" };
+  }
+
+  const autoMergeResult = await runCommandArgs({
+    command: "gh",
+    commandArgs: buildAutoMergePullRequestArgs(mergeMethod),
+    cwd,
+  });
+  if (!autoMergeResult.ok) {
+    const autoMergeStderr = `${autoMergeResult.stderr}\n${autoMergeResult.stdout}`.trim();
+    return {
+      ok: true,
+      prUrl,
+      autoMergeEnabled: false,
+      stderr: `Pull request created, but auto-merge could not be enabled: ${autoMergeStderr || "gh pr merge failed."}`,
+    };
+  }
+
+  return { ok: true, prUrl, autoMergeEnabled: true, stderr: "" };
 }

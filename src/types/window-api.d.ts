@@ -894,7 +894,7 @@ interface WindowSourceControlApi {
     message: string;
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
-  tryAutoFixLint?: (args: { cwd?: string }) => Promise<{
+  tryAutoFixLint?: (args: { cwd?: string; paths?: string[] }) => Promise<{
     ok: boolean;
     fixAttempted: boolean;
     eslintOk?: boolean;
@@ -1024,8 +1024,15 @@ interface WindowSourceControlApi {
     body?: string;
     baseBranch?: string;
     draft?: boolean;
+    autoMerge?: boolean;
+    mergeMethod?: "default" | "merge" | "squash" | "rebase";
     cwd?: string;
-  }) => Promise<{ ok: boolean; prUrl?: string; stderr?: string }>;
+  }) => Promise<{
+    ok: boolean;
+    prUrl?: string;
+    autoMergeEnabled?: boolean;
+    stderr?: string;
+  }>;
   getPrStatus?: (args: { cwd?: string }) => Promise<{
     ok: boolean;
     pr: GitHubPrPayload | null;
@@ -1038,7 +1045,7 @@ interface WindowSourceControlApi {
   }>;
   setPrReady?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
   mergePr?: (args: {
-    method?: "merge" | "squash" | "rebase";
+    method?: "default" | "merge" | "squash" | "rebase";
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
   updatePrBranch?: (args: {

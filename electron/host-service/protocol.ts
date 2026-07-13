@@ -297,6 +297,7 @@ export interface HostScmListBranchesResult {
 export interface HostScmCreatePrResult {
   ok: boolean;
   prUrl?: string;
+  autoMergeEnabled?: boolean;
   stderr?: string;
 }
 
@@ -587,6 +588,7 @@ export interface HostServiceRequestMap {
   };
   "scm.try-auto-fix-lint": {
     cwd?: string;
+    paths?: string[];
   };
   "scm.stage-file": {
     path: string;
@@ -675,7 +677,7 @@ export interface HostServiceRequestMap {
     cwd?: string;
   };
   "scm.merge-pr": {
-    method?: "merge" | "squash" | "rebase";
+    method?: "default" | "merge" | "squash" | "rebase";
     cwd?: string;
   };
   "scm.update-pr-branch": {
@@ -686,6 +688,8 @@ export interface HostServiceRequestMap {
     body?: string;
     baseBranch?: string;
     draft?: boolean;
+    autoMerge?: boolean;
+    mergeMethod?: "default" | "merge" | "squash" | "rebase";
     cwd?: string;
   };
   "local-mcp.invoke": {

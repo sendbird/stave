@@ -1196,7 +1196,7 @@ contextBridge.exposeInMainWorld("api", {
     unstageAll: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:unstage-all", args),
     commit: (args: ScmCommitArgs) => ipcRenderer.invoke("scm:commit", args),
-    tryAutoFixLint: (args: { cwd?: string }) =>
+    tryAutoFixLint: (args: { cwd?: string; paths?: string[] }) =>
       ipcRenderer.invoke("scm:try-auto-fix-lint", args) as Promise<{
         ok: boolean;
         fixAttempted: boolean;
@@ -1274,11 +1274,14 @@ contextBridge.exposeInMainWorld("api", {
       body?: string;
       baseBranch?: string;
       draft?: boolean;
+      autoMerge?: boolean;
+      mergeMethod?: "default" | "merge" | "squash" | "rebase";
       cwd?: string;
     }) =>
       ipcRenderer.invoke("scm:create-pr", args) as Promise<{
         ok: boolean;
         prUrl?: string;
+        autoMergeEnabled?: boolean;
         stderr?: string;
       }>,
     getPrStatus: (args: { cwd?: string }) =>
@@ -1326,7 +1329,7 @@ contextBridge.exposeInMainWorld("api", {
         stdout?: string;
         stderr?: string;
       }>,
-    mergePr: (args: { method?: "merge" | "squash" | "rebase"; cwd?: string }) =>
+    mergePr: (args: { method?: "default" | "merge" | "squash" | "rebase"; cwd?: string }) =>
       ipcRenderer.invoke("scm:merge-pr", args) as Promise<{
         ok: boolean;
         code?: number;

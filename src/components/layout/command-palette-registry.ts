@@ -100,7 +100,12 @@ export interface CommandPaletteProjectSummary {
 export interface CommandPaletteLayoutState {
   editorVisible: boolean;
   sidebarOverlayTab:
-    "explorer" | "changes" | "information" | "skills" | "scripts" | "lens";
+    | "explorer"
+    | "changes"
+    | "information"
+    | "skills"
+    | "scripts"
+    | "lens";
   sidebarOverlayVisible: boolean;
   terminalDocked: boolean;
   workspaceSidebarCollapsed: boolean;
@@ -365,7 +370,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   {
     id: "task.create-pr",
     title: "Create Pull Request",
-    description: "Run the ship workflow for the active workspace.",
+    description: "Open the pull request flow for the active workspace.",
     group: "task",
     icon: GitPullRequest,
     keywords: ["create pr", "pull request", "github", "open pr"],
@@ -375,8 +380,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
             id: "task.create-pr",
             title: "Create Pull Request",
             subtitle: args.activeWorkspaceBranch
-              ? `Run the ship workflow for ${args.activeWorkspaceBranch}.`
-              : "Run the ship workflow for the active workspace.",
+              ? `Open the PR flow for ${args.activeWorkspaceBranch}.`
+              : "Open the PR flow for the active workspace.",
             group: "task",
             icon: GitPullRequest,
             keywords: ["create pr", "pull request", "github", "open pr"],

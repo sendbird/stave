@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
   CliSessionCreateSessionArgsSchema,
+  CreatePRArgsSchema,
   FilesystemRepoMapArgsSchema,
   LocalMcpConfigUpdateArgsSchema,
   ReviewDiffArgsSchema,
   SuggestPRDescriptionArgsSchema,
   TerminalCreateSessionArgsSchema,
   StreamTurnArgsSchema,
+  TryAutoFixLintArgsSchema,
 } from "../electron/main/ipc/schemas";
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 
@@ -182,6 +184,36 @@ describe("provider IPC schemas", () => {
       baseBranch: "main",
       workspaceContext: "Use the active workspace task as the primary source of intent.",
     }).success).toBe(true);
+  });
+
+  test("accepts ready PR creation with optional auto-merge", () => {
+    expect(
+      CreatePRArgsSchema.safeParse({
+        cwd: "/tmp/project",
+        title: "fix(pr): align create flow with ship rules",
+        body: "## Summary\n- Align the PR flow with the repository ship rules.",
+        baseBranch: "main",
+        draft: false,
+        autoMerge: true,
+        mergeMethod: "squash",
+      }).success,
+    ).toBe(true);
+    expect(
+      CreatePRArgsSchema.safeParse({
+        title: "fix(pr): reject unknown options",
+        unsupported: true,
+      }).success,
+    ).toBe(false);
+  });
+
+  test("accepts an explicit file scope for lint auto-fix", () => {
+    expect(TryAutoFixLintArgsSchema.safeParse({
+      cwd: "/tmp/project",
+      paths: ["src/components/TopBarOpenPR.tsx", "src/lib/pr-status.ts"],
+    }).success).toBe(true);
+    expect(TryAutoFixLintArgsSchema.safeParse({
+      paths: [""],
+    }).success).toBe(false);
   });
 
   test("accepts strict pre-PR review requests", () => {
