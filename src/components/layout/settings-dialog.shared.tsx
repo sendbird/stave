@@ -153,7 +153,7 @@ export function ChoiceButtons<T extends string>(args: {
           <Button
             key={option.value}
             className="h-8 rounded-[5px] px-3 text-xs"
-            variant={args.value === option.value ? "secondary" : "ghost"}
+            variant={args.value === option.value ? "default" : "ghost"}
             onClick={() => args.onChange(option.value)}
           >
             {option.label}
