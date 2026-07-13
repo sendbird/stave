@@ -1,3 +1,16 @@
+## [0.10.3](https://github.com/sendbird/stave/compare/v0.10.2...v0.10.3) (2026-07-13)
+
+### Features
+
+* Add persisted per-slot effort overrides to Alt+1..0 model shortcuts, scope choices to each provider and Codex model capability, and show configured effort in the keyboard shortcut reference.
+
+### Bug Fixes
+
+* Route Create PR through the active workspace's shared `ship` skill, removing renderer-owned draft orchestration and making the ready-PR plus auto-merge workflow workspace-safe.
+
+### References
+
+* [#138](https://github.com/sendbird/stave/pull/138), [#139](https://github.com/sendbird/stave/pull/139)
 ## [0.10.2](https://github.com/sendbird/stave/compare/v0.10.1...v0.10.2) (2026-07-10)
 
 ### Bug Fixes
