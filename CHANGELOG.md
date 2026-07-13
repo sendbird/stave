@@ -1,3 +1,14 @@
+## [0.10.4](https://github.com/sendbird/stave/compare/v0.10.3...v0.10.4) (2026-07-13)
+
+### Features
+
+* Link an existing git worktree from the New Workspace dialog by entering or browsing to its path, including worktrees owned by another clone.
+* Persist linked workspaces without duplicating them during discovery, and archive them safely by removing only Stave's symlink while preserving the external worktree and branch.
+* Add the original Stave Score light theme and Stave Nocturne dark theme with complete core and extended token coverage.
+
+### References
+
+* [#141](https://github.com/sendbird/stave/pull/141), [#142](https://github.com/sendbird/stave/pull/142)
 ## [0.10.3](https://github.com/sendbird/stave/compare/v0.10.2...v0.10.3) (2026-07-13)
 
 ### Features
