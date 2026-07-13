@@ -1246,7 +1246,11 @@ function NotesSectionBody(props: {
       }}
       className="w-full cursor-text rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/40"
     >
-      <EditorMarkdownPreview content={props.notes} fontSize={13} />
+      <EditorMarkdownPreview
+        content={props.notes}
+        fontSize={13}
+        variant="embedded"
+      />
     </div>
   );
 }
