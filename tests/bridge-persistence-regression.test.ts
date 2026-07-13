@@ -3320,6 +3320,206 @@ describe("workspace store hydration ordering", () => {
     ).toEqual(["user", "assistant", "user", "assistant"]);
   });
 
+  test("keeps queued auto-dispatch scoped to its workspace when the active workspace changes", async () => {
+    const localStorage = createMemoryStorage();
+    const startedPrompts: string[] = [];
+    const queuedPrompt =
+      "There are several details in this area that need careful attention before continuing with the current work";
+    let streamListener:
+      | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
+      | null = null;
+    let resolveClassification:
+      | ((value: {
+          ok: boolean;
+          classification: {
+            taskType: "implementation";
+            complexity: "medium";
+            recommendedTier: "standard";
+            confidence: number;
+          };
+        }) => void)
+      | null = null;
+    let markClassificationStarted: (() => void) | null = null;
+    const classificationStarted = new Promise<void>((resolve) => {
+      markClassificationStarted = resolve;
+    });
+    setWindowContext({
+      localStorage,
+      api: {
+        provider: {
+          startPushTurn: async (args: { prompt?: string }) => {
+            const sequence = startedPrompts.length + 1;
+            startedPrompts.push(args.prompt ?? "");
+            return {
+              ok: true,
+              streamId: `stream-${sequence}`,
+              turnId: `turn-${sequence}`,
+            };
+          },
+          subscribeStreamEvents: (listener: typeof streamListener) => {
+            streamListener = listener;
+            return () => {
+              if (streamListener === listener) {
+                streamListener = null;
+              }
+            };
+          },
+          classifyRoute: async () => {
+            markClassificationStarted?.();
+            return await new Promise<{
+              ok: boolean;
+              classification: {
+                taskType: "implementation";
+                complexity: "medium";
+                recommendedTier: "standard";
+                confidence: number;
+              };
+            }>((resolve) => {
+              resolveClassification = resolve;
+            });
+          },
+          abortTurn: async () => ({ ok: true, message: "aborted" }),
+          cleanupTask: async () => ({ ok: true }),
+        },
+        fs: {
+          listFiles: async () => ({ ok: true, files: [] }),
+        },
+      },
+    });
+    Object.assign(window, {
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    const altTask = {
+      id: "task-alt",
+      title: "Alt Task",
+      provider: "codex" as const,
+      updatedAt: "2026-04-09T00:00:01.000Z",
+      unread: false,
+      archivedAt: null,
+    };
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-04-09T00:00:00.000Z" },
+        { id: "ws-alt", name: "Alt", updatedAt: "2026-04-09T00:00:01.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      projectPath: "/tmp/stave-project",
+      workspacePathById: {
+        "ws-main": "/tmp/stave-project",
+        "ws-alt": "/tmp/stave-project-alt",
+      },
+      workspaceBranchById: {
+        "ws-main": "main",
+        "ws-alt": "alt",
+      },
+      workspaceDefaultById: {
+        "ws-main": true,
+        "ws-alt": false,
+      },
+      draftProvider: "codex",
+      settings: {
+        ...initialState.settings,
+        autoRoutingEnabled: true,
+        autoRoutingUseClassifier: true,
+      },
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "codex",
+          updatedAt: "2026-04-09T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-main": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+      taskWorkspaceIdById: {
+        "task-main": "ws-main",
+        "task-alt": "ws-alt",
+      },
+      workspaceRuntimeCacheById: {
+        "ws-alt": buildWorkspaceSessionState({
+          snapshot: {
+            activeTaskId: altTask.id,
+            tasks: [altTask],
+            messagesByTask: { [altTask.id]: [] },
+            promptDraftByTask: {},
+            providerSessionByTask: {},
+          },
+        }),
+      },
+    });
+
+    const started = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "First prompt",
+    });
+    expect(started).toMatchObject({ status: "started" });
+    await Bun.sleep(0);
+    expect(startedPrompts).toEqual(["First prompt"]);
+
+    useAppStore.getState().updatePromptDraft({
+      taskId: "task-main",
+      patch: {
+        text: queuedPrompt,
+        runtimeOverrides: { autoRouting: true },
+      },
+    });
+    const queued = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: queuedPrompt,
+    });
+    expect(queued).toMatchObject({ status: "queued" });
+    expect(
+      useAppStore.getState().promptDraftByTask["task-main"]?.runtimeOverrides,
+    ).toEqual({ autoRouting: true });
+
+    streamListener?.({
+      streamId: "stream-1",
+      event: { type: "done" },
+      done: true,
+    });
+    await classificationStarted;
+    expect(resolveClassification).toBeFunction();
+
+    await useAppStore.getState().switchWorkspace({ workspaceId: "ws-alt" });
+    resolveClassification?.({
+      ok: true,
+      classification: {
+        taskType: "implementation",
+        complexity: "medium",
+        recommendedTier: "standard",
+        confidence: 0.9,
+      },
+    });
+    await Bun.sleep(25);
+
+    const nextState = useAppStore.getState();
+    const mainSession = nextState.workspaceRuntimeCacheById["ws-main"];
+    expect(startedPrompts).toEqual(["First prompt", queuedPrompt]);
+    expect(nextState.activeWorkspaceId).toBe("ws-alt");
+    expect(nextState.activeTurnIdsByTask["task-main"]).toBeUndefined();
+    expect(mainSession?.activeTurnIdsByTask["task-main"]).toBeString();
+    expect(
+      mainSession?.messagesByTask["task-main"]?.map((message) => message.role),
+    ).toEqual(["user", "assistant", "user", "assistant"]);
+    expect(mainSession?.promptDraftByTask["task-main"]?.text ?? "").toBe("");
+    expect(
+      mainSession?.promptDraftByTask["task-main"]?.queuedTurns,
+    ).toBeUndefined();
+  });
+
   test("submitIntent explicitly chooses steer vs queue during an active turn, with no auto fallback between them", async () => {
     const localStorage = createMemoryStorage();
     const startedPrompts: string[] = [];
