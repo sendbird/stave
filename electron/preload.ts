@@ -912,6 +912,7 @@ contextBridge.exposeInMainWorld("api", {
   },
   fs: {
     pickRoot: () => ipcRenderer.invoke("fs:pick-root"),
+    pickDirectory: () => ipcRenderer.invoke("fs:pick-directory"),
     pickFiles: (args: { rootPath: string }) =>
       ipcRenderer.invoke("fs:pick-files", args),
     resolvePath: (args: { inputPath: string }) =>
