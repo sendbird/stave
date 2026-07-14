@@ -582,6 +582,30 @@ export function mergeArchivedWorkspacePaths(args: {
   }).filter((path) => !removedPaths.has(path));
 }
 
+/**
+ * Reconcile archived-workspace tombstones for one project across two durable
+ * sources (the SQLite project registry mirror and the localStorage cache).
+ *
+ * Losing a tombstone from either source must not resurrect an archived
+ * workspace, so the sources are unioned. A stale tombstone must never hide a
+ * workspace the user re-created at the same path either, so any path that is
+ * currently registered as a workspace is dropped from the union.
+ */
+export function reconcileArchivedWorkspacePaths(args: {
+  primary?: Array<string | null | undefined> | null;
+  secondary?: Array<string | null | undefined> | null;
+  workspacePathById?: Record<string, string> | null;
+}): string[] {
+  const registeredPaths = new Set(
+    Object.values(args.workspacePathById ?? {})
+      .map((path) => normalizeComparablePath(path))
+      .filter(Boolean),
+  );
+  return normalizeArchivedWorkspacePaths({
+    paths: [...(args.primary ?? []), ...(args.secondary ?? [])],
+  }).filter((path) => !registeredPaths.has(path));
+}
+
 export function resolveImportedWorktreeName(args: {
   branch?: string | null;
   worktreePath: string;
