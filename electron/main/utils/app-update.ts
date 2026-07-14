@@ -20,6 +20,12 @@ import { runCommandArgs } from "./command";
 const FALLBACK_LOOKUP_PATH =
   "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
 
+// Guards against spawning more than one update helper from this process. Two
+// concurrent helpers race on the same install directory (mv the app bundle out
+// from under a launching build), corrupting the install. Reset on any failure
+// path so a genuine retry stays possible.
+let appUpdateScheduled = false;
+
 function resolveReleaseRepo() {
   return resolveStaveReleaseRepo(process.env.STAVE_REPO);
 }
@@ -222,10 +228,33 @@ PREFERRED_INSTALL_DIR=${quoteShell(preferredInstallDir ?? "")}
 CURRENT_APP_BUNDLE=${quoteShell(currentAppBundlePath ?? "")}
 LOG_DIR="$HOME/Library/Logs/Stave"
 LOG_FILE="$LOG_DIR/in-app-update.log"
+LOCK_DIR="$LOG_DIR/in-app-update.lock"
+LOCK_ACQUIRED=0
 
 cleanup() {
+  if [ "$LOCK_ACQUIRED" -eq 1 ]; then
+    rm -rf "$LOCK_DIR" 2>/dev/null || true
+  fi
   rm -f "$SELF"
   rmdir "$(dirname "$SELF")" 2>/dev/null || true
+}
+
+# Atomic cross-process mutex so two helpers can never run the installer against
+# the same install directory at once. mkdir is atomic; a lock left behind by a
+# dead helper is reclaimed via its recorded pid.
+acquire_lock() {
+  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    local owner
+    owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+    if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
+      rm -rf "$LOCK_DIR" 2>/dev/null || true
+      continue
+    fi
+    return 1
+  done
+  LOCK_ACQUIRED=1
+  echo "$$" > "$LOCK_DIR/pid"
+  return 0
 }
 
 wait_for_process_exit() {
@@ -271,6 +300,11 @@ fi
 
 wait_for_process_exit "$CURRENT_PID"
 
+if ! acquire_lock; then
+  ${buildTimestampedLogLine("update skipped: another in-app update is already in progress")}
+  exit 0
+fi
+
 if run_installer >> "$LOG_FILE" 2>&1; then
   ${buildTimestampedLogLine("update installed successfully")}
 else
@@ -285,53 +319,73 @@ fi
 }
 
 export async function scheduleAppUpdateInstallAndRestart(): Promise<AppUpdateInstallResult> {
-  const status = await getAppUpdateStatusSnapshot();
-  if (!status.supported) {
+  if (appUpdateScheduled) {
     return {
-      ok: false,
+      ok: true,
       scheduled: false,
-      summary: status.summary,
-      detail: status.detail,
+      summary: "An update is already being installed.",
+      detail:
+        "Stave will close and reopen once the in-progress update finishes.",
     };
   }
+  // Claim the slot before any await so two near-simultaneous invocations cannot
+  // both pass this gate and spawn competing helpers.
+  appUpdateScheduled = true;
 
-  if (status.state !== "available" || !status.canInstall) {
+  try {
+    const status = await getAppUpdateStatusSnapshot();
+    if (!status.supported) {
+      appUpdateScheduled = false;
+      return {
+        ok: false,
+        scheduled: false,
+        summary: status.summary,
+        detail: status.detail,
+      };
+    }
+
+    if (status.state !== "available" || !status.canInstall) {
+      appUpdateScheduled = false;
+      return {
+        ok: false,
+        scheduled: false,
+        summary: status.summary,
+        detail: status.detail,
+      };
+    }
+
+    const helperPath = await writeUpdateHelperScript({
+      repo: resolveReleaseRepo(),
+    });
+
+    const lookupPath =
+      resolveExecutableLookupPath({
+        basePath: process.env.PATH,
+      }) || FALLBACK_LOOKUP_PATH;
+    const helperProcess = spawn("/bin/bash", [helperPath], {
+      detached: true,
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        PATH: lookupPath,
+      },
+    });
+    helperProcess.unref();
+
+    // Skip the quit-confirmation dialog — the user already confirmed the update.
+    bypassQuitConfirmation();
+    setTimeout(() => {
+      app.quit();
+    }, 150);
+
     return {
-      ok: false,
-      scheduled: false,
-      summary: status.summary,
-      detail: status.detail,
+      ok: true,
+      scheduled: true,
+      summary: `Installing ${status.latestVersion} and restarting Stave.`,
+      detail: "Stave will close now and reopen after the update completes.",
     };
+  } catch (error) {
+    appUpdateScheduled = false;
+    throw error;
   }
-
-  const helperPath = await writeUpdateHelperScript({
-    repo: resolveReleaseRepo(),
-  });
-
-  const lookupPath =
-    resolveExecutableLookupPath({
-      basePath: process.env.PATH,
-    }) || FALLBACK_LOOKUP_PATH;
-  const helperProcess = spawn("/bin/bash", [helperPath], {
-    detached: true,
-    stdio: "ignore",
-    env: {
-      ...process.env,
-      PATH: lookupPath,
-    },
-  });
-  helperProcess.unref();
-
-  // Skip the quit-confirmation dialog — the user already confirmed the update.
-  bypassQuitConfirmation();
-  setTimeout(() => {
-    app.quit();
-  }, 150);
-
-  return {
-    ok: true,
-    scheduled: true,
-    summary: `Installing ${status.latestVersion} and restarting Stave.`,
-    detail: "Stave will close now and reopen after the update completes.",
-  };
 }
