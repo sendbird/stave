@@ -2618,6 +2618,142 @@ describe("workspace store hydration ordering", () => {
     expect(upsertCalls).toHaveLength(0);
   });
 
+  test("hydrateWorkspaces keeps worktrees archived even when the cached project state lost the tombstone", async () => {
+    const localStorage = createMemoryStorage();
+    const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
+      [];
+    const projectPath = "/tmp/stave-project";
+    const defaultWorkspaceId = buildProjectDefaultWorkspaceId({ projectPath });
+    const archivedWorkspacePath =
+      "/tmp/stave-project/.stave/workspaces/feature__perf";
+    const registryProject = {
+      projectPath,
+      projectName: "stave-project",
+      lastOpenedAt: "2026-03-10T00:00:00.000Z",
+      defaultBranch: "main",
+      workspaces: [
+        {
+          id: defaultWorkspaceId,
+          name: "Default Workspace",
+          updatedAt: "2026-03-10T00:00:00.000Z",
+        },
+      ],
+      activeWorkspaceId: defaultWorkspaceId,
+      workspaceBranchById: { [defaultWorkspaceId]: "main" },
+      workspacePathById: { [defaultWorkspaceId]: projectPath },
+      workspaceDefaultById: { [defaultWorkspaceId]: true },
+    };
+
+    setWindowContext({
+      localStorage,
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({
+            ok: true,
+            rows: [
+              {
+                id: defaultWorkspaceId,
+                name: "Default Workspace",
+                updatedAt: "2026-03-10T00:00:00.000Z",
+              },
+            ],
+          }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
+          // The SQLite registry mirror still remembers the tombstone.
+          loadProjectRegistry: async () => ({
+            ok: true,
+            projects: [
+              {
+                ...registryProject,
+                archivedWorkspacePaths: [archivedWorkspacePath],
+              },
+            ],
+          }),
+          saveProjectRegistry: async () => ({ ok: true }),
+          upsertWorkspace: async (args: {
+            id: string;
+            name: string;
+            snapshot: unknown;
+          }) => {
+            upsertCalls.push(args);
+            return { ok: true };
+          },
+        },
+        terminal: {
+          runCommand: async ({
+            command,
+          }: {
+            cwd?: string;
+            command: string;
+          }) => {
+            if (command === "git worktree prune") {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (command === "git worktree list --porcelain") {
+              return {
+                ok: true,
+                code: 0,
+                stdout: [
+                  "worktree /tmp/stave-project",
+                  "HEAD abc123",
+                  "branch refs/heads/main",
+                  "",
+                  "worktree /tmp/stave-project/.stave/workspaces/feature__perf",
+                  "HEAD def456",
+                  "branch refs/heads/feature/perf",
+                ].join("\n"),
+                stderr: "",
+              };
+            }
+            return {
+              ok: false,
+              code: 1,
+              stdout: "",
+              stderr: `Unexpected command: ${command}`,
+            };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      projectPath,
+      projectName: "stave-project",
+      defaultBranch: "main",
+      hasHydratedWorkspaces: false,
+      // The localStorage cache lost the tombstone AND looks newer than the
+      // registry mirror — the merge must still restore the tombstone.
+      recentProjects: [
+        {
+          ...registryProject,
+          lastOpenedAt: "2026-03-11T00:00:00.000Z",
+        },
+      ],
+    });
+
+    await useAppStore.getState().hydrateWorkspaces();
+
+    const nextState = useAppStore.getState();
+    expect(nextState.workspaces.map((workspace) => workspace.id)).toEqual([
+      defaultWorkspaceId,
+    ]);
+    expect(
+      nextState.workspaces.some(
+        (workspace) => workspace.name === "feature/perf",
+      ),
+    ).toBe(false);
+    expect(upsertCalls).toHaveLength(0);
+    expect(
+      nextState.recentProjects.find(
+        (project) => project.projectPath === projectPath,
+      )?.archivedWorkspacePaths,
+    ).toEqual([archivedWorkspacePath]);
+  });
+
   test("refreshWorkspaces does not overwrite an already persisted imported worktree with an empty snapshot", async () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
@@ -5113,7 +5249,13 @@ describe("workspace store hydration ordering", () => {
             if (
               call.cwd === "/tmp/stave-project-close" &&
               call.command ===
-                `git worktree remove ${JSON.stringify(workspacePath)}`
+                `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
+              call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
             ) {
               return { ok: true, code: 0, stdout: "", stderr: "" };
             }
@@ -5187,6 +5329,7 @@ describe("workspace store hydration ordering", () => {
 
     expect(runCalls.map((call) => call.command)).toEqual([
       "git status --porcelain --untracked-files=all",
+      `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
       `git worktree remove ${JSON.stringify(workspacePath)}`,
       "git worktree prune",
       'git rev-list --count "feature" --not --remotes',
@@ -5442,7 +5585,13 @@ describe("workspace store hydration ordering", () => {
               if (
                 call.cwd === "/tmp/stave-project-close" &&
                 call.command ===
-                  `git worktree remove ${JSON.stringify(workspacePath)}`
+                  `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`
+              ) {
+                return { ok: true, code: 0, stdout: "", stderr: "" };
+              }
+              if (
+                call.cwd === "/tmp/stave-project-close" &&
+                call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
               ) {
                 return { ok: true, code: 0, stdout: "", stderr: "" };
               }
@@ -5514,6 +5663,7 @@ describe("workspace store hydration ordering", () => {
 
     expect(runCalls.map((call) => call.command)).toEqual([
       "git status --porcelain --untracked-files=all",
+      `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
       `git worktree remove ${JSON.stringify(workspacePath)}`,
       "git worktree prune",
       'git rev-list --count "feature" --not --remotes',

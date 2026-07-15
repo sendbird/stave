@@ -2,38 +2,61 @@ import {
   AlertTriangle,
   ArrowRight,
   Bot,
+  ChevronDown,
+  ChevronRight,
   CircleDashed,
+  Cpu,
   FolderTree,
   LoaderCircle,
+  Minus,
   Radio,
+  Search,
   ShieldCheck,
+  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
 import {
   memo,
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
-import { Badge, Button, Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  Input,
+} from "@/components/ui";
 import {
   loadWorkspaceShellSummary,
   type WorkspaceShellSummary,
 } from "@/lib/db/workspaces.db";
 import {
   classifyTaskStatus,
+  collectFleetAttentionTasks,
+  compareFleetAttentionTasks,
   compareFleetTaskStatus,
   deriveFleetLifecycleStatus,
   FLEET_LIFECYCLE_LABEL,
   groupFleetWorkspacesByLane,
   hasFleetTaskAttentionStatus,
+  isFleetTaskFilterActive,
+  matchesFleetTaskFilter,
+  type FleetAttentionTask,
+  type FleetDisplayStatus,
   type FleetLifecycleStatus,
-  type FleetTaskStatus,
+  type FleetTaskFilter,
 } from "@/lib/fleet/task-status";
 import {
   PR_STATUS_VISUAL,
@@ -68,15 +91,12 @@ type FleetWorkspaceView = {
   branch?: string;
 };
 
-type FleetDisplayStatus = FleetTaskStatus | "unknown";
-
-type FleetAttentionTarget = {
+type FleetAttentionTarget = FleetAttentionTask & {
   projectPath: string;
+  projectName: string;
   workspaceId: string;
   workspaceName: string;
-  taskId: string;
   taskTitle: string;
-  status: FleetTaskStatus;
 };
 
 type FleetTaskRowView = {
@@ -86,13 +106,38 @@ type FleetTaskRowView = {
   updatedLabel: string;
 };
 
+type FleetTaskNavigationDirection = "up" | "down" | "first" | "last";
+
+type FleetWorkspaceVisibility = {
+  visible: boolean;
+  matchedTaskCount: number;
+  renderedTaskIds: string[];
+};
+
+type FleetLaneCollapseState = Record<
+  string,
+  Partial<Record<FleetLifecycleStatus, boolean>>
+>;
+
 const EMPTY_TASKS: Task[] = [];
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const EMPTY_MESSAGES_BY_TASK: Record<string, ChatMessage[]> = {};
 const EMPTY_MESSAGE_COUNT_BY_TASK: Record<string, number> = {};
 const EMPTY_ACTIVE_TURN_IDS_BY_TASK: Record<string, string | undefined> = {};
 const EMPTY_TODOS: WorkspaceTodoItem[] = [];
+const EMPTY_WORKSPACE_VISIBILITY: Record<string, FleetWorkspaceVisibility> = {};
 const FLEET_UNKNOWN_STATUS_PRIORITY = 5;
+
+const FLEET_FILTER_OPTIONS: Array<{
+  value: FleetTaskFilter;
+  label: string;
+}> = [
+  { value: "all", label: "All" },
+  { value: "attention", label: "Needs attention" },
+  { value: "running", label: "Running" },
+  { value: "error", label: "Error" },
+  { value: "idle", label: "Idle" },
+];
 
 function formatWorkspaceName(name: string, branch?: string) {
   if (isDefaultWorkspaceName(name)) {
@@ -121,6 +166,50 @@ function compareFleetDisplayStatus(
 
 function formatMessageCount(count: number) {
   return `${count} message${count === 1 ? "" : "s"}`;
+}
+
+function formatTaskTitle(task: Task) {
+  return task.title || "Untitled Task";
+}
+
+function getFleetWorkspaceKey(projectPath: string, workspaceId: string) {
+  return JSON.stringify([projectPath, workspaceId]);
+}
+
+function getFleetTaskKey(
+  projectPath: string,
+  workspaceId: string,
+  taskId: string,
+) {
+  return JSON.stringify([projectPath, workspaceId, taskId]);
+}
+
+function formatFleetStatusLabel(status: FleetDisplayStatus) {
+  switch (status) {
+    case "waiting-input":
+      return "Needs input";
+    case "waiting-approval":
+      return "Needs approval";
+    case "unknown":
+      return "Not loaded";
+    default:
+      return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+}
+
+function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
+  const Icon = provider === "codex" ? Cpu : Sparkles;
+  const label = provider === "codex" ? "Codex" : "Claude";
+
+  return (
+    <span
+      className="inline-flex size-5 shrink-0 items-center justify-center rounded-sm bg-muted/60 text-muted-foreground"
+      title={`${label} provider`}
+    >
+      <Icon className="size-3" aria-hidden="true" />
+      <span className="sr-only">{label} provider</span>
+    </span>
+  );
 }
 
 function useFleetProjects() {
@@ -209,12 +298,12 @@ function FleetStatusBadge({ status }: { status: FleetDisplayStatus }) {
     }
   > = {
     "waiting-input": {
-      label: "Input",
+      label: "Needs input",
       icon: <UserRound className="size-3" />,
       className: "border-warning/40 bg-warning/10 text-warning",
     },
     "waiting-approval": {
-      label: "Approval",
+      label: "Needs approval",
       icon: <ShieldCheck className="size-3" />,
       className: "border-warning/40 bg-warning/10 text-warning",
     },
@@ -234,15 +323,29 @@ function FleetStatusBadge({ status }: { status: FleetDisplayStatus }) {
       className: "border-border bg-muted/40 text-muted-foreground",
     },
     unknown: {
-      label: "Unknown",
-      icon: <CircleDashed className="size-3" />,
-      className: "border-border bg-muted/30 text-muted-foreground",
+      label: "Not loaded",
+      icon: <Minus className="size-3" />,
+      className: "border-border/60 bg-muted/20 text-muted-foreground",
     },
   };
   const item = config[status];
+  const isUnknown = status === "unknown";
 
   return (
-    <Badge variant="outline" className={cn("rounded-sm", item.className)}>
+    <Badge
+      variant="outline"
+      className={cn("rounded-sm", item.className)}
+      title={
+        isUnknown
+          ? "Status unavailable until the workspace is opened"
+          : item.label
+      }
+      aria-label={
+        isUnknown
+          ? "Status unavailable until the workspace is opened"
+          : undefined
+      }
+    >
       {item.icon}
       {item.label}
     </Badge>
@@ -274,22 +377,78 @@ function FleetTaskRow(args: {
   workspaceName: string;
   branch?: string;
   row: FleetTaskRowView;
+  tabIndex: number;
+  taskKey: string;
+  isFocused: boolean;
+  onFocus: (taskKey: string) => void;
+  onMoveFocus: (
+    taskKey: string,
+    direction: FleetTaskNavigationDirection,
+  ) => void;
   onOpenTask: (target: {
     projectPath: string;
     workspaceId: string;
     taskId: string;
   }) => void;
 }) {
+  const taskTitle = formatTaskTitle(args.row.task);
+  const statusLabel = formatFleetStatusLabel(args.row.status);
+
   return (
-    <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 px-4 py-2.5 transition-colors hover:bg-muted/25">
-      <div className="min-w-0 space-y-1">
-        <div className="flex min-w-0 items-center gap-2">
+    <button
+      type="button"
+      data-fleet-task-row="true"
+      data-task-key={args.taskKey}
+      className={cn(
+        "group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 px-4 py-2.5 text-left transition-colors hover:bg-muted/25 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70",
+        args.isFocused && "bg-muted/15",
+      )}
+      tabIndex={args.tabIndex}
+      aria-label={`Open ${taskTitle}, ${statusLabel}`}
+      onFocus={() => args.onFocus(args.taskKey)}
+      onClick={() =>
+        args.onOpenTask({
+          projectPath: args.projectPath,
+          workspaceId: args.workspaceId,
+          taskId: args.row.task.id,
+        })
+      }
+      onKeyDown={(event) => {
+        if (
+          event.defaultPrevented ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey
+        ) {
+          return;
+        }
+        const key = event.key.toLowerCase();
+        const direction =
+          event.key === "ArrowUp" || key === "k"
+            ? "up"
+            : event.key === "ArrowDown" || key === "j"
+              ? "down"
+              : event.key === "Home"
+                ? "first"
+                : event.key === "End"
+                  ? "last"
+                  : null;
+        if (!direction) {
+          return;
+        }
+        event.preventDefault();
+        args.onMoveFocus(args.taskKey, direction);
+      }}
+    >
+      <span className="min-w-0 space-y-1">
+        <span className="flex min-w-0 items-center gap-2">
           <FleetStatusBadge status={args.row.status} />
+          <FleetProviderIcon provider={args.row.task.provider} />
           <span className="truncate text-sm font-medium text-foreground">
-            {args.row.task.title || "Untitled Task"}
+            {taskTitle}
           </span>
-        </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        </span>
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span className="truncate">
             {formatWorkspaceName(args.workspaceName, args.branch)}
           </span>
@@ -301,48 +460,70 @@ function FleetTaskRow(args: {
               <span>{formatMessageCount(args.row.messageCount)}</span>
             </>
           ) : null}
-        </div>
-      </div>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        className="h-8 rounded-sm px-2"
-        onClick={() =>
-          args.onOpenTask({
-            projectPath: args.projectPath,
-            workspaceId: args.workspaceId,
-            taskId: args.row.task.id,
-          })
-        }
-      >
-        <ArrowRight className="size-4" />
-        Open
-      </Button>
-    </div>
+        </span>
+      </span>
+      <span className="inline-flex h-8 items-center gap-1 rounded-sm px-2 text-sm text-muted-foreground transition-colors group-hover:text-foreground">
+        <ArrowRight className="size-4" aria-hidden="true" />
+        <span className="hidden sm:inline">Open</span>
+      </span>
+    </button>
   );
 }
 
 const MemoizedFleetTaskRow = memo(FleetTaskRow);
 
+function FleetTaskSkeleton() {
+  return (
+    <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 px-4 py-2.5">
+      <div className="space-y-2">
+        <div className="h-3.5 w-2/3 animate-pulse rounded-sm bg-muted" />
+        <div className="h-3 w-1/3 animate-pulse rounded-sm bg-muted/70" />
+      </div>
+      <div className="h-8 w-14 animate-pulse rounded-sm bg-muted" />
+    </div>
+  );
+}
+
 function FleetWorkspaceSection(args: {
   projectPath: string;
+  projectName: string;
   workspace: FleetWorkspaceView;
+  filter: FleetTaskFilter;
+  searchQuery: string;
+  isFilterActive: boolean;
+  isCollapsed: boolean;
+  isHiddenByAncestor: boolean;
+  focusedTaskKey: string | null;
+  onFocusTask: (taskKey: string) => void;
+  onMoveFocus: (
+    taskKey: string,
+    direction: FleetTaskNavigationDirection,
+  ) => void;
+  onToggleWorkspace: (workspaceId: string) => void;
   onOpenTask: (target: {
     projectPath: string;
     workspaceId: string;
     taskId: string;
   }) => void;
-  onAttentionTargetChange: (
+  onAttentionTargetsChange: (
     workspaceId: string,
-    target: FleetAttentionTarget | null,
+    targets: FleetAttentionTarget[],
   ) => void;
   onLifecycleChange: (
     workspaceId: string,
     status: FleetLifecycleStatus | null,
   ) => void;
+  onVisibilityChange: (
+    workspaceId: string,
+    visibility: FleetWorkspaceVisibility,
+  ) => void;
 }) {
+  const workspaceKey = getFleetWorkspaceKey(
+    args.projectPath,
+    args.workspace.id,
+  );
   const [
+    activeProjectPath,
     activeWorkspaceId,
     activeTasks,
     activeMessagesByTask,
@@ -356,25 +537,32 @@ function FleetWorkspaceSection(args: {
     useShallow(
       (state) =>
         [
+          state.projectPath,
           state.activeWorkspaceId,
+          state.projectPath === args.projectPath &&
           state.activeWorkspaceId === args.workspace.id
             ? state.tasks
             : EMPTY_TASKS,
+          state.projectPath === args.projectPath &&
           state.activeWorkspaceId === args.workspace.id
             ? state.messagesByTask
             : EMPTY_MESSAGES_BY_TASK,
+          state.projectPath === args.projectPath &&
           state.activeWorkspaceId === args.workspace.id
             ? state.messageCountByTask
             : EMPTY_MESSAGE_COUNT_BY_TASK,
+          state.projectPath === args.projectPath &&
           state.activeWorkspaceId === args.workspace.id
             ? state.activeTurnIdsByTask
             : EMPTY_ACTIVE_TURN_IDS_BY_TASK,
           state.providerTurnActivityByTask,
           state.workspaceRuntimeCacheById[args.workspace.id] ?? null,
           state.workspacePrInfoById[args.workspace.id]?.derived ?? null,
+          state.projectPath === args.projectPath &&
           state.activeWorkspaceId === args.workspace.id
             ? state.workspaceInformation.todos
-            : EMPTY_TODOS,
+            : (state.workspaceRuntimeCacheById[args.workspace.id]
+                ?.workspaceInformation.todos ?? EMPTY_TODOS),
         ] as const,
     ),
   );
@@ -383,16 +571,13 @@ function FleetWorkspaceSection(args: {
   >(undefined);
   const [isShellLoading, setIsShellLoading] = useState(false);
   const [didShellLoadFail, setDidShellLoadFail] = useState(false);
-  const hasRuntimeState =
-    activeWorkspaceId === args.workspace.id || Boolean(runtimeState);
+  const isActiveWorkspace =
+    activeProjectPath === args.projectPath &&
+    activeWorkspaceId === args.workspace.id;
+  const hasRuntimeState = isActiveWorkspace || Boolean(runtimeState);
 
   useEffect(() => {
-    if (
-      hasRuntimeState ||
-      loadedShell !== undefined ||
-      isShellLoading ||
-      didShellLoadFail
-    ) {
+    if (hasRuntimeState || loadedShell !== undefined || didShellLoadFail) {
       return;
     }
 
@@ -419,16 +604,10 @@ function FleetWorkspaceSection(args: {
     return () => {
       cancelled = true;
     };
-  }, [
-    args.workspace.id,
-    didShellLoadFail,
-    hasRuntimeState,
-    isShellLoading,
-    loadedShell,
-  ]);
+  }, [args.workspace.id, didShellLoadFail, hasRuntimeState, loadedShell]);
 
   const taskState = useMemo(() => {
-    if (activeWorkspaceId === args.workspace.id) {
+    if (isActiveWorkspace) {
       return {
         hasRuntimeState: true,
         tasks: activeTasks,
@@ -461,8 +640,8 @@ function FleetWorkspaceSection(args: {
     activeMessagesByTask,
     activeTasks,
     activeTurnIdsByTask,
-    activeWorkspaceId,
     args.workspace.id,
+    isActiveWorkspace,
     loadedShell,
     runtimeState,
   ]);
@@ -487,13 +666,84 @@ function FleetWorkspaceSection(args: {
         } satisfies FleetTaskRowView;
       })
       .sort((left, right) => {
-        const statusOrder = compareFleetDisplayStatus(left.status, right.status);
+        const statusOrder = compareFleetDisplayStatus(
+          left.status,
+          right.status,
+        );
         if (statusOrder !== 0) {
           return statusOrder;
         }
         return right.task.updatedAt.localeCompare(left.task.updatedAt);
       });
   }, [providerTurnActivityByTask, taskState]);
+
+  const displayWorkspaceName = formatWorkspaceName(
+    args.workspace.name,
+    args.workspace.branch,
+  );
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((row) =>
+        matchesFleetTaskFilter({
+          status: row.status,
+          filter: args.filter,
+          query: args.searchQuery,
+          taskTitle: formatTaskTitle(row.task),
+          workspaceName: displayWorkspaceName,
+          projectName: args.projectName,
+        }),
+      ),
+    [
+      args.filter,
+      args.projectName,
+      args.searchQuery,
+      displayWorkspaceName,
+      rows,
+    ],
+  );
+  const attentionTargets = useMemo(() => {
+    if (!taskState.hasRuntimeState) {
+      return [];
+    }
+
+    const attentionByTaskId = new Map(
+      collectFleetAttentionTasks({
+        tasks: taskState.tasks,
+        messagesByTask: taskState.messagesByTask,
+        activeTurnIdsByTask: taskState.activeTurnIdsByTask,
+        providerTurnActivityByTask,
+      }).map((task) => [task.taskId, task] as const),
+    );
+
+    return rows.flatMap((row) => {
+      const attention = attentionByTaskId.get(row.task.id);
+      if (
+        !attention ||
+        row.status === "unknown" ||
+        !hasFleetTaskAttentionStatus(row.status)
+      ) {
+        return [];
+      }
+      return [
+        {
+          ...attention,
+          projectPath: args.projectPath,
+          projectName: args.projectName,
+          workspaceId: args.workspace.id,
+          workspaceName: displayWorkspaceName,
+          taskTitle: formatTaskTitle(row.task),
+        } satisfies FleetAttentionTarget,
+      ];
+    });
+  }, [
+    args.projectName,
+    args.projectPath,
+    args.workspace.id,
+    displayWorkspaceName,
+    providerTurnActivityByTask,
+    rows,
+    taskState,
+  ]);
 
   const todoProgress = useMemo(() => {
     const total = activeTodos.length;
@@ -502,31 +752,6 @@ function FleetWorkspaceSection(args: {
     ).length;
     return { completed, total };
   }, [activeTodos]);
-
-  const firstAttentionTarget = useMemo(() => {
-    const row = rows.find(
-      (candidate) =>
-        candidate.status !== "unknown" &&
-        hasFleetTaskAttentionStatus(candidate.status),
-    );
-    if (!row || row.status === "unknown") {
-      return null;
-    }
-
-    return {
-      projectPath: args.projectPath,
-      workspaceId: args.workspace.id,
-      workspaceName: args.workspace.name,
-      taskId: row.task.id,
-      taskTitle: row.task.title,
-      status: row.status,
-    } satisfies FleetAttentionTarget;
-  }, [args.projectPath, args.workspace.id, args.workspace.name, rows]);
-
-  useEffect(() => {
-    args.onAttentionTargetChange(args.workspace.id, firstAttentionTarget);
-    return () => args.onAttentionTargetChange(args.workspace.id, null);
-  }, [args.onAttentionTargetChange, args.workspace.id, firstAttentionTarget]);
 
   const lifecycle = useMemo<FleetLifecycleStatus>(
     () =>
@@ -539,40 +764,93 @@ function FleetWorkspaceSection(args: {
       }),
     [prStatus, rows],
   );
+  const isVisible = !args.isFilterActive || filteredRows.length > 0;
+  const visibility = useMemo<FleetWorkspaceVisibility>(
+    () => ({
+      visible: isVisible,
+      matchedTaskCount: filteredRows.length,
+      renderedTaskIds:
+        isVisible && !args.isCollapsed && !args.isHiddenByAncestor
+          ? filteredRows.map((row) =>
+              getFleetTaskKey(args.projectPath, args.workspace.id, row.task.id),
+            )
+          : [],
+    }),
+    [
+      args.isCollapsed,
+      args.isHiddenByAncestor,
+      args.projectPath,
+      args.workspace.id,
+      filteredRows,
+      isVisible,
+    ],
+  );
 
   useEffect(() => {
-    args.onLifecycleChange(args.workspace.id, lifecycle);
-    return () => args.onLifecycleChange(args.workspace.id, null);
-  }, [args.onLifecycleChange, args.workspace.id, lifecycle]);
+    args.onAttentionTargetsChange(workspaceKey, attentionTargets);
+  }, [args.onAttentionTargetsChange, attentionTargets, workspaceKey]);
+
+  useEffect(() => {
+    args.onLifecycleChange(workspaceKey, lifecycle);
+  }, [args.onLifecycleChange, lifecycle, workspaceKey]);
+
+  useEffect(() => {
+    args.onVisibilityChange(workspaceKey, visibility);
+  }, [args.onVisibilityChange, visibility, workspaceKey]);
+
+  if (!isVisible) {
+    return null;
+  }
 
   return (
     <section className="border-b border-border/70">
-      <div className="flex min-h-12 items-center justify-between gap-3 bg-card/60 px-4 py-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-semibold text-foreground">
-              {formatWorkspaceName(args.workspace.name, args.workspace.branch)}
+      <button
+        type="button"
+        className="group flex min-h-12 w-full items-center justify-between gap-3 bg-card/60 px-4 py-2 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+        aria-expanded={!args.isCollapsed}
+        aria-label={`${args.isCollapsed ? "Expand" : "Collapse"} ${displayWorkspaceName} workspace section`}
+        onClick={() => args.onToggleWorkspace(workspaceKey)}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          {args.isCollapsed ? (
+            <ChevronRight
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+          ) : (
+            <ChevronDown
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+          )}
+          <span className="min-w-0">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-semibold text-foreground">
+                {displayWorkspaceName}
+              </span>
+              {args.workspace.isDefault ? (
+                <Badge variant="secondary" className="rounded-sm text-[10px]">
+                  Default
+                </Badge>
+              ) : null}
             </span>
-            {args.workspace.isDefault ? (
-              <Badge variant="secondary" className="rounded-sm text-[10px]">
-                Default
-              </Badge>
-            ) : null}
-          </div>
-          <p className="truncate text-xs text-muted-foreground">
-            {rows.length === 0
-              ? isShellLoading
-                ? "Loading tasks..."
-                : didShellLoadFail
-                  ? "Tasks unavailable"
-                  : "No active tasks"
-              : `${rows.length} task${rows.length === 1 ? "" : "s"}`}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {todoProgress.total > 0 ? (
+            <span className="block truncate text-xs text-muted-foreground">
+              {rows.length === 0
+                ? isShellLoading
+                  ? "Loading tasks..."
+                  : didShellLoadFail
+                    ? "Tasks unavailable"
+                    : "No active tasks"
+                : args.isFilterActive && filteredRows.length !== rows.length
+                  ? `${filteredRows.length} of ${rows.length} tasks shown`
+                  : `${rows.length} task${rows.length === 1 ? "" : "s"}`}
+            </span>
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          {taskState.hasRuntimeState && todoProgress.total > 0 ? (
             <span
-              className="inline-flex items-center gap-1.5"
+              className="hidden items-center gap-1.5 sm:inline-flex"
               title={`${todoProgress.completed} of ${todoProgress.total} todos done`}
             >
               <span className="h-1 w-12 overflow-hidden rounded-full bg-muted">
@@ -591,19 +869,55 @@ function FleetWorkspaceSection(args: {
             </span>
           ) : null}
           <WorkspacePrBadge status={prStatus} />
+        </span>
+      </button>
+      {!args.isCollapsed ? (
+        <div>
+          {isShellLoading && !hasRuntimeState && rows.length === 0 ? (
+            <>
+              <FleetTaskSkeleton />
+              <FleetTaskSkeleton />
+            </>
+          ) : (
+            filteredRows.map((row) => (
+              <MemoizedFleetTaskRow
+                key={row.task.id}
+                projectPath={args.projectPath}
+                workspaceId={args.workspace.id}
+                workspaceName={args.workspace.name}
+                branch={args.workspace.branch}
+                row={row}
+                taskKey={getFleetTaskKey(
+                  args.projectPath,
+                  args.workspace.id,
+                  row.task.id,
+                )}
+                tabIndex={
+                  args.focusedTaskKey ===
+                  getFleetTaskKey(
+                    args.projectPath,
+                    args.workspace.id,
+                    row.task.id,
+                  )
+                    ? 0
+                    : -1
+                }
+                isFocused={
+                  args.focusedTaskKey ===
+                  getFleetTaskKey(
+                    args.projectPath,
+                    args.workspace.id,
+                    row.task.id,
+                  )
+                }
+                onFocus={args.onFocusTask}
+                onMoveFocus={args.onMoveFocus}
+                onOpenTask={args.onOpenTask}
+              />
+            ))
+          )}
         </div>
-      </div>
-      {rows.map((row) => (
-        <MemoizedFleetTaskRow
-          key={row.task.id}
-          projectPath={args.projectPath}
-          workspaceId={args.workspace.id}
-          workspaceName={args.workspace.name}
-          branch={args.workspace.branch}
-          row={row}
-          onOpenTask={args.onOpenTask}
-        />
-      ))}
+      ) : null}
     </section>
   );
 }
@@ -617,11 +931,34 @@ const FLEET_LIFECYCLE_DOT: Record<FleetLifecycleStatus, string> = {
   done: "bg-success",
 };
 
-function FleetLaneHeader(args: { lane: FleetLifecycleStatus; count: number }) {
+function FleetLaneHeader(args: {
+  lane: FleetLifecycleStatus;
+  count: number;
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <div className="flex items-center gap-2 border-t border-border/60 bg-background/80 px-4 py-1.5">
+    <button
+      type="button"
+      className="flex min-h-8 w-full items-center gap-2 border-t border-border/60 bg-background/80 px-4 py-1.5 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+      aria-expanded={!args.isCollapsed}
+      aria-label={`${args.isCollapsed ? "Expand" : "Collapse"} ${FLEET_LIFECYCLE_LABEL[args.lane]} lane`}
+      onClick={args.onToggle}
+    >
+      {args.isCollapsed ? (
+        <ChevronRight
+          className="size-3.5 text-muted-foreground"
+          aria-hidden="true"
+        />
+      ) : (
+        <ChevronDown
+          className="size-3.5 text-muted-foreground"
+          aria-hidden="true"
+        />
+      )}
       <span
         className={cn("size-1.5 rounded-full", FLEET_LIFECYCLE_DOT[args.lane])}
+        aria-hidden="true"
       />
       <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         {FLEET_LIFECYCLE_LABEL[args.lane]}
@@ -629,7 +966,7 @@ function FleetLaneHeader(args: { lane: FleetLifecycleStatus; count: number }) {
       <span className="text-[11px] tabular-nums text-muted-foreground">
         {args.count}
       </span>
-    </div>
+    </button>
   );
 }
 
@@ -638,36 +975,100 @@ export function FleetView() {
   const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
   const closeFleetView = useAppStore((state) => state.closeFleetView);
   const [attentionTargetsByWorkspaceId, setAttentionTargetsByWorkspaceId] =
-    useState<Record<string, FleetAttentionTarget>>({});
+    useState<Record<string, FleetAttentionTarget[]>>({});
   const [lifecycleByWorkspaceId, setLifecycleByWorkspaceId] = useState<
     Record<string, FleetLifecycleStatus>
   >({});
+  const [workspaceVisibilityById, setWorkspaceVisibilityById] = useState<
+    Record<string, FleetWorkspaceVisibility>
+  >(EMPTY_WORKSPACE_VISIBILITY);
+  const [collapsedProjects, setCollapsedProjects] = useState<
+    Record<string, boolean>
+  >({});
+  const [collapsedWorkspaces, setCollapsedWorkspaces] = useState<
+    Record<string, boolean>
+  >({});
+  const [collapsedLanes, setCollapsedLanes] = useState<FleetLaneCollapseState>(
+    {},
+  );
+  const [statusFilter, setStatusFilter] = useState<FleetTaskFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [focusedTaskKey, setFocusedTaskKey] = useState<string | null>(null);
+  const [selectedAttentionKey, setSelectedAttentionKey] = useState<
+    string | null
+  >(null);
+  const fleetRootRef = useRef<HTMLDivElement>(null);
+  const filterInputRef = useRef<HTMLInputElement>(null);
+
+  const isFilterActive = isFleetTaskFilterActive({
+    filter: statusFilter,
+    query: searchQuery,
+  });
+
+  const allWorkspaceKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const project of projects) {
+      for (const workspace of project.workspaces) {
+        keys.push(getFleetWorkspaceKey(project.projectPath, workspace.id));
+      }
+    }
+    return keys;
+  }, [projects]);
+  const allWorkspaceKeySet = useMemo(
+    () => new Set(allWorkspaceKeys),
+    [allWorkspaceKeys],
+  );
+
+  const attentionTargets = useMemo(() => {
+    const targets = allWorkspaceKeys.flatMap(
+      (workspaceKey) => attentionTargetsByWorkspaceId[workspaceKey] ?? [],
+    );
+    return targets.sort((left, right) => {
+      const statusOrder = compareFleetAttentionTasks(left, right);
+      if (statusOrder !== 0) {
+        return statusOrder;
+      }
+      return `${left.projectName}/${left.workspaceName}/${left.taskTitle}`.localeCompare(
+        `${right.projectName}/${right.workspaceName}/${right.taskTitle}`,
+      );
+    });
+  }, [allWorkspaceKeys, attentionTargetsByWorkspaceId]);
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) {
-        return;
-      }
-      closeFleetView();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeFleetView]);
+    if (
+      selectedAttentionKey &&
+      !attentionTargets.some(
+        (target) =>
+          getFleetTaskKey(
+            target.projectPath,
+            target.workspaceId,
+            target.taskId,
+          ) === selectedAttentionKey,
+      )
+    ) {
+      setSelectedAttentionKey(null);
+    }
+  }, [attentionTargets, selectedAttentionKey]);
 
-  const handleAttentionTargetChange = useCallback(
-    (workspaceId: string, target: FleetAttentionTarget | null) => {
+  const handleAttentionTargetsChange = useCallback(
+    (workspaceId: string, targets: FleetAttentionTarget[]) => {
       setAttentionTargetsByWorkspaceId((current) => {
-        const existing = current[workspaceId] ?? null;
-        if (
-          existing?.taskId === target?.taskId &&
-          existing?.status === target?.status
-        ) {
+        const existing = current[workspaceId] ?? [];
+        const isEqual =
+          existing.length === targets.length &&
+          existing.every(
+            (target, index) =>
+              target.taskId === targets[index]?.taskId &&
+              target.status === targets[index]?.status &&
+              target.updatedAt === targets[index]?.updatedAt,
+          );
+        if (isEqual) {
           return current;
         }
 
         const next = { ...current };
-        if (target) {
-          next[workspaceId] = target;
+        if (targets.length > 0) {
+          next[workspaceId] = targets;
         } else {
           delete next[workspaceId];
         }
@@ -695,17 +1096,28 @@ export function FleetView() {
     [],
   );
 
-  const nextAttentionTarget = useMemo(() => {
-    for (const project of projects) {
-      for (const workspace of project.workspaces) {
-        const target = attentionTargetsByWorkspaceId[workspace.id];
-        if (target) {
-          return target;
+  const handleVisibilityChange = useCallback(
+    (workspaceId: string, visibility: FleetWorkspaceVisibility) => {
+      setWorkspaceVisibilityById((current) => {
+        const existing = current[workspaceId];
+        const sameRows =
+          existing?.renderedTaskIds.length ===
+            visibility.renderedTaskIds.length &&
+          existing?.renderedTaskIds.every(
+            (taskId, index) => taskId === visibility.renderedTaskIds[index],
+          );
+        if (
+          existing?.visible === visibility.visible &&
+          existing?.matchedTaskCount === visibility.matchedTaskCount &&
+          sameRows
+        ) {
+          return current;
         }
-      }
-    }
-    return null;
-  }, [attentionTargetsByWorkspaceId, projects]);
+        return { ...current, [workspaceId]: visibility };
+      });
+    },
+    [],
+  );
 
   const handleOpenTask = useCallback(
     (target: { projectPath: string; workspaceId: string; taskId: string }) => {
@@ -714,13 +1126,224 @@ export function FleetView() {
     [focusTaskAttention],
   );
 
+  const handleFocusTask = useCallback((taskKey: string) => {
+    setFocusedTaskKey(taskKey);
+  }, []);
+
+  const handleMoveFocus = useCallback(
+    (taskKey: string, direction: FleetTaskNavigationDirection) => {
+      const root = fleetRootRef.current;
+      if (!root) {
+        return;
+      }
+      const rows = Array.from(
+        root.querySelectorAll<HTMLButtonElement>("[data-fleet-task-row]"),
+      ).filter((row) => !row.closest("[hidden]"));
+      if (rows.length === 0) {
+        return;
+      }
+      const currentIndex = rows.findIndex(
+        (row) => row.dataset.taskKey === taskKey,
+      );
+      const nextIndex =
+        direction === "first"
+          ? 0
+          : direction === "last"
+            ? rows.length - 1
+            : Math.max(
+                0,
+                Math.min(
+                  rows.length - 1,
+                  currentIndex + (direction === "up" ? -1 : 1),
+                ),
+              );
+      const nextRow = rows[nextIndex];
+      if (!nextRow) {
+        return;
+      }
+      setFocusedTaskKey(nextRow.dataset.taskKey ?? null);
+      nextRow.focus();
+    },
+    [],
+  );
+
+  const visibleTaskKeys = useMemo(
+    () =>
+      allWorkspaceKeys.flatMap(
+        (workspaceKey) =>
+          workspaceVisibilityById[workspaceKey]?.renderedTaskIds ?? [],
+      ),
+    [allWorkspaceKeys, workspaceVisibilityById],
+  );
+  const matchedTaskCount = useMemo(
+    () =>
+      allWorkspaceKeys.reduce(
+        (count, workspaceKey) =>
+          count +
+          (workspaceVisibilityById[workspaceKey]?.matchedTaskCount ?? 0),
+        0,
+      ),
+    [allWorkspaceKeys, workspaceVisibilityById],
+  );
+  const filterStateSettled = allWorkspaceKeys.every(
+    (workspaceKey) => workspaceKey in workspaceVisibilityById,
+  );
+
+  useEffect(() => {
+    if (focusedTaskKey && visibleTaskKeys.includes(focusedTaskKey)) {
+      return;
+    }
+    const firstVisibleRow = Array.from(
+      fleetRootRef.current?.querySelectorAll<HTMLButtonElement>(
+        "[data-fleet-task-row]",
+      ) ?? [],
+    ).find((row) => !row.closest("[hidden]"));
+    setFocusedTaskKey(firstVisibleRow?.dataset.taskKey ?? null);
+  }, [focusedTaskKey, visibleTaskKeys]);
+
+  useEffect(() => {
+    setAttentionTargetsByWorkspaceId((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([key]) => allWorkspaceKeySet.has(key)),
+      );
+      return Object.keys(next).length === Object.keys(current).length
+        ? current
+        : next;
+    });
+    setLifecycleByWorkspaceId((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([key]) => allWorkspaceKeySet.has(key)),
+      ) as Record<string, FleetLifecycleStatus>;
+      return Object.keys(next).length === Object.keys(current).length
+        ? current
+        : next;
+    });
+    setWorkspaceVisibilityById((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([key]) => allWorkspaceKeySet.has(key)),
+      );
+      return Object.keys(next).length === Object.keys(current).length
+        ? current
+        : next;
+    });
+  }, [allWorkspaceKeySet]);
+
+  const toggleProject = useCallback((projectPath: string) => {
+    setCollapsedProjects((current) => ({
+      ...current,
+      [projectPath]: !current[projectPath],
+    }));
+  }, []);
+
+  const toggleWorkspace = useCallback((workspaceKey: string) => {
+    setCollapsedWorkspaces((current) => ({
+      ...current,
+      [workspaceKey]: !current[workspaceKey],
+    }));
+  }, []);
+
+  const toggleLane = useCallback(
+    (projectPath: string, lane: FleetLifecycleStatus) => {
+      setCollapsedLanes((current) => ({
+        ...current,
+        [projectPath]: {
+          ...current[projectPath],
+          [lane]: !(current[projectPath]?.[lane] ?? lane === "done"),
+        },
+      }));
+    },
+    [],
+  );
+
+  const openAttentionTarget = useCallback(
+    (target: FleetAttentionTarget) => {
+      setSelectedAttentionKey(
+        getFleetTaskKey(target.projectPath, target.workspaceId, target.taskId),
+      );
+      void focusTaskAttention({
+        projectPath: target.projectPath,
+        workspaceId: target.workspaceId,
+        taskId: target.taskId,
+      });
+    },
+    [focusTaskAttention],
+  );
+
+  const openNextAttentionTarget = useCallback(() => {
+    if (attentionTargets.length === 0) {
+      return;
+    }
+    const selectedIndex = attentionTargets.findIndex(
+      (target) =>
+        getFleetTaskKey(
+          target.projectPath,
+          target.workspaceId,
+          target.taskId,
+        ) === selectedAttentionKey,
+    );
+    const nextTarget =
+      attentionTargets[
+        selectedIndex >= 0 ? (selectedIndex + 1) % attentionTargets.length : 0
+      ];
+    if (nextTarget) {
+      openAttentionTarget(nextTarget);
+    }
+  }, [attentionTargets, openAttentionTarget, selectedAttentionKey]);
+
+  const clearFilters = useCallback(() => {
+    setStatusFilter("all");
+    setSearchQuery("");
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey
+      ) {
+        return;
+      }
+      if (event.key === "Escape") {
+        const filterInput = filterInputRef.current;
+        if (
+          document.activeElement === filterInput &&
+          filterInput?.value.trim()
+        ) {
+          event.preventDefault();
+          setSearchQuery("");
+          return;
+        }
+        closeFleetView();
+        return;
+      }
+      const target = event.target;
+      const isTyping =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      if (!isTyping && event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        openNextAttentionTarget();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [closeFleetView, openNextAttentionTarget]);
+
   const totalWorkspaceCount = projects.reduce(
     (count, project) => count + project.workspaces.length,
     0,
   );
+  const isFilterEmpty =
+    isFilterActive && filterStateSettled && matchedTaskCount === 0;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+    <div
+      ref={fleetRootRef}
+      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background"
+    >
       <header className="flex min-h-14 items-center justify-between gap-3 border-b border-border/80 bg-card px-4 py-2.5">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
@@ -733,6 +1356,9 @@ export function FleetView() {
             {projects.length} project{projects.length === 1 ? "" : "s"} ·{" "}
             {totalWorkspaceCount} workspace
             {totalWorkspaceCount === 1 ? "" : "s"}
+            {attentionTargets.length > 0
+              ? ` · ${attentionTargets.length} needs attention`
+              : ""}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -740,14 +1366,10 @@ export function FleetView() {
             type="button"
             size="sm"
             className="h-8 rounded-sm"
-            disabled={!nextAttentionTarget}
-            onClick={() => {
-              if (nextAttentionTarget) {
-                void focusTaskAttention(nextAttentionTarget);
-              }
-            }}
+            disabled={attentionTargets.length === 0}
+            onClick={openNextAttentionTarget}
           >
-            <ArrowRight className="size-4" />
+            <ArrowRight className="size-4" aria-hidden="true" />
             Next Needs Input
           </Button>
           <Button
@@ -763,6 +1385,117 @@ export function FleetView() {
           </Button>
         </div>
       </header>
+
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/80 bg-card px-4 py-2">
+        <span className="mr-1 text-xs font-medium text-muted-foreground">
+          Filter
+        </span>
+        <div className="flex flex-wrap items-center gap-1">
+          {FLEET_FILTER_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              size="sm"
+              variant={statusFilter === option.value ? "secondary" : "ghost"}
+              className="h-7 rounded-sm px-2 text-xs"
+              aria-pressed={statusFilter === option.value}
+              onClick={() => setStatusFilter(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+        <div className="relative ml-auto w-full min-w-48 max-w-xs sm:w-56">
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            ref={filterInputRef}
+            data-fleet-filter-input="true"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search tasks..."
+            aria-label="Search tasks, workspaces, or projects"
+            className="h-8 pl-8 pr-8 text-xs"
+          />
+          {searchQuery ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+              title="Clear search"
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="size-3.5" />
+            </Button>
+          ) : null}
+        </div>
+        {isFilterActive ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 rounded-sm px-2 text-xs text-muted-foreground"
+            onClick={clearFilters}
+          >
+            Clear filters
+          </Button>
+        ) : null}
+      </div>
+
+      {attentionTargets.length > 0 ? (
+        <section
+          className="border-b border-warning/25 bg-warning/5 px-4 py-2.5"
+          aria-label="Tasks needing attention"
+          aria-live="polite"
+        >
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-warning">
+              {attentionTargets.length} task
+              {attentionTargets.length === 1 ? "" : "s"} need attention
+            </p>
+            <span className="text-[11px] text-muted-foreground">
+              Select a task to open it
+            </span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-0.5" role="list">
+            {attentionTargets.map((target) => {
+              const targetKey = getFleetTaskKey(
+                target.projectPath,
+                target.workspaceId,
+                target.taskId,
+              );
+              return (
+                <div key={targetKey} role="listitem">
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex min-w-52 max-w-xs shrink-0 items-center gap-2 rounded-sm border border-warning/25 bg-background/70 px-2.5 py-2 text-left transition-colors hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+                      selectedAttentionKey === targetKey && "bg-warning/10",
+                    )}
+                    aria-label={`Open ${target.taskTitle}, ${formatFleetStatusLabel(target.status)}, ${target.workspaceName} in ${target.projectName}`}
+                    onClick={() => openAttentionTarget(target)}
+                  >
+                    <FleetStatusBadge status={target.status} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-medium text-foreground">
+                        {target.taskTitle}
+                      </span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {target.workspaceName} · {target.projectName}
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       <div className="min-h-0 flex-1 overflow-y-auto">
         {projects.length === 0 ? (
           <Empty>
@@ -771,90 +1504,211 @@ export function FleetView() {
                 <FolderTree />
               </EmptyMedia>
               <EmptyTitle>No Workspaces</EmptyTitle>
+              <EmptyDescription>
+                Open a project or workspace to see agent activity here.
+              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="mx-auto flex w-full max-w-6xl flex-col">
-            {projects.map((project) => (
-              <section key={project.projectPath} className="border-b border-border/80">
-                <div className="flex min-h-12 items-center gap-2 bg-muted/25 px-4 py-2">
-                  <FolderTree className="size-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-sm font-semibold text-foreground">
-                      {project.projectName}
-                    </h2>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {project.projectPath}
-                    </p>
+          <>
+            {isFilterEmpty ? (
+              <div className="border-b border-border/70 bg-background px-4 py-10 text-center">
+                <p className="text-sm font-medium text-foreground">
+                  No tasks match
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Clear filters to see all tasks.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 rounded-sm"
+                  onClick={clearFilters}
+                >
+                  Clear filters
+                </Button>
+              </div>
+            ) : null}
+            {projects.map((project) => {
+              const projectWorkspaceKeys = new Map(
+                project.workspaces.map((workspace) => [
+                  workspace.id,
+                  getFleetWorkspaceKey(project.projectPath, workspace.id),
+                ]),
+              );
+              const projectHasVisibleWorkspace = project.workspaces.some(
+                (workspace) => {
+                  const workspaceKey = projectWorkspaceKeys.get(workspace.id);
+                  return workspaceKey
+                    ? (workspaceVisibilityById[workspaceKey]?.visible ?? true)
+                    : true;
+                },
+              );
+              const hideProject =
+                isFilterActive &&
+                filterStateSettled &&
+                !projectHasVisibleWorkspace;
+              const projectIsCollapsed = Boolean(
+                collapsedProjects[project.projectPath],
+              );
+              const visibleProjectWorkspaces =
+                isFilterActive && filterStateSettled
+                  ? project.workspaces.filter((workspace) => {
+                      const workspaceKey = projectWorkspaceKeys.get(
+                        workspace.id,
+                      );
+                      return workspaceKey
+                        ? workspaceVisibilityById[workspaceKey]?.visible
+                        : false;
+                    })
+                  : project.workspaces;
+              const projectLifecycleByWorkspaceId = Object.fromEntries(
+                project.workspaces.flatMap((workspace) => {
+                  const workspaceKey = projectWorkspaceKeys.get(workspace.id);
+                  const lifecycle = workspaceKey
+                    ? lifecycleByWorkspaceId[workspaceKey]
+                    : undefined;
+                  return lifecycle ? [[workspace.id, lifecycle]] : [];
+                }),
+              );
+              const laneGroups = groupFleetWorkspacesByLane({
+                workspaces: visibleProjectWorkspaces,
+                lifecycleByWorkspaceId: projectLifecycleByWorkspaceId,
+              });
+              const projectCollapsedLanes = collapsedLanes[project.projectPath];
+              const showLanes =
+                laneGroups.length > 1 ||
+                laneGroups.some(
+                  (group) =>
+                    group.lane === "done" &&
+                    (projectCollapsedLanes?.done ?? true),
+                );
+
+              return (
+                <section
+                  key={project.projectPath}
+                  className="border-b border-border/80"
+                  hidden={hideProject}
+                >
+                  <button
+                    type="button"
+                    className="flex min-h-12 w-full items-center gap-2 bg-muted/25 px-4 py-2 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+                    aria-expanded={!projectIsCollapsed}
+                    aria-label={`${projectIsCollapsed ? "Expand" : "Collapse"} ${project.projectName} project section`}
+                    onClick={() => toggleProject(project.projectPath)}
+                  >
+                    {projectIsCollapsed ? (
+                      <ChevronRight
+                        className="size-4 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <ChevronDown
+                        className="size-4 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <FolderTree
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-foreground">
+                        {project.projectName}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {project.projectPath}
+                      </span>
+                    </span>
+                    {project.isCurrent ? (
+                      <Badge variant="outline" className="rounded-sm">
+                        Current
+                      </Badge>
+                    ) : null}
+                  </button>
+                  <div hidden={projectIsCollapsed}>
+                    {project.workspaces.length === 0 ? (
+                      <div className="flex h-14 items-center px-4 text-sm text-muted-foreground">
+                        No workspaces
+                      </div>
+                    ) : (
+                      laneGroups.flatMap((group) => {
+                        const laneIsCollapsed =
+                          projectCollapsedLanes?.[group.lane] ??
+                          group.lane === "done";
+                        return [
+                          showLanes ? (
+                            <Fragment
+                              key={`lane:${project.projectPath}:${group.lane}`}
+                            >
+                              <FleetLaneHeader
+                                lane={group.lane}
+                                count={group.workspaces.length}
+                                isCollapsed={laneIsCollapsed}
+                                onToggle={() =>
+                                  toggleLane(project.projectPath, group.lane)
+                                }
+                              />
+                            </Fragment>
+                          ) : null,
+                          ...group.workspaces.map((workspace) => {
+                            const workspaceKey = getFleetWorkspaceKey(
+                              project.projectPath,
+                              workspace.id,
+                            );
+                            const workspaceIsCollapsed = Boolean(
+                              collapsedWorkspaces[workspaceKey],
+                            );
+                            return (
+                              <div
+                                key={`workspace:${workspaceKey}`}
+                                hidden={laneIsCollapsed}
+                              >
+                                <MemoizedFleetWorkspaceSection
+                                  projectPath={project.projectPath}
+                                  projectName={project.projectName}
+                                  workspace={workspace}
+                                  filter={statusFilter}
+                                  searchQuery={searchQuery}
+                                  isFilterActive={isFilterActive}
+                                  isCollapsed={workspaceIsCollapsed}
+                                  isHiddenByAncestor={
+                                    projectIsCollapsed || laneIsCollapsed
+                                  }
+                                  focusedTaskKey={focusedTaskKey}
+                                  onFocusTask={handleFocusTask}
+                                  onMoveFocus={handleMoveFocus}
+                                  onToggleWorkspace={toggleWorkspace}
+                                  onOpenTask={handleOpenTask}
+                                  onAttentionTargetsChange={
+                                    handleAttentionTargetsChange
+                                  }
+                                  onLifecycleChange={handleLifecycleChange}
+                                  onVisibilityChange={handleVisibilityChange}
+                                />
+                              </div>
+                            );
+                          }),
+                        ];
+                      })
+                    )}
                   </div>
-                  {project.isCurrent ? (
-                    <Badge variant="outline" className="rounded-sm">
-                      Current
-                    </Badge>
-                  ) : null}
-                </div>
-                {project.workspaces.length === 0 ? (
-                  <div className="flex h-14 items-center px-4 text-sm text-muted-foreground">
-                    No workspaces
-                  </div>
-                ) : (
-                  (() => {
-                    const laneGroups = groupFleetWorkspacesByLane({
-                      workspaces: project.workspaces,
-                      lifecycleByWorkspaceId,
-                    });
-                    // Only label lanes once a project actually spans more than
-                    // one — a single-lane project stays as clean as before.
-                    const showLanes = laneGroups.length > 1;
-                    const elements: ReactNode[] = [];
-                    for (const group of laneGroups) {
-                      if (showLanes) {
-                        elements.push(
-                          <FleetLaneHeader
-                            key={`lane:${group.lane}`}
-                            lane={group.lane}
-                            count={group.workspaces.length}
-                          />,
-                        );
-                      }
-                      for (const workspace of group.workspaces) {
-                        elements.push(
-                          <MemoizedFleetWorkspaceSection
-                            key={workspace.id}
-                            projectPath={project.projectPath}
-                            workspace={workspace}
-                            onOpenTask={handleOpenTask}
-                            onAttentionTargetChange={handleAttentionTargetChange}
-                            onLifecycleChange={handleLifecycleChange}
-                          />,
-                        );
-                      }
-                    }
-                    return elements;
-                  })()
-                )}
-              </section>
-            ))}
-          </div>
+                </section>
+              );
+            })}
+            {projects.length > 0 && totalWorkspaceCount === 0 ? (
+              <div className="flex items-center justify-center gap-2 px-4 py-12 text-sm text-muted-foreground">
+                <LoaderCircle
+                  className="size-4 animate-spin"
+                  aria-hidden="true"
+                />
+                Loading workspaces...
+              </div>
+            ) : null}
+          </>
         )}
       </div>
-      {nextAttentionTarget ? (
-        <div className="border-t border-border/80 bg-card/80 px-4 py-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">
-            {nextAttentionTarget.taskTitle || "Untitled Task"}
-          </span>{" "}
-          needs{" "}
-          {nextAttentionTarget.status === "waiting-input"
-            ? "input"
-            : "approval"}
-          .
-        </div>
-      ) : null}
-      {projects.length > 0 && totalWorkspaceCount === 0 ? (
-        <div className="pointer-events-none absolute right-4 top-4 text-muted-foreground">
-          <LoaderCircle className="size-4 animate-spin" />
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -375,6 +375,7 @@ import {
   resolveCurrentProjectDefaultWorkspaceId,
   normalizeCurrentProjectState,
   normalizeArchivedWorkspacePaths,
+  reconcileArchivedWorkspacePaths,
   cloneRecentProjectState,
   normalizeRecentProjectStates,
   upsertRecentProjectState,
@@ -3004,12 +3005,14 @@ function mergeRecentProjectsByPath(args: {
   persistedProjects: RecentProjectState[];
   stateProjects: RecentProjectState[];
 }) {
-  let merged = normalizeRecentProjectStates({
+  const persistedProjects = normalizeRecentProjectStates({
     projects: args.persistedProjects,
   });
-  for (const project of normalizeRecentProjectStates({
+  const stateProjects = normalizeRecentProjectStates({
     projects: args.stateProjects,
-  })) {
+  });
+  let merged = persistedProjects;
+  for (const project of stateProjects) {
     const existing = merged.find(
       (item) => item.projectPath === project.projectPath,
     );
@@ -3020,7 +3023,28 @@ function mergeRecentProjectsByPath(args: {
       });
     }
   }
-  return merged;
+  // Archive tombstones must survive either durable source losing them —
+  // otherwise `refreshWorkspaces` re-discovers a preserved dirty worktree and
+  // the archived workspace resurrects. Union both sources per project, minus
+  // any path that is registered as a live workspace again.
+  return merged.map((project) => {
+    const persisted = persistedProjects.find(
+      (item) => item.projectPath === project.projectPath,
+    );
+    const fromState = stateProjects.find(
+      (item) => item.projectPath === project.projectPath,
+    );
+    const archivedWorkspacePaths = reconcileArchivedWorkspacePaths({
+      primary: persisted?.archivedWorkspacePaths,
+      secondary: fromState?.archivedWorkspacePaths,
+      workspacePathById: project.workspacePathById,
+    });
+    const { archivedWorkspacePaths: _current, ...projectRest } = project;
+    return {
+      ...projectRest,
+      ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
+    };
+  });
 }
 
 function summarizeWorkspaceShell(
@@ -3303,11 +3327,32 @@ async function performWorkspaceArchiveCleanup(args: {
           workspacePath,
         });
       } else {
+        // `worktreeStatusHasMeaningfulChanges` ignores the linked
+        // `node_modules` symlink, but `git worktree remove` still refuses to
+        // delete a worktree that contains untracked entries. Drop the
+        // self-managed symlink first so a pristine symlinked worktree is
+        // actually removable — otherwise it silently survives on disk and
+        // resurrects as a rediscovered workspace later.
+        const nodeModulesSymlinkPath = `${workspacePath}/node_modules`;
+        await runner({
+          cwd: projectPath,
+          command: `if [ -L ${JSON.stringify(nodeModulesSymlinkPath)} ]; then rm ${JSON.stringify(nodeModulesSymlinkPath)}; fi`,
+        });
         const removeResult = await runner({
           cwd: projectPath,
           command: `git worktree remove ${JSON.stringify(workspacePath)}`,
         });
         didRemoveWorktree = removeResult.ok;
+        if (!removeResult.ok) {
+          console.warn(
+            "[workspace-archive] git worktree remove failed; preserving worktree",
+            {
+              workspaceId,
+              workspacePath,
+              stderr: removeResult.stderr,
+            },
+          );
+        }
         await runner({
           cwd: projectPath,
           command: "git worktree prune",
