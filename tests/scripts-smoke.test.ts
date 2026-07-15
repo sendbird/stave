@@ -10,6 +10,9 @@ describe("package scripts", () => {
     expect(typeof scripts["dev:all"]).toBe("string");
     expect(typeof scripts["dev:desktop"]).toBe("string");
     expect(typeof scripts["build:desktop"]).toBe("string");
+    expect(scripts["test:isolated"]).toBe(
+      "node scripts/run-tests-isolated.mjs",
+    );
   });
 
   test("desktop packaging scripts rebuild Electron native dependencies automatically", () => {
@@ -25,6 +28,7 @@ describe("package scripts", () => {
     expect(scripts["package:desktop"]).toBe("bun run package:desktop:dir");
     expect(scripts["run:desktop:built"]).toBe("bun run run:desktop:packaged");
     expect(scripts["desktop:built:logged"]).toBe("bun run run:desktop:packaged:logged");
+    expect(scripts["test:ci"]).toContain("bun run test:isolated");
     expect(scripts["package:linux:dir"].startsWith("bun run rebuild:electron-deps && ")).toBe(true);
     expect(scripts["package:linux:appimage"].startsWith("bun run rebuild:electron-deps && ")).toBe(true);
     expect(scripts["package:linux:deb"].startsWith("bun run rebuild:electron-deps && ")).toBe(true);
