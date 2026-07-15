@@ -11,6 +11,7 @@ import {
   normalizeProjectDisplayName,
   normalizeRecentProjectStates,
   parseRemoteTrackingBranchName,
+  reconcileArchivedWorkspacePaths,
   resolvePathBaseName,
   resolveProjectForWorkspaceId,
   resolveWorkspaceRemoteBaseBranchTarget,
@@ -336,6 +337,51 @@ describe("project name normalization", () => {
     });
 
     expect(unlinkedProjects[0]?.linkedWorkspacePaths).toBeUndefined();
+  });
+
+  test("reconcileArchivedWorkspacePaths restores tombstones lost from one source", () => {
+    // localStorage lost the tombstone but the SQLite registry mirror kept it
+    // (or vice versa): the union must keep the workspace archived.
+    expect(
+      reconcileArchivedWorkspacePaths({
+        primary: [FEATURE_WORKSPACE_PATH],
+        secondary: undefined,
+        workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      }),
+    ).toEqual([FEATURE_WORKSPACE_PATH]);
+    expect(
+      reconcileArchivedWorkspacePaths({
+        primary: undefined,
+        secondary: [FEATURE_WORKSPACE_PATH],
+        workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      }),
+    ).toEqual([FEATURE_WORKSPACE_PATH]);
+  });
+
+  test("reconcileArchivedWorkspacePaths dedupes and merges both sources", () => {
+    const otherArchivedPath = `${PROJECT_PATH}/.stave/workspaces/fix__other`;
+    expect(
+      reconcileArchivedWorkspacePaths({
+        primary: [FEATURE_WORKSPACE_PATH, otherArchivedPath],
+        secondary: [FEATURE_WORKSPACE_PATH],
+        workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      }),
+    ).toEqual([FEATURE_WORKSPACE_PATH, otherArchivedPath]);
+  });
+
+  test("reconcileArchivedWorkspacePaths drops tombstones for re-registered workspaces", () => {
+    // A stale tombstone from one source must not hide a workspace the user
+    // re-created at the same path.
+    expect(
+      reconcileArchivedWorkspacePaths({
+        primary: [FEATURE_WORKSPACE_PATH],
+        secondary: [],
+        workspacePathById: {
+          [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+          "workspace-feature": FEATURE_WORKSPACE_PATH,
+        },
+      }),
+    ).toEqual([]);
   });
 
   test("keeps linked workspace paths across normalization round-trips", () => {
