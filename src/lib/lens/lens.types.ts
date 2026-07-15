@@ -26,6 +26,8 @@ export interface ElementPickerResult {
   textContent: string;
   /** React fiber _debugSource — present only when extraction is enabled. */
   debugSource?: ElementPickerDebugSource;
+  /** Parent-to-leaf React component names captured from the fiber chain. */
+  componentNameChain?: string[];
 }
 
 export interface BrowserConsoleEntry {
@@ -170,16 +172,13 @@ export interface LensAnnotation {
   outerHTML?: string;
   textContent?: string;
   debugSource?: ElementPickerDebugSource;
+  componentNameChain?: string[];
   /** Live style edits applied to this element. */
   styleEdits?: LensStyleEdit[];
 }
 
 export type LensAnnotationEventType =
-  | "add"
-  | "update"
-  | "remove"
-  | "clear"
-  | "submit";
+  "add" | "update" | "remove" | "clear" | "submit";
 
 export interface LensAnnotationEventPayload {
   workspaceId: string;
@@ -195,10 +194,7 @@ export interface LensAnnotationEventPayload {
 // ---------------------------------------------------------------------------
 
 export type LensDownloadState =
-  | "progressing"
-  | "completed"
-  | "cancelled"
-  | "interrupted";
+  "progressing" | "completed" | "cancelled" | "interrupted";
 
 export interface LensDownloadEntry {
   id: string;

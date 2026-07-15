@@ -1,6 +1,7 @@
 import { ipcMain, webContents } from "electron";
 import {
   CliSessionCreateSessionArgsSchema,
+  TerminalAckSessionOutputArgsSchema,
   TerminalAttachSessionArgsSchema,
   TerminalCreateSessionArgsSchema,
   TerminalDetachSessionArgsSchema,
@@ -67,6 +68,18 @@ function registerTerminalEventBridge() {
       return;
     }
     owner.send("terminal:session-exit", payload);
+  });
+
+  onHostServiceEvent("terminal.status", (payload) => {
+    const ownerRegistration = terminalOwnerBySessionId.get(payload.sessionId);
+    if (!ownerRegistration) {
+      return;
+    }
+    const owner = webContents.fromId(ownerRegistration.ownerWebContentsId);
+    if (!owner || owner.isDestroyed()) {
+      return;
+    }
+    owner.send("terminal:session-status", payload);
   });
 }
 
@@ -153,6 +166,17 @@ export function registerTerminalHandlers() {
     (_event, args: { sessionId: string }) =>
       invokeHostService("terminal.read-session", args),
   );
+
+  ipcMain.handle("terminal:ack-session-output", async (_event, args) => {
+    const parsed = TerminalAckSessionOutputArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        stderr: parsed.error.flatten().formErrors.join("\n"),
+      };
+    }
+    return invokeHostService("terminal.ack-session-output", parsed.data);
+  });
 
   ipcMain.handle(
     "terminal:set-session-delivery-mode",

@@ -16,6 +16,8 @@ export function TerminalTabSurface(args: {
   isVisible: boolean;
   fontFamily: string;
   fontSize: number;
+  lineHeight?: number;
+  cursorStyle?: "block" | "bar" | "underline";
   isDarkMode: boolean;
   dimmed?: boolean;
   tabManager: UseTerminalTabManagerReturn;
@@ -37,6 +39,8 @@ export function TerminalTabSurface(args: {
     enabled: args.tabManager.shouldMountTerminal(args.tabKey),
     fontFamily: args.fontFamily,
     fontSize: args.fontSize,
+    lineHeight: args.lineHeight,
+    cursorStyle: args.cursorStyle,
     isDarkMode: args.isDarkMode,
     visible: args.isVisible && args.isActive,
     restartToken: args.tabManager.getRestartToken(args.tabKey),
@@ -44,9 +48,14 @@ export function TerminalTabSurface(args: {
     onResize: (cols, rows) => args.onResize(args.tabKey, cols, rows),
   });
 
-  useEffect(() => (
-    args.tabManager.registerInstance(args.tabKey, terminalInstance.controller)
-  ), [args.tabKey, args.tabManager, terminalInstance.controller]);
+  useEffect(
+    () =>
+      args.tabManager.registerInstance(
+        args.tabKey,
+        terminalInstance.controller,
+      ),
+    [args.tabKey, args.tabManager, terminalInstance.controller],
+  );
 
   useEffect(() => {
     if (
@@ -63,8 +72,8 @@ export function TerminalTabSurface(args: {
       onScreenState: (screenState) => {
         terminalInstance.controller.restoreScreenState(screenState);
       },
-      onOutput: (output) => {
-        terminalInstance.controller.write(output);
+      onOutput: (output, onParsed) => {
+        terminalInstance.controller.write(output, onParsed);
       },
     });
   }, [

@@ -740,6 +740,7 @@ function ProjectsSection(args: {
 function GeneralSection() {
   const [
     confirmBeforeClose,
+    nativeNotificationsEnabled,
     notificationSoundEnabled,
     notificationSoundPreset,
     notificationSoundVolume,
@@ -751,6 +752,7 @@ function GeneralSection() {
       (state) =>
         [
           state.settings.confirmBeforeClose,
+          state.settings.nativeNotificationsEnabled,
           state.settings.notificationSoundEnabled,
           state.settings.notificationSoundPreset,
           state.settings.notificationSoundVolume,
@@ -994,6 +996,19 @@ function GeneralSection() {
               </LabeledField>
             </>
           ) : null}
+        </SettingsCard>
+        <SettingsCard
+          title="Desktop Notifications"
+          description="Show task completion, approval, and input requests through the operating system."
+        >
+          <SwitchField
+            title="Native Notifications"
+            description="Notify you when a task needs attention outside the active workspace."
+            checked={nativeNotificationsEnabled}
+            onCheckedChange={(checked) =>
+              updateSettings({ patch: { nativeNotificationsEnabled: checked } })
+            }
+          />
         </SettingsCard>
       </SectionStack>
     </>
@@ -3219,10 +3234,9 @@ function CommandPaletteSection() {
               )
                 ? selectedShortcutEffort
                 : MODEL_SHORTCUT_DEFAULT_EFFORT_VALUE;
-              const selectedEffortLabel =
-                effortOptions.find(
-                  (option) => option.value === selectedShortcutEffort,
-                )?.label;
+              const selectedEffortLabel = effortOptions.find(
+                (option) => option.value === selectedShortcutEffort,
+              )?.label;
               const selectedEffortDescription = selectedEffortLabel
                 ? `${selectedEffortLabel} effort`
                 : "the current effort setting";
@@ -3977,7 +3991,8 @@ function PromptsSection() {
                 {
                   value: "default",
                   label: "Repository default",
-                  description: "Let GitHub choose the configured strategy or merge queue.",
+                  description:
+                    "Let GitHub choose the configured strategy or merge queue.",
                 },
                 {
                   value: "merge",

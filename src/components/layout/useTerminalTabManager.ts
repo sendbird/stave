@@ -55,7 +55,10 @@ export function resolveMountedTerminalTabKeys(args: {
   activeTabKey: string | null;
   isVisible: boolean;
 }) {
-  const next = pruneTerminalTabManagerRecord(args.mountedTabKeys, args.liveTabKeys);
+  const next = pruneTerminalTabManagerRecord(
+    args.mountedTabKeys,
+    args.liveTabKeys,
+  );
   if (args.isVisible && args.activeTabKey) {
     next[args.activeTabKey] = true;
   }
@@ -74,15 +77,23 @@ export interface UseTerminalTabManagerReturn {
   statusByTabKey: Record<string, TerminalTabInstanceStatus>;
   shouldMountTerminal: (tabKey: string) => boolean;
   getRestartToken: (tabKey: string) => number;
-  registerInstance: (tabKey: string, controller: TerminalInstanceController) => () => void;
-  updateInstanceStatus: (tabKey: string, status: TerminalTabInstanceStatus) => void;
+  registerInstance: (
+    tabKey: string,
+    controller: TerminalInstanceController,
+  ) => () => void;
+  updateInstanceStatus: (
+    tabKey: string,
+    status: TerminalTabInstanceStatus,
+  ) => void;
   clear: (tabKey: string) => void;
   restoreScreenState: (tabKey: string, screenState: string) => void;
-  write: (tabKey: string, data: string) => void;
+  write: (tabKey: string, data: string, onParsed?: () => void) => void;
   writeln: (tabKey: string, data: string) => void;
   resize: (tabKey: string, cols: number, rows: number) => void;
   focus: (tabKey: string) => (() => void) | null;
-  proposeDimensions: (tabKey: string) => { cols: number; rows: number } | undefined;
+  proposeDimensions: (
+    tabKey: string,
+  ) => { cols: number; rows: number } | undefined;
   getSize: (tabKey: string) => { cols: number; rows: number };
   restart: (tabKey: string) => void;
 }
@@ -90,19 +101,24 @@ export interface UseTerminalTabManagerReturn {
 export function useTerminalTabManager<TTab extends { id: string }>(
   args: UseTerminalTabManagerArgs<TTab>,
 ): UseTerminalTabManagerReturn {
-  const instancesRef = useRef<Map<string, TerminalInstanceController>>(new Map());
-  const [statusByTabKey, setStatusByTabKey] = useState<Record<string, TerminalTabInstanceStatus>>({});
-  const [restartTokenByTabKey, setRestartTokenByTabKey] = useState<Record<string, number>>({});
-  const [mountedTabKeys, setMountedTabKeys] = useState<Record<string, true>>({});
+  const instancesRef = useRef<Map<string, TerminalInstanceController>>(
+    new Map(),
+  );
+  const [statusByTabKey, setStatusByTabKey] = useState<
+    Record<string, TerminalTabInstanceStatus>
+  >({});
+  const [restartTokenByTabKey, setRestartTokenByTabKey] = useState<
+    Record<string, number>
+  >({});
+  const [mountedTabKeys, setMountedTabKeys] = useState<Record<string, true>>(
+    {},
+  );
 
   const tabKeys = useMemo(
     () => args.tabs.map((tab) => args.getTabKey(tab)),
     [args.getTabKey, args.tabs],
   );
-  const liveTabKeySet = useMemo(
-    () => new Set(tabKeys),
-    [tabKeys],
-  );
+  const liveTabKeySet = useMemo(() => new Set(tabKeys), [tabKeys]);
   const activeTabKey = useMemo(() => {
     if (!args.activeTabId) {
       return null;
@@ -114,47 +130,64 @@ export function useTerminalTabManager<TTab extends { id: string }>(
     ? Boolean(statusByTabKey[activeTabKey]?.ready)
     : false;
 
-  const registerInstance = useCallback((tabKey: string, controller: TerminalInstanceController) => {
-    instancesRef.current.set(tabKey, controller);
+  const registerInstance = useCallback(
+    (tabKey: string, controller: TerminalInstanceController) => {
+      instancesRef.current.set(tabKey, controller);
 
-    return () => {
-      if (instancesRef.current.get(tabKey) === controller) {
-        instancesRef.current.delete(tabKey);
-      }
-    };
-  }, []);
-
-  const updateInstanceStatus = useCallback((tabKey: string, status: TerminalTabInstanceStatus) => {
-    setStatusByTabKey((previous) => {
-      const current = previous[tabKey];
-      if (
-        current
-        && current.ready === status.ready
-        && current.error === status.error
-        && current.writeErrorCount === status.writeErrorCount
-        && current.revision === status.revision
-      ) {
-        return previous;
-      }
-
-      return {
-        ...previous,
-        [tabKey]: status,
+      return () => {
+        if (instancesRef.current.get(tabKey) === controller) {
+          instancesRef.current.delete(tabKey);
+        }
       };
-    });
-  }, []);
+    },
+    [],
+  );
+
+  const updateInstanceStatus = useCallback(
+    (tabKey: string, status: TerminalTabInstanceStatus) => {
+      setStatusByTabKey((previous) => {
+        const current = previous[tabKey];
+        if (
+          current &&
+          current.ready === status.ready &&
+          current.error === status.error &&
+          current.writeErrorCount === status.writeErrorCount &&
+          current.revision === status.revision
+        ) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          [tabKey]: status,
+        };
+      });
+    },
+    [],
+  );
 
   const clear = useCallback((tabKey: string) => {
     instancesRef.current.get(tabKey)?.clear();
   }, []);
 
-  const restoreScreenState = useCallback((tabKey: string, screenState: string) => {
-    instancesRef.current.get(tabKey)?.restoreScreenState(screenState);
-  }, []);
+  const restoreScreenState = useCallback(
+    (tabKey: string, screenState: string) => {
+      instancesRef.current.get(tabKey)?.restoreScreenState(screenState);
+    },
+    [],
+  );
 
-  const write = useCallback((tabKey: string, data: string) => {
-    instancesRef.current.get(tabKey)?.write(data);
-  }, []);
+  const write = useCallback(
+    (tabKey: string, data: string, onParsed?: () => void) => {
+      const instance = instancesRef.current.get(tabKey);
+      if (!instance) {
+        onParsed?.();
+        return;
+      }
+      instance.write(data, onParsed);
+    },
+    [],
+  );
 
   const writeln = useCallback((tabKey: string, data: string) => {
     instancesRef.current.get(tabKey)?.writeln(data);
@@ -164,21 +197,26 @@ export function useTerminalTabManager<TTab extends { id: string }>(
     instancesRef.current.get(tabKey)?.resize(cols, rows);
   }, []);
 
-  const proposeDimensions = useCallback((tabKey: string) => (
-    instancesRef.current.get(tabKey)?.proposeDimensions()
-  ), []);
+  const proposeDimensions = useCallback(
+    (tabKey: string) => instancesRef.current.get(tabKey)?.proposeDimensions(),
+    [],
+  );
 
-  const getSize = useCallback((tabKey: string) => (
-    instancesRef.current.get(tabKey)?.getSize() ?? { cols: 0, rows: 0 }
-  ), []);
+  const getSize = useCallback(
+    (tabKey: string) =>
+      instancesRef.current.get(tabKey)?.getSize() ?? { cols: 0, rows: 0 },
+    [],
+  );
 
-  const shouldMountTerminal = useCallback((tabKey: string) => (
-    Boolean(mountedTabKeys[tabKey])
-  ), [mountedTabKeys]);
+  const shouldMountTerminal = useCallback(
+    (tabKey: string) => Boolean(mountedTabKeys[tabKey]),
+    [mountedTabKeys],
+  );
 
-  const getRestartToken = useCallback((tabKey: string) => (
-    restartTokenByTabKey[tabKey] ?? 0
-  ), [restartTokenByTabKey]);
+  const getRestartToken = useCallback(
+    (tabKey: string) => restartTokenByTabKey[tabKey] ?? 0,
+    [restartTokenByTabKey],
+  );
 
   useEffect(() => {
     setMountedTabKeys((previous) => {
@@ -188,15 +226,21 @@ export function useTerminalTabManager<TTab extends { id: string }>(
         activeTabKey,
         isVisible: args.isVisible,
       });
-      return areTerminalTabManagerRecordsEqual(previous, next) ? previous : next;
+      return areTerminalTabManagerRecordsEqual(previous, next)
+        ? previous
+        : next;
     });
     setRestartTokenByTabKey((previous) => {
       const next = pruneTerminalTabManagerRecord(previous, liveTabKeySet);
-      return areTerminalTabManagerRecordsEqual(previous, next) ? previous : next;
+      return areTerminalTabManagerRecordsEqual(previous, next)
+        ? previous
+        : next;
     });
     setStatusByTabKey((previous) => {
       const next = pruneTerminalTabManagerRecord(previous, liveTabKeySet);
-      return areTerminalTabManagerRecordsEqual(previous, next) ? previous : next;
+      return areTerminalTabManagerRecordsEqual(previous, next)
+        ? previous
+        : next;
     });
 
     for (const tabKey of [...instancesRef.current.keys()]) {
@@ -222,7 +266,10 @@ export function useTerminalTabManager<TTab extends { id: string }>(
     let cancelFocus: (() => void) | null = null;
 
     const handleRefocus = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
         return;
       }
       cancelFocus?.();
@@ -251,39 +298,45 @@ export function useTerminalTabManager<TTab extends { id: string }>(
   // Separate stable method handle from frequently-changing data fields so that
   // downstream hooks can depend on methods without re-running when status or
   // activeTabKey change (which would otherwise recreate the whole object).
-  const methods = useMemo(() => ({
-    shouldMountTerminal,
-    getRestartToken,
-    registerInstance,
-    updateInstanceStatus,
-    clear,
-    restoreScreenState,
-    write,
-    writeln,
-    resize,
-    focus,
-    proposeDimensions,
-    getSize,
-    restart,
-  }), [
-    clear,
-    focus,
-    getRestartToken,
-    getSize,
-    proposeDimensions,
-    registerInstance,
-    restoreScreenState,
-    resize,
-    restart,
-    shouldMountTerminal,
-    updateInstanceStatus,
-    write,
-    writeln,
-  ]);
+  const methods = useMemo(
+    () => ({
+      shouldMountTerminal,
+      getRestartToken,
+      registerInstance,
+      updateInstanceStatus,
+      clear,
+      restoreScreenState,
+      write,
+      writeln,
+      resize,
+      focus,
+      proposeDimensions,
+      getSize,
+      restart,
+    }),
+    [
+      clear,
+      focus,
+      getRestartToken,
+      getSize,
+      proposeDimensions,
+      registerInstance,
+      restoreScreenState,
+      resize,
+      restart,
+      shouldMountTerminal,
+      updateInstanceStatus,
+      write,
+      writeln,
+    ],
+  );
 
-  return useMemo(() => ({
-    ...methods,
-    activeTabKey,
-    statusByTabKey,
-  }), [methods, activeTabKey, statusByTabKey]);
+  return useMemo(
+    () => ({
+      ...methods,
+      activeTabKey,
+      statusByTabKey,
+    }),
+    [methods, activeTabKey, statusByTabKey],
+  );
 }

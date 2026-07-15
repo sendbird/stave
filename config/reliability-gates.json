@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "gates": [
+    {
+      "id": "terminal-output-flow-control",
+      "title": "Terminal output is paced by renderer parsing",
+      "invariant": "A push PTY pauses above the cumulative ACK high-water mark and resumes below the low-water mark.",
+      "testFiles": [
+        "tests/terminal-output-scheduler.test.ts",
+        "tests/terminal-runtime.test.ts"
+      ],
+      "assertionRefs": [
+        "src/lib/terminal/terminal-output-scheduler.ts",
+        "electron/host-service/terminal-runtime.ts"
+      ]
+    },
+    {
+      "id": "terminal-snapshot-restore",
+      "title": "Terminal snapshots restore an absolute cursor",
+      "invariant": "A serialized terminal screen ends with an absolute cursor position when a cursor is available.",
+      "testFiles": [
+        "tests/terminal-helpers.test.ts",
+        "tests/terminal-runtime.test.ts"
+      ],
+      "assertionRefs": [
+        "src/lib/terminal/snapshot.ts",
+        "electron/host-service/terminal-runtime.ts"
+      ]
+    },
+    {
+      "id": "terminal-font-and-unicode",
+      "title": "Terminal glyph and renderer addons are defensive",
+      "invariant": "Unicode, link, search, and WebGL addons cannot prevent the DOM renderer from booting.",
+      "testFiles": ["tests/terminal-instance.test.ts"],
+      "assertionRefs": ["src/components/layout/useTerminalInstance.ts"]
+    },
+    {
+      "id": "lens-component-capture",
+      "title": "Lens keeps component context with element picks",
+      "invariant": "A Lens element selection may include a parent-to-leaf React component chain without requiring it for non-React pages.",
+      "testFiles": ["tests/lens-element-message.test.ts"],
+      "assertionRefs": [
+        "electron/main/browser/browser-element-picker.ts",
+        "src/lib/lens/lens-element-message.ts"
+      ]
+    },
+    {
+      "id": "review-feedback-to-agent",
+      "title": "Diff comments can return to the active agent",
+      "invariant": "A review comment retains its diff line anchor and can be submitted as the next agent prompt.",
+      "testFiles": ["tests/review-feedback.test.ts"],
+      "assertionRefs": [
+        "src/lib/review-feedback.ts",
+        "src/components/layout/EditorMainPanel.tsx"
+      ]
+    },
+    {
+      "id": "codex-checkpoint-provenance",
+      "title": "Codex turns expose checkpoint provenance",
+      "invariant": "A normal Codex turn emits a checkpoint boundary with the current Git ref when available.",
+      "testFiles": ["tests/codex-app-server-runtime.test.ts"],
+      "assertionRefs": [
+        "electron/providers/codex-app-server-runtime.ts",
+        "docs/providers/provider-runtimes.md"
+      ]
+    }
+  ]
+}

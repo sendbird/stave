@@ -4,7 +4,10 @@ import {
   formatAnnotationsForChat,
   formatElementForChat,
 } from "@/lib/lens/lens-element-message";
-import type { ElementPickerResult, LensAnnotation } from "@/lib/lens/lens.types";
+import type {
+  ElementPickerResult,
+  LensAnnotation,
+} from "@/lib/lens/lens.types";
 
 const baseResult: ElementPickerResult = {
   selector: "#hero > button:nth-child(1)",
@@ -27,6 +30,7 @@ const baseResult: ElementPickerResult = {
     lineNumber: 28,
     columnNumber: 7,
   },
+  componentNameChain: ["App", "Hero", "Button"],
 };
 
 describe("formatElementForChat", () => {
@@ -43,6 +47,7 @@ describe("formatElementForChat", () => {
     expect(text).toContain("Source search hints");
     expect(text).toContain('Search text: `"Launch"`');
     expect(text).toContain("Likely component class");
+    expect(text).toContain("React components: `App` → `Hero` → `Button`");
   });
 
   it("omits raw HTML from the default prompt payload", () => {

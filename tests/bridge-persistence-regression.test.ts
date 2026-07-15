@@ -900,8 +900,7 @@ describe("workspace persistence fallback", () => {
   test("openProject resolves before background file refresh completes", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      | ((value: { ok: boolean; files: string[] }) => void)
-      | null = null;
+      ((value: { ok: boolean; files: string[] }) => void) | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -1935,8 +1934,7 @@ describe("workspace store hydration ordering", () => {
   test("hydrateWorkspaces does not wait for file refresh on boot", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      | ((value: { ok: boolean; files: string[] }) => void)
-      | null = null;
+      ((value: { ok: boolean; files: string[] }) => void) | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -3659,7 +3657,11 @@ describe("workspace store hydration ordering", () => {
   test("submitIntent explicitly chooses steer vs queue during an active turn, with no auto fallback between them", async () => {
     const localStorage = createMemoryStorage();
     const startedPrompts: string[] = [];
-    const steerCalls: Array<{ turnId: string; text: string }> = [];
+    const steerCalls: Array<{
+      turnId: string;
+      text: string;
+      enabled?: boolean;
+    }> = [];
     let nextSteerResult: { ok: boolean; message?: string } = { ok: true };
 
     (globalThis as { window: unknown }).window = {
@@ -3775,7 +3777,7 @@ describe("workspace store hydration ordering", () => {
       turnId: activeTurnId,
     });
     expect(steerCalls).toEqual([
-      { turnId: activeTurnId, text: "Steered follow-up" },
+      { turnId: activeTurnId, text: "Steered follow-up", enabled: false },
     ]);
     const steeredState = useAppStore.getState();
     expect(
@@ -3809,9 +3811,9 @@ describe("workspace store hydration ordering", () => {
         (item) => item.content,
       ),
     ).toEqual(["Untagged follow-up", "Explicitly queued follow-up"]);
-    expect(afterRejectionState.messagesByTask["task-main"]?.at(-1)).toMatchObject(
-      { content: "Steered follow-up" },
-    );
+    expect(
+      afterRejectionState.messagesByTask["task-main"]?.at(-1),
+    ).toMatchObject({ content: "Steered follow-up" });
   });
 
   test("auto-dispatches Codex /goal objectives after the goal is set", async () => {
@@ -3909,9 +3911,12 @@ describe("workspace store hydration ordering", () => {
     });
     expect(startedPrompts).toEqual(["/goal Fix the stalled goal turn"]);
     expect(
-      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns?.map(
-        (item) => ({ sourceTurnId: item.sourceTurnId, content: item.content }),
-      ),
+      useAppStore
+        .getState()
+        .promptDraftByTask["task-main"]?.queuedTurns?.map((item) => ({
+          sourceTurnId: item.sourceTurnId,
+          content: item.content,
+        })),
     ).toEqual([
       { sourceTurnId: started.turnId, content: "Fix the stalled goal turn" },
     ]);
@@ -4064,13 +4069,13 @@ describe("workspace store hydration ordering", () => {
       workspaceId: "ws-main",
     });
     expect(
-      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns?.map(
-        (item) => ({
+      useAppStore
+        .getState()
+        .promptDraftByTask["task-main"]?.queuedTurns?.map((item) => ({
           sourceTurnId: item.sourceTurnId,
           content: item.content,
           attachedFilePaths: item.attachedFilePaths,
-        }),
-      ),
+        })),
     ).toEqual([
       {
         sourceTurnId: started.turnId,
@@ -5008,8 +5013,7 @@ describe("workspace store hydration ordering", () => {
   test("switchWorkspace does not wait for file refresh when the target workspace is cached", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      | ((value: { ok: boolean; files: string[] }) => void)
-      | null = null;
+      ((value: { ok: boolean; files: string[] }) => void) | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -5599,7 +5603,8 @@ describe("workspace store hydration ordering", () => {
               }
               if (
                 call.cwd === "/tmp/stave-project-close" &&
-                call.command === 'git rev-list --count "feature" --not --remotes'
+                call.command ===
+                  'git rev-list --count "feature" --not --remotes'
               ) {
                 return { ok: true, code: 0, stdout: "2\n", stderr: "" };
               }
@@ -6471,13 +6476,41 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-active",
       workspaces: [
-        { id: "ws-default", name: "Default", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-active", name: "Active", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-fresh", name: "Fresh", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-stale-1", name: "Stale 1", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-stale-2", name: "Stale 2", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-stale-3", name: "Stale 3", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-stale-4", name: "Stale 4", updatedAt: "2026-04-07T00:00:00.000Z" },
+        {
+          id: "ws-default",
+          name: "Default",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-active",
+          name: "Active",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-fresh",
+          name: "Fresh",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-stale-1",
+          name: "Stale 1",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-stale-2",
+          name: "Stale 2",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-stale-3",
+          name: "Stale 3",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-stale-4",
+          name: "Stale 4",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
       ],
       workspaceDefaultById: {
         "ws-default": true,

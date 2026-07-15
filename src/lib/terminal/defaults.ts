@@ -6,15 +6,19 @@
 export const LEGACY_TERMINAL_FONT_FAMILY = "JetBrains Mono";
 
 export const DEFAULT_TERMINAL_FONT_FAMILY = [
-  'ui-monospace',
+  '"Symbols Nerd Font Mono"',
+  '"Symbols Nerd Font"',
+  '"JetBrainsMono Nerd Font Mono"',
+  '"JetBrainsMono Nerd Font"',
+  "ui-monospace",
   '"SF Mono"',
-  'SFMono-Regular',
-  'Menlo',
-  'Monaco',
-  'Consolas',
+  "SFMono-Regular",
+  "Menlo",
+  "Monaco",
+  "Consolas",
   '"Liberation Mono"',
   '"DejaVu Sans Mono"',
-  'monospace',
+  "monospace",
 ].join(", ");
 
 export const DEFAULT_TERMINAL_FONT_SIZE = 13;

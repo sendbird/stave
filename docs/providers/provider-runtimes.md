@@ -209,9 +209,13 @@ Codex plan mode:
 
 Codex checkpoint support:
 
-- The App Server path still does not expose checkpoint/compaction boundary
-  events equivalent to Claude `compact_boundary`.
-- Stave therefore does not expose restore-to-checkpoint behavior for Codex turns yet.
+- The App Server path does not expose a Claude-style compaction event. Stave
+  records a lightweight checkpoint boundary immediately before each normal
+  Codex turn, including the current Git `HEAD` when the working directory is a
+  repository.
+- The boundary is a conversation provenance marker, not a restore operation;
+  Stave does not claim that Codex can restore the App Server thread to that
+  checkpoint.
 
 Codex-specific runtime controls come from the UI and runtime options:
 

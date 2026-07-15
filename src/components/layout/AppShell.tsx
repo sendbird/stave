@@ -91,6 +91,7 @@ type ResizableLayoutKey =
 const WORKSPACE_SIDEBAR_MAX_WIDTH = 340;
 
 export function AppShell() {
+  const notifications = useAppStore((state) => state.notifications);
   const [
     projectPath,
     projectName,
@@ -399,6 +400,25 @@ export function AppShell() {
       </div>
     );
   }
+
+  useEffect(() => {
+    const unsubscribe = window.api?.notifications?.subscribeNativeClick?.(
+      ({ notificationId }) => {
+        void useAppStore.getState().openNotificationContext({
+          notificationId,
+          targetSurface: "task",
+        });
+      },
+    );
+    return () => unsubscribe?.();
+  }, []);
+
+  useEffect(() => {
+    void window.api?.notifications?.setBadge?.({
+      count: notifications.filter((notification) => !notification.readAt)
+        .length,
+    });
+  }, [notifications]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -1021,7 +1041,8 @@ export function AppShell() {
   const hasProjectContext = Boolean(projectPath?.trim());
   const activeWorkspaceName = useMemo(
     () =>
-      workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ??
+      workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+        ?.name ??
       workspaceBranchById[activeWorkspaceId] ??
       "workspace",
     [activeWorkspaceId, workspaceBranchById, workspaces],
@@ -1095,12 +1116,12 @@ export function AppShell() {
         ];
       })(),
       tasks: tasks.map((task) => ({
-          id: task.id,
-          isActive: task.id === activeTaskId,
-          isResponding: Boolean(activeTurnIdsByTask[task.id]),
-          provider: task.provider,
-          title: task.title,
-        })),
+        id: task.id,
+        isActive: task.id === activeTaskId,
+        isResponding: Boolean(activeTurnIdsByTask[task.id]),
+        provider: task.provider,
+        title: task.title,
+      })),
       workspacePath: activeWorkspacePath ?? null,
       workspaces: workspaces.map((workspace) => ({
         id: workspace.id,
@@ -1139,10 +1160,8 @@ export function AppShell() {
         },
         saveActiveEditor: () => saveActiveEditorTab().then(() => undefined),
         selectTask: (taskId: string) => selectTask({ taskId }),
-        setTaskProvider: (
-          taskId: string,
-          provider: "claude-code" | "codex",
-        ) => setTaskProvider({ taskId, provider }),
+        setTaskProvider: (taskId: string, provider: "claude-code" | "codex") =>
+          setTaskProvider({ taskId, provider }),
         startCompareRun: handleStartCompareRun,
         showOverlayTab: (tab: RightRailPanelId) =>
           setLayout({
@@ -1342,288 +1361,108 @@ export function AppShell() {
         </Suspense>
       ) : null}
       <div className="flex min-h-0 min-w-0 flex-1">
-          <RenderProfiler id="ProjectWorkspaceSidebar">
-            <ProjectWorkspaceSidebar
-              width={Math.max(
+        <RenderProfiler id="ProjectWorkspaceSidebar">
+          <ProjectWorkspaceSidebar
+            width={Math.max(workspaceSidebarWidth, WORKSPACE_SIDEBAR_MIN_WIDTH)}
+            collapsed={workspaceSidebarCollapsed}
+            animate={!sidebarResizing}
+            onOpenCommandPalette={handleOpenCommandPalette}
+            onOpenKeyboardShortcuts={handleOpenKeyboardShortcuts}
+            onOpenSettings={handleOpenSettings}
+            onPreloadSettings={handlePreloadSettings}
+          />
+        </RenderProfiler>
+        {!workspaceSidebarCollapsed ? (
+          <div
+            className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              setSidebarResizing(true);
+              const startX = event.clientX;
+              const startWidth = Math.max(
                 workspaceSidebarWidth,
                 WORKSPACE_SIDEBAR_MIN_WIDTH,
-              )}
-              collapsed={workspaceSidebarCollapsed}
-              animate={!sidebarResizing}
-              onOpenCommandPalette={handleOpenCommandPalette}
-              onOpenKeyboardShortcuts={handleOpenKeyboardShortcuts}
-              onOpenSettings={handleOpenSettings}
-              onPreloadSettings={handlePreloadSettings}
-            />
-          </RenderProfiler>
-          {!workspaceSidebarCollapsed ? (
-            <div
-              className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                setSidebarResizing(true);
-                const startX = event.clientX;
-                const startWidth = Math.max(
-                  workspaceSidebarWidth,
+              );
+              const onMove = (moveEvent: MouseEvent) => {
+                const next = Math.max(
                   WORKSPACE_SIDEBAR_MIN_WIDTH,
+                  Math.min(
+                    WORKSPACE_SIDEBAR_MAX_WIDTH,
+                    startWidth + (moveEvent.clientX - startX),
+                  ),
                 );
-                const onMove = (moveEvent: MouseEvent) => {
-                  const next = Math.max(
-                    WORKSPACE_SIDEBAR_MIN_WIDTH,
-                    Math.min(
-                      WORKSPACE_SIDEBAR_MAX_WIDTH,
-                      startWidth + (moveEvent.clientX - startX),
-                    ),
-                  );
-                  scheduleLayoutResizePatch("workspaceSidebarWidth", next);
-                };
-                const onUp = () => {
-                  setSidebarResizing(false);
-                  flushPendingLayoutPatch();
-                  window.removeEventListener("mousemove", onMove);
-                  window.removeEventListener("mouseup", onUp);
-                };
-                window.addEventListener("mousemove", onMove);
-                window.addEventListener("mouseup", onUp);
-              }}
-            >
-              <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
-            </div>
-          ) : null}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <TopBar />
+                scheduleLayoutResizePatch("workspaceSidebarWidth", next);
+              };
+              const onUp = () => {
+                setSidebarResizing(false);
+                flushPendingLayoutPatch();
+                window.removeEventListener("mousemove", onMove);
+                window.removeEventListener("mouseup", onUp);
+              };
+              window.addEventListener("mousemove", onMove);
+              window.addEventListener("mouseup", onUp);
+            }}
+          >
+            <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
+          </div>
+        ) : null}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <TopBar />
+          <div
+            ref={panelRowRef}
+            className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+          >
             <div
-              ref={panelRowRef}
+              ref={contentRowRef}
+              data-stave-content-row=""
               className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
             >
-              <div
-                ref={contentRowRef}
-                data-stave-content-row=""
-                className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
-              >
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                  {hasProject && !showFleetView ? <WorkspaceTaskTabs /> : null}
-                  {hasProject && !showFleetView && showPresetBar ? (
-                    <PresetBar />
-                  ) : null}
-                  <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-                    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-                        <div className="min-h-0 min-w-0 flex-1 sm:min-w-[420px]">
-                          {showCompareRun ? (
-                            <CompareRunPanel />
-                          ) : showFleetView ? (
-                            <FleetView />
-                          ) : (
-                            <>
-                              <div
-                                className={
-                                  showCliSurface ? "hidden h-full" : "h-full"
-                                }
-                              >
-                                <ChatArea />
-                              </div>
-                              <CliSessionPanel />
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className={terminalDocked ? undefined : "hidden"}>
-                        <div
-                          className={`group relative ${UI_LAYER_CLASS.resizer} h-[9px] -my-[4px] shrink-0 cursor-row-resize`}
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                            const startY = event.clientY;
-                            const startHeight = terminalDockHeight;
-                            const onMove = (moveEvent: MouseEvent) => {
-                              const delta = startY - moveEvent.clientY;
-                              const next = Math.max(
-                                120,
-                                Math.min(420, startHeight + delta),
-                              );
-                              scheduleLayoutResizePatch(
-                                "terminalDockHeight",
-                                next,
-                              );
-                            };
-                            const onUp = () => {
-                              flushPendingLayoutPatch();
-                              window.removeEventListener("mousemove", onMove);
-                              window.removeEventListener("mouseup", onUp);
-                            };
-                            window.addEventListener("mousemove", onMove);
-                            window.addEventListener("mouseup", onUp);
-                          }}
-                        >
-                          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
-                        </div>
-                        <TerminalDock />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {showDesktopEditor ? (
-                  <>
-                    <div
-                      className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        const startX = event.clientX;
-                        const startWidth = desktopEditorWidth;
-                        const onMove = (moveEvent: MouseEvent) => {
-                          const containerWidth =
-                            contentRowRef.current?.offsetWidth ?? 9999;
-                          const explorerWidth = showDesktopSidebar
-                            ? desktopSidebarWidth
-                            : 0;
-                          const separators = showDesktopSidebar ? 2 : 1;
-                          const maxEditor = Math.max(
-                            MIN_EDITOR_PANEL_WIDTH,
-                            containerWidth -
-                              MIN_CHAT_PANEL_WIDTH -
-                              explorerWidth -
-                              separators,
-                          );
-                          const minEditor = Math.min(
-                            MIN_EDITOR_PANEL_WIDTH,
-                            maxEditor,
-                          );
-                          const delta = startX - moveEvent.clientX;
-                          const next = Math.max(
-                            minEditor,
-                            Math.min(maxEditor, startWidth + delta),
-                          );
-                          scheduleLayoutResizePatch("editorPanelWidth", next);
-                        };
-                        const onUp = () => {
-                          flushPendingLayoutPatch();
-                          window.removeEventListener("mousemove", onMove);
-                          window.removeEventListener("mouseup", onUp);
-                        };
-                        window.addEventListener("mousemove", onMove);
-                        window.addEventListener("mouseup", onUp);
-                      }}
-                    >
-                      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
-                    </div>
-                    <div
-                      className="hidden min-h-0 min-w-0 lg:block"
-                      style={{ width: `${desktopEditorWidth}px` }}
-                    >
-                      <RenderProfiler id="EditorMainPanel" thresholdMs={10}>
-                        <EditorMainPanel />
-                      </RenderProfiler>
-                    </div>
-                  </>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                {hasProject && !showFleetView ? <WorkspaceTaskTabs /> : null}
+                {hasProject && !showFleetView && showPresetBar ? (
+                  <PresetBar />
                 ) : null}
-                {showDesktopSidebar ? (
-                  <>
-                    <div
-                      className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        const startX = event.clientX;
-                        const startWidth = desktopSidebarWidth;
-                        const onMove = (moveEvent: MouseEvent) => {
-                          const containerWidth =
-                            contentRowRef.current?.offsetWidth ?? 9999;
-                          const editorWidth = showDesktopEditor
-                            ? desktopEditorWidth
-                            : 0;
-                          const separators = showDesktopEditor ? 2 : 1;
-                          const maxExplorer = Math.max(
-                            MIN_EXPLORER_PANEL_WIDTH,
-                            containerWidth -
-                              MIN_CHAT_PANEL_WIDTH -
-                              editorWidth -
-                              separators,
-                          );
-                          const delta = startX - moveEvent.clientX;
-                          const next = Math.max(
-                            MIN_EXPLORER_PANEL_WIDTH,
-                            Math.min(maxExplorer, startWidth + delta),
-                          );
-                          scheduleLayoutResizePatch("explorerPanelWidth", next);
-                        };
-                        const onUp = () => {
-                          flushPendingLayoutPatch();
-                          window.removeEventListener("mousemove", onMove);
-                          window.removeEventListener("mouseup", onUp);
-                        };
-                        window.addEventListener("mousemove", onMove);
-                        window.addEventListener("mouseup", onUp);
-                      }}
-                    >
-                      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
-                    </div>
-                    <Suspense
-                      fallback={
-                        <aside
-                          className="bg-card p-3 text-sm text-muted-foreground"
-                          style={{ width: `${desktopSidebarWidth}px` }}
-                        >
-                          Loading panel...
-                        </aside>
-                      }
-                    >
-                      <div
-                        className="hidden min-h-0 min-w-0 lg:block"
-                        style={{ width: `${desktopSidebarWidth}px` }}
-                      >
-                        <RenderProfiler id="EditorPanel" thresholdMs={8}>
-                          <EditorPanel
-                            onOpenSettings={handleOpenSettings}
-                            lensOccluded={
-                              hasBlockingOverlayOpen || lensPanelResizing
-                            }
-                          />
-                        </RenderProfiler>
+                <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+                      <div className="min-h-0 min-w-0 flex-1 sm:min-w-[420px]">
+                        {showCompareRun ? (
+                          <CompareRunPanel />
+                        ) : showFleetView ? (
+                          <FleetView />
+                        ) : (
+                          <>
+                            <div
+                              className={
+                                showCliSurface ? "hidden h-full" : "h-full"
+                              }
+                            >
+                              <ChatArea />
+                            </div>
+                            <CliSessionPanel />
+                          </>
+                        )}
                       </div>
-                    </Suspense>
-                  </>
-                ) : null}
-                {showOverlayRightPanel ? (
-                  <>
-                    {showLensOverlayPanel ? (
+                    </div>
+                    <div className={terminalDocked ? undefined : "hidden"}>
                       <div
-                        className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
+                        className={`group relative ${UI_LAYER_CLASS.resizer} h-[9px] -my-[4px] shrink-0 cursor-row-resize`}
                         onMouseDown={(event) => {
-                          if (!activeWorkspaceId) {
-                            return;
-                          }
                           event.preventDefault();
-                          setLensPanelResizing(true);
-                          const workspaceId = activeWorkspaceId;
-                          const startX = event.clientX;
-                          const startWidth = lensPanelWidth;
+                          const startY = event.clientY;
+                          const startHeight = terminalDockHeight;
                           const onMove = (moveEvent: MouseEvent) => {
-                            const containerWidth =
-                              contentRowRef.current?.offsetWidth ?? 9999;
-                            const maxWidth = Math.max(
-                              MIN_LENS_PANEL_WIDTH,
-                              Math.min(
-                                MAX_LENS_PANEL_WIDTH,
-                                containerWidth -
-                                  MIN_CHAT_PANEL_WIDTH -
-                                  PANEL_SEPARATOR_WIDTH,
-                              ),
+                            const delta = startY - moveEvent.clientY;
+                            const next = Math.max(
+                              120,
+                              Math.min(420, startHeight + delta),
                             );
-                            const delta = startX - moveEvent.clientX;
-                            const next = clampPanelWidth(
-                              startWidth + delta,
-                              MIN_LENS_PANEL_WIDTH,
-                              maxWidth,
+                            scheduleLayoutResizePatch(
+                              "terminalDockHeight",
+                              next,
                             );
-                            const layout = useAppStore.getState().layout;
-                            scheduleLayoutPatch({
-                              lensPanelWidthByWorkspaceId: {
-                                ...layout.lensPanelWidthByWorkspaceId,
-                                [workspaceId]: next,
-                              },
-                            });
                           };
                           const onUp = () => {
-                            setLensPanelResizing(false);
                             flushPendingLayoutPatch();
                             window.removeEventListener("mousemove", onMove);
                             window.removeEventListener("mouseup", onUp);
@@ -1632,21 +1471,198 @@ export function AppShell() {
                           window.addEventListener("mouseup", onUp);
                         }}
                       >
-                        <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
+                        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
                       </div>
-                    ) : null}
+                      <TerminalDock />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {showDesktopEditor ? (
+                <>
+                  <div
+                    className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      const startX = event.clientX;
+                      const startWidth = desktopEditorWidth;
+                      const onMove = (moveEvent: MouseEvent) => {
+                        const containerWidth =
+                          contentRowRef.current?.offsetWidth ?? 9999;
+                        const explorerWidth = showDesktopSidebar
+                          ? desktopSidebarWidth
+                          : 0;
+                        const separators = showDesktopSidebar ? 2 : 1;
+                        const maxEditor = Math.max(
+                          MIN_EDITOR_PANEL_WIDTH,
+                          containerWidth -
+                            MIN_CHAT_PANEL_WIDTH -
+                            explorerWidth -
+                            separators,
+                        );
+                        const minEditor = Math.min(
+                          MIN_EDITOR_PANEL_WIDTH,
+                          maxEditor,
+                        );
+                        const delta = startX - moveEvent.clientX;
+                        const next = Math.max(
+                          minEditor,
+                          Math.min(maxEditor, startWidth + delta),
+                        );
+                        scheduleLayoutResizePatch("editorPanelWidth", next);
+                      };
+                      const onUp = () => {
+                        flushPendingLayoutPatch();
+                        window.removeEventListener("mousemove", onMove);
+                        window.removeEventListener("mouseup", onUp);
+                      };
+                      window.addEventListener("mousemove", onMove);
+                      window.addEventListener("mouseup", onUp);
+                    }}
+                  >
+                    <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
+                  </div>
+                  <div
+                    className="hidden min-h-0 min-w-0 lg:block"
+                    style={{ width: `${desktopEditorWidth}px` }}
+                  >
+                    <RenderProfiler id="EditorMainPanel" thresholdMs={10}>
+                      <EditorMainPanel />
+                    </RenderProfiler>
+                  </div>
+                </>
+              ) : null}
+              {showDesktopSidebar ? (
+                <>
+                  <div
+                    className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      const startX = event.clientX;
+                      const startWidth = desktopSidebarWidth;
+                      const onMove = (moveEvent: MouseEvent) => {
+                        const containerWidth =
+                          contentRowRef.current?.offsetWidth ?? 9999;
+                        const editorWidth = showDesktopEditor
+                          ? desktopEditorWidth
+                          : 0;
+                        const separators = showDesktopEditor ? 2 : 1;
+                        const maxExplorer = Math.max(
+                          MIN_EXPLORER_PANEL_WIDTH,
+                          containerWidth -
+                            MIN_CHAT_PANEL_WIDTH -
+                            editorWidth -
+                            separators,
+                        );
+                        const delta = startX - moveEvent.clientX;
+                        const next = Math.max(
+                          MIN_EXPLORER_PANEL_WIDTH,
+                          Math.min(maxExplorer, startWidth + delta),
+                        );
+                        scheduleLayoutResizePatch("explorerPanelWidth", next);
+                      };
+                      const onUp = () => {
+                        flushPendingLayoutPatch();
+                        window.removeEventListener("mousemove", onMove);
+                        window.removeEventListener("mouseup", onUp);
+                      };
+                      window.addEventListener("mousemove", onMove);
+                      window.addEventListener("mouseup", onUp);
+                    }}
+                  >
+                    <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
+                  </div>
+                  <Suspense
+                    fallback={
+                      <aside
+                        className="bg-card p-3 text-sm text-muted-foreground"
+                        style={{ width: `${desktopSidebarWidth}px` }}
+                      >
+                        Loading panel...
+                      </aside>
+                    }
+                  >
                     <div
-                      className={`min-h-0 min-w-0 border-l border-border/40 ${
-                        showLensOverlayPanel
-                          ? "shrink-0"
-                          : "w-[min(22rem,56vw)] max-w-[22rem]"
-                      }`}
-                      style={
-                        showLensOverlayPanel
-                          ? { width: `${lensPanelWidth}px` }
-                          : undefined
-                      }
+                      className="hidden min-h-0 min-w-0 lg:block"
+                      style={{ width: `${desktopSidebarWidth}px` }}
                     >
+                      <RenderProfiler id="EditorPanel" thresholdMs={8}>
+                        <EditorPanel
+                          onOpenSettings={handleOpenSettings}
+                          lensOccluded={
+                            hasBlockingOverlayOpen || lensPanelResizing
+                          }
+                        />
+                      </RenderProfiler>
+                    </div>
+                  </Suspense>
+                </>
+              ) : null}
+              {showOverlayRightPanel ? (
+                <>
+                  {showLensOverlayPanel ? (
+                    <div
+                      className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
+                      onMouseDown={(event) => {
+                        if (!activeWorkspaceId) {
+                          return;
+                        }
+                        event.preventDefault();
+                        setLensPanelResizing(true);
+                        const workspaceId = activeWorkspaceId;
+                        const startX = event.clientX;
+                        const startWidth = lensPanelWidth;
+                        const onMove = (moveEvent: MouseEvent) => {
+                          const containerWidth =
+                            contentRowRef.current?.offsetWidth ?? 9999;
+                          const maxWidth = Math.max(
+                            MIN_LENS_PANEL_WIDTH,
+                            Math.min(
+                              MAX_LENS_PANEL_WIDTH,
+                              containerWidth -
+                                MIN_CHAT_PANEL_WIDTH -
+                                PANEL_SEPARATOR_WIDTH,
+                            ),
+                          );
+                          const delta = startX - moveEvent.clientX;
+                          const next = clampPanelWidth(
+                            startWidth + delta,
+                            MIN_LENS_PANEL_WIDTH,
+                            maxWidth,
+                          );
+                          const layout = useAppStore.getState().layout;
+                          scheduleLayoutPatch({
+                            lensPanelWidthByWorkspaceId: {
+                              ...layout.lensPanelWidthByWorkspaceId,
+                              [workspaceId]: next,
+                            },
+                          });
+                        };
+                        const onUp = () => {
+                          setLensPanelResizing(false);
+                          flushPendingLayoutPatch();
+                          window.removeEventListener("mousemove", onMove);
+                          window.removeEventListener("mouseup", onUp);
+                        };
+                        window.addEventListener("mousemove", onMove);
+                        window.addEventListener("mouseup", onUp);
+                      }}
+                    >
+                      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
+                    </div>
+                  ) : null}
+                  <div
+                    className={`min-h-0 min-w-0 border-l border-border/40 ${
+                      showLensOverlayPanel
+                        ? "shrink-0"
+                        : "w-[min(22rem,56vw)] max-w-[22rem]"
+                    }`}
+                    style={
+                      showLensOverlayPanel
+                        ? { width: `${lensPanelWidth}px` }
+                        : undefined
+                    }
+                  >
                     {overlayRightPanelMode === "editor" ? (
                       <RenderProfiler
                         id="EditorMainPanelMobile"
@@ -1672,16 +1688,16 @@ export function AppShell() {
                         </RenderProfiler>
                       </Suspense>
                     )}
-                    </div>
-                  </>
-                ) : null}
-              </div>
-              <RightRail />
+                  </div>
+                </>
+              ) : null}
             </div>
+            <RightRail />
           </div>
-          {monacoWarmupActive && !editorVisible ? (
-            <EditorMonacoWarmup onReady={handleMonacoWarmed} />
-          ) : null}
+        </div>
+        {monacoWarmupActive && !editorVisible ? (
+          <EditorMonacoWarmup onReady={handleMonacoWarmed} />
+        ) : null}
       </div>
       <StatusBar />
     </div>

@@ -443,7 +443,10 @@ function emitEvent<TEvent extends HostServiceEventName>(
   return writePromise;
 }
 
-const terminalRuntime = createTerminalRuntime({ emitEvent });
+const terminalRuntime = createTerminalRuntime({
+  emitEvent,
+  persistence: ensureHostServicePersistenceReady(),
+});
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
 });
@@ -988,6 +991,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "terminal.write-session":
       await respond(request.id, terminalRuntime.writeSession(request.params));
       return;
+    case "terminal.ack-session-output":
+      await respond(
+        request.id,
+        terminalRuntime.ackSessionOutput(request.params),
+      );
+      return;
     case "terminal.read-session":
       await respond(request.id, terminalRuntime.readSession(request.params));
       return;
@@ -1036,7 +1045,7 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "terminal.close-sessions-by-slot-prefix":
       await respond(
         request.id,
-        terminalRuntime.closeSessionsBySlotPrefix(request.params),
+        await terminalRuntime.closeSessionsBySlotPrefix(request.params),
       );
       return;
     case "terminal.cleanup-all":

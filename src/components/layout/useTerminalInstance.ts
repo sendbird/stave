@@ -7,17 +7,19 @@ import {
   type RefObject,
 } from "react";
 import { FitAddon } from "@xterm/addon-fit";
+import { SearchAddon } from "@xterm/addon-search";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal as XTerm, type ITheme } from "@xterm/xterm";
+import { TerminalOutputScheduler } from "@/lib/terminal/terminal-output-scheduler";
 
 const AUTO_FOCUS_MAX_ATTEMPTS = 60;
+const WEBGL_MAX_AUTOMATIC_RETRIES = 3;
 
 export const TERMINAL_WRITE_ERROR_THRESHOLD = 5;
 
 const DEFAULT_TERMINAL_BACKGROUND = "#1f1f1f";
 const DEFAULT_TERMINAL_FOREGROUND = "#eaeaea";
-
-/** Track global WebGL failure — skip on subsequent terminal instances after a GPU crash. */
-let webglLoadFailed = false;
 
 type FocusableTarget = {
   focus?: (this: unknown, options?: { preventScroll?: boolean }) => void;
@@ -241,7 +243,7 @@ export interface TerminalInstanceController {
   readonly fitAddon: FitAddon | null;
   clear: () => void;
   restoreScreenState: (screenState: string) => void;
-  write: (data: string) => void;
+  write: (data: string, onParsed?: () => void) => void;
   writeln: (data: string) => void;
   resize: (cols: number, rows: number) => void;
   focus: () => () => void;
@@ -259,6 +261,8 @@ export interface UseTerminalInstanceArgs {
   enabled: boolean;
   fontFamily: string;
   fontSize: number;
+  lineHeight?: number;
+  cursorStyle?: "block" | "bar" | "underline";
   isDarkMode: boolean;
   visible: boolean;
   restartToken?: number;
@@ -279,6 +283,9 @@ export function useTerminalInstance(
 ): UseTerminalInstanceReturn {
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const outputSchedulerRef = useRef<TerminalOutputScheduler | null>(null);
+  const webglCleanupRef = useRef<() => void>(() => {});
+  const retryWebglRef = useRef<() => void>(() => {});
   const cleanupRef = useRef<() => void>(() => {});
   const themeSyncFrameRef = useRef<number | null>(null);
   const themeKeyRef = useRef<string | null>(null);
@@ -314,6 +321,12 @@ export function useTerminalInstance(
 
   const disposeInstance = useCallback(() => {
     clearPendingThemeWork();
+
+    outputSchedulerRef.current?.dispose();
+    outputSchedulerRef.current = null;
+    webglCleanupRef.current();
+    webglCleanupRef.current = () => {};
+    retryWebglRef.current = () => {};
 
     try {
       cleanupRef.current();
@@ -542,7 +555,11 @@ export function useTerminalInstance(
       }
 
       if (typeof document !== "undefined" && "fonts" in document) {
-        const fontSpec = `${args.fontSize}px ${args.fontFamily}`;
+        // FontFaceSet.load accepts one family reliably. Loading the whole
+        // fallback stack can silently skip the Nerd Font preload.
+        const primaryFontFamily =
+          args.fontFamily.split(",")[0]?.trim() || "monospace";
+        const fontSpec = `${args.fontSize}px ${primaryFontFamily}`;
         try {
           await Promise.race([
             document.fonts.load(fontSpec),
@@ -563,9 +580,13 @@ export function useTerminalInstance(
         allowProposedApi: true,
         convertEol: true,
         cursorBlink: false,
-        cursorStyle: "block",
+        cursorStyle: args.cursorStyle ?? "block",
         fontFamily: args.fontFamily,
         fontSize: args.fontSize,
+        fontWeight: 300,
+        fontWeightBold: 500,
+        lineHeight: Math.min(3, Math.max(1, args.lineHeight ?? 1)),
+        minimumContrastRatio: 4.5,
         scrollback: 10_000,
         theme: resolveTerminalTheme(),
       });
@@ -595,27 +616,111 @@ export function useTerminalInstance(
       fitAddonRef.current = fitAddon;
       themeKeyRef.current = null;
 
-      if (!webglLoadFailed) {
+      const outputScheduler = new TerminalOutputScheduler(terminal, {
+        maxChunkChars: 128 * 1024,
+        onWriteError: (caughtError) => {
+          executeTerminalOperation(
+            "write-terminal-output",
+            () => {
+              throw caughtError;
+            },
+            {
+              countWriteError: true,
+              message: "Failed to render terminal output.",
+            },
+          );
+        },
+        onWriteParsed: () => {
+          executeTerminalOperation("write-terminal-output", () => true, {
+            countWriteError: true,
+            countWriteSuccessWhen: Boolean,
+          });
+        },
+      });
+      outputSchedulerRef.current = outputScheduler;
+
+      for (const [name, addon] of [
+        ["unicode11", new Unicode11Addon()],
+        ["web-links", new WebLinksAddon()],
+        ["search", new SearchAddon()],
+      ] as const) {
+        try {
+          terminal.loadAddon(addon);
+        } catch (caughtError) {
+          reportRendererIssue(`load-terminal-addon:${name}`, caughtError);
+        }
+      }
+
+      let webgl: {
+        dispose: () => void;
+        onContextLoss: (callback: () => void) => void;
+        textureAtlas?: HTMLCanvasElement;
+      } | null = null;
+      let webglRetryTimer: ReturnType<typeof setTimeout> | null = null;
+      let webglRetryCount = 0;
+      const releaseWebgl = () => {
+        if (webglRetryTimer !== null) {
+          clearTimeout(webglRetryTimer);
+          webglRetryTimer = null;
+        }
+        const canvas = webgl?.textureAtlas;
+        const context =
+          canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
+        const loseContext = context?.getExtension("WEBGL_lose_context");
+        loseContext?.loseContext();
+        if (canvas) {
+          canvas.width = 0;
+          canvas.height = 0;
+        }
+        webgl?.dispose();
+        webgl = null;
+      };
+      const loadWebgl = () => {
+        if (cancelled || !visibleRef.current || webgl) {
+          return;
+        }
         import("@xterm/addon-webgl")
           .then(({ WebglAddon }) => {
-            if (cancelled || terminalRef.current !== terminal) {
+            if (
+              cancelled ||
+              terminalRef.current !== terminal ||
+              !visibleRef.current
+            ) {
               return;
             }
             try {
-              const webgl = new WebglAddon();
-              webgl.onContextLoss(() => {
-                webgl.dispose();
-                webglLoadFailed = true;
+              const nextWebgl = new WebglAddon();
+              nextWebgl.onContextLoss(() => {
+                nextWebgl.dispose();
+                webgl = null;
+                webglRetryCount += 1;
+                if (
+                  visibleRef.current &&
+                  webglRetryCount <= WEBGL_MAX_AUTOMATIC_RETRIES &&
+                  webglRetryTimer === null
+                ) {
+                  webglRetryTimer = setTimeout(() => {
+                    webglRetryTimer = null;
+                    loadWebgl();
+                  }, 500);
+                }
               });
-              terminal.loadAddon(webgl);
-            } catch {
-              webglLoadFailed = true;
+              terminal.loadAddon(nextWebgl);
+              webgl = nextWebgl;
+            } catch (caughtError) {
+              reportRendererIssue("load-terminal-addon:webgl", caughtError);
             }
           })
-          .catch(() => {
-            webglLoadFailed = true;
+          .catch((caughtError) => {
+            reportRendererIssue("load-terminal-addon:webgl", caughtError);
           });
-      }
+      };
+      retryWebglRef.current = () => {
+        webglRetryCount = 0;
+        loadWebgl();
+      };
+      webglCleanupRef.current = releaseWebgl;
+      loadWebgl();
 
       // Gate ResizeObserver through requestAnimationFrame so resize-heavy
       // interactions emit at most one measure + resize request per frame. The
@@ -663,13 +768,18 @@ export function useTerminalInstance(
 
       container.addEventListener("focusin", onFocusIn);
       container.addEventListener("focusout", onFocusOut);
+      const onWindowFocus = () => retryWebglRef.current();
+      window.addEventListener("focus", onWindowFocus);
 
       await waitForAnimationFrames(2);
       if (cancelled) {
         container.removeEventListener("focusin", onFocusIn);
         container.removeEventListener("focusout", onFocusOut);
+        window.removeEventListener("focus", onWindowFocus);
         dataDisposable.dispose();
         resizeObserver?.disconnect();
+        outputScheduler.dispose();
+        releaseWebgl();
         terminal.dispose();
         return;
       }
@@ -696,8 +806,11 @@ export function useTerminalInstance(
       cleanupRef.current = () => {
         container.removeEventListener("focusin", onFocusIn);
         container.removeEventListener("focusout", onFocusOut);
+        window.removeEventListener("focus", onWindowFocus);
         dataDisposable.dispose();
         resizeObserver?.disconnect();
+        outputScheduler.dispose();
+        releaseWebgl();
         terminal.dispose();
       };
     };
@@ -711,8 +824,10 @@ export function useTerminalInstance(
   }, [
     args.containerRef,
     args.enabled,
+    args.cursorStyle,
     args.fontFamily,
     args.fontSize,
+    args.lineHeight,
     args.restartToken,
     disposeInstance,
     emitResize,
@@ -846,8 +961,10 @@ export function useTerminalInstance(
 
   useEffect(() => {
     if (args.visible) {
+      retryWebglRef.current();
       return;
     }
+    webglCleanupRef.current();
     const terminal = terminalRef.current;
     if (terminal) {
       terminal.options.cursorBlink = false;
@@ -863,56 +980,32 @@ export function useTerminalInstance(
         return fitAddonRef.current;
       },
       clear() {
-        executeTerminalOperation(
-          "clear-terminal",
-          () => {
-            terminalRef.current?.clear();
-          },
-          { message: "Failed to clear terminal renderer." },
-        );
-      },
-      restoreScreenState(screenState: string) {
-        executeTerminalOperation(
-          "restore-terminal-screen-state",
-          () => {
-            const terminal = terminalRef.current;
-            if (!terminal) {
-              return false;
-            }
-
-            restoreTerminalScreenState({
-              terminal,
-              screenState,
-            });
-            return true;
-          },
-          {
-            countWriteError: true,
-            countWriteSuccessWhen: Boolean,
-            message: "Failed to restore terminal screen state.",
-          },
-        );
-      },
-      write(data: string) {
-        if (!data) {
+        const terminal = terminalRef.current;
+        const scheduler = outputSchedulerRef.current;
+        if (!terminal || !scheduler) {
           return;
         }
-        executeTerminalOperation(
-          "write-terminal-output",
-          () => {
-            const terminal = terminalRef.current;
-            if (!terminal) {
-              return false;
-            }
-            terminal.write(data);
-            return true;
-          },
-          {
-            countWriteError: true,
-            countWriteSuccessWhen: Boolean,
-            message: "Failed to render terminal output.",
-          },
-        );
+        scheduler.replace("", () => terminal.clear());
+      },
+      restoreScreenState(screenState: string) {
+        const terminal = terminalRef.current;
+        const scheduler = outputSchedulerRef.current;
+        if (!terminal || !scheduler) {
+          return;
+        }
+        scheduler.replace(screenState, () => terminal.reset());
+      },
+      write(data: string, onParsed?: () => void) {
+        if (!data) {
+          onParsed?.();
+          return;
+        }
+        const scheduler = outputSchedulerRef.current;
+        if (!scheduler || !terminalRef.current) {
+          onParsed?.();
+          return;
+        }
+        scheduler.enqueue(data, onParsed);
       },
       writeln(data: string) {
         executeTerminalOperation(
