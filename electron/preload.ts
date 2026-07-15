@@ -104,12 +104,24 @@ interface TerminalRunArgs {
 interface TerminalSessionOutputPayload {
   sessionId: string;
   output: string;
+  sequence: number;
+  bytes: number;
 }
 
 interface TerminalSessionExitPayload {
   sessionId: string;
   exitCode: number;
   signal?: number;
+}
+
+interface TerminalSessionStatusPayload {
+  sessionId: string;
+  status: "prompt-start" | "command-start" | "command-finished" | "prompt-end";
+  exitCode?: number;
+}
+
+interface NativeNotificationClickPayload {
+  notificationId: string;
 }
 
 interface ScmCommitArgs {
@@ -241,6 +253,30 @@ ipcRenderer.on(
   "terminal:session-exit",
   (_event, payload: TerminalSessionExitPayload) => {
     for (const subscriber of terminalSessionExitSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const terminalSessionStatusSubscribers = new Set<
+  (payload: TerminalSessionStatusPayload) => void
+>();
+ipcRenderer.on(
+  "terminal:session-status",
+  (_event, payload: TerminalSessionStatusPayload) => {
+    for (const subscriber of terminalSessionStatusSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const nativeNotificationClickSubscribers = new Set<
+  (payload: NativeNotificationClickPayload) => void
+>();
+ipcRenderer.on(
+  "notifications:native-click",
+  (_event, payload: NativeNotificationClickPayload) => {
+    for (const subscriber of nativeNotificationClickSubscribers) {
       subscriber(payload);
     }
   },
@@ -1126,6 +1162,11 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("terminal:create-cli-session", args),
     writeSession: (args: { sessionId: string; input: string }) =>
       ipcRenderer.invoke("terminal:write-session", args),
+    ackSessionOutput: (args: {
+      sessionId: string;
+      attachmentId: string;
+      acknowledgedBytes: number;
+    }) => ipcRenderer.invoke("terminal:ack-session-output", args),
     readSession: (args: { sessionId: string }) =>
       ipcRenderer.invoke("terminal:read-session", args),
     subscribeSessionOutput: (
@@ -1142,6 +1183,14 @@ contextBridge.exposeInMainWorld("api", {
       terminalSessionExitSubscribers.add(listener);
       return () => {
         terminalSessionExitSubscribers.delete(listener);
+      };
+    },
+    subscribeSessionStatus: (
+      listener: (payload: TerminalSessionStatusPayload) => void,
+    ) => {
+      terminalSessionStatusSubscribers.add(listener);
+      return () => {
+        terminalSessionStatusSubscribers.delete(listener);
       };
     },
     setSessionDeliveryMode: (args: {
@@ -1166,6 +1215,24 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("terminal:get-session-resume-info", args),
     closeSessionsBySlotPrefix: (args: { prefix: string }) =>
       ipcRenderer.invoke("terminal:close-sessions-by-slot-prefix", args),
+  },
+  notifications: {
+    showNative: (args: {
+      notificationId: string;
+      title: string;
+      body: string;
+      suppress?: boolean;
+    }) => ipcRenderer.invoke("notifications:show-native", args),
+    setBadge: (args: { count: number }) =>
+      ipcRenderer.invoke("notifications:set-badge", args),
+    subscribeNativeClick: (
+      listener: (payload: NativeNotificationClickPayload) => void,
+    ) => {
+      nativeNotificationClickSubscribers.add(listener);
+      return () => {
+        nativeNotificationClickSubscribers.delete(listener);
+      };
+    },
   },
   tooling: {
     getStatus: (args: ToolingStatusRequest) =>
@@ -1329,7 +1396,10 @@ contextBridge.exposeInMainWorld("api", {
         stdout?: string;
         stderr?: string;
       }>,
-    mergePr: (args: { method?: "default" | "merge" | "squash" | "rebase"; cwd?: string }) =>
+    mergePr: (args: {
+      method?: "default" | "merge" | "squash" | "rebase";
+      cwd?: string;
+    }) =>
       ipcRenderer.invoke("scm:merge-pr", args) as Promise<{
         ok: boolean;
         code?: number;
@@ -1614,6 +1684,7 @@ contextBridge.exposeInMainWorld("api", {
             lineNumber: number;
             columnNumber?: number;
           };
+          componentNameChain?: string[];
         };
         message?: string;
       }>,

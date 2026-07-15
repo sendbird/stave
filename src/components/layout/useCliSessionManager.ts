@@ -8,6 +8,10 @@ import {
 } from "react";
 import { createLatestAsyncDispatcher } from "@/components/layout/pty-session-surface.utils";
 import type { CliTerminalInstanceController } from "@/components/layout/useCliTerminalInstance";
+import {
+  createTerminalTranscriptBuffer,
+  type TerminalTranscriptBuffer,
+} from "@/lib/terminal/transcript-buffer";
 
 const TERMINAL_POLL_INTERVAL_MS = 120;
 const TERMINAL_INPUT_BUFFER_CHAR_LIMIT = 200_000;
@@ -34,26 +38,11 @@ type SessionExitInfo = {
 
 type SetBridgeError = Dispatch<SetStateAction<Record<string, string>>>;
 
-function appendTerminalText(
+function appendTerminalInput(
   existing: string,
   nextChunk: string,
   limit: number,
 ) {
-  if (!nextChunk) {
-    return existing;
-  }
-  const combined = `${existing}${nextChunk}`;
-  if (combined.length <= limit) {
-    return combined;
-  }
-  const overflowStart = combined.length - limit;
-  const nextLineBreak = combined.indexOf("\n", overflowStart);
-  return nextLineBreak >= 0
-    ? combined.slice(nextLineBreak + 1)
-    : combined.slice(-limit);
-}
-
-function appendTerminalInput(existing: string, nextChunk: string, limit: number) {
   if (!nextChunk) {
     return existing;
   }
@@ -125,9 +114,7 @@ export interface UseCliSessionManagerReturn {
 
 export function useCliSessionManager<
   TTab extends { id: string; nativeSessionId?: string },
->(
-  args: UseCliSessionManagerArgs<TTab>,
-): UseCliSessionManagerReturn {
+>(args: UseCliSessionManagerArgs<TTab>): UseCliSessionManagerReturn {
   const terminalControllerRef = useRef(args.terminalController);
 
   useEffect(() => {
@@ -140,9 +127,13 @@ export function useCliSessionManager<
   const writeInFlightBySessionRef = useRef<Record<string, boolean>>({});
   const flushScheduledBySessionRef = useRef<Record<string, boolean>>({});
   const exitedByTabKeyRef = useRef<Record<string, SessionExitInfo>>({});
-  const lastResizeBySessionRef = useRef<Record<string, { cols: number; rows: number }>>({});
+  const lastResizeBySessionRef = useRef<
+    Record<string, { cols: number; rows: number }>
+  >({});
   const attachmentIdByTabKeyRef = useRef<Record<string, string>>({});
-  const transcriptByTabKeyRef = useRef<Record<string, string>>({});
+  const transcriptByTabKeyRef = useRef<
+    Record<string, TerminalTranscriptBuffer>
+  >({});
   const transcriptFlushTimerRef = useRef<number | null>(null);
   const transcriptLoadedRef = useRef(false);
   const activeTabKeyRef = useRef<string | null>(null);
@@ -150,10 +141,25 @@ export function useCliSessionManager<
   const attachedAttachmentIdRef = useRef<string | null>(null);
   const terminalRevisionRef = useRef(args.terminalRevision);
   const streamReadyRef = useRef(false);
+  const lastOutputSequenceBySessionRef = useRef<Record<string, number>>({});
+  const acknowledgedBytesBySessionRef = useRef<Record<string, number>>({});
 
-  const [bridgeErrorByTabKey, setBridgeErrorByTabKey] = useState<Record<string, string>>({});
+  function serializeTranscripts() {
+    return Object.fromEntries(
+      Object.entries(transcriptByTabKeyRef.current).map(([tabKey, buffer]) => [
+        tabKey,
+        buffer.toString(),
+      ]),
+    );
+  }
+
+  const [bridgeErrorByTabKey, setBridgeErrorByTabKey] = useState<
+    Record<string, string>
+  >({});
   const [sessionVersion, setSessionVersion] = useState(0);
-  const [sessionExited, setSessionExited] = useState<SessionExitInfo | null>(null);
+  const [sessionExited, setSessionExited] = useState<SessionExitInfo | null>(
+    null,
+  );
   const [restartVersion, setRestartVersion] = useState(0);
 
   const supportsPushTerminalOutput =
@@ -184,7 +190,7 @@ export function useCliSessionManager<
       try {
         window.localStorage.setItem(
           args.transcriptStorageKey,
-          JSON.stringify(transcriptByTabKeyRef.current),
+          JSON.stringify(serializeTranscripts()),
         );
       } catch {
         // Ignore localStorage quota errors.
@@ -192,7 +198,9 @@ export function useCliSessionManager<
     };
     transcriptFlushTimerRef.current =
       typeof requestIdleCallback === "function"
-        ? requestIdleCallback(doFlush, { timeout: CLI_TRANSCRIPT_FLUSH_TIMEOUT_MS })
+        ? requestIdleCallback(doFlush, {
+            timeout: CLI_TRANSCRIPT_FLUSH_TIMEOUT_MS,
+          })
         : window.setTimeout(doFlush, CLI_TRANSCRIPT_FLUSH_TIMEOUT_MS);
   }
 
@@ -200,11 +208,11 @@ export function useCliSessionManager<
     if (!output) {
       return;
     }
-    transcriptByTabKeyRef.current[tabKey] = appendTerminalText(
-      transcriptByTabKeyRef.current[tabKey] ?? "",
-      output,
-      CLI_TRANSCRIPT_CHAR_LIMIT,
-    );
+    const buffer =
+      transcriptByTabKeyRef.current[tabKey] ??
+      createTerminalTranscriptBuffer("", CLI_TRANSCRIPT_CHAR_LIMIT);
+    buffer.append(output);
+    transcriptByTabKeyRef.current[tabKey] = buffer;
     scheduleTranscriptFlush();
   }
 
@@ -220,19 +228,19 @@ export function useCliSessionManager<
     ? (bridgeErrorByTabKey[activeTabKey] ?? "")
     : "";
 
-  const rememberNativeSessionId = useCallback((payload: {
-    tabId: string;
-    nativeSessionId?: string;
-  }) => {
-    const nativeSessionId = payload.nativeSessionId?.trim();
-    if (!nativeSessionId) {
-      return;
-    }
-    args.setTabNativeSession({
-      tabId: payload.tabId,
-      nativeSessionId,
-    });
-  }, [args.setTabNativeSession]);
+  const rememberNativeSessionId = useCallback(
+    (payload: { tabId: string; nativeSessionId?: string }) => {
+      const nativeSessionId = payload.nativeSessionId?.trim();
+      if (!nativeSessionId) {
+        return;
+      }
+      args.setTabNativeSession({
+        tabId: payload.tabId,
+        nativeSessionId,
+      });
+    },
+    [args.setTabNativeSession],
+  );
 
   useEffect(() => {
     activeTabKeyRef.current = activeTabKey;
@@ -251,7 +259,9 @@ export function useCliSessionManager<
         }
         const result = await resizeSession({ sessionId, cols, rows });
         if (!result?.ok) {
-          throw new Error(result?.stderr || "Failed to resize backend session.");
+          throw new Error(
+            result?.stderr || "Failed to resize backend session.",
+          );
         }
       },
       onError: (error, request) => {
@@ -272,40 +282,46 @@ export function useCliSessionManager<
     setSessionVersion((value) => value + 1);
   }, []);
 
-  const registerSession = useCallback((
-    tabKey: string,
-    sessionId: string,
-    attachmentId?: string,
-  ) => {
-    sessionIdByTabKeyRef.current[tabKey] = sessionId;
-    tabKeyBySessionIdRef.current[sessionId] = tabKey;
-    pendingInputBySessionRef.current[sessionId] = "";
-    writeInFlightBySessionRef.current[sessionId] = false;
-    flushScheduledBySessionRef.current[sessionId] = false;
-    delete exitedByTabKeyRef.current[tabKey];
-    delete lastResizeBySessionRef.current[sessionId];
-    if (attachmentId) {
-      attachmentIdByTabKeyRef.current[tabKey] = attachmentId;
-    } else {
-      delete attachmentIdByTabKeyRef.current[tabKey];
-    }
-    notifySessionChange();
-  }, [notifySessionChange]);
+  const registerSession = useCallback(
+    (tabKey: string, sessionId: string, attachmentId?: string) => {
+      sessionIdByTabKeyRef.current[tabKey] = sessionId;
+      tabKeyBySessionIdRef.current[sessionId] = tabKey;
+      pendingInputBySessionRef.current[sessionId] = "";
+      lastOutputSequenceBySessionRef.current[sessionId] = 0;
+      acknowledgedBytesBySessionRef.current[sessionId] = 0;
+      writeInFlightBySessionRef.current[sessionId] = false;
+      flushScheduledBySessionRef.current[sessionId] = false;
+      delete exitedByTabKeyRef.current[tabKey];
+      delete lastResizeBySessionRef.current[sessionId];
+      if (attachmentId) {
+        attachmentIdByTabKeyRef.current[tabKey] = attachmentId;
+      } else {
+        delete attachmentIdByTabKeyRef.current[tabKey];
+      }
+      notifySessionChange();
+    },
+    [notifySessionChange],
+  );
 
-  const clearSessionRegistration = useCallback((tabKey: string, sessionId: string) => {
-    if (sessionIdByTabKeyRef.current[tabKey] === sessionId) {
-      delete sessionIdByTabKeyRef.current[tabKey];
-    }
-    if (tabKeyBySessionIdRef.current[sessionId] === tabKey) {
-      delete tabKeyBySessionIdRef.current[sessionId];
-    }
-    delete pendingInputBySessionRef.current[sessionId];
-    delete writeInFlightBySessionRef.current[sessionId];
-    delete flushScheduledBySessionRef.current[sessionId];
-    delete lastResizeBySessionRef.current[sessionId];
-    delete attachmentIdByTabKeyRef.current[tabKey];
-    notifySessionChange();
-  }, [notifySessionChange]);
+  const clearSessionRegistration = useCallback(
+    (tabKey: string, sessionId: string) => {
+      if (sessionIdByTabKeyRef.current[tabKey] === sessionId) {
+        delete sessionIdByTabKeyRef.current[tabKey];
+      }
+      if (tabKeyBySessionIdRef.current[sessionId] === tabKey) {
+        delete tabKeyBySessionIdRef.current[sessionId];
+      }
+      delete pendingInputBySessionRef.current[sessionId];
+      delete writeInFlightBySessionRef.current[sessionId];
+      delete flushScheduledBySessionRef.current[sessionId];
+      delete lastResizeBySessionRef.current[sessionId];
+      delete attachmentIdByTabKeyRef.current[tabKey];
+      delete lastOutputSequenceBySessionRef.current[sessionId];
+      delete acknowledgedBytesBySessionRef.current[sessionId];
+      notifySessionChange();
+    },
+    [notifySessionChange],
+  );
 
   const handleTerminalResize = useCallback((cols: number, rows: number) => {
     const sessionId = attachedSessionIdRef.current;
@@ -319,26 +335,33 @@ export function useCliSessionManager<
     }
 
     lastResizeBySessionRef.current[sessionId] = { cols, rows };
-    return resizeSessionDispatcherRef.current.schedule({ sessionId, cols, rows });
-  }, []);
-
-  const enqueueTerminalInput = useCallback((sessionId: string, input: string) => {
-    pendingInputBySessionRef.current[sessionId] = appendTerminalInput(
-      pendingInputBySessionRef.current[sessionId] ?? "",
-      input,
-      TERMINAL_INPUT_BUFFER_CHAR_LIMIT,
-    );
-
-    if (flushScheduledBySessionRef.current[sessionId]) {
-      return;
-    }
-
-    flushScheduledBySessionRef.current[sessionId] = true;
-    queueMicrotask(() => {
-      flushScheduledBySessionRef.current[sessionId] = false;
-      flushTerminalInput(sessionId);
+    return resizeSessionDispatcherRef.current.schedule({
+      sessionId,
+      cols,
+      rows,
     });
   }, []);
+
+  const enqueueTerminalInput = useCallback(
+    (sessionId: string, input: string) => {
+      pendingInputBySessionRef.current[sessionId] = appendTerminalInput(
+        pendingInputBySessionRef.current[sessionId] ?? "",
+        input,
+        TERMINAL_INPUT_BUFFER_CHAR_LIMIT,
+      );
+
+      if (flushScheduledBySessionRef.current[sessionId]) {
+        return;
+      }
+
+      flushScheduledBySessionRef.current[sessionId] = true;
+      queueMicrotask(() => {
+        flushScheduledBySessionRef.current[sessionId] = false;
+        flushTerminalInput(sessionId);
+      });
+    },
+    [],
+  );
 
   const flushTerminalInput = useCallback((sessionId: string) => {
     if (writeInFlightBySessionRef.current[sessionId]) {
@@ -391,22 +414,28 @@ export function useCliSessionManager<
       });
   }, []);
 
-  const handleTerminalInput = useCallback((input: string) => {
-    const sessionId = attachedSessionIdRef.current;
-    if (!sessionId || !input) {
-      return;
-    }
-    enqueueTerminalInput(sessionId, input);
-  }, [enqueueTerminalInput]);
+  const handleTerminalInput = useCallback(
+    (input: string) => {
+      const sessionId = attachedSessionIdRef.current;
+      if (!sessionId || !input) {
+        return;
+      }
+      enqueueTerminalInput(sessionId, input);
+    },
+    [enqueueTerminalInput],
+  );
 
-  const writeToActiveSession = useCallback((input: string) => {
-    const sessionId = attachedSessionIdRef.current;
-    if (!sessionId || !input) {
-      return false;
-    }
-    enqueueTerminalInput(sessionId, input);
-    return true;
-  }, [enqueueTerminalInput]);
+  const writeToActiveSession = useCallback(
+    (input: string) => {
+      const sessionId = attachedSessionIdRef.current;
+      if (!sessionId || !input) {
+        return false;
+      }
+      enqueueTerminalInput(sessionId, input);
+      return true;
+    },
+    [enqueueTerminalInput],
+  );
 
   // ---------------------------------------------------------------------------
   // IPC event subscriptions
@@ -456,9 +485,20 @@ export function useCliSessionManager<
       return;
     }
 
-    return subscribeSessionOutput(({ sessionId, output }) => {
+    return subscribeSessionOutput((payload) => {
+      const { sessionId, output } = payload;
       if (!output || sessionId !== attachedSessionIdRef.current) {
         return;
+      }
+      if (
+        payload.sequence !== undefined &&
+        payload.sequence <=
+          (lastOutputSequenceBySessionRef.current[sessionId] ?? 0)
+      ) {
+        return;
+      }
+      if (payload.sequence !== undefined) {
+        lastOutputSequenceBySessionRef.current[sessionId] = payload.sequence;
       }
       if (!streamReadyRef.current) {
         return;
@@ -467,7 +507,21 @@ export function useCliSessionManager<
       if (tabKey) {
         recordTranscriptOutput(tabKey, output);
       }
-      terminalControllerRef.current.write(output);
+      terminalControllerRef.current.write(output, () => {
+        const acknowledgedBytes =
+          (acknowledgedBytesBySessionRef.current[sessionId] ?? 0) +
+          (payload.bytes ?? new TextEncoder().encode(output).byteLength);
+        acknowledgedBytesBySessionRef.current[sessionId] = acknowledgedBytes;
+        const attachmentId = attachedAttachmentIdRef.current;
+        if (!attachmentId) {
+          return;
+        }
+        void window.api?.terminal?.ackSessionOutput?.({
+          sessionId,
+          attachmentId,
+          acknowledgedBytes,
+        });
+      });
     });
   }, [supportsPushTerminalOutput]);
 
@@ -520,9 +574,13 @@ export function useCliSessionManager<
     transcriptLoadedRef.current = true;
     const raw = window.localStorage.getItem(args.transcriptStorageKey);
     try {
-      transcriptByTabKeyRef.current = raw
-        ? (JSON.parse(raw) as Record<string, string>)
-        : {};
+      const parsed = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+      transcriptByTabKeyRef.current = Object.fromEntries(
+        Object.entries(parsed).map(([tabKey, value]) => [
+          tabKey,
+          createTerminalTranscriptBuffer(value, CLI_TRANSCRIPT_CHAR_LIMIT),
+        ]),
+      );
     } catch {
       transcriptByTabKeyRef.current = {};
     }
@@ -532,7 +590,7 @@ export function useCliSessionManager<
       try {
         window.localStorage.setItem(
           args.transcriptStorageKey,
-          JSON.stringify(transcriptByTabKeyRef.current),
+          JSON.stringify(serializeTranscripts()),
         );
       } catch {
         // Ignore localStorage quota errors on unmount.
@@ -558,7 +616,9 @@ export function useCliSessionManager<
     }
 
     const previousPrefix = `${previousWorkspaceId}:`;
-    for (const [tabKey, sessionId] of Object.entries(sessionIdByTabKeyRef.current)) {
+    for (const [tabKey, sessionId] of Object.entries(
+      sessionIdByTabKeyRef.current,
+    )) {
       if (!tabKey.startsWith(previousPrefix)) {
         continue;
       }
@@ -586,7 +646,8 @@ export function useCliSessionManager<
     const liveTabKeys = new Set(args.tabs.map((tab) => args.getTabKey(tab)));
     const currentPrefix = `${args.workspaceId}:`;
     const removedEntries = Object.entries(sessionIdByTabKeyRef.current).filter(
-      ([tabKey]) => tabKey.startsWith(currentPrefix) && !liveTabKeys.has(tabKey),
+      ([tabKey]) =>
+        tabKey.startsWith(currentPrefix) && !liveTabKeys.has(tabKey),
     );
 
     if (removedEntries.length === 0) {
@@ -626,7 +687,12 @@ export function useCliSessionManager<
     const activeTab = args.activeTab;
     const knownNativeSessionId = activeTab?.nativeSessionId?.trim();
     const getSessionResumeInfo = window.api?.terminal?.getSessionResumeInfo;
-    if (!activeTab || !activeSessionId || knownNativeSessionId || !getSessionResumeInfo) {
+    if (
+      !activeTab ||
+      !activeSessionId ||
+      knownNativeSessionId ||
+      !getSessionResumeInfo
+    ) {
       return;
     }
 
@@ -635,9 +701,11 @@ export function useCliSessionManager<
     let attempts = 0;
 
     const poll = async () => {
-      let result:
-        | { ok: boolean; nativeSessionId?: string; stderr?: string }
-        | null = null;
+      let result: {
+        ok: boolean;
+        nativeSessionId?: string;
+        stderr?: string;
+      } | null = null;
       try {
         result = await getSessionResumeInfo({ sessionId: activeSessionId });
       } catch {
@@ -647,8 +715,7 @@ export function useCliSessionManager<
         return;
       }
 
-      const nativeSessionId =
-        result?.ok ? result.nativeSessionId?.trim() : "";
+      const nativeSessionId = result?.ok ? result.nativeSessionId?.trim() : "";
       if (nativeSessionId) {
         rememberNativeSessionId({
           tabId: activeTab.id,
@@ -674,14 +741,15 @@ export function useCliSessionManager<
         window.clearTimeout(timer);
       }
     };
-  }, [
-    activeSessionId,
-    args.activeTab,
-    rememberNativeSessionId,
-  ]);
+  }, [activeSessionId, args.activeTab, rememberNativeSessionId]);
 
   useEffect(() => {
-    if (!args.activeTab || !activeTabKey || !args.isVisible || !args.terminalReady) {
+    if (
+      !args.activeTab ||
+      !activeTabKey ||
+      !args.isVisible ||
+      !args.terminalReady
+    ) {
       return;
     }
 
@@ -690,7 +758,9 @@ export function useCliSessionManager<
     const getSlotState = window.api?.terminal?.getSlotState;
     const detachSession = window.api?.terminal?.detachSession;
     const resumeSessionStream = window.api?.terminal?.resumeSessionStream;
-    const deliveryMode: "poll" | "push" = supportsPushTerminalOutput ? "push" : "poll";
+    const deliveryMode: "poll" | "push" = supportsPushTerminalOutput
+      ? "push"
+      : "poll";
 
     if (!attachSession || !detachSession || !resumeSessionStream) {
       setBridgeErrorForTabKey(
@@ -702,9 +772,8 @@ export function useCliSessionManager<
     }
 
     let cancelled = false;
-    let activeAttachment:
-      | { sessionId: string; attachmentId: string }
-      | null = null;
+    let activeAttachment: { sessionId: string; attachmentId: string } | null =
+      null;
     const activeTab = args.activeTab;
     const rendererRevision = args.terminalRevision;
 
@@ -732,6 +801,10 @@ export function useCliSessionManager<
         }
 
         registerSession(tabKey, sessionId, attached.attachmentId);
+        if (attached.snapshotSequence !== undefined) {
+          lastOutputSequenceBySessionRef.current[sessionId] =
+            attached.snapshotSequence;
+        }
         activeAttachment = {
           sessionId,
           attachmentId: attached.attachmentId,
@@ -743,7 +816,8 @@ export function useCliSessionManager<
 
         // Restore scrollback from saved transcript (all output accumulated
         // before this detach/reattach cycle).
-        const savedTranscript = transcriptByTabKeyRef.current[tabKey] ?? "";
+        const savedTranscript =
+          transcriptByTabKeyRef.current[tabKey]?.toString() ?? "";
         if (savedTranscript) {
           terminalControllerRef.current.write(savedTranscript);
         }
@@ -778,13 +852,16 @@ export function useCliSessionManager<
           });
           return true;
         }
+        // Restore is complete before this call. Open the renderer gate first
+        // because the host can emit queued push output before the invoke
+        // response reaches the renderer.
+        streamReadyRef.current = true;
         const resumed = await resumeSessionStream({
           sessionId,
           attachmentId: attached.attachmentId,
         });
-        if (resumed.ok) {
-          streamReadyRef.current = true;
-        } else {
+        if (!resumed.ok) {
+          streamReadyRef.current = false;
           setBridgeErrorForTabKey(
             setBridgeErrorByTabKey,
             tabKey,

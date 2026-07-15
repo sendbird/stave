@@ -196,6 +196,15 @@ export function formatElementForChat(
     lines.push(`- ${debugSourceHint}`);
   }
 
+  if (result.componentNameChain && result.componentNameChain.length > 0) {
+    lines.push(
+      `- React components: ${result.componentNameChain
+        .slice(0, 8)
+        .map((name) => `\`${name}\``)
+        .join(" → ")}`,
+    );
+  }
+
   if (config?.heuristic !== false) {
     const hints = buildSearchHints(result);
     if (hints.length > 0) {
@@ -223,6 +232,7 @@ function annotationToElementResult(
     outerHTML: annotation.outerHTML ?? "",
     textContent: annotation.textContent ?? "",
     debugSource: annotation.debugSource,
+    componentNameChain: annotation.componentNameChain,
   };
 }
 
@@ -248,7 +258,8 @@ export function formatAnnotationsForChat(
       lines.push(
         `**Style edits:**`,
         ...annotation.styleEdits.map(
-          (edit) => `- ${edit.property}: \`${edit.before}\` → \`${edit.after}\``,
+          (edit) =>
+            `- ${edit.property}: \`${edit.before}\` → \`${edit.after}\``,
         ),
       );
     }
@@ -318,7 +329,8 @@ export function formatAnnotationsDisplayForChat(
       lines.push(
         `**Style edits:**`,
         ...annotation.styleEdits.map(
-          (edit) => `- ${edit.property}: \`${edit.before}\` -> \`${edit.after}\``,
+          (edit) =>
+            `- ${edit.property}: \`${edit.before}\` -> \`${edit.after}\``,
         ),
       );
     }

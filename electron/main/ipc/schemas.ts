@@ -223,6 +223,14 @@ export const TerminalResumeSessionStreamArgsSchema = z
   })
   .strict();
 
+export const TerminalAckSessionOutputArgsSchema = z
+  .object({
+    sessionId: z.string().min(1).max(200),
+    attachmentId: z.string().min(1).max(200),
+    acknowledgedBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
+
 export const TerminalGetSlotStateArgsSchema = z
   .object({
     slotKey: z.string().min(1).max(600),
@@ -232,6 +240,21 @@ export const TerminalGetSlotStateArgsSchema = z
 export const TerminalGetSessionResumeInfoArgsSchema = z
   .object({
     sessionId: z.string().min(1).max(200),
+  })
+  .strict();
+
+export const ShowNativeNotificationArgsSchema = z
+  .object({
+    notificationId: z.string().min(1).max(200),
+    title: z.string().min(1).max(500),
+    body: z.string().max(4000),
+    suppress: z.boolean().optional(),
+  })
+  .strict();
+
+export const SetNotificationBadgeArgsSchema = z
+  .object({
+    count: z.number().int().min(0).max(999_999),
   })
   .strict();
 

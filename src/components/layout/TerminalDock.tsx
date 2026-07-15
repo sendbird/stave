@@ -163,6 +163,8 @@ export function TerminalDock() {
     terminalDockHeight,
     terminalFontFamily,
     terminalFontSize,
+    terminalLineHeight,
+    terminalCursorStyle,
     isDarkMode,
     setLayout,
     activeWorkspaceId,
@@ -183,6 +185,8 @@ export function TerminalDock() {
           state.layout.terminalDockHeight ?? 210,
           state.settings.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY,
           state.settings.terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE,
+          state.settings.terminalLineHeight,
+          state.settings.terminalCursorStyle,
           state.isDarkMode,
           state.setLayout,
           state.activeWorkspaceId,
@@ -279,6 +283,7 @@ export function TerminalDock() {
     handleTerminalResize,
     restartActiveTerminalRenderer,
     sessionExited,
+    shellStatus,
     terminalReady,
   } = useTerminalSessionManager({
     activeTab,
@@ -492,6 +497,13 @@ export function TerminalDock() {
                 >
                   exited ({sessionExited.exitCode})
                 </span>
+              ) : shellStatus ? (
+                <span className="truncate text-[11px] text-sky-600 dark:text-sky-400">
+                  {shellStatus.status.replaceAll("-", " ")}
+                  {shellStatus.exitCode === undefined
+                    ? ""
+                    : ` (${shellStatus.exitCode})`}
+                </span>
               ) : activeSessionId ? (
                 <span className="truncate text-[11px] text-emerald-600 dark:text-emerald-400">
                   live
@@ -539,6 +551,8 @@ export function TerminalDock() {
                       isVisible={terminalDocked}
                       fontFamily={terminalFontFamily}
                       fontSize={terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE}
+                      lineHeight={terminalLineHeight}
+                      cursorStyle={terminalCursorStyle}
                       isDarkMode={isDarkMode}
                       dimmed={!activeTab}
                       tabManager={tabManager}

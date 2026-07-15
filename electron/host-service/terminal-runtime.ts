@@ -31,6 +31,8 @@ import {
   takeUtf8PrefixByBytes,
   takeUtf8SuffixByBytes,
 } from "../shared/bounded-text";
+import { Osc133Parser } from "../../src/lib/terminal/osc133";
+import { appendAbsoluteCursorPosition } from "../../src/lib/terminal/snapshot";
 import type {
   HostServiceEventMap,
   HostTerminalCreateSessionResult,
@@ -48,6 +50,8 @@ const TERMINAL_BACKGROUND_BUFFER_MAX_BYTES = 2 * 1024 * 1024;
 const TERMINAL_OUTPUT_CHUNKS_MAX_BYTES = 2 * 1024 * 1024;
 const TERMINAL_PENDING_PUSH_MAX_BYTES = 2 * 1024 * 1024;
 const TERMINAL_PUSH_FLUSH_MAX_BYTES = 128 * 1024;
+const TERMINAL_PUSH_ACK_HIGH_WATER_BYTES = 512 * 1024;
+const TERMINAL_PUSH_ACK_LOW_WATER_BYTES = 128 * 1024;
 const TERMINAL_SCREEN_STATE_MAX_BYTES = 256 * 1024;
 const TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES = [
   512, 256, 128, 64, 32, 0,
@@ -92,6 +96,20 @@ interface TerminalSessionEntry {
   exitSignal: number | undefined;
   nativeSessionId: string | null;
   disposeNativeSessionDiscovery: (() => void) | null;
+  outputSequence: number;
+  sentOutputBytes: number;
+  acknowledgedOutputBytes: number;
+  flowPaused: boolean;
+  persistedScreenState: string | null;
+  osc133Parser: Osc133Parser;
+}
+
+interface TerminalSnapshotPersistence {
+  saveTerminalSnapshot(args: { slotKey: string; screenState: string }): void;
+  loadTerminalSnapshot(args: {
+    slotKey: string;
+  }): { screen_state: string; updated_at: string } | undefined;
+  deleteTerminalSnapshot(args: { slotKey: string }): void;
 }
 
 function createBufferedDataHandler(onData: (data: string) => void) {
@@ -185,8 +203,10 @@ export function createTerminalRuntime(args: {
     event: TEvent,
     payload: HostServiceEventMap[TEvent],
   ) => Promise<void>;
+  persistence?: TerminalSnapshotPersistence;
 }) {
   const { emitEvent } = args;
+  const persistence = args.persistence;
   const sessions = new Map<string, TerminalSessionEntry>();
   const sessionSlotRegistry = createTerminalSessionSlotRegistry();
   const exitedSlotInfo = new Map<
@@ -594,6 +614,52 @@ export function createTerminalRuntime(args: {
     );
   }
 
+  function applyOutputFlowControl(session: TerminalSessionEntry) {
+    if (!isPushStreamReady(session)) {
+      resumeFlowPausedSession(session);
+      return;
+    }
+
+    const unacknowledgedBytes = Math.max(
+      0,
+      session.sentOutputBytes - session.acknowledgedOutputBytes,
+    );
+    if (
+      !session.flowPaused &&
+      unacknowledgedBytes >= TERMINAL_PUSH_ACK_HIGH_WATER_BYTES
+    ) {
+      try {
+        session.pty.pause();
+        session.flowPaused = true;
+        logTerminalPushBackpressure(
+          `reason=renderer-ack-window session-unacked-bytes=${unacknowledgedBytes}`,
+        );
+      } catch {}
+      return;
+    }
+
+    if (
+      session.flowPaused &&
+      unacknowledgedBytes <= TERMINAL_PUSH_ACK_LOW_WATER_BYTES
+    ) {
+      try {
+        session.pty.resume();
+      } catch {}
+      session.flowPaused = false;
+      schedulePushFlush(session);
+    }
+  }
+
+  function resumeFlowPausedSession(session: TerminalSessionEntry) {
+    if (!session.flowPaused) {
+      return;
+    }
+    try {
+      session.pty.resume();
+    } catch {}
+    session.flowPaused = false;
+  }
+
   function drainBackgroundBuffer(session: TerminalSessionEntry): string {
     if (session.backgroundBuffer.length === 0) {
       return "";
@@ -605,9 +671,14 @@ export function createTerminalRuntime(args: {
   }
 
   function serializeScreenState(session: TerminalSessionEntry): string {
+    const activeBuffer = session.headlessTerminal.buffer.active;
     for (const scrollback of TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES) {
       try {
-        const serialized = session.serializeAddon.serialize({ scrollback });
+        const serialized = appendAbsoluteCursorPosition(
+          session.serializeAddon.serialize({ scrollback }),
+          activeBuffer.cursorX,
+          activeBuffer.cursorY,
+        );
         if (byteLengthUtf8(serialized) <= TERMINAL_SCREEN_STATE_MAX_BYTES) {
           return serialized;
         }
@@ -618,6 +689,18 @@ export function createTerminalRuntime(args: {
     }
 
     return "";
+  }
+
+  async function persistSessionSnapshot(session: TerminalSessionEntry) {
+    if (!session.slotKey || !persistence) return;
+    await session.lastHeadlessWritePromise;
+    const screenState = serializeScreenState(session);
+    if (screenState) {
+      persistence.saveTerminalSnapshot({
+        slotKey: session.slotKey,
+        screenState,
+      });
+    }
   }
 
   function maybeLogTerminalBackpressure(args: {
@@ -715,7 +798,15 @@ export function createTerminalRuntime(args: {
       session.pendingPushBytes - outputBytes,
     );
     session.pushWriteInFlight = true;
-    const pushPromise = emitEvent("terminal.output", { sessionId, output })
+    const sequence = session.outputSequence + 1;
+    session.outputSequence = sequence;
+    session.sentOutputBytes += outputBytes;
+    const pushPromise = emitEvent("terminal.output", {
+      sessionId,
+      output,
+      sequence,
+      bytes: outputBytes,
+    })
       .catch((error) => {
         if (hasActiveAttachment(session)) {
           appendOutputChunk(session, output);
@@ -738,6 +829,7 @@ export function createTerminalRuntime(args: {
           session.lastPushWritePromise = null;
         }
         maybeLogTerminalRecovery({ session, sessionId });
+        applyOutputFlowControl(session);
         schedulePushFlush(session);
       });
     session.lastPushWritePromise = pushPromise;
@@ -753,6 +845,7 @@ export function createTerminalRuntime(args: {
       return { ok: false, stderr: "Terminal session not found." };
     }
     session.deliveryMode = args.deliveryMode;
+    applyOutputFlowControl(session);
     if (args.deliveryMode === "push" && isPushStreamReady(session)) {
       schedulePushFlush(session);
     } else {
@@ -832,6 +925,16 @@ export function createTerminalRuntime(args: {
       exitSignal: undefined,
       nativeSessionId: args.nativeSessionId?.trim() || null,
       disposeNativeSessionDiscovery: null,
+      outputSequence: 0,
+      sentOutputBytes: 0,
+      acknowledgedOutputBytes: 0,
+      flowPaused: false,
+      persistedScreenState:
+        args.slotKey && persistence
+          ? (persistence.loadTerminalSnapshot({ slotKey: args.slotKey })
+              ?.screen_state ?? null)
+          : null,
+      osc133Parser: new Osc133Parser(),
       close: () => {
         if (session.closing) {
           return;
@@ -872,6 +975,9 @@ export function createTerminalRuntime(args: {
     };
 
     sessions.set(sessionId, session);
+    if (session.persistedScreenState) {
+      void mirrorPtyOutput(session, session.persistedScreenState);
+    }
     if (args.slotKey) {
       exitedSlotInfo.delete(args.slotKey);
       bindTerminalSessionSlot({
@@ -904,6 +1010,15 @@ export function createTerminalRuntime(args: {
           return;
         }
         const filtered = interceptOscColor(data);
+        for (const status of session.osc133Parser.push(data)) {
+          void emitEvent("terminal.status", {
+            sessionId,
+            status: status.status,
+            ...(status.exitCode === undefined
+              ? {}
+              : { exitCode: status.exitCode }),
+          });
+        }
         if (!filtered) {
           return;
         }
@@ -1168,6 +1283,9 @@ export function createTerminalRuntime(args: {
       return { ok: false, stderr: "Terminal session not found." };
     }
     session.close();
+    if (session.slotKey && persistence) {
+      persistence.deleteTerminalSnapshot({ slotKey: session.slotKey });
+    }
     session.disposeHeadlessMirror();
     deleteSession(args.sessionId);
     return { ok: true };
@@ -1187,10 +1305,30 @@ export function createTerminalRuntime(args: {
     return { ok: true };
   }
 
-  function closeSessionsBySlotPrefix(args: { prefix: string }): {
+  function ackSessionOutput(args: {
+    sessionId: string;
+    attachmentId: string;
+    acknowledgedBytes: number;
+  }): HostTerminalMutationResult {
+    const session = sessions.get(args.sessionId);
+    if (!session) {
+      return { ok: false, stderr: "Terminal session not found." };
+    }
+    if (session.activeAttachmentId !== args.attachmentId) {
+      return { ok: true };
+    }
+    session.acknowledgedOutputBytes = Math.max(
+      session.acknowledgedOutputBytes,
+      Math.min(args.acknowledgedBytes, session.sentOutputBytes),
+    );
+    applyOutputFlowControl(session);
+    return { ok: true };
+  }
+
+  async function closeSessionsBySlotPrefix(args: { prefix: string }): Promise<{
     ok: true;
     closedCount: number;
-  } {
+  }> {
     let closedCount = 0;
     for (const [slotKey, sessionId] of sessionSlotRegistry.sessionIdBySlotKey) {
       if (!slotKey.startsWith(args.prefix)) {
@@ -1198,6 +1336,7 @@ export function createTerminalRuntime(args: {
       }
       const session = sessions.get(sessionId);
       if (session && !session.closing) {
+        await persistSessionSnapshot(session);
         session.close();
         deleteSession(sessionId);
         closedCount++;
@@ -1218,6 +1357,7 @@ export function createTerminalRuntime(args: {
 
     await Promise.allSettled(
       currentSessions.map(async (session) => {
+        await persistSessionSnapshot(session);
         session.close();
         await Promise.race([
           session.closed,
@@ -1243,14 +1383,21 @@ export function createTerminalRuntime(args: {
     if (!session) {
       return { ok: false, stderr: "Terminal session not found." };
     }
+    resumeFlowPausedSession(session);
     const attachmentId = randomUUID();
     session.activeAttachmentId = attachmentId;
     session.streamReadyAttachmentId = null;
+    session.sentOutputBytes = 0;
+    session.acknowledgedOutputBytes = 0;
     const backlog = drainBackgroundBuffer(session);
     bufferPendingPushOutput(session);
     session.deliveryMode = args.deliveryMode;
     await session.lastHeadlessWritePromise;
     const screenState = serializeScreenState(session);
+    if (session.persistedScreenState && persistence && session.slotKey) {
+      persistence.deleteTerminalSnapshot({ slotKey: session.slotKey });
+      session.persistedScreenState = null;
+    }
 
     // Any output accumulated while attach was capturing is now represented by
     // screenState. Keep only post-attach output for the later resume flush.
@@ -1262,6 +1409,9 @@ export function createTerminalRuntime(args: {
       attachmentId,
       backlog,
       screenState,
+      ...(session.outputSequence > 0
+        ? { snapshotSequence: session.outputSequence }
+        : {}),
     };
   }
 
@@ -1280,8 +1430,11 @@ export function createTerminalRuntime(args: {
     ) {
       return { ok: true };
     }
+    resumeFlowPausedSession(session);
     session.activeAttachmentId = null;
     session.streamReadyAttachmentId = null;
+    session.sentOutputBytes = 0;
+    session.acknowledgedOutputBytes = 0;
     bufferPendingPushOutput(session);
     for (const chunk of session.outputChunks) {
       appendBackgroundBuffer(session, chunk);
@@ -1303,7 +1456,10 @@ export function createTerminalRuntime(args: {
     if (session.activeAttachmentId !== args.attachmentId) {
       return { ok: true };
     }
+    resumeFlowPausedSession(session);
     session.streamReadyAttachmentId = args.attachmentId;
+    session.sentOutputBytes = 0;
+    session.acknowledgedOutputBytes = 0;
     if (session.deliveryMode === "push" && session.outputChunks.length > 0) {
       while (session.outputChunks.length > 0) {
         const { output, bytes } = shiftBoundedOutput({
@@ -1382,6 +1538,7 @@ export function createTerminalRuntime(args: {
     createSession,
     createCliSession,
     writeSession,
+    ackSessionOutput,
     readSession,
     setSessionDeliveryMode,
     resizeSession,

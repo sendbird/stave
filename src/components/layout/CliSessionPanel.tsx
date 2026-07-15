@@ -94,6 +94,8 @@ function CliSessionPanelImpl() {
     [activeWorkspaceId],
   );
   const activeTabKey = activeTab ? getTabKey(activeTab) : null;
+  const hasTabs = cliSessionTabs.length > 0;
+  const isVisible = hasTabs && activeSurface.kind === "cli-session";
   const [rendererRestartToken, setRendererRestartToken] = useState(0);
   const terminalContainerRef = useRef<HTMLDivElement | null>(null);
   const terminalInputHandlerRef = useRef<(input: string) => void>(() => {});
@@ -171,10 +173,24 @@ function CliSessionPanelImpl() {
     restartToken: rendererRestartToken,
     fontFamily: settings.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY,
     fontSize: settings.terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE,
+    lineHeight: settings.terminalLineHeight,
+    cursorStyle: settings.terminalCursorStyle,
     isDarkMode,
     onData: (input) => terminalInputHandlerRef.current(input),
     onResize: (cols, rows) => terminalResizeHandlerRef.current(cols, rows),
   });
+
+  useLayoutEffect(() => {
+    if (!isVisible || !terminalInstance.ready || !activeTabKey) {
+      return;
+    }
+    return terminalInstance.controller.focus() ?? undefined;
+  }, [
+    activeTabKey,
+    isVisible,
+    terminalInstance.controller,
+    terminalInstance.ready,
+  ]);
 
   const {
     activeSessionId,
@@ -231,8 +247,6 @@ function CliSessionPanelImpl() {
     toast.message("Handoff pasted");
   }
 
-  const hasTabs = cliSessionTabs.length > 0;
-  const isVisible = hasTabs && activeSurface.kind === "cli-session";
   const surfaceError = bridgeError || terminalInstance.error || "";
   const terminalViewport = (
     <div className={TERMINAL_SURFACE_PANEL_CLASS_NAME}>

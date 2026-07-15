@@ -1,3 +1,5 @@
+import { TerminalTranscriptBuffer } from "./transcript-buffer";
+
 const TERMINAL_ROUTER_BUFFER_MAX_CHARS = 2_000_000;
 
 export interface TerminalSessionExitInfo {
@@ -6,7 +8,7 @@ export interface TerminalSessionExitInfo {
 }
 
 export interface TerminalSessionSubscriberCallbacks {
-  onOutput: (data: string) => void;
+  onOutput: (data: string, onParsed?: () => void) => void;
   onScreenState: (screenState: string) => void;
   onExit?: (info: TerminalSessionExitInfo) => void;
 }
@@ -14,24 +16,12 @@ export interface TerminalSessionSubscriberCallbacks {
 interface SessionState {
   subscribers: Map<number, TerminalSessionSubscriberCallbacks>;
   screenState: string | null;
-  bufferedOutput: string;
+  bufferedOutput: TerminalTranscriptBuffer;
+  bufferedOutputAcks: Array<() => void>;
   exitInfo: TerminalSessionExitInfo | null;
 }
 
 let nextSubscriberId = 1;
-
-function appendBoundedOutput(existing: string, next: string) {
-  if (!next) {
-    return existing;
-  }
-
-  const combined = `${existing}${next}`;
-  if (combined.length <= TERMINAL_ROUTER_BUFFER_MAX_CHARS) {
-    return combined;
-  }
-
-  return combined.slice(-TERMINAL_ROUTER_BUFFER_MAX_CHARS);
-}
 
 export class TerminalSessionRouter {
   private readonly sessions = new Map<string, SessionState>();
@@ -42,7 +32,10 @@ export class TerminalSessionRouter {
       session = {
         subscribers: new Map(),
         screenState: null,
-        bufferedOutput: "",
+        bufferedOutput: new TerminalTranscriptBuffer(
+          TERMINAL_ROUTER_BUFFER_MAX_CHARS,
+        ),
+        bufferedOutputAcks: [],
         exitInfo: null,
       };
       this.sessions.set(sessionId, session);
@@ -68,8 +61,25 @@ export class TerminalSessionRouter {
       if (currentSession.screenState !== null) {
         currentCallbacks.onScreenState(currentSession.screenState);
       }
-      if (currentSession.bufferedOutput) {
-        currentCallbacks.onOutput(currentSession.bufferedOutput);
+      if (currentSession.bufferedOutput.size > 0) {
+        const bufferedAcks = currentSession.bufferedOutputAcks.splice(0);
+        // This replay is delivered only to the subscriber whose registration
+        // microtask is running. Other subscribers have their own replay
+        // callback, so counting the whole map here could strand the ACK when
+        // two surfaces subscribe in the same turn.
+        let remainingSubscribers = 1;
+        const onParsed = () => {
+          remainingSubscribers -= 1;
+          if (remainingSubscribers <= 0) {
+            for (const ack of bufferedAcks) {
+              ack();
+            }
+          }
+        };
+        currentCallbacks.onOutput(
+          currentSession.bufferedOutput.toString(),
+          onParsed,
+        );
       }
       if (currentSession.exitInfo) {
         currentCallbacks.onExit?.(currentSession.exitInfo);
@@ -94,7 +104,10 @@ export class TerminalSessionRouter {
 
     if (typeof args.screenState === "string") {
       session.screenState = args.screenState;
-      session.bufferedOutput = "";
+      session.bufferedOutput.clear();
+      for (const ack of session.bufferedOutputAcks.splice(0)) {
+        ack();
+      }
       for (const callbacks of session.subscribers.values()) {
         callbacks.onScreenState(args.screenState);
       }
@@ -112,26 +125,32 @@ export class TerminalSessionRouter {
       return;
     }
 
-    session.bufferedOutput = appendBoundedOutput(
-      session.bufferedOutput,
-      args.backlog,
-    );
+    session.bufferedOutput.append(args.backlog);
   }
 
-  publishOutput(sessionId: string, output: string) {
+  publishOutput(sessionId: string, output: string, onParsed?: () => void) {
     if (!output) {
       return;
     }
 
     const session = this.getOrCreateSession(sessionId);
     if (session.subscribers.size > 0) {
+      let remainingSubscribers = session.subscribers.size;
       for (const callbacks of session.subscribers.values()) {
-        callbacks.onOutput(output);
+        callbacks.onOutput(output, () => {
+          remainingSubscribers -= 1;
+          if (remainingSubscribers <= 0) {
+            onParsed?.();
+          }
+        });
       }
       return;
     }
 
-    session.bufferedOutput = appendBoundedOutput(session.bufferedOutput, output);
+    session.bufferedOutput.append(output);
+    if (onParsed) {
+      session.bufferedOutputAcks.push(onParsed);
+    }
   }
 
   publishExit(sessionId: string, info: TerminalSessionExitInfo) {
@@ -143,10 +162,19 @@ export class TerminalSessionRouter {
   }
 
   clearSession(sessionId: string) {
+    const session = this.sessions.get(sessionId);
+    for (const ack of session?.bufferedOutputAcks.splice(0) ?? []) {
+      ack();
+    }
     this.sessions.delete(sessionId);
   }
 
   clearAll() {
+    for (const session of this.sessions.values()) {
+      for (const ack of session.bufferedOutputAcks) {
+        ack();
+      }
+    }
     this.sessions.clear();
   }
 }

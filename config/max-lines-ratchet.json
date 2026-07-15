@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "files": {
+    "src/components/layout/useTerminalInstance.ts": 1100,
+    "electron/host-service/terminal-runtime.ts": 1559,
+    "src/store/app.store.ts": 13686,
+    "electron/providers/codex-app-server-runtime.ts": 5300
+  }
+}

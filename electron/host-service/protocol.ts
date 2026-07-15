@@ -115,7 +115,14 @@ export interface HostTerminalAttachSessionResult {
   attachmentId?: string;
   backlog?: string;
   screenState?: string;
+  snapshotSequence?: number;
   stderr?: string;
+}
+
+export interface HostTerminalStatusEvent {
+  sessionId: string;
+  status: "prompt-start" | "command-start" | "command-finished" | "prompt-end";
+  exitCode?: number;
 }
 
 export interface HostTerminalSlotStateResult {
@@ -355,6 +362,11 @@ export interface HostServiceRequestMap {
   "terminal.write-session": {
     sessionId: string;
     input: string;
+  };
+  "terminal.ack-session-output": {
+    sessionId: string;
+    attachmentId: string;
+    acknowledgedBytes: number;
   };
   "terminal.read-session": {
     sessionId: string;
@@ -660,12 +672,26 @@ export interface HostServiceRequestMap {
     cwd?: string;
   };
   "scm.revert": { commit: string; cwd?: string };
-  "scm.reset": { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string };
-  "scm.create-tag": { name: string; commit?: string; message?: string; cwd?: string };
+  "scm.reset": {
+    commit: string;
+    mode: "soft" | "mixed" | "hard";
+    cwd?: string;
+  };
+  "scm.create-tag": {
+    name: string;
+    commit?: string;
+    message?: string;
+    cwd?: string;
+  };
   "scm.delete-tag": { name: string; cwd?: string };
   "scm.rename-branch": { from: string; to: string; cwd?: string };
   "scm.delete-branch": { name: string; force?: boolean; cwd?: string };
-  "scm.push": { branch?: string; remote?: string; force?: boolean; cwd?: string };
+  "scm.push": {
+    branch?: string;
+    remote?: string;
+    force?: boolean;
+    cwd?: string;
+  };
   "scm.get-pr-status": {
     cwd?: string;
   };
@@ -705,6 +731,7 @@ export interface HostServiceResponseMap {
   "terminal.create-session": HostTerminalCreateSessionResult;
   "terminal.create-cli-session": HostTerminalCreateSessionResult;
   "terminal.write-session": HostTerminalMutationResult;
+  "terminal.ack-session-output": HostTerminalMutationResult;
   "terminal.read-session": HostTerminalReadSessionResult;
   "terminal.set-session-delivery-mode": HostTerminalMutationResult;
   "terminal.resize-session": HostTerminalMutationResult;
@@ -848,12 +875,15 @@ export interface HostServiceEventMap {
   "terminal.output": {
     sessionId: string;
     output: string;
+    sequence: number;
+    bytes: number;
   };
   "terminal.exit": {
     sessionId: string;
     exitCode: number;
     signal?: number;
   };
+  "terminal.status": HostTerminalStatusEvent;
   "workspace-scripts.event": WorkspaceScriptEventEnvelope;
   "provider.stream-event": HostProviderStreamEventPayload;
   "local-mcp.workspace-information-updated": {
@@ -904,7 +934,9 @@ export type AnyHostServiceRequestEnvelope = {
 
 export type AnyHostServiceResponseEnvelope =
   | {
-      [TMethod in HostServiceMethod]: HostServiceSuccessResponseEnvelope<TMethod>;
+      [
+        TMethod in HostServiceMethod
+      ]: HostServiceSuccessResponseEnvelope<TMethod>;
     }[HostServiceMethod]
   | HostServiceErrorResponseEnvelope;
 

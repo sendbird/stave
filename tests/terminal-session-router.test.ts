@@ -49,6 +49,26 @@ describe("terminal session router", () => {
     expect(events).toEqual(["output:alphabeta"]);
   });
 
+  test("acknowledges buffered output after late subscribers parse it", async () => {
+    const router = new TerminalSessionRouter();
+    let acknowledgements = 0;
+    router.publishOutput("session-1", "buffered", () => {
+      acknowledgements += 1;
+    });
+
+    const subscribe = () =>
+      router.subscribe("session-1", {
+        onScreenState: () => {},
+        onOutput: (_output, onParsed) => onParsed?.(),
+      });
+    subscribe();
+    subscribe();
+
+    await flushMicrotasks();
+
+    expect(acknowledgements).toBe(1);
+  });
+
   test("screen state replaces buffered output as the restore baseline", async () => {
     const router = new TerminalSessionRouter();
     router.publishOutput("session-1", "stale-output");
