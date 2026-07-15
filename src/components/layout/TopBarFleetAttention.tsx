@@ -2,8 +2,13 @@ import { Bot } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
-import { countFleetAttentionTasks } from "@/lib/fleet/task-status";
+import {
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui";
+import { countFleetAttentionTasksAcrossWorkspaces } from "@/lib/fleet/task-status";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
@@ -38,45 +43,47 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
         ] as const,
     ),
   );
+  const workspaceIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (projectPath) {
+      for (const workspace of workspaces) {
+        ids.add(workspace.id);
+      }
+    }
+    for (const project of recentProjects) {
+      for (const workspace of project.workspaces) {
+        ids.add(workspace.id);
+      }
+    }
+    return Array.from(ids);
+  }, [projectPath, recentProjects, workspaces]);
+  const activeSession = useMemo(
+    () =>
+      projectPath
+        ? {
+            tasks,
+            messagesByTask,
+            activeTurnIdsByTask,
+          }
+        : null,
+    [activeTurnIdsByTask, messagesByTask, projectPath, tasks],
+  );
   const attentionCount = useMemo(() => {
-    if (!projectPath) {
-      return 0;
-    }
-
-    let count = 0;
-    for (const workspace of workspaces) {
-      if (workspace.id === activeWorkspaceId) {
-        count += countFleetAttentionTasks({
-          tasks,
-          messagesByTask,
-          activeTurnIdsByTask,
-          providerTurnActivityByTask,
-        });
-        continue;
-      }
-
-      const session = workspaceRuntimeCacheById[workspace.id];
-      if (!session) {
-        continue;
-      }
-      count += countFleetAttentionTasks({
-        tasks: session.tasks,
-        messagesByTask: session.messagesByTask,
-        activeTurnIdsByTask: session.activeTurnIdsByTask,
-        providerTurnActivityByTask,
-      });
-    }
-
-    return count;
+    return countFleetAttentionTasksAcrossWorkspaces({
+      workspaceIds,
+      activeWorkspaceId: projectPath ? activeWorkspaceId : null,
+      activeSession,
+      runtimeSessionsByWorkspaceId: workspaceRuntimeCacheById,
+      providerTurnActivityByTask,
+    });
   }, [
+    activeSession,
     activeTurnIdsByTask,
     activeWorkspaceId,
-    messagesByTask,
     projectPath,
     providerTurnActivityByTask,
-    tasks,
     workspaceRuntimeCacheById,
-    workspaces,
+    workspaceIds,
   ]);
 
   if (!projectPath && recentProjects.length === 0) {
@@ -96,7 +103,9 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
             isFleetViewActive && "bg-secondary/70 text-foreground",
           )}
           style={props.noDragStyle}
-          aria-label={isFleetViewActive ? "close-fleet-view" : "open-fleet-view"}
+          aria-label={
+            isFleetViewActive ? "close-fleet-view" : "open-fleet-view"
+          }
           aria-pressed={isFleetViewActive}
           onClick={toggleFleetView}
         >

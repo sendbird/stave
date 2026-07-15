@@ -1,11 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
   classifyTaskStatus,
+  collectFleetAttentionTasks,
   compareFleetTaskStatus,
+  countFleetAttentionTasksAcrossWorkspaces,
   countFleetAttentionTasks,
   deriveFleetLifecycleStatus,
   groupFleetWorkspacesByLane,
   hasFleetTaskAttentionStatus,
+  isFleetTaskFilterActive,
+  matchesFleetTaskFilter,
   summarizeFleetRespondingTasks,
 } from "../src/lib/fleet/task-status";
 import type { ProviderTurnActivitySnapshot } from "../src/lib/providers/turn-status";
@@ -117,7 +121,9 @@ describe("classifyTaskStatus", () => {
         task: buildTask(),
         messages: [
           buildAssistantMessage({
-            parts: [{ type: "system_event", content: "[error] provider failed" }],
+            parts: [
+              { type: "system_event", content: "[error] provider failed" },
+            ],
           }),
         ],
       }),
@@ -290,6 +296,143 @@ describe("fleet task status helpers", () => {
         },
       }),
     ).toBe(2);
+  });
+
+  test("collects attention tasks in input-before-approval order", () => {
+    const tasks = [
+      buildTask({
+        id: "task-approval",
+        updatedAt: "2026-06-17T02:00:00.000Z",
+      }),
+      buildTask({
+        id: "task-input",
+        updatedAt: "2026-06-17T01:00:00.000Z",
+      }),
+    ];
+    const messagesByTask = {
+      "task-input": [
+        buildAssistantMessage({
+          parts: [
+            {
+              type: "user_input",
+              requestId: "input-1",
+              toolName: "request_user_input",
+              questions: [],
+              state: "input-requested",
+            },
+          ],
+        }),
+      ],
+      "task-approval": [
+        buildAssistantMessage({
+          parts: [
+            {
+              type: "approval",
+              requestId: "approval-1",
+              toolName: "Bash",
+              description: "Run a command",
+              state: "approval-requested",
+            },
+          ],
+        }),
+      ],
+    };
+
+    expect(
+      collectFleetAttentionTasks({
+        tasks,
+        messagesByTask,
+        activeTurnIdsByTask: {},
+        providerTurnActivityByTask: {},
+      }).map((task) => task.taskId),
+    ).toEqual(["task-input", "task-approval"]);
+  });
+
+  test("matches status and text filters together", () => {
+    expect(
+      matchesFleetTaskFilter({
+        status: "waiting-input",
+        filter: "attention",
+        query: "checkout",
+        taskTitle: "Review checkout flow",
+        workspaceName: "payments",
+        projectName: "Storefront",
+      }),
+    ).toBe(true);
+    expect(
+      matchesFleetTaskFilter({
+        status: "running",
+        filter: "attention",
+        query: "checkout",
+        taskTitle: "Review checkout flow",
+        workspaceName: "payments",
+        projectName: "Storefront",
+      }),
+    ).toBe(false);
+    expect(
+      matchesFleetTaskFilter({
+        status: "unknown",
+        filter: "idle",
+        query: "",
+        taskTitle: "Cold task",
+        workspaceName: "payments",
+        projectName: "Storefront",
+      }),
+    ).toBe(false);
+  });
+
+  test("counts loaded workspaces across projects and skips cold sessions", () => {
+    const inputMessage = buildAssistantMessage({
+      parts: [
+        {
+          type: "user_input",
+          requestId: "input-1",
+          toolName: "request_user_input",
+          questions: [],
+          state: "input-requested",
+        },
+      ],
+    });
+    const approvalMessage = buildAssistantMessage({
+      parts: [
+        {
+          type: "approval",
+          requestId: "approval-1",
+          toolName: "Bash",
+          description: "Run a command",
+          state: "approval-requested",
+        },
+      ],
+    });
+
+    expect(
+      countFleetAttentionTasksAcrossWorkspaces({
+        workspaceIds: ["active", "cached", "cold"],
+        activeWorkspaceId: "active",
+        activeSession: {
+          tasks: [buildTask({ id: "active-task" })],
+          messagesByTask: { "active-task": [inputMessage] },
+          activeTurnIdsByTask: {},
+        },
+        runtimeSessionsByWorkspaceId: {
+          cached: {
+            tasks: [buildTask({ id: "cached-task" })],
+            messagesByTask: { "cached-task": [approvalMessage] },
+            activeTurnIdsByTask: {},
+          },
+        },
+        providerTurnActivityByTask: {},
+      }),
+    ).toBe(2);
+  });
+
+  test("reports whether a filter is active", () => {
+    expect(isFleetTaskFilterActive({ filter: "all", query: "" })).toBe(false);
+    expect(isFleetTaskFilterActive({ filter: "all", query: "  " })).toBe(false);
+    expect(isFleetTaskFilterActive({ filter: "error", query: "" })).toBe(true);
+    expect(isFleetTaskFilterActive({ filter: "all", query: "agent" })).toBe(
+      true,
+    );
   });
 });
 

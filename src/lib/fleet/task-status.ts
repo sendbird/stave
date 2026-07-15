@@ -16,11 +16,12 @@ import {
 import type { ChatMessage, Task } from "@/types/chat";
 
 export type FleetTaskStatus =
-  | "waiting-input"
-  | "waiting-approval"
-  | "error"
-  | "running"
-  | "idle";
+  "waiting-input" | "waiting-approval" | "error" | "running" | "idle";
+
+export type FleetDisplayStatus = FleetTaskStatus | "unknown";
+
+export type FleetTaskFilter =
+  "all" | "attention" | "running" | "error" | "idle";
 
 export const FLEET_TASK_STATUS_PRIORITY: Record<FleetTaskStatus, number> = {
   "waiting-input": 0,
@@ -32,7 +33,7 @@ export const FLEET_TASK_STATUS_PRIORITY: Record<FleetTaskStatus, number> = {
 
 type FleetTaskStatusTask = Pick<
   Task,
-  "id" | "archivedAt" | "coliseumParentTaskId"
+  "id" | "archivedAt" | "coliseumParentTaskId" | "updatedAt"
 >;
 
 type FleetRespondingTask = FleetTaskStatusTask & Pick<Task, "provider">;
@@ -41,6 +42,18 @@ type ProviderTurnActivityByTask = Record<
   string,
   ProviderTurnActivitySnapshot | undefined
 >;
+
+export type FleetTaskStatusSession = {
+  tasks: readonly FleetTaskStatusTask[];
+  messagesByTask: Record<string, ChatMessage[]>;
+  activeTurnIdsByTask: Record<string, string | undefined>;
+};
+
+export type FleetAttentionTask = {
+  taskId: string;
+  status: Extract<FleetTaskStatus, "waiting-input" | "waiting-approval">;
+  updatedAt: string;
+};
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const ERROR_SYSTEM_EVENT_PREFIX = "[error]";
@@ -107,6 +120,80 @@ export function compareFleetTaskStatus(
   return FLEET_TASK_STATUS_PRIORITY[left] - FLEET_TASK_STATUS_PRIORITY[right];
 }
 
+export function compareFleetAttentionTasks(
+  left: FleetAttentionTask,
+  right: FleetAttentionTask,
+) {
+  const statusOrder = compareFleetTaskStatus(left.status, right.status);
+  if (statusOrder !== 0) {
+    return statusOrder;
+  }
+  return right.updatedAt.localeCompare(left.updatedAt);
+}
+
+export function collectFleetAttentionTasks(args: {
+  tasks: readonly FleetTaskStatusTask[];
+  messagesByTask: Record<string, ChatMessage[]>;
+  activeTurnIdsByTask: Record<string, string | undefined>;
+  providerTurnActivityByTask: ProviderTurnActivityByTask;
+}) {
+  return args.tasks
+    .map((task) => {
+      const status = classifyTaskStatus({
+        task,
+        messages: args.messagesByTask[task.id] ?? EMPTY_MESSAGES,
+        activeTurnId: args.activeTurnIdsByTask[task.id] ?? null,
+        activity: args.providerTurnActivityByTask[task.id] ?? null,
+      });
+      if (!hasFleetTaskAttentionStatus(status)) {
+        return null;
+      }
+
+      return {
+        taskId: task.id,
+        status,
+        updatedAt: task.updatedAt,
+      } satisfies FleetAttentionTask;
+    })
+    .filter((task): task is FleetAttentionTask => task !== null)
+    .sort(compareFleetAttentionTasks);
+}
+
+export function matchesFleetTaskFilter(args: {
+  status: FleetDisplayStatus;
+  filter: FleetTaskFilter;
+  query?: string;
+  taskTitle: string;
+  workspaceName: string;
+  projectName: string;
+}) {
+  const filterMatches =
+    args.filter === "all" ||
+    (args.filter === "attention" &&
+      (args.status === "waiting-input" ||
+        args.status === "waiting-approval")) ||
+    args.status === args.filter;
+  if (!filterMatches) {
+    return false;
+  }
+
+  const query = args.query?.trim().toLowerCase() ?? "";
+  if (!query) {
+    return true;
+  }
+
+  return [args.taskTitle, args.workspaceName, args.projectName].some((value) =>
+    value.toLowerCase().includes(query),
+  );
+}
+
+export function isFleetTaskFilterActive(args: {
+  filter: FleetTaskFilter;
+  query?: string;
+}) {
+  return args.filter !== "all" || Boolean(args.query?.trim());
+}
+
 export function summarizeFleetRespondingTasks(args: {
   tasks: FleetRespondingTask[];
   messagesByTask: Record<string, ChatMessage[]>;
@@ -160,10 +247,7 @@ export function summarizeFleetRespondingTasks(args: {
 // ---------------------------------------------------------------------------
 
 export type FleetLifecycleStatus =
-  | "in-progress"
-  | "in-review"
-  | "backlog"
-  | "done";
+  "in-progress" | "in-review" | "backlog" | "done";
 
 /** Top-to-bottom lane order: live/actionable first, archived (done) last. */
 export const FLEET_LIFECYCLE_DISPLAY_ORDER: readonly FleetLifecycleStatus[] = [
@@ -236,23 +320,45 @@ export function groupFleetWorkspacesByLane<T extends { id: string }>(args: {
 }
 
 export function countFleetAttentionTasks(args: {
-  tasks: FleetTaskStatusTask[];
+  tasks: readonly FleetTaskStatusTask[];
   messagesByTask: Record<string, ChatMessage[]>;
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerTurnActivityByTask: ProviderTurnActivityByTask;
 }) {
+  return collectFleetAttentionTasks(args).length;
+}
+
+/**
+ * Count only runtime sessions that Fleet View can classify. Cold workspace
+ * shell summaries intentionally remain out of this count because they do not
+ * include messages or active-turn state.
+ */
+export function countFleetAttentionTasksAcrossWorkspaces(args: {
+  workspaceIds: readonly string[];
+  activeWorkspaceId?: string | null;
+  activeSession?: FleetTaskStatusSession | null;
+  runtimeSessionsByWorkspaceId: Record<
+    string,
+    FleetTaskStatusSession | undefined
+  >;
+  providerTurnActivityByTask: ProviderTurnActivityByTask;
+}) {
   let count = 0;
 
-  for (const task of args.tasks) {
-    const status = classifyTaskStatus({
-      task,
-      messages: args.messagesByTask[task.id] ?? EMPTY_MESSAGES,
-      activeTurnId: args.activeTurnIdsByTask[task.id] ?? null,
-      activity: args.providerTurnActivityByTask[task.id] ?? null,
-    });
-    if (hasFleetTaskAttentionStatus(status)) {
-      count += 1;
+  for (const workspaceId of args.workspaceIds) {
+    const session =
+      workspaceId === args.activeWorkspaceId
+        ? (args.activeSession ?? null)
+        : (args.runtimeSessionsByWorkspaceId[workspaceId] ?? null);
+    if (!session) {
+      continue;
     }
+    count += countFleetAttentionTasks({
+      tasks: session.tasks,
+      messagesByTask: session.messagesByTask,
+      activeTurnIdsByTask: session.activeTurnIdsByTask,
+      providerTurnActivityByTask: args.providerTurnActivityByTask,
+    });
   }
 
   return count;
