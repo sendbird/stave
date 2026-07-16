@@ -31,6 +31,7 @@ import {
   discardSourceControlPath,
   fetchScmBranch,
   fetchGitHubPrStatus,
+  fetchRepoMergeSettings,
   getScmCommitDiff,
   getScmCommitFiles,
   getScmGraph,
@@ -48,6 +49,7 @@ import {
   setScmPrReady,
   stageAllSourceControl,
   stageSourceControlFile,
+  stageSourceControlFiles,
   tryAutoFixLintErrors,
   unstageAllSourceControl,
   unstageSourceControlFile,
@@ -1269,6 +1271,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "scm.stage-file":
       await respond(request.id, await stageSourceControlFile(request.params));
       return;
+    case "scm.stage-files":
+      await respond(request.id, await stageSourceControlFiles(request.params));
+      return;
     case "scm.unstage-file":
       await respond(request.id, await unstageSourceControlFile(request.params));
       return;
@@ -1337,6 +1342,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.get-pr-status":
       await respond(request.id, await fetchGitHubPrStatus(request.params));
+      return;
+    case "scm.get-repo-merge-settings":
+      await respond(request.id, await fetchRepoMergeSettings(request.params));
       return;
     case "scm.get-pr-status-for-url":
       await respond(
