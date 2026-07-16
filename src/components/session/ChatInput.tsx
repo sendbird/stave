@@ -517,6 +517,27 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     });
   }
 
+  // Manually dispatch one staged queued turn while no turn is running (e.g.
+  // after the user interrupted the run that would have auto-dispatched it).
+  // The composer draft stays untouched; only the item leaves the queue.
+  async function sendQueuedTurnNow(itemId: string) {
+    const item = queuedTurns.find((queuedItem) => queuedItem.id === itemId);
+    if (!item) {
+      return;
+    }
+    const result = await sendUserMessage({
+      taskId: args.activeTaskId,
+      content: item.content,
+      queuedTurnId: itemId,
+    });
+    if (result.status === "blocked") {
+      toast.warning("Couldn't send the queued prompt", {
+        description:
+          "The task is busy or waiting on another action. The prompt stays queued.",
+      });
+    }
+  }
+
   const filePicker = window.api?.fs?.pickFiles;
   const workspaceRootPath = args.workspaceCwd?.trim() || undefined;
   const handleOpenFileSelector =
@@ -894,6 +915,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           onUpdateQueuedTurn={updateQueuedTurn}
           onRemoveQueuedTurn={({ itemId }) => removeQueuedTurn(itemId)}
+          onSendQueuedTurn={({ itemId }) => void sendQueuedTurnNow(itemId)}
           onSuggestionSelect={async (suggestion) => {
             cancelPendingDraftSave();
             clearLensAnnotationsOnMessageSubmit(args.activeTaskId);
