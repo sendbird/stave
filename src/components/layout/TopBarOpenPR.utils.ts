@@ -1,29 +1,58 @@
 import { isReasonablePullRequestTitle } from "@/lib/source-control-pr";
+import type { PrMergeMethod } from "@/lib/pr-status";
 
 export type CreatePrDialogStep =
-  | "idle"
-  | "loading"
-  | "ready"
-  | "committing"
-  | "reviewing"
-  | "pushing"
-  | "creating-pr"
-  | "action";
+  "idle" | "loading" | "ready" | "committing" | "reviewing" | "pushing" | "creating-pr" | "action";
 
 export type CreatePrSubmitAction = "pr";
 
-const CONVENTIONAL_COMMIT_PATTERN =
-  /^(feat|fix|refactor|chore|docs|test|perf|ci|build|revert)(\([^\n()]+\))?!?:\s+\S/;
+export type ConcretePrMergeMethod = Exclude<PrMergeMethod, "default">;
+
+export interface RepoMergeSettings {
+  squashMergeAllowed: boolean;
+  mergeCommitAllowed: boolean;
+  rebaseMergeAllowed: boolean;
+  autoMergeAllowed: boolean;
+}
+
+export function resolveCreatePrMergeState(args: {
+  preferredMethod: PrMergeMethod;
+  autoMergeEnabled: boolean;
+  repoSettings?: RepoMergeSettings;
+}) {
+  const allowedMethods: Record<ConcretePrMergeMethod, boolean> = {
+    squash: args.repoSettings?.squashMergeAllowed ?? true,
+    merge: args.repoSettings?.mergeCommitAllowed ?? true,
+    rebase: args.repoSettings?.rebaseMergeAllowed ?? true,
+  };
+  const preferredMethod = args.preferredMethod === "default" ? undefined : args.preferredMethod;
+  const mergeMethod =
+    (preferredMethod && allowedMethods[preferredMethod]
+      ? preferredMethod
+      : (Object.keys(allowedMethods) as ConcretePrMergeMethod[]).find((method) => allowedMethods[method])) ?? "squash";
+
+  return {
+    allowedMethods,
+    mergeMethod,
+    autoMergeEnabled: args.autoMergeEnabled && (args.repoSettings?.autoMergeAllowed ?? true),
+  };
+}
+
+export function buildDriftSelectedFilePaths(args: {
+  currentPaths: string[];
+  userDeselectedPaths: ReadonlySet<string>;
+}) {
+  return [...new Set(args.currentPaths.filter(Boolean))].filter((path) => !args.userDeselectedPaths.has(path));
+}
+
+const CONVENTIONAL_COMMIT_PATTERN = /^(feat|fix|refactor|chore|docs|test|perf|ci|build|revert)(\([^\n()]+\))?!?:\s+\S/;
 
 export function isConventionalCommitMessage(message?: string) {
   const firstLine = message?.trim().split(/\r?\n/, 1)[0]?.trim();
   return Boolean(firstLine && CONVENTIONAL_COMMIT_PATTERN.test(firstLine));
 }
 
-export function haveSameCreatePrFileScope(args: {
-  left: string[];
-  right: string[];
-}) {
+export function haveSameCreatePrFileScope(args: { left: string[]; right: string[] }) {
   const left = new Set(args.left.filter(Boolean));
   const right = new Set(args.right.filter(Boolean));
   if (left.size !== right.size) {
@@ -112,10 +141,7 @@ export function shouldShowCreatePrSubmitSpinner(args: {
   activeSubmitAction: CreatePrSubmitAction | null;
   buttonAction: CreatePrSubmitAction;
 }) {
-  const isSubmitStep =
-    args.step === "committing"
-    || args.step === "pushing"
-    || args.step === "creating-pr";
+  const isSubmitStep = args.step === "committing" || args.step === "pushing" || args.step === "creating-pr";
 
   return isSubmitStep && args.activeSubmitAction === args.buttonAction;
 }
@@ -139,9 +165,6 @@ export function canSubmitCreatePr(args: {
   return true;
 }
 
-export function canApplyCreatePrDialogOpenChange(args: {
-  open: boolean;
-  isDialogBusy: boolean;
-}) {
+export function canApplyCreatePrDialogOpenChange(args: { open: boolean; isDialogBusy: boolean }) {
   return args.open || !args.isDialogBusy;
 }

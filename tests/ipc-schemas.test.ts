@@ -7,6 +7,7 @@ import {
   ReviewDiffArgsSchema,
   SetNotificationBadgeArgsSchema,
   ShowNativeNotificationArgsSchema,
+  StageFilesArgsSchema,
   SuggestPRDescriptionArgsSchema,
   TerminalCreateSessionArgsSchema,
   StreamTurnArgsSchema,
@@ -199,8 +200,7 @@ describe("provider IPC schemas", () => {
       SuggestPRDescriptionArgsSchema.safeParse({
         cwd: "/tmp/project",
         baseBranch: "main",
-        workspaceContext:
-          "Use the active workspace task as the primary source of intent.",
+        workspaceContext: "Use the active workspace task as the primary source of intent.",
       }).success,
     ).toBe(true);
   });
@@ -237,6 +237,16 @@ describe("provider IPC schemas", () => {
         paths: [""],
       }).success,
     ).toBe(false);
+  });
+
+  test("accepts a non-empty batch staging scope", () => {
+    expect(
+      StageFilesArgsSchema.safeParse({
+        cwd: "/tmp/project",
+        paths: ["src/a.ts", "src/b.ts"],
+      }).success,
+    ).toBe(true);
+    expect(StageFilesArgsSchema.safeParse({ paths: [] }).success).toBe(false);
   });
 
   test("accepts strict pre-PR review requests", () => {
@@ -364,12 +374,8 @@ describe("provider IPC schemas", () => {
         unexpected: true,
       }).success,
     ).toBe(false);
-    expect(SetNotificationBadgeArgsSchema.safeParse({ count: 3 }).success).toBe(
-      true,
-    );
-    expect(
-      SetNotificationBadgeArgsSchema.safeParse({ count: -1 }).success,
-    ).toBe(false);
+    expect(SetNotificationBadgeArgsSchema.safeParse({ count: 3 }).success).toBe(true);
+    expect(SetNotificationBadgeArgsSchema.safeParse({ count: -1 }).success).toBe(false);
   });
 
   test("accepts Claude Code auto-registration in local MCP config updates", () => {

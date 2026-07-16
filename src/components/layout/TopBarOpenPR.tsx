@@ -23,6 +23,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -45,11 +51,15 @@ import {
 import {
   canApplyCreatePrDialogOpenChange,
   canSubmitCreatePr,
+  buildDriftSelectedFilePaths,
   haveSameCreatePrFileScope,
   isConventionalCommitMessage,
   type CreatePrDialogStep,
   type CreatePrSubmitAction,
   buildCreatePrTargetBranchOptions,
+  resolveCreatePrMergeState,
+  type ConcretePrMergeMethod,
+  type RepoMergeSettings,
   shouldShowCreatePrSubmitSpinner,
 } from "@/components/layout/TopBarOpenPR.utils";
 import { TOP_BAR_PR_ACTION_EVENT, type TopBarPrActionDetail } from "@/components/layout/top-bar-pr-events";
@@ -63,10 +73,7 @@ import {
   PR_TONE_BADGE_CLASS,
 } from "@/lib/pr-status";
 import { isTaskArchived } from "@/lib/tasks";
-import {
-  collectIntentContext,
-  type PrePrReviewFinding,
-} from "@/lib/source-control-review";
+import { collectIntentContext, type PrePrReviewFinding } from "@/lib/source-control-review";
 import { buildIntentGuardContextInput } from "@/lib/workspace-information";
 import { deriveTurnVerificationStatus } from "@/lib/workspace-scripts";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
@@ -94,11 +101,8 @@ function looksLikePreCommitHookFailure(stderr: string | undefined): boolean {
   return PRE_COMMIT_HOOK_PATTERNS.some((re) => re.test(stderr));
 }
 
-function describeGitHubAuthFailure(result: {
-  stdout: string;
-  stderr: string;
-}) {
-  const detail = `${result.stderr}\n${result.stdout}`.trim();
+function describeGitHubAuthFailure(result: { stdout?: string; stderr: string }) {
+  const detail = `${result.stderr}\n${result.stdout ?? ""}`.trim();
   if (/command not found|not recognized|spawn gh ENOENT|no such file/i.test(detail)) {
     return "GitHub CLI is not installed. Install `gh` before creating a pull request.";
   }
@@ -142,7 +146,11 @@ function InlineNoticeBanner(props: { notice: InlineNotice }) {
         : Info;
 
   return (
-    <div className={cn("flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm", toneClassName)} role="status" aria-live="polite">
+    <div
+      className={cn("flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm", toneClassName)}
+      role="status"
+      aria-live="polite"
+    >
       <Icon className="mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 space-y-1">
         <p className="break-words font-medium">{props.notice.title}</p>
@@ -165,7 +173,8 @@ function CreatePrLoadingSplash(props: { currentBranch?: string; baseBranch: stri
           <div className="space-y-1.5">
             <p className="text-sm font-medium">Preparing a PR draft</p>
             <p className="text-sm text-muted-foreground">
-              Reviewing {props.currentBranch ?? "HEAD"} against {props.baseBranch}, recent commits, and workspace PR guidance.
+              Reviewing {props.currentBranch ?? "HEAD"} against {props.baseBranch}, recent commits, and workspace PR
+              guidance.
             </p>
           </div>
         </div>
@@ -208,10 +217,7 @@ function getReviewSeverityClassName(severity: PrePrReviewFinding["severity"]) {
   return "border-border/70 bg-muted text-muted-foreground";
 }
 
-function PrePrReviewFindingsPanel(props: {
-  findings: PrePrReviewFinding[];
-  truncated?: boolean;
-}) {
+function PrePrReviewFindingsPanel(props: { findings: PrePrReviewFinding[]; truncated?: boolean }) {
   if (props.findings.length === 0) {
     return null;
   }
@@ -226,8 +232,7 @@ function PrePrReviewFindingsPanel(props: {
             {props.findings.length === 1 ? "" : "s"}
           </p>
           <p className="text-xs leading-5 text-muted-foreground">
-            Stop to fix these before opening the PR, or proceed if they are not
-            relevant.
+            Stop to fix these before opening the PR, or proceed if they are not relevant.
             {props.truncated ? " The review used a truncated diff." : ""}
           </p>
         </div>
@@ -255,9 +260,7 @@ function PrePrReviewFindingsPanel(props: {
                 {formatReviewFindingLocation(finding)}
               </span>
             </div>
-            <p className="mt-1.5 text-xs leading-5 text-foreground">
-              {finding.message}
-            </p>
+            <p className="mt-1.5 text-xs leading-5 text-foreground">{finding.message}</p>
           </div>
         ))}
       </div>
@@ -273,9 +276,7 @@ function PrePrVerificationPanel(props: {
     return null;
   }
 
-  const containerClass = props.blocking
-    ? "border-destructive/40 bg-destructive/5"
-    : "border-warning/40 bg-warning/5";
+  const containerClass = props.blocking ? "border-destructive/40 bg-destructive/5" : "border-warning/40 bg-warning/5";
   const iconClass = props.blocking ? "text-destructive" : "text-warning";
 
   return (
@@ -284,8 +285,7 @@ function PrePrVerificationPanel(props: {
         <TriangleAlert className={cn("mt-0.5 size-4 shrink-0", iconClass)} />
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-medium text-foreground">
-            Verification {props.blocking ? "failed" : "reported warnings"} —{" "}
-            {props.failures.length} check
+            Verification {props.blocking ? "failed" : "reported warnings"} — {props.failures.length} check
             {props.failures.length === 1 ? "" : "s"}
           </p>
           <p className="text-xs leading-5 text-muted-foreground">
@@ -298,10 +298,7 @@ function PrePrVerificationPanel(props: {
 
       <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
         {props.failures.map((failure, index) => (
-          <div
-            key={`${failure.scriptId}:${index}`}
-            className="rounded-md border border-border/70 bg-background/80 p-2"
-          >
+          <div key={`${failure.scriptId}:${index}`} className="rounded-md border border-border/70 bg-background/80 p-2">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <span className="rounded-sm border border-border/70 bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
                 {failure.scriptId}
@@ -309,17 +306,13 @@ function PrePrVerificationPanel(props: {
               <span
                 className={cn(
                   "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase",
-                  failure.blocking
-                    ? "border-destructive/40 text-destructive"
-                    : "border-warning/40 text-warning",
+                  failure.blocking ? "border-destructive/40 text-destructive" : "border-warning/40 text-warning",
                 )}
               >
                 {failure.blocking ? "blocking" : "non-blocking"}
               </span>
             </div>
-            <p className="mt-1.5 break-words text-xs leading-5 text-foreground">
-              {failure.message}
-            </p>
+            <p className="mt-1.5 break-words text-xs leading-5 text-foreground">{failure.message}</p>
           </div>
         ))}
       </div>
@@ -341,9 +334,7 @@ function PullRequestBranchFields(props: {
   return (
     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
       <div className="min-w-0 space-y-2">
-        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          From Branch
-        </p>
+        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">From Branch</p>
         <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background/80 px-3 text-sm shadow-xs">
           <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate">{headBranch}</span>
@@ -351,9 +342,7 @@ function PullRequestBranchFields(props: {
       </div>
 
       <div className="min-w-0 space-y-2">
-        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          Target Branch
-        </p>
+        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Target Branch</p>
         <CreateWorkspaceBranchPicker
           value={props.targetBranch}
           defaultBranch={props.defaultBranch}
@@ -386,9 +375,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [prTitle, setPrTitle] = useState("");
   const [prBody, setPrBody] = useState("");
   const [inlineNotice, setInlineNotice] = useState<InlineNotice | null>(null);
-  const [reviewFindings, setReviewFindings] = useState<PrePrReviewFinding[]>(
-    [],
-  );
+  const [reviewFindings, setReviewFindings] = useState<PrePrReviewFinding[]>([]);
   const [reviewDiffTruncated, setReviewDiffTruncated] = useState(false);
   const [verificationFailures, setVerificationFailures] = useState<
     Array<{ scriptId: string; message: string; blocking: boolean }>
@@ -400,8 +387,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState("");
   const [changesExpanded, setChangesExpanded] = useState(true);
+  const [repoMergeSettings, setRepoMergeSettings] = useState<RepoMergeSettings>();
+  const [dialogMergeMethod, setDialogMergeMethod] = useState<ConcretePrMergeMethod>("squash");
+  const [dialogAutoMerge, setDialogAutoMerge] = useState(false);
   const suggestionRequestIdRef = useRef(0);
   const submitOperationIdRef = useRef(0);
+  const userDeselectedPathsRef = useRef(new Set<string>());
 
   const [
     activeWorkspaceId,
@@ -426,30 +417,35 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     createPrMergeMethod,
     fetchWorkspacePrStatus,
     continueWorkspaceFromSummary,
-  ] = useAppStore(useShallow((state) => [
-    state.activeWorkspaceId,
-    state.workspaceDefaultById,
-    state.workspaceBranchById,
-    state.workspacePathById,
-    state.projectPath,
-    state.defaultBranch,
-    state.activeTaskId,
-    state.promptDraftByTask,
-    state.workspaceInformation,
-    state.tasks,
-    state.activeTurnIdsByTask,
-    state.workspacePrInfoById,
-    state.settings.prePrReviewEnabled,
-    state.settings.prePrReviewProvider,
-    state.settings.modelClaude,
-    state.settings.modelCodex,
-    state.settings.codexBinaryPath,
-    state.settings.codexReasoningEffort,
-    state.settings.createPrAutoMergeEnabled,
-    state.settings.createPrMergeMethod,
-    state.fetchWorkspacePrStatus,
-    state.continueWorkspaceFromSummary,
-  ] as const));
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.activeWorkspaceId,
+          state.workspaceDefaultById,
+          state.workspaceBranchById,
+          state.workspacePathById,
+          state.projectPath,
+          state.defaultBranch,
+          state.activeTaskId,
+          state.promptDraftByTask,
+          state.workspaceInformation,
+          state.tasks,
+          state.activeTurnIdsByTask,
+          state.workspacePrInfoById,
+          state.settings.prePrReviewEnabled,
+          state.settings.prePrReviewProvider,
+          state.settings.modelClaude,
+          state.settings.modelCodex,
+          state.settings.codexBinaryPath,
+          state.settings.codexReasoningEffort,
+          state.settings.createPrAutoMergeEnabled,
+          state.settings.createPrMergeMethod,
+          state.fetchWorkspacePrStatus,
+          state.continueWorkspaceFromSummary,
+        ] as const,
+    ),
+  );
 
   const isDefaultWorkspace = Boolean(workspaceDefaultById[activeWorkspaceId]);
   const workspaceCwd = workspacePathById[activeWorkspaceId] ?? projectPath ?? "";
@@ -510,29 +506,40 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     });
   }
 
-  const resetCreatePrDialogState = useCallback((args?: { closeDialog?: boolean }) => {
-    suggestionRequestIdRef.current += 1;
-    submitOperationIdRef.current += 1;
-    if (args?.closeDialog) {
-      setDialogOpen(false);
-    }
-    setStep("idle");
-    setActiveSubmitAction(null);
-    setTargetBranch(defaultBaseBranch);
-    setTargetBranchOptions([]);
-    setLoadingTargetBranches(false);
-    setPrTitle("");
-    setPrBody("");
-    setInlineNotice(null);
-    setReviewFindings([]);
-    setReviewDiffTruncated(false);
-    setVerificationFailures([]);
-    setVerificationBlocking(false);
-    setChangedFiles([]);
-    setSelectedFilePaths([]);
-    setCommitMessage("");
-    setChangesExpanded(true);
-  }, [defaultBaseBranch]);
+  const resetCreatePrDialogState = useCallback(
+    (args?: { closeDialog?: boolean }) => {
+      suggestionRequestIdRef.current += 1;
+      submitOperationIdRef.current += 1;
+      if (args?.closeDialog) {
+        setDialogOpen(false);
+      }
+      setStep("idle");
+      setActiveSubmitAction(null);
+      setTargetBranch(defaultBaseBranch);
+      setTargetBranchOptions([]);
+      setLoadingTargetBranches(false);
+      setPrTitle("");
+      setPrBody("");
+      setInlineNotice(null);
+      setReviewFindings([]);
+      setReviewDiffTruncated(false);
+      setVerificationFailures([]);
+      setVerificationBlocking(false);
+      setChangedFiles([]);
+      setSelectedFilePaths([]);
+      userDeselectedPathsRef.current.clear();
+      setCommitMessage("");
+      setChangesExpanded(true);
+      setRepoMergeSettings(undefined);
+      const nextMergeState = resolveCreatePrMergeState({
+        preferredMethod: createPrMergeMethod,
+        autoMergeEnabled: createPrAutoMergeEnabled,
+      });
+      setDialogMergeMethod(nextMergeState.mergeMethod);
+      setDialogAutoMerge(nextMergeState.autoMergeEnabled);
+    },
+    [createPrAutoMergeEnabled, createPrMergeMethod, defaultBaseBranch],
+  );
 
   async function buildWorkspaceContextForPrDraft() {
     const readFile = window.api?.fs?.readFile;
@@ -588,9 +595,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   async function handleCreateClick() {
     const getStatus = window.api?.sourceControl?.getStatus;
     const listBranches = window.api?.sourceControl?.listBranches;
+    const getRepoMergeSettings = window.api?.sourceControl?.getRepoMergeSettings;
     const suggestPRDescription = window.api?.provider?.suggestPRDescription;
     if (!getStatus) {
-      toast.error("Unable to create PR", { description: "Source Control bridge unavailable." });
+      toast.error("Unable to create PR", {
+        description: "Source Control bridge unavailable.",
+      });
       return;
     }
 
@@ -619,6 +629,14 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setCommitMessage("");
     setChangedFiles([]);
     setSelectedFilePaths([]);
+    userDeselectedPathsRef.current.clear();
+    setRepoMergeSettings(undefined);
+    const configuredMergeState = resolveCreatePrMergeState({
+      preferredMethod: createPrMergeMethod,
+      autoMergeEnabled: createPrAutoMergeEnabled,
+    });
+    setDialogMergeMethod(configuredMergeState.mergeMethod);
+    setDialogAutoMerge(configuredMergeState.autoMergeEnabled);
     setChangesExpanded(true);
     setReviewFindings([]);
     setReviewDiffTruncated(false);
@@ -632,78 +650,110 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const branchPromise = listBranches
       ? listBranches({ cwd: workspaceCwd }).catch(() => undefined)
       : Promise.resolve(undefined);
+    const mergeSettingsPromise = getRepoMergeSettings
+      ? getRepoMergeSettings({ cwd: workspaceCwd }).catch(() => undefined)
+      : Promise.resolve(undefined);
     const promptPrDescription = useAppStore.getState().settings.promptPrDescription.trim();
     const shouldSuggestPrDescription = Boolean(suggestPRDescription && promptPrDescription);
     const workspaceContextPromise = shouldSuggestPrDescription
       ? buildWorkspaceContextForPrDraft()
       : Promise.resolve("");
-    const descPromise = shouldSuggestPrDescription && suggestPRDescription
-      ? workspaceContextPromise
-        .then((workspaceContext) => suggestPRDescription({
-          cwd: workspaceCwd,
-          baseBranch: defaultBaseBranch,
-          headBranch: currentBranch || undefined,
-          promptTemplate: promptPrDescription,
-          workspaceContext: workspaceContext || undefined,
-        }))
-        .catch(() => undefined)
-      : undefined;
+    const descPromise =
+      shouldSuggestPrDescription && suggestPRDescription
+        ? workspaceContextPromise
+            .then((workspaceContext) =>
+              suggestPRDescription({
+                cwd: workspaceCwd,
+                baseBranch: defaultBaseBranch,
+                headBranch: currentBranch || undefined,
+                promptTemplate: promptPrDescription,
+                workspaceContext: workspaceContext || undefined,
+              }),
+            )
+            .catch(() => undefined)
+        : undefined;
 
-    const [status, descResult, branchResult] = await Promise.all([
+    const [status, descResult, branchResult, mergeSettingsResult] = await Promise.all([
       statusPromise,
       descPromise ?? Promise.resolve(undefined),
       branchPromise,
+      mergeSettingsPromise,
     ]);
     if (suggestionRequestIdRef.current !== requestId) {
       return;
     }
 
     if (!status.ok) {
-      toast.error("Unable to check status", { description: status.stderr || "git status failed." });
+      toast.error("Unable to check status", {
+        description: status.stderr || "git status failed.",
+      });
       resetCreatePrDialogState({ closeDialog: true });
       return;
     }
 
     const nextTargetBranchOptions = branchResult?.ok
       ? buildCreatePrTargetBranchOptions({
-        defaultBranch: defaultBaseBranch,
-        headBranch: currentBranch,
-        remoteBranches: branchResult.remoteBranches ?? [],
-      })
+          defaultBranch: defaultBaseBranch,
+          headBranch: currentBranch,
+          remoteBranches: branchResult.remoteBranches ?? [],
+        })
       : [defaultBaseBranch];
     const nextTargetBranch = nextTargetBranchOptions.includes(defaultBaseBranch)
       ? defaultBaseBranch
-      : nextTargetBranchOptions[0] ?? defaultBaseBranch;
+      : (nextTargetBranchOptions[0] ?? defaultBaseBranch);
     setTargetBranchOptions(nextTargetBranchOptions);
     setTargetBranch(nextTargetBranch);
     setLoadingTargetBranches(false);
 
     setChangedFiles(status.items);
-    setSelectedFilePaths([]);
+    setSelectedFilePaths(status.items.map((file) => file.path));
     setChangesExpanded(status.items.length > 0);
+    const nextRepoMergeSettings = mergeSettingsResult?.ok
+      ? {
+          squashMergeAllowed: mergeSettingsResult.squashMergeAllowed === true,
+          mergeCommitAllowed: mergeSettingsResult.mergeCommitAllowed === true,
+          rebaseMergeAllowed: mergeSettingsResult.rebaseMergeAllowed === true,
+          autoMergeAllowed: mergeSettingsResult.autoMergeAllowed === true,
+        }
+      : undefined;
+    setRepoMergeSettings(nextRepoMergeSettings);
+    const nextMergeState = resolveCreatePrMergeState({
+      preferredMethod: createPrMergeMethod,
+      autoMergeEnabled: createPrAutoMergeEnabled,
+      repoSettings: nextRepoMergeSettings,
+    });
+    setDialogMergeMethod(nextMergeState.mergeMethod);
+    setDialogAutoMerge(nextMergeState.autoMergeEnabled);
     const fallbackDraft = generateFallbackPullRequestDraft({
       baseBranch: nextTargetBranch,
       headBranch: currentBranch,
       fileList: status.items.map((file) => `${file.code} ${file.path}`).join("\n"),
     });
-    const nextTitle = descResult?.ok && descResult.title?.trim()
-      ? descResult.title.trim()
-      : fallbackDraft.title;
-    const nextBody = descResult?.ok && descResult.body?.trim()
-      ? descResult.body.trim()
-      : fallbackDraft.body;
+    const nextTitle = descResult?.ok && descResult.title?.trim() ? descResult.title.trim() : fallbackDraft.title;
+    const nextBody = descResult?.ok && descResult.body?.trim() ? descResult.body.trim() : fallbackDraft.body;
 
     setPrTitle(nextTitle);
     setPrBody(nextBody);
     setStep("ready");
+    const mergeSettingsAuthFailure =
+      mergeSettingsResult &&
+      !mergeSettingsResult.ok &&
+      /not authenticated|gh auth login|not installed|spawn gh enoent/i.test(mergeSettingsResult.stderr);
     setInlineNotice(
-      shouldSuggestPrDescription && !descResult?.ok
+      mergeSettingsAuthFailure
         ? {
-          tone: "warning",
-          title: "Using fallback PR draft",
-          description: "Could not generate a tailored title and description. Review the suggested draft before creating the PR.",
-        }
-        : null,
+            tone: "error",
+            title: "GitHub authentication is required",
+            description: describeGitHubAuthFailure(mergeSettingsResult),
+          }
+        : shouldSuggestPrDescription && !descResult?.ok
+          ? {
+              tone: "warning",
+              title: "Using fallback PR draft",
+              description:
+                "Could not generate a tailored title and description. Review the suggested draft before creating the PR.",
+            }
+          : null,
     );
   }
 
@@ -746,22 +796,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       return;
     }
 
-    const authResult = await runCommand({
-      command: "gh auth status",
-      cwd: submitWorkspaceCwd,
-    });
-    if (!isCurrentOperation()) return;
-    if (!authResult.ok) {
-      setInlineNotice({
-        tone: "error",
-        title: "GitHub authentication is required",
-        description: describeGitHubAuthFailure(authResult),
-      });
-      setStep("ready");
-      setActiveSubmitAction(null);
-      return;
-    }
-
     let pendingFiles = changedFiles.filter((file) => selectedFilePaths.includes(file.path));
     if (getStatus) {
       const statusResult = await getStatus({ cwd: submitWorkspaceCwd });
@@ -791,8 +825,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       const currentPaths = statusResult.items.map((file) => file.path);
       if (!haveSameCreatePrFileScope({ left: initialPaths, right: currentPaths })) {
         setChangedFiles(statusResult.items);
-        setSelectedFilePaths((paths) =>
-          paths.filter((path) => currentPaths.includes(path)),
+        setSelectedFilePaths(
+          buildDriftSelectedFilePaths({
+            currentPaths,
+            userDeselectedPaths: userDeselectedPathsRef.current,
+          }),
         );
         setChangesExpanded(statusResult.items.length > 0);
         setInlineNotice({
@@ -846,21 +883,23 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       return;
     }
 
+    const suggestCommitMessage = window.api?.provider?.suggestCommitMessage;
+    const commitMessageSuggestionPromise =
+      pendingFiles.length > 0 && !commitMessage.trim() && suggestCommitMessage
+        ? suggestCommitMessage({ cwd: submitWorkspaceCwd }).catch(() => undefined)
+        : undefined;
+
     if (prePrReviewEnabled && reviewDiff && !options.skipReview) {
       const reviewProviderLabel = getProviderLabel({
         providerId: prePrReviewProvider,
       });
-      const reviewModel =
-        prePrReviewProvider === "codex"
-          ? prePrReviewCodexModel
-          : prePrReviewClaudeModel;
+      const reviewModel = prePrReviewProvider === "codex" ? prePrReviewCodexModel : prePrReviewClaudeModel;
       const reviewRuntimeOptions =
         prePrReviewProvider === "codex"
           ? {
               model: reviewModel,
               codexApprovalPolicy: "never" as const,
-              codexBinaryPath:
-                prePrReviewCodexBinaryPath.trim() || undefined,
+              codexBinaryPath: prePrReviewCodexBinaryPath.trim() || undefined,
               codexFileAccess: "read-only" as const,
               codexNetworkAccess: false,
               codexReasoningEffort: prePrReviewCodexReasoningEffort,
@@ -886,17 +925,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         const reviewResult = await reviewDiff(reviewArgs);
         if (!isCurrentOperation()) return;
 
-        const findings: PrePrReviewFinding[] = reviewResult.ok
-          ? [...reviewResult.findings]
-          : [];
+        const findings: PrePrReviewFinding[] = reviewResult.ok ? [...reviewResult.findings] : [];
         let truncated = Boolean(reviewResult.truncated);
 
         // Intent guard: a second single-turn check that compares the diff
         // against the pinned product intent (PRD / spec / design). Only runs
         // when the workspace has intent pinned, so it is a no-op otherwise.
-        const intentContext = collectIntentContext(
-          buildIntentGuardContextInput(submitWorkspaceInformation),
-        );
+        const intentContext = collectIntentContext(buildIntentGuardContextInput(submitWorkspaceInformation));
         if (intentContext) {
           setInlineNotice({
             tone: "info",
@@ -984,15 +1019,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       } else if (hookResult.summary.failures.length > 0) {
         // Gate on verification: blocking failures stop hard, non-blocking
         // failures warn and allow an explicit "Proceed anyway".
-        const blocking =
-          deriveTurnVerificationStatus(hookResult.summary) === "fail";
+        const blocking = deriveTurnVerificationStatus(hookResult.summary) === "fail";
         setVerificationFailures(hookResult.summary.failures);
         setVerificationBlocking(blocking);
         setInlineNotice({
           tone: blocking ? "error" : "warning",
-          title: blocking
-            ? "Verification failed"
-            : "Verification reported warnings",
+          title: blocking ? "Verification failed" : "Verification reported warnings",
           description: blocking
             ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
             : "Non-blocking pr.beforeOpen checks failed. Review them, then proceed or fix.",
@@ -1006,8 +1038,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     // stop-and-fix result from leaving an automatic commit behind.
     if (pendingFiles.length > 0) {
       const stageFile = window.api?.sourceControl?.stageFile;
+      const stageFiles = window.api?.sourceControl?.stageFiles;
       const commit = window.api?.sourceControl?.commit;
-      if (!stageFile || !commit) {
+      if ((!stageFiles && !stageFile) || !commit) {
         setInlineNotice({
           tone: "error",
           title: "Automatic commit is unavailable",
@@ -1027,17 +1060,16 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       let message = commitMessage.trim();
       if (!message) {
-        const suggestCommitMessage = window.api?.provider?.suggestCommitMessage;
         setInlineNotice({
           tone: "info",
           title: "Generating commit message",
           description: "Creating a Conventional Commit message from the selected diff.",
         });
-        if (suggestCommitMessage) {
+        if (commitMessageSuggestionPromise) {
           try {
-            const result = await suggestCommitMessage({ cwd: submitWorkspaceCwd });
+            const result = await commitMessageSuggestionPromise;
             if (!isCurrentOperation()) return;
-            if (result.ok && result.message) {
+            if (result?.ok && result.message) {
               message = result.message.trim();
             }
           } catch {
@@ -1066,22 +1098,34 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         title: "Staging changes",
         description: `Reviewing and staging ${pendingFiles.length} explicitly selected workspace file${pendingFiles.length !== 1 ? "s" : ""} for the commit.`,
       });
-      for (const file of pendingFiles) {
-        if (!isCurrentOperation()) return;
-        const stageResult = await stageFile({
-          path: file.path,
-          cwd: submitWorkspaceCwd,
-        });
-        if (!isCurrentOperation()) return;
-        if (!stageResult.ok) {
-          setInlineNotice({
-            tone: "error",
-            title: "Staging failed",
-            description: `${file.path}: ${stageResult.stderr || "git add failed."}`,
+      const stagePendingFiles = async () => {
+        if (stageFiles) {
+          return stageFiles({
+            paths: pendingFiles.map((file) => file.path),
+            cwd: submitWorkspaceCwd,
           });
-          setStep("ready");
-          return;
         }
+        for (const file of pendingFiles) {
+          const stageResult = await stageFile!({
+            path: file.path,
+            cwd: submitWorkspaceCwd,
+          });
+          if (!stageResult.ok) {
+            return stageResult;
+          }
+        }
+        return { ok: true, code: 0, stdout: "", stderr: "" };
+      };
+      let stageResult = await stagePendingFiles();
+      if (!isCurrentOperation()) return;
+      if (!stageResult.ok) {
+        setInlineNotice({
+          tone: "error",
+          title: "Staging failed",
+          description: stageResult.stderr || "git add failed.",
+        });
+        setStep("ready");
+        return;
       }
 
       setInlineNotice({
@@ -1108,22 +1152,16 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           });
           if (!isCurrentOperation()) return;
           if (fixResult.fixAttempted) {
-            for (const file of pendingFiles) {
-              if (!isCurrentOperation()) return;
-              const stageResult = await stageFile({
-                path: file.path,
-                cwd: submitWorkspaceCwd,
+            stageResult = await stagePendingFiles();
+            if (!isCurrentOperation()) return;
+            if (!stageResult.ok) {
+              setInlineNotice({
+                tone: "error",
+                title: "Re-staging after auto-fix failed",
+                description: stageResult.stderr || "git add failed.",
               });
-              if (!isCurrentOperation()) return;
-              if (!stageResult.ok) {
-                setInlineNotice({
-                  tone: "error",
-                  title: "Re-staging after auto-fix failed",
-                  description: `${file.path}: ${stageResult.stderr || "git add failed."}`,
-                });
-                setStep("ready");
-                return;
-              }
+              setStep("ready");
+              return;
             }
             setInlineNotice({
               tone: "info",
@@ -1179,14 +1217,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     }
 
     // Step 3: Create PR
-    const mergeMethodLabel = createPrMergeMethod === "default"
-      ? "Repository default"
-      : createPrMergeMethod.charAt(0).toUpperCase() + createPrMergeMethod.slice(1);
+    const mergeMethodLabel = dialogMergeMethod.charAt(0).toUpperCase() + dialogMergeMethod.slice(1);
     setStep("creating-pr");
     setInlineNotice({
       tone: "info",
       title: "Creating ready pull request",
-      description: createPrAutoMergeEnabled
+      description: dialogAutoMerge
         ? `Submitting the prepared title and description to GitHub, then queueing ${mergeMethodLabel.toLowerCase()} auto-merge (target: ${selectedTargetBranch}).`
         : `Submitting the prepared title and description to GitHub (target: ${selectedTargetBranch}).`,
     });
@@ -1195,8 +1231,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       body: prBody.trim() || undefined,
       baseBranch: selectedTargetBranch,
       draft: false,
-      autoMerge: createPrAutoMergeEnabled,
-      mergeMethod: createPrMergeMethod,
+      autoMerge: dialogAutoMerge,
+      mergeMethod: dialogMergeMethod,
       cwd: submitWorkspaceCwd,
     });
     if (!isCurrentOperation()) return;
@@ -1204,13 +1240,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!prResult.ok) {
       setInlineNotice({
         tone: "error",
-        title: prResult.prUrl
-          ? "PR created, but auto-merge failed"
-          : "PR creation failed",
-        description: [
-          prResult.stderr || "gh pr create failed.",
-          prResult.prUrl ? `PR URL: ${prResult.prUrl}` : "",
-        ]
+        title: prResult.prUrl ? "PR created, but auto-merge failed" : "PR creation failed",
+        description: [prResult.stderr || "gh pr create failed.", prResult.prUrl ? `PR URL: ${prResult.prUrl}` : ""]
           .filter(Boolean)
           .join(" "),
       });
@@ -1224,25 +1255,31 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setInlineNotice(null);
     setActiveSubmitAction(null);
 
-    const autoMergeDescription = createPrAutoMergeEnabled
-      ? `Ready PR created and ${mergeMethodLabel.toLowerCase()} auto-merge queued.`
-      : "Ready PR created.";
+    const autoMergeDescription = prResult.merged
+      ? `Ready PR created and merged with ${mergeMethodLabel.toLowerCase()}.`
+      : dialogAutoMerge
+        ? `Ready PR created and ${mergeMethodLabel.toLowerCase()} auto-merge queued.`
+        : "Ready PR created.";
     const autoMergeNotConfirmed =
-      createPrAutoMergeEnabled && prResult.autoMergeEnabled !== true;
-    if (prResult.stderr || autoMergeNotConfirmed) {
-      toast.warning("PR created, but auto-merge is not enabled", {
+      dialogAutoMerge && !prResult.merged && !prResult.autoMergeUnsupported && prResult.autoMergeEnabled !== true;
+    if (prResult.autoMergeUnsupported) {
+      toast.success("PR created", {
         description: [
-          prResult.stderr || "Stave could not confirm that auto-merge was queued.",
+          "Auto-merge is unavailable for this repository, so the PR remains ready for review.",
           prResult.prUrl,
         ]
           .filter(Boolean)
           .join(" "),
       });
+    } else if (prResult.stderr || autoMergeNotConfirmed) {
+      toast.warning("PR created, but auto-merge is not enabled", {
+        description: [prResult.stderr || "Stave could not confirm that auto-merge was queued.", prResult.prUrl]
+          .filter(Boolean)
+          .join(" "),
+      });
     } else {
       toast.success("PR created", {
-        description: prResult.prUrl
-          ? `${autoMergeDescription} ${prResult.prUrl}`
-          : autoMergeDescription,
+        description: prResult.prUrl ? `${autoMergeDescription} ${prResult.prUrl}` : autoMergeDescription,
       });
     }
 
@@ -1261,9 +1298,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!isCurrentOperation()) return;
       if (!hookResult.ok) {
         toast.warning("Post-PR scripts reported failures", {
-          description: hookResult.error
-            ?? hookResult.summary?.failures.map((failure) => `${failure.scriptId}: ${failure.message}`).join(" ")
-            ?? "Configured `pr.afterOpen` scripts failed.",
+          description:
+            hookResult.error ??
+            hookResult.summary?.failures.map((failure) => `${failure.scriptId}: ${failure.message}`).join(" ") ??
+            "Configured `pr.afterOpen` scripts failed.",
         });
       }
     }
@@ -1330,7 +1368,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   async function handleMarkReady() {
     const setPrReady = window.api?.sourceControl?.setPrReady;
-    if (!setPrReady) { toast.error("Bridge unavailable"); return; }
+    if (!setPrReady) {
+      toast.error("Bridge unavailable");
+      return;
+    }
 
     setStep("action");
     const result = await setPrReady({ cwd: workspaceCwd });
@@ -1346,7 +1387,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   async function handleMerge() {
     const mergePr = window.api?.sourceControl?.mergePr;
-    if (!mergePr) { toast.error("Bridge unavailable"); return; }
+    if (!mergePr) {
+      toast.error("Bridge unavailable");
+      return;
+    }
 
     setStep("action");
     const result = await mergePr({
@@ -1365,7 +1409,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   async function handleUpdateBranch() {
     const updatePrBranch = window.api?.sourceControl?.updatePrBranch;
-    if (!updatePrBranch) { toast.error("Bridge unavailable"); return; }
+    if (!updatePrBranch) {
+      toast.error("Bridge unavailable");
+      return;
+    }
 
     setStep("action");
     const result = await updatePrBranch({ cwd: workspaceCwd });
@@ -1382,7 +1429,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   async function handleContinueWorkspace(args: { name: string; baseBranch?: string }) {
     setContinuingWorkspace(true);
     try {
-      const result = await continueWorkspaceFromSummary({ name: args.name, baseBranch: args.baseBranch });
+      const result = await continueWorkspaceFromSummary({
+        name: args.name,
+        baseBranch: args.baseBranch,
+      });
       if (!result.ok) {
         toast.error("Unable to continue in a new workspace", {
           description: result.message ?? "The continuation brief could not be prepared.",
@@ -1392,7 +1442,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       if (result.noticeLevel === "warning") {
         toast.warning("Workspace continued with warning", {
-          description: result.message ?? "The workspace was created, but part of the continuation brief setup needs attention.",
+          description:
+            result.message ?? "The workspace was created, but part of the continuation brief setup needs attention.",
         });
       } else {
         toast.success("Workspace continued", {
@@ -1414,12 +1465,24 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   function handleAction(key: string) {
     switch (key) {
-      case "create_pr":     void handleCreateClick(); break;
-      case "mark_ready":    void handleMarkReady(); break;
-      case "merge":         void handleMerge(); break;
-      case "update_branch": void handleUpdateBranch(); break;
-      case "open_github":   handleOpenGitHub(); break;
-      case "refresh":       fetchStatus(); break;
+      case "create_pr":
+        void handleCreateClick();
+        break;
+      case "mark_ready":
+        void handleMarkReady();
+        break;
+      case "merge":
+        void handleMerge();
+        break;
+      case "update_branch":
+        void handleUpdateBranch();
+        break;
+      case "open_github":
+        handleOpenGitHub();
+        break;
+      case "refresh":
+        fetchStatus();
+        break;
     }
   }
 
@@ -1429,11 +1492,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   const isBusy = step !== "idle" && step !== "ready";
   const isDialogBusy =
-    step === "action" ||
-    step === "committing" ||
-    step === "reviewing" ||
-    step === "pushing" ||
-    step === "creating-pr";
+    step === "action" || step === "committing" || step === "reviewing" || step === "pushing" || step === "creating-pr";
   const isCreatePrSubmitting = shouldShowCreatePrSubmitSpinner({
     step,
     activeSubmitAction,
@@ -1441,8 +1500,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   });
   const effectiveTitle = prTitle.trim() || generateFallbackPRDraft(changedFiles).title;
   const isTitleInvalid = prTitle.trim().length > 0 && !isReasonablePullRequestTitle(prTitle);
-  const isCommitMessageInvalid =
-    commitMessage.trim().length > 0 && !isConventionalCommitMessage(commitMessage);
+  const isCommitMessageInvalid = commitMessage.trim().length > 0 && !isConventionalCommitMessage(commitMessage);
   const canSubmitPr = canSubmitCreatePr({
     step,
     title: effectiveTitle,
@@ -1451,13 +1509,19 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     commitMessage,
   });
   const statusLabel =
-    step === "loading" ? "Loading..." :
-    step === "committing" ? "Committing..." :
-    step === "reviewing" ? "Reviewing..." :
-    step === "pushing" ? "Pushing..." :
-    step === "creating-pr" ? "Creating..." :
-    step === "action" ? "Working..." :
-    null;
+    step === "loading"
+      ? "Loading..."
+      : step === "committing"
+        ? "Committing..."
+        : step === "reviewing"
+          ? "Reviewing..."
+          : step === "pushing"
+            ? "Pushing..."
+            : step === "creating-pr"
+              ? "Creating..."
+              : step === "action"
+                ? "Working..."
+                : null;
   const hasRespondingTask = tasks.some((task) => Boolean(activeTurnIdsByTask[task.id]));
   const isCreateDisabled = isBusy || hasRespondingTask;
   const canContinueWorkspace = prStatus === "merged" || prStatus === "closed_unmerged";
@@ -1602,20 +1666,14 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
               {/* Primary action */}
               {actions.primary ? (
-                <DropdownMenuItem
-                  className="font-medium"
-                  onSelect={() => handleAction(actions.primary!.key)}
-                >
+                <DropdownMenuItem className="font-medium" onSelect={() => handleAction(actions.primary!.key)}>
                   {actions.primary.label}
                 </DropdownMenuItem>
               ) : null}
 
               {/* Secondary actions */}
               {actions.secondary.map((action) => (
-                <DropdownMenuItem
-                  key={action.key}
-                  onSelect={() => handleAction(action.key)}
-                >
+                <DropdownMenuItem key={action.key} onSelect={() => handleAction(action.key)}>
                   {action.key === "open_github" || action.key === "refresh" ? (
                     <span className="flex items-center gap-2">
                       {action.key === "open_github" ? (
@@ -1711,15 +1769,60 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   }}
                 />
 
+                <div className="grid gap-3 rounded-lg border border-border/70 bg-muted/20 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                  <div className="min-w-0 space-y-2">
+                    <label
+                      className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                      htmlFor="create-pr-merge-method"
+                    >
+                      Merge method
+                    </label>
+                    <Select
+                      value={dialogMergeMethod}
+                      onValueChange={(value) => setDialogMergeMethod(value as ConcretePrMergeMethod)}
+                      disabled={isDialogBusy}
+                    >
+                      <SelectTrigger id="create-pr-merge-method" className="h-9 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="squash" disabled={repoMergeSettings?.squashMergeAllowed === false}>
+                          Squash
+                          {repoMergeSettings?.squashMergeAllowed === false ? " (not allowed)" : ""}
+                        </SelectItem>
+                        <SelectItem value="merge" disabled={repoMergeSettings?.mergeCommitAllowed === false}>
+                          Merge commit
+                          {repoMergeSettings?.mergeCommitAllowed === false ? " (not allowed)" : ""}
+                        </SelectItem>
+                        <SelectItem value="rebase" disabled={repoMergeSettings?.rebaseMergeAllowed === false}>
+                          Rebase
+                          {repoMergeSettings?.rebaseMergeAllowed === false ? " (not allowed)" : ""}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex min-w-0 items-center justify-between gap-3 sm:min-h-9 sm:justify-end">
+                    <div className="sm:text-right">
+                      <label className="text-sm font-medium" htmlFor="create-pr-auto-merge">
+                        Auto-merge
+                      </label>
+                      {repoMergeSettings?.autoMergeAllowed === false ? (
+                        <p className="text-xs text-muted-foreground">Disabled by repository settings</p>
+                      ) : null}
+                    </div>
+                    <Switch
+                      id="create-pr-auto-merge"
+                      checked={dialogAutoMerge}
+                      onCheckedChange={setDialogAutoMerge}
+                      disabled={isDialogBusy || repoMergeSettings?.autoMergeAllowed === false}
+                    />
+                  </div>
+                </div>
+
                 {inlineNotice ? <InlineNoticeBanner notice={inlineNotice} /> : null}
-                <PrePrReviewFindingsPanel
-                  findings={reviewFindings}
-                  truncated={reviewDiffTruncated}
-                />
-                <PrePrVerificationPanel
-                  failures={verificationFailures}
-                  blocking={verificationBlocking}
-                />
+                <PrePrReviewFindingsPanel findings={reviewFindings} truncated={reviewDiffTruncated} />
+                <PrePrVerificationPanel failures={verificationFailures} blocking={verificationBlocking} />
 
                 {/* PR Title */}
                 <div className="space-y-2">
@@ -1740,7 +1843,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   />
                   {isTitleInvalid ? (
                     <p className="text-xs text-destructive">
-                      Use a lowercase Conventional Commit title, for example <code>fix(topbar): stabilize create pr flow</code>.
+                      Use a lowercase Conventional Commit title, for example{" "}
+                      <code>fix(topbar): stabilize create pr flow</code>.
                     </p>
                   ) : null}
                 </div>
@@ -1774,14 +1878,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                       aria-expanded={changesExpanded}
                       aria-controls="create-pr-changed-files"
                     >
-                      {changesExpanded ? (
-                        <ChevronDown className="size-3.5" />
-                      ) : (
-                        <ChevronRight className="size-3.5" />
-                      )}
-                      {changedFiles.length} uncommitted file{changedFiles.length !== 1 ? "s" : ""}
+                      {changesExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                      {changedFiles.length} uncommitted file
+                      {changedFiles.length !== 1 ? "s" : ""}
                       <span className="ml-1 text-xs font-normal text-muted-foreground">
-                        (select files to commit before creating PR)
+                        (all files selected by default)
                       </span>
                     </button>
 
@@ -1795,6 +1896,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                                   type="checkbox"
                                   checked={selectedFilePaths.includes(file.path)}
                                   onChange={(event) => {
+                                    if (event.target.checked) {
+                                      userDeselectedPathsRef.current.delete(file.path);
+                                    } else {
+                                      userDeselectedPathsRef.current.add(file.path);
+                                    }
                                     setSelectedFilePaths((paths) =>
                                       event.target.checked
                                         ? [...new Set([...paths, file.path])]
@@ -1804,7 +1910,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                                   disabled={isDialogBusy}
                                   aria-label={`Include ${file.path} in the automatic commit`}
                                 />
-                                <span className="w-5 shrink-0 text-center font-mono font-medium text-muted-foreground">{file.code}</span>
+                                <span className="w-5 shrink-0 text-center font-mono font-medium text-muted-foreground">
+                                  {file.code}
+                                </span>
                                 <span className="truncate font-mono">{file.path}</span>
                               </label>
                             ))}
@@ -1812,7 +1920,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
                           {selectedFilePaths.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
-                              Select at least one file to enable automatic commit. Unselected files will remain untouched.
+                              Select at least one file to enable automatic commit. Unselected files will remain
+                              untouched.
                             </p>
                           ) : null}
 
@@ -1831,7 +1940,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                           />
                           {isCommitMessageInvalid ? (
                             <p className="text-xs text-destructive">
-                              Use a Conventional Commit message such as <code>fix(topbar): stabilize create pr flow</code>.
+                              Use a Conventional Commit message such as{" "}
+                              <code>fix(topbar): stabilize create pr flow</code>.
                             </p>
                           ) : null}
                         </>
@@ -1843,11 +1953,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
               {step === "reviewing" && reviewFindings.length > 0 ? (
                 <DialogFooter className="shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleStopAfterReview}
-                  >
+                  <Button type="button" variant="outline" onClick={handleStopAfterReview}>
                     Stop and fix
                   </Button>
                   <Button type="button" onClick={handleProceedAfterReview}>
@@ -1856,28 +1962,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 </DialogFooter>
               ) : verificationFailures.length > 0 ? (
                 <DialogFooter className="shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleStopAfterVerification}
-                  >
+                  <Button type="button" variant="outline" onClick={handleStopAfterVerification}>
                     Stop and fix
                   </Button>
                   {verificationBlocking ? null : (
-                    <Button
-                      type="button"
-                      onClick={handleProceedAfterVerification}
-                    >
+                    <Button type="button" onClick={handleProceedAfterVerification}>
                       Proceed anyway
                     </Button>
                   )}
                 </DialogFooter>
               ) : (
                 <DialogFooter className="shrink-0">
-                  <Button
-                    type="submit"
-                    disabled={!canSubmitPr || isDialogBusy}
-                  >
+                  <Button type="submit" disabled={!canSubmitPr || isDialogBusy}>
                     {isCreatePrSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
                     Create PR
                   </Button>

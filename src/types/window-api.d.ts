@@ -922,6 +922,10 @@ interface WindowSourceControlApi {
     path: string;
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
+  stageFiles?: (args: {
+    paths: string[];
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
   unstageFile?: (args: {
     path: string;
     cwd?: string;
@@ -1048,7 +1052,17 @@ interface WindowSourceControlApi {
     ok: boolean;
     prUrl?: string;
     autoMergeEnabled?: boolean;
+    autoMergeUnsupported?: boolean;
+    merged?: boolean;
     stderr?: string;
+  }>;
+  getRepoMergeSettings?: (args: { cwd?: string }) => Promise<{
+    ok: boolean;
+    squashMergeAllowed?: boolean;
+    mergeCommitAllowed?: boolean;
+    rebaseMergeAllowed?: boolean;
+    autoMergeAllowed?: boolean;
+    stderr: string;
   }>;
   getPrStatus?: (args: { cwd?: string }) => Promise<{
     ok: boolean;

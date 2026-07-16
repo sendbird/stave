@@ -99,6 +99,13 @@ export const TryAutoFixLintArgsSchema = z
   })
   .strict();
 
+export const StageFilesArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    paths: z.array(z.string().min(1).max(4096)).min(1).max(1000),
+  })
+  .strict();
+
 const ScriptKindSchema = z.union([z.literal("action"), z.literal("service")]);
 const ScriptTriggerSchema = z.union([
   z.literal("task.created"),

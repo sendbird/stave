@@ -1273,6 +1273,8 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     stageFile: (args: { path: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:stage-file", args),
+    stageFiles: (args: { paths: string[]; cwd?: string }) =>
+      ipcRenderer.invoke("scm:stage-files", args),
     unstageFile: (args: { path: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:unstage-file", args),
     discardFile: (args: { path: string; cwd?: string }) =>
@@ -1349,7 +1351,18 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         prUrl?: string;
         autoMergeEnabled?: boolean;
+        autoMergeUnsupported?: boolean;
+        merged?: boolean;
         stderr?: string;
+      }>,
+    getRepoMergeSettings: (args: { cwd?: string }) =>
+      ipcRenderer.invoke("scm:get-repo-merge-settings", args) as Promise<{
+        ok: boolean;
+        squashMergeAllowed?: boolean;
+        mergeCommitAllowed?: boolean;
+        rebaseMergeAllowed?: boolean;
+        autoMergeAllowed?: boolean;
+        stderr: string;
       }>,
     getPrStatus: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:get-pr-status", args) as Promise<{

@@ -305,7 +305,18 @@ export interface HostScmCreatePrResult {
   ok: boolean;
   prUrl?: string;
   autoMergeEnabled?: boolean;
+  autoMergeUnsupported?: boolean;
+  merged?: boolean;
   stderr?: string;
+}
+
+export interface HostScmRepoMergeSettingsResult {
+  ok: boolean;
+  squashMergeAllowed?: boolean;
+  mergeCommitAllowed?: boolean;
+  rebaseMergeAllowed?: boolean;
+  autoMergeAllowed?: boolean;
+  stderr: string;
 }
 
 export interface HostScmPrStatusResult {
@@ -606,6 +617,10 @@ export interface HostServiceRequestMap {
     path: string;
     cwd?: string;
   };
+  "scm.stage-files": {
+    paths: string[];
+    cwd?: string;
+  };
   "scm.unstage-file": {
     path: string;
     cwd?: string;
@@ -693,6 +708,9 @@ export interface HostServiceRequestMap {
     cwd?: string;
   };
   "scm.get-pr-status": {
+    cwd?: string;
+  };
+  "scm.get-repo-merge-settings": {
     cwd?: string;
   };
   "scm.get-pr-status-for-url": {
@@ -821,6 +839,7 @@ export interface HostServiceResponseMap {
     stderr: string;
   };
   "scm.stage-file": CommandResult;
+  "scm.stage-files": CommandResult;
   "scm.unstage-file": CommandResult;
   "scm.discard-file": CommandResult;
   "scm.diff": HostScmDiffResult;
@@ -853,6 +872,7 @@ export interface HostServiceResponseMap {
   "scm.delete-branch": CommandResult;
   "scm.push": CommandResult;
   "scm.get-pr-status": HostScmPrStatusResult;
+  "scm.get-repo-merge-settings": HostScmRepoMergeSettingsResult;
   "scm.get-pr-status-for-url": HostScmPrStatusResult;
   "scm.set-pr-ready":
     | CommandResult
