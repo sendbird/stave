@@ -1053,6 +1053,60 @@ export async function runCodexGoalSlashCommand(args: {
   }
 }
 
+const CODEX_COMPACT_SLASH_COMMAND_PATTERN = /^\/compact(?:\s|$)/i;
+
+export function isCodexCompactSlashCommand(input: string): boolean {
+  return CODEX_COMPACT_SLASH_COMMAND_PATTERN.test(input.trimStart());
+}
+
+// The Codex App Server does not parse chat slash commands the way the Codex
+// TUI does; "/compact" sent as a plain user turn just reaches the model as
+// text. Intercept it here and call the dedicated compaction RPC instead, so
+// chat "/compact" behaves like the Claude provider's native /compact.
+export async function runCodexCompactSlashCommand(args: {
+  client: CodexElicitationPauseClient;
+  threadId: string;
+  input: string;
+  cwd?: string;
+}): Promise<BridgeEvent[] | null> {
+  if (!isCodexCompactSlashCommand(args.input)) {
+    return null;
+  }
+
+  try {
+    await args.client.request("thread/compact/start", {
+      threadId: args.threadId,
+    });
+    const gitRef = args.cwd ? resolveGitHeadRef({ cwd: args.cwd }) : undefined;
+    return [
+      {
+        type: "system",
+        content: "Context compacted (manual).",
+        compactBoundary: {
+          trigger: "manual",
+          ...(gitRef ? { gitRef } : {}),
+        },
+      },
+      {
+        type: "text",
+        text: "Compacted the Codex conversation context. You can continue this thread with the summarized history.",
+      },
+      { type: "done" },
+    ];
+  } catch (error) {
+    return [
+      {
+        type: "error",
+        message: toCodexUserFacingErrorMessage({
+          message: toErrorMessage(error),
+        }),
+        recoverable: true,
+      },
+      { type: "done" },
+    ];
+  }
+}
+
 export function createCodexAppServerElicitationPauseController(args: {
   client: CodexElicitationPauseClient;
   threadId: string;
@@ -3986,6 +4040,19 @@ export async function streamCodexWithAppServer(
   });
   if (goalCommandEvents) {
     emitBridgeEvents(goalCommandEvents);
+    finishCodexTurn(codexExecutablePath);
+    return finalizeCollectedEvents();
+  }
+
+  const compactCommandEvents = await runCodexCompactSlashCommand({
+    client,
+    threadId,
+    input: providerPrompt,
+    cwd: runtimeCwd,
+  });
+  if (compactCommandEvents) {
+    emitBridgeEvents(compactCommandEvents);
+    finishCodexTurn(codexExecutablePath);
     return finalizeCollectedEvents();
   }
 
