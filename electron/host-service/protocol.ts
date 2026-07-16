@@ -115,7 +115,14 @@ export interface HostTerminalAttachSessionResult {
   attachmentId?: string;
   backlog?: string;
   screenState?: string;
+  snapshotSequence?: number;
   stderr?: string;
+}
+
+export interface HostTerminalStatusEvent {
+  sessionId: string;
+  status: "prompt-start" | "command-start" | "command-finished" | "prompt-end";
+  exitCode?: number;
 }
 
 export interface HostTerminalSlotStateResult {
@@ -297,7 +304,19 @@ export interface HostScmListBranchesResult {
 export interface HostScmCreatePrResult {
   ok: boolean;
   prUrl?: string;
+  autoMergeEnabled?: boolean;
+  autoMergeUnsupported?: boolean;
+  merged?: boolean;
   stderr?: string;
+}
+
+export interface HostScmRepoMergeSettingsResult {
+  ok: boolean;
+  squashMergeAllowed?: boolean;
+  mergeCommitAllowed?: boolean;
+  rebaseMergeAllowed?: boolean;
+  autoMergeAllowed?: boolean;
+  stderr: string;
 }
 
 export interface HostScmPrStatusResult {
@@ -354,6 +373,11 @@ export interface HostServiceRequestMap {
   "terminal.write-session": {
     sessionId: string;
     input: string;
+  };
+  "terminal.ack-session-output": {
+    sessionId: string;
+    attachmentId: string;
+    acknowledgedBytes: number;
   };
   "terminal.read-session": {
     sessionId: string;
@@ -587,9 +611,14 @@ export interface HostServiceRequestMap {
   };
   "scm.try-auto-fix-lint": {
     cwd?: string;
+    paths?: string[];
   };
   "scm.stage-file": {
     path: string;
+    cwd?: string;
+  };
+  "scm.stage-files": {
+    paths: string[];
     cwd?: string;
   };
   "scm.unstage-file": {
@@ -658,13 +687,30 @@ export interface HostServiceRequestMap {
     cwd?: string;
   };
   "scm.revert": { commit: string; cwd?: string };
-  "scm.reset": { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string };
-  "scm.create-tag": { name: string; commit?: string; message?: string; cwd?: string };
+  "scm.reset": {
+    commit: string;
+    mode: "soft" | "mixed" | "hard";
+    cwd?: string;
+  };
+  "scm.create-tag": {
+    name: string;
+    commit?: string;
+    message?: string;
+    cwd?: string;
+  };
   "scm.delete-tag": { name: string; cwd?: string };
   "scm.rename-branch": { from: string; to: string; cwd?: string };
   "scm.delete-branch": { name: string; force?: boolean; cwd?: string };
-  "scm.push": { branch?: string; remote?: string; force?: boolean; cwd?: string };
+  "scm.push": {
+    branch?: string;
+    remote?: string;
+    force?: boolean;
+    cwd?: string;
+  };
   "scm.get-pr-status": {
+    cwd?: string;
+  };
+  "scm.get-repo-merge-settings": {
     cwd?: string;
   };
   "scm.get-pr-status-for-url": {
@@ -675,7 +721,7 @@ export interface HostServiceRequestMap {
     cwd?: string;
   };
   "scm.merge-pr": {
-    method?: "merge" | "squash" | "rebase";
+    method?: "default" | "merge" | "squash" | "rebase";
     cwd?: string;
   };
   "scm.update-pr-branch": {
@@ -686,6 +732,8 @@ export interface HostServiceRequestMap {
     body?: string;
     baseBranch?: string;
     draft?: boolean;
+    autoMerge?: boolean;
+    mergeMethod?: "default" | "merge" | "squash" | "rebase";
     cwd?: string;
   };
   "local-mcp.invoke": {
@@ -701,6 +749,7 @@ export interface HostServiceResponseMap {
   "terminal.create-session": HostTerminalCreateSessionResult;
   "terminal.create-cli-session": HostTerminalCreateSessionResult;
   "terminal.write-session": HostTerminalMutationResult;
+  "terminal.ack-session-output": HostTerminalMutationResult;
   "terminal.read-session": HostTerminalReadSessionResult;
   "terminal.set-session-delivery-mode": HostTerminalMutationResult;
   "terminal.resize-session": HostTerminalMutationResult;
@@ -790,6 +839,7 @@ export interface HostServiceResponseMap {
     stderr: string;
   };
   "scm.stage-file": CommandResult;
+  "scm.stage-files": CommandResult;
   "scm.unstage-file": CommandResult;
   "scm.discard-file": CommandResult;
   "scm.diff": HostScmDiffResult;
@@ -822,6 +872,7 @@ export interface HostServiceResponseMap {
   "scm.delete-branch": CommandResult;
   "scm.push": CommandResult;
   "scm.get-pr-status": HostScmPrStatusResult;
+  "scm.get-repo-merge-settings": HostScmRepoMergeSettingsResult;
   "scm.get-pr-status-for-url": HostScmPrStatusResult;
   "scm.set-pr-ready":
     | CommandResult
@@ -844,12 +895,15 @@ export interface HostServiceEventMap {
   "terminal.output": {
     sessionId: string;
     output: string;
+    sequence: number;
+    bytes: number;
   };
   "terminal.exit": {
     sessionId: string;
     exitCode: number;
     signal?: number;
   };
+  "terminal.status": HostTerminalStatusEvent;
   "workspace-scripts.event": WorkspaceScriptEventEnvelope;
   "provider.stream-event": HostProviderStreamEventPayload;
   "local-mcp.workspace-information-updated": {
@@ -900,7 +954,9 @@ export type AnyHostServiceRequestEnvelope = {
 
 export type AnyHostServiceResponseEnvelope =
   | {
-      [TMethod in HostServiceMethod]: HostServiceSuccessResponseEnvelope<TMethod>;
+      [
+        TMethod in HostServiceMethod
+      ]: HostServiceSuccessResponseEnvelope<TMethod>;
     }[HostServiceMethod]
   | HostServiceErrorResponseEnvelope;
 

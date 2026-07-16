@@ -4034,11 +4034,17 @@ export async function suggestClaudePRDescription(args: {
 
     const claudeExecutablePath = getPrewarmedExecutablePath();
 
-    // Use user-provided prompt template or fall back to the built-in default.
+    // An omitted prompt uses the built-in default; an explicitly empty prompt
+    // means the caller disabled PR description generation.
     const { DEFAULT_PROMPT_PR_DESCRIPTION } =
       await import("../../src/lib/providers/prompt-defaults");
     const baseTemplate =
-      args.promptTemplate?.trim() || DEFAULT_PROMPT_PR_DESCRIPTION;
+      args.promptTemplate === undefined
+        ? DEFAULT_PROMPT_PR_DESCRIPTION
+        : args.promptTemplate.trim();
+    if (!baseTemplate) {
+      return { ok: false };
+    }
 
     const prPrompt = [
       ...(args.prTemplateContent

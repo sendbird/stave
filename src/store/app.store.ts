@@ -1,10 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { toast } from "sonner";
-import type {
-  BorderBeamColorVariant,
-  BorderBeamSize,
-} from "border-beam";
+import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import {
   listActiveWorkspaceTurns,
   listLatestWorkspaceTurns,
@@ -17,10 +14,7 @@ import {
   markNotificationRead as markPersistedNotificationRead,
 } from "@/lib/db/notifications.db";
 import { workspaceFsAdapter } from "@/lib/fs";
-import type {
-  WorkspaceFileData,
-  WorkspaceImageData,
-} from "@/lib/fs/fs.types";
+import type { WorkspaceFileData, WorkspaceImageData } from "@/lib/fs/fs.types";
 import { formatWithEslint } from "@/components/layout/editor-language-intelligence";
 import {
   listWorkspaceSummaries,
@@ -381,6 +375,7 @@ import {
   resolveCurrentProjectDefaultWorkspaceId,
   normalizeCurrentProjectState,
   normalizeArchivedWorkspacePaths,
+  reconcileArchivedWorkspacePaths,
   cloneRecentProjectState,
   normalizeRecentProjectStates,
   upsertRecentProjectState,
@@ -392,6 +387,7 @@ import {
 import {
   type WorkspacePrInfo,
   type GitHubPrPayload,
+  type PrMergeMethod,
   derivePrStatus,
 } from "@/lib/pr-status";
 import {
@@ -544,19 +540,18 @@ function normalizePromptDraftForStorage(draft: PromptDraft): PromptDraft {
       (item.attachedFilePaths?.length ?? 0) > 0 ||
       (item.attachments?.length ?? 0) > 0,
   );
-  const legacyQueuedTurn =
-    draft.queuedNextTurn?.content?.trim()
-      ? [
-          {
-            id: `legacy-${draft.queuedNextTurn.queuedAt}`,
-            queuedAt: draft.queuedNextTurn.queuedAt,
-            sourceTurnId: draft.queuedNextTurn.sourceTurnId,
-            content: draft.queuedNextTurn.content,
-            attachedFilePaths: [],
-            attachments: [],
-          },
-        ]
-      : [];
+  const legacyQueuedTurn = draft.queuedNextTurn?.content?.trim()
+    ? [
+        {
+          id: `legacy-${draft.queuedNextTurn.queuedAt}`,
+          queuedAt: draft.queuedNextTurn.queuedAt,
+          sourceTurnId: draft.queuedNextTurn.sourceTurnId,
+          content: draft.queuedNextTurn.content,
+          attachedFilePaths: [],
+          attachments: [],
+        },
+      ]
+    : [];
   const queuedTurns = [
     ...(draft.queuedTurns ?? []),
     ...legacyQueuedTurn,
@@ -572,7 +567,10 @@ function normalizePromptDraftForStorage(draft: PromptDraft): PromptDraft {
     ...(queuedTurns.length > 0 ? { queuedTurns } : { queuedTurns: undefined }),
     queuedNextTurn: undefined,
   };
-  if (hasPromptDraftPayload(nextDraft) || (nextDraft.queuedTurns?.length ?? 0) > 0) {
+  if (
+    hasPromptDraftPayload(nextDraft) ||
+    (nextDraft.queuedTurns?.length ?? 0) > 0
+  ) {
     return nextDraft;
   }
   return buildClearedPromptDraft(nextDraft);
@@ -594,9 +592,14 @@ function arePromptDraftQueuedTurnsEqual(
         other.sourceTurnId === item.sourceTurnId &&
         other.content === item.content &&
         other.attachedFilePaths.length === item.attachedFilePaths.length &&
-        other.attachedFilePaths.every((path, pathIndex) => path === item.attachedFilePaths[pathIndex]) &&
+        other.attachedFilePaths.every(
+          (path, pathIndex) => path === item.attachedFilePaths[pathIndex],
+        ) &&
         other.attachments.length === item.attachments.length &&
-        other.attachments.every((attachment, attachmentIndex) => attachment === item.attachments[attachmentIndex])
+        other.attachments.every(
+          (attachment, attachmentIndex) =>
+            attachment === item.attachments[attachmentIndex],
+        )
       );
     })
   );
@@ -670,7 +673,9 @@ function buildPromptDraftDisplayContentForSend(draft: PromptDraft): string {
     .join("\n\n");
 }
 
-function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] | undefined {
+function buildPromptDraftDisplayPartsForSend(
+  draft: PromptDraft,
+): MessagePart[] | undefined {
   const parts: MessagePart[] = [];
   let hasLensAnnotation = false;
   let hasWorkspaceInformationReference = false;
@@ -735,7 +740,8 @@ function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] 
         parts.push({
           type: "image_context",
           dataUrl: screenshot.dataUrl,
-          label: annotation.comment.trim() || `Visual comment ${annotation.pin}`,
+          label:
+            annotation.comment.trim() || `Visual comment ${annotation.pin}`,
           mimeType: getImageAttachmentMimeType(screenshot),
         });
         continue;
@@ -754,7 +760,10 @@ function buildPromptDraftDisplayPartsForSend(draft: PromptDraft): MessagePart[] 
     (item) => (item.attachments?.length ?? 0) > 0,
   );
 
-  return (hasLensAnnotation || hasBatchAttachment || hasWorkspaceInformationReference) && parts.length > 0
+  return (hasLensAnnotation ||
+    hasBatchAttachment ||
+    hasWorkspaceInformationReference) &&
+    parts.length > 0
     ? parts
     : undefined;
 }
@@ -1418,6 +1427,10 @@ export interface AppSettings {
   reviewChecklistPreset: string;
   prePrReviewEnabled: boolean;
   prePrReviewProvider: PrePrReviewProviderId;
+  /** Queue the created ready PR for automatic merging. */
+  createPrAutoMergeEnabled: boolean;
+  /** Merge strategy used when automatic merging is queued. */
+  createPrMergeMethod: PrMergeMethod;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -1438,6 +1451,7 @@ export interface AppSettings {
   /** Auto-refresh interval (seconds) for the Source Control panel. 0 = disabled. */
   scmAutoRefreshSeconds: number;
   confirmBeforeClose: boolean;
+  nativeNotificationsEnabled: boolean;
   notificationSoundEnabled: boolean;
   notificationSoundVolume: number;
   notificationSoundPreset: NotificationSoundPreset;
@@ -1479,13 +1493,7 @@ export interface AppSettings {
   codexApprovalPolicy: "never" | "on-request" | "on-failure" | "untrusted";
   codexBinaryPath: string;
   codexReasoningEffort:
-    | "minimal"
-    | "low"
-    | "medium"
-    | "high"
-    | "xhigh"
-    | "max"
-    | "ultra";
+    "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
   codexWebSearch: "disabled" | "cached" | "live";
   codexShowRawReasoning: boolean;
   codexReasoningSummary: "auto" | "concise" | "detailed" | "none";
@@ -1599,7 +1607,10 @@ interface AppState {
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
   /** Latest turn.completed verification result per workspace (worktree-scoped). */
-  turnVerificationByWorkspace: Record<string, TurnVerificationResult | undefined>;
+  turnVerificationByWorkspace: Record<
+    string,
+    TurnVerificationResult | undefined
+  >;
   /** Latest turn.completed intent-guard result per workspace (worktree-scoped). */
   turnIntentComplianceByWorkspace: Record<
     string,
@@ -1831,10 +1842,7 @@ interface AppState {
     side?: ReviewCommentSide;
     body: string;
   }) => ReviewComment | null;
-  removeReviewComment: (args: {
-    taskId: string;
-    commentId: string;
-  }) => void;
+  removeReviewComment: (args: { taskId: string; commentId: string }) => void;
   clearReviewComments: (args: { taskId: string }) => void;
   submitReviewFeedback: (args: {
     taskId: string;
@@ -2540,11 +2548,7 @@ function normalizeReasoningExpansionMode(value: unknown): "auto" | "manual" {
 function normalizeBorderBeamSize(
   value: unknown,
 ): AppSettings["borderBeamSize"] {
-  return value === "sm" ||
-    value === "md" ||
-    value === "line"
-    ? value
-    : "md";
+  return value === "sm" || value === "md" || value === "line" ? value : "md";
 }
 
 function normalizeBorderBeamVariant(
@@ -2643,6 +2647,8 @@ const defaultSettings: AppSettings = {
   reviewChecklistPreset: "safety-first",
   prePrReviewEnabled: false,
   prePrReviewProvider: DEFAULT_PRE_PR_REVIEW_PROVIDER,
+  createPrAutoMergeEnabled: true,
+  createPrMergeMethod: "default",
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",
@@ -2662,6 +2668,7 @@ const defaultSettings: AppSettings = {
   diffViewMode: "unified",
   scmAutoRefreshSeconds: 0,
   confirmBeforeClose: true,
+  nativeNotificationsEnabled: true,
   notificationSoundEnabled: true,
   notificationSoundVolume: DEFAULT_NOTIFICATION_SOUND_VOLUME,
   notificationSoundPreset: DEFAULT_NOTIFICATION_SOUND_PRESET,
@@ -3008,12 +3015,14 @@ function mergeRecentProjectsByPath(args: {
   persistedProjects: RecentProjectState[];
   stateProjects: RecentProjectState[];
 }) {
-  let merged = normalizeRecentProjectStates({
+  const persistedProjects = normalizeRecentProjectStates({
     projects: args.persistedProjects,
   });
-  for (const project of normalizeRecentProjectStates({
+  const stateProjects = normalizeRecentProjectStates({
     projects: args.stateProjects,
-  })) {
+  });
+  let merged = persistedProjects;
+  for (const project of stateProjects) {
     const existing = merged.find(
       (item) => item.projectPath === project.projectPath,
     );
@@ -3024,7 +3033,28 @@ function mergeRecentProjectsByPath(args: {
       });
     }
   }
-  return merged;
+  // Archive tombstones must survive either durable source losing them —
+  // otherwise `refreshWorkspaces` re-discovers a preserved dirty worktree and
+  // the archived workspace resurrects. Union both sources per project, minus
+  // any path that is registered as a live workspace again.
+  return merged.map((project) => {
+    const persisted = persistedProjects.find(
+      (item) => item.projectPath === project.projectPath,
+    );
+    const fromState = stateProjects.find(
+      (item) => item.projectPath === project.projectPath,
+    );
+    const archivedWorkspacePaths = reconcileArchivedWorkspacePaths({
+      primary: persisted?.archivedWorkspacePaths,
+      secondary: fromState?.archivedWorkspacePaths,
+      workspacePathById: project.workspacePathById,
+    });
+    const { archivedWorkspacePaths: _current, ...projectRest } = project;
+    return {
+      ...projectRest,
+      ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
+    };
+  });
 }
 
 function summarizeWorkspaceShell(
@@ -3307,11 +3337,32 @@ async function performWorkspaceArchiveCleanup(args: {
           workspacePath,
         });
       } else {
+        // `worktreeStatusHasMeaningfulChanges` ignores the linked
+        // `node_modules` symlink, but `git worktree remove` still refuses to
+        // delete a worktree that contains untracked entries. Drop the
+        // self-managed symlink first so a pristine symlinked worktree is
+        // actually removable — otherwise it silently survives on disk and
+        // resurrects as a rediscovered workspace later.
+        const nodeModulesSymlinkPath = `${workspacePath}/node_modules`;
+        await runner({
+          cwd: projectPath,
+          command: `if [ -L ${JSON.stringify(nodeModulesSymlinkPath)} ]; then rm ${JSON.stringify(nodeModulesSymlinkPath)}; fi`,
+        });
         const removeResult = await runner({
           cwd: projectPath,
           command: `git worktree remove ${JSON.stringify(workspacePath)}`,
         });
         didRemoveWorktree = removeResult.ok;
+        if (!removeResult.ok) {
+          console.warn(
+            "[workspace-archive] git worktree remove failed; preserving worktree",
+            {
+              workspaceId,
+              workspacePath,
+              stderr: removeResult.stderr,
+            },
+          );
+        }
         await runner({
           cwd: projectPath,
           command: "git worktree prune",
@@ -4264,7 +4315,12 @@ export const useAppStore = create<AppState>()(
               notification: result.notification!,
             }),
           }));
+          const unreadCount = get().notifications.filter(
+            (item) => !item.readAt,
+          ).length;
+          void window.api?.notifications?.setBadge?.({ count: unreadCount });
           const {
+            nativeNotificationsEnabled,
             notificationSoundEnabled,
             notificationSoundVolume,
             notificationSoundPreset,
@@ -4290,6 +4346,21 @@ export const useAppStore = create<AppState>()(
                 volume: notificationSoundVolume,
               });
             }
+          }
+          if (nativeNotificationsEnabled) {
+            const isFocused =
+              typeof document !== "undefined" &&
+              typeof document.hasFocus === "function" &&
+              document.hasFocus();
+            const sameWorkspace =
+              !result.notification.workspaceId ||
+              result.notification.workspaceId === get().activeWorkspaceId;
+            void window.api?.notifications?.showNative?.({
+              notificationId: result.notification.id,
+              title: result.notification.title,
+              body: result.notification.body,
+              suppress: isFocused && sameWorkspace,
+            });
           }
           showNotificationToast(result.notification);
           return result.notification;
@@ -4503,9 +4574,8 @@ export const useAppStore = create<AppState>()(
         let body = null as
           | Awaited<ReturnType<typeof loadWorkspaceEditorTabBodies>>[number]
           | null;
-        let tooLargeMetadata: ReturnType<
-          typeof getTooLargeEditorTabMetadata
-        > = null;
+        let tooLargeMetadata: ReturnType<typeof getTooLargeEditorTabMetadata> =
+          null;
         try {
           body =
             (
@@ -6761,11 +6831,8 @@ export const useAppStore = create<AppState>()(
               message: "Could not resolve the worktree root for that path.",
             };
           }
-          const comparableWorktreeRoot =
-            normalizeComparablePath(worktreeRoot);
-          if (
-            comparableWorktreeRoot === normalizeComparablePath(projectPath)
-          ) {
+          const comparableWorktreeRoot = normalizeComparablePath(worktreeRoot);
+          if (comparableWorktreeRoot === normalizeComparablePath(projectPath)) {
             return {
               ok: false,
               message:
@@ -6796,9 +6863,7 @@ export const useAppStore = create<AppState>()(
             cwd: projectPath,
             command: `git -C ${JSON.stringify(worktreeRoot)} rev-parse --abbrev-ref HEAD`,
           });
-          const branchName = branchResult.ok
-            ? branchResult.stdout.trim()
-            : "";
+          const branchName = branchResult.ok ? branchResult.stdout.trim() : "";
           if (!branchName || branchName === "HEAD") {
             return {
               ok: false,
@@ -7494,9 +7559,7 @@ export const useAppStore = create<AppState>()(
                 return result;
               });
           if (
-            !isCurrentWorkspaceIdentityRequest(
-              workspaceIdentityRequestToken,
-            ) ||
+            !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
             !isWorkspaceTargetCurrent({
               state: get(),
               workspaceId,
@@ -7516,9 +7579,7 @@ export const useAppStore = create<AppState>()(
             setRootResolvedAt = getWorkspaceSwitchMetricNow();
           });
           if (
-            !isCurrentWorkspaceIdentityRequest(
-              workspaceIdentityRequestToken,
-            ) ||
+            !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
             !isWorkspaceTargetCurrent({
               state: get(),
               workspaceId,
@@ -8126,9 +8187,7 @@ export const useAppStore = create<AppState>()(
             ...(patch.trustedTools === undefined
               ? {}
               : {
-                  trustedTools: normalizeTrustedToolEntries(
-                    patch.trustedTools,
-                  ),
+                  trustedTools: normalizeTrustedToolEntries(patch.trustedTools),
                 }),
             ...(patch.reasoningExpansionMode === undefined
               ? {}
@@ -8387,7 +8446,8 @@ export const useAppStore = create<AppState>()(
                 kind: "compare-run",
                 compareRunId: normalizedCompareRunId,
               },
-              workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+              workspaceSnapshotVersion:
+                incrementWorkspaceSnapshotVersion(state),
             };
           });
         },
@@ -8503,15 +8563,13 @@ export const useAppStore = create<AppState>()(
               name: workspaceName,
               mode: "branch",
               fromBranch: baseBranch,
-              initialTaskTitle:
-                variant.label?.trim() || `Compare ${index + 1}`,
+              initialTaskTitle: variant.label?.trim() || `Compare ${index + 1}`,
             });
             if (!createResult.ok) {
               updateVariant(variant.id, {
                 status: "failed",
                 error:
-                  createResult.message?.trim() ||
-                  "Workspace creation failed.",
+                  createResult.message?.trim() || "Workspace creation failed.",
               });
               continue;
             }
@@ -8550,8 +8608,7 @@ export const useAppStore = create<AppState>()(
               content: normalizedSeedPrompt,
             });
             updateVariant(variant.id, {
-              status:
-                launchResult.status === "blocked" ? "failed" : "running",
+              status: launchResult.status === "blocked" ? "failed" : "running",
               error:
                 launchResult.status === "blocked"
                   ? "Variant launch was blocked."
@@ -8590,7 +8647,8 @@ export const useAppStore = create<AppState>()(
                 kind: "compare-run",
                 compareRunId,
               },
-              workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+              workspaceSnapshotVersion:
+                incrementWorkspaceSnapshotVersion(state),
             };
           });
 
@@ -8692,8 +8750,7 @@ export const useAppStore = create<AppState>()(
                   updatedAt: buildRecentTimestamp(),
                   variants: currentRun.variants.map((variant) => ({
                     ...variant,
-                    status:
-                      variant.status === "kept" ? "kept" : "discarded",
+                    status: variant.status === "kept" ? "kept" : "discarded",
                   })),
                 },
               },
@@ -9327,7 +9384,13 @@ export const useAppStore = create<AppState>()(
           set((nextState) => {
             const current = nextState.messagesByTask[taskId] ?? [];
             const message: ChatMessage = {
-              id: buildMessageId({ taskId, count: Math.max(current.length, nextState.messageCountByTask[taskId] ?? 0) }),
+              id: buildMessageId({
+                taskId,
+                count: Math.max(
+                  current.length,
+                  nextState.messageCountByTask[taskId] ?? 0,
+                ),
+              }),
               role: "assistant",
               model: "system",
               providerId: "user",
@@ -9342,7 +9405,9 @@ export const useAppStore = create<AppState>()(
             return {
               messagesByTask: {
                 ...nextState.messagesByTask,
-                [taskId]: trimLoadedTaskMessages({ messages: [...current, message] }),
+                [taskId]: trimLoadedTaskMessages({
+                  messages: [...current, message],
+                }),
               },
               messageCountByTask: {
                 ...nextState.messageCountByTask,
@@ -9391,7 +9456,13 @@ export const useAppStore = create<AppState>()(
           set((nextState) => {
             const current = nextState.messagesByTask[taskId] ?? [];
             const message: ChatMessage = {
-              id: buildMessageId({ taskId, count: Math.max(current.length, nextState.messageCountByTask[taskId] ?? 0) }),
+              id: buildMessageId({
+                taskId,
+                count: Math.max(
+                  current.length,
+                  nextState.messageCountByTask[taskId] ?? 0,
+                ),
+              }),
               role: "assistant",
               model: "system",
               providerId: "user",
@@ -9413,7 +9484,9 @@ export const useAppStore = create<AppState>()(
                 : {}),
               messagesByTask: {
                 ...nextState.messagesByTask,
-                [taskId]: trimLoadedTaskMessages({ messages: [...current, message] }),
+                [taskId]: trimLoadedTaskMessages({
+                  messages: [...current, message],
+                }),
               },
               messageCountByTask: {
                 ...nextState.messageCountByTask,
@@ -9457,7 +9530,13 @@ export const useAppStore = create<AppState>()(
             set((nextState) => {
               const current = nextState.messagesByTask[taskId] ?? [];
               const message: ChatMessage = {
-                id: buildMessageId({ taskId, count: Math.max(current.length, nextState.messageCountByTask[taskId] ?? 0) }),
+                id: buildMessageId({
+                  taskId,
+                  count: Math.max(
+                    current.length,
+                    nextState.messageCountByTask[taskId] ?? 0,
+                  ),
+                }),
                 role: "assistant",
                 model: "system",
                 providerId: "user",
@@ -9479,7 +9558,9 @@ export const useAppStore = create<AppState>()(
                   : {}),
                 messagesByTask: {
                   ...nextState.messagesByTask,
-                  [taskId]: trimLoadedTaskMessages({ messages: [...current, message] }),
+                  [taskId]: trimLoadedTaskMessages({
+                    messages: [...current, message],
+                  }),
                 },
                 messageCountByTask: {
                   ...nextState.messageCountByTask,
@@ -9773,8 +9854,7 @@ export const useAppStore = create<AppState>()(
               settingsPatch.modelCodex = preset.model;
               settingsPatch.codexReasoningEffort =
                 (preset.effort as
-                  | AppSettings["codexReasoningEffort"]
-                  | undefined) ??
+                  AppSettings["codexReasoningEffort"] | undefined) ??
                 resolveDefaultCodexEffortForModel({ model: preset.model });
             }
           }
@@ -10526,6 +10606,9 @@ export const useAppStore = create<AppState>()(
                 notification: persisted,
               }),
             }));
+            void window.api?.notifications?.setBadge?.({
+              count: get().notifications.filter((item) => !item.readAt).length,
+            });
           } catch (error) {
             console.error(
               "[notifications] failed to mark notification as read",
@@ -10543,6 +10626,9 @@ export const useAppStore = create<AppState>()(
           }));
           try {
             await markAllPersistedNotificationsRead({ readAt });
+            void window.api?.notifications?.setBadge?.({
+              count: get().notifications.filter((item) => !item.readAt).length,
+            });
           } catch (error) {
             console.error(
               "[notifications] failed to mark all notifications as read",
@@ -10812,20 +10898,21 @@ export const useAppStore = create<AppState>()(
           if (isManagedTaskReadOnly({ state, taskId: resolvedTaskId })) {
             return { status: "blocked" } satisfies SendUserMessageResult;
           }
-          let provider =
-            task?.provider ?? state.draftProvider ?? "claude-code";
+          let provider = task?.provider ?? state.draftProvider ?? "claude-code";
           const codexGoalObjective =
             provider === "codex" ? parseCodexGoalSetObjective(content) : null;
           const codexGoalQueuedTurns: PromptDraft["queuedTurns"] =
             codexGoalObjective
-              ? [{
-                  id: `codex-goal-${turnId}`,
-                  queuedAt: buildRecentTimestamp(),
-                  sourceTurnId: turnId,
-                  content: codexGoalObjective,
-                  attachedFilePaths: [],
-                  attachments: [],
-                }]
+              ? [
+                  {
+                    id: `codex-goal-${turnId}`,
+                    queuedAt: buildRecentTimestamp(),
+                    sourceTurnId: turnId,
+                    content: codexGoalObjective,
+                    attachedFilePaths: [],
+                    attachments: [],
+                  },
+                ]
               : undefined;
           const { workspaceId: taskWorkspaceId, cwd: workspaceCwd } =
             resolveTaskWorkspaceContext({
@@ -11056,8 +11143,10 @@ export const useAppStore = create<AppState>()(
               attachments: [],
               promptBatch: undefined,
               queuedTurns: [
-                ...((taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
-                  sourcePromptDraft).queuedTurns ?? []),
+                ...((
+                  taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
+                  sourcePromptDraft
+                ).queuedTurns ?? []),
                 queuedTurn,
               ],
               queuedNextTurn: undefined,
@@ -11261,10 +11350,9 @@ export const useAppStore = create<AppState>()(
               state.settings.autoRoutingEnabled &&
               promptDraft.runtimeOverrides?.autoRouting === true
             ) {
-              const classifyRoute =
-                state.settings.autoRoutingUseClassifier
-                  ? window.api?.provider?.classifyRoute
-                  : undefined;
+              const classifyRoute = state.settings.autoRoutingUseClassifier
+                ? window.api?.provider?.classifyRoute
+                : undefined;
               autoRoutingDecision = await resolveAutoRoutingDecision({
                 settings: {
                   autoRoutingEnabled: state.settings.autoRoutingEnabled,
@@ -11471,7 +11559,7 @@ export const useAppStore = create<AppState>()(
             const prompt = normalizedPrompt;
             promptDraftClearedOptimistically = false;
 
-            if (taskWorkspaceId === state.activeWorkspaceId) {
+            if (taskWorkspaceId === get().activeWorkspaceId) {
               set((nextState) => {
                 const pendingTurnState = buildPendingProviderTurnState({
                   tasks: nextState.tasks,
@@ -12114,7 +12202,10 @@ export const useAppStore = create<AppState>()(
                   taskId
                 ] ?? 0;
               const systemMessage: ChatMessage = {
-                id: buildMessageId({ taskId, count: Math.max(current.length, durableCount) }),
+                id: buildMessageId({
+                  taskId,
+                  count: Math.max(current.length, durableCount),
+                }),
                 role: "assistant",
                 model: "system",
                 providerId: "user",
@@ -12350,7 +12441,10 @@ export const useAppStore = create<AppState>()(
                   taskId
                 ] ?? 0;
               const systemMessage: ChatMessage = {
-                id: buildMessageId({ taskId, count: Math.max(current.length, durableCount) }),
+                id: buildMessageId({
+                  taskId,
+                  count: Math.max(current.length, durableCount),
+                }),
                 role: "assistant",
                 model: "system",
                 providerId: "user",
@@ -12789,10 +12883,12 @@ export const useAppStore = create<AppState>()(
               isImageFile ? imageData : fileData,
             );
             const fileContent = isImageFile
-              ? (tooLargeMetadata ? "" : (imageData?.dataUrl ?? ""))
-              : (tooLargeMetadata
-                  ? ""
-                  : (fileData?.content ?? fallbackContent ?? ""));
+              ? tooLargeMetadata
+                ? ""
+                : (imageData?.dataUrl ?? "")
+              : tooLargeMetadata
+                ? ""
+                : (fileData?.content ?? fallbackContent ?? "");
             const baseRevision = isImageFile
               ? (imageData?.revision ?? null)
               : (fileData?.revision ?? null);
@@ -13385,6 +13481,10 @@ export const useAppStore = create<AppState>()(
           typeof raw.notificationSoundEnabled === "boolean"
             ? raw.notificationSoundEnabled
             : defaultSettings.notificationSoundEnabled;
+        state.settings.nativeNotificationsEnabled =
+          typeof raw.nativeNotificationsEnabled === "boolean"
+            ? raw.nativeNotificationsEnabled
+            : defaultSettings.nativeNotificationsEnabled;
         state.settings.notificationSoundVolume =
           normalizeNotificationSoundVolume(raw.notificationSoundVolume);
         state.settings.notificationSoundPreset =
@@ -13455,9 +13555,13 @@ export const useAppStore = create<AppState>()(
           raw.autoRoutingObjective,
         );
         state.settings.autoRoutingEligibleClaudeModels =
-          normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleClaudeModels);
+          normalizeAutoRoutingEligibleModels(
+            raw.autoRoutingEligibleClaudeModels,
+          );
         state.settings.autoRoutingEligibleCodexModels =
-          normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleCodexModels);
+          normalizeAutoRoutingEligibleModels(
+            raw.autoRoutingEligibleCodexModels,
+          );
         state.settings.promptCommentShortcut = normalizePromptCommentShortcut(
           raw.promptCommentShortcut,
         );
@@ -13560,6 +13664,17 @@ export const useAppStore = create<AppState>()(
         state.settings.prePrReviewProvider = normalizePrePrReviewProvider(
           state.settings.prePrReviewProvider,
         );
+        state.settings.createPrAutoMergeEnabled =
+          typeof raw.createPrAutoMergeEnabled === "boolean"
+            ? raw.createPrAutoMergeEnabled
+            : defaultSettings.createPrAutoMergeEnabled;
+        state.settings.createPrMergeMethod =
+          raw.createPrMergeMethod === "default" ||
+          raw.createPrMergeMethod === "merge" ||
+          raw.createPrMergeMethod === "squash" ||
+          raw.createPrMergeMethod === "rebase"
+            ? raw.createPrMergeMethod
+            : defaultSettings.createPrMergeMethod;
         const legacyProjectInitCommand = normalizeProjectWorkspaceInitCommand({
           value: raw.newWorkspaceInitCommand,
         });
@@ -13581,10 +13696,9 @@ export const useAppStore = create<AppState>()(
         state.settings.modelClaude = upgradeSettingsScopedClaudeModel({
           model: state.settings.modelClaude,
         });
-        state.settings.claudeAdvisorModel =
-          upgradeSettingsScopedClaudeModel({
-            model: state.settings.claudeAdvisorModel,
-          });
+        state.settings.claudeAdvisorModel = upgradeSettingsScopedClaudeModel({
+          model: state.settings.claudeAdvisorModel,
+        });
         state.settings.providerTimeoutMs = normalizeProviderTimeoutMs({
           value: state.settings.providerTimeoutMs,
         });

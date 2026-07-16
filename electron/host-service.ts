@@ -31,6 +31,7 @@ import {
   discardSourceControlPath,
   fetchScmBranch,
   fetchGitHubPrStatus,
+  fetchRepoMergeSettings,
   getScmCommitDiff,
   getScmCommitFiles,
   getScmGraph,
@@ -48,6 +49,7 @@ import {
   setScmPrReady,
   stageAllSourceControl,
   stageSourceControlFile,
+  stageSourceControlFiles,
   tryAutoFixLintErrors,
   unstageAllSourceControl,
   unstageSourceControlFile,
@@ -443,7 +445,10 @@ function emitEvent<TEvent extends HostServiceEventName>(
   return writePromise;
 }
 
-const terminalRuntime = createTerminalRuntime({ emitEvent });
+const terminalRuntime = createTerminalRuntime({
+  emitEvent,
+  persistence: ensureHostServicePersistenceReady(),
+});
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
 });
@@ -988,6 +993,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "terminal.write-session":
       await respond(request.id, terminalRuntime.writeSession(request.params));
       return;
+    case "terminal.ack-session-output":
+      await respond(
+        request.id,
+        terminalRuntime.ackSessionOutput(request.params),
+      );
+      return;
     case "terminal.read-session":
       await respond(request.id, terminalRuntime.readSession(request.params));
       return;
@@ -1036,7 +1047,7 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "terminal.close-sessions-by-slot-prefix":
       await respond(
         request.id,
-        terminalRuntime.closeSessionsBySlotPrefix(request.params),
+        await terminalRuntime.closeSessionsBySlotPrefix(request.params),
       );
       return;
     case "terminal.cleanup-all":
@@ -1260,6 +1271,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "scm.stage-file":
       await respond(request.id, await stageSourceControlFile(request.params));
       return;
+    case "scm.stage-files":
+      await respond(request.id, await stageSourceControlFiles(request.params));
+      return;
     case "scm.unstage-file":
       await respond(request.id, await unstageSourceControlFile(request.params));
       return;
@@ -1328,6 +1342,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.get-pr-status":
       await respond(request.id, await fetchGitHubPrStatus(request.params));
+      return;
+    case "scm.get-repo-merge-settings":
+      await respond(request.id, await fetchRepoMergeSettings(request.params));
       return;
     case "scm.get-pr-status-for-url":
       await respond(

@@ -120,6 +120,7 @@ export function getElementPickerScript(
 
       // Attempt React fiber _debugSource extraction
       let debugSource = null;
+      let componentNameChain = null;
       ${
         extractDebugSource
           ? `
@@ -140,6 +141,27 @@ export function getElementPickerScript(
             }
             fiber = fiber.return;
           }
+
+          componentNameChain = [];
+          fiber = el[fiberKey];
+          for (let i = 0; i < 24 && fiber; i++) {
+            const type = fiber.type;
+            const name =
+              typeof type === "function"
+                ? (type.displayName || type.name)
+                : type && typeof type === "object"
+                  ? (type.displayName || type.name)
+                  : null;
+            if (
+              typeof name === "string" &&
+              name &&
+              !componentNameChain.includes(name)
+            ) {
+              componentNameChain.push(name);
+            }
+            fiber = fiber.return;
+          }
+          componentNameChain.reverse();
         }
       } catch (_) {
         // Silently ignore — _debugSource extraction is best-effort
@@ -161,6 +183,7 @@ export function getElementPickerScript(
         outerHTML: el.outerHTML.slice(0, 2000),
         textContent: (el.textContent || "").trim().slice(0, 500),
         debugSource,
+        componentNameChain,
       });
     }
 

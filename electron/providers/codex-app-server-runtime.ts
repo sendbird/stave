@@ -60,7 +60,11 @@ import {
   resolveEffectiveCodexApprovalPolicy,
   resolveEffectiveCodexFileAccessMode,
 } from "../../src/lib/providers/codex-runtime-options";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+  execFileSync,
+  spawn,
+  type ChildProcessWithoutNullStreams,
+} from "node:child_process";
 import path from "node:path";
 import { parseBooleanEnv } from "./runtime-shared";
 import {
@@ -422,7 +426,7 @@ export function formatCodexAppServerErrorMessage(message: string) {
   }
 
   const details = [
-    toTrimmedString(error?.param) ?? toTrimmedString(parsed.param)
+    (toTrimmedString(error?.param) ?? toTrimmedString(parsed.param))
       ? `param: ${toTrimmedString(error?.param) ?? toTrimmedString(parsed.param)}`
       : null,
     typeof parsed.status === "number" ? `status: ${parsed.status}` : null,
@@ -852,14 +856,16 @@ export function formatCodexGoal(goal: CodexThreadGoal) {
   ].join("\n");
 }
 
-function isCodexThreadGoalStatus(value: unknown): value is CodexThreadGoalStatus {
+function isCodexThreadGoalStatus(
+  value: unknown,
+): value is CodexThreadGoalStatus {
   return (
-    value === "active"
-    || value === "paused"
-    || value === "blocked"
-    || value === "usageLimited"
-    || value === "budgetLimited"
-    || value === "complete"
+    value === "active" ||
+    value === "paused" ||
+    value === "blocked" ||
+    value === "usageLimited" ||
+    value === "budgetLimited" ||
+    value === "complete"
   );
 }
 
@@ -872,8 +878,10 @@ function normalizeCodexThreadGoal(value: unknown): CodexThreadGoal | null {
     return null;
   }
   const goal = value as Record<string, unknown>;
-  const threadId = typeof goal.threadId === "string" ? goal.threadId.trim() : "";
-  const objective = typeof goal.objective === "string" ? goal.objective.trim() : "";
+  const threadId =
+    typeof goal.threadId === "string" ? goal.threadId.trim() : "";
+  const objective =
+    typeof goal.objective === "string" ? goal.objective.trim() : "";
   if (!threadId || !objective || !isCodexThreadGoalStatus(goal.status)) {
     return null;
   }
@@ -922,12 +930,11 @@ async function readCodexGoalStatusEvent(args: {
   threadId: string;
 }): Promise<BridgeEvent | null> {
   try {
-    const response = await args.client.request<{ goal: CodexThreadGoal | null }>(
-      "thread/goal/get",
-      {
-        threadId: args.threadId,
-      },
-    );
+    const response = await args.client.request<{
+      goal: CodexThreadGoal | null;
+    }>("thread/goal/get", {
+      threadId: args.threadId,
+    });
     return buildCodexGoalStatusEvent(response.goal);
   } catch (error) {
     console.warn("[provider-runtime] Codex goal status sync failed", {
@@ -1031,10 +1038,7 @@ export async function runCodexGoalSlashCommand(args: {
         status: "active",
       },
     );
-    return [
-      buildCodexGoalStatusEvent(response.goal),
-      { type: "done" },
-    ];
+    return [buildCodexGoalStatusEvent(response.goal), { type: "done" }];
   } catch (error) {
     return [
       {
@@ -3598,6 +3602,23 @@ function extractLatestAgentMessageTextFromTurn(turn: unknown) {
   return "";
 }
 
+function resolveGitHeadRef(args: { cwd?: string }) {
+  if (!args.cwd) {
+    return undefined;
+  }
+  try {
+    const output = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: args.cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const ref = output.trim();
+    return ref || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // Runs an isolated single-turn Codex review over the PR diff. It deliberately
 // uses an ephemeral read-only App Server thread so review state cannot leak
 // into the user's conversation thread and cannot mutate the workspace.
@@ -4963,6 +4984,16 @@ export async function streamCodexWithAppServer(
   });
 
   try {
+    const gitRef = resolveGitHeadRef({ cwd: runtimeCwd });
+    emitBridgeEvent({
+      type: "system",
+      content: "Checkpoint captured before Codex turn.",
+      compactBoundary: {
+        trigger: "turn_start",
+        ...(gitRef ? { gitRef } : {}),
+      },
+    });
+
     // Race turn/start against waitForTurnCompletion so an abort (or
     // process death) during the request isn't blocked until the outer
     // 3-hour timeout.

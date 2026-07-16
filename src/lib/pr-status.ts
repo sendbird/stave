@@ -16,6 +16,9 @@ export type WorkspacePrStatus =
   | "merged"
   | "closed_unmerged";
 
+/** Merge strategy used when Create PR queues GitHub auto-merge. */
+export type PrMergeMethod = "default" | "merge" | "squash" | "rebase";
+
 /** Raw payload returned by the `scm:get-pr-status` IPC handler. */
 export interface GitHubPrPayload {
   number: number;
@@ -23,8 +26,7 @@ export interface GitHubPrPayload {
   state: "OPEN" | "CLOSED" | "MERGED";
   isDraft: boolean;
   url: string;
-  reviewDecision:
-    "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | "" | null;
+  reviewDecision: "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | "" | null;
   mergeable: "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
   mergeStateStatus:
     | "BEHIND"
@@ -89,8 +91,7 @@ export function derivePrStatus(pr: GitHubPrPayload): WorkspacePrStatus {
 // Visual config – icon name, GitHub-style tone, short label
 // ---------------------------------------------------------------------------
 
-export type PrStatusTone =
-  "neutral" | "open" | "attention" | "danger" | "done" | "closed";
+export type PrStatusTone = "neutral" | "open" | "attention" | "danger" | "done" | "closed";
 
 export interface PrStatusVisual {
   /** Lucide icon name (must match the React import). */
@@ -102,65 +103,37 @@ export interface PrStatusVisual {
 }
 
 export const PR_STATUS_VISUAL: Record<WorkspacePrStatus, PrStatusVisual> = {
-  no_pr: { icon: "GitPullRequestCreateArrow", tone: "neutral", label: "No PR" },
-  draft: { icon: "GitPullRequestDraft", tone: "neutral", label: "Draft" },
-  review_required: {
-    icon: "GitPullRequest",
-    tone: "open",
-    label: "Review required",
-  },
-  changes_requested: {
-    icon: "GitPullRequest",
-    tone: "danger",
-    label: "Changes requested",
-  },
-  checks_pending: {
-    icon: "GitPullRequest",
-    tone: "attention",
-    label: "Checks running",
-  },
-  checks_failed: {
-    icon: "GitPullRequest",
-    tone: "danger",
-    label: "Checks failed",
-  },
-  merge_conflict: {
-    icon: "GitCompareArrows",
-    tone: "danger",
-    label: "Merge conflict",
-  },
-  behind_base: { icon: "GitBranch", tone: "attention", label: "Behind base" },
-  ready_to_merge: { icon: "GitMerge", tone: "open", label: "Ready to merge" },
-  merged: { icon: "GitMerge", tone: "done", label: "Merged" },
-  closed_unmerged: {
-    icon: "GitPullRequestClosed",
-    tone: "closed",
-    label: "Closed",
-  },
+  no_pr:             { icon: "GitPullRequestCreateArrow", tone: "neutral",   label: "No PR" },
+  draft:             { icon: "GitPullRequestDraft",       tone: "neutral",   label: "Draft" },
+  review_required:   { icon: "GitPullRequest",            tone: "open",      label: "Review required" },
+  changes_requested: { icon: "GitPullRequest",            tone: "danger",    label: "Changes requested" },
+  checks_pending:    { icon: "GitPullRequest",            tone: "attention", label: "Checks running" },
+  checks_failed:     { icon: "GitPullRequest",            tone: "danger",    label: "Checks failed" },
+  merge_conflict:    { icon: "GitCompareArrows",          tone: "danger",    label: "Merge conflict" },
+  behind_base:       { icon: "GitBranch",                 tone: "attention", label: "Behind base" },
+  ready_to_merge:    { icon: "GitMerge",                  tone: "open",      label: "Ready to merge" },
+  merged:            { icon: "GitMerge",                  tone: "done",      label: "Merged" },
+  closed_unmerged:   { icon: "GitPullRequestClosed",      tone: "closed",    label: "Closed" },
 };
 
 /** GitHub-style foreground classes for status icons. */
 export const PR_TONE_ICON_CLASS: Record<PrStatusTone, string> = {
-  neutral: "text-[#59636e] dark:text-[#8b949e]",
-  open: "text-[#1a7f37] dark:text-[#3fb950]",
+  neutral:   "text-[#59636e] dark:text-[#8b949e]",
+  open:      "text-[#1a7f37] dark:text-[#3fb950]",
   attention: "text-[#9a6700] dark:text-[#d29922]",
-  danger: "text-[#d1242f] dark:text-[#f85149]",
-  done: "text-[#8250df] dark:text-[#a371f7]",
-  closed: "text-[#d1242f] dark:text-[#f85149]",
+  danger:    "text-[#d1242f] dark:text-[#f85149]",
+  done:      "text-[#8250df] dark:text-[#a371f7]",
+  closed:    "text-[#d1242f] dark:text-[#f85149]",
 };
 
 /** GitHub-style muted label classes for status badges/buttons. */
 export const PR_TONE_BADGE_CLASS: Record<PrStatusTone, string> = {
-  neutral:
-    "border-[#d0d7de] bg-[#f6f8fa] text-[#57606a] hover:bg-[#eef1f4] dark:border-[#6e768166] dark:bg-[#6e76811a] dark:text-[#8b949e] dark:hover:bg-[#6e768126]",
-  open: "border-[#1a7f37]/25 bg-[#dafbe1] text-[#1a7f37] hover:bg-[#c4f1cf] dark:border-[#2ea04366] dark:bg-[#2ea04326] dark:text-[#3fb950] dark:hover:bg-[#2ea04333]",
-  attention:
-    "border-[#d4a72c66] bg-[#fff8c5] text-[#9a6700] hover:bg-[#fff1a8] dark:border-[#bb800966] dark:bg-[#bb800926] dark:text-[#d29922] dark:hover:bg-[#bb800933]",
-  danger:
-    "border-[#ff818266] bg-[#ffebe9] text-[#cf222e] hover:bg-[#ffd8d3] dark:border-[#f8514966] dark:bg-[#f851491a] dark:text-[#f85149] dark:hover:bg-[#f8514926]",
-  done: "border-[#c297ff66] bg-[#fbefff] text-[#8250df] hover:bg-[#f3e8ff] dark:border-[#a371f766] dark:bg-[#a371f726] dark:text-[#a371f7] dark:hover:bg-[#a371f733]",
-  closed:
-    "border-[#ff818266] bg-[#ffebe9] text-[#cf222e] hover:bg-[#ffd8d3] dark:border-[#f8514966] dark:bg-[#f851491a] dark:text-[#f85149] dark:hover:bg-[#f8514926]",
+  neutral:   "border-[#d0d7de] bg-[#f6f8fa] text-[#57606a] hover:bg-[#eef1f4] dark:border-[#6e768166] dark:bg-[#6e76811a] dark:text-[#8b949e] dark:hover:bg-[#6e768126]",
+  open:      "border-[#1a7f37]/25 bg-[#dafbe1] text-[#1a7f37] hover:bg-[#c4f1cf] dark:border-[#2ea04366] dark:bg-[#2ea04326] dark:text-[#3fb950] dark:hover:bg-[#2ea04333]",
+  attention: "border-[#d4a72c66] bg-[#fff8c5] text-[#9a6700] hover:bg-[#fff1a8] dark:border-[#bb800966] dark:bg-[#bb800926] dark:text-[#d29922] dark:hover:bg-[#bb800933]",
+  danger:    "border-[#ff818266] bg-[#ffebe9] text-[#cf222e] hover:bg-[#ffd8d3] dark:border-[#f8514966] dark:bg-[#f851491a] dark:text-[#f85149] dark:hover:bg-[#f8514926]",
+  done:      "border-[#c297ff66] bg-[#fbefff] text-[#8250df] hover:bg-[#f3e8ff] dark:border-[#a371f766] dark:bg-[#a371f726] dark:text-[#a371f7] dark:hover:bg-[#a371f733]",
+  closed:    "border-[#ff818266] bg-[#ffebe9] text-[#cf222e] hover:bg-[#ffd8d3] dark:border-[#f8514966] dark:bg-[#f851491a] dark:text-[#f85149] dark:hover:bg-[#f8514926]",
 };
 
 /** Styling for the create-PR trigger when the branch has no linked PR yet. */
@@ -185,81 +158,49 @@ export interface PrActionConfig {
   variant?: "default" | "outline" | "ghost" | "destructive";
 }
 
-export const PR_STATUS_ACTIONS: Record<
-  WorkspacePrStatus,
-  { primary: PrActionConfig | null; secondary: PrActionConfig[] }
-> = {
+export const PR_STATUS_ACTIONS: Record<WorkspacePrStatus, { primary: PrActionConfig | null; secondary: PrActionConfig[] }> = {
   no_pr: {
     primary: { key: "create_pr", label: "Create PR" },
     secondary: [],
   },
   draft: {
     primary: { key: "mark_ready", label: "Mark Ready" },
-    secondary: [
-      { key: "open_github", label: "Open on GitHub", variant: "ghost" },
-      { key: "refresh", label: "Refresh", variant: "ghost" },
-    ],
+    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
   },
   review_required: {
     primary: null,
-    secondary: [
-      { key: "open_github", label: "Open on GitHub", variant: "ghost" },
-      { key: "refresh", label: "Refresh", variant: "ghost" },
-    ],
+    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
   },
   changes_requested: {
     primary: null,
-    secondary: [
-      { key: "update_branch", label: "Update Branch", variant: "outline" },
-      { key: "open_github", label: "Open on GitHub", variant: "ghost" },
-      { key: "refresh", label: "Refresh", variant: "ghost" },
-    ],
+    secondary: [{ key: "update_branch", label: "Update Branch", variant: "outline" }, { key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
   },
   checks_pending: {
     primary: null,
-    secondary: [
-      { key: "open_github", label: "Open on GitHub", variant: "ghost" },
-      { key: "refresh", label: "Refresh", variant: "ghost" },
-    ],
+    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
   },
   checks_failed: {
     primary: null,
-    secondary: [
-      { key: "open_github", label: "Open on GitHub", variant: "ghost" },
-      { key: "refresh", label: "Refresh", variant: "ghost" },
-    ],
+    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
   },
   merge_conflict: {
     primary: null,
-    secondary: [
-      { key: "open_github", label: "Open on GitHub", variant: "ghost" },
-      { key: "refresh", label: "Refresh", variant: "ghost" },
-    ],
+    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
   },
   behind_base: {
     primary: { key: "update_branch", label: "Update Branch" },
-    secondary: [
-      { key: "open_github", label: "Open on GitHub", variant: "ghost" },
-      { key: "refresh", label: "Refresh", variant: "ghost" },
-    ],
+    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
   },
   ready_to_merge: {
     primary: { key: "merge", label: "Merge PR" },
-    secondary: [
-      { key: "open_github", label: "Open on GitHub", variant: "ghost" },
-      { key: "refresh", label: "Refresh", variant: "ghost" },
-    ],
+    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
   },
   merged: {
     primary: null,
-    secondary: [
-      { key: "open_github", label: "View on GitHub", variant: "ghost" },
-    ],
+    secondary: [{ key: "open_github", label: "View on GitHub", variant: "ghost" }],
   },
   closed_unmerged: {
     primary: null,
-    secondary: [
-      { key: "open_github", label: "View on GitHub", variant: "ghost" },
-    ],
+    secondary: [{ key: "open_github", label: "View on GitHub", variant: "ghost" }],
   },
 };

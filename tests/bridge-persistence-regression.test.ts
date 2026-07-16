@@ -900,8 +900,7 @@ describe("workspace persistence fallback", () => {
   test("openProject resolves before background file refresh completes", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      | ((value: { ok: boolean; files: string[] }) => void)
-      | null = null;
+      ((value: { ok: boolean; files: string[] }) => void) | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -1935,8 +1934,7 @@ describe("workspace store hydration ordering", () => {
   test("hydrateWorkspaces does not wait for file refresh on boot", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      | ((value: { ok: boolean; files: string[] }) => void)
-      | null = null;
+      ((value: { ok: boolean; files: string[] }) => void) | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -2618,6 +2616,142 @@ describe("workspace store hydration ordering", () => {
       ),
     ).toBe(false);
     expect(upsertCalls).toHaveLength(0);
+  });
+
+  test("hydrateWorkspaces keeps worktrees archived even when the cached project state lost the tombstone", async () => {
+    const localStorage = createMemoryStorage();
+    const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
+      [];
+    const projectPath = "/tmp/stave-project";
+    const defaultWorkspaceId = buildProjectDefaultWorkspaceId({ projectPath });
+    const archivedWorkspacePath =
+      "/tmp/stave-project/.stave/workspaces/feature__perf";
+    const registryProject = {
+      projectPath,
+      projectName: "stave-project",
+      lastOpenedAt: "2026-03-10T00:00:00.000Z",
+      defaultBranch: "main",
+      workspaces: [
+        {
+          id: defaultWorkspaceId,
+          name: "Default Workspace",
+          updatedAt: "2026-03-10T00:00:00.000Z",
+        },
+      ],
+      activeWorkspaceId: defaultWorkspaceId,
+      workspaceBranchById: { [defaultWorkspaceId]: "main" },
+      workspacePathById: { [defaultWorkspaceId]: projectPath },
+      workspaceDefaultById: { [defaultWorkspaceId]: true },
+    };
+
+    setWindowContext({
+      localStorage,
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({
+            ok: true,
+            rows: [
+              {
+                id: defaultWorkspaceId,
+                name: "Default Workspace",
+                updatedAt: "2026-03-10T00:00:00.000Z",
+              },
+            ],
+          }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
+          // The SQLite registry mirror still remembers the tombstone.
+          loadProjectRegistry: async () => ({
+            ok: true,
+            projects: [
+              {
+                ...registryProject,
+                archivedWorkspacePaths: [archivedWorkspacePath],
+              },
+            ],
+          }),
+          saveProjectRegistry: async () => ({ ok: true }),
+          upsertWorkspace: async (args: {
+            id: string;
+            name: string;
+            snapshot: unknown;
+          }) => {
+            upsertCalls.push(args);
+            return { ok: true };
+          },
+        },
+        terminal: {
+          runCommand: async ({
+            command,
+          }: {
+            cwd?: string;
+            command: string;
+          }) => {
+            if (command === "git worktree prune") {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (command === "git worktree list --porcelain") {
+              return {
+                ok: true,
+                code: 0,
+                stdout: [
+                  "worktree /tmp/stave-project",
+                  "HEAD abc123",
+                  "branch refs/heads/main",
+                  "",
+                  "worktree /tmp/stave-project/.stave/workspaces/feature__perf",
+                  "HEAD def456",
+                  "branch refs/heads/feature/perf",
+                ].join("\n"),
+                stderr: "",
+              };
+            }
+            return {
+              ok: false,
+              code: 1,
+              stdout: "",
+              stderr: `Unexpected command: ${command}`,
+            };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      projectPath,
+      projectName: "stave-project",
+      defaultBranch: "main",
+      hasHydratedWorkspaces: false,
+      // The localStorage cache lost the tombstone AND looks newer than the
+      // registry mirror — the merge must still restore the tombstone.
+      recentProjects: [
+        {
+          ...registryProject,
+          lastOpenedAt: "2026-03-11T00:00:00.000Z",
+        },
+      ],
+    });
+
+    await useAppStore.getState().hydrateWorkspaces();
+
+    const nextState = useAppStore.getState();
+    expect(nextState.workspaces.map((workspace) => workspace.id)).toEqual([
+      defaultWorkspaceId,
+    ]);
+    expect(
+      nextState.workspaces.some(
+        (workspace) => workspace.name === "feature/perf",
+      ),
+    ).toBe(false);
+    expect(upsertCalls).toHaveLength(0);
+    expect(
+      nextState.recentProjects.find(
+        (project) => project.projectPath === projectPath,
+      )?.archivedWorkspacePaths,
+    ).toEqual([archivedWorkspacePath]);
   });
 
   test("refreshWorkspaces does not overwrite an already persisted imported worktree with an empty snapshot", async () => {
@@ -3491,10 +3625,214 @@ describe("workspace store hydration ordering", () => {
     ).toEqual(["Third prompt"]);
   });
 
+  test("keeps queued auto-dispatch scoped to its workspace when the active workspace changes", async () => {
+    const localStorage = createMemoryStorage();
+    const startedPrompts: string[] = [];
+    const queuedPrompt =
+      "There are several details in this area that need careful attention before continuing with the current work";
+    let streamListener:
+      | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
+      | null = null;
+    let resolveClassification:
+      | ((value: {
+          ok: boolean;
+          classification: {
+            taskType: "implementation";
+            complexity: "medium";
+            recommendedTier: "standard";
+            confidence: number;
+          };
+        }) => void)
+      | null = null;
+    let markClassificationStarted: (() => void) | null = null;
+    const classificationStarted = new Promise<void>((resolve) => {
+      markClassificationStarted = resolve;
+    });
+    setWindowContext({
+      localStorage,
+      api: {
+        provider: {
+          startPushTurn: async (args: { prompt?: string }) => {
+            const sequence = startedPrompts.length + 1;
+            startedPrompts.push(args.prompt ?? "");
+            return {
+              ok: true,
+              streamId: `stream-${sequence}`,
+              turnId: `turn-${sequence}`,
+            };
+          },
+          subscribeStreamEvents: (listener: typeof streamListener) => {
+            streamListener = listener;
+            return () => {
+              if (streamListener === listener) {
+                streamListener = null;
+              }
+            };
+          },
+          classifyRoute: async () => {
+            markClassificationStarted?.();
+            return await new Promise<{
+              ok: boolean;
+              classification: {
+                taskType: "implementation";
+                complexity: "medium";
+                recommendedTier: "standard";
+                confidence: number;
+              };
+            }>((resolve) => {
+              resolveClassification = resolve;
+            });
+          },
+          abortTurn: async () => ({ ok: true, message: "aborted" }),
+          cleanupTask: async () => ({ ok: true }),
+        },
+        fs: {
+          listFiles: async () => ({ ok: true, files: [] }),
+        },
+      },
+    });
+    Object.assign(window, {
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    const altTask = {
+      id: "task-alt",
+      title: "Alt Task",
+      provider: "codex" as const,
+      updatedAt: "2026-04-09T00:00:01.000Z",
+      unread: false,
+      archivedAt: null,
+    };
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-04-09T00:00:00.000Z" },
+        { id: "ws-alt", name: "Alt", updatedAt: "2026-04-09T00:00:01.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      projectPath: "/tmp/stave-project",
+      workspacePathById: {
+        "ws-main": "/tmp/stave-project",
+        "ws-alt": "/tmp/stave-project-alt",
+      },
+      workspaceBranchById: {
+        "ws-main": "main",
+        "ws-alt": "alt",
+      },
+      workspaceDefaultById: {
+        "ws-main": true,
+        "ws-alt": false,
+      },
+      draftProvider: "codex",
+      settings: {
+        ...initialState.settings,
+        autoRoutingEnabled: true,
+        autoRoutingUseClassifier: true,
+      },
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "codex",
+          updatedAt: "2026-04-09T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-main": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+      taskWorkspaceIdById: {
+        "task-main": "ws-main",
+        "task-alt": "ws-alt",
+      },
+      workspaceRuntimeCacheById: {
+        "ws-alt": buildWorkspaceSessionState({
+          snapshot: {
+            activeTaskId: altTask.id,
+            tasks: [altTask],
+            messagesByTask: { [altTask.id]: [] },
+            promptDraftByTask: {},
+            providerSessionByTask: {},
+          },
+        }),
+      },
+    });
+
+    const started = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "First prompt",
+    });
+    expect(started).toMatchObject({ status: "started" });
+    await Bun.sleep(0);
+    expect(startedPrompts).toEqual(["First prompt"]);
+
+    useAppStore.getState().updatePromptDraft({
+      taskId: "task-main",
+      patch: {
+        text: queuedPrompt,
+        runtimeOverrides: { autoRouting: true },
+      },
+    });
+    const queued = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: queuedPrompt,
+    });
+    expect(queued).toMatchObject({ status: "queued" });
+    expect(
+      useAppStore.getState().promptDraftByTask["task-main"]?.runtimeOverrides,
+    ).toEqual({ autoRouting: true });
+
+    streamListener?.({
+      streamId: "stream-1",
+      event: { type: "done" },
+      done: true,
+    });
+    await classificationStarted;
+    expect(resolveClassification).toBeFunction();
+
+    await useAppStore.getState().switchWorkspace({ workspaceId: "ws-alt" });
+    resolveClassification?.({
+      ok: true,
+      classification: {
+        taskType: "implementation",
+        complexity: "medium",
+        recommendedTier: "standard",
+        confidence: 0.9,
+      },
+    });
+    await Bun.sleep(25);
+
+    const nextState = useAppStore.getState();
+    const mainSession = nextState.workspaceRuntimeCacheById["ws-main"];
+    expect(startedPrompts).toEqual(["First prompt", queuedPrompt]);
+    expect(nextState.activeWorkspaceId).toBe("ws-alt");
+    expect(nextState.activeTurnIdsByTask["task-main"]).toBeUndefined();
+    expect(mainSession?.activeTurnIdsByTask["task-main"]).toBeString();
+    expect(
+      mainSession?.messagesByTask["task-main"]?.map((message) => message.role),
+    ).toEqual(["user", "assistant", "user", "assistant"]);
+    expect(mainSession?.promptDraftByTask["task-main"]?.text ?? "").toBe("");
+    expect(
+      mainSession?.promptDraftByTask["task-main"]?.queuedTurns,
+    ).toBeUndefined();
+  });
+
   test("submitIntent explicitly chooses steer vs queue during an active turn, with no auto fallback between them", async () => {
     const localStorage = createMemoryStorage();
     const startedPrompts: string[] = [];
-    const steerCalls: Array<{ turnId: string; text: string }> = [];
+    const steerCalls: Array<{
+      turnId: string;
+      text: string;
+      enabled?: boolean;
+    }> = [];
     let nextSteerResult: { ok: boolean; message?: string } = { ok: true };
 
     (globalThis as { window: unknown }).window = {
@@ -3610,7 +3948,7 @@ describe("workspace store hydration ordering", () => {
       turnId: activeTurnId,
     });
     expect(steerCalls).toEqual([
-      { turnId: activeTurnId, text: "Steered follow-up" },
+      { turnId: activeTurnId, text: "Steered follow-up", enabled: false },
     ]);
     const steeredState = useAppStore.getState();
     expect(
@@ -3644,9 +3982,9 @@ describe("workspace store hydration ordering", () => {
         (item) => item.content,
       ),
     ).toEqual(["Untagged follow-up", "Explicitly queued follow-up"]);
-    expect(afterRejectionState.messagesByTask["task-main"]?.at(-1)).toMatchObject(
-      { content: "Steered follow-up" },
-    );
+    expect(
+      afterRejectionState.messagesByTask["task-main"]?.at(-1),
+    ).toMatchObject({ content: "Steered follow-up" });
   });
 
   test("auto-dispatches Codex /goal objectives after the goal is set", async () => {
@@ -3744,9 +4082,12 @@ describe("workspace store hydration ordering", () => {
     });
     expect(startedPrompts).toEqual(["/goal Fix the stalled goal turn"]);
     expect(
-      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns?.map(
-        (item) => ({ sourceTurnId: item.sourceTurnId, content: item.content }),
-      ),
+      useAppStore
+        .getState()
+        .promptDraftByTask["task-main"]?.queuedTurns?.map((item) => ({
+          sourceTurnId: item.sourceTurnId,
+          content: item.content,
+        })),
     ).toEqual([
       { sourceTurnId: started.turnId, content: "Fix the stalled goal turn" },
     ]);
@@ -3899,13 +4240,13 @@ describe("workspace store hydration ordering", () => {
       workspaceId: "ws-main",
     });
     expect(
-      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns?.map(
-        (item) => ({
+      useAppStore
+        .getState()
+        .promptDraftByTask["task-main"]?.queuedTurns?.map((item) => ({
           sourceTurnId: item.sourceTurnId,
           content: item.content,
           attachedFilePaths: item.attachedFilePaths,
-        }),
-      ),
+        })),
     ).toEqual([
       {
         sourceTurnId: started.turnId,
@@ -4843,8 +5184,7 @@ describe("workspace store hydration ordering", () => {
   test("switchWorkspace does not wait for file refresh when the target workspace is cached", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      | ((value: { ok: boolean; files: string[] }) => void)
-      | null = null;
+      ((value: { ok: boolean; files: string[] }) => void) | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -5079,6 +5419,13 @@ describe("workspace store hydration ordering", () => {
             }
             if (
               call.cwd === "/tmp/stave-project-close" &&
+              call.command ===
+                `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`
+            ) {
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            }
+            if (
+              call.cwd === "/tmp/stave-project-close" &&
               call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
             ) {
               return { ok: true, code: 0, stdout: "", stderr: "" };
@@ -5153,6 +5500,7 @@ describe("workspace store hydration ordering", () => {
 
     expect(runCalls.map((call) => call.command)).toEqual([
       "git status --porcelain --untracked-files=all",
+      `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
       `git worktree remove ${JSON.stringify(workspacePath)}`,
       "git worktree prune",
       'git rev-list --count "feature" --not --remotes',
@@ -5407,6 +5755,13 @@ describe("workspace store hydration ordering", () => {
               }
               if (
                 call.cwd === "/tmp/stave-project-close" &&
+                call.command ===
+                  `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`
+              ) {
+                return { ok: true, code: 0, stdout: "", stderr: "" };
+              }
+              if (
+                call.cwd === "/tmp/stave-project-close" &&
                 call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
               ) {
                 return { ok: true, code: 0, stdout: "", stderr: "" };
@@ -5419,7 +5774,8 @@ describe("workspace store hydration ordering", () => {
               }
               if (
                 call.cwd === "/tmp/stave-project-close" &&
-                call.command === 'git rev-list --count "feature" --not --remotes'
+                call.command ===
+                  'git rev-list --count "feature" --not --remotes'
               ) {
                 return { ok: true, code: 0, stdout: "2\n", stderr: "" };
               }
@@ -5478,6 +5834,7 @@ describe("workspace store hydration ordering", () => {
 
     expect(runCalls.map((call) => call.command)).toEqual([
       "git status --porcelain --untracked-files=all",
+      `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
       `git worktree remove ${JSON.stringify(workspacePath)}`,
       "git worktree prune",
       'git rev-list --count "feature" --not --remotes',
@@ -6290,13 +6647,41 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-active",
       workspaces: [
-        { id: "ws-default", name: "Default", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-active", name: "Active", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-fresh", name: "Fresh", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-stale-1", name: "Stale 1", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-stale-2", name: "Stale 2", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-stale-3", name: "Stale 3", updatedAt: "2026-04-07T00:00:00.000Z" },
-        { id: "ws-stale-4", name: "Stale 4", updatedAt: "2026-04-07T00:00:00.000Z" },
+        {
+          id: "ws-default",
+          name: "Default",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-active",
+          name: "Active",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-fresh",
+          name: "Fresh",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-stale-1",
+          name: "Stale 1",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-stale-2",
+          name: "Stale 2",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-stale-3",
+          name: "Stale 3",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
+        {
+          id: "ws-stale-4",
+          name: "Stale 4",
+          updatedAt: "2026-04-07T00:00:00.000Z",
+        },
       ],
       workspaceDefaultById: {
         "ws-default": true,

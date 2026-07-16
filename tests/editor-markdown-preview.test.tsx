@@ -44,4 +44,21 @@ describe("EditorMarkdownPreview", () => {
     expect(html).toContain('href="https://openai.com/"');
     expect(html).toContain('target="_blank"');
   });
+
+  test("uses a compact left-aligned layout for embedded previews", () => {
+    const html = renderToStaticMarkup(
+      createElement(EditorMarkdownPreview, {
+        content: "Embedded notes",
+        fontSize: 13,
+        variant: "embedded",
+      }),
+    );
+
+    expect(html).toContain("max-w-none");
+    expect(html).toContain("px-0");
+    expect(html).toContain("py-0");
+    expect(html).toContain("text-left");
+    expect(html).not.toContain("mx-auto");
+    expect(html).not.toContain("max-w-4xl");
+  });
 });

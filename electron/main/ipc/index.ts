@@ -6,6 +6,7 @@ import { registerLocalMcpHandlers } from "./local-mcp";
 import { registerEslintHandlers } from "./eslint";
 import { registerLspHandlers } from "./lsp";
 import { registerMetricsHandlers } from "./metrics";
+import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerProviderHandlers } from "./provider";
 import { registerScmHandlers } from "./scm";
@@ -30,6 +31,7 @@ export function registerHandlers() {
   registerEslintHandlers();
   registerInlineCompletionHandlers();
   registerMetricsHandlers();
+  registerNotificationHandlers();
   registerLocalMcpHandlers();
   registerBrowserHandlers();
 }

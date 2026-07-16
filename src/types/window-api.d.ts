@@ -707,12 +707,20 @@ interface TerminalRunResult {
 interface TerminalSessionOutputPayload {
   sessionId: string;
   output: string;
+  sequence: number;
+  bytes: number;
 }
 
 interface TerminalSessionExitPayload {
   sessionId: string;
   exitCode: number;
   signal?: number;
+}
+
+interface TerminalSessionStatusPayload {
+  sessionId: string;
+  status: "prompt-start" | "command-start" | "command-finished" | "prompt-end";
+  exitCode?: number;
 }
 
 interface WindowTerminalApi {
@@ -730,6 +738,11 @@ interface WindowTerminalApi {
     sessionId: string;
     input: string;
   }) => Promise<{ ok: boolean; stderr?: string }>;
+  ackSessionOutput?: (args: {
+    sessionId: string;
+    attachmentId: string;
+    acknowledgedBytes: number;
+  }) => Promise<{ ok: boolean; stderr?: string }>;
   readSession?: (args: {
     sessionId: string;
   }) => Promise<{ ok: boolean; output: string; stderr?: string }>;
@@ -738,6 +751,9 @@ interface WindowTerminalApi {
   ) => () => void;
   subscribeSessionExit?: (
     listener: (payload: TerminalSessionExitPayload) => void,
+  ) => () => void;
+  subscribeSessionStatus?: (
+    listener: (payload: TerminalSessionStatusPayload) => void,
   ) => () => void;
   setSessionDeliveryMode?: (args: {
     sessionId: string;
@@ -759,6 +775,7 @@ interface WindowTerminalApi {
     attachmentId?: string;
     backlog?: string;
     screenState?: string;
+    snapshotSequence?: number;
     stderr?: string;
   }>;
   detachSession?: (args: {
@@ -894,7 +911,7 @@ interface WindowSourceControlApi {
     message: string;
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
-  tryAutoFixLint?: (args: { cwd?: string }) => Promise<{
+  tryAutoFixLint?: (args: { cwd?: string; paths?: string[] }) => Promise<{
     ok: boolean;
     fixAttempted: boolean;
     eslintOk?: boolean;
@@ -903,6 +920,10 @@ interface WindowSourceControlApi {
   }>;
   stageFile?: (args: {
     path: string;
+    cwd?: string;
+  }) => Promise<SourceControlCommandResult>;
+  stageFiles?: (args: {
+    paths: string[];
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
   unstageFile?: (args: {
@@ -1024,8 +1045,25 @@ interface WindowSourceControlApi {
     body?: string;
     baseBranch?: string;
     draft?: boolean;
+    autoMerge?: boolean;
+    mergeMethod?: "default" | "merge" | "squash" | "rebase";
     cwd?: string;
-  }) => Promise<{ ok: boolean; prUrl?: string; stderr?: string }>;
+  }) => Promise<{
+    ok: boolean;
+    prUrl?: string;
+    autoMergeEnabled?: boolean;
+    autoMergeUnsupported?: boolean;
+    merged?: boolean;
+    stderr?: string;
+  }>;
+  getRepoMergeSettings?: (args: { cwd?: string }) => Promise<{
+    ok: boolean;
+    squashMergeAllowed?: boolean;
+    mergeCommitAllowed?: boolean;
+    rebaseMergeAllowed?: boolean;
+    autoMergeAllowed?: boolean;
+    stderr: string;
+  }>;
   getPrStatus?: (args: { cwd?: string }) => Promise<{
     ok: boolean;
     pr: GitHubPrPayload | null;
@@ -1038,7 +1076,7 @@ interface WindowSourceControlApi {
   }>;
   setPrReady?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
   mergePr?: (args: {
-    method?: "merge" | "squash" | "rebase";
+    method?: "default" | "merge" | "squash" | "rebase";
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
   updatePrBranch?: (args: {
@@ -1699,17 +1737,13 @@ interface WindowLensApi {
   respondCdpApproval?: (
     args: LensCdpApprovalResponse,
   ) => Promise<{ ok: boolean; message?: string }>;
-  createView?: (
-    args: LensSessionProfileArgs,
-  ) => Promise<{
+  createView?: (args: LensSessionProfileArgs) => Promise<{
     ok: boolean;
     sessionScope?: LensSessionScope;
     message?: string;
   }>;
   destroyView?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
-  clearSessionData?: (
-    args: LensSessionProfileArgs,
-  ) => Promise<{
+  clearSessionData?: (args: LensSessionProfileArgs) => Promise<{
     ok: boolean;
     sessionScope?: LensSessionScope;
     message?: string;
@@ -1767,9 +1801,7 @@ interface WindowLensApi {
     errors?: Array<{ url: string; message: string }>;
     message?: string;
   }>;
-  listDownloads?: (args: {
-    workspaceId: string;
-  }) => Promise<{
+  listDownloads?: (args: { workspaceId: string }) => Promise<{
     ok: boolean;
     entries?: LensDownloadEntry[];
     message?: string;
@@ -1886,6 +1918,18 @@ interface WindowApi {
   eslint?: WindowEslintApi;
   diagnostics?: WindowDiagnosticsApi;
   terminal?: WindowTerminalApi;
+  notifications?: {
+    showNative?: (args: {
+      notificationId: string;
+      title: string;
+      body: string;
+      suppress?: boolean;
+    }) => Promise<{ ok: boolean; suppressed?: boolean }>;
+    setBadge?: (args: { count: number }) => Promise<{ ok: boolean }>;
+    subscribeNativeClick?: (
+      listener: (payload: { notificationId: string }) => void,
+    ) => () => void;
+  };
   tooling?: WindowToolingApi;
   scripts?: WindowScriptsApi;
   sourceControl?: WindowSourceControlApi;

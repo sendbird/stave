@@ -1,84 +1,308 @@
 import { describe, expect, test } from "bun:test";
 import {
-  buildCreatePrShipPrompt,
-  isCreatePrWorkspaceStateActive,
-  resolveCreatePrShipAvailability,
+  buildCreatePrTargetBranchOptions,
+  buildDriftSelectedFilePaths,
+  canApplyCreatePrDialogOpenChange,
+  canSubmitCreatePr,
+  haveSameCreatePrFileScope,
+  isConventionalCommitMessage,
+  resolveCreatePrMergeState,
+  shouldShowCreatePrSubmitSpinner,
 } from "@/components/layout/TopBarOpenPR.utils";
-import type { SkillCatalogEntry } from "@/lib/skills/types";
 
-const shipSkill: SkillCatalogEntry = {
-  id: "user:shared:ship",
-  slug: "ship",
-  name: "Ship",
-  description: "Publish a completed change as a ready PR.",
-  scope: "user",
-  provider: "shared",
-  path: "/tmp/skills/ship/SKILL.md",
-  realPath: "/tmp/skills/ship/SKILL.md",
-  sourceRootPath: "/tmp/skills",
-  sourceRootRealPath: "/tmp/skills",
-  invocationToken: "$ship",
-  instructions: "Ship the current change.",
-};
-
-describe("resolveCreatePrShipAvailability", () => {
-  test("resolves the ship skill only from the active workspace catalog", () => {
+describe("resolveCreatePrMergeState", () => {
+  test("prefers squash when the configured method is the repository default", () => {
     expect(
-      resolveCreatePrShipAvailability({
-        catalogStatus: "ready",
-        catalogWorkspacePath: "/tmp/worktree-a/",
-        workspacePath: "/tmp/worktree-a",
-        skills: [shipSkill],
-        providerId: "codex",
+      resolveCreatePrMergeState({
+        preferredMethod: "default",
+        autoMergeEnabled: true,
       }),
-    ).toEqual({ status: "ready", invocationToken: "$ship" });
+    ).toMatchObject({ mergeMethod: "squash", autoMergeEnabled: true });
   });
 
-  test("waits when the catalog still belongs to another workspace", () => {
+  test("remaps a disallowed method to the first allowed repository method", () => {
     expect(
-      resolveCreatePrShipAvailability({
-        catalogStatus: "ready",
-        catalogWorkspacePath: "/tmp/worktree-a",
-        workspacePath: "/tmp/worktree-b",
-        skills: [shipSkill],
-        providerId: "codex",
+      resolveCreatePrMergeState({
+        preferredMethod: "merge",
+        autoMergeEnabled: true,
+        repoSettings: {
+          squashMergeAllowed: false,
+          mergeCommitAllowed: false,
+          rebaseMergeAllowed: true,
+          autoMergeAllowed: true,
+        },
       }),
-    ).toEqual({ status: "loading" });
+    ).toMatchObject({ mergeMethod: "rebase", autoMergeEnabled: true });
   });
 
-  test("reports a missing compatible ship skill", () => {
+  test("turns off auto-merge when the repository disallows it", () => {
     expect(
-      resolveCreatePrShipAvailability({
-        catalogStatus: "ready",
-        catalogWorkspacePath: "/tmp/worktree-a",
-        workspacePath: "/tmp/worktree-a",
-        skills: [{ ...shipSkill, provider: "claude-code" }],
-        providerId: "codex",
+      resolveCreatePrMergeState({
+        preferredMethod: "squash",
+        autoMergeEnabled: true,
+        repoSettings: {
+          squashMergeAllowed: true,
+          mergeCommitAllowed: true,
+          rebaseMergeAllowed: true,
+          autoMergeAllowed: false,
+        },
+      }).autoMergeEnabled,
+    ).toBe(false);
+  });
+
+  test("preserves a concrete configured method when repository settings are unavailable", () => {
+    expect(
+      resolveCreatePrMergeState({
+        preferredMethod: "merge",
+        autoMergeEnabled: false,
       }),
-    ).toEqual({ status: "missing" });
+    ).toMatchObject({ mergeMethod: "merge", autoMergeEnabled: false });
   });
 });
 
-describe("buildCreatePrShipPrompt", () => {
-  test("activates ship and makes ready PR plus auto-merge explicit", () => {
-    expect(buildCreatePrShipPrompt("$ship")).toBe(
-      "$ship Ship the completed change in this workspace as a ready pull request and enable auto-merge.",
-    );
+describe("buildDriftSelectedFilePaths", () => {
+  test("selects new current paths without reselecting explicit user exclusions", () => {
+    expect(
+      buildDriftSelectedFilePaths({
+        currentPaths: ["src/a.ts", "src/b.ts", "src/c.ts"],
+        userDeselectedPaths: new Set(["src/b.ts"]),
+      }),
+    ).toEqual(["src/a.ts", "src/c.ts"]);
   });
 });
 
-describe("isCreatePrWorkspaceStateActive", () => {
-  test("hides in-flight UI state immediately after switching workspaces", () => {
+describe("buildCreatePrTargetBranchOptions", () => {
+  test("uses normalized origin branches for PR targets and excludes the current branch", () => {
     expect(
-      isCreatePrWorkspaceStateActive({
-        activeWorkspaceId: "workspace-b",
-        stateWorkspaceId: "workspace-a",
+      buildCreatePrTargetBranchOptions({
+        defaultBranch: "main",
+        headBranch: "feature/create-pr-layout",
+        remoteBranches: ["origin/feature/create-pr-layout", "origin/main", "origin/release", "upstream/develop"],
+      }),
+    ).toEqual(["main", "release"]);
+  });
+
+  test("falls back to non-origin remotes when origin branches are unavailable", () => {
+    expect(
+      buildCreatePrTargetBranchOptions({
+        defaultBranch: "develop",
+        headBranch: "feature/create-pr-layout",
+        remoteBranches: ["upstream/release", "upstream/develop"],
+      }),
+    ).toEqual(["develop", "release"]);
+  });
+
+  test("falls back to the default branch when no remote branches are available", () => {
+    expect(
+      buildCreatePrTargetBranchOptions({
+        defaultBranch: "main",
+        headBranch: "feature/create-pr-layout",
+        remoteBranches: [],
+      }),
+    ).toEqual(["main"]);
+  });
+
+  test("shows the spinner only on the clicked create pr button while submitting", () => {
+    expect(
+      shouldShowCreatePrSubmitSpinner({
+        step: "committing",
+        activeSubmitAction: "pr",
+        buttonAction: "pr",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldShowCreatePrSubmitSpinner({
+        step: "pushing",
+        activeSubmitAction: "pr",
+        buttonAction: "pr",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldShowCreatePrSubmitSpinner({
+        step: "creating-pr",
+        activeSubmitAction: "pr",
+        buttonAction: "pr",
+      }),
+    ).toBe(true);
+  });
+
+  test("does not show a submit spinner outside of submission steps", () => {
+    expect(
+      shouldShowCreatePrSubmitSpinner({
+        step: "ready",
+        activeSubmitAction: "pr",
+        buttonAction: "pr",
       }),
     ).toBe(false);
+
     expect(
-      isCreatePrWorkspaceStateActive({
-        activeWorkspaceId: "workspace-a",
-        stateWorkspaceId: "workspace-a",
+      shouldShowCreatePrSubmitSpinner({
+        step: "loading",
+        activeSubmitAction: "pr",
+        buttonAction: "pr",
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowCreatePrSubmitSpinner({
+        step: "reviewing",
+        activeSubmitAction: "pr",
+        buttonAction: "pr",
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowCreatePrSubmitSpinner({
+        step: "committing",
+        activeSubmitAction: null,
+        buttonAction: "pr",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("canSubmitCreatePr", () => {
+  test("allows a lowercase conventional title", () => {
+    expect(
+      canSubmitCreatePr({
+        step: "ready",
+        title: "fix(pr): improve title fallback behavior",
+      }),
+    ).toBe(true);
+  });
+
+  test("rejects non-conventional titles", () => {
+    expect(
+      canSubmitCreatePr({
+        step: "ready",
+        title: "Improve PR title fallback behavior",
+      }),
+    ).toBe(false);
+  });
+
+  test("rejects empty titles", () => {
+    expect(
+      canSubmitCreatePr({
+        step: "ready",
+        title: "   ",
+      }),
+    ).toBe(false);
+  });
+
+  test("rejects missing titles", () => {
+    expect(
+      canSubmitCreatePr({
+        step: "ready",
+      }),
+    ).toBe(false);
+  });
+
+  test("rejects submission when the dialog is not ready", () => {
+    expect(
+      canSubmitCreatePr({
+        step: "loading",
+        title: "fix(pr): improve title fallback behavior",
+      }),
+    ).toBe(false);
+
+    expect(
+      canSubmitCreatePr({
+        step: "reviewing",
+        title: "fix(pr): improve title fallback behavior",
+      }),
+    ).toBe(false);
+  });
+
+  test("requires an explicit file selection when workspace changes are present", () => {
+    expect(
+      canSubmitCreatePr({
+        step: "ready",
+        title: "fix(pr): improve title fallback behavior",
+        hasUncommittedChanges: true,
+        selectedFileCount: 0,
+      }),
+    ).toBe(false);
+
+    expect(
+      canSubmitCreatePr({
+        step: "ready",
+        title: "fix(pr): improve title fallback behavior",
+        hasUncommittedChanges: true,
+        selectedFileCount: 1,
+      }),
+    ).toBe(true);
+  });
+
+  test("rejects a manually entered non-conventional commit message", () => {
+    expect(
+      canSubmitCreatePr({
+        step: "ready",
+        title: "fix(pr): improve title fallback behavior",
+        commitMessage: "Update the PR flow",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("isConventionalCommitMessage", () => {
+  test("accepts supported types with an optional scope", () => {
+    expect(isConventionalCommitMessage("fix(topbar): stabilize create pr flow")).toBe(true);
+    expect(isConventionalCommitMessage("chore: update generated files\n\nDetails")).toBe(true);
+  });
+
+  test("rejects unsupported or empty messages", () => {
+    expect(isConventionalCommitMessage("Update the PR flow")).toBe(false);
+    expect(isConventionalCommitMessage("style: reformat files")).toBe(false);
+    expect(isConventionalCommitMessage(" ")).toBe(false);
+  });
+});
+
+describe("haveSameCreatePrFileScope", () => {
+  test("compares paths as an unordered set", () => {
+    expect(
+      haveSameCreatePrFileScope({
+        left: ["src/a.ts", "src/b.ts"],
+        right: ["src/b.ts", "src/a.ts"],
+      }),
+    ).toBe(true);
+  });
+
+  test("detects files added or removed while the dialog is open", () => {
+    expect(
+      haveSameCreatePrFileScope({
+        left: ["src/a.ts"],
+        right: ["src/a.ts", "src/b.ts"],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("canApplyCreatePrDialogOpenChange", () => {
+  test("blocks dismiss attempts while the dialog is busy", () => {
+    expect(
+      canApplyCreatePrDialogOpenChange({
+        open: false,
+        isDialogBusy: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("allows opening while the dialog is busy", () => {
+    expect(
+      canApplyCreatePrDialogOpenChange({
+        open: true,
+        isDialogBusy: true,
+      }),
+    ).toBe(true);
+  });
+
+  test("allows normal close events when the dialog is idle", () => {
+    expect(
+      canApplyCreatePrDialogOpenChange({
+        open: false,
+        isDialogBusy: false,
       }),
     ).toBe(true);
   });

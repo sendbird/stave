@@ -85,6 +85,7 @@ import {
 } from "@/lib/commands";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import {
+  filterSkillEntries,
   getActiveSkillTokenMatch,
   replaceSkillToken,
 } from "@/lib/skills/catalog";
@@ -805,7 +806,6 @@ export function PromptInput(args: PromptInputProps) {
         : null,
     [caretIndex, skillsEnabled, value],
   );
-  const deferredSkillQuery = useDeferredValue(activeSkillToken?.query ?? "");
   const activeWorkspaceInformationToken = useMemo(
     () =>
       getActiveWorkspaceInformationTokenMatch({
@@ -825,23 +825,15 @@ export function PromptInput(args: PromptInputProps) {
       }),
     [commandPaletteItems, deferredCommandQuery],
   );
-  const filteredSkillItems = useMemo(() => {
-    const query = deferredSkillQuery.trim().toLowerCase();
-    const items = skillPaletteItems ?? [];
-    if (!query) {
-      return items;
-    }
-    return items.filter((skill) => {
-      const haystacks = [
-        skill.slug,
-        skill.name,
-        skill.description,
-        skill.scope,
-        skill.provider,
-      ];
-      return haystacks.some((entry) => entry.toLowerCase().includes(query));
-    });
-  }, [deferredSkillQuery, skillPaletteItems]);
+  const filteredSkillItems = useMemo(
+    () =>
+      filterSkillEntries({
+        skills: skillPaletteItems ?? [],
+        providerId: selectedModel.providerId,
+        query: activeSkillToken?.query ?? "",
+      }),
+    [activeSkillToken?.query, selectedModel.providerId, skillPaletteItems],
+  );
   const filteredWorkspaceInformationItems = useMemo(() => {
     const query = deferredWorkspaceInformationQuery.trim().toLowerCase();
     const items = workspaceInformationReferenceOptions ?? [];

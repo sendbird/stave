@@ -120,24 +120,24 @@ gh pr view --json ...
                                          │                     │
                                     Sidebar icon         TopBar PR Hub
                                   (PrStatusIcon)      (DropdownMenu +
-                                                        ship workflow)
+                                                       creation dialog)
 ```
 
 ### File Map
 
-| Layer              | File                                                  | Role                                                                                                           |
-| ------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Types & derivation | `src/lib/pr-status.ts`                                | `WorkspacePrStatus`, `GitHubPrPayload`, `derivePrStatus()`, visual config, action config                       |
-| IPC handlers       | `electron/main/ipc/scm.ts`                            | `scm:get-pr-status`, `scm:get-pr-status-for-url`, `scm:set-pr-ready`, `scm:merge-pr`, `scm:update-pr-branch`   |
-| Preload bridge     | `electron/preload.ts`                                 | `getPrStatus`, `getPrStatusForUrl`, `setPrReady`, `mergePr`, `updatePrBranch`                                  |
-| Window API types   | `src/types/window-api.d.ts`                           | Type definitions for the 5 PR-related methods                                                                  |
+| Layer              | File                                                  | Role                                                                                                          |
+| ------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Types & derivation | `src/lib/pr-status.ts`                                | `WorkspacePrStatus`, `GitHubPrPayload`, `derivePrStatus()`, visual config, action config                      |
+| IPC handlers       | `electron/main/ipc/scm.ts`                            | `scm:get-pr-status`, `scm:get-pr-status-for-url`, `scm:set-pr-ready`, `scm:merge-pr`, `scm:update-pr-branch`, `scm:create-pr` |
+| Preload bridge     | `electron/preload.ts`                                 | `getPrStatus`, `getPrStatusForUrl`, `setPrReady`, `mergePr`, `updatePrBranch`, `createPR`                                  |
+| Window API types   | `src/types/window-api.d.ts`                           | Type definitions for the PR status and creation methods                                                                   |
 | Store              | `src/store/app.store.ts`                              | `workspacePrInfoById`, `fetchWorkspacePrStatus`, `fetchAllWorkspacePrStatuses`, `continueWorkspaceFromSummary` |
-| Icon component     | `src/components/layout/PrStatusIcon.tsx`              | Reusable icon renderer: status → Lucide icon + color                                                           |
-| Sidebar            | `src/components/layout/ProjectWorkspaceSidebar.tsx`   | Renders `PrStatusIcon` for non-default workspaces                                                              |
-| TopBar hub         | `src/components/layout/TopBarOpenPR.tsx`              | PR status badge, dropdown actions, ship-skill dispatch, and continue entry for completed workspaces            |
-| Continue dialog    | `src/components/layout/ContinueWorkspaceDialog.tsx`   | New workspace handoff dialog for completed PR workspaces                                                       |
-| Information panel  | `src/components/layout/WorkspaceInformationPanel.tsx` | Shows the current branch PR plus related manual PR URLs resolved through GitHub metadata when available        |
-| Continue helper    | `src/lib/workspace-continue.ts`                       | Builds the continuation markdown brief and `.stave/context/...` file path                                      |
+| Icon component     | `src/components/layout/PrStatusIcon.tsx`              | Reusable icon renderer: status → Lucide icon + color                                                          |
+| Sidebar            | `src/components/layout/ProjectWorkspaceSidebar.tsx`   | Renders `PrStatusIcon` for non-default workspaces                                                             |
+| TopBar hub         | `src/components/layout/TopBarOpenPR.tsx`              | PR status badge, dropdown actions, creation dialog, and continue entry for completed workspaces               |
+| Continue dialog    | `src/components/layout/ContinueWorkspaceDialog.tsx`   | New workspace handoff dialog for completed PR workspaces                                                      |
+| Information panel  | `src/components/layout/WorkspaceInformationPanel.tsx` | Shows the current branch PR plus related manual PR URLs resolved through GitHub metadata when available       |
+| Continue helper    | `src/lib/workspace-continue.ts`                       | Builds the continuation markdown brief and `.stave/context/...` file path                                     |
 
 ### IPC Handlers
 
@@ -146,19 +146,20 @@ gh pr view --json ...
 | `scm:get-pr-status`         | `gh pr view --json ...`                        | Fetch PR metadata + derive checks rollup           |
 | `scm:get-pr-status-for-url` | `gh pr view <url> --json ...`                  | Fetch metadata for a manually linked GitHub PR URL |
 | `scm:set-pr-ready`          | `gh pr ready`                                  | Convert draft → ready for review                   |
-| `scm:merge-pr`              | `gh pr merge --squash --delete-branch`         | Squash-merge and delete remote branch              |
+| `scm:merge-pr`              | `gh pr merge [--<method>] --delete-branch`     | Merge with the configured strategy and delete the remote branch |
 | `scm:update-pr-branch`      | `git fetch origin && git rebase origin/<base>` | Rebase head onto latest base                       |
+| `scm:create-pr`              | `gh pr create` (+ optional `gh pr merge --auto [--<method>]`) | Create a ready PR and optionally queue auto-merge |
 
 All handlers check `gh auth status` before executing.
 
 ## Polling Strategy
 
-| Context                   | Interval   | Trigger                 |
-| ------------------------- | ---------- | ----------------------- |
-| Active workspace (TopBar) | 60 seconds | `useEffect` interval    |
-| All workspaces (Sidebar)  | 5 minutes  | `useEffect` interval    |
-| Manual                    | On demand  | Dropdown "Refresh" item |
-| After action              | Immediate  | Post-merge/mark-ready   |
+| Context                   | Interval   | Trigger                      |
+| ------------------------- | ---------- | ---------------------------- |
+| Active workspace (TopBar) | 60 seconds | `useEffect` interval         |
+| All workspaces (Sidebar)  | 5 minutes  | `useEffect` interval         |
+| Manual                    | On demand  | Dropdown "Refresh" item      |
+| After action              | Immediate  | Post-create/merge/mark-ready |
 
 PR info is **transient state** — not persisted in `RecentProjectState` or SQLite.
 Each session fetches fresh from GitHub on mount.
@@ -167,10 +168,10 @@ Each session fetches fresh from GitHub on mount.
 
 The top bar button changes based on status:
 
-| Status    | Button Appearance                                  | Click Behavior                                                                                                                        |
-| --------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `no_pr`   | `[GitPullRequest] Create PR` (primary badge)       | Starts the `ship` skill in the active task _(disabled while a task is responding or the active workspace skill catalog is not ready)_ |
-| Any other | `[StatusIcon] Status Label` (status-colored badge) | Opens dropdown menu                                                                                                                   |
+| Status    | Button Appearance                                  | Click Behavior                                                                             |
+| --------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `no_pr`   | `[GitPullRequest] Create PR` (primary badge)       | Opens PR creation dialog _(disabled while any task in the active workspace is responding)_ |
+| Any other | `[StatusIcon] Status Label` (status-colored badge) | Opens dropdown menu                                                                        |
 
 ### Dropdown Actions by Status
 
@@ -207,14 +208,19 @@ This is intentionally a **summary brief** flow, not a full task-history clone. I
 
 The dialog keeps the base branch simple by default. It shows the current remote base as a badge and reveals a searchable remote branch picker only after the user clicks **Change**.
 
-### Ship Workflow
+### PR Creation Dialog (ship-aligned)
 
-- Create PR activates the installed `ship` skill in the active task instead of maintaining a second PR orchestration path in the renderer.
-- The skill owns repository-rule discovery, scoped validation, intentional staging and commit, push, ready PR creation, and auto-merge setup.
-- Dispatch uses the task-to-workspace ownership map, so git and provider work resolve from the task's workspace rather than whichever workspace becomes active later.
-- Stave requires the skill catalog to be loaded for the exact active workspace before enabling Create PR. A catalog from a previously selected workspace is never reused for this action.
-- Progress and approval requests appear in the active task conversation. There is no PR draft dialog or cross-workspace draft state to hydrate, replace, or leak during workspace switches.
-- Draft PR creation is intentionally not offered by this flow because the `ship` workflow creates a ready PR and queues it for automatic merge.
+- The dialog opens in a loading splash state until the suggested PR title and description are ready. Stave no longer shows a provisional fallback draft first and then replaces it in place.
+- Draft generation now includes the active workspace task, prompt-draft context, attached continuation brief snippets, notes, and open todos so the first AI draft stays focused on the current workspace instead of echoing older workspace PR summaries.
+- The dialog includes a **Target Branch** picker so users can choose which base branch the PR should merge into before running `gh pr create`.
+- Suggested PR titles are normalized against the branch's latest conventional commit subject so the type and scope stay aligned with the workspace PR flow guidance.
+- The generated title and body remain editable until submission. The default PR description prompt is editable under **Settings → Prompts → Pull Request Description**.
+- If the user switches to another workspace while the dialog is open, Stave closes the dialog and discards the in-flight draft request so a previous workspace response cannot bleed into the newly active workspace.
+- Before submission, Stave checks GitHub CLI authentication and refuses to continue with unresolved merge conflicts. The dialog requires an explicit file selection for automatic commits, then rechecks that the workspace file list has not changed before staging only the selected paths. Optional AI review and configured `pr.beforeOpen` checks run before staging or committing.
+- The flow always creates a **ready** PR. **Settings → Prompts → PR Completion → Queue Auto-Merge** controls whether Stave also queues the repository default or an explicitly selected merge method (`merge`, `squash`, or `rebase`) with `gh pr merge --auto`.
+- If the PR is created but auto-merge cannot be enabled, the dialog keeps the existing PR URL and reports the exact blocker instead of hiding the partial result.
+- When uncommitted files are auto-committed during PR creation, progress, success, and failure messages are shown inline inside the dialog instead of as transient toast notifications.
+- While commit, push, or PR creation is running, the dialog no longer accepts dismiss attempts that would clear the prepared title and description mid-flight.
 
 ## Store Shape
 
@@ -231,17 +237,19 @@ interface WorkspacePrInfo {
 
 ## Error Handling
 
-| Scenario               | Behavior                                                                |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `gh` CLI not installed | `getPrStatus` returns `ok: false`; sidebar shows fallback identity mark |
-| `gh auth status` fails | Same as above; no toast spam                                            |
-| Network offline        | `gh` times out; cached state preserved until next successful fetch      |
-| PR deleted (404)       | `gh pr view` returns "no pull requests found"; status becomes `no_pr`   |
-| Branch has no remote   | `gh pr view` fails; graceful fallback to `no_pr`                        |
+| Scenario                         | Behavior                                                                                 |
+| -------------------------------- | ---------------------------------------------------------------------------------------- |
+| `gh` CLI not installed           | `getPrStatus` returns `ok: false`; sidebar shows fallback identity mark                 |
+| `gh auth status` fails           | Status reads fail gracefully; PR creation stays open and reports the authentication fix |
+| Create PR finds merge conflicts  | No files are committed or pushed; resolve conflicts and retry                            |
+| Auto-merge cannot be enabled     | The ready PR URL is retained and the exact GitHub blocker is shown                       |
+| Network offline                  | `gh` times out; cached state preserved until next successful fetch                       |
+| PR deleted (404)                 | `gh pr view` returns "no pull requests found"; status becomes `no_pr`                    |
+| Branch has no remote             | `gh pr view` fails; graceful fallback to `no_pr`                                         |
 
 ## Future Work (Phase 2+)
 
-- **Ship completion → auto-refresh**: Refresh PR status immediately when the ship task reports that PR creation completed
+- **PR creation → auto-refresh**: After `scm:create-pr` succeeds, immediately fetch status _(done in Phase 1)_
 - **Merge queue**: Add `queued_for_merge` status for repos using GitHub merge queues
 - **Edit PR**: `gh pr edit` for title/body changes from within Stave
 - **Close/Reopen PR**: `gh pr close` / `gh pr reopen`

@@ -13,6 +13,9 @@ class FakeDisposable {
 class FakePty {
   destroyed = false;
   killed = false;
+  paused = false;
+  pauseCalls = 0;
+  resumeCalls = 0;
   writes: string[] = [];
   dataListeners: Array<{
     listener: (data: string) => void;
@@ -47,6 +50,16 @@ class FakePty {
 
   destroy() {
     this.destroyed = true;
+  }
+
+  pause() {
+    this.paused = true;
+    this.pauseCalls += 1;
+  }
+
+  resume() {
+    this.paused = false;
+    this.resumeCalls += 1;
   }
 
   fireData(data: string) {
@@ -227,7 +240,7 @@ describe("terminal runtime slot lifecycle", () => {
       ok: true,
       attachmentId: expect.any(String),
       backlog: "while detached\r\n",
-      screenState: "while detached\u001b[1B\u001b[14D",
+      screenState: "while detached\u001b[1B\u001b[14D\u001b[2;1H",
     });
     expect(
       runtime.resumeSessionStream({
@@ -334,8 +347,9 @@ describe("terminal runtime slot lifecycle", () => {
     });
 
     fakePtys[0]!.fireData("x".repeat(TERMINAL_PUSH_FLUSH_MAX_BYTES + 123));
-    await new Promise((resolve) => setImmediate(resolve));
-    await new Promise((resolve) => setImmediate(resolve));
+    for (let index = 0; index < 10; index += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
 
     expect(emitted).toHaveLength(2);
     const firstPayload = emitted[0]!.payload as { output: string };
@@ -347,6 +361,236 @@ describe("terminal runtime slot lifecycle", () => {
       TERMINAL_PUSH_FLUSH_MAX_BYTES,
     );
     expect(Buffer.byteLength(secondPayload.output, "utf8")).toBe(123);
+  });
+
+  test("pauses the PTY until the renderer acknowledges cumulative bytes", async () => {
+    const emitted: Array<{ event: string; payload: any }> = [];
+    const runtime = createTerminalRuntime({
+      emitEvent: async (event, payload) => {
+        emitted.push({ event, payload });
+      },
+    });
+    const created = runtime.createSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      taskId: null,
+      taskTitle: null,
+      terminalTabId: "flow-control",
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    const attached = await runtime.attachSession({
+      sessionId: created.sessionId!,
+      deliveryMode: "push",
+    });
+    runtime.resumeSessionStream({
+      sessionId: created.sessionId!,
+      attachmentId: attached.attachmentId!,
+    });
+
+    const fake = fakePtys[0]!;
+    for (let index = 0; index < 5; index += 1) {
+      fake.fireData("x".repeat(128 * 1024));
+    }
+    for (let index = 0; index < 10; index += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+
+    expect(fake.pauseCalls).toBeGreaterThan(0);
+    const outputEvents = emitted.filter(
+      (entry) => entry.event === "terminal.output",
+    );
+    const sentBytes = outputEvents.reduce(
+      (total, entry) => total + entry.payload.bytes,
+      0,
+    );
+    expect(
+      runtime.ackSessionOutput({
+        sessionId: created.sessionId!,
+        attachmentId: attached.attachmentId!,
+        acknowledgedBytes: sentBytes,
+      }),
+    ).toEqual({ ok: true });
+    expect(fake.resumeCalls).toBeGreaterThan(0);
+  });
+
+  test("resumes a flow-paused PTY when its renderer detaches", async () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+    const created = runtime.createSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      taskId: null,
+      taskTitle: null,
+      terminalTabId: "flow-detach",
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    const attached = await runtime.attachSession({
+      sessionId: created.sessionId!,
+      deliveryMode: "push",
+    });
+    runtime.resumeSessionStream({
+      sessionId: created.sessionId!,
+      attachmentId: attached.attachmentId!,
+    });
+
+    const fake = fakePtys[0]!;
+    for (let index = 0; index < 5; index += 1) {
+      fake.fireData("x".repeat(128 * 1024));
+    }
+    for (let index = 0; index < 10; index += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    expect(fake.paused).toBe(true);
+
+    runtime.detachSession({
+      sessionId: created.sessionId!,
+      attachmentId: attached.attachmentId!,
+    });
+    expect(fake.paused).toBe(false);
+    expect(fake.resumeCalls).toBeGreaterThan(0);
+  });
+
+  test("persists a terminal snapshot across runtime recreation", async () => {
+    const snapshots = new Map<string, string>();
+    const persistence = {
+      saveTerminalSnapshot: ({
+        slotKey,
+        screenState,
+      }: {
+        slotKey: string;
+        screenState: string;
+      }) => {
+        snapshots.set(slotKey, screenState);
+      },
+      loadTerminalSnapshot: ({ slotKey }: { slotKey: string }) => {
+        const screenState = snapshots.get(slotKey);
+        return screenState
+          ? { screen_state: screenState, updated_at: new Date().toISOString() }
+          : undefined;
+      },
+      deleteTerminalSnapshot: ({ slotKey }: { slotKey: string }) => {
+        snapshots.delete(slotKey);
+      },
+    };
+    const createArgs = {
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      taskId: null,
+      taskTitle: null,
+      terminalTabId: "snapshot",
+      cwd: "/tmp/workspace",
+      deliveryMode: "push" as const,
+    };
+    const firstRuntime = createTerminalRuntime({
+      emitEvent: async () => {},
+      persistence,
+    });
+    firstRuntime.createSession(createArgs);
+    fakePtys[0]!.fireData("persist me");
+    await firstRuntime.cleanupAll();
+    expect(snapshots.has("terminal:workspace-1:snapshot")).toBe(true);
+
+    const secondRuntime = createTerminalRuntime({
+      emitEvent: async () => {},
+      persistence,
+    });
+    const recreated = secondRuntime.createSession(createArgs);
+    const attached = await secondRuntime.attachSession({
+      sessionId: recreated.sessionId!,
+      deliveryMode: "push",
+    });
+    expect(attached.screenState).toContain("persist me");
+  });
+
+  test("merges a persisted snapshot with output from the recreated PTY", async () => {
+    const slotKey = "terminal:workspace-1:restored-output";
+    const snapshots = new Map([[slotKey, "persisted screen\r\n"]]);
+    const persistence = {
+      saveTerminalSnapshot: ({
+        slotKey: savedSlotKey,
+        screenState,
+      }: {
+        slotKey: string;
+        screenState: string;
+      }) => {
+        snapshots.set(savedSlotKey, screenState);
+      },
+      loadTerminalSnapshot: ({
+        slotKey: loadedSlotKey,
+      }: {
+        slotKey: string;
+      }) => {
+        const screenState = snapshots.get(loadedSlotKey);
+        return screenState
+          ? { screen_state: screenState, updated_at: new Date().toISOString() }
+          : undefined;
+      },
+      deleteTerminalSnapshot: ({
+        slotKey: deletedSlotKey,
+      }: {
+        slotKey: string;
+      }) => {
+        snapshots.delete(deletedSlotKey);
+      },
+    };
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+      persistence,
+    });
+    const created = runtime.createSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      taskId: null,
+      taskTitle: null,
+      terminalTabId: "restored-output",
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    fakePtys[0]!.fireData("fresh prompt\r\n");
+
+    const attached = await runtime.attachSession({
+      sessionId: created.sessionId!,
+      deliveryMode: "push",
+    });
+
+    expect(attached.screenState).toContain("persisted screen");
+    expect(attached.screenState).toContain("fresh prompt");
+  });
+
+  test("waits for the headless mirror before closing sessions by slot prefix", async () => {
+    const snapshots = new Map<string, string>();
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+      persistence: {
+        saveTerminalSnapshot: ({ slotKey, screenState }) => {
+          snapshots.set(slotKey, screenState);
+        },
+        loadTerminalSnapshot: () => undefined,
+        deleteTerminalSnapshot: () => {},
+      },
+    });
+    runtime.createSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      taskId: null,
+      taskTitle: null,
+      terminalTabId: "archive",
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    fakePtys[0]!.fireData("latest output");
+
+    const result = await runtime.closeSessionsBySlotPrefix({
+      prefix: "terminal:workspace-1:",
+    });
+
+    expect(result).toEqual({ ok: true, closedCount: 1 });
+    expect(snapshots.get("terminal:workspace-1:archive")).toContain(
+      "latest output",
+    );
   });
 
   test("caps detached backlog to a bounded size before reattach", async () => {

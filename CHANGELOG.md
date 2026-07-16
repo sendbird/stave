@@ -1,3 +1,26 @@
+## [0.10.5](https://github.com/sendbird/stave/compare/v0.10.4...v0.10.5) (2026-07-13)
+
+### Bug Fixes
+
+* Keep queued follow-up turns attached to their task-owned workspace when the user switches workspaces during asynchronous auto-routing.
+* Restore direct Create PR with explicit staged-file selection, preflight review, workspace-safe async guards, configurable descriptions, and repository-aware auto-merge methods.
+* Use a compact, left-aligned embedded layout for Notes markdown previews in the Information panel.
+* Highlight selected Settings options with the existing primary action color for clearer radio-style controls.
+
+### References
+
+* [#144](https://github.com/sendbird/stave/pull/144), [#145](https://github.com/sendbird/stave/pull/145), [#146](https://github.com/sendbird/stave/pull/146), [#147](https://github.com/sendbird/stave/pull/147)
+## [0.10.4](https://github.com/sendbird/stave/compare/v0.10.3...v0.10.4) (2026-07-13)
+
+### Features
+
+* Link an existing git worktree from the New Workspace dialog by entering or browsing to its path, including worktrees owned by another clone.
+* Persist linked workspaces without duplicating them during discovery, and archive them safely by removing only Stave's symlink while preserving the external worktree and branch.
+* Add the original Stave Score light theme and Stave Nocturne dark theme with complete core and extended token coverage.
+
+### References
+
+* [#141](https://github.com/sendbird/stave/pull/141), [#142](https://github.com/sendbird/stave/pull/142)
 ## [0.10.3](https://github.com/sendbird/stave/compare/v0.10.2...v0.10.3) (2026-07-13)
 
 ### Features

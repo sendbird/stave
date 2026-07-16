@@ -1,23 +1,13 @@
 import { promises as fs } from "node:fs";
 import { parseGraphLog } from "../../src/lib/git-graph/graph-log";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
-import {
-  buildSourceControlDiffPreview,
-  resolveSourceControlDiffPaths,
-} from "../../src/lib/source-control-diff";
-import {
-  hasConflictItems,
-  parseStatusLines,
-  resolveCommandCwd,
-  runCommandArgs,
-} from "../main/utils/command";
+import type { PrMergeMethod } from "../../src/lib/pr-status";
+import { buildSourceControlDiffPreview, resolveSourceControlDiffPaths } from "../../src/lib/source-control-diff";
+import { hasConflictItems, parseStatusLines, resolveCommandCwd, runCommandArgs } from "../main/utils/command";
 import { resolveRootFilePath } from "../main/utils/filesystem";
+import { ensureGhAuth, invalidateGhAuthCache } from "./gh-auth";
 
-const GIT_STATUS_PORCELAIN_ALL_UNTRACKED_ARGS = [
-  "status",
-  "--porcelain",
-  "--untracked-files=all",
-];
+const GIT_STATUS_PORCELAIN_ALL_UNTRACKED_ARGS = ["status", "--porcelain", "--untracked-files=all"];
 
 const GITHUB_PR_JSON_FIELDS = [
   "number",
@@ -33,6 +23,24 @@ const GITHUB_PR_JSON_FIELDS = [
   "baseRefName",
   "headRefName",
 ].join(",");
+
+function invalidateCachedGhAuthOnFailure(result: { ok: boolean; stdout?: string; stderr?: string }, cwd?: string) {
+  if (result.ok) {
+    return;
+  }
+  const detail = `${result.stderr ?? ""}\n${result.stdout ?? ""}`;
+  if (/authentication failed|not logged into|gh auth login|not authenticated/i.test(detail)) {
+    invalidateGhAuthCache({ cwd });
+  }
+}
+
+function describeGhAuthFailure(result: { stdout?: string; stderr?: string }) {
+  const detail = `${result.stderr ?? ""}\n${result.stdout ?? ""}`;
+  if (/spawn gh ENOENT|command not found|not recognized/i.test(detail)) {
+    return "GitHub CLI is not installed. Install `gh` first.";
+  }
+  return "GitHub CLI is not authenticated. Run `gh auth login` first.";
+}
 
 async function readGitHeadFile(args: { cwd?: string; filePath: string }) {
   const result = await runCommandArgs({
@@ -60,10 +68,7 @@ async function readWorkingTreeFile(args: { cwd?: string; filePath: string }) {
   }
 }
 
-export async function discardSourceControlPath(args: {
-  cwd?: string;
-  path: string;
-}) {
+export async function discardSourceControlPath(args: { cwd?: string; path: string }) {
   const paths = resolveSourceControlDiffPaths({ rawPath: args.path });
   const restoreResult = await runCommandArgs({
     command: "git",
@@ -87,25 +92,13 @@ export async function discardSourceControlPath(args: {
   return {
     ok: false,
     code: cleanResult.code,
-    stdout: [restoreResult.stdout, cleanResult.stdout]
-      .filter(Boolean)
-      .join("\n"),
-    stderr: [restoreResult.stderr, cleanResult.stderr]
-      .filter(Boolean)
-      .join("\n")
-      .trim(),
+    stdout: [restoreResult.stdout, cleanResult.stdout].filter(Boolean).join("\n"),
+    stderr: [restoreResult.stderr, cleanResult.stderr].filter(Boolean).join("\n").trim(),
   };
 }
 
-export async function fetchGitHubPrStatus(args: {
-  cwd?: string;
-  target?: string;
-}) {
-  const authResult = await runCommandArgs({
-    command: "gh",
-    commandArgs: ["auth", "status"],
-    cwd: args.cwd,
-  });
+export async function fetchGitHubPrStatus(args: { cwd?: string; target?: string }) {
+  const authResult = await ensureGhAuth({ cwd: args.cwd });
   if (!authResult.ok) {
     return { ok: false, pr: null, stderr: "GitHub CLI is not authenticated." };
   }
@@ -121,6 +114,7 @@ export async function fetchGitHubPrStatus(args: {
     commandArgs,
     cwd: args.cwd,
   });
+  invalidateCachedGhAuthOnFailure(result, args.cwd);
 
   if (!result.ok) {
     const noPr =
@@ -137,30 +131,18 @@ export async function fetchGitHubPrStatus(args: {
     const raw = JSON.parse(result.stdout);
 
     let checksRollup: "SUCCESS" | "FAILURE" | "PENDING" | null = null;
-    const checks: unknown[] = Array.isArray(raw.statusCheckRollup)
-      ? raw.statusCheckRollup
-      : [];
+    const checks: unknown[] = Array.isArray(raw.statusCheckRollup) ? raw.statusCheckRollup : [];
     if (checks.length > 0) {
       const latestCheckRunByName = new Map<string, Record<string, unknown>>();
       const nonCheckRuns: Array<Record<string, unknown>> = [];
       for (const check of checks as Array<Record<string, unknown>>) {
-        if (
-          check.__typename === "CheckRun" &&
-          typeof check.name === "string" &&
-          check.name
-        ) {
+        if (check.__typename === "CheckRun" && typeof check.name === "string" && check.name) {
           const existing = latestCheckRunByName.get(check.name);
           if (!existing) {
             latestCheckRunByName.set(check.name, check);
           } else {
-            const existingTime =
-              typeof existing.startedAt === "string"
-                ? new Date(existing.startedAt).getTime()
-                : 0;
-            const currentTime =
-              typeof check.startedAt === "string"
-                ? new Date(check.startedAt).getTime()
-                : 0;
+            const existingTime = typeof existing.startedAt === "string" ? new Date(existing.startedAt).getTime() : 0;
+            const currentTime = typeof check.startedAt === "string" ? new Date(check.startedAt).getTime() : 0;
             if (currentTime > existingTime) {
               latestCheckRunByName.set(check.name, check);
             }
@@ -235,18 +217,13 @@ export async function getScmStatus(args: { cwd?: string }) {
     commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
     cwd: args.cwd,
   });
-  const items = statusResult.ok
-    ? parseStatusLines({ stdout: statusResult.stdout })
-    : [];
+  const items = statusResult.ok ? parseStatusLines({ stdout: statusResult.stdout }) : [];
   return {
     ok: statusResult.ok && branchResult.ok,
     branch: branchResult.ok ? branchResult.stdout.trim() : "unknown",
     items,
     hasConflicts: hasConflictItems({ items }),
-    stderr: [statusResult.stderr, branchResult.stderr]
-      .filter(Boolean)
-      .join("\n")
-      .trim(),
+    stderr: [statusResult.stderr, branchResult.stderr].filter(Boolean).join("\n").trim(),
   };
 }
 
@@ -264,13 +241,25 @@ export function stageAllSourceControl(args: { cwd?: string }) {
  * then re-stages the results. Returns whether a fix was attempted and
  * whether any remaining errors persist.
  */
-export async function tryAutoFixLintErrors(args: { cwd?: string }) {
-  const stagedResult = await runCommandArgs({
-    command: "git",
-    commandArgs: ["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
-    cwd: args.cwd,
-  });
-  if (!stagedResult.ok || !stagedResult.stdout.trim()) {
+export async function tryAutoFixLintErrors(args: { cwd?: string; paths?: string[] }) {
+  let files = [...new Set(args.paths?.map((path) => path.trim()).filter(Boolean) ?? [])];
+  if (files.length === 0) {
+    const stagedResult = await runCommandArgs({
+      command: "git",
+      commandArgs: ["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+      cwd: args.cwd,
+    });
+    if (!stagedResult.ok || !stagedResult.stdout.trim()) {
+      return {
+        ok: false,
+        fixAttempted: false,
+        stderr: "No staged files to fix.",
+      };
+    }
+    files = stagedResult.stdout.trim().split("\n").filter(Boolean);
+  }
+
+  if (files.length === 0) {
     return {
       ok: false,
       fixAttempted: false,
@@ -278,10 +267,7 @@ export async function tryAutoFixLintErrors(args: { cwd?: string }) {
     };
   }
 
-  const files = stagedResult.stdout.trim().split("\n").filter(Boolean);
-  const lintableFiles = files.filter((f) =>
-    /\.(js|jsx|ts|tsx|mjs|cjs|vue|svelte)$/.test(f),
-  );
+  const lintableFiles = files.filter((f) => /\.(js|jsx|ts|tsx|mjs|cjs|vue|svelte)$/.test(f));
   if (lintableFiles.length === 0) {
     return {
       ok: false,
@@ -292,22 +278,22 @@ export async function tryAutoFixLintErrors(args: { cwd?: string }) {
 
   // Try eslint --fix (best-effort; ignore exit code since unfixable errors remain)
   const eslintResult = await runCommandArgs({
-    command: "npx",
-    commandArgs: ["eslint", "--fix", ...lintableFiles],
+    command: "bunx",
+    commandArgs: ["--bun", "eslint", "--fix", ...lintableFiles],
     cwd: args.cwd,
   });
 
   // Try prettier --write (best-effort)
   const prettierResult = await runCommandArgs({
-    command: "npx",
-    commandArgs: ["prettier", "--write", ...lintableFiles],
+    command: "bunx",
+    commandArgs: ["--bun", "prettier", "--write", ...lintableFiles],
     cwd: args.cwd,
   });
 
-  // Re-stage the auto-fixed files
+  // Re-stage only the files that were explicitly included in this operation.
   await runCommandArgs({
     command: "git",
-    commandArgs: ["add", "-A"],
+    commandArgs: ["add", "--", ...lintableFiles],
     cwd: args.cwd,
   });
 
@@ -316,10 +302,7 @@ export async function tryAutoFixLintErrors(args: { cwd?: string }) {
     fixAttempted: true,
     eslintOk: eslintResult.ok,
     prettierOk: prettierResult.ok,
-    stderr: [eslintResult.stderr, prettierResult.stderr]
-      .filter(Boolean)
-      .join("\n")
-      .trim(),
+    stderr: [eslintResult.stderr, prettierResult.stderr].filter(Boolean).join("\n").trim(),
   };
 }
 
@@ -357,6 +340,23 @@ export function stageSourceControlFile(args: { path: string; cwd?: string }) {
   });
 }
 
+export function stageSourceControlFiles(args: { paths: string[]; cwd?: string }) {
+  const pathspecs = args.paths.flatMap((path) => resolveSourceControlDiffPaths({ rawPath: path }).pathspecs);
+  if (pathspecs.length === 0) {
+    return Promise.resolve({
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: "At least one file path is required.",
+    });
+  }
+  return runCommandArgs({
+    command: "git",
+    commandArgs: ["add", "--", ...new Set(pathspecs)],
+    cwd: args.cwd,
+  });
+}
+
 export function unstageSourceControlFile(args: { path: string; cwd?: string }) {
   const paths = resolveSourceControlDiffPaths({ rawPath: args.path });
   return runCommandArgs({
@@ -366,10 +366,7 @@ export function unstageSourceControlFile(args: { path: string; cwd?: string }) {
   });
 }
 
-export async function diffSourceControlFile(args: {
-  path: string;
-  cwd?: string;
-}) {
+export async function diffSourceControlFile(args: { path: string; cwd?: string }) {
   const paths = resolveSourceControlDiffPaths({ rawPath: args.path });
   const [staged, unstaged, oldContent, newContent] = await Promise.all([
     runCommandArgs({
@@ -447,20 +444,14 @@ export async function getScmGraph(args: {
   const parsed = logResult.ok ? parseGraphLog(logResult.stdout) : [];
   const hasMore = parsed.length > limit;
   const commits = hasMore ? parsed.slice(0, limit) : parsed;
-  const head =
-    branchResult.ok && branchResult.stdout.trim() !== "HEAD"
-      ? branchResult.stdout.trim()
-      : null;
+  const head = branchResult.ok && branchResult.stdout.trim() !== "HEAD" ? branchResult.stdout.trim() : null;
 
   return {
     ok: logResult.ok,
     commits,
     head,
     hasMore,
-    stderr: [logResult.stderr, branchResult.stderr]
-      .filter(Boolean)
-      .join("\n")
-      .trim(),
+    stderr: [logResult.stderr, branchResult.stderr].filter(Boolean).join("\n").trim(),
   };
 }
 
@@ -484,10 +475,7 @@ export async function getScmCommitFiles(args: { hash: string; cwd?: string }) {
           const status = parts[0] ?? "";
           // Rename/copy lines: "R100\told-path\tnew-path" — use new path as
           // the canonical path; preserve old path in oldPath for display.
-          if (
-            (status.startsWith("R") || status.startsWith("C")) &&
-            parts.length >= 3
-          ) {
+          if ((status.startsWith("R") || status.startsWith("C")) && parts.length >= 3) {
             const oldPath = parts[1] ?? "";
             const newPath = parts[2] ?? "";
             return { status: status.charAt(0), path: newPath, oldPath };
@@ -500,12 +488,7 @@ export async function getScmCommitFiles(args: { hash: string; cwd?: string }) {
   return { ok: result.ok, files, stderr: result.stderr };
 }
 
-export async function getScmCommitDiff(args: {
-  hash: string;
-  path: string;
-  oldPath?: string;
-  cwd?: string;
-}) {
+export async function getScmCommitDiff(args: { hash: string; path: string; oldPath?: string; cwd?: string }) {
   const hash = args.hash.trim();
   const path = args.path.trim();
   if (!hash || !path) {
@@ -555,13 +538,7 @@ export async function getScmHistory(args: { cwd?: string; limit?: number }) {
   const limit = Math.max(1, Math.min(50, args.limit ?? 20));
   const result = await runCommandArgs({
     command: "git",
-    commandArgs: [
-      "log",
-      "-n",
-      String(limit),
-      "--pretty=format:%h%x09%ad%x09%s",
-      "--date=relative",
-    ],
+    commandArgs: ["log", "-n", String(limit), "--pretty=format:%h%x09%ad%x09%s", "--date=relative"],
     cwd: args.cwd,
   });
   const items = result.ok
@@ -577,47 +554,38 @@ export async function getScmHistory(args: { cwd?: string; limit?: number }) {
   return { ok: result.ok, items, stderr: result.stderr };
 }
 
-export async function listScmBranches(args: {
-  cwd?: string;
-  refreshRemote?: boolean;
-}) {
+export async function listScmBranches(args: { cwd?: string; refreshRemote?: boolean }) {
   const refreshResult = await runCommandArgs({
     command: "git",
-    commandArgs: args.refreshRemote
-      ? ["fetch", "--all", "--prune"]
-      : ["remote", "prune", "origin"],
+    commandArgs: args.refreshRemote ? ["fetch", "--all", "--prune"] : ["remote", "prune", "origin"],
     cwd: args.cwd,
   });
 
-  const [listResult, listRemoteResult, currentResult, worktreeResult] =
-    await Promise.all([
-      runCommandArgs({
-        command: "git",
-        commandArgs: ["branch", "--format=%(refname:short)|%(upstream:track)"],
-        cwd: args.cwd,
-      }),
-      runCommandArgs({
-        command: "git",
-        commandArgs: ["branch", "-r", "--format=%(refname:short)"],
-        cwd: args.cwd,
-      }),
-      runCommandArgs({
-        command: "git",
-        commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
-        cwd: args.cwd,
-      }),
-      runCommandArgs({
-        command: "git",
-        commandArgs: ["worktree", "list", "--porcelain"],
-        cwd: args.cwd,
-      }),
-    ]);
+  const [listResult, listRemoteResult, currentResult, worktreeResult] = await Promise.all([
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["branch", "--format=%(refname:short)|%(upstream:track)"],
+      cwd: args.cwd,
+    }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["branch", "-r", "--format=%(refname:short)"],
+      cwd: args.cwd,
+    }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
+      cwd: args.cwd,
+    }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["worktree", "list", "--porcelain"],
+      cwd: args.cwd,
+    }),
+  ]);
 
   return {
-    ok:
-      listResult.ok &&
-      currentResult.ok &&
-      (!args.refreshRemote || refreshResult.ok),
+    ok: listResult.ok && currentResult.ok && (!args.refreshRemote || refreshResult.ok),
     current: currentResult.ok ? currentResult.stdout.trim() : "unknown",
     branches: listResult.ok
       ? listResult.stdout
@@ -631,14 +599,9 @@ export async function listScmBranches(args: {
       ? listRemoteResult.stdout
           .split("\n")
           .map((name) => name.trim())
-          .filter(
-            (name) =>
-              Boolean(name) && name.includes("/") && !name.endsWith("/HEAD"),
-          )
+          .filter((name) => Boolean(name) && name.includes("/") && !name.endsWith("/HEAD"))
       : [],
-    worktreePathByBranch: worktreeResult.ok
-      ? parseWorktreePathByBranch({ stdout: worktreeResult.stdout })
-      : {},
+    worktreePathByBranch: worktreeResult.ok ? parseWorktreePathByBranch({ stdout: worktreeResult.stdout }) : {},
     stderr: [listResult.stderr, currentResult.stderr]
       .concat(refreshResult.stderr ? [refreshResult.stderr] : [])
       .filter(Boolean)
@@ -696,11 +659,7 @@ export async function fetchScmBranch(args: { cwd?: string; branch?: string }) {
   });
 }
 
-export function createScmBranch(args: {
-  name: string;
-  cwd?: string;
-  from?: string;
-}) {
+export function createScmBranch(args: { name: string; cwd?: string; from?: string }) {
   const name = args.name.trim();
   if (!name) {
     return Promise.resolve({
@@ -811,13 +770,8 @@ export function revertScmCommit(args: { commit: string; cwd?: string }) {
   });
 }
 
-export function resetScmCommit(args: {
-  commit: string;
-  mode: "soft" | "mixed" | "hard";
-  cwd?: string;
-}) {
-  const mode =
-    args.mode === "soft" || args.mode === "hard" ? args.mode : "mixed";
+export function resetScmCommit(args: { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string }) {
+  const mode = args.mode === "soft" || args.mode === "hard" ? args.mode : "mixed";
   return runScmBranchCommand({
     value: args.commit,
     cwd: args.cwd,
@@ -834,11 +788,7 @@ export function resetScmCommit(args: {
  * turns the bare `git tag <name>` into a signed/annotated tag, which then fails
  * with "fatal: no tag message?" because no `-m` was given.
  */
-export function buildCreateTagArgs(args: {
-  name: string;
-  commit?: string;
-  message?: string;
-}): string[] {
+export function buildCreateTagArgs(args: { name: string; commit?: string; message?: string }): string[] {
   const name = args.name.trim();
   const target = args.commit?.trim();
   const message = args.message?.trim();
@@ -854,12 +804,7 @@ export function buildCreateTagArgs(args: {
   return commandArgs;
 }
 
-export function createScmTag(args: {
-  name: string;
-  commit?: string;
-  message?: string;
-  cwd?: string;
-}) {
+export function createScmTag(args: { name: string; commit?: string; message?: string; cwd?: string }) {
   const name = args.name.trim();
   if (!name) {
     return Promise.resolve({
@@ -885,11 +830,7 @@ export function deleteScmTag(args: { name: string; cwd?: string }) {
   });
 }
 
-export function renameScmBranch(args: {
-  from: string;
-  to: string;
-  cwd?: string;
-}) {
+export function renameScmBranch(args: { from: string; to: string; cwd?: string }) {
   const from = args.from.trim();
   const to = args.to.trim();
   if (!from || !to) {
@@ -907,11 +848,7 @@ export function renameScmBranch(args: {
   });
 }
 
-export function deleteScmBranch(args: {
-  name: string;
-  force?: boolean;
-  cwd?: string;
-}) {
+export function deleteScmBranch(args: { name: string; force?: boolean; cwd?: string }) {
   const flag = args.force ? "-D" : "-d";
   return runScmBranchCommand({
     value: args.name,
@@ -921,68 +858,47 @@ export function deleteScmBranch(args: {
   });
 }
 
-export function pushScmBranch(args: {
-  branch?: string;
-  remote?: string;
-  force?: boolean;
-  cwd?: string;
-}) {
+export function pushScmBranch(args: { branch?: string; remote?: string; force?: boolean; cwd?: string }) {
   const remote = (args.remote ?? "origin").trim();
   const branch = args.branch?.trim();
   return runCommandArgs({
     command: "git",
-    commandArgs: [
-      "push",
-      ...(args.force ? ["--force-with-lease"] : []),
-      remote,
-      ...(branch ? [branch] : []),
-    ],
+    commandArgs: ["push", ...(args.force ? ["--force-with-lease"] : []), remote, ...(branch ? [branch] : [])],
     cwd: args.cwd,
   });
 }
 
 export async function setScmPrReady(args: { cwd?: string }) {
-  const authResult = await runCommandArgs({
-    command: "gh",
-    commandArgs: ["auth", "status"],
-    cwd: args.cwd,
-  });
+  const authResult = await ensureGhAuth({ cwd: args.cwd });
   if (!authResult.ok) {
     return { ok: false, stderr: "GitHub CLI is not authenticated." };
   }
-  return runCommandArgs({
+  const result = await runCommandArgs({
     command: "gh",
     commandArgs: ["pr", "ready"],
     cwd: args.cwd,
   });
+  invalidateCachedGhAuthOnFailure(result, args.cwd);
+  return result;
 }
 
-export async function mergeScmPr(args: {
-  method?: "merge" | "squash" | "rebase";
-  cwd?: string;
-}) {
-  const authResult = await runCommandArgs({
-    command: "gh",
-    commandArgs: ["auth", "status"],
-    cwd: args.cwd,
-  });
+export async function mergeScmPr(args: { method?: PrMergeMethod; cwd?: string }) {
+  const authResult = await ensureGhAuth({ cwd: args.cwd });
   if (!authResult.ok) {
     return { ok: false, stderr: "GitHub CLI is not authenticated." };
   }
-  const method = args.method ?? "squash";
-  return runCommandArgs({
+  const method = args.method ?? "default";
+  const result = await runCommandArgs({
     command: "gh",
-    commandArgs: ["pr", "merge", `--${method}`, "--delete-branch"],
+    commandArgs: ["pr", "merge", ...(method === "default" ? [] : [`--${method}`]), "--delete-branch"],
     cwd: args.cwd,
   });
+  invalidateCachedGhAuthOnFailure(result, args.cwd);
+  return result;
 }
 
 export async function updateScmPrBranch(args: { cwd?: string }) {
-  const authResult = await runCommandArgs({
-    command: "gh",
-    commandArgs: ["auth", "status"],
-    cwd: args.cwd,
-  });
+  const authResult = await ensureGhAuth({ cwd: args.cwd });
   if (!authResult.ok) {
     return {
       ok: false,
@@ -997,6 +913,7 @@ export async function updateScmPrBranch(args: { cwd?: string }) {
     commandArgs: ["pr", "view", "--json", "baseRefName", "-q", ".baseRefName"],
     cwd: args.cwd,
   });
+  invalidateCachedGhAuthOnFailure(baseResult, args.cwd);
   const baseBranch = baseResult.ok ? baseResult.stdout.trim() : "main";
 
   const fetchResult = await runCommandArgs({
@@ -1020,29 +937,140 @@ export async function updateScmPrBranch(args: { cwd?: string }) {
   });
 }
 
+export function buildCreatePullRequestArgs(args: {
+  title: string;
+  body?: string;
+  baseBranch?: string;
+  draft?: boolean;
+}) {
+  const commandArgs = ["pr", "create", "--title", args.title];
+
+  if (args.body) {
+    commandArgs.push("--body", args.body);
+  }
+
+  if (args.baseBranch) {
+    commandArgs.push("--base", args.baseBranch);
+  }
+
+  if (args.draft) {
+    commandArgs.push("--draft");
+  }
+
+  return commandArgs;
+}
+
+export function buildAutoMergePullRequestArgs(method: PrMergeMethod = "default") {
+  return ["pr", "merge", "--auto", ...(method === "default" ? [] : [`--${method}`]), "--delete-branch"];
+}
+
+export function classifyAutoMergeFailure(stderr: string) {
+  if (/clean status|already mergeable|already (?:been )?merged/i.test(stderr)) {
+    return "clean-status" as const;
+  }
+  if (
+    /auto.?merge (?:is )?(?:not allowed|disabled|not enabled|unsupported)|repository.*(?:does not allow|has disabled).*auto.?merge/i.test(
+      stderr,
+    )
+  ) {
+    return "unsupported" as const;
+  }
+  return "other" as const;
+}
+
+const REPO_MERGE_SETTINGS_TTL_MS = 10 * 60_000;
+const repoMergeSettingsCache = new Map<
+  string,
+  {
+    expiresAt: number;
+    settings: {
+      squashMergeAllowed: boolean;
+      mergeCommitAllowed: boolean;
+      rebaseMergeAllowed: boolean;
+      autoMergeAllowed: boolean;
+    };
+  }
+>();
+
+export async function fetchRepoMergeSettings(args: { cwd?: string }) {
+  const cacheKey = resolveCommandCwd({ cwd: args.cwd });
+  const cached = repoMergeSettingsCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { ok: true, ...cached.settings, stderr: "" };
+  }
+
+  const authResult = await ensureGhAuth({ cwd: args.cwd });
+  if (!authResult.ok) {
+    return {
+      ok: false,
+      stderr: describeGhAuthFailure(authResult),
+    };
+  }
+
+  const result = await runCommandArgs({
+    command: "gh",
+    commandArgs: ["api", "repos/{owner}/{repo}"],
+    cwd: args.cwd,
+  });
+  if (!result.ok) {
+    const detail = `${result.stderr}\n${result.stdout}`.trim();
+    if (/authentication failed|not logged into|gh auth login/i.test(detail)) {
+      invalidateGhAuthCache({ cwd: args.cwd });
+    }
+    return {
+      ok: false,
+      stderr: detail || "Failed to read repository merge settings.",
+    };
+  }
+
+  try {
+    const raw = JSON.parse(result.stdout) as Record<string, unknown>;
+    const settings = {
+      squashMergeAllowed: raw.allow_squash_merge === true,
+      mergeCommitAllowed: raw.allow_merge_commit === true,
+      rebaseMergeAllowed: raw.allow_rebase_merge === true,
+      autoMergeAllowed: raw.allow_auto_merge === true,
+    };
+    repoMergeSettingsCache.set(cacheKey, {
+      expiresAt: Date.now() + REPO_MERGE_SETTINGS_TTL_MS,
+      settings,
+    });
+    return { ok: true, ...settings, stderr: "" };
+  } catch {
+    return {
+      ok: false,
+      stderr: "GitHub returned invalid repository merge settings.",
+    };
+  }
+}
+
 export async function createScmPullRequest(args: {
   title: string;
   body?: string;
   baseBranch?: string;
   draft?: boolean;
+  autoMerge?: boolean;
+  mergeMethod?: PrMergeMethod;
   cwd?: string;
 }) {
-  const { title, body, baseBranch, draft, cwd } = args;
-  const commandArgs = ["pr", "create", "--title", title];
-
-  if (body) {
-    commandArgs.push("--body", body);
+  const { title, body, baseBranch, draft, autoMerge, mergeMethod = "default", cwd } = args;
+  const authResult = await ensureGhAuth({ cwd });
+  if (!authResult.ok) {
+    return {
+      ok: false,
+      stderr: describeGhAuthFailure(authResult),
+    };
   }
 
-  if (baseBranch) {
-    commandArgs.push("--base", baseBranch);
-  }
-
-  if (draft) {
-    commandArgs.push("--draft");
-  }
+  const commandArgs = buildCreatePullRequestArgs({
+    title,
+    body,
+    baseBranch,
+    draft,
+  });
 
   const result = await runCommandArgs({ command: "gh", commandArgs, cwd });
+  invalidateCachedGhAuthOnFailure(result, cwd);
 
   if (!result.ok) {
     const stderr = `${result.stderr}\n${result.stdout}`.trim();
@@ -1053,6 +1081,7 @@ export async function createScmPullRequest(args: {
       };
     }
     if (/authentication failed|not logged into|gh auth login/i.test(stderr)) {
+      invalidateGhAuthCache({ cwd });
       return {
         ok: false,
         stderr: "GitHub CLI is not authenticated. Run `gh auth login` first.",
@@ -1062,5 +1091,52 @@ export async function createScmPullRequest(args: {
   }
 
   const prUrl = result.stdout.trim().split("\n").pop()?.trim();
-  return { ok: true, prUrl, stderr: "" };
+  if (!autoMerge) {
+    return { ok: true, prUrl, autoMergeEnabled: false, stderr: "" };
+  }
+
+  const autoMergeResult = await runCommandArgs({
+    command: "gh",
+    commandArgs: buildAutoMergePullRequestArgs(mergeMethod),
+    cwd,
+  });
+  invalidateCachedGhAuthOnFailure(autoMergeResult, cwd);
+  if (!autoMergeResult.ok) {
+    const autoMergeStderr = `${autoMergeResult.stderr}\n${autoMergeResult.stdout}`.trim();
+    const failure = classifyAutoMergeFailure(autoMergeStderr);
+    if (failure === "clean-status") {
+      const mergeResult = await runCommandArgs({
+        command: "gh",
+        commandArgs: ["pr", "merge", ...(mergeMethod === "default" ? [] : [`--${mergeMethod}`]), "--delete-branch"],
+        cwd,
+      });
+      invalidateCachedGhAuthOnFailure(mergeResult, cwd);
+      if (mergeResult.ok) {
+        return {
+          ok: true,
+          prUrl,
+          autoMergeEnabled: false,
+          merged: true,
+          stderr: "",
+        };
+      }
+    }
+    if (failure === "unsupported") {
+      return {
+        ok: true,
+        prUrl,
+        autoMergeEnabled: false,
+        autoMergeUnsupported: true,
+        stderr: "",
+      };
+    }
+    return {
+      ok: true,
+      prUrl,
+      autoMergeEnabled: false,
+      stderr: `Pull request created, but auto-merge could not be enabled: ${autoMergeStderr || "gh pr merge failed."}`,
+    };
+  }
+
+  return { ok: true, prUrl, autoMergeEnabled: true, stderr: "" };
 }

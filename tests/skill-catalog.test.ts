@@ -8,6 +8,7 @@ import {
   buildCodexPromptFromConversation,
 } from "@/lib/providers/provider-request-translators";
 import {
+  filterSkillEntries,
   getActiveSkillTokenMatch,
   getCompatibleSkillEntries,
   replaceSkillToken,
@@ -203,6 +204,42 @@ describe("provider skill compatibility", () => {
 });
 
 describe("skill token resolution", () => {
+  test("ranks an exact slug ahead of broader matches regardless of scope", () => {
+    const skills: SkillCatalogEntry[] = [
+      createCatalogSkill({
+        id: "local:shared:stave-release",
+        slug: "stave-release",
+        scope: "local",
+        provider: "shared",
+        description: "Ship the current changes as a versioned release.",
+      }),
+      createCatalogSkill({
+        id: "user:shared:ship",
+        slug: "ship",
+        scope: "user",
+        provider: "shared",
+      }),
+      createCatalogSkill({
+        id: "global:shared:ship-helper",
+        slug: "ship-helper",
+        scope: "global",
+        provider: "shared",
+      }),
+    ];
+
+    const matches = filterSkillEntries({
+      skills,
+      providerId: "codex",
+      query: "SHIP",
+    });
+
+    expect(matches.map((skill) => skill.slug)).toEqual([
+      "ship",
+      "stave-release",
+      "ship-helper",
+    ]);
+  });
+
   test("prefers local skills over broader scopes and strips resolved tokens", () => {
     const skills: SkillCatalogEntry[] = [
       createCatalogSkill({ id: "global:shared:fixer", slug: "fixer", scope: "global", provider: "shared" }),
