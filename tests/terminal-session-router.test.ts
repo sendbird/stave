@@ -49,7 +49,7 @@ describe("terminal session router", () => {
     expect(events).toEqual(["output:alphabeta"]);
   });
 
-  test("acknowledges buffered output after late subscribers parse it", async () => {
+  test("acknowledges buffered output after each late subscriber parses it", async () => {
     const router = new TerminalSessionRouter();
     let acknowledgements = 0;
     router.publishOutput("session-1", "buffered", () => {

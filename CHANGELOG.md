@@ -1,3 +1,21 @@
+## [0.10.6](https://github.com/sendbird/stave/compare/v0.10.5...v0.10.6) (2026-07-16)
+
+### Features
+
+* Add manual “Send now” dispatch for queued chat turns while idle or after a stalled turn, preserving composer drafts and preventing duplicate sends.
+* Improve Fleet View triage with clickable task rows, filters, collapsible sections, keyboard navigation, and loaded-workspace attention status.
+* Harden terminal and provider session reliability with bounded output flow control, PTY acknowledgements, bounded transcripts, restart snapshots, OSC 133 status, persistence hydration, and Codex checkpoint provenance.
+
+### Bug Fixes
+
+* Prevent concurrent in-app update helpers and archived worktree revival by coordinating installation locks, managed symlink cleanup, and archive tombstone reconciliation.
+* Make Create PR safer with change-aware file selection, batch staging, repository merge-method settings, cached GitHub authentication, and retained PR URLs when auto-merge setup fails.
+* Make skill autocomplete rank exact slugs first, including immediate Enter/Tab selection, and document that behavior.
+* Make CI deterministic with isolated Bun test execution and reliability checks that prevent process-global mock leakage and catch structural regressions.
+
+### References
+
+* [#149](https://github.com/sendbird/stave/pull/149), [#150](https://github.com/sendbird/stave/pull/150), [#151](https://github.com/sendbird/stave/pull/151), [#152](https://github.com/sendbird/stave/pull/152), [#153](https://github.com/sendbird/stave/pull/153), [#154](https://github.com/sendbird/stave/pull/154), [#155](https://github.com/sendbird/stave/pull/155), [#156](https://github.com/sendbird/stave/pull/156)
 ## [0.10.5](https://github.com/sendbird/stave/compare/v0.10.4...v0.10.5) (2026-07-13)
 
 ### Bug Fixes
