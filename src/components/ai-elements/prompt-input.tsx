@@ -251,6 +251,12 @@ interface PromptInputProps {
   onRemovePromptBatchItem?: (args: { itemId: string }) => void;
   onUpdateQueuedTurn?: (args: { itemId: string; content: string }) => void;
   onRemoveQueuedTurn?: (args: { itemId: string }) => void;
+  /**
+   * Dispatch one queued turn immediately. Only offered while the composer is
+   * in plain "send" mode (idle or stalled turn) — during an active turn the
+   * queue drains automatically on completion instead.
+   */
+  onSendQueuedTurn?: (args: { itemId: string }) => void;
   onClearQueuedNextTurn?: () => void;
   onAbort?: () => void;
 }
@@ -596,6 +602,7 @@ export function PromptInput(args: PromptInputProps) {
     onRemovePromptBatchItem,
     onUpdateQueuedTurn,
     onRemoveQueuedTurn,
+    onSendQueuedTurn,
     onClearQueuedNextTurn,
     onAbort,
   } = args;
@@ -755,6 +762,14 @@ export function PromptInput(args: PromptInputProps) {
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
   const isQueueNextMode = submitMode === "queue-next";
   const isSteerOrQueueMode = submitMode === "steer-or-queue";
+  // Manual queued-turn dispatch is only offered in plain "send" mode (no live
+  // turn, or a stalled one about to be replaced) and only for store-backed
+  // queue items — the legacy single-item fallback has no dispatchable id.
+  const canSendQueuedTurnNow =
+    Boolean(onSendQueuedTurn) &&
+    submitMode === "send" &&
+    !interactionsDisabled &&
+    queuedTurns.length > 0;
   const modifierLabel = useMemo(
     () =>
       typeof navigator !== "undefined" &&
@@ -1765,7 +1780,9 @@ export function PromptInput(args: PromptInputProps) {
                   {visibleQueuedTurns.length === 1 ? "" : "s"}
                   {isTurnActive
                     ? " · next sends automatically when the current response finishes"
-                    : ""}
+                    : canSendQueuedTurnNow
+                      ? " · send one now, or it sends after your next message finishes"
+                      : ""}
                 </span>
                 {queuedFileCount > 0 ? (
                   <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
@@ -1874,6 +1891,20 @@ export function PromptInput(args: PromptInputProps) {
                             ) : null}
                           </div>
                           <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                            {canSendQueuedTurnNow ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground hover:text-primary"
+                                aria-label={`Send queued prompt ${index + 1} now`}
+                                onClick={() =>
+                                  onSendQueuedTurn?.({ itemId: item.id })
+                                }
+                              >
+                                <Send className="size-3.5" />
+                              </Button>
+                            ) : null}
                             <Button
                               type="button"
                               variant="ghost"

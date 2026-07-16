@@ -3320,6 +3320,177 @@ describe("workspace store hydration ordering", () => {
     ).toEqual(["user", "assistant", "user", "assistant"]);
   });
 
+  test("manually dispatches a queued turn by id after an interrupt without touching the composer draft", async () => {
+    const localStorage = createMemoryStorage();
+    const startedPrompts: string[] = [];
+    let streamListener:
+      | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
+      | null = null;
+
+    (globalThis as { window: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async (args: { prompt?: string }) => {
+            const sequence = startedPrompts.length + 1;
+            startedPrompts.push(args.prompt ?? "");
+            return {
+              ok: true,
+              streamId: `stream-${sequence}`,
+              turnId: `turn-${sequence}`,
+            };
+          },
+          subscribeStreamEvents: (listener: typeof streamListener) => {
+            streamListener = listener;
+            return () => {
+              if (streamListener === listener) {
+                streamListener = null;
+              }
+            };
+          },
+          abortTurn: async () => ({ ok: true, message: "aborted" }),
+          cleanupTask: async () => ({ ok: true }),
+        },
+        fs: {
+          readFile: async () => ({
+            ok: false,
+            content: "",
+            revision: "",
+            stderr: "not found",
+          }),
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-04-09T00:00:00.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      projectPath: "/tmp/stave-project",
+      workspacePathById: {
+        "ws-main": "/tmp/stave-project",
+      },
+      workspaceBranchById: {
+        "ws-main": "main",
+      },
+      workspaceDefaultById: {
+        "ws-main": true,
+      },
+      draftProvider: "codex",
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "codex",
+          updatedAt: "2026-04-09T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-main": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+    });
+
+    const started = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "First prompt",
+    });
+    expect(started.status).toBe("started");
+
+    await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Second prompt",
+    });
+    await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Third prompt",
+    });
+
+    const queuedTurns =
+      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns ?? [];
+    expect(queuedTurns.map((item) => item.content)).toEqual([
+      "Second prompt",
+      "Third prompt",
+    ]);
+
+    // Interrupt the live turn. The runtime's late "done" is dropped as a
+    // late event for an inactive turn, so the queue must NOT auto-dispatch.
+    useAppStore.getState().abortTaskTurn({ taskId: "task-main" });
+    streamListener?.({
+      streamId: "stream-1",
+      event: { type: "done" },
+      done: true,
+    });
+    await Bun.sleep(25);
+
+    expect(startedPrompts).toEqual(["First prompt"]);
+    expect(
+      useAppStore.getState().activeTurnIdsByTask["task-main"],
+    ).toBeUndefined();
+
+    // Simulate composer text typed after the interrupt — a manual queued
+    // dispatch must leave it alone.
+    useAppStore.getState().updatePromptDraft({
+      taskId: "task-main",
+      patch: { text: "Composer draft in progress" },
+    });
+
+    // Unknown ids are rejected without side effects.
+    const unknown = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Second prompt",
+      queuedTurnId: "missing-id",
+    });
+    expect(unknown).toEqual({ status: "blocked" });
+
+    const dispatched = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: queuedTurns[0]!.content,
+      queuedTurnId: queuedTurns[0]!.id,
+    });
+
+    expect(dispatched).toMatchObject({
+      status: "started",
+      taskId: "task-main",
+      workspaceId: "ws-main",
+    });
+    expect(startedPrompts).toEqual(["First prompt", "Second prompt"]);
+
+    const draftAfterDispatch =
+      useAppStore.getState().promptDraftByTask["task-main"];
+    expect(draftAfterDispatch?.text).toBe("Composer draft in progress");
+    expect(draftAfterDispatch?.queuedTurns?.map((item) => item.content)).toEqual(
+      ["Third prompt"],
+    );
+
+    // With the dispatched turn now live, manual dispatch is blocked so the
+    // remaining item cannot double-send; it stays queued for auto-dispatch.
+    const blockedWhileActive = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Third prompt",
+      queuedTurnId: draftAfterDispatch?.queuedTurns?.[0]?.id ?? "",
+    });
+    expect(blockedWhileActive).toEqual({ status: "blocked" });
+    expect(
+      useAppStore
+        .getState()
+        .promptDraftByTask["task-main"]?.queuedTurns?.map(
+          (item) => item.content,
+        ),
+    ).toEqual(["Third prompt"]);
+  });
+
   test("submitIntent explicitly chooses steer vs queue during an active turn, with no auto fallback between them", async () => {
     const localStorage = createMemoryStorage();
     const startedPrompts: string[] = [];

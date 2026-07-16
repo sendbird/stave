@@ -301,6 +301,95 @@ describe("PromptInput queue mode", () => {
     expect(html).not.toContain('aria-label="Stop responding"');
   });
 
+  test("offers a send-now action on queued turns when no turn is active", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "",
+          isTurnActive: false,
+          submitMode: "send" as const,
+          queuedTurns: [
+            {
+              id: "queue-1",
+              queuedAt: "2026-04-09T00:00:00.000Z",
+              sourceTurnId: "turn-1",
+              content: "Follow up after the interrupt",
+              attachedFilePaths: [],
+              attachments: [],
+            },
+          ],
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          attachments: [],
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onSubmit: () => {},
+          onClearQueuedNextTurn: () => {},
+          onSendQueuedTurn: () => {},
+        }),
+      ),
+    );
+
+    expect(html).toContain('aria-label="Send queued prompt 1 now"');
+    expect(html).toContain(
+      "send one now, or it sends after your next message finishes",
+    );
+  });
+
+  test("hides the send-now action on queued turns while a turn is active", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "",
+          isTurnActive: true,
+          submitMode: "queue-next" as const,
+          queuedTurns: [
+            {
+              id: "queue-1",
+              queuedAt: "2026-04-09T00:00:00.000Z",
+              sourceTurnId: "turn-1",
+              content: "Follow up after this finishes",
+              attachedFilePaths: [],
+              attachments: [],
+            },
+          ],
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          attachments: [],
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onSubmit: () => {},
+          onClearQueuedNextTurn: () => {},
+          onSendQueuedTurn: () => {},
+          onAbort: () => {},
+        }),
+      ),
+    );
+
+    expect(html).not.toContain('aria-label="Send queued prompt 1 now"');
+    expect(html).toContain(
+      "next sends automatically when the current response finishes",
+    );
+  });
+
   test("shows Stop instead of Send when a turn is active and the draft is empty", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
