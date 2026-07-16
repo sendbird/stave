@@ -38,8 +38,8 @@ Important behavior:
 
 - Typing `$` near the current caret position opens the skill palette in `PromptInput`.
 - The visible draft stays inline as `$skill-name`.
-- `Tab` inserts the highlighted skill token.
-- `Enter` still sends unless the user explicitly selected or highlighted a matching skill entry.
+- Exact slug matches rank ahead of broader name or description matches, regardless of scope ordering.
+- `Enter` or `Tab` inserts the highlighted skill token; without explicit navigation, the first ranked match is used.
 - The Settings dialog shows the detected roots and a sampled catalog for the current workspace.
 - The Settings dialog can override the shared global skill root without editing shell environment variables.
 
