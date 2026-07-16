@@ -89,16 +89,24 @@ export function filterSkillEntries(args: {
     return effectiveSkills;
   }
 
-  return effectiveSkills.filter((skill) => {
-    const haystacks = [
-      skill.slug,
-      skill.name,
-      skill.description,
-      skill.scope,
-      skill.provider,
-    ];
-    return haystacks.some((value) => value.toLowerCase().includes(normalizedQuery));
-  });
+  return effectiveSkills
+    .filter((skill) => {
+      const haystacks = [
+        skill.slug,
+        skill.name,
+        skill.description,
+        skill.scope,
+        skill.provider,
+      ];
+      return haystacks.some((value) =>
+        value.toLowerCase().includes(normalizedQuery),
+      );
+    })
+    .sort((left, right) => {
+      const leftIsExact = left.slug.toLowerCase() === normalizedQuery;
+      const rightIsExact = right.slug.toLowerCase() === normalizedQuery;
+      return Number(rightIsExact) - Number(leftIsExact);
+    });
 }
 
 export function getActiveSkillTokenMatch(args: {
