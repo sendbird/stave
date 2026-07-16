@@ -27,7 +27,7 @@ export function ExternalAnchor({ className, href, onClick, ...props }: ExternalA
       href={normalizedHref}
       target="_blank"
       rel="noreferrer"
-      className={cn("text-primary underline underline-offset-2", className)}
+      className={cn("text-primary underline underline-offset-2 break-words [overflow-wrap:anywhere]", className)}
       onClick={(event) => {
         void handleClick(event);
       }}
