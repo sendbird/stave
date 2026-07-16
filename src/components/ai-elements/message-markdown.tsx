@@ -281,7 +281,7 @@ export function MarkdownMessage({
 
       return (
         <code
-          className="mx-0.5 rounded-md border border-border/80 bg-muted/40 px-1.5 py-0.5 font-mono"
+          className="mx-0.5 rounded-md border border-border/80 bg-muted/40 px-1.5 py-0.5 font-mono break-words [overflow-wrap:anywhere]"
           style={{ fontSize: `${messageCodeFontSizeRef.current}px` }}
         >
           {children}
