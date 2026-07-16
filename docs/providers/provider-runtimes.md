@@ -207,15 +207,19 @@ Codex plan mode:
 - Saved plan files can be previewed, edited, opened in the editor, and sent to
   the active task as file context directly from the Information panel.
 
-Codex checkpoint support:
+Codex checkpoint and compaction support:
 
-- The App Server path does not expose a Claude-style compaction event. Stave
-  records a lightweight checkpoint boundary immediately before each normal
-  Codex turn, including the current Git `HEAD` when the working directory is a
-  repository.
-- The boundary is a conversation provenance marker, not a restore operation;
-  Stave does not claim that Codex can restore the App Server thread to that
-  checkpoint.
+- The App Server path does not emit the same `compact_boundary` notification as
+  Claude. Stave records a lightweight checkpoint boundary immediately before
+  each normal Codex turn, including the current Git `HEAD` when the working
+  directory is a repository.
+- Typing `/compact` in a Codex chat is intercepted before `turn/start` and
+  forwarded to the App Server's `thread/compact/start` RPC. Stave then emits a
+  manual compact-boundary event and keeps the same thread available for the
+  next turn with its server-side summarized history.
+- These boundaries are conversation provenance markers, not restore
+  operations; Stave does not claim that Codex can restore the App Server
+  thread to a checkpoint.
 
 Codex-specific runtime controls come from the UI and runtime options:
 

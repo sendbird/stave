@@ -9,10 +9,12 @@ import {
   createCodexAppServerElicitationPauseController,
   formatCodexAppServerErrorMessage,
   formatCodexGoal,
+  isCodexCompactSlashCommand,
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
   parseCodexGoalSlashCommand,
   resolveCodexChatgptAuthTokensRefreshResponse,
+  runCodexCompactSlashCommand,
   runCodexGoalSlashCommand,
   summarizeCodexAppServerDebugMessage,
   toCodexConfigLayerDisplayValue,
@@ -230,6 +232,84 @@ describe("Codex /goal slash command helpers", () => {
       {
         type: "text",
         text: "No Codex goal is set for this thread.",
+      },
+      { type: "done" },
+    ]);
+  });
+});
+
+describe("Codex /compact slash command helpers", () => {
+  test("matches only the /compact command", () => {
+    expect(isCodexCompactSlashCommand("/compact")).toBe(true);
+    expect(isCodexCompactSlashCommand("  /compact  ")).toBe(true);
+    expect(isCodexCompactSlashCommand("/Compact")).toBe(true);
+    expect(isCodexCompactSlashCommand("/compact now please")).toBe(true);
+    expect(isCodexCompactSlashCommand("/compaction")).toBe(false);
+    expect(isCodexCompactSlashCommand("compact")).toBe(false);
+    expect(isCodexCompactSlashCommand("/goal compact")).toBe(false);
+  });
+
+  test("starts thread compaction through App Server", async () => {
+    const calls: Array<{ method: string; params: unknown }> = [];
+    const events = await runCodexCompactSlashCommand({
+      threadId: "thread-1",
+      input: "/compact",
+      client: {
+        async request(method, params) {
+          calls.push({ method, params });
+          return {};
+        },
+      },
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "thread/compact/start",
+        params: { threadId: "thread-1" },
+      },
+    ]);
+    expect(events).toEqual([
+      {
+        type: "system",
+        content: "Context compacted (manual).",
+        compactBoundary: { trigger: "manual" },
+      },
+      {
+        type: "text",
+        text: "Compacted the Codex conversation context. You can continue this thread with the summarized history.",
+      },
+      { type: "done" },
+    ]);
+  });
+
+  test("returns null for non-compact input", async () => {
+    const events = await runCodexCompactSlashCommand({
+      threadId: "thread-1",
+      input: "Summarize this conversation",
+      client: {
+        async request() {
+          throw new Error("should not be called");
+        },
+      },
+    });
+    expect(events).toBeNull();
+  });
+
+  test("surfaces a recoverable error when compaction fails", async () => {
+    const events = await runCodexCompactSlashCommand({
+      threadId: "thread-1",
+      input: "/compact",
+      client: {
+        async request() {
+          throw new Error("compaction unavailable");
+        },
+      },
+    });
+    expect(events).toEqual([
+      {
+        type: "error",
+        message: expect.stringContaining("compaction unavailable"),
+        recoverable: true,
       },
       { type: "done" },
     ]);
