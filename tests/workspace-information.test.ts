@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import {
+  applyDetectedWorkspaceResources,
   buildIntentGuardContextInput,
+  buildWorkspaceResourceDedupeKey,
   changeWorkspaceInfoCustomFieldType,
+  detectWorkspaceResourcesInText,
+  upsertWorkspaceResourceInState,
   createEmptyWorkspaceInformation,
   createWorkspaceAmplifyLink,
   createWorkspaceInfoCustomField,
@@ -344,4 +348,183 @@ test("createWorkspaceAmplifyLink returns an empty amplify link with a unique id"
   expect(link.label).toBe("");
   expect(link.note).toBe("");
   expect(link.id).toStartWith("amplify-");
+});
+
+// ---------------------------------------------------------------------------
+// Resource dedup keys, prompt auto-detection, and upsert
+// ---------------------------------------------------------------------------
+
+test("buildWorkspaceResourceDedupeKey collapses Jira URL variants onto the issue key", () => {
+  const base = buildWorkspaceResourceDedupeKey({
+    kind: "jira",
+    url: "https://acme.atlassian.net/browse/ABC-123",
+  });
+  expect(base).toBe("jira:key:ABC-123");
+  expect(
+    buildWorkspaceResourceDedupeKey({
+      kind: "jira",
+      url: "https://www.acme.atlassian.net/browse/ABC-123?focusedCommentId=99",
+    }),
+  ).toBe(base);
+  expect(
+    buildWorkspaceResourceDedupeKey({
+      kind: "jira",
+      url: "https://acme.atlassian.net/jira/software/projects/ABC/boards/1?selectedIssue=ABC-123",
+    }),
+  ).toBe(base);
+  expect(
+    buildWorkspaceResourceDedupeKey({
+      kind: "jira",
+      url: "https://acme.atlassian.net/browse/ABC-124",
+    }),
+  ).not.toBe(base);
+});
+
+test("buildWorkspaceResourceDedupeKey collapses PR URL variants onto owner/repo#number", () => {
+  const base = buildWorkspaceResourceDedupeKey({
+    kind: "pull_request",
+    url: "https://github.com/sendbird/stave/pull/27",
+  });
+  expect(base).toBe("pr:sendbird/stave#27");
+  expect(
+    buildWorkspaceResourceDedupeKey({
+      kind: "pull_request",
+      url: "https://www.github.com/sendbird/stave/pull/27/files",
+    }),
+  ).toBe(base);
+});
+
+test("buildWorkspaceResourceDedupeKey keys Confluence pages on page id when present", () => {
+  const base = buildWorkspaceResourceDedupeKey({
+    kind: "confluence",
+    url: "https://acme.atlassian.net/wiki/spaces/ENG/pages/123456/Some+Title",
+  });
+  expect(base).toBe("confluence:page:acme.atlassian.net:123456");
+  expect(
+    buildWorkspaceResourceDedupeKey({
+      kind: "confluence",
+      url: "https://acme.atlassian.net/wiki/spaces/ENG/pages/123456/Renamed?focusedCommentId=1",
+    }),
+  ).toBe(base);
+});
+
+test("detectWorkspaceResourcesInText finds registerable URLs in prose", () => {
+  const detected = detectWorkspaceResourcesInText(
+    [
+      "SBIS 이슈 https://acme.atlassian.net/browse/ABC-123 참고해서",
+      "PR https://github.com/sendbird/stave/pull/27 리뷰하고,",
+      "디자인은 https://www.figma.com/design/FILEKEY123/My-Design?node-id=1-2 확인.",
+      "스레드: https://acme.slack.com/archives/C0123456789/p1234567890123456",
+      "배포: https://main.d123abc456.amplifyapp.com",
+      "문서: https://acme.atlassian.net/wiki/spaces/ENG/pages/123456/Spec",
+    ].join("\n"),
+  );
+
+  expect(detected.map((item) => item.kind).sort()).toEqual(
+    ["amplify", "confluence", "figma", "jira", "pull_request", "slack"].sort(),
+  );
+  const jira = detected.find((item) => item.kind === "jira");
+  expect(jira?.issueKey).toBe("ABC-123");
+  const pr = detected.find((item) => item.kind === "pull_request");
+  expect(pr?.title).toBe("sendbird/stave#27");
+});
+
+test("detectWorkspaceResourcesInText dedupes repeats and ignores non-resource URLs", () => {
+  const detected = detectWorkspaceResourcesInText(
+    [
+      "https://acme.atlassian.net/browse/ABC-123",
+      "https://acme.atlassian.net/browse/ABC-123?focusedCommentId=1",
+      "https://example.com/some/page",
+      // Issue-key-looking branch segment must not classify as Jira.
+      "https://github.com/sendbird/stave/tree/fix/ABC-123-something",
+    ].join(" "),
+  );
+  expect(detected).toHaveLength(1);
+  expect(detected[0]?.kind).toBe("jira");
+});
+
+test("upsertWorkspaceResourceInState appends a new Jira issue", () => {
+  const current = createEmptyWorkspaceInformation();
+  const result = upsertWorkspaceResourceInState({
+    current,
+    input: {
+      kind: "jira",
+      url: "https://acme.atlassian.net/browse/ABC-123",
+    },
+  });
+  expect(result.deduplicated).toBe(false);
+  expect(result.state.jiraIssues).toHaveLength(1);
+  expect(result.state.jiraIssues[0]?.issueKey).toBe("ABC-123");
+  expect(result.state.jiraIssues[0]?.title).toBe("ABC-123");
+});
+
+test("upsertWorkspaceResourceInState merges duplicate Jira registrations", () => {
+  const first = upsertWorkspaceResourceInState({
+    current: createEmptyWorkspaceInformation(),
+    input: {
+      kind: "jira",
+      url: "https://acme.atlassian.net/browse/ABC-123",
+    },
+  });
+  const second = upsertWorkspaceResourceInState({
+    current: first.state,
+    input: {
+      kind: "jira",
+      url: "https://acme.atlassian.net/browse/ABC-123?focusedCommentId=9",
+      status: "In Progress",
+      note: "from agent",
+    },
+  });
+  expect(second.deduplicated).toBe(true);
+  expect(second.state.jiraIssues).toHaveLength(1);
+  expect(second.state.jiraIssues[0]?.id).toBe(first.state.jiraIssues[0]?.id);
+  expect(second.state.jiraIssues[0]?.status).toBe("In Progress");
+  expect(second.state.jiraIssues[0]?.note).toBe("from agent");
+});
+
+test("upsertWorkspaceResourceInState is a referential no-op for identical duplicates", () => {
+  const first = upsertWorkspaceResourceInState({
+    current: createEmptyWorkspaceInformation(),
+    input: {
+      kind: "pull_request",
+      url: "https://github.com/sendbird/stave/pull/27",
+      title: "sendbird/stave#27",
+    },
+  });
+  const second = upsertWorkspaceResourceInState({
+    current: first.state,
+    input: {
+      kind: "pull_request",
+      url: "https://github.com/sendbird/stave/pull/27/files",
+    },
+  });
+  expect(second.deduplicated).toBe(true);
+  expect(second.state).toBe(first.state);
+});
+
+test("applyDetectedWorkspaceResources folds detections and reports additions", () => {
+  const seeded = upsertWorkspaceResourceInState({
+    current: createEmptyWorkspaceInformation(),
+    input: {
+      kind: "jira",
+      url: "https://acme.atlassian.net/browse/ABC-123",
+    },
+  }).state;
+  const detected = detectWorkspaceResourcesInText(
+    "https://acme.atlassian.net/browse/ABC-123 https://github.com/sendbird/stave/pull/27",
+  );
+  const result = applyDetectedWorkspaceResources({
+    current: seeded,
+    detected,
+  });
+  expect(result.added).toHaveLength(1);
+  expect(result.state.jiraIssues).toHaveLength(1);
+  expect(result.state.linkedPullRequests).toHaveLength(1);
+
+  const repeat = applyDetectedWorkspaceResources({
+    current: result.state,
+    detected,
+  });
+  expect(repeat.added).toHaveLength(0);
+  expect(repeat.state).toBe(result.state);
 });

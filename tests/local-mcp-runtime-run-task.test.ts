@@ -82,3 +82,46 @@ describe("local MCP runtime runTask", () => {
     expect(startTurnStreamCalls).toHaveLength(1);
   });
 });
+
+describe("local MCP runtime Information panel auto-fill and dedup", () => {
+  test("runTask auto-registers resources detected in the prompt", async () => {
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt:
+        "Fix https://acme.atlassian.net/browse/ABC-123 and review https://github.com/sendbird/stave/pull/27",
+    });
+    expect(result.workspaceId).toBe(WORKSPACE_ID);
+
+    const info = await runtime.getWorkspaceInformation({
+      workspaceId: WORKSPACE_ID,
+    });
+    expect(
+      info.workspaceInformation.jiraIssues.map((issue) => issue.issueKey),
+    ).toContain("ABC-123");
+    expect(
+      info.workspaceInformation.linkedPullRequests.map((pr) => pr.url),
+    ).toContain("https://github.com/sendbird/stave/pull/27");
+  });
+
+  test("addWorkspaceJiraIssue dedupes by issue key across URL variants", async () => {
+    const first = await runtime.addWorkspaceJiraIssue({
+      workspaceId: WORKSPACE_ID,
+      url: "https://acme.atlassian.net/browse/XYZ-9",
+    });
+    expect(first.deduplicated).toBe(false);
+
+    const second = await runtime.addWorkspaceJiraIssue({
+      workspaceId: WORKSPACE_ID,
+      url: "https://acme.atlassian.net/browse/XYZ-9?focusedCommentId=1",
+      status: "In Progress",
+    });
+    expect(second.deduplicated).toBe(true);
+
+    const matches = second.workspaceInformation.jiraIssues.filter(
+      (issue) => issue.issueKey === "XYZ-9",
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.status).toBe("In Progress");
+    expect(matches[0]?.id).toBe(first.added.id);
+  });
+});

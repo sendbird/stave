@@ -797,6 +797,587 @@ export function isConfluencePageUrl(value: string) {
   return extractConfluencePageReference(value) !== null;
 }
 
+// ---------------------------------------------------------------------------
+// Workspace resource upsert + dedup + prompt auto-detection
+// ---------------------------------------------------------------------------
+
+export const WORKSPACE_RESOURCE_KINDS = [
+  "jira",
+  "pull_request",
+  "confluence",
+  "figma",
+  "storybook",
+  "slack",
+  "amplify",
+] as const;
+
+export type WorkspaceResourceKind = (typeof WORKSPACE_RESOURCE_KINDS)[number];
+
+export type WorkspaceResourceItem =
+  | WorkspaceJiraIssue
+  | WorkspaceLinkedPullRequest
+  | WorkspaceConfluencePage
+  | WorkspaceFigmaResource
+  | WorkspaceStorybookResource
+  | WorkspaceSlackThread
+  | WorkspaceAmplifyLink;
+
+export interface WorkspaceResourceInput {
+  kind: WorkspaceResourceKind;
+  url: string;
+  title?: string;
+  issueKey?: string;
+  status?: string;
+  note?: string;
+  nodeId?: string;
+  channelName?: string;
+  spaceKey?: string;
+  storybookAccessKind?: string;
+  storybookExternalRepo?: string;
+  storybookReadableVia?: string;
+  storybookSourceHint?: string;
+}
+
+function normalizeWorkspaceResourceUrlKey(value: string) {
+  const url = parseWorkspaceInfoUrl(value);
+  if (!url) {
+    return value.trim().toLowerCase().replace(/\/+$/, "");
+  }
+  const host = url.hostname.replace(/^www\./, "").toLowerCase();
+  return `${host}${url.pathname.replace(/\/+$/, "")}${url.search}`;
+}
+
+/**
+ * Canonical identity for a workspace resource, used to collapse duplicate
+ * registrations of the same underlying entity across URL variants (query
+ * params, trailing slashes, `www.` prefixes, comment anchors, …).
+ */
+export function buildWorkspaceResourceDedupeKey(args: {
+  kind: WorkspaceResourceKind;
+  url: string;
+  issueKey?: string;
+  nodeId?: string;
+}): string {
+  const url = args.url.trim();
+  switch (args.kind) {
+    case "jira": {
+      const issueKey =
+        args.issueKey?.trim() || extractJiraIssueReference(url)?.issueKey || "";
+      return issueKey
+        ? `jira:key:${issueKey.toUpperCase()}`
+        : `jira:url:${normalizeWorkspaceResourceUrlKey(url)}`;
+    }
+    case "pull_request": {
+      const reference = extractGitHubPullRequestReference(url);
+      return reference
+        ? `pr:${reference.owner.toLowerCase()}/${reference.repo.toLowerCase()}#${reference.number}`
+        : `pr:url:${normalizeWorkspaceResourceUrlKey(url)}`;
+    }
+    case "confluence": {
+      const parsed = parseWorkspaceInfoUrl(url);
+      if (parsed) {
+        const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+        // /wiki/spaces/SPACE/pages/<pageId>/<title> — the page id is the
+        // identity; the title suffix and query params vary between copies.
+        const segments = parsed.pathname.split("/").filter(Boolean);
+        const pageId = segments[segments.indexOf("pages") + 1] ?? "";
+        if (segments.includes("pages") && /^\d+$/.test(pageId)) {
+          return `confluence:page:${host}:${pageId}`;
+        }
+        return `confluence:url:${host}${parsed.pathname.replace(/\/+$/, "")}`;
+      }
+      return `confluence:url:${normalizeWorkspaceResourceUrlKey(url)}`;
+    }
+    case "figma": {
+      const reference = extractFigmaResourceReference(url);
+      const nodeId = args.nodeId?.trim() || reference?.nodeId || "";
+      return reference
+        ? `figma:${reference.fileKey}:${nodeId}`
+        : `figma:url:${normalizeWorkspaceResourceUrlKey(url)}`;
+    }
+    case "storybook": {
+      const reference = extractStorybookResourceReference(url);
+      return reference?.storyPath
+        ? `storybook:${reference.host.toLowerCase()}:${reference.storyPath}`
+        : `storybook:url:${normalizeWorkspaceResourceUrlKey(url)}`;
+    }
+    case "slack": {
+      const parsed = parseWorkspaceInfoUrl(url);
+      // The /archives/<channel>/<message> path identifies the thread; query
+      // params (thread_ts, cid) vary between copies of the same permalink.
+      return parsed
+        ? `slack:${parsed.hostname.toLowerCase()}${parsed.pathname.replace(/\/+$/, "")}`
+        : `slack:url:${normalizeWorkspaceResourceUrlKey(url)}`;
+    }
+    case "amplify": {
+      const parsed = parseWorkspaceInfoUrl(url);
+      // One deploy per `<branch>.<appId>.amplifyapp.com` host.
+      return parsed
+        ? `amplify:${parsed.hostname.toLowerCase()}`
+        : `amplify:url:${normalizeWorkspaceResourceUrlKey(url)}`;
+    }
+  }
+}
+
+export interface WorkspaceResourceUpsertResult {
+  state: WorkspaceInformationState;
+  resource: WorkspaceResourceItem;
+  deduplicated: boolean;
+}
+
+function normalizeWorkspaceLinkedPrStatusValue(
+  value?: string,
+): WorkspaceLinkedPrStatus {
+  const normalized = value?.trim();
+  return WORKSPACE_LINKED_PR_STATUSES.includes(
+    normalized as WorkspaceLinkedPrStatus,
+  )
+    ? (normalized as WorkspaceLinkedPrStatus)
+    : "planned";
+}
+
+function fillIfEmpty(currentValue: string, nextValue: string) {
+  return currentValue.trim() ? currentValue : nextValue;
+}
+
+function isUnchangedShallow<T extends object>(current: T, next: T) {
+  return Object.keys(next).every(
+    (key) => current[key as keyof T] === next[key as keyof T],
+  );
+}
+
+function upsertWorkspaceResourceList<T extends { id: string; url: string }>(args: {
+  items: T[];
+  dedupeKeyOf: (item: T) => string;
+  dedupeKey: string;
+  merge: (existing: T) => T;
+  create: () => T;
+}): { items: T[]; resource: T; deduplicated: boolean; changed: boolean } {
+  const existingIndex = args.items.findIndex(
+    (item) => args.dedupeKeyOf(item) === args.dedupeKey,
+  );
+  if (existingIndex >= 0) {
+    const existing = args.items[existingIndex] as T;
+    const merged = args.merge(existing);
+    if (isUnchangedShallow(existing, merged)) {
+      return {
+        items: args.items,
+        resource: existing,
+        deduplicated: true,
+        changed: false,
+      };
+    }
+    return {
+      items: args.items.map((item, index) =>
+        index === existingIndex ? merged : item,
+      ),
+      resource: merged,
+      deduplicated: true,
+      changed: true,
+    };
+  }
+  const created = args.create();
+  return {
+    items: [...args.items, created],
+    resource: created,
+    deduplicated: false,
+    changed: true,
+  };
+}
+
+/**
+ * Append a resource to the Information panel state, or merge it into an
+ * existing entry when the canonical identity already exists. Returns the
+ * unchanged `current` reference when the upsert is a no-op.
+ */
+export function upsertWorkspaceResourceInState(args: {
+  current: WorkspaceInformationState;
+  input: WorkspaceResourceInput;
+}): WorkspaceResourceUpsertResult {
+  const { current, input } = args;
+  const url = input.url.trim();
+  const title = input.title?.trim() ?? "";
+  const note = input.note?.trim() ?? "";
+  const dedupeKey = buildWorkspaceResourceDedupeKey({
+    kind: input.kind,
+    url,
+    issueKey: input.issueKey,
+    nodeId: input.nodeId,
+  });
+
+  switch (input.kind) {
+    case "jira": {
+      const issueKey =
+        input.issueKey?.trim() || extractJiraIssueReference(url)?.issueKey || "";
+      const status = input.status?.trim() ?? "";
+      const result = upsertWorkspaceResourceList({
+        items: current.jiraIssues,
+        dedupeKey,
+        dedupeKeyOf: (item) =>
+          buildWorkspaceResourceDedupeKey({
+            kind: "jira",
+            url: item.url,
+            issueKey: item.issueKey,
+          }),
+        merge: (existing) => ({
+          ...existing,
+          issueKey: fillIfEmpty(existing.issueKey, issueKey),
+          title: fillIfEmpty(existing.title, title),
+          status: status || existing.status,
+          note: fillIfEmpty(existing.note, note),
+        }),
+        create: () => {
+          const nextLink = createWorkspaceJiraIssue();
+          nextLink.issueKey = issueKey;
+          nextLink.title = title || issueKey || url;
+          nextLink.url = url;
+          nextLink.status = status;
+          nextLink.note = note;
+          return nextLink;
+        },
+      });
+      return {
+        state: result.changed
+          ? { ...current, jiraIssues: result.items }
+          : current,
+        resource: result.resource,
+        deduplicated: result.deduplicated,
+      };
+    }
+    case "pull_request": {
+      const result = upsertWorkspaceResourceList({
+        items: current.linkedPullRequests,
+        dedupeKey,
+        dedupeKeyOf: (item) =>
+          buildWorkspaceResourceDedupeKey({
+            kind: "pull_request",
+            url: item.url,
+          }),
+        merge: (existing) => ({
+          ...existing,
+          title: fillIfEmpty(existing.title, title),
+          status: input.status?.trim()
+            ? normalizeWorkspaceLinkedPrStatusValue(input.status)
+            : existing.status,
+          note: fillIfEmpty(existing.note, note),
+        }),
+        create: () => {
+          const nextLink = createWorkspaceLinkedPullRequest();
+          nextLink.title = title || url;
+          nextLink.url = url;
+          nextLink.status = normalizeWorkspaceLinkedPrStatusValue(input.status);
+          nextLink.note = note;
+          return nextLink;
+        },
+      });
+      return {
+        state: result.changed
+          ? { ...current, linkedPullRequests: result.items }
+          : current,
+        resource: result.resource,
+        deduplicated: result.deduplicated,
+      };
+    }
+    case "confluence": {
+      const spaceKey = input.spaceKey?.trim() ?? "";
+      const result = upsertWorkspaceResourceList({
+        items: current.confluencePages,
+        dedupeKey,
+        dedupeKeyOf: (item) =>
+          buildWorkspaceResourceDedupeKey({
+            kind: "confluence",
+            url: item.url,
+          }),
+        merge: (existing) => ({
+          ...existing,
+          title: fillIfEmpty(existing.title, title),
+          spaceKey: fillIfEmpty(existing.spaceKey, spaceKey),
+          note: fillIfEmpty(existing.note, note),
+        }),
+        create: () => {
+          const nextLink = createWorkspaceConfluencePage();
+          nextLink.title = title || url;
+          nextLink.url = url;
+          nextLink.spaceKey = spaceKey;
+          nextLink.note = note;
+          return nextLink;
+        },
+      });
+      return {
+        state: result.changed
+          ? { ...current, confluencePages: result.items }
+          : current,
+        resource: result.resource,
+        deduplicated: result.deduplicated,
+      };
+    }
+    case "figma": {
+      const nodeId = input.nodeId?.trim() ?? "";
+      const result = upsertWorkspaceResourceList({
+        items: current.figmaResources,
+        dedupeKey,
+        dedupeKeyOf: (item) =>
+          buildWorkspaceResourceDedupeKey({
+            kind: "figma",
+            url: item.url,
+            nodeId: item.nodeId,
+          }),
+        merge: (existing) => ({
+          ...existing,
+          title: fillIfEmpty(existing.title, title),
+          nodeId: fillIfEmpty(existing.nodeId, nodeId),
+          note: fillIfEmpty(existing.note, note),
+        }),
+        create: () => {
+          const nextLink = createWorkspaceFigmaResource();
+          nextLink.title = title || url;
+          nextLink.url = url;
+          nextLink.nodeId = nodeId;
+          nextLink.note = note;
+          return nextLink;
+        },
+      });
+      return {
+        state: result.changed
+          ? { ...current, figmaResources: result.items }
+          : current,
+        resource: result.resource,
+        deduplicated: result.deduplicated,
+      };
+    }
+    case "storybook": {
+      const access = resolveStorybookResourceAccess({
+        url,
+        accessKind: input.storybookAccessKind,
+        externalRepo: input.storybookExternalRepo,
+        readableVia: input.storybookReadableVia,
+        sourceHint: input.storybookSourceHint,
+      });
+      const result = upsertWorkspaceResourceList({
+        items: current.storybookResources ?? [],
+        dedupeKey,
+        dedupeKeyOf: (item) =>
+          buildWorkspaceResourceDedupeKey({
+            kind: "storybook",
+            url: item.url,
+          }),
+        merge: (existing) => ({
+          ...existing,
+          title: fillIfEmpty(existing.title, title),
+          note: fillIfEmpty(existing.note, note),
+          access: existing.access ?? access,
+        }),
+        create: () => {
+          const nextLink = createWorkspaceStorybookResource();
+          nextLink.title = title || url;
+          nextLink.url = url;
+          nextLink.note = note;
+          nextLink.access = access;
+          return nextLink;
+        },
+      });
+      return {
+        state: result.changed
+          ? { ...current, storybookResources: result.items }
+          : current,
+        resource: result.resource,
+        deduplicated: result.deduplicated,
+      };
+    }
+    case "slack": {
+      const channelName = input.channelName?.trim() ?? "";
+      const result = upsertWorkspaceResourceList({
+        items: current.slackThreads,
+        dedupeKey,
+        dedupeKeyOf: (item) =>
+          buildWorkspaceResourceDedupeKey({
+            kind: "slack",
+            url: item.url,
+          }),
+        merge: (existing) => ({
+          ...existing,
+          channelName: fillIfEmpty(existing.channelName, channelName),
+          note: fillIfEmpty(existing.note, note),
+        }),
+        create: () => {
+          const nextLink = createWorkspaceSlackThread();
+          nextLink.url = url;
+          nextLink.channelName = channelName;
+          nextLink.note = note;
+          return nextLink;
+        },
+      });
+      return {
+        state: result.changed
+          ? { ...current, slackThreads: result.items }
+          : current,
+        resource: result.resource,
+        deduplicated: result.deduplicated,
+      };
+    }
+    case "amplify": {
+      const label = title || extractAmplifyLinkReference(url)?.branch || "";
+      const result = upsertWorkspaceResourceList({
+        items: current.amplifyLinks ?? [],
+        dedupeKey,
+        dedupeKeyOf: (item) =>
+          buildWorkspaceResourceDedupeKey({
+            kind: "amplify",
+            url: item.url,
+          }),
+        merge: (existing) => ({
+          ...existing,
+          label: fillIfEmpty(existing.label, label),
+          note: fillIfEmpty(existing.note, note),
+        }),
+        create: () => {
+          const nextLink = createWorkspaceAmplifyLink();
+          nextLink.url = url;
+          nextLink.label = label;
+          nextLink.note = note;
+          return nextLink;
+        },
+      });
+      return {
+        state: result.changed
+          ? { ...current, amplifyLinks: result.items }
+          : current,
+        resource: result.resource,
+        deduplicated: result.deduplicated,
+      };
+    }
+  }
+}
+
+export interface DetectedWorkspaceResource {
+  kind: WorkspaceResourceKind;
+  url: string;
+  title?: string;
+  issueKey?: string;
+  nodeId?: string;
+  spaceKey?: string;
+  channelName?: string;
+}
+
+const WORKSPACE_RESOURCE_URL_PATTERN = /https?:\/\/[^\s<>"'`\])}]+/g;
+
+function classifyWorkspaceResourceUrl(
+  url: string,
+): DetectedWorkspaceResource | null {
+  const parsed = parseWorkspaceInfoUrl(url);
+  if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) {
+    return null;
+  }
+  const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+
+  const prReference = extractGitHubPullRequestReference(url);
+  if (prReference) {
+    return {
+      kind: "pull_request",
+      url,
+      title: `${prReference.owner}/${prReference.repo}#${prReference.number}`,
+    };
+  }
+  const slackReference = extractSlackThreadReference(url);
+  if (slackReference) {
+    return { kind: "slack", url, channelName: slackReference.channelId };
+  }
+  const amplifyReference = extractAmplifyLinkReference(url);
+  if (amplifyReference) {
+    return { kind: "amplify", url, title: amplifyReference.branch };
+  }
+  const figmaReference = extractFigmaResourceReference(url);
+  if (figmaReference) {
+    return {
+      kind: "figma",
+      url,
+      title: figmaReference.title || figmaReference.fileKey,
+      nodeId: figmaReference.nodeId ?? "",
+    };
+  }
+  const confluenceReference = extractConfluencePageReference(url);
+  if (confluenceReference) {
+    return {
+      kind: "confluence",
+      url,
+      title: confluenceReference.title,
+      spaceKey: confluenceReference.spaceKey,
+    };
+  }
+  // Restrict Jira detection to Jira-looking hosts — the issue-key pattern
+  // alone would false-positive on branch names in arbitrary URLs.
+  if (host.endsWith("atlassian.net") || host.includes("jira")) {
+    const jiraReference = extractJiraIssueReference(url);
+    if (jiraReference) {
+      return {
+        kind: "jira",
+        url,
+        issueKey: jiraReference.issueKey,
+        title: jiraReference.issueKey,
+      };
+    }
+  }
+  const storybookReference = extractStorybookResourceReference(url);
+  if (
+    storybookReference?.storyPath &&
+    /^\/?(story|docs)\//.test(storybookReference.storyPath)
+  ) {
+    return { kind: "storybook", url, title: storybookReference.title };
+  }
+  return null;
+}
+
+/**
+ * Scan free text (typically a user prompt) for URLs that can be registered in
+ * the workspace Information panel. Results are deduplicated by canonical
+ * identity within the scanned text.
+ */
+export function detectWorkspaceResourcesInText(
+  text: string,
+): DetectedWorkspaceResource[] {
+  const results: DetectedWorkspaceResource[] = [];
+  const seen = new Set<string>();
+  for (const match of text.matchAll(WORKSPACE_RESOURCE_URL_PATTERN)) {
+    const url = match[0].replace(/[.,;:!?…]+$/, "");
+    const detected = classifyWorkspaceResourceUrl(url);
+    if (!detected) {
+      continue;
+    }
+    const key = buildWorkspaceResourceDedupeKey({
+      kind: detected.kind,
+      url: detected.url,
+      issueKey: detected.issueKey,
+      nodeId: detected.nodeId,
+    });
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    results.push(detected);
+  }
+  return results;
+}
+
+/**
+ * Fold detected resources into the Information panel state. Returns the
+ * unchanged `current` reference when every detection is already registered.
+ */
+export function applyDetectedWorkspaceResources(args: {
+  current: WorkspaceInformationState;
+  detected: DetectedWorkspaceResource[];
+}): { state: WorkspaceInformationState; added: WorkspaceResourceItem[] } {
+  let state = args.current;
+  const added: WorkspaceResourceItem[] = [];
+  for (const input of args.detected) {
+    const result = upsertWorkspaceResourceInState({ current: state, input });
+    if (!result.deduplicated) {
+      added.push(result.resource);
+    }
+    state = result.state;
+  }
+  return { state, added };
+}
+
 export const WORKSPACE_INFO_FIELD_TYPE_LABELS: Record<
   WorkspaceInfoFieldType,
   string

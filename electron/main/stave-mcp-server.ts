@@ -588,7 +588,7 @@ function createToolServer() {
     "stave_add_workspace_resource",
     {
       description:
-        "Add a Jira issue, PR, Confluence page, Storybook resource, Slack thread, or Figma resource to the workspace Information panel.",
+        "Add a Jira issue, PR, Confluence page, Storybook resource, Slack thread, or Figma resource to the workspace Information panel. Idempotent: a resource already registered under the same canonical identity (e.g. Jira issue key, PR number, normalized URL) is merged into the existing entry (the result sets `deduplicated: true`).",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         kind: z
@@ -771,7 +771,7 @@ function createToolServer() {
     "stave_add_workspace_jira_issue",
     {
       description:
-        "Register a Jira issue in the Stave Workspace Information panel.",
+        "Register a Jira issue in the Stave Workspace Information panel. Idempotent: an issue already registered under the same issue key is merged into the existing entry (the result sets `deduplicated: true`).",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         url: z.string().min(1).describe("Jira issue URL."),

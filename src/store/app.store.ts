@@ -195,6 +195,7 @@ import {
 } from "@/lib/providers/turn-status";
 import { resolveWorkspaceRelativeFilePath } from "@/lib/workspace-file-path";
 import {
+  applyDetectedWorkspaceResources,
   buildIntentGuardContextInput,
   createEmptyWorkspaceInformation,
   createWorkspaceConfluencePage,
@@ -204,6 +205,7 @@ import {
   createWorkspaceLinkedPullRequest,
   createWorkspaceSlackThread,
   createWorkspaceTodoItem,
+  detectWorkspaceResourcesInText,
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import {
@@ -11328,8 +11330,42 @@ export const useAppStore = create<AppState>()(
                 (workspace) => workspace.id === taskWorkspaceId,
               ) ?? null;
             const taskWorkspaceTasks = latestWorkspaceSession.tasks;
-            const taskWorkspaceInformation =
+            let taskWorkspaceInformation =
               latestWorkspaceSession.workspaceInformation;
+
+            // ── Information panel auto-fill ───────────────────────────────────────
+            // Detect registerable resources (Jira/PR/Confluence/Figma/Slack/
+            // Storybook/Amplify URLs) in the submitted prompt and register them
+            // before the turn context is built, so this turn's injected context
+            // already includes them. Dedup is keyed on canonical identity (e.g.
+            // Jira issue key), not the raw URL, so re-sent links are no-ops.
+            {
+              const detectedPromptResources =
+                detectWorkspaceResourcesInText(promptContent);
+              if (detectedPromptResources.length > 0) {
+                const autofill = applyDetectedWorkspaceResources({
+                  current: taskWorkspaceInformation,
+                  detected: detectedPromptResources,
+                });
+                if (autofill.state !== taskWorkspaceInformation) {
+                  taskWorkspaceInformation = autofill.state;
+                  get().applyExternalWorkspaceInformationUpdate({
+                    workspaceId: taskWorkspaceId,
+                    workspaceInformation: autofill.state,
+                  });
+                  const sessionForPersist = getWorkspaceSessionForState({
+                    state: get(),
+                    workspaceId: taskWorkspaceId,
+                  });
+                  if (sessionForPersist) {
+                    persistWorkspaceSessionInBackground({
+                      workspaceId: taskWorkspaceId,
+                      session: sessionForPersist,
+                    });
+                  }
+                }
+              }
+            }
 
             // ── Repo-map context injection ─────────────────────────────────────────
             // On the first turn of a task, inject the pre-generated repo-map summary
