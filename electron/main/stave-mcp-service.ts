@@ -126,6 +126,8 @@ export async function addWorkspaceResource(args: {
 }) {
   return invokeLocalMcp<{
     workspaceId: string;
+    resource: import("../../src/lib/workspace-information").WorkspaceResourceItem;
+    deduplicated: boolean;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("add-workspace-resource", args);
 }
@@ -187,6 +189,8 @@ export async function addWorkspaceJiraIssue(args: {
 }) {
   return invokeLocalMcp<{
     workspaceId: string;
+    added: import("../../src/lib/workspace-information").WorkspaceJiraIssue;
+    deduplicated: boolean;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("add-workspace-jira-issue", args);
 }
@@ -200,6 +204,8 @@ export async function addWorkspaceConfluencePage(args: {
 }) {
   return invokeLocalMcp<{
     workspaceId: string;
+    added: import("../../src/lib/workspace-information").WorkspaceConfluencePage;
+    deduplicated: boolean;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("add-workspace-confluence-page", args);
 }
@@ -213,6 +219,8 @@ export async function addWorkspaceFigmaResource(args: {
 }) {
   return invokeLocalMcp<{
     workspaceId: string;
+    added: import("../../src/lib/workspace-information").WorkspaceFigmaResource;
+    deduplicated: boolean;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("add-workspace-figma-resource", args);
 }
@@ -229,9 +237,8 @@ export async function addWorkspaceStorybookResource(args: {
 }) {
   return invokeLocalMcp<{
     workspaceId: string;
-    added:
-      | import("../../src/lib/workspace-information").WorkspaceStorybookResource
-      | null;
+    added: import("../../src/lib/workspace-information").WorkspaceStorybookResource;
+    deduplicated: boolean;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("add-workspace-storybook-resource", args);
 }
@@ -259,6 +266,8 @@ export async function addWorkspaceSlackThread(args: {
 }) {
   return invokeLocalMcp<{
     workspaceId: string;
+    added: import("../../src/lib/workspace-information").WorkspaceSlackThread;
+    deduplicated: boolean;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("add-workspace-slack-thread", args);
 }
@@ -271,6 +280,8 @@ export async function addWorkspaceAmplifyLink(args: {
 }) {
   return invokeLocalMcp<{
     workspaceId: string;
+    added: import("../../src/lib/workspace-information").WorkspaceAmplifyLink;
+    deduplicated: boolean;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("add-workspace-amplify-link", args);
 }

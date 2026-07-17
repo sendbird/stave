@@ -12,17 +12,12 @@ import { buildCurrentTaskAwarenessRetrievedContext } from "../../src/lib/task-co
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
 import { workspaceHasActiveTurns } from "../../src/lib/notifications/notification.types";
 import {
-  createWorkspaceAmplifyLink,
-  createWorkspaceConfluencePage,
-  createWorkspaceFigmaResource,
+  applyDetectedWorkspaceResources,
   createWorkspaceInfoCustomField,
-  createWorkspaceJiraIssue,
-  createWorkspaceLinkedPullRequest,
-  createWorkspaceSlackThread,
-  createWorkspaceStorybookResource,
   applyWorkspaceTodoStatus,
   createWorkspaceTodoItem,
   type WorkspaceTodoStatus,
+  detectWorkspaceResourcesInText,
   extractAmplifyLinkReference,
   extractConfluencePageReference,
   extractFigmaResourceReference,
@@ -30,10 +25,11 @@ import {
   extractSlackThreadReference,
   extractStorybookResourceReference,
   resolveStorybookResourceAccess,
+  upsertWorkspaceResourceInState,
   type WorkspaceInfoCustomField,
   type WorkspaceInformationState,
   type WorkspaceInfoFieldType,
-  type WorkspaceLinkedPrStatus,
+  type WorkspaceResourceUpsertResult,
 } from "../../src/lib/workspace-information";
 import {
   buildPendingProviderTurnState,
@@ -537,21 +533,6 @@ function normalizeWorkspaceFieldType(value: string): WorkspaceInfoFieldType {
   }
 }
 
-function normalizeLinkedPullRequestStatus(
-  value?: string,
-): WorkspaceLinkedPrStatus {
-  switch (value?.trim()) {
-    case "open":
-    case "review":
-    case "merged":
-    case "closed":
-    case "planned":
-      return value.trim();
-    default:
-      return "planned";
-  }
-}
-
 function normalizeStringList(value?: string[]) {
   const seen = new Set<string>();
   return (value ?? []).flatMap((entry) => {
@@ -818,101 +799,43 @@ export async function addWorkspaceResource(args: {
   if (!url) {
     throw new Error("Workspace resource URL is required.");
   }
-  const title = args.title?.trim() ?? "";
-  const note = args.note?.trim() ?? "";
-  return updateWorkspaceInformationState({
+  // Upsert instead of blind append — duplicate registrations of the same
+  // canonical entity (e.g. one Jira issue key across URL variants) merge
+  // into the existing Information panel entry.
+  let upserted: WorkspaceResourceUpsertResult | null = null;
+  const result = await updateWorkspaceInformationState({
     workspaceId: args.workspaceId,
     updater: (current) => {
-      switch (kind) {
-        case "jira": {
-          const nextLink = createWorkspaceJiraIssue();
-          nextLink.issueKey = args.issueKey?.trim() ?? "";
-          nextLink.title = title || nextLink.issueKey || url;
-          nextLink.url = url;
-          nextLink.status = args.status?.trim() ?? "";
-          nextLink.note = note;
-          return {
-            ...current,
-            jiraIssues: [...current.jiraIssues, nextLink],
-          };
-        }
-        case "pull_request": {
-          const nextLink = createWorkspaceLinkedPullRequest();
-          nextLink.title = title || url;
-          nextLink.url = url;
-          nextLink.status = normalizeLinkedPullRequestStatus(args.status);
-          nextLink.note = note;
-          return {
-            ...current,
-            linkedPullRequests: [...current.linkedPullRequests, nextLink],
-          };
-        }
-        case "confluence": {
-          const nextLink = createWorkspaceConfluencePage();
-          nextLink.title = title || url;
-          nextLink.url = url;
-          nextLink.spaceKey = args.spaceKey?.trim() ?? "";
-          nextLink.note = note;
-          return {
-            ...current,
-            confluencePages: [...current.confluencePages, nextLink],
-          };
-        }
-        case "figma": {
-          const nextLink = createWorkspaceFigmaResource();
-          nextLink.title = title || url;
-          nextLink.url = url;
-          nextLink.nodeId = args.nodeId?.trim() ?? "";
-          nextLink.note = note;
-          return {
-            ...current,
-            figmaResources: [...current.figmaResources, nextLink],
-          };
-        }
-        case "storybook": {
-          const nextLink = createWorkspaceStorybookResource();
-          nextLink.title = title || url;
-          nextLink.url = url;
-          nextLink.note = note;
-          nextLink.access = resolveStorybookResourceAccess({
-            url,
-            accessKind: args.storybookAccessKind,
-            externalRepo: args.storybookExternalRepo,
-            readableVia: args.storybookReadableVia,
-            sourceHint: args.storybookSourceHint,
-          });
-          return {
-            ...current,
-            storybookResources: [
-              ...(current.storybookResources ?? []),
-              nextLink,
-            ],
-          };
-        }
-        case "slack": {
-          const nextLink = createWorkspaceSlackThread();
-          nextLink.url = url;
-          nextLink.channelName = args.channelName?.trim() ?? "";
-          nextLink.note = note;
-          return {
-            ...current,
-            slackThreads: [...current.slackThreads, nextLink],
-          };
-        }
-        case "amplify": {
-          const nextLink = createWorkspaceAmplifyLink();
-          nextLink.url = url;
-          nextLink.label =
-            title || extractAmplifyLinkReference(url)?.branch || "";
-          nextLink.note = note;
-          return {
-            ...current,
-            amplifyLinks: [...(current.amplifyLinks ?? []), nextLink],
-          };
-        }
-      }
+      upserted = upsertWorkspaceResourceInState({
+        current,
+        input: {
+          kind,
+          url,
+          title: args.title,
+          issueKey: args.issueKey,
+          status: args.status,
+          note: args.note,
+          nodeId: args.nodeId,
+          channelName: args.channelName,
+          spaceKey: args.spaceKey,
+          storybookAccessKind: args.storybookAccessKind,
+          storybookExternalRepo: args.storybookExternalRepo,
+          storybookReadableVia: args.storybookReadableVia,
+          storybookSourceHint: args.storybookSourceHint,
+        },
+      });
+      return upserted.state;
     },
   });
+  if (!upserted) {
+    throw new Error("Workspace resource upsert did not run.");
+  }
+  const resolved = upserted as WorkspaceResourceUpsertResult;
+  return {
+    ...result,
+    resource: resolved.resource,
+    deduplicated: resolved.deduplicated,
+  };
 }
 
 export async function removeWorkspaceResource(args: {
@@ -1151,7 +1074,7 @@ export async function addWorkspaceJiraIssue(args: {
   note?: string;
 }) {
   const parsed = extractJiraIssueReference(args.url);
-  const workspaceInformation = await addWorkspaceResource({
+  const result = await addWorkspaceResource({
     workspaceId: args.workspaceId,
     kind: "jira",
     url: normalizeWorkspaceInfoString(args.url),
@@ -1166,9 +1089,10 @@ export async function addWorkspaceJiraIssue(args: {
     note: normalizeWorkspaceInfoString(args.note),
   });
   return {
-    workspaceId: workspaceInformation.workspaceId,
-    added: workspaceInformation.workspaceInformation.jiraIssues.at(-1) ?? null,
-    workspaceInformation: workspaceInformation.workspaceInformation,
+    workspaceId: result.workspaceId,
+    added: result.resource,
+    deduplicated: result.deduplicated,
+    workspaceInformation: result.workspaceInformation,
   };
 }
 
@@ -1180,7 +1104,7 @@ export async function addWorkspaceConfluencePage(args: {
   note?: string;
 }) {
   const parsed = extractConfluencePageReference(args.url);
-  const workspaceInformation = await addWorkspaceResource({
+  const result = await addWorkspaceResource({
     workspaceId: args.workspaceId,
     kind: "confluence",
     url: normalizeWorkspaceInfoString(args.url),
@@ -1194,10 +1118,10 @@ export async function addWorkspaceConfluencePage(args: {
     note: normalizeWorkspaceInfoString(args.note),
   });
   return {
-    workspaceId: workspaceInformation.workspaceId,
-    added:
-      workspaceInformation.workspaceInformation.confluencePages.at(-1) ?? null,
-    workspaceInformation: workspaceInformation.workspaceInformation,
+    workspaceId: result.workspaceId,
+    added: result.resource,
+    deduplicated: result.deduplicated,
+    workspaceInformation: result.workspaceInformation,
   };
 }
 
@@ -1209,7 +1133,7 @@ export async function addWorkspaceFigmaResource(args: {
   note?: string;
 }) {
   const parsed = extractFigmaResourceReference(args.url);
-  const workspaceInformation = await addWorkspaceResource({
+  const result = await addWorkspaceResource({
     workspaceId: args.workspaceId,
     kind: "figma",
     url: normalizeWorkspaceInfoString(args.url),
@@ -1222,10 +1146,10 @@ export async function addWorkspaceFigmaResource(args: {
     note: normalizeWorkspaceInfoString(args.note),
   });
   return {
-    workspaceId: workspaceInformation.workspaceId,
-    added:
-      workspaceInformation.workspaceInformation.figmaResources.at(-1) ?? null,
-    workspaceInformation: workspaceInformation.workspaceInformation,
+    workspaceId: result.workspaceId,
+    added: result.resource,
+    deduplicated: result.deduplicated,
+    workspaceInformation: result.workspaceInformation,
   };
 }
 
@@ -1240,7 +1164,7 @@ export async function addWorkspaceStorybookResource(args: {
   sourceHint?: string;
 }) {
   const parsed = extractStorybookResourceReference(args.url);
-  const workspaceInformation = await addWorkspaceResource({
+  const result = await addWorkspaceResource({
     workspaceId: args.workspaceId,
     kind: "storybook",
     url: normalizeWorkspaceInfoString(args.url),
@@ -1256,11 +1180,10 @@ export async function addWorkspaceStorybookResource(args: {
     storybookSourceHint: args.sourceHint,
   });
   return {
-    workspaceId: workspaceInformation.workspaceId,
-    added:
-      workspaceInformation.workspaceInformation.storybookResources.at(-1) ??
-      null,
-    workspaceInformation: workspaceInformation.workspaceInformation,
+    workspaceId: result.workspaceId,
+    added: result.resource,
+    deduplicated: result.deduplicated,
+    workspaceInformation: result.workspaceInformation,
   };
 }
 
@@ -1320,7 +1243,7 @@ export async function addWorkspaceSlackThread(args: {
   note?: string;
 }) {
   const parsed = extractSlackThreadReference(args.url);
-  const workspaceInformation = await addWorkspaceResource({
+  const result = await addWorkspaceResource({
     workspaceId: args.workspaceId,
     kind: "slack",
     url: normalizeWorkspaceInfoString(args.url),
@@ -1329,10 +1252,10 @@ export async function addWorkspaceSlackThread(args: {
     note: normalizeWorkspaceInfoString(args.note),
   });
   return {
-    workspaceId: workspaceInformation.workspaceId,
-    added:
-      workspaceInformation.workspaceInformation.slackThreads.at(-1) ?? null,
-    workspaceInformation: workspaceInformation.workspaceInformation,
+    workspaceId: result.workspaceId,
+    added: result.resource,
+    deduplicated: result.deduplicated,
+    workspaceInformation: result.workspaceInformation,
   };
 }
 
@@ -1343,7 +1266,7 @@ export async function addWorkspaceAmplifyLink(args: {
   note?: string;
 }) {
   const parsed = extractAmplifyLinkReference(args.url);
-  const workspaceInformation = await addWorkspaceResource({
+  const result = await addWorkspaceResource({
     workspaceId: args.workspaceId,
     kind: "amplify",
     url: normalizeWorkspaceInfoString(args.url),
@@ -1351,11 +1274,10 @@ export async function addWorkspaceAmplifyLink(args: {
     note: normalizeWorkspaceInfoString(args.note),
   });
   return {
-    workspaceId: workspaceInformation.workspaceId,
-    added:
-      (workspaceInformation.workspaceInformation.amplifyLinks ?? []).at(-1) ??
-      null,
-    workspaceInformation: workspaceInformation.workspaceInformation,
+    workspaceId: result.workspaceId,
+    added: result.resource,
+    deduplicated: result.deduplicated,
+    workspaceInformation: result.workspaceInformation,
   };
 }
 
@@ -1876,6 +1798,29 @@ export async function runTask(args: {
   const workspacePath = registration.workspacePath;
   const workspaceName = registration.workspace.name;
   let session = await loadWorkspaceSession(args.workspaceId);
+
+  // Auto-fill the Information panel from the prompt: register any Jira/PR/
+  // Confluence/Figma/Slack/Storybook/Amplify URLs before the turn context is
+  // built so this turn's task-awareness context already includes them.
+  const detectedPromptResources = detectWorkspaceResourcesInText(args.prompt);
+  if (detectedPromptResources.length > 0) {
+    const autofillPreview = applyDetectedWorkspaceResources({
+      current: session.workspaceInformation,
+      detected: detectedPromptResources,
+    });
+    if (autofillPreview.state !== session.workspaceInformation) {
+      await updateWorkspaceInformationState({
+        workspaceId: args.workspaceId,
+        updater: (current) =>
+          applyDetectedWorkspaceResources({
+            current,
+            detected: detectedPromptResources,
+          }).state,
+      });
+      session = await loadWorkspaceSession(args.workspaceId);
+    }
+  }
+
   const provider = args.provider ?? "claude-code";
   const model =
     args.runtimeOptions?.model?.trim() ||
