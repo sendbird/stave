@@ -7,6 +7,7 @@
 
 ### Bug Fixes
 
+* Remember Claude and Codex runtime preferences per selected model, including mode, effort, and fast-mode controls.
 * Let Codex `/compact` use native App Server compaction while preserving manual boundary events and summarized thread history.
 * Auto-detect and idempotently upsert Jira, GitHub PR, Confluence, Figma, Slack, Storybook, and Amplify resources from prompts.
 * Display Claude Fable weekly limits in the status bar, and wrap long links and inline code tokens in chat messages.
@@ -14,7 +15,7 @@
 
 ### References
 
-* [#158](https://github.com/sendbird/stave/pull/158), [#159](https://github.com/sendbird/stave/pull/159), [#160](https://github.com/sendbird/stave/pull/160), [#161](https://github.com/sendbird/stave/pull/161), [#162](https://github.com/sendbird/stave/pull/162), [#163](https://github.com/sendbird/stave/pull/163)
+* [#158](https://github.com/sendbird/stave/pull/158), [#159](https://github.com/sendbird/stave/pull/159), [#160](https://github.com/sendbird/stave/pull/160), [#161](https://github.com/sendbird/stave/pull/161), [#162](https://github.com/sendbird/stave/pull/162), [#163](https://github.com/sendbird/stave/pull/163), [#165](https://github.com/sendbird/stave/pull/165)
 ## [0.10.6](https://github.com/sendbird/stave/compare/v0.10.5...v0.10.6) (2026-07-16)
 
 ### Features
