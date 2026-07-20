@@ -95,6 +95,14 @@ import {
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import {
+  applyModelRuntimePreference,
+  mergeModelRuntimePreference,
+  mergeModelRuntimePreferenceSettings,
+  normalizeModelRuntimePreferences,
+  type ModelRuntimePreferences,
+  type UpdateModelRuntimePreferenceArgs,
+} from "@/lib/providers/model-runtime-preferences";
+import {
   normalizeAutoRoutingEligibleModels,
   normalizeAutoRoutingObjective,
   resolveAutoRoutingDecision,
@@ -1251,6 +1259,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   codexFastModeVisible: boolean;
   modelClaude: string;
   modelCodex: string;
+  modelRuntimePreferences: ModelRuntimePreferences;
   autoRoutingEnabled: boolean;
   autoRoutingUseClassifier: boolean;
   autoRoutingObjective: number;
@@ -1583,6 +1592,9 @@ interface AppState extends WorkspaceKickoffActions {
   };
   removeCustomTheme: (args: { themeId: string }) => void;
   updateSettings: (args: { patch: Partial<AppSettings> }) => void;
+  updateModelRuntimePreference: (
+    args: UpdateModelRuntimePreferenceArgs,
+  ) => void;
   setPersistenceBootstrapStatus: (args: {
     phase: PersistenceBootstrapPhase;
     message?: string;
@@ -2499,6 +2511,7 @@ const defaultSettings: AppSettings = {
   codexFastModeVisible: true,
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
+  modelRuntimePreferences: {},
   autoRoutingEnabled: false,
   autoRoutingUseClassifier: false,
   autoRoutingObjective: 0.5,
@@ -8228,6 +8241,15 @@ export const useAppStore = create<AppState>()(
             });
           }
         },
+        updateModelRuntimePreference: (args) => {
+          set((state) => {
+            const settings = mergeModelRuntimePreferenceSettings(
+              state.settings,
+              args,
+            );
+            return settings === state.settings ? state : { settings };
+          });
+        },
         setPersistenceBootstrapStatus: ({ phase, message }) => {
           set(() => ({
             persistenceBootstrapPhase: phase,
@@ -9700,6 +9722,19 @@ export const useAppStore = create<AppState>()(
                   AppSettings["codexReasoningEffort"] | undefined) ??
                 resolveDefaultCodexEffortForModel({ model: preset.model });
             }
+            const effort =
+              preset.provider === "claude-code"
+                ? settingsPatch.claudeEffort
+                : settingsPatch.codexReasoningEffort;
+            if (effort) {
+              settingsPatch.modelRuntimePreferences =
+                mergeModelRuntimePreference({
+                  preferences: stateBefore.settings.modelRuntimePreferences,
+                  providerId: preset.provider,
+                  model: preset.model,
+                  patch: { effort },
+                });
+            }
           }
           if (Object.keys(settingsPatch).length > 0) {
             get().updateSettings({ patch: settingsPatch });
@@ -11127,16 +11162,6 @@ export const useAppStore = create<AppState>()(
           clearSubmittedPromptDraft();
 
           try {
-            const resolvedPromptDraftRuntimeState =
-              resolvePromptDraftRuntimeState({
-                promptDraft,
-                fallback: {
-                  claudePermissionMode: state.settings.claudePermissionMode,
-                  claudePermissionModeBeforePlan:
-                    state.settings.claudePermissionModeBeforePlan,
-                  codexPlanMode: state.settings.codexPlanMode,
-                },
-              });
             let activeModel =
               provider === "claude-code"
                 ? resolvePromptDraftModelForProvider({
@@ -11897,6 +11922,23 @@ export const useAppStore = create<AppState>()(
               });
             }
 
+            const modelRuntimeSettings = applyModelRuntimePreference({
+              settings: get().settings,
+              providerId: provider,
+              model: activeModel,
+            });
+            const resolvedPromptDraftRuntimeState =
+              resolvePromptDraftRuntimeState({
+                promptDraft,
+                fallback: {
+                  claudePermissionMode:
+                    modelRuntimeSettings.claudePermissionMode,
+                  claudePermissionModeBeforePlan:
+                    modelRuntimeSettings.claudePermissionModeBeforePlan,
+                  codexPlanMode: modelRuntimeSettings.codexPlanMode,
+                },
+              });
+
             runProviderTurn({
               turnId,
               provider,
@@ -11910,7 +11952,7 @@ export const useAppStore = create<AppState>()(
                   provider,
                   model: activeModel,
                   settings: {
-                    ...get().settings,
+                    ...modelRuntimeSettings,
                     claudePermissionMode:
                       resolvedPromptDraftRuntimeState.claudePermissionMode,
                     codexPlanMode:
@@ -13324,6 +13366,8 @@ export const useAppStore = create<AppState>()(
         // Migrate legacy fastModeVisible → per-provider fields.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const raw = state.settings as any;
+        state.settings.modelRuntimePreferences =
+          normalizeModelRuntimePreferences(raw.modelRuntimePreferences);
         state.settings.infoPanelSectionVisibility =
           normalizeWorkspaceInformationSectionVisibility(
             raw.infoPanelSectionVisibility,
