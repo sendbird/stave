@@ -21,6 +21,7 @@ import {
   Rows3,
   Search,
   Settings,
+  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -888,6 +889,7 @@ export function ProjectWorkspaceSidebar(args: {
     section?: SectionId;
   }) => void;
   onPreloadSettings: () => void;
+  onKickoffWorkspace: (projectPath: string) => Promise<void> | void;
 }) {
   const [collapsedByProjectPath, setCollapsedByProjectPath] = useState<
     Record<string, boolean>
@@ -1804,6 +1806,28 @@ export function ProjectWorkspaceSidebar(args: {
                                             "group-focus-within/project-row:pointer-events-auto group-focus-within/project-row:translate-x-0 group-focus-within/project-row:opacity-100",
                                           )}
                                         >
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 w-7 rounded-md p-0"
+                                                disabled={projectBusy}
+                                                onClick={() =>
+                                                  void args.onKickoffWorkspace(
+                                                    project.projectPath,
+                                                  )
+                                                }
+                                                aria-label={`Kick off workspace for ${project.projectName}`}
+                                              >
+                                                <Sparkles className="size-3.5" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top">
+                                              Kick off workspace
+                                            </TooltipContent>
+                                          </Tooltip>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <Button

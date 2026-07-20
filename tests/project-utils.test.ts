@@ -8,6 +8,7 @@ import {
   isDefaultWorkspaceName,
   normalizeCurrentProjectState,
   normalizeProjectBasePrompt,
+  normalizeProjectKickoffBranchNamingRule,
   normalizeProjectDisplayName,
   normalizeRecentProjectStates,
   parseRemoteTrackingBranchName,
@@ -21,6 +22,7 @@ import {
   sanitizeBranchName,
   toShellPathArgument,
   toWorkspaceFolderName,
+  updateCurrentProjectTextPreference,
 } from "@/store/project.utils";
 import {
   filterProjectSidebarProjects,
@@ -225,6 +227,59 @@ describe("project name normalization", () => {
 
     expect(projects[0]?.projectBasePrompt).toBe("Prefer bun over npm.");
     expect(normalizeProjectBasePrompt({ value: undefined })).toBe("");
+  });
+
+  test("trims and preserves the project kickoff branch naming rule", () => {
+    const projects = normalizeRecentProjectStates({
+      projects: [
+        {
+          projectPath: PROJECT_PATH,
+          projectName: "stave",
+          lastOpenedAt: "2026-03-30T13:35:33.466Z",
+          defaultBranch: "main",
+          workspaces: [],
+          activeWorkspaceId: "",
+          workspaceBranchById: {},
+          workspacePathById: {},
+          workspaceDefaultById: {},
+          kickoffBranchNamingRule: "  Use feat/<ticket>.  ",
+        },
+      ],
+    });
+
+    expect(projects[0]?.kickoffBranchNamingRule).toBe("Use feat/<ticket>.");
+    expect(
+      normalizeProjectKickoffBranchNamingRule({ value: undefined }),
+    ).toBe("");
+  });
+
+  test("updates project kickoff preferences through the shared registry helper", () => {
+    const workspace = {
+      id: DEFAULT_WORKSPACE_ID,
+      name: "Default Workspace",
+      updatedAt: "2026-03-31T13:36:33.211Z",
+    };
+    const recentProjects = updateCurrentProjectTextPreference({
+      state: {
+        recentProjects: [],
+        projectPath: PROJECT_PATH,
+        projectName: "stave",
+        defaultBranch: "main",
+        workspaces: [workspace],
+        activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+        workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
+        workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+        workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
+      },
+      preference: {
+        key: "kickoffBranchNamingRule",
+        value: "  feat/<ticket>-<slug>  ",
+      },
+    });
+
+    expect(recentProjects?.[0]?.kickoffBranchNamingRule).toBe(
+      "feat/<ticket>-<slug>",
+    );
   });
 
   test("preserves and clears archived workspace path tombstones", () => {
@@ -495,6 +550,7 @@ describe("project name normalization", () => {
         "3158a1b0-acfa-4413-b0c3-e5c7c7441c86": false,
       },
       projectBasePrompt: "",
+      kickoffBranchNamingRule: "",
       newWorkspaceInitCommand: "",
       newWorkspaceUseRootNodeModulesSymlink: false,
     });

@@ -97,3 +97,21 @@ export const DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = [
   "- Mention blockers or incomplete work briefly when relevant.",
   "- No markdown, no code fences, no extra keys, no commentary.",
 ].join("\n");
+
+// ---------------------------------------------------------------------------
+// Workspace kickoff from an external source
+// ---------------------------------------------------------------------------
+export const DEFAULT_PROMPT_WORKSPACE_KICKOFF = [
+  "You prepare a new Stave coding workspace from the supplied source.",
+  "Inspect the source with available MCP tools when useful, then return ONLY valid JSON with this exact shape:",
+  '{"branchName":"feat/example","workspaceLabel":"Example","sourceSummary":"...","firstTaskTitle":"...","firstTaskPrompt":"...","panelEntries":[{"target":"jiraIssues","title":"...","url":"https://...","reference":"PROJ-123","note":"..."}],"notes":"","todos":["..."]}',
+  "",
+  "Rules:",
+  "- Follow the supplied project branch naming rule.",
+  "- Keep the branch name git-safe and the workspace label concise.",
+  "- Treat the supplied source as the source of truth; do not invent facts.",
+  "- Add only relevant panel entries. Allowed targets: jiraIssues, confluencePages, figmaResources, slackThreads, linkedPullRequests, storybookResources, amplifyLinks.",
+  "- Make firstTaskPrompt actionable and self-contained, including the source URL when one exists.",
+  "- Use an empty string or empty array when information is unavailable.",
+  "- No markdown, no code fences, no extra commentary.",
+].join("\n");

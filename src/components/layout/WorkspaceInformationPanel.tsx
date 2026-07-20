@@ -40,6 +40,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -120,6 +121,11 @@ import {
   formatWorkspaceInfoTaskSeedPrompt,
   resolveWorkspaceInfoTaskSeedTitle,
 } from "@/lib/workspace-information-task-seed";
+import {
+  WORKSPACE_INFORMATION_SECTION_IDS,
+  resolveVisibleWorkspaceInformationSections,
+  type WorkspaceInformationSectionId,
+} from "@/lib/workspace-information-sections";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { extractPlanTodoItems } from "@/lib/plans";
@@ -159,24 +165,6 @@ function openExternalUrl(url: string) {
   }
   void window.api?.shell?.openExternal?.({ url: url.trim() });
 }
-
-const WORKSPACE_INFORMATION_SECTION_IDS = [
-  "overview",
-  "todo",
-  "note",
-  "plans",
-  "github",
-  "jira",
-  "confluence",
-  "storybook",
-  "amplify",
-  "slack",
-  "figma",
-  "custom",
-] as const;
-
-type WorkspaceInformationSectionId =
-  (typeof WORKSPACE_INFORMATION_SECTION_IDS)[number];
 
 const WORKSPACE_INFORMATION_ACCORDION_STORAGE_KEY =
   "stave:workspace-information-open-sections:v1";
@@ -489,6 +477,9 @@ function ConfluenceIcon({ className }: { className?: string }) {
 const SectionDragSuppressionContext = createContext<{ current: boolean }>({
   current: false,
 });
+const SectionVisibilityContext = createContext<
+  ReadonlySet<WorkspaceInformationSectionId> | undefined
+>(undefined);
 
 function SectionHeader(props: {
   value: WorkspaceInformationSectionId;
@@ -503,6 +494,7 @@ function SectionHeader(props: {
   const isDraggable = props.value !== "overview";
   const sortable = useSortable({ id: props.value, disabled: !isDraggable });
   const suppressClickRef = useContext(SectionDragSuppressionContext);
+  const visibleSections = useContext(SectionVisibilityContext);
   const style: CSSProperties = {
     order: props.order,
     transform: CSS.Transform.toString(sortable.transform),
@@ -511,6 +503,10 @@ function SectionHeader(props: {
   const dragProps = isDraggable
     ? { ...sortable.attributes, ...sortable.listeners }
     : {};
+
+  if (visibleSections && !visibleSections.has(props.value)) {
+    return null;
+  }
 
   return (
     <AccordionItem
@@ -1270,6 +1266,7 @@ export function WorkspaceInformationPanel() {
     prInfo,
     fetchWorkspacePrStatus,
     infoPanelScale,
+    infoPanelSectionVisibility,
     workspacePlansRefreshNonce,
     notifyWorkspacePlansChanged,
     openFileFromTree,
@@ -1290,6 +1287,7 @@ export function WorkspaceInformationPanel() {
           state.workspacePrInfoById[state.activeWorkspaceId] ?? null,
           state.fetchWorkspacePrStatus,
           state.settings.infoPanelScale,
+          state.settings.infoPanelSectionVisibility,
           state.workspacePlansRefreshNonce,
           state.notifyWorkspacePlansChanged,
           state.openFileFromTree,
@@ -1305,6 +1303,18 @@ export function WorkspaceInformationPanel() {
   const [sectionOrder, setSectionOrder] = useState<
     WorkspaceInformationSectionId[]
   >(() => readStoredWorkspaceInformationSectionOrder());
+  const visibleSectionIds = useMemo(
+    () =>
+      resolveVisibleWorkspaceInformationSections({
+        visibility: infoPanelSectionVisibility,
+        information: workspaceInformation,
+      }),
+    [infoPanelSectionVisibility, workspaceInformation],
+  );
+  const visibleSections = useMemo(
+    () => new Set(visibleSectionIds),
+    [visibleSectionIds],
+  );
   const sectionOrderIndexById = Object.fromEntries(
     sectionOrder.map((id, index) => [id, index]),
   ) as Record<WorkspaceInformationSectionId, number>;
@@ -1555,19 +1565,20 @@ export function WorkspaceInformationPanel() {
           onDragEnd={handleSectionDragEnd}
         >
           <SortableContext
-            items={sectionOrder}
+            items={sectionOrder.filter((id) => visibleSections.has(id))}
             strategy={verticalListSortingStrategy}
           >
             <SectionDragSuppressionContext.Provider
               value={suppressSectionClickRef}
             >
-              <Accordion
-                type="multiple"
-                value={openSections}
-                onValueChange={(value) =>
-                  setOpenSections(value as WorkspaceInformationSectionId[])
-                }
-              >
+              <SectionVisibilityContext.Provider value={visibleSections}>
+                <Accordion
+                  type="multiple"
+                  value={openSections}
+                  onValueChange={(value) =>
+                    setOpenSections(value as WorkspaceInformationSectionId[])
+                  }
+                >
                 <SectionHeader
                   value="overview"
                   order={sectionOrderIndexById.overview}
@@ -2808,7 +2819,8 @@ export function WorkspaceInformationPanel() {
                     ))}
                   </div>
                 </SectionHeader>
-              </Accordion>
+                </Accordion>
+              </SectionVisibilityContext.Provider>
             </SectionDragSuppressionContext.Provider>
           </SortableContext>
         </DndContext>

@@ -71,6 +71,7 @@ Recommended next steps:
 - Monaco editor, docked terminal, quick open, command palette, and source control actions
 - workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
 - git worktree-aware project and workspace management
+- editable workspace kickoff proposals from external sources and prompts
 - attachments, notifications, skill selection, custom model shortcuts, and theme presets
 - local-only MCP access for same-machine automation and tool-driven workflows
 
@@ -79,6 +80,7 @@ Recommended next steps:
 - [Install Guide](docs/install-guide.md) for the full macOS install and update flow
 - [Provider Sandbox and Approval Guide](docs/features/provider-sandbox-and-approval.md) for runtime safety and plan settings
 - [Local MCP User Guide](docs/features/local-mcp-user-guide.md) for same-machine automation setup
+- [Workspace Kickoff](docs/features/workspace-kickoff.md) for source matching, MCP resolution, and Information panel defaults
 
 ## For Developers And Contributors
 

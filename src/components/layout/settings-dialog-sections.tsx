@@ -130,6 +130,7 @@ import {
 } from "@/store/app.store";
 import {
   normalizeProjectBasePrompt,
+  normalizeProjectKickoffBranchNamingRule,
   normalizeProjectWorkspaceInitCommand,
   normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
   type RecentProjectState,
@@ -152,6 +153,7 @@ import { DeveloperSection } from "./settings-dialog-developer-section";
 import { PresetsSection } from "./settings-dialog-presets-section";
 import { CodexSection } from "./settings-dialog-codex-section";
 import { McpSection } from "./settings-dialog-mcp-section";
+import { KickoffSection } from "./settings-dialog-kickoff-section";
 import { ProvidersSection } from "./settings-dialog-providers-section";
 import { ToolingSection } from "./settings-dialog-tooling-section";
 import { ScriptsSection } from "./settings-dialog-scripts-section";
@@ -272,6 +274,9 @@ function ProjectSettingsPanel(args: {
   const setProjectBasePrompt = useAppStore(
     (state) => state.setProjectBasePrompt,
   );
+  const setProjectKickoffBranchNamingRule = useAppStore(
+    (state) => state.setProjectKickoffBranchNamingRule,
+  );
   const setProjectWorkspaceInitCommand = useAppStore(
     (state) => state.setProjectWorkspaceInitCommand,
   );
@@ -294,6 +299,9 @@ function ProjectSettingsPanel(args: {
   });
   const projectBasePrompt = normalizeProjectBasePrompt({
     value: args.project.projectBasePrompt,
+  });
+  const kickoffBranchNamingRule = normalizeProjectKickoffBranchNamingRule({
+    value: args.project.kickoffBranchNamingRule,
   });
   const projectUseRootNodeModulesSymlink =
     normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
@@ -491,6 +499,23 @@ function ProjectSettingsPanel(args: {
               })
             }
             placeholder="bun install"
+          />
+        </LabeledField>
+
+        <LabeledField
+          title="Kickoff Branch Naming Rule"
+          description="Included in workspace kickoff resolution for this project. Use it to encode repository-specific prefixes, ticket conventions, or casing rules."
+        >
+          <DraftTextarea
+            className="min-h-[110px] rounded-md border-border/80 bg-background text-sm"
+            value={kickoffBranchNamingRule}
+            onCommit={(nextValue) =>
+              setProjectKickoffBranchNamingRule({
+                projectPath: args.project.projectPath,
+                rule: nextValue,
+              })
+            }
+            placeholder="Use feat/<jira-key>-<short-description> for feature work and fix/<jira-key>-<short-description> for bugs."
           />
         </LabeledField>
 
@@ -3693,6 +3718,8 @@ export function SettingsDialogSectionContent(args: {
       return <CodexSection />;
     case "mcp":
       return <McpSection />;
+    case "kickoff":
+      return <KickoffSection />;
     case "prompts":
       return <PromptsSection />;
     case "developer":
