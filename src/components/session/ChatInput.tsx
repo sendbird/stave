@@ -24,8 +24,6 @@ import {
   type CommandPaletteProviderNote,
 } from "@/lib/commands";
 import {
-  buildClaudeProviderModeSettingsPatch,
-  buildCodexProviderModeSettingsPatch,
   CLAUDE_PROVIDER_MODE_PRESETS,
   CODEX_PROVIDER_MODE_PRESETS,
   detectClaudeProviderModePreset,
@@ -35,6 +33,7 @@ import {
   type ProviderModePresetDefinition,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
+import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import type { ClaudeSettingSource } from "@/lib/providers/provider.types";
 import {
   getCachedProviderCommandCatalog,
@@ -50,7 +49,6 @@ import {
   listProviderIds,
   normalizeModelSelection,
   providerSupportsMidTurnSteering,
-  resolveClaudeEffortForModelSwitch,
   providerSupportsNativeCommandCatalog,
 } from "@/lib/providers/model-catalog";
 import {
@@ -1119,6 +1117,7 @@ function BaseChatInput() {
     clearTaskProviderSession,
     abortTaskTurn,
     updateSettings,
+    updateModelRuntimePreference,
     refreshSkillCatalog,
     sendUserMessage,
   ] = useAppStore(
@@ -1133,6 +1132,7 @@ function BaseChatInput() {
           state.clearTaskProviderSession,
           state.abortTaskTurn,
           state.updateSettings,
+          state.updateModelRuntimePreference,
           state.refreshSkillCatalog,
           state.sendUserMessage,
         ] as const,
@@ -1184,7 +1184,6 @@ function BaseChatInput() {
   const [
     modelClaude,
     modelCodex,
-    storedClaudeEffort,
     skillsEnabled,
     skillsAutoSuggest,
     providerTimeoutMs,
@@ -1197,7 +1196,6 @@ function BaseChatInput() {
         [
           state.settings.modelClaude,
           state.settings.modelCodex,
-          state.settings.claudeEffort,
           state.settings.skillsEnabled,
           state.settings.skillsAutoSuggest,
           state.settings.providerTimeoutMs,
@@ -1207,6 +1205,19 @@ function BaseChatInput() {
         ] as const,
     ),
   );
+  const providerSelectionTarget = activeTaskId || "draft:session";
+  const activeModel =
+    activeProvider === "claude-code"
+      ? resolvePromptDraftModelForProvider({
+          providerId: activeProvider,
+          runtimeOverrides: promptDraftRuntimeOverrides,
+          fallbackModel: modelClaude,
+        })
+      : resolvePromptDraftModelForProvider({
+          providerId: activeProvider,
+          runtimeOverrides: promptDraftRuntimeOverrides,
+          fallbackModel: modelCodex,
+        });
   const [
     claudePermissionMode,
     claudePermissionModeBeforePlan,
@@ -1220,23 +1231,29 @@ function BaseChatInput() {
     claudeAgentProgressSummaries,
     claudeBinaryPath,
   ] = useAppStore(
-    useShallow((state) =>
-      activeProvider === "claude-code"
-        ? ([
-            state.settings.claudePermissionMode,
-            state.settings.claudePermissionModeBeforePlan,
-            state.settings.claudeAllowDangerouslySkipPermissions,
-            state.settings.claudeSandboxEnabled,
-            state.settings.claudeAllowUnsandboxedCommands,
-            state.settings.claudeTaskBudgetTokens,
-            state.settings.claudeSettingSources,
-            state.settings.claudeEffort,
-            state.settings.claudeThinkingMode,
-            state.settings.claudeAgentProgressSummaries,
-            state.settings.claudeBinaryPath,
-          ] as const)
-        : INACTIVE_CLAUDE_SETTINGS,
-    ),
+    useShallow((state) => {
+      if (activeProvider !== "claude-code") {
+        return INACTIVE_CLAUDE_SETTINGS;
+      }
+      const settings = applyModelRuntimePreference({
+        settings: state.settings,
+        providerId: activeProvider,
+        model: activeModel,
+      });
+      return [
+        settings.claudePermissionMode,
+        settings.claudePermissionModeBeforePlan,
+        settings.claudeAllowDangerouslySkipPermissions,
+        settings.claudeSandboxEnabled,
+        settings.claudeAllowUnsandboxedCommands,
+        settings.claudeTaskBudgetTokens,
+        settings.claudeSettingSources,
+        settings.claudeEffort,
+        settings.claudeThinkingMode,
+        settings.claudeAgentProgressSummaries,
+        settings.claudeBinaryPath,
+      ] as const;
+    }),
   );
   const [
     codexFileAccess,
@@ -1252,26 +1269,31 @@ function BaseChatInput() {
     codexFastMode,
     codexFastModeVisible,
   ] = useAppStore(
-    useShallow((state) =>
-      activeProvider === "codex"
-        ? ([
-            state.settings.codexFileAccess,
-            state.settings.codexNetworkAccess,
-            state.settings.codexApprovalPolicy,
-            state.settings.codexReasoningEffort,
-            state.settings.codexWebSearch,
-            state.settings.codexShowRawReasoning,
-            state.settings.codexReasoningSummary,
-            state.settings.codexReasoningSummarySupport,
-            state.settings.codexBinaryPath,
-            state.settings.codexPlanMode,
-            state.settings.codexFastMode,
-            state.settings.codexFastModeVisible,
-          ] as const)
-        : INACTIVE_CODEX_SETTINGS,
-    ),
+    useShallow((state) => {
+      if (activeProvider !== "codex") {
+        return INACTIVE_CODEX_SETTINGS;
+      }
+      const settings = applyModelRuntimePreference({
+        settings: state.settings,
+        providerId: activeProvider,
+        model: activeModel,
+      });
+      return [
+        settings.codexFileAccess,
+        settings.codexNetworkAccess,
+        settings.codexApprovalPolicy,
+        settings.codexReasoningEffort,
+        settings.codexWebSearch,
+        settings.codexShowRawReasoning,
+        settings.codexReasoningSummary,
+        settings.codexReasoningSummarySupport,
+        settings.codexBinaryPath,
+        settings.codexPlanMode,
+        settings.codexFastMode,
+        settings.codexFastModeVisible,
+      ] as const;
+    }),
   );
-  const providerSelectionTarget = activeTaskId || "draft:session";
   const skillCatalog = useAppStore((state) => state.skillCatalog);
   const taskRuntimeState = useMemo(
     () =>
@@ -1300,18 +1322,6 @@ function BaseChatInput() {
     taskRuntimeState.claudePermissionModeBeforePlan;
   const effectiveCodexPlanMode = taskRuntimeState.codexPlanMode;
   const isEmpty = activeMessageCount === 0;
-  const activeModel =
-    activeProvider === "claude-code"
-      ? resolvePromptDraftModelForProvider({
-          providerId: activeProvider,
-          runtimeOverrides: promptDraftRuntimeOverrides,
-          fallbackModel: modelClaude,
-        })
-      : resolvePromptDraftModelForProvider({
-          providerId: activeProvider,
-          runtimeOverrides: promptDraftRuntimeOverrides,
-          fallbackModel: modelCodex,
-        });
   const activeProviderAvailable = providerAvailability[activeProvider];
   const isAutoRoutingSelected =
     promptDraftRuntimeOverrides?.autoRouting === true;
@@ -1416,18 +1426,19 @@ function BaseChatInput() {
   const onEffortCycle = useMemo(() => {
     if (activeProvider === "claude-code") {
       return () =>
-        updateSettings({
-          patch: { claudeEffort: cycleClaudeEffortValue(claudeEffort) },
+        updateModelRuntimePreference({
+          providerId: activeProvider,
+          model: activeModel,
+          patch: { effort: cycleClaudeEffortValue(claudeEffort) },
         });
     }
     if (activeProvider === "codex") {
       return () =>
-        updateSettings({
+        updateModelRuntimePreference({
+          providerId: activeProvider,
+          model: activeModel,
           patch: {
-            codexReasoningEffort: cycleCodexEffortValue(
-              codexReasoningEffort,
-              activeModel,
-            ),
+            effort: cycleCodexEffortValue(codexReasoningEffort, activeModel),
           },
         });
     }
@@ -1437,7 +1448,7 @@ function BaseChatInput() {
     activeProvider,
     claudeEffort,
     codexReasoningEffort,
-    updateSettings,
+    updateModelRuntimePreference,
   ]);
   const goalStatus = useMemo(
     () =>
@@ -1593,18 +1604,22 @@ function BaseChatInput() {
   const onProviderModeSelect = useMemo(() => {
     if (activeProvider === "claude-code") {
       return (presetId: ProviderModePresetId) =>
-        updateSettings({
-          patch: buildClaudeProviderModeSettingsPatch({ presetId }),
+        updateModelRuntimePreference({
+          providerId: activeProvider,
+          model: activeModel,
+          patch: { mode: presetId },
         });
     }
     if (activeProvider === "codex") {
       return (presetId: ProviderModePresetId) =>
-        updateSettings({
-          patch: buildCodexProviderModeSettingsPatch({ presetId }),
+        updateModelRuntimePreference({
+          providerId: activeProvider,
+          model: activeModel,
+          patch: { mode: presetId },
         });
     }
     return undefined;
-  }, [activeProvider, updateSettings]);
+  }, [activeModel, activeProvider, updateModelRuntimePreference]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1917,25 +1932,18 @@ function BaseChatInput() {
             shortcutKey: selection.key,
             effort,
           });
-          updateSettings({
-            patch: {
-              claudeEffort:
-                shortcutEffort &&
-                CLAUDE_EFFORT_OPTIONS.some(
-                  (option) => option.value === shortcutEffort,
-                )
-                  ? (shortcutEffort as typeof storedClaudeEffort)
-                  : resolveClaudeEffortForModelSwitch({
-                      previousModel: resolvePromptDraftModelForProvider({
-                        providerId: "claude-code",
-                        runtimeOverrides: promptDraftRuntimeOverrides,
-                        fallbackModel: modelClaude,
-                      }),
-                      nextModel,
-                      currentEffort: storedClaudeEffort,
-                    }),
-            },
-          });
+          if (
+            shortcutEffort &&
+            CLAUDE_EFFORT_OPTIONS.some(
+              (option) => option.value === shortcutEffort,
+            )
+          ) {
+            updateModelRuntimePreference({
+              providerId: selection.providerId,
+              model: nextModel,
+              patch: { effort: shortcutEffort },
+            });
+          }
           return;
         }
         if (selection.providerId === "codex") {
@@ -1946,16 +1954,18 @@ function BaseChatInput() {
             shortcutKey: selection.key,
             effort,
           });
-          updateSettings({
-            patch: {
-              codexReasoningEffort: clampCodexEffortToModel({
-                model: nextModel,
-                effort: shortcutEffort
-                  ? (shortcutEffort as typeof codexReasoningEffort)
-                  : codexReasoningEffort,
-              }),
-            },
-          });
+          if (shortcutEffort) {
+            updateModelRuntimePreference({
+              providerId: selection.providerId,
+              model: nextModel,
+              patch: {
+                effort: clampCodexEffortToModel({
+                  model: nextModel,
+                  effort: shortcutEffort as typeof codexReasoningEffort,
+                }),
+              },
+            });
+          }
           return;
         }
       }}
@@ -1963,7 +1973,11 @@ function BaseChatInput() {
       onFastModeChange={
         activeProvider === "codex" && codexFastModeVisible
           ? (enabled) => {
-              updateSettings({ patch: { codexFastMode: enabled } });
+              updateModelRuntimePreference({
+                providerId: activeProvider,
+                model: activeModel,
+                patch: { fastMode: enabled },
+              });
             }
           : undefined
       }
