@@ -161,7 +161,7 @@ function normalizeRecentProjectPreferences(args: {
   };
 }
 
-function resolveRecentProjectPreferences(args: {
+export function resolveRecentProjectPreferences(args: {
   projectPath?: string | null;
   recentProjects: RecentProjectState[];
 }) {

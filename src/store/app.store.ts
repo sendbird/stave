@@ -368,9 +368,9 @@ import {
   normalizeProjectWorkspaceInitCommand,
   normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
   resolveProjectBasePrompt,
-  resolveProjectKickoffBranchNamingRule,
   resolveProjectWorkspaceInitCommand,
   resolveProjectWorkspaceRootNodeModulesSymlinkPreference,
+  resolveRecentProjectPreferences,
   summarizeTerminalCommandDetail,
   summarizeWorkspaceInitCommand,
   updateCurrentProjectTextPreference,
@@ -3944,24 +3944,10 @@ export const useAppStore = create<AppState>()(
                   workspaceBranchById: state.workspaceBranchById,
                   workspacePathById: state.workspacePathById,
                   workspaceDefaultById: state.workspaceDefaultById,
-                  projectBasePrompt: resolveProjectBasePrompt({
+                  ...resolveRecentProjectPreferences({
                     projectPath: args.projectRootPath,
                     recentProjects: rememberedProjects,
                   }),
-                  kickoffBranchNamingRule:
-                    resolveProjectKickoffBranchNamingRule({
-                      projectPath: args.projectRootPath,
-                      recentProjects: rememberedProjects,
-                    }),
-                  newWorkspaceInitCommand: resolveProjectWorkspaceInitCommand({
-                    projectPath: args.projectRootPath,
-                    recentProjects: rememberedProjects,
-                  }),
-                  newWorkspaceUseRootNodeModulesSymlink:
-                    resolveProjectWorkspaceRootNodeModulesSymlinkPreference({
-                      projectPath: args.projectRootPath,
-                      recentProjects: rememberedProjects,
-                    }),
                 }),
                 projectName: args.projectName,
                 defaultBranch: args.defaultBranch,
@@ -5565,27 +5551,10 @@ export const useAppStore = create<AppState>()(
                       workspaceDefaultById: defaultWorkspaceId
                         ? { [defaultWorkspaceId]: true }
                         : {},
-                      projectBasePrompt: resolveProjectBasePrompt({
+                      ...resolveRecentProjectPreferences({
                         projectPath: state.projectPath,
                         recentProjects: state.recentProjects,
                       }),
-                      kickoffBranchNamingRule:
-                        resolveProjectKickoffBranchNamingRule({
-                          projectPath: state.projectPath,
-                          recentProjects: state.recentProjects,
-                        }),
-                      newWorkspaceInitCommand:
-                        resolveProjectWorkspaceInitCommand({
-                          projectPath: state.projectPath,
-                          recentProjects: state.recentProjects,
-                        }),
-                      newWorkspaceUseRootNodeModulesSymlink:
-                        resolveProjectWorkspaceRootNodeModulesSymlinkPreference(
-                          {
-                            projectPath: state.projectPath,
-                            recentProjects: state.recentProjects,
-                          },
-                        ),
                     },
                   })
                 : state.recentProjects,
@@ -5886,27 +5855,10 @@ export const useAppStore = create<AppState>()(
                       workspaceBranchById: nextBranch,
                       workspacePathById: nextPath,
                       workspaceDefaultById: nextDefault,
-                      projectBasePrompt: resolveProjectBasePrompt({
+                      ...resolveRecentProjectPreferences({
                         projectPath: current.projectPath,
                         recentProjects: current.recentProjects,
                       }),
-                      kickoffBranchNamingRule:
-                        resolveProjectKickoffBranchNamingRule({
-                          projectPath: current.projectPath,
-                          recentProjects: current.recentProjects,
-                        }),
-                      newWorkspaceInitCommand:
-                        resolveProjectWorkspaceInitCommand({
-                          projectPath: current.projectPath,
-                          recentProjects: current.recentProjects,
-                        }),
-                      newWorkspaceUseRootNodeModulesSymlink:
-                        resolveProjectWorkspaceRootNodeModulesSymlinkPreference(
-                          {
-                            projectPath: current.projectPath,
-                            recentProjects: current.recentProjects,
-                          },
-                        ),
                     },
                   })
                 : current.recentProjects,
@@ -7654,26 +7606,10 @@ export const useAppStore = create<AppState>()(
                     workspaceBranchById: state.workspaceBranchById,
                     workspacePathById: state.workspacePathById,
                     workspaceDefaultById: state.workspaceDefaultById,
-                    projectBasePrompt: resolveProjectBasePrompt({
+                    ...resolveRecentProjectPreferences({
                       projectPath: normalizedProjectPath,
                       recentProjects: state.recentProjects,
                     }),
-                    kickoffBranchNamingRule:
-                      resolveProjectKickoffBranchNamingRule({
-                        projectPath: normalizedProjectPath,
-                        recentProjects: state.recentProjects,
-                      }),
-                    newWorkspaceInitCommand: resolveProjectWorkspaceInitCommand(
-                      {
-                        projectPath: normalizedProjectPath,
-                        recentProjects: state.recentProjects,
-                      },
-                    ),
-                    newWorkspaceUseRootNodeModulesSymlink:
-                      resolveProjectWorkspaceRootNodeModulesSymlinkPreference({
-                        projectPath: normalizedProjectPath,
-                        recentProjects: state.recentProjects,
-                      }),
                   },
                 }),
               };
