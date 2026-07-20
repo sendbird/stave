@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  normalizeFableWeeklyWindow,
   normalizeResetsAt,
   normalizeWindow,
 } from "../electron/providers/rate-limits/claude-usage-fetcher";
@@ -47,5 +48,47 @@ describe("normalizeWindow", () => {
 
   test("returns null when there's no usage percentage at all", () => {
     expect(normalizeWindow({ resets_at: 123 })).toBeNull();
+  });
+});
+
+describe("normalizeFableWeeklyWindow", () => {
+  test("parses the current model-scoped limits shape", () => {
+    const window = normalizeFableWeeklyWindow({
+      limits: [
+        {
+          kind: "weekly_scoped",
+          percent: 37,
+          resets_at: "2026-07-27T00:00:00.000Z",
+          scope: { model: { display_name: "Fable" } },
+        },
+      ],
+    });
+
+    expect(window?.usedPercent).toBe(37);
+    expect(window?.resetsAt).toBe(
+      Math.floor(Date.parse("2026-07-27T00:00:00.000Z") / 1000),
+    );
+  });
+
+  test("supports the legacy top-level Fable window", () => {
+    expect(
+      normalizeFableWeeklyWindow({
+        seven_day_fable: { utilization: 0.42, resets_at: 1_785_542_400 },
+      }),
+    ).toEqual({ usedPercent: 42, resetsAt: 1_785_542_400 });
+  });
+
+  test("ignores scoped weekly limits for other models", () => {
+    expect(
+      normalizeFableWeeklyWindow({
+        limits: [
+          {
+            kind: "weekly_scoped",
+            percent: 12,
+            scope: { model: { display_name: "Sonnet" } },
+          },
+        ],
+      }),
+    ).toBeNull();
   });
 });

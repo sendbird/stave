@@ -292,7 +292,8 @@ export interface CodexRateLimitSnapshot {
 }
 
 /**
- * Status-bar usage tracking (Claude session/weekly + Codex rate-limit
+ * Status-bar usage tracking (Claude session/weekly/model-specific weekly +
+ * Codex rate-limit
  * buckets). "source" tells the renderer which pipeline produced the data so
  * it can render an accurate provenance hint instead of a generic error.
  */
@@ -307,6 +308,7 @@ export interface ClaudeUsageSnapshot {
   source: ClaudeUsageSource;
   session: ClaudeUsageWindow | null;
   weekly: ClaudeUsageWindow | null;
+  fableWeekly: ClaudeUsageWindow | null;
   error: string | null;
 }
 

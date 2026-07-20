@@ -17,10 +17,17 @@ function formatPercent(usedPercent: number): string {
   return `${Math.round(usedPercent)}%`;
 }
 
-function dotColorClass(usedPercent: number): string {
-  if (usedPercent < 60) return "bg-emerald-500";
-  if (usedPercent < 85) return "bg-amber-500";
-  return "bg-red-500";
+function usageToneClass(usedPercent: number): string {
+  if (usedPercent < 60) return "bg-success";
+  if (usedPercent < 85) return "bg-warning";
+  return "bg-destructive";
+}
+
+function clampUsagePercent(usedPercent: number): number {
+  if (!Number.isFinite(usedPercent)) {
+    return 0;
+  }
+  return Math.min(100, Math.max(0, usedPercent));
 }
 
 function formatResetsIn(resetsAt: number | null): string {
@@ -45,12 +52,35 @@ function UsageWindowRow({
   usedPercent: number;
   resetsAt: number | null;
 }) {
+  const normalizedPercent = clampUsagePercent(usedPercent);
+  const resetLabel = formatResetsIn(resetsAt);
+
   return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono text-foreground/80">
-        {formatPercent(usedPercent)} · resets {formatResetsIn(resetsAt)}
-      </span>
+    <div className="space-y-1.5">
+      <div className="flex min-w-0 items-center justify-between gap-3 text-xs">
+        <span className="truncate text-muted-foreground">{label}</span>
+        <span className="shrink-0 font-mono text-foreground/80">
+          {formatPercent(usedPercent)} · resets {resetLabel}
+        </span>
+      </div>
+      <div
+        role="progressbar"
+        aria-label={`${label} usage`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(normalizedPercent)}
+        aria-valuetext={`${formatPercent(usedPercent)} used, resets ${resetLabel}`}
+        className="h-1.5 overflow-hidden rounded-full bg-muted-foreground/15"
+      >
+        <div
+          aria-hidden="true"
+          className={cn(
+            "h-full rounded-full",
+            usageToneClass(normalizedPercent),
+          )}
+          style={{ width: `${normalizedPercent}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -81,6 +111,13 @@ function ClaudeDetail({
           label="Weekly (7d)"
           usedPercent={snapshot.weekly.usedPercent}
           resetsAt={snapshot.weekly.resetsAt}
+        />
+      ) : null}
+      {snapshot.fableWeekly ? (
+        <UsageWindowRow
+          label="Weekly (Fable)"
+          usedPercent={snapshot.fableWeekly.usedPercent}
+          resetsAt={snapshot.fableWeekly.resetsAt}
         />
       ) : null}
       <p className="text-[10px] text-muted-foreground/70">
@@ -190,6 +227,7 @@ export function StatusBarUsageSegment({
     provider === "claude"
       ? (claudeSnapshot?.session?.usedPercent ??
         claudeSnapshot?.weekly?.usedPercent ??
+        claudeSnapshot?.fableWeekly?.usedPercent ??
         null)
       : (codexHeadlineBucket?.primary?.usedPercent ??
         codexHeadlineBucket?.individualLimit?.usedPercent ??
@@ -209,7 +247,7 @@ export function StatusBarUsageSegment({
               "inline-block size-1.5 rounded-full",
               headlinePercent === null
                 ? "bg-muted-foreground/40"
-                : dotColorClass(headlinePercent),
+                : usageToneClass(clampUsagePercent(headlinePercent)),
             )}
           />
           <span>{label}</span>

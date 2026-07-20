@@ -435,6 +435,7 @@ export function registerProviderHandlers() {
             source: "unavailable",
             session: null,
             weekly: null,
+            fableWeekly: null,
             error: "Invalid rate-limits snapshot request.",
           },
           codex: {

@@ -87,4 +87,31 @@ describe("parseClaudeUsagePanelText", () => {
     expect(session?.usedPercent).toBe(90);
     expect(weekly).toBeNull();
   });
+
+  test("parses the Fable weekly limit separately from the all-model window", () => {
+    const raw = [
+      "Current week (all models)",
+      "20% used",
+      "Resets in 5d",
+      "",
+      "Current week (Fable only)",
+      "35% used",
+      "Resets in 6d 2h",
+    ].join("\n");
+
+    const { weekly, fableWeekly } = parseClaudeUsagePanelText(raw);
+
+    expect(weekly?.usedPercent).toBe(20);
+    expect(fableWeekly?.usedPercent).toBe(35);
+    expect(fableWeekly?.resetsAt).not.toBeNull();
+  });
+
+  test("supports the Fable weekly limit label", () => {
+    const { weekly, fableWeekly } = parseClaudeUsagePanelText(
+      ["Fable weekly limit", "15% remaining", "Resets in 4d"].join("\n"),
+    );
+
+    expect(weekly).toBeNull();
+    expect(fableWeekly?.usedPercent).toBe(85);
+  });
 });
