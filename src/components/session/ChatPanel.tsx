@@ -14,7 +14,6 @@ import {
   Zap,
 } from "lucide-react";
 import {
-  Badge,
   Button,
   Empty,
   EmptyDescription,
@@ -43,13 +42,6 @@ import {
   getMessageScrollFingerprint,
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
-import {
-  canTakeOverTask,
-  getTaskControlOwner,
-  isTaskArchived,
-  isTaskManaged,
-  formatTaskUpdatedAt,
-} from "@/lib/tasks";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
 import { resolveUserMessageClipboardPlainText } from "@/lib/user-message-copy";
@@ -341,94 +333,6 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   );
 });
 
-function ChatPanelHeader() {
-  const [
-    activeTaskId,
-    activeTask,
-    activeTaskTitle,
-    activeTaskUpdatedAt,
-    activeTurnId,
-    takeOverTask,
-  ] = useAppStore(
-    useShallow((state) => {
-      const activeTask = state.tasks.find(
-        (task) => task.id === state.activeTaskId && !isTaskArchived(task),
-      );
-      return [
-        state.activeTaskId,
-        activeTask ?? null,
-        activeTask?.title ?? "Untitled Task",
-        activeTask?.updatedAt,
-        state.activeTurnIdsByTask[state.activeTaskId],
-        state.takeOverTask,
-      ] as const;
-    }),
-  );
-  const [timeAnchor, setTimeAnchor] = useState(() => Date.now());
-  const isManagedTask = isTaskManaged(activeTask);
-  const canTakeOver = canTakeOverTask({ task: activeTask, activeTurnId });
-  const managedLabel = isManagedTask
-    ? `Managed by ${getTaskControlOwner(activeTask) === "external" ? "external controller" : "Stave"}`
-    : null;
-
-  useEffect(() => {
-    const handle = window.setInterval(() => {
-      setTimeAnchor(Date.now());
-    }, 60_000);
-    return () => window.clearInterval(handle);
-  }, []);
-
-  return (
-    <header className="flex h-10 items-center justify-between border-b border-border/80 bg-card px-3 text-sm">
-      <div className="flex min-w-0 items-center gap-2">
-        <MessageSquareIcon className="size-4 shrink-0 text-muted-foreground" />
-        <span className="truncate font-medium text-foreground">
-          {activeTaskTitle}
-        </span>
-        {managedLabel ? (
-          <Badge
-            variant="secondary"
-            className="shrink-0 rounded-sm text-[10px] uppercase tracking-[0.14em]"
-          >
-            Managed
-          </Badge>
-        ) : null}
-        {activeTaskUpdatedAt ? (
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {formatTaskUpdatedAt({
-              value: activeTaskUpdatedAt,
-              now: timeAnchor,
-            })}
-          </span>
-        ) : null}
-        {managedLabel ? (
-          <span className="truncate text-xs text-muted-foreground">
-            {activeTurnId
-              ? managedLabel
-              : `${managedLabel}. Take over to continue here.`}
-          </span>
-        ) : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {isManagedTask ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={!canTakeOver}
-            className="h-7 rounded-sm px-2 text-xs shadow-none"
-            onClick={() => takeOverTask({ taskId: activeTaskId })}
-          >
-            Take Over
-          </Button>
-        ) : null}
-      </div>
-    </header>
-  );
-}
-
-const MemoizedChatPanelHeader = memo(ChatPanelHeader);
-
 function ChatPanelMessageList() {
   const [
     activeWorkspaceId,
@@ -644,7 +548,6 @@ export function ChatPanel() {
   return (
     <Conversation>
       <div className="flex h-full w-full flex-col">
-        <MemoizedChatPanelHeader />
         <MemoizedChatPanelMessageList />
       </div>
       <ConversationScrollButton tooltip="Scroll to bottom" />
