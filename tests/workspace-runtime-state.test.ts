@@ -2,6 +2,33 @@ import { describe, expect, test } from "bun:test";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 import { saveActiveWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
 import { applyProviderEventsToWorkspaceSession } from "@/store/workspace-turn-replay";
+import { createWorkspaceSnapshot } from "@/store/workspace-session-state";
+
+describe("createWorkspaceSnapshot", () => {
+  test("preserves seeded workspace information", () => {
+    const workspaceInformation = createEmptyWorkspaceInformation();
+    workspaceInformation.notes = "Seeded from kickoff";
+
+    const snapshot = createWorkspaceSnapshot({
+      activeTaskId: "task-1",
+      tasks: [],
+      messagesByTask: {},
+      promptDraftByTask: {},
+      workspaceInformation,
+      editorTabs: [],
+      activeEditorTabId: null,
+      terminalTabs: [],
+      activeTerminalTabId: null,
+      terminalDocked: false,
+      cliSessionTabs: [],
+      activeCliSessionTabId: null,
+      activeSurface: { kind: "task", taskId: "task-1" },
+      providerSessionByTask: {},
+    });
+
+    expect(snapshot.workspaceInformation.notes).toBe("Seeded from kickoff");
+  });
+});
 
 describe("saveActiveWorkspaceRuntimeCache", () => {
   test("retains active task messages while dropping idle task messages", () => {

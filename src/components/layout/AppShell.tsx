@@ -81,6 +81,11 @@ const loadKeyboardShortcutsDrawer = () =>
     default: module.KeyboardShortcutsDrawer,
   }));
 const KeyboardShortcutsDrawer = lazy(() => loadKeyboardShortcutsDrawer());
+const KickoffDialog = lazy(() =>
+  import("@/components/layout/KickoffDialog").then((module) => ({
+    default: module.KickoffDialog,
+  })),
+);
 
 type ResizableLayoutKey =
   | "workspaceSidebarWidth"
@@ -206,6 +211,7 @@ export function AppShell() {
     string | null
   >(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [kickoffOpen, setKickoffOpen] = useState(false);
   const [sidebarResizing, setSidebarResizing] = useState(false);
   const [lensPanelResizing, setLensPanelResizing] = useState(false);
   const [contentRowWidth, setContentRowWidth] = useState(0);
@@ -255,6 +261,17 @@ export function AppShell() {
   const handleOpenCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
   }, []);
+  const handleOpenKickoff = useCallback(
+    async (targetProjectPath?: string) => {
+      const normalizedTargetPath = targetProjectPath?.trim();
+      if (normalizedTargetPath && normalizedTargetPath !== projectPath) {
+        await openProject({ projectPath: normalizedTargetPath });
+      }
+      setCommandPaletteOpen(false);
+      setKickoffOpen(true);
+    },
+    [openProject, projectPath],
+  );
   const handleOpenExplorerSearch = useCallback(() => {
     const store = useAppStore.getState();
     const searchRootPath =
@@ -1068,7 +1085,8 @@ export function AppShell() {
     showQuitConfirm ||
     commandPaletteOpen ||
     settingsOpen ||
-    shortcutsOpen;
+    shortcutsOpen ||
+    kickoffOpen;
   const commandPaletteContext = useMemo(
     () => ({
       activeEditorTabId,
@@ -1139,6 +1157,7 @@ export function AppShell() {
         focusFileSearch: handleFocusFileSearch,
         openExplorerSearch: handleOpenExplorerSearch,
         openLatestCompletedTurnTask: handleOpenLatestCompletedTurnTask,
+        openKickoff: () => void handleOpenKickoff(),
         openInTerminal: async (path: string) => {
           await window.api?.shell?.openInTerminal?.({ path });
         },
@@ -1234,6 +1253,7 @@ export function AppShell() {
       editorVisible,
       handleFocusFileSearch,
       handleOpenExplorerSearch,
+      handleOpenKickoff,
       handleOpenLatestCompletedTurnTask,
       handleOpenKeyboardShortcuts,
       handleOpenSettings,
@@ -1360,6 +1380,11 @@ export function AppShell() {
           />
         </Suspense>
       ) : null}
+      {kickoffOpen ? (
+        <Suspense fallback={<OverlayLoadingFallback title="Kickoff" />}>
+          <KickoffDialog open={kickoffOpen} onOpenChange={setKickoffOpen} />
+        </Suspense>
+      ) : null}
       <div className="flex min-h-0 min-w-0 flex-1">
         <RenderProfiler id="ProjectWorkspaceSidebar">
           <ProjectWorkspaceSidebar
@@ -1370,6 +1395,9 @@ export function AppShell() {
             onOpenKeyboardShortcuts={handleOpenKeyboardShortcuts}
             onOpenSettings={handleOpenSettings}
             onPreloadSettings={handlePreloadSettings}
+            onKickoffWorkspace={(targetProjectPath) =>
+              handleOpenKickoff(targetProjectPath)
+            }
           />
         </RenderProfiler>
         {!workspaceSidebarCollapsed ? (

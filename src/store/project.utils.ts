@@ -23,6 +23,7 @@ export interface RecentProjectState {
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
   projectBasePrompt?: string;
+  kickoffBranchNamingRule?: string;
   newWorkspaceInitCommand?: string;
   newWorkspaceUseRootNodeModulesSymlink?: boolean;
   archivedWorkspacePaths?: string[];
@@ -40,6 +41,12 @@ export function normalizeProjectWorkspaceInitCommand(args: {
 }
 
 export function normalizeProjectBasePrompt(args: { value?: string | null }) {
+  return args.value?.trim() ?? "";
+}
+
+export function normalizeProjectKickoffBranchNamingRule(args: {
+  value?: string | null;
+}) {
   return args.value?.trim() ?? "";
 }
 
@@ -133,12 +140,16 @@ function findRecentProjectByPath(args: {
 
 function normalizeRecentProjectPreferences(args: {
   projectBasePrompt?: string | null;
+  kickoffBranchNamingRule?: string | null;
   newWorkspaceInitCommand?: string | null;
   newWorkspaceUseRootNodeModulesSymlink?: boolean | null;
 }) {
   return {
     projectBasePrompt: normalizeProjectBasePrompt({
       value: args.projectBasePrompt,
+    }),
+    kickoffBranchNamingRule: normalizeProjectKickoffBranchNamingRule({
+      value: args.kickoffBranchNamingRule,
     }),
     newWorkspaceInitCommand: normalizeProjectWorkspaceInitCommand({
       value: args.newWorkspaceInitCommand,
@@ -150,12 +161,13 @@ function normalizeRecentProjectPreferences(args: {
   };
 }
 
-function resolveRecentProjectPreferences(args: {
+export function resolveRecentProjectPreferences(args: {
   projectPath?: string | null;
   recentProjects: RecentProjectState[];
 }) {
   return {
     projectBasePrompt: resolveProjectBasePrompt(args),
+    kickoffBranchNamingRule: resolveProjectKickoffBranchNamingRule(args),
     newWorkspaceInitCommand: resolveProjectWorkspaceInitCommand(args),
     newWorkspaceUseRootNodeModulesSymlink:
       resolveProjectWorkspaceRootNodeModulesSymlinkPreference(args),
@@ -188,6 +200,61 @@ export function resolveProjectBasePrompt(args: {
 }) {
   const project = findRecentProjectByPath(args);
   return normalizeProjectBasePrompt({ value: project?.projectBasePrompt });
+}
+
+export function resolveProjectKickoffBranchNamingRule(args: {
+  projectPath?: string | null;
+  recentProjects: RecentProjectState[];
+}) {
+  const project = findRecentProjectByPath(args);
+  return normalizeProjectKickoffBranchNamingRule({
+    value: project?.kickoffBranchNamingRule,
+  });
+}
+
+type ProjectTextPreference =
+  | { key: "projectBasePrompt"; value: string }
+  | { key: "kickoffBranchNamingRule"; value: string };
+
+export function updateCurrentProjectTextPreference(args: {
+  state: {
+    recentProjects: RecentProjectState[];
+    projectPath: string | null;
+    projectName: string | null;
+    defaultBranch: string;
+    workspaces: WorkspaceSummary[];
+    activeWorkspaceId: string;
+    workspaceBranchById: Record<string, string>;
+    workspacePathById: Record<string, string>;
+    workspaceDefaultById: Record<string, boolean>;
+  };
+  projectPath?: string;
+  preference: ProjectTextPreference;
+}): RecentProjectState[] | null {
+  const projectPath = args.projectPath?.trim() || args.state.projectPath || "";
+  if (!projectPath) {
+    return null;
+  }
+  const projects = captureCurrentProjectState(args.state);
+  const project = projects.find((item) => item.projectPath === projectPath);
+  if (!project) {
+    return null;
+  }
+  const normalize =
+    args.preference.key === "projectBasePrompt"
+      ? normalizeProjectBasePrompt
+      : normalizeProjectKickoffBranchNamingRule;
+  const nextValue = normalize({ value: args.preference.value });
+  if (normalize({ value: project[args.preference.key] }) === nextValue) {
+    return null;
+  }
+  return upsertRecentProjectState({
+    projects,
+    project: {
+      ...cloneRecentProjectState(project),
+      [args.preference.key]: nextValue,
+    },
+  });
 }
 
 export function summarizeTerminalCommandDetail(args: {
@@ -817,6 +884,7 @@ function normalizeRecentProjectStateEntry(
     ...(linkedWorkspacePaths.length > 0 ? { linkedWorkspacePaths } : {}),
     ...normalizeRecentProjectPreferences({
       projectBasePrompt: project.projectBasePrompt,
+      kickoffBranchNamingRule: project.kickoffBranchNamingRule,
       newWorkspaceInitCommand: project.newWorkspaceInitCommand,
       newWorkspaceUseRootNodeModulesSymlink:
         project.newWorkspaceUseRootNodeModulesSymlink,
@@ -859,6 +927,7 @@ export function normalizeCurrentProjectState(args: {
     workspacePathById: args.workspacePathById,
     workspaceDefaultById: args.workspaceDefaultById,
     projectBasePrompt: rememberedProject?.projectBasePrompt,
+    kickoffBranchNamingRule: rememberedProject?.kickoffBranchNamingRule,
     newWorkspaceInitCommand: rememberedProject?.newWorkspaceInitCommand,
     newWorkspaceUseRootNodeModulesSymlink:
       rememberedProject?.newWorkspaceUseRootNodeModulesSymlink,
@@ -915,6 +984,7 @@ export function cloneRecentProjectState(
     ...(linkedWorkspacePaths.length > 0 ? { linkedWorkspacePaths } : {}),
     ...normalizeRecentProjectPreferences({
       projectBasePrompt: project.projectBasePrompt,
+      kickoffBranchNamingRule: project.kickoffBranchNamingRule,
       newWorkspaceInitCommand: project.newWorkspaceInitCommand,
       newWorkspaceUseRootNodeModulesSymlink:
         project.newWorkspaceUseRootNodeModulesSymlink,

@@ -5,6 +5,7 @@ import { RIGHT_RAIL_PANEL_ICONS, RIGHT_RAIL_PANEL_TITLES, type RightRailPanelId 
 export function RightRailPanelShell(props: {
   panelId: RightRailPanelId;
   title?: string;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   const Icon = RIGHT_RAIL_PANEL_ICONS[props.panelId];
@@ -16,6 +17,11 @@ export function RightRailPanelShell(props: {
           <Icon className={PANEL_HEADER_ICON_CLASS} />
           <span>{props.title ?? RIGHT_RAIL_PANEL_TITLES[props.panelId]}</span>
         </h2>
+        {props.actions ? (
+          <div className="ml-auto flex shrink-0 items-center">
+            {props.actions}
+          </div>
+        ) : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {props.children}

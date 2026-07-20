@@ -119,6 +119,7 @@ export interface CommandPaletteCommandHandlers {
   focusFileSearch: () => void;
   openExplorerSearch: () => void;
   openLatestCompletedTurnTask: () => Promise<void> | void;
+  openKickoff: () => void;
   openInTerminal: (path: string) => Promise<void> | void;
   openInGhostty: (path: string) => Promise<void> | void;
   openInVSCode: (path: string) => Promise<void> | void;
@@ -843,6 +844,43 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       run: args.commands.openKeyboardShortcuts,
       source: "core",
     }),
+  },
+  {
+    id: "workspace.kickoff",
+    title: "Kick off Workspace",
+    description: "Create a workspace from an external source or prompt.",
+    group: "task",
+    icon: Sparkles,
+    keywords: [
+      "kickoff",
+      "new workspace",
+      "jira",
+      "slack",
+      "figma",
+      "prd",
+      "source",
+    ],
+    build: (args) =>
+      args.projectPath
+        ? {
+            id: "workspace.kickoff",
+            title: "Kick off Workspace",
+            subtitle: "Resolve a source, preview details, and create a worktree.",
+            group: "task",
+            icon: Sparkles,
+            keywords: [
+              "kickoff",
+              "new workspace",
+              "jira",
+              "slack",
+              "figma",
+              "prd",
+              "source",
+            ],
+            run: args.commands.openKickoff,
+            source: "core",
+          }
+        : null,
   },
   {
     id: "workspace.refresh-files",

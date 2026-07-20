@@ -117,6 +117,13 @@ export const settingsSections = [
     keywords: ["servers", "tools", "context"],
   },
   {
+    id: "kickoff",
+    label: "Kickoff",
+    icon: Sparkles,
+    description: "External source matching and workspace proposal settings.",
+    keywords: ["workspace", "jira", "slack", "figma", "prd", "source"],
+  },
+  {
     id: "prompts",
     label: "Prompts",
     icon: ScrollText,
@@ -212,6 +219,7 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
         "models",
         "codex",
         "mcp",
+        "kickoff",
         "prompts",
         "skills",
         "subagents",

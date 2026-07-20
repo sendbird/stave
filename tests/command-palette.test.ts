@@ -86,6 +86,7 @@ function createContext(
       focusFileSearch: () => {},
       openExplorerSearch: () => {},
       openLatestCompletedTurnTask: async () => {},
+      openKickoff: () => {},
       openInGhostty: async () => {},
       openInTerminal: async () => {},
       openInVSCode: async () => {},
@@ -157,6 +158,9 @@ describe("command palette registry", () => {
     ).toBe(true);
     expect(
       task?.items.some((item) => item.id === "task.compare-providers"),
+    ).toBe(true);
+    expect(
+      task?.items.some((item) => item.id === "workspace.kickoff"),
     ).toBe(true);
     expect(
       provider?.items.some((item) => item.id === "provider.set.codex"),
@@ -255,6 +259,18 @@ describe("command palette registry", () => {
     expect(task?.items.some((item) => item.id === "task.create-pr")).toBe(
       false,
     );
+  });
+
+  test("hides workspace kickoff without a project", () => {
+    const groups = buildCommandPaletteGroups(
+      createContext({ projectPath: null }),
+    );
+
+    expect(
+      groups.some((group) =>
+        group.items.some((item) => item.id === "workspace.kickoff"),
+      ),
+    ).toBe(false);
   });
 
   test("applies pinned, hidden, and recent preferences in presentation order", () => {

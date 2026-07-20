@@ -209,6 +209,11 @@ import {
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import {
+  normalizeWorkspaceInformationSectionVisibility,
+  type WorkspaceInformationSectionVisibility,
+} from "@/lib/workspace-information-sections";
+import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
+import {
   buildWorkspaceTurnSummaryPrompt,
   createWorkspaceTurnSummary,
   parseWorkspaceTurnSummaryResponse,
@@ -263,6 +268,13 @@ import {
   createWorkspaceSessionStateFromAppState,
   saveActiveWorkspaceRuntimeCache,
 } from "@/store/workspace-runtime-state";
+import {
+  DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
+  createWorkspaceKickoffResolver,
+  runWorkspaceKickoff,
+  type WorkspaceKickoffActions,
+  type WorkspaceKickoffSettings,
+} from "@/store/workspace-kickoff-actions";
 import type {
   Attachment,
   ChatMessage,
@@ -354,15 +366,16 @@ import {
 } from "@/lib/themes";
 import {
   type RecentProjectState,
-  normalizeProjectBasePrompt,
   normalizeWorkspaceInitCommand,
   normalizeProjectWorkspaceInitCommand,
   normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
   resolveProjectBasePrompt,
   resolveProjectWorkspaceInitCommand,
   resolveProjectWorkspaceRootNodeModulesSymlinkPreference,
+  resolveRecentProjectPreferences,
   summarizeTerminalCommandDetail,
   summarizeWorkspaceInitCommand,
+  updateCurrentProjectTextPreference,
   buildWorkspaceRootNodeModulesSymlinkCommand,
   buildWorkspaceCreationNotice,
   isDefaultWorkspaceName,
@@ -1182,7 +1195,7 @@ function logWorkspaceSwitchMetric(args: {
   });
 }
 
-export interface AppSettings {
+export interface AppSettings extends WorkspaceKickoffSettings {
   showPresetBar: boolean;
   themeMode: "light" | "dark" | "system";
   /** ID of the active custom theme preset, or `null` for the default. */
@@ -1229,6 +1242,8 @@ export interface AppSettings {
   messageKoreanFontFamily: string;
   /** Zoom scale for the workspace information panel (0.8 – 1.3, default 1). */
   infoPanelScale: number;
+  /** Per-section visibility overrides for the workspace information panel. */
+  infoPanelSectionVisibility: WorkspaceInformationSectionVisibility;
   reasoningExpansionMode: "auto" | "manual";
   showInterimMessages: boolean;
   thinkingPhraseAnimationStyle: ThinkingPhraseAnimationStyle;
@@ -1402,7 +1417,7 @@ export interface AppSettings {
   lensCdpApprovedHosts: string[];
 }
 
-interface AppState {
+interface AppState extends WorkspaceKickoffActions {
   hasHydratedWorkspaces: boolean;
   workspaceSnapshotVersion: number;
   promptDraftPersistenceVersion: number;
@@ -1511,6 +1526,7 @@ interface AppState {
     initCommand?: string;
     useRootNodeModulesSymlink?: boolean;
     initialTaskTitle?: string;
+    workspaceInformation?: WorkspaceInformationState;
   }) => Promise<{
     ok: boolean;
     message?: string;
@@ -1547,6 +1563,10 @@ interface AppState {
   setProjectBasePrompt: (args: {
     projectPath?: string;
     prompt: string;
+  }) => void;
+  setProjectKickoffBranchNamingRule: (args: {
+    projectPath?: string;
+    rule: string;
   }) => void;
   setProjectWorkspaceInitCommand: (args: {
     projectPath?: string;
@@ -2471,6 +2491,7 @@ const defaultSettings: AppSettings = {
   messageMonoFontFamily: "JetBrains Mono",
   messageKoreanFontFamily: "Pretendard Variable",
   infoPanelScale: 1,
+  infoPanelSectionVisibility: {},
   reasoningExpansionMode: "manual",
   showInterimMessages: false,
   thinkingPhraseAnimationStyle: "soft",
@@ -2585,6 +2606,7 @@ const defaultSettings: AppSettings = {
   workspaceTurnSummaryPrimaryModel: "gpt-5.6-luna",
   workspaceTurnSummaryFallbackModel: "claude-haiku-4-5",
   workspaceTurnSummaryPrompt: DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
+  ...DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
 
   // Lens
   lensSourceMappingHeuristic: true,
@@ -3482,6 +3504,9 @@ export const useAppStore = create<AppState>()(
         string,
         string
       >();
+      const kickoffResolver = createWorkspaceKickoffResolver({
+        getState: get,
+      });
       const providerTurnStallTimerByTask = new Map<
         string,
         ReturnType<typeof globalThis.setTimeout>
@@ -3921,19 +3946,10 @@ export const useAppStore = create<AppState>()(
                   workspaceBranchById: state.workspaceBranchById,
                   workspacePathById: state.workspacePathById,
                   workspaceDefaultById: state.workspaceDefaultById,
-                  projectBasePrompt: resolveProjectBasePrompt({
+                  ...resolveRecentProjectPreferences({
                     projectPath: args.projectRootPath,
                     recentProjects: rememberedProjects,
                   }),
-                  newWorkspaceInitCommand: resolveProjectWorkspaceInitCommand({
-                    projectPath: args.projectRootPath,
-                    recentProjects: rememberedProjects,
-                  }),
-                  newWorkspaceUseRootNodeModulesSymlink:
-                    resolveProjectWorkspaceRootNodeModulesSymlinkPreference({
-                      projectPath: args.projectRootPath,
-                      recentProjects: rememberedProjects,
-                    }),
                 }),
                 projectName: args.projectName,
                 defaultBranch: args.defaultBranch,
@@ -4105,6 +4121,7 @@ export const useAppStore = create<AppState>()(
           workspacePathById: { [defaultWorkspaceId]: args.projectRootPath },
           workspaceDefaultById: { [defaultWorkspaceId]: true },
           projectBasePrompt: "",
+          kickoffBranchNamingRule: "",
           newWorkspaceInitCommand: "",
           newWorkspaceUseRootNodeModulesSymlink: false,
         } satisfies RecentProjectState;
@@ -5536,22 +5553,10 @@ export const useAppStore = create<AppState>()(
                       workspaceDefaultById: defaultWorkspaceId
                         ? { [defaultWorkspaceId]: true }
                         : {},
-                      projectBasePrompt: resolveProjectBasePrompt({
+                      ...resolveRecentProjectPreferences({
                         projectPath: state.projectPath,
                         recentProjects: state.recentProjects,
                       }),
-                      newWorkspaceInitCommand:
-                        resolveProjectWorkspaceInitCommand({
-                          projectPath: state.projectPath,
-                          recentProjects: state.recentProjects,
-                        }),
-                      newWorkspaceUseRootNodeModulesSymlink:
-                        resolveProjectWorkspaceRootNodeModulesSymlinkPreference(
-                          {
-                            projectPath: state.projectPath,
-                            recentProjects: state.recentProjects,
-                          },
-                        ),
                     },
                   })
                 : state.recentProjects,
@@ -5852,22 +5857,10 @@ export const useAppStore = create<AppState>()(
                       workspaceBranchById: nextBranch,
                       workspacePathById: nextPath,
                       workspaceDefaultById: nextDefault,
-                      projectBasePrompt: resolveProjectBasePrompt({
+                      ...resolveRecentProjectPreferences({
                         projectPath: current.projectPath,
                         recentProjects: current.recentProjects,
                       }),
-                      newWorkspaceInitCommand:
-                        resolveProjectWorkspaceInitCommand({
-                          projectPath: current.projectPath,
-                          recentProjects: current.recentProjects,
-                        }),
-                      newWorkspaceUseRootNodeModulesSymlink:
-                        resolveProjectWorkspaceRootNodeModulesSymlinkPreference(
-                          {
-                            projectPath: current.projectPath,
-                            recentProjects: current.recentProjects,
-                          },
-                        ),
                     },
                   })
                 : current.recentProjects,
@@ -6300,6 +6293,8 @@ export const useAppStore = create<AppState>()(
               : { recentProjects: nextProjects };
           });
         },
+        resolveKickoffProposal: kickoffResolver.resolve,
+        cancelKickoffResolution: kickoffResolver.cancel,
         createWorkspace: async ({
           name,
           label,
@@ -6309,6 +6304,7 @@ export const useAppStore = create<AppState>()(
           initCommand,
           useRootNodeModulesSymlink: requestedRootNodeModulesSymlink,
           initialTaskTitle,
+          workspaceInformation,
         }) => {
           const trimmed = name.trim();
           if (!trimmed) {
@@ -6458,6 +6454,7 @@ export const useAppStore = create<AppState>()(
               [seededTask.id]: [],
             },
             promptDraftByTask: empty.promptDraftByTask,
+            workspaceInformation,
             editorTabs: empty.editorTabs,
             activeEditorTabId: empty.activeEditorTabId,
             terminalTabs: empty.terminalTabs,
@@ -6477,6 +6474,7 @@ export const useAppStore = create<AppState>()(
             tasks: snapshot.tasks,
             messagesByTask: snapshot.messagesByTask,
             promptDraftByTask: snapshot.promptDraftByTask ?? {},
+            workspaceInformation: snapshot.workspaceInformation,
             editorTabs: snapshot.editorTabs ?? [],
             activeEditorTabId: snapshot.activeEditorTabId ?? null,
             terminalTabs: snapshot.terminalTabs ?? [],
@@ -6651,6 +6649,8 @@ export const useAppStore = create<AppState>()(
             ? { ok: true, ...creationNotice }
             : { ok: true };
         },
+        kickoffWorkspace: (input) =>
+          runWorkspaceKickoff({ input, getState: get }),
         importWorkspaceFromWorktree: async ({ worktreePath, label }) => {
           const trimmedInput = worktreePath.trim();
           if (!trimmedInput) {
@@ -7608,21 +7608,10 @@ export const useAppStore = create<AppState>()(
                     workspaceBranchById: state.workspaceBranchById,
                     workspacePathById: state.workspacePathById,
                     workspaceDefaultById: state.workspaceDefaultById,
-                    projectBasePrompt: resolveProjectBasePrompt({
+                    ...resolveRecentProjectPreferences({
                       projectPath: normalizedProjectPath,
                       recentProjects: state.recentProjects,
                     }),
-                    newWorkspaceInitCommand: resolveProjectWorkspaceInitCommand(
-                      {
-                        projectPath: normalizedProjectPath,
-                        recentProjects: state.recentProjects,
-                      },
-                    ),
-                    newWorkspaceUseRootNodeModulesSymlink:
-                      resolveProjectWorkspaceRootNodeModulesSymlinkPreference({
-                        projectPath: normalizedProjectPath,
-                        recentProjects: state.recentProjects,
-                      }),
                   },
                 }),
               };
@@ -7828,47 +7817,22 @@ export const useAppStore = create<AppState>()(
         },
         setProjectBasePrompt: ({ projectPath, prompt }) => {
           set((state) => {
-            const normalizedProjectPath =
-              projectPath?.trim() || state.projectPath?.trim() || "";
-            if (!normalizedProjectPath) {
-              return state;
-            }
-
-            const currentProjects = captureCurrentProjectState({
-              recentProjects: state.recentProjects,
-              projectPath: state.projectPath,
-              projectName: state.projectName,
-              defaultBranch: state.defaultBranch,
-              workspaces: state.workspaces,
-              activeWorkspaceId: state.activeWorkspaceId,
-              workspaceBranchById: state.workspaceBranchById,
-              workspacePathById: state.workspacePathById,
-              workspaceDefaultById: state.workspaceDefaultById,
+            const recentProjects = updateCurrentProjectTextPreference({
+              state,
+              projectPath,
+              preference: { key: "projectBasePrompt", value: prompt },
             });
-            const existingProject = currentProjects.find(
-              (project) => project.projectPath === normalizedProjectPath,
-            );
-            if (!existingProject) {
-              return state;
-            }
-
-            const nextPrompt = normalizeProjectBasePrompt({ value: prompt });
-            const currentPrompt = normalizeProjectBasePrompt({
-              value: existingProject.projectBasePrompt,
+            return recentProjects ? { recentProjects } : state;
+          });
+        },
+        setProjectKickoffBranchNamingRule: ({ projectPath, rule }) => {
+          set((state) => {
+            const recentProjects = updateCurrentProjectTextPreference({
+              state,
+              projectPath,
+              preference: { key: "kickoffBranchNamingRule", value: rule },
             });
-            if (currentPrompt === nextPrompt) {
-              return state;
-            }
-
-            return {
-              recentProjects: upsertRecentProjectState({
-                projects: currentProjects,
-                project: {
-                  ...cloneRecentProjectState(existingProject),
-                  projectBasePrompt: nextPrompt,
-                },
-              }),
-            };
+            return recentProjects ? { recentProjects } : state;
           });
         },
         setProjectWorkspaceUseRootNodeModulesSymlink: ({
@@ -8067,6 +8031,21 @@ export const useAppStore = create<AppState>()(
                     normalizeSidebarActiveWorkspaceLimit(
                       patch.sidebarActiveWorkspaceLimit,
                     ),
+                }),
+            ...(patch.infoPanelSectionVisibility === undefined
+              ? {}
+              : {
+                  infoPanelSectionVisibility:
+                    normalizeWorkspaceInformationSectionVisibility(
+                      patch.infoPanelSectionVisibility,
+                    ),
+                }),
+            ...(patch.kickoffSourceConfigs === undefined
+              ? {}
+              : {
+                  kickoffSourceConfigs: normalizeKickoffSourceConfigs(
+                    patch.kickoffSourceConfigs,
+                  ),
                 }),
             ...(patch.providerTimeoutMs === undefined
               ? {}
@@ -13345,6 +13324,13 @@ export const useAppStore = create<AppState>()(
         // Migrate legacy fastModeVisible → per-provider fields.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const raw = state.settings as any;
+        state.settings.infoPanelSectionVisibility =
+          normalizeWorkspaceInformationSectionVisibility(
+            raw.infoPanelSectionVisibility,
+          );
+        state.settings.kickoffSourceConfigs = normalizeKickoffSourceConfigs(
+          raw.kickoffSourceConfigs,
+        );
         state.settings.showPresetBar =
           typeof raw.showPresetBar === "boolean"
             ? raw.showPresetBar

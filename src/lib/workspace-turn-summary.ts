@@ -34,7 +34,7 @@ function stripMarkdownFence(value: string) {
   return fenceMatch?.[1]?.trim() ?? trimmed;
 }
 
-function extractJsonObject(value: string) {
+export function extractJsonObject(value: string) {
   const stripped = stripMarkdownFence(value);
   const start = stripped.indexOf("{");
   const end = stripped.lastIndexOf("}");

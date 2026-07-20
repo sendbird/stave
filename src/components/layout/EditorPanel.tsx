@@ -16,6 +16,7 @@ import { WorkspaceSkillsPanel } from "./WorkspaceSkillsPanel";
 import { WorkspaceChangesPanel, type WorkspaceChecksViewModel } from "./WorkspaceChangesPanel";
 import { WorkspaceExplorerPanel } from "./WorkspaceExplorerPanel";
 import { WorkspaceInformationPanel } from "./WorkspaceInformationPanel";
+import { WorkspaceInformationSectionMenu } from "./WorkspaceInformationSectionMenu";
 import { WorkspaceLensPanel } from "./WorkspaceLensPanel";
 import { EXPLORER_SEARCH_REQUEST_EVENT } from "./explorer-search-events";
 import {
@@ -948,7 +949,14 @@ export function EditorPanel(props: EditorPanelProps) {
       className="h-full min-w-0 w-full overflow-hidden"
     >
       <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card">
-        <RightRailPanelShell panelId={rightTab}>
+        <RightRailPanelShell
+          panelId={rightTab}
+          actions={
+            rightTab === "information" ? (
+              <WorkspaceInformationSectionMenu />
+            ) : undefined
+          }
+        >
           {rightTab === "explorer" ? (
             <WorkspaceExplorerPanel
               projectName={explorerProjectName}
