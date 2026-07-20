@@ -60,6 +60,7 @@ import {
 } from "@/lib/terminal/types";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import {
+  canTakeOverTask,
   filterTasksByName,
   getRespondingProviderId,
   isLegacyBranchTask,
@@ -191,22 +192,22 @@ type CliSessionTab = ReturnType<
 >["cliSessionTabs"][number];
 
 function useTaskRespondingState(args: {
-  taskId: string;
-  fallbackProviderId: TaskItem["provider"];
+  task: TaskItem;
 }) {
-  const [turnState, toneClass] = useAppStore(
+  const [turnState, toneClass, canTakeOver] = useAppStore(
     useShallow((state) => {
-      const activeTurnId = state.activeTurnIdsByTask[args.taskId] ?? null;
+      const activeTurnId = state.activeTurnIdsByTask[args.task.id] ?? null;
       const respondingProviderId = getRespondingProviderId({
-        fallbackProviderId: args.fallbackProviderId,
-        messages: state.messagesByTask[args.taskId] ?? EMPTY_MESSAGES,
+        fallbackProviderId: args.task.provider,
+        messages: state.messagesByTask[args.task.id] ?? EMPTY_MESSAGES,
       });
       return [
         resolveProviderTurnDisplayState({
           activeTurnId,
-          activity: state.providerTurnActivityByTask[args.taskId] ?? null,
+          activity: state.providerTurnActivityByTask[args.task.id] ?? null,
         }),
         getProviderWaveToneClass({ providerId: respondingProviderId }),
+        canTakeOverTask({ task: args.task, activeTurnId }),
       ] as const;
     }),
   );
@@ -215,6 +216,7 @@ function useTaskRespondingState(args: {
     isResponding: turnState !== "idle",
     isStalled: turnState === "stalled",
     toneClass,
+    canTakeOver,
   };
 }
 
@@ -227,6 +229,7 @@ const WorkspaceTaskTab = memo(function WorkspaceTaskTab(args: {
   onArchiveTask: (task: { id: string; title: string }) => void;
   onOpenTaskMenuRename: (task: { id: string; title: string }) => void;
   onOpenTaskMenuSessionIds: (task: { id: string; title: string }) => void;
+  onTakeOverTask: (taskId: string) => void;
   onDragStart: (event: DragEvent<HTMLDivElement>, taskId: string) => void;
   onDragEnd: () => void;
   onDragOver: (
@@ -241,10 +244,8 @@ const WorkspaceTaskTab = memo(function WorkspaceTaskTab(args: {
   ) => void;
   onExportTask: (taskId: string) => void;
 }) {
-  const { isResponding, isStalled, toneClass } = useTaskRespondingState({
-    taskId: args.task.id,
-    fallbackProviderId: args.task.provider,
-  });
+  const { isResponding, isStalled, toneClass, canTakeOver } =
+    useTaskRespondingState({ task: args.task });
   const isManaged = isTaskManaged(args.task);
   const buttonVisibility = args.isActive
     ? "opacity-100"
@@ -358,6 +359,17 @@ const WorkspaceTaskTab = memo(function WorkspaceTaskTab(args: {
           <Ellipsis className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
+          {isManaged ? (
+            <>
+              <DropdownMenuItem
+                disabled={!canTakeOver}
+                onSelect={() => args.onTakeOverTask(args.task.id)}
+              >
+                Take Over
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <DropdownMenuItem
             disabled={isManaged}
             onSelect={() =>
@@ -576,6 +588,7 @@ export function WorkspaceTaskTabs() {
     selectTask,
     createTask,
     archiveTask,
+    takeOverTask,
     renameTask,
     exportTask,
     restoreTask,
@@ -599,6 +612,7 @@ export function WorkspaceTaskTabs() {
           state.selectTask,
           state.createTask,
           state.archiveTask,
+          state.takeOverTask,
           state.renameTask,
           state.exportTask,
           state.restoreTask,
@@ -798,6 +812,7 @@ export function WorkspaceTaskTabs() {
                     setCopiedSessionIdKey(null);
                     setTaskToViewSession(nextTask);
                   }}
+                  onTakeOverTask={(taskId) => takeOverTask({ taskId })}
                   onDragStart={handleTaskDragStart}
                   onDragEnd={() => {
                     setDraggingTaskId(null);

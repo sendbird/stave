@@ -165,7 +165,7 @@ When a task is started through Local MCP, Stave marks it as a `Managed` task.
 - while the external turn is active, Stave polls the latest persisted task state
 - the desktop UI becomes monitor-only for that task
 - chat input, approval responses, user-input responses, and other task mutations stay disabled until you explicitly take over
-- once the external turn finishes, you can use `Take Over` in the task header to convert the task back into a normal interactive Stave task
+- once the external turn finishes, you can use `Take Over` in the task tab's overflow menu to convert the task back into a normal interactive Stave task
 
 This keeps one clear control owner at a time and avoids mixed local/external edits during the same run.
 
@@ -224,7 +224,7 @@ The token is wrong or stale. Copy the token again from Settings or rotate it and
 
 ### The UI and bot seem out of sync
 
-Managed tasks poll persisted state while the external turn is active. If a finished task still looks read-only, use `Take Over` in the task header.
+Managed tasks poll persisted state while the external turn is active. If a finished task still looks read-only, use `Take Over` in the task tab's overflow menu.
 
 ### Lens tools say no browser session exists
 
