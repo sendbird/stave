@@ -36,6 +36,52 @@ export function normalizeWindow(raw: unknown): ClaudeUsageWindow | null {
 }
 
 /**
+ * Fable's model-scoped weekly limit is reported by current Claude Code builds
+ * in the `limits` array. Keep the older top-level field names as fallbacks for
+ * accounts or CLI versions that still expose the previous response shape.
+ */
+export function normalizeFableWeeklyWindow(
+  raw: unknown,
+): ClaudeUsageWindow | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const body = raw as Record<string, unknown>;
+  if (Array.isArray(body.limits)) {
+    for (const candidate of body.limits) {
+      if (!candidate || typeof candidate !== "object") {
+        continue;
+      }
+      const limit = candidate as Record<string, unknown>;
+      const scope =
+        limit.scope && typeof limit.scope === "object"
+          ? (limit.scope as Record<string, unknown>)
+          : null;
+      const model =
+        scope?.model && typeof scope.model === "object"
+          ? (scope.model as Record<string, unknown>)
+          : null;
+      if (
+        limit.kind === "weekly_scoped" &&
+        typeof model?.display_name === "string" &&
+        /\bfable\b/i.test(model.display_name) &&
+        typeof limit.percent === "number" &&
+        Number.isFinite(limit.percent)
+      ) {
+        return normalizeWindow({
+          used_percentage: limit.percent,
+          resets_at: limit.resets_at,
+        });
+      }
+    }
+  }
+
+  return normalizeWindow(
+    body.fable_weekly ?? body.fable_seven_day ?? body.seven_day_fable,
+  );
+}
+
+/**
  * `resets_at` has been observed as an epoch-second number, but the OAuth
  * endpoint's response shape isn't documented and other Anthropic APIs use
  * ISO-8601 strings for reset timestamps — accept both rather than silently
@@ -89,18 +135,20 @@ async function fetchClaudeUsageViaOAuth(): Promise<ClaudeUsageSnapshot | null> {
         source: "unavailable",
         session: null,
         weekly: null,
+        fableWeekly: null,
         error: `Claude OAuth usage request failed (${response.status}).`,
       };
     }
     const body = (await response.json()) as Record<string, unknown>;
     const session = normalizeWindow(body.five_hour);
     const weekly = normalizeWindow(body.seven_day);
-    if (!session && !weekly) {
+    const fableWeekly = normalizeFableWeeklyWindow(body);
+    if (!session && !weekly && !fableWeekly) {
       // Unexpected shape — treat like "no credentials" so the CLI fallback
       // gets a chance instead of surfacing a confusing empty success.
       return null;
     }
-    return { source: "oauth", session, weekly, error: null };
+    return { source: "oauth", session, weekly, fableWeekly, error: null };
   } catch {
     return null;
   } finally {

@@ -41,6 +41,8 @@ const RESET_RE = /resets?\s+in\s+([0-9dhm\s]+)/i;
 const SESSION_LABEL_RE = /current session/i;
 const WEEKLY_LABEL_RE =
   /(current week|weekly limits|weekly usage|weekly rate limit|7-day)/i;
+const FABLE_WEEKLY_LABEL_RE =
+  /current week\s*\(\s*fable(?:\s+\d+)?\s+only\s*\)|fable(?:\s+\d+)?\s+weekly(?:\s+(?:usage|rate))?\s+limits?/i;
 
 function parseRelativeDurationToSeconds(text: string): number | null {
   const days = text.match(/(\d+)\s*d/)?.[1];
@@ -97,11 +99,17 @@ function splitUsageSections(rawText: string): string[] {
 export function parseClaudeUsagePanelText(rawText: string): {
   session: ClaudeUsageWindow | null;
   weekly: ClaudeUsageWindow | null;
+  fableWeekly: ClaudeUsageWindow | null;
 } {
   let session: ClaudeUsageWindow | null = null;
   let weekly: ClaudeUsageWindow | null = null;
+  let fableWeekly: ClaudeUsageWindow | null = null;
 
   for (const section of splitUsageSections(stripAnsiEscapes(rawText))) {
+    if (!fableWeekly && FABLE_WEEKLY_LABEL_RE.test(section)) {
+      fableWeekly = parseUsageWindow(section);
+      continue;
+    }
     if (!session && SESSION_LABEL_RE.test(section)) {
       session = parseUsageWindow(section);
       continue;
@@ -111,7 +119,7 @@ export function parseClaudeUsagePanelText(rawText: string): {
     }
   }
 
-  return { session, weekly };
+  return { session, weekly, fableWeekly };
 }
 
 function toPtyEnv(
@@ -200,8 +208,9 @@ function captureClaudeUsagePanelText(executablePath: string): Promise<string> {
       // Only stop once the settled output actually contains a parseable
       // usage panel; otherwise keep waiting (the panel may still be
       // loading) until the hard timeout fires.
-      const { session, weekly } = parseClaudeUsagePanelText(buffer);
-      if (session || weekly) {
+      const { session, weekly, fableWeekly } =
+        parseClaudeUsagePanelText(buffer);
+      if (session || weekly || fableWeekly) {
         finish();
       }
     };
@@ -240,27 +249,31 @@ export async function fetchClaudeUsageViaCli(): Promise<ClaudeUsageSnapshot> {
       source: "unavailable",
       session: null,
       weekly: null,
+      fableWeekly: null,
       error: "Claude CLI executable not found.",
     };
   }
 
   try {
     const rawText = await captureClaudeUsagePanelText(executablePath);
-    const { session, weekly } = parseClaudeUsagePanelText(rawText);
-    if (!session && !weekly) {
+    const { session, weekly, fableWeekly } =
+      parseClaudeUsagePanelText(rawText);
+    if (!session && !weekly && !fableWeekly) {
       return {
         source: "unavailable",
         session: null,
         weekly: null,
+        fableWeekly: null,
         error: "Could not parse the Claude CLI /usage panel output.",
       };
     }
-    return { source: "cli", session, weekly, error: null };
+    return { source: "cli", session, weekly, fableWeekly, error: null };
   } catch (error) {
     return {
       source: "unavailable",
       session: null,
       weekly: null,
+      fableWeekly: null,
       error: error instanceof Error ? error.message : String(error),
     };
   }
