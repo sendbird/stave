@@ -4,7 +4,9 @@ import {
   buildClaudeApprovalTimeoutBridgeEvent,
   buildClaudeQueryOptions,
   CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
+  claudeForegroundSubagentPreToolUseHook,
   ClaudeToolDecisionTimeoutError,
+  resolveClaudeForegroundSubagentInput,
   resolveClaudeAgentProgressSummaries,
   resolveClaudeApprovalDecisionTimeoutMs,
   resolveClaudePermissionModeDecision,
@@ -762,6 +764,115 @@ describe("buildClaudeSystemPrompt", () => {
     // Guardrail is always present even when no base prompt is provided.
     expect(parts[0]).toContain("Stave runtime constraints");
     expect(parts[0]).toContain("AskUserQuestion");
+    // Background-notification guardrail: turns must not end waiting on
+    // background subagent / task completion notifications.
+    expect(parts[0]).toContain("run_in_background: false");
+  });
+});
+
+describe("resolveClaudeForegroundSubagentInput", () => {
+  test("forces run_in_background to false when explicitly true", () => {
+    const updated = resolveClaudeForegroundSubagentInput({
+      toolName: "Agent",
+      input: { prompt: "do work", run_in_background: true },
+    });
+    expect(updated).toEqual({ prompt: "do work", run_in_background: false });
+  });
+
+  test("forces run_in_background to false when omitted (background-by-default CLIs)", () => {
+    const updated = resolveClaudeForegroundSubagentInput({
+      toolName: "Agent",
+      input: { prompt: "do work" },
+    });
+    expect(updated).toEqual({ prompt: "do work", run_in_background: false });
+  });
+
+  test("returns undefined when the call is already foreground", () => {
+    expect(
+      resolveClaudeForegroundSubagentInput({
+        toolName: "Agent",
+        input: { prompt: "do work", run_in_background: false },
+      }),
+    ).toBeUndefined();
+  });
+
+  test("leaves remote-isolation agents untouched (always background at CLI level)", () => {
+    expect(
+      resolveClaudeForegroundSubagentInput({
+        toolName: "Agent",
+        input: { prompt: "do work", isolation: "remote" },
+      }),
+    ).toBeUndefined();
+  });
+
+  test("never rewrites other tools, including background Bash", () => {
+    expect(
+      resolveClaudeForegroundSubagentInput({
+        toolName: "Bash",
+        input: { command: "bun run dev", run_in_background: true },
+      }),
+    ).toBeUndefined();
+  });
+
+  test("ignores malformed non-object inputs", () => {
+    expect(
+      resolveClaudeForegroundSubagentInput({ toolName: "Agent", input: null }),
+    ).toBeUndefined();
+    expect(
+      resolveClaudeForegroundSubagentInput({
+        toolName: "Agent",
+        input: "prompt",
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe("claudeForegroundSubagentPreToolUseHook", () => {
+  const signal = new AbortController().signal;
+  const baseHookInput = {
+    session_id: "session",
+    transcript_path: "/tmp/transcript",
+    cwd: workspaceRoot,
+  };
+
+  test("returns updatedInput without a permissionDecision for Agent calls", async () => {
+    const output = await claudeForegroundSubagentPreToolUseHook(
+      {
+        ...baseHookInput,
+        hook_event_name: "PreToolUse",
+        tool_name: "Agent",
+        tool_input: { prompt: "do work", run_in_background: true },
+        tool_use_id: "toolu_1",
+      } as Parameters<typeof claudeForegroundSubagentPreToolUseHook>[0],
+      "toolu_1",
+      { signal },
+    );
+
+    expect(output).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        updatedInput: { prompt: "do work", run_in_background: false },
+      },
+    });
+    // The permission flow (canUseTool / plan-mode gates) must still run for
+    // the rewritten call, so the hook never emits a permissionDecision.
+    expect(output.hookSpecificOutput).not.toHaveProperty("permissionDecision");
+  });
+
+  test("is a no-op for non-Agent tools", async () => {
+    const output = await claudeForegroundSubagentPreToolUseHook(
+      {
+        ...baseHookInput,
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_input: { command: "bun run dev", run_in_background: true },
+        tool_use_id: "toolu_2",
+      } as Parameters<typeof claudeForegroundSubagentPreToolUseHook>[0],
+      "toolu_2",
+      { signal },
+    );
+
+    expect(output).toEqual({});
   });
 });
 
@@ -818,6 +929,20 @@ describe("buildClaudeQueryOptions", () => {
       forkSession: true,
       resumeSessionAt: "message-uuid",
     });
+  });
+
+  test("always registers the foreground-subagent PreToolUse hook", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+    });
+
+    expect(options.hooks?.PreToolUse).toEqual([
+      {
+        matcher: "^Agent$",
+        hooks: [claudeForegroundSubagentPreToolUseHook],
+      },
+    ]);
   });
 
   test("omits fallbackModel when it matches the primary model", () => {
