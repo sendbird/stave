@@ -85,6 +85,7 @@ import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manife
 import {
   buildCodexDeveloperInstructions,
   buildCodexInstructionProfileKey,
+  buildCodexPluginConfigOverrides,
 } from "./codex-runtime-config";
 import {
   getCodexMcpConfigPaths,
@@ -460,7 +461,9 @@ function truncateCodexSnapshot(args: { value: string; maxBytes: number }) {
 export function buildCodexConfigOverrides(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
-  const config: Record<string, string | boolean> = {};
+  const config: Record<string, string | boolean> = {
+    ...buildCodexPluginConfigOverrides(),
+  };
   const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
   const reasoningEffort = resolveCodexAppServerReasoningEffort({
     reasoningEffort: args.runtimeOptions?.codexReasoningEffort,

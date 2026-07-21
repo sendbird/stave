@@ -31,6 +31,7 @@ import type {
 } from "../../src/lib/providers/provider.types";
 import type {
   CanUseTool,
+  HookCallback,
   McpServerConfig,
   McpServerStatus,
   OnElicitation,
@@ -840,8 +841,82 @@ export const STAVE_TURN_BEHAVIOR_DIRECTIVE = [
   "Stave runtime constraints (read carefully):",
   "- You run inside Stave, which drives you one turn at a time. After a turn ends you CANNOT send an unprompted follow-up message, and there is no channel to autonomously notify the user later. Never promise things like \"I'll let you know when this finishes\" or \"I'll continue automatically once the background task completes.\"",
   "- Do not end a turn while expecting to resume on your own. If work must continue, either keep doing it within the current turn or finish with a concrete recommendation the user can act on.",
+  "- Background completion notifications (from background subagents, background shell tasks, or workflows) can only reach you while the current turn is still running. Never end a turn waiting to be notified about background work. Stave forces Agent tool calls to run in the foreground (run_in_background: false), so a subagent's result is always returned directly by its tool call — do not narrate plans like \"I'll proceed once the subagent notifies me\".",
   "- To ask a question that must block on the user's decision, use the AskUserQuestion tool so Stave can render a real answer control. A plain-text question at the end of a turn cannot receive an inline answer and will strand the user in a waiting state.",
 ].join("\n");
+
+/**
+ * Rewrite built-in Agent tool inputs so spawned subagents run in the
+ * foreground.
+ *
+ * Recent Claude Code CLIs run Agent-tool subagents in the background by
+ * default and tell the model "you will be notified when it completes". That
+ * notification can only reach the model while the turn is still streaming —
+ * Stave drives the provider one turn at a time and closes the query once
+ * `result` arrives, so a turn that ends "waiting for the notification" stalls
+ * forever and the subagent's work is lost. Forcing `run_in_background: false`
+ * makes the Agent tool call block until the subagent finishes, so its result
+ * always lands inside the live turn. Parallel fan-out still works: multiple
+ * foreground Agent calls issued in one assistant message execute concurrently.
+ *
+ * Returns the rewritten input, or undefined when no rewrite is needed.
+ */
+export function resolveClaudeForegroundSubagentInput(args: {
+  toolName: string;
+  input: unknown;
+}): Record<string, unknown> | undefined {
+  if (!isAgentToolName(args.toolName)) {
+    return undefined;
+  }
+  if (
+    typeof args.input !== "object" ||
+    args.input === null ||
+    Array.isArray(args.input)
+  ) {
+    return undefined;
+  }
+  const input = args.input as Record<string, unknown>;
+  if (input.run_in_background === false) {
+    return undefined;
+  }
+  // Remote isolation always runs in the background at the CLI level; a
+  // foreground rewrite would be contradictory, so leave the input untouched.
+  if (input.isolation === "remote") {
+    return undefined;
+  }
+  return { ...input, run_in_background: false };
+}
+
+/**
+ * In-process PreToolUse hook applying the foreground-subagent rewrite above.
+ *
+ * The hook returns only `updatedInput` — never a `permissionDecision` — so the
+ * CLI applies the rewrite and then continues through the normal permission
+ * flow (canUseTool, plan-mode gates) for the rewritten call. Registered via
+ * `buildClaudeQueryOptions` because the Agent tool is auto-allowed by the CLI
+ * and never reaches the canUseTool callback where other input normalization
+ * happens.
+ */
+export const claudeForegroundSubagentPreToolUseHook: HookCallback = async (
+  input,
+) => {
+  if (input.hook_event_name !== "PreToolUse") {
+    return {};
+  }
+  const updatedInput = resolveClaudeForegroundSubagentInput({
+    toolName: input.tool_name,
+    input: input.tool_input,
+  });
+  if (!updatedInput) {
+    return {};
+  }
+  return {
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      updatedInput,
+    },
+  };
+};
 
 export function buildClaudeSystemPrompt(args: {
   cwd: string;
@@ -1726,6 +1801,17 @@ export function buildClaudeQueryOptions(args: {
     ...(args.runtimeOptions?.claudeFastMode
       ? { settings: { fastMode: true } }
       : {}),
+    // Always-on: force Agent-tool subagents to run in the foreground so a
+    // turn can never end waiting for a background-completion notification
+    // that Stave's one-turn-at-a-time loop cannot deliver.
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: "^Agent$",
+          hooks: [claudeForegroundSubagentPreToolUseHook],
+        },
+      ],
+    },
     ...(args.canUseTool ? { canUseTool: args.canUseTool } : {}),
     ...(args.onElicitation ? { onElicitation: args.onElicitation } : {}),
     ...(args.onUserDialog
