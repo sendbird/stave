@@ -19,6 +19,10 @@ import {
   summarizeCodexAppServerDebugMessage,
   toCodexConfigLayerDisplayValue,
 } from "../electron/providers/codex-app-server-runtime";
+import {
+  buildCodexDeveloperInstructions,
+  CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS,
+} from "../electron/providers/codex-runtime-config";
 
 function encodeJwtPayload(payload: Record<string, unknown>) {
   const encoded = Buffer.from(JSON.stringify(payload))
@@ -501,6 +505,62 @@ describe("buildSandboxPolicy", () => {
       excludeSlashTmp: false,
     });
     expect(policy).not.toHaveProperty("permissionProfile");
+  });
+});
+
+describe("Codex bundled plugin and browser tooling overrides", () => {
+  test("always disables the ChatGPT bundled browser plugin in thread config overrides", () => {
+    const config = buildCodexConfigOverrides({});
+
+    expect(config).toMatchObject({
+      'plugins."browser@openai-bundled".enabled': false,
+    });
+  });
+
+  test("keeps the plugin disable override alongside runtime option overrides", () => {
+    const config = buildCodexConfigOverrides({
+      runtimeOptions: {
+        codexPlanMode: true,
+        codexReasoningEffort: "high",
+      },
+    });
+
+    expect(config).toMatchObject({
+      'plugins."browser@openai-bundled".enabled': false,
+      collaboration_mode_kind: "plan",
+    });
+  });
+
+  test("always appends Stave browser tooling guidance to developer instructions", () => {
+    const withoutBasePrompt = buildCodexDeveloperInstructions({});
+    expect(withoutBasePrompt).toBe(CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS);
+
+    const withBasePrompt = buildCodexDeveloperInstructions({
+      runtimeOptions: {
+        claudeSystemPrompt: "Base system prompt.",
+      },
+    });
+    expect(withBasePrompt).toBe(
+      `Base system prompt.\n\n${CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS}`,
+    );
+    expect(withBasePrompt).toContain("stave_lens_snapshot");
+    expect(withBasePrompt).toContain("control-in-app-browser");
+  });
+
+  test("forwards the plugin disable override through thread/start config", () => {
+    const params = buildCodexThreadStartParams({
+      cwd: "/tmp/project",
+      ephemeral: true,
+      sandbox: "read-only",
+      approvalPolicy: "never",
+    });
+
+    expectGeneratedThreadStartParamKeys(params);
+    expect(params).toMatchObject({
+      config: {
+        'plugins."browser@openai-bundled".enabled': false,
+      },
+    });
   });
 });
 
