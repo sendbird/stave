@@ -1,4 +1,4 @@
-## [0.10.7](https://github.com/sendbird/stave/compare/v0.10.6...v0.10.7) (2026-07-20)
+## [0.10.7](https://github.com/sendbird/stave/compare/v0.10.6...v0.10.7) (2026-07-21)
 
 ### Features
 
@@ -8,14 +8,16 @@
 ### Bug Fixes
 
 * Remember Claude and Codex runtime preferences per selected model, including mode, effort, and fast-mode controls.
+* Keep Claude subagent results inside the active Stave turn by forcing built-in Agent calls into the foreground.
 * Let Codex `/compact` use native App Server compaction while preserving manual boundary events and summarized thread history.
+* Prefer Stave Lens for Codex browser inspection by disabling the bundled browser plugin and adding explicit Lens guidance.
 * Auto-detect and idempotently upsert Jira, GitHub PR, Confluence, Figma, Slack, Storybook, and Amplify resources from prompts.
 * Display Claude Fable weekly limits in the status bar, and wrap long links and inline code tokens in chat messages.
 * Remove the redundant task title bar while keeping Managed Task takeover in the task tab overflow menu.
 
 ### References
 
-* [#158](https://github.com/sendbird/stave/pull/158), [#159](https://github.com/sendbird/stave/pull/159), [#160](https://github.com/sendbird/stave/pull/160), [#161](https://github.com/sendbird/stave/pull/161), [#162](https://github.com/sendbird/stave/pull/162), [#163](https://github.com/sendbird/stave/pull/163), [#165](https://github.com/sendbird/stave/pull/165)
+* [#158](https://github.com/sendbird/stave/pull/158), [#159](https://github.com/sendbird/stave/pull/159), [#160](https://github.com/sendbird/stave/pull/160), [#161](https://github.com/sendbird/stave/pull/161), [#162](https://github.com/sendbird/stave/pull/162), [#163](https://github.com/sendbird/stave/pull/163), [#165](https://github.com/sendbird/stave/pull/165), [#166](https://github.com/sendbird/stave/pull/166), [#167](https://github.com/sendbird/stave/pull/167)
 ## [0.10.6](https://github.com/sendbird/stave/compare/v0.10.5...v0.10.6) (2026-07-16)
 
 ### Features
