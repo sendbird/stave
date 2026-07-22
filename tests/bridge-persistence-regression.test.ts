@@ -1210,6 +1210,125 @@ describe("workspace persistence fallback", () => {
     ).toEqual(["ws-a", "ws-c", "ws-b"]);
   });
 
+  test("activating an unloaded task pane loads its latest messages", async () => {
+    const localStorage = createMemoryStorage();
+    const loadCalls: Array<{
+      workspaceId: string;
+      taskId: string;
+      limit: number;
+      offset: number;
+    }> = [];
+
+    setWindowContext({
+      localStorage,
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          upsertWorkspace: async () => ({ ok: true }),
+          loadTaskMessages: async (args: {
+            workspaceId: string;
+            taskId: string;
+            limit: number;
+            offset: number;
+          }) => {
+            loadCalls.push(args);
+            return {
+              ok: true,
+              page: {
+                messages: [
+                  {
+                    id: "task-secondary-m-2",
+                    role: "assistant",
+                    model: "gpt-5.4",
+                    providerId: "codex",
+                    content: "latest pane message",
+                    isStreaming: false,
+                    parts: [{ type: "text", text: "latest pane message" }],
+                  },
+                ],
+                totalCount: 2,
+                limit: args.limit,
+                offset: args.offset,
+                hasMoreOlder: true,
+              },
+            };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-03-20T00:00:00.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      activeSurface: { kind: "task", taskId: "task-main" },
+      openTaskTabIds: ["task-main", "task-secondary"],
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "codex",
+          updatedAt: "2026-03-20T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+        {
+          id: "task-secondary",
+          title: "Secondary Task",
+          provider: "codex",
+          updatedAt: "2026-03-20T00:01:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: {
+        "task-main": [],
+        "task-secondary": [],
+      },
+      messageCountByTask: {
+        "task-main": 0,
+        "task-secondary": 2,
+      },
+      projectPath: "/tmp/stave-project",
+      workspacePathById: {
+        "ws-main": "/tmp/stave-project",
+      },
+      workspaceBranchById: {
+        "ws-main": "main",
+      },
+      workspaceDefaultById: {
+        "ws-main": true,
+      },
+    });
+
+    useAppStore.getState().setActiveSurfaceFromPane({
+      kind: "task",
+      taskId: "task-secondary",
+    });
+    await Bun.sleep(0);
+
+    expect(loadCalls).toHaveLength(1);
+    expect(loadCalls[0]).toMatchObject({
+      workspaceId: "ws-main",
+      taskId: "task-secondary",
+      offset: 0,
+    });
+    expect(useAppStore.getState().activeTaskId).toBe("task-secondary");
+    expect(
+      useAppStore.getState().messagesByTask["task-secondary"]?.at(-1)?.content,
+    ).toBe("latest pane message");
+    expect(
+      useAppStore.getState().taskMessagesLoadingByTask["task-secondary"],
+    ).toBe(false);
+  });
+
   test("latest task message loads do not overwrite newer in-memory message versions", async () => {
     const localStorage = createMemoryStorage();
     let resolvePage:

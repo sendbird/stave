@@ -2436,6 +2436,17 @@ function compactLoadedMessagesByTask(args: {
   return changed ? Object.fromEntries(nextEntries) : args.messagesByTask;
 }
 
+function shouldLoadLatestTaskMessages(args: {
+  taskId: string;
+  messagesByTask: Record<string, ChatMessage[]>;
+  messageCountByTask: Record<string, number>;
+}) {
+  return (
+    (args.messagesByTask[args.taskId]?.length ?? 0) === 0 &&
+    (args.messageCountByTask[args.taskId] ?? 0) > 0
+  );
+}
+
 function mergeTaskMessagePage(args: {
   currentMessages: ChatMessage[];
   pageMessages: ChatMessage[];
@@ -8405,20 +8416,29 @@ export const useAppStore = create<AppState>()(
           if (!targetTask || isTaskArchived(targetTask)) {
             return;
           }
+          const workspaceId =
+            stateBefore.taskWorkspaceIdById[taskId] ??
+            stateBefore.activeWorkspaceId;
+          const shouldLoadMessages = shouldLoadLatestTaskMessages({
+            taskId,
+            messagesByTask: stateBefore.messagesByTask,
+            messageCountByTask: stateBefore.messageCountByTask,
+          });
           if (
             stateBefore.activeTaskId === taskId &&
             stateBefore.activeAppSurface.kind === "workspace" &&
             stateBefore.activeSurface.kind === "task" &&
             stateBefore.activeSurface.taskId === taskId
           ) {
+            if (workspaceId && shouldLoadMessages) {
+              void loadTaskMessagesIntoSession({
+                workspaceId,
+                taskId,
+                mode: "latest",
+              });
+            }
             return;
           }
-          const workspaceId =
-            stateBefore.taskWorkspaceIdById[taskId] ??
-            stateBefore.activeWorkspaceId;
-          const shouldLoadMessages =
-            !(taskId in stateBefore.messagesByTask) &&
-            (stateBefore.messageCountByTask[taskId] ?? 0) > 0;
           set((state) => ({
             activeTaskId: taskId,
             activeAppSurface: WORKSPACE_APP_SURFACE,
@@ -9806,14 +9826,39 @@ export const useAppStore = create<AppState>()(
             };
           });
         },
-        setActiveSurfaceFromPane: (surface) =>
+        setActiveSurfaceFromPane: (surface) => {
+          const stateBefore = get();
+          const taskId = surface.kind === "task" ? surface.taskId : "";
+          const targetTask = taskId
+            ? (stateBefore.tasks.find((task) => task.id === taskId) ?? null)
+            : null;
+          const workspaceId = taskId
+            ? (stateBefore.taskWorkspaceIdById[taskId] ??
+              stateBefore.activeWorkspaceId)
+            : null;
+          const shouldLoadMessages =
+            targetTask !== null &&
+            !isTaskArchived(targetTask) &&
+            shouldLoadLatestTaskMessages({
+              taskId,
+              messagesByTask: stateBefore.messagesByTask,
+              messageCountByTask: stateBefore.messageCountByTask,
+            });
           set((state) =>
             reduceActiveSurfaceFromPane({
               state,
               surface,
               nextSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
             }),
-          ),
+          );
+          if (workspaceId && shouldLoadMessages) {
+            void loadTaskMessagesIntoSession({
+              workspaceId,
+              taskId,
+              mode: "latest",
+            });
+          }
+        },
         closeTaskTab: ({ taskId }) =>
           set((state) =>
             reduceCloseTaskTab({
