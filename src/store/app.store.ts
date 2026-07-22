@@ -214,7 +214,6 @@ import {
   createWorkspaceSlackThread,
   createWorkspaceTodoItem,
   detectWorkspaceResourcesInText,
-  shouldAutoFillWorkspaceInformation,
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import {
@@ -11359,12 +11358,7 @@ export const useAppStore = create<AppState>()(
             // before the turn context is built, so this turn's injected context
             // already includes them. Dedup is keyed on canonical identity (e.g.
             // Jira issue key), not the raw URL, so re-sent links are no-ops.
-            if (
-              shouldAutoFillWorkspaceInformation({
-                workspaceId: taskWorkspaceId,
-                workspaceDefaultById: state.workspaceDefaultById,
-              })
-            ) {
+            if (!state.workspaceDefaultById[taskWorkspaceId]) {
               const detectedPromptResources =
                 detectWorkspaceResourcesInText(promptContent);
               if (detectedPromptResources.length > 0) {
