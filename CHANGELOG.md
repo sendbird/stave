@@ -1,3 +1,15 @@
+## [0.11.2](https://github.com/sendbird/stave/compare/v0.11.1...v0.11.2) (2026-07-22)
+
+### Bug Fixes
+
+* Load the latest persisted task messages when activating an unloaded task pane, so restored or compacted panes show current conversation content instead of only the older-message backfill button.
+* Retry latest task-message hydration when reselecting an active task with no resident messages, keeping pane activation reliable after persistence restores.
+* Add persistence regression coverage for task-pane message hydration.
+
+### References
+
+* [#179](https://github.com/sendbird/stave/pull/179)
+
 ## [0.11.1](https://github.com/sendbird/stave/compare/v0.11.0...v0.11.1) (2026-07-22)
 
 ### Bug Fixes
