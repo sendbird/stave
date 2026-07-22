@@ -307,6 +307,11 @@ import {
   resolvePromptDraftRuntimeState,
 } from "@/store/prompt-draft-runtime";
 import {
+  buildPreservedQueuedDraft,
+  resolvePromptDraftAfterSend,
+  resolvePromptDraftSendState,
+} from "@/store/prompt-draft-send";
+import {
   arePromptDraftBatchItemsEqual,
   arePromptDraftQueuedTurnsEqual,
   buildClearedPromptDraft,
@@ -10858,50 +10863,19 @@ export const useAppStore = create<AppState>()(
           }
           const storedPromptDraftForTask =
             taskWorkspaceSession.promptDraftByTask[resolvedTaskId];
-          const queuedTurnToSend = queuedTurnId
-            ? storedPromptDraftForTask?.queuedTurns?.find(
-                (item) => item.id === queuedTurnId,
-              )
-            : undefined;
-          if (queuedTurnId && !queuedTurnToSend) {
+          const promptDraftSendState = resolvePromptDraftSendState({
+            content,
+            preservePromptDraft,
+            runtimeOverrides,
+            sourceDraft: sourcePromptDraft,
+            storedDraft: storedPromptDraftForTask,
+            queuedTurnId,
+          });
+          if (!promptDraftSendState) {
             return { status: "blocked" } satisfies SendUserMessageResult;
           }
-          const remainingQueuedTurns = queuedTurnToSend
-            ? (storedPromptDraftForTask?.queuedTurns ?? []).filter(
-                (item) => item.id !== queuedTurnToSend.id,
-              )
-            : undefined;
-          const promptDraft = normalizePromptDraftForStorage(
-            preservePromptDraft
-              ? {
-                  text: content,
-                  attachedFilePaths: [],
-                  attachments: [],
-                  runtimeOverrides,
-                }
-              : {
-                  ...(storedPromptDraftForTask ?? sourcePromptDraft),
-                  ...(queuedTurnToSend
-                    ? {
-                        // Manual queued-turn dispatch: the staged item itself is the
-                        // payload; the composer draft's own attachments/batch stay
-                        // behind in the stored draft.
-                        text: queuedTurnToSend.content,
-                        attachedFilePaths: queuedTurnToSend.attachedFilePaths,
-                        attachments: queuedTurnToSend.attachments,
-                        promptBatch: undefined,
-                        queuedTurns: remainingQueuedTurns,
-                      }
-                    : {
-                        text: content,
-                        queuedTurns: storedPromptDraftForTask?.queuedTurns,
-                      }),
-                  ...(runtimeOverrides
-                    ? { runtimeOverrides }
-                    : undefined),
-                  queuedNextTurn: undefined,
-                },
-          );
+          const { promptDraft, queuedTurnToSend, remainingQueuedTurns } =
+            promptDraftSendState;
           const promptContent = buildPromptDraftContentForSend(promptDraft);
           const promptDisplayContent =
             buildPromptDraftDisplayContentForSend(promptDraft);
@@ -11140,15 +11114,22 @@ export const useAppStore = create<AppState>()(
           // Manual queued-turn dispatch keeps the composer draft intact and
           // only removes the dispatched item from the queue; a normal send
           // clears the submitted draft.
-          const preservedQueuedDispatchDraft = queuedTurnToSend
-            ? normalizePromptDraftForStorage({
-                ...(storedPromptDraftForTask ?? sourcePromptDraft),
-                queuedTurns: codexGoalQueuedTurns
-                  ? [...codexGoalQueuedTurns, ...(remainingQueuedTurns ?? [])]
-                  : remainingQueuedTurns,
-                queuedNextTurn: undefined,
-              })
-            : null;
+          const preservedQueuedDispatchDraft = buildPreservedQueuedDraft({
+            sourceDraft: storedPromptDraftForTask ?? sourcePromptDraft,
+            queuedTurn: queuedTurnToSend,
+            queuedTurns: codexGoalQueuedTurns,
+            remainingQueuedTurns,
+          });
+          const draftAfterSend = (currentDraft?: PromptDraft) =>
+            resolvePromptDraftAfterSend({
+              currentDraft,
+              storedDraft: storedPromptDraftForTask,
+              sourceDraft: sourcePromptDraft,
+              sentDraft: promptDraft,
+              preservePromptDraft,
+              preservedQueuedDraft: preservedQueuedDispatchDraft,
+              queuedTurns: codexGoalQueuedTurns,
+            });
 
           let promptDraftClearedOptimistically = false;
           const clearSubmittedPromptDraft = () => {
@@ -11529,19 +11510,9 @@ export const useAppStore = create<AppState>()(
                     // Queued-turn dispatch: the composer draft was already
                     // preserved (queue trimmed) by the optimistic clear — keep
                     // whatever is current instead of clearing it.
-                    [resolvedTaskId]: preservePromptDraft
-                      ? (nextState.promptDraftByTask[resolvedTaskId] ??
-                        storedPromptDraftForTask ??
-                        sourcePromptDraft)
-                      : preservedQueuedDispatchDraft
-                        ? (nextState.promptDraftByTask[resolvedTaskId] ??
-                          preservedQueuedDispatchDraft)
-                        : buildClearedPromptDraftWithQueuedNextTurn({
-                            draft:
-                              nextState.promptDraftByTask[resolvedTaskId] ??
-                              promptDraft,
-                            queuedTurns: codexGoalQueuedTurns,
-                          }),
+                    [resolvedTaskId]: draftAfterSend(
+                      nextState.promptDraftByTask[resolvedTaskId],
+                    ),
                     ...(!preservePromptDraft &&
                     sourcePromptDraftTaskId !== resolvedTaskId
                       ? {
@@ -11599,21 +11570,9 @@ export const useAppStore = create<AppState>()(
                       activeTurnIdsByTask: pendingTurnState.activeTurnIdsByTask,
                       promptDraftByTask: {
                         ...cachedSession.promptDraftByTask,
-                        [resolvedTaskId]: preservePromptDraft
-                          ? (cachedSession.promptDraftByTask[resolvedTaskId] ??
-                            storedPromptDraftForTask ??
-                            sourcePromptDraft)
-                          : preservedQueuedDispatchDraft
-                            ? (cachedSession.promptDraftByTask[
-                                resolvedTaskId
-                              ] ?? preservedQueuedDispatchDraft)
-                            : buildClearedPromptDraftWithQueuedNextTurn({
-                                draft:
-                                  cachedSession.promptDraftByTask[
-                                    resolvedTaskId
-                                  ] ?? promptDraft,
-                                queuedTurns: codexGoalQueuedTurns,
-                              }),
+                        [resolvedTaskId]: draftAfterSend(
+                          cachedSession.promptDraftByTask[resolvedTaskId],
+                        ),
                       },
                     },
                   },
