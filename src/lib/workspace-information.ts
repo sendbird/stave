@@ -1378,6 +1378,13 @@ export function applyDetectedWorkspaceResources(args: {
   return { state, added };
 }
 
+export function shouldAutoFillWorkspaceInformation(args: {
+  workspaceId: string;
+  workspaceDefaultById: Record<string, boolean>;
+}) {
+  return !args.workspaceDefaultById[args.workspaceId];
+}
+
 export const WORKSPACE_INFO_FIELD_TYPE_LABELS: Record<
   WorkspaceInfoFieldType,
   string
