@@ -9,7 +9,9 @@ import {
   parseKickoffProposalResponse,
 } from "@/lib/workspace-kickoff";
 import type { WorkspaceInformationState } from "@/lib/workspace-information";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import { runWorkspaceKickoff } from "@/store/workspace-kickoff-actions";
+import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
 describe("workspace kickoff", () => {
   test("classifies Confluence before Jira on a shared host", () => {
@@ -189,7 +191,10 @@ describe("workspace kickoff", () => {
     });
     const proposal = buildDeterministicKickoffProposal({ classification });
     let createdInformation: WorkspaceInformationState | undefined;
+    let selectedTaskProvider: ProviderId | undefined;
     let sentPrompt = "";
+    let sentProvider: ProviderId | undefined;
+    let sentRuntimeOverrides: PromptDraftRuntimeOverrides | undefined;
     const state = {
       activeTaskId: "task-1" as string | null,
       createWorkspace: async (args: {
@@ -204,9 +209,19 @@ describe("workspace kickoff", () => {
         createdInformation = args.workspaceInformation;
         return { ok: true };
       },
+      setTaskProvider: (args: { taskId: string; provider: ProviderId }) => {
+        selectedTaskProvider = args.provider;
+      },
       updatePromptDraft: () => undefined,
-      sendUserMessage: async (args: { taskId: string; content: string }) => {
+      sendUserMessage: async (args: {
+        taskId: string;
+        content: string;
+        providerOverride?: ProviderId;
+        runtimeOverrides?: PromptDraftRuntimeOverrides;
+      }) => {
         sentPrompt = args.content;
+        sentProvider = args.providerOverride;
+        sentRuntimeOverrides = args.runtimeOverrides;
         return { status: "sent" };
       },
     };
@@ -215,6 +230,12 @@ describe("workspace kickoff", () => {
       input: {
         proposal,
         startFirstTask: true,
+        firstTaskProvider: "codex",
+        firstTaskRuntimeOverrides: {
+          autoRouting: false,
+          model: "gpt-5.6-sol",
+          codexReasoningEffort: "max",
+        },
         extraInstructions: "Preserve backward compatibility.",
       },
       getState: () => state,
@@ -222,7 +243,68 @@ describe("workspace kickoff", () => {
 
     expect(result.ok).toBe(true);
     expect(createdInformation?.jiraIssues[0]?.issueKey).toBe("STAVE-123");
+    expect(selectedTaskProvider).toBe("codex");
     expect(sentPrompt).toContain("Additional instructions:");
     expect(sentPrompt).toContain("Preserve backward compatibility.");
+    expect(sentProvider).toBe("codex");
+    expect(sentRuntimeOverrides).toEqual({
+      autoRouting: false,
+      model: "gpt-5.6-sol",
+      codexReasoningEffort: "max",
+    });
+  });
+
+  test("keeps the selected model and effort with a first task draft", async () => {
+    const proposal = buildDeterministicKickoffProposal({
+      classification: classifyKickoffSource({
+        input: "Draft a migration plan",
+        configs: DEFAULT_KICKOFF_SOURCE_CONFIGS,
+      }),
+    });
+    let promptDraftPatch:
+      | { text: string; runtimeOverrides?: PromptDraftRuntimeOverrides }
+      | undefined;
+    let sendCount = 0;
+    const state = {
+      activeTaskId: "task-1" as string | null,
+      createWorkspace: async () => ({ ok: true }),
+      setTaskProvider: () => undefined,
+      updatePromptDraft: (args: {
+        taskId: string;
+        patch: {
+          text: string;
+          runtimeOverrides?: PromptDraftRuntimeOverrides;
+        };
+      }) => {
+        promptDraftPatch = args.patch;
+      },
+      sendUserMessage: async () => {
+        sendCount += 1;
+        return { status: "sent" };
+      },
+    };
+
+    const result = await runWorkspaceKickoff({
+      input: {
+        proposal,
+        startFirstTask: false,
+        firstTaskProvider: "claude-code",
+        firstTaskRuntimeOverrides: {
+          autoRouting: false,
+          model: "claude-opus-4-8",
+          claudeEffort: "xhigh",
+        },
+      },
+      getState: () => state,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(sendCount).toBe(0);
+    expect(promptDraftPatch?.text).toBe(proposal.firstTaskPrompt);
+    expect(promptDraftPatch?.runtimeOverrides).toEqual({
+      autoRouting: false,
+      model: "claude-opus-4-8",
+      claudeEffort: "xhigh",
+    });
   });
 });

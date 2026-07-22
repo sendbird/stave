@@ -9,7 +9,9 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 export interface ResolvedPromptDraftRuntimeState {
   claudePermissionMode: ClaudePermissionMode;
   claudePermissionModeBeforePlan: ClaudePermissionModeBeforePlan;
+  claudeEffort?: PromptDraftRuntimeOverrides["claudeEffort"];
   codexPlanMode: boolean;
+  codexReasoningEffort?: PromptDraftRuntimeOverrides["codexReasoningEffort"];
 }
 
 export function resolvePromptDraftRuntimeState(args: {
@@ -24,8 +26,12 @@ export function resolvePromptDraftRuntimeState(args: {
     claudePermissionModeBeforePlan:
       runtimeOverrides?.claudePermissionModeBeforePlan ??
       args.fallback.claudePermissionModeBeforePlan,
+    claudeEffort: runtimeOverrides?.claudeEffort ?? args.fallback.claudeEffort,
     codexPlanMode:
       runtimeOverrides?.codexPlanMode ?? args.fallback.codexPlanMode,
+    codexReasoningEffort:
+      runtimeOverrides?.codexReasoningEffort ??
+      args.fallback.codexReasoningEffort,
   };
 }
 
@@ -110,11 +116,14 @@ export function resolvePromptDraftPlanModeChange(args: {
       ? "plan"
       : (args.claudePermissionModeBeforePlan ?? "auto");
     return {
-      runtimeOverrides: transitionClaudePromptDraftPermissionMode({
-        nextMode,
-        currentMode: args.claudePermissionMode,
-        beforePlan: args.claudePermissionModeBeforePlan,
-      }),
+      runtimeOverrides: {
+        ...args.runtimeOverrides,
+        ...transitionClaudePromptDraftPermissionMode({
+          nextMode,
+          currentMode: args.claudePermissionMode,
+          beforePlan: args.claudePermissionModeBeforePlan,
+        }),
+      },
       shouldClearCodexSession: false,
       shouldAbortActiveTurn: false,
     };
@@ -136,7 +145,9 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.claudePermissionMode === right?.claudePermissionMode &&
     left?.claudePermissionModeBeforePlan ===
       right?.claudePermissionModeBeforePlan &&
+    left?.claudeEffort === right?.claudeEffort &&
     left?.codexPlanMode === right?.codexPlanMode &&
+    left?.codexReasoningEffort === right?.codexReasoningEffort &&
     left?.autoRouting === right?.autoRouting
   );
 }
