@@ -43,6 +43,15 @@ import {
   setLensSecurityConfig,
 } from "../browser/browser-security";
 import { normalizeLensUrl } from "../browser/browser-url";
+import {
+  deleteLensCredential,
+  listLensCredentials,
+  upsertLensCredential,
+} from "../browser/lens-credential-service";
+import {
+  LensCredentialDeleteArgsSchema,
+  LensCredentialUpsertArgsSchema,
+} from "./schemas";
 import type {
   LensAnnotation,
   LensBounds,
@@ -105,6 +114,56 @@ function pngDataUrlToBuffer(dataUrl: string): Buffer {
 // ---------------------------------------------------------------------------
 
 export function registerBrowserHandlers() {
+  // ---- Saved accounts: secrets stay in the Electron main-process vault ----
+  ipcMain.handle("lens:list-credentials", async () => {
+    try {
+      return { ok: true, credentials: await listLensCredentials() };
+    } catch (err) {
+      return {
+        ok: false,
+        credentials: [],
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  ipcMain.handle("lens:upsert-credential", async (_event, args: unknown) => {
+    const parsed = LensCredentialUpsertArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid Lens account details." };
+    }
+    try {
+      return {
+        ok: true,
+        credential: await upsertLensCredential(parsed.data),
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  ipcMain.handle("lens:delete-credential", async (_event, args: unknown) => {
+    const parsed = LensCredentialDeleteArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid saved Lens account id." };
+    }
+    try {
+      const deleted = await deleteLensCredential(parsed.data.id);
+      return {
+        ok: deleted,
+        message: deleted ? undefined : "The saved Lens account no longer exists.",
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
   // ---- Security settings: renderer pushes persisted Lens settings to main ----
   ipcMain.handle(
     "lens:set-security-config",

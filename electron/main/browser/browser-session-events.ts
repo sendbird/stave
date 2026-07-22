@@ -14,6 +14,7 @@ import {
 } from "./browser-manager";
 import { getAnnotationOverlayScript } from "./browser-annotation-overlay";
 import { getBoxInspectScript } from "./browser-box-inspect";
+import { fillLensCredentialForWebContents } from "./lens-credential-service";
 import { getMainWindow } from "../window";
 
 function toIso(): string {
@@ -130,6 +131,35 @@ export function attachBrowserSessionEventListeners(
         source: wc.getURL(),
       });
     });
+    setTimeout(() => {
+      if (wc.isDestroyed()) {
+        return;
+      }
+      void fillLensCredentialForWebContents(wc, {
+        autoFillOnly: true,
+      })
+        .then((result) => {
+          if (!result.ok) {
+            return;
+          }
+          pushConsoleEntry(workspaceId, {
+            level: "info",
+            text: `Filled the saved Lens account for ${result.host}.`,
+            timestamp: toIso(),
+            source: wc.getURL(),
+          });
+        })
+        .catch((error) => {
+          pushConsoleEntry(workspaceId, {
+            level: "warn",
+            text: `Saved Lens account fill failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            timestamp: toIso(),
+            source: wc.getURL(),
+          });
+        });
+    }, 300);
   });
   wc.on(
     "did-fail-load",

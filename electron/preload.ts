@@ -75,6 +75,10 @@ import type {
   LensSessionProfileArgs,
   LensStyleEdit,
 } from "../src/lib/lens/lens.types";
+import type {
+  LensCredentialMetadata,
+  LensCredentialUpsertInput,
+} from "../src/lib/lens/lens-credentials";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
 import { WORKSPACE_SCRIPTS_IPC } from "../src/lib/workspace-scripts/constants";
 
@@ -1524,6 +1528,23 @@ contextBridge.exposeInMainWorld("api", {
       }>,
   },
   lens: {
+    listCredentials: () =>
+      ipcRenderer.invoke("lens:list-credentials") as Promise<{
+        ok: boolean;
+        credentials: LensCredentialMetadata[];
+        message?: string;
+      }>,
+    upsertCredential: (args: LensCredentialUpsertInput) =>
+      ipcRenderer.invoke("lens:upsert-credential", args) as Promise<{
+        ok: boolean;
+        credential?: LensCredentialMetadata;
+        message?: string;
+      }>,
+    deleteCredential: (args: { id: string }) =>
+      ipcRenderer.invoke("lens:delete-credential", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
     setSecurityConfig: (args: LensSecurityConfig) =>
       ipcRenderer.invoke("lens:set-security-config", args) as Promise<{
         ok: boolean;

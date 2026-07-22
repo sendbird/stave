@@ -14,7 +14,7 @@
 ## Before You Start
 
 - Lens works in the Electron desktop runtime. Browser-only Vite mode does not expose the embedded view.
-- Lens keeps website cookies and browser storage in an Electron Chromium profile. Stave does not store page passwords.
+- Lens keeps website cookies and browser storage in an Electron Chromium profile. Optionally, you can save multiple accounts per exact hostname in Stave's OS-encrypted Lens account vault.
 - Lens uses a project-scoped browser profile by default, so workspaces for the same project can share website sign-in. Use the workspace-isolated profile setting for sensitive work.
 - To send picked elements into chat, select an active task first.
 - For exact React file and line mapping, enable `Settings > Lens > React _debugSource` and run the target app in a React dev build.
@@ -60,6 +60,16 @@
 
 OAuth and SSO popup windows opened from a page use the same Lens browser profile as the page, so sign-in cookies land in the selected project or workspace profile.
 
+### Save An Account For Lens
+
+1. Open `Settings > Lens`.
+2. Under `Saved Accounts`, choose `Add account`.
+3. Enter one exact hostname, username, and password. Repeat this step to save additional accounts for the same host.
+4. Leave `Fill automatically` enabled if Lens should fill visible login fields after that host loads. Automatic fill never submits the form.
+5. External agents can call `stave_lens_fill_saved_account` to fill the automatic-fill account on demand, or pass `username` to choose another account saved for the same host. They may set `submit=true` only when the user asked them to sign in.
+
+Usernames and passwords are encrypted through Electron `safeStorage`, backed by the operating system credential store. The renderer receives account metadata for Settings but never receives a saved password, and the Local MCP tool returns only fill status. On Linux, Stave refuses Electron's insecure `basic_text` backend.
+
 ## Common Workflows
 
 ### Configure Source Mapping
@@ -102,8 +112,9 @@ OAuth and SSO popup windows opened from a page use the same Lens browser profile
 1. Enable `Settings > Providers > Stave > Local MCP Server`.
 2. Call `stave_lens_open_session` for the target workspace, optionally with a URL.
 3. Call the other `stave_lens_*` tools through Local MCP.
-4. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
-5. Use the returned page data together with normal Stave task tools or your own external workflow.
+4. If the page requires a saved account, call `stave_lens_fill_saved_account`; the secret is injected inside Electron and is not returned to the agent.
+5. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
+6. Use the returned page data together with normal Stave task tools or your own external workflow.
 
 ## Files And Data
 
@@ -121,6 +132,8 @@ OAuth and SSO popup windows opened from a page use the same Lens browser profile
 }
 ```
 
+- Saved Lens accounts are stored separately under the app's `userData` directory in `lens-credentials.v1.json`. Usernames and passwords are kept together in OS-encrypted ciphertext; the file keeps only matching metadata such as the exact host outside that ciphertext, uses owner-only permissions where supported, and is never part of persisted renderer settings.
+
 - External tooling accesses Lens through the Local MCP tool family:
 
 ```json
@@ -129,6 +142,7 @@ OAuth and SSO popup windows opened from a page use the same Lens browser profile
   "examples": [
     "stave_lens_open_session",
     "stave_lens_navigate",
+    "stave_lens_fill_saved_account",
     "stave_lens_close_session",
     "stave_lens_screenshot",
     "stave_lens_download",
@@ -147,6 +161,8 @@ OAuth and SSO popup windows opened from a page use the same Lens browser profile
 
 - Lens uses Electron's `WebContentsView` plus Stave's own CDP bridge. It does not embed the `chrome-devtools-mcp` server directly because Stave already owns the browser process and can talk to CDP natively without launching a separate Chrome target.
 - External agents need Local MCP because the Lens browser lives inside the desktop app. Without MCP, only the current renderer UI can access it.
+- Saved accounts match one exact hostname. Wildcards and parent-domain matching are intentionally unsupported. Multiple accounts can share a hostname, but only one account per hostname can be enabled for automatic fill; enabling another account switches the previous one to on-demand use.
+- Automatic account use fills visible username and password fields but does not submit. JavaScript-heavy pages that render the form later can use `stave_lens_fill_saved_account` on demand.
 - `stave_lens_open_session` creates a hidden browser view for MCP inspection. If the user later opens the Lens panel for that workspace, the UI reuses the same session and becomes its owner.
 - `React _debugSource` only works in React dev builds. Production builds fall back to heuristic source hints.
 - Console and network logs are buffered, not infinite. Lens keeps the most recent entries only.
