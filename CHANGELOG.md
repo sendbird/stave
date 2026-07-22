@@ -1,3 +1,14 @@
+## [0.11.1](https://github.com/sendbird/stave/compare/v0.11.0...v0.11.1) (2026-07-22)
+
+### Bug Fixes
+
+* Preserve the active task chat surface when switching workspaces with terminal tabs open, preventing blank panes caused by transient Dockview focus changes.
+* Fall back to an available non-terminal pane when persisted active-surface state points at a missing panel, and align pane tabs and context menus with Stave semantic theme tokens.
+* Return normal command failures from the browser dev bridge when process spawning fails so clients can degrade gracefully.
+
+### References
+
+* [#177](https://github.com/sendbird/stave/pull/177)
 ## [0.11.0](https://github.com/sendbird/stave/compare/v0.10.7...v0.11.0) (2026-07-22)
 
 ### Features
