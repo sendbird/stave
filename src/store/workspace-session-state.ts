@@ -6,6 +6,15 @@ import {
   loadWorkspaceShellLite,
   upsertWorkspace,
 } from "@/lib/db/workspaces.db";
+import {
+  normalizeLensTabs,
+  normalizeOpenTaskTabIds,
+  normalizePaneDockLayout,
+  normalizePaneTabMeta,
+  type PaneDockLayout,
+  type PaneTabMeta,
+  type WorkspaceLensTab,
+} from "@/lib/panes/types";
 import type {
   WorkspaceActiveSurface,
   WorkspaceCliSessionTab,
@@ -38,6 +47,10 @@ export interface WorkspaceSessionState {
   cliSessionTabs: WorkspaceCliSessionTab[];
   activeCliSessionTabId: string | null;
   activeSurface: WorkspaceActiveSurface;
+  openTaskTabIds: string[];
+  lensTabs: WorkspaceLensTab[];
+  paneTabMeta: Record<string, PaneTabMeta>;
+  dockLayout: PaneDockLayout | null;
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
@@ -60,6 +73,10 @@ export function createEmptyWorkspaceState() {
     cliSessionTabs: [] as WorkspaceCliSessionTab[],
     activeCliSessionTabId: null as string | null,
     activeSurface: { kind: "task", taskId: "" } as WorkspaceActiveSurface,
+    openTaskTabIds: [] as string[],
+    lensTabs: [] as WorkspaceLensTab[],
+    paneTabMeta: {} as Record<string, PaneTabMeta>,
+    dockLayout: null as PaneDockLayout | null,
     providerSessionByTask: {} as Record<string, TaskProviderSessionState>,
     providerGoalByTask: {} as Record<string, ProviderGoalSnapshot | null | undefined>,
   };
@@ -131,12 +148,56 @@ function normalizeCliSessionState(args: {
   };
 }
 
+/**
+ * Normalizes the universal pane/tab collections against the loaded workspace
+ * entities. Legacy snapshots (no `openTaskTabIds` field) default to "all
+ * non-archived tasks open"; an explicit empty array is preserved as-is.
+ */
+function normalizePaneState(args: {
+  tasks: Task[];
+  rawOpenTaskTabIds: unknown;
+  rawLensTabs: unknown;
+  rawPaneTabMeta: unknown;
+  rawDockLayout: unknown;
+}) {
+  const activeTaskIds = args.tasks
+    .filter((task) => !isTaskArchived(task))
+    .map((task) => task.id);
+  const openTaskTabIds = Array.isArray(args.rawOpenTaskTabIds)
+    ? normalizeOpenTaskTabIds(args.rawOpenTaskTabIds, new Set(activeTaskIds))
+    : activeTaskIds;
+
+  return {
+    openTaskTabIds,
+    lensTabs: normalizeLensTabs(args.rawLensTabs),
+    paneTabMeta: normalizePaneTabMeta(args.rawPaneTabMeta),
+    dockLayout: normalizePaneDockLayout(args.rawDockLayout),
+  };
+}
+
+function ensureActiveTaskTabOpen(args: {
+  openTaskTabIds: string[];
+  activeSurface: WorkspaceActiveSurface;
+}) {
+  if (
+    args.activeSurface.kind !== "task" ||
+    !args.activeSurface.taskId ||
+    args.openTaskTabIds.includes(args.activeSurface.taskId)
+  ) {
+    return args.openTaskTabIds;
+  }
+  return [...args.openTaskTabIds, args.activeSurface.taskId];
+}
+
 function resolveActiveSurface(args: {
   tasks: Task[];
   activeTaskId: string;
   cliSessionTabs: WorkspaceCliSessionTab[];
   activeCliSessionTabId: string | null;
   activeSurface: WorkspaceActiveSurface;
+  lensTabs?: WorkspaceLensTab[];
+  terminalTabs?: WorkspaceTerminalTab[];
+  editorTabs?: EditorTab[];
 }) {
   const hasTask = (taskId: string) => args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
   const hasCliSession = (cliSessionTabId: string) =>
@@ -150,6 +211,24 @@ function resolveActiveSurface(args: {
   }
   if (args.activeSurface.kind === "compare-run") {
     return args.activeSurface;
+  }
+  if (args.activeSurface.kind === "lens") {
+    const lensSessionId = args.activeSurface.lensSessionId;
+    if ((args.lensTabs ?? []).some((tab) => tab.id === lensSessionId)) {
+      return args.activeSurface;
+    }
+  }
+  if (args.activeSurface.kind === "terminal") {
+    const terminalTabId = args.activeSurface.terminalTabId;
+    if ((args.terminalTabs ?? []).some((tab) => tab.id === terminalTabId)) {
+      return args.activeSurface;
+    }
+  }
+  if (args.activeSurface.kind === "editor") {
+    const editorTabId = args.activeSurface.editorTabId;
+    if ((args.editorTabs ?? []).some((tab) => tab.id === editorTabId)) {
+      return args.activeSurface;
+    }
   }
 
   if (hasTask(args.activeTaskId)) {
@@ -439,12 +518,22 @@ export function buildWorkspaceSessionState(args: {
     tasks,
     activeTaskId: args.snapshot?.activeTaskId ?? empty.activeTaskId,
   });
+  const paneState = normalizePaneState({
+    tasks,
+    rawOpenTaskTabIds: args.snapshot?.openTaskTabIds,
+    rawLensTabs: args.snapshot?.lensTabs,
+    rawPaneTabMeta: args.snapshot?.paneTabMeta,
+    rawDockLayout: args.snapshot?.dockLayout,
+  });
   const activeSurface = resolveActiveSurface({
     tasks,
     activeTaskId,
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
     activeSurface: args.snapshot?.activeSurface ?? { kind: "task", taskId: activeTaskId },
+    lensTabs: paneState.lensTabs,
+    terminalTabs: normalizedTerminalState.terminalTabs,
+    editorTabs,
   });
 
   return {
@@ -465,6 +554,13 @@ export function buildWorkspaceSessionState(args: {
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
     activeSurface,
+    openTaskTabIds: ensureActiveTaskTabOpen({
+      openTaskTabIds: paneState.openTaskTabIds,
+      activeSurface,
+    }),
+    lensTabs: paneState.lensTabs,
+    paneTabMeta: paneState.paneTabMeta,
+    dockLayout: paneState.dockLayout,
     activeTurnIdsByTask: stripRecordsByIds(
       activeTurnIdsByTask,
       orphanedBranchTaskIds,
@@ -540,12 +636,22 @@ export function buildWorkspaceSessionStateFromShell(args: {
     tasks,
     activeTaskId: args.shell?.activeTaskId ?? empty.activeTaskId,
   });
+  const paneState = normalizePaneState({
+    tasks,
+    rawOpenTaskTabIds: args.shell?.openTaskTabIds,
+    rawLensTabs: args.shell?.lensTabs,
+    rawPaneTabMeta: args.shell?.paneTabMeta,
+    rawDockLayout: args.shell?.dockLayout,
+  });
   const activeSurface = resolveActiveSurface({
     tasks,
     activeTaskId,
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
     activeSurface: args.shell?.activeSurface ?? { kind: "task", taskId: activeTaskId },
+    lensTabs: paneState.lensTabs,
+    terminalTabs: normalizedTerminalState.terminalTabs,
+    editorTabs,
   });
 
   return {
@@ -566,6 +672,13 @@ export function buildWorkspaceSessionStateFromShell(args: {
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
     activeSurface,
+    openTaskTabIds: ensureActiveTaskTabOpen({
+      openTaskTabIds: paneState.openTaskTabIds,
+      activeSurface,
+    }),
+    lensTabs: paneState.lensTabs,
+    paneTabMeta: paneState.paneTabMeta,
+    dockLayout: paneState.dockLayout,
     activeTurnIdsByTask: stripRecordsByIds(
       activeTurnIdsByTask,
       orphanedBranchTaskIds,
@@ -593,6 +706,15 @@ export function createWorkspaceSnapshot(args: {
   cliSessionTabs: WorkspaceCliSessionTab[];
   activeCliSessionTabId: string | null;
   activeSurface: WorkspaceActiveSurface;
+  /**
+   * Universal pane/tab fields. When omitted the fields are left off the
+   * snapshot entirely so load-time migration defaults apply (an explicit
+   * empty array must survive as "user closed those tabs").
+   */
+  openTaskTabIds?: string[];
+  lensTabs?: WorkspaceLensTab[];
+  paneTabMeta?: Record<string, PaneTabMeta>;
+  dockLayout?: PaneDockLayout | null;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
 }) {
   return {
@@ -609,6 +731,14 @@ export function createWorkspaceSnapshot(args: {
     cliSessionTabs: args.cliSessionTabs,
     activeCliSessionTabId: args.activeCliSessionTabId,
     activeSurface: args.activeSurface,
+    ...(args.openTaskTabIds !== undefined
+      ? { openTaskTabIds: args.openTaskTabIds }
+      : {}),
+    ...(args.lensTabs !== undefined ? { lensTabs: args.lensTabs } : {}),
+    ...(args.paneTabMeta !== undefined
+      ? { paneTabMeta: args.paneTabMeta }
+      : {}),
+    ...(args.dockLayout !== undefined ? { dockLayout: args.dockLayout } : {}),
     providerSessionByTask: args.providerSessionByTask,
   };
 }
@@ -629,6 +759,10 @@ export async function persistWorkspaceSnapshot(args: {
   cliSessionTabs: WorkspaceCliSessionTab[];
   activeCliSessionTabId: string | null;
   activeSurface: WorkspaceActiveSurface;
+  openTaskTabIds?: string[];
+  lensTabs?: WorkspaceLensTab[];
+  paneTabMeta?: Record<string, PaneTabMeta>;
+  dockLayout?: PaneDockLayout | null;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
 }) {
   const persistedShell = await loadWorkspaceShellLite({ workspaceId: args.workspaceId });
@@ -678,6 +812,10 @@ export async function persistWorkspaceSnapshot(args: {
       cliSessionTabs: args.cliSessionTabs,
       activeCliSessionTabId: args.activeCliSessionTabId,
       activeSurface: args.activeSurface,
+      openTaskTabIds: args.openTaskTabIds,
+      lensTabs: args.lensTabs,
+      paneTabMeta: args.paneTabMeta,
+      dockLayout: args.dockLayout,
       providerSessionByTask: mergedProviderSessionByTask,
     }),
   });

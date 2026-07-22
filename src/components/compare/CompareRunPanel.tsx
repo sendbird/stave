@@ -89,11 +89,20 @@ function truncatePath(path: string) {
   return path.length > 72 ? `...${path.slice(-69)}` : path;
 }
 
-export function CompareRunPanel() {
+export interface CompareRunPanelProps {
+  /**
+   * Explicit compare run to render. When provided (pane host usage) the
+   * panel is scoped to that run instead of following the active surface.
+   */
+  compareRunId?: string;
+}
+
+export function CompareRunPanel(props: CompareRunPanelProps) {
   const activeCompareRunId = useAppStore((state) =>
-    state.activeSurface.kind === "compare-run"
+    props.compareRunId ??
+    (state.activeSurface.kind === "compare-run"
       ? state.activeSurface.compareRunId
-      : state.activeCompareRunId,
+      : state.activeCompareRunId),
   );
   const compareRun = useAppStore((state) =>
     activeCompareRunId ? (state.compareRunsById[activeCompareRunId] ?? null) : null,

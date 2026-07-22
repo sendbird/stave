@@ -33,6 +33,7 @@ export type Attachment =
       kind: "lens-annotations";
       id: string;
       workspaceId?: string;
+      lensSessionId?: string;
       label: string;
       count: number;
       summary: string;

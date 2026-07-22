@@ -27,14 +27,33 @@ import {
 } from "@/components/ui";
 import { isTaskArchived, isTaskManaged } from "@/lib/tasks";
 import { RenderProfiler } from "@/lib/render-profiler";
+import { TaskScopeProvider } from "@/components/session/task-scope-context";
 import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
 
 const EMPTY_MESSAGES: readonly unknown[] = [];
 
-export const ChatArea = memo(ChatAreaImpl);
+export interface ChatAreaProps {
+  /**
+   * Explicit task to render. Defaults to the store's active task id; the
+   * pane host passes the panel's own task id so split panels stay scoped.
+   */
+  taskId?: string;
+}
 
-function ChatAreaImpl() {
+export const ChatArea = memo(function ChatArea(props: ChatAreaProps) {
+  return (
+    // Scope every session descendant (message list, prompt input, plan
+    // viewer, ...) to this panel's task so unfocused split panels never
+    // render or mutate the globally active task's state.
+    <TaskScopeProvider taskId={props.taskId ?? null}>
+      <ChatAreaImpl {...props} />
+    </TaskScopeProvider>
+  );
+});
+
+function ChatAreaImpl(props: ChatAreaProps) {
+  const explicitTaskId = props.taskId;
   const sessionAreaRef = useRef<HTMLDivElement>(null);
   const [
     projectPath,
@@ -46,6 +65,7 @@ function ChatAreaImpl() {
     activeTaskMessageCount,
     activeTask,
     activeTurnId,
+    isScopedTaskGloballyActive,
     persistenceBootstrapPhase,
     persistenceBootstrapMessage,
     refreshActiveManagedTask,
@@ -53,8 +73,9 @@ function ChatAreaImpl() {
     createTask,
   ] = useAppStore(
     useShallow(
-      (state) =>
-        [
+      (state) => {
+        const scopedTaskId = explicitTaskId ?? state.activeTaskId;
+        return [
           state.projectPath,
           state.hasHydratedWorkspaces,
           state.workspaces.length > 0,
@@ -62,21 +83,23 @@ function ChatAreaImpl() {
             (workspace) => workspace.id === state.activeWorkspaceId,
           ),
           state.tasks.some(
-            (task) => task.id === state.activeTaskId && !isTaskArchived(task),
+            (task) => task.id === scopedTaskId && !isTaskArchived(task),
           ),
-          state.activeTaskId,
-          state.messageCountByTask[state.activeTaskId] ??
-            (state.messagesByTask[state.activeTaskId] ?? EMPTY_MESSAGES).length,
+          scopedTaskId,
+          state.messageCountByTask[scopedTaskId] ??
+            (state.messagesByTask[scopedTaskId] ?? EMPTY_MESSAGES).length,
           state.tasks.find(
-            (task) => task.id === state.activeTaskId && !isTaskArchived(task),
+            (task) => task.id === scopedTaskId && !isTaskArchived(task),
           ) ?? null,
-          state.activeTurnIdsByTask[state.activeTaskId],
+          state.activeTurnIdsByTask[scopedTaskId],
+          state.activeTaskId === scopedTaskId,
           state.persistenceBootstrapPhase,
           state.persistenceBootstrapMessage,
           state.refreshActiveManagedTask,
           state.createProject,
           state.createTask,
-        ] as const,
+        ] as const;
+      },
     ),
   );
   const viewMode = resolveChatAreaViewMode({
@@ -91,8 +114,14 @@ function ChatAreaImpl() {
     persistenceBootstrapPhase,
     persistenceBootstrapMessage,
   });
+  // refreshActiveManagedTask always refreshes the store's GLOBAL active
+  // task (it takes no task id), so only the panel whose task is globally
+  // active may poll — unfocused split panels would otherwise trigger
+  // redundant refreshes of a different task every 3s.
   const shouldPollManagedTask =
-    isTaskManaged(activeTask) && Boolean(activeTurnId);
+    isScopedTaskGloballyActive &&
+    isTaskManaged(activeTask) &&
+    Boolean(activeTurnId);
 
   useEffect(() => {
     if (!shouldPollManagedTask) {

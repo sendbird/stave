@@ -1,56 +1,48 @@
-import { FileCode2, TerminalSquare } from "lucide-react";
-import { useEffect, useState } from "react";
+import { FileCode2, Globe, TerminalSquare } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
+import {
+  focusOrCreateLensSurface,
+  paneHost,
+} from "@/components/panes/pane-host-controller";
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui";
 import { RIGHT_RAIL_PANEL_ICONS, RIGHT_RAIL_PANEL_IDS, RIGHT_RAIL_PANEL_TITLES, type RightRailPanelId } from "@/lib/right-rail-panels";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
+const RAIL_BUTTON_CLASS = "h-9 w-9 rounded-md border border-transparent p-0 lg:h-10 lg:w-10";
+const RAIL_BUTTON_INACTIVE_CLASS = "hover:border-border/80 hover:bg-secondary/70";
+const RAIL_ICON_CLASS = "size-3.5 lg:size-4";
+
 export function RightRail() {
   const [
     hasProject,
-    editorVisible,
     sidebarOverlayVisible,
     sidebarOverlayTab,
-    terminalDocked,
+    activeSurfaceKind,
+    activeEditorTabId,
+    firstEditorTabId,
     setLayout,
   ] = useAppStore(useShallow((state) => [
     Boolean(state.projectPath),
-    state.layout.editorVisible,
     state.layout.sidebarOverlayVisible,
     state.layout.sidebarOverlayTab,
-    state.layout.terminalDocked,
+    state.activeSurface.kind,
+    state.activeEditorTabId,
+    state.editorTabs[0]?.id ?? null,
     state.setLayout,
   ] as const));
-  const [isLargeViewport, setIsLargeViewport] = useState(() =>
-    typeof window === "undefined" ? true : window.matchMedia("(min-width: 1024px)").matches
-  );
   const hasLensApi =
     typeof window !== "undefined" && Boolean(window.api?.lens);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return undefined;
+  function focusEditorSurface() {
+    const editorTabId = activeEditorTabId ?? firstEditorTabId;
+    if (editorTabId) {
+      paneHost.focusSurface({ kind: "editor", editorTabId });
     }
+  }
 
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const handleChange = (event: MediaQueryListEvent) => {
-      setIsLargeViewport(event.matches);
-    };
-
-    setIsLargeViewport(mediaQuery.matches);
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, []);
-
-  function toggleEditor() {
-    const nextEditorVisible = !editorVisible;
-    setLayout({
-      patch: {
-        editorVisible: nextEditorVisible,
-        ...(!isLargeViewport && nextEditorVisible ? { sidebarOverlayVisible: false } : {}),
-      },
-    });
+  function openLensSurface() {
+    focusOrCreateLensSurface();
   }
 
   function toggleSidebarTab(tab: RightRailPanelId) {
@@ -62,12 +54,14 @@ export function RightRail() {
       patch: {
         sidebarOverlayVisible: true,
         sidebarOverlayTab: tab,
-        ...(!isLargeViewport ? { editorVisible: false } : {}),
       },
     });
   }
 
-  const editorActive = editorVisible;
+  const editorTabId = activeEditorTabId ?? firstEditorTabId;
+  const editorActive = activeSurfaceKind === "editor";
+  const lensActive = activeSurfaceKind === "lens";
+  const terminalActive = activeSurfaceKind === "terminal";
   return (
     <aside
       data-testid="workspace-bar"
@@ -77,32 +71,29 @@ export function RightRail() {
         <div className="flex w-full flex-col items-center gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                variant={editorActive ? "default" : "ghost"}
-                disabled={!hasProject}
-                className={cn(
-                  "h-9 w-9 rounded-md border border-transparent p-0 lg:h-10 lg:w-10",
-                  !editorActive && "hover:border-border/80 hover:bg-secondary/70"
-                )}
-                onClick={toggleEditor}
-                aria-label="Editor"
-              >
-                <FileCode2 className="size-3.5 lg:size-4" />
-              </Button>
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  variant={editorActive ? "default" : "ghost"}
+                  disabled={!hasProject || !editorTabId}
+                  className={cn(
+                    RAIL_BUTTON_CLASS,
+                    !editorActive && RAIL_BUTTON_INACTIVE_CLASS,
+                  )}
+                  onClick={focusEditorSurface}
+                  aria-label="Editor"
+                >
+                  <FileCode2 className={RAIL_ICON_CLASS} />
+                </Button>
+              </span>
             </TooltipTrigger>
-            <TooltipContent side="left">Editor</TooltipContent>
+            <TooltipContent side="left">
+              {editorTabId ? "Editor" : "Editor (no open files)"}
+            </TooltipContent>
           </Tooltip>
           {RIGHT_RAIL_PANEL_IDS.map((panelId) => {
             const Icon = RIGHT_RAIL_PANEL_ICONS[panelId];
             const isActive = sidebarOverlayVisible && sidebarOverlayTab === panelId;
-            const lensUnavailable = panelId === "lens" && !hasLensApi;
-            const disabled = !hasProject || lensUnavailable;
-            const tooltip = !hasProject
-              ? RIGHT_RAIL_PANEL_TITLES[panelId]
-              : lensUnavailable
-                ? "Lens is available in the desktop app"
-                : RIGHT_RAIL_PANEL_TITLES[panelId];
 
             return (
               <Tooltip key={panelId}>
@@ -111,36 +102,60 @@ export function RightRail() {
                     <Button
                       size="sm"
                       variant={isActive ? "default" : "ghost"}
-                      disabled={disabled}
+                      disabled={!hasProject}
                       className={cn(
-                        "h-9 w-9 rounded-md border border-transparent p-0 lg:h-10 lg:w-10",
-                        !isActive && "hover:border-border/80 hover:bg-secondary/70"
+                        RAIL_BUTTON_CLASS,
+                        !isActive && RAIL_BUTTON_INACTIVE_CLASS,
                       )}
                       onClick={() => toggleSidebarTab(panelId)}
                       aria-label={RIGHT_RAIL_PANEL_TITLES[panelId]}
                     >
-                      <Icon className="size-3.5 lg:size-4" />
+                      <Icon className={RAIL_ICON_CLASS} />
                     </Button>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent side="left">{tooltip}</TooltipContent>
+                <TooltipContent side="left">
+                  {RIGHT_RAIL_PANEL_TITLES[panelId]}
+                </TooltipContent>
               </Tooltip>
             );
           })}
           <Tooltip>
             <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button
+                  size="sm"
+                  variant={lensActive ? "default" : "ghost"}
+                  disabled={!hasProject || !hasLensApi}
+                  className={cn(
+                    RAIL_BUTTON_CLASS,
+                    !lensActive && RAIL_BUTTON_INACTIVE_CLASS,
+                  )}
+                  onClick={openLensSurface}
+                  aria-label="Lens"
+                >
+                  <Globe className={RAIL_ICON_CLASS} />
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              {hasLensApi ? "Lens" : "Lens is available in the desktop app"}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button
                 size="sm"
-                variant={terminalDocked ? "default" : "ghost"}
+                variant={terminalActive ? "default" : "ghost"}
                 disabled={!hasProject}
                 className={cn(
-                  "h-9 w-9 rounded-md border border-transparent p-0 lg:h-10 lg:w-10",
-                  !terminalDocked && "hover:border-border/80 hover:bg-secondary/70"
+                  RAIL_BUTTON_CLASS,
+                  !terminalActive && RAIL_BUTTON_INACTIVE_CLASS,
                 )}
-                onClick={() => setLayout({ patch: { terminalDocked: !terminalDocked } })}
+                onClick={() => paneHost.toggleTerminalGroup()}
                 aria-label="Terminal"
               >
-                <TerminalSquare className="size-3.5 lg:size-4" />
+                <TerminalSquare className={RAIL_ICON_CLASS} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">Terminal</TooltipContent>

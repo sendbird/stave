@@ -127,6 +127,86 @@ describe("SqliteStore", () => {
     });
   });
 
+  nativeSqliteTest("round-trips universal pane/tab fields and keeps missing fields missing", async () => {
+    const SqliteStore = await loadSqliteStore();
+    const paneFields = {
+      openTaskTabIds: ["task-1"],
+      lensTabs: [{ id: "lens-1", createdAt: 3 }],
+      paneTabMeta: {
+        "task:task-1": { customTitle: "Renamed", pinned: true },
+      },
+      dockLayout: { grid: { root: { type: "branch" } } },
+    };
+
+    {
+      const store = new SqliteStore({ dbPath });
+      store.upsertWorkspace({
+        id: "ws-panes",
+        name: "Panes Workspace",
+        snapshot: {
+          ...createSnapshot(),
+          ...paneFields,
+        },
+      });
+      // Explicit empty values are user state ("closed every tab") and must
+      // NOT collapse into the legacy missing-field shape.
+      store.upsertWorkspace({
+        id: "ws-empty",
+        name: "Empty Panes Workspace",
+        snapshot: {
+          ...createSnapshot(),
+          openTaskTabIds: [],
+          lensTabs: [],
+          paneTabMeta: {},
+          dockLayout: null,
+        },
+      });
+      // Legacy snapshot: the pane/tab fields are absent entirely.
+      store.upsertWorkspace({
+        id: "ws-legacy",
+        name: "Legacy Workspace",
+        snapshot: createSnapshot(),
+      });
+      store.close();
+    }
+
+    const reopened = new SqliteStore({ dbPath });
+    const loadedByWorkspace = Object.fromEntries(
+      ["ws-panes", "ws-empty", "ws-legacy"].map((workspaceId) => [
+        workspaceId,
+        {
+          shell: reopened.loadWorkspaceShell({ workspaceId }),
+          restoreShell: reopened.loadWorkspaceShellForRestore({ workspaceId }),
+          snapshot: reopened.loadWorkspaceSnapshot({ workspaceId }),
+        },
+      ]),
+    );
+    reopened.close();
+
+    for (const loaded of Object.values(loadedByWorkspace["ws-panes"] ?? {})) {
+      expect(loaded?.openTaskTabIds).toEqual(paneFields.openTaskTabIds);
+      expect(loaded?.lensTabs).toEqual(paneFields.lensTabs);
+      expect(loaded?.paneTabMeta).toEqual(paneFields.paneTabMeta);
+      expect(loaded?.dockLayout).toEqual(paneFields.dockLayout);
+    }
+
+    for (const loaded of Object.values(loadedByWorkspace["ws-empty"] ?? {})) {
+      expect(loaded?.openTaskTabIds).toEqual([]);
+      expect(loaded?.lensTabs).toEqual([]);
+      expect(loaded?.paneTabMeta).toEqual({});
+      expect(loaded?.dockLayout).toBeNull();
+    }
+
+    // Missing stays missing: the keys must be absent (not [], {}, or null) so
+    // the renderer can distinguish "legacy snapshot" from "explicitly empty".
+    for (const loaded of Object.values(loadedByWorkspace["ws-legacy"] ?? {})) {
+      expect(loaded).toBeTruthy();
+      for (const field of ["openTaskTabIds", "lensTabs", "paneTabMeta", "dockLayout"]) {
+        expect(loaded && field in loaded).toBe(false);
+      }
+    }
+  });
+
   nativeSqliteTest("purges legacy turn journals and turn payload artifacts on boot", async () => {
     const SqliteStore = await loadSqliteStore();
     const store = new SqliteStore({ dbPath });

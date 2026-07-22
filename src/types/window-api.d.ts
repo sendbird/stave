@@ -1588,11 +1588,34 @@ interface LensNavigationState {
   canGoBack: boolean;
   canGoForward: boolean;
   isLoading: boolean;
+  faviconUrl?: string;
 }
 
 interface LensNavigationEventPayload {
   workspaceId: string;
+  lensSessionId?: string;
   state: LensNavigationState;
+}
+
+interface LensStateChangedPayload {
+  workspaceId: string;
+  lensSessionId: string;
+  url: string;
+  title: string;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  loading: boolean;
+  faviconUrl?: string;
+}
+
+interface LensSessionDescriptor {
+  workspaceId: string;
+  lensSessionId: string;
+  url: string;
+  title: string;
+  isLoading: boolean;
+  managedByMcp: boolean;
+  sessionScope: LensSessionScope;
 }
 
 interface LensConsoleEntry {
@@ -1605,6 +1628,7 @@ interface LensConsoleEntry {
 
 interface LensConsoleEventPayload {
   workspaceId: string;
+  lensSessionId?: string;
   entry: LensConsoleEntry;
 }
 
@@ -1620,6 +1644,7 @@ interface LensNetworkEntry {
 
 interface LensNetworkEventPayload {
   workspaceId: string;
+  lensSessionId?: string;
   entry: LensNetworkEntry;
 }
 
@@ -1632,6 +1657,8 @@ interface LensSecurityConfig {
 
 interface LensCdpApprovalRequestPayload {
   workspaceId: string;
+  /** Originating lens session; absent means the default session ("default"). */
+  lensSessionId?: string;
   requestId: string;
   url: string;
   host: string;
@@ -1670,6 +1697,7 @@ interface LensDownloadEntry {
 
 interface LensDownloadEventPayload {
   workspaceId: string;
+  lensSessionId?: string;
   entry: LensDownloadEntry;
 }
 
@@ -1712,6 +1740,7 @@ type LensAnnotationEventType = "add" | "update" | "remove" | "clear" | "submit";
 
 interface LensAnnotationEventPayload {
   workspaceId: string;
+  lensSessionId?: string;
   type: LensAnnotationEventType;
   annotation?: LensAnnotation;
   annotations?: LensAnnotation[];
@@ -1755,12 +1784,31 @@ interface WindowLensApi {
   respondCdpApproval?: (
     args: LensCdpApprovalResponse,
   ) => Promise<{ ok: boolean; message?: string }>;
-  createView?: (args: LensSessionProfileArgs) => Promise<{
+  createView?: (
+    args: LensSessionProfileArgs & { lensSessionId?: string },
+  ) => Promise<{
     ok: boolean;
     sessionScope?: LensSessionScope;
+    lensSessionId?: string;
     message?: string;
   }>;
-  destroyView?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
+  openSession?: (
+    args: LensSessionProfileArgs & { lensSessionId: string; url?: string },
+  ) => Promise<{
+    ok: boolean;
+    created?: boolean;
+    session?: LensSessionDescriptor;
+    message?: string;
+  }>;
+  closeSession?: (args: {
+    workspaceId: string;
+    lensSessionId: string;
+  }) => Promise<{ ok: boolean; closed?: boolean }>;
+  listSessions?: (args: { workspaceId?: string }) => Promise<{
+    ok: boolean;
+    sessions?: LensSessionDescriptor[];
+  }>;
+  destroyView?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{ ok: boolean }>;
   clearSessionData?: (args: LensSessionProfileArgs) => Promise<{
     ok: boolean;
     sessionScope?: LensSessionScope;
@@ -1768,20 +1816,23 @@ interface WindowLensApi {
   }>;
   setBounds?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     bounds: { x: number; y: number; width: number; height: number };
   }) => Promise<{ ok: boolean; message?: string }>;
   setVisible?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     visible: boolean;
   }) => Promise<{ ok: boolean }>;
   navigate?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     url: string;
   }) => Promise<{ ok: boolean; message?: string }>;
-  goBack?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
-  goForward?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
-  reload?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
-  getState?: (args: { workspaceId: string }) => Promise<{
+  goBack?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{ ok: boolean }>;
+  goForward?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{ ok: boolean }>;
+  reload?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{ ok: boolean }>;
+  getState?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{
     ok: boolean;
     state?: LensNavigationState;
     annotationModeActive?: boolean;
@@ -1790,6 +1841,7 @@ interface WindowLensApi {
   }>;
   screenshot?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     options?: {
       fullPage?: boolean;
       clip?: { x: number; y: number; width: number; height: number };
@@ -1797,6 +1849,7 @@ interface WindowLensApi {
   }) => Promise<{ ok: boolean; dataUrl?: string; message?: string }>;
   saveScreenshot?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     options?: {
       fullPage?: boolean;
       clip?: { x: number; y: number; width: number; height: number };
@@ -1809,41 +1862,53 @@ interface WindowLensApi {
   }>;
   downloadUrl?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     url: string;
     filename?: string;
   }) => Promise<{ ok: boolean; entry?: LensDownloadEntry; message?: string }>;
-  downloadPageAssets?: (args: { workspaceId: string }) => Promise<{
+  downloadPageAssets?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{
     ok: boolean;
     assetUrls?: string[];
     entries?: LensDownloadEntry[];
     errors?: Array<{ url: string; message: string }>;
     message?: string;
   }>;
-  listDownloads?: (args: { workspaceId: string }) => Promise<{
+  listDownloads?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{
     ok: boolean;
     entries?: LensDownloadEntry[];
     message?: string;
   }>;
   getDom?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     selector?: string;
   }) => Promise<{ ok: boolean; html?: string; message?: string }>;
   evaluate?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     expression: string;
   }) => Promise<{ ok: boolean; result?: unknown; message?: string }>;
-  getConsoleLog?: (args: { workspaceId: string; limit?: number }) => Promise<{
+  getConsoleLog?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+    limit?: number;
+  }) => Promise<{
     ok: boolean;
     entries?: LensConsoleEntry[];
     message?: string;
   }>;
-  getNetworkLog?: (args: { workspaceId: string; limit?: number }) => Promise<{
+  getNetworkLog?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+    limit?: number;
+  }) => Promise<{
     ok: boolean;
     entries?: LensNetworkEntry[];
     message?: string;
   }>;
   startElementPicker?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     options?: { extractDebugSource?: boolean };
   }) => Promise<{
     ok: boolean;
@@ -1852,36 +1917,46 @@ interface WindowLensApi {
   }>;
   startAnnotationMode?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     options?: { extractDebugSource?: boolean };
   }) => Promise<{ ok: boolean; message?: string }>;
   stopAnnotationMode?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
   }) => Promise<{ ok: boolean; message?: string }>;
   startBoxInspect?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
   }) => Promise<{ ok: boolean; message?: string }>;
   stopBoxInspect?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
   }) => Promise<{ ok: boolean; message?: string }>;
-  getAnnotations?: (args: { workspaceId: string }) => Promise<{
+  getAnnotations?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{
     ok: boolean;
     annotations?: LensAnnotation[];
     message?: string;
   }>;
   removeAnnotation?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     annotationId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
   clearAnnotations?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
   }) => Promise<{ ok: boolean; message?: string }>;
   setElementStyle?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     selector: string;
     patch: Record<string, string>;
   }) => Promise<{ ok: boolean; edits?: LensStyleEdit[]; message?: string }>;
   subscribeNavigationEvents?: (
     listener: (payload: LensNavigationEventPayload) => void,
+  ) => () => void;
+  subscribeStateChangedEvents?: (
+    listener: (payload: LensStateChangedPayload) => void,
   ) => () => void;
   subscribeCdpApprovalRequests?: (
     listener: (payload: LensCdpApprovalRequestPayload) => void,
@@ -1895,6 +1970,7 @@ interface WindowLensApi {
   subscribeVisualCommentShortcutEvents?: (
     listener: (payload: {
       workspaceId: string;
+      lensSessionId?: string;
       key: string;
       code?: string;
       shiftKey?: boolean;

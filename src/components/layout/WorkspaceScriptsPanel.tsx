@@ -29,6 +29,7 @@ import {
   toast,
 } from "@/components/ui";
 import { ScriptLogView } from "@/components/scripts";
+import { paneHost } from "@/components/panes/pane-host-controller";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { isTaskArchived } from "@/lib/tasks";
@@ -83,13 +84,6 @@ function readStoredSections(): ScriptSectionId[] {
 
 function openExternalUrl(url: string) {
   void window.api?.shell?.openExternal?.({ url: url.trim() });
-}
-
-function isLargeViewportNow() {
-  if (typeof window === "undefined") {
-    return true;
-  }
-  return window.matchMedia("(min-width: 1024px)").matches;
 }
 
 /* ---------- Live duration (ticks only while running) ---------- */
@@ -369,7 +363,6 @@ export function WorkspaceScriptsPanel(props: {
     tasks,
     activeTurnIdsByTask,
     lensSessionScope,
-    setLayout,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
     state.activeTaskId,
@@ -380,7 +373,6 @@ export function WorkspaceScriptsPanel(props: {
     state.tasks,
     state.activeTurnIdsByTask,
     state.settings.lensSessionScope,
-    state.setLayout,
   ] as const));
 
   const [openSections, setOpenSections] = useState<ScriptSectionId[]>(() => readStoredSections());
@@ -448,8 +440,16 @@ export function WorkspaceScriptsPanel(props: {
       projectPath,
       lensSessionScope,
       lensApi: window.api?.lens ?? null,
-      isLargeViewport: isLargeViewportNow(),
-      setLayout,
+      resolveLensSessionId: () => {
+        const state = useAppStore.getState();
+        // Reuse the most recently created lens tab (same convention as the
+        // right rail); otherwise create a fresh one via the store.
+        const existing = state.lensTabs[state.lensTabs.length - 1]?.id;
+        return existing ?? state.createLensTab();
+      },
+      focusLensSurface: (lensSessionId) => {
+        paneHost.openSurface({ kind: "lens", lensSessionId });
+      },
       openExternalUrl,
     });
 
@@ -458,7 +458,7 @@ export function WorkspaceScriptsPanel(props: {
         description: result.message,
       });
     }
-  }, [activeWorkspaceId, lensSessionScope, projectPath, setLayout]);
+  }, [activeWorkspaceId, lensSessionScope, projectPath]);
 
   const runHook = useCallback(async (trigger: ScriptTrigger) => {
     if (!activeWorkspaceId) {
@@ -502,7 +502,10 @@ export function WorkspaceScriptsPanel(props: {
   );
   const lensAvailable =
     typeof window !== "undefined" &&
-    Boolean(window.api?.lens?.createView && window.api?.lens?.navigate);
+    Boolean(
+      (window.api?.lens?.openSession || window.api?.lens?.createView) &&
+        window.api?.lens?.navigate,
+    );
 
   const scopeSummary = runtime.origins.activeTier === "workspace"
     ? "Workspace scripts"

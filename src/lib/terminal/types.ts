@@ -42,7 +42,10 @@ export interface WorkspaceCliSessionTab {
 export type WorkspaceActiveSurface =
   | { kind: "task"; taskId: string }
   | { kind: "cli-session"; cliSessionTabId: string }
-  | { kind: "compare-run"; compareRunId: string };
+  | { kind: "compare-run"; compareRunId: string }
+  | { kind: "lens"; lensSessionId: string }
+  | { kind: "terminal"; terminalTabId: string }
+  | { kind: "editor"; editorTabId: string };
 
 export interface TerminalCreateSessionArgs {
   workspaceId: string;

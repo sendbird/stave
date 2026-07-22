@@ -98,16 +98,13 @@ export interface CommandPaletteProjectSummary {
 }
 
 export interface CommandPaletteLayoutState {
-  editorVisible: boolean;
   sidebarOverlayTab:
     | "explorer"
     | "changes"
     | "information"
     | "skills"
-    | "scripts"
-    | "lens";
+    | "scripts";
   sidebarOverlayVisible: boolean;
-  terminalDocked: boolean;
   workspaceSidebarCollapsed: boolean;
 }
 
@@ -119,6 +116,7 @@ export interface CommandPaletteCommandHandlers {
   focusFileSearch: () => void;
   openExplorerSearch: () => void;
   openLatestCompletedTurnTask: () => Promise<void> | void;
+  openLens: () => void;
   openKickoff: () => void;
   openInTerminal: (path: string) => Promise<void> | void;
   openInGhostty: (path: string) => Promise<void> | void;
@@ -137,6 +135,7 @@ export interface CommandPaletteCommandHandlers {
   selectTask: (taskId: string) => void;
   setTaskProvider: (taskId: string, provider: ProviderId) => void;
   startCompareRun: () => Promise<void> | void;
+  splitActivePanel: (direction: "right" | "below") => void;
   showOverlayTab: (tab: CommandPaletteLayoutState["sidebarOverlayTab"]) => void;
   stopActiveTurn: () => void;
   switchWorkspace: (workspaceId: string) => Promise<void> | void;
@@ -607,40 +606,80 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.show-lens",
-    title: "Show Lens Panel",
-    description: "Open the Lens browser overlay on the right rail.",
+    title: "Open Lens Tab",
+    description: "Focus the latest Lens tab, or create one.",
     group: "view",
     icon: Globe,
     keywords: ["lens", "browser", "preview", "inspect", "right rail"],
     shortcut: (modifierLabel) => `${modifierLabel}+K L`,
     build: (args) => ({
       id: "view.show-lens",
-      title: "Show Lens Panel",
-      subtitle:
-        "Open the embedded browser for preview, inspection, and element picking.",
+      title: "Open Lens Tab",
+      subtitle: "Focus the latest embedded browser tab, or create one.",
       group: "view",
       icon: Globe,
       keywords: ["lens", "browser", "preview", "inspect", "right rail"],
       shortcut: `${args.modifierLabel}+K L`,
-      run: () => args.commands.showOverlayTab("lens"),
+      run: args.commands.openLens,
+      source: "core",
+    }),
+  },
+  {
+    id: "view.split-pane-right",
+    title: "Split Pane Right",
+    description: "Move the active tab into a new pane on the right.",
+    group: "view",
+    icon: SplitSquareHorizontal,
+    keywords: ["split", "pane", "right", "group"],
+    shortcut: (modifierLabel) => `${modifierLabel}+\\`,
+    build: (args) => ({
+      id: "view.split-pane-right",
+      title: "Split Pane Right",
+      subtitle: "Move the active tab into a new pane on the right.",
+      group: "view",
+      icon: SplitSquareHorizontal,
+      keywords: ["split", "pane", "right", "group"],
+      shortcut: `${args.modifierLabel}+\\`,
+      run: () => args.commands.splitActivePanel("right"),
+      source: "core",
+    }),
+  },
+  {
+    id: "view.split-pane-down",
+    title: "Split Pane Down",
+    description: "Move the active tab into a new pane below.",
+    group: "view",
+    icon: SplitSquareHorizontal,
+    keywords: ["split", "pane", "down", "below", "group"],
+    shortcut: (modifierLabel) => `${modifierLabel}+Shift+\\`,
+    build: (args) => ({
+      id: "view.split-pane-down",
+      title: "Split Pane Down",
+      subtitle: "Move the active tab into a new pane below.",
+      group: "view",
+      icon: SplitSquareHorizontal,
+      keywords: ["split", "pane", "down", "below", "group"],
+      shortcut: `${args.modifierLabel}+Shift+\\`,
+      run: () => args.commands.splitActivePanel("below"),
       source: "core",
     }),
   },
   {
     id: "view.toggle-editor",
-    title: "Toggle Editor",
-    description: "Show or hide the editor panel.",
+    title: "Focus Editor",
+    description:
+      "Focus the active editor tab, or search files when none is open.",
     group: "view",
     icon: PanelRight,
-    keywords: ["editor", "code", "panel"],
+    keywords: ["editor", "code", "panel", "focus"],
     shortcut: (modifierLabel) => `${modifierLabel}+\\`,
     build: (args) => ({
       id: "view.toggle-editor",
-      title: args.layout.editorVisible ? "Hide Editor" : "Show Editor",
-      subtitle: "Toggle the editor panel.",
+      title: "Focus Editor",
+      subtitle: "Focus the active editor tab.",
       group: "view",
       icon: PanelRight,
-      keywords: ["editor", "code", "panel"],
+      keywords: ["editor", "code", "panel", "focus"],
       shortcut: `${args.modifierLabel}+\\`,
       run: args.commands.toggleEditor,
       source: "core",
@@ -649,15 +688,15 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   {
     id: "view.toggle-terminal",
     title: "Toggle Terminal",
-    description: "Dock or hide the terminal panel.",
+    description: "Focus the terminal pane, or return to the previous tab.",
     group: "view",
     icon: Terminal,
     keywords: ["terminal", "console", "shell"],
     shortcut: (modifierLabel) => `${modifierLabel}+\``,
     build: (args) => ({
       id: "view.toggle-terminal",
-      title: args.layout.terminalDocked ? "Hide Terminal" : "Show Terminal",
-      subtitle: "Toggle the docked terminal.",
+      title: "Toggle Terminal",
+      subtitle: "Focus the terminal pane, or return to the previous tab.",
       group: "view",
       icon: Terminal,
       keywords: ["terminal", "console", "shell"],

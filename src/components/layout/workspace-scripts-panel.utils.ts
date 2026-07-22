@@ -5,25 +5,27 @@ import type { LensSessionScope } from "@/lib/lens/lens.types";
 // Lens/Orbit URL helpers used by the scripts panel.
 
 type OrbitLensApi = {
+  openSession?: (args: {
+    workspaceId: string;
+    lensSessionId: string;
+    sessionScope?: LensSessionScope;
+    projectKey?: string | null;
+  }) => Promise<{ ok: boolean; message?: string }>;
   createView?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     sessionScope?: LensSessionScope;
     projectKey?: string | null;
   }) => Promise<{ ok: boolean; message?: string }>;
   navigate?: (args: {
     workspaceId: string;
+    lensSessionId?: string;
     url: string;
   }) => Promise<{ ok: boolean; message?: string }>;
 };
 
-type OpenOrbitUrlLayoutPatch = {
-  sidebarOverlayVisible: true;
-  sidebarOverlayTab: "lens";
-  editorVisible?: false;
-};
-
 export type OpenOrbitUrlWithLensPriorityResult =
-  | { ok: true; target: "lens" }
+  | { ok: true; target: "lens"; lensSessionId: string }
   | {
       ok: true;
       target: "external";
@@ -31,24 +33,24 @@ export type OpenOrbitUrlWithLensPriorityResult =
     }
   | { ok: false; target: "lens"; message: string };
 
-export function buildOpenLensLayoutPatch(args: {
-  isLargeViewport: boolean;
-}): OpenOrbitUrlLayoutPatch {
-  return {
-    sidebarOverlayVisible: true,
-    sidebarOverlayTab: "lens",
-    ...(!args.isLargeViewport ? { editorVisible: false as const } : {}),
-  };
-}
-
+/**
+ * Open an Orbit URL inside a lens tab when the Lens bridge is available,
+ * falling back to the external browser otherwise.
+ *
+ * The caller supplies the pane-world integration points so this stays
+ * unit-testable:
+ * - `resolveLensSessionId` returns the lens tab to reuse (or creates one via
+ *   the store) — `null` means no workspace/tab could be resolved.
+ * - `focusLensSurface` opens/focuses that lens tab in the pane host.
+ */
 export async function openOrbitUrlWithLensPriority(args: {
   url: string;
   workspaceId?: string | null;
   projectPath?: string | null;
   lensSessionScope: LensSessionScope;
   lensApi?: OrbitLensApi | null;
-  isLargeViewport: boolean;
-  setLayout: (args: { patch: OpenOrbitUrlLayoutPatch }) => void;
+  resolveLensSessionId: () => string | null;
+  focusLensSurface: (lensSessionId: string) => void;
   openExternalUrl: (url: string) => void;
 }): Promise<OpenOrbitUrlWithLensPriorityResult> {
   const url = args.url.trim();
@@ -61,33 +63,41 @@ export async function openOrbitUrlWithLensPriority(args: {
     return { ok: true, target: "external", reason: "missing-workspace" };
   }
 
-  if (!args.lensApi?.createView || !args.lensApi.navigate) {
+  const lensApi = args.lensApi;
+  const openLensSession = lensApi?.openSession ?? lensApi?.createView;
+  if (!openLensSession || !lensApi?.navigate) {
     args.openExternalUrl(url);
     return { ok: true, target: "external", reason: "lens-unavailable" };
   }
 
-  args.setLayout({
-    patch: buildOpenLensLayoutPatch({
-      isLargeViewport: args.isLargeViewport,
-    }),
-  });
+  const lensSessionId = args.resolveLensSessionId();
+  if (!lensSessionId) {
+    args.openExternalUrl(url);
+    return { ok: true, target: "external", reason: "missing-workspace" };
+  }
+
+  args.focusLensSurface(lensSessionId);
 
   try {
-    const createResult = await args.lensApi.createView({
+    // Opening is idempotent: the mounted lens panel opens the same session,
+    // so this only guarantees the session exists before navigating.
+    const openResult = await openLensSession({
       workspaceId: args.workspaceId,
+      lensSessionId,
       sessionScope: args.lensSessionScope,
       projectKey: args.projectPath,
     });
-    if (!createResult.ok) {
+    if (!openResult.ok) {
       return {
         ok: false,
         target: "lens",
-        message: createResult.message ?? "Lens could not create a browser view.",
+        message: openResult.message ?? "Lens could not create a browser view.",
       };
     }
 
-    const navigateResult = await args.lensApi.navigate({
+    const navigateResult = await lensApi.navigate({
       workspaceId: args.workspaceId,
+      lensSessionId,
       url,
     });
     if (!navigateResult.ok) {
@@ -105,5 +115,5 @@ export async function openOrbitUrlWithLensPriority(args: {
     };
   }
 
-  return { ok: true, target: "lens" };
+  return { ok: true, target: "lens", lensSessionId };
 }

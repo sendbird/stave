@@ -169,6 +169,8 @@ describe("task-context workspace schemas", () => {
               {
                 kind: "lens-annotations",
                 id: "lens-1",
+                workspaceId: "workspace-1",
+                lensSessionId: "lens-session-1",
                 label: "Lens comments",
                 count: 2,
                 summary: "1. Header is cramped",
@@ -223,6 +225,8 @@ describe("task-context workspace schemas", () => {
         {
           kind: "lens-annotations",
           id: "lens-1",
+          workspaceId: "workspace-1",
+          lensSessionId: "lens-session-1",
           label: "Lens comments",
           count: 2,
           summary: "1. Header is cramped",

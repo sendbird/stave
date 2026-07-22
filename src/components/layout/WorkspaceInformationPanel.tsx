@@ -27,14 +27,8 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { closestCenter, DndContext, type DragEndEvent } from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
+import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
 import {
   createContext,
   useCallback,
@@ -129,7 +123,11 @@ import {
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { extractPlanTodoItems } from "@/lib/plans";
-import { useLongPressSortableSensors } from "@/hooks/use-long-press-sortable-sensors";
+import {
+  SortableDropIndicator,
+  useSortableListMonitor,
+  useSortableRow,
+} from "@/hooks/use-sortable-list";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
 
@@ -471,7 +469,7 @@ function ConfluenceIcon({ className }: { className?: string }) {
 // Shared section wrapper — minimal, borderless accordion style
 // ---------------------------------------------------------------------------
 
-// Shared with the panel's DndContext owner so a completed section-reorder
+// Shared with the panel's drag-monitor owner so a completed section-reorder
 // drag can suppress the trailing click that would otherwise toggle the
 // AccordionTrigger the drag was performed on.
 const SectionDragSuppressionContext = createContext<{ current: boolean }>({
@@ -480,6 +478,15 @@ const SectionDragSuppressionContext = createContext<{ current: boolean }>({
 const SectionVisibilityContext = createContext<
   ReadonlySet<WorkspaceInformationSectionId> | undefined
 >(undefined);
+/** Keyboard fallback for section reordering (Alt+ArrowUp / Alt+ArrowDown). */
+const SectionReorderContext = createContext<
+  (args: {
+    sectionId: WorkspaceInformationSectionId;
+    direction: "up" | "down";
+  }) => void
+>(() => {});
+
+const SECTION_SORTABLE_LIST_ID = "workspace-information-sections";
 
 function SectionHeader(props: {
   value: WorkspaceInformationSectionId;
@@ -492,17 +499,19 @@ function SectionHeader(props: {
   order?: number;
 }) {
   const isDraggable = props.value !== "overview";
-  const sortable = useSortable({ id: props.value, disabled: !isDraggable });
   const suppressClickRef = useContext(SectionDragSuppressionContext);
   const visibleSections = useContext(SectionVisibilityContext);
+  const moveSection = useContext(SectionReorderContext);
+  const { setRowElement, setHandleElement, isDragging, closestEdge } =
+    useSortableRow({
+      listId: SECTION_SORTABLE_LIST_ID,
+      itemId: props.value,
+      disabled: !isDraggable,
+      preview: { title: props.title, icon: props.icon },
+    });
   const style: CSSProperties = {
     order: props.order,
-    transform: CSS.Transform.toString(sortable.transform),
-    transition: sortable.transition,
   };
-  const dragProps = isDraggable
-    ? { ...sortable.attributes, ...sortable.listeners }
-    : {};
 
   if (visibleSections && !visibleSections.has(props.value)) {
     return null;
@@ -510,19 +519,18 @@ function SectionHeader(props: {
 
   return (
     <AccordionItem
-      ref={sortable.setNodeRef}
+      ref={setRowElement}
       style={style}
       value={props.value}
       className={cn(
-        "border-b border-border/50",
+        "relative border-b border-border/50",
         props.first && "border-t-0",
-        sortable.isDragging &&
-          "relative z-10 bg-background opacity-90 shadow-sm",
+        isDragging && "opacity-50",
       )}
     >
       <div className="group/section-row flex items-center">
         <AccordionTrigger
-          {...dragProps}
+          ref={isDraggable ? setHandleElement : undefined}
           onClick={(event) => {
             if (suppressClickRef.current) {
               // A drag just reordered this section — swallow the trailing
@@ -530,9 +538,24 @@ function SectionHeader(props: {
               event.preventDefault();
             }
           }}
+          onKeyDown={(event) => {
+            if (
+              !isDraggable ||
+              !event.altKey ||
+              (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+            ) {
+              return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            moveSection({
+              sectionId: props.value,
+              direction: event.key === "ArrowUp" ? "up" : "down",
+            });
+          }}
           className={cn(
             "flex-1 gap-2 py-2.5 pr-1 pl-0 hover:no-underline [&>svg[data-slot=accordion-trigger-icon]]:hidden",
-            isDraggable && "cursor-grab touch-none active:cursor-grabbing",
+            isDraggable && "cursor-grab active:cursor-grabbing",
           )}
         >
           <div className="flex items-center gap-2 text-left">
@@ -566,6 +589,7 @@ function SectionHeader(props: {
       <AccordionContent className="pb-3 pl-2 pt-0">
         {props.children}
       </AccordionContent>
+      {closestEdge ? <SortableDropIndicator edge={closestEdge} /> : null}
     </AccordionItem>
   );
 }
@@ -1318,32 +1342,83 @@ export function WorkspaceInformationPanel() {
   const sectionOrderIndexById = Object.fromEntries(
     sectionOrder.map((id, index) => [id, index]),
   ) as Record<WorkspaceInformationSectionId, number>;
-  const sectionDragSensors = useLongPressSortableSensors();
   const suppressSectionClickRef = useRef(false);
-  const handleSectionDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) {
-      return;
-    }
-    setSectionOrder((current) => {
-      const oldIndex = current.indexOf(
-        active.id as WorkspaceInformationSectionId,
-      );
-      const newIndex = current.indexOf(
-        over.id as WorkspaceInformationSectionId,
-      );
-      if (oldIndex < 0 || newIndex < 0 || newIndex === 0) {
-        return current;
-      }
-      suppressSectionClickRef.current = true;
-      window.setTimeout(() => {
-        suppressSectionClickRef.current = false;
-      }, 0);
-      return normalizeWorkspaceInformationSectionOrder(
-        arrayMove(current, oldIndex, newIndex),
-      );
-    });
-  }, []);
+
+  useSortableListMonitor({
+    isListMatch: (listId) => listId === SECTION_SORTABLE_LIST_ID,
+    onReorder: ({ sourceId, targetId, closestEdge }) => {
+      setSectionOrder((current) => {
+        const fromIndex = current.indexOf(
+          sourceId as WorkspaceInformationSectionId,
+        );
+        const targetIndex = current.indexOf(
+          targetId as WorkspaceInformationSectionId,
+        );
+        if (fromIndex < 0 || targetIndex < 0) {
+          return current;
+        }
+        const destinationIndex = getReorderDestinationIndex({
+          startIndex: fromIndex,
+          indexOfTarget: targetIndex,
+          closestEdgeOfTarget: closestEdge,
+          axis: "vertical",
+        });
+        // "overview" (Summary) is pinned to the top of the section order.
+        if (destinationIndex <= 0 || destinationIndex === fromIndex) {
+          return current;
+        }
+        suppressSectionClickRef.current = true;
+        window.setTimeout(() => {
+          suppressSectionClickRef.current = false;
+        }, 0);
+        return normalizeWorkspaceInformationSectionOrder(
+          reorder({
+            list: current,
+            startIndex: fromIndex,
+            finishIndex: destinationIndex,
+          }),
+        );
+      });
+    },
+  });
+
+  /**
+   * Keyboard fallback for section reordering: move the section past its
+   * nearest *visible* neighbor so a step is never swallowed by a hidden
+   * section sitting between two visible ones in the stored order.
+   */
+  const moveSectionForKeyboard = useCallback(
+    (args: {
+      sectionId: WorkspaceInformationSectionId;
+      direction: "up" | "down";
+    }) => {
+      setSectionOrder((current) => {
+        const visibleOrdered = current.filter((id) => visibleSections.has(id));
+        const visibleIndex = visibleOrdered.indexOf(args.sectionId);
+        if (visibleIndex < 0) {
+          return current;
+        }
+        const neighbor =
+          visibleOrdered[visibleIndex + (args.direction === "down" ? 1 : -1)];
+        if (!neighbor || neighbor === "overview") {
+          return current;
+        }
+        const fromIndex = current.indexOf(args.sectionId);
+        const targetIndex = current.indexOf(neighbor);
+        if (fromIndex < 0 || targetIndex <= 0) {
+          return current;
+        }
+        return normalizeWorkspaceInformationSectionOrder(
+          reorder({
+            list: current,
+            startIndex: fromIndex,
+            finishIndex: targetIndex,
+          }),
+        );
+      });
+    },
+    [visibleSections],
+  );
   const [linkedPullRequestPreviewById, setLinkedPullRequestPreviewById] =
     useState<Record<string, LinkedPullRequestPreview>>({});
   const [taskSeedInFlightId, setTaskSeedInFlightId] = useState<string | null>(
@@ -1559,26 +1634,16 @@ export function WorkspaceInformationPanel() {
       style={infoPanelScale !== 1 ? { zoom: infoPanelScale } : undefined}
     >
       <div className="px-3 py-2">
-        <DndContext
-          sensors={sectionDragSensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleSectionDragEnd}
-        >
-          <SortableContext
-            items={sectionOrder.filter((id) => visibleSections.has(id))}
-            strategy={verticalListSortingStrategy}
-          >
-            <SectionDragSuppressionContext.Provider
-              value={suppressSectionClickRef}
-            >
-              <SectionVisibilityContext.Provider value={visibleSections}>
-                <Accordion
-                  type="multiple"
-                  value={openSections}
-                  onValueChange={(value) =>
-                    setOpenSections(value as WorkspaceInformationSectionId[])
-                  }
-                >
+        <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>
+          <SectionReorderContext.Provider value={moveSectionForKeyboard}>
+            <SectionVisibilityContext.Provider value={visibleSections}>
+              <Accordion
+                type="multiple"
+                value={openSections}
+                onValueChange={(value) =>
+                  setOpenSections(value as WorkspaceInformationSectionId[])
+                }
+              >
                 <SectionHeader
                   value="overview"
                   order={sectionOrderIndexById.overview}
@@ -2819,11 +2884,10 @@ export function WorkspaceInformationPanel() {
                     ))}
                   </div>
                 </SectionHeader>
-                </Accordion>
-              </SectionVisibilityContext.Provider>
-            </SectionDragSuppressionContext.Provider>
-          </SortableContext>
-        </DndContext>
+              </Accordion>
+            </SectionVisibilityContext.Provider>
+          </SectionReorderContext.Provider>
+        </SectionDragSuppressionContext.Provider>
       </div>
     </div>
   );

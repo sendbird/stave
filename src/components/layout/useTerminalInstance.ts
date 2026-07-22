@@ -249,6 +249,12 @@ export interface TerminalInstanceController {
   focus: () => () => void;
   proposeDimensions: () => { cols: number; rows: number } | undefined;
   getSize: () => { cols: number; rows: number };
+  /**
+   * Re-measures and repaints the renderer after its DOM was repositioned or
+   * reparented (e.g. a Dockview panel moved between groups) and re-enables
+   * the WebGL addon if it was lost during the move.
+   */
+  refreshViewport: () => void;
 }
 
 export interface UseTerminalInstanceArgs {
@@ -1043,6 +1049,30 @@ export function useTerminalInstance(
           cols: terminalRef.current?.cols ?? 0,
           rows: terminalRef.current?.rows ?? 0,
         };
+      },
+      refreshViewport() {
+        retryWebglRef.current();
+        const terminal = terminalRef.current;
+        if (!terminal) {
+          return;
+        }
+        const proposed = measureProposedDimensions();
+        if (
+          proposed &&
+          (proposed.cols !== terminal.cols || proposed.rows !== terminal.rows)
+        ) {
+          // PTY-first: hand the geometry change to the backend. The local
+          // renderer resizes through the controller once the PTY acknowledges.
+          onResizeRef.current(proposed.cols, proposed.rows);
+          return;
+        }
+        executeTerminalOperation(
+          "refresh-terminal-on-reattach",
+          () => {
+            terminal.refresh(0, Math.max(0, terminal.rows - 1));
+          },
+          { message: "Failed to refresh terminal viewport." },
+        );
       },
     }),
     [executeTerminalOperation, focus, measureProposedDimensions],

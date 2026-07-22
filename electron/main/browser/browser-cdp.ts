@@ -10,7 +10,7 @@ import type {
   LensMeasurement,
   LensStyleEdit,
 } from "../../../src/lib/lens/lens.types";
-import { getWorkspaceIdForWebContentsId } from "./browser-manager";
+import { getSessionIdentityForWebContentsId } from "./browser-manager";
 import { assertCdpAllowed } from "./browser-security";
 import { getLensBoxModelScript } from "./browser-style-capture";
 
@@ -35,13 +35,14 @@ export async function assertCdpAllowedForWebContentsId(
     throw new Error(`WebContents ${webContentsId} not found or destroyed`);
   }
 
-  const workspaceId = getWorkspaceIdForWebContentsId(webContentsId);
-  if (!workspaceId) {
+  const identity = getSessionIdentityForWebContentsId(webContentsId);
+  if (!identity) {
     throw new Error("No Lens browser session found for CDP access.");
   }
 
   await assertCdpAllowed({
-    workspaceId,
+    workspaceId: identity.workspaceId,
+    lensSessionId: identity.lensSessionId,
     url: wc.getURL(),
     reason,
   });

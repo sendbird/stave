@@ -282,7 +282,7 @@ export function KeyboardShortcutsDrawer({
           {
             label: "Close tab / task",
             description:
-              "Close the active editor tab, or archive the task if no tabs are open.",
+              "Close the active pane tab without archiving its task.",
             sequences: [[modifierLabel, "W"]],
           },
           {
@@ -348,9 +348,9 @@ export function KeyboardShortcutsDrawer({
           }),
           buildShellShortcutItem({
             actionId: "view.show-lens",
-            label: "Open Lens panel",
+            label: "Open Lens tab",
             description:
-              "Open the embedded browser for preview, inspection, and picking.",
+              "Focus the latest embedded browser tab, or create one.",
           }),
           {
             label: "Visual comment",
@@ -360,13 +360,24 @@ export function KeyboardShortcutsDrawer({
           },
           buildShellShortcutItem({
             actionId: "view.toggle-editor",
-            label: "Toggle editor",
-            description: "Show or hide the editor panel.",
+            label: "Focus editor",
+            description: "Focus the active editor tab.",
           }),
+          {
+            label: "Split pane right",
+            description: "Move the active tab into a new pane on the right.",
+            sequences: [[modifierLabel, "\\"]],
+          },
+          {
+            label: "Split pane down",
+            description: "Move the active tab into a new pane below.",
+            sequences: [[modifierLabel, "Shift", "\\"]],
+          },
           buildShellShortcutItem({
             actionId: "view.toggle-terminal",
             label: "Toggle terminal",
-            description: "Dock or hide the terminal panel.",
+            description:
+              "Focus the terminal pane, or return to the previous tab.",
           }),
         ],
       },

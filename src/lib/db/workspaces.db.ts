@@ -6,6 +6,11 @@ import {
   parseWorkspaceSnapshot,
 } from "@/lib/task-context/schemas";
 import type {
+  PaneDockLayout,
+  PaneTabMeta,
+  WorkspaceLensTab,
+} from "@/lib/panes/types";
+import type {
   WorkspaceActiveSurface,
   WorkspaceCliSessionTab,
   WorkspaceTerminalTab,
@@ -36,6 +41,11 @@ export interface WorkspaceSnapshot {
   cliSessionTabs?: WorkspaceCliSessionTab[];
   activeCliSessionTabId?: string | null;
   activeSurface?: WorkspaceActiveSurface;
+  /** Universal pane/tab model — absent on legacy snapshots (migrated at load). */
+  openTaskTabIds?: string[];
+  lensTabs?: WorkspaceLensTab[];
+  paneTabMeta?: Record<string, PaneTabMeta>;
+  dockLayout?: PaneDockLayout | null;
   workspaceInformation: WorkspaceInformationState;
 }
 
@@ -52,6 +62,11 @@ export interface WorkspaceShell {
   cliSessionTabs?: WorkspaceCliSessionTab[];
   activeCliSessionTabId?: string | null;
   activeSurface?: WorkspaceActiveSurface;
+  /** Universal pane/tab model — absent on legacy shells (migrated at load). */
+  openTaskTabIds?: string[];
+  lensTabs?: WorkspaceLensTab[];
+  paneTabMeta?: Record<string, PaneTabMeta>;
+  dockLayout?: PaneDockLayout | null;
   workspaceInformation: WorkspaceInformationState;
   messageCountByTask: Record<string, number>;
 }
@@ -207,6 +222,10 @@ function buildShellFromSnapshot(snapshot: WorkspaceSnapshot): WorkspaceShell {
     cliSessionTabs: snapshot.cliSessionTabs,
     activeCliSessionTabId: snapshot.activeCliSessionTabId,
     activeSurface: snapshot.activeSurface,
+    openTaskTabIds: snapshot.openTaskTabIds,
+    lensTabs: snapshot.lensTabs,
+    paneTabMeta: snapshot.paneTabMeta,
+    dockLayout: snapshot.dockLayout,
     workspaceInformation: snapshot.workspaceInformation,
     messageCountByTask: Object.fromEntries(
       Object.entries(snapshot.messagesByTask).map(([taskId, messages]) => [taskId, messages.length] as const)

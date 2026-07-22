@@ -75,20 +75,21 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
   },
   {
     commandId: "view.show-lens",
-    title: "Open Lens panel",
-    description: "Open the embedded browser for preview and inspection.",
+    title: "Open Lens tab",
+    description: "Focus the latest embedded browser tab, or create one.",
     defaultKey: "l",
   },
   {
     commandId: "view.toggle-editor",
-    title: "Toggle editor",
-    description: "Show or hide the editor panel.",
+    title: "Focus editor",
+    description: "Focus the active editor tab.",
     defaultKey: "\\",
   },
   {
     commandId: "view.toggle-terminal",
     title: "Toggle terminal",
-    description: "Dock or hide the terminal panel.",
+    description:
+      "Focus the terminal pane (creating one if needed), or return to the previous tab.",
     defaultKey: "`",
   },
 ] as const;

@@ -87,11 +87,6 @@ export {
   EmptyTitle,
 } from "./empty";
 export {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "./resizable";
-export {
   Select,
   SelectContent,
   SelectGroup,

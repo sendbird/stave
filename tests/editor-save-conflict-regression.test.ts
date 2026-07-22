@@ -140,7 +140,6 @@ async function setupStore(args: { rootPath: string; filePath: string }) {
     workspaceDefaultById: { "ws-main": true },
     layout: {
       ...state.layout,
-      editorVisible: false,
       editorDiffMode: false,
       editorMarkdownPreviewMode: false,
     },
@@ -160,25 +159,6 @@ afterEach(() => {
 });
 
 describe("editor save/conflict behavior", () => {
-  test("clamps editor panel width to the configured minimum", async () => {
-    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
-    const filePath = "note.txt";
-    await writeFile(path.join(rootPath, filePath), "after\n", "utf8");
-
-    const { useAppStore } = await setupStore({ rootPath, filePath });
-    const { MIN_EDITOR_PANEL_WIDTH } = await import("../src/store/app.store");
-
-    useAppStore.getState().setLayout({
-      patch: {
-        editorPanelWidth: 240,
-      },
-    });
-
-    expect(useAppStore.getState().layout.editorPanelWidth).toBe(
-      MIN_EDITOR_PANEL_WIDTH,
-    );
-  });
-
   test("opens markdown files in preview mode by default", async () => {
     const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
     const filePath = "README.md";
@@ -424,7 +404,7 @@ describe("editor save/conflict behavior", () => {
     });
   });
 
-  test("closes the editor panel when the last open tab is closed", async () => {
+  test("clears the active editor when the last open tab is closed", async () => {
     const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
     const filePath = "note.txt";
     await writeFile(path.join(rootPath, filePath), "alpha\n", "utf8");
@@ -434,13 +414,10 @@ describe("editor save/conflict behavior", () => {
 
     const opened = useAppStore.getState().editorTabs[0];
     expect(opened).toBeDefined();
-    expect(useAppStore.getState().layout.editorVisible).toBe(true);
-
     useAppStore.getState().closeEditorTab({ tabId: opened.id });
 
     expect(useAppStore.getState().editorTabs).toHaveLength(0);
     expect(useAppStore.getState().activeEditorTabId).toBeNull();
-    expect(useAppStore.getState().layout.editorVisible).toBe(false);
   });
 
   test("refreshes clean tabs from disk and flags dirty tabs as conflict", async () => {

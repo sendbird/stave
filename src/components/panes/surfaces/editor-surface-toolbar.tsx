@@ -5,18 +5,23 @@ import {
   FileCode2,
   MessageSquarePlus,
   MessagesSquare,
+  MoreHorizontal,
   PenLine,
   Save,
   Send,
-  X,
 } from "lucide-react";
 import {
   PANEL_BAR_HEIGHT_CLASS,
   PANEL_HEADER_ICON_CLASS,
-  PANEL_HEADER_TITLE_CLASS,
 } from "@/components/layout/panel-bar.constants";
+import type { EditorBulkCloseKind } from "@/components/panes/editor-tab-actions";
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -25,39 +30,63 @@ import {
 import { cn } from "@/lib/utils";
 import type { EditorTab } from "@/types/chat";
 
-export function EditorMainToolbar(args: {
-  activeTab: EditorTab | null;
-  activeTabIsImage: boolean;
-  activeTabIsMarkdown: boolean;
+/**
+ * Toolbar row rendered above a single editor pane surface. Ported from the
+ * legacy `editor-main-toolbar.tsx` minus the "Close Editor" button (panels
+ * close through their pane tab) plus an overflow menu carrying the bulk-close
+ * and copy-path actions that used to live in the editor tab strip context
+ * menu.
+ */
+export function EditorSurfaceToolbar(args: {
+  tab: EditorTab;
+  absolutePath: string;
+  tabIsImage: boolean;
+  tabIsMarkdown: boolean;
   sendToAgentDisabled: boolean;
-  editorDiffMode: boolean;
-  editorMarkdownPreviewMode: boolean;
+  diffMode: boolean;
+  markdownPreviewMode: boolean;
   diffViewMode: "unified" | "split";
   showDiffDisplayControls: boolean;
   reviewCommentCount: number;
   canAddReviewComment: boolean;
   canSubmitReviewFeedback: boolean;
   onSave: () => void;
-  onToggleEditorDiffMode: () => void;
-  onToggleEditorMarkdownPreviewMode: () => void;
+  onToggleDiffMode: () => void;
+  onToggleMarkdownPreviewMode: () => void;
   onChangeDiffViewMode: (mode: "unified" | "split") => void;
   onAddReviewComment: () => void;
   onSubmitReviewFeedback: () => void;
   onSendToAgent: () => void;
-  onCloseEditor: () => void;
+  onBulkClose: (kind: EditorBulkCloseKind) => void;
+  onCopyPath: () => void;
+  onCopyRelativePath: () => void;
+  onCopyBreadcrumbsPath: () => void;
 }) {
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-between border-b border-border/80 px-3 text-sm",
+        "flex shrink-0 items-center justify-between gap-2 border-b border-border/80 px-3 text-sm",
         PANEL_BAR_HEIGHT_CLASS,
       )}
     >
-      <p className={PANEL_HEADER_TITLE_CLASS}>
-        <FileCode2 className={PANEL_HEADER_ICON_CLASS} />
-        Editor
-      </p>
       <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+              <FileCode2 className={PANEL_HEADER_ICON_CLASS} />
+              <span className="truncate">{args.tab.filePath}</span>
+              {args.tab.isDirty ? (
+                <span
+                  className="size-1.5 shrink-0 rounded-full bg-success"
+                  aria-hidden="true"
+                />
+              ) : null}
+            </p>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-sm break-all">
+            {args.absolutePath}
+          </TooltipContent>
+        </Tooltip>
         <div className="flex items-center gap-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -66,7 +95,7 @@ export function EditorMainToolbar(args: {
                   size="sm"
                   variant="ghost"
                   className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                  disabled={!args.activeTab?.isDirty || args.activeTabIsImage}
+                  disabled={!args.tab.isDirty || args.tabIsImage}
                   onClick={args.onSave}
                 >
                   <Save className="size-4" />
@@ -82,12 +111,10 @@ export function EditorMainToolbar(args: {
                   size="sm"
                   variant="ghost"
                   className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                  disabled={
-                    !args.activeTab?.originalContent || args.activeTabIsImage
-                  }
-                  onClick={args.onToggleEditorDiffMode}
+                  disabled={!args.tab.originalContent || args.tabIsImage}
+                  onClick={args.onToggleDiffMode}
                 >
-                  {args.editorDiffMode ? (
+                  {args.diffMode ? (
                     <PenLine className="size-4" />
                   ) : (
                     <Columns2 className="size-4" />
@@ -96,10 +123,10 @@ export function EditorMainToolbar(args: {
               </span>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              {args.editorDiffMode ? "Back to Edit" : "View Diff"}
+              {args.diffMode ? "Back to Edit" : "View Diff"}
             </TooltipContent>
           </Tooltip>
-          {args.activeTabIsMarkdown ? (
+          {args.tabIsMarkdown ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex">
@@ -108,29 +135,29 @@ export function EditorMainToolbar(args: {
                     variant="ghost"
                     className={cn(
                       "h-7 w-7 rounded-sm p-0 transition-colors",
-                      args.editorMarkdownPreviewMode
+                      args.markdownPreviewMode
                         ? "border-primary/40 bg-primary/10 text-primary ring-1 ring-primary/25 hover:bg-primary/20 hover:text-primary"
                         : "text-muted-foreground",
                     )}
-                    disabled={args.activeTabIsImage}
-                    onClick={args.onToggleEditorMarkdownPreviewMode}
+                    disabled={args.tabIsImage}
+                    onClick={args.onToggleMarkdownPreviewMode}
                     aria-label={
-                      args.editorMarkdownPreviewMode
+                      args.markdownPreviewMode
                         ? "Show Markdown Source"
                         : "Show Markdown Preview"
                     }
-                    aria-pressed={args.editorMarkdownPreviewMode}
+                    aria-pressed={args.markdownPreviewMode}
                     data-testid="editor-markdown-preview-toggle"
                   >
                     <Eye
                       className="size-4"
-                      strokeWidth={args.editorMarkdownPreviewMode ? 2.25 : 2}
+                      strokeWidth={args.markdownPreviewMode ? 2.25 : 2}
                     />
                   </Button>
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {args.editorMarkdownPreviewMode
+                {args.markdownPreviewMode
                   ? "Show Markdown Source"
                   : "Preview Markdown"}
               </TooltipContent>
@@ -241,19 +268,42 @@ export function EditorMainToolbar(args: {
             </TooltipTrigger>
             <TooltipContent side="bottom">Send to Agent</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                onClick={args.onCloseEditor}
+                aria-label="More editor tab actions"
               >
-                <X className="size-4" />
+                <MoreHorizontal className="size-4" />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Close Editor</TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => args.onBulkClose("others")}>
+                Close Others
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => args.onBulkClose("right")}>
+                Close to the Right
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => args.onBulkClose("saved")}>
+                Close Saved
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => args.onBulkClose("all")}>
+                Close All
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => args.onCopyPath()}>
+                Copy Path
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => args.onCopyRelativePath()}>
+                Copy Relative Path
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => args.onCopyBreadcrumbsPath()}>
+                Copy Breadcrumbs Path
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </TooltipProvider>
     </div>

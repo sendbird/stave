@@ -51,7 +51,7 @@
       "testFiles": ["tests/review-feedback.test.ts"],
       "assertionRefs": [
         "src/lib/review-feedback.ts",
-        "src/components/layout/EditorMainPanel.tsx"
+        "src/components/panes/surfaces/EditorSurfacePanel.tsx"
       ]
     },
     {
