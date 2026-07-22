@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 // `startTurnStream` is patched in place and restored, so no real turn spawns.
 
 const WORKSPACE_ID = "ws-runtask-regression";
+const DEFAULT_WORKSPACE_ID = "ws-runtask-default";
 const PROJECT_PATH = "/tmp/stave-runtask-regression/project";
 const WORKSPACE_PATH = "/tmp/stave-runtask-regression/worktree";
 const USER_DATA_PATH = "/tmp/stave-runtask-regression/user-data";
@@ -28,12 +29,24 @@ const fakeStore = {
       lastOpenedAt: "2026-01-01T00:00:00.000Z",
       defaultBranch: "main",
       workspaces: [
-        { id: WORKSPACE_ID, name: "feature", updatedAt: "2026-01-01T00:00:00.000Z" },
+        {
+          id: DEFAULT_WORKSPACE_ID,
+          name: "Default Workspace",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: WORKSPACE_ID,
+          name: "feature",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
       ],
       activeWorkspaceId: WORKSPACE_ID,
       workspaceBranchById: { [WORKSPACE_ID]: "feature" },
-      workspacePathById: { [WORKSPACE_ID]: WORKSPACE_PATH },
-      workspaceDefaultById: {},
+      workspacePathById: {
+        [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+        [WORKSPACE_ID]: WORKSPACE_PATH,
+      },
+      workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
     },
   ],
   loadWorkspaceSnapshot: () => ({ tasks: [], messagesByTask: {} }),
@@ -101,6 +114,21 @@ describe("local MCP runtime Information panel auto-fill and dedup", () => {
     expect(
       info.workspaceInformation.linkedPullRequests.map((pr) => pr.url),
     ).toContain("https://github.com/sendbird/stave/pull/27");
+  });
+
+  test("runTask skips prompt resource auto-fill for the default workspace", async () => {
+    const result = await runtime.runTask({
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      prompt:
+        "Review https://acme.atlassian.net/browse/DEFAULT-1 and https://github.com/sendbird/stave/pull/99",
+    });
+    expect(result.workspaceId).toBe(DEFAULT_WORKSPACE_ID);
+
+    const info = await runtime.getWorkspaceInformation({
+      workspaceId: DEFAULT_WORKSPACE_ID,
+    });
+    expect(info.workspaceInformation.jiraIssues).toHaveLength(0);
+    expect(info.workspaceInformation.linkedPullRequests).toHaveLength(0);
   });
 
   test("addWorkspaceJiraIssue dedupes by issue key across URL variants", async () => {
