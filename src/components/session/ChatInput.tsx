@@ -104,7 +104,10 @@ import {
   cycleCodexEffortValue,
 } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
-import { toWorkspaceRelativeFilePath } from "./chat-input.attachments";
+import {
+  resolvePastedFileAbsolutePath,
+  toWorkspaceRelativeFilePath,
+} from "./chat-input.attachments";
 import {
   buildApprovalGuidancePrompt,
   getLatestPromptSuggestions,
@@ -573,7 +576,10 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         let attachedCount = 0;
 
         for (const file of input.files) {
-          const absolutePath = (file as File & { path?: string }).path?.trim();
+          const absolutePath = resolvePastedFileAbsolutePath({
+            file,
+            getPathForFile: window.api?.fs?.getPathForFile,
+          });
           if (!absolutePath) {
             continue;
           }
