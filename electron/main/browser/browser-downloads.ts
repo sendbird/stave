@@ -103,6 +103,7 @@ function shiftPendingDownloadRequest(webContentsId: number) {
 export function sendDownloadEvent(
   workspaceId: string,
   entry: LensDownloadEntry,
+  lensSessionId?: string,
 ): void {
   void import("../window").then(({ getMainWindow }) => {
     const renderer = getMainWindow()?.webContents;
@@ -112,6 +113,7 @@ export function sendDownloadEvent(
 
     renderer.send("lens:download-event", {
       workspaceId,
+      lensSessionId,
       entry: { ...entry },
     } satisfies LensDownloadEventPayload);
   });
@@ -168,16 +170,33 @@ export function filterDownloadableAssetUrls(values: readonly unknown[]): string[
   return urls;
 }
 
-export function attachDownloadHandler(
-  workspaceId: string,
+/** Session-scoped routing target for one download on a shared partition. */
+export interface LensDownloadTarget {
+  workspaceId: string;
+  lensSessionId?: string;
+  onEntry: (entry: LensDownloadEntry) => void;
+}
+
+/**
+ * Attach a single will-download listener for one partition. Each download is
+ * routed to the lens session that owns the originating webContents via
+ * `resolveTarget`; when no session claims it, Electron's default download
+ * behavior applies.
+ */
+export function attachPartitionDownloadHandler(
   ses: Session,
-  onEntry: (entry: LensDownloadEntry) => void,
+  resolveTarget: (webContentsId: number) => LensDownloadTarget | undefined,
 ): () => void {
   const handleWillDownload = (
     _event: Electron.Event,
     item: Electron.DownloadItem,
     contents: Electron.WebContents,
   ) => {
+    const target = resolveTarget(contents.id);
+    if (!target) {
+      return;
+    }
+    const { workspaceId, lensSessionId, onEntry } = target;
     const directory = getDownloadsDir(workspaceId);
     fs.mkdirSync(directory, { recursive: true });
 
@@ -204,16 +223,16 @@ export function attachDownloadHandler(
     };
 
     onEntry(entry);
-    sendDownloadEvent(workspaceId, entry);
+    sendDownloadEvent(workspaceId, entry, lensSessionId);
 
     item.on("updated", (_event, state) => {
       updateEntryFromItem(entry, item, normalizeDownloadState(state));
-      sendDownloadEvent(workspaceId, entry);
+      sendDownloadEvent(workspaceId, entry, lensSessionId);
     });
 
     item.once("done", (_event, state) => {
       updateEntryFromItem(entry, item, normalizeDownloadState(state));
-      sendDownloadEvent(workspaceId, entry);
+      sendDownloadEvent(workspaceId, entry, lensSessionId);
 
       if (!pending) {
         return;

@@ -58,6 +58,8 @@ export const EXTENDED_THEME_TOKEN_NAMES = [
   "prompt-mode-custom",
   "overlay",
   "surface",
+  "drop-zone",
+  "drop-zone-border",
   "editor",
   "editor-foreground",
   "editor-muted",

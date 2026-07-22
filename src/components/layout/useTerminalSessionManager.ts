@@ -131,24 +131,62 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
   const lastOutputSequenceBySessionRef = useRef<Record<string, number>>({});
   const acknowledgedBytesBySessionRef = useRef<Record<string, number>>({});
 
+  /**
+   * Tab keys whose transcript this manager instance mutated. Several manager
+   * instances (one per terminal pane) share the same storage key, so flushes
+   * merge only the dirty keys into the stored map instead of overwriting it
+   * with this instance's (possibly stale) view of sibling transcripts.
+   */
+  const dirtyTranscriptTabKeysRef = useRef<Set<string>>(new Set());
+
   function appendTranscript(tabKey: string, value: string) {
     const buffer =
       transcriptRef.current[tabKey] ?? createTerminalTranscriptBuffer();
     buffer.append(value);
     transcriptRef.current[tabKey] = buffer;
+    dirtyTranscriptTabKeysRef.current.add(tabKey);
+  }
+
+  function deleteTranscript(tabKey: string) {
+    delete transcriptRef.current[tabKey];
+    dirtyTranscriptTabKeysRef.current.add(tabKey);
   }
 
   function getTranscript(tabKey: string) {
     return transcriptRef.current[tabKey]?.toString() ?? "";
   }
 
-  function serializeTranscripts() {
-    return Object.fromEntries(
-      Object.entries(transcriptRef.current).map(([tabKey, buffer]) => [
-        tabKey,
-        buffer.toString(),
-      ]),
-    );
+  function flushTranscriptsToStorage() {
+    const dirtyTabKeys = dirtyTranscriptTabKeysRef.current;
+    if (dirtyTabKeys.size === 0) {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(args.transcriptStorageKey);
+      let stored: Record<string, string> = {};
+      if (raw) {
+        try {
+          stored = JSON.parse(raw) as Record<string, string>;
+        } catch {
+          stored = {};
+        }
+      }
+      for (const tabKey of dirtyTabKeys) {
+        const transcript = transcriptRef.current[tabKey]?.toString() ?? "";
+        if (transcript) {
+          stored[tabKey] = transcript;
+        } else {
+          delete stored[tabKey];
+        }
+      }
+      window.localStorage.setItem(
+        args.transcriptStorageKey,
+        JSON.stringify(stored),
+      );
+      dirtyTabKeys.clear();
+    } catch {
+      // Ignore localStorage quota errors; dirty keys are retried next flush.
+    }
   }
 
   const [bridgeErrorByTabKey, setBridgeErrorByTabKey] = useState<
@@ -257,14 +295,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
 
     const doFlush = () => {
       transcriptFlushTimerRef.current = null;
-      try {
-        window.localStorage.setItem(
-          args.transcriptStorageKey,
-          JSON.stringify(serializeTranscripts()),
-        );
-      } catch {
-        // Ignore localStorage quota errors.
-      }
+      flushTranscriptsToStorage();
     };
 
     transcriptFlushTimerRef.current =
@@ -506,11 +537,21 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
     const raw = window.localStorage.getItem(args.transcriptStorageKey);
     try {
       const parsed = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+      // Only hydrate transcripts for tabs this manager can render; entries
+      // for other workspaces stay in storage untouched (dirty-key merge).
+      const liveTabKeys = new Set(
+        tabsRef.current.map((tab) => args.getTabKey(tab)),
+      );
       transcriptRef.current = Object.fromEntries(
-        Object.entries(parsed).map(([tabKey, value]) => [
-          tabKey,
-          createTerminalTranscriptBuffer(value, TERMINAL_TRANSCRIPT_CHAR_LIMIT),
-        ]),
+        Object.entries(parsed)
+          .filter(([tabKey]) => liveTabKeys.has(tabKey))
+          .map(([tabKey, value]) => [
+            tabKey,
+            createTerminalTranscriptBuffer(
+              value,
+              TERMINAL_TRANSCRIPT_CHAR_LIMIT,
+            ),
+          ]),
       );
     } catch {
       transcriptRef.current = {};
@@ -524,15 +565,10 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
         window.clearTimeout(transcriptFlushTimerRef.current);
         transcriptFlushTimerRef.current = null;
       }
-      try {
-        window.localStorage.setItem(
-          args.transcriptStorageKey,
-          JSON.stringify(serializeTranscripts()),
-        );
-      } catch {
-        // Ignore localStorage quota errors on unmount.
-      }
+      flushTranscriptsToStorage();
     };
+    // getTabKey participates only in the one-shot hydration filter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [args.transcriptStorageKey]);
 
   useEffect(() => {
@@ -751,8 +787,11 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
         delete hydratedRevisionByTabKeyRef.current[tabKey];
         delete screenStateByTabKeyRef.current[tabKey];
         delete attachmentIdByTabKeyRef.current[tabKey];
+        // The tab is gone for good — prune its stored transcript as well.
+        deleteTranscript(tabKey);
         setBridgeErrorForTabKey(tabKey, "");
       }
+      scheduleTranscriptFlush();
       setRuntimeVersion((value) => value + 1);
     });
   }, [args.getTabKey, args.tabs, args.workspaceId, setBridgeErrorForTabKey]);
@@ -1043,7 +1082,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
           delete screenStateByTabKeyRef.current[tabKey];
           delete attachmentIdByTabKeyRef.current[tabKey];
           delete streamReadyByTabKeyRef.current[tabKey];
-          delete transcriptRef.current[tabKey];
+          deleteTranscript(tabKey);
           setRuntimeVersion((value) => value + 1);
         }
 
@@ -1187,7 +1226,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
     if (!activeTabKey) {
       return;
     }
-    delete transcriptRef.current[activeTabKey];
+    deleteTranscript(activeTabKey);
     delete screenStateByTabKeyRef.current[activeTabKey];
     scheduleTranscriptFlush();
     const sessionId = sessionIdByTabKeyRef.current[activeTabKey];
@@ -1232,7 +1271,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
     delete hydratedRevisionByTabKeyRef.current[activeTabKey];
     delete screenStateByTabKeyRef.current[activeTabKey];
     setBridgeErrorForTabKey(activeTabKey, "");
-    delete transcriptRef.current[activeTabKey];
+    deleteTranscript(activeTabKey);
     scheduleTranscriptFlush();
     tabManagerRef.current.clear(activeTabKey);
     // Recreate the terminal renderer alongside the PTY restart so a corrupted

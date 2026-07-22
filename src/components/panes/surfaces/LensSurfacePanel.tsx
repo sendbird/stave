@@ -1,3 +1,4 @@
+import type { IDockviewPanelProps } from "dockview-react";
 import {
   useCallback,
   useEffect,
@@ -18,23 +19,18 @@ import {
   Copy,
   Crosshair,
   Download,
-  Expand,
   Globe,
   Highlighter,
   Loader2,
-  Maximize2,
-  Minimize2,
   Monitor,
   Network,
   Pause,
-  PanelLeftClose,
   Play,
   RotateCw,
   Ruler,
   ScanSearch,
   Search,
   ShieldAlert,
-  SlidersHorizontal,
   Terminal,
   Trash2,
   X,
@@ -58,11 +54,6 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverTitle,
-  PopoverTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -77,9 +68,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  formatElementForChat,
-} from "@/lib/lens/lens-element-message";
+import { formatElementForChat } from "@/lib/lens/lens-element-message";
 import {
   getLensCommentImageId,
   isLensCommentImageAttachment,
@@ -87,27 +76,26 @@ import {
 } from "@/lib/lens/lens-annotation-attachment";
 import { hasLensOccludingFloatingSurface } from "@/lib/lens/lens-occlusion";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import type {
-  BrowserConsoleEntry,
-  BrowserConsoleEventPayload,
-  BrowserNetworkEntry,
-  BrowserNetworkEventPayload,
-  LensAnnotation,
-  LensAnnotationEventPayload,
-  BrowserNavigationEventPayload,
-  BrowserNavigationState,
-  ElementPickerResult,
-  LensBounds,
-  LensCdpApprovalRequestPayload,
-  LensDownloadEntry,
-  LensDownloadEventPayload,
-  LensSourceMappingConfig,
-  LensStyleEdit,
+import {
+  DEFAULT_LENS_SESSION_ID,
+  type BrowserConsoleEntry,
+  type BrowserConsoleEventPayload,
+  type BrowserNetworkEntry,
+  type BrowserNetworkEventPayload,
+  type LensAnnotation,
+  type LensAnnotationEventPayload,
+  type BrowserNavigationEventPayload,
+  type BrowserNavigationState,
+  type ElementPickerResult,
+  type LensBounds,
+  type LensCdpApprovalRequestPayload,
+  type LensDownloadEntry,
+  type LensDownloadEventPayload,
+  type LensSourceMappingConfig,
 } from "@/lib/lens/lens.types";
-import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { parsePanePanelId } from "@/lib/panes/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
-import type { LensDisplayMode } from "@/store/layout.utils";
 import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
@@ -139,8 +127,27 @@ const CONSOLE_LEVEL_FILTERS: ConsoleLevelFilter[] = [
   "debug",
 ];
 
+/**
+ * Lens sessions whose surface panel is currently visible. Workspace-level
+ * events that carry no lensSessionId (visual-comment shortcut relayed while
+ * the page has focus) are fielded by exactly one mounted panel picked
+ * deterministically from this registry / the store.
+ */
+const visibleLensSessionIds = new Set<string>();
+
 function appendLimited<T>(entries: T[], entry: T): T[] {
   return [...entries, entry].slice(-LENS_LOG_LIMIT);
+}
+
+function matchesSession(
+  payload: { workspaceId: string; lensSessionId?: string },
+  workspaceId: string,
+  lensSessionId: string,
+): boolean {
+  return (
+    payload.workspaceId === workspaceId &&
+    (payload.lensSessionId ?? DEFAULT_LENS_SESSION_ID) === lensSessionId
+  );
 }
 
 function formatLogTime(timestamp: string): string {
@@ -265,120 +272,31 @@ function mergeAnnotationEntry(
   );
 }
 
-const ANNOTATION_STYLE_FIELDS = [
-  "fontSize",
-  "fontWeight",
-  "color",
-  "backgroundColor",
-  "padding",
-  "margin",
-] as const;
-
-function resolveAnnotationStyleValue(
-  annotation: LensAnnotation,
-  field: (typeof ANNOTATION_STYLE_FIELDS)[number],
-): string {
-  const edit = annotation.styleEdits
-    ?.slice()
-    .reverse()
-    .find((candidate) => candidate.property === field);
-  return edit?.after ?? annotation.computedStyles?.[field] ?? "";
-}
-
-function AnnotationStylePopover(args: {
-  annotation: LensAnnotation;
-  disabled: boolean;
-  onOpenChange?: (open: boolean) => void;
-  onApply: (
-    annotation: LensAnnotation,
-    patch: Record<string, string>,
-  ) => Promise<void>;
-}) {
-  const { annotation, disabled, onApply, onOpenChange } = args;
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    const next: Record<string, string> = {};
-    for (const field of ANNOTATION_STYLE_FIELDS) {
-      next[field] = resolveAnnotationStyleValue(annotation, field);
-    }
-    setDraft(next);
-  }, [annotation]);
-
-  const patch = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(draft).filter(([field, value]) => {
-          const trimmed = value.trim();
-          return (
-            trimmed !== "" &&
-            trimmed !==
-              resolveAnnotationStyleValue(
-                annotation,
-                field as (typeof ANNOTATION_STYLE_FIELDS)[number],
-              )
-          );
-        }),
-      ),
-    [annotation, draft],
-  );
-
+/**
+ * Dockview panel wrapper for one lens (embedded browser) session. The panel
+ * id encodes the lensSessionId; every `window.api.lens.*` call below is
+ * scoped to that session so multiple lens tabs can coexist (and even be
+ * visible simultaneously in separate groups).
+ */
+export function LensSurfacePanel(props: IDockviewPanelProps) {
+  const surface = parsePanePanelId(props.api.id);
+  if (surface?.kind !== "lens") {
+    return null;
+  }
   return (
-    <Popover onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          disabled={disabled || !annotation.selector}
-          aria-label={`Edit styles for annotation ${annotation.pin}`}
-        >
-          <SlidersHorizontal className="size-3" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 space-y-3">
-        <div>
-          <PopoverTitle>Style</PopoverTitle>
-          <PopoverDescription>
-            Live inline edits for the selected element.
-          </PopoverDescription>
-        </div>
-        <div className="grid gap-2">
-          {ANNOTATION_STYLE_FIELDS.map((field) => (
-            <label key={field} className="grid gap-1 text-xs">
-              <span className="font-medium text-muted-foreground">{field}</span>
-              <Input
-                value={draft[field] ?? ""}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    [field]: event.target.value,
-                  }))
-                }
-                className="h-7 font-mono text-xs"
-              />
-            </label>
-          ))}
-        </div>
-        <Button
-          type="button"
-          size="xs"
-          className="w-full"
-          disabled={saving || Object.keys(patch).length === 0}
-          onClick={() => {
-            setSaving(true);
-            void onApply(annotation, patch).finally(() => setSaving(false));
-          }}
-        >
-          Apply
-        </Button>
-      </PopoverContent>
-    </Popover>
+    <LensSessionSurface
+      key={surface.lensSessionId}
+      lensSessionId={surface.lensSessionId}
+      panelApi={props.api}
+    />
   );
 }
 
-export function WorkspaceLensPanel(args: { occluded?: boolean }) {
+function LensSessionSurface(args: {
+  lensSessionId: string;
+  panelApi: IDockviewPanelProps["api"];
+}) {
+  const { lensSessionId, panelApi } = args;
   // Keep the store subscription primitive-only. Returning a nested object here
   // causes a fresh selector snapshot on every render, which can trigger React
   // 19 ref/update loops on tooltip-heavy surfaces like Lens.
@@ -389,7 +307,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     lensSourceMappingHeuristic,
     lensSourceMappingReactDebugSource,
     lensSessionScope,
-    lensDisplayMode,
     visualCommentShortcut,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
@@ -398,12 +315,17 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     state.settings.lensSourceMappingHeuristic,
     state.settings.lensSourceMappingReactDebugSource,
     state.settings.lensSessionScope,
-    state.layout.lensDisplayModeByWorkspaceId[state.activeWorkspaceId] ??
-      "normal",
     state.settings.visualCommentShortcut,
   ] as const));
-  const isLensFullscreen = lensDisplayMode === "fullscreen";
-  const isLensCoverChat = lensDisplayMode === "cover-chat";
+  // Whether this session's tab still exists in the store. It flips to false
+  // when the tab is closed (possibly via a path that bypassed
+  // `closePaneSurface`), which is the cue to tear down the backing session.
+  const isTabOpen = useAppStore(
+    useCallback(
+      (state) => state.lensTabs.some((tab) => tab.id === lensSessionId),
+      [lensSessionId],
+    ),
+  );
 
   const sourceMappingConfig = useMemo(
     () =>
@@ -414,8 +336,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     [lensSourceMappingHeuristic, lensSourceMappingReactDebugSource],
   );
 
-  const lensApi = window.api?.lens;
-  const hasLensApi = Boolean(lensApi);
+  const hasLensApi = Boolean(window.api?.lens);
 
   const placeholderRef = useRef<HTMLDivElement>(null);
   const measureRafRef = useRef<number>(0);
@@ -428,6 +349,38 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   // Track whether the URL address bar is focused so navigation events don't
   // clobber text the user is actively editing.
   const isUrlInputFocused = useRef(false);
+
+  // Dockview panel visibility drives per-session WebContentsView visibility:
+  // a hidden tab keeps its DOM (renderer "always") and its session alive but
+  // must release the native view's screen real estate.
+  const [isPanelVisible, setIsPanelVisible] = useState(() => panelApi.isVisible);
+  const isPanelActiveRef = useRef(panelApi.isActive);
+
+  useEffect(() => {
+    setIsPanelVisible(panelApi.isVisible);
+    isPanelActiveRef.current = panelApi.isActive;
+    const visibilityDisposable = panelApi.onDidVisibilityChange((event) => {
+      setIsPanelVisible(event.isVisible);
+    });
+    const activeDisposable = panelApi.onDidActiveChange((event) => {
+      isPanelActiveRef.current = event.isActive;
+    });
+    return () => {
+      visibilityDisposable.dispose();
+      activeDisposable.dispose();
+    };
+  }, [panelApi]);
+
+  useEffect(() => {
+    if (isPanelVisible) {
+      visibleLensSessionIds.add(lensSessionId);
+    } else {
+      visibleLensSessionIds.delete(lensSessionId);
+    }
+    return () => {
+      visibleLensSessionIds.delete(lensSessionId);
+    };
+  }, [isPanelVisible, lensSessionId]);
 
   const [url, setUrl] = useState(DEFAULT_NAVIGATION_STATE.url);
   const [inputUrl, setInputUrl] = useState("");
@@ -461,17 +414,10 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   const [lastLoadError, setLastLoadError] = useState<string | null>(null);
   const [hasExternalFloatingSurface, setHasExternalFloatingSurface] =
     useState(false);
-  const [coverChatRect, setCoverChatRect] = useState<{
-    top: number;
-    left: number;
-    width: number;
-    height: number;
-  } | null>(null);
   const consoleLogRef = useRef<HTMLDivElement>(null);
   const networkLogRef = useRef<HTMLDivElement>(null);
-  const isOccluded = Boolean(args.occluded);
   const isLensSuppressed =
-    isOccluded ||
+    !isPanelVisible ||
     isLensFloatingSurfaceOpen ||
     hasExternalFloatingSurface ||
     lensPanelTab !== "preview";
@@ -490,6 +436,10 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   }, [cdpApprovalRequest]);
 
   useEffect(() => {
+    if (!isPanelVisible || lensPanelTab !== "preview") {
+      setHasExternalFloatingSurface(false);
+      return;
+    }
     if (typeof document === "undefined" || !document.body) {
       return;
     }
@@ -538,23 +488,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       resizeObserver?.disconnect();
       window.removeEventListener("resize", scheduleSync);
     };
-  }, [isLensCoverChat, isLensFullscreen, lensPanelTab, workspaceId]);
-
-  const setLensDisplayMode = useCallback((mode: LensDisplayMode) => {
-    const state = useAppStore.getState();
-    const currentWorkspaceId = state.activeWorkspaceId;
-    if (!currentWorkspaceId) {
-      return;
-    }
-    state.setLayout({
-      patch: {
-        lensDisplayModeByWorkspaceId: {
-          ...state.layout.lensDisplayModeByWorkspaceId,
-          [currentWorkspaceId]: mode,
-        },
-      },
-    });
-  }, []);
+  }, [isPanelVisible, lensPanelTab, workspaceId]);
 
   const applyNavigationState = useCallback((state: BrowserNavigationState) => {
     setUrl(state.url);
@@ -592,6 +526,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     const request = window.api?.lens?.setBounds?.({
       workspaceId,
+      lensSessionId,
       bounds,
     });
     if (!request) {
@@ -620,7 +555,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
           flushPendingBounds();
         });
       });
-  }, [hasLensApi, workspaceId]);
+  }, [hasLensApi, lensSessionId, workspaceId]);
 
   const syncBounds = useCallback(
     (options?: { immediate?: boolean }) => {
@@ -680,30 +615,16 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     annotations.length,
     hasLensApi,
     isAnnotationModeActive,
-    isLensCoverChat,
-    isLensFullscreen,
     isLensSuppressed,
+    isPanelVisible,
     syncBounds,
     workspaceId,
   ]);
 
-  useEffect(() => {
-    if (lensDisplayMode === "normal") {
-      return;
-    }
-
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape") {
-        return;
-      }
-      event.preventDefault();
-      setLensDisplayMode("normal");
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [lensDisplayMode, setLensDisplayMode]);
-
+  // Session lifecycle. Opening is idempotent (`openSession` reuses a live
+  // session, so re-showing a hidden tab or remounting the panel restores the
+  // same page). The cleanup only hides the native view; the session itself is
+  // destroyed exclusively when its tab has been removed from the store.
   useEffect(() => {
     pendingBoundsRef.current = null;
     lastSentBoundsRef.current = null;
@@ -717,30 +638,34 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     setLastLoadError(null);
     setLensPanelTab("preview");
 
-    if (!workspaceId) {
-      applyNavigationState(DEFAULT_NAVIGATION_STATE);
-      return;
-    }
-
     applyNavigationState(DEFAULT_NAVIGATION_STATE);
 
-    if (!hasLensApi) {
+    if (!workspaceId || !isTabOpen || !hasLensApi) {
       return;
     }
 
     let cancelled = false;
 
     void (async () => {
-      const createResult = await lensApi?.createView?.({
-        workspaceId,
-        sessionScope: lensSessionScope,
-        projectKey: projectPath,
-      });
-      if (cancelled || !createResult?.ok) {
-        if (!cancelled && createResult && !createResult.ok) {
+      const lensApi = window.api?.lens;
+      const openResult = lensApi?.openSession
+        ? await lensApi.openSession({
+            workspaceId,
+            lensSessionId,
+            sessionScope: lensSessionScope,
+            projectKey: projectPath,
+          })
+        : await lensApi?.createView?.({
+            workspaceId,
+            lensSessionId,
+            sessionScope: lensSessionScope,
+            projectKey: projectPath,
+          });
+      if (cancelled || !openResult?.ok) {
+        if (!cancelled && openResult && !openResult.ok) {
           toast.error("Lens failed to start", {
             description:
-              createResult.message ??
+              openResult.message ??
               "Could not create the embedded browser view.",
           });
         }
@@ -750,10 +675,14 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       isViewReadyRef.current = true;
       await lensApi?.setVisible?.({
         workspaceId,
+        lensSessionId,
         visible: !isLensSuppressedRef.current,
       });
 
-      const stateResult = await lensApi?.getState?.({ workspaceId });
+      const stateResult = await lensApi?.getState?.({
+        workspaceId,
+        lensSessionId,
+      });
       if (!cancelled && stateResult?.ok && stateResult.state) {
         applyNavigationState(stateResult.state);
         setIsAnnotationModeActive(Boolean(stateResult.annotationModeActive));
@@ -762,6 +691,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
       const annotationsResult = await lensApi?.getAnnotations?.({
         workspaceId,
+        lensSessionId,
       });
       if (!cancelled && annotationsResult?.ok) {
         setAnnotations(annotationsResult.annotations ?? []);
@@ -770,6 +700,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       if (isLensSuppressedRef.current) {
         await lensApi?.setBounds?.({
           workspaceId,
+          lensSessionId,
           bounds: { x: 0, y: 0, width: 0, height: 0 },
         });
         return;
@@ -789,16 +720,35 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       // Reset bounds first so the view doesn't occlude other panels while hidden.
       void window.api?.lens?.setBounds?.({
         workspaceId,
+        lensSessionId,
         bounds: { x: 0, y: 0, width: 0, height: 0 },
       });
-      void window.api?.lens?.setVisible?.({ workspaceId, visible: false });
-      // Keep the workspace-scoped session alive so returning to the workspace
-      // restores its Lens page, annotation overlay, and navigation history.
+      void window.api?.lens?.setVisible?.({
+        workspaceId,
+        lensSessionId,
+        visible: false,
+      });
+      // Hidden ≠ closed: the session survives unmounts (workspace switches,
+      // layout churn). Destroy it only when its tab is gone from the SAME
+      // workspace — this also covers close paths that bypassed
+      // `closePaneSurface` (Dockview-initiated removal, ⌘W in AppShell).
+      const store = useAppStore.getState();
+      if (
+        store.activeWorkspaceId === workspaceId &&
+        !store.lensTabs.some((tab) => tab.id === lensSessionId)
+      ) {
+        void window.api?.lens
+          ?.closeSession?.({ workspaceId, lensSessionId })
+          .catch(() => {
+            // Best-effort teardown; the main process reaps on workspace dispose.
+          });
+      }
     };
   }, [
     applyNavigationState,
     hasLensApi,
-    lensApi,
+    isTabOpen,
+    lensSessionId,
     lensSessionScope,
     projectPath,
     syncBounds,
@@ -836,45 +786,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     };
   }, [hasLensApi, syncBounds, workspaceId]);
 
-  // "Cover chat" mode positions Lens as a fixed overlay matching the content
-  // row's rect (chat + lens columns), leaving the workspace sidebar, top bar,
-  // and right rail visible. Re-measure whenever the covered rect can change.
-  useLayoutEffect(() => {
-    if (!isLensCoverChat) {
-      setCoverChatRect(null);
-      return;
-    }
-
-    const el = document.querySelector<HTMLElement>(
-      "[data-stave-content-row]",
-    );
-    if (!el) {
-      return;
-    }
-
-    const measure = () => {
-      const rect = el.getBoundingClientRect();
-      setCoverChatRect({
-        top: rect.top,
-        left: rect.left,
-        width: rect.width,
-        height: rect.height,
-      });
-    };
-
-    measure();
-    const resizeObserver = new ResizeObserver(measure);
-    resizeObserver.observe(el);
-    window.addEventListener("resize", measure);
-    const unsubscribeZoom = window.api?.window?.subscribeZoomChanges?.(measure);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", measure);
-      unsubscribeZoom?.();
-    };
-  }, [isLensCoverChat]);
-
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {
       return;
@@ -887,15 +798,24 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       lastSentBoundsRef.current = null;
       void window.api?.lens?.setBounds?.({
         workspaceId,
+        lensSessionId,
         bounds: { x: 0, y: 0, width: 0, height: 0 },
       });
-      void window.api?.lens?.setVisible?.({ workspaceId, visible: false });
+      void window.api?.lens?.setVisible?.({
+        workspaceId,
+        lensSessionId,
+        visible: false,
+      });
       return;
     }
 
-    void window.api?.lens?.setVisible?.({ workspaceId, visible: true });
+    void window.api?.lens?.setVisible?.({
+      workspaceId,
+      lensSessionId,
+      visible: true,
+    });
     syncBounds();
-  }, [hasLensApi, isLensSuppressed, syncBounds, workspaceId]);
+  }, [hasLensApi, isLensSuppressed, lensSessionId, syncBounds, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi || !cdpApprovalRequest) {
@@ -908,18 +828,27 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     lastSentBoundsRef.current = null;
     void window.api?.lens?.setBounds?.({
       workspaceId,
+      lensSessionId,
       bounds: { x: 0, y: 0, width: 0, height: 0 },
     });
-    void window.api?.lens?.setVisible?.({ workspaceId, visible: false });
+    void window.api?.lens?.setVisible?.({
+      workspaceId,
+      lensSessionId,
+      visible: false,
+    });
 
     return () => {
       if (isLensSuppressedRef.current) {
         return;
       }
-      void window.api?.lens?.setVisible?.({ workspaceId, visible: true });
+      void window.api?.lens?.setVisible?.({
+        workspaceId,
+        lensSessionId,
+        visible: true,
+      });
       syncBounds();
     };
-  }, [cdpApprovalRequest, hasLensApi, syncBounds, workspaceId]);
+  }, [cdpApprovalRequest, hasLensApi, lensSessionId, syncBounds, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {
@@ -928,7 +857,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     const unsubscribe = window.api?.lens?.subscribeNavigationEvents?.(
       (payload: BrowserNavigationEventPayload) => {
-        if (payload.workspaceId !== workspaceId) {
+        if (!matchesSession(payload, workspaceId, lensSessionId)) {
           return;
         }
         applyNavigationState(payload.state);
@@ -938,7 +867,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     return () => {
       unsubscribe?.();
     };
-  }, [applyNavigationState, hasLensApi, workspaceId]);
+  }, [applyNavigationState, hasLensApi, lensSessionId, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {
@@ -948,6 +877,24 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     const unsubscribe = window.api?.lens?.subscribeCdpApprovalRequests?.(
       (payload: LensCdpApprovalRequestPayload) => {
         if (payload.workspaceId !== workspaceId) {
+          return;
+        }
+        // The payload carries the originating lens session (missing means
+        // the default session), so each panel only fields its own session's
+        // dialogs. Requests from sessions without a renderer tab (e.g.
+        // MCP-opened sessions) fall back to the oldest open tab so exactly
+        // one mounted panel still shows the dialog.
+        const payloadSessionId =
+          payload.lensSessionId ?? DEFAULT_LENS_SESSION_ID;
+        const lensTabs = useAppStore.getState().lensTabs;
+        const hasOwningTab = lensTabs.some(
+          (tab) => tab.id === payloadSessionId,
+        );
+        if (hasOwningTab) {
+          if (payloadSessionId !== lensSessionId) {
+            return;
+          }
+        } else if (lensTabs[0]?.id !== lensSessionId) {
           return;
         }
         setCdpApprovalRequest(payload);
@@ -964,7 +911,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       }
       unsubscribe?.();
     };
-  }, [hasLensApi, workspaceId]);
+  }, [hasLensApi, lensSessionId, workspaceId]);
 
   useEffect(() => {
     setDownloads([]);
@@ -973,15 +920,17 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     }
 
     let cancelled = false;
-    void window.api?.lens?.listDownloads?.({ workspaceId }).then((result) => {
-      if (!cancelled && result?.ok && result.entries) {
-        setDownloads(result.entries.slice(-20));
-      }
-    });
+    void window.api?.lens
+      ?.listDownloads?.({ workspaceId, lensSessionId })
+      .then((result) => {
+        if (!cancelled && result?.ok && result.entries) {
+          setDownloads(result.entries.slice(-20));
+        }
+      });
 
     const unsubscribe = window.api?.lens?.subscribeDownloadEvents?.(
       (payload: LensDownloadEventPayload) => {
-        if (payload.workspaceId !== workspaceId) {
+        if (!matchesSession(payload, workspaceId, lensSessionId)) {
           return;
         }
         setDownloads((current) => mergeDownloadEntry(current, payload.entry));
@@ -992,7 +941,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [hasLensApi, workspaceId]);
+  }, [hasLensApi, lensSessionId, workspaceId]);
 
   useEffect(() => {
     setConsoleEntries([]);
@@ -1003,7 +952,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     let cancelled = false;
     void window.api?.lens
-      ?.getConsoleLog?.({ workspaceId, limit: LENS_LOG_LIMIT })
+      ?.getConsoleLog?.({ workspaceId, lensSessionId, limit: LENS_LOG_LIMIT })
       .then((result) => {
         if (!cancelled && result?.ok && result.entries) {
           const entries = result.entries.slice(-LENS_LOG_LIMIT);
@@ -1020,7 +969,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     const unsubscribe = window.api?.lens?.subscribeConsoleEvents?.(
       (payload: BrowserConsoleEventPayload) => {
-        if (payload.workspaceId !== workspaceId) {
+        if (!matchesSession(payload, workspaceId, lensSessionId)) {
           return;
         }
         if (payload.entry.text.startsWith("Navigation failed:")) {
@@ -1037,7 +986,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [hasLensApi, workspaceId]);
+  }, [hasLensApi, lensSessionId, workspaceId]);
 
   useEffect(() => {
     setNetworkEntries([]);
@@ -1047,7 +996,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     let cancelled = false;
     void window.api?.lens
-      ?.getNetworkLog?.({ workspaceId, limit: LENS_LOG_LIMIT })
+      ?.getNetworkLog?.({ workspaceId, lensSessionId, limit: LENS_LOG_LIMIT })
       .then((result) => {
         if (!cancelled && result?.ok && result.entries) {
           setNetworkEntries(result.entries.slice(-LENS_LOG_LIMIT));
@@ -1056,7 +1005,10 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     const unsubscribe = window.api?.lens?.subscribeNetworkEvents?.(
       (payload: BrowserNetworkEventPayload) => {
-        if (payload.workspaceId !== workspaceId || networkPausedRef.current) {
+        if (
+          !matchesSession(payload, workspaceId, lensSessionId) ||
+          networkPausedRef.current
+        ) {
           return;
         }
         setNetworkEntries((current) => appendLimited(current, payload.entry));
@@ -1067,7 +1019,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [hasLensApi, workspaceId]);
+  }, [hasLensApi, lensSessionId, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {
@@ -1080,6 +1032,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       }
       const imageId = getLensCommentImageId({
         workspaceId,
+        lensSessionId,
         annotationId: annotation.id,
       });
       const storeBeforeCapture = useAppStore.getState();
@@ -1094,6 +1047,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       }
       const result = await window.api?.lens?.screenshot?.({
         workspaceId,
+        lensSessionId,
         options: {
           clip: {
             x: Math.max(0, Math.round(annotation.rect.x)),
@@ -1134,7 +1088,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     const unsubscribe = window.api?.lens?.subscribeAnnotationEvents?.(
       (payload: LensAnnotationEventPayload) => {
-        if (payload.workspaceId !== workspaceId) {
+        if (!matchesSession(payload, workspaceId, lensSessionId)) {
           return;
         }
 
@@ -1167,7 +1121,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     return () => {
       unsubscribe?.();
     };
-  }, [activeTaskId, hasLensApi, workspaceId]);
+  }, [activeTaskId, hasLensApi, lensSessionId, workspaceId]);
 
   const navigate = useCallback(
     async (targetUrl: string) => {
@@ -1184,6 +1138,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
       const result = await window.api?.lens?.navigate?.({
         workspaceId,
+        lensSessionId,
         url: targetUrl.trim(),
       });
 
@@ -1193,7 +1148,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         });
       }
     },
-    [hasLensApi, workspaceId],
+    [hasLensApi, lensSessionId, workspaceId],
   );
 
   const handleSubmit = useCallback(
@@ -1217,21 +1172,21 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
   const goBack = useCallback(() => {
     if (workspaceId) {
-      void window.api?.lens?.goBack?.({ workspaceId });
+      void window.api?.lens?.goBack?.({ workspaceId, lensSessionId });
     }
-  }, [workspaceId]);
+  }, [lensSessionId, workspaceId]);
 
   const goForward = useCallback(() => {
     if (workspaceId) {
-      void window.api?.lens?.goForward?.({ workspaceId });
+      void window.api?.lens?.goForward?.({ workspaceId, lensSessionId });
     }
-  }, [workspaceId]);
+  }, [lensSessionId, workspaceId]);
 
   const reload = useCallback(() => {
     if (workspaceId) {
-      void window.api?.lens?.reload?.({ workspaceId });
+      void window.api?.lens?.reload?.({ workspaceId, lensSessionId });
     }
-  }, [workspaceId]);
+  }, [lensSessionId, workspaceId]);
 
   const startElementPicker = useCallback(async () => {
     if (isPickerActive) {
@@ -1258,6 +1213,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     try {
       const result = await window.api?.lens?.startElementPicker?.({
         workspaceId,
+        lensSessionId,
         options: {
           extractDebugSource: sourceMappingConfig.reactDebugSource,
         },
@@ -1309,6 +1265,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     activeTaskId,
     hasLensApi,
     isPickerActive,
+    lensSessionId,
     sourceMappingConfig,
     workspaceId,
   ]);
@@ -1364,6 +1321,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
       const result = await window.api?.lens?.saveScreenshot?.({
         workspaceId,
+        lensSessionId,
         options: { fullPage },
       });
 
@@ -1378,7 +1336,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         description: result.path,
       });
     },
-    [hasLensApi, workspaceId],
+    [hasLensApi, lensSessionId, workspaceId],
   );
 
   const downloadPageAssets = useCallback(async () => {
@@ -1388,6 +1346,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     const result = await window.api?.lens?.downloadPageAssets?.({
       workspaceId,
+      lensSessionId,
     });
 
     if (!result?.ok) {
@@ -1405,7 +1364,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
           ? `${count} saved, ${failed} skipped.`
           : `${count} asset${count === 1 ? "" : "s"} saved.`,
     });
-  }, [hasLensApi, workspaceId]);
+  }, [hasLensApi, lensSessionId, workspaceId]);
 
   const openDownloadInFinder = useCallback((savePath: string) => {
     void window.api?.shell?.showInFinder?.({ path: savePath });
@@ -1423,12 +1382,13 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     // Annotation and inspect overlays both capture pointer events - keep them
     // mutually exclusive so they never fight over the same hover/click.
     if (isBoxInspectActive) {
-      await window.api?.lens?.stopBoxInspect?.({ workspaceId });
+      await window.api?.lens?.stopBoxInspect?.({ workspaceId, lensSessionId });
       setIsBoxInspectActive(false);
     }
 
     const result = await window.api?.lens?.startAnnotationMode?.({
       workspaceId,
+      lensSessionId,
       options: {
         extractDebugSource: sourceMappingConfig.reactDebugSource,
       },
@@ -1444,6 +1404,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     hasLensApi,
     isAnnotationModeActive,
     isBoxInspectActive,
+    lensSessionId,
     sourceMappingConfig.reactDebugSource,
     workspaceId,
   ]);
@@ -1453,7 +1414,10 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       return;
     }
 
-    const result = await window.api?.lens?.stopAnnotationMode?.({ workspaceId });
+    const result = await window.api?.lens?.stopAnnotationMode?.({
+      workspaceId,
+      lensSessionId,
+    });
     if (!result?.ok) {
       toast.error("Annotation mode failed", {
         description: result?.message ?? "Lens could not stop annotation mode.",
@@ -1461,7 +1425,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       return;
     }
     setIsAnnotationModeActive(false);
-  }, [hasLensApi, workspaceId]);
+  }, [hasLensApi, lensSessionId, workspaceId]);
 
   const toggleAnnotationMode = useCallback(async () => {
     if (isAnnotationModeActive) {
@@ -1494,6 +1458,27 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       ) {
         return;
       }
+      // The shortcut is window-global while every lens panel is mounted
+      // (keep-alive), so exactly one session may claim it: the active lens
+      // panel if there is one, otherwise the first *visible* lens tab.
+      if (!isPanelActiveRef.current) {
+        const state = useAppStore.getState();
+        const activePanelSessionId = state.activeSurface.kind === "lens"
+          ? state.activeSurface.lensSessionId
+          : null;
+        if (activePanelSessionId) {
+          if (activePanelSessionId !== lensSessionId) {
+            return;
+          }
+        } else {
+          const firstVisible = state.lensTabs.find((tab) =>
+            visibleLensSessionIds.has(tab.id),
+          );
+          if (firstVisible?.id !== lensSessionId) {
+            return;
+          }
+        }
+      }
       event.preventDefault();
       void toggleAnnotationMode();
     };
@@ -1502,6 +1487,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     hasLensApi,
+    lensSessionId,
     toggleAnnotationMode,
     visualCommentShortcut,
     workspaceId,
@@ -1514,7 +1500,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
 
     const unsubscribe =
       window.api?.lens?.subscribeVisualCommentShortcutEvents?.((payload) => {
-        if (payload.workspaceId !== workspaceId) {
+        if (!matchesSession(payload, workspaceId, lensSessionId)) {
           return;
         }
         if (
@@ -1539,6 +1525,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     };
   }, [
     hasLensApi,
+    lensSessionId,
     toggleAnnotationMode,
     visualCommentShortcut,
     workspaceId,
@@ -1550,7 +1537,10 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     }
 
     if (isBoxInspectActive) {
-      const result = await window.api?.lens?.stopBoxInspect?.({ workspaceId });
+      const result = await window.api?.lens?.stopBoxInspect?.({
+        workspaceId,
+        lensSessionId,
+      });
       if (!result?.ok) {
         toast.error("Inspect mode failed", {
           description: result?.message ?? "Lens could not stop inspect mode.",
@@ -1566,7 +1556,10 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       await stopAnnotationMode();
     }
 
-    const result = await window.api?.lens?.startBoxInspect?.({ workspaceId });
+    const result = await window.api?.lens?.startBoxInspect?.({
+      workspaceId,
+      lensSessionId,
+    });
     if (!result?.ok) {
       toast.error("Inspect mode failed", {
         description: result?.message ?? "Lens could not start inspect mode.",
@@ -1574,71 +1567,14 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       return;
     }
     setIsBoxInspectActive(true);
-  }, [hasLensApi, isAnnotationModeActive, isBoxInspectActive, stopAnnotationMode, workspaceId]);
-
-  const removeAnnotation = useCallback(
-    async (annotationId: string) => {
-      if (!workspaceId || !hasLensApi) {
-        return;
-      }
-
-      const result = await window.api?.lens?.removeAnnotation?.({
-        workspaceId,
-        annotationId,
-      });
-      if (!result?.ok) {
-        setAnnotations((current) =>
-          current.filter((annotation) => annotation.id !== annotationId),
-        );
-      }
-    },
-    [hasLensApi, workspaceId],
-  );
-
-  const applyAnnotationStyle = useCallback(
-    async (annotation: LensAnnotation, patch: Record<string, string>) => {
-      if (!workspaceId || !hasLensApi || !annotation.selector) {
-        return;
-      }
-
-      const result = await window.api?.lens?.setElementStyle?.({
-        workspaceId,
-        selector: annotation.selector,
-        patch,
-      });
-
-      if (!result?.ok || !result.edits) {
-        toast.error("Style edit failed", {
-          description: result?.message ?? "Lens could not edit that element.",
-        });
-        return;
-      }
-
-      const edits: LensStyleEdit[] = result.edits;
-      setAnnotations((current) =>
-        current.map((candidate) => {
-          if (candidate.id !== annotation.id) {
-            return candidate;
-          }
-          return {
-            ...candidate,
-            computedStyles: {
-              ...(candidate.computedStyles ?? {}),
-              ...Object.fromEntries(
-                edits.map((edit) => [edit.property, edit.after]),
-              ),
-            },
-            styleEdits: [...(candidate.styleEdits ?? []), ...edits],
-          };
-        }),
-      );
-
-      toast.success("Style updated", {
-        description: `${edits.length} propert${edits.length === 1 ? "y" : "ies"} changed.`,
-      });
-    },
-    [hasLensApi, workspaceId],
-  );
+  }, [
+    hasLensApi,
+    isAnnotationModeActive,
+    isBoxInspectActive,
+    lensSessionId,
+    stopAnnotationMode,
+    workspaceId,
+  ]);
 
   useEffect(() => {
     if (!activeTaskId || !workspaceId) {
@@ -1652,6 +1588,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       annotations.map((annotation) =>
         getLensCommentImageId({
           workspaceId,
+          lensSessionId,
           annotationId: annotation.id,
         }),
       ),
@@ -1660,7 +1597,11 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
       (attachment) => {
         if (
           attachment.kind !== "image" ||
-          !isLensCommentImageAttachment(attachment, workspaceId)
+          !isLensCommentImageAttachment(
+            attachment,
+            workspaceId,
+            lensSessionId,
+          )
         ) {
           return true;
         }
@@ -1670,6 +1611,7 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
     const nextAttachments = upsertLensAnnotationsAttachment({
       attachments: retainedAttachments,
       workspaceId,
+      lensSessionId,
       annotations,
       sourceMappingConfig,
     });
@@ -1682,7 +1624,13 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
         attachments: nextAttachments,
       },
     });
-  }, [activeTaskId, annotations, sourceMappingConfig, workspaceId]);
+  }, [
+    activeTaskId,
+    annotations,
+    lensSessionId,
+    sourceMappingConfig,
+    workspaceId,
+  ]);
 
   const filteredConsoleEntries = useMemo(() => {
     const query = consoleSearch.trim().toLowerCase();
@@ -1775,24 +1723,9 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
   return (
     <TooltipProvider delayDuration={120}>
       <div
-        className={cn(
-          "flex h-full min-h-0 flex-col overflow-hidden bg-sidebar/20",
-          isLensFullscreen && "fixed inset-0 h-dvh bg-background shadow-2xl",
-          isLensCoverChat &&
-            coverChatRect &&
-            "fixed bg-background shadow-2xl",
-          (isLensFullscreen || isLensCoverChat) && UI_LAYER_CLASS.floatingChrome,
-        )}
-        style={
-          isLensCoverChat && coverChatRect
-            ? {
-                top: coverChatRect.top,
-                left: coverChatRect.left,
-                width: coverChatRect.width,
-                height: coverChatRect.height,
-              }
-            : undefined
-        }
+        className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar/20"
+        data-testid="lens-surface-panel"
+        data-lens-session-id={lensSessionId}
       >
         <div className="flex shrink-0 flex-col gap-2 border-b border-border/60 px-3 py-2">
           <div className="flex items-center gap-1.5">
@@ -2126,71 +2059,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant={isLensCoverChat ? "secondary" : "outline"}
-                  className={cn(
-                    isLensCoverChat
-                      ? LENS_TOOL_ACTIVE_CLASS
-                      : LENS_TOOL_INACTIVE_CLASS,
-                  )}
-                  disabled={!hasLensApi}
-                  onClick={() =>
-                    setLensDisplayMode(isLensCoverChat ? "normal" : "cover-chat")
-                  }
-                  aria-label={
-                    isLensCoverChat
-                      ? "Restore Lens panel"
-                      : "Expand Lens over chat"
-                  }
-                >
-                  {isLensCoverChat ? (
-                    <PanelLeftClose className={LENS_TOOL_ICON_CLASS} />
-                  ) : (
-                    <Expand className={LENS_TOOL_ICON_CLASS} />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {isLensCoverChat ? "Restore panel" : "Expand over chat"}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant={isLensFullscreen ? "secondary" : "outline"}
-                  className={cn(
-                    isLensFullscreen
-                      ? LENS_TOOL_ACTIVE_CLASS
-                      : LENS_TOOL_INACTIVE_CLASS,
-                  )}
-                  disabled={!hasLensApi}
-                  onClick={() =>
-                    setLensDisplayMode(isLensFullscreen ? "normal" : "fullscreen")
-                  }
-                  aria-label={
-                    isLensFullscreen
-                      ? "Exit fullscreen Lens"
-                      : "Open Lens fullscreen"
-                  }
-                >
-                  {isLensFullscreen ? (
-                    <Minimize2 className={LENS_TOOL_ICON_CLASS} />
-                  ) : (
-                    <Maximize2 className={LENS_TOOL_ICON_CLASS} />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {isLensFullscreen ? "Exit fullscreen" : "Fullscreen"}
-              </TooltipContent>
-            </Tooltip>
           </div>
 
         </div>
@@ -2213,11 +2081,6 @@ export function WorkspaceLensPanel(args: { occluded?: boolean }) {
               {hasLensApi && lastLoadError ? (
                 <div className="absolute inset-x-3 bottom-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive shadow-sm">
                   {lastLoadError}
-                </div>
-              ) : null}
-              {hasLensApi && isOccluded ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/80 p-4 text-center text-xs text-muted-foreground">
-                  Lens preview is hidden while another surface is above it.
                 </div>
               ) : null}
               {!hasLensApi ? (

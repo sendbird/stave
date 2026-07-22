@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 export function TerminalTabSurface(args: {
   tabKey: string;
   sessionId: string | null;
-  surface: "terminal-dock" | "cli-session";
+  surface: "terminal-pane" | "cli-session";
   isActive: boolean;
   isVisible: boolean;
   fontFamily: string;

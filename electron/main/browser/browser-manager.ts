@@ -1,8 +1,11 @@
 // ---------------------------------------------------------------------------
 // Browser session manager – singleton per Electron main process
-// Manages one WebContentsView per workspace, keyed by workspaceId.
-// The view is a native Electron object positioned over the renderer via
-// IPC-driven bounds synchronization (ResizeObserver → setBounds).
+// Manages WebContentsViews keyed by (workspaceId, lensSessionId) so a
+// workspace can host multiple lens tabs. Callers that omit lensSessionId
+// transparently target the "default" session, preserving the historical
+// one-view-per-workspace behavior. The views are native Electron objects
+// positioned over the renderer via IPC-driven bounds synchronization
+// (ResizeObserver → setBounds).
 // ---------------------------------------------------------------------------
 
 import {
@@ -10,7 +13,7 @@ import {
   WebContentsView,
   session as electronSession,
 } from "electron";
-import { attachDownloadHandler } from "./browser-downloads";
+import { attachPartitionDownloadHandler } from "./browser-downloads";
 import { isDevToolsShortcut } from "../keyboard-shortcuts";
 import { getMainWindow, toggleMainWindowDevTools } from "../window";
 import { openExternalWithFallback } from "../utils/external-url";
@@ -20,17 +23,21 @@ import {
   resolveLensSessionProfile,
   type ResolvedLensSessionProfile,
 } from "./browser-session-profile";
-import type {
-  BrowserConsoleEventPayload,
-  BrowserConsoleEntry,
-  LensDownloadEntry,
-  LensAnnotation,
-  BrowserNavigationState,
-  BrowserNetworkEntry,
-  BrowserNetworkEventPayload,
-  LensBounds,
-  LensSessionProfileArgs,
+import {
+  DEFAULT_LENS_SESSION_ID,
+  type BrowserConsoleEventPayload,
+  type BrowserConsoleEntry,
+  type LensDownloadEntry,
+  type LensAnnotation,
+  type BrowserNavigationState,
+  type BrowserNetworkEntry,
+  type BrowserNetworkEventPayload,
+  type LensBounds,
+  type LensSessionDescriptor,
+  type LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
+
+export { DEFAULT_LENS_SESSION_ID };
 
 function isVisualCommentShortcutCandidate(input: Electron.Input) {
   if (input.type !== "keyDown" || input.isComposing) {
@@ -77,14 +84,17 @@ export class RingBuffer<T> {
 
 export interface BrowserSessionState {
   workspaceId: string;
+  /** Session id within the workspace ("default" for legacy callers). */
+  lensSessionId: string;
   sessionProfile: ResolvedLensSessionProfile;
   view: WebContentsView;
+  /** webContents id of the view, captured at creation (survives destroy). */
+  webContentsId: number;
   authPopups: Set<BrowserWindow>;
   debuggerAttached: boolean;
   consoleLog: RingBuffer<BrowserConsoleEntry>;
   networkLog: RingBuffer<BrowserNetworkEntry>;
   downloadLog: RingBuffer<LensDownloadEntry>;
-  downloadHandlerCleanup: (() => void) | null;
   annotationOverlayActive: boolean;
   annotationNonce: string | null;
   annotationExtractDebugSource: boolean;
@@ -104,7 +114,63 @@ const CONSOLE_BUFFER_SIZE = 200;
 const NETWORK_BUFFER_SIZE = 200;
 const DOWNLOAD_BUFFER_SIZE = 200;
 
+/** Registry keyed by sessionKey(workspaceId, lensSessionId). */
 const sessions = new Map<string, BrowserSessionState>();
+
+/**
+ * webContents id → owning session, covering both the lens view itself and
+ * any auth popups it spawned. Used to route shared-partition traffic
+ * (network log, downloads) to the correct session.
+ */
+const webContentsSessionIndex = new Map<number, BrowserSessionState>();
+
+/** Partition name → will-download listener cleanup (attached once per partition). */
+const partitionDownloadCleanups = new Map<string, () => void>();
+
+function sessionKey(workspaceId: string, lensSessionId: string): string {
+  return `${workspaceId}\u0000${lensSessionId}`;
+}
+
+function normalizeLensSessionId(lensSessionId?: string | null): string {
+  const trimmed = lensSessionId?.trim();
+  return trimmed ? trimmed : DEFAULT_LENS_SESSION_ID;
+}
+
+function getSessionForWebContentsId(
+  webContentsId: number,
+): BrowserSessionState | undefined {
+  return webContentsSessionIndex.get(webContentsId);
+}
+
+function findFirstSessionForPartition(
+  partition: string,
+): BrowserSessionState | undefined {
+  for (const session of sessions.values()) {
+    if (session.sessionProfile.partition === partition) {
+      return session;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Resolve the session that should receive partition-scoped traffic for the
+ * given webContents id, falling back to the first live session on the
+ * partition (matches the legacy single-session behavior for traffic that
+ * carries no webContents attribution, e.g. service workers).
+ */
+function resolvePartitionTrafficTarget(
+  partition: string,
+  webContentsId: number | undefined,
+): BrowserSessionState | undefined {
+  if (webContentsId !== undefined && webContentsId >= 0) {
+    const owner = getSessionForWebContentsId(webContentsId);
+    if (owner) {
+      return owner;
+    }
+  }
+  return findFirstSessionForPartition(partition);
+}
 
 function isHttpOrHttpsUrl(value: string): boolean {
   try {
@@ -157,6 +223,7 @@ function openLensAuthPopup(args: {
   session: Electron.Session;
   url: string;
   workspaceId: string;
+  lensSessionId: string;
 }): void {
   if (!isHttpOrHttpsUrl(args.url)) {
     void openExternalWithFallback({ url: args.url });
@@ -166,12 +233,16 @@ function openLensAuthPopup(args: {
   try {
     assertNavigationAllowed(args.url);
   } catch (err) {
-    pushConsoleEntry(args.workspaceId, {
-      level: "warn",
-      text: `Lens popup blocked: ${err instanceof Error ? err.message : String(err)}`,
-      timestamp: new Date().toISOString(),
-      source: args.url,
-    });
+    pushConsoleEntry(
+      args.workspaceId,
+      {
+        level: "warn",
+        text: `Lens popup blocked: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: new Date().toISOString(),
+        source: args.url,
+      },
+      args.lensSessionId,
+    );
     return;
   }
 
@@ -192,10 +263,17 @@ function openLensAuthPopup(args: {
     },
   });
 
-  const session = sessions.get(args.workspaceId);
-  session?.authPopups.add(popup);
+  const session = sessions.get(sessionKey(args.workspaceId, args.lensSessionId));
+  const popupWebContentsId = popup.webContents.id;
+  if (session) {
+    session.authPopups.add(popup);
+    webContentsSessionIndex.set(popupWebContentsId, session);
+  }
   popup.on("closed", () => {
     session?.authPopups.delete(popup);
+    if (webContentsSessionIndex.get(popupWebContentsId) === session) {
+      webContentsSessionIndex.delete(popupWebContentsId);
+    }
   });
 
   popup.webContents.on("will-navigate", (event, targetUrl) => {
@@ -209,14 +287,18 @@ function openLensAuthPopup(args: {
       assertNavigationAllowed(targetUrl);
     } catch (err) {
       event.preventDefault();
-      pushConsoleEntry(args.workspaceId, {
-        level: "warn",
-        text: `Lens popup navigation blocked: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-        timestamp: new Date().toISOString(),
-        source: targetUrl,
-      });
+      pushConsoleEntry(
+        args.workspaceId,
+        {
+          level: "warn",
+          text: `Lens popup navigation blocked: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          timestamp: new Date().toISOString(),
+          source: targetUrl,
+        },
+        args.lensSessionId,
+      );
     }
   });
 
@@ -249,12 +331,16 @@ function openLensAuthPopup(args: {
     try {
       assertNavigationAllowed(url);
     } catch (err) {
-      pushConsoleEntry(args.workspaceId, {
-        level: "warn",
-        text: `Lens popup blocked: ${err instanceof Error ? err.message : String(err)}`,
-        timestamp: new Date().toISOString(),
-        source: url,
-      });
+      pushConsoleEntry(
+        args.workspaceId,
+        {
+          level: "warn",
+          text: `Lens popup blocked: ${err instanceof Error ? err.message : String(err)}`,
+          timestamp: new Date().toISOString(),
+          source: url,
+        },
+        args.lensSessionId,
+      );
       return { action: "deny" };
     }
 
@@ -263,16 +349,116 @@ function openLensAuthPopup(args: {
   });
 
   void popup.webContents.loadURL(args.url).catch((err) => {
-    pushConsoleEntry(args.workspaceId, {
-      level: "error",
-      text: `Lens popup failed: ${err instanceof Error ? err.message : String(err)}`,
-      timestamp: new Date().toISOString(),
-      source: args.url,
-    });
+    pushConsoleEntry(
+      args.workspaceId,
+      {
+        level: "error",
+        text: `Lens popup failed: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: new Date().toISOString(),
+        source: args.url,
+      },
+      args.lensSessionId,
+    );
     if (!popup.isDestroyed()) {
       popup.close();
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Partition-scoped handlers (shared by all sessions on one partition)
+// ---------------------------------------------------------------------------
+
+/**
+ * (Re-)register the webRequest listeners for a partition. Electron keeps a
+ * single webRequest listener per session, so registration is idempotent —
+ * the listener routes each event to the owning lens session dynamically.
+ */
+function registerPartitionNetworkDispatch(
+  ses: Electron.Session,
+  partition: string,
+): void {
+  ses.webRequest.onCompleted({ urls: ["<all_urls>"] }, (details) => {
+    const target = resolvePartitionTrafficTarget(
+      partition,
+      details.webContentsId,
+    );
+    if (!target) {
+      return;
+    }
+    pushNetworkEntry(
+      target.workspaceId,
+      {
+        requestId: String(details.id),
+        url: details.url,
+        method: details.method,
+        status: details.statusCode,
+        mimeType: extractMimeType(details.responseHeaders),
+        responseSize: extractResponseSize(details.responseHeaders),
+        timestamp: new Date().toISOString(),
+      },
+      target.lensSessionId,
+    );
+  });
+
+  ses.webRequest.onErrorOccurred({ urls: ["<all_urls>"] }, (details) => {
+    const target = resolvePartitionTrafficTarget(
+      partition,
+      details.webContentsId,
+    );
+    if (!target) {
+      return;
+    }
+    pushNetworkEntry(
+      target.workspaceId,
+      {
+        requestId: String(details.id),
+        url: details.url,
+        method: details.method,
+        status: 0,
+        timestamp: new Date().toISOString(),
+      },
+      target.lensSessionId,
+    );
+  });
+}
+
+function ensurePartitionDownloadDispatch(
+  ses: Electron.Session,
+  partition: string,
+): void {
+  if (partitionDownloadCleanups.has(partition)) {
+    return;
+  }
+  const cleanup = attachPartitionDownloadHandler(ses, (webContentsId) => {
+    const target = resolvePartitionTrafficTarget(partition, webContentsId);
+    if (!target) {
+      return undefined;
+    }
+    return {
+      workspaceId: target.workspaceId,
+      lensSessionId: target.lensSessionId,
+      onEntry: (entry) => {
+        target.downloadLog.push(entry);
+      },
+    };
+  });
+  partitionDownloadCleanups.set(partition, cleanup);
+}
+
+function releasePartitionHandlersIfUnused(partition: string): void {
+  if (findFirstSessionForPartition(partition)) {
+    return;
+  }
+  const cleanup = partitionDownloadCleanups.get(partition);
+  if (cleanup) {
+    try {
+      cleanup();
+    } catch {
+      // Session object may already be gone.
+    }
+    partitionDownloadCleanups.delete(partition);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -281,10 +467,14 @@ function openLensAuthPopup(args: {
 
 export function createBrowserSession(
   workspaceId: string,
-  options?: Omit<LensSessionProfileArgs, "workspaceId">,
+  options?: Omit<LensSessionProfileArgs, "workspaceId"> & {
+    lensSessionId?: string;
+  },
 ): BrowserSessionState {
-  // Clean up any existing session for this workspace
-  destroyBrowserSession(workspaceId);
+  const lensSessionId = normalizeLensSessionId(options?.lensSessionId);
+
+  // Clean up any existing session with the same identity
+  destroyBrowserSession(workspaceId, lensSessionId);
 
   const win = getMainWindow();
   if (!win) {
@@ -320,6 +510,7 @@ export function createBrowserSession(
         event.preventDefault();
         renderer.send("lens:visual-comment-shortcut", {
           workspaceId,
+          lensSessionId,
           key: input.key,
           code: input.code,
           shiftKey: input.shift,
@@ -353,27 +544,9 @@ export function createBrowserSession(
     callback(false);
   });
 
-  ses.webRequest.onCompleted({ urls: ["<all_urls>"] }, (details) => {
-    pushNetworkEntry(workspaceId, {
-      requestId: String(details.id),
-      url: details.url,
-      method: details.method,
-      status: details.statusCode,
-      mimeType: extractMimeType(details.responseHeaders),
-      responseSize: extractResponseSize(details.responseHeaders),
-      timestamp: new Date().toISOString(),
-    });
-  });
-
-  ses.webRequest.onErrorOccurred({ urls: ["<all_urls>"] }, (details) => {
-    pushNetworkEntry(workspaceId, {
-      requestId: String(details.id),
-      url: details.url,
-      method: details.method,
-      status: 0,
-      timestamp: new Date().toISOString(),
-    });
-  });
+  // Partition-level dispatchers route traffic back to the owning session.
+  registerPartitionNetworkDispatch(ses, sessionProfile.partition);
+  ensurePartitionDownloadDispatch(ses, sessionProfile.partition);
 
   // Open external links in system browser instead of navigating
   view.webContents.setWindowOpenHandler(({ url }) => {
@@ -382,20 +555,22 @@ export function createBrowserSession(
       session: ses,
       url,
       workspaceId,
+      lensSessionId,
     });
     return { action: "deny" as const };
   });
 
   const session: BrowserSessionState = {
     workspaceId,
+    lensSessionId,
     sessionProfile,
     view,
+    webContentsId: view.webContents.id,
     authPopups: new Set(),
     debuggerAttached: false,
     consoleLog: new RingBuffer<BrowserConsoleEntry>(CONSOLE_BUFFER_SIZE),
     networkLog: new RingBuffer<BrowserNetworkEntry>(NETWORK_BUFFER_SIZE),
     downloadLog: new RingBuffer<LensDownloadEntry>(DOWNLOAD_BUFFER_SIZE),
-    downloadHandlerCleanup: null,
     annotationOverlayActive: false,
     annotationNonce: null,
     annotationExtractDebugSource: false,
@@ -413,14 +588,8 @@ export function createBrowserSession(
     lastAppliedBounds: null,
   };
 
-  sessions.set(workspaceId, session);
-  session.downloadHandlerCleanup = attachDownloadHandler(
-    workspaceId,
-    ses,
-    (entry) => {
-      session.downloadLog.push(entry);
-    },
-  );
+  sessions.set(sessionKey(workspaceId, lensSessionId), session);
+  webContentsSessionIndex.set(session.webContentsId, session);
   return session;
 }
 
@@ -452,8 +621,9 @@ export async function clearBrowserSessionData(
 export function browserSessionUsesProfile(
   workspaceId: string,
   options?: Omit<LensSessionProfileArgs, "workspaceId">,
+  lensSessionId?: string,
 ): boolean {
-  const session = sessions.get(workspaceId);
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) {
     return false;
   }
@@ -468,33 +638,47 @@ export function browserSessionUsesProfile(
 
 export function getBrowserSession(
   workspaceId: string,
+  lensSessionId?: string,
 ): BrowserSessionState | undefined {
-  return sessions.get(workspaceId);
+  return sessions.get(
+    sessionKey(workspaceId, normalizeLensSessionId(lensSessionId)),
+  );
 }
 
-/** Return a summary of all active sessions for workspace discovery. */
-export function listBrowserSessions(): Array<{
-  workspaceId: string;
-  url: string;
-  title: string;
-  isLoading: boolean;
-  managedByMcp: boolean;
-  sessionScope: LensSessionProfileArgs["sessionScope"];
-}> {
-  return [...sessions.values()].map((s) => ({
-    workspaceId: s.workspaceId,
-    url: s.navigationState.url,
-    title: s.navigationState.title,
-    isLoading: s.navigationState.isLoading,
-    managedByMcp: s.managedByMcp,
-    sessionScope: s.sessionProfile.scope,
-  }));
+/** All live sessions belonging to one workspace. */
+export function getWorkspaceBrowserSessions(
+  workspaceId: string,
+): BrowserSessionState[] {
+  return [...sessions.values()].filter(
+    (session) => session.workspaceId === workspaceId,
+  );
+}
+
+/**
+ * Return a summary of active sessions for discovery. Pass a workspaceId to
+ * restrict the listing to that workspace's sessions.
+ */
+export function listBrowserSessions(
+  workspaceId?: string,
+): LensSessionDescriptor[] {
+  return [...sessions.values()]
+    .filter((s) => workspaceId === undefined || s.workspaceId === workspaceId)
+    .map((s) => ({
+      workspaceId: s.workspaceId,
+      lensSessionId: s.lensSessionId,
+      url: s.navigationState.url,
+      title: s.navigationState.title,
+      isLoading: s.navigationState.isLoading,
+      managedByMcp: s.managedByMcp,
+      sessionScope: s.sessionProfile.scope,
+    }));
 }
 
 export function getWebContentsForSession(
   workspaceId: string,
+  lensSessionId?: string,
 ): Electron.WebContents | undefined {
-  const session = sessions.get(workspaceId);
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return undefined;
   try {
     const wc = session.view.webContents;
@@ -507,23 +691,30 @@ export function getWebContentsForSession(
 /** Get the webContentsId for CDP operations (backwards compat with browser-cdp). */
 export function getWebContentsIdForSession(
   workspaceId: string,
+  lensSessionId?: string,
 ): number | undefined {
-  return getWebContentsForSession(workspaceId)?.id;
+  return getWebContentsForSession(workspaceId, lensSessionId)?.id;
 }
 
-export function getWorkspaceIdForWebContentsId(
+export function getSessionIdentityForWebContentsId(
   webContentsId: number,
-): string | undefined {
+): { workspaceId: string; lensSessionId: string } | undefined {
   for (const session of sessions.values()) {
-    if (session.view.webContents.id === webContentsId) {
-      return session.workspaceId;
+    if (session.webContentsId === webContentsId) {
+      return {
+        workspaceId: session.workspaceId,
+        lensSessionId: session.lensSessionId,
+      };
     }
   }
   return undefined;
 }
 
-export function destroyBrowserSession(workspaceId: string): void {
-  const session = sessions.get(workspaceId);
+export function destroyBrowserSession(
+  workspaceId: string,
+  lensSessionId?: string,
+): void {
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return;
 
   // Detach debugger if still attached
@@ -538,12 +729,10 @@ export function destroyBrowserSession(workspaceId: string): void {
     }
   }
 
-  session.downloadHandlerCleanup?.();
-  session.downloadHandlerCleanup = null;
-
   for (const popup of [...session.authPopups]) {
     try {
       if (!popup.isDestroyed()) {
+        webContentsSessionIndex.delete(popup.webContents.id);
         popup.close();
       }
     } catch {
@@ -575,12 +764,23 @@ export function destroyBrowserSession(workspaceId: string): void {
   session.consoleLog.clear();
   session.networkLog.clear();
   session.downloadLog.clear();
-  sessions.delete(workspaceId);
+  if (webContentsSessionIndex.get(session.webContentsId) === session) {
+    webContentsSessionIndex.delete(session.webContentsId);
+  }
+  sessions.delete(sessionKey(session.workspaceId, session.lensSessionId));
+  releasePartitionHandlersIfUnused(session.sessionProfile.partition);
+}
+
+/** Destroy every lens session belonging to a workspace (dispose path). */
+export function destroyWorkspaceBrowserSessions(workspaceId: string): void {
+  for (const session of getWorkspaceBrowserSessions(workspaceId)) {
+    destroyBrowserSession(session.workspaceId, session.lensSessionId);
+  }
 }
 
 export function destroyAllBrowserSessions(): void {
-  for (const workspaceId of [...sessions.keys()]) {
-    destroyBrowserSession(workspaceId);
+  for (const session of [...sessions.values()]) {
+    destroyBrowserSession(session.workspaceId, session.lensSessionId);
   }
 }
 
@@ -591,8 +791,9 @@ export function destroyAllBrowserSessions(): void {
 export function setViewBounds(
   workspaceId: string,
   bounds: LensBounds,
+  lensSessionId?: string,
 ): void {
-  const session = sessions.get(workspaceId);
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return;
   if (
     session.lastAppliedBounds &&
@@ -614,8 +815,9 @@ export function setViewBounds(
 export function setViewVisible(
   workspaceId: string,
   visible: boolean,
+  lensSessionId?: string,
 ): void {
-  const session = sessions.get(workspaceId);
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return;
   try {
     session.view.setVisible(visible);
@@ -631,8 +833,9 @@ export function setViewVisible(
 export function updateNavigationState(
   workspaceId: string,
   patch: Partial<BrowserNavigationState>,
+  lensSessionId?: string,
 ): BrowserNavigationState | undefined {
-  const session = sessions.get(workspaceId);
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return undefined;
   Object.assign(session.navigationState, patch);
   return { ...session.navigationState };
@@ -641,8 +844,9 @@ export function updateNavigationState(
 export function pushConsoleEntry(
   workspaceId: string,
   entry: BrowserConsoleEntry,
+  lensSessionId?: string,
 ): void {
-  const session = sessions.get(workspaceId);
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) {
     return;
   }
@@ -656,6 +860,7 @@ export function pushConsoleEntry(
 
   renderer.send("lens:console-entry", {
     workspaceId,
+    lensSessionId: session.lensSessionId,
     entry,
   } satisfies BrowserConsoleEventPayload);
 }
@@ -663,8 +868,9 @@ export function pushConsoleEntry(
 export function pushNetworkEntry(
   workspaceId: string,
   entry: BrowserNetworkEntry,
+  lensSessionId?: string,
 ): void {
-  const session = sessions.get(workspaceId);
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) {
     return;
   }
@@ -678,6 +884,7 @@ export function pushNetworkEntry(
 
   renderer.send("lens:network-entry", {
     workspaceId,
+    lensSessionId: session.lensSessionId,
     entry,
   } satisfies BrowserNetworkEventPayload);
 }

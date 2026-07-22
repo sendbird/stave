@@ -218,6 +218,19 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
     );
   });
 
+  it("tracks pane drop-zone tokens in the built-in token registry", () => {
+    expect(BUILTIN_THEME_TOKEN_NAMES).toEqual(
+      expect.arrayContaining(["drop-zone", "drop-zone-border"]),
+    );
+  });
+
+  it("every built-in theme defines non-empty drop-zone tokens", () => {
+    for (const theme of BUILTIN_CUSTOM_THEMES) {
+      expect(theme.tokens["drop-zone"]?.trim()).toBeTruthy();
+      expect(theme.tokens["drop-zone-border"]?.trim()).toBeTruthy();
+    }
+  });
+
   it("includes Dark High Contrast", () => {
     const theme = BUILTIN_CUSTOM_THEMES.find((t) => t.id === "dark-high-contrast");
     expect(theme).toBeDefined();

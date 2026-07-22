@@ -46,6 +46,8 @@
   --prompt-mode-custom: var(--muted-foreground);
   --overlay: oklch(0.145 0 0 / 0.66);
   --surface: oklch(0.975 0 0);
+  --drop-zone: oklch(0.532 0.157 131.589 / 0.12);
+  --drop-zone-border: oklch(0.532 0.157 131.589 / 0.55);
   --editor: oklch(0.96 0 0);
   --editor-foreground: oklch(0.205 0 0);
   --editor-muted: oklch(0.94 0 0);
@@ -132,6 +134,8 @@
   --prompt-mode-custom: var(--muted-foreground);
   --overlay: oklch(0 0 0 / 0.78);
   --surface: oklch(0.165 0 0);
+  --drop-zone: oklch(0.768 0.233 130.85 / 0.16);
+  --drop-zone-border: oklch(0.768 0.233 130.85 / 0.6);
   --editor: oklch(0.18 0 0);
   --editor-foreground: oklch(0.92 0 0);
   --editor-muted: oklch(0.24 0 0);
@@ -199,6 +203,8 @@
   --color-ring: var(--ring);
   --color-overlay: var(--overlay);
   --color-surface: var(--surface);
+  --color-drop-zone: var(--drop-zone);
+  --color-drop-zone-border: var(--drop-zone-border);
   --color-editor: var(--editor);
   --color-editor-foreground: var(--editor-foreground);
   --color-editor-muted: var(--editor-muted);
@@ -233,6 +239,141 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --font-heading: "Inter Variable", sans-serif;
+}
+
+/*
+ * Dockview theme bridge.
+ *
+ * The pane host (`src/components/panes/WorkspacePaneHost.tsx`) renders
+ * `<DockviewReact/>` inside a `.dockview-theme-stave` container and imports
+ * dockview's base stylesheet, which is themed exclusively through `--dv-*`
+ * custom properties. This block maps every relevant `--dv-*` variable onto
+ * Stave's semantic tokens so all builtin themes, user themes, and light/dark
+ * modes restyle Dockview automatically.
+ *
+ * Tab surfaces intentionally mirror the retired task tab bar
+ * (`WorkspaceTaskTabs`): a `muted/30` strip over `background`, a `background`
+ * active tab, `border/70` dividers, and the shared 46px panel bar height
+ * (`PANEL_BAR_HEIGHT_CLASS` in `src/components/layout/panel-bar.constants.ts`).
+ *
+ * Deliberately left at library defaults (documented, not accidental):
+ * `--dv-overlay-z-index` (999), `--dv-floating-titlebar-height` (22px),
+ * `--dv-active-sash-transition-duration` (0.1s), `--dv-tab-close-icon-size`
+ * (unset -> natural icon size; the custom PaneTabChip renders its own close
+ * button), and the nine `--dv-tab-group-color-*` chip colours plus their chip
+ * metrics, which keep dockview's stock palette until Stave adopts tab groups.
+ */
+.dockview-theme-stave {
+  /* Surfaces */
+  --dv-group-view-background-color: var(--background);
+  --dv-tabs-and-actions-container-background-color: color-mix(
+    in srgb,
+    var(--muted) 30%,
+    var(--background)
+  );
+  --dv-floating-titlebar-background-color: var(
+    --dv-tabs-and-actions-container-background-color
+  );
+
+  /* Tabs — active group */
+  --dv-activegroup-visiblepanel-tab-background-color: var(--background);
+  --dv-activegroup-visiblepanel-tab-color: var(--foreground);
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
+
+  /* Tabs — inactive group (same surfaces, dimmed foregrounds) */
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--background);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--muted-foreground);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-color: color-mix(
+    in srgb,
+    var(--muted-foreground) 60%,
+    transparent
+  );
+
+  /* Borders and separators */
+  --dv-tab-divider-color: color-mix(in srgb, var(--border) 70%, transparent);
+  --dv-separator-border: var(--border);
+  --dv-paneview-header-border-color: var(--border);
+
+  /* Focused-pane accent */
+  --dv-paneview-active-outline-color: var(--ring);
+
+  /* Drag & drop */
+  --dv-drag-over-background-color: var(--drop-zone);
+  --dv-drag-over-border-color: var(--drop-zone-border);
+  --dv-drag-over-border: 1px solid var(--drop-zone-border);
+
+  /* Sashes: invisible when idle, ring-tinted on hover */
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: color-mix(in srgb, var(--ring) 55%, transparent);
+  --dv-active-sash-transition-delay: 0.2s;
+  --dv-sash-border-radius: 2px;
+
+  /* Hover chips and scrollbars */
+  --dv-icon-hover-background-color: color-mix(
+    in srgb,
+    var(--muted-foreground) 18%,
+    transparent
+  );
+  --dv-scrollbar-background-color: color-mix(
+    in srgb,
+    var(--muted-foreground) 35%,
+    transparent
+  );
+  --dv-tabs-container-scrollbar-color: color-mix(
+    in srgb,
+    var(--muted-foreground) 35%,
+    transparent
+  );
+
+  /* Floating groups */
+  --dv-floating-border: 1px solid var(--border);
+  --dv-floating-group-border: 1px solid var(--border);
+  --dv-floating-titlebar-border-bottom: 1px solid var(--border);
+  --dv-floating-box-shadow:
+    0 8px 32px oklch(0 0 0 / 0.32), 0 2px 8px oklch(0 0 0 / 0.18);
+  --dv-floating-group-dragging-opacity: 0.5;
+
+  /* Context menu / dropdown surfaces */
+  --dv-context-menu-background-color: var(--popover);
+  --dv-context-menu-color: var(--popover-foreground);
+
+  /* Density and shape */
+  --dv-tabs-and-actions-container-height: 46px;
+  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tab-font-size: inherit;
+  --dv-tab-margin: 0;
+  --dv-spacing-padding: 0px;
+  --dv-border-radius: var(--radius);
+  --dv-tab-border-radius: 0px;
+  --dv-dropdown-border-radius: var(--radius);
+  --dv-transition-duration: 200ms;
+
+  /* Tab-group chips: dockview stock palette, app-radius chips */
+  --dv-tab-group-color-grey: #5f6368;
+  --dv-tab-group-color-blue: #1a73e8;
+  --dv-tab-group-color-red: #d93025;
+  --dv-tab-group-color-yellow: #f9ab00;
+  --dv-tab-group-color-green: #188038;
+  --dv-tab-group-color-pink: #d01884;
+  --dv-tab-group-color-purple: #a142f4;
+  --dv-tab-group-color-cyan: #007b83;
+  --dv-tab-group-color-orange: #e8710a;
+  --dv-tab-group-chip-padding: 4px 8px;
+  --dv-tab-group-chip-border-radius: calc(var(--radius) * 0.6);
+  --dv-tab-group-chip-font-size: 11px;
+  --dv-tab-group-line-height: 2px;
+  --dv-tab-group-line-opacity: 0.6;
+}
+
+/*
+ * The retired task tab bar drew a `border/70` hairline under the strip;
+ * dockview does not, so reproduce it for horizontal headers only.
+ */
+.dockview-theme-stave
+  .dv-tabs-and-actions-container:not(.dv-groupview-header-vertical) {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 /*

@@ -17,6 +17,7 @@ import {
   resolvePlanViewerState,
   type PlanViewerViewState,
 } from "@/components/session/plan-viewer.utils";
+import { useScopedTaskId } from "@/components/session/task-scope-context";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 
@@ -48,13 +49,13 @@ export function PlanViewer() {
   const outerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
 
-  const [activeWorkspaceId, activeTaskId, activeTask, draftProvider, promptDraft, claudePermissionMode, claudePermissionModeBeforePlan, codexPlanMode, sendUserMessage, createTask, updatePromptDraft, clearTaskProviderSession] = useAppStore(
+  const activeTaskId = useScopedTaskId();
+  const [activeWorkspaceId, activeTask, draftProvider, promptDraft, claudePermissionMode, claudePermissionModeBeforePlan, codexPlanMode, sendUserMessage, createTask, updatePromptDraft, clearTaskProviderSession] = useAppStore(
     useShallow((state) => [
       state.activeWorkspaceId,
-      state.activeTaskId,
-      state.tasks.find((task) => task.id === state.activeTaskId && !isTaskArchived(task)) ?? null,
+      state.tasks.find((task) => task.id === activeTaskId && !isTaskArchived(task)) ?? null,
       state.draftProvider,
-      state.promptDraftByTask[state.activeTaskId] ?? EMPTY_PROMPT_DRAFT,
+      state.promptDraftByTask[activeTaskId] ?? EMPTY_PROMPT_DRAFT,
       state.settings.claudePermissionMode,
       state.settings.claudePermissionModeBeforePlan,
       state.settings.codexPlanMode,
@@ -83,7 +84,7 @@ export function PlanViewer() {
     : null;
 
   const [latestPlanMessage, lastMessage, isTurnActive] = useAppStore(useShallow((state) => {
-    const messages = state.messagesByTask[state.activeTaskId] ?? EMPTY_MESSAGES;
+    const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
     const lastMessage = messages.at(-1) ?? null;
     let latestPlanMessage: (typeof lastMessage) | null = null;
     for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -96,7 +97,7 @@ export function PlanViewer() {
     return [
       latestPlanMessage,
       lastMessage,
-      Boolean(state.activeTurnIdsByTask[state.activeTaskId]),
+      Boolean(state.activeTurnIdsByTask[activeTaskId]),
     ] as const;
   }));
 

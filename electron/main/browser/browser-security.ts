@@ -1,7 +1,8 @@
-import type {
-  LensCdpApprovalRequestPayload,
-  LensCdpApprovalResponse,
-  LensSecurityConfig,
+import {
+  DEFAULT_LENS_SESSION_ID,
+  type LensCdpApprovalRequestPayload,
+  type LensCdpApprovalResponse,
+  type LensSecurityConfig,
 } from "../../../src/lib/lens/lens.types";
 
 const CDP_APPROVAL_TIMEOUT_MS = 15_000;
@@ -187,6 +188,8 @@ export function assertNavigationAllowed(
 
 export async function assertCdpAllowed(args: {
   workspaceId: string;
+  /** Lens session the CDP request originates from ("default" when omitted). */
+  lensSessionId?: string;
   url: string;
   reason?: string;
 }): Promise<void> {
@@ -231,6 +234,9 @@ export async function assertCdpAllowed(args: {
 
     renderer.send("lens:cdp-approval-request", {
       workspaceId: args.workspaceId,
+      // Carry the originating lens session so the renderer can route the
+      // approval dialog to that session's panel instead of arbitrating.
+      lensSessionId: args.lensSessionId ?? DEFAULT_LENS_SESSION_ID,
       requestId,
       url: args.url,
       host,

@@ -22,10 +22,8 @@ function createContext(
     appShortcutKeys: normalizeAppShortcutKeys(),
     hasActiveTurn: true,
     layout: {
-      editorVisible: true,
       sidebarOverlayTab: "explorer",
       sidebarOverlayVisible: false,
-      terminalDocked: false,
       workspaceSidebarCollapsed: false,
     },
     modifierLabel: "Cmd",
@@ -86,6 +84,7 @@ function createContext(
       focusFileSearch: () => {},
       openExplorerSearch: () => {},
       openLatestCompletedTurnTask: async () => {},
+      openLens: () => {},
       openKickoff: () => {},
       openInGhostty: async () => {},
       openInTerminal: async () => {},
@@ -101,6 +100,7 @@ function createContext(
       selectTask: () => {},
       setTaskProvider: () => {},
       startCompareRun: () => {},
+      splitActivePanel: () => {},
       showOverlayTab: () => {},
       stopActiveTurn: () => {},
       switchWorkspace: async () => {},
@@ -221,6 +221,19 @@ describe("command palette registry", () => {
     expect(
       view?.items.some(
         (item) => item.id === "view.show-lens" && item.shortcut === "Cmd+K L",
+      ),
+    ).toBe(true);
+    expect(
+      view?.items.some(
+        (item) =>
+          item.id === "view.split-pane-right" && item.shortcut === "Cmd+\\",
+      ),
+    ).toBe(true);
+    expect(
+      view?.items.some(
+        (item) =>
+          item.id === "view.split-pane-down" &&
+          item.shortcut === "Cmd+Shift+\\",
       ),
     ).toBe(true);
   });

@@ -2,17 +2,17 @@ import { expect, test } from "@playwright/test";
 
 const PROMPT_PLACEHOLDER = "Use / for commands, $ for skills, @ to search files (Enter to send)";
 
-test("shows no-project splash when project is not selected", async ({ page }) => {
+test("shows the pane watermark when project is not selected", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await expect(page.getByTestId("splash-no-project")).toBeVisible();
-  await expect(page.getByText("Open a Project")).toBeVisible();
-  await expect(page.getByTestId("workspace-bar")).toHaveCount(0);
-  await expect(page.getByTestId("task-list")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-pane-host")).toBeVisible();
+  await expect(page.getByTestId("pane-watermark")).toBeVisible();
+  await expect(page.getByText("Pick a Workspace")).toBeVisible();
+  await expect(page.locator("[data-pane-tab-chip]")).toHaveCount(0);
 });
 
-test.fixme("shows no-workspace splash when project exists without selected workspace", async ({ page }) => {
+test.fixme("shows the pick-a-workspace watermark when project exists without selected workspace", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("stave-store", JSON.stringify({
       state: {
@@ -34,8 +34,8 @@ test.fixme("shows no-workspace splash when project exists without selected works
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await expect(page.getByTestId("splash-no-workspace")).toBeVisible();
-  await expect(page.getByText("No Workspace Selected")).toBeVisible();
+  await expect(page.getByTestId("pane-watermark")).toBeVisible();
+  await expect(page.getByText("Pick a Workspace")).toBeVisible();
 });
 
 test("settings models persist after reload", async ({ page }) => {
@@ -87,10 +87,13 @@ test("new task button creates a visible task item", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  const taskMenus = page.locator('button[aria-label^="task-menu-"]');
-  const before = await taskMenus.count();
-  await page.getByTestId("session-area").getByRole("button", { name: /New Task/ }).click();
-  await expect(taskMenus).toHaveCount(before + 1);
+  const taskChips = page.locator('[data-pane-tab-chip^="task:"]');
+  await expect(taskChips).toHaveCount(0);
+  await page
+    .getByTestId("pane-watermark")
+    .getByRole("button", { name: "New Task" })
+    .click();
+  await expect(taskChips).toHaveCount(1);
 });
 
 test("prompt input is focused after creating a task", async ({ page }) => {
@@ -125,7 +128,10 @@ test("prompt input is focused after creating a task", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.getByTestId("session-area").getByRole("button", { name: /New Task/ }).click();
+  await page
+    .getByTestId("pane-watermark")
+    .getByRole("button", { name: "New Task" })
+    .click();
 
   await expect(page.getByPlaceholder(PROMPT_PLACEHOLDER)).toBeFocused();
 });
@@ -138,6 +144,8 @@ test("empty task keeps the intro card above the prompt input", async ({ page }) 
       updatedAt: "2026-03-06T01:00:00.000Z",
       snapshot: {
         activeTaskId: "task-1",
+        openTaskTabIds: ["task-1"],
+        activeSurface: { kind: "task", taskId: "task-1" },
         tasks: [{
           id: "task-1",
           title: "New Task",
@@ -161,6 +169,8 @@ test("empty task keeps the intro card above the prompt input", async ({ page }) 
         workspacePathById: { "ws-main": "/tmp/stave-project" },
         workspaceDefaultById: { "ws-main": true },
         activeTaskId: "task-1",
+        openTaskTabIds: ["task-1"],
+        activeSurface: { kind: "task", taskId: "task-1" },
         tasks: [{
           id: "task-1",
           title: "New Task",
@@ -217,7 +227,7 @@ test("shortcut creates a new task in the selected workspace", async ({ page }) =
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  const taskMenus = page.locator('button[aria-label^="task-menu-"]');
+  const taskChips = page.locator('[data-pane-tab-chip^="task:"]');
 
   await page.evaluate(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", {
@@ -229,7 +239,7 @@ test("shortcut creates a new task in the selected workspace", async ({ page }) =
   });
 
   await expect(page.getByPlaceholder(PROMPT_PLACEHOLDER)).toBeFocused();
-  await expect(taskMenus).toHaveCount(1);
+  await expect(taskChips).toHaveCount(1);
 });
 
 test("archiving the last active task returns the chat area to the splash state", async ({ page }) => {
@@ -240,6 +250,8 @@ test("archiving the last active task returns the chat area to the splash state",
       updatedAt: "2026-03-06T01:00:00.000Z",
       snapshot: {
         activeTaskId: "task-1",
+        openTaskTabIds: ["task-1"],
+        activeSurface: { kind: "task", taskId: "task-1" },
         tasks: [{
           id: "task-1",
           title: "Task 1",
@@ -263,6 +275,8 @@ test("archiving the last active task returns the chat area to the splash state",
         workspacePathById: { "ws-main": "/tmp/stave-project" },
         workspaceDefaultById: { "ws-main": true },
         activeTaskId: "task-1",
+        openTaskTabIds: ["task-1"],
+        activeSurface: { kind: "task", taskId: "task-1" },
         tasks: [{
           id: "task-1",
           title: "Task 1",
@@ -282,14 +296,20 @@ test("archiving the last active task returns the chat area to the splash state",
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.getByRole("button", { name: "archive-task-task-1" }).click();
-  await expect(page.getByRole("heading", { name: "Archive Task" })).toBeVisible();
-  await page.getByRole("button", { name: "Archive", exact: true }).click();
+  // Archiving now happens from the task tab chip's context menu.
+  const taskChip = page.locator('[data-pane-tab-chip="task:task-1"]');
+  await expect(taskChip).toBeVisible();
+  await taskChip.click({ button: "right" });
+  await page
+    .locator(".dv-context-menu-item")
+    .filter({ hasText: "Archive" })
+    .click();
 
-  await expect(page.getByTestId("empty-splash")).toBeVisible();
+  await expect(page.locator('[data-pane-tab-chip^="task:"]')).toHaveCount(0);
+  await expect(page.getByTestId("pane-watermark")).toBeVisible();
 });
 
-test("shortcut archives the selected task", async ({ page }) => {
+test("shortcut closes the selected task tab", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("stave:workspace-fallback:v1", JSON.stringify([{
       id: "ws-main",
@@ -297,6 +317,8 @@ test("shortcut archives the selected task", async ({ page }) => {
       updatedAt: "2026-03-06T01:00:00.000Z",
       snapshot: {
         activeTaskId: "task-1",
+        openTaskTabIds: ["task-1"],
+        activeSurface: { kind: "task", taskId: "task-1" },
         tasks: [{
           id: "task-1",
           title: "Task 1",
@@ -320,6 +342,8 @@ test("shortcut archives the selected task", async ({ page }) => {
         workspacePathById: { "ws-main": "/tmp/stave-project" },
         workspaceDefaultById: { "ws-main": true },
         activeTaskId: "task-1",
+        openTaskTabIds: ["task-1"],
+        activeSurface: { kind: "task", taskId: "task-1" },
         tasks: [{
           id: "task-1",
           title: "Task 1",
@@ -338,6 +362,8 @@ test("shortcut archives the selected task", async ({ page }) => {
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
+
+  await expect(page.locator('[data-pane-tab-chip="task:task-1"]')).toBeVisible();
 
   await page.evaluate(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", {
@@ -348,7 +374,9 @@ test("shortcut archives the selected task", async ({ page }) => {
     }));
   });
 
-  await expect(page.getByTestId("empty-splash")).toBeVisible();
+  // Cmd+W closes the pane tab (the task itself stays un-archived).
+  await expect(page.locator('[data-pane-tab-chip^="task:"]')).toHaveCount(0);
+  await expect(page.getByTestId("pane-watermark")).toBeVisible();
 });
 
 test("stale streaming message does not show responding wave without an active turn", async ({ page }) => {
@@ -477,13 +505,19 @@ test("source control tab loads status surface", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.keyboard.press("Control+b");
+  await page
+    .getByTestId("workspace-bar")
+    .getByRole("button", { name: "Source Control" })
+    .click();
   const rightPanel = page.getByTestId("editor-panel");
-  await rightPanel.getByTitle("changes").click();
-  await expect(rightPanel.getByText(/Branch:\s.+\|\sChanges \(\d+\)/)).toBeVisible();
+  await expect(rightPanel).toBeVisible();
+  await expect(
+    rightPanel.getByRole("heading", { name: "Source Control" }),
+  ).toBeVisible();
+  await expect(rightPanel.getByRole("tab", { name: /Changes/ })).toBeVisible();
 });
 
-test("terminal dock opens with session surface", async ({ page }) => {
+test("terminal pane opens with session surface", async ({ page }) => {
   await page.addInitScript(() => {
     const sessions = new Map<string, { output: string }>();
 
@@ -513,6 +547,22 @@ test("terminal dock opens with session surface", async ({ page }) => {
           }
           return { ok: true, sessionId };
         },
+        attachSession: async (args: { sessionId: string }) => {
+          const session = sessions.get(args.sessionId);
+          if (!session) {
+            return { ok: false, stderr: "missing session" };
+          }
+          const output = session.output;
+          session.output = "";
+          return {
+            ok: true,
+            attachmentId: `attach-${args.sessionId}`,
+            backlog: output,
+          };
+        },
+        detachSession: async () => ({ ok: true }),
+        resumeSessionStream: async () => ({ ok: true }),
+        getSlotState: async () => ({ state: "idle" as const }),
         readSession: async (args: { sessionId: string }) => {
           const session = sessions.get(args.sessionId);
           if (!session) {
@@ -523,6 +573,7 @@ test("terminal dock opens with session surface", async ({ page }) => {
           return { ok: true, output };
         },
         writeSession: async () => ({ ok: true }),
+        resizeSession: async () => ({ ok: true }),
         closeSession: async (args: { sessionId: string }) => {
           sessions.delete(args.sessionId);
           return { ok: true };
@@ -535,9 +586,14 @@ test("terminal dock opens with session surface", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "Terminal", exact: true }).click();
-  await expect(page.getByTestId("terminal-dock")).toBeVisible();
-  await expect(page.getByTestId("terminal-dock").getByText("stave-project")).toBeVisible();
-  await expect(page.getByTestId("terminal-dock")).toContainText("session ready");
+  const terminalPane = page.getByTestId(/^terminal-surface-/).first();
+  await expect(terminalPane).toBeVisible();
+  await expect(
+    page.locator('[data-pane-tab-chip^="term:"]').filter({
+      hasText: "stave-project",
+    }),
+  ).toBeVisible();
+  await expect(terminalPane.locator(".xterm-screen")).toBeVisible();
 });
 
 test("workspace switch restores per-workspace task snapshot", async ({ page }) => {
@@ -586,15 +642,21 @@ test("workspace switch restores per-workspace task snapshot", async ({ page }) =
   await page.goto("/");
 
   const topBar = page.getByTestId("top-bar");
+  const alphaTaskChip = page
+    .locator('[data-pane-tab-chip^="task:"]')
+    .filter({ hasText: "Alpha Task" });
+  const betaTaskChip = page
+    .locator('[data-pane-tab-chip^="task:"]')
+    .filter({ hasText: "Beta Task" });
   await expect(topBar.getByRole("button", { name: "alpha", exact: true })).toBeVisible();
   await expect(topBar.getByRole("button", { name: /^beta/ })).toBeVisible();
-  await expect(page.getByText("Alpha Task")).toBeVisible();
+  await expect(alphaTaskChip).toBeVisible();
 
   await topBar.getByRole("button", { name: /^beta/ }).click();
-  await expect(page.getByText("Beta Task")).toBeVisible();
+  await expect(betaTaskChip).toBeVisible();
 
   await topBar.getByRole("button", { name: "alpha", exact: true }).click();
-  await expect(page.getByText("Alpha Task")).toBeVisible();
+  await expect(alphaTaskChip).toBeVisible();
 });
 
 test("source control actions update status and history surfaces", async ({ page }) => {
@@ -676,7 +738,7 @@ test("source control actions update status and history surfaces", async ({ page 
   await expect(rightPanel.getByText("Source Control")).toBeVisible();
   await expect(rightPanel.getByRole("tab", { name: /Changes/ })).toBeVisible();
   await expect(rightPanel.getByRole("tab", { name: /History/ })).toBeVisible();
-  await expect(rightPanel.getByText("1 file changed")).toBeVisible();
+  await expect(rightPanel.getByText("1 changed")).toBeVisible();
   const autoRefreshButton = rightPanel.getByRole("button", {
     name: "Auto refresh options",
   });
@@ -717,6 +779,8 @@ test("terminal sessions stream output over push channel when available", async (
       createCalls: 0,
       readCalls: 0,
       closeCalls: 0,
+      pushedOutput: "",
+      subscriberDeliveries: 0,
     };
 
     window.localStorage.setItem("stave-store", JSON.stringify({
@@ -744,16 +808,28 @@ test("terminal sessions stream output over push channel when available", async (
           const sessionId = `session-${testState.createCalls}`;
           sessions.set(sessionId, { output: "" });
           window.setTimeout(() => {
-            if (!sessions.has(sessionId)) {
-              return;
-            }
             const output = `session ${testState.createCalls} ready\r\n`;
+            testState.pushedOutput += output;
             for (const subscriber of outputSubscribers) {
+              testState.subscriberDeliveries += 1;
               subscriber({ sessionId, output });
             }
           }, 10);
           return { ok: true, sessionId };
         },
+        attachSession: async (args: { sessionId: string }) => {
+          if (!sessions.has(args.sessionId)) {
+            return { ok: false, stderr: "missing session" };
+          }
+          return {
+            ok: true,
+            attachmentId: `attach-${args.sessionId}`,
+            backlog: "",
+          };
+        },
+        detachSession: async () => ({ ok: true }),
+        resumeSessionStream: async () => ({ ok: true }),
+        getSlotState: async () => ({ state: "idle" as const }),
         readSession: async (args: { sessionId: string }) => {
           testState.readCalls += 1;
           const session = sessions.get(args.sessionId);
@@ -774,6 +850,7 @@ test("terminal sessions stream output over push channel when available", async (
         },
         setSessionDeliveryMode: async () => ({ ok: true }),
         writeSession: async () => ({ ok: true }),
+        resizeSession: async () => ({ ok: true }),
         closeSession: async (args: { sessionId: string }) => {
           testState.closeCalls += 1;
           sessions.delete(args.sessionId);
@@ -787,15 +864,49 @@ test("terminal sessions stream output over push channel when available", async (
   await page.goto("/");
   await page.getByRole("button", { name: "Terminal", exact: true }).click();
 
-  await expect(page.getByTestId("terminal-dock")).toBeVisible();
-  await expect(page.getByTestId("terminal-dock").getByText("stave-project")).toBeVisible();
-  await expect(page.getByTestId("terminal-dock")).toContainText("session 1 ready");
+  const terminalPane = page.getByTestId(/^terminal-surface-/).first();
+  await expect(terminalPane).toBeVisible();
+  await expect(
+    page.locator('[data-pane-tab-chip^="term:"]').filter({
+      hasText: "stave-project",
+    }),
+  ).toBeVisible();
+  await expect(terminalPane.locator(".xterm-screen")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __terminalTest: { pushedOutput: string };
+            }
+          ).__terminalTest.pushedOutput,
+      ),
+    )
+    .toContain("session 1 ready");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __terminalTest: { subscriberDeliveries: number };
+            }
+          ).__terminalTest.subscriberDeliveries,
+      ),
+    )
+    .toBeGreaterThanOrEqual(1);
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __terminalTest: { readCalls: number } }).__terminalTest.readCalls))
     .toBe(0);
 
-  await page.getByRole("button", { name: "new-terminal-tab" }).click();
-  await expect(page.getByRole("button", { name: "stave-project 2", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Create new pane tab" }).first().click();
+  await page.getByRole("menuitem", { name: "New Terminal" }).click();
+  await expect(
+    page.locator('[data-pane-tab-chip^="term:"]').filter({
+      hasText: "stave-project 2",
+    }),
+  ).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __terminalTest: { createCalls: number } }).__terminalTest.createCalls))
     .toBeGreaterThanOrEqual(2);

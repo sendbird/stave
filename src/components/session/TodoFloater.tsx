@@ -11,6 +11,7 @@ import {
   findLatestTodoPart,
   resolveTodoFloaterVisibility,
 } from "@/components/session/todo-floater.utils";
+import { useScopedTaskId } from "@/components/session/task-scope-context";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { resolvePromptDraftRuntimeState } from "@/store/prompt-draft-runtime";
@@ -24,6 +25,7 @@ const EMPTY_MESSAGES: ChatMessage[] = [];
 const EMPTY_PROMPT_DRAFT: PromptDraft = { text: "", attachedFilePaths: [], attachments: [] };
 
 export function TodoFloater() {
+  const taskId = useScopedTaskId();
   const [
     activeTask,
     draftProvider,
@@ -35,7 +37,6 @@ export function TodoFloater() {
     isTurnActive,
   ] = useAppStore(
     useShallow((state) => {
-      const taskId = state.activeTaskId;
       return [
         state.tasks.find((task) => task.id === taskId) ?? null,
         state.draftProvider,

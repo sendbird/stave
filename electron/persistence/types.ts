@@ -1,6 +1,11 @@
 import type { PromptDraft } from "../../src/types/chat";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
 import type {
+  PaneDockLayout,
+  PaneTabMeta,
+  WorkspaceLensTab,
+} from "../../src/lib/panes/types";
+import type {
   WorkspaceActiveSurface,
   WorkspaceCliSessionTab,
   WorkspaceTerminalTab,
@@ -67,6 +72,15 @@ export interface PersistenceWorkspaceSnapshot {
   cliSessionTabs?: WorkspaceCliSessionTab[];
   activeCliSessionTabId?: string | null;
   activeSurface?: WorkspaceActiveSurface;
+  /**
+   * Universal pane/tab model. Optional WITHOUT defaults on purpose: a missing
+   * field means "legacy snapshot" (migrated at load time in the renderer),
+   * while an explicit empty value means the user closed those tabs.
+   */
+  openTaskTabIds?: string[];
+  lensTabs?: WorkspaceLensTab[];
+  paneTabMeta?: Record<string, PaneTabMeta>;
+  dockLayout?: PaneDockLayout | null;
   workspaceInformation?: WorkspaceInformationState;
 }
 
@@ -100,6 +114,15 @@ export interface PersistenceWorkspaceShell {
   cliSessionTabs?: WorkspaceCliSessionTab[];
   activeCliSessionTabId?: string | null;
   activeSurface?: WorkspaceActiveSurface;
+  /**
+   * Universal pane/tab model. Optional WITHOUT defaults on purpose: a missing
+   * field means "legacy shell" (migrated at load time in the renderer),
+   * while an explicit empty value means the user closed those tabs.
+   */
+  openTaskTabIds?: string[];
+  lensTabs?: WorkspaceLensTab[];
+  paneTabMeta?: Record<string, PaneTabMeta>;
+  dockLayout?: PaneDockLayout | null;
   workspaceInformation?: WorkspaceInformationState;
   messageCountByTask?: Record<string, number>;
 }

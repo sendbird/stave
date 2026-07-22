@@ -69,6 +69,12 @@ export interface UseTerminalTabManagerArgs<TTab extends { id: string }> {
   tabs: readonly TTab[];
   activeTabId: string | null;
   isVisible: boolean;
+  /**
+   * Gates auto-focus separately from renderer mounting. Defaults to
+   * `isVisible`. Pane hosts pass the Dockview active-panel state so a
+   * visible-but-unfocused split terminal does not steal keyboard focus.
+   */
+  isFocused?: boolean;
   getTabKey: (tab: TTab) => string;
 }
 
@@ -96,6 +102,8 @@ export interface UseTerminalTabManagerReturn {
   ) => { cols: number; rows: number } | undefined;
   getSize: (tabKey: string) => { cols: number; rows: number };
   restart: (tabKey: string) => void;
+  /** Re-fit + repaint after the surface DOM moved (Dockview group change). */
+  refreshViewport: (tabKey: string) => void;
 }
 
 export function useTerminalTabManager<TTab extends { id: string }>(
@@ -258,8 +266,14 @@ export function useTerminalTabManager<TTab extends { id: string }>(
     return controller.focus();
   }, []);
 
+  const refreshViewport = useCallback((tabKey: string) => {
+    instancesRef.current.get(tabKey)?.refreshViewport();
+  }, []);
+
+  const shouldAutoFocus = args.isFocused ?? args.isVisible;
+
   useEffect(() => {
-    if (!args.isVisible || !activeTabKey || !activeTabReady) {
+    if (!shouldAutoFocus || !activeTabKey || !activeTabReady) {
       return;
     }
 
@@ -286,7 +300,7 @@ export function useTerminalTabManager<TTab extends { id: string }>(
       window.removeEventListener("focus", handleRefocus);
       document.removeEventListener("visibilitychange", handleRefocus);
     };
-  }, [activeTabKey, activeTabReady, args.isVisible, focus]);
+  }, [activeTabKey, activeTabReady, focus, shouldAutoFocus]);
 
   const restart = useCallback((tabKey: string) => {
     setRestartTokenByTabKey((previous) => ({
@@ -313,6 +327,7 @@ export function useTerminalTabManager<TTab extends { id: string }>(
       proposeDimensions,
       getSize,
       restart,
+      refreshViewport,
     }),
     [
       clear,
@@ -320,6 +335,7 @@ export function useTerminalTabManager<TTab extends { id: string }>(
       getRestartToken,
       getSize,
       proposeDimensions,
+      refreshViewport,
       registerInstance,
       restoreScreenState,
       resize,

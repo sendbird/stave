@@ -42,6 +42,7 @@ import {
   getMessageScrollFingerprint,
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
+import { useScopedTaskId } from "@/components/session/task-scope-context";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
 import { resolveUserMessageClipboardPlainText } from "@/lib/user-message-copy";
@@ -109,7 +110,7 @@ function formatCostUsd(usd: number): string {
 type MessageUsage = NonNullable<ChatMessage["usage"]>;
 
 interface MessageRowProps {
-  activeTaskId: string;
+  taskId: string;
   activeTurnId?: string;
   chatStreamingEnabled: boolean;
   elapsedAnchorMs?: number;
@@ -135,7 +136,7 @@ interface MessageRowProps {
 
 const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   const {
-    activeTaskId,
+    taskId,
     activeTurnId,
     chatStreamingEnabled,
     elapsedAnchorMs,
@@ -189,7 +190,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           >
             <MemoizedAssistantMessageBody
               message={message}
-              taskId={activeTaskId}
+              taskId={taskId}
               messageId={message.id}
               streamingEnabled={chatStreamingEnabled}
               traceExpansionMode={traceExpansionMode}
@@ -334,9 +335,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
 });
 
 function ChatPanelMessageList() {
+  const taskId = useScopedTaskId();
   const [
     activeWorkspaceId,
-    activeTaskId,
     activeTurnId,
     chatStreamingEnabled,
     showInterimMessages,
@@ -347,8 +348,7 @@ function ChatPanelMessageList() {
       (state) =>
         [
           state.activeWorkspaceId,
-          state.activeTaskId,
-          state.activeTurnIdsByTask[state.activeTaskId],
+          state.activeTurnIdsByTask[taskId],
           state.settings.chatStreamingEnabled,
           state.settings.showInterimMessages,
           state.settings.reasoningExpansionMode,
@@ -357,16 +357,16 @@ function ChatPanelMessageList() {
     ),
   );
   const messages = useAppStore(
-    (state) => state.messagesByTask[state.activeTaskId] ?? EMPTY_MESSAGES,
+    (state) => state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
   );
   const totalMessageCount = useAppStore(
-    (state) => state.messageCountByTask[state.activeTaskId] ?? 0,
+    (state) => state.messageCountByTask[taskId] ?? 0,
   );
   const focusPendingInteractionRequest = useAppStore(
     (state) => state.focusPendingInteractionRequest,
   );
   const taskMessagesLoading = useAppStore(
-    (state) => state.taskMessagesLoadingByTask[state.activeTaskId] === true,
+    (state) => state.taskMessagesLoadingByTask[taskId] === true,
   );
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const [elapsedAnchorMs, setElapsedAnchorMs] = useState(() => Date.now());
@@ -393,7 +393,7 @@ function ChatPanelMessageList() {
   );
   const autoScrollKey = `${visibleMessages.length}:${lastVisibleMessageScrollFingerprint}`;
   const forceScrollKey = `${latestVisibleMessageId ?? "none"}:${turnCompletionScrollTick}`;
-  const scrollContextKey = `${activeWorkspaceId}:${activeTaskId}`;
+  const scrollContextKey = `${activeWorkspaceId}:${taskId}`;
   const traceExpansionMode = getReasoningTraceExpansionMode({ reasoningExpansionMode });
   const pendingInteraction = useMemo(
     () => findLatestPendingToolInteraction({ messages: visibleMessages }),
@@ -420,7 +420,7 @@ function ChatPanelMessageList() {
   useEffect(() => {
     if (
       !focusPendingInteractionRequest ||
-      focusPendingInteractionRequest.taskId !== activeTaskId ||
+      focusPendingInteractionRequest.taskId !== taskId ||
       !pendingInteraction
     ) {
       return;
@@ -458,7 +458,7 @@ function ChatPanelMessageList() {
       }
     };
   }, [
-    activeTaskId,
+    taskId,
     focusPendingInteractionRequest,
     pendingInteraction,
     visibleMessages,
@@ -484,7 +484,7 @@ function ChatPanelMessageList() {
             disabled={taskMessagesLoading}
             className="h-8 rounded-sm"
             onClick={() => {
-              void loadTaskMessages({ taskId: activeTaskId, mode: "older" });
+              void loadTaskMessages({ taskId, mode: "older" });
             }}
           >
             {taskMessagesLoading
@@ -521,7 +521,7 @@ function ChatPanelMessageList() {
           itemKey={(_, message) => message.id}
           itemContent={(index, message) => (
             <MessageRow
-              activeTaskId={activeTaskId}
+              taskId={taskId}
               activeTurnId={activeTurnId}
               chatStreamingEnabled={chatStreamingEnabled}
               elapsedAnchorMs={

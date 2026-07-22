@@ -87,7 +87,10 @@ import {
   findPendingApprovals,
   findLatestPendingUserInputPart,
 } from "@/store/provider-message.utils";
-import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-annotation-attachment";
+import {
+  resolveLensAnnotationClearTargets,
+  shouldIncludeImageAttachmentAsProviderContext,
+} from "@/lib/lens/lens-annotation-attachment";
 import { buildWorkspaceInformationReferenceOptions } from "@/lib/workspace-information-references";
 import {
   resolvePromptDraftPlanModeChange,
@@ -108,6 +111,7 @@ import {
   resolvePastedFileAbsolutePath,
   toWorkspaceRelativeFilePath,
 } from "./chat-input.attachments";
+import { useScopedTaskId } from "./task-scope-context";
 import {
   buildApprovalGuidancePrompt,
   getLatestPromptSuggestions,
@@ -255,7 +259,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   const [pendingUserInputMessageId, pendingUserInputPart] = useAppStore(
     useShallow((state) => {
       const messages =
-        state.messagesByTask[state.activeTaskId] ?? EMPTY_MESSAGES;
+        state.messagesByTask[args.activeTaskId] ?? EMPTY_MESSAGES;
       const lastMessage = messages.at(-1);
       if (!lastMessage) {
         return [null, null] as const;
@@ -374,10 +378,16 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   const draftSaveTimerRef = useRef<number | null>(null);
   const draftSaveIdleRef = useRef<number | null>(null);
   const staleDraftResetTurnKeyRef = useRef<string | null>(null);
+  // Global focus requests (e.g. app-wide "focus prompt" shortcuts) target
+  // the store's ACTIVE task by design; an unfocused split panel must not
+  // steal focus. The ref keeps task switches from replaying an old nonce.
+  const lastHandledPromptFocusNonceRef = useRef(0);
   useEffect(() => {
-    if (promptFocusNonce === 0) return;
+    if (promptFocusNonce === lastHandledPromptFocusNonceRef.current) return;
+    lastHandledPromptFocusNonceRef.current = promptFocusNonce;
+    if (useAppStore.getState().activeTaskId !== args.activeTaskId) return;
     setFocusNonce((current) => current + 1);
-  }, [promptFocusNonce]);
+  }, [args.activeTaskId, promptFocusNonce]);
 
   function cancelPendingDraftSave() {
     if (draftSaveTimerRef.current === null) {
@@ -425,10 +435,13 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     const store = useAppStore.getState();
     const workspaceId =
       store.taskWorkspaceIdById[taskId] ?? store.activeWorkspaceId;
-    if (!workspaceId) {
-      return;
+    const attachments = store.promptDraftByTask[taskId]?.attachments ?? [];
+    for (const target of resolveLensAnnotationClearTargets({
+      attachments,
+      fallbackWorkspaceId: workspaceId ?? undefined,
+    })) {
+      void window.api?.lens?.clearAnnotations?.(target);
     }
-    void window.api?.lens?.clearAnnotations?.({ workspaceId });
   }
 
   function stageApprovalGuidance(guidanceArgs: {
@@ -723,6 +736,12 @@ function ChatInputComposer(args: ChatInputComposerProps) {
 
     const handleApprovalShortcut = (event: KeyboardEvent) => {
       if (event.defaultPrevented) {
+        return;
+      }
+      // Window-level Enter/Tab approval shortcuts act on the GLOBAL active
+      // task; other visible split panels with their own pending approvals
+      // must not also resolve them.
+      if (useAppStore.getState().activeTaskId !== args.activeTaskId) {
         return;
       }
       const target = event.target instanceof HTMLElement ? event.target : null;
@@ -1124,8 +1143,8 @@ function BaseChatInput() {
       providerId: "claude-code",
     }),
   );
+  const activeTaskId = useScopedTaskId();
   const [
-    activeTaskId,
     providerAvailability,
     providerCommandCatalogRefreshNonce,
     setTaskProvider,
@@ -1140,7 +1159,6 @@ function BaseChatInput() {
     useShallow(
       (state) =>
         [
-          state.activeTaskId,
           state.providerAvailability,
           state.providerCommandCatalogRefreshNonce,
           state.setTaskProvider,
@@ -1157,7 +1175,7 @@ function BaseChatInput() {
   const activeTask = useAppStore(
     (state) =>
       state.tasks.find(
-        (task) => task.id === state.activeTaskId && !isTaskArchived(task),
+        (task) => task.id === activeTaskId && !isTaskArchived(task),
       ) ?? null,
   );
   const draftProvider = useAppStore((state) => state.draftProvider);
@@ -1181,14 +1199,14 @@ function BaseChatInput() {
   );
   const activeMessageCount = useAppStore(
     (state) =>
-      state.messageCountByTask[state.activeTaskId] ??
-      (state.messagesByTask[state.activeTaskId] ?? EMPTY_MESSAGES).length,
+      state.messageCountByTask[activeTaskId] ??
+      (state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES).length,
   );
   const isTurnActive = useAppStore((state) =>
-    Boolean(state.activeTurnIdsByTask[state.activeTaskId]),
+    Boolean(state.activeTurnIdsByTask[activeTaskId]),
   );
   const latestMessageIsPlanResponse = useAppStore((state) => {
-    const messages = state.messagesByTask[state.activeTaskId] ?? EMPTY_MESSAGES;
+    const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
     const lastMessage = messages[messages.length - 1];
     return Boolean(
       lastMessage &&
@@ -1777,7 +1795,7 @@ function BaseChatInput() {
   // Prefer a second provider when one authored the latest answer, while still
   // letting the user select any available provider and model in the dialog.
   const lastAssistantProviderId = useAppStore((state) => {
-    const messages = state.messagesByTask[state.activeTaskId] ?? EMPTY_MESSAGES;
+    const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i] as ChatMessage | undefined;
       if (!msg) continue;

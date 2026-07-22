@@ -1,7 +1,8 @@
 import type { Attachment } from "@/types/chat";
-import type {
-  LensAnnotation,
-  LensSourceMappingConfig,
+import {
+  DEFAULT_LENS_SESSION_ID,
+  type LensAnnotation,
+  type LensSourceMappingConfig,
 } from "@/lib/lens/lens.types";
 import {
   formatAnnotationsDisplayForChat,
@@ -10,20 +11,47 @@ import {
 
 export const LENS_COMMENT_IMAGE_ID_PREFIX = "lens-comment-image:";
 
+function buildLensAnnotationsAttachmentId(args: {
+  workspaceId: string;
+  lensSessionId?: string;
+}) {
+  return `lens-annotations:${args.workspaceId}${
+    args.lensSessionId ? `:${args.lensSessionId}` : ""
+  }`;
+}
+
 export function getLensCommentImageId(args: {
   workspaceId: string;
+  lensSessionId?: string;
   annotationId: string;
 }) {
-  return `${LENS_COMMENT_IMAGE_ID_PREFIX}${args.workspaceId}:${args.annotationId}`;
+  const sessionSegment = args.lensSessionId
+    ? `${args.lensSessionId}:`
+    : "";
+  return `${LENS_COMMENT_IMAGE_ID_PREFIX}${args.workspaceId}:${sessionSegment}${args.annotationId}`;
 }
 
 export function isLensCommentImageAttachment(
   attachment: Attachment,
   workspaceId: string,
+  lensSessionId?: string,
 ) {
+  if (attachment.kind !== "image") {
+    return false;
+  }
+  const workspacePrefix = `${LENS_COMMENT_IMAGE_ID_PREFIX}${workspaceId}:`;
+  if (!lensSessionId) {
+    return attachment.id.startsWith(workspacePrefix);
+  }
+  const sessionPrefix = `${workspacePrefix}${lensSessionId}:`;
+  if (attachment.id.startsWith(sessionPrefix)) {
+    return true;
+  }
+  const suffix = attachment.id.slice(workspacePrefix.length);
   return (
-    attachment.kind === "image" &&
-    attachment.id.startsWith(`${LENS_COMMENT_IMAGE_ID_PREFIX}${workspaceId}:`)
+    lensSessionId === DEFAULT_LENS_SESSION_ID &&
+    attachment.id.startsWith(workspacePrefix) &&
+    !suffix.includes(":")
   );
 }
 
@@ -47,6 +75,7 @@ export function shouldIncludeImageAttachmentAsProviderContext(
 export function buildLensAnnotationsAttachment(args: {
   id?: string;
   workspaceId: string;
+  lensSessionId?: string;
   annotations: readonly LensAnnotation[];
   sourceMappingConfig: LensSourceMappingConfig;
 }): Extract<Attachment, { kind: "lens-annotations" }> {
@@ -55,8 +84,9 @@ export function buildLensAnnotationsAttachment(args: {
   );
   return {
     kind: "lens-annotations",
-    id: args.id ?? `lens-annotations:${args.workspaceId}`,
+    id: args.id ?? buildLensAnnotationsAttachmentId(args),
     workspaceId: args.workspaceId,
+    ...(args.lensSessionId ? { lensSessionId: args.lensSessionId } : {}),
     label: "Lens comments",
     count: annotations.length,
     summary: annotations
@@ -72,15 +102,19 @@ export function buildLensAnnotationsAttachment(args: {
 export function upsertLensAnnotationsAttachment(args: {
   attachments: readonly Attachment[];
   workspaceId: string;
+  lensSessionId?: string;
   annotations: readonly LensAnnotation[];
   sourceMappingConfig: LensSourceMappingConfig;
 }) {
+  const targetSessionId = args.lensSessionId ?? DEFAULT_LENS_SESSION_ID;
   const nextAttachments = args.attachments.filter(
     (attachment) =>
       !(
         attachment.kind === "lens-annotations" &&
         (attachment.workspaceId === args.workspaceId ||
-          attachment.id === `lens-annotations:${args.workspaceId}`)
+          attachment.id === `lens-annotations:${args.workspaceId}`) &&
+        (attachment.lensSessionId ?? DEFAULT_LENS_SESSION_ID) ===
+          targetSessionId
       ),
   );
   if (args.annotations.length === 0) {
@@ -90,8 +124,49 @@ export function upsertLensAnnotationsAttachment(args: {
     ...nextAttachments,
     buildLensAnnotationsAttachment({
       workspaceId: args.workspaceId,
+      lensSessionId: args.lensSessionId,
       annotations: args.annotations,
       sourceMappingConfig: args.sourceMappingConfig,
     }),
   ];
+}
+
+export interface LensAnnotationSessionTarget {
+  workspaceId: string;
+  lensSessionId?: string;
+}
+
+/** Resolves and de-duplicates the Lens sessions cleared after prompt submit. */
+export function resolveLensAnnotationClearTargets(args: {
+  attachments: readonly Attachment[];
+  fallbackWorkspaceId?: string;
+}): LensAnnotationSessionTarget[] {
+  const targets: LensAnnotationSessionTarget[] = [];
+  const seen = new Set<string>();
+
+  for (const attachment of args.attachments) {
+    if (attachment.kind !== "lens-annotations") {
+      continue;
+    }
+    const workspaceId = attachment.workspaceId ?? args.fallbackWorkspaceId;
+    if (!workspaceId) {
+      continue;
+    }
+    const key = `${workspaceId}\u0000${attachment.lensSessionId ?? ""}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    targets.push({
+      workspaceId,
+      ...(attachment.lensSessionId
+        ? { lensSessionId: attachment.lensSessionId }
+        : {}),
+    });
+  }
+
+  if (targets.length === 0 && args.fallbackWorkspaceId) {
+    return [{ workspaceId: args.fallbackWorkspaceId }];
+  }
+  return targets;
 }

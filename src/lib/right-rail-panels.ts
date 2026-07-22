@@ -1,15 +1,20 @@
-import { FolderTree, GitBranch, Globe, Info, SearchCheck, Sparkles, type LucideIcon } from "lucide-react";
+import { FolderTree, GitBranch, Info, SearchCheck, Sparkles, type LucideIcon } from "lucide-react";
 
-export const RIGHT_RAIL_PANEL_IDS = [
+export type RightRailPanelId =
+  | "explorer"
+  | "changes"
+  | "information"
+  | "skills"
+  | "scripts";
+
+/** Panels the right rail actually renders as sidebar overlays. */
+export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
   "explorer",
   "changes",
   "information",
   "skills",
   "scripts",
-  "lens",
-] as const;
-
-export type RightRailPanelId = typeof RIGHT_RAIL_PANEL_IDS[number];
+];
 
 export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
   explorer: "Explorer",
@@ -17,7 +22,6 @@ export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
   information: "Information",
   skills: "Skills",
   scripts: "Scripts",
-  lens: "Lens",
 };
 
 export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
@@ -26,5 +30,4 @@ export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
   information: Info,
   skills: SearchCheck,
   scripts: Sparkles,
-  lens: Globe,
 };

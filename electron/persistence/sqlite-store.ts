@@ -587,6 +587,13 @@ export class SqliteStore {
         kind: "task",
         taskId: args.snapshot.activeTaskId,
       },
+      // Universal pane/tab model: copied WITHOUT defaults on purpose so a
+      // missing field (legacy snapshot) stays missing across the round-trip
+      // while an explicit empty value ([], {}, null) survives as-is.
+      openTaskTabIds: args.snapshot.openTaskTabIds,
+      lensTabs: args.snapshot.lensTabs,
+      paneTabMeta: args.snapshot.paneTabMeta,
+      dockLayout: args.snapshot.dockLayout,
       workspaceInformation: args.snapshot.workspaceInformation,
       messageCountByTask: args.messageCountByTask,
     };

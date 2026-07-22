@@ -1,8 +1,10 @@
-import type {
-  BrowserConsoleEntry,
-  LensAnnotation,
-  LensAnnotationEventPayload,
-  LensSessionProfileArgs,
+import {
+  DEFAULT_LENS_SESSION_ID,
+  type BrowserConsoleEntry,
+  type LensAnnotation,
+  type LensAnnotationEventPayload,
+  type LensSessionProfileArgs,
+  type LensStateChangedPayload,
 } from "../../../src/lib/lens/lens.types";
 import {
   browserSessionUsesProfile,
@@ -23,6 +25,7 @@ function toIso(): string {
 
 export function sendNavigationEvent(args: {
   workspaceId: string;
+  lensSessionId?: string;
   state: ReturnType<typeof updateNavigationState>;
 }) {
   if (!args.state) {
@@ -34,10 +37,24 @@ export function sendNavigationEvent(args: {
     return;
   }
 
+  const lensSessionId = args.lensSessionId ?? DEFAULT_LENS_SESSION_ID;
+
   renderer.send("lens:navigation-event", {
     workspaceId: args.workspaceId,
+    lensSessionId,
     state: args.state,
   });
+
+  renderer.send("lens:state-changed", {
+    workspaceId: args.workspaceId,
+    lensSessionId,
+    url: args.state.url,
+    title: args.state.title,
+    canGoBack: args.state.canGoBack,
+    canGoForward: args.state.canGoForward,
+    loading: args.state.isLoading,
+    faviconUrl: args.state.faviconUrl,
+  } satisfies LensStateChangedPayload);
 }
 
 export function sendAnnotationEvent(payload: LensAnnotationEventPayload) {
@@ -51,8 +68,9 @@ export function sendAnnotationEvent(payload: LensAnnotationEventPayload) {
 export async function injectAnnotationOverlay(
   workspaceId: string,
   wc: Electron.WebContents,
+  lensSessionId?: string,
 ): Promise<void> {
-  const session = getBrowserSession(workspaceId);
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session?.annotationOverlayActive || !session.annotationNonce) {
     return;
   }
@@ -79,8 +97,9 @@ export async function injectAnnotationOverlay(
 export async function injectBoxInspectOverlay(
   workspaceId: string,
   wc: Electron.WebContents,
+  lensSessionId?: string,
 ): Promise<void> {
-  const session = getBrowserSession(workspaceId);
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session?.boxInspectActive) {
     return;
   }
@@ -90,47 +109,69 @@ export async function injectBoxInspectOverlay(
 export function attachBrowserSessionEventListeners(
   workspaceId: string,
   wc: Electron.WebContents,
+  lensSessionId: string = DEFAULT_LENS_SESSION_ID,
 ) {
   const sendNavUpdate = () => {
-    const state = updateNavigationState(workspaceId, {
-      url: wc.getURL(),
-      title: wc.getTitle(),
-      canGoBack: wc.canGoBack(),
-      canGoForward: wc.canGoForward(),
-      isLoading: wc.isLoading(),
-    });
-    sendNavigationEvent({ workspaceId, state });
+    const state = updateNavigationState(
+      workspaceId,
+      {
+        url: wc.getURL(),
+        title: wc.getTitle(),
+        canGoBack: wc.canGoBack(),
+        canGoForward: wc.canGoForward(),
+        isLoading: wc.isLoading(),
+      },
+      lensSessionId,
+    );
+    sendNavigationEvent({ workspaceId, lensSessionId, state });
   };
 
-  wc.on("did-navigate", sendNavUpdate);
+  wc.on("did-navigate", () => {
+    // New document: drop the previous page's favicon until the new page
+    // reports one via page-favicon-updated.
+    updateNavigationState(workspaceId, { faviconUrl: undefined }, lensSessionId);
+    sendNavUpdate();
+  });
   wc.on("did-navigate-in-page", sendNavUpdate);
   wc.on("did-start-loading", () => {
-    updateNavigationState(workspaceId, { isLoading: true });
+    updateNavigationState(workspaceId, { isLoading: true }, lensSessionId);
     sendNavUpdate();
   });
   wc.on("did-stop-loading", () => {
-    updateNavigationState(workspaceId, { isLoading: false });
+    updateNavigationState(workspaceId, { isLoading: false }, lensSessionId);
     sendNavUpdate();
-    void injectAnnotationOverlay(workspaceId, wc).catch((error) => {
-      pushConsoleEntry(workspaceId, {
-        level: "warn",
-        text: `Annotation overlay reinjection failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-        timestamp: toIso(),
-        source: wc.getURL(),
-      });
-    });
-    void injectBoxInspectOverlay(workspaceId, wc).catch((error) => {
-      pushConsoleEntry(workspaceId, {
-        level: "warn",
-        text: `Box inspect overlay reinjection failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-        timestamp: toIso(),
-        source: wc.getURL(),
-      });
-    });
+    void injectAnnotationOverlay(workspaceId, wc, lensSessionId).catch(
+      (error) => {
+        pushConsoleEntry(
+          workspaceId,
+          {
+            level: "warn",
+            text: `Annotation overlay reinjection failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            timestamp: toIso(),
+            source: wc.getURL(),
+          },
+          lensSessionId,
+        );
+      },
+    );
+    void injectBoxInspectOverlay(workspaceId, wc, lensSessionId).catch(
+      (error) => {
+        pushConsoleEntry(
+          workspaceId,
+          {
+            level: "warn",
+            text: `Box inspect overlay reinjection failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            timestamp: toIso(),
+            source: wc.getURL(),
+          },
+          lensSessionId,
+        );
+      },
+    );
     setTimeout(() => {
       if (wc.isDestroyed()) {
         return;
@@ -142,22 +183,30 @@ export function attachBrowserSessionEventListeners(
           if (!result.ok) {
             return;
           }
-          pushConsoleEntry(workspaceId, {
-            level: "info",
-            text: `Filled the saved Lens account for ${result.host}.`,
-            timestamp: toIso(),
-            source: wc.getURL(),
-          });
+          pushConsoleEntry(
+            workspaceId,
+            {
+              level: "info",
+              text: `Filled the saved Lens account for ${result.host}.`,
+              timestamp: toIso(),
+              source: wc.getURL(),
+            },
+            lensSessionId,
+          );
         })
         .catch((error) => {
-          pushConsoleEntry(workspaceId, {
-            level: "warn",
-            text: `Saved Lens account fill failed: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-            timestamp: toIso(),
-            source: wc.getURL(),
-          });
+          pushConsoleEntry(
+            workspaceId,
+            {
+              level: "warn",
+              text: `Saved Lens account fill failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              timestamp: toIso(),
+              source: wc.getURL(),
+            },
+            lensSessionId,
+          );
         });
     }, 300);
   });
@@ -167,27 +216,38 @@ export function attachBrowserSessionEventListeners(
       if (!isMainFrame) {
         return;
       }
-      pushConsoleEntry(workspaceId, {
-        level: "error",
-        text: `Navigation failed: ${errorDescription}`,
-        timestamp: toIso(),
-        source: validatedUrl,
-      });
-      updateNavigationState(workspaceId, { isLoading: false });
+      pushConsoleEntry(
+        workspaceId,
+        {
+          level: "error",
+          text: `Navigation failed: ${errorDescription}`,
+          timestamp: toIso(),
+          source: validatedUrl,
+        },
+        lensSessionId,
+      );
+      updateNavigationState(workspaceId, { isLoading: false }, lensSessionId);
       sendNavUpdate();
     },
   );
   wc.on("page-title-updated", (_event, title) => {
-    updateNavigationState(workspaceId, { title });
+    updateNavigationState(workspaceId, { title }, lensSessionId);
+    sendNavUpdate();
+  });
+  wc.on("page-favicon-updated", (_event, favicons) => {
+    const faviconUrl = favicons.find((candidate) =>
+      /^https?:/i.test(candidate),
+    );
+    updateNavigationState(workspaceId, { faviconUrl }, lensSessionId);
     sendNavUpdate();
   });
 
   wc.on("console-message", (_event, level, message, lineNumber, sourceId) => {
-    const session = getBrowserSession(workspaceId);
+    const session = getBrowserSession(workspaceId, lensSessionId);
     const annotationPrefix = session?.annotationNonce
       ? `__STAVE_ANN__${session.annotationNonce}`
       : null;
-    if (annotationPrefix && message.startsWith(annotationPrefix)) {
+    if (session && annotationPrefix && message.startsWith(annotationPrefix)) {
       try {
         const payload = JSON.parse(message.slice(annotationPrefix.length)) as
           | Omit<LensAnnotationEventPayload, "workspaceId">
@@ -215,15 +275,20 @@ export function attachBrowserSessionEventListeners(
           sendAnnotationEvent({
             workspaceId,
             ...payload,
+            lensSessionId,
           } as LensAnnotationEventPayload);
         }
       } catch {
-        pushConsoleEntry(workspaceId, {
-          level: "warn",
-          text: "Ignored malformed Lens annotation event.",
-          timestamp: toIso(),
-          source: "lens",
-        });
+        pushConsoleEntry(
+          workspaceId,
+          {
+            level: "warn",
+            text: "Ignored malformed Lens annotation event.",
+            timestamp: toIso(),
+            source: "lens",
+          },
+          lensSessionId,
+        );
       }
       return;
     }
@@ -234,19 +299,23 @@ export function attachBrowserSessionEventListeners(
       2: "warn",
       3: "error",
     };
-    pushConsoleEntry(workspaceId, {
-      level: levelMap[level] ?? "log",
-      text: message,
-      timestamp: toIso(),
-      source: sourceId,
-      lineNumber,
-    });
+    pushConsoleEntry(
+      workspaceId,
+      {
+        level: levelMap[level] ?? "log",
+        text: message,
+        timestamp: toIso(),
+        source: sourceId,
+        lineNumber,
+      },
+      lensSessionId,
+    );
   });
 }
 
 export function ensureBrowserSessionWithEvents(
   workspaceId: string,
-  options?: { managedByMcp?: boolean } & Omit<
+  options?: { managedByMcp?: boolean; lensSessionId?: string } & Omit<
     LensSessionProfileArgs,
     "workspaceId"
   >,
@@ -254,13 +323,18 @@ export function ensureBrowserSessionWithEvents(
   session: BrowserSessionState;
   created: boolean;
 } {
-  const existing = getBrowserSession(workspaceId);
+  const lensSessionId = options?.lensSessionId ?? DEFAULT_LENS_SESSION_ID;
+  const existing = getBrowserSession(workspaceId, lensSessionId);
   if (
     existing &&
-    browserSessionUsesProfile(workspaceId, {
-      sessionScope: options?.sessionScope,
-      projectKey: options?.projectKey,
-    })
+    browserSessionUsesProfile(
+      workspaceId,
+      {
+        sessionScope: options?.sessionScope,
+        projectKey: options?.projectKey,
+      },
+      lensSessionId,
+    )
   ) {
     return { session: existing, created: false };
   }
@@ -268,8 +342,13 @@ export function ensureBrowserSessionWithEvents(
   const session = createBrowserSession(workspaceId, {
     sessionScope: options?.sessionScope,
     projectKey: options?.projectKey,
+    lensSessionId,
   });
   session.managedByMcp = options?.managedByMcp === true;
-  attachBrowserSessionEventListeners(workspaceId, session.view.webContents);
+  attachBrowserSessionEventListeners(
+    workspaceId,
+    session.view.webContents,
+    session.lensSessionId,
+  );
   return { session, created: true };
 }

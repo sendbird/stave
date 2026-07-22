@@ -8,7 +8,9 @@ import {
   EDITABLE_SHORTCUT_SELECTOR,
   PROMPT_INPUT_ROOT_SELECTOR,
   TASK_ABORT_SHORTCUT_SCOPE_SELECTOR,
+  isClosePaneShortcut,
   isEditableShortcutTarget,
+  resolvePaneSplitShortcut,
   resolveShortcutChord,
   shouldAbortTaskOnEscape,
 } from "../src/components/layout/app-shell.shortcuts";
@@ -33,6 +35,35 @@ function createTarget(
 }
 
 describe("app shell shortcut gating", () => {
+  test("requires Cmd/Ctrl for pane split shortcuts", () => {
+    expect(
+      resolvePaneSplitShortcut({ key: "\\", code: "Backslash" }),
+    ).toBeNull();
+    expect(
+      resolvePaneSplitShortcut({
+        key: "\\",
+        code: "Backslash",
+        metaKey: true,
+      }),
+    ).toBe("right");
+    expect(
+      resolvePaneSplitShortcut({
+        key: "|",
+        code: "Backslash",
+        ctrlKey: true,
+        shiftKey: true,
+      }),
+    ).toBe("below");
+  });
+
+  test("requires Cmd/Ctrl for pane close", () => {
+    expect(isClosePaneShortcut({ key: "w" })).toBe(false);
+    expect(isClosePaneShortcut({ key: "w", metaKey: true })).toBe(true);
+    expect(
+      isClosePaneShortcut({ key: "w", ctrlKey: true, shiftKey: true }),
+    ).toBe(false);
+  });
+
   test("treats generic inputs as editable shortcut targets", () => {
     const target = createTarget({ matches: [EDITABLE_SHORTCUT_SELECTOR] });
 
