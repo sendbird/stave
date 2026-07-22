@@ -1,0 +1,349 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  KeyRound,
+  Loader2,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
+import { Badge, Button, Input, Switch, toast } from "@/components/ui";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { SettingsCard } from "./settings-dialog.shared";
+import {
+  normalizeLensCredentialHost,
+  type LensCredentialMetadata,
+} from "@/lib/lens/lens-credentials";
+
+export function LensCredentialsSettingsCard() {
+  const [credentials, setCredentials] = useState<LensCredentialMetadata[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [host, setHost] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [autoFill, setAutoFill] = useState(true);
+
+  const editingCredential = useMemo(
+    () => credentials.find((entry) => entry.id === editingId) ?? null,
+    [credentials, editingId],
+  );
+
+  const loadCredentials = useCallback(async () => {
+    const listCredentials = window.api?.lens?.listCredentials;
+    if (!listCredentials) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const result = await listCredentials();
+      if (!result.ok) {
+        toast.error("Failed to load saved Lens accounts", {
+          description: result.message,
+        });
+        return;
+      }
+      setCredentials(result.credentials);
+    } catch (error) {
+      toast.error("Failed to load saved Lens accounts", {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCredentials();
+  }, [loadCredentials]);
+
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    setEditingId(null);
+    setHost("");
+    setUsername("");
+    setPassword("");
+    setAutoFill(true);
+  }, []);
+
+  const openNewEditor = useCallback(() => {
+    closeEditor();
+    setEditorOpen(true);
+  }, [closeEditor]);
+
+  const openEditEditor = useCallback((credential: LensCredentialMetadata) => {
+    setEditingId(credential.id);
+    setHost(credential.host);
+    setUsername(credential.username);
+    setPassword("");
+    setAutoFill(credential.autoFill);
+    setEditorOpen(true);
+  }, []);
+
+  const saveCredential = useCallback(async () => {
+    const normalizedHost = normalizeLensCredentialHost(host);
+    if (!normalizedHost) {
+      toast.error("Enter one valid hostname or http(s) URL.");
+      return;
+    }
+    if (!username.trim()) {
+      toast.error("Enter a username or email address.");
+      return;
+    }
+    if (!editingId && !password) {
+      toast.error("Enter a password for the new account.");
+      return;
+    }
+
+    const upsertCredential = window.api?.lens?.upsertCredential;
+    if (!upsertCredential) {
+      toast.error("Secure Lens account storage is available in the desktop app.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result = await upsertCredential({
+        ...(editingId ? { id: editingId } : {}),
+        host: normalizedHost,
+        username: username.trim(),
+        ...(password ? { password } : {}),
+        autoFill,
+      });
+      if (!result.ok) {
+        toast.error("Failed to save Lens account", {
+          description: result.message,
+        });
+        return;
+      }
+      toast.success(editingId ? "Lens account updated" : "Lens account saved");
+      closeEditor();
+      await loadCredentials();
+    } catch (error) {
+      toast.error("Failed to save Lens account", {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    autoFill,
+    closeEditor,
+    editingId,
+    host,
+    loadCredentials,
+    password,
+    username,
+  ]);
+
+  const deleteCredential = useCallback(async () => {
+    if (!deletingId) {
+      return;
+    }
+    const removeCredential = window.api?.lens?.deleteCredential;
+    if (!removeCredential) {
+      toast.error("Secure Lens account storage is unavailable.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await removeCredential({ id: deletingId });
+      if (!result.ok) {
+        toast.error("Failed to delete Lens account", {
+          description: result.message,
+        });
+        return;
+      }
+      toast.success("Lens account deleted");
+      setDeletingId(null);
+      if (editingId === deletingId) {
+        closeEditor();
+      }
+      await loadCredentials();
+    } catch (error) {
+      toast.error("Failed to delete Lens account", {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [closeEditor, deletingId, editingId, loadCredentials]);
+
+  return (
+    <>
+      <SettingsCard
+        title="Saved Accounts"
+        description="Store multiple accounts for each exact hostname. Usernames and passwords are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses."
+        titleAccessory={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={openNewEditor}
+          >
+            <Plus className="size-3.5" />
+            Add account
+          </Button>
+        }
+      >
+        <div className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/20 p-3">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
+          <p className="text-xs leading-5 text-muted-foreground">
+            Lens fills matching login fields directly in Electron. Automatic
+            fill never submits the form; an agent may submit only through a
+            separate Lens tool call.
+          </p>
+        </div>
+
+        {editorOpen ? (
+          <form
+            className="space-y-3 rounded-md border border-border/80 bg-background/60 p-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveCredential();
+            }}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1.5 text-xs font-medium">
+                Host
+                <Input
+                  value={host}
+                  placeholder="dashboard-dev.sendbird.com"
+                  aria-label="Saved account host"
+                  autoComplete="url"
+                  className="h-8 font-mono text-xs"
+                  onChange={(event) => setHost(event.target.value)}
+                />
+              </label>
+              <label className="space-y-1.5 text-xs font-medium">
+                Username or email
+                <Input
+                  value={username}
+                  placeholder="name@example.com"
+                  aria-label="Saved account username"
+                  autoComplete="username"
+                  className="h-8 text-xs"
+                  onChange={(event) => setUsername(event.target.value)}
+                />
+              </label>
+            </div>
+            <label className="block space-y-1.5 text-xs font-medium">
+              Password
+              <Input
+                type="password"
+                value={password}
+                placeholder={
+                  editingCredential
+                    ? "Leave blank to keep the saved password"
+                    : "Required"
+                }
+                aria-label="Saved account password"
+                autoComplete="new-password"
+                className="h-8 text-xs"
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Fill automatically</p>
+                <p className="text-xs text-muted-foreground">
+                  Use this account after Lens loads this host. Enabling it
+                  turns automatic fill off for the other accounts on the same
+                  host. The form is not submitted automatically.
+                </p>
+              </div>
+              <Switch
+                checked={autoFill}
+                onCheckedChange={setAutoFill}
+                aria-label="Fill saved Lens account automatically"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={saving}
+                onClick={closeEditor}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={saving}>
+                {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                {editingId ? "Update account" : "Save account"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+
+        {loading ? (
+          <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Loading saved accounts…
+          </div>
+        ) : credentials.length === 0 ? (
+          <p className="py-2 text-sm text-muted-foreground">
+            No accounts are saved yet.
+          </p>
+        ) : (
+          <div className="divide-y divide-border/70 rounded-md border border-border/70">
+            {credentials.map((credential) => (
+              <div key={credential.id} className="flex items-center gap-3 p-3">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                  <KeyRound className="size-4 text-muted-foreground" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-mono text-xs font-medium">
+                      {credential.host}
+                    </span>
+                    <Badge variant="secondary" className="shrink-0 text-[10px]">
+                      {credential.autoFill ? "Auto-fill" : "On demand"}
+                    </Badge>
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {credential.username}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Edit ${credential.username} for ${credential.host}`}
+                  onClick={() => openEditEditor(credential)}
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Delete ${credential.username} for ${credential.host}`}
+                  onClick={() => setDeletingId(credential.id)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </SettingsCard>
+
+      <ConfirmDialog
+        open={deletingId !== null}
+        title="Delete saved Lens account?"
+        description="The encrypted password and account metadata will be removed from this Stave installation."
+        confirmLabel="Delete account"
+        loading={saving}
+        onConfirm={() => {
+          void deleteCredential();
+        }}
+        onCancel={() => setDeletingId(null)}
+      />
+    </>
+  );
+}

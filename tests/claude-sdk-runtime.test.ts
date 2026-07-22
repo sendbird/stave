@@ -561,6 +561,7 @@ describe("isReadOnlyMcpLeafToolName", () => {
       "create_pull_request",
       "slack_send_message",
       "stave_lens_navigate",
+      "stave_lens_fill_saved_account",
       "stave_lens_evaluate",
       "editJiraIssue",
       "merge_pull_request",
