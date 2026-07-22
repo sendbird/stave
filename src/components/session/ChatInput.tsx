@@ -15,6 +15,7 @@ import {
   buildModelSelectorValue,
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector";
+import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import { Badge, Button, Kbd, toast } from "@/components/ui";
@@ -80,6 +81,7 @@ import {
 } from "@/lib/tasks";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
+import { buildLocalChangeReviewPrompt } from "@/lib/local-change-review";
 import { useAppStore } from "@/store/app.store";
 import {
   findPendingApprovals,
@@ -196,8 +198,11 @@ interface ChatInputComposerProps {
     selection: ModelSelectorOption;
     effort?: Exclude<ModelShortcutEffort, "">;
   }) => void;
-  crossReviewProvider?: "claude-code" | "codex" | null;
-  onCrossReview?: (args: { instructions?: string }) => void;
+  reviewModelOptions: readonly ModelSelectorOption[];
+  preferredReviewModelKey?: string;
+  onLocalChangeReview: (
+    request: LocalChangeReviewRequest,
+  ) => boolean | Promise<boolean>;
 }
 
 function ChatInputComposer(args: ChatInputComposerProps) {
@@ -1018,8 +1023,13 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           onAttachmentsChange={({ attachments }) =>
             updateNonTextPromptDraft({ attachments })
           }
-          crossReviewProvider={args.crossReviewProvider}
-          onCrossReview={args.onCrossReview}
+          workspaceCwd={args.workspaceCwd}
+          reviewModelOptions={args.reviewModelOptions}
+          preferredReviewModelKey={args.preferredReviewModelKey}
+          onLocalChangeReview={(request) => {
+            commitCurrentDraftText();
+            return args.onLocalChangeReview(request);
+          }}
           onSubmit={async ({ text, filePaths, intent }) => {
             cancelPendingDraftSave();
             const submittedDraft = {
@@ -1758,7 +1768,8 @@ function BaseChatInput() {
   const deferredCommandPaletteItems = useDeferredValue(commandPalette.items);
   const deferredSkillPalette = useDeferredValue(skillPalette);
 
-  // ── Cross-review: detect last assistant provider and offer opposite review ──
+  // Prefer a second provider when one authored the latest answer, while still
+  // letting the user select any available provider and model in the dialog.
   const lastAssistantProviderId = useAppStore((state) => {
     const messages = state.messagesByTask[state.activeTaskId] ?? EMPTY_MESSAGES;
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -1773,58 +1784,74 @@ function BaseChatInput() {
     }
     return null;
   });
-  const crossReviewProvider = useMemo<"claude-code" | "codex" | null>(() => {
-    if (!lastAssistantProviderId || isTurnActive) return null;
+  const suggestedReviewProvider = useMemo<"claude-code" | "codex">(() => {
+    if (!lastAssistantProviderId) return activeProvider;
     if (lastAssistantProviderId === "claude-code") return "codex";
-    if (lastAssistantProviderId === "codex") return "claude-code";
-    return null;
-  }, [lastAssistantProviderId, isTurnActive]);
-  const crossReviewReturnProviderRef = useRef<"claude-code" | "codex" | null>(
-    null,
+    return "claude-code";
+  }, [activeProvider, lastAssistantProviderId]);
+  const reviewModelOptions = useMemo(
+    () =>
+      modelOptions.filter(
+        (option) => option.available && !option.isAuto && option.model.trim(),
+      ).map((option) => {
+        const configuredModel =
+          option.providerId === "claude-code" ? modelClaude : modelCodex;
+        return option.model === configuredModel
+          ? { ...option, isDefault: true }
+          : option;
+      }),
+    [modelClaude, modelCodex, modelOptions],
   );
-  const handleCrossReview = useCallback(
-    async (reviewArgs: { instructions?: string }) => {
-      if (!crossReviewProvider || !activeTaskId) return;
-      // Remember the current provider so we can revert after the review turn.
-      crossReviewReturnProviderRef.current = activeProvider;
-      setTaskProvider({
-        taskId: providerSelectionTarget,
-        provider: crossReviewProvider,
-      });
-      // Yield a microtask so the provider state update fully settles
-      // before dispatching (setTaskProvider fires cleanupTask IPC concurrently).
-      await Promise.resolve();
-      const content = reviewArgs.instructions
-        ? `/review ${reviewArgs.instructions}`
-        : "/review";
-      await sendUserMessage({
+  const preferredReviewModelKey = useMemo(() => {
+    const configuredModel =
+      suggestedReviewProvider === "claude-code" ? modelClaude : modelCodex;
+    return (
+      reviewModelOptions.find(
+        (option) =>
+          option.providerId === suggestedReviewProvider &&
+          option.model === configuredModel,
+      ) ??
+      reviewModelOptions.find(
+        (option) =>
+          option.providerId === suggestedReviewProvider && option.isDefault,
+      ) ??
+      reviewModelOptions.find(
+        (option) => option.providerId === suggestedReviewProvider,
+      ) ??
+      reviewModelOptions[0]
+    )?.key;
+  }, [
+    modelClaude,
+    modelCodex,
+    reviewModelOptions,
+    suggestedReviewProvider,
+  ]);
+  const handleLocalChangeReview = useCallback(
+    async (review: LocalChangeReviewRequest) => {
+      const result = await sendUserMessage({
         taskId: activeTaskId,
-        content,
+        content: buildLocalChangeReviewPrompt({
+          scope: review.scope,
+          focuses: review.focuses,
+          instructions: review.instructions,
+        }),
+        providerOverride: review.reviewer.providerId,
+        runtimeOverrides: {
+          autoRouting: false,
+          model: review.reviewer.model,
+        },
+        preservePromptDraft: true,
       });
+      if (result.status === "blocked") {
+        toast.error("Could not start local change review", {
+          description: "Finish the pending task interaction and try again.",
+        });
+        return false;
+      }
+      return true;
     },
-    [
-      activeProvider,
-      activeTaskId,
-      crossReviewProvider,
-      providerSelectionTarget,
-      sendUserMessage,
-      setTaskProvider,
-    ],
+    [activeTaskId, sendUserMessage],
   );
-  // Revert provider after cross-review turn completes.
-  const wasTurnActiveRef = useRef(isTurnActive);
-  useEffect(() => {
-    const wasActive = wasTurnActiveRef.current;
-    wasTurnActiveRef.current = isTurnActive;
-    if (wasActive && !isTurnActive && crossReviewReturnProviderRef.current) {
-      const returnProvider = crossReviewReturnProviderRef.current;
-      crossReviewReturnProviderRef.current = null;
-      setTaskProvider({
-        taskId: providerSelectionTarget,
-        provider: returnProvider,
-      });
-    }
-  }, [isTurnActive, providerSelectionTarget, setTaskProvider]);
 
   useEffect(() => {
     if (!skillsEnabled) {
@@ -1890,8 +1917,9 @@ function BaseChatInput() {
       effortLabel={effortLabel}
       effortValue={effortValue}
       onEffortCycle={onEffortCycle}
-      crossReviewProvider={crossReviewProvider}
-      onCrossReview={crossReviewProvider ? handleCrossReview : undefined}
+      reviewModelOptions={reviewModelOptions}
+      preferredReviewModelKey={preferredReviewModelKey}
+      onLocalChangeReview={handleLocalChangeReview}
       onModelSelect={({ selection, effort }) => {
         if (selection.isAuto) {
           const { model: _model, ...restRuntimeOverrides } =
