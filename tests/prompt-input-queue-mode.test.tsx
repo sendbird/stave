@@ -51,9 +51,9 @@ function setWindowContext() {
   });
 }
 
-function getCrossReviewButtonMarkup(html: string) {
+function getLocalReviewButtonMarkup(html: string) {
   return html.match(
-    /<button[^>]*aria-label="Review by Claude Code"[^>]*>[\s\S]*?<\/button>/,
+    /<button[^>]*aria-label="Review local changes"[^>]*>[\s\S]*?<\/button>/,
   )?.[0];
 }
 
@@ -70,6 +70,13 @@ const MODEL_OPTION: ModelSelectorOption = {
   providerId: "codex",
   model: "gpt-5.4",
   label: "GPT-5.4",
+  available: true,
+};
+const CLAUDE_MODEL_OPTION: ModelSelectorOption = {
+  key: "claude-code:claude-opus-4-6",
+  providerId: "claude-code",
+  model: "claude-opus-4-6",
+  label: "Opus 4.6",
   available: true,
 };
 
@@ -130,7 +137,7 @@ describe("PromptInput queue mode", () => {
     expect(html).not.toContain("pointer-events-none absolute right-0 top-0");
   });
 
-  test("renders the cross-review CTA before attach with visible text", async () => {
+  test("renders the local-change review CTA before attach with visible text", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
@@ -145,31 +152,32 @@ describe("PromptInput queue mode", () => {
           selectedModel: MODEL_OPTION,
           modelOptions: [MODEL_OPTION],
           attachedFilePaths: [],
-          crossReviewProvider: "claude-code" as const,
+          reviewModelOptions: [CLAUDE_MODEL_OPTION, MODEL_OPTION],
+          preferredReviewModelKey: CLAUDE_MODEL_OPTION.key,
           onValueChange: () => {},
           onModelSelect: () => {},
           onAttachFilesChange: () => {},
-          onCrossReview: () => {},
+          onLocalChangeReview: () => true,
           onSubmit: () => {},
         }),
       ),
     );
-    const buttonMarkup = getCrossReviewButtonMarkup(html);
+    const buttonMarkup = getLocalReviewButtonMarkup(html);
 
-    expect(html).toContain('aria-label="Review by Claude Code"');
-    expect(html).toContain(">Review by</span>");
-    expect(html).toContain(">Claude Code</span>");
+    expect(html).toContain('aria-label="Review local changes"');
+    expect(html).toContain(">Review changes</span>");
+    expect(html).toContain(">Claude</span>");
     expect(buttonMarkup).toBeTruthy();
     expect(buttonMarkup).toContain('data-variant="ghost"');
     expect(buttonMarkup).toContain("text-muted-foreground");
     expect(buttonMarkup).toContain("hover:bg-secondary/30");
     expect(buttonMarkup).toContain("<img");
-    expect(html.indexOf('aria-label="Review by Claude Code"')).toBeLessThan(
+    expect(html.indexOf('aria-label="Review local changes"')).toBeLessThan(
       html.indexOf('aria-label="Attach files"'),
     );
   });
 
-  test("renders a leading toolbar action before the cross-review CTA", async () => {
+  test("renders a leading toolbar action before the local review CTA", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
@@ -184,7 +192,8 @@ describe("PromptInput queue mode", () => {
           selectedModel: MODEL_OPTION,
           modelOptions: [MODEL_OPTION],
           attachedFilePaths: [],
-          crossReviewProvider: "claude-code" as const,
+          reviewModelOptions: [CLAUDE_MODEL_OPTION, MODEL_OPTION],
+          preferredReviewModelKey: CLAUDE_MODEL_OPTION.key,
           leadingToolbarAction: createElement(
             "button",
             { type: "button", "aria-label": "Open Tools" },
@@ -193,18 +202,18 @@ describe("PromptInput queue mode", () => {
           onValueChange: () => {},
           onModelSelect: () => {},
           onAttachFilesChange: () => {},
-          onCrossReview: () => {},
+          onLocalChangeReview: () => true,
           onSubmit: () => {},
         }),
       ),
     );
 
     expect(html.indexOf('aria-label="Open Tools"')).toBeLessThan(
-      html.indexOf('aria-label="Review by Claude Code"'),
+      html.indexOf('aria-label="Review local changes"'),
     );
   });
 
-  test("keeps the cross-review CTA understated in minimal mode", async () => {
+  test("keeps the local review CTA understated in minimal mode", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
@@ -220,16 +229,17 @@ describe("PromptInput queue mode", () => {
           selectedModel: MODEL_OPTION,
           modelOptions: [MODEL_OPTION],
           attachedFilePaths: [],
-          crossReviewProvider: "claude-code" as const,
+          reviewModelOptions: [CLAUDE_MODEL_OPTION, MODEL_OPTION],
+          preferredReviewModelKey: CLAUDE_MODEL_OPTION.key,
           onValueChange: () => {},
           onModelSelect: () => {},
           onAttachFilesChange: () => {},
-          onCrossReview: () => {},
+          onLocalChangeReview: () => true,
           onSubmit: () => {},
         }),
       ),
     );
-    const buttonMarkup = getCrossReviewButtonMarkup(html);
+    const buttonMarkup = getLocalReviewButtonMarkup(html);
 
     expect(buttonMarkup).toBeTruthy();
     expect(buttonMarkup).toContain('data-variant="ghost"');
