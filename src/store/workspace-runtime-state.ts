@@ -126,6 +126,21 @@ export function createActiveWorkspaceStatePatch(
   };
 }
 
+/**
+ * Resolve the session view for a workspace: the live store projection when it
+ * is the active workspace, otherwise its runtime-cache entry (null when the
+ * workspace has not been activated this app run).
+ */
+export function getWorkspaceSessionForState(args: {
+  state: Omit<WorkspaceRuntimeCacheState, "workspaceSnapshotVersion">;
+  workspaceId: string;
+}) {
+  if (args.workspaceId === args.state.activeWorkspaceId) {
+    return createWorkspaceSessionStateFromAppState(args.state);
+  }
+  return args.state.workspaceRuntimeCacheById[args.workspaceId] ?? null;
+}
+
 function compactWorkspaceSessionMessages(
   session: WorkspaceSessionState,
 ): WorkspaceSessionState {

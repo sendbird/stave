@@ -274,6 +274,7 @@ import {
 import {
   applyPendingProviderEventsToStoreState,
   createWorkspaceSessionStateFromAppState,
+  getWorkspaceSessionForState,
   saveActiveWorkspaceRuntimeCache,
 } from "@/store/workspace-runtime-state";
 import {
@@ -889,38 +890,6 @@ function resolveTaskRuntimeTarget(args: {
   }
 
   return null;
-}
-
-function getWorkspaceSessionForState(args: {
-  state: Pick<
-    AppState,
-    | "activeTaskId"
-    | "activeWorkspaceId"
-    | "tasks"
-    | "messagesByTask"
-    | "messageCountByTask"
-    | "promptDraftByTask"
-    | "workspaceInformation"
-    | "editorTabs"
-    | "activeEditorTabId"
-    | "terminalTabs"
-    | "activeTerminalTabId"
-    | "layout"
-    | "cliSessionTabs"
-    | "activeCliSessionTabId"
-    | "activeSurface"
-    | "activeTurnIdsByTask"
-    | "providerSessionByTask"
-    | "providerGoalByTask"
-    | "nativeSessionReadyByTask"
-    | "workspaceRuntimeCacheById"
-  >;
-  workspaceId: string;
-}) {
-  if (args.workspaceId === args.state.activeWorkspaceId) {
-    return createWorkspaceSessionStateFromAppState(args.state);
-  }
-  return args.state.workspaceRuntimeCacheById[args.workspaceId] ?? null;
 }
 
 function clearRestoredTaskProviderSession(args: {
