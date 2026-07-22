@@ -61,7 +61,14 @@ export function ModelSelector(args: ModelSelectorProps) {
     onSelect,
   } = args;
   const [open, setOpen] = useState(false);
-  const handledOpenTokenRef = useRef<string | number | undefined>(undefined);
+  // Seed the handled token with the value present at mount time. `openToken` is
+  // a one-shot "open now" trigger owned by the parent, but the parent keeps the
+  // latched value across the selector's mount/unmount cycles (e.g. when an
+  // interactive question card replaces and then restores the composer). Starting
+  // from `undefined` would make a stale, already-consumed token look brand new on
+  // remount and pop the selector open unexpectedly. Treating the mount-time token
+  // as already handled means we only auto-open when it changes *after* mount.
+  const handledOpenTokenRef = useRef<string | number | undefined>(openToken);
   const recommendedOptionKeys = useMemo(
     () => new Set(recommendedOptions.map((option) => option.key)),
     [recommendedOptions],
