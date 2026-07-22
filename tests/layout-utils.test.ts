@@ -10,12 +10,7 @@ function baseLayout(): LayoutState {
     workspaceSidebarWidth: 300,
     workspaceSidebarCollapsed: false,
     workspaceSidebarItemDisplayMode: DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
-    editorPanelWidth: 720,
     explorerPanelWidth: 300,
-    lensPanelWidthByWorkspaceId: {},
-    lensDisplayModeByWorkspaceId: {},
-    terminalDockHeight: 210,
-    editorVisible: false,
     sidebarOverlayVisible: false,
     sidebarOverlayTab: "explorer",
     terminalDocked: false,
@@ -24,54 +19,25 @@ function baseLayout(): LayoutState {
   };
 }
 
-describe("normalizeLayoutState — lens display mode", () => {
-  test("keeps a valid tri-state mode as-is", () => {
-    const normalized = normalizeLayoutState({
-      ...baseLayout(),
-      lensDisplayModeByWorkspaceId: { "ws-1": "cover-chat" },
-    });
-
-    expect(normalized.lensDisplayModeByWorkspaceId).toEqual({
-      "ws-1": "cover-chat",
-    });
-  });
-
-  test("drops invalid mode strings", () => {
-    const normalized = normalizeLayoutState({
-      ...baseLayout(),
-      lensDisplayModeByWorkspaceId: {
-        "ws-1": "bogus-mode" as never,
-      },
-    });
-
-    expect(normalized.lensDisplayModeByWorkspaceId).toEqual({});
-  });
-
-  test("migrates legacy lensFullscreenByWorkspaceId=true to fullscreen mode", () => {
+describe("normalizeLayoutState", () => {
+  test("ignores retired center-surface layout fields from persisted state", () => {
     const legacyLayout = {
       ...baseLayout(),
-      lensDisplayModeByWorkspaceId: undefined,
+      editorPanelWidth: 720,
+      lensPanelWidthByWorkspaceId: { "ws-1": 520 },
+      lensDisplayModeByWorkspaceId: { "ws-1": "fullscreen" },
       lensFullscreenByWorkspaceId: { "ws-1": true, "ws-2": false },
+      terminalDockHeight: 210,
+      editorVisible: true,
     } as unknown as LayoutState;
 
     const normalized = normalizeLayoutState(legacyLayout);
 
-    expect(normalized.lensDisplayModeByWorkspaceId).toEqual({
-      "ws-1": "fullscreen",
-    });
-  });
-
-  test("prefers the new field over the legacy one when both are present", () => {
-    const mixedLayout = {
-      ...baseLayout(),
-      lensDisplayModeByWorkspaceId: { "ws-1": "normal" },
-      lensFullscreenByWorkspaceId: { "ws-1": true },
-    } as unknown as LayoutState;
-
-    const normalized = normalizeLayoutState(mixedLayout);
-
-    expect(normalized.lensDisplayModeByWorkspaceId).toEqual({
-      "ws-1": "normal",
-    });
+    expect(normalized).toEqual(baseLayout());
+    expect(normalized).not.toHaveProperty("editorPanelWidth");
+    expect(normalized).not.toHaveProperty("lensPanelWidthByWorkspaceId");
+    expect(normalized).not.toHaveProperty("lensDisplayModeByWorkspaceId");
+    expect(normalized).not.toHaveProperty("terminalDockHeight");
+    expect(normalized).not.toHaveProperty("editorVisible");
   });
 });

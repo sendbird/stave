@@ -326,13 +326,20 @@ async function installCliSessionHarness(
   }, { slowResizeMs: options.slowResizeMs ?? 0 });
 }
 
+const CLI_SESSION_CHIP = '[data-pane-tab-chip^="cli:"]';
+const TASK_CHIP = '[data-pane-tab-chip^="task:"]';
+
 async function openWorkspaceCliSession(page: Page) {
-  await page.getByRole("button", { name: "New CLI Session" }).first().click();
   await page
-    .getByRole("menuitem")
-    .filter({ hasText: "Claude · Workspace" })
+    .getByRole("button", { name: "Create new pane tab" })
+    .first()
     .click();
-  await page.getByRole("button", { name: "Claude Workspace", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New CLI Session" }).hover();
+  await page.getByRole("menuitem", { name: /Claude · Workspace/ }).click();
+  // Creating the tab focuses it; the pane chip is the tab affordance now.
+  await expect(
+    page.locator(CLI_SESSION_CHIP).filter({ hasText: "Claude Workspace" }),
+  ).toBeVisible();
 }
 
 async function expectCliSessionCounts(
@@ -445,16 +452,20 @@ async function getCliResizeState(page: Page) {
 }
 
 test("settings modal and workspace modal open", async ({ page }) => {
+  await installCliSessionHarness(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
   await page.getByRole("button", { name: "open-settings" }).click();
-  await expect(page.getByText("Settings")).toBeVisible();
+  await expect(page.getByLabel("Settings", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
-  await page.getByRole("button", { name: "close-settings" }).click();
+  await page.getByRole("button", { name: "back-to-app" }).click();
 
-  await page.getByRole("button", { name: "new-workspace" }).click();
-  await expect(page.getByText("Create New Workspace")).toBeVisible();
+  await page.getByText("stave-project", { exact: true }).last().hover();
+  await page
+    .getByRole("button", { name: "new-workspace-/tmp/stave-project" })
+    .click();
+  await expect(page.getByRole("heading", { name: "New workspace" })).toBeVisible();
   await expect(page.getByText("Create From Branch")).toBeVisible();
 });
 
@@ -505,7 +516,7 @@ test("right panel tabs switch", async ({ page }) => {
   await expect(rightPanel).toBeVisible();
   await expect(rightPanel.getByRole("heading", { name: "Explorer" })).toBeVisible();
 
-  await page.getByTestId("workspace-bar").getByRole("button", { name: "Changes" }).click();
+  await page.getByTestId("workspace-bar").getByRole("button", { name: "Source Control" }).click();
   await expect(rightPanel.getByRole("heading", { name: "Source Control" })).toBeVisible();
   await expect(rightPanel.getByRole("tab", { name: /Changes/ })).toBeVisible();
 
@@ -583,6 +594,8 @@ test("lens screenshot dropdown trigger is not clipped", async ({ page }) => {
   await page.goto("/");
 
   await page.getByTestId("workspace-bar").getByRole("button", { name: "Lens" }).click();
+  // The Lens rail button opens (or creates) a lens pane tab.
+  await expect(page.getByTestId("lens-surface-panel")).toBeVisible();
   const screenshotButton = page.getByRole("button", { name: "Save screenshot" });
   await expect(screenshotButton).toBeEnabled();
   await expect
@@ -593,7 +606,7 @@ test("lens screenshot dropdown trigger is not clipped", async ({ page }) => {
   await expect(page.getByRole("menuitem", { name: "Full Page" })).toBeVisible();
 });
 
-test("terminal dock opens with the shared surface inset", async ({ page }) => {
+test("terminal pane opens with the shared surface inset", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("stave-store", JSON.stringify({
       state: {
@@ -646,15 +659,18 @@ test("terminal dock opens with the shared surface inset", async ({ page }) => {
 
   await page.getByTestId("workspace-bar").getByRole("button", { name: "Terminal" }).click();
 
-  const terminalDock = page.getByTestId("terminal-dock");
-  await expect(terminalDock).toBeVisible();
-  await expect(page.getByRole("button", { name: "new-terminal-tab" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "hide-terminal" })).toBeVisible();
+  const terminalPane = page.getByTestId(/^terminal-surface-/).first();
+  await expect(terminalPane).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Create new pane tab" }).first(),
+  ).toBeVisible();
 
-  const terminalSurface = terminalDock.locator("[data-terminal-surface]").first();
-  await terminalSurface.waitFor({ state: "attached" });
+  // The shell inset lives on the `.xterm` element inside the surface mount
+  // (see `[data-terminal-surface] > .xterm` in globals.css).
+  const xterm = terminalPane.locator("[data-terminal-surface] > .xterm");
+  await xterm.waitFor({ state: "attached" });
 
-  const padding = await terminalSurface.evaluate((element) => {
+  const padding = await xterm.evaluate((element) => {
     const styles = window.getComputedStyle(element);
     return {
       top: styles.paddingTop,
@@ -664,10 +680,10 @@ test("terminal dock opens with the shared surface inset", async ({ page }) => {
     };
   });
   expect(padding).toEqual({
-    top: "16px",
-    right: "20px",
-    bottom: "16px",
-    left: "20px",
+    top: "8px",
+    right: "10px",
+    bottom: "8px",
+    left: "10px",
   });
 });
 
@@ -681,12 +697,15 @@ test("cli session keeps the renderer alive and refocuses after switching back", 
   await expect(page.getByTestId("cli-session-panel")).toBeVisible();
   await expect(page.getByTestId("cli-session-panel").locator(".xterm")).toHaveCount(1);
   await expectCliSessionCounts(page, { create: 1, attach: 1, resume: 1 });
-  await page.getByRole("button", { name: /Task 1/ }).first().click();
+  await page.locator(TASK_CHIP).filter({ hasText: "Task 1" }).click();
   await expect(page.getByTestId("cli-session-panel")).toBeHidden();
-  await expect(page.getByText("Task 1")).toBeVisible();
+  await expect(page.getByText("Task 1").first()).toBeVisible();
 
-  // Switch back to the CLI session surface.
-  await page.getByRole("button", { name: "Claude Workspace", exact: true }).click();
+  // Switch back to the CLI session surface via its pane tab chip.
+  await page
+    .locator(CLI_SESSION_CHIP)
+    .filter({ hasText: "Claude Workspace" })
+    .click();
   await expect(page.getByTestId("cli-session-panel").locator(".xterm")).toHaveCount(1);
   await expectCliSessionCounts(page, { create: 1, attach: 2, resume: 2 });
   const terminalSurface = page.getByTestId("cli-session-panel").locator("[data-terminal-surface]").first();
@@ -744,10 +763,13 @@ test("cli session resumes streaming after a slow reattach resize", async ({ page
   await expect(page.getByTestId("cli-session-panel")).toBeVisible();
   await expectCliSessionCounts(page, { create: 1, attach: 1, resume: 1 });
 
-  await page.getByRole("button", { name: /Task 1/ }).first().click();
+  await page.locator(TASK_CHIP).filter({ hasText: "Task 1" }).click();
   await expect(page.getByTestId("cli-session-panel")).toBeHidden();
 
-  await page.getByRole("button", { name: "Claude Workspace", exact: true }).click();
+  await page
+    .locator(CLI_SESSION_CHIP)
+    .filter({ hasText: "Claude Workspace" })
+    .click();
   await page.setViewportSize({ width: 1280, height: 820 });
   await page.setViewportSize({ width: 1360, height: 860 });
 

@@ -98,9 +98,8 @@ export function MessageResponse({
   style,
   ...props
 }: MessageResponseProps) {
-  const [openFileFromTree, setLayout, messageFontSize, messageCodeFontSize, workspaceCwd] = useAppStore(useShallow((state) => [
+  const [openFileFromTree, messageFontSize, messageCodeFontSize, workspaceCwd] = useAppStore(useShallow((state) => [
     state.openFileFromTree,
-    state.setLayout,
     state.settings.messageFontSize,
     state.settings.messageCodeFontSize,
     state.workspacePathById[state.activeWorkspaceId] ?? state.projectPath ?? "",
@@ -136,7 +135,6 @@ export function MessageResponse({
       ...(args.resolved.column ? { column: args.resolved.column } : {}),
       ...(args.fallbackContent ? { fallbackContent: args.fallbackContent } : {}),
     });
-    setLayout({ patch: { editorVisible: true } });
   }
 
   async function handleFileLinkClick(args: {

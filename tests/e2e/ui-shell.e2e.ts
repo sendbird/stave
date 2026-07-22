@@ -12,13 +12,10 @@ for (const viewport of viewportMatrix) {
     await page.goto("/");
 
     await expect(page.getByTestId("top-bar")).toBeVisible();
-    await expect(page.getByTestId("session-area")).toBeVisible();
-    await expect(page.getByTestId("splash-no-project")).toBeVisible();
-    await expect(page.getByTestId("workspace-bar")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "project-menu" })).toBeVisible();
+    await expect(page.getByTestId("workspace-pane-host")).toBeVisible();
+    await expect(page.getByTestId("pane-watermark")).toBeVisible();
 
-    const taskList = page.getByTestId("task-list");
-    await expect(taskList).toHaveCount(0);
+    await expect(page.locator("[data-pane-tab-chip]")).toHaveCount(0);
 
     const safeName = testInfo.title.replace(/[^a-z0-9-]/gi, "_").toLowerCase();
     await page.screenshot({

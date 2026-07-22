@@ -49,11 +49,13 @@ function toStructuredResult<T>(value: T) {
   };
 }
 
-function requireSession(workspaceId: string) {
-  const session = getBrowserSession(workspaceId);
+function requireSession(workspaceId: string, lensSessionId?: string) {
+  const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) {
     throw new Error(
-      `No browser session for workspace "${workspaceId}". Open the Lens panel or call stave_lens_open_session first.`,
+      `No browser session for workspace "${workspaceId}"${
+        lensSessionId ? ` and lens session "${lensSessionId}"` : ""
+      }. Open the Lens panel or call stave_lens_open_session first.`,
     );
   }
   return session;
@@ -95,6 +97,12 @@ export function registerBrowserTools(server: McpServer): void {
         "Open or reuse a hidden workspace Lens browser session so agents can inspect a live page without the user opening the right rail panel first.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         url: z
           .string()
           .optional()
@@ -113,14 +121,15 @@ export function registerBrowserTools(server: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, url, sessionScope, projectKey }) => {
+    async ({ workspaceId, lensSessionId, url, sessionScope, projectKey }) => {
       const { session, created } = ensureBrowserSessionWithEvents(workspaceId, {
         managedByMcp: true,
         sessionScope,
         projectKey,
+        lensSessionId,
       });
       if (created) {
-        setViewVisible(workspaceId, false);
+        setViewVisible(workspaceId, false, session.lensSessionId);
       }
 
       if (url?.trim()) {
@@ -147,6 +156,7 @@ export function registerBrowserTools(server: McpServer): void {
         created,
         session: {
           workspaceId,
+          lensSessionId: session.lensSessionId,
           url: session.view.webContents.getURL(),
           title: session.view.webContents.getTitle(),
           isLoading: session.view.webContents.isLoading(),
@@ -163,6 +173,12 @@ export function registerBrowserTools(server: McpServer): void {
         "Close a workspace Lens browser session that was opened for MCP inspection. User-opened Lens panel sessions require force=true.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         force: z
           .boolean()
           .optional()
@@ -171,8 +187,8 @@ export function registerBrowserTools(server: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, force }) => {
-      const session = getBrowserSession(workspaceId);
+    async ({ workspaceId, lensSessionId, force }) => {
+      const session = getBrowserSession(workspaceId, lensSessionId);
       const existed = Boolean(session);
       if (session && !session.managedByMcp && force !== true) {
         return toStructuredResult({
@@ -182,7 +198,7 @@ export function registerBrowserTools(server: McpServer): void {
             "Lens session is owned by the UI panel. Pass force=true to close it.",
         });
       }
-      destroyBrowserSession(workspaceId);
+      destroyBrowserSession(workspaceId, lensSessionId);
       return toStructuredResult({ ok: true, closed: existed });
     },
   );
@@ -195,12 +211,18 @@ export function registerBrowserTools(server: McpServer): void {
         "Navigate the workspace Lens browser to a URL. Open a session first with stave_lens_open_session or the right rail Lens panel.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         url: z.string().describe("URL to navigate to"),
       },
     },
-    async ({ workspaceId, url }) => {
-      const session = requireSession(workspaceId);
-      const wc = getWebContentsForSession(workspaceId);
+    async ({ workspaceId, lensSessionId, url }) => {
+      requireSession(workspaceId, lensSessionId);
+      const wc = getWebContentsForSession(workspaceId, lensSessionId);
       if (!wc) throw new Error("WebContents not available");
 
       const targetUrl = normalizeLensUrl(url);
@@ -237,6 +259,12 @@ export function registerBrowserTools(server: McpServer): void {
         "Take a screenshot of the current page in the workspace Lens browser. Prefer selector screenshots for focused visual checks. Returns a base64-encoded PNG data URL.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         fullPage: z
           .boolean()
           .optional()
@@ -251,14 +279,14 @@ export function registerBrowserTools(server: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, fullPage, selector }) => {
+    async ({ workspaceId, lensSessionId, fullPage, selector }) => {
       if (fullPage && selector) {
         throw new Error(
           "fullPage and selector are mutually exclusive — use one or the other.",
         );
       }
 
-      const session = requireSession(workspaceId);
+      const session = requireSession(workspaceId, lensSessionId);
 
       let clip:
         { x: number; y: number; width: number; height: number } | undefined;
@@ -302,6 +330,12 @@ export function registerBrowserTools(server: McpServer): void {
         "Get bounded outerHTML from the workspace Lens browser. Prefer stave_lens_snapshot or scoped stave_lens_get_text first; pass selector and maxChars when raw HTML is necessary.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         selector: z
           .string()
           .optional()
@@ -316,8 +350,8 @@ export function registerBrowserTools(server: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, selector, maxChars }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, selector, maxChars }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       let html = await getDocumentHTML(session.view.webContents.id, selector);
       const resolvedMaxChars = clampPositiveInteger(maxChars, {
         defaultValue: DEFAULT_HTML_MAX_CHARS,
@@ -342,11 +376,17 @@ export function registerBrowserTools(server: McpServer): void {
         "Get the text content of a specific element in the workspace Lens browser. This is the preferred low-token read path for page copy.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         selector: z.string().describe("CSS selector of the target element"),
       },
     },
-    async ({ workspaceId, selector }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, selector }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const text = await getTextContent(session.view.webContents.id, selector);
       return toStructuredResult({ ok: true, text });
     },
@@ -360,13 +400,19 @@ export function registerBrowserTools(server: McpServer): void {
         "Evaluate a JavaScript expression in the workspace Lens browser page context and return the result.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         expression: z
           .string()
           .describe("JavaScript expression to evaluate (must be serialisable)"),
       },
     },
-    async ({ workspaceId, expression }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, expression }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const result = await evaluateExpression(
         session.view.webContents.id,
         expression,
@@ -383,6 +429,12 @@ export function registerBrowserTools(server: McpServer): void {
         "Get recent console messages from the workspace Lens browser. Keep limit small unless debugging a specific console-heavy issue.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         limit: z
           .number()
           .optional()
@@ -391,8 +443,8 @@ export function registerBrowserTools(server: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, limit }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, limit }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const entries = session.consoleLog.toArray();
       const n = clampPositiveInteger(limit, {
         defaultValue: DEFAULT_LOG_LIMIT,
@@ -415,6 +467,12 @@ export function registerBrowserTools(server: McpServer): void {
         "Get recent network requests from the workspace Lens browser. Keep limit small unless debugging request ordering or failures.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         limit: z
           .number()
           .optional()
@@ -423,8 +481,8 @@ export function registerBrowserTools(server: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, limit }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, limit }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const entries = session.networkLog.toArray();
       const n = clampPositiveInteger(limit, {
         defaultValue: DEFAULT_LOG_LIMIT,
@@ -447,6 +505,12 @@ export function registerBrowserTools(server: McpServer): void {
         "Download a URL through the workspace Lens browser session and return the saved file path.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         url: z.string().describe("HTTP(S) URL to download"),
         filename: z
           .string()
@@ -454,8 +518,8 @@ export function registerBrowserTools(server: McpServer): void {
           .describe("Optional filename to use for the saved file"),
       },
     },
-    async ({ workspaceId, url, filename }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, url, filename }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const targetUrl = normalizeLensUrl(url);
       assertNavigationAllowed(targetUrl);
       const entry = await triggerDownloadByUrl(
@@ -475,6 +539,12 @@ export function registerBrowserTools(server: McpServer): void {
         "List recent files saved by the workspace Lens browser downloads and screenshot actions.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         limit: z
           .number()
           .optional()
@@ -483,8 +553,8 @@ export function registerBrowserTools(server: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, limit }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, limit }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const entries = session.downloadLog.toArray();
       const n = clampPositiveInteger(limit, {
         defaultValue: DEFAULT_LOG_LIMIT,
@@ -507,10 +577,16 @@ export function registerBrowserTools(server: McpServer): void {
         "Read visual comments the user placed in the workspace Lens browser annotation mode.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
       },
     },
-    async ({ workspaceId }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const annotations = await session.view.webContents.executeJavaScript(
         "window.__staveGetAnnotations?.() ?? []",
       );
@@ -526,6 +602,12 @@ export function registerBrowserTools(server: McpServer): void {
         "Apply a live inline style patch to an element in the workspace Lens browser and return before/after edits.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         selector: z.string().describe("CSS selector of the target element"),
         style: z
           .record(z.string(), z.string())
@@ -534,8 +616,8 @@ export function registerBrowserTools(server: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, selector, style }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, selector, style }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const edits = await setElementStyle(
         session.view.webContents.id,
         selector,
@@ -553,11 +635,17 @@ export function registerBrowserTools(server: McpServer): void {
         "Inspect an element's box model in the workspace Lens browser - like the Figma/DevTools inspector. Returns the border-box rect, content size, and per-side padding, border, and margin values (in CSS pixels).",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         selector: z.string().describe("CSS selector of the element to inspect"),
       },
     },
-    async ({ workspaceId, selector }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, selector }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const box = await getElementBoxModel(
         session.view.webContents.id,
         selector,
@@ -574,12 +662,18 @@ export function registerBrowserTools(server: McpServer): void {
         "Measure the pixel gap between two elements in the workspace Lens browser (Figma-style spacing). Returns the horizontal and vertical gaps between their nearest facing edges plus each element's box model.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         selectorA: z.string().describe("CSS selector of the first element"),
         selectorB: z.string().describe("CSS selector of the second element"),
       },
     },
-    async ({ workspaceId, selectorA, selectorB }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, selectorA, selectorB }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const result = await measureElements(
         session.view.webContents.id,
         selectorA,
@@ -597,11 +691,17 @@ export function registerBrowserTools(server: McpServer): void {
         "Click on an element in the workspace Lens browser by CSS selector.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         selector: z.string().describe("CSS selector of the element to click"),
       },
     },
-    async ({ workspaceId, selector }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, selector }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       await clickElement(session.view.webContents.id, selector);
       return toStructuredResult({ ok: true });
     },
@@ -615,6 +715,12 @@ export function registerBrowserTools(server: McpServer): void {
         "Type text into the currently focused element (or a specified element) in the workspace Lens browser.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
         text: z.string().describe("Text to type"),
         selector: z
           .string()
@@ -622,8 +728,8 @@ export function registerBrowserTools(server: McpServer): void {
           .describe("CSS selector of the element to focus before typing"),
       },
     },
-    async ({ workspaceId, text, selector }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId, text, selector }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       await typeText(session.view.webContents.id, text, selector);
       return toStructuredResult({ ok: true });
     },
@@ -637,10 +743,16 @@ export function registerBrowserTools(server: McpServer): void {
         "Get a compact accessibility tree snapshot of the current page. Use this as the first Lens read before raw HTML, console, or network dumps.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+          ),
       },
     },
-    async ({ workspaceId }) => {
-      const session = requireSession(workspaceId);
+    async ({ workspaceId, lensSessionId }) => {
+      const session = requireSession(workspaceId, lensSessionId);
       const tree = await getAccessibilitySnapshot(session.view.webContents.id);
       return toStructuredResult({ ok: true, tree });
     },

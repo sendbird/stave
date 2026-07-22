@@ -75,7 +75,6 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
   >({});
 
   const openDiffInEditor = useAppStore((s) => s.openDiffInEditor);
-  const setLayout = useAppStore((s) => s.setLayout);
 
   const fetchBranchMeta = useCallback(async () => {
     if (!workspaceCwd) return;
@@ -179,7 +178,6 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
       oldContent: result.oldContent,
       newContent: result.newContent,
     });
-    setLayout({ patch: { editorVisible: true } });
   }
 
   function handleLoadMore() {

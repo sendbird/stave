@@ -184,6 +184,28 @@ import {
   type WorkspaceCliSessionTab,
   type WorkspaceTerminalTab,
 } from "@/lib/terminal/types";
+import {
+  buildPanePanelId,
+  parsePanePanelId,
+} from "@/lib/panes/types";
+import {
+  reduceActiveSurfaceFromPane,
+  reduceCloseCompareRun,
+  reduceCloseLensTab,
+  reduceCloseTaskTab,
+  reducePaneTabMeta,
+  removePaneTabMetaEntry,
+  type WorkspacePaneStoreActions,
+  type WorkspacePaneStoreState,
+} from "@/store/workspace-pane-state";
+import {
+  getCachedWorkspaceFiles,
+  isWorkspaceTargetCurrent,
+  rememberCachedWorkspaceFiles,
+  removeCachedWorkspaceFiles,
+  resolveInitialWorkspaceFiles,
+  resolveWorkspacePathForId,
+} from "@/store/workspace-file-cache";
 import { resolveSkillSelections } from "@/lib/skills/catalog";
 import type { SkillCatalogEntry, SkillCatalogRoot } from "@/lib/skills/types";
 import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
@@ -296,9 +318,14 @@ import type {
   Task,
 } from "@/types/chat";
 import {
-  getLensCommentImageId,
   shouldIncludeImageAttachmentAsProviderContext,
 } from "@/lib/lens/lens-annotation-attachment";
+import {
+  buildPromptDraftContentForSend,
+  buildPromptDraftDisplayContentForSend,
+  buildPromptDraftDisplayPartsForSend,
+  getImageAttachmentMimeType,
+} from "@/store/prompt-draft-message-content";
 import { DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE } from "@/types/chat";
 import {
   arePromptDraftRuntimeOverridesEqual,
@@ -344,11 +371,6 @@ import {
   type LayoutState,
   DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
   WORKSPACE_SIDEBAR_MIN_WIDTH,
-  MIN_EDITOR_PANEL_WIDTH,
-  DEFAULT_EDITOR_PANEL_WIDTH,
-  MIN_LENS_PANEL_WIDTH,
-  DEFAULT_LENS_PANEL_WIDTH,
-  MAX_LENS_PANEL_WIDTH,
   mergeLayoutPatch,
   normalizeLayoutState,
   isDiffEditorTab,
@@ -438,11 +460,6 @@ const LOCAL_ABORT_SYSTEM_EVENT_CONTENT =
 
 export {
   WORKSPACE_SIDEBAR_MIN_WIDTH,
-  MIN_EDITOR_PANEL_WIDTH,
-  DEFAULT_EDITOR_PANEL_WIDTH,
-  MIN_LENS_PANEL_WIDTH,
-  DEFAULT_LENS_PANEL_WIDTH,
-  MAX_LENS_PANEL_WIDTH,
 } from "@/store/layout.utils";
 export type { LayoutState } from "@/store/layout.utils";
 export {
@@ -534,137 +551,6 @@ function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
     return FLEET_VIEW_APP_SURFACE;
   }
   return WORKSPACE_APP_SURFACE;
-}
-
-function buildPromptDraftContentForSend(draft: PromptDraft): string {
-  return [
-    ...(draft.promptBatch ?? []).map((item) => item.content.trim()),
-    draft.text.trim(),
-    ...draft.attachments
-      .filter(
-        (
-          attachment,
-        ): attachment is Extract<Attachment, { kind: "lens-annotations" }> =>
-          attachment.kind === "lens-annotations",
-      )
-      .map((attachment) => attachment.content.trim()),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
-
-function buildPromptDraftDisplayContentForSend(draft: PromptDraft): string {
-  return [
-    ...(draft.promptBatch ?? []).map((item) => item.content.trim()),
-    draft.text.trim(),
-    ...draft.attachments
-      .filter(
-        (
-          attachment,
-        ): attachment is Extract<Attachment, { kind: "lens-annotations" }> =>
-          attachment.kind === "lens-annotations",
-      )
-      .map((attachment) =>
-        (attachment.displayContent ?? attachment.content).trim(),
-      ),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
-
-function buildPromptDraftDisplayPartsForSend(
-  draft: PromptDraft,
-): MessagePart[] | undefined {
-  const parts: MessagePart[] = [];
-  let hasLensAnnotation = false;
-  let hasWorkspaceInformationReference = false;
-
-  for (const item of draft.promptBatch ?? []) {
-    const text = item.content.trim();
-    if (text) {
-      parts.push({ type: "text", text });
-    }
-    for (const attachment of item.attachments ?? []) {
-      if (shouldIncludeImageAttachmentAsProviderContext(attachment, true)) {
-        parts.push({
-          type: "image_context",
-          dataUrl: attachment.dataUrl,
-          label: attachment.label,
-          mimeType: getImageAttachmentMimeType(attachment),
-        });
-      }
-    }
-  }
-
-  const draftText = draft.text.trim();
-  if (draftText) {
-    parts.push({ type: "text", text: draftText });
-  }
-
-  for (const attachment of draft.attachments) {
-    if (attachment.kind !== "workspace-information") {
-      continue;
-    }
-    hasWorkspaceInformationReference = true;
-    parts.push({
-      type: "workspace_information_context",
-      reference: attachment.reference,
-    });
-  }
-
-  const imageAttachmentsById = new Map(
-    draft.attachments
-      .filter(
-        (attachment): attachment is Extract<Attachment, { kind: "image" }> =>
-          attachment.kind === "image",
-      )
-      .map((attachment) => [attachment.id, attachment]),
-  );
-
-  for (const attachment of draft.attachments) {
-    if (attachment.kind !== "lens-annotations") {
-      continue;
-    }
-    hasLensAnnotation = true;
-    for (const annotation of attachment.annotations ?? []) {
-      const screenshot = attachment.workspaceId
-        ? imageAttachmentsById.get(
-            getLensCommentImageId({
-              workspaceId: attachment.workspaceId,
-              annotationId: annotation.id,
-            }),
-          )
-        : null;
-      if (screenshot) {
-        parts.push({
-          type: "image_context",
-          dataUrl: screenshot.dataUrl,
-          label:
-            annotation.comment.trim() || `Visual comment ${annotation.pin}`,
-          mimeType: getImageAttachmentMimeType(screenshot),
-        });
-        continue;
-      }
-      const comment = annotation.comment.trim();
-      if (comment) {
-        parts.push({
-          type: "text",
-          text: comment,
-        });
-      }
-    }
-  }
-
-  const hasBatchAttachment = (draft.promptBatch ?? []).some(
-    (item) => (item.attachments?.length ?? 0) > 0,
-  );
-
-  return (hasLensAnnotation ||
-    hasBatchAttachment ||
-    hasWorkspaceInformationReference) &&
-    parts.length > 0
-    ? parts
-    : undefined;
 }
 
 function buildWorkspaceInformationReferencesRetrievedContext(args: {
@@ -766,12 +652,6 @@ function getPromptDraftAttachments(draft: PromptDraft) {
   ];
 }
 
-function getImageAttachmentMimeType(
-  attachment: Extract<Attachment, { kind: "image" }>,
-) {
-  return attachment.mimeType?.trim() || "image/png";
-}
-
 function buildQueuedTurnFromDraft(args: {
   draft: PromptDraft;
   sourceTurnId?: string;
@@ -833,6 +713,10 @@ function resolveTaskRuntimeTarget(args: {
     | "cliSessionTabs"
     | "activeCliSessionTabId"
     | "activeSurface"
+    | "openTaskTabIds"
+    | "lensTabs"
+    | "paneTabMeta"
+    | "dockLayout"
     | "activeTurnIdsByTask"
     | "providerSessionByTask"
     | "providerGoalByTask"
@@ -903,6 +787,10 @@ function getWorkspaceSessionForState(args: {
     | "cliSessionTabs"
     | "activeCliSessionTabId"
     | "activeSurface"
+    | "openTaskTabIds"
+    | "lensTabs"
+    | "paneTabMeta"
+    | "dockLayout"
     | "activeTurnIdsByTask"
     | "providerSessionByTask"
     | "providerGoalByTask"
@@ -1426,7 +1314,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   lensCdpApprovedHosts: string[];
 }
 
-interface AppState extends WorkspaceKickoffActions {
+interface AppState
+  extends WorkspaceKickoffActions,
+    WorkspacePaneStoreState,
+    WorkspacePaneStoreActions {
   hasHydratedWorkspaces: boolean;
   workspaceSnapshotVersion: number;
   promptDraftPersistenceVersion: number;
@@ -1698,10 +1589,6 @@ interface AppState extends WorkspaceKickoffActions {
   renameCliSessionTab: (args: { tabId: string; title: string }) => void;
   reorderCliSessionTabs: (args: { fromTabId: string; toTabId: string }) => void;
   closeCliSessionTab: (args: { tabId: string }) => void;
-  setActiveTerminalTab: (args: {
-    tabId: string | null;
-    openDock?: boolean;
-  }) => void;
   renameTerminalTab: (args: { tabId: string; title: string }) => void;
   reorderTerminalTabs: (args: { fromTabId: string; toTabId: string }) => void;
   closeTerminalTab: (args: { tabId: string }) => void;
@@ -1822,7 +1709,6 @@ interface AppState extends WorkspaceKickoffActions {
     fallbackContent?: string;
   }) => Promise<void>;
   setActiveEditorTab: (args: { tabId: string }) => void;
-  reorderEditorTabs: (args: { fromTabId: string; toTabId: string }) => void;
   closeEditorTab: (args: { tabId: string }) => void;
   requestCloseActiveEditorTab: () => void;
   clearPendingCloseEditorTab: () => void;
@@ -1835,150 +1721,6 @@ interface AppState extends WorkspaceKickoffActions {
     taskId: string;
     instruction?: string;
   }) => void;
-}
-
-function getCachedWorkspaceFiles(args: {
-  workspacePath?: string | null;
-  workspaceFileCacheByPath: Record<string, string[]>;
-}) {
-  if (!args.workspacePath) {
-    return [];
-  }
-  return args.workspaceFileCacheByPath[args.workspacePath] ?? [];
-}
-
-function resolveInitialWorkspaceFiles(args: {
-  workspacePath?: string | null;
-  activeProjectPath?: string | null;
-  activeProjectFiles: string[];
-  workspaceFileCacheByPath: Record<string, string[]>;
-}) {
-  const workspacePath = args.workspacePath?.trim();
-  if (!workspacePath) {
-    return [];
-  }
-  if (
-    Object.prototype.hasOwnProperty.call(
-      args.workspaceFileCacheByPath,
-      workspacePath,
-    )
-  ) {
-    return args.workspaceFileCacheByPath[workspacePath] ?? [];
-  }
-  if (
-    args.activeProjectPath &&
-    normalizeComparablePath(args.activeProjectPath) ===
-      normalizeComparablePath(workspacePath)
-  ) {
-    return args.activeProjectFiles;
-  }
-  return [];
-}
-
-function rememberCachedWorkspaceFiles(args: {
-  workspaceFileCacheByPath: Record<string, string[]>;
-  workspacePath?: string | null;
-  files: string[];
-}) {
-  if (!args.workspacePath) {
-    return args.workspaceFileCacheByPath;
-  }
-  const currentFiles = args.workspaceFileCacheByPath[args.workspacePath];
-  if (currentFiles && areStringArraysEqual(currentFiles, args.files)) {
-    return args.workspaceFileCacheByPath;
-  }
-  return {
-    ...args.workspaceFileCacheByPath,
-    [args.workspacePath]: args.files,
-  };
-}
-
-function removeCachedWorkspaceFiles(args: {
-  workspaceFileCacheByPath: Record<string, string[]>;
-  workspacePaths: Array<string | null | undefined>;
-}) {
-  const removablePaths = [
-    ...new Set(
-      args.workspacePaths
-        .map((workspacePath) => workspacePath?.trim())
-        .filter((workspacePath): workspacePath is string =>
-          Boolean(workspacePath),
-        ),
-    ),
-  ];
-  if (removablePaths.length === 0) {
-    return args.workspaceFileCacheByPath;
-  }
-  let changed = false;
-  const nextWorkspaceFileCacheByPath = { ...args.workspaceFileCacheByPath };
-  for (const workspacePath of removablePaths) {
-    if (!(workspacePath in nextWorkspaceFileCacheByPath)) {
-      continue;
-    }
-    delete nextWorkspaceFileCacheByPath[workspacePath];
-    changed = true;
-  }
-  return changed ? nextWorkspaceFileCacheByPath : args.workspaceFileCacheByPath;
-}
-
-function resolveWorkspacePathForId(args: {
-  activeWorkspaceId: string;
-  workspaceId?: string;
-  workspacePathById: Record<string, string>;
-  workspaceDefaultById: Record<string, boolean>;
-  projectPath: string | null;
-}) {
-  const workspaceId = args.workspaceId ?? args.activeWorkspaceId;
-  if (!workspaceId) {
-    return null;
-  }
-  return (
-    args.workspacePathById[workspaceId] ??
-    (args.workspaceDefaultById[workspaceId] ? (args.projectPath ?? null) : null)
-  );
-}
-
-function isWorkspaceTargetCurrent(args: {
-  state: {
-    projectPath: string | null;
-    workspaces: WorkspaceSummary[];
-    activeWorkspaceId: string;
-    workspacePathById: Record<string, string>;
-    workspaceDefaultById: Record<string, boolean>;
-  };
-  workspaceId: string;
-  workspacePath?: string | null;
-  projectPath?: string | null;
-}) {
-  if (
-    args.projectPath !== undefined &&
-    normalizeComparablePath(args.state.projectPath) !==
-      normalizeComparablePath(args.projectPath)
-  ) {
-    return false;
-  }
-  if (
-    !args.state.workspaces.some(
-      (workspace) => workspace.id === args.workspaceId,
-    )
-  ) {
-    return false;
-  }
-  if (args.workspacePath === undefined) {
-    return true;
-  }
-
-  const currentWorkspacePath = resolveWorkspacePathForId({
-    activeWorkspaceId: args.state.activeWorkspaceId,
-    workspaceId: args.workspaceId,
-    workspacePathById: args.state.workspacePathById,
-    workspaceDefaultById: args.state.workspaceDefaultById,
-    projectPath: args.state.projectPath,
-  });
-  return (
-    normalizeComparablePath(currentWorkspacePath) ===
-    normalizeComparablePath(args.workspacePath)
-  );
 }
 
 function mergeNotificationIntoList(args: {
@@ -3619,6 +3361,10 @@ export const useAppStore = create<AppState>()(
           cliSessionTabs: args.session.cliSessionTabs,
           activeCliSessionTabId: args.session.activeCliSessionTabId,
           activeSurface: args.session.activeSurface,
+          openTaskTabIds: args.session.openTaskTabIds,
+          lensTabs: args.session.lensTabs,
+          paneTabMeta: args.session.paneTabMeta,
+          dockLayout: args.session.dockLayout,
           providerSessionByTask: args.session.providerSessionByTask,
         });
       };
@@ -4957,12 +4703,7 @@ export const useAppStore = create<AppState>()(
           workspaceSidebarCollapsed: false,
           workspaceSidebarItemDisplayMode:
             DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
-          editorPanelWidth: DEFAULT_EDITOR_PANEL_WIDTH,
           explorerPanelWidth: 300,
-          lensPanelWidthByWorkspaceId: {},
-          lensDisplayModeByWorkspaceId: {},
-          terminalDockHeight: 210,
-          editorVisible: false,
           sidebarOverlayVisible: false,
           sidebarOverlayTab: "explorer",
           terminalDocked: false,
@@ -4978,6 +4719,10 @@ export const useAppStore = create<AppState>()(
         activeCliSessionTabId: null,
         activeAppSurface: WORKSPACE_APP_SURFACE,
         activeSurface: { kind: "task", taskId: "" },
+        openTaskTabIds: [],
+        lensTabs: [],
+        paneTabMeta: {},
+        dockLayout: null,
         focusPendingInteractionRequest: null,
         pendingCloseEditorTabId: null,
         pendingEditorSelection: null,
@@ -5925,6 +5670,10 @@ export const useAppStore = create<AppState>()(
             cliSessionTabs: state.cliSessionTabs,
             activeCliSessionTabId: state.activeCliSessionTabId,
             activeSurface: state.activeSurface,
+            openTaskTabIds: state.openTaskTabIds,
+            lensTabs: state.lensTabs,
+            paneTabMeta: state.paneTabMeta,
+            dockLayout: state.dockLayout,
             providerSessionByTask: state.providerSessionByTask,
           });
 
@@ -5956,6 +5705,10 @@ export const useAppStore = create<AppState>()(
             cliSessionTabs: state.cliSessionTabs,
             activeCliSessionTabId: state.activeCliSessionTabId,
             activeSurface: state.activeSurface,
+            openTaskTabIds: state.openTaskTabIds,
+            lensTabs: state.lensTabs,
+            paneTabMeta: state.paneTabMeta,
+            dockLayout: state.dockLayout,
             providerSessionByTask: state.providerSessionByTask,
           });
 
@@ -6266,7 +6019,6 @@ export const useAppStore = create<AppState>()(
               taskWorkspaceIdById: nextTaskWorkspaceIdById,
               layout: {
                 ...state.layout,
-                editorVisible: false,
                 sidebarOverlayVisible: false,
                 terminalDocked: false,
               },
@@ -7775,6 +7527,10 @@ export const useAppStore = create<AppState>()(
                 kind: "task",
                 taskId: snapshot.activeTaskId,
               },
+              openTaskTabIds: snapshot.openTaskTabIds,
+              lensTabs: snapshot.lensTabs,
+              paneTabMeta: snapshot.paneTabMeta,
+              dockLayout: snapshot.dockLayout,
               providerSessionByTask: snapshot.providerSessionByTask,
             });
           }
@@ -8679,6 +8435,9 @@ export const useAppStore = create<AppState>()(
             activeTaskId: taskId,
             activeAppSurface: WORKSPACE_APP_SURFACE,
             activeSurface: { kind: "task", taskId },
+            openTaskTabIds: state.openTaskTabIds.includes(taskId)
+              ? state.openTaskTabIds
+              : [...state.openTaskTabIds, taskId],
             workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
           }));
           if (workspaceId && shouldLoadMessages) {
@@ -8983,6 +8742,7 @@ export const useAppStore = create<AppState>()(
               activeTaskId: nextTask.id,
               activeAppSurface: WORKSPACE_APP_SURFACE,
               activeSurface: { kind: "task", taskId: nextTask.id },
+              openTaskTabIds: [...state.openTaskTabIds, nextTask.id],
               messagesByTask: {
                 ...state.messagesByTask,
                 [nextTask.id]: [],
@@ -9064,6 +8824,9 @@ export const useAppStore = create<AppState>()(
               activeTaskId: taskId,
               activeAppSurface: WORKSPACE_APP_SURFACE,
               activeSurface: { kind: "task", taskId },
+              openTaskTabIds: state.openTaskTabIds.includes(taskId)
+                ? state.openTaskTabIds
+                : [...state.openTaskTabIds, taskId],
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(state),
             };
@@ -9127,6 +8890,8 @@ export const useAppStore = create<AppState>()(
             return {
               tasks: [duplicatedTask, ...state.tasks],
               activeTaskId: duplicatedTask.id,
+              activeSurface: { kind: "task", taskId: duplicatedTask.id },
+              openTaskTabIds: [...state.openTaskTabIds, duplicatedTask.id],
               taskCheckpointById: {
                 ...state.taskCheckpointById,
                 [duplicatedTask.id]: state.taskCheckpointById[taskId] ?? "",
@@ -9527,6 +9292,9 @@ export const useAppStore = create<AppState>()(
             const nextActiveTaskId = shouldSwitch
               ? fallbackTaskId
               : state.activeTaskId;
+            const nextOpenTaskTabIds = state.openTaskTabIds.filter(
+              (openTaskId) => openTaskId !== taskId,
+            );
             return {
               tasks: nextTasks,
               activeTaskId: nextActiveTaskId,
@@ -9535,6 +9303,14 @@ export const useAppStore = create<AppState>()(
                 state.activeSurface.taskId === taskId
                   ? { kind: "task", taskId: nextActiveTaskId }
                   : state.activeSurface,
+              openTaskTabIds:
+                nextActiveTaskId && !nextOpenTaskTabIds.includes(nextActiveTaskId)
+                  ? [...nextOpenTaskTabIds, nextActiveTaskId]
+                  : nextOpenTaskTabIds,
+              paneTabMeta: removePaneTabMetaEntry({
+                paneTabMeta: state.paneTabMeta,
+                panelId: buildPanePanelId({ kind: "task", taskId }),
+              }),
               terminalTabs: nextTerminalTabs,
               cliSessionTabs: nextCliSessionTabs,
               messagesByTask: interrupted.messagesByTask,
@@ -9634,6 +9410,11 @@ export const useAppStore = create<AppState>()(
           set((current) => ({
             terminalTabs: [...current.terminalTabs, nextTab],
             activeTerminalTabId: nextTab.id,
+            activeAppSurface: WORKSPACE_APP_SURFACE,
+            activeSurface: {
+              kind: "terminal",
+              terminalTabId: nextTab.id,
+            },
             layout: {
               ...current.layout,
               terminalDocked: true,
@@ -9941,30 +9722,13 @@ export const useAppStore = create<AppState>()(
                     ? { kind: "cli-session", cliSessionTabId: fallbackTab.id }
                     : { kind: "task", taskId: state.activeTaskId }
                   : state.activeSurface,
-              workspaceSnapshotVersion:
-                incrementWorkspaceSnapshotVersion(state),
-            };
-          });
-        },
-        setActiveTerminalTab: ({ tabId, openDock }) => {
-          set((state) => {
-            if (tabId !== null && !findTerminalTabById(state, tabId)) {
-              return state;
-            }
-            const shouldUpdateDock = openDock && !state.layout.terminalDocked;
-            if (state.activeTerminalTabId === tabId && !shouldUpdateDock) {
-              return state;
-            }
-            return {
-              activeTerminalTabId: tabId,
-              ...(shouldUpdateDock
-                ? {
-                    layout: {
-                      ...state.layout,
-                      terminalDocked: true,
-                    },
-                  }
-                : {}),
+              paneTabMeta: removePaneTabMetaEntry({
+                paneTabMeta: state.paneTabMeta,
+                panelId: buildPanePanelId({
+                  kind: "cli-session",
+                  cliSessionTabId: tabId,
+                }),
+              }),
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(state),
             };
@@ -10028,6 +9792,20 @@ export const useAppStore = create<AppState>()(
             return {
               terminalTabs: nextTabs,
               activeTerminalTabId: nextActiveTerminalTabId,
+              activeSurface:
+                state.activeSurface.kind === "terminal" &&
+                state.activeSurface.terminalTabId === tabId
+                  ? fallbackTab
+                    ? { kind: "terminal", terminalTabId: fallbackTab.id }
+                    : { kind: "task", taskId: state.activeTaskId }
+                  : state.activeSurface,
+              paneTabMeta: removePaneTabMetaEntry({
+                paneTabMeta: state.paneTabMeta,
+                panelId: buildPanePanelId({
+                  kind: "terminal",
+                  terminalTabId: tabId,
+                }),
+              }),
               layout:
                 nextTabs.length === 0
                   ? {
@@ -10035,6 +9813,109 @@ export const useAppStore = create<AppState>()(
                       terminalDocked: false,
                     }
                   : state.layout,
+              workspaceSnapshotVersion:
+                incrementWorkspaceSnapshotVersion(state),
+            };
+          });
+        },
+        setActiveSurfaceFromPane: (surface) =>
+          set((state) =>
+            reduceActiveSurfaceFromPane({
+              state,
+              surface,
+              nextSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            }),
+          ),
+        closeTaskTab: ({ taskId }) =>
+          set((state) =>
+            reduceCloseTaskTab({
+              state,
+              taskId,
+              nextSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            }),
+          ),
+        closeCompareRun: ({ compareRunId }) =>
+          set((state) =>
+            reduceCloseCompareRun({
+              state,
+              compareRunId,
+              nextSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            }),
+          ),
+        createLensTab: () => {
+          const state = get();
+          if (!state.activeWorkspaceId) {
+            return null;
+          }
+          const nextTab = {
+            id: crypto.randomUUID(),
+            createdAt: Date.now(),
+          };
+          set((current) => ({
+            lensTabs: [...current.lensTabs, nextTab],
+            activeAppSurface: WORKSPACE_APP_SURFACE,
+            activeSurface: { kind: "lens", lensSessionId: nextTab.id },
+            workspaceSnapshotVersion:
+              incrementWorkspaceSnapshotVersion(current),
+          }));
+          return nextTab.id;
+        },
+        closeLensTab: ({ lensSessionId }) =>
+          set((state) =>
+            reduceCloseLensTab({
+              state,
+              lensSessionId,
+              nextSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            }),
+          ),
+        setPaneTabMeta: ({ panelId, meta }) =>
+          set((state) =>
+            reducePaneTabMeta({
+              state,
+              panelId,
+              meta,
+              nextSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            }),
+          ),
+        renamePaneTab: ({ panelId, title }) => {
+          const surface = parsePanePanelId(panelId);
+          const normalizedTitle = title.trim();
+          if (!surface || !normalizedTitle) {
+            return;
+          }
+          switch (surface.kind) {
+            case "task":
+              get().renameTask({
+                taskId: surface.taskId,
+                title: normalizedTitle,
+              });
+              return;
+            case "cli-session":
+              get().renameCliSessionTab({
+                tabId: surface.cliSessionTabId,
+                title: normalizedTitle,
+              });
+              return;
+            case "terminal":
+              get().renameTerminalTab({
+                tabId: surface.terminalTabId,
+                title: normalizedTitle,
+              });
+              return;
+            default:
+              get().setPaneTabMeta({
+                panelId,
+                meta: { customTitle: normalizedTitle },
+              });
+          }
+        },
+        setDockLayout: ({ layout }) => {
+          set((state) => {
+            if (state.dockLayout === layout) {
+              return state;
+            }
+            return {
+              dockLayout: layout,
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(state),
             };
@@ -10277,10 +10158,6 @@ export const useAppStore = create<AppState>()(
           set((state) => ({
             projectName: root.rootName,
             projectFiles: root.files,
-            layout: {
-              ...state.layout,
-              editorVisible: true,
-            },
           }));
         },
         refreshProjectFiles: async () => {
@@ -11601,6 +11478,10 @@ export const useAppStore = create<AppState>()(
                   activeCliSessionTabId:
                     inactiveWorkspaceSession.activeCliSessionTabId,
                   activeSurface: inactiveWorkspaceSession.activeSurface,
+                  openTaskTabIds: inactiveWorkspaceSession.openTaskTabIds,
+                  lensTabs: inactiveWorkspaceSession.lensTabs,
+                  paneTabMeta: inactiveWorkspaceSession.paneTabMeta,
+                  dockLayout: inactiveWorkspaceSession.dockLayout,
                   providerSessionByTask:
                     inactiveWorkspaceSession.providerSessionByTask,
                 });
@@ -11732,6 +11613,15 @@ export const useAppStore = create<AppState>()(
                           .activeCliSessionTabId,
                       activeSurface:
                         persistedInactiveWorkspaceSession.session.activeSurface,
+                      openTaskTabIds:
+                        persistedInactiveWorkspaceSession.session
+                          .openTaskTabIds,
+                      lensTabs:
+                        persistedInactiveWorkspaceSession.session.lensTabs,
+                      paneTabMeta:
+                        persistedInactiveWorkspaceSession.session.paneTabMeta,
+                      dockLayout:
+                        persistedInactiveWorkspaceSession.session.dockLayout,
                       providerSessionByTask:
                         persistedInactiveWorkspaceSession.session
                           .providerSessionByTask,
@@ -12622,7 +12512,6 @@ export const useAppStore = create<AppState>()(
                 activeEditorTabId: existing.id,
                 layout: {
                   ...state.layout,
-                  editorVisible: true,
                   editorDiffMode: true,
                   editorMarkdownPreviewMode: false,
                 },
@@ -12653,7 +12542,6 @@ export const useAppStore = create<AppState>()(
               activeEditorTabId: nextTab.id,
               layout: {
                 ...state.layout,
-                editorVisible: true,
                 editorDiffMode: true,
                 editorMarkdownPreviewMode: false,
               },
@@ -12672,7 +12560,6 @@ export const useAppStore = create<AppState>()(
                 activeEditorTabId: existing.id,
                 layout: {
                   ...state.layout,
-                  editorVisible: true,
                   editorDiffMode: false,
                   editorMarkdownPreviewMode: false,
                 },
@@ -12698,7 +12585,6 @@ export const useAppStore = create<AppState>()(
               activeEditorTabId: nextTab.id,
               layout: {
                 ...state.layout,
-                editorVisible: true,
                 editorDiffMode: false,
                 editorMarkdownPreviewMode: false,
               },
@@ -12784,7 +12670,6 @@ export const useAppStore = create<AppState>()(
                 activeEditorTabId: existing.id,
                 layout: {
                   ...state.layout,
-                  editorVisible: true,
                   editorDiffMode: false,
                   editorMarkdownPreviewMode: shouldPreviewMarkdown
                     ? true
@@ -12837,7 +12722,6 @@ export const useAppStore = create<AppState>()(
               activeEditorTabId: nextTab.id,
               layout: {
                 ...state.layout,
-                editorVisible: true,
                 editorDiffMode: false,
                 editorMarkdownPreviewMode: isMarkdownEditorTab(nextTab)
                   ? true
@@ -12891,30 +12775,6 @@ export const useAppStore = create<AppState>()(
             });
           }
         },
-        reorderEditorTabs: ({ fromTabId, toTabId }) =>
-          set((state) => {
-            const fromIndex = state.editorTabs.findIndex(
-              (tab) => tab.id === fromTabId,
-            );
-            const toIndex = state.editorTabs.findIndex(
-              (tab) => tab.id === toTabId,
-            );
-            if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
-              return {};
-            }
-
-            const nextTabs = [...state.editorTabs];
-            const [movedTab] = nextTabs.splice(fromIndex, 1);
-            if (!movedTab) {
-              return {};
-            }
-            nextTabs.splice(toIndex, 0, movedTab);
-            return {
-              editorTabs: nextTabs,
-              workspaceSnapshotVersion:
-                incrementWorkspaceSnapshotVersion(state),
-            };
-          }),
         closeEditorTab: ({ tabId }) =>
           set((state) => {
             const closingIndex = state.editorTabs.findIndex(
@@ -12935,7 +12795,6 @@ export const useAppStore = create<AppState>()(
                 pendingEditorSelection: null,
                 layout: {
                   ...state.layout,
-                  editorVisible: false,
                   editorDiffMode: false,
                   editorMarkdownPreviewMode: false,
                 },

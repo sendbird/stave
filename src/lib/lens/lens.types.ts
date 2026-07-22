@@ -2,17 +2,54 @@
 // Browser feature – shared types (renderer + main via IPC)
 // ---------------------------------------------------------------------------
 
+/**
+ * Session id used when a caller does not pass an explicit lensSessionId.
+ * Every legacy (workspace-only) lens API call transparently targets this
+ * session, preserving the historical one-view-per-workspace behavior.
+ */
+export const DEFAULT_LENS_SESSION_ID = "default";
+
 export interface BrowserNavigationState {
   url: string;
   title: string;
   canGoBack: boolean;
   canGoForward: boolean;
   isLoading: boolean;
+  faviconUrl?: string;
 }
 
 export interface BrowserNavigationEventPayload {
   workspaceId: string;
+  /** Absent only in payloads from pre-multi-session builds; treat as "default". */
+  lensSessionId?: string;
   state: BrowserNavigationState;
+}
+
+/**
+ * Flattened per-session state snapshot emitted on every navigation, load,
+ * title, or favicon change (`lens:state-changed`). Tab chips should prefer
+ * this over `lens:navigation-event`.
+ */
+export interface LensStateChangedPayload {
+  workspaceId: string;
+  lensSessionId: string;
+  url: string;
+  title: string;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  loading: boolean;
+  faviconUrl?: string;
+}
+
+/** Summary of one live lens session (renderer + MCP share this registry). */
+export interface LensSessionDescriptor {
+  workspaceId: string;
+  lensSessionId: string;
+  url: string;
+  title: string;
+  isLoading: boolean;
+  managedByMcp: boolean;
+  sessionScope: LensSessionScope;
 }
 
 export interface ElementPickerResult {
@@ -40,6 +77,8 @@ export interface BrowserConsoleEntry {
 
 export interface BrowserConsoleEventPayload {
   workspaceId: string;
+  /** Absent only in payloads from pre-multi-session builds; treat as "default". */
+  lensSessionId?: string;
   entry: BrowserConsoleEntry;
 }
 
@@ -55,6 +94,8 @@ export interface BrowserNetworkEntry {
 
 export interface BrowserNetworkEventPayload {
   workspaceId: string;
+  /** Absent only in payloads from pre-multi-session builds; treat as "default". */
+  lensSessionId?: string;
   entry: BrowserNetworkEntry;
 }
 
@@ -182,6 +223,8 @@ export type LensAnnotationEventType =
 
 export interface LensAnnotationEventPayload {
   workspaceId: string;
+  /** Absent only in payloads from pre-multi-session builds; treat as "default". */
+  lensSessionId?: string;
   type: LensAnnotationEventType;
   /** Present for add/update/remove. */
   annotation?: LensAnnotation;
@@ -212,6 +255,8 @@ export interface LensDownloadEntry {
 
 export interface LensDownloadEventPayload {
   workspaceId: string;
+  /** Absent only in payloads from pre-multi-session builds; treat as "default". */
+  lensSessionId?: string;
   entry: LensDownloadEntry;
 }
 
@@ -245,6 +290,11 @@ export interface LensSecurityConfig {
 
 export interface LensCdpApprovalRequestPayload {
   workspaceId: string;
+  /**
+   * Lens session that triggered the CDP request. Optional for back-compat
+   * with older payloads; absent means the default session ("default").
+   */
+  lensSessionId?: string;
   requestId: string;
   url: string;
   host: string;

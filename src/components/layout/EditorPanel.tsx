@@ -17,7 +17,6 @@ import { WorkspaceChangesPanel, type WorkspaceChecksViewModel } from "./Workspac
 import { WorkspaceExplorerPanel } from "./WorkspaceExplorerPanel";
 import { WorkspaceInformationPanel } from "./WorkspaceInformationPanel";
 import { WorkspaceInformationSectionMenu } from "./WorkspaceInformationSectionMenu";
-import { WorkspaceLensPanel } from "./WorkspaceLensPanel";
 import { EXPLORER_SEARCH_REQUEST_EVENT } from "./explorer-search-events";
 import {
   buildSourceControlSections,
@@ -56,7 +55,6 @@ interface EditorPanelProps {
     projectPath?: string | null;
     section?: SectionId;
   }) => void;
-  lensOccluded?: boolean;
 }
 
 function getParentDirectoryPath(args: { path: string }) {
@@ -108,7 +106,6 @@ export function EditorPanel(props: EditorPanelProps) {
     turnIntentCompliance,
     openFileFromTree,
     openDiffInEditor,
-    setLayout,
     refreshProjectFiles,
     closeEditorTab,
     updateSettings,
@@ -129,7 +126,6 @@ export function EditorPanel(props: EditorPanelProps) {
     state.turnIntentComplianceByWorkspace[state.activeWorkspaceId],
     state.openFileFromTree,
     state.openDiffInEditor,
-    state.setLayout,
     state.refreshProjectFiles,
     state.closeEditorTab,
     state.updateSettings,
@@ -585,7 +581,6 @@ export function EditorPanel(props: EditorPanelProps) {
       oldContent: parsed.oldContent,
       newContent: parsed.newContent,
     });
-    setLayout({ patch: { editorVisible: true } });
     if (!result.ok && result.stderr) {
       setSourceError(result.stderr);
     }
@@ -593,7 +588,6 @@ export function EditorPanel(props: EditorPanelProps) {
 
   function handleOpenExplorerFile(filePath: string, line?: number) {
     void openFileFromTree({ filePath, line });
-    setLayout({ patch: { editorVisible: true } });
   }
 
   function handleToggleExplorerFolder(path: string) {
@@ -1033,9 +1027,6 @@ export function EditorPanel(props: EditorPanelProps) {
           ) : null}
           {rightTab === "scripts" ? (
             <WorkspaceScriptsPanel onOpenSettings={props.onOpenSettings} />
-          ) : null}
-          {rightTab === "lens" ? (
-            <WorkspaceLensPanel occluded={props.lensOccluded} />
           ) : null}
         </RightRailPanelShell>
       </div>

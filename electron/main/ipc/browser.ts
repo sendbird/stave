@@ -9,8 +9,10 @@ import path from "node:path";
 import {
   clearBrowserSessionData,
   destroyBrowserSession,
+  destroyWorkspaceBrowserSessions,
   getBrowserSession,
   getWebContentsForSession,
+  listBrowserSessions,
   setViewBounds,
   setViewVisible,
 } from "../browser/browser-manager";
@@ -49,6 +51,7 @@ import type {
   LensCdpApprovalResponse,
   LensDownloadEntry,
   LensSecurityConfig,
+  LensSessionDescriptor,
   LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
 
@@ -62,8 +65,9 @@ function toIso(): string {
 
 function resolveWebContents(
   workspaceId: string,
+  lensSessionId?: string,
 ): Electron.WebContents | undefined {
-  return getWebContentsForSession(workspaceId);
+  return getWebContentsForSession(workspaceId, lensSessionId);
 }
 
 function screenshotFilename(fullPage?: boolean): string {
@@ -131,14 +135,22 @@ export function registerBrowserHandlers() {
   // ---- Create view: create WebContentsView in main process (idempotent) ----
   ipcMain.handle(
     "lens:create-view",
-    async (_event, args: LensSessionProfileArgs) => {
+    async (
+      _event,
+      args: LensSessionProfileArgs & { lensSessionId?: string },
+    ) => {
       try {
         const { session } = ensureBrowserSessionWithEvents(args.workspaceId, {
           sessionScope: args.sessionScope,
           projectKey: args.projectKey,
+          lensSessionId: args.lensSessionId,
         });
         session.managedByMcp = false;
-        return { ok: true, sessionScope: session.sessionProfile.scope };
+        return {
+          ok: true,
+          sessionScope: session.sessionProfile.scope,
+          lensSessionId: session.lensSessionId,
+        };
       } catch (err) {
         return {
           ok: false,
@@ -148,13 +160,88 @@ export function registerBrowserHandlers() {
     },
   );
 
-  // ---- Destroy view: tear down session and remove view ----
+  // ---- Destroy view: tear down session(s) and remove view(s) ----
+  // Without lensSessionId this is the workspace-level dispose path and tears
+  // down EVERY session of the workspace (legacy semantics: the workspace had
+  // exactly one). With lensSessionId it tears down only that session.
   ipcMain.handle(
     "lens:destroy-view",
-    async (_event, args: { workspaceId: string }) => {
-      destroyBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      if (args.lensSessionId) {
+        destroyBrowserSession(args.workspaceId, args.lensSessionId);
+      } else {
+        destroyWorkspaceBrowserSessions(args.workspaceId);
+      }
       return { ok: true };
     },
+  );
+
+  // ---- Session lifecycle (multi-session lens tabs) ----
+  ipcMain.handle(
+    "lens:open-session",
+    async (
+      _event,
+      args: LensSessionProfileArgs & {
+        lensSessionId: string;
+        url?: string;
+      },
+    ) => {
+      try {
+        const { session, created } = ensureBrowserSessionWithEvents(
+          args.workspaceId,
+          {
+            sessionScope: args.sessionScope,
+            projectKey: args.projectKey,
+            lensSessionId: args.lensSessionId,
+          },
+        );
+        session.managedByMcp = false;
+
+        if (args.url?.trim()) {
+          const url = normalizeLensUrl(args.url);
+          assertNavigationAllowed(url);
+          await session.view.webContents.loadURL(url);
+        }
+
+        return {
+          ok: true,
+          created,
+          session: {
+            workspaceId: session.workspaceId,
+            lensSessionId: session.lensSessionId,
+            url: session.navigationState.url,
+            title: session.navigationState.title,
+            isLoading: session.navigationState.isLoading,
+            managedByMcp: session.managedByMcp,
+            sessionScope: session.sessionProfile.scope,
+          } satisfies LensSessionDescriptor,
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "lens:close-session",
+    async (_event, args: { workspaceId: string; lensSessionId: string }) => {
+      const existed = Boolean(
+        getBrowserSession(args.workspaceId, args.lensSessionId),
+      );
+      destroyBrowserSession(args.workspaceId, args.lensSessionId);
+      return { ok: true, closed: existed };
+    },
+  );
+
+  ipcMain.handle(
+    "lens:list-sessions",
+    async (_event, args: { workspaceId?: string }) => ({
+      ok: true,
+      sessions: listBrowserSessions(args?.workspaceId),
+    }),
   );
 
   ipcMain.handle(
@@ -178,8 +265,15 @@ export function registerBrowserHandlers() {
   // ---- Set bounds: sync placeholder div bounds → WebContentsView ----
   ipcMain.handle(
     "lens:set-bounds",
-    async (event, args: { workspaceId: string; bounds: LensBounds }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (
+      event,
+      args: {
+        workspaceId: string;
+        lensSessionId?: string;
+        bounds: LensBounds;
+      },
+    ) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -204,7 +298,7 @@ export function registerBrowserHandlers() {
           height: Math.round(args.bounds.height * zoomFactor),
         };
 
-        setViewBounds(args.workspaceId, scaled);
+        setViewBounds(args.workspaceId, scaled, args.lensSessionId);
         return { ok: true };
       } catch (err) {
         return {
@@ -218,8 +312,11 @@ export function registerBrowserHandlers() {
   // ---- Set visible: toggle WebContentsView visibility ----
   ipcMain.handle(
     "lens:set-visible",
-    async (_event, args: { workspaceId: string; visible: boolean }) => {
-      setViewVisible(args.workspaceId, args.visible);
+    async (
+      _event,
+      args: { workspaceId: string; lensSessionId?: string; visible: boolean },
+    ) => {
+      setViewVisible(args.workspaceId, args.visible, args.lensSessionId);
       return { ok: true };
     },
   );
@@ -227,8 +324,11 @@ export function registerBrowserHandlers() {
   // ---- Navigate ----
   ipcMain.handle(
     "lens:navigate",
-    async (_event, args: { workspaceId: string; url: string }) => {
-      const wc = resolveWebContents(args.workspaceId);
+    async (
+      _event,
+      args: { workspaceId: string; lensSessionId?: string; url: string },
+    ) => {
+      const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
       if (!wc) return { ok: false, message: "No browser session" };
 
       try {
@@ -248,8 +348,8 @@ export function registerBrowserHandlers() {
   // ---- Navigation controls ----
   ipcMain.handle(
     "lens:go-back",
-    async (_event, args: { workspaceId: string }) => {
-      const wc = resolveWebContents(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
       if (!wc) return { ok: false, message: "No browser session" };
       wc.goBack();
       return { ok: true };
@@ -258,8 +358,8 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:go-forward",
-    async (_event, args: { workspaceId: string }) => {
-      const wc = resolveWebContents(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
       if (!wc) return { ok: false, message: "No browser session" };
       wc.goForward();
       return { ok: true };
@@ -268,8 +368,8 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:reload",
-    async (_event, args: { workspaceId: string }) => {
-      const wc = resolveWebContents(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
       if (!wc) return { ok: false, message: "No browser session" };
       wc.reload();
       return { ok: true };
@@ -279,8 +379,8 @@ export function registerBrowserHandlers() {
   // ---- Get current state ----
   ipcMain.handle(
     "lens:get-state",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
       return {
         ok: true,
@@ -298,10 +398,11 @@ export function registerBrowserHandlers() {
       _event,
       args: {
         workspaceId: string;
+        lensSessionId?: string;
         options?: { fullPage?: boolean; clip?: { x: number; y: number; width: number; height: number } };
       },
     ) => {
-      const session = getBrowserSession(args.workspaceId);
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -339,13 +440,14 @@ export function registerBrowserHandlers() {
       _event,
       args: {
         workspaceId: string;
+        lensSessionId?: string;
         options?: {
           fullPage?: boolean;
           clip?: { x: number; y: number; width: number; height: number };
         };
       },
     ) => {
-      const session = getBrowserSession(args.workspaceId);
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -378,7 +480,7 @@ export function registerBrowserHandlers() {
           completedAt: now,
         };
         session.downloadLog.push(entry);
-        sendDownloadEvent(args.workspaceId, entry);
+        sendDownloadEvent(args.workspaceId, entry, session.lensSessionId);
 
         return { ok: true, path: savePath, entry };
       } catch (err) {
@@ -394,9 +496,14 @@ export function registerBrowserHandlers() {
     "lens:download-url",
     async (
       _event,
-      args: { workspaceId: string; url: string; filename?: string },
+      args: {
+        workspaceId: string;
+        lensSessionId?: string;
+        url: string;
+        filename?: string;
+      },
     ) => {
-      const session = getBrowserSession(args.workspaceId);
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -419,8 +526,8 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:download-page-assets",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -454,8 +561,8 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:list-downloads",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
       return { ok: true, entries: session.downloadLog.toArray() };
     },
@@ -466,9 +573,9 @@ export function registerBrowserHandlers() {
     "lens:get-dom",
     async (
       _event,
-      args: { workspaceId: string; selector?: string },
+      args: { workspaceId: string; lensSessionId?: string; selector?: string },
     ) => {
-      const session = getBrowserSession(args.workspaceId);
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -491,9 +598,13 @@ export function registerBrowserHandlers() {
     "lens:evaluate",
     async (
       _event,
-      args: { workspaceId: string; expression: string },
+      args: {
+        workspaceId: string;
+        lensSessionId?: string;
+        expression: string;
+      },
     ) => {
-      const session = getBrowserSession(args.workspaceId);
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -514,8 +625,11 @@ export function registerBrowserHandlers() {
   // ---- Console log ----
   ipcMain.handle(
     "lens:get-console-log",
-    async (_event, args: { workspaceId: string; limit?: number }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (
+      _event,
+      args: { workspaceId: string; lensSessionId?: string; limit?: number },
+    ) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       const entries = session.consoleLog.toArray();
@@ -527,8 +641,11 @@ export function registerBrowserHandlers() {
   // ---- Network log ----
   ipcMain.handle(
     "lens:get-network-log",
-    async (_event, args: { workspaceId: string; limit?: number }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (
+      _event,
+      args: { workspaceId: string; lensSessionId?: string; limit?: number },
+    ) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       const entries = session.networkLog.toArray();
@@ -542,9 +659,13 @@ export function registerBrowserHandlers() {
     "lens:start-element-picker",
     async (
       _event,
-      args: { workspaceId: string; options?: { extractDebugSource?: boolean } },
+      args: {
+        workspaceId: string;
+        lensSessionId?: string;
+        options?: { extractDebugSource?: boolean };
+      },
     ) => {
-      const wc = resolveWebContents(args.workspaceId);
+      const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
       if (!wc) return { ok: false, message: "No browser session" };
 
       try {
@@ -566,9 +687,13 @@ export function registerBrowserHandlers() {
     "lens:start-annotation-mode",
     async (
       _event,
-      args: { workspaceId: string; options?: { extractDebugSource?: boolean } },
+      args: {
+        workspaceId: string;
+        lensSessionId?: string;
+        options?: { extractDebugSource?: boolean };
+      },
     ) => {
-      const session = getBrowserSession(args.workspaceId);
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -590,7 +715,11 @@ export function registerBrowserHandlers() {
         session.annotationNonce = session.annotationNonce ?? randomUUID();
         session.annotationExtractDebugSource =
           args.options?.extractDebugSource ?? false;
-        await injectAnnotationOverlay(args.workspaceId, session.view.webContents);
+        await injectAnnotationOverlay(
+          args.workspaceId,
+          session.view.webContents,
+          args.lensSessionId,
+        );
         return { ok: true };
       } catch (err) {
         session.annotationOverlayActive = false;
@@ -605,8 +734,8 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:stop-annotation-mode",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -629,13 +758,17 @@ export function registerBrowserHandlers() {
   // ---- Box-model inspect overlay ----
   ipcMain.handle(
     "lens:start-box-inspect",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
         session.boxInspectActive = true;
-        await injectBoxInspectOverlay(args.workspaceId, session.view.webContents);
+        await injectBoxInspectOverlay(
+          args.workspaceId,
+          session.view.webContents,
+          args.lensSessionId,
+        );
         return { ok: true };
       } catch (err) {
         session.boxInspectActive = false;
@@ -649,8 +782,8 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:stop-box-inspect",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -667,8 +800,8 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:get-annotations",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -691,8 +824,15 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:remove-annotation",
-    async (_event, args: { workspaceId: string; annotationId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (
+      _event,
+      args: {
+        workspaceId: string;
+        lensSessionId?: string;
+        annotationId: string;
+      },
+    ) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -716,8 +856,8 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:clear-annotations",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -728,7 +868,11 @@ export function registerBrowserHandlers() {
         // Ignore overlay failures; navigation may already have destroyed page state.
       }
       session.annotations = [];
-      sendAnnotationEvent({ workspaceId: args.workspaceId, type: "clear" });
+      sendAnnotationEvent({
+        workspaceId: args.workspaceId,
+        lensSessionId: session.lensSessionId,
+        type: "clear",
+      });
       return { ok: true };
     },
   );
@@ -739,11 +883,12 @@ export function registerBrowserHandlers() {
       _event,
       args: {
         workspaceId: string;
+        lensSessionId?: string;
         selector: string;
         patch: Record<string, string>;
       },
     ) => {
-      const session = getBrowserSession(args.workspaceId);
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -765,8 +910,8 @@ export function registerBrowserHandlers() {
   // ---- Attach CDP debugger (for MCP tools) ----
   ipcMain.handle(
     "lens:attach-debugger",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
@@ -789,8 +934,8 @@ export function registerBrowserHandlers() {
   // ---- Detach CDP debugger ----
   ipcMain.handle(
     "lens:detach-debugger",
-    async (_event, args: { workspaceId: string }) => {
-      const session = getBrowserSession(args.workspaceId);
+    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       detachDebugger(session.view.webContents.id);

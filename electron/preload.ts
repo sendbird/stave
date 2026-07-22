@@ -72,7 +72,9 @@ import type {
   LensDownloadEventPayload,
   BrowserNavigationEventPayload,
   LensSecurityConfig,
+  LensSessionDescriptor,
   LensSessionProfileArgs,
+  LensStateChangedPayload,
   LensStyleEdit,
 } from "../src/lib/lens/lens.types";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
@@ -193,6 +195,7 @@ ipcRenderer.on(
 
 type LensVisualCommentShortcutPayload = {
   workspaceId: string;
+  lensSessionId?: string;
   key: string;
   code?: string;
   shiftKey?: boolean;
@@ -221,6 +224,18 @@ const lensConsoleEventSubscribers = new Set<
 const lensNetworkEventSubscribers = new Set<
   (payload: BrowserNetworkEventPayload) => void
 >();
+
+const lensStateChangedSubscribers = new Set<
+  (payload: LensStateChangedPayload) => void
+>();
+ipcRenderer.on(
+  "lens:state-changed",
+  (_event, payload: LensStateChangedPayload) => {
+    for (const subscriber of lensStateChangedSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
 
 const zoomChangeSubscribers = new Set<
   (payload: { factor: number; percent: number }) => void
@@ -1532,13 +1547,33 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         message?: string;
       }>,
-    createView: (args: LensSessionProfileArgs) =>
+    createView: (args: LensSessionProfileArgs & { lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:create-view", args) as Promise<{
         ok: boolean;
         sessionScope?: LensSessionProfileArgs["sessionScope"];
+        lensSessionId?: string;
         message?: string;
       }>,
-    destroyView: (args: { workspaceId: string }) =>
+    openSession: (
+      args: LensSessionProfileArgs & { lensSessionId: string; url?: string },
+    ) =>
+      ipcRenderer.invoke("lens:open-session", args) as Promise<{
+        ok: boolean;
+        created?: boolean;
+        session?: LensSessionDescriptor;
+        message?: string;
+      }>,
+    closeSession: (args: { workspaceId: string; lensSessionId: string }) =>
+      ipcRenderer.invoke("lens:close-session", args) as Promise<{
+        ok: boolean;
+        closed?: boolean;
+      }>,
+    listSessions: (args: { workspaceId?: string }) =>
+      ipcRenderer.invoke("lens:list-sessions", args) as Promise<{
+        ok: boolean;
+        sessions?: LensSessionDescriptor[];
+      }>,
+    destroyView: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:destroy-view", args) as Promise<{
         ok: boolean;
       }>,
@@ -1550,37 +1585,46 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     setBounds: (args: {
       workspaceId: string;
+      lensSessionId?: string;
       bounds: { x: number; y: number; width: number; height: number };
     }) =>
       ipcRenderer.invoke("lens:set-bounds", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    setVisible: (args: { workspaceId: string; visible: boolean }) =>
+    setVisible: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      visible: boolean;
+    }) =>
       ipcRenderer.invoke("lens:set-visible", args) as Promise<{
         ok: boolean;
       }>,
-    navigate: (args: { workspaceId: string; url: string }) =>
+    navigate: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      url: string;
+    }) =>
       ipcRenderer.invoke("lens:navigate", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    goBack: (args: { workspaceId: string }) =>
+    goBack: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:go-back", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    goForward: (args: { workspaceId: string }) =>
+    goForward: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:go-forward", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    reload: (args: { workspaceId: string }) =>
+    reload: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:reload", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    getState: (args: { workspaceId: string }) =>
+    getState: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:get-state", args) as Promise<{
         ok: boolean;
         state?: {
@@ -1589,6 +1633,7 @@ contextBridge.exposeInMainWorld("api", {
           canGoBack: boolean;
           canGoForward: boolean;
           isLoading: boolean;
+          faviconUrl?: string;
         };
         annotationModeActive?: boolean;
         boxInspectModeActive?: boolean;
@@ -1596,6 +1641,7 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     screenshot: (args: {
       workspaceId: string;
+      lensSessionId?: string;
       options?: {
         fullPage?: boolean;
         clip?: { x: number; y: number; width: number; height: number };
@@ -1608,6 +1654,7 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     saveScreenshot: (args: {
       workspaceId: string;
+      lensSessionId?: string;
       options?: {
         fullPage?: boolean;
         clip?: { x: number; y: number; width: number; height: number };
@@ -1621,6 +1668,7 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     downloadUrl: (args: {
       workspaceId: string;
+      lensSessionId?: string;
       url: string;
       filename?: string;
     }) =>
@@ -1629,7 +1677,7 @@ contextBridge.exposeInMainWorld("api", {
         entry?: LensDownloadEntry;
         message?: string;
       }>,
-    downloadPageAssets: (args: { workspaceId: string }) =>
+    downloadPageAssets: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:download-page-assets", args) as Promise<{
         ok: boolean;
         assetUrls?: string[];
@@ -1637,25 +1685,37 @@ contextBridge.exposeInMainWorld("api", {
         errors?: Array<{ url: string; message: string }>;
         message?: string;
       }>,
-    listDownloads: (args: { workspaceId: string }) =>
+    listDownloads: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:list-downloads", args) as Promise<{
         ok: boolean;
         entries?: LensDownloadEntry[];
         message?: string;
       }>,
-    getDom: (args: { workspaceId: string; selector?: string }) =>
+    getDom: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      selector?: string;
+    }) =>
       ipcRenderer.invoke("lens:get-dom", args) as Promise<{
         ok: boolean;
         html?: string;
         message?: string;
       }>,
-    evaluate: (args: { workspaceId: string; expression: string }) =>
+    evaluate: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      expression: string;
+    }) =>
       ipcRenderer.invoke("lens:evaluate", args) as Promise<{
         ok: boolean;
         result?: unknown;
         message?: string;
       }>,
-    getConsoleLog: (args: { workspaceId: string; limit?: number }) =>
+    getConsoleLog: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      limit?: number;
+    }) =>
       ipcRenderer.invoke("lens:get-console-log", args) as Promise<{
         ok: boolean;
         entries?: Array<{
@@ -1666,7 +1726,11 @@ contextBridge.exposeInMainWorld("api", {
         }>;
         message?: string;
       }>,
-    getNetworkLog: (args: { workspaceId: string; limit?: number }) =>
+    getNetworkLog: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      limit?: number;
+    }) =>
       ipcRenderer.invoke("lens:get-network-log", args) as Promise<{
         ok: boolean;
         entries?: Array<{
@@ -1679,6 +1743,7 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     startElementPicker: (args: {
       workspaceId: string;
+      lensSessionId?: string;
       options?: { extractDebugSource?: boolean };
     }) =>
       ipcRenderer.invoke("lens:start-element-picker", args) as Promise<{
@@ -1703,45 +1768,51 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     startAnnotationMode: (args: {
       workspaceId: string;
+      lensSessionId?: string;
       options?: { extractDebugSource?: boolean };
     }) =>
       ipcRenderer.invoke("lens:start-annotation-mode", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    stopAnnotationMode: (args: { workspaceId: string }) =>
+    stopAnnotationMode: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:stop-annotation-mode", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    startBoxInspect: (args: { workspaceId: string }) =>
+    startBoxInspect: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:start-box-inspect", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    stopBoxInspect: (args: { workspaceId: string }) =>
+    stopBoxInspect: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:stop-box-inspect", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    getAnnotations: (args: { workspaceId: string }) =>
+    getAnnotations: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:get-annotations", args) as Promise<{
         ok: boolean;
         annotations?: LensAnnotation[];
         message?: string;
       }>,
-    removeAnnotation: (args: { workspaceId: string; annotationId: string }) =>
+    removeAnnotation: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      annotationId: string;
+    }) =>
       ipcRenderer.invoke("lens:remove-annotation", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    clearAnnotations: (args: { workspaceId: string }) =>
+    clearAnnotations: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:clear-annotations", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
     setElementStyle: (args: {
       workspaceId: string;
+      lensSessionId?: string;
       selector: string;
       patch: Record<string, string>;
     }) =>
@@ -1756,6 +1827,14 @@ contextBridge.exposeInMainWorld("api", {
       lensNavigationEventSubscribers.add(listener);
       return () => {
         lensNavigationEventSubscribers.delete(listener);
+      };
+    },
+    subscribeStateChangedEvents: (
+      listener: (payload: LensStateChangedPayload) => void,
+    ) => {
+      lensStateChangedSubscribers.add(listener);
+      return () => {
+        lensStateChangedSubscribers.delete(listener);
       };
     },
     subscribeCdpApprovalRequests: (

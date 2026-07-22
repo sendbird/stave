@@ -9,6 +9,7 @@ import {
 import {
   memo,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -16,7 +17,10 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
-import { TERMINAL_WRITE_ERROR_THRESHOLD } from "@/components/layout/useTerminalInstance";
+import {
+  focusTerminalInstanceSurface,
+  TERMINAL_WRITE_ERROR_THRESHOLD,
+} from "@/components/layout/useTerminalInstance";
 import { useCliSessionManager } from "@/components/layout/useCliSessionManager";
 import { useCliTerminalInstance } from "@/components/layout/useCliTerminalInstance";
 import {
@@ -49,14 +53,23 @@ import { useAppStore } from "@/store/app.store";
 
 const CLI_SESSION_TRANSCRIPT_STORAGE_KEY = "stave:cli-session-transcript:v1";
 
+export interface CliSessionPanelProps {
+  /**
+   * Explicit CLI session tab to render. When provided the panel is scoped to
+   * that tab (pane host usage); otherwise it follows the store's active tab.
+   */
+  cliSessionTabId?: string;
+}
+
 export const CliSessionPanel = memo(CliSessionPanelImpl);
 
-function CliSessionPanelImpl() {
+function CliSessionPanelImpl(props: CliSessionPanelProps) {
+  const isScoped = props.cliSessionTabId !== undefined;
   const [
     activeWorkspaceId,
     workspacePath,
     cliSessionTabs,
-    activeCliSessionTabId,
+    scopedTabId,
     activeSurface,
     settings,
     isDarkMode,
@@ -70,7 +83,7 @@ function CliSessionPanelImpl() {
             state.projectPath ??
             "",
           state.cliSessionTabs,
-          state.activeCliSessionTabId,
+          props.cliSessionTabId ?? state.activeCliSessionTabId,
           state.activeSurface,
           state.settings,
           state.isDarkMode,
@@ -80,10 +93,13 @@ function CliSessionPanelImpl() {
   );
 
   const activeTab = useMemo(
-    () =>
-      cliSessionTabs.find((tab) => tab.id === activeCliSessionTabId) ?? null,
-    [activeCliSessionTabId, cliSessionTabs],
+    () => cliSessionTabs.find((tab) => tab.id === scopedTabId) ?? null,
+    [scopedTabId, cliSessionTabs],
   );
+  const isSurfaceVisible = isScoped
+    ? activeSurface.kind === "cli-session" &&
+      activeSurface.cliSessionTabId === scopedTabId
+    : activeSurface.kind === "cli-session";
   const handoffSummary = activeTab?.handoffSummary?.trim() ?? "";
   const getTabKey = useCallback(
     (tab: NonNullable<typeof activeTab>) =>
@@ -94,8 +110,8 @@ function CliSessionPanelImpl() {
     [activeWorkspaceId],
   );
   const activeTabKey = activeTab ? getTabKey(activeTab) : null;
-  const hasTabs = cliSessionTabs.length > 0;
-  const isVisible = hasTabs && activeSurface.kind === "cli-session";
+  const hasTabs = isScoped ? Boolean(activeTab) : cliSessionTabs.length > 0;
+  const isVisible = hasTabs && isSurfaceVisible;
   const [rendererRestartToken, setRendererRestartToken] = useState(0);
   const terminalContainerRef = useRef<HTMLDivElement | null>(null);
   const terminalInputHandlerRef = useRef<(input: string) => void>(() => {});
@@ -168,8 +184,10 @@ function CliSessionPanelImpl() {
   const terminalInstance = useCliTerminalInstance({
     containerRef: terminalContainerRef,
     instanceKey: activeTabKey ?? "no-cli-session",
-    enabled: Boolean(activeTab) && activeSurface.kind === "cli-session",
-    visible: activeSurface.kind === "cli-session",
+    // Scoped (pane) usage keeps the terminal attached while the panel is
+    // hidden — Dockview keep-alive retains the DOM for background tabs.
+    enabled: Boolean(activeTab) && (isScoped || isSurfaceVisible),
+    visible: isSurfaceVisible,
     restartToken: rendererRestartToken,
     fontFamily: settings.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY,
     fontSize: settings.terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE,
@@ -180,11 +198,30 @@ function CliSessionPanelImpl() {
     onResize: (cols, rows) => terminalResizeHandlerRef.current(cols, rows),
   });
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!isVisible || !terminalInstance.ready || !activeTabKey) {
       return;
     }
-    return terminalInstance.controller.focus() ?? undefined;
+    let cancelFocus = terminalInstance.controller.focus();
+    let settleTimer: number | null = null;
+    const settleFrame = window.requestAnimationFrame(() => {
+      settleTimer = window.setTimeout(() => {
+        // Dockview settles header focus after activating a tab. Re-assert the
+        // terminal focus once that transition has completed.
+        cancelFocus?.();
+        cancelFocus = terminalInstance.controller.focus();
+        focusTerminalInstanceSurface({
+          container: terminalContainerRef.current,
+        });
+      }, 50);
+    });
+    return () => {
+      window.cancelAnimationFrame(settleFrame);
+      if (settleTimer !== null) {
+        window.clearTimeout(settleTimer);
+      }
+      cancelFocus?.();
+    };
   }, [
     activeTabKey,
     isVisible,
@@ -202,11 +239,11 @@ function CliSessionPanelImpl() {
     writeToActiveSession,
   } = useCliSessionManager({
     activeTab,
-    activeTabId: activeCliSessionTabId,
+    activeTabId: scopedTabId,
     tabs: cliSessionTabs,
     workspaceId: activeWorkspaceId,
     transcriptStorageKey: CLI_SESSION_TRANSCRIPT_STORAGE_KEY,
-    isVisible: activeSurface.kind === "cli-session",
+    isVisible: isSurfaceVisible,
     getTabKey,
     createSession,
     slotKeyForTab,

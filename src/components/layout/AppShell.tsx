@@ -11,19 +11,21 @@ import { useShallow } from "zustand/react/shallow";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
-import { CompareRunPanel } from "@/components/compare/CompareRunPanel";
 import {
   COLLAPSED_PROJECT_SIDEBAR_WIDTH,
   ProjectWorkspaceSidebar,
 } from "@/components/layout/ProjectWorkspaceSidebar";
 import { PresetBar } from "@/components/layout/PresetBar";
-import { WorkspaceTaskTabs } from "@/components/layout/WorkspaceTaskTabs";
-import { CliSessionPanel } from "@/components/layout/CliSessionPanel";
+import { WorkspacePaneHost } from "@/components/panes/WorkspacePaneHost";
+import {
+  focusOrCreateLensSurface,
+  paneHost,
+} from "@/components/panes/pane-host-controller";
+import { closePaneSurface } from "@/components/panes/pane-surface-actions";
+import { useEditorPaneFocus } from "@/components/panes/use-editor-pane-focus";
 import { resolveLatestCompletedTurnTarget } from "@/components/layout/command-palette-navigation";
 import { useScriptsCommandPaletteContributor } from "@/components/layout/command-palette-scripts";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
-import { ChatArea } from "@/components/session/ChatArea";
-import { TerminalDock } from "@/components/layout/TerminalDock";
 import { Card, Toaster, toast } from "@/components/ui";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { QuitConfirmationDialog } from "@/components/layout/QuitConfirmationDialog";
@@ -33,16 +35,11 @@ import { isTaskArchived } from "@/lib/tasks";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
-  MIN_EDITOR_PANEL_WIDTH,
-  MIN_LENS_PANEL_WIDTH,
-  DEFAULT_LENS_PANEL_WIDTH,
-  MAX_LENS_PANEL_WIDTH,
   STAVE_OPEN_SETTINGS_EVENT,
   WORKSPACE_SIDEBAR_MIN_WIDTH,
   useAppStore,
   type LayoutState,
 } from "@/store/app.store";
-import { EditorMainPanel } from "@/components/layout/EditorMainPanel";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { RightRail } from "@/components/layout/RightRail";
 import { StatusBar } from "@/components/layout/StatusBar";
@@ -51,13 +48,13 @@ import {
   MIN_CHAT_PANEL_WIDTH,
   MIN_EXPLORER_PANEL_WIDTH,
   PANEL_SEPARATOR_WIDTH,
-  clampPanelWidth,
-  resolveDesktopRightPanelWidths,
 } from "@/components/layout/app-shell-layout";
 import {
   APP_SHORTCUT_CHORD_TIMEOUT_MS,
+  isClosePaneShortcut,
   isEditableShortcutTarget,
   isTerminalSurfaceTarget,
+  resolvePaneSplitShortcut,
   resolveShortcutChord,
   shouldAbortTaskOnEscape,
   type PendingShortcutChord,
@@ -65,6 +62,7 @@ import {
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
+import { buildPanePanelId } from "@/lib/panes/types";
 
 const EditorPanel = lazy(() =>
   import("@/components/layout/EditorPanel").then((module) => ({
@@ -87,11 +85,7 @@ const KickoffDialog = lazy(() =>
   })),
 );
 
-type ResizableLayoutKey =
-  | "workspaceSidebarWidth"
-  | "editorPanelWidth"
-  | "explorerPanelWidth"
-  | "terminalDockHeight";
+type ResizableLayoutKey = "workspaceSidebarWidth" | "explorerPanelWidth";
 
 const WORKSPACE_SIDEBAR_MAX_WIDTH = 340;
 
@@ -103,8 +97,6 @@ export function AppShell() {
     tasks,
     activeTaskId,
     activeAppSurface,
-    activeSurface,
-    cliSessionTabs,
     activeTurnIdsByTask,
     workspaces,
     activeWorkspaceId,
@@ -115,14 +107,9 @@ export function AppShell() {
     recentProjects,
     workspaceSidebarWidth,
     workspaceSidebarCollapsed,
-    editorVisible,
-    editorPanelWidth,
     sidebarOverlayVisible,
     sidebarOverlayTab,
     explorerPanelWidth,
-    lensPanelWidthByWorkspaceId,
-    terminalDocked,
-    terminalDockHeight,
     activeEditorTabId,
     appShortcutKeys,
     commandPaletteHiddenCommandIds,
@@ -152,8 +139,6 @@ export function AppShell() {
           state.tasks,
           state.activeTaskId,
           state.activeAppSurface,
-          state.activeSurface,
-          state.cliSessionTabs,
           state.activeTurnIdsByTask,
           state.workspaces,
           state.activeWorkspaceId,
@@ -164,14 +149,9 @@ export function AppShell() {
           state.recentProjects,
           state.layout.workspaceSidebarWidth,
           state.layout.workspaceSidebarCollapsed,
-          state.layout.editorVisible,
-          state.layout.editorPanelWidth,
           state.layout.sidebarOverlayVisible,
           state.layout.sidebarOverlayTab,
           state.layout.explorerPanelWidth,
-          state.layout.lensPanelWidthByWorkspaceId,
-          state.layout.terminalDocked,
-          state.layout.terminalDockHeight ?? 210,
           state.activeEditorTabId,
           state.settings.appShortcutKeys,
           state.settings.commandPaletteHiddenCommandIds,
@@ -196,6 +176,8 @@ export function AppShell() {
     ),
   );
   const showPresetBar = useAppStore((state) => state.settings.showPresetBar);
+  // Editor open actions only set activeEditorTabId; reveal the pane for them.
+  useEditorPaneFocus();
   const hasProject = Boolean(projectPath);
   const panelRowRef = useRef<HTMLDivElement>(null);
   const contentRowRef = useRef<HTMLDivElement>(null);
@@ -213,7 +195,6 @@ export function AppShell() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [kickoffOpen, setKickoffOpen] = useState(false);
   const [sidebarResizing, setSidebarResizing] = useState(false);
-  const [lensPanelResizing, setLensPanelResizing] = useState(false);
   const [contentRowWidth, setContentRowWidth] = useState(0);
   const [isLargeViewport, setIsLargeViewport] = useState(() =>
     typeof window === "undefined"
@@ -481,36 +462,15 @@ export function AppShell() {
   useEffect(() => {
     const unsubscribe = window.api?.window?.subscribeCloseShortcut?.(() => {
       const store = useAppStore.getState();
-      const {
-        editorTabs,
-        activeEditorTabId,
-        activeTaskId,
-        activeSurface,
-        activeCliSessionTabId,
-        settings,
-      } = store;
+      const { activeSurface, settings } = store;
 
-      if (activeEditorTabId && editorTabs.length > 0) {
-        store.requestCloseActiveEditorTab();
+      // Close the active pane tab with kind semantics (task close ≠ archive).
+      const panelId = buildPanePanelId(activeSurface);
+      if (store.paneTabMeta[panelId]?.pinned) {
         return;
       }
-
-      if (activeSurface.kind === "cli-session" && activeCliSessionTabId) {
-        const tab = store.cliSessionTabs.find(
-          (t) => t.id === activeCliSessionTabId,
-        );
-        if (tab) {
-          window.dispatchEvent(
-            new CustomEvent("stave:request-close-cli-session", {
-              detail: { id: tab.id, title: tab.title },
-            }),
-          );
-        }
-        return;
-      }
-
-      if (activeTaskId) {
-        store.archiveTask({ taskId: activeTaskId });
+      if (!(activeSurface.kind === "task" && !activeSurface.taskId)) {
+        closePaneSurface(activeSurface);
         return;
       }
 
@@ -648,27 +608,20 @@ export function AppShell() {
           return;
         }
         case "view.show-lens": {
-          const nextVisible = !(
-            store.layout.sidebarOverlayVisible &&
-            store.layout.sidebarOverlayTab === "lens"
-          );
-          store.setLayout({
-            patch: {
-              sidebarOverlayVisible: nextVisible,
-              sidebarOverlayTab: "lens",
-            },
-          });
+          focusOrCreateLensSurface();
           return;
         }
-        case "view.toggle-editor":
-          store.setLayout({
-            patch: { editorVisible: !store.layout.editorVisible },
-          });
+        case "view.toggle-editor": {
+          const editorTabId = store.activeEditorTabId;
+          if (editorTabId) {
+            paneHost.openSurface({ kind: "editor", editorTabId });
+          } else {
+            handleFocusFileSearch();
+          }
           return;
+        }
         case "view.toggle-terminal":
-          store.setLayout({
-            patch: { terminalDocked: !store.layout.terminalDocked },
-          });
+          paneHost.toggleTerminalGroup();
           return;
         default:
           break;
@@ -753,6 +706,24 @@ export function AppShell() {
       }
 
       if (inTerminalSurface && event.ctrlKey && !event.metaKey) {
+        return;
+      }
+
+      const paneSplitDirection = resolvePaneSplitShortcut(event);
+      if (paneSplitDirection) {
+        event.preventDefault();
+        event.stopPropagation();
+        paneHost.splitActivePanel(paneSplitDirection);
+        return;
+      }
+
+      if (isClosePaneShortcut(event)) {
+        const panelId = buildPanePanelId(store.activeSurface);
+        if (!store.paneTabMeta[panelId]?.pinned) {
+          event.preventDefault();
+          event.stopPropagation();
+          closePaneSurface(store.activeSurface);
+        }
         return;
       }
 
@@ -912,24 +883,13 @@ export function AppShell() {
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
-  useEffect(() => {
-    if (!isLargeViewport && editorVisible && sidebarOverlayVisible) {
-      setLayout({ patch: { sidebarOverlayVisible: false } });
-    }
-  }, [editorVisible, isLargeViewport, setLayout, sidebarOverlayVisible]);
-
   // Prewarm Monaco off-screen at idle time so the first real editor open does
-  // not block the main thread. If the editor panel is already visible, Monaco
-  // is mounting anyway and no separate warmup is needed.
+  // not block the main thread.
   const [monacoWarmupActive, setMonacoWarmupActive] = useState(false);
   const monacoWarmedRef = useRef(false);
 
   useEffect(() => {
     if (monacoWarmedRef.current) return;
-    if (editorVisible) {
-      monacoWarmedRef.current = true;
-      return;
-    }
     const win = window as Window & {
       requestIdleCallback?: (
         cb: () => void,
@@ -948,7 +908,7 @@ export function AppShell() {
       setMonacoWarmupActive(true);
     });
     return () => cancel(handle);
-  }, [editorVisible]);
+  }, []);
 
   const handleMonacoWarmed = useCallback(() => {
     monacoWarmedRef.current = true;
@@ -956,95 +916,35 @@ export function AppShell() {
   }, []);
 
   const hasMeasuredContentRowWidth = contentRowWidth > 0;
-  const canShowDesktopEditor =
-    !hasMeasuredContentRowWidth ||
-    contentRowWidth >=
-      MIN_CHAT_PANEL_WIDTH + MIN_EDITOR_PANEL_WIDTH + PANEL_SEPARATOR_WIDTH;
   const canShowDesktopSidebar =
     !hasMeasuredContentRowWidth ||
     contentRowWidth >=
       MIN_CHAT_PANEL_WIDTH + MIN_EXPLORER_PANEL_WIDTH + PANEL_SEPARATOR_WIDTH;
-  const canShowDesktopEditorAndSidebar =
-    !hasMeasuredContentRowWidth ||
-    contentRowWidth >=
-      MIN_CHAT_PANEL_WIDTH +
-        MIN_EDITOR_PANEL_WIDTH +
-        MIN_EXPLORER_PANEL_WIDTH +
-        PANEL_SEPARATOR_WIDTH * 2;
-
-  let showDesktopEditor = false;
-  let showDesktopSidebar = false;
-  let overlayRightPanelMode: "editor" | "sidebar" | null = null;
 
   // On compact laptop widths, keep the center panel readable by moving the
-  // secondary right-side panel into the overlay instead of overflowing inline.
-  if (!isLargeViewport) {
-    overlayRightPanelMode = editorVisible
-      ? "editor"
-      : sidebarOverlayVisible
-        ? "sidebar"
-        : null;
-  } else if (editorVisible && sidebarOverlayVisible) {
-    if (canShowDesktopEditorAndSidebar) {
-      showDesktopEditor = true;
-      showDesktopSidebar = true;
-    } else if (canShowDesktopEditor) {
-      showDesktopEditor = true;
-      overlayRightPanelMode = "sidebar";
-    } else if (canShowDesktopSidebar) {
-      showDesktopSidebar = true;
-      overlayRightPanelMode = "editor";
-    } else {
-      overlayRightPanelMode = "editor";
-    }
-  } else if (editorVisible) {
-    if (canShowDesktopEditor) {
-      showDesktopEditor = true;
-    } else {
-      overlayRightPanelMode = "editor";
-    }
-  } else if (sidebarOverlayVisible) {
-    if (canShowDesktopSidebar) {
+  // right-side panel into the overlay instead of overflowing inline. The
+  // editor-main / lens branches are gone: those surfaces are pane tabs now.
+  let showDesktopSidebar = false;
+  let showOverlayRightPanel = false;
+  if (sidebarOverlayVisible) {
+    if (isLargeViewport && canShowDesktopSidebar) {
       showDesktopSidebar = true;
     } else {
-      overlayRightPanelMode = "sidebar";
+      showOverlayRightPanel = true;
     }
   }
 
-  let desktopEditorWidth = editorPanelWidth;
   let desktopSidebarWidth = explorerPanelWidth;
-
   if (hasMeasuredContentRowWidth) {
-    ({ desktopEditorWidth, desktopSidebarWidth } =
-      resolveDesktopRightPanelWidths({
-        contentRowWidth,
-        preferredEditorWidth: editorPanelWidth,
-        preferredSidebarWidth: explorerPanelWidth,
-        showDesktopEditor,
-        showDesktopSidebar,
-      }));
+    const maxSidebarWidth = Math.max(
+      MIN_EXPLORER_PANEL_WIDTH,
+      contentRowWidth - MIN_CHAT_PANEL_WIDTH - PANEL_SEPARATOR_WIDTH,
+    );
+    desktopSidebarWidth = Math.min(
+      Math.max(explorerPanelWidth, MIN_EXPLORER_PANEL_WIDTH),
+      maxSidebarWidth,
+    );
   }
-
-  const showOverlayRightPanel = overlayRightPanelMode !== null;
-  const showLensOverlayPanel =
-    overlayRightPanelMode === "sidebar" && sidebarOverlayTab === "lens";
-  const maxLensPanelWidth = hasMeasuredContentRowWidth
-    ? Math.max(
-        MIN_LENS_PANEL_WIDTH,
-        Math.min(
-          MAX_LENS_PANEL_WIDTH,
-          contentRowWidth - MIN_CHAT_PANEL_WIDTH - PANEL_SEPARATOR_WIDTH,
-        ),
-      )
-    : MAX_LENS_PANEL_WIDTH;
-  const lensPanelWidth = clampPanelWidth(
-    activeWorkspaceId
-      ? (lensPanelWidthByWorkspaceId[activeWorkspaceId] ??
-          DEFAULT_LENS_PANEL_WIDTH)
-      : DEFAULT_LENS_PANEL_WIDTH,
-    MIN_LENS_PANEL_WIDTH,
-    maxLensPanelWidth,
-  );
   const modifierLabel = useMemo<"Cmd" | "Ctrl">(
     () =>
       typeof navigator !== "undefined" &&
@@ -1080,13 +980,6 @@ export function AppShell() {
   );
   const activeWorkspacePrStatus: WorkspacePrStatus =
     workspacePrInfoById[activeWorkspaceId]?.derived ?? "no_pr";
-  const hasBlockingOverlayOpen =
-    showCloseConfirm ||
-    showQuitConfirm ||
-    commandPaletteOpen ||
-    settingsOpen ||
-    shortcutsOpen ||
-    kickoffOpen;
   const commandPaletteContext = useMemo(
     () => ({
       activeEditorTabId,
@@ -1096,10 +989,8 @@ export function AppShell() {
       activeWorkspacePrStatus,
       hasActiveTurn: Boolean(activeTaskId && activeTurnIdsByTask[activeTaskId]),
       layout: {
-        editorVisible,
         sidebarOverlayTab,
         sidebarOverlayVisible,
-        terminalDocked,
         workspaceSidebarCollapsed,
       },
       modifierLabel,
@@ -1157,6 +1048,7 @@ export function AppShell() {
         focusFileSearch: handleFocusFileSearch,
         openExplorerSearch: handleOpenExplorerSearch,
         openLatestCompletedTurnTask: handleOpenLatestCompletedTurnTask,
+        openLens: focusOrCreateLensSurface,
         openKickoff: () => void handleOpenKickoff(),
         openInTerminal: async (path: string) => {
           await window.api?.shell?.openInTerminal?.({ path });
@@ -1182,6 +1074,8 @@ export function AppShell() {
         setTaskProvider: (taskId: string, provider: "claude-code" | "codex") =>
           setTaskProvider({ taskId, provider }),
         startCompareRun: handleStartCompareRun,
+        splitActivePanel: (direction: "right" | "below") =>
+          paneHost.splitActivePanel(direction),
         showOverlayTab: (tab: RightRailPanelId) =>
           setLayout({
             patch: { sidebarOverlayVisible: true, sidebarOverlayTab: tab },
@@ -1202,12 +1096,14 @@ export function AppShell() {
             },
           });
         },
-        toggleEditor: () =>
-          setLayout({
-            patch: {
-              editorVisible: !useAppStore.getState().layout.editorVisible,
-            },
-          }),
+        toggleEditor: () => {
+          const editorTabId = useAppStore.getState().activeEditorTabId;
+          if (editorTabId) {
+            paneHost.openSurface({ kind: "editor", editorTabId });
+          } else {
+            handleFocusFileSearch();
+          }
+        },
         toggleInformationPanel: () => {
           const currentLayout = useAppStore.getState().layout;
           const nextVisible = !(
@@ -1221,12 +1117,7 @@ export function AppShell() {
             },
           });
         },
-        toggleTerminal: () =>
-          setLayout({
-            patch: {
-              terminalDocked: !useAppStore.getState().layout.terminalDocked,
-            },
-          }),
+        toggleTerminal: () => paneHost.toggleTerminalGroup(),
         toggleWorkspaceSidebar: () =>
           setLayout({
             patch: {
@@ -1250,7 +1141,6 @@ export function AppShell() {
       handleContinueWorkspace,
       handleCreatePullRequest,
       createTask,
-      editorVisible,
       handleFocusFileSearch,
       handleOpenExplorerSearch,
       handleOpenKickoff,
@@ -1278,7 +1168,6 @@ export function AppShell() {
       sidebarOverlayVisible,
       sidebarOverlayTab,
       tasks,
-      terminalDocked,
       workspaceBranchById,
       workspaceDefaultById,
       workspacePathById,
@@ -1288,14 +1177,7 @@ export function AppShell() {
       switchWorkspace,
     ],
   );
-  const showCliSurface =
-    activeAppSurface.kind === "workspace" &&
-    activeSurface.kind === "cli-session" &&
-    cliSessionTabs.some((tab) => tab.id === activeSurface.cliSessionTabId);
   const showFleetView = activeAppSurface.kind === "fleet-view";
-  const showCompareRun =
-    activeAppSurface.kind === "workspace" &&
-    activeSurface.kind === "compare-run";
 
   return (
     <div className="relative flex h-full w-full flex-col bg-background text-foreground">
@@ -1446,120 +1328,19 @@ export function AppShell() {
               className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
             >
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                {hasProject && !showFleetView ? <WorkspaceTaskTabs /> : null}
                 {hasProject && !showFleetView && showPresetBar ? (
                   <PresetBar />
                 ) : null}
-                <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-                  <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-                      <div className="min-h-0 min-w-0 flex-1 sm:min-w-[420px]">
-                        {showCompareRun ? (
-                          <CompareRunPanel />
-                        ) : showFleetView ? (
-                          <FleetView />
-                        ) : (
-                          <>
-                            <div
-                              className={
-                                showCliSurface ? "hidden h-full" : "h-full"
-                              }
-                            >
-                              <ChatArea />
-                            </div>
-                            <CliSessionPanel />
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className={terminalDocked ? undefined : "hidden"}>
-                      <div
-                        className={`group relative ${UI_LAYER_CLASS.resizer} h-[9px] -my-[4px] shrink-0 cursor-row-resize`}
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          const startY = event.clientY;
-                          const startHeight = terminalDockHeight;
-                          const onMove = (moveEvent: MouseEvent) => {
-                            const delta = startY - moveEvent.clientY;
-                            const next = Math.max(
-                              120,
-                              Math.min(420, startHeight + delta),
-                            );
-                            scheduleLayoutResizePatch(
-                              "terminalDockHeight",
-                              next,
-                            );
-                          };
-                          const onUp = () => {
-                            flushPendingLayoutPatch();
-                            window.removeEventListener("mousemove", onMove);
-                            window.removeEventListener("mouseup", onUp);
-                          };
-                          window.addEventListener("mousemove", onMove);
-                          window.addEventListener("mouseup", onUp);
-                        }}
-                      >
-                        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
-                      </div>
-                      <TerminalDock />
-                    </div>
-                  </div>
+                <div className="min-h-0 min-w-0 flex-1 overflow-hidden sm:min-w-[420px]">
+                  {showFleetView ? (
+                    <FleetView />
+                  ) : (
+                    <RenderProfiler id="WorkspacePaneHost" thresholdMs={10}>
+                      <WorkspacePaneHost />
+                    </RenderProfiler>
+                  )}
                 </div>
               </div>
-              {showDesktopEditor ? (
-                <>
-                  <div
-                    className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      const startX = event.clientX;
-                      const startWidth = desktopEditorWidth;
-                      const onMove = (moveEvent: MouseEvent) => {
-                        const containerWidth =
-                          contentRowRef.current?.offsetWidth ?? 9999;
-                        const explorerWidth = showDesktopSidebar
-                          ? desktopSidebarWidth
-                          : 0;
-                        const separators = showDesktopSidebar ? 2 : 1;
-                        const maxEditor = Math.max(
-                          MIN_EDITOR_PANEL_WIDTH,
-                          containerWidth -
-                            MIN_CHAT_PANEL_WIDTH -
-                            explorerWidth -
-                            separators,
-                        );
-                        const minEditor = Math.min(
-                          MIN_EDITOR_PANEL_WIDTH,
-                          maxEditor,
-                        );
-                        const delta = startX - moveEvent.clientX;
-                        const next = Math.max(
-                          minEditor,
-                          Math.min(maxEditor, startWidth + delta),
-                        );
-                        scheduleLayoutResizePatch("editorPanelWidth", next);
-                      };
-                      const onUp = () => {
-                        flushPendingLayoutPatch();
-                        window.removeEventListener("mousemove", onMove);
-                        window.removeEventListener("mouseup", onUp);
-                      };
-                      window.addEventListener("mousemove", onMove);
-                      window.addEventListener("mouseup", onUp);
-                    }}
-                  >
-                    <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
-                  </div>
-                  <div
-                    className="hidden min-h-0 min-w-0 lg:block"
-                    style={{ width: `${desktopEditorWidth}px` }}
-                  >
-                    <RenderProfiler id="EditorMainPanel" thresholdMs={10}>
-                      <EditorMainPanel />
-                    </RenderProfiler>
-                  </div>
-                </>
-              ) : null}
               {showDesktopSidebar ? (
                 <>
                   <div
@@ -1571,16 +1352,9 @@ export function AppShell() {
                       const onMove = (moveEvent: MouseEvent) => {
                         const containerWidth =
                           contentRowRef.current?.offsetWidth ?? 9999;
-                        const editorWidth = showDesktopEditor
-                          ? desktopEditorWidth
-                          : 0;
-                        const separators = showDesktopEditor ? 2 : 1;
                         const maxExplorer = Math.max(
                           MIN_EXPLORER_PANEL_WIDTH,
-                          containerWidth -
-                            MIN_CHAT_PANEL_WIDTH -
-                            editorWidth -
-                            separators,
+                          containerWidth - MIN_CHAT_PANEL_WIDTH - 1,
                         );
                         const delta = startX - moveEvent.clientX;
                         const next = Math.max(
@@ -1615,115 +1389,32 @@ export function AppShell() {
                       style={{ width: `${desktopSidebarWidth}px` }}
                     >
                       <RenderProfiler id="EditorPanel" thresholdMs={8}>
-                        <EditorPanel
-                          onOpenSettings={handleOpenSettings}
-                          lensOccluded={
-                            hasBlockingOverlayOpen || lensPanelResizing
-                          }
-                        />
+                        <EditorPanel onOpenSettings={handleOpenSettings} />
                       </RenderProfiler>
                     </div>
                   </Suspense>
                 </>
               ) : null}
               {showOverlayRightPanel ? (
-                <>
-                  {showLensOverlayPanel ? (
-                    <div
-                      className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
-                      onMouseDown={(event) => {
-                        if (!activeWorkspaceId) {
-                          return;
-                        }
-                        event.preventDefault();
-                        setLensPanelResizing(true);
-                        const workspaceId = activeWorkspaceId;
-                        const startX = event.clientX;
-                        const startWidth = lensPanelWidth;
-                        const onMove = (moveEvent: MouseEvent) => {
-                          const containerWidth =
-                            contentRowRef.current?.offsetWidth ?? 9999;
-                          const maxWidth = Math.max(
-                            MIN_LENS_PANEL_WIDTH,
-                            Math.min(
-                              MAX_LENS_PANEL_WIDTH,
-                              containerWidth -
-                                MIN_CHAT_PANEL_WIDTH -
-                                PANEL_SEPARATOR_WIDTH,
-                            ),
-                          );
-                          const delta = startX - moveEvent.clientX;
-                          const next = clampPanelWidth(
-                            startWidth + delta,
-                            MIN_LENS_PANEL_WIDTH,
-                            maxWidth,
-                          );
-                          const layout = useAppStore.getState().layout;
-                          scheduleLayoutPatch({
-                            lensPanelWidthByWorkspaceId: {
-                              ...layout.lensPanelWidthByWorkspaceId,
-                              [workspaceId]: next,
-                            },
-                          });
-                        };
-                        const onUp = () => {
-                          setLensPanelResizing(false);
-                          flushPendingLayoutPatch();
-                          window.removeEventListener("mousemove", onMove);
-                          window.removeEventListener("mouseup", onUp);
-                        };
-                        window.addEventListener("mousemove", onMove);
-                        window.addEventListener("mouseup", onUp);
-                      }}
-                    >
-                      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
-                    </div>
-                  ) : null}
-                  <div
-                    className={`min-h-0 min-w-0 border-l border-border/40 ${
-                      showLensOverlayPanel
-                        ? "shrink-0"
-                        : "w-[min(22rem,56vw)] max-w-[22rem]"
-                    }`}
-                    style={
-                      showLensOverlayPanel
-                        ? { width: `${lensPanelWidth}px` }
-                        : undefined
+                <div className="min-h-0 min-w-0 w-[min(22rem,56vw)] max-w-[22rem] border-l border-border/40">
+                  <Suspense
+                    fallback={
+                      <aside className="h-full bg-card p-3 text-sm text-muted-foreground">
+                        Loading panel...
+                      </aside>
                     }
                   >
-                    {overlayRightPanelMode === "editor" ? (
-                      <RenderProfiler
-                        id="EditorMainPanelMobile"
-                        thresholdMs={10}
-                      >
-                        <EditorMainPanel />
-                      </RenderProfiler>
-                    ) : (
-                      <Suspense
-                        fallback={
-                          <aside className="h-full bg-card p-3 text-sm text-muted-foreground">
-                            Loading panel...
-                          </aside>
-                        }
-                      >
-                        <RenderProfiler id="EditorPanelMobile" thresholdMs={8}>
-                          <EditorPanel
-                            onOpenSettings={handleOpenSettings}
-                            lensOccluded={
-                              hasBlockingOverlayOpen || lensPanelResizing
-                            }
-                          />
-                        </RenderProfiler>
-                      </Suspense>
-                    )}
-                  </div>
-                </>
+                    <RenderProfiler id="EditorPanelMobile" thresholdMs={8}>
+                      <EditorPanel onOpenSettings={handleOpenSettings} />
+                    </RenderProfiler>
+                  </Suspense>
+                </div>
               ) : null}
             </div>
             <RightRail />
           </div>
         </div>
-        {monacoWarmupActive && !editorVisible ? (
+        {monacoWarmupActive && !activeEditorTabId ? (
           <EditorMonacoWarmup onReady={handleMonacoWarmed} />
         ) : null}
       </div>

@@ -1,5 +1,10 @@
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import type {
+  PaneDockLayout,
+  PaneTabMeta,
+  WorkspaceLensTab,
+} from "@/lib/panes/types";
+import type {
   WorkspaceActiveSurface,
   WorkspaceCliSessionTab,
   WorkspaceTerminalTab,
@@ -36,6 +41,10 @@ type ActiveWorkspaceProjectionState = {
   cliSessionTabs: WorkspaceCliSessionTab[];
   activeCliSessionTabId: string | null;
   activeSurface: WorkspaceActiveSurface;
+  openTaskTabIds: string[];
+  lensTabs: WorkspaceLensTab[];
+  paneTabMeta: Record<string, PaneTabMeta>;
+  dockLayout: PaneDockLayout | null;
   activeTurnIdsByTask: Record<string, string | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
@@ -64,6 +73,10 @@ export type ActiveWorkspaceStatePatch = Pick<
   | "cliSessionTabs"
   | "activeCliSessionTabId"
   | "activeSurface"
+  | "openTaskTabIds"
+  | "lensTabs"
+  | "paneTabMeta"
+  | "dockLayout"
   | "activeTurnIdsByTask"
   | "providerSessionByTask"
   | "providerGoalByTask"
@@ -95,6 +108,10 @@ export function createWorkspaceSessionStateFromAppState(
     cliSessionTabs: state.cliSessionTabs,
     activeCliSessionTabId: state.activeCliSessionTabId,
     activeSurface: state.activeSurface,
+    openTaskTabIds: state.openTaskTabIds,
+    lensTabs: state.lensTabs,
+    paneTabMeta: state.paneTabMeta,
+    dockLayout: state.dockLayout,
     activeTurnIdsByTask: state.activeTurnIdsByTask,
     providerSessionByTask: state.providerSessionByTask,
     providerGoalByTask: state.providerGoalByTask,
@@ -119,6 +136,10 @@ export function createActiveWorkspaceStatePatch(
     cliSessionTabs: session.cliSessionTabs,
     activeCliSessionTabId: session.activeCliSessionTabId,
     activeSurface: session.activeSurface,
+    openTaskTabIds: session.openTaskTabIds,
+    lensTabs: session.lensTabs,
+    paneTabMeta: session.paneTabMeta,
+    dockLayout: session.dockLayout,
     activeTurnIdsByTask: session.activeTurnIdsByTask,
     providerSessionByTask: session.providerSessionByTask,
     providerGoalByTask: session.providerGoalByTask,
@@ -174,6 +195,10 @@ export function saveActiveWorkspaceRuntimeCache(args: {
     | "cliSessionTabs"
     | "activeCliSessionTabId"
     | "activeSurface"
+    | "openTaskTabIds"
+    | "lensTabs"
+    | "paneTabMeta"
+    | "dockLayout"
     | "activeTurnIdsByTask"
     | "providerSessionByTask"
     | "providerGoalByTask"

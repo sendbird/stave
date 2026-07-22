@@ -1329,6 +1329,7 @@ export function PromptInput(args: PromptInputProps) {
           ? buildLensAnnotationsAttachment({
               id: args.attachment.id,
               workspaceId: args.attachment.workspaceId,
+              lensSessionId: args.attachment.lensSessionId,
               annotations: args.annotations,
               sourceMappingConfig: lensSourceMappingConfig,
             })
@@ -1356,6 +1357,7 @@ export function PromptInput(args: PromptInputProps) {
       if (attachment.workspaceId) {
         const result = await window.api?.lens?.removeAnnotation?.({
           workspaceId: attachment.workspaceId,
+          lensSessionId: attachment.lensSessionId,
           annotationId: annotation.id,
         });
         if (!result?.ok) {
@@ -1386,6 +1388,7 @@ export function PromptInput(args: PromptInputProps) {
 
       const result = await window.api?.lens?.setElementStyle?.({
         workspaceId: attachment.workspaceId,
+        lensSessionId: attachment.lensSessionId,
         selector: annotation.selector,
         patch,
       });
@@ -2882,6 +2885,7 @@ export function PromptInput(args: PromptInputProps) {
                       ? imageAttachmentsById.get(
                           getLensCommentImageId({
                             workspaceId: attachment.workspaceId,
+                            lensSessionId: attachment.lensSessionId,
                             annotationId: annotation.id,
                           }),
                         )

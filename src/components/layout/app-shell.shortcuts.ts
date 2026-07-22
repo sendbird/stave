@@ -70,6 +70,39 @@ export function isEditableShortcutTarget(target: EventTarget | null) {
   );
 }
 
+export function resolvePaneSplitShortcut(args: {
+  key: string;
+  code?: string;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+}): "right" | "below" | null {
+  if (
+    !(args.ctrlKey || args.metaKey) ||
+    args.altKey ||
+    (args.code !== "Backslash" && args.key !== "\\")
+  ) {
+    return null;
+  }
+  return args.shiftKey ? "below" : "right";
+}
+
+export function isClosePaneShortcut(args: {
+  key: string;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+}) {
+  return Boolean(
+    (args.ctrlKey || args.metaKey) &&
+      !args.altKey &&
+      !args.shiftKey &&
+      args.key.toLowerCase() === "w",
+  );
+}
+
 export function resolveShortcutChord(args: {
   key: string;
   ctrlKey?: boolean;

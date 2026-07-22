@@ -182,6 +182,7 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     kind: z.literal("lens-annotations"),
     id: z.string(),
     workspaceId: z.string().optional(),
+    lensSessionId: z.string().optional(),
     label: z.string(),
     count: z.number(),
     summary: z.string(),
@@ -395,6 +396,18 @@ const WorkspaceActiveSurfacePayloadSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("compare-run"),
     compareRunId: z.string(),
+  }),
+  z.object({
+    kind: z.literal("lens"),
+    lensSessionId: z.string(),
+  }),
+  z.object({
+    kind: z.literal("terminal"),
+    terminalTabId: z.string(),
+  }),
+  z.object({
+    kind: z.literal("editor"),
+    editorTabId: z.string(),
   }),
 ]);
 
@@ -615,6 +628,30 @@ export const WorkspaceSnapshotSchema = z.object({
     kind: "task",
     taskId: "",
   }),
+  // Universal pane/tab model. Optional WITHOUT defaults on purpose: a missing
+  // field means "legacy snapshot" and triggers migration defaults at load time
+  // (e.g. openTaskTabIds = all non-archived tasks), while an explicit empty
+  // array means the user closed those tabs.
+  openTaskTabIds: z.array(z.string()).optional(),
+  lensTabs: z
+    .array(
+      z.object({
+        id: z.string(),
+        createdAt: z.number().optional().default(0),
+      }),
+    )
+    .optional(),
+  paneTabMeta: z
+    .record(
+      z.string(),
+      z.object({
+        customTitle: z.string().optional(),
+        customIcon: z.string().optional(),
+        pinned: z.boolean().optional(),
+      }),
+    )
+    .optional(),
+  dockLayout: z.record(z.string(), z.unknown()).nullable().optional(),
   workspaceInformation: WorkspaceInformationSchema.optional().default({
     jiraIssues: [],
     confluencePages: [],

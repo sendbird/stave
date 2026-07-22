@@ -8,12 +8,7 @@ export interface LayoutState {
   workspaceSidebarWidth: number;
   workspaceSidebarCollapsed: boolean;
   workspaceSidebarItemDisplayMode: WorkspaceSidebarItemDisplayMode;
-  editorPanelWidth: number;
   explorerPanelWidth: number;
-  lensPanelWidthByWorkspaceId: Record<string, number>;
-  lensDisplayModeByWorkspaceId: Record<string, LensDisplayMode>;
-  terminalDockHeight: number;
-  editorVisible: boolean;
   sidebarOverlayVisible: boolean;
   sidebarOverlayTab: RightRailPanelId;
   terminalDocked: boolean;
@@ -30,14 +25,6 @@ export type WorkspaceSidebarItemDisplayMode =
 export const DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE: WorkspaceSidebarItemDisplayMode =
   "expanded";
 export const WORKSPACE_SIDEBAR_MIN_WIDTH = 290;
-export const MIN_EDITOR_PANEL_WIDTH = 600;
-export const DEFAULT_EDITOR_PANEL_WIDTH = 720;
-export const MIN_LENS_PANEL_WIDTH = 320;
-export const DEFAULT_LENS_PANEL_WIDTH = 520;
-export const MAX_LENS_PANEL_WIDTH = 900;
-
-export const LENS_DISPLAY_MODES = ["normal", "cover-chat", "fullscreen"] as const;
-export type LensDisplayMode = (typeof LENS_DISPLAY_MODES)[number];
 
 export function mergeLayoutPatch(args: {
   layout: LayoutState;
@@ -67,19 +54,7 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
     workspaceSidebarItemDisplayMode: normalizeWorkspaceSidebarItemDisplayMode(
       layout.workspaceSidebarItemDisplayMode,
     ),
-    editorPanelWidth: Math.max(MIN_EDITOR_PANEL_WIDTH, layout.editorPanelWidth),
     explorerPanelWidth: layout.explorerPanelWidth,
-    lensPanelWidthByWorkspaceId: normalizeLensPanelWidthByWorkspaceId(
-      layout.lensPanelWidthByWorkspaceId,
-    ),
-    lensDisplayModeByWorkspaceId: normalizeLensDisplayModeByWorkspaceId(
-      layout.lensDisplayModeByWorkspaceId,
-      // Legacy field (pre tri-state mode): `true` meant fullscreen.
-      (layout as Partial<{ lensFullscreenByWorkspaceId: unknown }>)
-        .lensFullscreenByWorkspaceId,
-    ),
-    terminalDockHeight: layout.terminalDockHeight,
-    editorVisible: layout.editorVisible,
     sidebarOverlayVisible: layout.sidebarOverlayVisible,
     terminalDocked: layout.terminalDocked,
     editorDiffMode: layout.editorDiffMode,
@@ -98,60 +73,6 @@ export function normalizeWorkspaceSidebarItemDisplayMode(
   )
     ? (value as WorkspaceSidebarItemDisplayMode)
     : DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE;
-}
-
-function normalizeLensPanelWidthByWorkspaceId(
-  value: unknown,
-): Record<string, number> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>)
-      .filter(([workspaceId]) => workspaceId.trim().length > 0)
-      .map(([workspaceId, width]) => [
-        workspaceId,
-        typeof width === "number" && Number.isFinite(width)
-          ? Math.max(
-              MIN_LENS_PANEL_WIDTH,
-              Math.min(MAX_LENS_PANEL_WIDTH, width),
-            )
-          : DEFAULT_LENS_PANEL_WIDTH,
-      ]),
-  );
-}
-
-function normalizeLensDisplayModeByWorkspaceId(
-  value: unknown,
-  legacyFullscreenValue?: unknown,
-): Record<string, LensDisplayMode> {
-  const result: Record<string, LensDisplayMode> = {};
-
-  if (legacyFullscreenValue && typeof legacyFullscreenValue === "object" && !Array.isArray(legacyFullscreenValue)) {
-    for (const [workspaceId, fullscreen] of Object.entries(
-      legacyFullscreenValue as Record<string, unknown>,
-    )) {
-      if (workspaceId.trim().length > 0 && fullscreen === true) {
-        result[workspaceId] = "fullscreen";
-      }
-    }
-  }
-
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    for (const [workspaceId, mode] of Object.entries(
-      value as Record<string, unknown>,
-    )) {
-      if (
-        workspaceId.trim().length > 0 &&
-        LENS_DISPLAY_MODES.includes(mode as LensDisplayMode)
-      ) {
-        result[workspaceId] = mode as LensDisplayMode;
-      }
-    }
-  }
-
-  return result;
 }
 
 export function isDiffEditorTab(
