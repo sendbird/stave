@@ -2,6 +2,7 @@ import {
   DockviewReact,
   type DockviewApi,
   type DockviewReadyEvent,
+  type DockviewTheme,
   type BuiltInContextMenuItem,
   type GetTabContextMenuItemsParams,
   type IContextMenuItemComponentProps,
@@ -64,10 +65,16 @@ import { splitPanelInDirection } from "@/components/panes/pane-split";
 
 const LAYOUT_PERSIST_DEBOUNCE_MS = 300;
 
+const STAVE_DOCKVIEW_THEME: DockviewTheme = {
+  name: "stave",
+  className: "dockview-theme-stave",
+  edgeGroupCollapsedSize: 46,
+  tabGroupIndicator: "none",
+};
+
 function PaneIconPicker(props: IContextMenuItemComponentProps) {
   const options = props.componentProps as
-    | { panelId?: string; selectedIcon?: string | null }
-    | undefined;
+    { panelId?: string; selectedIcon?: string | null } | undefined;
   const panelId = options?.panelId;
   if (!panelId) {
     return null;
@@ -143,7 +150,9 @@ type StoreState = ReturnType<typeof useAppStore.getState>;
  * Store collections → the set of surfaces that must have a Dockview panel.
  * Order matters for the synthesized default layout.
  */
-function buildDesiredSurfaces(state: StoreState): Map<string, PaneSurfaceDescriptor> {
+function buildDesiredSurfaces(
+  state: StoreState,
+): Map<string, PaneSurfaceDescriptor> {
   const desired = new Map<string, PaneSurfaceDescriptor>();
   const add = (surface: PaneSurfaceDescriptor) => {
     desired.set(buildPanePanelId(surface), surface);
@@ -195,9 +204,7 @@ function surfaceExistsInStore(
     case "lens":
       return state.lensTabs.some((tab) => tab.id === surface.lensSessionId);
     case "terminal":
-      return state.terminalTabs.some(
-        (tab) => tab.id === surface.terminalTabId,
-      );
+      return state.terminalTabs.some((tab) => tab.id === surface.terminalTabId);
     case "editor":
       return state.editorTabs.some((tab) => tab.id === surface.editorTabId);
   }
@@ -243,7 +250,9 @@ function addSurfacePanel(
     component: surface.kind,
     title: panelId,
     inactive: options?.inactive ?? true,
-    ...(KEEP_ALIVE_KINDS.has(surface.kind) ? { renderer: "always" as const } : {}),
+    ...(KEEP_ALIVE_KINDS.has(surface.kind)
+      ? { renderer: "always" as const }
+      : {}),
     ...(options?.position
       ? {
           position: options.position.referencePanelId
@@ -639,7 +648,10 @@ export function WorkspacePaneHost() {
   // Derived outside the selector per the Zustand guardrails (no fresh
   // containers from selectors).
   const desiredPanelKey = useMemo(
-    () => Array.from(buildDesiredSurfaces(useAppStore.getState()).keys()).join("\n"),
+    () =>
+      Array.from(buildDesiredSurfaces(useAppStore.getState()).keys()).join(
+        "\n",
+      ),
     // Collections are the actual inputs of buildDesiredSurfaces.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -657,8 +669,30 @@ export function WorkspacePaneHost() {
     const state = useAppStore.getState();
     const panelId = buildPanePanelId(state.activeSurface);
     const panel = api.getPanel(panelId);
-    if (panel && api.activePanel?.id !== panelId) {
-      panel.api.setActive();
+    if (panel) {
+      if (api.activePanel?.id !== panelId) {
+        panel.api.setActive();
+      }
+      return;
+    }
+    // Defensive fallback: the active surface may reference a panel that no
+    // longer exists (e.g. legacy state restored without that tab). Without an
+    // active panel the pane area can render blank, so activate any non-terminal
+    // panel (or the first panel) instead of silently doing nothing.
+    if (api.activePanel) {
+      return;
+    }
+    const fallback =
+      api.panels.find((candidate) => {
+        const surface = parsePanePanelId(candidate.id);
+        return surface !== null && surface.kind !== "terminal";
+      }) ?? api.panels[0];
+    if (fallback) {
+      console.warn(
+        "[pane-host] active surface panel missing, falling back to",
+        fallback.id,
+      );
+      fallback.api.setActive();
     }
   }, []);
 
@@ -763,7 +797,11 @@ export function WorkspacePaneHost() {
         } else {
           lastNonTerminalPanelIdRef.current = panel.id;
         }
-        if (restoringRef.current) {
+        // Skip the store mirror while restoring OR reconciling: removing an
+        // orphan panel makes Dockview auto-activate a neighbor, and mirroring
+        // that transient focus would clobber the store's activeSurface before
+        // focusActiveSurface() re-asserts it.
+        if (restoringRef.current || reconcilingRef.current) {
           return;
         }
         useAppStore.getState().setActiveSurfaceFromPane(surface);
@@ -891,7 +929,11 @@ export function WorkspacePaneHost() {
         const api = apiRef.current;
         const panel = api?.activePanel;
         if (api && panel) {
-          splitPanelInDirection(api, panel, direction === "right" ? "right" : "below");
+          splitPanelInDirection(
+            api,
+            panel,
+            direction === "right" ? "right" : "below",
+          );
         }
       },
       toggleTerminalGroup: () => {
@@ -999,9 +1041,12 @@ export function WorkspacePaneHost() {
   );
 
   return (
-    <div className="h-full min-h-0 w-full min-w-0" data-testid="workspace-pane-host">
+    <div
+      className="h-full min-h-0 w-full min-w-0"
+      data-testid="workspace-pane-host"
+    >
       <DockviewReact
-        className="dockview-theme-stave"
+        theme={STAVE_DOCKVIEW_THEME}
         components={PANEL_COMPONENTS}
         defaultTabComponent={PaneTabChip}
         rightHeaderActionsComponent={PaneHeaderActions}

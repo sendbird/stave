@@ -86,22 +86,35 @@ async function runCommand(args: {
   cmd: string;
   cwd?: string;
 }): Promise<CommandResult> {
-  const proc = Bun.spawn(["/usr/bin/env", "bash", "-lc", args.cmd], {
-    cwd: args.cwd,
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const code = await proc.exited;
-  return {
-    ok: code === 0,
-    code,
-    stdout,
-    stderr,
-  };
+  try {
+    const proc = Bun.spawn(["/usr/bin/env", "bash", "-lc", args.cmd], {
+      cwd: args.cwd,
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    const code = await proc.exited;
+    return {
+      ok: code === 0,
+      code,
+      stdout,
+      stderr,
+    };
+  } catch (error) {
+    // Bun.spawn throws synchronously (e.g. ENOENT for a missing cwd). A thrown
+    // handler makes Bun return an error page without CORS headers, which the
+    // browser surfaces as an opaque "Failed to fetch". Return a normal command
+    // failure instead so the dev bridge client degrades gracefully.
+    return {
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: String(error),
+    };
+  }
 }
 
 function hasConflictItems(args: {
@@ -274,10 +287,12 @@ const server = Bun.serve({
           message: `No active approval responder for ${body.providerId}. requestId=${body.requestId}`,
         });
       }
-      const delivered = isResponderDelivered(responder({
-        requestId: body.requestId,
-        approved: body.approved,
-      }));
+      const delivered = isResponderDelivered(
+        responder({
+          requestId: body.requestId,
+          approved: body.approved,
+        }),
+      );
       return json({
         ok: delivered,
         message: delivered
@@ -300,11 +315,13 @@ const server = Bun.serve({
           message: `No active user-input responder for ${body.providerId}. requestId=${body.requestId}`,
         });
       }
-      const delivered = isResponderDelivered(responder({
-        requestId: body.requestId,
-        answers: body.answers,
-        denied: body.denied,
-      }));
+      const delivered = isResponderDelivered(
+        responder({
+          requestId: body.requestId,
+          answers: body.answers,
+          denied: body.denied,
+        }),
+      );
       return json({
         ok: delivered,
         message: delivered

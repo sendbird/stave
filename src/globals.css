@@ -245,14 +245,14 @@
  * Dockview theme bridge.
  *
  * The pane host (`src/components/panes/WorkspacePaneHost.tsx`) renders
- * `<DockviewReact/>` inside a `.dockview-theme-stave` container and imports
- * dockview's base stylesheet, which is themed exclusively through `--dv-*`
- * custom properties. This block maps every relevant `--dv-*` variable onto
- * Stave's semantic tokens so all builtin themes, user themes, and light/dark
- * modes restyle Dockview automatically.
+ * `<DockviewReact/>` with a custom theme whose shell class is
+ * `.dockview-theme-stave` and imports dockview's base stylesheet, which is
+ * themed exclusively through `--dv-*` custom properties. This block maps every
+ * relevant `--dv-*` variable onto Stave's semantic tokens so all builtin
+ * themes, user themes, and light/dark modes restyle Dockview automatically.
  *
  * Tab surfaces intentionally mirror the retired task tab bar
- * (`WorkspaceTaskTabs`): a `muted/30` strip over `background`, a `background`
+ * (`WorkspaceTaskTabs`): a muted strip over `background`, a `background`
  * active tab, `border/70` dividers, and the shared 46px panel bar height
  * (`PANEL_BAR_HEIGHT_CLASS` in `src/components/layout/panel-bar.constants.ts`).
  *
@@ -268,7 +268,7 @@
   --dv-group-view-background-color: var(--background);
   --dv-tabs-and-actions-container-background-color: color-mix(
     in srgb,
-    var(--muted) 30%,
+    var(--muted) 60%,
     var(--background)
   );
   --dv-floating-titlebar-background-color: var(
@@ -278,13 +278,21 @@
   /* Tabs — active group */
   --dv-activegroup-visiblepanel-tab-background-color: var(--background);
   --dv-activegroup-visiblepanel-tab-color: var(--foreground);
-  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-background-color: color-mix(
+    in srgb,
+    var(--muted) 52%,
+    var(--background)
+  );
   --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
 
   /* Tabs — inactive group (same surfaces, dimmed foregrounds) */
   --dv-inactivegroup-visiblepanel-tab-background-color: var(--background);
   --dv-inactivegroup-visiblepanel-tab-color: var(--muted-foreground);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: color-mix(
+    in srgb,
+    var(--muted) 52%,
+    var(--background)
+  );
   --dv-inactivegroup-hiddenpanel-tab-color: color-mix(
     in srgb,
     var(--muted-foreground) 60%,
@@ -374,6 +382,64 @@
 .dockview-theme-stave
   .dv-tabs-and-actions-container:not(.dv-groupview-header-vertical) {
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* Keep the selected tab legible at a glance, including in split pane groups. */
+.dockview-theme-stave .dv-tabs-container > .dv-tab.dv-active-tab {
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+.dockview-theme-stave .dv-tabs-container > .dv-tab:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/*
+ * Dockview owns the context-menu behavior, while these values mirror the
+ * existing shadcn menu primitive: popover tokens, p-1, rounded-md, compact
+ * rounded items, a subtle ring, and the standard accent hover state.
+ */
+.dockview-theme-stave .dv-context-menu {
+  min-width: 9rem;
+  padding: 0.25rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent),
+    0 4px 6px -1px oklch(0 0 0 / 0.1),
+    0 2px 4px -2px oklch(0 0 0 / 0.1);
+}
+
+.dockview-theme-stave .dv-context-menu-item {
+  min-height: 2rem;
+  height: auto;
+  margin: 0;
+  padding: 0.375rem 0.5rem;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.dockview-theme-stave .dv-context-menu-separator {
+  margin: 0.25rem 0;
+  background: var(--border);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dockview-theme-stave .dv-tabs-container > .dv-tab.dv-inactive-tab:hover {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--border) 80%, transparent);
+  }
+
+  .dockview-theme-stave .dv-context-menu-item:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
 }
 
 /*
@@ -583,8 +649,8 @@
 
   .t-tooltip[data-state="delayed-open"],
   .t-tooltip[data-state="instant-open"] {
-    animation: t-tooltip-open var(--tt-in-dur) var(--tt-in-ease)
-      var(--tt-delay) both;
+    animation: t-tooltip-open var(--tt-in-dur) var(--tt-in-ease) var(--tt-delay)
+      both;
   }
 
   .t-tooltip[data-state="closed"] {
@@ -615,7 +681,6 @@
     height: 0;
     display: none;
   }
-
 }
 
 @keyframes dropdown-in {
