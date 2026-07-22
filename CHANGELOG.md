@@ -1,3 +1,20 @@
+## [0.11.0](https://github.com/sendbird/stave/compare/v0.10.7...v0.11.0) (2026-07-22)
+
+### Features
+
+* Add universal pane tabs for tasks, editors, terminals, CLI sessions, compare runs, and Lens sessions, with splits, persistence, and session-scoped state.
+* Add OS-encrypted Lens saved accounts with multiple accounts per hostname, automatic field filling, and explicit MCP fill controls.
+* Review local working-tree or branch changes before push with selectable provider/model overrides while preserving the active composer draft.
+
+### Bug Fixes
+
+* Keep background workspace turns' activity and stall tracking alive so queued follow-ups can continue after a workspace switch.
+* Restore pasted Finder file attachments on Electron 32+ and prevent stale model-selector reopen events after composer remounts.
+* Improve kickoff loading and first-task provider/model/effort setup, and skip automatic Information panel resource filling for default workspaces.
+
+### References
+
+* [#168](https://github.com/sendbird/stave/pull/168), [#169](https://github.com/sendbird/stave/pull/169), [#170](https://github.com/sendbird/stave/pull/170), [#171](https://github.com/sendbird/stave/pull/171), [#172](https://github.com/sendbird/stave/pull/172), [#173](https://github.com/sendbird/stave/pull/173), [#174](https://github.com/sendbird/stave/pull/174), [#175](https://github.com/sendbird/stave/pull/175)
 ## [0.10.7](https://github.com/sendbird/stave/compare/v0.10.6...v0.10.7) (2026-07-21)
 
 ### Features
