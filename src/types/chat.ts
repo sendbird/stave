@@ -42,12 +42,7 @@ export type Attachment =
     };
 
 export type ClaudePermissionMode =
-  | "default"
-  | "acceptEdits"
-  | "bypassPermissions"
-  | "plan"
-  | "dontAsk"
-  | "auto";
+  "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk" | "auto";
 export type ClaudePermissionModeBeforePlan = Exclude<
   ClaudePermissionMode,
   "plan"
@@ -71,10 +66,7 @@ export type ClaudePermissionModeBeforePlan = Exclude<
  *   prompt.
  */
 export type ClaudePlanModeApprovalScope =
-  | "strict"
-  | "bash"
-  | "bashAndTask"
-  | "bashTaskAndMcp";
+  "strict" | "bash" | "bashAndTask" | "bashTaskAndMcp";
 
 /**
  * Default plan-mode approval scope. The broadest level, so plan mode feels as
@@ -86,7 +78,10 @@ export const DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE: ClaudePlanModeApprovalScop
 export interface PromptDraftRuntimeOverrides {
   claudePermissionMode?: ClaudePermissionMode;
   claudePermissionModeBeforePlan?: ClaudePermissionModeBeforePlan;
+  claudeEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   codexPlanMode?: boolean;
+  codexReasoningEffort?:
+    "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
   autoRouting?: boolean;
   model?: string;
 }
@@ -151,10 +146,7 @@ export interface ToolUsePart extends MessagePartBase {
   input: string;
   output?: string;
   state:
-    | "input-streaming"
-    | "input-available"
-    | "output-available"
-    | "output-error";
+    "input-streaming" | "input-available" | "output-available" | "output-error";
   elapsedSeconds?: number;
   /** Progress messages streamed from a running subagent (Agent tool only). */
   progressMessages?: string[];
@@ -286,10 +278,7 @@ export interface ChatMessage {
 }
 
 export type EditorTabContentState =
-  | "ready"
-  | "deferred"
-  | "loading"
-  | "too-large";
+  "ready" | "deferred" | "loading" | "too-large";
 
 export type TaskControlMode = "interactive" | "managed";
 export type TaskControlOwner = "stave" | "external";

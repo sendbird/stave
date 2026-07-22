@@ -11938,7 +11938,10 @@ export const useAppStore = create<AppState>()(
                     modelRuntimeSettings.claudePermissionMode,
                   claudePermissionModeBeforePlan:
                     modelRuntimeSettings.claudePermissionModeBeforePlan,
+                  claudeEffort: modelRuntimeSettings.claudeEffort,
                   codexPlanMode: modelRuntimeSettings.codexPlanMode,
+                  codexReasoningEffort:
+                    modelRuntimeSettings.codexReasoningEffort,
                 },
               });
 
@@ -11956,10 +11959,7 @@ export const useAppStore = create<AppState>()(
                   model: activeModel,
                   settings: {
                     ...modelRuntimeSettings,
-                    claudePermissionMode:
-                      resolvedPromptDraftRuntimeState.claudePermissionMode,
-                    codexPlanMode:
-                      resolvedPromptDraftRuntimeState.codexPlanMode,
+                    ...resolvedPromptDraftRuntimeState,
                     ...(autoRoutingDecision?.claudeEffort
                       ? { claudeEffort: autoRoutingDecision.claudeEffort }
                       : {}),

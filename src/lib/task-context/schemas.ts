@@ -214,7 +214,27 @@ const PromptDraftRuntimeOverridesSchema = z
         z.null(),
       ])
       .optional(),
+    claudeEffort: z
+      .union([
+        z.literal("low"),
+        z.literal("medium"),
+        z.literal("high"),
+        z.literal("xhigh"),
+        z.literal("max"),
+      ])
+      .optional(),
     codexPlanMode: z.boolean().optional(),
+    codexReasoningEffort: z
+      .union([
+        z.literal("minimal"),
+        z.literal("low"),
+        z.literal("medium"),
+        z.literal("high"),
+        z.literal("xhigh"),
+        z.literal("max"),
+        z.literal("ultra"),
+      ])
+      .optional(),
     autoRouting: z.boolean().optional(),
   })
   .strict();

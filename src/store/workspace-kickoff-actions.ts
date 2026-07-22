@@ -3,7 +3,10 @@ import {
   normalizeModelSelection,
 } from "@/lib/providers/model-catalog";
 import { DEFAULT_PROMPT_WORKSPACE_KICKOFF } from "@/lib/providers/prompt-defaults";
-import type { NormalizedProviderEvent } from "@/lib/providers/provider.types";
+import type {
+  NormalizedProviderEvent,
+  ProviderId,
+} from "@/lib/providers/provider.types";
 import type { WorkspaceInformationState } from "@/lib/workspace-information";
 import {
   DEFAULT_KICKOFF_SOURCE_CONFIGS,
@@ -17,6 +20,7 @@ import {
   type KickoffSourceConfig,
 } from "@/lib/workspace-kickoff";
 import type { AppSettings } from "@/store/app.store";
+import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 import {
   resolveProjectBasePrompt,
   resolveProjectKickoffBranchNamingRule,
@@ -51,6 +55,8 @@ export interface KickoffWorkspaceArgs {
   fromBranch?: string;
   fromBranchKind?: "local" | "remote";
   startFirstTask: boolean;
+  firstTaskProvider?: ProviderId;
+  firstTaskRuntimeOverrides?: PromptDraftRuntimeOverrides;
   extraInstructions?: string;
 }
 
@@ -304,13 +310,19 @@ type KickoffWorkspaceState = {
     initialTaskTitle?: string;
     workspaceInformation?: WorkspaceInformationState;
   }) => Promise<KickoffWorkspaceResult>;
+  setTaskProvider: (args: { taskId: string; provider: ProviderId }) => void;
   updatePromptDraft: (args: {
     taskId: string;
-    patch: { text: string };
+    patch: {
+      text: string;
+      runtimeOverrides?: PromptDraftRuntimeOverrides;
+    };
   }) => void;
   sendUserMessage: (args: {
     taskId: string;
     content: string;
+    providerOverride?: ProviderId;
+    runtimeOverrides?: PromptDraftRuntimeOverrides;
   }) => Promise<{ status: string }>;
 };
 
@@ -340,6 +352,12 @@ export async function runWorkspaceKickoff(args: {
   const prompt = extra
     ? `${basePrompt}\n\nAdditional instructions:\n${extra}`
     : basePrompt;
+  if (taskId && args.input.firstTaskProvider) {
+    state.setTaskProvider({
+      taskId,
+      provider: args.input.firstTaskProvider,
+    });
+  }
   if (!taskId || !prompt) {
     return {
       ok: true,
@@ -349,13 +367,30 @@ export async function runWorkspaceKickoff(args: {
   }
 
   if (!args.input.startFirstTask) {
-    state.updatePromptDraft({ taskId, patch: { text: prompt } });
+    state.updatePromptDraft({
+      taskId,
+      patch: {
+        text: prompt,
+        runtimeOverrides: args.input.firstTaskRuntimeOverrides,
+      },
+    });
     return createResult;
   }
 
-  const sendResult = await state.sendUserMessage({ taskId, content: prompt });
+  const sendResult = await state.sendUserMessage({
+    taskId,
+    content: prompt,
+    providerOverride: args.input.firstTaskProvider,
+    runtimeOverrides: args.input.firstTaskRuntimeOverrides,
+  });
   if (sendResult.status === "blocked") {
-    args.getState().updatePromptDraft({ taskId, patch: { text: prompt } });
+    args.getState().updatePromptDraft({
+      taskId,
+      patch: {
+        text: prompt,
+        runtimeOverrides: args.input.firstTaskRuntimeOverrides,
+      },
+    });
     return {
       ok: true,
       noticeLevel: "warning",

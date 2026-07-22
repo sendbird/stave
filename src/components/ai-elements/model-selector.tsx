@@ -43,6 +43,7 @@ interface ModelSelectorProps {
   disabled?: boolean;
   className?: string;
   triggerClassName?: string;
+  triggerAriaLabel?: string;
   menuClassName?: string;
   openToken?: string | number;
   onSelect: (args: { selection: ModelSelectorOption }) => void;
@@ -56,6 +57,7 @@ export function ModelSelector(args: ModelSelectorProps) {
     disabled,
     className,
     triggerClassName,
+    triggerAriaLabel,
     menuClassName,
     openToken,
     onSelect,
@@ -158,6 +160,7 @@ export function ModelSelector(args: ModelSelectorProps) {
               triggerClassName,
             )}
             disabled={disabled}
+            aria-label={triggerAriaLabel}
             title="Open model selector (Alt+P). Use Alt+1..0 for mapped models."
           >
             <span className="flex min-w-0 items-center gap-1.5">
@@ -194,9 +197,7 @@ export function ModelSelector(args: ModelSelectorProps) {
           <CommandList className="max-h-[22rem] px-1 pb-1">
             <CommandEmpty>No models found.</CommandEmpty>
             {autoOptions.length > 0 ? (
-              <CommandGroup>
-                {autoOptions.map(renderOption)}
-              </CommandGroup>
+              <CommandGroup>{autoOptions.map(renderOption)}</CommandGroup>
             ) : null}
             {autoOptions.length > 0 &&
             (recommendedOptions.length > 0 || groupedOptions.length > 0) ? (
