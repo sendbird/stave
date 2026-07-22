@@ -11,6 +11,20 @@ export const McpDiscoveryArgsSchema = z
   .object({ cwd: z.string().max(4096).optional() })
   .strict();
 
+export const LensCredentialUpsertArgsSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    host: z.string().trim().min(1).max(2048),
+    username: z.string().trim().min(1).max(512),
+    password: z.string().min(1).max(8192).optional(),
+    autoFill: z.boolean(),
+  })
+  .strict();
+
+export const LensCredentialDeleteArgsSchema = z
+  .object({ id: z.string().uuid() })
+  .strict();
+
 export const SuggestTaskNameArgsSchema = z
   .object({
     prompt: z.string().max(2000),

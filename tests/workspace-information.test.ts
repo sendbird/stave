@@ -23,6 +23,7 @@ import {
   isWorkspaceIntentAnchor,
   normalizeGitHubRepoReference,
   resolveStorybookResourceAccess,
+  shouldAutoFillWorkspaceInformation,
   toggleWorkspaceIntentAnchor,
   updateWorkspaceInfoSelectFieldOptions,
 } from "@/lib/workspace-information";
@@ -527,4 +528,24 @@ test("applyDetectedWorkspaceResources folds detections and reports additions", (
   });
   expect(repeat.added).toHaveLength(0);
   expect(repeat.state).toBe(result.state);
+});
+
+test("shouldAutoFillWorkspaceInformation excludes the default workspace", () => {
+  const workspaceDefaultById = {
+    "workspace:default": true,
+    "workspace:feature": false,
+  };
+
+  expect(
+    shouldAutoFillWorkspaceInformation({
+      workspaceId: "workspace:default",
+      workspaceDefaultById,
+    }),
+  ).toBe(false);
+  expect(
+    shouldAutoFillWorkspaceInformation({
+      workspaceId: "workspace:feature",
+      workspaceDefaultById,
+    }),
+  ).toBe(true);
 });

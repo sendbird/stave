@@ -11235,7 +11235,7 @@ export const useAppStore = create<AppState>()(
             // before the turn context is built, so this turn's injected context
             // already includes them. Dedup is keyed on canonical identity (e.g.
             // Jira issue key), not the raw URL, so re-sent links are no-ops.
-            {
+            if (!state.workspaceDefaultById[taskWorkspaceId]) {
               const detectedPromptResources =
                 detectWorkspaceResourcesInText(promptContent);
               if (detectedPromptResources.length > 0) {
@@ -11828,7 +11828,10 @@ export const useAppStore = create<AppState>()(
                     modelRuntimeSettings.claudePermissionMode,
                   claudePermissionModeBeforePlan:
                     modelRuntimeSettings.claudePermissionModeBeforePlan,
+                  claudeEffort: modelRuntimeSettings.claudeEffort,
                   codexPlanMode: modelRuntimeSettings.codexPlanMode,
+                  codexReasoningEffort:
+                    modelRuntimeSettings.codexReasoningEffort,
                 },
               });
 
@@ -11846,10 +11849,7 @@ export const useAppStore = create<AppState>()(
                   model: activeModel,
                   settings: {
                     ...modelRuntimeSettings,
-                    claudePermissionMode:
-                      resolvedPromptDraftRuntimeState.claudePermissionMode,
-                    codexPlanMode:
-                      resolvedPromptDraftRuntimeState.codexPlanMode,
+                    ...resolvedPromptDraftRuntimeState,
                     ...(autoRoutingDecision?.claudeEffort
                       ? { claudeEffort: autoRoutingDecision.claudeEffort }
                       : {}),

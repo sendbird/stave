@@ -155,6 +155,7 @@ import { CodexSection } from "./settings-dialog-codex-section";
 import { McpSection } from "./settings-dialog-mcp-section";
 import { KickoffSection } from "./settings-dialog-kickoff-section";
 import { ProvidersSection } from "./settings-dialog-providers-section";
+import { LensCredentialsSettingsCard } from "./settings-dialog-lens-credentials";
 import { ToolingSection } from "./settings-dialog-tooling-section";
 import { ScriptsSection } from "./settings-dialog-scripts-section";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
@@ -4263,7 +4264,7 @@ function LensSection() {
       <SectionStack>
         <SettingsCard
           title="Session & Sign-in"
-          description="Control where Lens keeps website cookies and local browser storage. Stave does not store passwords."
+          description="Control where Lens keeps website cookies and local browser storage. Saved account passwords are managed separately below."
         >
           <ChoiceButtons<LensSessionScope>
             value={sessionScope}
@@ -4325,6 +4326,7 @@ function LensSection() {
             </Button>
           </div>
         </SettingsCard>
+        <LensCredentialsSettingsCard />
         <SettingsCard
           title="Source Code Mapping"
           description="Choose which strategies the element picker uses to help AI locate source files."

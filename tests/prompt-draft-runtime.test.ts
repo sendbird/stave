@@ -19,19 +19,25 @@ describe("prompt-draft runtime state", () => {
           runtimeOverrides: {
             claudePermissionMode: "plan",
             claudePermissionModeBeforePlan: "acceptEdits",
+            claudeEffort: "xhigh",
             codexPlanMode: true,
+            codexReasoningEffort: "ultra",
           },
         },
         fallback: {
           claudePermissionMode: "default",
           claudePermissionModeBeforePlan: null,
+          claudeEffort: "medium",
           codexPlanMode: false,
+          codexReasoningEffort: "high",
         },
       }),
     ).toEqual({
       claudePermissionMode: "plan",
       claudePermissionModeBeforePlan: "acceptEdits",
+      claudeEffort: "xhigh",
       codexPlanMode: true,
+      codexReasoningEffort: "ultra",
     });
   });
 
@@ -105,6 +111,29 @@ describe("prompt-draft runtime state", () => {
       },
       shouldClearCodexSession: false,
       shouldAbortActiveTurn: false,
+    });
+  });
+
+  test("keeps task-local model and effort when Claude plan mode changes", () => {
+    expect(
+      resolvePromptDraftPlanModeChange({
+        providerId: "claude-code",
+        enabled: true,
+        runtimeOverrides: {
+          model: "claude-opus-4-8",
+          claudeEffort: "xhigh",
+          autoRouting: false,
+        },
+        claudePermissionMode: "auto",
+        claudePermissionModeBeforePlan: null,
+        codexPlanMode: false,
+      }).runtimeOverrides,
+    ).toEqual({
+      model: "claude-opus-4-8",
+      claudeEffort: "xhigh",
+      autoRouting: false,
+      claudePermissionMode: "plan",
+      claudePermissionModeBeforePlan: "auto",
     });
   });
 
@@ -200,7 +229,9 @@ describe("prompt-draft runtime state", () => {
               model: "claude-opus-4-6",
               claudePermissionMode: "plan",
               claudePermissionModeBeforePlan: "acceptEdits",
+              claudeEffort: "xhigh",
               codexPlanMode: true,
+              codexReasoningEffort: "ultra",
               autoRouting: true,
             },
           },
@@ -215,7 +246,9 @@ describe("prompt-draft runtime state", () => {
       model: "claude-opus-4-6",
       claudePermissionMode: "plan",
       claudePermissionModeBeforePlan: "acceptEdits",
+      claudeEffort: "xhigh",
       codexPlanMode: true,
+      codexReasoningEffort: "ultra",
       autoRouting: true,
     });
   });

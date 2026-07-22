@@ -31,6 +31,7 @@ import {
 } from "./browser-cdp";
 import { triggerDownloadByUrl } from "./browser-downloads";
 import { assertNavigationAllowed } from "./browser-security";
+import { fillLensCredentialForWebContents } from "./lens-credential-service";
 
 const NAVIGATE_TIMEOUT_MS = 30_000;
 const DEFAULT_HTML_MAX_CHARS = 20_000;
@@ -248,6 +249,41 @@ export function registerBrowserTools(server: McpServer): void {
         url: wc.getURL(),
         title: wc.getTitle(),
       });
+    },
+  );
+
+  // ---- Fill a saved account without returning its password to the client ----
+  server.registerTool(
+    "stave_lens_fill_saved_account",
+    {
+      description:
+        "Fill the current Lens page with a Stave-saved account for its exact hostname. When multiple accounts exist, the automatic-fill account is used unless username is provided. The password stays in the Electron main process and is never returned. Use submit=true only when the user asked to sign in.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        username: z
+          .string()
+          .trim()
+          .min(1)
+          .max(512)
+          .optional()
+          .describe(
+            "Saved username to use when the hostname has multiple accounts.",
+          ),
+        submit: z
+          .boolean()
+          .optional()
+          .describe(
+            "Submit the matching login form after filling it. Defaults to false.",
+          ),
+      },
+    },
+    async ({ workspaceId, username, submit }) => {
+      const session = requireSession(workspaceId);
+      const result = await fillLensCredentialForWebContents(
+        session.view.webContents,
+        { submit: submit === true, username },
+      );
+      return toStructuredResult(result);
     },
   );
 

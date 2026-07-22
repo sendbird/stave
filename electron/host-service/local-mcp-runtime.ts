@@ -25,6 +25,7 @@ import {
   extractSlackThreadReference,
   extractStorybookResourceReference,
   resolveStorybookResourceAccess,
+  shouldAutoFillWorkspaceInformation,
   upsertWorkspaceResourceInState,
   type WorkspaceInfoCustomField,
   type WorkspaceInformationState,
@@ -1802,22 +1803,29 @@ export async function runTask(args: {
   // Auto-fill the Information panel from the prompt: register any Jira/PR/
   // Confluence/Figma/Slack/Storybook/Amplify URLs before the turn context is
   // built so this turn's task-awareness context already includes them.
-  const detectedPromptResources = detectWorkspaceResourcesInText(args.prompt);
-  if (detectedPromptResources.length > 0) {
-    const autofillPreview = applyDetectedWorkspaceResources({
-      current: session.workspaceInformation,
-      detected: detectedPromptResources,
-    });
-    if (autofillPreview.state !== session.workspaceInformation) {
-      await updateWorkspaceInformationState({
-        workspaceId: args.workspaceId,
-        updater: (current) =>
-          applyDetectedWorkspaceResources({
-            current,
-            detected: detectedPromptResources,
-          }).state,
+  if (
+    shouldAutoFillWorkspaceInformation({
+      workspaceId: args.workspaceId,
+      workspaceDefaultById: registration.project.workspaceDefaultById,
+    })
+  ) {
+    const detectedPromptResources = detectWorkspaceResourcesInText(args.prompt);
+    if (detectedPromptResources.length > 0) {
+      const autofillPreview = applyDetectedWorkspaceResources({
+        current: session.workspaceInformation,
+        detected: detectedPromptResources,
       });
-      session = await loadWorkspaceSession(args.workspaceId);
+      if (autofillPreview.state !== session.workspaceInformation) {
+        await updateWorkspaceInformationState({
+          workspaceId: args.workspaceId,
+          updater: (current) =>
+            applyDetectedWorkspaceResources({
+              current,
+              detected: detectedPromptResources,
+            }).state,
+        });
+        session = await loadWorkspaceSession(args.workspaceId);
+      }
     }
   }
 

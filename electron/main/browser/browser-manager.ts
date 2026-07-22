@@ -18,6 +18,7 @@ import { isDevToolsShortcut } from "../keyboard-shortcuts";
 import { getMainWindow, toggleMainWindowDevTools } from "../window";
 import { openExternalWithFallback } from "../utils/external-url";
 import { assertNavigationAllowed } from "./browser-security";
+import { fillLensCredentialForWebContents } from "./lens-credential-service";
 import {
   resolveLensSessionProfile,
   type ResolvedLensSessionProfile,
@@ -299,6 +300,26 @@ function openLensAuthPopup(args: {
         args.lensSessionId,
       );
     }
+  });
+
+  popup.webContents.on("did-stop-loading", () => {
+    setTimeout(() => {
+      if (popup.isDestroyed()) {
+        return;
+      }
+      void fillLensCredentialForWebContents(popup.webContents, {
+        autoFillOnly: true,
+      }).catch((error) => {
+        pushConsoleEntry(args.workspaceId, {
+          level: "warn",
+          text: `Saved Lens account fill failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          timestamp: new Date().toISOString(),
+          source: popup.webContents.getURL(),
+        });
+      });
+    }, 300);
   });
 
   popup.webContents.setWindowOpenHandler(({ url }) => {

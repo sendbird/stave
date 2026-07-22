@@ -53,6 +53,10 @@ import type {
   AppUpdateStatusSnapshot,
 } from "@/lib/app-update";
 import type {
+  LensCredentialMetadata,
+  LensCredentialUpsertInput,
+} from "@/lib/lens/lens-credentials";
+import type {
   SyncOriginMainResult,
   ToolingStatusRequest,
   ToolingStatusSnapshot,
@@ -1759,6 +1763,19 @@ interface LensElementPickerResult {
 }
 
 interface WindowLensApi {
+  listCredentials?: () => Promise<{
+    ok: boolean;
+    credentials: LensCredentialMetadata[];
+    message?: string;
+  }>;
+  upsertCredential?: (args: LensCredentialUpsertInput) => Promise<{
+    ok: boolean;
+    credential?: LensCredentialMetadata;
+    message?: string;
+  }>;
+  deleteCredential?: (args: {
+    id: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   setSecurityConfig?: (args: LensSecurityConfig) => Promise<{
     ok: boolean;
     config?: LensSecurityConfig;
