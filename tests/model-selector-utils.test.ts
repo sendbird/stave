@@ -125,6 +125,31 @@ describe("model selector utils", () => {
     ).toBe(false);
   });
 
+  test("treats a token already present at mount as handled (no reopen on remount)", () => {
+    // Regression: when an interactive question card replaces and then restores
+    // the composer, `ModelSelector` unmounts and remounts while the parent's
+    // open nonce stays latched (> 0). If the remounted selector seeds its
+    // handled token with the current openToken, `shouldOpenModelSelector`
+    // must NOT re-open it just because the token is truthy.
+    const latchedToken = 3;
+    expect(
+      shouldOpenModelSelector({
+        openToken: latchedToken,
+        disabled: false,
+        lastHandledOpenToken: latchedToken,
+      }),
+    ).toBe(false);
+
+    // A genuinely new token pressed after mount still opens the selector.
+    expect(
+      shouldOpenModelSelector({
+        openToken: latchedToken + 1,
+        disabled: false,
+        lastHandledOpenToken: latchedToken,
+      }),
+    ).toBe(true);
+  });
+
   test("passes enrichment data (description, isDefault) into built options", () => {
     const enrichment = new Map([
       ["gpt-5.6-sol", { description: "Flagship model", isDefault: true }],
