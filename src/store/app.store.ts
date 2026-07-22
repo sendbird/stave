@@ -3562,7 +3562,18 @@ export const useAppStore = create<AppState>()(
         const handle = globalThis.setTimeout(() => {
           providerTurnStallTimerByTask.delete(args.taskId);
           set((state) => {
-            if (state.activeTurnIdsByTask[args.taskId] !== args.turnId) {
+            // `state.activeTurnIdsByTask` only covers the active workspace;
+            // resolve the owning workspace session so turns running in a
+            // backgrounded workspace can still be marked stalled.
+            const owningWorkspaceId =
+              state.taskWorkspaceIdById[args.taskId] ?? state.activeWorkspaceId;
+            const owningSession = owningWorkspaceId
+              ? getWorkspaceSessionForState({
+                  state,
+                  workspaceId: owningWorkspaceId,
+                })
+              : null;
+            if (owningSession?.activeTurnIdsByTask[args.taskId] !== args.turnId) {
               return state;
             }
             const nextActivityByTask = markProviderTurnStalled({
@@ -11645,8 +11656,18 @@ export const useAppStore = create<AppState>()(
                     model: activeModel,
                     turnId,
                   });
+                  // Resolve the turn against the task's owning workspace
+                  // session (runtime cache when inactive) — `state.activeTurnIdsByTask`
+                  // only reflects the active workspace, so checking it directly
+                  // froze activity updates and disarmed stall detection for
+                  // turns running in a backgrounded workspace.
+                  const owningTurnSession = getWorkspaceSessionForState({
+                    state: currentState,
+                    workspaceId: taskWorkspaceId,
+                  });
                   const turnStillActive =
-                    currentState.activeTurnIdsByTask[resolvedTaskId] === turnId;
+                    owningTurnSession?.activeTurnIdsByTask[resolvedTaskId] ===
+                    turnId;
                   const nextTurnActivityByTask = turnStillActive
                     ? applyProviderTurnActivityEvents({
                         activityByTask: currentState.providerTurnActivityByTask,
