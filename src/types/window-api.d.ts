@@ -381,6 +381,7 @@ interface WindowFsApi {
     filePaths: string[];
     stderr?: string;
   }>;
+  getPathForFile?: (file: File) => string;
   resolvePath?: (args: { inputPath: string }) => Promise<{
     ok: boolean;
     rootPath?: string;

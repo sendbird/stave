@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
@@ -966,6 +966,9 @@ contextBridge.exposeInMainWorld("api", {
     pickDirectory: () => ipcRenderer.invoke("fs:pick-directory"),
     pickFiles: (args: { rootPath: string }) =>
       ipcRenderer.invoke("fs:pick-files", args),
+    // Electron 32+ removed the legacy `File.path` property, so pasted/dropped
+    // File objects can only be mapped to a disk path from the preload side.
+    getPathForFile: (file: File) => webUtils.getPathForFile(file),
     resolvePath: (args: { inputPath: string }) =>
       ipcRenderer.invoke("fs:resolve-path", args),
     listFiles: (args: { rootPath: string }) =>

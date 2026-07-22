@@ -3,7 +3,6 @@ import {
   ClipboardCheck,
   FileText,
   FolderOpen,
-  GitPullRequest,
   Globe2,
   Info,
   Paperclip,
@@ -158,6 +157,10 @@ import {
   type WorkspaceInformationReferenceOption,
 } from "@/lib/workspace-information-references";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
+import {
+  LocalChangeReviewDialog,
+  type LocalChangeReviewRequest,
+} from "./local-change-review-dialog";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
   "fontSize",
@@ -240,8 +243,12 @@ interface PromptInputProps {
   }) => void;
   onUserInputDeny?: (args: { messageId: string }) => void;
   leadingToolbarAction?: ReactNode;
-  crossReviewProvider?: "claude-code" | "codex" | null;
-  onCrossReview?: (args: { instructions?: string }) => void;
+  workspaceCwd?: string;
+  reviewModelOptions?: readonly ModelSelectorOption[];
+  preferredReviewModelKey?: string;
+  onLocalChangeReview?: (
+    request: LocalChangeReviewRequest,
+  ) => boolean | Promise<boolean>;
   onSubmit: (args: {
     text: string;
     filePaths: string[];
@@ -328,111 +335,6 @@ function getEffortIconToneClass(value?: string) {
 
 function getPaletteItemSelector(index: number) {
   return `[${PALETTE_ITEM_INDEX_ATTRIBUTE}="${index}"]`;
-}
-
-function CrossReviewPopover(args: {
-  provider: "claude-code" | "codex";
-  disabled: boolean;
-  onSubmit: (submitArgs: { instructions?: string }) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [instructions, setInstructions] = useState("");
-  const providerLabel = args.provider === "codex" ? "Codex" : "Claude Code";
-  const crossReviewLabel = `Review by ${providerLabel}`;
-
-  function handleSubmit() {
-    const trimmed = instructions.trim();
-    args.onSubmit({ instructions: trimmed || undefined });
-    setOpen(false);
-    setInstructions("");
-  }
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverAnchor asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={args.disabled}
-              onClick={() => setOpen((prev) => !prev)}
-              className="h-8 gap-2 px-3 text-muted-foreground hover:bg-secondary/30 hover:text-foreground"
-              aria-label={crossReviewLabel}
-            >
-              <GitPullRequest className="size-3.5" />
-              <span>Review by</span>
-              <span className="inline-flex items-center gap-1.5 text-sm text-foreground">
-                <ModelIcon providerId={args.provider} className="size-3.5" />
-                {providerLabel}
-              </span>
-            </Button>
-          </PopoverAnchor>
-        </TooltipTrigger>
-        {!open ? (
-          <TooltipContent side="top">{crossReviewLabel}</TooltipContent>
-        ) : null}
-      </Tooltip>
-      <PopoverContent
-        side="top"
-        align="end"
-        sideOffset={8}
-        className="w-72 rounded-lg border border-border/80 bg-popover p-3 shadow-lg"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-      >
-        <div className="space-y-2.5">
-          <div className="flex items-start gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <GitPullRequest className="size-4" />
-            </div>
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-foreground">Review by</p>
-                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <ModelIcon providerId={args.provider} className="size-3.5" />
-                  {providerLabel}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Run the alternate model&apos;s review flow on the current task.
-              </p>
-            </div>
-          </div>
-          <Textarea
-            value={instructions}
-            onChange={(event) => setInstructions(event.target.value)}
-            placeholder="Optional instructions, e.g. focus on regressions or missing tests..."
-            className="min-h-[60px] resize-y text-sm"
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                event.preventDefault();
-                handleSubmit();
-              }
-            }}
-          />
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-muted-foreground">
-              <kbd className="rounded border border-border/70 px-1 py-px text-[10px]">
-                ⌘
-              </kbd>{" "}
-              <kbd className="rounded border border-border/70 px-1 py-px text-[10px]">
-                ↵
-              </kbd>
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              className="h-7 px-3 text-xs"
-              onClick={handleSubmit}
-            >
-              Start review
-            </Button>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
 }
 
 function resolveLensAnnotationStyleValue(
@@ -596,8 +498,10 @@ export function PromptInput(args: PromptInputProps) {
     onUserInputSubmit,
     onUserInputDeny,
     leadingToolbarAction,
-    crossReviewProvider,
-    onCrossReview,
+    workspaceCwd,
+    reviewModelOptions,
+    preferredReviewModelKey,
+    onLocalChangeReview,
     onSubmit,
     onStagePromptBatch,
     onRemovePromptBatchItem,
@@ -3266,11 +3170,15 @@ export function PromptInput(args: PromptInputProps) {
             ) : null}
             <div className="flex items-center gap-2">
               {leadingToolbarAction}
-              {crossReviewProvider && !isTurnActive ? (
-                <CrossReviewPopover
-                  provider={crossReviewProvider}
+              {reviewModelOptions?.length &&
+              onLocalChangeReview &&
+              !isTurnActive ? (
+                <LocalChangeReviewDialog
+                  workspaceCwd={workspaceCwd}
+                  reviewerOptions={reviewModelOptions}
+                  preferredReviewerKey={preferredReviewModelKey}
                   disabled={interactionsDisabled}
-                  onSubmit={(submitArgs) => onCrossReview?.(submitArgs)}
+                  onSubmit={onLocalChangeReview}
                 />
               ) : null}
               <Tooltip>
