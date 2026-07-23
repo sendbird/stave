@@ -5,11 +5,13 @@ import remarkGfm from "remark-gfm";
 import { WorkspaceFileIcon } from "@/components/layout/explorer-entry-icon";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
 import { LinkifiedText } from "@/components/ui/linkified-text";
+import { ServiceLinkBadge } from "@/components/ui/service-link-badge";
 import {
   formatFileLinkLocation,
   isLikelyWorkspaceFilePath,
   type ResolvedWorkspaceFileLink,
 } from "@/lib/message-file-links";
+import { resolveServiceLinkBadge } from "@/lib/service-link-badges";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -56,6 +58,16 @@ interface MarkdownCodeNodeLike {
     meta?: unknown;
   };
   properties?: Record<string, unknown>;
+}
+
+function extractPlainText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map(extractPlainText).join("");
+  }
+  return "";
 }
 
 function toOptionalString(value: unknown) {
@@ -305,6 +317,19 @@ export function MarkdownMessage({
               href,
               resolvedFileLink,
             })}
+          />
+        );
+      }
+
+      const serviceLinkBadge = resolveServiceLinkBadge(href);
+      if (href && serviceLinkBadge) {
+        const childText = extractPlainText(children).trim();
+        return (
+          <ServiceLinkBadge
+            href={href}
+            badge={serviceLinkBadge}
+            label={childText && childText !== href ? childText : undefined}
+            onClick={(event: MouseEvent<HTMLAnchorElement>) => void onFileLinkClickRef.current?.({ event, href })}
           />
         );
       }

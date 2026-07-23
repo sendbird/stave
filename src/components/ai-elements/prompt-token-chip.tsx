@@ -1,5 +1,7 @@
-import { Info, Sparkles, Terminal } from "lucide-react";
+import { Info, Link, Sparkles, Terminal } from "lucide-react";
+import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
 import type { PromptTokenDescriptor } from "@/lib/prompt-token-chips";
+import { resolveServiceLinkBadge } from "@/lib/service-link-badges";
 import { cn } from "@/lib/utils";
 
 export function PromptTokenChip(args: {
@@ -10,12 +12,19 @@ export function PromptTokenChip(args: {
 }) {
   const { descriptor, compact, className } = args;
   const showDetail = args.showDetail ?? !compact;
+  // serviceLink may be absent on deserialized tokens — re-derive it from the URL.
+  const serviceLinkKind =
+    descriptor.kind === "link"
+      ? descriptor.serviceLink ?? resolveServiceLinkBadge(descriptor.token)?.kind
+      : undefined;
   const Icon =
     descriptor.kind === "information"
       ? Info
       : descriptor.kind === "skill"
         ? Sparkles
-        : Terminal;
+        : descriptor.kind === "link"
+          ? Link
+          : Terminal;
   const toneClassName =
     descriptor.kind === "information"
       ? "border-primary/25 bg-primary/10 text-primary"
@@ -42,7 +51,14 @@ export function PromptTokenChip(args: {
         className,
       )}
     >
-      <Icon className={cn("shrink-0", compact ? "size-[0.9em]" : "size-3.5")} />
+      {serviceLinkKind ? (
+        <ServiceLinkIcon
+          kind={serviceLinkKind}
+          className={cn("shrink-0", compact ? "h-[0.9em] w-auto" : "h-3.5 w-auto")}
+        />
+      ) : (
+        <Icon className={cn("shrink-0", compact ? "size-[0.9em]" : "size-3.5")} />
+      )}
       <span className="min-w-0 truncate">{descriptor.label}</span>
       {showDetail && descriptor.detail ? (
         <span className={cn("min-w-0 truncate font-normal", detailToneClassName)}>

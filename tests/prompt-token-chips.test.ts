@@ -123,6 +123,92 @@ describe("parsePromptTokenSegments", () => {
     ]);
   });
 
+  test("parses recognized service links into badge chip descriptors", () => {
+    const segments = parsePromptTokenSegments(
+      "See https://company.atlassian.net/browse/DFE-1234 for details",
+    );
+
+    expect(segments).toEqual([
+      { type: "text", text: "See " },
+      {
+        type: "token",
+        descriptor: {
+          kind: "link",
+          token: "https://company.atlassian.net/browse/DFE-1234",
+          label: "DFE-1234",
+          detail: "https://company.atlassian.net/browse/DFE-1234",
+          serviceLink: "jira",
+        },
+      },
+      { type: "text", text: " for details" },
+    ]);
+  });
+
+  test("parses Figma and Confluence links with derived labels", () => {
+    const segments = parsePromptTokenSegments(
+      "https://www.figma.com/design/AbC123/Chat-Redesign?node-id=1-2 and https://company.atlassian.net/wiki/spaces/ENG/pages/9/Release+Notes",
+    );
+
+    expect(
+      segments
+        .filter((segment) => segment.type === "token")
+        .map((segment) =>
+          segment.type === "token"
+            ? {
+                kind: segment.descriptor.kind,
+                label: segment.descriptor.label,
+                serviceLink: segment.descriptor.serviceLink,
+              }
+            : null,
+        ),
+    ).toEqual([
+      { kind: "link", label: "Chat Redesign", serviceLink: "figma" },
+      { kind: "link", label: "Release Notes", serviceLink: "confluence" },
+    ]);
+  });
+
+  test("keeps trailing punctuation out of service link chips", () => {
+    const segments = parsePromptTokenSegments(
+      "(see https://company.atlassian.net/browse/DFE-7).",
+    );
+
+    expect(segments).toMatchObject([
+      { type: "text", text: "(see " },
+      {
+        type: "token",
+        descriptor: {
+          kind: "link",
+          token: "https://company.atlassian.net/browse/DFE-7",
+          label: "DFE-7",
+        },
+      },
+      { type: "text", text: ")." },
+    ]);
+  });
+
+  test("leaves unrecognized URLs as plain text", () => {
+    const segments = parsePromptTokenSegments(
+      "Check https://github.com/org/repo/pull/1 and http://example.com",
+    );
+
+    expect(segments).toEqual([
+      {
+        type: "text",
+        text: "Check https://github.com/org/repo/pull/1 and http://example.com",
+      },
+    ]);
+  });
+
+  test("does not tokenize URL-shaped text without a preceding boundary", () => {
+    const segments = parsePromptTokenSegments(
+      "prefix:https://company.atlassian.net/browse/DFE-1",
+    );
+
+    expect(segments).toEqual([
+      { type: "text", text: "prefix:https://company.atlassian.net/browse/DFE-1" },
+    ]);
+  });
+
   test("does not parse generic slash commands in path-like mid-sentence positions", () => {
     const segments = parsePromptTokenSegments("Open /tmp/example", {
       allowGenericCommandTokens: true,

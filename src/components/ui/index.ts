@@ -128,6 +128,7 @@ export {
 export { WaveIndicator } from "./wave-indicator";
 export { ExternalAnchor } from "./external-anchor";
 export { LinkifiedText } from "./linkified-text";
+export { ServiceLinkBadge } from "./service-link-badge";
 export {
   Breadcrumb,
   BreadcrumbEllipsis,
