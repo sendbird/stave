@@ -14,6 +14,7 @@ export const CODEX_DISABLED_BUNDLED_PLUGIN_IDS = [
 export const CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS = [
   "## Stave browser tooling",
   "- Inspect and interact with web pages through the Stave Lens MCP tools (`stave_lens_*`, e.g. `stave_lens_snapshot`, `stave_lens_screenshot`, `stave_lens_navigate`) on the `stave-local` MCP server whenever they are available.",
+  "- CDP-backed Lens tools can trigger an app-wide Stave approval dialog. Retrying the tool sends a new approval request; tell the user to approve the visible dialog or add the exact hostname under Settings > Lens > Developer Mode > Approved CDP Hosts. Never claim that a Lens tool call cannot request approval.",
   "- The ChatGPT desktop in-app browser plugin (`control-in-app-browser`), Computer Use, and `node_repl` browser clients are not connected to this Stave workspace. Never use them for browser inspection or automation here, and never treat their skills as required reading.",
 ].join("\n");
 

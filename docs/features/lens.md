@@ -19,6 +19,7 @@
 - To send picked elements into chat, select an active task first.
 - For exact React file and line mapping, enable `Settings > Lens > React _debugSource` and run the target app in a React dev build.
 - CDP-backed actions such as screenshots, JavaScript evaluation, element clicks, and live style edits require `Settings > Lens > Developer Mode` plus per-host approval. Approved hosts are currently global across workspaces.
+- The first CDP action for an unapproved host opens an app-wide approval dialog, even when its Lens tab is hidden or closed. `Allow once` grants a short-lived workspace approval; `Always allow` saves the hostname.
 - External agents reach Lens through Stave Local MCP, not through the renderer UI directly. They can open a hidden Lens browser session with `stave_lens_open_session` before inspecting a page.
 
 ## Quick Start
@@ -83,7 +84,8 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 1. Open `Settings > Lens`.
 2. Use `Site Access` to set newline-delimited allowed and blocked hosts. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation.
 3. Use `Developer Mode` to enable or disable CDP-backed Lens actions and add or remove approved CDP hosts.
-4. When Lens asks for CDP access, approve only hosts you expect agents to inspect or control.
+4. When Lens asks for CDP access, choose `Allow once`, `Always allow`, or `Deny`. The dialog appears app-wide and does not require the originating Lens tab to be visible.
+5. Approved host entries are hostname-only. Ports and paths are ignored, so approving `localhost` covers `localhost:3000`, `localhost:8899`, and other localhost ports.
 
 ### Inspect A Page And Send A Fix Request
 
@@ -111,10 +113,11 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 
 1. Enable `Settings > Providers > Stave > Local MCP Server`.
 2. Call `stave_lens_open_session` for the target workspace, optionally with a URL.
-3. Call the other `stave_lens_*` tools through Local MCP.
-4. If the page requires a saved account, call `stave_lens_fill_saved_account`; the secret is injected inside Electron and is not returned to the agent.
-5. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
-6. Use the returned page data together with normal Stave task tools or your own external workflow.
+3. Call the other `stave_lens_*` tools through Local MCP. The first CDP-backed call for an unapproved host pauses while Stave shows its app-wide approval dialog.
+4. Approve the visible dialog within 60 seconds, or add the hostname under `Settings > Lens > Developer Mode > Approved CDP Hosts` and retry the tool.
+5. If the page requires a saved account, call `stave_lens_fill_saved_account`; the secret is injected inside Electron and is not returned to the agent.
+6. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
+7. Use the returned page data together with normal Stave task tools or your own external workflow.
 
 ## Files And Data
 
@@ -176,7 +179,13 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 
 - Symptom: screenshots, page HTML reads, evaluation, clicks, or style edits fail before running.
 - Cause: CDP is disabled or the current host has not been approved.
-- Fix: enable `Settings > Lens > Developer Mode`, then approve the host when prompted or add it manually under Approved Hosts.
+- Fix: enable `Settings > Lens > Developer Mode`, then retry the action and answer the app-wide prompt within 60 seconds, or add the hostname manually under Approved CDP Hosts. The Lens panel does not need to be open.
+
+### CDP approval times out or no prompt was visible
+
+- Symptom: a Lens tool reports that approval timed out or that the host was not approved.
+- Cause: the request expired, Stave was not open, or an older build routed the prompt to a hidden Lens tab.
+- Fix: keep Stave open and retry the same tool to create a new request. Approve the app-wide dialog within 60 seconds. As a durable alternative, add the hostname under `Settings > Lens > Developer Mode > Approved CDP Hosts`; do not include a port or path.
 
 ## Troubleshooting
 

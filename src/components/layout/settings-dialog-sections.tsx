@@ -41,6 +41,7 @@ import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Button, Input, Slider, Textarea, toast } from "@/components/ui";
 import type { LensSessionScope } from "@/lib/lens/lens.types";
+import { normalizeLensHostEntry } from "@/lib/lens/lens-security";
 import {
   CUSTOM_AUDIO_ACCEPTED_TYPES,
   CUSTOM_AUDIO_MAX_SIZE_BYTES,
@@ -4117,31 +4118,6 @@ function parseLensHostList(value: string): string[] {
   return hosts;
 }
 
-function normalizeLensHostEntry(value: string): string | null {
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed) {
-    return null;
-  }
-
-  const withoutWildcard = trimmed.startsWith("*.") ? trimmed.slice(2) : trimmed;
-  try {
-    const url = new URL(
-      /^[a-z][a-z0-9+.-]*:\/\//i.test(withoutWildcard)
-        ? withoutWildcard
-        : `http://${withoutWildcard}`,
-    );
-    const host = url.hostname.toLowerCase().replace(/\.$/, "");
-    return host && !/\s/.test(host) ? host : null;
-  } catch {
-    const host = withoutWildcard
-      .split(/[/?#:]/, 1)[0]
-      ?.replace(/^\[/, "")
-      .replace(/\]$/, "")
-      .replace(/\.$/, "");
-    return host && !/\s/.test(host) ? host : null;
-  }
-}
-
 function formatLensHostList(hosts: readonly string[]): string {
   return hosts.join("\n");
 }
@@ -4371,11 +4347,11 @@ function LensSection() {
         </SettingsCard>
         <SettingsCard
           title="Developer Mode"
-          description="Control CDP-backed Lens actions such as screenshots, JavaScript evaluation, and agent page control."
+          description="Control CDP-backed Lens actions such as screenshots, JavaScript evaluation, and agent page control. Approval prompts appear app-wide, even when the Lens panel is closed."
         >
           <SwitchField
             title="CDP Tools"
-            description="Allow CDP-backed Lens operations after per-host approval."
+            description="Ask before the first CDP action for each host. Allow once is temporary; always allow saves the hostname below."
             checked={developerModeCdp}
             onCheckedChange={(checked) =>
               updateSettings({
@@ -4385,7 +4361,7 @@ function LensSection() {
           />
           <div className="space-y-2">
             <div className="text-xs font-medium text-muted-foreground">
-              Approved Hosts
+              Approved CDP Hosts
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
@@ -4412,6 +4388,11 @@ function LensSection() {
                 Add host
               </Button>
             </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Enter a hostname or URL. Ports and paths are ignored, so{" "}
+              <code>localhost</code> covers <code>localhost:3000</code>,{" "}
+              <code>localhost:8899</code>, and other localhost ports.
+            </p>
             {cdpApprovedHosts.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {cdpApprovedHosts.map((host) => (
@@ -4445,14 +4426,15 @@ function LensSection() {
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                No hosts have been approved for CDP access.
+                No hosts are pre-approved. The first CDP action will show an
+                approval dialog.
               </p>
             )}
           </div>
         </SettingsCard>
         <SettingsCard
           title="Site Access"
-          description="Restrict Lens navigation by hostname. Blocked hosts win over allowed hosts; localhost and loopback targets are always allowed."
+          description="Restrict Lens navigation by hostname. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation, but CDP actions still require approval above."
         >
           <LabeledField
             title="Allowed Hosts"

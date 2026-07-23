@@ -1716,6 +1716,8 @@ interface LensCdpApprovalRequestPayload {
   url: string;
   host: string;
   reason: string;
+  /** Epoch milliseconds when main will stop accepting this response. */
+  expiresAt?: number;
 }
 
 interface LensCdpApprovalResponse {

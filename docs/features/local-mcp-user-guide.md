@@ -34,7 +34,7 @@ Both transports provide the same tools and task flows:
 
 When the bundled Claude provider runs inside Stave, it also injects the same local MCP server directly into the in-app Claude runtime. That means Claude task chats can call the workspace-information tools even when Claude setting sources are limited to project-local config.
 
-The same Local MCP server also exposes optional `stave_lens_*` tools for workspace browser sessions. Use `stave_lens_open_session` to create a hidden Lens session, then call inspection tools for live page evidence. When the current exact hostname has an account saved under `Settings > Lens`, `stave_lens_fill_saved_account` can fill it without returning the password to the MCP client. If multiple accounts share the host, Lens uses the account enabled for automatic fill; pass `username` to select a different saved account.
+The same Local MCP server also exposes optional `stave_lens_*` tools for workspace browser sessions. Use `stave_lens_open_session` to create a hidden Lens session, then call inspection tools for live page evidence. The first CDP-backed action for an unapproved host shows an app-wide Stave approval dialog, even if no Lens tab is visible. When the current exact hostname has an account saved under `Settings > Lens`, `stave_lens_fill_saved_account` can fill it without returning the password to the MCP client. If multiple accounts share the host, Lens uses the account enabled for automatic fill; pass `username` to select a different saved account.
 
 If a provider needs extra user input while using Local MCP, Stave surfaces that request through the same inline task-chat input card used for approvals and other structured question flows. Form-mode elicitation is answered directly in chat, and URL-mode elicitation shows the target link plus an explicit continue / decline action.
 
@@ -144,6 +144,8 @@ If the workflow also needs live UI inspection:
 8. Prefer low-token reads first: `stave_lens_snapshot` for page structure, scoped `stave_lens_get_text` for copy, and selector screenshots for visual checks
 9. Use raw or high-volume reads only when needed: pass `selector` and `maxChars` to `stave_lens_get_html`, and keep `limit` small for `stave_lens_get_console`, `stave_lens_get_network`, and `stave_lens_list_downloads`
 10. Call `stave_lens_close_session` to close MCP-managed sessions when the workflow is done
+
+CDP-backed calls pause for up to 60 seconds while Stave waits for approval. Choose `Allow once` for temporary access, or `Always allow` to save the hostname. You can also pre-approve it under `Settings > Lens > Developer Mode > Approved CDP Hosts`. Host approval ignores ports and paths, so `localhost` covers every localhost development port.
 
 ## Example Manifest
 
