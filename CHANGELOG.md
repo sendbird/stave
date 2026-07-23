@@ -1,3 +1,25 @@
+## [0.11.4](https://github.com/sendbird/stave/compare/v0.11.3...v0.11.4) (2026-07-23)
+
+### Features
+
+* Render Figma, Jira, and Confluence links as compact service badges in chat messages and the prompt input, preserving useful service labels and raw URLs.
+* Add scheduled repository routines with configurable provider settings, resource creation and attachment, manual execution, pause/resume controls, and one missed occurrence after app restart.
+* Persist provider session cursors and send safe history deltas when switching back to a resumable native Claude or Codex session, falling back to full history when needed.
+
+### Bug Fixes
+
+* Prevent duplicate GitHub pull requests in the workspace Information panel by canonicalizing linked and current-branch identities and rejecting duplicate manual links.
+* Bound Codex App Server JSON-RPC and MCP payloads, resynchronize after oversized lines, and reject affected pending responses instead of leaving sessions waiting indefinitely.
+* Keep Lens CDP approvals app-wide, queued until the renderer is ready, normalized across host formats, and available when the related Lens tab is hidden or closed.
+
+### Refactors / Chores
+
+* Add regression coverage and documentation for service-link tokenization, scheduled routines, Lens CDP approvals, Codex transport bounds, and provider session cursor compatibility.
+
+### References
+
+* [#183](https://github.com/sendbird/stave/pull/183), [#184](https://github.com/sendbird/stave/pull/184), [#185](https://github.com/sendbird/stave/pull/185), [#186](https://github.com/sendbird/stave/pull/186), [#187](https://github.com/sendbird/stave/pull/187), [#188](https://github.com/sendbird/stave/pull/188), [#189](https://github.com/sendbird/stave/pull/189)
+
 ## [0.11.3](https://github.com/sendbird/stave/compare/v0.11.2...v0.11.3) (2026-07-23)
 
 ### Bug Fixes
