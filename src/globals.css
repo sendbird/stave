@@ -257,7 +257,7 @@
  * (`PANEL_BAR_HEIGHT_CLASS` in `src/components/layout/panel-bar.constants.ts`).
  *
  * Deliberately left at library defaults (documented, not accidental):
- * `--dv-overlay-z-index` (999), `--dv-floating-titlebar-height` (22px),
+ * `--dv-floating-titlebar-height` (22px),
  * `--dv-active-sash-transition-duration` (0.1s), `--dv-tab-close-icon-size`
  * (unset -> natural icon size; the custom PaneTabChip renders its own close
  * button), and the nine `--dv-tab-group-color-*` chip colours plus their chip
@@ -346,6 +346,8 @@
   /* Context menu / dropdown surfaces */
   --dv-context-menu-background-color: var(--popover);
   --dv-context-menu-color: var(--popover-foreground);
+  /* Custom themes do not inherit Dockview's built-in overlay fallback. */
+  --dv-overlay-z-index: 999;
 
   /* Density and shape */
   --dv-tabs-and-actions-container-height: 46px;

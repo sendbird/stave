@@ -402,10 +402,11 @@ test("archiving the last active task returns the chat area to the splash state",
   const taskChip = page.locator('[data-pane-tab-chip="task:task-1"]');
   await expect(taskChip).toBeVisible();
   await taskChip.click({ button: "right" });
-  await page
+  const archiveMenuItem = page
     .locator(".dv-context-menu-item")
-    .filter({ hasText: "Archive" })
-    .click();
+    .filter({ hasText: "Archive" });
+  await expect(archiveMenuItem).toBeVisible();
+  await archiveMenuItem.click();
 
   await expect(page.locator('[data-pane-tab-chip^="task:"]')).toHaveCount(0);
   await expect(page.getByTestId("pane-watermark")).toBeVisible();
