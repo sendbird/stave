@@ -16,7 +16,9 @@ This is the primary app architecture:
 
 The renderer does not call provider SDKs or git/PTY subprocesses directly. It sends provider, terminal, source-control, and local MCP task/session requests across the preload bridge, Electron main validates and routes them, and the dedicated `host-service` child process executes the heavy runtime work outside the main-process event loop.
 
-The same host-service runtime is also used for local workspace scripts such as running an optional repo-scoped post-create bootstrap command, creating an optional workspace-local symlink to the repository root `node_modules` when a new git worktree workspace is created, and owning the local MCP workspace-session cache plus task-turn persistence used by the embedded automation server.
+The same host-service runtime is also used for local workspace scripts such as running an optional repo-scoped post-create bootstrap command, creating an optional workspace-local symlink to the repository root `node_modules` when a new git worktree workspace is created, owning the local MCP workspace-session cache plus task-turn persistence used by the embedded automation server, and scheduling Routines while the desktop app is running.
+
+Routine specifications and bounded run history are persisted in SQLite. The host-service scheduler resolves the selected workspace and current persisted Information references, then creates each occurrence through the same local task runtime used by the embedded automation server. Each occurrence remains a normal Stave-owned task conversation rather than a separate result format.
 
 The desktop runtime still hosts the local-only MCP HTTP server in Electron main so same-machine tools can connect without the renderer, but the heavy project/workspace/task/session mutations now execute inside the dedicated `host-service` child runtime.
 

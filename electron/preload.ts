@@ -30,6 +30,13 @@ import type {
   StaveLocalMcpStatus,
 } from "../src/lib/local-mcp";
 import type { WorkspaceInformationState } from "../src/lib/workspace-information";
+import type {
+  RoutineRun,
+  RoutineSnapshot,
+  RoutineSpec,
+  RoutineUpsertInput,
+} from "../src/lib/routines";
+import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
 import type { RepoMapResponse } from "../src/lib/fs/repo-map.types";
 import type {
   AppNotification,
@@ -1111,6 +1118,52 @@ contextBridge.exposeInMainWorld("api", {
         workspaceInformationUpdateSubscribers.delete(listener);
       };
     },
+  },
+  routines: {
+    list: () =>
+      ipcRenderer.invoke("routines:list") as Promise<{
+        ok: boolean;
+        snapshot: RoutineSnapshot;
+        message?: string;
+      }>,
+    create: (input: RoutineUpsertInput) =>
+      ipcRenderer.invoke("routines:create", input) as Promise<{
+        ok: boolean;
+        routine: RoutineSpec | null;
+        message?: string;
+      }>,
+    update: (args: { id: string; input: RoutineUpsertInput }) =>
+      ipcRenderer.invoke("routines:update", args) as Promise<{
+        ok: boolean;
+        routine: RoutineSpec | null;
+        message?: string;
+      }>,
+    remove: (args: { id: string }) =>
+      ipcRenderer.invoke("routines:remove", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    setEnabled: (args: { id: string; enabled: boolean }) =>
+      ipcRenderer.invoke("routines:set-enabled", args) as Promise<{
+        ok: boolean;
+        routine: RoutineSpec | null;
+        message?: string;
+      }>,
+    runNow: (args: { id: string }) =>
+      ipcRenderer.invoke("routines:run-now", args) as Promise<{
+        ok: boolean;
+        run: RoutineRun | null;
+        message?: string;
+      }>,
+    listInformationReferences: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke(
+        "routines:list-information-references",
+        args,
+      ) as Promise<{
+        ok: boolean;
+        options: WorkspaceInformationReferenceOption[];
+        message?: string;
+      }>,
   },
   lsp: {
     syncDocument: (args: {

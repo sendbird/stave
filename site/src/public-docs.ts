@@ -95,6 +95,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         previewImage: "screenshots/scripts-panel.png",
       },
       {
+        routePath: "routines",
+        sourcePath: "docs/features/routines.md",
+        title: "Routines",
+        description:
+          "Schedule recurring Claude or Codex tasks with their own environment, model, permissions, and Information resources.",
+      },
+      {
         routePath: "latest-turn-summary",
         sourcePath: "docs/features/workspace-latest-turn-summary.md",
         title: "Latest Turn Summary",

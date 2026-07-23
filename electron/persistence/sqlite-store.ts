@@ -31,6 +31,11 @@ import type {
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
+import {
+  createEmptyRoutineState,
+  normalizeRoutineState,
+  type RoutineState,
+} from "../../src/lib/routines";
 import type { BridgeEvent } from "../providers/types";
 import {
   parseTurnEventPayload,
@@ -139,6 +144,7 @@ interface LocalMcpRequestLogRow {
 const MAX_LOCAL_MCP_REQUEST_LOGS = 500;
 const LEGACY_TURN_JOURNAL_PURGE_KEY = "legacy_turn_journal_purged_v1";
 const LEGACY_TURN_EVENT_ARTIFACT_KIND = "turn_event_payload";
+const ROUTINE_STATE_KEY = "routine_state_v1";
 
 function normalizePersistedProviderId(
   providerId: ProviderId | "stave",
@@ -1531,6 +1537,36 @@ export class SqliteStore {
     `,
       )
       .run("project_registry", JSON.stringify(args.projects), now);
+  }
+
+  loadRoutineState(): RoutineState {
+    const row = this.db
+      .prepare("SELECT value_json FROM app_state WHERE key = ?")
+      .get(ROUTINE_STATE_KEY) as JsonValueRow | undefined;
+    if (!row) {
+      return createEmptyRoutineState();
+    }
+    try {
+      return normalizeRoutineState(JSON.parse(row.value_json));
+    } catch {
+      return createEmptyRoutineState();
+    }
+  }
+
+  saveRoutineState(args: { state: RoutineState }) {
+    const now = new Date().toISOString();
+    const state = normalizeRoutineState(args.state);
+    this.db
+      .prepare(
+        `
+      INSERT INTO app_state (key, value_json, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value_json = excluded.value_json,
+        updated_at = excluded.updated_at
+    `,
+      )
+      .run(ROUTINE_STATE_KEY, JSON.stringify(state), now);
   }
 
   saveTerminalSnapshot(args: { slotKey: string; screenState: string }) {

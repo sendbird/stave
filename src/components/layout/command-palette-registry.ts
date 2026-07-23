@@ -30,6 +30,7 @@ import {
 } from "@/lib/app-shortcuts";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
+import type { RightRailPanelId } from "@/lib/right-rail-panels";
 
 export type CommandPaletteGroup =
   | "navigation"
@@ -98,12 +99,7 @@ export interface CommandPaletteProjectSummary {
 }
 
 export interface CommandPaletteLayoutState {
-  sidebarOverlayTab:
-    | "explorer"
-    | "changes"
-    | "information"
-    | "skills"
-    | "scripts";
+  sidebarOverlayTab: RightRailPanelId;
   sidebarOverlayVisible: boolean;
   workspaceSidebarCollapsed: boolean;
 }

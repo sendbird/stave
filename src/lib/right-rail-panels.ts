@@ -1,4 +1,11 @@
-import { FolderTree, GitBranch, Info, SearchCheck, Sparkles, type LucideIcon } from "lucide-react";
+import {
+  FolderTree,
+  GitBranch,
+  Info,
+  SearchCheck,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 
 export type RightRailPanelId =
   | "explorer"

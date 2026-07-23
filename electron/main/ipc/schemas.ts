@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RoutineUpsertInputSchema } from "../../../src/lib/routines";
 
 const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 
@@ -1253,5 +1254,33 @@ export const EslintRequestArgsSchema = z
     rootPath: z.string().min(1).max(4096),
     filePath: z.string().min(1).max(4096),
     text: z.string().max(2_000_000),
+  })
+  .strict();
+
+export const RoutineCreateArgsSchema = RoutineUpsertInputSchema;
+
+export const RoutineUpdateArgsSchema = z
+  .object({
+    id: z.string().uuid(),
+    input: RoutineUpsertInputSchema,
+  })
+  .strict();
+
+export const RoutineIdArgsSchema = z
+  .object({
+    id: z.string().uuid(),
+  })
+  .strict();
+
+export const RoutineSetEnabledArgsSchema = z
+  .object({
+    id: z.string().uuid(),
+    enabled: z.boolean(),
+  })
+  .strict();
+
+export const RoutineInformationReferencesArgsSchema = z
+  .object({
+    workspaceId: z.string().min(1).max(4096),
   })
   .strict();
