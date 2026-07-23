@@ -14,6 +14,7 @@ import {
   buildClaudeUserInputPermissionResult,
   extractClaudeRequestedSkillSlug,
   mapClaudeMessageToEvents,
+  parseClaudeQuestionList,
   parseClaudeRouteClassificationJson,
   resolveClaudeDisallowedTools,
   resolveClaudePlanModeApprovalScope,
@@ -1291,5 +1292,81 @@ describe("buildClaudeApprovalTimeoutBridgeEvent", () => {
       return;
     }
     expect(event.message).toContain("answer");
+  });
+});
+
+describe("parseClaudeQuestionList", () => {
+  test("keeps questions whose options omit a description", () => {
+    const questions = parseClaudeQuestionList({
+      input: {
+        questions: [
+          {
+            header: "Approach",
+            question: "Which approach?",
+            options: [{ label: "Option A" }, { label: "Option B" }],
+          },
+        ],
+      },
+    });
+    expect(questions).toHaveLength(1);
+    // Missing description falls back to the label so the question survives.
+    expect(questions[0]?.options).toEqual([
+      { label: "Option A", description: "Option A" },
+      { label: "Option B", description: "Option B" },
+    ]);
+  });
+
+  test("accepts bare-string options and `value` labels", () => {
+    const questions = parseClaudeQuestionList({
+      input: {
+        questions: [
+          {
+            header: "Pick",
+            question: "Pick one",
+            options: ["Yes", { value: "no", description: "Do not proceed" }],
+          },
+        ],
+      },
+    });
+    expect(questions[0]?.options).toEqual([
+      { label: "Yes", description: "Yes" },
+      { label: "no", description: "Do not proceed" },
+    ]);
+  });
+
+  test("preserves an explicit description when present", () => {
+    const questions = parseClaudeQuestionList({
+      input: {
+        questions: [
+          {
+            header: "H",
+            question: "Q",
+            options: [{ label: "A", description: "Detailed A" }],
+            multiSelect: true,
+          },
+        ],
+      },
+    });
+    expect(questions[0]).toMatchObject({
+      options: [{ label: "A", description: "Detailed A" }],
+      multiSelect: true,
+    });
+  });
+
+  test("drops only options with no usable label", () => {
+    const questions = parseClaudeQuestionList({
+      input: {
+        questions: [
+          {
+            header: "H",
+            question: "Q",
+            options: [{ description: "no label" }, { label: "Keep" }],
+          },
+        ],
+      },
+    });
+    expect(questions[0]?.options).toEqual([
+      { label: "Keep", description: "Keep" },
+    ]);
   });
 });

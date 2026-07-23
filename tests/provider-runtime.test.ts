@@ -185,4 +185,32 @@ describe("parseNormalizedEvent", () => {
     const parsed = parseNormalizedEvent({ payload: { type: "tool", state: "bad" } });
     expect(parsed).toBeNull();
   });
+
+  test("keeps user_input events whose options omit a description", () => {
+    const parsed = parseNormalizedEvent({
+      payload: {
+        type: "user_input",
+        toolName: "AskUserQuestion",
+        requestId: "req_1",
+        questions: [
+          {
+            header: "Approach",
+            question: "Which approach?",
+            options: [{ label: "Option A" }, { label: "Option B" }],
+          },
+        ],
+      },
+    });
+
+    expect(parsed).not.toBeNull();
+    if (!parsed || parsed.type !== "user_input") {
+      throw new Error("expected user_input event");
+    }
+    // Missing description is backfilled from the label instead of dropping the
+    // whole event (which would leave the answer card invisible).
+    expect(parsed.questions[0]?.options).toEqual([
+      { label: "Option A", description: "Option A" },
+      { label: "Option B", description: "Option B" },
+    ]);
+  });
 });

@@ -117,10 +117,21 @@ const UserInputQuestionSchema = z.object({
   key: z.string().optional(),
   question: z.string(),
   header: z.string(),
-  options: z.array(z.object({
-    label: z.string(),
-    description: z.string(),
-  })),
+  options: z.array(
+    z
+      .object({
+        label: z.string(),
+        description: z.string().optional(),
+      })
+      // `description` is optional on the wire; backfill it from the label so a
+      // valid question is never dropped in validation just for missing it.
+      .transform((option) => ({
+        label: option.label,
+        description: option.description?.trim()
+          ? option.description
+          : option.label,
+      })),
+  ),
   multiSelect: z.boolean().optional(),
   inputType: z.union([
     z.literal("text"),

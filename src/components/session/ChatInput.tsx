@@ -100,7 +100,7 @@ import { buildLocalChangeReviewPrompt } from "@/lib/local-change-review";
 import { useAppStore } from "@/store/app.store";
 import {
   findPendingApprovals,
-  findLatestPendingUserInputPart,
+  findLatestPendingUserInput,
 } from "@/store/provider-message.utils";
 import {
   resolveLensAnnotationClearTargets,
@@ -272,12 +272,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     useShallow((state) => {
       const messages =
         state.messagesByTask[args.activeTaskId] ?? EMPTY_MESSAGES;
-      const lastMessage = messages.at(-1);
-      if (!lastMessage) {
-        return [null, null] as const;
-      }
-      const part = findLatestPendingUserInputPart({ message: lastMessage });
-      return [lastMessage.id, part ?? null] as const;
+      // Scan every message (like pending approvals) instead of only the last
+      // one, so a pending AskUserQuestion card stays visible even if another
+      // part or message lands after the user_input part.
+      const pending = findLatestPendingUserInput({ messages });
+      return [pending?.messageId ?? null, pending?.part ?? null] as const;
     }),
   );
   const pendingUserInput = useMemo(() => {
