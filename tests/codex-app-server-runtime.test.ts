@@ -7,6 +7,7 @@ import {
   buildCodexTurnStartParams,
   buildCodexTurnSteerParams,
   createCodexAppServerElicitationPauseController,
+  describeJsonRpcLinePrefix,
   formatCodexAppServerErrorMessage,
   formatCodexGoal,
   isCodexCompactSlashCommand,
@@ -544,6 +545,8 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       `Base system prompt.\n\n${CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS}`,
     );
     expect(withBasePrompt).toContain("stave_lens_snapshot");
+    expect(withBasePrompt).toContain("app-wide Stave approval dialog");
+    expect(withBasePrompt).toContain("Never claim");
     expect(withBasePrompt).toContain("control-in-app-browser");
   });
 
@@ -1035,6 +1038,47 @@ describe("resolveCodexChatgptAuthTokensRefreshResponse", () => {
       accessToken: authToken,
       chatgptAccountId: "acct_current",
       chatgptPlanType: "plus",
+    });
+  });
+});
+
+describe("describeJsonRpcLinePrefix", () => {
+  test("extracts method and item metadata from a notification prefix", () => {
+    const prefix =
+      '{"jsonrpc":"2.0","method":"item/completed","params":{"threadId":"t1","item":{"id":"item_42","type":"commandExecution","aggregatedOutput":"...';
+
+    expect(describeJsonRpcLinePrefix(prefix)).toEqual({
+      method: "item/completed",
+      itemType: "commandExecution",
+      itemId: "item_42",
+      responseId: null,
+    });
+  });
+
+  test("extracts the envelope id from a response prefix", () => {
+    const prefix = '{"jsonrpc":"2.0","id":7,"result":{"data":[{"name":"...';
+
+    expect(describeJsonRpcLinePrefix(prefix)).toEqual({
+      method: null,
+      itemType: null,
+      itemId: null,
+      responseId: 7,
+    });
+  });
+
+  test("does not mistake an item id for a response id on notifications", () => {
+    const prefix =
+      '{"jsonrpc":"2.0","method":"item/completed","params":{"item":{"id":"item_9","type":"mcpToolCall","result":"...';
+
+    expect(describeJsonRpcLinePrefix(prefix).responseId).toBeNull();
+  });
+
+  test("returns nulls for an unrecognizable prefix", () => {
+    expect(describeJsonRpcLinePrefix("garbage")).toEqual({
+      method: null,
+      itemType: null,
+      itemId: null,
+      responseId: null,
     });
   });
 });

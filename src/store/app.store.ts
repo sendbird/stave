@@ -83,6 +83,7 @@ import {
   type NotificationSoundPreset,
 } from "@/lib/notifications/notification-sound";
 import type { LensSessionScope } from "@/lib/lens/lens.types";
+import { normalizeLensHostList } from "@/lib/lens/lens-security";
 import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-request";
 import {
   getProviderSessionCursor,
@@ -1493,6 +1494,7 @@ interface AppState
     taskId: string;
     workspaceId?: string;
     projectPath?: string;
+    refreshFromPersistence?: boolean;
   }) => Promise<void>;
   selectTask: (args: { taskId: string }) => void;
   loadTaskMessages: (args: {
@@ -2364,30 +2366,6 @@ const defaultSettings: AppSettings = {
   lensDeveloperModeCdp: true,
   lensCdpApprovedHosts: [],
 };
-
-function normalizeLensHostSettings(
-  value: unknown,
-  fallback: string[],
-): string[] {
-  if (!Array.isArray(value)) {
-    return fallback;
-  }
-
-  const seen = new Set<string>();
-  const hosts: string[] = [];
-  for (const entry of value) {
-    if (typeof entry !== "string") {
-      continue;
-    }
-    const host = entry.trim().toLowerCase();
-    if (!host || seen.has(host)) {
-      continue;
-    }
-    seen.add(host);
-    hosts.push(host);
-  }
-  return hosts;
-}
 
 function normalizeLensSessionScope(value: unknown): LensSessionScope {
   return value === "workspace" ? "workspace" : "project";
@@ -7889,7 +7867,7 @@ export const useAppStore = create<AppState>()(
             ...(patch.lensAllowedHosts === undefined
               ? {}
               : {
-                  lensAllowedHosts: normalizeLensHostSettings(
+                  lensAllowedHosts: normalizeLensHostList(
                     patch.lensAllowedHosts,
                     defaultSettings.lensAllowedHosts,
                   ),
@@ -7897,7 +7875,7 @@ export const useAppStore = create<AppState>()(
             ...(patch.lensBlockedHosts === undefined
               ? {}
               : {
-                  lensBlockedHosts: normalizeLensHostSettings(
+                  lensBlockedHosts: normalizeLensHostList(
                     patch.lensBlockedHosts,
                     defaultSettings.lensBlockedHosts,
                   ),
@@ -7905,7 +7883,7 @@ export const useAppStore = create<AppState>()(
             ...(patch.lensCdpApprovedHosts === undefined
               ? {}
               : {
-                  lensCdpApprovedHosts: normalizeLensHostSettings(
+                  lensCdpApprovedHosts: normalizeLensHostList(
                     patch.lensCdpApprovedHosts,
                     defaultSettings.lensCdpApprovedHosts,
                   ),
@@ -8394,7 +8372,12 @@ export const useAppStore = create<AppState>()(
 
           return { ok: true, compareRunId };
         },
-        focusTaskAttention: async ({ taskId, workspaceId, projectPath }) => {
+        focusTaskAttention: async ({
+          taskId,
+          workspaceId,
+          projectPath,
+          refreshFromPersistence = false,
+        }) => {
           const stateBefore = get();
           if (projectPath && projectPath !== stateBefore.projectPath) {
             await stateBefore.openProject({ projectPath });
@@ -8413,6 +8396,58 @@ export const useAppStore = create<AppState>()(
             await stateAfterProjectOpen.switchWorkspace({
               workspaceId: resolvedWorkspaceId,
             });
+          }
+
+          if (refreshFromPersistence && resolvedWorkspaceId) {
+            const shell = await loadWorkspaceShellForRestore({
+              workspaceId: resolvedWorkspaceId,
+            });
+            const persistedTask =
+              shell?.tasks.find((task) => task.id === taskId) ?? null;
+            if (persistedTask) {
+              set((state) => {
+                if (state.activeWorkspaceId !== resolvedWorkspaceId) {
+                  return {};
+                }
+                const nextTasks = state.tasks.some(
+                  (task) => task.id === taskId,
+                )
+                  ? state.tasks.map((task) =>
+                      task.id === taskId ? persistedTask : task,
+                    )
+                  : [persistedTask, ...state.tasks];
+                const persistedDraft = shell?.promptDraftByTask[taskId];
+                const persistedProviderSession =
+                  shell?.providerSessionByTask[taskId];
+                return {
+                  tasks: nextTasks,
+                  messagesByTask: {
+                    ...state.messagesByTask,
+                    [taskId]: [],
+                  },
+                  messageCountByTask: {
+                    ...state.messageCountByTask,
+                    [taskId]: shell?.messageCountByTask[taskId] ?? 0,
+                  },
+                  promptDraftByTask: persistedDraft
+                    ? {
+                        ...state.promptDraftByTask,
+                        [taskId]: persistedDraft,
+                      }
+                    : state.promptDraftByTask,
+                  providerSessionByTask: persistedProviderSession
+                    ? {
+                        ...state.providerSessionByTask,
+                        [taskId]: persistedProviderSession,
+                      }
+                    : state.providerSessionByTask,
+                  taskWorkspaceIdById: {
+                    ...state.taskWorkspaceIdById,
+                    [taskId]: resolvedWorkspaceId,
+                  },
+                };
+              });
+            }
           }
 
           const stateAfterWorkspaceOpen = get();
@@ -13391,15 +13426,15 @@ export const useAppStore = create<AppState>()(
               (value: unknown): value is string => typeof value === "string",
             )
           : defaultSettings.commandPaletteRecentCommandIds;
-        state.settings.lensAllowedHosts = normalizeLensHostSettings(
+        state.settings.lensAllowedHosts = normalizeLensHostList(
           raw.lensAllowedHosts,
           defaultSettings.lensAllowedHosts,
         );
-        state.settings.lensBlockedHosts = normalizeLensHostSettings(
+        state.settings.lensBlockedHosts = normalizeLensHostList(
           raw.lensBlockedHosts,
           defaultSettings.lensBlockedHosts,
         );
-        state.settings.lensCdpApprovedHosts = normalizeLensHostSettings(
+        state.settings.lensCdpApprovedHosts = normalizeLensHostList(
           raw.lensCdpApprovedHosts,
           defaultSettings.lensCdpApprovedHosts,
         );

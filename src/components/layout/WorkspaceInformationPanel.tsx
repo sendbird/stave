@@ -92,8 +92,10 @@ import {
   isGitHubPullRequestUrl,
   isWorkspaceInfoUrl,
   isWorkspaceIntentAnchor,
+  resolveVisibleWorkspaceLinkedPullRequests,
   toggleWorkspaceIntentAnchor,
   resolveStorybookResourceAccess,
+  updateWorkspaceLinkedPullRequestUrl,
   type WorkspaceStorybookResourceAccess,
   type WorkspaceInfoCustomField,
   type WorkspaceInfoFieldType,
@@ -1421,6 +1423,16 @@ export function WorkspaceInformationPanel() {
   );
   const [linkedPullRequestPreviewById, setLinkedPullRequestPreviewById] =
     useState<Record<string, LinkedPullRequestPreview>>({});
+  const currentBranchPr = prInfo?.pr ?? null;
+  const currentBranchPrStatus = prInfo?.derived ?? null;
+  const visibleLinkedPullRequests = useMemo(
+    () =>
+      resolveVisibleWorkspaceLinkedPullRequests({
+        items: workspaceInformation.linkedPullRequests,
+        currentBranchUrl: currentBranchPr?.url,
+      }),
+    [currentBranchPr?.url, workspaceInformation.linkedPullRequests],
+  );
   const [taskSeedInFlightId, setTaskSeedInFlightId] = useState<string | null>(
     null,
   );
@@ -1474,7 +1486,7 @@ export function WorkspaceInformationPanel() {
   }, [sectionOrder]);
 
   useEffect(() => {
-    const items = workspaceInformation.linkedPullRequests
+    const items = visibleLinkedPullRequests
       .map((item) => ({
         id: item.id,
         url: item.url.trim(),
@@ -1523,7 +1535,7 @@ export function WorkspaceInformationPanel() {
     return () => {
       cancelled = true;
     };
-  }, [workspaceInformation.linkedPullRequests, workspacePath]);
+  }, [visibleLinkedPullRequests, workspacePath]);
 
   function patchWorkspaceInformation(
     updater: (current: WorkspaceInformationState) => WorkspaceInformationState,
@@ -1539,6 +1551,30 @@ export function WorkspaceInformationPanel() {
       ...current,
       customFields: updateItemById(current.customFields, fieldId, updater),
     }));
+  }
+
+  function patchLinkedPullRequestUrl(itemId: string, url: string) {
+    let duplicate: "current_branch" | "linked" | null = null;
+    patchWorkspaceInformation((current) => {
+      const result = updateWorkspaceLinkedPullRequestUrl({
+        items: current.linkedPullRequests,
+        itemId,
+        url,
+        currentBranchUrl: currentBranchPr?.url,
+      });
+      duplicate = result.duplicate;
+      return result.items === current.linkedPullRequests
+        ? current
+        : { ...current, linkedPullRequests: result.items };
+    });
+
+    if (duplicate) {
+      toast.info(
+        duplicate === "current_branch"
+          ? "This is already the current branch PR"
+          : "This pull request is already linked",
+      );
+    }
   }
 
   async function refreshLinkedPullRequestPreview(args: {
@@ -1619,8 +1655,6 @@ export function WorkspaceInformationPanel() {
     }
   }
 
-  const currentBranchPr = prInfo?.pr ?? null;
-  const currentBranchPrStatus = prInfo?.derived ?? null;
   const totalTodoCount = workspaceInformation.todos.length;
   const completedTodoCount = workspaceInformation.todos.filter(
     (todo) => resolveWorkspaceTodoStatus(todo) === "completed",
@@ -1923,8 +1957,7 @@ export function WorkspaceInformationPanel() {
                   title="Pull Requests"
                   icon={<GitHubIcon className="size-4" />}
                   count={
-                    workspaceInformation.linkedPullRequests.length +
-                    (currentBranchPr ? 1 : 0)
+                    visibleLinkedPullRequests.length + (currentBranchPr ? 1 : 0)
                   }
                   action={
                     <div className="flex items-center gap-0.5">
@@ -1975,7 +2008,7 @@ export function WorkspaceInformationPanel() {
                     ) : null}
 
                     {/* Linked PRs */}
-                    {workspaceInformation.linkedPullRequests.map((item) => {
+                    {visibleLinkedPullRequests.map((item) => {
                       const githubRef = extractGitHubPullRequestReference(
                         item.url,
                       );
@@ -1991,17 +2024,7 @@ export function WorkspaceInformationPanel() {
                             icon={<Link className="size-4" />}
                             placeholder="https://github.com/owner/repo/pull/123"
                             onChange={(url) =>
-                              patchWorkspaceInformation((current) => ({
-                                ...current,
-                                linkedPullRequests: updateItemById(
-                                  current.linkedPullRequests,
-                                  item.id,
-                                  (pullRequest) => ({
-                                    ...pullRequest,
-                                    url,
-                                  }),
-                                ),
-                              }))
+                              patchLinkedPullRequestUrl(item.id, url)
                             }
                             onRemove={() =>
                               patchWorkspaceInformation((current) => ({
@@ -2088,11 +2111,8 @@ export function WorkspaceInformationPanel() {
                       );
                     })}
 
-                    {workspaceInformation.linkedPullRequests.length === 0 &&
-                    !currentBranchPr &&
-                    !isDefaultWorkspace ? null : workspaceInformation
-                        .linkedPullRequests.length === 0 &&
-                      isDefaultWorkspace ? (
+                    {visibleLinkedPullRequests.length === 0 &&
+                    isDefaultWorkspace ? (
                       <EmptyHint>No linked pull requests</EmptyHint>
                     ) : null}
                   </div>

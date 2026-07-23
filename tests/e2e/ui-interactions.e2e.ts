@@ -606,6 +606,188 @@ test("lens screenshot dropdown trigger is not clipped", async ({ page }) => {
   await expect(page.getByRole("menuitem", { name: "Full Page" })).toBeVisible();
 });
 
+test("lens CDP approval stays app-wide without an open Lens tab", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          projectPath: "/tmp/stave-project",
+          projectName: "stave-project",
+          workspaces: [
+            {
+              id: "ws-main",
+              name: "main",
+              updatedAt: "2026-03-06T01:00:00.000Z",
+            },
+          ],
+          activeWorkspaceId: "ws-main",
+          workspaceBranchById: { "ws-main": "main" },
+          workspacePathById: { "ws-main": "/tmp/stave-project" },
+          workspaceDefaultById: { "ws-main": true },
+        },
+        version: 0,
+      }),
+    );
+
+    type ApprovalPayload = {
+      workspaceId: string;
+      lensSessionId?: string;
+      requestId: string;
+      url: string;
+      host: string;
+      reason: string;
+      expiresAt?: number;
+    };
+    type ApprovalResponse = {
+      requestId: string;
+      approved: boolean;
+      remember?: boolean;
+    };
+    let approvalListener: ((payload: ApprovalPayload) => void) | null = null;
+    const testState = {
+      approvalResponses: [] as ApprovalResponse[],
+      securityConfigs: [] as Array<{ cdpApprovedHosts: string[] }>,
+      emitApproval: (payload: ApprovalPayload) => {
+        approvalListener?.(payload);
+      },
+    };
+    (
+      window as unknown as {
+        lensApprovalTestState: typeof testState;
+        api?: Record<string, unknown>;
+      }
+    ).lensApprovalTestState = testState;
+    (
+      window as unknown as {
+        lensApprovalTestState: typeof testState;
+        api?: Record<string, unknown>;
+      }
+    ).api = {
+      provider: {
+        streamTurn: async () => [],
+      },
+      terminal: {
+        runCommand: async () => ({
+          ok: true,
+          code: 0,
+          stdout: "",
+          stderr: "",
+        }),
+      },
+      sourceControl: {
+        getStatus: async () => ({
+          ok: true,
+          branch: "main",
+          items: [],
+          hasConflicts: false,
+          stderr: "",
+        }),
+        getHistory: async () => ({
+          ok: true,
+          items: [],
+          stderr: "",
+        }),
+      },
+      lens: {
+        setSecurityConfig: async (config: { cdpApprovedHosts: string[] }) => {
+          testState.securityConfigs.push(config);
+          return { ok: true, config };
+        },
+        respondCdpApproval: async (response: ApprovalResponse) => {
+          testState.approvalResponses.push(response);
+          return { ok: true };
+        },
+        subscribeCdpApprovalRequests: (
+          listener: (payload: ApprovalPayload) => void,
+        ) => {
+          approvalListener = listener;
+          return () => {
+            if (approvalListener === listener) {
+              approvalListener = null;
+            }
+          };
+        },
+      },
+    };
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.getByTestId("lens-surface-panel")).toHaveCount(0);
+
+  await page.evaluate(() => {
+    (
+      window as unknown as {
+        lensApprovalTestState: {
+          emitApproval: (payload: {
+            workspaceId: string;
+            lensSessionId: string;
+            requestId: string;
+            url: string;
+            host: string;
+            reason: string;
+            expiresAt: number;
+          }) => void;
+        };
+      }
+    ).lensApprovalTestState.emitApproval({
+      workspaceId: "ws-main",
+      lensSessionId: "hidden-mcp-session",
+      requestId: "approval-1",
+      url: "http://localhost:8899/dashboard",
+      host: "localhost",
+      reason: "Capture a Lens screenshot",
+      expiresAt: Date.now() + 60_000,
+    });
+  });
+
+  const dialog = page.getByRole("dialog", {
+    name: "Allow Lens CDP access?",
+  });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("localhost", { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByText("Default Workspace", { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.getByText("Capture a Lens screenshot")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Deny" })).toBeFocused();
+
+  await dialog.getByRole("button", { name: "Always allow" }).click();
+  await expect(dialog).toBeHidden();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = (
+          window as unknown as {
+            lensApprovalTestState: {
+              approvalResponses: Array<{
+                requestId: string;
+                approved: boolean;
+                remember?: boolean;
+              }>;
+              securityConfigs: Array<{ cdpApprovedHosts: string[] }>;
+            };
+          }
+        ).lensApprovalTestState;
+        return {
+          response: state.approvalResponses.at(-1),
+          approvedHosts: state.securityConfigs.at(-1)?.cdpApprovedHosts ?? [],
+        };
+      }),
+    )
+    .toEqual({
+      response: {
+        requestId: "approval-1",
+        approved: true,
+        remember: true,
+      },
+      approvedHosts: ["localhost"],
+    });
+});
+
 test("terminal pane opens with the shared surface inset", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("stave-store", JSON.stringify({

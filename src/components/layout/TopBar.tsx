@@ -25,6 +25,7 @@ import { TopBarFileSearch } from "@/components/layout/TopBarFileSearch";
 import { TopBarFleetAttention } from "@/components/layout/TopBarFleetAttention";
 import { TopBarNotifications } from "@/components/layout/TopBarNotifications";
 import { TopBarOpenPR } from "@/components/layout/TopBarOpenPR";
+import { TopBarRoutines } from "@/components/layout/TopBarRoutines";
 import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
 import {
@@ -240,6 +241,7 @@ export function TopBar() {
         {hasProjectContext ? (
           <TopBarFleetAttention noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         ) : null}
+        <TopBarRoutines noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         {hasProjectContext ? (
           <TopBarNotifications noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         ) : null}

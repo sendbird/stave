@@ -4,9 +4,13 @@ import {
   type LensCdpApprovalResponse,
   type LensSecurityConfig,
 } from "../../../src/lib/lens/lens.types";
+import {
+  normalizeLensHostEntry,
+  normalizeLensHostList,
+} from "../../../src/lib/lens/lens-security";
 
-const CDP_APPROVAL_TIMEOUT_MS = 15_000;
-const TRANSIENT_CDP_APPROVAL_MS = 15_000;
+const CDP_APPROVAL_TIMEOUT_MS = 60_000;
+const TRANSIENT_CDP_APPROVAL_MS = 60_000;
 
 const DEFAULT_SECURITY_CONFIG: LensSecurityConfig = {
   allowedHosts: [],
@@ -23,54 +27,18 @@ let cdpApprovalSequence = 0;
 const pendingCdpApprovals = new Map<
   string,
   {
+    key: string;
     host: string;
     workspaceId: string;
-    resolve: (approved: boolean) => void;
+    promise: Promise<CdpApprovalOutcome>;
+    resolve: (outcome: CdpApprovalOutcome) => void;
     timeout: ReturnType<typeof setTimeout>;
   }
 >();
+const pendingCdpApprovalKeys = new Map<string, string>();
 const transientCdpApprovals = new Map<string, number>();
 
-function normalizeHostEntry(value: string): string | null {
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed) {
-    return null;
-  }
-
-  const withoutWildcard = trimmed.startsWith("*.") ? trimmed.slice(2) : trimmed;
-
-  try {
-    const url = new URL(
-      /^[a-z][a-z0-9+.-]*:\/\//i.test(withoutWildcard)
-        ? withoutWildcard
-        : `http://${withoutWildcard}`,
-    );
-    return url.hostname.toLowerCase().replace(/\.$/, "");
-  } catch {
-    const host = withoutWildcard
-      .split(/[/?#:]/, 1)[0]
-      ?.replace(/^\[/, "")
-      .replace(/\]$/, "")
-      .replace(/\.$/, "");
-    return host || null;
-  }
-}
-
-function normalizeHostList(values: readonly string[]): string[] {
-  const seen = new Set<string>();
-  const hosts: string[] = [];
-
-  for (const value of values) {
-    const host = normalizeHostEntry(value);
-    if (!host || seen.has(host)) {
-      continue;
-    }
-    seen.add(host);
-    hosts.push(host);
-  }
-
-  return hosts;
-}
+type CdpApprovalOutcome = "approved" | "denied" | "timed-out";
 
 function parseHttpUrl(targetUrl: string): URL {
   let parsed: URL;
@@ -88,7 +56,11 @@ function parseHttpUrl(targetUrl: string): URL {
 }
 
 function normalizeParsedHost(url: URL): string {
-  return url.hostname.toLowerCase().replace(/\.$/, "");
+  return url.hostname
+    .toLowerCase()
+    .replace(/^\[/, "")
+    .replace(/\]$/, "")
+    .replace(/\.$/, "");
 }
 
 function isLoopbackHost(host: string): boolean {
@@ -139,6 +111,22 @@ function addApprovedCdpHost(host: string): void {
   });
 }
 
+function settlePendingCdpApproval(
+  requestId: string,
+  outcome: CdpApprovalOutcome,
+): boolean {
+  const pending = pendingCdpApprovals.get(requestId);
+  if (!pending) {
+    return false;
+  }
+
+  pendingCdpApprovals.delete(requestId);
+  pendingCdpApprovalKeys.delete(pending.key);
+  clearTimeout(pending.timeout);
+  pending.resolve(outcome);
+  return true;
+}
+
 export function getLensSecurityConfig(): LensSecurityConfig {
   return {
     allowedHosts: [...currentSecurityConfig.allowedHosts],
@@ -152,10 +140,10 @@ export function setLensSecurityConfig(
   config: LensSecurityConfig,
 ): LensSecurityConfig {
   currentSecurityConfig = {
-    allowedHosts: normalizeHostList(config.allowedHosts),
-    blockedHosts: normalizeHostList(config.blockedHosts),
+    allowedHosts: normalizeLensHostList(config.allowedHosts),
+    blockedHosts: normalizeLensHostList(config.blockedHosts),
     developerModeCdp: config.developerModeCdp === true,
-    cdpApprovedHosts: normalizeHostList(config.cdpApprovedHosts),
+    cdpApprovedHosts: normalizeLensHostList(config.cdpApprovedHosts),
   };
   return getLensSecurityConfig();
 }
@@ -166,8 +154,8 @@ export function assertNavigationAllowed(
 ): void {
   const parsed = parseHttpUrl(targetUrl);
   const host = normalizeParsedHost(parsed);
-  const allowedHosts = normalizeHostList(config.allowedHosts);
-  const blockedHosts = normalizeHostList(config.blockedHosts);
+  const allowedHosts = normalizeLensHostList(config.allowedHosts);
+  const blockedHosts = normalizeLensHostList(config.blockedHosts);
 
   if (isLoopbackHost(host)) {
     return;
@@ -195,7 +183,10 @@ export async function assertCdpAllowed(args: {
 }): Promise<void> {
   const config = currentSecurityConfig;
   const parsed = parseHttpUrl(args.url);
-  const host = normalizeParsedHost(parsed);
+  const host = normalizeLensHostEntry(normalizeParsedHost(parsed));
+  if (!host) {
+    throw new Error(`Invalid Lens URL hostname: ${args.url}`);
+  }
 
   if (!config.developerModeCdp) {
     throw new Error(
@@ -214,39 +205,61 @@ export async function assertCdpAllowed(args: {
   const renderer = getMainWindow()?.webContents;
   if (!renderer || renderer.isDestroyed()) {
     throw new Error(
-      `Lens CDP access for ${host} is not approved. Open Lens and approve it in Settings > Lens > Developer Mode.`,
+      `Lens CDP access for ${host} is not approved. Keep Stave open and retry this action to show the approval dialog, or add ${host} in Settings > Lens > Developer Mode > Approved CDP Hosts.`,
     );
   }
 
-  const requestId = `lens-cdp-${Date.now()}-${++cdpApprovalSequence}`;
-  const approved = await new Promise<boolean>((resolve) => {
+  const key = cdpApprovalKey(args.workspaceId, host);
+  const existingRequestId = pendingCdpApprovalKeys.get(key);
+  const existingRequest = existingRequestId
+    ? pendingCdpApprovals.get(existingRequestId)
+    : undefined;
+
+  let outcome: CdpApprovalOutcome;
+  if (existingRequest) {
+    outcome = await existingRequest.promise;
+  } else {
+    const requestId = `lens-cdp-${Date.now()}-${++cdpApprovalSequence}`;
+    const expiresAt = Date.now() + CDP_APPROVAL_TIMEOUT_MS;
+    let resolveApproval: (outcome: CdpApprovalOutcome) => void = () => {};
+    const promise = new Promise<CdpApprovalOutcome>((resolve) => {
+      resolveApproval = resolve;
+    });
     const timeout = setTimeout(() => {
-      pendingCdpApprovals.delete(requestId);
-      resolve(false);
+      settlePendingCdpApproval(requestId, "timed-out");
     }, CDP_APPROVAL_TIMEOUT_MS);
 
     pendingCdpApprovals.set(requestId, {
+      key,
       host,
       workspaceId: args.workspaceId,
-      resolve,
+      promise,
+      resolve: resolveApproval,
       timeout,
     });
+    pendingCdpApprovalKeys.set(key, requestId);
 
     renderer.send("lens:cdp-approval-request", {
       workspaceId: args.workspaceId,
-      // Carry the originating lens session so the renderer can route the
-      // approval dialog to that session's panel instead of arbitrating.
       lensSessionId: args.lensSessionId ?? DEFAULT_LENS_SESSION_ID,
       requestId,
       url: args.url,
       host,
       reason: args.reason ?? "Lens CDP action",
+      expiresAt,
     } satisfies LensCdpApprovalRequestPayload);
-  });
 
-  if (!approved) {
+    outcome = await promise;
+  }
+
+  if (outcome === "timed-out") {
     throw new Error(
-      `Lens CDP access for ${host} was not approved. Approve the host from the Lens panel or add it in Settings > Lens > Developer Mode.`,
+      `Lens CDP approval for ${host} timed out after 60 seconds. Retry this action to show a new approval dialog. If the dialog is not visible, add ${host} in Settings > Lens > Developer Mode > Approved CDP Hosts.`,
+    );
+  }
+  if (outcome === "denied") {
+    throw new Error(
+      `Lens CDP access for ${host} was denied. Retry this action to request access again, or add ${host} in Settings > Lens > Developer Mode > Approved CDP Hosts.`,
     );
   }
 }
@@ -257,9 +270,6 @@ export function respondCdpApproval(response: LensCdpApprovalResponse): boolean {
     return false;
   }
 
-  pendingCdpApprovals.delete(response.requestId);
-  clearTimeout(pending.timeout);
-
   if (response.approved) {
     rememberTransientCdpApproval(pending.workspaceId, pending.host);
     if (response.remember) {
@@ -267,6 +277,8 @@ export function respondCdpApproval(response: LensCdpApprovalResponse): boolean {
     }
   }
 
-  pending.resolve(response.approved);
-  return true;
+  return settlePendingCdpApproval(
+    response.requestId,
+    response.approved ? "approved" : "denied",
+  );
 }

@@ -30,6 +30,14 @@ import type {
   StaveLocalMcpStatus,
 } from "../src/lib/local-mcp";
 import type { WorkspaceInformationState } from "../src/lib/workspace-information";
+import type {
+  RoutineInformationResourceCreateInput,
+  RoutineRun,
+  RoutineSnapshot,
+  RoutineSpec,
+  RoutineUpsertInput,
+} from "../src/lib/routines";
+import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
 import type { RepoMapResponse } from "../src/lib/fs/repo-map.types";
 import type {
   AppNotification,
@@ -164,11 +172,59 @@ ipcRenderer.on(
 const lensCdpApprovalRequestSubscribers = new Set<
   (payload: LensCdpApprovalRequestPayload) => void
 >();
+const pendingLensCdpApprovalRequests = new Map<
+  string,
+  LensCdpApprovalRequestPayload
+>();
+const pendingLensCdpApprovalTimers = new Map<
+  string,
+  ReturnType<typeof setTimeout>
+>();
+
+function forgetPendingLensCdpApproval(requestId: string): void {
+  pendingLensCdpApprovalRequests.delete(requestId);
+  const timer = pendingLensCdpApprovalTimers.get(requestId);
+  if (timer) {
+    clearTimeout(timer);
+    pendingLensCdpApprovalTimers.delete(requestId);
+  }
+}
+
+function rememberPendingLensCdpApproval(
+  payload: LensCdpApprovalRequestPayload,
+): LensCdpApprovalRequestPayload | null {
+  const request = {
+    ...payload,
+    expiresAt: payload.expiresAt ?? Date.now() + 60_000,
+  };
+  if (request.expiresAt <= Date.now()) {
+    forgetPendingLensCdpApproval(payload.requestId);
+    return null;
+  }
+
+  pendingLensCdpApprovalRequests.set(request.requestId, request);
+  const existingTimer = pendingLensCdpApprovalTimers.get(payload.requestId);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+  pendingLensCdpApprovalTimers.set(
+    request.requestId,
+    setTimeout(() => {
+      forgetPendingLensCdpApproval(request.requestId);
+    }, Math.max(0, request.expiresAt - Date.now())),
+  );
+  return request;
+}
+
 ipcRenderer.on(
   "lens:cdp-approval-request",
   (_event, payload: LensCdpApprovalRequestPayload) => {
+    const request = rememberPendingLensCdpApproval(payload);
+    if (!request) {
+      return;
+    }
     for (const subscriber of lensCdpApprovalRequestSubscribers) {
-      subscriber(payload);
+      subscriber(request);
     }
   },
 );
@@ -1112,6 +1168,64 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
+  routines: {
+    list: () =>
+      ipcRenderer.invoke("routines:list") as Promise<{
+        ok: boolean;
+        snapshot: RoutineSnapshot;
+        message?: string;
+      }>,
+    create: (input: RoutineUpsertInput) =>
+      ipcRenderer.invoke("routines:create", input) as Promise<{
+        ok: boolean;
+        routine: RoutineSpec | null;
+        message?: string;
+      }>,
+    update: (args: { id: string; input: RoutineUpsertInput }) =>
+      ipcRenderer.invoke("routines:update", args) as Promise<{
+        ok: boolean;
+        routine: RoutineSpec | null;
+        message?: string;
+      }>,
+    remove: (args: { id: string }) =>
+      ipcRenderer.invoke("routines:remove", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    setEnabled: (args: { id: string; enabled: boolean }) =>
+      ipcRenderer.invoke("routines:set-enabled", args) as Promise<{
+        ok: boolean;
+        routine: RoutineSpec | null;
+        message?: string;
+      }>,
+    runNow: (args: { id: string }) =>
+      ipcRenderer.invoke("routines:run-now", args) as Promise<{
+        ok: boolean;
+        run: RoutineRun | null;
+        message?: string;
+      }>,
+    createInformationResource: (
+      input: RoutineInformationResourceCreateInput,
+    ) =>
+      ipcRenderer.invoke(
+        "routines:create-information-resource",
+        input,
+      ) as Promise<{
+        ok: boolean;
+        option: WorkspaceInformationReferenceOption | null;
+        deduplicated?: boolean;
+        message?: string;
+      }>,
+    listInformationReferences: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke(
+        "routines:list-information-references",
+        args,
+      ) as Promise<{
+        ok: boolean;
+        options: WorkspaceInformationReferenceOption[];
+        message?: string;
+      }>,
+  },
   lsp: {
     syncDocument: (args: {
       rootPath: string;
@@ -1566,11 +1680,17 @@ contextBridge.exposeInMainWorld("api", {
         config?: LensSecurityConfig;
         message?: string;
       }>,
-    respondCdpApproval: (args: LensCdpApprovalResponse) =>
-      ipcRenderer.invoke("lens:respond-cdp-approval", args) as Promise<{
+    respondCdpApproval: async (args: LensCdpApprovalResponse) => {
+      const result = (await ipcRenderer.invoke(
+        "lens:respond-cdp-approval",
+        args,
+      )) as {
         ok: boolean;
         message?: string;
-      }>,
+      };
+      forgetPendingLensCdpApproval(args.requestId);
+      return result;
+    },
     createView: (args: LensSessionProfileArgs & { lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:create-view", args) as Promise<{
         ok: boolean;
@@ -1865,6 +1985,12 @@ contextBridge.exposeInMainWorld("api", {
       listener: (payload: LensCdpApprovalRequestPayload) => void,
     ) => {
       lensCdpApprovalRequestSubscribers.add(listener);
+      for (const payload of pendingLensCdpApprovalRequests.values()) {
+        const request = rememberPendingLensCdpApproval(payload);
+        if (request) {
+          listener(request);
+        }
+      }
       return () => {
         lensCdpApprovalRequestSubscribers.delete(listener);
       };

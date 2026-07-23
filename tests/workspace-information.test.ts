@@ -22,9 +22,11 @@ import {
   isWorkspaceInfoUrl,
   isWorkspaceIntentAnchor,
   normalizeGitHubRepoReference,
+  resolveVisibleWorkspaceLinkedPullRequests,
   resolveStorybookResourceAccess,
   shouldAutoFillWorkspaceInformation,
   toggleWorkspaceIntentAnchor,
+  updateWorkspaceLinkedPullRequestUrl,
   updateWorkspaceInfoSelectFieldOptions,
 } from "@/lib/workspace-information";
 import {
@@ -159,6 +161,101 @@ test("extractGitHubPullRequestReference parses github pull request urls", () => 
   expect(
     isGitHubPullRequestUrl("https://github.com/openai/stave/issues/164"),
   ).toBe(false);
+});
+
+test("resolveVisibleWorkspaceLinkedPullRequests hides duplicate and current branch PRs", () => {
+  const items = [
+    {
+      id: "pr-current",
+      title: "Current",
+      url: "https://www.github.com/Sendbird/Stave/pull/164/?tab=checks",
+      status: "open" as const,
+      note: "",
+    },
+    {
+      id: "pr-current-duplicate",
+      title: "Current duplicate",
+      url: "https://github.com/sendbird/stave/pull/164",
+      status: "open" as const,
+      note: "",
+    },
+    {
+      id: "pr-related",
+      title: "Related",
+      url: "https://github.com/sendbird/stave/pull/165",
+      status: "review" as const,
+      note: "",
+    },
+    {
+      id: "pr-draft-input",
+      title: "",
+      url: "",
+      status: "planned" as const,
+      note: "",
+    },
+  ];
+
+  expect(
+    resolveVisibleWorkspaceLinkedPullRequests({
+      items,
+      currentBranchUrl: "https://github.com/sendbird/stave/pull/164",
+    }).map((item) => item.id),
+  ).toEqual(["pr-related", "pr-draft-input"]);
+});
+
+test("updateWorkspaceLinkedPullRequestUrl rejects duplicate manual entries", () => {
+  const existing = {
+    id: "pr-existing",
+    title: "Existing",
+    url: "https://github.com/sendbird/stave/pull/164",
+    status: "open" as const,
+    note: "",
+  };
+  const draft = {
+    id: "pr-draft",
+    title: "",
+    url: "",
+    status: "planned" as const,
+    note: "",
+  };
+
+  const linkedDuplicate = updateWorkspaceLinkedPullRequestUrl({
+    items: [existing, draft],
+    itemId: draft.id,
+    url: "https://www.github.com/Sendbird/Stave/pull/164/files",
+  });
+  expect(linkedDuplicate.duplicate).toBe("linked");
+  expect(linkedDuplicate.items).toEqual([existing]);
+
+  const currentBranchDuplicate = updateWorkspaceLinkedPullRequestUrl({
+    items: [draft],
+    itemId: draft.id,
+    url: "https://github.com/sendbird/stave/pull/165",
+    currentBranchUrl: "https://github.com/sendbird/stave/pull/165/checks",
+  });
+  expect(currentBranchDuplicate.duplicate).toBe("current_branch");
+  expect(currentBranchDuplicate.items).toEqual([]);
+});
+
+test("updateWorkspaceLinkedPullRequestUrl accepts a unique PR", () => {
+  const draft = {
+    id: "pr-draft",
+    title: "",
+    url: "",
+    status: "planned" as const,
+    note: "",
+  };
+  const result = updateWorkspaceLinkedPullRequestUrl({
+    items: [draft],
+    itemId: draft.id,
+    url: "https://github.com/sendbird/stave/pull/166",
+    currentBranchUrl: "https://github.com/sendbird/stave/pull/165",
+  });
+
+  expect(result.duplicate).toBeNull();
+  expect(result.items[0]?.url).toBe(
+    "https://github.com/sendbird/stave/pull/166",
+  );
 });
 
 test("extractJiraIssueReference reads the issue key from jira-style urls", () => {

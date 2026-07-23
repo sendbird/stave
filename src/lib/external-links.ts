@@ -7,7 +7,7 @@ export interface ExternalTextSegment {
   href?: string;
 }
 
-function stripTrailingUrlPunctuation(raw: string) {
+export function stripTrailingUrlPunctuation(raw: string) {
   let candidate = raw;
   let trailing = "";
 

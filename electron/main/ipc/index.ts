@@ -9,6 +9,7 @@ import { registerMetricsHandlers } from "./metrics";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerProviderHandlers } from "./provider";
+import { registerRoutineHandlers } from "./routines";
 import { registerScmHandlers } from "./scm";
 import { registerSkillsHandlers } from "./skills";
 import { registerTerminalHandlers } from "./terminal";
@@ -20,6 +21,7 @@ export function registerHandlers() {
   registerWindowHandlers();
   registerDiagnosticsHandlers();
   registerProviderHandlers();
+  registerRoutineHandlers();
   registerPersistenceHandlers();
   registerTerminalHandlers();
   registerToolingHandlers();

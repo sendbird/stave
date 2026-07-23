@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
+import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
 import { TooltipProvider } from "@/components/ui";
 import type { LensSecurityConfig } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
@@ -174,6 +175,7 @@ export default function App() {
   return (
     <TooltipProvider>
       <AppShell />
+      <LensCdpApprovalDialog />
     </TooltipProvider>
   );
 }

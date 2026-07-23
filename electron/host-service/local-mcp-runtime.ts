@@ -5,6 +5,7 @@ import { buildCanonicalConversationRequest } from "../../src/lib/providers/canon
 import { getDefaultModelForProvider } from "../../src/lib/providers/model-catalog";
 import { getProviderSessionCursor } from "../../src/lib/providers/provider-sessions";
 import type {
+  CanonicalRetrievedContextPart,
   NormalizedProviderEvent,
   ProviderId,
   ProviderRuntimeOptions,
@@ -33,6 +34,10 @@ import {
   type WorkspaceInfoFieldType,
   type WorkspaceResourceUpsertResult,
 } from "../../src/lib/workspace-information";
+import {
+  formatWorkspaceInformationReferencesContext,
+  type WorkspaceInformationReference,
+} from "../../src/lib/workspace-information-references";
 import {
   buildPendingProviderTurnState,
   buildRecentTimestamp,
@@ -76,7 +81,12 @@ import {
   findLatestPendingUserInputPart,
   findPendingApprovalMessageByRequestId,
 } from "../../src/store/provider-message.utils";
-import type { ChatMessage, Task } from "../../src/types/chat";
+import type {
+  ChatMessage,
+  Task,
+  TaskControlMode,
+  TaskControlOwner,
+} from "../../src/types/chat";
 import { findWorkspaceTaskOrThrow } from "../../src/lib/tasks";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
@@ -131,6 +141,7 @@ export interface TaskStatusResult {
   activeTurnId: string | null;
   latestTurnId: string | null;
   latestTurnCompletedAt: string | null;
+  latestTurnError: string | null;
   messageCount: number;
   latestAssistantText: string | null;
   pendingApprovals: Array<{
@@ -155,7 +166,9 @@ export interface WorkspaceInformationMutationResult {
 const workspaceSessionCacheById = new Map<string, WorkspaceSessionState>();
 const workspacePersistChainById = new Map<string, Promise<void>>();
 const workspaceProviderEventQueue = createKeyedAsyncQueue<string>();
+const terminalTurnErrorById = new Map<string, string>();
 const WORKSPACE_SESSION_CACHE_LIMIT = 32;
+const TERMINAL_TURN_ERROR_LIMIT = 500;
 let localMcpEventListener:
   | ((event: {
       type: "workspace-information-updated";
@@ -475,6 +488,23 @@ function cacheWorkspaceSession(
   return session;
 }
 
+function refreshWorkspaceInformationFromPersistence(args: {
+  workspaceId: string;
+  session: WorkspaceSessionState;
+}) {
+  const persistedWorkspaceInformation =
+    ensureHostServicePersistenceReady().loadWorkspaceSnapshot({
+      workspaceId: args.workspaceId,
+    })?.workspaceInformation;
+  if (!persistedWorkspaceInformation) {
+    return args.session;
+  }
+  return cacheWorkspaceSession(args.workspaceId, {
+    ...args.session,
+    workspaceInformation: persistedWorkspaceInformation,
+  });
+}
+
 export function setLocalMcpEventListener(
   listener: typeof localMcpEventListener,
 ) {
@@ -492,6 +522,7 @@ export async function cleanupLocalMcpRuntime() {
   workspacePersistChainById.clear();
   await Promise.allSettled(pendingPersists);
   workspaceSessionCacheById.clear();
+  terminalTurnErrorById.clear();
 }
 
 function emitWorkspaceInformationUpdate(
@@ -615,7 +646,10 @@ async function updateWorkspaceInformationState(args: {
   workspaceId: string;
   updater: (current: WorkspaceInformationState) => WorkspaceInformationState;
 }) {
-  const session = await loadWorkspaceSession(args.workspaceId);
+  const session = refreshWorkspaceInformationFromPersistence({
+    workspaceId: args.workspaceId,
+    session: await loadWorkspaceSession(args.workspaceId),
+  });
   const { projects } = await loadNormalizedProjects();
   const registration = findWorkspaceRegistration({
     projects,
@@ -642,7 +676,10 @@ async function updateWorkspaceInformationState(args: {
 }
 
 export async function getWorkspaceInformation(args: { workspaceId: string }) {
-  const session = await loadWorkspaceSession(args.workspaceId);
+  const session = refreshWorkspaceInformationFromPersistence({
+    workspaceId: args.workspaceId,
+    session: await loadWorkspaceSession(args.workspaceId),
+  });
   return {
     workspaceId: args.workspaceId,
     workspaceInformation: session.workspaceInformation,
@@ -1458,6 +1495,17 @@ async function handleProviderEvent(args: {
   event: BridgeEvent;
 }) {
   const store = ensureHostServicePersistenceReady();
+  if (args.event.type === "error" && !args.event.recoverable) {
+    terminalTurnErrorById.delete(args.turnId);
+    terminalTurnErrorById.set(args.turnId, args.event.message);
+    while (terminalTurnErrorById.size > TERMINAL_TURN_ERROR_LIMIT) {
+      const oldestTurnId = terminalTurnErrorById.keys().next().value;
+      if (!oldestTurnId) {
+        break;
+      }
+      terminalTurnErrorById.delete(oldestTurnId);
+    }
+  }
   const session = await loadWorkspaceSession(args.workspaceId);
   const applied = applyProviderEventsToWorkspaceSession({
     session,
@@ -1787,6 +1835,9 @@ export async function runTask(args: {
   title?: string;
   provider?: ProviderId;
   runtimeOptions?: ProviderRuntimeOptions;
+  informationReferences?: WorkspaceInformationReference[];
+  controlMode?: TaskControlMode;
+  controlOwner?: TaskControlOwner;
 }) {
   const { projects } = await loadNormalizedProjects();
   const registration = findWorkspaceRegistration({
@@ -1799,7 +1850,10 @@ export async function runTask(args: {
 
   const workspacePath = registration.workspacePath;
   const workspaceName = registration.workspace.name;
-  let session = await loadWorkspaceSession(args.workspaceId);
+  let session = refreshWorkspaceInformationFromPersistence({
+    workspaceId: args.workspaceId,
+    session: await loadWorkspaceSession(args.workspaceId),
+  });
 
   // Auto-fill the Information panel from the prompt: register any Jira/PR/
   // Confluence/Figma/Slack/Storybook/Amplify URLs before the turn context is
@@ -1851,8 +1905,8 @@ export async function runTask(args: {
       updatedAt: buildRecentTimestamp(),
       unread: false,
       archivedAt: null,
-      controlMode: "managed",
-      controlOwner: "external",
+      controlMode: args.controlMode ?? "managed",
+      controlOwner: args.controlOwner ?? "external",
     } satisfies Task;
     session = cacheWorkspaceSession(args.workspaceId, {
       ...session,
@@ -1894,6 +1948,27 @@ export async function runTask(args: {
     sessions: providerSession,
     providerId: provider,
   });
+  const informationReferencesContext =
+    args.informationReferences && args.informationReferences.length > 0
+      ? formatWorkspaceInformationReferencesContext({
+          info: session.workspaceInformation,
+          references: args.informationReferences,
+        })
+      : "";
+  const informationReferencesPart: CanonicalRetrievedContextPart | null =
+    informationReferencesContext
+      ? {
+          type: "retrieved_context",
+          sourceId: "stave:routine-information-references",
+          title: "Routine Information References",
+          content: [
+            "The routine explicitly attached these Information panel entries.",
+            "Treat section references as the full current section and item references as the specific current item.",
+            "",
+            informationReferencesContext,
+        ].join("\n"),
+      }
+      : null;
   const conversation = buildCanonicalConversationRequest({
     turnId,
     taskId: task.id,
@@ -1918,6 +1993,7 @@ export async function runTask(args: {
         tasks: session.tasks,
         workspaceInformation: session.workspaceInformation,
       }),
+      ...(informationReferencesPart ? [informationReferencesPart] : []),
     ],
   });
   const pendingState = buildPendingProviderTurnState({
@@ -2014,6 +2090,7 @@ export async function runTask(args: {
 export async function getTaskStatus(args: {
   workspaceId: string;
   taskId: string;
+  turnId?: string;
 }) {
   const session = await loadWorkspaceSession(args.workspaceId);
   const task = session.tasks.find((item) => item.id === args.taskId);
@@ -2022,12 +2099,14 @@ export async function getTaskStatus(args: {
   }
 
   const store = ensureHostServicePersistenceReady();
-  const latestTurn =
-    store.listTurns({
-      workspaceId: args.workspaceId,
-      taskId: args.taskId,
-      limit: 1,
-    })[0] ?? null;
+  const recentTurns = store.listTurns({
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+    limit: args.turnId ? 20 : 1,
+  });
+  const latestTurn = args.turnId
+    ? (recentTurns.find((turn) => turn.id === args.turnId) ?? null)
+    : (recentTurns[0] ?? null);
   const messages = session.messagesByTask[args.taskId] ?? [];
   const latestAssistantText =
     [...messages]
@@ -2046,6 +2125,9 @@ export async function getTaskStatus(args: {
     activeTurnId: session.activeTurnIdsByTask[task.id] ?? null,
     latestTurnId: latestTurn?.id ?? null,
     latestTurnCompletedAt: latestTurn?.completedAt ?? null,
+    latestTurnError: latestTurn
+      ? (terminalTurnErrorById.get(latestTurn.id) ?? null)
+      : null,
     messageCount: messages.length,
     latestAssistantText,
     pendingApprovals: findPendingApprovals(messages),
