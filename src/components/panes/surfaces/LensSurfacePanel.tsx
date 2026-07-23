@@ -30,7 +30,6 @@ import {
   Ruler,
   ScanSearch,
   Search,
-  ShieldAlert,
   Terminal,
   Trash2,
   X,
@@ -60,14 +59,6 @@ import {
   TooltipTrigger,
   toast,
 } from "@/components/ui";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { formatElementForChat } from "@/lib/lens/lens-element-message";
 import {
   getLensCommentImageId,
@@ -88,7 +79,6 @@ import {
   type BrowserNavigationState,
   type ElementPickerResult,
   type LensBounds,
-  type LensCdpApprovalRequestPayload,
   type LensDownloadEntry,
   type LensDownloadEventPayload,
   type LensSourceMappingConfig,
@@ -389,8 +379,6 @@ function LensSessionSurface(args: {
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [isPickerActive, setIsPickerActive] = useState(false);
-  const [cdpApprovalRequest, setCdpApprovalRequest] =
-    useState<LensCdpApprovalRequestPayload | null>(null);
   const [downloads, setDownloads] = useState<LensDownloadEntry[]>([]);
   const [annotations, setAnnotations] = useState<LensAnnotation[]>([]);
   const [isAnnotationModeActive, setIsAnnotationModeActive] = useState(false);
@@ -421,19 +409,12 @@ function LensSessionSurface(args: {
     isLensFloatingSurfaceOpen ||
     hasExternalFloatingSurface ||
     lensPanelTab !== "preview";
-  const cdpApprovalRequestRef = useRef<LensCdpApprovalRequestPayload | null>(
-    null,
-  );
   const isLensSuppressedRef = useRef(isLensSuppressed);
   const consolePausedRef = useRef(consolePaused);
   const networkPausedRef = useRef(networkPaused);
   isLensSuppressedRef.current = isLensSuppressed;
   consolePausedRef.current = consolePaused;
   networkPausedRef.current = networkPaused;
-
-  useEffect(() => {
-    cdpApprovalRequestRef.current = cdpApprovalRequest;
-  }, [cdpApprovalRequest]);
 
   useEffect(() => {
     if (!isPanelVisible || lensPanelTab !== "preview") {
@@ -818,39 +799,6 @@ function LensSessionSurface(args: {
   }, [hasLensApi, isLensSuppressed, lensSessionId, syncBounds, workspaceId]);
 
   useEffect(() => {
-    if (!workspaceId || !hasLensApi || !cdpApprovalRequest) {
-      return;
-    }
-
-    cancelAnimationFrame(measureRafRef.current);
-    cancelAnimationFrame(flushRafRef.current);
-    pendingBoundsRef.current = null;
-    lastSentBoundsRef.current = null;
-    void window.api?.lens?.setBounds?.({
-      workspaceId,
-      lensSessionId,
-      bounds: { x: 0, y: 0, width: 0, height: 0 },
-    });
-    void window.api?.lens?.setVisible?.({
-      workspaceId,
-      lensSessionId,
-      visible: false,
-    });
-
-    return () => {
-      if (isLensSuppressedRef.current) {
-        return;
-      }
-      void window.api?.lens?.setVisible?.({
-        workspaceId,
-        lensSessionId,
-        visible: true,
-      });
-      syncBounds();
-    };
-  }, [cdpApprovalRequest, hasLensApi, lensSessionId, syncBounds, workspaceId]);
-
-  useEffect(() => {
     if (!workspaceId || !hasLensApi) {
       return;
     }
@@ -868,50 +816,6 @@ function LensSessionSurface(args: {
       unsubscribe?.();
     };
   }, [applyNavigationState, hasLensApi, lensSessionId, workspaceId]);
-
-  useEffect(() => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    const unsubscribe = window.api?.lens?.subscribeCdpApprovalRequests?.(
-      (payload: LensCdpApprovalRequestPayload) => {
-        if (payload.workspaceId !== workspaceId) {
-          return;
-        }
-        // The payload carries the originating lens session (missing means
-        // the default session), so each panel only fields its own session's
-        // dialogs. Requests from sessions without a renderer tab (e.g.
-        // MCP-opened sessions) fall back to the oldest open tab so exactly
-        // one mounted panel still shows the dialog.
-        const payloadSessionId =
-          payload.lensSessionId ?? DEFAULT_LENS_SESSION_ID;
-        const lensTabs = useAppStore.getState().lensTabs;
-        const hasOwningTab = lensTabs.some(
-          (tab) => tab.id === payloadSessionId,
-        );
-        if (hasOwningTab) {
-          if (payloadSessionId !== lensSessionId) {
-            return;
-          }
-        } else if (lensTabs[0]?.id !== lensSessionId) {
-          return;
-        }
-        setCdpApprovalRequest(payload);
-      },
-    );
-
-    return () => {
-      const pending = cdpApprovalRequestRef.current;
-      if (pending?.workspaceId === workspaceId) {
-        void window.api?.lens?.respondCdpApproval?.({
-          requestId: pending.requestId,
-          approved: false,
-        });
-      }
-      unsubscribe?.();
-    };
-  }, [hasLensApi, lensSessionId, workspaceId]);
 
   useEffect(() => {
     setDownloads([]);
@@ -1269,49 +1173,6 @@ function LensSessionSurface(args: {
     sourceMappingConfig,
     workspaceId,
   ]);
-
-  const respondToCdpApproval = useCallback(
-    async (approved: boolean) => {
-      const request = cdpApprovalRequest;
-      if (!request) {
-        return;
-      }
-
-      setCdpApprovalRequest(null);
-      cdpApprovalRequestRef.current = null;
-
-      if (approved) {
-        const state = useAppStore.getState();
-        const host = request.host.trim().toLowerCase();
-        const alreadyApproved = state.settings.lensCdpApprovedHosts.some(
-          (entry) => entry.trim().toLowerCase() === host,
-        );
-        if (!alreadyApproved) {
-          state.updateSettings({
-            patch: {
-              lensCdpApprovedHosts: [
-                ...state.settings.lensCdpApprovedHosts,
-                host,
-              ],
-            },
-          });
-        }
-      }
-
-      const result = await window.api?.lens?.respondCdpApproval?.({
-        requestId: request.requestId,
-        approved,
-        remember: approved,
-      });
-
-      if (result && !result.ok) {
-        toast.error("CDP approval expired", {
-          description: "Retry the Lens action to request access again.",
-        });
-      }
-    },
-    [cdpApprovalRequest],
-  );
 
   const saveScreenshot = useCallback(
     async (fullPage: boolean) => {
@@ -2343,63 +2204,6 @@ function LensSessionSurface(args: {
           )}
         </div>
       </div>
-      <Dialog
-        open={cdpApprovalRequest !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            void respondToCdpApproval(false);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="gap-3">
-            <div className="flex items-center gap-2">
-              <span className="flex size-9 items-center justify-center rounded-md border border-border bg-muted">
-                <ShieldAlert className="size-4 text-muted-foreground" />
-              </span>
-              <div className="min-w-0">
-                <DialogTitle>Allow Lens CDP access?</DialogTitle>
-                <DialogDescription className="mt-1">
-                  Full CDP access lets agents inspect and control this site.
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-          <div className="space-y-2 text-sm">
-            <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
-              <div className="text-xs font-medium text-muted-foreground">
-                Host
-              </div>
-              <div className="truncate font-mono text-xs">
-                {cdpApprovalRequest?.host ?? ""}
-              </div>
-            </div>
-            <p className="text-xs leading-5 text-muted-foreground">
-              Approving remembers this host in Settings &gt; Lens &gt; Developer
-              Mode.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                void respondToCdpApproval(false);
-              }}
-            >
-              Deny
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                void respondToCdpApproval(true);
-              }}
-            >
-              Approve and Remember
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </TooltipProvider>
   );
 }

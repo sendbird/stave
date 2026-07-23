@@ -544,6 +544,8 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       `Base system prompt.\n\n${CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS}`,
     );
     expect(withBasePrompt).toContain("stave_lens_snapshot");
+    expect(withBasePrompt).toContain("app-wide Stave approval dialog");
+    expect(withBasePrompt).toContain("Never claim");
     expect(withBasePrompt).toContain("control-in-app-browser");
   });
 

@@ -83,6 +83,7 @@ import {
   type NotificationSoundPreset,
 } from "@/lib/notifications/notification-sound";
 import type { LensSessionScope } from "@/lib/lens/lens.types";
+import { normalizeLensHostList } from "@/lib/lens/lens-security";
 import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-request";
 import {
   getDefaultModelForProvider,
@@ -2349,30 +2350,6 @@ const defaultSettings: AppSettings = {
   lensDeveloperModeCdp: true,
   lensCdpApprovedHosts: [],
 };
-
-function normalizeLensHostSettings(
-  value: unknown,
-  fallback: string[],
-): string[] {
-  if (!Array.isArray(value)) {
-    return fallback;
-  }
-
-  const seen = new Set<string>();
-  const hosts: string[] = [];
-  for (const entry of value) {
-    if (typeof entry !== "string") {
-      continue;
-    }
-    const host = entry.trim().toLowerCase();
-    if (!host || seen.has(host)) {
-      continue;
-    }
-    seen.add(host);
-    hosts.push(host);
-  }
-  return hosts;
-}
 
 function normalizeLensSessionScope(value: unknown): LensSessionScope {
   return value === "workspace" ? "workspace" : "project";
@@ -7874,7 +7851,7 @@ export const useAppStore = create<AppState>()(
             ...(patch.lensAllowedHosts === undefined
               ? {}
               : {
-                  lensAllowedHosts: normalizeLensHostSettings(
+                  lensAllowedHosts: normalizeLensHostList(
                     patch.lensAllowedHosts,
                     defaultSettings.lensAllowedHosts,
                   ),
@@ -7882,7 +7859,7 @@ export const useAppStore = create<AppState>()(
             ...(patch.lensBlockedHosts === undefined
               ? {}
               : {
-                  lensBlockedHosts: normalizeLensHostSettings(
+                  lensBlockedHosts: normalizeLensHostList(
                     patch.lensBlockedHosts,
                     defaultSettings.lensBlockedHosts,
                   ),
@@ -7890,7 +7867,7 @@ export const useAppStore = create<AppState>()(
             ...(patch.lensCdpApprovedHosts === undefined
               ? {}
               : {
-                  lensCdpApprovedHosts: normalizeLensHostSettings(
+                  lensCdpApprovedHosts: normalizeLensHostList(
                     patch.lensCdpApprovedHosts,
                     defaultSettings.lensCdpApprovedHosts,
                   ),
@@ -13341,15 +13318,15 @@ export const useAppStore = create<AppState>()(
               (value: unknown): value is string => typeof value === "string",
             )
           : defaultSettings.commandPaletteRecentCommandIds;
-        state.settings.lensAllowedHosts = normalizeLensHostSettings(
+        state.settings.lensAllowedHosts = normalizeLensHostList(
           raw.lensAllowedHosts,
           defaultSettings.lensAllowedHosts,
         );
-        state.settings.lensBlockedHosts = normalizeLensHostSettings(
+        state.settings.lensBlockedHosts = normalizeLensHostList(
           raw.lensBlockedHosts,
           defaultSettings.lensBlockedHosts,
         );
-        state.settings.lensCdpApprovedHosts = normalizeLensHostSettings(
+        state.settings.lensCdpApprovedHosts = normalizeLensHostList(
           raw.lensCdpApprovedHosts,
           defaultSettings.lensCdpApprovedHosts,
         );
