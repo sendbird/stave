@@ -1,3 +1,15 @@
+## [0.11.3](https://github.com/sendbird/stave/compare/v0.11.2...v0.11.3) (2026-07-23)
+
+### Bug Fixes
+
+* Restore Dockview tab context menus above pane content in custom themes by defining the missing overlay z-index token.
+* Preserve the existing semantic context-menu colors while restoring the custom theme's overlay fallback.
+* Wait for the Archive context-menu item to be visible in the last-active-task E2E flow before activating it.
+
+### References
+
+* [#181](https://github.com/sendbird/stave/pull/181)
+
 ## [0.11.2](https://github.com/sendbird/stave/compare/v0.11.1...v0.11.2) (2026-07-22)
 
 ### Bug Fixes
