@@ -101,9 +101,9 @@ const activeCodexTurnsByExecutable = new Map<string, number>();
 const pendingMcpRefreshExecutables = new Set<string>();
 
 const APP_SERVER_INTERRUPT_GRACE_MS = 10_000;
-const CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES = 32 * 1024 * 1024;
+const CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES = 64 * 1024 * 1024;
 const CODEX_APP_SERVER_STDOUT_SOFT_LINE_MAX_BYTES = 1 * 1024 * 1024;
-const CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES = 8 * 1024 * 1024;
+const CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES = 32 * 1024 * 1024;
 const CODEX_APP_SERVER_COLLECTED_EVENTS_MAX_BYTES = 512 * 1024;
 const CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES = 256 * 1024;
 const CODEX_APP_SERVER_PLAN_BUFFER_MAX_BYTES = 128 * 1024;
@@ -456,6 +456,37 @@ function truncateCodexSnapshot(args: { value: string; maxBytes: number }) {
     value: args.value,
     maxBytes: args.maxBytes,
   });
+}
+
+/**
+ * Extracts safe JSON-RPC envelope metadata (method, item type/id) from the
+ * leading characters of a dropped oversized stdout line. Never returns
+ * payload content — diagnostics only.
+ */
+export function describeJsonRpcLinePrefix(linePrefix: string) {
+  const method = /"method"\s*:\s*"([^"]{1,128})"/.exec(linePrefix)?.[1];
+  const itemType = /"item"\s*:\s*\{[^{}]*?"type"\s*:\s*"([^"]{1,64})"/.exec(
+    linePrefix,
+  )?.[1];
+  const itemId = /"item"\s*:\s*\{[^{}]*?"id"\s*:\s*"([^"]{1,128})"/.exec(
+    linePrefix,
+  )?.[1];
+  // For responses ({"jsonrpc":"2.0","id":5,"result":...}) the first "id" is
+  // the envelope id. Only trust it when no "method" is present (i.e. this is
+  // a response, not a notification whose first "id" may belong to an item).
+  let responseId: number | string | null = null;
+  if (!method) {
+    const idMatch = /"id"\s*:\s*(?:(\d+)|"([^"]{1,128})")/.exec(linePrefix);
+    if (idMatch) {
+      responseId = idMatch[1] !== undefined ? Number(idMatch[1]) : idMatch[2]!;
+    }
+  }
+  return {
+    method: method ?? null,
+    itemType: itemType ?? null,
+    itemId: itemId ?? null,
+    responseId,
+  };
 }
 
 export function buildCodexConfigOverrides(args: {
@@ -1903,6 +1934,36 @@ class CodexAppServerClient {
       label: "codex-app-server stdout",
       maxBufferBytes: CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES,
       maxLineBytes: CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES,
+      // Drop oversized lines and resync at the next newline instead of
+      // throwing: a teardown here kills the shared App Server client for
+      // every task using this executable, so one runaway tool output must
+      // not take down unrelated sessions. Only size + JSON-RPC envelope
+      // metadata is logged — never payload content.
+      onOversizedLine: ({ lineBytes, linePrefix }) => {
+        const described = describeJsonRpcLinePrefix(linePrefix);
+        console.warn(
+          "[codex-app-server-runtime] dropped oversized stdout line",
+          {
+            lineBytes,
+            maxLineBytes: CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES,
+            ...described,
+          },
+        );
+        // If the dropped line was a response to a pending request, reject it
+        // now — otherwise the caller would await forever (there is no
+        // request timeout on this transport).
+        if (described.responseId !== null) {
+          const pending = this.pendingResponses.get(described.responseId);
+          if (pending) {
+            this.pendingResponses.delete(described.responseId);
+            pending.reject(
+              new Error(
+                `Codex App Server response was dropped: oversized line (${lineBytes} bytes) exceeded ${CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES} bytes.`,
+              ),
+            );
+          }
+        }
+      },
     });
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
@@ -4839,7 +4900,10 @@ export async function streamCodexWithAppServer(
                 type: "tool",
                 ...(itemId ? { toolUseId: itemId } : {}),
                 toolName: toolLabel,
-                input: toText(mcpItem.arguments ?? {}),
+                input: truncateCodexSnapshot({
+                  value: toText(mcpItem.arguments ?? {}),
+                  maxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
+                }),
                 state: "input-available",
               },
               {
@@ -4847,7 +4911,10 @@ export async function streamCodexWithAppServer(
                 tool_use_id: itemId,
                 output: mcpItem.error?.message
                   ? `[error] ${mcpItem.error.message}`
-                  : toText(mcpItem.result ?? ""),
+                  : truncateCodexSnapshot({
+                      value: toText(mcpItem.result ?? ""),
+                      maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
+                    }),
                 ...(mcpItem.status === "failed" ? { isError: true } : {}),
               },
             ]);
