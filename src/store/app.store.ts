@@ -13319,6 +13319,7 @@ export const useAppStore = create<AppState>()(
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
         taskCheckpointById: state.taskCheckpointById,
+        compareRunsById: state.compareRunsById,
         isDarkMode: state.isDarkMode,
         draftProvider: state.draftProvider,
         layout: state.layout,
