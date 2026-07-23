@@ -403,6 +403,38 @@ export function isGitHubPullRequestUrl(value: string) {
   return extractGitHubPullRequestReference(value) !== null;
 }
 
+/**
+ * Collapse linked PR URL variants for display and omit the current branch PR,
+ * which the Information panel renders as its own first-class row.
+ */
+export function resolveVisibleWorkspaceLinkedPullRequests(args: {
+  items: WorkspaceLinkedPullRequest[];
+  currentBranchUrl?: string | null;
+}): WorkspaceLinkedPullRequest[] {
+  const seen = new Set<string>();
+  if (args.currentBranchUrl) {
+    const reference = extractGitHubPullRequestReference(args.currentBranchUrl);
+    if (reference) {
+      seen.add(
+        `${reference.owner.toLowerCase()}/${reference.repo.toLowerCase()}#${reference.number}`,
+      );
+    }
+  }
+
+  return args.items.filter((item) => {
+    const reference = extractGitHubPullRequestReference(item.url);
+    if (!reference) {
+      return true;
+    }
+    const key = `${reference.owner.toLowerCase()}/${reference.repo.toLowerCase()}#${reference.number}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 export function extractJiraIssueReference(
   value: string,
 ): JiraIssueReference | null {
@@ -917,6 +949,77 @@ export function buildWorkspaceResourceDedupeKey(args: {
         : `amplify:url:${normalizeWorkspaceResourceUrlKey(url)}`;
     }
   }
+}
+
+export type WorkspaceLinkedPullRequestDuplicate =
+  | "current_branch"
+  | "linked";
+
+/**
+ * Update a manually linked PR URL without allowing a second entry for the same
+ * GitHub PR. Empty draft rows are discarded when a pasted URL is a duplicate;
+ * edits to an existing row are left unchanged.
+ */
+export function updateWorkspaceLinkedPullRequestUrl(args: {
+  items: WorkspaceLinkedPullRequest[];
+  itemId: string;
+  url: string;
+  currentBranchUrl?: string | null;
+}): {
+  items: WorkspaceLinkedPullRequest[];
+  duplicate: WorkspaceLinkedPullRequestDuplicate | null;
+} {
+  const target = args.items.find((item) => item.id === args.itemId);
+  if (!target) {
+    return { items: args.items, duplicate: null };
+  }
+
+  const nextReference = extractGitHubPullRequestReference(args.url);
+  if (nextReference) {
+    const nextKey = buildWorkspaceResourceDedupeKey({
+      kind: "pull_request",
+      url: args.url,
+    });
+    const currentBranchKey = args.currentBranchUrl
+      ? buildWorkspaceResourceDedupeKey({
+          kind: "pull_request",
+          url: args.currentBranchUrl,
+        })
+      : null;
+    const duplicate: WorkspaceLinkedPullRequestDuplicate | null =
+      currentBranchKey === nextKey
+        ? "current_branch"
+        : args.items.some(
+              (item) =>
+                item.id !== args.itemId &&
+                extractGitHubPullRequestReference(item.url) !== null &&
+                buildWorkspaceResourceDedupeKey({
+                  kind: "pull_request",
+                  url: item.url,
+                }) === nextKey,
+            )
+          ? "linked"
+          : null;
+
+    if (duplicate) {
+      return {
+        items: target.url.trim()
+          ? args.items
+          : args.items.filter((item) => item.id !== args.itemId),
+        duplicate,
+      };
+    }
+  }
+
+  if (target.url === args.url) {
+    return { items: args.items, duplicate: null };
+  }
+  return {
+    items: args.items.map((item) =>
+      item.id === args.itemId ? { ...item, url: args.url } : item,
+    ),
+    duplicate: null,
+  };
 }
 
 export interface WorkspaceResourceUpsertResult {
