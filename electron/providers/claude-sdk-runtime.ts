@@ -1011,7 +1011,7 @@ function summarizeClaudePermissionRequest(args: {
     : `Claude requested permission to run ${args.toolName}.`;
 }
 
-function parseClaudeQuestionList(args: { input: Record<string, unknown> }) {
+export function parseClaudeQuestionList(args: { input: Record<string, unknown> }) {
   const rawQuestions = args.input.questions;
   if (!Array.isArray(rawQuestions)) {
     return [];
@@ -1026,22 +1026,33 @@ function parseClaudeQuestionList(args: { input: Record<string, unknown> }) {
     const header = typeof candidate.header === "string" ? candidate.header : "";
     const options = Array.isArray(candidate.options)
       ? candidate.options.flatMap((rawOption) => {
+          // Some AskUserQuestion payloads pass options as bare strings.
+          if (typeof rawOption === "string") {
+            const value = rawOption.trim();
+            return value ? [{ label: value, description: value }] : [];
+          }
           if (!rawOption || typeof rawOption !== "object") {
             return [];
           }
           const option = rawOption as Record<string, unknown>;
-          if (
-            typeof option.label !== "string" ||
-            typeof option.description !== "string"
-          ) {
+          // Accept `label` (preferred) or `value` as the option label.
+          const label =
+            typeof option.label === "string" && option.label.trim()
+              ? option.label
+              : typeof option.value === "string" && option.value.trim()
+                ? option.value
+                : "";
+          if (!label) {
             return [];
           }
-          return [
-            {
-              label: option.label,
-              description: option.description,
-            },
-          ];
+          // `description` is optional — fall back to the label so a question is
+          // never silently dropped (and the whole prompt suppressed) just
+          // because the model omitted per-option descriptions.
+          const description =
+            typeof option.description === "string" && option.description.trim()
+              ? option.description
+              : label;
+          return [{ label, description }];
         })
       : [];
     if (!question || !header || options.length === 0) {
