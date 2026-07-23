@@ -5,7 +5,6 @@ import {
   pruneRoutineRuns,
   routineRuntimeToProviderOptions,
   RoutineUpsertInputSchema,
-  type RoutineEnvironment,
   type RoutineRun,
   type RoutineSnapshot,
   type RoutineSpec,
@@ -51,10 +50,6 @@ interface RoutineTaskStatusResult {
   pendingUserInputs: unknown[];
 }
 
-interface RegisteredRoutineProject {
-  defaultWorkspaceId: string;
-}
-
 interface RoutineRuntimeDependencies {
   persistence: RoutinePersistence;
   runTask: (args: {
@@ -72,10 +67,6 @@ interface RoutineRuntimeDependencies {
     taskId: string;
     turnId?: string;
   }) => Promise<RoutineTaskStatusResult>;
-  registerProject: (args: {
-    projectPath: string;
-    projectName?: string;
-  }) => Promise<RegisteredRoutineProject>;
   getWorkspaceInformation: (args: {
     workspaceId: string;
   }) => Promise<{
@@ -179,25 +170,6 @@ export function createRoutineRuntime(
     });
     dependencies.persistence.saveRoutineState({ state: normalized });
     return normalized;
-  }
-
-  async function resolveEnvironment(
-    environment: RoutineUpsertInput["environment"],
-  ): Promise<RoutineEnvironment> {
-    if (environment.kind === "workspace") {
-      return environment;
-    }
-    const registered = await dependencies.registerProject({
-      projectPath: environment.path,
-      projectName: environment.label,
-    });
-    return {
-      kind: "folder",
-      workspaceId: registered.defaultWorkspaceId,
-      path: environment.path,
-      projectPath: environment.projectPath,
-      label: environment.label,
-    };
   }
 
   async function startRoutineRun(args: {
@@ -498,11 +470,9 @@ export function createRoutineRuntime(
       enqueue(async () => {
         const input = RoutineUpsertInputSchema.parse(rawInput);
         const createdAt = now();
-        const environment = await resolveEnvironment(input.environment);
         const routine: RoutineSpec = {
           ...input,
           id: randomUUID(),
-          environment,
           createdAt: createdAt.toISOString(),
           updatedAt: createdAt.toISOString(),
           lastRunAt: null,
@@ -529,11 +499,9 @@ export function createRoutineRuntime(
           throw new Error(`Routine not found: ${id}`);
         }
         const updatedAt = now();
-        const environment = await resolveEnvironment(input.environment);
         const routine: RoutineSpec = {
           ...input,
           id,
-          environment,
           createdAt: current.createdAt,
           updatedAt: updatedAt.toISOString(),
           lastRunAt: current.lastRunAt,

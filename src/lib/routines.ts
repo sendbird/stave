@@ -22,37 +22,18 @@ export const RoutineScheduleSchema = z.object({
 }).strict();
 export type RoutineSchedule = z.infer<typeof RoutineScheduleSchema>;
 
-const RoutineWorkspaceEnvironmentInputSchema = z.object({
-  kind: z.literal("workspace"),
+export const RoutineEnvironmentInputSchema = z.object({
+  kind: z.literal("repository"),
   workspaceId: z.string().min(1),
   path: z.string().min(1),
   projectPath: z.string().min(1),
   label: z.string().min(1),
 }).strict();
-
-const RoutineFolderEnvironmentInputSchema = z.object({
-  kind: z.literal("folder"),
-  workspaceId: z.string().min(1).nullable().optional(),
-  path: z.string().min(1),
-  projectPath: z.string().min(1),
-  label: z.string().min(1),
-}).strict();
-
-export const RoutineEnvironmentInputSchema = z.discriminatedUnion("kind", [
-  RoutineWorkspaceEnvironmentInputSchema,
-  RoutineFolderEnvironmentInputSchema,
-]);
 export type RoutineEnvironmentInput = z.infer<
   typeof RoutineEnvironmentInputSchema
 >;
 
-export const RoutineEnvironmentSchema = z.object({
-  kind: z.enum(["workspace", "folder"]),
-  workspaceId: z.string().min(1),
-  path: z.string().min(1),
-  projectPath: z.string().min(1),
-  label: z.string().min(1),
-}).strict();
+export const RoutineEnvironmentSchema = RoutineEnvironmentInputSchema;
 export type RoutineEnvironment = z.infer<typeof RoutineEnvironmentSchema>;
 
 export const RoutineInformationReferenceSchema = z.object({

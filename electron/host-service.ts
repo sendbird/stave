@@ -455,7 +455,6 @@ const routineRuntime = createRoutineRuntime({
   persistence: ensureHostServicePersistenceReady(),
   runTask: localMcpRuntime.runTask,
   getTaskStatus: localMcpRuntime.getTaskStatus,
-  registerProject: localMcpRuntime.registerProject,
   getWorkspaceInformation: localMcpRuntime.getWorkspaceInformation,
 });
 setWorkspaceScriptEventListener((envelope) => {

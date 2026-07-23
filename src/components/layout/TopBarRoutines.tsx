@@ -49,11 +49,11 @@ export function TopBarRoutines(props: {
             Routines
           </PopoverTitle>
           <p className="text-xs text-muted-foreground">
-            Schedule repeatable work across projects and folders.
+            Schedule repeatable work across registered repositories.
           </p>
         </PopoverHeader>
         <div className="min-h-0 flex-1">
-          <WorkspaceRoutinesPanel />
+          <WorkspaceRoutinesPanel onRequestClose={() => setOpen(false)} />
         </div>
       </PopoverContent>
     </Popover>

@@ -1,13 +1,13 @@
 import {
   AlertCircle,
-  Check,
   Clock3,
-  FolderOpen,
+  Paperclip,
   Pause,
   Pencil,
   Play,
   Plus,
   RefreshCw,
+  Search,
   Trash2,
 } from "lucide-react";
 import {
@@ -28,6 +28,9 @@ import {
   EmptyMedia,
   EmptyTitle,
   Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -38,6 +41,7 @@ import {
   toast,
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
+import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 import {
   createDefaultRoutineRuntime,
   formatRoutineSchedule,
@@ -52,7 +56,10 @@ import {
 } from "@/lib/routines";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import type { RecentProjectState } from "@/store/project.utils";
+import {
+  resolveCurrentProjectDefaultWorkspaceId,
+  type RecentProjectState,
+} from "@/store/project.utils";
 import { useAppStore } from "@/store/app.store";
 import { cn } from "@/lib/utils";
 
@@ -62,46 +69,40 @@ interface RoutineEnvironmentOption {
   path: string;
   projectPath: string;
   label: string;
-  description: string;
 }
+
+type RoutineProjectSource = Pick<
+  RecentProjectState,
+  | "projectPath"
+  | "projectName"
+  | "workspaces"
+  | "workspacePathById"
+  | "workspaceDefaultById"
+>;
 
 function getRoutineErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function getPathLabel(path: string) {
-  const normalized = path.replace(/[\\/]+$/, "");
-  return normalized.split(/[\\/]/).filter(Boolean).at(-1) || path;
-}
-
 function buildEnvironmentOptions(args: {
   recentProjects: RecentProjectState[];
-  activeProject: {
-    projectPath: string;
-    projectName: string;
-    workspaces: Array<{ id: string; name: string }>;
-    workspacePathById: Record<string, string>;
-  } | null;
+  activeProject: RoutineProjectSource | null;
 }) {
   const options = new Map<string, RoutineEnvironmentOption>();
-  const addProject = (project: {
-    projectPath: string;
-    projectName: string;
-    workspaces: Array<{ id: string; name: string }>;
-    workspacePathById: Record<string, string>;
-  }) => {
-    for (const workspace of project.workspaces) {
-      const path =
-        project.workspacePathById[workspace.id] ?? project.projectPath;
-      options.set(workspace.id, {
-        value: `workspace:${workspace.id}`,
-        workspaceId: workspace.id,
-        path,
-        projectPath: project.projectPath,
-        label: `${project.projectName} · ${workspace.name}`,
-        description: path,
-      });
-    }
+  const addProject = (project: RoutineProjectSource) => {
+    const workspaceId = resolveCurrentProjectDefaultWorkspaceId({
+      projectPath: project.projectPath,
+      workspaces: project.workspaces,
+      workspaceDefaultById: project.workspaceDefaultById,
+      workspacePathById: project.workspacePathById,
+    });
+    options.set(project.projectPath, {
+      value: `repository:${project.projectPath}`,
+      workspaceId,
+      path: project.projectPath,
+      projectPath: project.projectPath,
+      label: project.projectName,
+    });
   };
   args.recentProjects.forEach(addProject);
   if (args.activeProject) {
@@ -125,8 +126,8 @@ function createRoutineDraft(
     },
     environment:
       environment ?? {
-        kind: "folder",
-        workspaceId: null,
+        kind: "repository",
+        workspaceId: "",
         path: "",
         projectPath: "",
         label: "",
@@ -467,38 +468,61 @@ function RoutineEditor(props: {
   informationLoading: boolean;
   saving: boolean;
   onDraftChange: (draft: RoutineUpsertInput) => void;
-  onPickFolder: () => void;
   onCancel: () => void;
   onSave: () => void;
 }) {
-  const environmentValue =
-    props.draft.environment.kind === "workspace"
-      ? `workspace:${props.draft.environment.workspaceId}`
-      : props.draft.environment.path
-        ? `folder:${props.draft.environment.path}`
-        : "";
+  const [informationPickerOpen, setInformationPickerOpen] = useState(false);
+  const [informationQuery, setInformationQuery] = useState("");
+  const environmentValue = props.draft.environment.projectPath
+    ? `repository:${props.draft.environment.projectPath}`
+    : "";
   const selectedReferenceKeys = new Set(
     props.draft.informationReferences.map(getRoutineInformationReferenceKey),
   );
+  const informationOptionByKey = new Map(
+    props.informationOptions.map((option) => [
+      getRoutineInformationReferenceKey(option.reference),
+      option,
+    ]),
+  );
+  const normalizedInformationQuery = informationQuery.trim().toLowerCase();
+  const availableInformationOptions = props.informationOptions.filter(
+    (option) =>
+      !selectedReferenceKeys.has(
+        getRoutineInformationReferenceKey(option.reference),
+      ) &&
+      (!normalizedInformationQuery ||
+        option.searchText.includes(normalizedInformationQuery)),
+  );
 
-  function toggleInformationOption(option: WorkspaceInformationReferenceOption) {
+  function attachInformationOption(option: WorkspaceInformationReferenceOption) {
     if (option.reference.section === "lens") {
       return;
     }
     const targetKey = getRoutineInformationReferenceKey(option.reference);
-    const exists = selectedReferenceKeys.has(targetKey);
+    if (selectedReferenceKeys.has(targetKey)) {
+      return;
+    }
     const reference = {
       ...option.reference,
       section: option.reference.section,
     } satisfies RoutineUpsertInput["informationReferences"][number];
     props.onDraftChange({
       ...props.draft,
-      informationReferences: exists
-        ? props.draft.informationReferences.filter(
-            (reference) =>
-              getRoutineInformationReferenceKey(reference) !== targetKey,
-          )
-        : [...props.draft.informationReferences, reference],
+      informationReferences: [...props.draft.informationReferences, reference],
+    });
+  }
+
+  function removeInformationReference(
+    reference: RoutineUpsertInput["informationReferences"][number],
+  ) {
+    const targetKey = getRoutineInformationReferenceKey(reference);
+    props.onDraftChange({
+      ...props.draft,
+      informationReferences: props.draft.informationReferences.filter(
+        (candidate) =>
+          getRoutineInformationReferenceKey(candidate) !== targetKey,
+      ),
     });
   }
 
@@ -629,10 +653,10 @@ function RoutineEditor(props: {
           </section>
 
           <section className="grid gap-3">
-            <SectionHeading title="Environment" />
+            <SectionHeading title="Repository" />
             <FormLabel
-              label="Repository or workspace"
-              description="The provider runs with this folder as its working directory."
+              label="Repository"
+              description="The provider always runs from this repository root in its Default Workspace."
             >
               <Select
                 value={environmentValue}
@@ -646,7 +670,7 @@ function RoutineEditor(props: {
                   props.onDraftChange({
                     ...props.draft,
                     environment: {
-                      kind: "workspace",
+                      kind: "repository",
                       workspaceId: selected.workspaceId,
                       path: selected.path,
                       projectPath: selected.projectPath,
@@ -657,15 +681,9 @@ function RoutineEditor(props: {
                 }}
               >
                 <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Select an environment" />
+                  <SelectValue placeholder="Select a repository" />
                 </SelectTrigger>
                 <SelectContent>
-                  {props.draft.environment.kind === "folder" &&
-                  props.draft.environment.path ? (
-                    <SelectItem value={environmentValue}>
-                      {props.draft.environment.label}
-                    </SelectItem>
-                  ) : null}
                   {props.environmentOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -679,15 +697,6 @@ function RoutineEditor(props: {
                 {props.draft.environment.path}
               </div>
             ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 justify-start gap-2 text-xs"
-              onClick={props.onPickFolder}
-            >
-              <FolderOpen className="size-3.5" />
-              Choose another folder
-            </Button>
           </section>
 
           <section className="grid gap-3">
@@ -705,10 +714,13 @@ function RoutineEditor(props: {
               title="Information resources"
               detail={`${props.draft.informationReferences.length} attached`}
             />
+            <p className="text-[11px] leading-4 text-muted-foreground">
+              Attached Information is resolved from the repository&apos;s
+              Default Workspace and inserted into every run.
+            </p>
             {!props.draft.environment.workspaceId ? (
               <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                Save this folder first, then edit the routine to attach its
-                Information resources.
+                Select a repository before attaching Information.
               </div>
             ) : props.informationLoading ? (
               <div className="text-xs text-muted-foreground">
@@ -716,47 +728,124 @@ function RoutineEditor(props: {
               </div>
             ) : props.informationOptions.length === 0 ? (
               <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                No Information resources are available in this workspace.
+                No Information resources are available in this repository&apos;s
+                Default Workspace.
               </div>
             ) : (
-              <div className="max-h-56 overflow-y-auto rounded-md border border-border/70">
-                {props.informationOptions.map((option) => {
-                  const selected = selectedReferenceKeys.has(
-                    getRoutineInformationReferenceKey(option.reference),
-                  );
-                  return (
-                    <button
-                      key={`${option.reference.token}:${option.kind}`}
+              <>
+                <Popover
+                  open={informationPickerOpen}
+                  onOpenChange={(open) => {
+                    setInformationPickerOpen(open);
+                    if (!open) {
+                      setInformationQuery("");
+                    }
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
                       type="button"
-                      onClick={() => toggleInformationOption(option)}
-                      aria-pressed={selected}
-                      className={cn(
-                        "flex w-full items-start gap-2 border-b border-border/50 px-2.5 py-2 text-left last:border-b-0 hover:bg-muted/60",
-                        selected && "bg-primary/8",
-                      )}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 justify-start gap-2 text-xs"
                     >
-                      <span
-                        className={cn(
-                          "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
-                          selected
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-background",
-                        )}
-                      >
-                        {selected ? <Check className="size-3" /> : null}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-xs font-medium text-foreground">
-                          {option.title}
-                        </span>
-                        <span className="block truncate text-[10px] text-muted-foreground">
-                          {option.group} · {option.description}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                      <Paperclip className="size-3.5" />
+                      Attach Information
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    sideOffset={6}
+                    className="w-[min(26rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-lg border-border/80 bg-card p-0 shadow-2xl"
+                  >
+                    <div className="border-b border-border/70 p-3">
+                      <div className="text-xs font-semibold text-foreground">
+                        Attach Information
+                      </div>
+                      <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                        Choose the exact sections or items to inject into every
+                        run.
+                      </p>
+                      <div className="relative mt-2">
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={informationQuery}
+                          onChange={(event) =>
+                            setInformationQuery(event.target.value)
+                          }
+                          placeholder="Search Information"
+                          className="h-8 pl-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      {availableInformationOptions.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">
+                          {normalizedInformationQuery
+                            ? "No matching Information."
+                            : "All available Information is attached."}
+                        </div>
+                      ) : (
+                        availableInformationOptions.map((option) => (
+                          <button
+                            key={`${option.reference.token}:${option.kind}`}
+                            type="button"
+                            onClick={() => attachInformationOption(option)}
+                            className="flex w-full items-start gap-2 border-b border-border/50 px-3 py-2.5 text-left last:border-b-0 hover:bg-muted/60"
+                          >
+                            <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+                              <Plus className="size-3" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block truncate text-xs font-medium text-foreground">
+                                {option.title}
+                              </span>
+                              <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">
+                                {option.group} · {option.description}
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {props.draft.informationReferences.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                    No Information attached. Runs will use only the task
+                    instructions and repository contents.
+                  </div>
+                ) : (
+                  <div className="grid gap-2">
+                    {props.draft.informationReferences.map((reference) => {
+                      const key = getRoutineInformationReferenceKey(reference);
+                      const option = informationOptionByKey.get(key);
+                      return (
+                        <div
+                          key={key}
+                          className="rounded-md border border-border/70 bg-muted/20 p-2.5"
+                        >
+                          <WorkspaceInformationReferenceChip
+                            reference={reference}
+                            compact
+                            onRemove={() =>
+                              removeInformationReference(reference)
+                            }
+                          />
+                          <p className="mt-2 break-words text-[10px] leading-4 text-muted-foreground">
+                            {option?.description ??
+                              `Injects ${reference.label} into each run.`}
+                          </p>
+                          <div className="mt-1 break-all font-mono text-[9px] text-muted-foreground/80">
+                            {reference.token}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </section>
         </div>
@@ -780,17 +869,19 @@ function SectionHeading(props: { title: string; detail?: string }) {
   );
 }
 
-export function WorkspaceRoutinesPanel() {
+export function WorkspaceRoutinesPanel(props: {
+  onRequestClose?: () => void;
+}) {
   const [
     recentProjects,
     projectPath,
     projectName,
     workspaces,
     workspacePathById,
+    workspaceDefaultById,
     activeWorkspaceId,
     flushActiveWorkspaceSnapshot,
     focusTaskAttention,
-    setLayout,
   ] = useAppStore(
     useShallow((state) => [
       state.recentProjects,
@@ -798,10 +889,10 @@ export function WorkspaceRoutinesPanel() {
       state.projectName,
       state.workspaces,
       state.workspacePathById,
+      state.workspaceDefaultById,
       state.activeWorkspaceId,
       state.flushActiveWorkspaceSnapshot,
       state.focusTaskAttention,
-      state.setLayout,
     ] as const),
   );
   const [snapshot, setSnapshot] = useState<RoutineSnapshot>({
@@ -831,9 +922,16 @@ export function WorkspaceRoutinesPanel() {
             projectName,
             workspaces,
             workspacePathById,
+            workspaceDefaultById,
           }
         : null,
-    [projectName, projectPath, workspacePathById, workspaces],
+    [
+      projectName,
+      projectPath,
+      workspaceDefaultById,
+      workspacePathById,
+      workspaces,
+    ],
   );
   const environmentOptions = useMemo(
     () =>
@@ -845,18 +943,18 @@ export function WorkspaceRoutinesPanel() {
   );
   const defaultEnvironment = useMemo<RoutineEnvironmentInput | null>(() => {
     const active = environmentOptions.find(
-      (option) => option.workspaceId === activeWorkspaceId,
-    );
+      (option) => option.projectPath === projectPath,
+    ) ?? environmentOptions[0];
     return active
       ? {
-          kind: "workspace",
+          kind: "repository",
           workspaceId: active.workspaceId,
           path: active.path,
           projectPath: active.projectPath,
           label: active.label,
         }
       : null;
-  }, [activeWorkspaceId, environmentOptions]);
+  }, [environmentOptions, projectPath]);
 
   const loadSnapshot = useCallback(async (options?: { quiet?: boolean }) => {
     const list = window.api?.routines?.list;
@@ -977,33 +1075,6 @@ export function WorkspaceRoutinesPanel() {
   function cancelEdit() {
     setEditingRoutineId(undefined);
     setDraft(null);
-  }
-
-  async function pickFolder() {
-    if (!draft) {
-      return;
-    }
-    const pickDirectory = window.api?.fs?.pickDirectory;
-    if (!pickDirectory) {
-      toast.error("Folder picker is unavailable.");
-      return;
-    }
-    const result = await pickDirectory();
-    if (!result.ok || !result.directoryPath) {
-      return;
-    }
-    const path = result.directoryPath;
-    setDraft({
-      ...draft,
-      environment: {
-        kind: "folder",
-        workspaceId: null,
-        path,
-        projectPath: path,
-        label: getPathLabel(path),
-      },
-      informationReferences: [],
-    });
   }
 
   async function saveDraft() {
@@ -1147,7 +1218,7 @@ export function WorkspaceRoutinesPanel() {
         projectPath: run.projectPath,
         refreshFromPersistence: true,
       });
-      setLayout({ patch: { sidebarOverlayVisible: false } });
+      props.onRequestClose?.();
     } catch (openError) {
       toast.error(
         getRoutineErrorMessage(openError, "Failed to open task result."),
@@ -1165,7 +1236,6 @@ export function WorkspaceRoutinesPanel() {
         informationLoading={informationLoading}
         saving={saving}
         onDraftChange={setDraft}
-        onPickFolder={() => void pickFolder()}
         onCancel={cancelEdit}
         onSave={() => void saveDraft()}
       />
@@ -1216,7 +1286,7 @@ export function WorkspaceRoutinesPanel() {
             <EmptyTitle>No routines yet</EmptyTitle>
             <EmptyDescription>
               Schedule repeatable work with its own model, permissions,
-              environment, and Information resources.
+              repository, and Information resources.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
@@ -1323,7 +1393,7 @@ export function WorkspaceRoutinesPanel() {
                   <Detail label="Next run">
                     {formatDateTime(selectedRoutine.nextRunAt)}
                   </Detail>
-                  <Detail label="Environment">
+                  <Detail label="Repository">
                     {selectedRoutine.environment.label}
                   </Detail>
                   <Detail label="Resources">

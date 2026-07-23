@@ -35,11 +35,11 @@ describe("routine spec validation", () => {
     enabled: true,
     schedule: { every: 1, unit: "days" as const },
     environment: {
-      kind: "workspace" as const,
+      kind: "repository" as const,
       workspaceId: "ws-1",
       path: "/tmp/project",
       projectPath: "/tmp/project",
-      label: "Project · Default Workspace",
+      label: "Project",
     },
     runtime: createDefaultRoutineRuntime("codex"),
     informationReferences: [
@@ -54,6 +54,27 @@ describe("routine spec validation", () => {
 
   test("accepts a complete editable routine spec", () => {
     expect(RoutineUpsertInputSchema.safeParse(validInput).success).toBe(true);
+  });
+
+  test("rejects workspace and folder execution targets", () => {
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...validInput,
+        environment: {
+          ...validInput.environment,
+          kind: "workspace",
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...validInput,
+        environment: {
+          ...validInput.environment,
+          kind: "folder",
+        },
+      }).success,
+    ).toBe(false);
   });
 
   test("accepts provider-specific plan and on-failure permission modes", () => {

@@ -13,16 +13,18 @@
 ## Before You Start
 
 - Open the Stave desktop app and configure the provider you want to use.
-- Open or register the repository, workspace, or folder where the routine should run.
-- Add reusable notes, todos, or linked resources to the workspace Information panel if the routine needs them.
+- Open or register the repository where the routine should run.
+- Add reusable notes, todos, or linked resources to the repository's Default
+  Workspace Information panel if the routine needs them.
 
 ## Quick Start
 
 1. Open `Routines` from the global navigation bar at the top right.
 2. Select `New`.
 3. Enter the routine name and complete task instructions.
-4. Choose the interval, environment, model, effort, and permission settings.
-5. Attach any relevant Information resources.
+4. Choose the interval, repository, model, effort, and permission settings.
+5. Use `Attach Information` to choose the exact sections or items each run
+   should receive.
 6. Select `Save`, then use `Run now` to test the routine.
 7. Open `Run history` and select `Open task result` to inspect the full conversation.
 
@@ -32,7 +34,7 @@
 
 - Open `Routines` from the global navigation bar. It remains available without
   selecting a task or workspace because routines can target any registered
-  project, workspace, or folder.
+  repository.
 - The panel lists saved routines, their next run time, current status, and recent runs.
 
 ### Key Controls
@@ -50,12 +52,18 @@
 
 1. Enter a name and the full prompt that should be sent on each run.
 2. Set an interval in minutes, hours, days, or weeks.
-3. Choose an existing Stave workspace or use `Choose another folder`.
+3. Choose a registered repository. Routines always execute from that
+   repository's root in its Default Workspace.
 4. Select Claude or Codex, then configure the model, effort, file access, approval behavior, sandbox, network access, or web search options supported by that provider.
-5. Attach Information sections or individual resources from the selected workspace.
+5. Select `Attach Information`, then attach the exact Information sections or
+   individual resources that should be injected into every run. The editor
+   shows each attached resource with its context summary and removal control.
 6. Save the routine. Use the pencil button later to edit the same specification.
 
-Information references are resolved from the latest persisted Information panel values when a run starts. Renaming or updating an attached note or resource therefore changes the context used by future runs without requiring a new routine.
+Information references are resolved from the latest persisted Default
+Workspace Information panel values when a run starts. Renaming or updating an
+attached note or resource therefore changes the context used by future runs
+without requiring a new routine.
 
 ### Run And Inspect A Routine
 
@@ -67,7 +75,8 @@ Information references are resolved from the latest persisted Information panel 
 ## Files And Data
 
 - Routine definitions and the latest 50 run records per routine are stored in Stave's local SQLite application data.
-- Each occurrence is also stored as a normal, user-owned task in the selected workspace.
+- Each occurrence is also stored as a normal, user-owned task in the selected
+  repository's Default Workspace.
 - Deleting a routine does not delete those task conversations.
 
 ## Limitations And Advanced Options
@@ -85,11 +94,12 @@ Information references are resolved from the latest persisted Information panel 
 - Cause: the selected permission policy requires an approval or the model requested user input.
 - Fix: select `Open task result`, respond in the task conversation, and let the run continue.
 
-### A Folder Has No Information Resources
+### A Repository Has No Information Resources
 
-- Symptom: a newly selected folder cannot attach Information resources yet.
-- Cause: the folder has not been registered as a Stave workspace.
-- Fix: save the routine once, add the resources in that workspace's Information panel, then edit the routine and attach them.
+- Symptom: the attachment picker has no Information resources.
+- Cause: the repository's Default Workspace Information panel is empty.
+- Fix: add resources to that Default Workspace, then reopen the attachment
+  picker.
 
 ### A Scheduled Run Did Not Start
 

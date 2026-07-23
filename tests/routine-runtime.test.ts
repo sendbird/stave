@@ -17,11 +17,11 @@ function createInput(
     enabled: false,
     schedule: { every: 1, unit: "hours" },
     environment: {
-      kind: "workspace",
+      kind: "repository",
       workspaceId: "ws-1",
       path: "/tmp/project",
       projectPath: "/tmp/project",
-      label: "Project · Default Workspace",
+      label: "Project",
     },
     runtime: createDefaultRoutineRuntime("codex"),
     informationReferences: [],
@@ -80,9 +80,6 @@ function createHarness(args?: {
       taskStatusCalls.push(statusArgs);
       return taskStatus;
     },
-    registerProject: async ({ projectPath }) => ({
-      defaultWorkspaceId: `folder:${projectPath}`,
-    }),
     getWorkspaceInformation: async ({ workspaceId }) => ({
       workspaceId,
       workspaceInformation: {
@@ -120,26 +117,16 @@ function createHarness(args?: {
 }
 
 describe("routine host runtime", () => {
-  test("registers arbitrary folders and persists their normalized workspace", async () => {
+  test("persists the selected repository default environment", async () => {
     const harness = createHarness();
-    const routine = await harness.runtime.create(
-      createInput({
-        environment: {
-          kind: "folder",
-          workspaceId: null,
-          path: "/tmp/reports",
-          projectPath: "/tmp/reports",
-          label: "reports",
-        },
-      }),
-    );
+    const routine = await harness.runtime.create(createInput());
 
     expect(routine.environment).toEqual({
-      kind: "folder",
-      workspaceId: "folder:/tmp/reports",
-      path: "/tmp/reports",
-      projectPath: "/tmp/reports",
-      label: "reports",
+      kind: "repository",
+      workspaceId: "ws-1",
+      path: "/tmp/project",
+      projectPath: "/tmp/project",
+      label: "Project",
     });
   });
 
@@ -192,11 +179,11 @@ describe("routine host runtime", () => {
       id: routine.id,
       input: createInput({
         environment: {
-          kind: "workspace",
+          kind: "repository",
           workspaceId: "ws-2",
-          path: "/tmp/other/worktree",
+          path: "/tmp/other",
           projectPath: "/tmp/other",
-          label: "Other · Feature",
+          label: "Other",
         },
       }),
     });
