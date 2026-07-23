@@ -5,6 +5,7 @@ import {
   FilesystemRepoMapArgsSchema,
   LocalMcpConfigUpdateArgsSchema,
   ReviewDiffArgsSchema,
+  RoutineInformationResourceCreateArgsSchema,
   SetNotificationBadgeArgsSchema,
   ShowNativeNotificationArgsSchema,
   StageFilesArgsSchema,
@@ -16,6 +17,19 @@ import {
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 
 describe("provider IPC schemas", () => {
+  test("accepts routine Information resource creation", () => {
+    expect(
+      RoutineInformationResourceCreateArgsSchema.safeParse({
+        kind: "figma",
+        workspaceId: "ws-default",
+        url: "https://www.figma.com/design/file-key/example?node-id=1-2",
+        title: "Routine design",
+        nodeId: "1:2",
+        note: "Use this design as implementation context.",
+      }).success,
+    ).toBe(true);
+  });
+
   test("accepts latest Codex and Claude runtime options", () => {
     const parsed = StreamTurnArgsSchema.safeParse({
       providerId: "codex",

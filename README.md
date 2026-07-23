@@ -70,6 +70,7 @@ Recommended next steps:
 - task-based Claude and Codex chats with approvals, diffs, plans, and queued follow-ups
 - Monaco editor, docked terminal, quick open, command palette, and source control actions
 - workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
+- scheduled Claude and Codex routines with per-run results, repository selection, and reusable Information context
 - git worktree-aware project and workspace management
 - editable workspace kickoff proposals from external sources and prompts
 - attachments, notifications, skill selection, custom model shortcuts, and theme presets

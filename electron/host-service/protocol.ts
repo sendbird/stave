@@ -366,6 +366,15 @@ export type HostLocalMcpAction =
   | "add-workspace-slack-thread"
   | "add-workspace-amplify-link";
 
+export type HostRoutineAction =
+  | "list"
+  | "create"
+  | "update"
+  | "remove"
+  | "set-enabled"
+  | "run-now"
+  | "list-information-references";
+
 export interface HostServiceRequestMap {
   "service.shutdown": undefined;
   "terminal.create-session": TerminalCreateSessionArgs;
@@ -740,6 +749,10 @@ export interface HostServiceRequestMap {
     action: HostLocalMcpAction;
     args: unknown;
   };
+  "routine.invoke": {
+    action: HostRoutineAction;
+    args: unknown;
+  };
 }
 
 export interface HostServiceResponseMap {
@@ -889,6 +902,7 @@ export interface HostServiceResponseMap {
   "scm.update-pr-branch": CommandResult;
   "scm.create-pr": HostScmCreatePrResult;
   "local-mcp.invoke": unknown;
+  "routine.invoke": unknown;
 }
 
 export interface HostServiceEventMap {

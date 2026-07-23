@@ -20,6 +20,19 @@ function baseLayout(): LayoutState {
 }
 
 describe("normalizeLayoutState", () => {
+  test("falls back from the retired routines right-rail selection", () => {
+    expect(
+      normalizeLayoutState({
+        ...baseLayout(),
+        sidebarOverlayTab: "routines" as LayoutState["sidebarOverlayTab"],
+        sidebarOverlayVisible: true,
+      }),
+    ).toMatchObject({
+      sidebarOverlayTab: "explorer",
+      sidebarOverlayVisible: true,
+    });
+  });
+
   test("ignores retired center-surface layout fields from persisted state", () => {
     const legacyLayout = {
       ...baseLayout(),

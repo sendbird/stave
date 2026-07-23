@@ -20,6 +20,7 @@ const WORKSPACE_PATH = "/tmp/stave-runtask-regression/worktree";
 const USER_DATA_PATH = "/tmp/stave-runtask-regression/user-data";
 
 const startTurnStreamCalls: unknown[] = [];
+const persistedWorkspaceInformationById = new Map<string, unknown>();
 
 const fakeStore = {
   loadProjectRegistry: () => [
@@ -49,10 +50,28 @@ const fakeStore = {
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
     },
   ],
-  loadWorkspaceSnapshot: () => ({ tasks: [], messagesByTask: {} }),
+  loadWorkspaceSnapshot: ({ workspaceId }: { workspaceId: string }) => ({
+    tasks: [],
+    messagesByTask: {},
+    workspaceInformation:
+      persistedWorkspaceInformationById.get(workspaceId),
+  }),
   listActiveTurnsForWorkspace: () => [],
   beginTurn: () => {},
-  upsertWorkspace: () => {},
+  upsertWorkspace: ({
+    id,
+    snapshot,
+  }: {
+    id: string;
+    snapshot: { workspaceInformation?: unknown };
+  }) => {
+    if (snapshot.workspaceInformation) {
+      persistedWorkspaceInformationById.set(
+        id,
+        snapshot.workspaceInformation,
+      );
+    }
+  },
   saveProjectRegistry: () => {},
 };
 
@@ -93,6 +112,83 @@ describe("local MCP runtime runTask", () => {
     expect(result.taskId).toBeTruthy();
     expect(result.turnId).toBeTruthy();
     expect(startTurnStreamCalls).toHaveLength(1);
+  });
+
+  test("injects explicitly attached Information references into routine turns", async () => {
+    await runtime.replaceWorkspaceNotes({
+      workspaceId: WORKSPACE_ID,
+      notes: "Treat the release branch as read-only.",
+    });
+
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Review the workspace",
+      informationReferences: [
+        {
+          section: "notes",
+          scope: "section",
+          label: "Notes",
+          token: "@info:notes",
+        },
+      ],
+      controlMode: "interactive",
+      controlOwner: "stave",
+    });
+
+    const call = startTurnStreamCalls.at(-1) as {
+      conversation?: {
+        contextParts?: Array<{
+          type?: string;
+          sourceId?: string;
+          content?: string;
+        }>;
+      };
+    };
+    const informationPart = call.conversation?.contextParts?.find(
+      (part) => part.sourceId === "stave:routine-information-references",
+    );
+
+    expect(informationPart?.content).toContain(
+      "Treat the release branch as read-only.",
+    );
+  });
+
+  test("refreshes attached Information values persisted by the renderer", async () => {
+    const current = await runtime.getWorkspaceInformation({
+      workspaceId: WORKSPACE_ID,
+    });
+    persistedWorkspaceInformationById.set(WORKSPACE_ID, {
+      ...current.workspaceInformation,
+      notes: "Use the renderer's newest persisted instructions.",
+    });
+
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Review the workspace again",
+      informationReferences: [
+        {
+          section: "notes",
+          scope: "section",
+          label: "Notes",
+          token: "@info:notes",
+        },
+      ],
+    });
+
+    const call = startTurnStreamCalls.at(-1) as {
+      conversation?: {
+        contextParts?: Array<{
+          sourceId?: string;
+          content?: string;
+        }>;
+      };
+    };
+    const informationPart = call.conversation?.contextParts?.find(
+      (part) => part.sourceId === "stave:routine-information-references",
+    );
+    expect(informationPart?.content).toContain(
+      "Use the renderer's newest persisted instructions.",
+    );
   });
 });
 
