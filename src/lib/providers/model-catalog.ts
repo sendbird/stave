@@ -34,10 +34,8 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
   CLAUDE_FABLE_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_OPUS_1M_MODEL,
-  "opusplan",
   DEFAULT_CLAUDE_SONNET_MODEL,
   DEFAULT_CLAUDE_SONNET_1M_MODEL,
-  "claude-haiku-4-5",
 ] as const;
 
 // Source:
@@ -45,15 +43,14 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
 // - https://developers.openai.com/codex/models (GPT-5.6 family, 2026-07-09)
 // - verified against codex-cli 0.144.1 `model/list` (2026-07-10): the server
 //   catalog now ships gpt-5.6-sol/terra/luna (default effort xhigh; sol/terra
-//   support up to "ultra", luna up to "max") alongside gpt-5.5/5.4/5.4-mini.
+//   support up to "ultra", luna up to "max") alongside legacy models.
 // GPT-5.6 ships as Sol (flagship), Terra (balanced), and Luna (fast/cheap).
-// gpt-5.5 is kept as the previous-generation fallback; gpt-5.4 variants and
-// codex-spark moved to legacy display names only.
+// Previous-generation variants remain recognizable in historical records but
+// are intentionally absent from the primary picker.
 export const CODEX_MODEL_OPTIONS = [
   "gpt-5.6-sol",
   "gpt-5.6-terra",
   "gpt-5.6-luna",
-  "gpt-5.5",
 ] as const;
 
 export interface ProviderDescriptor {
@@ -392,7 +389,9 @@ export function resolveTierModel(args: {
   const candidateModels =
     args.eligibleModels && args.eligibleModels.length > 0
       ? args.eligibleModels
-      : getSdkModelOptions({ providerId: args.providerId });
+      : listModelCapabilities({ providerId: args.providerId }).map(
+          (capability) => capability.model,
+        );
   const candidates = candidateModels
     .map((model) => getModelCapability({ model }))
     .filter(

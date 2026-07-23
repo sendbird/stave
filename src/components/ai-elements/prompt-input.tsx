@@ -14,7 +14,6 @@ import {
   Trash2,
   UserRound,
   X,
-  Zap,
 } from "lucide-react";
 import type {
   Attachment,
@@ -130,7 +129,8 @@ import {
   getLensCommentImageId,
   isAnyLensCommentImageAttachment,
 } from "@/lib/lens/lens-annotation-attachment";
-import { ModelSelector, type ModelSelectorOption } from "./model-selector";
+import { ModelEffortSelector } from "./model-effort-selector";
+import type { ModelSelectorOption } from "./model-selector";
 import {
   PromptInputProviderModePill,
   type PromptInputProviderModeStatus,
@@ -196,7 +196,6 @@ interface PromptInputProps {
   focusToken?: string;
   selectedModel: ModelSelectorOption;
   modelOptions: readonly ModelSelectorOption[];
-  recommendedModelOptions?: readonly ModelSelectorOption[];
   modelShortcutKeys?: readonly string[];
   modelShortcutEfforts?: readonly ModelShortcutEffort[];
   attachedFilePaths: string[];
@@ -221,6 +220,7 @@ interface PromptInputProps {
   onModelSelect: (args: {
     selection: ModelSelectorOption;
     effort?: Exclude<ModelShortcutEffort, "">;
+    fastMode?: boolean;
   }) => void;
   onAttachFilesChange: (args: { filePaths: string[] }) => void;
   onOpenFileSelector?: () => void;
@@ -229,7 +229,6 @@ interface PromptInputProps {
   onProviderModeSelect?: (presetId: ProviderModePresetId) => void;
   effortLabel?: string;
   effortValue?: string;
-  onEffortCycle?: () => void;
   fastMode?: boolean;
   onFastModeChange?: (enabled: boolean) => void;
   planMode?: boolean;
@@ -307,30 +306,10 @@ function tooltipTriggerButtonClassName(args: {
   });
 }
 
-function getPromptToolbarAccentClass(
-  tone: "plan" | "thinking" | "effort" | "fast",
-) {
+function getPromptToolbarAccentClass(tone: "plan" | "thinking") {
   if (tone === "thinking")
     return "text-prompt-role-thinking hover:text-prompt-role-thinking";
-  if (tone === "effort")
-    return "text-prompt-role-effort hover:text-prompt-role-effort";
-  if (tone === "fast")
-    return "text-prompt-role-fast hover:text-prompt-role-fast";
   return "text-prompt-role-plan hover:text-prompt-role-plan";
-}
-
-function isHighestEffortValue(value?: string) {
-  return value === "ultra" || value === "max" || value === "xhigh";
-}
-
-function getEffortIconToneClass(value?: string) {
-  if (isHighestEffortValue(value) || value === "high") {
-    return "text-prompt-role-effort";
-  }
-  if (value === "medium") {
-    return "text-prompt-role-effort/60";
-  }
-  return undefined;
 }
 
 function getPaletteItemSelector(index: number) {
@@ -457,7 +436,6 @@ export function PromptInput(args: PromptInputProps) {
     value,
     selectedModel,
     modelOptions,
-    recommendedModelOptions,
     modelShortcutKeys,
     modelShortcutEfforts,
     attachedFilePaths,
@@ -487,7 +465,6 @@ export function PromptInput(args: PromptInputProps) {
     onProviderModeSelect,
     effortLabel,
     effortValue,
-    onEffortCycle,
     fastMode,
     onFastModeChange,
     planMode,
@@ -2988,18 +2965,27 @@ export function PromptInput(args: PromptInputProps) {
           >
             {!minimal ? (
               <div className="flex flex-wrap items-center gap-1.5">
-                <ModelSelector
+                <ModelEffortSelector
                   value={selectedModel}
                   options={modelOptions}
-                  recommendedOptions={recommendedModelOptions}
+                  effortValue={
+                    effortValue as Exclude<ModelShortcutEffort, ""> | undefined
+                  }
+                  effortLabel={effortLabel}
+                  fastMode={fastMode}
                   disabled={interactionsDisabled}
                   openToken={
                     modelSelectorOpenNonce > 0
                       ? modelSelectorOpenNonce
                       : undefined
                   }
-                  onSelect={({ selection }) => {
-                    onModelSelect({ selection });
+                  onFastModeChange={onFastModeChange}
+                  onSelect={({ selection, effort, fastMode: nextFastMode }) => {
+                    onModelSelect({
+                      selection,
+                      effort,
+                      fastMode: nextFastMode,
+                    });
                     window.requestAnimationFrame(() => focusComposer());
                   }}
                 />
@@ -3073,63 +3059,6 @@ export function PromptInput(args: PromptInputProps) {
                       <span>Thinking</span>
                     </TooltipTrigger>
                     <TooltipContent side="top">{`Thinking: ${thinkingMode ?? "adaptive"}`}</TooltipContent>
-                  </Tooltip>
-                ) : null}
-                {onEffortCycle && effortLabel ? (
-                  <Tooltip>
-                    <TooltipTrigger
-                      type="button"
-                      disabled={interactionsDisabled}
-                      onClick={() => onEffortCycle()}
-                      className={tooltipTriggerButtonClassName({
-                        className: cn(
-                          PROMPT_TOOLBAR_BUTTON,
-                          isHighestEffortValue(effortValue)
-                            ? getPromptToolbarAccentClass("effort")
-                            : undefined,
-                          interactionsDisabled &&
-                            "cursor-not-allowed opacity-60",
-                        ),
-                      })}
-                    >
-                      <Sparkles
-                        className={cn(
-                          "size-3.5",
-                          getEffortIconToneClass(effortValue),
-                        )}
-                      />
-                      <span>{effortLabel}</span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">{`Effort: ${effortLabel} — click to cycle`}</TooltipContent>
-                  </Tooltip>
-                ) : null}
-                {onFastModeChange ? (
-                  <Tooltip>
-                    <TooltipTrigger
-                      type="button"
-                      disabled={interactionsDisabled}
-                      onClick={() => onFastModeChange(!fastMode)}
-                      className={tooltipTriggerButtonClassName({
-                        className: cn(
-                          PROMPT_TOOLBAR_BUTTON,
-                          fastMode
-                            ? getPromptToolbarAccentClass("fast")
-                            : undefined,
-                          interactionsDisabled &&
-                            "cursor-not-allowed opacity-60",
-                        ),
-                      })}
-                    >
-                      <Zap
-                        className={cn("size-3.5", fastMode && "fill-current")}
-                      />
-                      <span>Fast</span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      {fastMode
-                        ? "Fast mode ON — faster responses with smaller model"
-                        : "Fast mode OFF"}
-                    </TooltipContent>
                   </Tooltip>
                 ) : null}
                 {hasRuntimeDrawerContent ? (
