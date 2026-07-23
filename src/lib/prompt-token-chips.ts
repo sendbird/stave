@@ -1,4 +1,9 @@
 import type { CommandPaletteItem } from "@/lib/commands";
+import { stripTrailingUrlPunctuation } from "@/lib/external-links";
+import {
+  resolveServiceLinkBadge,
+  type ServiceLinkKind,
+} from "@/lib/service-link-badges";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import {
   getWorkspaceInformationReferenceLabel,
@@ -7,7 +12,7 @@ import {
   type WorkspaceInformationReferenceOption,
 } from "@/lib/workspace-information-references";
 
-export type PromptTokenKind = "command" | "skill" | "information";
+export type PromptTokenKind = "command" | "skill" | "information" | "link";
 
 export interface PromptTokenDescriptor {
   kind: PromptTokenKind;
@@ -15,6 +20,7 @@ export interface PromptTokenDescriptor {
   label: string;
   detail?: string;
   informationReference?: WorkspaceInformationReference;
+  serviceLink?: ServiceLinkKind;
 }
 
 export type PromptTokenSegment =
@@ -33,6 +39,7 @@ const COMMAND_TOKEN_PATTERN = /^\/[A-Za-z0-9:._-]+/;
 const SKILL_TOKEN_PATTERN = /^\$[A-Za-z0-9._-]+/;
 const INFORMATION_TOKEN_PATTERN =
   /^@(?:info(?::[^\s.,;!?)]*)?|lens(?![A-Za-z0-9_-]))/i;
+const LINK_TOKEN_PATTERN = /^https?:\/\/[^\s<>"'`]+/i;
 
 function isTokenBoundaryBefore(text: string, index: number) {
   if (index === 0) {
@@ -138,6 +145,31 @@ function resolveInformationDescriptor(args: {
   };
 }
 
+function resolveLinkDescriptor(slice: string): {
+  descriptor: PromptTokenDescriptor;
+  length: number;
+} | null {
+  const raw = slice.match(LINK_TOKEN_PATTERN)?.[0];
+  if (!raw) {
+    return null;
+  }
+  const { candidate } = stripTrailingUrlPunctuation(raw);
+  const badge = candidate ? resolveServiceLinkBadge(candidate) : null;
+  if (!badge) {
+    return null;
+  }
+  return {
+    descriptor: {
+      kind: "link",
+      token: candidate,
+      label: badge.label,
+      detail: candidate,
+      serviceLink: badge.kind,
+    },
+    length: candidate.length,
+  };
+}
+
 function resolveDescriptorAt(args: {
   text: string;
   index: number;
@@ -186,6 +218,13 @@ function resolveDescriptorAt(args: {
     return descriptor ? { descriptor, end: args.index + token!.length } : null;
   }
 
+  if (first === "h" || first === "H") {
+    const resolved = resolveLinkDescriptor(slice);
+    return resolved
+      ? { descriptor: resolved.descriptor, end: args.index + resolved.length }
+      : null;
+  }
+
   return null;
 }
 
@@ -209,7 +248,7 @@ export function parsePromptTokenSegments(
   while (index < text.length) {
     const char = text[index];
     if (
-      (char === "/" || char === "$" || char === "@") &&
+      (char === "/" || char === "$" || char === "@" || char === "h" || char === "H") &&
       isTokenBoundaryBefore(text, index)
     ) {
       const resolved = resolveDescriptorAt({
