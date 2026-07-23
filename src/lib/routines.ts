@@ -36,6 +36,117 @@ export type RoutineEnvironmentInput = z.infer<
 export const RoutineEnvironmentSchema = RoutineEnvironmentInputSchema;
 export type RoutineEnvironment = z.infer<typeof RoutineEnvironmentSchema>;
 
+export const ROUTINE_INFORMATION_RESOURCE_KINDS = [
+  "notes",
+  "todo",
+  "pull_request",
+  "jira",
+  "confluence",
+  "storybook",
+  "amplify",
+  "slack",
+  "figma",
+  "custom",
+] as const;
+export type RoutineInformationResourceKind =
+  (typeof ROUTINE_INFORMATION_RESOURCE_KINDS)[number];
+
+const RoutineInformationWorkspaceIdSchema = z.string().min(1).max(4096);
+const RoutineInformationUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(8192)
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "A valid http(s) URL is required.");
+const RoutineInformationTitleSchema = z.string().trim().max(500).optional();
+const RoutineInformationNoteSchema = z.string().trim().max(10_000).optional();
+const RoutineInformationExternalResourceBaseSchema = z.object({
+  workspaceId: RoutineInformationWorkspaceIdSchema,
+  url: RoutineInformationUrlSchema,
+  title: RoutineInformationTitleSchema,
+  note: RoutineInformationNoteSchema,
+});
+
+export const RoutineInformationResourceCreateInputSchema =
+  z.discriminatedUnion("kind", [
+    z
+      .object({
+        kind: z.literal("notes"),
+        workspaceId: RoutineInformationWorkspaceIdSchema,
+        text: z.string().trim().min(1).max(100_000),
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal("todo"),
+        workspaceId: RoutineInformationWorkspaceIdSchema,
+        text: z.string().trim().min(1).max(10_000),
+      })
+      .strict(),
+    RoutineInformationExternalResourceBaseSchema.extend({
+      kind: z.literal("pull_request"),
+      status: z
+        .enum(["planned", "open", "review", "merged", "closed"])
+        .optional(),
+    }).strict(),
+    RoutineInformationExternalResourceBaseSchema.extend({
+      kind: z.literal("jira"),
+      issueKey: z.string().trim().max(100).optional(),
+      status: z.string().trim().max(200).optional(),
+    }).strict(),
+    RoutineInformationExternalResourceBaseSchema.extend({
+      kind: z.literal("confluence"),
+      spaceKey: z.string().trim().max(100).optional(),
+    }).strict(),
+    RoutineInformationExternalResourceBaseSchema.extend({
+      kind: z.literal("storybook"),
+    }).strict(),
+    RoutineInformationExternalResourceBaseSchema.extend({
+      kind: z.literal("amplify"),
+    }).strict(),
+    RoutineInformationExternalResourceBaseSchema.extend({
+      kind: z.literal("slack"),
+      channelName: z.string().trim().max(200).optional(),
+    }).strict(),
+    RoutineInformationExternalResourceBaseSchema.extend({
+      kind: z.literal("figma"),
+      nodeId: z.string().trim().max(500).optional(),
+    }).strict(),
+    z
+      .object({
+        kind: z.literal("custom"),
+        workspaceId: RoutineInformationWorkspaceIdSchema,
+        label: z.string().trim().min(1).max(500),
+        fieldType: z.enum([
+          "text",
+          "textarea",
+          "number",
+          "boolean",
+          "date",
+          "url",
+          "single_select",
+        ]),
+        value: z
+          .union([z.string().max(10_000), z.number(), z.boolean(), z.null()])
+          .optional(),
+        options: z
+          .array(z.string().trim().min(1).max(200))
+          .max(100)
+          .optional(),
+      })
+      .strict(),
+  ]);
+export type RoutineInformationResourceCreateInput = z.infer<
+  typeof RoutineInformationResourceCreateInputSchema
+>;
+
 export const RoutineInformationReferenceSchema = z.object({
   section: z.enum([
     "turn-summary",

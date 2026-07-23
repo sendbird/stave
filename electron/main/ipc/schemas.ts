@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { RoutineUpsertInputSchema } from "../../../src/lib/routines";
+import {
+  RoutineInformationResourceCreateInputSchema,
+  RoutineUpsertInputSchema,
+} from "../../../src/lib/routines";
 
 const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 
@@ -1284,3 +1287,6 @@ export const RoutineInformationReferencesArgsSchema = z
     workspaceId: z.string().min(1).max(4096),
   })
   .strict();
+
+export const RoutineInformationResourceCreateArgsSchema =
+  RoutineInformationResourceCreateInputSchema;

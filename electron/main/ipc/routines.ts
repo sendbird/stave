@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
 import {
+  createRoutineInformationResource,
   createRoutine,
   listRoutineInformationReferences,
   listRoutines,
@@ -11,6 +12,7 @@ import {
 import {
   RoutineCreateArgsSchema,
   RoutineIdArgsSchema,
+  RoutineInformationResourceCreateArgsSchema,
   RoutineInformationReferencesArgsSchema,
   RoutineSetEnabledArgsSchema,
   RoutineUpdateArgsSchema,
@@ -112,6 +114,35 @@ export function registerRoutineHandlers() {
       };
     }
   });
+
+  ipcMain.handle(
+    "routines:create-information-resource",
+    async (_event, args: unknown) => {
+      const parsed = RoutineInformationResourceCreateArgsSchema.safeParse(args);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          option: null,
+          message: "Invalid Information resource.",
+        };
+      }
+      try {
+        return {
+          ok: true,
+          ...(await createRoutineInformationResource(parsed.data)),
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          option: null,
+          message: errorMessage(
+            error,
+            "Failed to create Information resource.",
+          ),
+        };
+      }
+    },
+  );
 
   ipcMain.handle(
     "routines:list-information-references",

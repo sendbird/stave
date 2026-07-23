@@ -1,13 +1,11 @@
 import {
   AlertCircle,
   Clock3,
-  Paperclip,
   Pause,
   Pencil,
   Play,
   Plus,
   RefreshCw,
-  Search,
   Trash2,
 } from "lucide-react";
 import {
@@ -28,9 +26,6 @@ import {
   EmptyMedia,
   EmptyTitle,
   Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -41,6 +36,7 @@ import {
   toast,
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
+import { RoutineInformationResourceCreator } from "@/components/layout/RoutineInformationResourceCreator";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 import {
   createDefaultRoutineRuntime,
@@ -468,11 +464,12 @@ function RoutineEditor(props: {
   informationLoading: boolean;
   saving: boolean;
   onDraftChange: (draft: RoutineUpsertInput) => void;
+  onInformationCreated: (
+    option: WorkspaceInformationReferenceOption,
+  ) => void;
   onCancel: () => void;
   onSave: () => void;
 }) {
-  const [informationPickerOpen, setInformationPickerOpen] = useState(false);
-  const [informationQuery, setInformationQuery] = useState("");
   const environmentValue = props.draft.environment.projectPath
     ? `repository:${props.draft.environment.projectPath}`
     : "";
@@ -484,15 +481,6 @@ function RoutineEditor(props: {
       getRoutineInformationReferenceKey(option.reference),
       option,
     ]),
-  );
-  const normalizedInformationQuery = informationQuery.trim().toLowerCase();
-  const availableInformationOptions = props.informationOptions.filter(
-    (option) =>
-      !selectedReferenceKeys.has(
-        getRoutineInformationReferenceKey(option.reference),
-      ) &&
-      (!normalizedInformationQuery ||
-        option.searchText.includes(normalizedInformationQuery)),
   );
 
   function attachInformationOption(option: WorkspaceInformationReferenceOption) {
@@ -715,106 +703,34 @@ function RoutineEditor(props: {
               detail={`${props.draft.informationReferences.length} attached`}
             />
             <p className="text-[11px] leading-4 text-muted-foreground">
-              Attached Information is resolved from the repository&apos;s
-              Default Workspace and inserted into every run.
+              Create each resource in the repository&apos;s Default Workspace.
+              It is attached to this routine immediately and resolved again on
+              every run.
             </p>
             {!props.draft.environment.workspaceId ? (
               <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
                 Select a repository before attaching Information.
               </div>
-            ) : props.informationLoading ? (
-              <div className="text-xs text-muted-foreground">
-                Loading Information resources…
-              </div>
-            ) : props.informationOptions.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                No Information resources are available in this repository&apos;s
-                Default Workspace.
-              </div>
             ) : (
               <>
-                <Popover
-                  open={informationPickerOpen}
-                  onOpenChange={(open) => {
-                    setInformationPickerOpen(open);
-                    if (!open) {
-                      setInformationQuery("");
-                    }
+                <RoutineInformationResourceCreator
+                  workspaceId={props.draft.environment.workspaceId}
+                  repositoryLabel={props.draft.environment.label}
+                  disabled={props.saving}
+                  onCreated={(option) => {
+                    props.onInformationCreated(option);
+                    attachInformationOption(option);
                   }}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 justify-start gap-2 text-xs"
-                    >
-                      <Paperclip className="size-3.5" />
-                      Attach Information
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="start"
-                    sideOffset={6}
-                    className="w-[min(26rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-lg border-border/80 bg-card p-0 shadow-2xl"
-                  >
-                    <div className="border-b border-border/70 p-3">
-                      <div className="text-xs font-semibold text-foreground">
-                        Attach Information
-                      </div>
-                      <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-                        Choose the exact sections or items to inject into every
-                        run.
-                      </p>
-                      <div className="relative mt-2">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          value={informationQuery}
-                          onChange={(event) =>
-                            setInformationQuery(event.target.value)
-                          }
-                          placeholder="Search Information"
-                          className="h-8 pl-8 text-xs"
-                        />
-                      </div>
-                    </div>
-                    <div className="max-h-72 overflow-y-auto">
-                      {availableInformationOptions.length === 0 ? (
-                        <div className="p-4 text-center text-xs text-muted-foreground">
-                          {normalizedInformationQuery
-                            ? "No matching Information."
-                            : "All available Information is attached."}
-                        </div>
-                      ) : (
-                        availableInformationOptions.map((option) => (
-                          <button
-                            key={`${option.reference.token}:${option.kind}`}
-                            type="button"
-                            onClick={() => attachInformationOption(option)}
-                            className="flex w-full items-start gap-2 border-b border-border/50 px-3 py-2.5 text-left last:border-b-0 hover:bg-muted/60"
-                          >
-                            <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
-                              <Plus className="size-3" />
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block truncate text-xs font-medium text-foreground">
-                                {option.title}
-                              </span>
-                              <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">
-                                {option.group} · {option.description}
-                              </span>
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
+                />
+                {props.informationLoading ? (
+                  <div className="text-[10px] text-muted-foreground">
+                    Refreshing Information resources…
+                  </div>
+                ) : null}
                 {props.draft.informationReferences.length === 0 ? (
                   <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                    No Information attached. Runs will use only the task
-                    instructions and repository contents.
+                    No Information attached yet. Add a resource above to create
+                    its Default Workspace entry and attach it.
                   </div>
                 ) : (
                   <div className="grid gap-2">
@@ -1236,6 +1152,16 @@ export function WorkspaceRoutinesPanel(props: {
         informationLoading={informationLoading}
         saving={saving}
         onDraftChange={setDraft}
+        onInformationCreated={(option) => {
+          const key = getRoutineInformationReferenceKey(option.reference);
+          setInformationOptions((current) => [
+            ...current.filter(
+              (candidate) =>
+                getRoutineInformationReferenceKey(candidate.reference) !== key,
+            ),
+            option,
+          ]);
+        }}
         onCancel={cancelEdit}
         onSave={() => void saveDraft()}
       />

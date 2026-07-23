@@ -7,6 +7,7 @@ import {
   normalizeRoutineState,
   pruneRoutineRuns,
   routineRuntimeToProviderOptions,
+  RoutineInformationResourceCreateInputSchema,
   RoutineUpsertInputSchema,
   type RoutineRun,
 } from "@/lib/routines";
@@ -124,6 +125,87 @@ describe("routine spec validation", () => {
       RoutineUpsertInputSchema.safeParse({
         ...validInput,
         schedule: { every: 0, unit: "minutes" },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("routine Information resource validation", () => {
+  test("accepts each resource-specific create payload", () => {
+    const workspaceId = "ws-1";
+    const inputs = [
+      { kind: "notes", workspaceId, text: "Review the release policy." },
+      { kind: "todo", workspaceId, text: "Check the deployment." },
+      {
+        kind: "pull_request",
+        workspaceId,
+        url: "https://github.com/sendbird/stave/pull/185",
+        status: "review",
+      },
+      {
+        kind: "jira",
+        workspaceId,
+        url: "https://example.atlassian.net/browse/PROJ-123",
+        issueKey: "PROJ-123",
+      },
+      {
+        kind: "confluence",
+        workspaceId,
+        url: "https://example.atlassian.net/wiki/spaces/ENG/pages/123/Spec",
+        spaceKey: "ENG",
+      },
+      {
+        kind: "storybook",
+        workspaceId,
+        url: "https://storybook.example.com/?path=/docs/button",
+      },
+      {
+        kind: "amplify",
+        workspaceId,
+        url: "https://main.example.amplifyapp.com",
+      },
+      {
+        kind: "slack",
+        workspaceId,
+        url: "https://team.slack.com/archives/C123/p123",
+        channelName: "#project",
+      },
+      {
+        kind: "figma",
+        workspaceId,
+        url: "https://www.figma.com/design/file-key/example?node-id=1-2",
+        nodeId: "1:2",
+      },
+      {
+        kind: "custom",
+        workspaceId,
+        label: "Environment",
+        fieldType: "single_select",
+        value: "Staging",
+        options: ["Development", "Staging", "Production"],
+      },
+    ];
+
+    for (const input of inputs) {
+      expect(
+        RoutineInformationResourceCreateInputSchema.safeParse(input).success,
+      ).toBe(true);
+    }
+  });
+
+  test("rejects missing content and non-http resource URLs", () => {
+    expect(
+      RoutineInformationResourceCreateInputSchema.safeParse({
+        kind: "notes",
+        workspaceId: "ws-1",
+        text: " ",
+      }).success,
+    ).toBe(false);
+    expect(
+      RoutineInformationResourceCreateInputSchema.safeParse({
+        kind: "figma",
+        workspaceId: "ws-1",
+        url: "file:///tmp/design.fig",
       }).success,
     ).toBe(false);
   });

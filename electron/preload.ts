@@ -31,6 +31,7 @@ import type {
 } from "../src/lib/local-mcp";
 import type { WorkspaceInformationState } from "../src/lib/workspace-information";
 import type {
+  RoutineInformationResourceCreateInput,
   RoutineRun,
   RoutineSnapshot,
   RoutineSpec,
@@ -1153,6 +1154,18 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("routines:run-now", args) as Promise<{
         ok: boolean;
         run: RoutineRun | null;
+        message?: string;
+      }>,
+    createInformationResource: (
+      input: RoutineInformationResourceCreateInput,
+    ) =>
+      ipcRenderer.invoke(
+        "routines:create-information-resource",
+        input,
+      ) as Promise<{
+        ok: boolean;
+        option: WorkspaceInformationReferenceOption | null;
+        deduplicated?: boolean;
         message?: string;
       }>,
     listInformationReferences: (args: { workspaceId: string }) =>

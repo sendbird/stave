@@ -48,6 +48,7 @@ import type {
 } from "@/lib/terminal/types";
 import type { WorkspaceInformationState } from "@/lib/workspace-information";
 import type {
+  RoutineInformationResourceCreateInput,
   RoutineRun,
   RoutineSnapshot,
   RoutineSpec,
@@ -602,6 +603,14 @@ interface WindowRoutinesApi {
   runNow?: (args: { id: string }) => Promise<{
     ok: boolean;
     run: RoutineRun | null;
+    message?: string;
+  }>;
+  createInformationResource?: (
+    input: RoutineInformationResourceCreateInput,
+  ) => Promise<{
+    ok: boolean;
+    option: WorkspaceInformationReferenceOption | null;
+    deduplicated?: boolean;
     message?: string;
   }>;
   listInformationReferences?: (args: { workspaceId: string }) => Promise<{

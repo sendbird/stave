@@ -1,12 +1,24 @@
 import type { HostRoutineAction } from "../host-service/protocol";
 import type {
+  RoutineInformationResourceCreateInput,
   RoutineRun,
   RoutineSnapshot,
   RoutineSpec,
   RoutineUpsertInput,
 } from "../../src/lib/routines";
-import type { WorkspaceInformationReferenceOption } from "../../src/lib/workspace-information-references";
+import {
+  buildWorkspaceInformationReferenceOptions,
+  type WorkspaceInformationReferenceOption,
+  type WorkspaceInformationReferenceSection,
+} from "../../src/lib/workspace-information-references";
+import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 import { invokeHostService } from "./host-service-client";
+import {
+  addWorkspaceCustomField,
+  addWorkspaceResource,
+  addWorkspaceTodo,
+  appendWorkspaceNotes,
+} from "./stave-mcp-service";
 
 async function invokeRoutine<TResult>(
   action: HostRoutineAction,
@@ -55,4 +67,94 @@ export function listRoutineInformationReferences(args: {
     "list-information-references",
     args,
   );
+}
+
+function requireInformationReference(args: {
+  workspaceInformation: WorkspaceInformationState;
+  section: WorkspaceInformationReferenceSection;
+  itemId?: string;
+}) {
+  const option = buildWorkspaceInformationReferenceOptions(
+    args.workspaceInformation,
+  ).find(
+    (candidate) =>
+      candidate.reference.section === args.section &&
+      (args.itemId
+        ? candidate.reference.scope === "item" &&
+          candidate.reference.itemId === args.itemId
+        : candidate.reference.scope === "section"),
+  );
+  if (!option) {
+    throw new Error("Created Information resource reference was not found.");
+  }
+  return option;
+}
+
+export async function createRoutineInformationResource(
+  input: RoutineInformationResourceCreateInput,
+) {
+  if (input.kind === "notes") {
+    const result = await appendWorkspaceNotes({
+      workspaceId: input.workspaceId,
+      text: input.text,
+    });
+    return {
+      option: requireInformationReference({
+        workspaceInformation: result.workspaceInformation,
+        section: "notes",
+      }),
+      deduplicated: false,
+    };
+  }
+
+  if (input.kind === "todo") {
+    const result = await addWorkspaceTodo({
+      workspaceId: input.workspaceId,
+      text: input.text,
+    });
+    const todoId = result.workspaceInformation.todos.at(-1)?.id;
+    if (!todoId) {
+      throw new Error("Created Information todo was not found.");
+    }
+    return {
+      option: requireInformationReference({
+        workspaceInformation: result.workspaceInformation,
+        section: "todo",
+        itemId: todoId,
+      }),
+      deduplicated: false,
+    };
+  }
+
+  if (input.kind === "custom") {
+    const result = await addWorkspaceCustomField({
+      workspaceId: input.workspaceId,
+      fieldType: input.fieldType,
+      label: input.label,
+      value: input.value,
+      options: input.options,
+    });
+    const fieldId = result.workspaceInformation.customFields.at(-1)?.id;
+    if (!fieldId) {
+      throw new Error("Created Information custom field was not found.");
+    }
+    return {
+      option: requireInformationReference({
+        workspaceInformation: result.workspaceInformation,
+        section: "custom",
+        itemId: fieldId,
+      }),
+      deduplicated: false,
+    };
+  }
+
+  const result = await addWorkspaceResource(input);
+  return {
+    option: requireInformationReference({
+      workspaceInformation: result.workspaceInformation,
+      section: input.kind === "pull_request" ? "pr" : input.kind,
+      itemId: result.resource.id,
+    }),
+    deduplicated: result.deduplicated,
+  };
 }

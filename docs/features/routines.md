@@ -23,8 +23,8 @@
 2. Select `New`.
 3. Enter the routine name and complete task instructions.
 4. Choose the interval, repository, model, effort, and permission settings.
-5. Use `Attach Information` to choose the exact sections or items each run
-   should receive.
+5. Use `Add Information resource`, choose a resource type, and enter the new
+   resource that each run should receive.
 6. Select `Save`, then use `Run now` to test the routine.
 7. Open `Run history` and select `Open task result` to inspect the full conversation.
 
@@ -55,8 +55,10 @@
 3. Choose a registered repository. Routines always execute from that
    repository's root in its Default Workspace.
 4. Select Claude or Codex, then configure the model, effort, file access, approval behavior, sandbox, network access, or web search options supported by that provider.
-5. Select `Attach Information`, then attach the exact Information sections or
-   individual resources that should be injected into every run. The editor
+5. Select `Add Information resource`, choose Notes, Todo, Pull request, Jira,
+   Confluence, Storybook, Amplify, Slack, Figma, or Custom field, then complete
+   that resource type's input form. Stave creates the entry in the repository's
+   Default Workspace and attaches it to the routine immediately. The editor
    shows each attached resource with its context summary and removal control.
 6. Save the routine. Use the pencil button later to edit the same specification.
 
@@ -94,12 +96,13 @@ without requiring a new routine.
 - Cause: the selected permission policy requires an approval or the model requested user input.
 - Fix: select `Open task result`, respond in the task conversation, and let the run continue.
 
-### A Repository Has No Information Resources
+### A Resource Cannot Be Attached
 
-- Symptom: the attachment picker has no Information resources.
-- Cause: the repository's Default Workspace Information panel is empty.
-- Fix: add resources to that Default Workspace, then reopen the attachment
-  picker.
+- Symptom: `Create & attach` stays disabled.
+- Cause: a required field such as Notes text, Todo text, Custom field label, or
+  resource URL is empty or invalid.
+- Fix: complete the resource-specific form with a valid value. External
+  resources require an `http` or `https` URL.
 
 ### A Scheduled Run Did Not Start
 
