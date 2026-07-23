@@ -1,3 +1,18 @@
+## [0.11.5](https://github.com/sendbird/stave/compare/v0.11.4...v0.11.5) (2026-07-23)
+
+### Features
+
+* Replace separate model and effort controls with a combined Claude and Codex heatmap selector, including keyboard navigation, context-window, and fast-mode controls.
+* Add a discoverable Compare Runs action to the composer and persist recent compare-run history across app restarts.
+* Keep the active model picker focused on current-generation Claude and Codex models while retaining legacy names for history and migration compatibility.
+
+### Bug Fixes
+
+* Keep Claude AskUserQuestion prompts visible when option descriptions are omitted or options arrive as strings or `value` objects, and continue finding pending questions after later messages land.
+
+### References
+
+* [#191](https://github.com/sendbird/stave/pull/191), [#192](https://github.com/sendbird/stave/pull/192), [#193](https://github.com/sendbird/stave/pull/193)
 ## [0.11.4](https://github.com/sendbird/stave/compare/v0.11.3...v0.11.4) (2026-07-23)
 
 ### Features
