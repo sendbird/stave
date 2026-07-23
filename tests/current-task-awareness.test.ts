@@ -145,6 +145,57 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     );
   });
 
+  test("omits static procedural guidance on follow-up turns but keeps dynamic state", () => {
+    const workspaceInformation = createEmptyWorkspaceInformation();
+    workspaceInformation.notes = "Follow-up note.";
+
+    const full = buildCurrentTaskAwarenessRetrievedContext({
+      workspaceId: "ws-static",
+      taskId: "task-1",
+      tasks: [createTask({ id: "task-1", title: "Reduce per-turn tokens" })],
+      workspaceInformation,
+      includeStaticGuidance: true,
+    });
+    const compact = buildCurrentTaskAwarenessRetrievedContext({
+      workspaceId: "ws-static",
+      taskId: "task-1",
+      tasks: [createTask({ id: "task-1", title: "Reduce per-turn tokens" })],
+      workspaceInformation,
+      includeStaticGuidance: false,
+    });
+
+    // Static blocks drop out when guidance is suppressed.
+    expect(full.content).toContain("Handoff procedure:");
+    expect(full.content).toContain("Token Budget Guidance:");
+    expect(compact.content).not.toContain("Handoff procedure:");
+    expect(compact.content).not.toContain("Token Budget Guidance:");
+    expect(compact.content).not.toContain(
+      "new workspace plan files belong under",
+    );
+    // A terse pointer replaces the verbose guidance so the model still knows
+    // the conventions remain in force.
+    expect(compact.content).toContain(
+      "Workspace conventions, token-budget guidance, and the handoff procedure were provided at the start of this task",
+    );
+    // Dynamic identity + information state survive on every turn.
+    expect(compact.content).toContain("id: ws-static");
+    expect(compact.content).toContain("title: Reduce per-turn tokens");
+    expect(compact.content).toContain("Notes: present");
+    expect(compact.content).toContain("[current] Reduce per-turn tokens");
+    // The compact turn is meaningfully smaller.
+    expect(compact.content.length).toBeLessThan(full.content.length);
+  });
+
+  test("defaults to including static guidance when the flag is omitted", () => {
+    const context = buildCurrentTaskAwarenessRetrievedContext({
+      workspaceId: "ws-default",
+      taskId: "task-1",
+      tasks: [createTask({ id: "task-1", title: "Task" })],
+      workspaceInformation: createEmptyWorkspaceInformation(),
+    });
+    expect(context.content).toContain("Handoff procedure:");
+  });
+
   test("bounds visible tasks and resource lists so the prompt stays compact", () => {
     const workspaceInformation = createEmptyWorkspaceInformation();
     workspaceInformation.figmaResources = Array.from(

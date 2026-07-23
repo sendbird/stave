@@ -452,7 +452,12 @@ export function compactProviderTurnRequestForTransport(args: {
   maxBytes?: number;
 }) {
   const maxBytes = args.maxBytes ?? HOST_SERVICE_PROVIDER_REQUEST_SOFT_MAX_BYTES;
-  let nextRequest: ProviderTurnRequest & { providerId: ProviderId } = args.request;
+  // Keep history available until the runtime has resolved whether it can
+  // actually resume. MCP/config refreshes can force a fresh native session even
+  // when the renderer supplied a persisted resume id; preemptively dropping
+  // history here would leave that new session without task context.
+  let nextRequest: ProviderTurnRequest & { providerId: ProviderId } =
+    args.request;
 
   if (measureProviderTurnRequestEnvelopeBytes({
     method: args.method,

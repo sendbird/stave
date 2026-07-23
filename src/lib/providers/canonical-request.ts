@@ -162,6 +162,7 @@ export function buildCanonicalConversationRequest(args: {
   }>;
   skillContexts?: SkillPromptContext[];
   nativeSessionId?: string | null;
+  syncedThroughMessageId?: string | null;
   retrievedContextParts?: CanonicalRetrievedContextPart[];
 }): CanonicalConversationRequest {
   const contextParts: CanonicalConversationRequest["contextParts"] = [];
@@ -217,7 +218,15 @@ export function buildCanonicalConversationRequest(args: {
     },
     contextParts,
     resume: args.nativeSessionId?.trim()
-      ? { nativeSessionId: args.nativeSessionId.trim() }
+      ? {
+          nativeSessionId: args.nativeSessionId.trim(),
+          ...(args.syncedThroughMessageId?.trim()
+            ? {
+                syncedThroughMessageId:
+                  args.syncedThroughMessageId.trim(),
+              }
+            : {}),
+        }
       : undefined,
   };
 }

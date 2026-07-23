@@ -34,6 +34,7 @@ import {
   CODEX_CLI_SLASH_COMMANDS,
   getCodexSlashCommandCatalogDetail,
 } from "@/lib/providers/codex-command-catalog";
+import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
@@ -275,8 +276,11 @@ export function CodexSection() {
     ),
   );
   const currentThreadId =
-    activeTaskId && providerSessionByTask[activeTaskId]
-      ? (providerSessionByTask[activeTaskId].codex ?? null)
+    activeTaskId
+      ? getProviderSessionId({
+          sessions: providerSessionByTask[activeTaskId],
+          providerId: "codex",
+        })
       : null;
   const workspaceCwd =
     workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;

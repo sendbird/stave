@@ -12,6 +12,7 @@ This file is the fast entrypoint for codebase orientation.
 6. `docs/architecture/contracts.md` for multi-file contract checklists
 7. `docs/architecture/workspace-integrity.md` before changing project/workspace/task ownership or hydration logic
 8. `docs/architecture/chat-message-rendering.md` before changing assistant message UI semantics
+9. `docs/architecture/session-cursor.md` for provider switch-back delta history and safe fresh-session fallback
 
 ## Top-Level Layout
 

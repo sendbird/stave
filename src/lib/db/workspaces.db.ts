@@ -22,9 +22,16 @@ export interface WorkspaceSummary {
   updatedAt: string;
 }
 
+export interface ProviderSessionCursor {
+  nativeSessionId: string;
+  syncedThroughMessageId?: string;
+}
+
+export type TaskProviderSessionEntry = string | ProviderSessionCursor;
+
 export interface TaskProviderSessionState {
-  "claude-code"?: string;
-  codex?: string;
+  "claude-code"?: TaskProviderSessionEntry;
+  codex?: TaskProviderSessionEntry;
 }
 
 export interface WorkspaceSnapshot {

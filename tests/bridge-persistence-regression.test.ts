@@ -1585,6 +1585,7 @@ describe("workspace snapshot schema compatibility", () => {
               {
                 id: "task-2",
                 title: "Task 2",
+                titleManuallySet: true,
                 provider: "claude-code",
                 updatedAt: "2026-03-08T00:00:00.000Z",
                 unread: false,
@@ -1631,6 +1632,7 @@ describe("workspace snapshot schema compatibility", () => {
     expect(loaded?.messagesByTask["task-2"]?.[0]?.promptSuggestions).toEqual([
       "Open a PR with these changes",
     ]);
+    expect(loaded?.tasks[0]?.titleManuallySet).toBe(true);
     expect(loaded?.providerSessionByTask).toEqual({
       "task-2": {
         "claude-code": "session-live-2",

@@ -284,7 +284,10 @@ describe("buildProviderRuntimeOptions", () => {
         settings,
         providerSession: {
           "claude-code": "claude-session-1",
-          codex: "codex-thread-1",
+          codex: {
+            nativeSessionId: "codex-thread-1",
+            syncedThroughMessageId: "task-1-m-8",
+          },
         },
       }),
     ).toMatchObject({
@@ -299,7 +302,10 @@ describe("buildProviderRuntimeOptions", () => {
         settings,
         providerSession: {
           "claude-code": "claude-session-1",
-          codex: "codex-thread-1",
+          codex: {
+            nativeSessionId: "codex-thread-1",
+            syncedThroughMessageId: "task-1-m-8",
+          },
         },
       }),
     ).toMatchObject({

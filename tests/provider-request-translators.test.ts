@@ -3,6 +3,7 @@ import {
   buildProviderTurnPrompt,
   filterPromptRetrievedContext,
   resolveProviderResumeSessionId,
+  selectHistoryForProviderPrompt,
 } from "@/lib/providers/provider-request-translators";
 import type { CanonicalConversationRequest } from "@/lib/providers/provider.types";
 
@@ -155,6 +156,92 @@ describe("provider request translators", () => {
 
     expect(prompt).not.toContain("[Task Shared Context]");
     expect(prompt).toContain("[Current User Input]");
+  });
+
+  test("injects only messages after the cursor when returning to a stale provider session", () => {
+    const conversation = createConversation({
+      history: [
+        {
+          messageId: "claude-last",
+          role: "assistant",
+          providerId: "claude-code",
+          content: "Claude completed its prior turn.",
+          parts: [],
+        },
+        {
+          messageId: "codex-user",
+          role: "user",
+          providerId: "user",
+          content: "Continue with Codex.",
+          parts: [],
+        },
+        {
+          messageId: "codex-last",
+          role: "assistant",
+          providerId: "codex",
+          content: "Codex changed the implementation.",
+          parts: [],
+        },
+      ],
+      resume: {
+        nativeSessionId: "claude-session",
+        syncedThroughMessageId: "claude-last",
+      },
+    });
+
+    const selected = selectHistoryForProviderPrompt({
+      conversation,
+      activeResumeSessionId: "claude-session",
+    });
+    expect(selected.map((message) => message.messageId)).toEqual([
+      "codex-user",
+      "codex-last",
+    ]);
+
+    const prompt = buildProviderTurnPrompt({
+      providerId: "claude-code",
+      prompt: "fallback prompt",
+      conversation,
+      activeResumeSessionId: "claude-session",
+    });
+    expect(prompt).not.toContain("Claude completed its prior turn.");
+    expect(prompt).toContain("Codex changed the implementation.");
+  });
+
+  test("falls back to full history when the runtime starts a fresh session", () => {
+    const conversation = createConversation({
+      resume: {
+        nativeSessionId: "stale-session",
+        syncedThroughMessageId: "missing-cursor",
+      },
+    });
+
+    expect(selectHistoryForProviderPrompt({
+      conversation,
+      activeResumeSessionId: null,
+    })).toEqual(conversation.history);
+
+    const prompt = buildProviderTurnPrompt({
+      providerId: "codex",
+      prompt: "fallback prompt",
+      conversation,
+      activeResumeSessionId: null,
+    });
+    expect(prompt).toContain("Summarize the current repo status.");
+  });
+
+  test("falls back to full history when the cursor is not in the loaded transcript", () => {
+    const conversation = createConversation({
+      resume: {
+        nativeSessionId: "thread-1",
+        syncedThroughMessageId: "trimmed-message",
+      },
+    });
+
+    expect(selectHistoryForProviderPrompt({
+      conversation,
+      activeResumeSessionId: "thread-1",
+    })).toEqual(conversation.history);
   });
 
   test("preserves Codex resume when the task stays on the same Codex model", () => {

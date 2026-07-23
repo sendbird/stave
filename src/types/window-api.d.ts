@@ -48,6 +48,7 @@ import type {
 } from "@/lib/terminal/types";
 import type { WorkspaceInformationState } from "@/lib/workspace-information";
 import type { PromptDraft } from "@/types/chat";
+import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import type {
   AppUpdateInstallResult,
   AppUpdateStatusSnapshot,
@@ -1105,6 +1106,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
+        titleManuallySet?: boolean;
         provider: ProviderId;
         updatedAt: string;
         unread: boolean;
@@ -1113,13 +1115,7 @@ interface WindowPersistenceApi {
         controlOwner?: "stave" | "external";
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
-      providerSessionByTask?: Record<
-        string,
-        {
-          "claude-code"?: string;
-          codex?: string;
-        }
-      >;
+      providerSessionByTask?: Record<string, TaskProviderSessionState>;
       editorTabs?: Array<{
         id: string;
         filePath: string;
@@ -1153,6 +1149,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
+        titleManuallySet?: boolean;
         provider: ProviderId;
         updatedAt: string;
         unread: boolean;
@@ -1161,13 +1158,7 @@ interface WindowPersistenceApi {
         controlOwner?: "stave" | "external";
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
-      providerSessionByTask?: Record<
-        string,
-        {
-          "claude-code"?: string;
-          codex?: string;
-        }
-      >;
+      providerSessionByTask?: Record<string, TaskProviderSessionState>;
       editorTabs?: Array<{
         id: string;
         filePath: string;
@@ -1201,6 +1192,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
+        titleManuallySet?: boolean;
         provider: ProviderId;
         updatedAt: string;
         unread: boolean;
@@ -1209,13 +1201,7 @@ interface WindowPersistenceApi {
         controlOwner?: "stave" | "external";
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
-      providerSessionByTask?: Record<
-        string,
-        {
-          "claude-code"?: string;
-          codex?: string;
-        }
-      >;
+      providerSessionByTask?: Record<string, TaskProviderSessionState>;
       messageCountByTask?: Record<string, number>;
     } | null;
   }>;
@@ -1226,6 +1212,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
+        titleManuallySet?: boolean;
         provider: ProviderId;
         updatedAt: string;
         unread: boolean;
@@ -1245,6 +1232,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
+        titleManuallySet?: boolean;
         provider: ProviderId;
         updatedAt: string;
         unread: boolean;
@@ -1273,13 +1261,7 @@ interface WindowPersistenceApi {
         }>
       >;
       promptDraftByTask?: Record<string, PromptDraft>;
-      providerSessionByTask?: Record<
-        string,
-        {
-          "claude-code"?: string;
-          codex?: string;
-        }
-      >;
+      providerSessionByTask?: Record<string, TaskProviderSessionState>;
       editorTabs?: Array<{
         id: string;
         filePath: string;
@@ -1363,6 +1345,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
+        titleManuallySet?: boolean;
         provider: ProviderId;
         updatedAt: string;
         unread: boolean;
@@ -1391,13 +1374,7 @@ interface WindowPersistenceApi {
         }>
       >;
       promptDraftByTask?: Record<string, PromptDraft>;
-      providerSessionByTask?: Record<
-        string,
-        {
-          "claude-code"?: string;
-          codex?: string;
-        }
-      >;
+      providerSessionByTask?: Record<string, TaskProviderSessionState>;
       editorTabs?: Array<{
         id: string;
         filePath: string;
@@ -1500,6 +1477,7 @@ interface WindowPersistenceApi {
       tasks: Array<{
         id: string;
         title: string;
+        titleManuallySet?: boolean;
         provider: ProviderId;
         updatedAt: string;
         unread: boolean;
@@ -1528,13 +1506,7 @@ interface WindowPersistenceApi {
         }>
       >;
       promptDraftByTask?: Record<string, PromptDraft>;
-      providerSessionByTask?: Record<
-        string,
-        {
-          "claude-code"?: string;
-          codex?: string;
-        }
-      >;
+      providerSessionByTask?: Record<string, TaskProviderSessionState>;
       editorTabs?: Array<{
         id: string;
         filePath: string;

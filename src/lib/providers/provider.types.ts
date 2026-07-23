@@ -496,6 +496,7 @@ export interface CanonicalConversationRequest {
   >;
   resume?: {
     nativeSessionId?: string;
+    syncedThroughMessageId?: string;
   };
 }
 

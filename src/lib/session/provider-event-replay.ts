@@ -1,6 +1,11 @@
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { sanitizeMessagePartPayload } from "@/lib/file-context-sanitization";
 import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
+import {
+  advanceProviderSessionCursor,
+  getProviderSessionId,
+  rememberProviderSession,
+} from "@/lib/providers/provider-sessions";
 import { appendProviderOutputTruncationNotice } from "@/lib/truncation-visibility";
 import type {
   NormalizedProviderEvent,
@@ -818,10 +823,17 @@ export function replayProviderEventsToTaskState(args: {
 
   for (const event of args.events) {
     if (event.type === "provider_session") {
-      if (nextProviderSession?.[event.providerId] !== event.nativeSessionId) {
+      const currentSessionId = getProviderSessionId({
+        sessions: nextProviderSession,
+        providerId: event.providerId,
+      });
+      if (currentSessionId !== event.nativeSessionId) {
         nextProviderSession = {
           ...nextProviderSession,
-          [event.providerId]: event.nativeSessionId,
+          [event.providerId]: rememberProviderSession({
+            current: nextProviderSession?.[event.providerId],
+            nativeSessionId: event.nativeSessionId,
+          }),
         };
         changed = true;
       }
@@ -912,6 +924,19 @@ export function replayProviderEventsToTaskState(args: {
         message: updated,
       });
       if (!pendingToolInteraction) {
+        const advancedSession = advanceProviderSessionCursor({
+          current: nextProviderSession?.[args.provider],
+          syncedThroughMessageId: updated.id,
+        });
+        if (
+          advancedSession
+          && advancedSession !== nextProviderSession?.[args.provider]
+        ) {
+          nextProviderSession = {
+            ...nextProviderSession,
+            [args.provider]: advancedSession,
+          };
+        }
         nextActiveTurnId = undefined;
       }
     }

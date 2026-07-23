@@ -564,6 +564,49 @@ describe("provider request sanitization", () => {
     ).not.toContain("r".repeat(100_000));
   });
 
+  test("keeps resume history until the runtime confirms the native session", () => {
+    const request = {
+      providerId: "claude-code" as const,
+      prompt: "Continue.",
+      taskId: "task-1",
+      workspaceId: "ws-main",
+      cwd: "/tmp/stave-project",
+      conversation: {
+        target: { providerId: "claude-code" as const, model: "claude" },
+        mode: "chat" as const,
+        history: Array.from({ length: 5 }, (_, index) => ({
+          role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+          content: `history-${index}`,
+          parts: [],
+        })),
+        input: {
+          role: "user" as const,
+          providerId: "user" as const,
+          model: "user",
+          content: "continue",
+          parts: [{ type: "text" as const, text: "continue" }],
+        },
+        contextParts: [],
+        resume: {
+          nativeSessionId: "session-abc",
+          syncedThroughMessageId: "history-4",
+        },
+      },
+    };
+
+    const bounded = compactProviderTurnRequestForTransport({
+      method: "provider.start-push-turn",
+      request,
+    });
+    expect(bounded.conversation?.history).toHaveLength(5);
+    expect(bounded.conversation?.resume?.nativeSessionId).toBe("session-abc");
+    expect(
+      bounded.conversation?.resume?.syncedThroughMessageId,
+    ).toBe("history-4");
+    expect(bounded.conversation?.input.content).toBe("continue");
+    expect(StreamTurnArgsSchema.safeParse(bounded).success).toBe(true);
+  });
+
   test("preserves image payloads while compacting lower-priority context", () => {
     const imageDataUrl = `data:image/png;base64,${"a".repeat(32_000)}`;
     const request = {
