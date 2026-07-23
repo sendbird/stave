@@ -228,7 +228,15 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
   taskId: string;
   tasks: Task[];
   workspaceInformation: WorkspaceInformationState;
+  /**
+   * Include the static procedural guidance (workspace conventions, token-budget
+   * guidance, handoff procedure). These blocks never change turn-to-turn, so
+   * callers inject them only on the first turn of a task and omit them
+   * afterwards to keep the per-turn prompt small. Defaults to `true`.
+   */
+  includeStaticGuidance?: boolean;
 }): CanonicalRetrievedContextPart {
+  const includeStaticGuidance = args.includeStaticGuidance ?? true;
   const currentTask =
     args.tasks.find((task) => task.id === args.taskId) ?? null;
   const visibleTasks = args.tasks
@@ -276,6 +284,23 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
     "6. The plan file must describe ONLY the handoff sub-task and the context needed to execute it. Do NOT copy the source workspace's plan, notes, or todos verbatim — the source workspace's plan stays in the source. Cite the source by `workspaceId`/`taskId` when helpful.",
   ];
 
+  const staticGuidanceLines = includeStaticGuidance
+    ? [
+        "",
+        "Workspace Conventions:",
+        ...workspaceConventionLines,
+        "",
+        "Token Budget Guidance:",
+        ...tokenBudgetLines,
+        "",
+        "Handoff procedure:",
+        ...handoffProcedureLines,
+      ]
+    : [
+        "",
+        "Workspace conventions, token-budget guidance, and the handoff procedure were provided at the start of this task and still apply — follow them without re-fetching.",
+      ];
+
   return {
     type: "retrieved_context",
     sourceId: "stave:current-task-awareness",
@@ -295,15 +320,7 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
       "",
       "Task:",
       ...taskLines,
-      "",
-      "Workspace Conventions:",
-      ...workspaceConventionLines,
-      "",
-      "Token Budget Guidance:",
-      ...tokenBudgetLines,
-      "",
-      "Handoff procedure:",
-      ...handoffProcedureLines,
+      ...staticGuidanceLines,
       "",
       "Visible tasks in this workspace:",
       ...(visibleTasks.length > 0

@@ -2216,7 +2216,11 @@ async function ensureCodexThread(args: {
     threadId,
     executablePath: args.executablePath,
   });
-  return { threadId, threadKey };
+  return {
+    threadId,
+    threadKey,
+    resumedThreadId: resumeThreadId ?? null,
+  };
 }
 
 export function cleanupCodexAppServerTask(taskId: string) {
@@ -4013,8 +4017,9 @@ export async function streamCodexWithAppServer(
   }
 
   let threadId: string;
+  let resumedThreadId: string | null;
   try {
-    ({ threadId } = await ensureCodexThread({
+    ({ threadId, resumedThreadId } = await ensureCodexThread({
       client,
       executablePath: codexExecutablePath,
       taskId: args.taskId,
@@ -4087,6 +4092,7 @@ export async function streamCodexWithAppServer(
     buildProviderTurnPrompt({
       providerId: args.providerId,
       prompt: args.prompt,
+      activeResumeSessionId: resumedThreadId,
       conversation: args.conversation
         ? filterPromptRetrievedContext({
             conversation: args.conversation,

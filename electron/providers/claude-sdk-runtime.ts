@@ -3123,6 +3123,7 @@ export async function streamClaudeWithSdk(
       providerId: args.providerId,
       prompt: args.prompt,
       conversation: promptConversation,
+      activeResumeSessionId: existingSessionId ?? null,
     });
     const activatedSkillSlugs = collectClaudeActivatedSkillSlugs({
       conversation: args.conversation,

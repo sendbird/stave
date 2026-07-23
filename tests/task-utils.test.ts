@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+  AUTO_TASK_NAME_HISTORY_MESSAGE_CHARS,
+  AUTO_TASK_NAME_HISTORY_MESSAGES,
+  AUTO_TASK_NAME_MAX_USER_TURNS,
+  AUTO_TASK_NAME_PROMPT_CHARS,
+  buildSuggestTaskNamePayload,
   findWorkspaceTaskOrThrow,
   getArchiveFallbackTaskId,
   getRespondingTasks,
@@ -9,6 +14,7 @@ import {
   isTaskArchived,
   normalizeSuggestedTaskTitle,
   reorderTasksWithinFilter,
+  shouldSuggestTaskName,
 } from "../src/lib/tasks";
 import type { ChatMessage, Task } from "../src/types/chat";
 
@@ -147,5 +153,71 @@ describe("task utils", () => {
     expect(normalizeSuggestedTaskTitle({
       title: "I don't have enough context to generate an accurate task title. The message \"3번만 해줘\" appears to be the latest message in a conversation.",
     })).toBeNull();
+  });
+});
+
+describe("shouldSuggestTaskName", () => {
+  test("fires during the opening naming window", () => {
+    expect(
+      shouldSuggestTaskName({ task: { titleManuallySet: false }, priorUserTurnCount: 0 }),
+    ).toBe(true);
+    expect(
+      shouldSuggestTaskName({
+        task: undefined,
+        priorUserTurnCount: AUTO_TASK_NAME_MAX_USER_TURNS - 1,
+      }),
+    ).toBe(true);
+  });
+
+  test("stops once the naming window has passed", () => {
+    expect(
+      shouldSuggestTaskName({
+        task: null,
+        priorUserTurnCount: AUTO_TASK_NAME_MAX_USER_TURNS,
+      }),
+    ).toBe(false);
+  });
+
+  test("never fires after a manual rename, even on the first turn", () => {
+    expect(
+      shouldSuggestTaskName({ task: { titleManuallySet: true }, priorUserTurnCount: 0 }),
+    ).toBe(false);
+  });
+});
+
+describe("buildSuggestTaskNamePayload", () => {
+  test("clips prompt, history length, and per-message content", () => {
+    const payload = buildSuggestTaskNamePayload({
+      prompt: "p".repeat(AUTO_TASK_NAME_PROMPT_CHARS + 500),
+      history: Array.from({ length: 10 }, (_, index) => ({
+        role: index % 2 === 0 ? "user" : "assistant",
+        content: "c".repeat(AUTO_TASK_NAME_HISTORY_MESSAGE_CHARS + 5_000),
+      })),
+    });
+
+    expect(payload.prompt.length).toBe(AUTO_TASK_NAME_PROMPT_CHARS);
+    expect(payload.history.length).toBe(AUTO_TASK_NAME_HISTORY_MESSAGES);
+    for (const message of payload.history) {
+      expect(message.content.length).toBe(AUTO_TASK_NAME_HISTORY_MESSAGE_CHARS);
+    }
+  });
+
+  test("keeps the trailing messages", () => {
+    const payload = buildSuggestTaskNamePayload({
+      prompt: "latest",
+      history: [
+        { role: "user", content: "first" },
+        { role: "assistant", content: "second" },
+        { role: "user", content: "third" },
+        { role: "assistant", content: "fourth" },
+        { role: "user", content: "fifth" },
+      ],
+    });
+    expect(payload.history.map((message) => message.content)).toEqual([
+      "second",
+      "third",
+      "fourth",
+      "fifth",
+    ]);
   });
 });

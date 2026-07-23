@@ -24,6 +24,7 @@ import { isTaskArchived, normalizeTaskControl } from "@/lib/tasks";
 import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
 import { createEmptyWorkspaceInformation, type WorkspaceInformationState } from "@/lib/workspace-information";
 import type { ProviderGoalSnapshot } from "@/lib/providers/provider.types";
+import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import { interruptPendingToolInteractionsInMessages } from "@/store/provider-message.utils";
 import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
 
@@ -273,7 +274,12 @@ export function buildNativeSessionReadyByTask(args: {
   for (const task of args.tasks) {
     const providerSession = args.providerSessionByTask[task.id];
     // stave has no native conversation of its own; treat as not ready
-    next[task.id] = Boolean(providerSession?.[task.provider]?.trim());
+    next[task.id] = Boolean(
+      getProviderSessionId({
+        sessions: providerSession,
+        providerId: task.provider,
+      }),
+    );
   }
 
   return next;

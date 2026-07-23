@@ -373,6 +373,85 @@ describe("appendProviderEventToAssistant", () => {
   });
 });
 
+describe("provider session cursor replay", () => {
+  test("advances the cursor only after a completed provider turn", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [{
+        id: "task-1-m-1",
+        role: "user",
+        model: "user",
+        providerId: "user",
+        content: "Implement the change.",
+        parts: [{ type: "text", text: "Implement the change." }],
+      }],
+      events: [
+        {
+          type: "provider_session",
+          providerId: "codex",
+          nativeSessionId: "thread-1",
+        },
+        { type: "text", text: "Done." },
+        { type: "done" },
+      ],
+      provider: "codex",
+      model: "gpt-5.4",
+      turnId: "turn-1",
+    });
+
+    expect(replayed.providerSession?.codex).toEqual({
+      nativeSessionId: "thread-1",
+      syncedThroughMessageId: "task-1-m-2",
+    });
+  });
+
+  test("clears a stale cursor when the provider reports a new native session", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [{
+        type: "provider_session",
+        providerId: "claude-code",
+        nativeSessionId: "session-new",
+      }],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+      turnId: "turn-1",
+      providerSession: {
+        "claude-code": {
+          nativeSessionId: "session-old",
+          syncedThroughMessageId: "task-1-m-8",
+        },
+      },
+    });
+
+    expect(replayed.providerSession?.["claude-code"]).toEqual({
+      nativeSessionId: "session-new",
+    });
+  });
+
+  test("keeps the previous cursor when a turn has not completed", () => {
+    const providerSession = {
+      codex: {
+        nativeSessionId: "thread-1",
+        syncedThroughMessageId: "task-1-m-4",
+      },
+    };
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [{ type: "text", text: "Still working." }],
+      provider: "codex",
+      model: "gpt-5.4",
+      turnId: "turn-1",
+      providerSession,
+    });
+
+    expect(replayed.providerSession).toBe(providerSession);
+    expect(replayed.activeTurnId).toBe("turn-1");
+  });
+});
+
 describe("provider goal status replay", () => {
   test("updates provider goal status without creating an assistant message", () => {
     const replayed = replayProviderEventsToTaskState({

@@ -304,6 +304,7 @@ const ChatMessageSchema = z.object({
 const TaskSchema = z.object({
   id: z.string(),
   title: z.string(),
+  titleManuallySet: z.boolean().optional(),
   provider: z.union([z.literal("claude-code"), z.literal("codex")]),
   updatedAt: z.string(),
   unread: z.boolean(),
@@ -323,9 +324,19 @@ const TaskSchema = z.object({
   planFilePaths: z.array(z.string()).optional().default([]),
 });
 
+const ProviderSessionCursorSchema = z.object({
+  nativeSessionId: z.string(),
+  syncedThroughMessageId: z.string().optional(),
+});
+
+const TaskProviderSessionEntrySchema = z.union([
+  z.string(),
+  ProviderSessionCursorSchema,
+]);
+
 const TaskProviderSessionStateSchema = z.object({
-  "claude-code": z.string().optional(),
-  codex: z.string().optional(),
+  "claude-code": TaskProviderSessionEntrySchema.optional(),
+  codex: TaskProviderSessionEntrySchema.optional(),
   stave: z.string().optional(),
 });
 

@@ -9,6 +9,21 @@ const relativeTimeFormatter = typeof Intl !== "undefined"
   : null;
 const AUTO_TASK_TITLE_MAX_LENGTH = 80;
 const AUTO_TASK_TITLE_MAX_WORDS = 12;
+
+/**
+ * The automatic task-name suggestion loop only needs the opening exchanges to
+ * infer a stable title. Firing a suggestion query on every prompt for the whole
+ * life of a task wastes a full single-turn LLM call (plus its IPC payload) each
+ * time, so we cap it to the first few user turns. After that the title has
+ * stabilized and further queries just re-derive the same name.
+ */
+export const AUTO_TASK_NAME_MAX_USER_TURNS = 3;
+/** Per-message content budget sent to the suggestion query (chars). */
+export const AUTO_TASK_NAME_HISTORY_MESSAGE_CHARS = 500;
+/** Number of trailing history messages sent to the suggestion query. */
+export const AUTO_TASK_NAME_HISTORY_MESSAGES = 4;
+/** Latest-prompt content budget sent to the suggestion query (chars). */
+export const AUTO_TASK_NAME_PROMPT_CHARS = 1000;
 const AUTO_TASK_TITLE_DISALLOWED_PATTERNS = [
   /\b(i\s+(?:do not|don't)\s+have\s+enough\s+context|not enough context|need more context|without (?:the )?(?:full )?context)\b/i,
   /\b(i\s+(?:can't|cannot|am unable|unable))\b/i,
@@ -201,6 +216,43 @@ export function normalizeSuggestedTaskTitle(args: { title: string }) {
   }
 
   return normalized;
+}
+
+/**
+ * Decide whether the automatic task-name suggestion query should fire for this
+ * prompt. Skips when the user has already named the task by hand, and stops
+ * once the opening naming window has passed so the query does not re-run on
+ * every subsequent prompt.
+ */
+export function shouldSuggestTaskName(args: {
+  task: Pick<Task, "titleManuallySet"> | null | undefined;
+  priorUserTurnCount: number;
+}) {
+  if (args.task?.titleManuallySet) {
+    return false;
+  }
+  return args.priorUserTurnCount < AUTO_TASK_NAME_MAX_USER_TURNS;
+}
+
+/**
+ * Build the compact payload for the task-name suggestion query. Trailing
+ * history is clipped both in count and per-message length so a large tool
+ * output living in a message never bloats the IPC payload (or trips the
+ * request schema's per-field size cap, which would silently drop the query).
+ */
+export function buildSuggestTaskNamePayload(args: {
+  prompt: string;
+  history: Array<Pick<ChatMessage, "role" | "content">>;
+}) {
+  return {
+    prompt: args.prompt.slice(0, AUTO_TASK_NAME_PROMPT_CHARS),
+    history: args.history
+      .slice(-AUTO_TASK_NAME_HISTORY_MESSAGES)
+      .map((message) => ({
+        role: message.role as string,
+        content: message.content.slice(0, AUTO_TASK_NAME_HISTORY_MESSAGE_CHARS),
+      })),
+  };
 }
 
 export function getArchiveFallbackTaskId(args: { tasks: Task[]; archivedTaskId: string }) {

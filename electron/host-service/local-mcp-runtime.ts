@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { buildCanonicalConversationRequest } from "../../src/lib/providers/canonical-request";
 import { getDefaultModelForProvider } from "../../src/lib/providers/model-catalog";
+import { getProviderSessionCursor } from "../../src/lib/providers/provider-sessions";
 import type {
   CanonicalRetrievedContextPart,
   NormalizedProviderEvent,
@@ -1943,6 +1944,10 @@ export async function runTask(args: {
   const turnId = randomUUID();
   const existingHistory = session.messagesByTask[task.id] ?? [];
   const providerSession = session.providerSessionByTask[task.id];
+  const providerSessionCursor = getProviderSessionCursor({
+    sessions: providerSession,
+    providerId: provider,
+  });
   const informationReferencesContext =
     args.informationReferences && args.informationReferences.length > 0
       ? formatWorkspaceInformationReferencesContext({
@@ -1961,8 +1966,8 @@ export async function runTask(args: {
             "Treat section references as the full current section and item references as the specific current item.",
             "",
             informationReferencesContext,
-          ].join("\n"),
-        }
+        ].join("\n"),
+      }
       : null;
   const conversation = buildCanonicalConversationRequest({
     turnId,
@@ -1973,7 +1978,9 @@ export async function runTask(args: {
     history: existingHistory,
     userInput: args.prompt,
     mode: "chat",
-    nativeSessionId: providerSession?.[provider] ?? null,
+    nativeSessionId: providerSessionCursor?.nativeSessionId ?? null,
+    syncedThroughMessageId:
+      providerSessionCursor?.syncedThroughMessageId ?? null,
     retrievedContextParts: [
       buildCurrentTaskAwarenessRetrievedContext({
         workspaceId: args.workspaceId,

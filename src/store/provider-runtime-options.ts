@@ -7,6 +7,7 @@ import {
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
 } from "@/lib/providers/model-catalog";
+import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import {
   normalizeTrustedToolEntries,
   toClaudeAllowedToolsFromTrustedEntries,
@@ -197,6 +198,14 @@ export function buildProviderRuntimeOptions(args: {
   const trustedTools = normalizeTrustedToolEntries(settings.trustedTools);
   const claudeAllowedTools =
     toClaudeAllowedToolsFromTrustedEntries(trustedTools);
+  const claudeResumeSessionId = getProviderSessionId({
+    sessions: providerSession ?? undefined,
+    providerId: "claude-code",
+  });
+  const codexResumeThreadId = getProviderSessionId({
+    sessions: providerSession ?? undefined,
+    providerId: "codex",
+  });
 
   return {
     model: args.model,
@@ -246,9 +255,8 @@ export function buildProviderRuntimeOptions(args: {
     ...(settings.claudeFallbackModel.trim()
       ? { claudeFallbackModel: settings.claudeFallbackModel.trim() }
       : {}),
-    ...(args.provider === "claude-code" &&
-    providerSession?.["claude-code"]?.trim()
-      ? { claudeResumeSessionId: providerSession["claude-code"] }
+    ...(args.provider === "claude-code" && claudeResumeSessionId
+      ? { claudeResumeSessionId }
       : {}),
     ...(settings.claudeResumeSessionAt.trim()
       ? { claudeResumeSessionAt: settings.claudeResumeSessionAt.trim() }
@@ -274,8 +282,8 @@ export function buildProviderRuntimeOptions(args: {
     codexReasoningSummarySupport: settings.codexReasoningSummarySupport,
     codexFastMode: settings.codexFastMode,
     codexPlanMode: settings.codexPlanMode,
-    ...(args.provider === "codex" && providerSession?.codex?.trim()
-      ? { codexResumeThreadId: providerSession.codex }
+    ...(args.provider === "codex" && codexResumeThreadId
+      ? { codexResumeThreadId }
       : {}),
     responseStylePrompt: settings.promptResponseStyle || undefined,
     promptPrDescription: settings.promptPrDescription || undefined,

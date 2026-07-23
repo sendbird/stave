@@ -45,6 +45,58 @@ function createWorkspaceBase() {
 }
 
 describe("task-context workspace schemas", () => {
+  test("accepts legacy session ids and persisted session cursors", () => {
+    const parsed = parseWorkspaceShell({
+      payload: {
+        ...createWorkspaceBase(),
+        providerSessionByTask: {
+          "task-legacy": {
+            "claude-code": "session-legacy",
+          },
+          "task-cursor": {
+            codex: {
+              nativeSessionId: "thread-1",
+              syncedThroughMessageId: "task-cursor-m-4",
+            },
+          },
+        },
+        messageCountByTask: {},
+      },
+    });
+
+    expect(parsed?.providerSessionByTask).toEqual({
+      "task-legacy": {
+        "claude-code": "session-legacy",
+      },
+      "task-cursor": {
+        codex: {
+          nativeSessionId: "thread-1",
+          syncedThroughMessageId: "task-cursor-m-4",
+        },
+      },
+    });
+  });
+
+  test("preserves the manual task-title marker across workspace parsing", () => {
+    const parsed = parseWorkspaceShell({
+      payload: {
+        ...createWorkspaceBase(),
+        activeTaskId: "task-1",
+        tasks: [{
+          id: "task-1",
+          title: "Keep this title",
+          titleManuallySet: true,
+          provider: "codex",
+          updatedAt: "2026-07-23T00:00:00.000Z",
+          unread: false,
+        }],
+        messageCountByTask: { "task-1": 0 },
+      },
+    });
+
+    expect(parsed?.tasks[0]?.titleManuallySet).toBe(true);
+  });
+
   test("normalizes legacy ghostty terminal tabs to xterm in workspace shell payloads", () => {
     const parsed = parseWorkspaceShell({
       payload: {

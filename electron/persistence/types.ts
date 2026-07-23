@@ -1,4 +1,5 @@
 import type { PromptDraft } from "../../src/types/chat";
+import type { TaskProviderSessionState } from "../../src/lib/db/workspaces.db";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
 import type {
   PaneDockLayout,
@@ -15,6 +16,7 @@ import type { WorkspaceInformationState } from "../../src/lib/workspace-informat
 export interface PersistenceTaskRow {
   id: string;
   title: string;
+  titleManuallySet?: boolean;
   provider: ProviderId;
   updatedAt: string;
   unread: boolean;
@@ -46,10 +48,7 @@ export interface PersistenceWorkspaceSnapshot {
   tasks: PersistenceTaskRow[];
   messagesByTask: Record<string, PersistenceChatMessageRow[]>;
   promptDraftByTask?: Record<string, PromptDraft>;
-  providerSessionByTask?: Record<string, {
-    "claude-code"?: string;
-    codex?: string;
-  }>;
+  providerSessionByTask?: Record<string, TaskProviderSessionState>;
   editorTabs?: Array<{
     id: string;
     filePath: string;
@@ -88,10 +87,7 @@ export interface PersistenceWorkspaceShell {
   activeTaskId: string;
   tasks: PersistenceTaskRow[];
   promptDraftByTask?: Record<string, PromptDraft>;
-  providerSessionByTask?: Record<string, {
-    "claude-code"?: string;
-    codex?: string;
-  }>;
+  providerSessionByTask?: Record<string, TaskProviderSessionState>;
   editorTabs?: Array<{
     id: string;
     filePath: string;
@@ -131,10 +127,7 @@ export interface PersistenceWorkspaceShellLite {
   activeTaskId: string;
   tasks: PersistenceTaskRow[];
   promptDraftByTask?: Record<string, PromptDraft>;
-  providerSessionByTask?: Record<string, {
-    "claude-code"?: string;
-    codex?: string;
-  }>;
+  providerSessionByTask?: Record<string, TaskProviderSessionState>;
   messageCountByTask?: Record<string, number>;
 }
 

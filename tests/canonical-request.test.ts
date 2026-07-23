@@ -83,6 +83,28 @@ describe("canonical request builder", () => {
     });
   });
 
+  test("carries the provider session cursor only with a native session id", () => {
+    const resumed = buildCanonicalConversationRequest({
+      providerId: "codex",
+      history,
+      userInput: "Continue.",
+      nativeSessionId: "thread-1",
+      syncedThroughMessageId: "assistant-1",
+    });
+    expect(resumed.resume).toEqual({
+      nativeSessionId: "thread-1",
+      syncedThroughMessageId: "assistant-1",
+    });
+
+    const fresh = buildCanonicalConversationRequest({
+      providerId: "codex",
+      history,
+      userInput: "Start fresh.",
+      syncedThroughMessageId: "assistant-1",
+    });
+    expect(fresh.resume).toBeUndefined();
+  });
+
   test("rebuilds the current legacy prompt from the canonical request history and input", () => {
     const request = buildCanonicalConversationRequest({
       taskId: "task-1",

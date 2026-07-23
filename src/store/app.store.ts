@@ -86,6 +86,10 @@ import type { LensSessionScope } from "@/lib/lens/lens.types";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
 import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-request";
 import {
+  getProviderSessionCursor,
+  getProviderSessionId,
+} from "@/lib/providers/provider-sessions";
+import {
   getDefaultModelForProvider,
   inferProviderIdFromModel,
   listProviderIds,
@@ -158,12 +162,14 @@ import {
   type ThinkingPhraseAnimationStyle,
 } from "@/lib/thinking-phrases";
 import {
+  buildSuggestTaskNamePayload,
   canTakeOverTask,
   getArchiveFallbackTaskId,
   isTaskArchived,
   isTaskManaged,
   normalizeSuggestedTaskTitle,
   reorderTasksWithinFilter,
+  shouldSuggestTaskName,
   type TaskFilter,
 } from "@/lib/tasks";
 import {
@@ -1513,7 +1519,16 @@ interface AppState
   }) => void;
   clearPromptDraft: (args: { taskId: string }) => void;
   createTask: (args: { title?: string }) => void;
-  renameTask: (args: { taskId: string; title: string }) => void;
+  renameTask: (args: {
+    taskId: string;
+    title: string;
+    /**
+     * "manual" (default) marks the task as user-named and stops future
+     * automatic title suggestions. "auto" comes from the suggestion loop and
+     * is ignored once the title has been set manually.
+     */
+    source?: "manual" | "auto";
+  }) => void;
   restoreTask: (args: { taskId: string }) => void;
   duplicateTask: (args: { taskId: string }) => Promise<void>;
   reorderTasks: (args: {
@@ -8624,7 +8639,10 @@ export const useAppStore = create<AppState>()(
         clearTaskProviderSession: ({ taskId, providerId }) => {
           set((state) => {
             const currentSession = state.providerSessionByTask[taskId];
-            const existingSessionId = currentSession?.[providerId]?.trim();
+            const existingSessionId = getProviderSessionId({
+              sessions: currentSession,
+              providerId,
+            });
             if (!existingSessionId) {
               return state;
             }
@@ -8647,7 +8665,12 @@ export const useAppStore = create<AppState>()(
             )?.provider;
             const nextNativeSessionReady =
               activeProvider !== undefined &&
-              Boolean(nextTaskSession[activeProvider]?.trim());
+              Boolean(
+                getProviderSessionId({
+                  sessions: nextTaskSession,
+                  providerId: activeProvider,
+                }),
+              );
 
             return {
               providerSessionByTask: {
@@ -8817,7 +8840,7 @@ export const useAppStore = create<AppState>()(
             taskTitle: nextTask.title,
           });
         },
-        renameTask: ({ taskId, title }) => {
+        renameTask: ({ taskId, title, source = "manual" }) => {
           const nextTitle = title.trim();
           if (!nextTitle) {
             return;
@@ -8826,6 +8849,13 @@ export const useAppStore = create<AppState>()(
             if (isManagedTaskReadOnly({ state, taskId })) {
               return state;
             }
+            const target = state.tasks.find((task) => task.id === taskId);
+            // A manual rename is a deliberate user choice — never let an
+            // automatic suggestion overwrite it afterwards.
+            if (source === "auto" && target?.titleManuallySet) {
+              return state;
+            }
+            const markManual = source === "manual";
             return {
               tasks: state.tasks.map((task) =>
                 task.id === taskId
@@ -8833,6 +8863,7 @@ export const useAppStore = create<AppState>()(
                       ...task,
                       title: nextTitle,
                       updatedAt: buildRecentTimestamp(),
+                      ...(markManual ? { titleManuallySet: true } : {}),
                     }
                   : task,
               ),
@@ -9407,14 +9438,10 @@ export const useAppStore = create<AppState>()(
               draftProvider: provider,
               nativeSessionReadyByTask: {
                 ...state.nativeSessionReadyByTask,
-                [taskId]: Boolean(
-                  (
-                    state.providerSessionByTask[taskId] as Record<
-                      string,
-                      string | undefined
-                    >
-                  )?.[provider]?.trim(),
-                ),
+                [taskId]: Boolean(getProviderSessionId({
+                  sessions: state.providerSessionByTask[taskId],
+                  providerId: provider,
+                })),
               },
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(state),
@@ -11241,42 +11268,58 @@ export const useAppStore = create<AppState>()(
             const normalizedPrompt = skillSelection.normalizedText;
 
             // ── Auto task naming ──────────────────────────────────────────────────
-            // On every prompt, fire a lightweight single-turn Claude query to keep
-            // the task title up-to-date with the evolving conversation context.
-            // Runs fully async — never blocks the main turn.
+            // Fire a lightweight single-turn Claude query to keep the task title
+            // aligned with the evolving conversation. Gated so it only runs during
+            // the opening naming window and never after a manual rename, and sends
+            // a clipped payload. Runs fully async — never blocks the main turn.
             {
               const capturedTaskId = resolvedTaskId;
-              const promptForTitle = normalizedPrompt || promptContent;
-              const historyForTitle = latestHistory.slice(-6).map((m) => ({
-                role: m.role as string,
-                content: m.content,
-              }));
-              void window.api?.provider
-                ?.suggestTaskName?.({
-                  prompt: promptForTitle,
-                  history: historyForTitle,
+              const priorUserTurnCount = latestHistory.reduce(
+                (count, message) =>
+                  message.role === "user" ? count + 1 : count,
+                0,
+              );
+              if (
+                shouldSuggestTaskName({
+                  task: latestWorkspaceSession.tasks.find(
+                    (task) => task.id === resolvedTaskId,
+                  ),
+                  priorUserTurnCount,
                 })
-                .then((result) => {
-                  if (result?.ok && result.title) {
-                    const safeTitle = normalizeSuggestedTaskTitle({
-                      title: result.title,
-                    });
-                    if (safeTitle) {
-                      get().renameTask({
-                        taskId: capturedTaskId,
-                        title: safeTitle,
-                      });
-                    }
-                  }
-                })
-                .catch(() => {
-                  // Title generation failed — keep the current title.
+              ) {
+                const suggestPayload = buildSuggestTaskNamePayload({
+                  prompt: normalizedPrompt || promptContent,
+                  history: latestHistory,
                 });
+                void window.api?.provider
+                  ?.suggestTaskName?.(suggestPayload)
+                  .then((result) => {
+                    if (result?.ok && result.title) {
+                      const safeTitle = normalizeSuggestedTaskTitle({
+                        title: result.title,
+                      });
+                      if (safeTitle) {
+                        get().renameTask({
+                          taskId: capturedTaskId,
+                          title: safeTitle,
+                          source: "auto",
+                        });
+                      }
+                    }
+                  })
+                  .catch(() => {
+                    // Title generation failed — keep the current title.
+                  });
+              }
             }
             // ─────────────────────────────────────────────────────────────────────
 
             const providerSession =
               latestWorkspaceSession.providerSessionByTask[resolvedTaskId];
+            const providerSessionCursor = getProviderSessionCursor({
+              sessions: providerSession,
+              providerId: provider,
+            });
             const taskWorkspaceSummary =
               state.workspaces.find(
                 (workspace) => workspace.id === taskWorkspaceId,
@@ -11337,6 +11380,10 @@ export const useAppStore = create<AppState>()(
                 taskId: resolvedTaskId,
                 tasks: taskWorkspaceTasks,
                 workspaceInformation: taskWorkspaceInformation,
+                // Static procedural guidance is identical every turn; inject it
+                // only on the task's first turn and rely on the terse pointer
+                // afterwards to keep the recurring prompt small.
+                includeStaticGuidance: existingHistory.length === 0,
               }),
             ];
             // `@lens` references resolve against the live Lens browser state.
@@ -11403,7 +11450,10 @@ export const useAppStore = create<AppState>()(
                   ? resolvedImageContexts
                   : undefined,
               skillContexts: skillSelection.selectedSkills,
-              nativeSessionId: providerSession?.[provider] ?? null,
+              nativeSessionId:
+                providerSessionCursor?.nativeSessionId ?? null,
+              syncedThroughMessageId:
+                providerSessionCursor?.syncedThroughMessageId ?? null,
               retrievedContextParts,
             });
             const prompt = normalizedPrompt;

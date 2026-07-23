@@ -749,6 +749,7 @@ const CanonicalConversationRequestSchema = z
     resume: z
       .object({
         nativeSessionId: z.string().max(200).optional(),
+        syncedThroughMessageId: z.string().max(200).optional(),
       })
       .strict()
       .optional(),

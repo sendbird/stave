@@ -6,8 +6,46 @@ function getStoredResumeSessionId(conversation?: CanonicalConversationRequest) {
   return value ? value : undefined;
 }
 
-function shouldIncludeHistory(conversation: CanonicalConversationRequest) {
-  return !getStoredResumeSessionId(conversation);
+function resolveActiveResumeSessionId(args: {
+  conversation: CanonicalConversationRequest;
+  activeResumeSessionId?: string | null;
+}) {
+  return args.activeResumeSessionId === undefined
+    ? getStoredResumeSessionId(args.conversation)
+    : args.activeResumeSessionId?.trim() || undefined;
+}
+
+export function selectHistoryForProviderPrompt(args: {
+  conversation: CanonicalConversationRequest;
+  activeResumeSessionId?: string | null;
+}) {
+  const storedResumeSessionId = getStoredResumeSessionId(args.conversation);
+  const activeResumeSessionId = resolveActiveResumeSessionId(args);
+
+  // The runtime is starting a fresh native session. It must receive all
+  // available history even when the renderer supplied a now-stale resume id.
+  if (!activeResumeSessionId) {
+    return args.conversation.history;
+  }
+
+  // A runtime-local session that differs from the renderer snapshot is already
+  // authoritative for this task. Without a matching cursor, preserve the
+  // legacy resume behavior and avoid replaying duplicate history.
+  if (activeResumeSessionId !== storedResumeSessionId) {
+    return [];
+  }
+
+  const cursor = args.conversation.resume?.syncedThroughMessageId?.trim();
+  if (!cursor) {
+    return [];
+  }
+
+  const cursorIndex = args.conversation.history.findIndex(
+    (message) => message.messageId === cursor,
+  );
+  return cursorIndex === -1
+    ? args.conversation.history
+    : args.conversation.history.slice(cursorIndex + 1);
 }
 
 const PROVIDER_NATIVE_SLASH_COMMAND_PATTERN = /^\/[A-Za-z0-9:._-]+(?:\s|$)/;
@@ -42,6 +80,7 @@ export function filterPromptRetrievedContext(args: {
 export function buildClaudePromptFromConversation(args: {
   conversation: CanonicalConversationRequest;
   fallbackPrompt: string;
+  activeResumeSessionId?: string | null;
 }) {
   const slashCommandInput = getProviderNativeSlashCommandInput(
     args.conversation,
@@ -53,9 +92,17 @@ export function buildClaudePromptFromConversation(args: {
   // Include full activated skill instructions in the prompt body for both
   // providers. Stave-managed `$skill` activations are prompt-context based,
   // not native slash-skill registrations.
+  const selectedHistory = selectHistoryForProviderPrompt({
+    conversation: args.conversation,
+    activeResumeSessionId: args.activeResumeSessionId,
+  });
+  const activeResumeSessionId = resolveActiveResumeSessionId(args);
   return buildLegacyPromptFromCanonicalRequest({
-    request: args.conversation,
-    includeHistory: shouldIncludeHistory(args.conversation),
+    request: {
+      ...args.conversation,
+      history: selectedHistory,
+    },
+    includeHistory: !activeResumeSessionId || selectedHistory.length > 0,
     includeSkillContext: true,
   }) || args.fallbackPrompt;
 }
@@ -63,6 +110,7 @@ export function buildClaudePromptFromConversation(args: {
 export function buildCodexPromptFromConversation(args: {
   conversation: CanonicalConversationRequest;
   fallbackPrompt: string;
+  activeResumeSessionId?: string | null;
 }) {
   const slashCommandInput = getProviderNativeSlashCommandInput(
     args.conversation,
@@ -71,9 +119,17 @@ export function buildCodexPromptFromConversation(args: {
     return slashCommandInput;
   }
 
+  const selectedHistory = selectHistoryForProviderPrompt({
+    conversation: args.conversation,
+    activeResumeSessionId: args.activeResumeSessionId,
+  });
+  const activeResumeSessionId = resolveActiveResumeSessionId(args);
   return buildLegacyPromptFromCanonicalRequest({
-    request: args.conversation,
-    includeHistory: shouldIncludeHistory(args.conversation),
+    request: {
+      ...args.conversation,
+      history: selectedHistory,
+    },
+    includeHistory: !activeResumeSessionId || selectedHistory.length > 0,
     includeSkillContext: true,
   }) || args.fallbackPrompt;
 }
@@ -82,6 +138,7 @@ export function buildProviderTurnPrompt(args: {
   providerId: ProviderId;
   prompt: string;
   conversation?: CanonicalConversationRequest;
+  activeResumeSessionId?: string | null;
 }) {
   if (!args.conversation) {
     return args.prompt;
@@ -91,12 +148,14 @@ export function buildProviderTurnPrompt(args: {
     return buildClaudePromptFromConversation({
       conversation: args.conversation,
       fallbackPrompt: args.prompt,
+      activeResumeSessionId: args.activeResumeSessionId,
     });
   }
 
   return buildCodexPromptFromConversation({
     conversation: args.conversation,
     fallbackPrompt: args.prompt,
+    activeResumeSessionId: args.activeResumeSessionId,
   });
 }
 

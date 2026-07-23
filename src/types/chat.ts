@@ -293,6 +293,12 @@ export interface Task {
   archivedAt?: string | null;
   controlMode: TaskControlMode;
   controlOwner: TaskControlOwner;
+  /**
+   * Set when the user renames the task by hand. Once set, the automatic
+   * task-name suggestion loop stops overwriting the title so a deliberate
+   * name is never clobbered (and no further suggestion queries are fired).
+   */
+  titleManuallySet?: boolean;
   /** Legacy relative paths to persisted plan files kept for snapshot compatibility. */
   planFilePaths?: string[];
   /** Legacy branch marker pruned from persisted workspaces on load. */
