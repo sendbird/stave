@@ -73,6 +73,15 @@ test("selects model and effort from the provider heatmaps", async ({
 
   const trigger = page.getByRole("button", { name: /Model and effort:/ });
   await expect(trigger).toBeVisible();
+
+  await trigger.focus();
+  await trigger.press("Enter");
+  await expect(trigger).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "1M context" }),
+  ).not.toBeFocused();
+  await page.keyboard.press("Escape");
+
   await trigger.hover();
 
   const claudeGrid = page.getByRole("grid", {
@@ -93,6 +102,9 @@ test("selects model and effort from the provider heatmaps", async ({
       name: "Luna does not support Ultra effort",
     }),
   ).toHaveAttribute("aria-disabled", "true");
+  await expect(
+    codexGrid.locator('[data-particles="apex"]').first(),
+  ).toBeVisible();
 
   await page.screenshot({
     path: testInfo.outputPath("model-effort-selector.png"),
@@ -107,7 +119,8 @@ test("selects model and effort from the provider heatmaps", async ({
   await expect(trigger).toHaveAccessibleName(/Claude Opus 4\.8 · X-High/);
 
   await trigger.click();
-  await page.getByRole("button", { name: "1M" }).click();
+  await expect(claudeGrid.locator('[data-particles="selected"]')).toBeVisible();
+  await page.getByRole("button", { name: "1M context" }).click();
   await expect(trigger).toHaveAccessibleName(
     /Claude Opus 4\.8 \(1M\) · X-High/,
   );
@@ -135,6 +148,14 @@ test("stacks the provider heatmaps without viewport overflow", async ({
   await expect(
     page.getByRole("grid", { name: "Codex model effort matrix" }),
   ).toBeVisible();
+
+  for (const grid of await page.getByRole("grid").all()) {
+    expect(
+      await grid.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+  }
 
   const hasHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,

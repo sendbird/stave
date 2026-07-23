@@ -665,6 +665,56 @@
     animation: t-skeleton-pulse var(--pulse-dur) ease-in-out infinite;
   }
 
+  .model-effort-popover {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .model-effort-popover[data-state="open"] {
+    animation-fill-mode: none;
+    will-change: opacity;
+  }
+
+  .model-effort-cell-particles {
+    position: absolute;
+    inset: -30%;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image:
+      radial-gradient(circle, currentColor 0 1px, transparent 1.4px),
+      radial-gradient(circle, currentColor 0 0.75px, transparent 1.2px);
+    background-position:
+      0 0,
+      6px 8px;
+    background-size:
+      12px 12px,
+      17px 17px;
+    animation: model-effort-particles-flow 2.8s linear infinite;
+    will-change: transform, opacity;
+  }
+
+  .model-effort-cell:active:not(:disabled) .model-effort-cell-visual {
+    transform: scale(0.95);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .model-effort-cell:hover:not(:disabled) .model-effort-cell-visual {
+      transform: scale(1.1);
+    }
+  }
+
+  .model-effort-cell-visual[data-particles="selected"]
+    .model-effort-cell-particles {
+    opacity: 0.72;
+    animation-duration: 1.9s;
+  }
+
+  .model-effort-cell-visual[data-particles="apex"]
+    .model-effort-cell-particles {
+    opacity: 0.42;
+    animation-duration: 3.4s;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .t-dropdown,
     .t-modal,
@@ -672,6 +722,11 @@
     .t-tooltip,
     .t-skeleton-pulse {
       animation: none !important;
+    }
+
+    .model-effort-cell-particles {
+      animation: none !important;
+      opacity: 0.28;
     }
   }
 
@@ -696,6 +751,16 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes model-effort-particles-flow {
+  from {
+    transform: translate3d(-4px, 5px, 0);
+  }
+
+  to {
+    transform: translate3d(8px, -7px, 0);
   }
 }
 
