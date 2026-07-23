@@ -18,7 +18,23 @@ import {
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
-import { Badge, Button, Kbd, toast } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Kbd,
+  toast,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui";
+import { History, SplitSquareHorizontal } from "lucide-react";
+import { deriveCompareSeedTitle } from "@/lib/compare-runs";
 import {
   buildCommandPaletteItems,
   type CommandPaletteItem,
@@ -299,6 +315,21 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     [activeTaskMessages],
   );
   const isInputBlocked = pendingApproval != null || pendingUserInput != null;
+
+  const compareRunsById = useAppStore((state) => state.compareRunsById);
+  const recentCompareRuns = useMemo(
+    () =>
+      Object.values(compareRunsById)
+        .filter((run) => Boolean(run))
+        .sort((a, b) => b!.createdAt.localeCompare(a!.createdAt))
+        .slice(0, 8)
+        .map((run) => ({
+          id: run!.id,
+          title: deriveCompareSeedTitle(run!.seedPrompt) || "Compare run",
+          status: run!.status,
+        })),
+    [compareRunsById],
+  );
   const providerTurnDisplayState = useMemo(
     () =>
       resolveProviderTurnDisplayState({
@@ -429,6 +460,21 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       taskId: syncedDraftRef.current.taskId,
       text: draftTextRef.current,
     });
+  }
+
+  async function handleStartCompareRun() {
+    // Flush the debounced draft first so the compare seed uses the latest
+    // text the user typed, not the last auto-saved snapshot.
+    commitCurrentDraftText();
+    const result =
+      await useAppStore.getState().startCompareRunFromActiveDraft();
+    if (!result.ok) {
+      toast.error("Unable to start compare run", {
+        description: result.message,
+      });
+      return;
+    }
+    toast.success("Compare run started");
   }
 
   function clearLensAnnotationsOnMessageSubmit(taskId: string) {
@@ -887,6 +933,71 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           onBlur={commitCurrentDraftText}
           disabled={isInputBlocked}
           isTurnActive={args.isTurnActive}
+          leadingToolbarAction={
+            args.isTurnActive ? null : (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-9 text-muted-foreground hover:text-foreground"
+                      disabled={
+                        isInputBlocked || draftText.trim().length === 0
+                      }
+                      aria-label="Compare draft across providers"
+                      onClick={() => void handleStartCompareRun()}
+                    >
+                      <SplitSquareHorizontal className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    Compare draft across providers
+                  </TooltipContent>
+                </Tooltip>
+                {recentCompareRuns.length > 0 ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-9 text-muted-foreground hover:text-foreground"
+                        aria-label="Recent compare runs"
+                      >
+                        <History className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-72">
+                      <DropdownMenuLabel>
+                        Recent compare runs
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {recentCompareRuns.map((run) => (
+                        <DropdownMenuItem
+                          key={run.id}
+                          className="flex flex-col items-start gap-0.5"
+                          onSelect={() =>
+                            useAppStore
+                              .getState()
+                              .openCompareRun({ compareRunId: run.id })
+                          }
+                        >
+                          <span className="w-full truncate text-sm">
+                            {run.title}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {run.status}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+              </>
+            )
+          }
           submitMode={
             args.isTurnActive && providerTurnDisplayState !== "stalled"
               ? canSteerActiveTurn
