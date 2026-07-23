@@ -21,8 +21,8 @@ describe("model selector utils", () => {
           providerId: "claude-code",
         }),
         expect.objectContaining({
-          key: "codex:gpt-5.5",
-          model: "gpt-5.5",
+          key: "codex:gpt-5.6-terra",
+          model: "gpt-5.6-terra",
           providerId: "codex",
         }),
       ]),

@@ -11,6 +11,12 @@ const FALLBACK_CODEX_MODELS = [
   ...getSdkModelOptions({ providerId: "codex" }),
 ] as string[];
 const CODEX_MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
+const LEGACY_CODEX_PICKER_MODELS =
+  /^gpt-5\.(?:3|4|5)(?:$|[-.])|^gpt-5-codex(?:$|-)/;
+
+export function isLegacyCodexPickerModel(model: string) {
+  return LEGACY_CODEX_PICKER_MODELS.test(model.trim().toLowerCase());
+}
 
 /**
  * Union of the Stave model catalog and the App Server's dynamic `model/list`
@@ -23,8 +29,13 @@ export function mergeCodexModelsWithCatalog(
 ): string[] {
   const merged = [...FALLBACK_CODEX_MODELS];
   for (const model of dynamicModels) {
-    if (!merged.includes(model)) {
-      merged.push(model);
+    const normalizedModel = model.trim();
+    if (
+      normalizedModel &&
+      !isLegacyCodexPickerModel(normalizedModel) &&
+      !merged.includes(normalizedModel)
+    ) {
+      merged.push(normalizedModel);
     }
   }
   return merged;

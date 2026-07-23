@@ -10,7 +10,6 @@ import {
   getModelCapability,
   listCodexReasoningEffortsForModel,
   listModelCapabilities,
-  MODEL_CAPABILITIES,
   resolveClaudeEffortForModelSwitch,
   resolveDefaultCodexEffortForModel,
   resolveDefaultClaudeEffortForModel,
@@ -43,7 +42,6 @@ describe("model catalog", () => {
       "gpt-5.6-sol",
       "gpt-5.6-terra",
       "gpt-5.6-luna",
-      "gpt-5.5",
     ]);
   });
 
@@ -220,18 +218,15 @@ describe("model catalog", () => {
     ).toBe("xhigh");
   });
 
-  test("keeps model capability metadata aligned with catalog models", () => {
+  test("keeps selectable models backed by capability metadata", () => {
     const catalogModels = [...CLAUDE_SDK_MODEL_OPTIONS, ...CODEX_MODEL_OPTIONS];
-    expect(Object.keys(MODEL_CAPABILITIES).sort()).toEqual(
-      [...catalogModels].sort(),
-    );
     for (const model of catalogModels) {
       expect(getModelCapability({ model })).toEqual(
         expect.objectContaining({ model }),
       );
     }
     expect(listModelCapabilities({ providerId: "codex" }).length).toBe(
-      CODEX_MODEL_OPTIONS.length,
+      CODEX_MODEL_OPTIONS.length + 1,
     );
   });
 
@@ -245,6 +240,9 @@ describe("model catalog", () => {
     expect(resolveTierModel({ providerId: "codex", tier: "light" })).toBe(
       "gpt-5.6-luna",
     );
+    expect(
+      resolveTierModel({ providerId: "claude-code", tier: "light" }),
+    ).toBe("claude-haiku-4-5");
     expect(
       resolveTierModel({
         providerId: "claude-code",

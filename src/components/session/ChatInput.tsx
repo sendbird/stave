@@ -11,7 +11,6 @@ import {
 import {
   buildAutoModelSelectorOption,
   buildModelSelectorOptions,
-  buildRecommendedModelSelectorOptions,
   buildModelSelectorValue,
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector";
@@ -103,8 +102,6 @@ import {
   buildChatInputGoalStatus,
   buildChatInputRuntimeStatusItems,
   buildCommandCatalogRuntimeOptions,
-  cycleClaudeEffortValue,
-  cycleCodexEffortValue,
 } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
 import {
@@ -178,7 +175,6 @@ interface ChatInputComposerProps {
   approvalDisabledReason?: string;
   selectedModelOption: ModelSelectorOption;
   modelOptions: ModelSelectorOption[];
-  recommendedModelOptions: readonly ModelSelectorOption[];
   modelShortcutKeys: readonly string[];
   modelShortcutEfforts: readonly ModelShortcutEffort[];
   commandPaletteItems: readonly CommandPaletteItem[];
@@ -193,7 +189,6 @@ interface ChatInputComposerProps {
   runtimeStatusItems: readonly PromptInputRuntimeStatusItem[];
   effortLabel?: string;
   effortValue?: string;
-  onEffortCycle?: () => void;
   fastMode?: boolean;
   onFastModeChange?: (enabled: boolean) => void;
   planMode?: boolean;
@@ -204,6 +199,7 @@ interface ChatInputComposerProps {
   onModelSelect: (args: {
     selection: ModelSelectorOption;
     effort?: Exclude<ModelShortcutEffort, "">;
+    fastMode?: boolean;
   }) => void;
   reviewModelOptions: readonly ModelSelectorOption[];
   preferredReviewModelKey?: string;
@@ -915,7 +911,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           selectedModel={args.selectedModelOption}
           modelOptions={args.modelOptions}
-          recommendedModelOptions={args.recommendedModelOptions}
           modelShortcutKeys={args.modelShortcutKeys}
           modelShortcutEfforts={args.modelShortcutEfforts}
           attachedFilePaths={promptDraft.attachedFilePaths}
@@ -1031,14 +1026,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           runtimeStatusItems={args.runtimeStatusItems}
           effortLabel={args.effortLabel}
           effortValue={args.effortValue}
-          onEffortCycle={
-            args.onEffortCycle
-              ? () => {
-                  commitCurrentDraftText();
-                  args.onEffortCycle?.();
-                }
-              : undefined
-          }
           attachments={promptDraft.attachments}
           onAttachFilesChange={({ filePaths }) =>
             updateNonTextPromptDraft({ attachedFilePaths: filePaths })
@@ -1426,10 +1413,6 @@ function BaseChatInput() {
       providerAvailability,
     ],
   );
-  const recommendedModelOptions = useMemo<ModelSelectorOption[]>(
-    () => buildRecommendedModelSelectorOptions({ options: modelOptions }),
-    [modelOptions],
-  );
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(modelShortcutKeys),
     [modelShortcutKeys],
@@ -1457,33 +1440,6 @@ function BaseChatInput() {
       : activeProvider === "codex"
         ? codexReasoningEffort
         : undefined;
-  const onEffortCycle = useMemo(() => {
-    if (activeProvider === "claude-code") {
-      return () =>
-        updateModelRuntimePreference({
-          providerId: activeProvider,
-          model: activeModel,
-          patch: { effort: cycleClaudeEffortValue(claudeEffort) },
-        });
-    }
-    if (activeProvider === "codex") {
-      return () =>
-        updateModelRuntimePreference({
-          providerId: activeProvider,
-          model: activeModel,
-          patch: {
-            effort: cycleCodexEffortValue(codexReasoningEffort, activeModel),
-          },
-        });
-    }
-    return undefined;
-  }, [
-    activeModel,
-    activeProvider,
-    claudeEffort,
-    codexReasoningEffort,
-    updateModelRuntimePreference,
-  ]);
   const goalStatus = useMemo(
     () =>
       buildChatInputGoalStatus({
@@ -1924,7 +1880,6 @@ function BaseChatInput() {
       approvalDisabledReason={approvalDisabledReason}
       selectedModelOption={selectedModelOption}
       modelOptions={modelOptions}
-      recommendedModelOptions={recommendedModelOptions}
       modelShortcutKeys={normalizedModelShortcutKeys}
       modelShortcutEfforts={normalizedModelShortcutEfforts}
       commandPaletteItems={deferredCommandPaletteItems}
@@ -1940,11 +1895,10 @@ function BaseChatInput() {
       runtimeStatusItems={runtimeStatusItems}
       effortLabel={effortLabel}
       effortValue={effortValue}
-      onEffortCycle={onEffortCycle}
       reviewModelOptions={reviewModelOptions}
       preferredReviewModelKey={preferredReviewModelKey}
       onLocalChangeReview={handleLocalChangeReview}
-      onModelSelect={({ selection, effort }) => {
+      onModelSelect={({ selection, effort, fastMode: nextFastMode }) => {
         if (selection.isAuto) {
           const { model: _model, ...restRuntimeOverrides } =
             promptDraftRuntimeOverrides ?? {};
@@ -2006,15 +1960,22 @@ function BaseChatInput() {
             shortcutKey: selection.key,
             effort,
           });
-          if (shortcutEffort) {
+          if (shortcutEffort || nextFastMode !== undefined) {
             updateModelRuntimePreference({
               providerId: selection.providerId,
               model: nextModel,
               patch: {
-                effort: clampCodexEffortToModel({
-                  model: nextModel,
-                  effort: shortcutEffort as typeof codexReasoningEffort,
-                }),
+                ...(shortcutEffort
+                  ? {
+                      effort: clampCodexEffortToModel({
+                        model: nextModel,
+                        effort: shortcutEffort as typeof codexReasoningEffort,
+                      }),
+                    }
+                  : {}),
+                ...(nextFastMode === undefined
+                  ? {}
+                  : { fastMode: nextFastMode }),
               },
             });
           }

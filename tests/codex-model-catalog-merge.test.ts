@@ -3,7 +3,7 @@ import { CODEX_MODEL_OPTIONS } from "@/lib/providers/model-catalog";
 import { mergeCodexModelsWithCatalog } from "@/lib/providers/use-codex-model-catalog";
 
 describe("mergeCodexModelsWithCatalog", () => {
-  test("keeps the full static catalog when the server reports an older lineup", () => {
+  test("keeps the primary catalog and filters previous-generation models", () => {
     const merged = mergeCodexModelsWithCatalog([
       "gpt-5.5",
       "gpt-5.4",
@@ -12,11 +12,9 @@ describe("mergeCodexModelsWithCatalog", () => {
     for (const model of CODEX_MODEL_OPTIONS) {
       expect(merged).toContain(model);
     }
-    // Server-only extras are appended after the static catalog.
-    expect(merged.indexOf("gpt-5.6-sol")).toBeLessThan(
-      merged.indexOf("gpt-5.4"),
-    );
-    expect(merged).toContain("gpt-5-codex");
+    expect(merged).not.toContain("gpt-5.5");
+    expect(merged).not.toContain("gpt-5.4");
+    expect(merged).not.toContain("gpt-5-codex");
   });
 
   test("does not duplicate models present in both lists", () => {
