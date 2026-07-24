@@ -4,11 +4,12 @@ import path from "node:path";
 import { z } from "zod";
 import {
   normalizeLensCredentialHost,
+  normalizeLensCredentialHosts,
   type LensCredentialMetadata,
   type LensCredentialUpsertInput,
 } from "../../../src/lib/lens/lens-credentials";
 
-const VAULT_VERSION = 1;
+const VAULT_VERSION = 2;
 
 const StoredSecretSchema = z
   .object({
@@ -20,7 +21,7 @@ const StoredSecretSchema = z
 const StoredCredentialSchema = z
   .object({
     id: z.string().uuid(),
-    host: z.string().min(1),
+    hosts: z.array(z.string().min(1)).min(1),
     secretCiphertext: z.string().min(1),
     autoFill: z.boolean(),
     createdAt: z.string().min(1),
@@ -35,6 +36,18 @@ const VaultDocumentSchema = z
   })
   .strict();
 
+/** Vault format written before accounts could target multiple hostnames. */
+const LegacyVaultDocumentV1Schema = z
+  .object({
+    version: z.literal(1),
+    credentials: z.array(
+      StoredCredentialSchema.omit({ hosts: true }).extend({
+        host: z.string().min(1),
+      }),
+    ),
+  })
+  .strict();
+
 type StoredCredential = z.infer<typeof StoredCredentialSchema>;
 
 export interface LensCredentialVaultCrypto {
@@ -46,6 +59,8 @@ export interface LensCredentialVaultCrypto {
 
 export interface LensCredentialSecret extends LensCredentialMetadata {
   password: string;
+  /** The exact hostname that matched the requested URL. */
+  matchedHost: string;
 }
 
 function toMetadata(
@@ -54,7 +69,7 @@ function toMetadata(
 ): LensCredentialMetadata {
   return {
     id: entry.id,
-    host: entry.host,
+    hosts: [...entry.hosts],
     username,
     autoFill: entry.autoFill,
     createdAt: entry.createdAt,
@@ -81,7 +96,7 @@ export class LensCredentialVault {
       .map((entry) => toMetadata(entry, this.decryptSecret(entry).username))
       .sort(
         (left, right) =>
-          left.host.localeCompare(right.host) ||
+          left.hosts[0].localeCompare(right.hosts[0]) ||
           left.username.localeCompare(right.username),
       );
   }
@@ -91,10 +106,12 @@ export class LensCredentialVault {
   ): Promise<LensCredentialMetadata> {
     return this.enqueueMutation(async () => {
       this.assertSecureEncryption();
-      const host = normalizeLensCredentialHost(input.host);
+      const hosts = normalizeLensCredentialHosts(input.hosts);
       const username = input.username.trim();
-      if (!host) {
-        throw new Error("Enter one valid http(s) hostname for the Lens account.");
+      if (!hosts) {
+        throw new Error(
+          "Enter at least one valid http(s) hostname for the Lens account.",
+        );
       }
       if (!username) {
         throw new Error("Username is required.");
@@ -125,7 +142,7 @@ export class LensCredentialVault {
         .toString("base64");
       const next: StoredCredential = {
         id: existing?.id ?? (this.args.createId ?? randomUUID)(),
-        host,
+        hosts,
         secretCiphertext,
         autoFill: input.autoFill,
         createdAt: existing?.createdAt ?? timestamp,
@@ -139,7 +156,8 @@ export class LensCredentialVault {
       }
       if (next.autoFill) {
         document.credentials = document.credentials.map((entry) =>
-          entry.host === host && entry.id !== next.id
+          entry.id !== next.id &&
+          entry.hosts.some((entryHost) => hosts.includes(entryHost))
             ? { ...entry, autoFill: false }
             : entry,
         );
@@ -176,8 +194,8 @@ export class LensCredentialVault {
       return null;
     }
     const document = await this.readDocument();
-    const matchingEntries = document.credentials.filter(
-      (candidate) => candidate.host === host,
+    const matchingEntries = document.credentials.filter((candidate) =>
+      candidate.hosts.includes(host),
     );
     let entry: StoredCredential | undefined;
     if (options?.username) {
@@ -199,6 +217,7 @@ export class LensCredentialVault {
     return {
       ...toMetadata(entry, secret.username),
       password: secret.password,
+      matchedHost: host,
     };
   }
 
@@ -213,13 +232,13 @@ export class LensCredentialVault {
       parsed = JSON.parse(plaintext);
     } catch {
       throw new Error(
-        `The saved Lens account for ${entry.host} cannot be decrypted.`,
+        `The saved Lens account for ${entry.hosts.join(", ")} cannot be decrypted.`,
       );
     }
     const result = StoredSecretSchema.safeParse(parsed);
     if (!result.success) {
       throw new Error(
-        `The saved Lens account for ${entry.host} has invalid secret data.`,
+        `The saved Lens account for ${entry.hosts.join(", ")} has invalid secret data.`,
       );
     }
     return result.data;
@@ -256,10 +275,20 @@ export class LensCredentialVault {
       throw new Error("The Lens account vault is not valid JSON.");
     }
     const result = VaultDocumentSchema.safeParse(parsed);
-    if (!result.success) {
-      throw new Error("The Lens account vault has an unsupported format.");
+    if (result.success) {
+      return result.data;
     }
-    return result.data;
+    const legacyResult = LegacyVaultDocumentV1Schema.safeParse(parsed);
+    if (legacyResult.success) {
+      // Upgrade in memory; the next mutation persists the v2 format.
+      return {
+        version: VAULT_VERSION,
+        credentials: legacyResult.data.credentials.map(
+          ({ host, ...entry }) => ({ ...entry, hosts: [host] }),
+        ),
+      };
+    }
+    throw new Error("The Lens account vault has an unsupported format.");
   }
 
   private async writeDocument(

@@ -11,9 +11,16 @@ import { Badge, Button, Input, Switch, toast } from "@/components/ui";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SettingsCard } from "./settings-dialog.shared";
 import {
-  normalizeLensCredentialHost,
+  normalizeLensCredentialHosts,
   type LensCredentialMetadata,
 } from "@/lib/lens/lens-credentials";
+
+function splitHostsInput(value: string): string[] {
+  return value
+    .split(/[,\s]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
 
 export function LensCredentialsSettingsCard() {
   const [credentials, setCredentials] = useState<LensCredentialMetadata[]>([]);
@@ -22,7 +29,7 @@ export function LensCredentialsSettingsCard() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [host, setHost] = useState("");
+  const [hostsInput, setHostsInput] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [autoFill, setAutoFill] = useState(true);
@@ -63,7 +70,7 @@ export function LensCredentialsSettingsCard() {
   const closeEditor = useCallback(() => {
     setEditorOpen(false);
     setEditingId(null);
-    setHost("");
+    setHostsInput("");
     setUsername("");
     setPassword("");
     setAutoFill(true);
@@ -76,7 +83,7 @@ export function LensCredentialsSettingsCard() {
 
   const openEditEditor = useCallback((credential: LensCredentialMetadata) => {
     setEditingId(credential.id);
-    setHost(credential.host);
+    setHostsInput(credential.hosts.join(", "));
     setUsername(credential.username);
     setPassword("");
     setAutoFill(credential.autoFill);
@@ -84,9 +91,13 @@ export function LensCredentialsSettingsCard() {
   }, []);
 
   const saveCredential = useCallback(async () => {
-    const normalizedHost = normalizeLensCredentialHost(host);
-    if (!normalizedHost) {
-      toast.error("Enter one valid hostname or http(s) URL.");
+    const normalizedHosts = normalizeLensCredentialHosts(
+      splitHostsInput(hostsInput),
+    );
+    if (!normalizedHosts) {
+      toast.error(
+        "Enter at least one valid hostname or http(s) URL. Separate multiple hosts with commas.",
+      );
       return;
     }
     if (!username.trim()) {
@@ -108,7 +119,7 @@ export function LensCredentialsSettingsCard() {
     try {
       const result = await upsertCredential({
         ...(editingId ? { id: editingId } : {}),
-        host: normalizedHost,
+        hosts: normalizedHosts,
         username: username.trim(),
         ...(password ? { password } : {}),
         autoFill,
@@ -133,7 +144,7 @@ export function LensCredentialsSettingsCard() {
     autoFill,
     closeEditor,
     editingId,
-    host,
+    hostsInput,
     loadCredentials,
     password,
     username,
@@ -176,7 +187,7 @@ export function LensCredentialsSettingsCard() {
     <>
       <SettingsCard
         title="Saved Accounts"
-        description="Store multiple accounts for each exact hostname. Usernames and passwords are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses."
+        description="Store multiple accounts, each covering one or more exact hostnames. Usernames and passwords are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses."
         titleAccessory={
           <Button
             type="button"
@@ -209,15 +220,18 @@ export function LensCredentialsSettingsCard() {
           >
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1.5 text-xs font-medium">
-                Host
+                Hosts
                 <Input
-                  value={host}
-                  placeholder="dashboard-dev.sendbird.com"
-                  aria-label="Saved account host"
+                  value={hostsInput}
+                  placeholder="dashboard-dev.sendbird.com, dashboard-staging.sendbird.com"
+                  aria-label="Saved account hosts"
                   autoComplete="url"
                   className="h-8 font-mono text-xs"
-                  onChange={(event) => setHost(event.target.value)}
+                  onChange={(event) => setHostsInput(event.target.value)}
                 />
+                <span className="block font-normal text-muted-foreground">
+                  Separate multiple exact hostnames with commas.
+                </span>
               </label>
               <label className="space-y-1.5 text-xs font-medium">
                 Username or email
@@ -251,9 +265,9 @@ export function LensCredentialsSettingsCard() {
               <div>
                 <p className="text-sm font-medium">Fill automatically</p>
                 <p className="text-xs text-muted-foreground">
-                  Use this account after Lens loads this host. Enabling it
-                  turns automatic fill off for the other accounts on the same
-                  host. The form is not submitted automatically.
+                  Use this account after Lens loads any of its hosts. Enabling
+                  it turns automatic fill off for other accounts that share a
+                  host with this one. The form is not submitted automatically.
                 </p>
               </div>
               <Switch
@@ -297,10 +311,15 @@ export function LensCredentialsSettingsCard() {
                   <KeyRound className="size-4 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate font-mono text-xs font-medium">
-                      {credential.host}
-                    </span>
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    {credential.hosts.map((host) => (
+                      <span
+                        key={host}
+                        className="truncate font-mono text-xs font-medium"
+                      >
+                        {host}
+                      </span>
+                    ))}
                     <Badge variant="secondary" className="shrink-0 text-[10px]">
                       {credential.autoFill ? "Auto-fill" : "On demand"}
                     </Badge>
@@ -313,7 +332,7 @@ export function LensCredentialsSettingsCard() {
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Edit ${credential.username} for ${credential.host}`}
+                  aria-label={`Edit ${credential.username} for ${credential.hosts.join(", ")}`}
                   onClick={() => openEditEditor(credential)}
                 >
                   <Pencil className="size-3.5" />
@@ -322,7 +341,7 @@ export function LensCredentialsSettingsCard() {
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Delete ${credential.username} for ${credential.host}`}
+                  aria-label={`Delete ${credential.username} for ${credential.hosts.join(", ")}`}
                   onClick={() => setDeletingId(credential.id)}
                 >
                   <Trash2 className="size-3.5" />

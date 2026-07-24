@@ -12,6 +12,7 @@ describe("LensCredentialsSettingsCard", () => {
     expect(html).toContain("Saved Accounts");
     expect(html).toContain("Add account");
     expect(html).toContain("Store multiple accounts");
+    expect(html).toContain("one or more exact hostnames");
     expect(html).toContain("Loading saved accounts");
     expect(html).toContain("never submits the form");
     expect(html).not.toContain("plain-secret-value");

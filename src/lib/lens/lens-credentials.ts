@@ -1,6 +1,6 @@
 export interface LensCredentialMetadata {
   id: string;
-  host: string;
+  hosts: string[];
   username: string;
   autoFill: boolean;
   createdAt: string;
@@ -9,7 +9,7 @@ export interface LensCredentialMetadata {
 
 export interface LensCredentialUpsertInput {
   id?: string;
-  host: string;
+  hosts: string[];
   username: string;
   /** Required when creating an entry. Omit while editing to keep the saved secret. */
   password?: string;
@@ -50,4 +50,29 @@ export function normalizeLensCredentialHost(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Normalize every credential target of an account to exact hostnames,
+ * dropping duplicates while preserving order. Returns null when any entry is
+ * invalid or when no hostname remains, so a partially valid list never saves
+ * silently narrower than the user intended.
+ */
+export function normalizeLensCredentialHosts(
+  values: string[],
+): string[] | null {
+  const hosts: string[] = [];
+  for (const value of values) {
+    if (!value.trim()) {
+      continue;
+    }
+    const host = normalizeLensCredentialHost(value);
+    if (!host) {
+      return null;
+    }
+    if (!hosts.includes(host)) {
+      hosts.push(host);
+    }
+  }
+  return hosts.length > 0 ? hosts : null;
 }

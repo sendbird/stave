@@ -9,9 +9,18 @@ import {
   LensCredentialUpdateArgsSchema,
   LensCredentialUpsertArgsSchema,
 } from "../electron/main/ipc/schemas";
-import { normalizeLensCredentialHost } from "../src/lib/lens/lens-credentials";
+import {
+  normalizeLensCredentialHost,
+  normalizeLensCredentialHosts,
+} from "../src/lib/lens/lens-credentials";
 
 const tempDirs: string[] = [];
+
+function sealSecret(username: string, password: string): string {
+  return Buffer.from(
+    `sealed:${Buffer.from(JSON.stringify({ username, password })).toString("base64")}`,
+  ).toString("base64");
+}
 
 function createHarness(options?: {
   encryptionAvailable?: boolean;
@@ -65,11 +74,32 @@ describe("normalizeLensCredentialHost", () => {
   });
 });
 
+describe("normalizeLensCredentialHosts", () => {
+  test("normalizes, deduplicates, and skips blank entries", () => {
+    expect(
+      normalizeLensCredentialHosts([
+        " Example.COM. ",
+        "https://example.com/login",
+        "",
+        "dashboard-dev.sendbird.com",
+      ]),
+    ).toEqual(["example.com", "dashboard-dev.sendbird.com"]);
+  });
+
+  test("fails closed when any entry is invalid or none remain", () => {
+    expect(
+      normalizeLensCredentialHosts(["example.com", "*.example.com"]),
+    ).toBeNull();
+    expect(normalizeLensCredentialHosts([])).toBeNull();
+    expect(normalizeLensCredentialHosts(["", "  "])).toBeNull();
+  });
+});
+
 describe("Lens credential IPC schemas", () => {
   test("accepts bounded create and update payloads", () => {
     expect(
       LensCredentialUpsertArgsSchema.safeParse({
-        host: "example.com",
+        hosts: ["example.com", "example.org"],
         username: "person@example.com",
         password: "secret",
         autoFill: true,
@@ -78,20 +108,28 @@ describe("Lens credential IPC schemas", () => {
     expect(
       LensCredentialUpsertArgsSchema.safeParse({
         id: "11111111-1111-4111-8111-111111111111",
-        host: "example.com",
+        hosts: ["example.com"],
         username: "person@example.com",
         autoFill: false,
       }).success,
     ).toBe(true);
   });
 
-  test("rejects malformed ids and unknown fields", () => {
+  test("rejects empty host lists, malformed ids, and unknown fields", () => {
+    expect(
+      LensCredentialUpsertArgsSchema.safeParse({
+        hosts: [],
+        username: "person@example.com",
+        password: "secret",
+        autoFill: true,
+      }).success,
+    ).toBe(false);
     expect(
       LensCredentialDeleteArgsSchema.safeParse({ id: "not-an-id" }).success,
     ).toBe(false);
     expect(
       LensCredentialUpsertArgsSchema.safeParse({
-        host: "example.com",
+        hosts: ["example.com"],
         username: "person@example.com",
         password: "secret",
         autoFill: true,
@@ -103,7 +141,7 @@ describe("Lens credential IPC schemas", () => {
   test("keeps Local MCP create and update requirements explicit", () => {
     expect(
       LensCredentialCreateArgsSchema.safeParse({
-        host: "example.com",
+        hosts: ["example.com"],
         username: "person@example.com",
         password: "secret",
         autoFill: true,
@@ -111,7 +149,7 @@ describe("Lens credential IPC schemas", () => {
     ).toBe(true);
     expect(
       LensCredentialCreateArgsSchema.safeParse({
-        host: "example.com",
+        hosts: ["example.com"],
         username: "person@example.com",
         autoFill: true,
       }).success,
@@ -119,7 +157,7 @@ describe("Lens credential IPC schemas", () => {
     expect(
       LensCredentialUpdateArgsSchema.safeParse({
         id: "11111111-1111-4111-8111-111111111111",
-        host: "example.com",
+        hosts: ["example.com"],
         username: "person@example.com",
         autoFill: false,
       }).success,
@@ -131,13 +169,13 @@ describe("LensCredentialVault", () => {
   test("stores only ciphertext and returns metadata without a password", async () => {
     const { filePath, vault } = createHarness();
     const saved = await vault.upsert({
-      host: "https://Example.com/login",
+      hosts: ["https://Example.com/login"],
       username: "person@example.com",
       password: "plain-secret-value",
       autoFill: true,
     });
 
-    expect(saved.host).toBe("example.com");
+    expect(saved.hosts).toEqual(["example.com"]);
     expect(saved).not.toHaveProperty("password");
     expect(await vault.list()).toEqual([saved]);
     const persisted = readFileSync(filePath, "utf8");
@@ -149,38 +187,84 @@ describe("LensCredentialVault", () => {
   test("decrypts only an exact matching hostname", async () => {
     const { vault } = createHarness();
     await vault.upsert({
-      host: "example.com",
+      hosts: ["example.com"],
       username: "person@example.com",
       password: "secret",
       autoFill: true,
     });
 
     expect(await vault.findForUrl("https://example.com/sign-in")).toMatchObject({
-      host: "example.com",
+      hosts: ["example.com"],
+      matchedHost: "example.com",
       username: "person@example.com",
       password: "secret",
     });
     expect(await vault.findForUrl("https://app.example.com/sign-in")).toBeNull();
   });
 
+  test("matches one account on every hostname it covers", async () => {
+    const { vault } = createHarness();
+    const saved = await vault.upsert({
+      hosts: [
+        "dashboard-dev.sendbird.com",
+        "https://dashboard-staging.sendbird.com/auth",
+      ],
+      username: "person@example.com",
+      password: "secret",
+      autoFill: true,
+    });
+
+    expect(saved.hosts).toEqual([
+      "dashboard-dev.sendbird.com",
+      "dashboard-staging.sendbird.com",
+    ]);
+    expect(
+      await vault.findForUrl("https://dashboard-dev.sendbird.com/login"),
+    ).toMatchObject({
+      matchedHost: "dashboard-dev.sendbird.com",
+      password: "secret",
+    });
+    expect(
+      await vault.findForUrl("https://dashboard-staging.sendbird.com/login"),
+    ).toMatchObject({
+      matchedHost: "dashboard-staging.sendbird.com",
+      password: "secret",
+    });
+    expect(
+      await vault.findForUrl("https://dashboard.sendbird.com/login"),
+    ).toBeNull();
+  });
+
+  test("rejects an account when any hostname is invalid", async () => {
+    const { vault } = createHarness();
+    await expect(
+      vault.upsert({
+        hosts: ["example.com", "*.example.com"],
+        username: "person@example.com",
+        password: "secret",
+        autoFill: true,
+      }),
+    ).rejects.toThrow("at least one valid http(s) hostname");
+  });
+
   test("preserves the encrypted password during metadata-only edits", async () => {
     const { filePath, vault } = createHarness();
     const saved = await vault.upsert({
-      host: "example.com",
+      hosts: ["example.com"],
       username: "before@example.com",
       password: "keep-this-secret",
       autoFill: true,
     });
     await vault.upsert({
       id: saved.id,
-      host: "example.com",
+      hosts: ["example.com", "example.org"],
       username: "after@example.com",
       autoFill: false,
     });
     const persisted = readFileSync(filePath, "utf8");
     expect(persisted).not.toContain("after@example.com");
     expect(persisted).not.toContain("keep-this-secret");
-    expect(await vault.findForUrl("https://example.com")).toMatchObject({
+    expect(await vault.findForUrl("https://example.org")).toMatchObject({
       username: "after@example.com",
       password: "keep-this-secret",
       autoFill: false,
@@ -193,13 +277,13 @@ describe("LensCredentialVault", () => {
   test("stores multiple accounts for one exact hostname", async () => {
     const { vault } = createHarness();
     const first = await vault.upsert({
-      host: "example.com",
+      hosts: ["example.com"],
       username: "first@example.com",
       password: "first-secret",
       autoFill: true,
     });
     const second = await vault.upsert({
-      host: "https://example.com/other",
+      hosts: ["https://example.com/other"],
       username: "second@example.com",
       password: "second-secret",
       autoFill: false,
@@ -223,13 +307,13 @@ describe("LensCredentialVault", () => {
   test("keeps at most one automatic-fill account per hostname", async () => {
     const { vault } = createHarness();
     const first = await vault.upsert({
-      host: "example.com",
+      hosts: ["example.com"],
       username: "first@example.com",
       password: "first-secret",
       autoFill: true,
     });
     const second = await vault.upsert({
-      host: "example.com",
+      hosts: ["example.com"],
       username: "second@example.com",
       password: "second-secret",
       autoFill: true,
@@ -246,16 +330,44 @@ describe("LensCredentialVault", () => {
     ).toMatchObject({ id: second.id, username: "second@example.com" });
   });
 
+  test("clears automatic fill from accounts sharing any hostname", async () => {
+    const { vault } = createHarness();
+    const first = await vault.upsert({
+      hosts: ["example.com", "example.org"],
+      username: "first@example.com",
+      password: "first-secret",
+      autoFill: true,
+    });
+    const second = await vault.upsert({
+      hosts: ["example.org", "example.net"],
+      username: "second@example.com",
+      password: "second-secret",
+      autoFill: true,
+    });
+    const third = await vault.upsert({
+      hosts: ["unrelated.example.dev"],
+      username: "third@example.com",
+      password: "third-secret",
+      autoFill: true,
+    });
+
+    expect(await vault.list()).toMatchObject([
+      { id: first.id, autoFill: false },
+      { id: second.id, autoFill: true },
+      { id: third.id, autoFill: true },
+    ]);
+  });
+
   test("requires a username when multiple on-demand accounts are ambiguous", async () => {
     const { vault } = createHarness();
     await vault.upsert({
-      host: "example.com",
+      hosts: ["example.com"],
       username: "first@example.com",
       password: "first-secret",
       autoFill: false,
     });
     await vault.upsert({
-      host: "example.com",
+      hosts: ["example.com"],
       username: "second@example.com",
       password: "second-secret",
       autoFill: false,
@@ -272,7 +384,7 @@ describe("LensCredentialVault", () => {
   test("deletes the encrypted entry", async () => {
     const { vault } = createHarness();
     const saved = await vault.upsert({
-      host: "example.com",
+      hosts: ["example.com"],
       username: "person@example.com",
       password: "secret",
       autoFill: true,
@@ -283,11 +395,62 @@ describe("LensCredentialVault", () => {
     expect(await vault.list()).toEqual([]);
   });
 
+  test("migrates a version 1 single-host vault on read and persists v2 on write", async () => {
+    const { filePath, vault } = createHarness();
+    writeFileSync(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        credentials: [
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            host: "example.com",
+            secretCiphertext: sealSecret("person@example.com", "legacy-secret"),
+            autoFill: true,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    expect(await vault.list()).toMatchObject([
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        hosts: ["example.com"],
+        username: "person@example.com",
+        autoFill: true,
+      },
+    ]);
+    expect(await vault.findForUrl("https://example.com/login")).toMatchObject({
+      matchedHost: "example.com",
+      password: "legacy-secret",
+    });
+
+    await vault.upsert({
+      id: "11111111-1111-4111-8111-111111111111",
+      hosts: ["example.com", "example.org"],
+      username: "person@example.com",
+      autoFill: true,
+    });
+    const persisted = JSON.parse(readFileSync(filePath, "utf8")) as {
+      version: number;
+      credentials: Array<Record<string, unknown>>;
+    };
+    expect(persisted.version).toBe(2);
+    expect(persisted.credentials[0].hosts).toEqual([
+      "example.com",
+      "example.org",
+    ]);
+    expect(persisted.credentials[0]).not.toHaveProperty("host");
+  });
+
   test("refuses unavailable or insecure encryption backends", async () => {
     const unavailable = createHarness({ encryptionAvailable: false }).vault;
     await expect(
       unavailable.upsert({
-        host: "example.com",
+        hosts: ["example.com"],
         username: "person@example.com",
         password: "secret",
         autoFill: true,
@@ -297,7 +460,7 @@ describe("LensCredentialVault", () => {
     const insecure = createHarness({ insecureBackend: true }).vault;
     await expect(
       insecure.upsert({
-        host: "example.com",
+        hosts: ["example.com"],
         username: "person@example.com",
         password: "secret",
         autoFill: true,

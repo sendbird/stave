@@ -148,7 +148,7 @@ export async function fillLensCredentialForWebContents(
   if (!filledUsername && !filledPassword) {
     return {
       ok: false,
-      host: credential.host,
+      host: credential.matchedHost,
       filledUsername,
       filledPassword,
       submitted,
@@ -157,7 +157,7 @@ export async function fillLensCredentialForWebContents(
   }
   return {
     ok: true,
-    host: credential.host,
+    host: credential.matchedHost,
     filledUsername,
     filledPassword,
     submitted,
