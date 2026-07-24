@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { LensCredentialVault } from "../electron/main/browser/lens-credential-vault";
 import {
+  LensCredentialCreateArgsSchema,
   LensCredentialDeleteArgsSchema,
+  LensCredentialUpdateArgsSchema,
   LensCredentialUpsertArgsSchema,
 } from "../electron/main/ipc/schemas";
 import { normalizeLensCredentialHost } from "../src/lib/lens/lens-credentials";
@@ -96,6 +98,32 @@ describe("Lens credential IPC schemas", () => {
         returnedPassword: true,
       }).success,
     ).toBe(false);
+  });
+
+  test("keeps Local MCP create and update requirements explicit", () => {
+    expect(
+      LensCredentialCreateArgsSchema.safeParse({
+        host: "example.com",
+        username: "person@example.com",
+        password: "secret",
+        autoFill: true,
+      }).success,
+    ).toBe(true);
+    expect(
+      LensCredentialCreateArgsSchema.safeParse({
+        host: "example.com",
+        username: "person@example.com",
+        autoFill: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      LensCredentialUpdateArgsSchema.safeParse({
+        id: "11111111-1111-4111-8111-111111111111",
+        host: "example.com",
+        username: "person@example.com",
+        autoFill: false,
+      }).success,
+    ).toBe(true);
   });
 });
 

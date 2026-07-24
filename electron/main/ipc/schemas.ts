@@ -25,6 +25,16 @@ export const LensCredentialUpsertArgsSchema = z
   })
   .strict();
 
+export const LensCredentialCreateArgsSchema =
+  LensCredentialUpsertArgsSchema.omit({ id: true }).extend({
+    password: z.string().min(1).max(8192),
+  });
+
+export const LensCredentialUpdateArgsSchema =
+  LensCredentialUpsertArgsSchema.extend({
+    id: z.string().uuid(),
+  });
+
 export const LensCredentialDeleteArgsSchema = z
   .object({ id: z.string().uuid() })
   .strict();

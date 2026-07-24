@@ -448,6 +448,19 @@ describe("Claude internal tool auto-allow", () => {
       permissionMode: "default",
     })).toBe(false);
   });
+
+  test("keeps saved-account mutations behind approval", () => {
+    for (const toolName of [
+      "mcp__stave-local-mcp__stave_lens_create_saved_account",
+      "mcp__stave-local-mcp__stave_lens_update_saved_account",
+      "mcp__stave-local-mcp__stave_lens_delete_saved_account",
+    ]) {
+      expect(shouldAutoAllowClaudeTool({
+        toolName,
+        permissionMode: "default",
+      })).toBe(false);
+    }
+  });
 });
 
 describe("Claude permission mode decisions", () => {

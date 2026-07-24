@@ -8,6 +8,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  LensCredentialCreateArgsSchema,
+  LensCredentialDeleteArgsSchema,
+  LensCredentialUpdateArgsSchema,
+} from "../ipc/schemas";
+import {
   destroyBrowserSession,
   getBrowserSession,
   getWebContentsForSession,
@@ -31,7 +36,12 @@ import {
 } from "./browser-cdp";
 import { triggerDownloadByUrl } from "./browser-downloads";
 import { assertNavigationAllowed } from "./browser-security";
-import { fillLensCredentialForWebContents } from "./lens-credential-service";
+import {
+  deleteLensCredential,
+  fillLensCredentialForWebContents,
+  listLensCredentials,
+  upsertLensCredential,
+} from "./lens-credential-service";
 
 const NAVIGATE_TIMEOUT_MS = 30_000;
 const DEFAULT_HTML_MAX_CHARS = 20_000;
@@ -250,6 +260,70 @@ export function registerBrowserTools(server: McpServer): void {
         title: wc.getTitle(),
       });
     },
+  );
+
+  // ---- Manage saved accounts without returning passwords to the client ----
+  server.registerTool(
+    "stave_lens_list_saved_accounts",
+    {
+      description:
+        "List Stave-saved Lens accounts as metadata only. Passwords are never returned.",
+    },
+    async () =>
+      toStructuredResult({
+        accounts: await listLensCredentials(),
+      }),
+  );
+
+  server.registerTool(
+    "stave_lens_create_saved_account",
+    {
+      description:
+        "Create an OS-encrypted Lens account for one exact hostname. The password is accepted as input but never returned.",
+      inputSchema: {
+        input: LensCredentialCreateArgsSchema.describe(
+          "Complete saved-account input.",
+        ),
+      },
+    },
+    async ({ input }) =>
+      toStructuredResult({
+        account: await upsertLensCredential(input),
+      }),
+  );
+
+  server.registerTool(
+    "stave_lens_update_saved_account",
+    {
+      description:
+        "Update an existing OS-encrypted Lens account by id. Omit password to keep the current saved password.",
+      inputSchema: {
+        input: LensCredentialUpdateArgsSchema.describe(
+          "Complete saved-account metadata plus its id. Password is optional.",
+        ),
+      },
+    },
+    async ({ input }) =>
+      toStructuredResult({
+        account: await upsertLensCredential(input),
+      }),
+  );
+
+  server.registerTool(
+    "stave_lens_delete_saved_account",
+    {
+      description:
+        "Delete an OS-encrypted Lens account by id. List saved accounts first to resolve the exact target.",
+      inputSchema: {
+        input: LensCredentialDeleteArgsSchema.describe(
+          "Saved-account id to delete.",
+        ),
+      },
+    },
+    async ({ input }) =>
+      toStructuredResult({
+        deleted: await deleteLensCredential(input.id),
+      }),
   );
 
   // ---- Fill a saved account without returning its password to the client ----
