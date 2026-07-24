@@ -10,6 +10,7 @@ import {
   getModelCapability,
   listCodexReasoningEffortsForModel,
   listModelCapabilities,
+  resolveDefaultClaudeFallbackModel,
   resolveClaudeEffortForModelSwitch,
   resolveDefaultCodexEffortForModel,
   resolveDefaultClaudeEffortForModel,
@@ -282,7 +283,13 @@ describe("model catalog", () => {
     ).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6[1m]" }),
-    ).toBe("claude-opus-4-8[1m]");
+    ).toBe("claude-opus-5[1m]");
+    expect(
+      upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-8" }),
+    ).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    expect(
+      upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-8[1m]" }),
+    ).toBe("claude-opus-5[1m]");
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6-fast" }),
     ).toBe("claude-opus-4-6-fast");
@@ -296,6 +303,18 @@ describe("model catalog", () => {
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-5" }),
     ).toBe("claude-sonnet-5");
+  });
+
+  test("uses matching Opus 4.8 variants as the automatic Opus 5 fallback", () => {
+    expect(
+      resolveDefaultClaudeFallbackModel({ model: "claude-opus-5" }),
+    ).toBe("claude-opus-4-8");
+    expect(
+      resolveDefaultClaudeFallbackModel({ model: "claude-opus-5[1m]" }),
+    ).toBe("claude-opus-4-8[1m]");
+    expect(
+      resolveDefaultClaudeFallbackModel({ model: "claude-sonnet-5" }),
+    ).toBeUndefined();
   });
 
   test("returns provider wave tone classes", () => {
@@ -387,7 +406,7 @@ describe("model catalog", () => {
 
     test("toHumanModelName still returns static names when no dynamic entry exists", () => {
       expect(toHumanModelName({ model: DEFAULT_CLAUDE_OPUS_MODEL })).toBe(
-        "Claude Opus 4.8",
+        "Claude Opus 5",
       );
     });
 

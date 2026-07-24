@@ -6,6 +6,7 @@ import {
 import {
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
+  resolveDefaultClaudeFallbackModel,
 } from "@/lib/providers/model-catalog";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import {
@@ -205,6 +206,9 @@ export function buildProviderRuntimeOptions(args: {
     sessions: providerSession ?? undefined,
     providerId: "codex",
   });
+  const claudeFallbackModel =
+    settings.claudeFallbackModel.trim() ||
+    resolveDefaultClaudeFallbackModel({ model: args.model });
 
   return {
     model: args.model,
@@ -251,9 +255,7 @@ export function buildProviderRuntimeOptions(args: {
     ...(settings.claudeAgentName.trim()
       ? { claudeAgentName: settings.claudeAgentName.trim() }
       : {}),
-    ...(settings.claudeFallbackModel.trim()
-      ? { claudeFallbackModel: settings.claudeFallbackModel.trim() }
-      : {}),
+    ...(claudeFallbackModel ? { claudeFallbackModel } : {}),
     ...(args.provider === "claude-code" && claudeResumeSessionId
       ? { claudeResumeSessionId }
       : {}),

@@ -199,17 +199,17 @@ test("selects model and effort from the provider heatmaps", async ({
 
   await claudeGrid
     .getByRole("gridcell", {
-      name: "Claude Opus 4.8, X-High effort",
+      name: "Claude Opus 5, X-High effort",
     })
     .click();
-  await expect(trigger).toHaveAccessibleName(/Claude Opus 4\.8 · X-High/);
+  await expect(trigger).toHaveAccessibleName(/Claude Opus 5 · X-High/);
 
   await trigger.click();
   await expect(claudeGrid.locator('[data-orb="selected"]')).toBeVisible();
   await expect(claudeGrid.locator('[data-orb-state="working"]')).toBeVisible();
   await page.getByRole("button", { name: "1M context" }).click();
   await expect(trigger).toHaveAccessibleName(
-    /Claude Opus 4\.8 \(1M\) · X-High/,
+    /Claude Opus 5 \(1M\) · X-High/,
   );
 
   await page.getByRole("button", { name: "Fast" }).click();

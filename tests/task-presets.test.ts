@@ -15,7 +15,7 @@ describe("task preset defaults", () => {
     const presets = cloneDefaultTaskPresets();
     expect(presets).toHaveLength(4);
     expect(presets.map((preset) => preset.id)).toEqual([
-      "default-claude-opus-4-8-task",
+      "default-claude-opus-5-task",
       "default-gpt-5-6-task",
       "default-claude-cli-session",
       "default-codex-cli-session",
@@ -70,15 +70,17 @@ describe("normalizeTaskPreset", () => {
     expect(listModelsForPresetProvider("codex")).toContain(preset.model!);
   });
 
-  test("keeps a valid user-supplied model", () => {
+  test("upgrades a persisted Opus 4.8 preset to Opus 5", () => {
     const preset = normalizeTaskPreset({
+      id: "default-claude-opus-4-8-task",
       kind: "task",
       provider: "claude-code",
       model: "claude-opus-4-8",
       label: "Opus 4.8",
     });
-    expect(preset.model).toBe("claude-opus-4-8");
-    expect(preset.label).toBe("Opus 4.8");
+    expect(preset.id).toBe("default-claude-opus-5-task");
+    expect(preset.model).toBe("claude-opus-5");
+    expect(preset.label).toBe("Opus 5");
   });
 });
 

@@ -1,7 +1,9 @@
 import {
+  DEFAULT_CLAUDE_OPUS_MODEL,
   getProviderLabel,
   listProviderIds,
   toHumanModelName,
+  upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import {
   CLAUDE_EFFORT_OPTIONS,
@@ -26,7 +28,7 @@ export const MODEL_SHORTCUT_SLOT_LABELS = [
 ] as const;
 
 export const DEFAULT_MODEL_SHORTCUT_KEYS = [
-  "claude-code:claude-opus-4-8",
+  `claude-code:${DEFAULT_CLAUDE_OPUS_MODEL}`,
   "codex:gpt-5.6-terra",
   "codex:gpt-5.6-sol",
   "",
@@ -66,7 +68,14 @@ export function normalizeModelShortcutKeys(
   return MODEL_SHORTCUT_SLOT_LABELS.map((_, index) => {
     const entry = value?.[index];
     if (typeof entry === "string") {
-      return entry.trim();
+      const normalized = entry.trim();
+      const claudePrefix = "claude-code:";
+      if (normalized.startsWith(claudePrefix)) {
+        return `${claudePrefix}${upgradeSettingsScopedClaudeModel({
+          model: normalized.slice(claudePrefix.length),
+        })}`;
+      }
+      return normalized;
     }
     return DEFAULT_MODEL_SHORTCUT_KEYS[index] ?? "";
   });
