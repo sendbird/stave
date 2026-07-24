@@ -15,12 +15,28 @@ import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 
 const WORKSPACE_ID = "ws-runtask-regression";
 const DEFAULT_WORKSPACE_ID = "ws-runtask-default";
+const RECONCILE_WORKSPACE_ID = "ws-runtask-reconcile";
 const PROJECT_PATH = "/tmp/stave-runtask-regression/project";
 const WORKSPACE_PATH = "/tmp/stave-runtask-regression/worktree";
+const RECONCILE_WORKSPACE_PATH = "/tmp/stave-runtask-regression/reconcile";
 const USER_DATA_PATH = "/tmp/stave-runtask-regression/user-data";
+
+type PersistedTaskRow = {
+  id: string;
+  title: string;
+  provider: string;
+  updatedAt: string;
+  unread: boolean;
+  archivedAt: string | null;
+};
 
 const startTurnStreamCalls: unknown[] = [];
 const persistedWorkspaceInformationById = new Map<string, unknown>();
+const persistedTasksByWorkspaceId = new Map<string, PersistedTaskRow[]>();
+const lastUpsertSnapshotByWorkspaceId = new Map<
+  string,
+  { tasks?: Array<{ id: string; archivedAt?: string | null }> }
+>();
 
 const fakeStore = {
   loadProjectRegistry: () => [
@@ -40,12 +56,21 @@ const fakeStore = {
           name: "feature",
           updatedAt: "2026-01-01T00:00:00.000Z",
         },
+        {
+          id: RECONCILE_WORKSPACE_ID,
+          name: "reconcile",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
       ],
       activeWorkspaceId: WORKSPACE_ID,
-      workspaceBranchById: { [WORKSPACE_ID]: "feature" },
+      workspaceBranchById: {
+        [WORKSPACE_ID]: "feature",
+        [RECONCILE_WORKSPACE_ID]: "reconcile",
+      },
       workspacePathById: {
         [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
         [WORKSPACE_ID]: WORKSPACE_PATH,
+        [RECONCILE_WORKSPACE_ID]: RECONCILE_WORKSPACE_PATH,
       },
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
     },
@@ -56,6 +81,11 @@ const fakeStore = {
     workspaceInformation:
       persistedWorkspaceInformationById.get(workspaceId),
   }),
+  // Mirrors the real store's `tasks` table: the authoritative task lifecycle
+  // (archived_at) written by the renderer. persistWorkspaceSession re-reads this
+  // before writing so a stale host session cannot revive an archived task.
+  listWorkspaceTasks: ({ workspaceId }: { workspaceId: string }) =>
+    persistedTasksByWorkspaceId.get(workspaceId) ?? [],
   listActiveTurnsForWorkspace: () => [],
   beginTurn: () => {},
   upsertWorkspace: ({
@@ -63,7 +93,10 @@ const fakeStore = {
     snapshot,
   }: {
     id: string;
-    snapshot: { workspaceInformation?: unknown };
+    snapshot: {
+      workspaceInformation?: unknown;
+      tasks?: Array<Partial<PersistedTaskRow> & { id: string }>;
+    };
   }) => {
     if (snapshot.workspaceInformation) {
       persistedWorkspaceInformationById.set(
@@ -71,6 +104,20 @@ const fakeStore = {
         snapshot.workspaceInformation,
       );
     }
+    if (Array.isArray(snapshot.tasks)) {
+      persistedTasksByWorkspaceId.set(
+        id,
+        snapshot.tasks.map((task) => ({
+          id: task.id,
+          title: task.title ?? "",
+          provider: task.provider ?? "claude-code",
+          updatedAt: task.updatedAt ?? "2026-01-01T00:00:00.000Z",
+          unread: Boolean(task.unread),
+          archivedAt: task.archivedAt ?? null,
+        })),
+      );
+    }
+    lastUpsertSnapshotByWorkspaceId.set(id, snapshot);
   },
   saveProjectRegistry: () => {},
 };
@@ -247,5 +294,46 @@ describe("local MCP runtime Information panel auto-fill and dedup", () => {
     expect(matches).toHaveLength(1);
     expect(matches[0]?.status).toBe("In Progress");
     expect(matches[0]?.id).toBe(first.added.id);
+  });
+});
+
+describe("local MCP runtime archived-task persistence", () => {
+  test("host persist does not revive a task the renderer archived", async () => {
+    // 1. The host creates + caches a live task and persists it.
+    const created = await runtime.runTask({
+      workspaceId: RECONCILE_WORKSPACE_ID,
+      prompt: "Investigate the archive bug",
+    });
+    const taskId = created.taskId;
+    expect(
+      persistedTasksByWorkspaceId
+        .get(RECONCILE_WORKSPACE_ID)
+        ?.find((task) => task.id === taskId)?.archivedAt,
+    ).toBeNull();
+
+    // 2. The renderer archives that task out-of-band. The host's in-memory
+    //    session cache still holds it as live (this is the bug's precondition).
+    const archivedAt = "2026-07-25T00:00:00.000Z";
+    persistedTasksByWorkspaceId.set(
+      RECONCILE_WORKSPACE_ID,
+      (persistedTasksByWorkspaceId.get(RECONCILE_WORKSPACE_ID) ?? []).map(
+        (task) => (task.id === taskId ? { ...task, archivedAt } : task),
+      ),
+    );
+
+    // 3. A later host-side workspace write re-persists the stale cached session.
+    await runtime.replaceWorkspaceNotes({
+      workspaceId: RECONCILE_WORKSPACE_ID,
+      notes: "later host-side write",
+    });
+
+    // The re-persisted snapshot must keep the task archived, not revive it.
+    const lastSnapshot = lastUpsertSnapshotByWorkspaceId.get(
+      RECONCILE_WORKSPACE_ID,
+    );
+    const persistedTask = lastSnapshot?.tasks?.find(
+      (task) => task.id === taskId,
+    );
+    expect(persistedTask?.archivedAt).toBe(archivedAt);
   });
 });

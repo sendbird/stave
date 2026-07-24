@@ -13,6 +13,7 @@ import {
   getVisibleTasks,
   isTaskArchived,
   normalizeSuggestedTaskTitle,
+  reconcileTasksWithPersistedArchival,
   reorderTasksWithinFilter,
   shouldSuggestTaskName,
 } from "../src/lib/tasks";
@@ -153,6 +154,65 @@ describe("task utils", () => {
     expect(normalizeSuggestedTaskTitle({
       title: "I don't have enough context to generate an accurate task title. The message \"3번만 해줘\" appears to be the latest message in a conversation.",
     })).toBeNull();
+  });
+});
+
+describe("reconcileTasksWithPersistedArchival", () => {
+  const liveTask: Task = {
+    id: "task-live",
+    title: "Live",
+    provider: "claude-code",
+    updatedAt: "2026-03-10T01:00:00.000Z",
+    unread: false,
+    archivedAt: null,
+  };
+
+  test("restores the persisted archived flag when the host session still marks the task active", () => {
+    // Reproduces the bug: renderer archived the task (persistence), but the
+    // host's cached session still has it live. Persisting the stale session
+    // must not revive the task.
+    const reconciled = reconcileTasksWithPersistedArchival({
+      tasks: [liveTask],
+      persistedTasks: [{ id: "task-live", archivedAt: "2026-03-11T00:00:00.000Z" }],
+    });
+
+    expect(reconciled[0]?.archivedAt).toBe("2026-03-11T00:00:00.000Z");
+  });
+
+  test("keeps host-created tasks that are not yet persisted", () => {
+    const hostCreated: Task = { ...liveTask, id: "task-new" };
+    const reconciled = reconcileTasksWithPersistedArchival({
+      tasks: [hostCreated],
+      persistedTasks: [{ id: "task-other", archivedAt: "2026-03-11T00:00:00.000Z" }],
+    });
+
+    expect(reconciled[0]).toBe(hostCreated);
+    expect(reconciled[0]?.archivedAt).toBeNull();
+  });
+
+  test("clears a stale archived flag when the task was restored in persistence", () => {
+    const staleArchived: Task = {
+      ...liveTask,
+      id: "task-restored",
+      archivedAt: "2026-03-09T00:00:00.000Z",
+    };
+    const reconciled = reconcileTasksWithPersistedArchival({
+      tasks: [staleArchived],
+      persistedTasks: [{ id: "task-restored", archivedAt: null }],
+    });
+
+    expect(reconciled[0]?.archivedAt).toBeNull();
+  });
+
+  test("returns the original array when there is nothing to reconcile", () => {
+    const input = [liveTask];
+    expect(reconcileTasksWithPersistedArchival({ tasks: input, persistedTasks: [] })).toBe(input);
+    expect(
+      reconcileTasksWithPersistedArchival({
+        tasks: input,
+        persistedTasks: [{ id: "task-live", archivedAt: null }],
+      }),
+    ).toBe(input);
   });
 });
 
