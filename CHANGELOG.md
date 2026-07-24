@@ -1,3 +1,22 @@
+## [0.11.10](https://github.com/sendbird/stave/compare/v0.11.9...v0.11.10) (2026-07-24)
+
+### Features
+
+* Support multiple hosts per Lens saved account with transparent vault migration and shared-host auto-fill handling.
+* Show the effective model, effort, and fast-mode metadata for each assistant turn in the model chip.
+
+### Bug Fixes
+
+* Preserve UTF-8 input in PTY-spawned shells when Stave is launched without a locale environment.
+* Restore the latest chat message and selected task surface after pane, workspace, or layout activation.
+* Prevent Lens CDP calls from waiting on an approval prompt while approved-host settings are synchronizing.
+* Restore model shortcut handling across the prompt input and chat input surfaces.
+* Keep generated Create PR summaries grounded in the actual branch diff, commits, and tracked or untracked files.
+* Improve macOS text legibility and add Geist and Inter font presets in Settings.
+
+### References
+
+* [#210](https://github.com/sendbird/stave/pull/210), [#211](https://github.com/sendbird/stave/pull/211), [#212](https://github.com/sendbird/stave/pull/212), [#213](https://github.com/sendbird/stave/pull/213), [#214](https://github.com/sendbird/stave/pull/214), [#215](https://github.com/sendbird/stave/pull/215), [#216](https://github.com/sendbird/stave/pull/216), [#217](https://github.com/sendbird/stave/pull/217), [#218](https://github.com/sendbird/stave/pull/218)
 ## [0.11.9](https://github.com/sendbird/stave/compare/v0.11.8...v0.11.9) (2026-07-24)
 
 ### Features
