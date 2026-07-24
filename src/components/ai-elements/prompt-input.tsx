@@ -198,6 +198,7 @@ interface PromptInputProps {
   modelOptions: readonly ModelSelectorOption[];
   modelShortcutKeys?: readonly string[];
   modelShortcutEfforts?: readonly ModelShortcutEffort[];
+  windowShortcutsEnabled?: boolean;
   attachedFilePaths: string[];
   attachments?: Attachment[];
   promptHistoryEntries?: readonly string[];
@@ -438,6 +439,7 @@ export function PromptInput(args: PromptInputProps) {
     modelOptions,
     modelShortcutKeys,
     modelShortcutEfforts,
+    windowShortcutsEnabled = true,
     attachedFilePaths,
     attachments,
     promptHistoryEntries,
@@ -943,7 +945,7 @@ export function PromptInput(args: PromptInputProps) {
   );
 
   useEffect(() => {
-    if (interactionsDisabled) {
+    if (interactionsDisabled || !windowShortcutsEnabled) {
       return;
     }
 
@@ -1031,6 +1033,7 @@ export function PromptInput(args: PromptInputProps) {
     modelShortcutEfforts,
     modelShortcutKeys,
     onModelSelect,
+    windowShortcutsEnabled,
   ]);
 
   useEffect(() => {

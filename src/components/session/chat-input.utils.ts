@@ -56,6 +56,13 @@ export function getLatestUserPromptMessage(messages: ChatMessage[]) {
   return null;
 }
 
+export function shouldEnablePromptInputWindowShortcuts(args: {
+  scopedTaskId: string;
+  activeTaskId: string;
+}) {
+  return Boolean(args.scopedTaskId) && args.scopedTaskId === args.activeTaskId;
+}
+
 export function isStaleActiveTurnDraft(args: {
   isTurnActive: boolean;
   draftText: string;
