@@ -105,6 +105,8 @@ export interface ChatAreaProps {
    * pane host passes the panel's own task id so split panels stay scoped.
    */
   taskId?: string;
+  /** Changes whenever a hidden pane is attached again. */
+  scrollActivationKey?: string | number;
 }
 
 export const ChatArea = memo(function ChatArea(props: ChatAreaProps) {
@@ -346,7 +348,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
               `Conversation` root (`flex min-h-0 flex-1`) can claim the
               remaining height and keep its internal list scrollable. */}
           <RenderProfiler id="ChatPanel" thresholdMs={8}>
-            <ChatPanel />
+            <ChatPanel scrollActivationKey={props.scrollActivationKey} />
           </RenderProfiler>
           <div className="pointer-events-none absolute inset-0">
             {/* Keep floating plan/todo cards inside the message pane so they are
