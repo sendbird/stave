@@ -1,5 +1,6 @@
 import { Check, Minus, Sparkles, Zap } from "lucide-react";
 import {
+  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
   useEffect,
@@ -12,6 +13,9 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@/components/ui";
 import {
   getProviderLabel,
@@ -40,7 +44,6 @@ import {
 type ModelEffortValue = Exclude<ModelShortcutEffort, "">;
 
 interface ModelEffortPreview {
-  providerId: ProviderId;
   modelLabel: string;
   effortLabel: string;
 }
@@ -61,27 +64,9 @@ interface ModelEffortSelectorProps {
   }) => void;
 }
 
-const PROVIDER_CELL_TONES: Record<ProviderId, readonly string[]> = {
-  "claude-code": [
-    "bg-provider-claude/15",
-    "bg-provider-claude/25",
-    "bg-provider-claude/40",
-    "bg-provider-claude/55",
-    "bg-provider-claude/70",
-  ],
-  codex: [
-    "bg-provider-codex/15",
-    "bg-provider-codex/25",
-    "bg-provider-codex/40",
-    "bg-provider-codex/55",
-    "bg-provider-codex/70",
-    "bg-provider-codex/85",
-  ],
-};
-
-const PROVIDER_SELECTED_RING: Record<ProviderId, string> = {
-  "claude-code": "ring-provider-claude",
-  codex: "ring-provider-codex",
+const PROVIDER_CELL_TONES: Record<ProviderId, readonly number[]> = {
+  "claude-code": [24, 35, 46, 58, 72],
+  codex: [22, 31, 40, 50, 62, 76],
 };
 
 function getCellKey(args: {
@@ -92,11 +77,25 @@ function getCellKey(args: {
   return `${args.providerId}:${args.model}:${args.effort}`;
 }
 
+function isStaveAutoSlot(args: {
+  providerId: ProviderId;
+  row: ModelEffortMatrixRow;
+  effort: string;
+}) {
+  return (
+    args.providerId === "codex" &&
+    args.row.shortLabel === "Luna" &&
+    args.effort === "ultra"
+  );
+}
+
 function ModelEffortMatrix(args: {
   providerId: ProviderId;
   rows: readonly ModelEffortMatrixRow[];
   selectedModelKey: string;
   selectedEffort?: ModelEffortValue;
+  autoOption?: ModelSelectorOption;
+  autoSelected: boolean;
   context1M: boolean;
   fastMode: boolean;
   disabled?: boolean;
@@ -117,10 +116,15 @@ function ModelEffortMatrix(args: {
         : row.option;
     return option.key === args.selectedModelKey;
   });
-  const fallbackTabStop = `${Math.max(selectedRowIndex, 0)}:${Math.max(
+  const selectedTabStop = `${Math.max(selectedRowIndex, 0)}:${Math.max(
     effortOptions.findIndex((option) => option.value === args.selectedEffort),
     0,
   )}`;
+  const autoTabStop = `${args.rows.length - 1}:${effortOptions.length - 1}`;
+  const fallbackTabStop =
+    args.autoSelected && args.providerId === "codex"
+      ? autoTabStop
+      : selectedTabStop;
 
   const focusCell = (rowIndex: number, effortIndex: number) => {
     const row = args.rows[rowIndex];
@@ -132,6 +136,17 @@ function ModelEffortMatrix(args: {
       args.providerId === "claude-code"
         ? resolveClaudeMatrixOption({ row, context1M: args.context1M })
         : row.option;
+    if (
+      isStaveAutoSlot({
+        providerId: args.providerId,
+        row,
+        effort: effort.value,
+      }) &&
+      args.autoOption?.available
+    ) {
+      cellRefs.current.get("stave:auto")?.focus();
+      return true;
+    }
     const supported =
       args.providerId === "claude-code" ||
       listCodexReasoningEffortsForModel({ model: option.model }).includes(
@@ -208,19 +223,13 @@ function ModelEffortMatrix(args: {
   return (
     <section
       aria-label={`${getProviderLabel({ providerId: args.providerId })} model and effort`}
-      className="min-w-0 rounded-lg border border-border/70 bg-background/60 p-2 min-[500px]:p-2.5"
+      data-provider={args.providerId}
+      className="min-w-0"
     >
-      <div className="mb-2 flex min-h-11 items-center justify-between gap-2">
+      <div className="mb-1 flex min-h-10 items-center justify-between gap-2 px-1">
         <div className="flex min-w-0 items-center gap-2">
           <ModelIcon providerId={args.providerId} className="size-4" />
-          <h3
-            className={cn(
-              "text-sm font-semibold tracking-tight",
-              args.providerId === "claude-code"
-                ? "text-provider-claude"
-                : "text-provider-codex",
-            )}
-          >
+          <h3 className="model-effort-provider-title text-sm font-semibold tracking-tight">
             {getProviderLabel({ providerId: args.providerId })}
           </h3>
         </div>
@@ -229,9 +238,9 @@ function ModelEffortMatrix(args: {
       <div
         role="grid"
         aria-label={`${getProviderLabel({ providerId: args.providerId })} model effort matrix`}
-        className="grid items-center gap-1 min-[500px]:gap-2"
+        className="grid items-center gap-1 min-[500px]:gap-1.5"
         style={{
-          gridTemplateColumns: `minmax(3rem, 1fr) repeat(${effortOptions.length}, 2.75rem)`,
+          gridTemplateColumns: `4rem repeat(${effortOptions.length}, 2.75rem)`,
         }}
       >
         <div role="row" className="contents">
@@ -263,16 +272,92 @@ function ModelEffortMatrix(args: {
             <div key={option.key} role="row" className="contents">
               <span
                 role="rowheader"
-                className="truncate pr-1 text-sm font-medium"
+                className="truncate pr-2 text-right text-sm font-medium text-foreground/85"
               >
                 {row.shortLabel}
               </span>
               {effortOptions.map((effort, effortIndex) => {
+                const autoSlot = isStaveAutoSlot({
+                  providerId: args.providerId,
+                  row,
+                  effort: effort.value,
+                });
                 const supported =
                   supportedEfforts === null ||
                   (supportedEfforts as readonly string[]).includes(
                     effort.value,
                   );
+                const tabStopKey = `${rowIndex}:${effortIndex}`;
+                const autoOption = autoSlot ? args.autoOption : undefined;
+                if (autoOption) {
+                  return (
+                    <Tooltip key="stave:auto">
+                      <TooltipTrigger asChild>
+                        <span
+                          className="flex size-11"
+                          onPointerEnter={() =>
+                            args.onPreview({
+                              modelLabel: "Stave Auto",
+                              effortLabel: "chooses model + effort",
+                            })
+                          }
+                        >
+                          <button
+                            ref={(element) => {
+                              if (element) {
+                                cellRefs.current.set("stave:auto", element);
+                              } else {
+                                cellRefs.current.delete("stave:auto");
+                              }
+                            }}
+                            type="button"
+                            role="gridcell"
+                            aria-selected={args.autoSelected}
+                            aria-label="Stave Auto · Let Stave choose model and effort"
+                            disabled={args.disabled || !autoOption.available}
+                            tabIndex={
+                              args.autoSelected ||
+                              tabStopKey === fallbackTabStop
+                                ? 0
+                                : -1
+                            }
+                            onFocus={() =>
+                              args.onPreview({
+                                modelLabel: "Stave Auto",
+                                effortLabel: "chooses model + effort",
+                              })
+                            }
+                            onKeyDown={(event) =>
+                              handleCellKeyDown(event, rowIndex, effortIndex)
+                            }
+                            onClick={() => {
+                              args.onSelect({ selection: autoOption });
+                              args.onClose();
+                            }}
+                            className="model-effort-cell flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-popover disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            <span
+                              className={cn(
+                                "model-effort-auto-cell-visual relative flex size-9 items-center justify-center overflow-hidden rounded-md bg-primary/12 transition-transform",
+                                args.autoSelected &&
+                                  "scale-105 bg-primary/20 ring-2 ring-primary ring-offset-1 ring-offset-popover",
+                              )}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className="model-effort-auto-cell-pattern"
+                              />
+                              <Sparkles className="relative z-10 size-4" />
+                            </span>
+                          </button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" sideOffset={6}>
+                        Stave chooses the provider, model, and effort
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
                 if (!supported) {
                   return (
                     <span
@@ -297,7 +382,6 @@ function ModelEffortMatrix(args: {
                   model: option.model,
                   effort: effort.value,
                 });
-                const tabStopKey = `${rowIndex}:${effortIndex}`;
                 return (
                   <button
                     key={cellKey}
@@ -318,19 +402,16 @@ function ModelEffortMatrix(args: {
                     }
                     onFocus={() =>
                       args.onPreview({
-                        providerId: args.providerId,
                         modelLabel: option.label,
                         effortLabel: effort.label,
                       })
                     }
                     onMouseEnter={() =>
                       args.onPreview({
-                        providerId: args.providerId,
                         modelLabel: option.label,
                         effortLabel: effort.label,
                       })
                     }
-                    onMouseLeave={() => args.onPreview(null)}
                     onKeyDown={(event) =>
                       handleCellKeyDown(event, rowIndex, effortIndex)
                     }
@@ -349,21 +430,24 @@ function ModelEffortMatrix(args: {
                     )}
                   >
                     <span
+                      data-selected={selected || undefined}
                       data-particles={
-                        selected
-                          ? "selected"
-                          : effort.value === "max" || effort.value === "ultra"
-                            ? "apex"
-                            : undefined
+                        effort.value === "max"
+                          ? "max"
+                          : effort.value === "ultra"
+                            ? "ultra"
+                            : selected
+                              ? "selected"
+                              : undefined
+                      }
+                      style={
+                        {
+                          "--model-effort-tone": `${PROVIDER_CELL_TONES[args.providerId][effortIndex]}%`,
+                        } as CSSProperties
                       }
                       className={cn(
                         "model-effort-cell-visual relative flex size-9 items-center justify-center overflow-hidden rounded-md border border-foreground/5 text-foreground shadow-xs transition-transform",
-                        PROVIDER_CELL_TONES[args.providerId][effortIndex],
-                        selected &&
-                          cn(
-                            "scale-105 ring-2 ring-offset-1 ring-offset-popover",
-                            PROVIDER_SELECTED_RING[args.providerId],
-                          ),
+                        selected && "scale-105",
                       )}
                     >
                       {selected ||
@@ -371,12 +455,7 @@ function ModelEffortMatrix(args: {
                       effort.value === "ultra" ? (
                         <span
                           aria-hidden="true"
-                          className={cn(
-                            "model-effort-cell-particles",
-                            args.providerId === "claude-code"
-                              ? "text-provider-claude"
-                              : "text-provider-codex",
-                          )}
+                          className="model-effort-cell-particles"
                         />
                       ) : null}
                       {selected ? (
@@ -422,13 +501,17 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       }`;
   const activePreview =
     preview ??
-    (!args.value.isAuto && args.effortLabel
+    (args.value.isAuto
       ? {
-          providerId: args.value.providerId,
-          modelLabel: args.value.label,
-          effortLabel: args.effortLabel,
+          modelLabel: "Stave Auto",
+          effortLabel: "chooses model + effort",
         }
-      : null);
+      : args.effortLabel
+        ? {
+            modelLabel: args.value.label,
+            effortLabel: args.effortLabel,
+          }
+        : null);
 
   const clearTimer = (ref: typeof openTimerRef) => {
     if (ref.current !== null) {
@@ -535,14 +618,15 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         onPointerLeave={scheduleClose}
         onOpenAutoFocus={(event) => event.preventDefault()}
         aria-label="Model and effort selector"
-        className="model-effort-popover w-[min(49rem,calc(100vw-1rem))] gap-0 overflow-hidden rounded-xl border border-border/80 bg-popover p-0 shadow-lg"
+        className="model-effort-popover w-[min(47rem,calc(100vw-1rem))] gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0 shadow-lg"
       >
-        <div className="grid grid-cols-1 gap-3 p-2 min-[500px]:p-3 min-[820px]:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 p-2 min-[820px]:grid-cols-2">
           <ModelEffortMatrix
             providerId="claude-code"
             rows={claudeRows}
             selectedModelKey={args.value.key}
             selectedEffort={args.effortValue}
+            autoSelected={Boolean(args.value.isAuto)}
             context1M={context1M}
             fastMode={nextFastMode}
             disabled={args.disabled}
@@ -579,10 +663,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                   });
                 }}
                 className={cn(
-                  "h-11 min-w-11 px-2 text-xs font-semibold",
-                  context1M
-                    ? "bg-provider-claude/10 text-provider-claude"
-                    : "text-muted-foreground",
+                  "model-effort-provider-toggle relative h-10 min-w-11 px-2 text-xs font-semibold text-muted-foreground before:absolute before:-inset-y-0.5 before:inset-x-0 before:content-['']",
                 )}
               >
                 1M
@@ -597,6 +678,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             rows={codexRows}
             selectedModelKey={args.value.key}
             selectedEffort={args.effortValue}
+            autoOption={autoOption}
+            autoSelected={Boolean(args.value.isAuto)}
             context1M={context1M}
             fastMode={nextFastMode}
             disabled={args.disabled}
@@ -612,7 +695,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                   args.onFastModeChange?.(enabled);
                 }}
                 className={cn(
-                  "h-11 min-w-11 px-2 text-xs font-semibold",
+                  "relative h-10 min-w-11 px-2 text-xs font-semibold before:absolute before:-inset-y-0.5 before:inset-x-0 before:content-['']",
                   nextFastMode
                     ? "bg-prompt-role-fast/10 text-prompt-role-fast"
                     : "text-muted-foreground",
@@ -632,56 +715,29 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
 
         <div
           aria-live="polite"
-          className="flex min-h-11 items-center justify-center gap-2 border-t border-border/60 px-3"
+          className="flex min-h-10 items-center justify-center px-3"
         >
           {activePreview ? (
-            <>
-              <span
-                className={cn(
-                  "text-base font-semibold tracking-tight",
-                  activePreview.providerId === "claude-code"
-                    ? "text-provider-claude"
-                    : "text-provider-codex",
-                )}
-              >
+            <span
+              key={`${activePreview.modelLabel}:${activePreview.effortLabel}`}
+              className="model-effort-preview-value flex items-center justify-center gap-2"
+            >
+              <span className="text-sm font-semibold text-foreground">
                 {activePreview.modelLabel}
               </span>
-              <span aria-hidden="true" className="text-muted-foreground/50">
+              <span aria-hidden="true" className="text-muted-foreground/40">
                 ×
               </span>
-              <span className="text-sm font-bold tracking-tight text-prompt-role-effort">
+              <span className="text-sm font-medium text-muted-foreground">
                 {activePreview.effortLabel}
               </span>
-            </>
+            </span>
           ) : (
-            <span className="text-xs text-muted-foreground/70">
+            <span className="text-sm text-muted-foreground">
               {selectedSummary}
             </span>
           )}
         </div>
-
-        {autoOption ? (
-          <div className="border-t border-border/50 p-1">
-            <button
-              type="button"
-              disabled={args.disabled || !autoOption.available}
-              aria-label="Auto · Let Stave choose model and effort"
-              aria-pressed={args.value.isAuto}
-              onClick={() => {
-                args.onSelect({ selection: autoOption });
-                setOpen(false);
-              }}
-              className={cn(
-                "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-normal text-muted-foreground outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-                args.value.isAuto && "bg-muted/50 text-foreground",
-              )}
-            >
-              <Sparkles className="size-3.5 opacity-60" />
-              <span>Auto · Let Stave choose</span>
-              {args.value.isAuto ? <Check className="size-3.5" /> : null}
-            </button>
-          </div>
-        ) : null}
       </PopoverContent>
     </Popover>
   );
