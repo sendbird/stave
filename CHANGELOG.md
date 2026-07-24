@@ -1,3 +1,20 @@
+## [0.11.9](https://github.com/sendbird/stave/compare/v0.11.8...v0.11.9) (2026-07-24)
+
+### Features
+
+* Manage OS-encrypted Lens saved accounts through Local MCP CRUD tools while returning account metadata without passwords.
+* Add Plan a feature, Fix an issue, and Review the code starting points that populate and focus the empty-task composer.
+
+### Bug Fixes
+
+* Redact nested passwords, tokens, and other sensitive values from Local MCP request logs while keeping credential mutations approval-gated.
+* Keep the Kickoff dialog open while source resolution or workspace creation is busy, preserving the explicit resolution-cancel action.
+* Refine Claude and Codex effort heatmap contrast with surface-based provider ramps and larger, brighter Thinking Orbs.
+
+### References
+
+* [#205](https://github.com/sendbird/stave/pull/205), [#206](https://github.com/sendbird/stave/pull/206), [#207](https://github.com/sendbird/stave/pull/207), [#208](https://github.com/sendbird/stave/pull/208)
+
 ## [0.11.8](https://github.com/sendbird/stave/compare/v0.11.7...v0.11.8) (2026-07-24)
 
 ### Features
