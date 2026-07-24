@@ -67,6 +67,9 @@ context. Resetting the menu restores content-aware defaults.
 Stave tries the configured primary model, then the fallback model. Claude
 resolution can use the MCP servers declared by the matched source. Codex runs
 the kickoff turn with read-only filesystem access and no approval prompts.
+While resolution or workspace creation is running, the kickoff dialog cannot be
+dismissed with Escape or an outside click. Resolution can still be stopped with
+the explicit cancel action.
 
 The editable proposal contains:
 

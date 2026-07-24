@@ -17,6 +17,7 @@ import {
 } from "@/components/ai-elements/model-selector";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
 import { resolveDefaultCreateWorkspaceBaseBranch } from "@/components/layout/CreateWorkspaceBranchPicker.utils";
+import { canApplyKickoffDialogOpenChange } from "@/components/layout/KickoffDialog.utils";
 import {
   Accordion,
   AccordionContent,
@@ -272,6 +273,7 @@ export function KickoffDialog(props: {
       });
   const firstTaskProviderAvailable =
     providerAvailability[firstTaskProvider] !== false;
+  const busy = resolving || creating;
 
   useEffect(() => {
     if (props.open) {
@@ -500,12 +502,31 @@ export function KickoffDialog(props: {
   return (
     <Dialog
       open={props.open}
-      onOpenChange={(open) => (open ? props.onOpenChange(true) : closeDialog())}
+      onOpenChange={(open) => {
+        if (!canApplyKickoffDialogOpenChange({ open, busy })) {
+          return;
+        }
+        if (open) {
+          props.onOpenChange(true);
+          return;
+        }
+        closeDialog();
+      }}
     >
       <DialogContent
         className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-4xl"
-        showCloseButton={!resolving && !creating}
-        aria-busy={resolving || creating}
+        showCloseButton={!busy}
+        aria-busy={busy}
+        onEscapeKeyDown={(event) => {
+          if (busy) {
+            event.preventDefault();
+          }
+        }}
+        onInteractOutside={(event) => {
+          if (busy) {
+            event.preventDefault();
+          }
+        }}
       >
         <DialogHeader className="border-b border-border/70 px-6 pt-6 pb-5 pr-14">
           <div className="flex items-center gap-3">
