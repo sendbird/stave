@@ -131,6 +131,7 @@ import {
   getLatestUserPromptMessage,
   getPromptHistoryEntries,
   isStaleActiveTurnDraft,
+  shouldEnablePromptInputWindowShortcuts,
   shouldHandleApprovalEnterShortcut,
   shouldHandleApprovalTabShortcut,
 } from "./chat-input.utils";
@@ -183,6 +184,7 @@ function getImageAttachmentMimeType(
 interface ChatInputComposerProps {
   isEmpty: boolean;
   activeTaskId: string;
+  windowShortcutsEnabled: boolean;
   activeProvider: ModelSelectorOption["providerId"];
   workspaceCwd?: string;
   providerSelectionTarget: string;
@@ -927,6 +929,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           value={draftText}
           onBlur={commitCurrentDraftText}
           disabled={isInputBlocked}
+          windowShortcutsEnabled={args.windowShortcutsEnabled}
           isTurnActive={args.isTurnActive}
           leadingToolbarAction={
             args.isTurnActive ? null : (
@@ -1241,6 +1244,12 @@ function BaseChatInput() {
     }),
   );
   const activeTaskId = useScopedTaskId();
+  const windowShortcutsEnabled = useAppStore((state) =>
+    shouldEnablePromptInputWindowShortcuts({
+      scopedTaskId: activeTaskId,
+      activeTaskId: state.activeTaskId,
+    }),
+  );
   const [
     providerAvailability,
     providerCommandCatalogRefreshNonce,
@@ -1982,6 +1991,7 @@ function BaseChatInput() {
     <ChatInputComposer
       isEmpty={isEmpty}
       activeTaskId={activeTaskId}
+      windowShortcutsEnabled={windowShortcutsEnabled}
       activeProvider={activeProvider}
       workspaceCwd={workspaceCwd}
       providerSelectionTarget={providerSelectionTarget}

@@ -5,6 +5,7 @@ import {
   getPromptHistoryEntries,
   isStaleActiveTurnDraft,
   mergePromptSuggestionWithDraft,
+  shouldEnablePromptInputWindowShortcuts,
   shouldHandleApprovalEnterShortcut,
 } from "@/components/session/chat-input.utils";
 
@@ -180,6 +181,26 @@ describe("mergePromptSuggestionWithDraft", () => {
       currentDraft: "Open a PR",
       suggestion: "Open a PR",
     })).toBe("Open a PR");
+  });
+});
+
+describe("shouldEnablePromptInputWindowShortcuts", () => {
+  test("enables shortcuts only for the globally active kept-alive task", () => {
+    expect(shouldEnablePromptInputWindowShortcuts({
+      scopedTaskId: "task-first",
+      activeTaskId: "task-current",
+    })).toBe(false);
+    expect(shouldEnablePromptInputWindowShortcuts({
+      scopedTaskId: "task-current",
+      activeTaskId: "task-current",
+    })).toBe(true);
+  });
+
+  test("does not assign shortcut ownership without a scoped task", () => {
+    expect(shouldEnablePromptInputWindowShortcuts({
+      scopedTaskId: "",
+      activeTaskId: "",
+    })).toBe(false);
   });
 });
 
