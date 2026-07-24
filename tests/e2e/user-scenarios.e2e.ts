@@ -180,7 +180,7 @@ test("prompt input is focused after creating a task", async ({ page }) => {
   await expect(page.getByPlaceholder(PROMPT_PLACEHOLDER)).toBeFocused();
 });
 
-test("empty task keeps the intro card above the prompt input", async ({
+test("empty task keeps starting options next to the prompt input", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -255,8 +255,22 @@ test("empty task keeps the intro card above the prompt input", async ({
   await page.goto("/");
 
   await expect(page.getByTestId("empty-splash")).toBeVisible();
-  await expect(page.getByText("Start this task")).toBeVisible();
-  await expect(page.getByPlaceholder(PROMPT_PLACEHOLDER)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "What would you like to work on?" }),
+  ).toBeVisible();
+  const startingOption = page.getByRole("button", { name: "Fix an issue" });
+  await expect(startingOption).toHaveCSS("height", "44px");
+  await startingOption.click();
+  await expect(page.getByRole("textbox", { name: "Prompt" })).toContainText(
+    "Investigate and fix an issue in this workspace.",
+  );
+  await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused();
+  const promptInput = page.locator("[data-prompt-input-root]");
+  await expect(promptInput).toHaveCSS("border-top-width", "0px");
+  const promptSurfaceShadow = await promptInput.evaluate((element) =>
+    getComputedStyle(element.parentElement ?? element).boxShadow,
+  );
+  expect(promptSurfaceShadow).not.toBe("none");
 });
 
 test("shortcut creates a new task in the selected workspace", async ({

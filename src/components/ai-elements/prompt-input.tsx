@@ -1608,7 +1608,7 @@ export function PromptInput(args: PromptInputProps) {
         className={cn(
           "transition-[box-shadow]",
           !minimal &&
-            "rounded-xl focus-within:ring-4 focus-within:ring-ring/10",
+            "rounded-xl shadow-lg focus-within:ring-3 focus-within:ring-ring/20",
         )}
       >
         <form
@@ -1622,7 +1622,7 @@ export function PromptInput(args: PromptInputProps) {
             "relative space-y-3 transition-[border-color,background-color]",
             minimal
               ? "space-y-2 border-0 border-t border-border/60 bg-transparent p-0 pt-3 focus-within:border-border/60"
-              : "rounded-xl border border-border/70 bg-background/95 p-3 focus-within:border-ring",
+              : "rounded-xl border-0 bg-card/95 p-3",
           )}
         >
           {goalStatus ? (
