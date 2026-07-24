@@ -67,9 +67,9 @@ OAuth and SSO popup windows opened from a page use the same Lens browser profile
 2. Under `Saved Accounts`, choose `Add account`.
 3. Enter one exact hostname, username, and password. Repeat this step to save additional accounts for the same host.
 4. Leave `Fill automatically` enabled if Lens should fill visible login fields after that host loads. Automatic fill never submits the form.
-5. External agents can call `stave_lens_fill_saved_account` to fill the automatic-fill account on demand, or pass `username` to choose another account saved for the same host. They may set `submit=true` only when the user asked them to sign in.
+5. External agents can manage saved accounts with `stave_lens_list_saved_accounts`, `stave_lens_create_saved_account`, `stave_lens_update_saved_account`, and `stave_lens_delete_saved_account`. They can call `stave_lens_fill_saved_account` to fill the automatic-fill account on demand, or pass `username` to choose another account saved for the same host. They may set `submit=true` only when the user asked them to sign in.
 
-Usernames and passwords are encrypted through Electron `safeStorage`, backed by the operating system credential store. The renderer receives account metadata for Settings but never receives a saved password, and the Local MCP tool returns only fill status. On Linux, Stave refuses Electron's insecure `basic_text` backend.
+Usernames and passwords are encrypted through Electron `safeStorage`, backed by the operating system credential store. The renderer and Local MCP tools receive account metadata but never receive a saved password. Stave redacts password inputs from its Local MCP request log. On Linux, Stave refuses Electron's insecure `basic_text` backend.
 
 ## Common Workflows
 
@@ -145,6 +145,10 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
   "examples": [
     "stave_lens_open_session",
     "stave_lens_navigate",
+    "stave_lens_list_saved_accounts",
+    "stave_lens_create_saved_account",
+    "stave_lens_update_saved_account",
+    "stave_lens_delete_saved_account",
     "stave_lens_fill_saved_account",
     "stave_lens_close_session",
     "stave_lens_screenshot",
