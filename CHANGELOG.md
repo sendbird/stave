@@ -1,3 +1,20 @@
+## [0.11.7](https://github.com/sendbird/stave/compare/v0.11.6...v0.11.7) (2026-07-24)
+
+### Features
+
+* Add local Stave MCP tools to list, create, update, remove, enable, and run routines, plus manage Information attachments; managed routine configuration tools are auto-allowed for Claude while manual runs remain approval-gated.
+
+### Bug Fixes
+
+* Align Claude and Codex model-effort heatmaps with clearer provider color anchors, effort gradients, tooltips, keyboard navigation, responsive layout, and Auto selection behavior.
+
+### Refactors / Chores
+
+* Remove unused settings and dead thinking-phrase animation variants, while discarding removed legacy keys during rehydration and preserving the active Codex fast-mode migration.
+
+### References
+
+* [#198](https://github.com/sendbird/stave/pull/198), [#199](https://github.com/sendbird/stave/pull/199), [#200](https://github.com/sendbird/stave/pull/200)
 ## [0.11.6](https://github.com/sendbird/stave/compare/v0.11.5...v0.11.6) (2026-07-24)
 
 ### Bug Fixes
