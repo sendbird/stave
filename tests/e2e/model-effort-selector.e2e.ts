@@ -110,17 +110,36 @@ test("selects model and effort from the provider heatmaps", async ({
           .trim(),
       ),
     )
-    .toBe("#a2b9fc");
+    .toBe("#3941ff");
   const autoCell = codexGrid.getByRole("gridcell", {
     name: "Stave Auto · Let Stave choose model and effort",
   });
   await expect(autoCell).toBeVisible();
+  await expect(codexGrid.locator('[data-orb="max"]').first()).toBeVisible();
+  await expect(codexGrid.locator('[data-orb="ultra"]').first()).toBeVisible();
   await expect(
-    codexGrid.locator('[data-particles="max"]').first(),
+    codexGrid.locator('[data-orb-state="solving"]').first(),
   ).toBeVisible();
   await expect(
-    codexGrid.locator('[data-particles="ultra"]').first(),
+    codexGrid.locator('[data-orb-state="composing"]').first(),
   ).toBeVisible();
+  await expect(autoCell.locator('img[src*="stave-logo.svg"]')).toBeVisible();
+  await expect
+    .poll(() =>
+      claudeGrid
+        .locator('[data-orb="max"]')
+        .first()
+        .evaluate((cell) => getComputedStyle(cell).backgroundColor),
+    )
+    .toBe("rgb(217, 119, 87)");
+  await expect
+    .poll(() =>
+      codexGrid
+        .locator('[data-orb="ultra"]')
+        .first()
+        .evaluate((cell) => getComputedStyle(cell).backgroundColor),
+    )
+    .toBe("rgb(57, 65, 255)");
 
   await autoCell.hover();
   await expect(
@@ -131,11 +150,40 @@ test("selects model and effort from the provider heatmaps", async ({
   await expect(page.locator(".model-effort-preview-value")).toContainText(
     "Stave Auto",
   );
+  await expect
+    .poll(() =>
+      page
+        .locator(".model-effort-preview-value")
+        .evaluate((preview) => getComputedStyle(preview).animationName),
+    )
+    .toBe("model-effort-preview-swap");
+  await expect
+    .poll(() =>
+      page
+        .locator(".model-effort-preview-value")
+        .evaluate((preview) => getComputedStyle(preview).animationDuration),
+    )
+    .toBe("0.15s");
 
   await page.screenshot({
     path: testInfo.outputPath("model-effort-selector.png"),
     fullPage: true,
   });
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await codexGrid
+    .getByRole("gridcell", {
+      name: "GPT-5.6 Sol, Ultra effort",
+    })
+    .hover();
+  await expect
+    .poll(() =>
+      page
+        .locator(".model-effort-preview-value")
+        .evaluate((preview) => getComputedStyle(preview).animationName),
+    )
+    .toBe("none");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
 
   await claudeGrid
     .getByRole("gridcell", {
@@ -145,7 +193,8 @@ test("selects model and effort from the provider heatmaps", async ({
   await expect(trigger).toHaveAccessibleName(/Claude Opus 4\.8 · X-High/);
 
   await trigger.click();
-  await expect(claudeGrid.locator('[data-particles="selected"]')).toBeVisible();
+  await expect(claudeGrid.locator('[data-orb="selected"]')).toBeVisible();
+  await expect(claudeGrid.locator('[data-orb-state="working"]')).toBeVisible();
   await page.getByRole("button", { name: "1M context" }).click();
   await expect(trigger).toHaveAccessibleName(
     /Claude Opus 4\.8 \(1M\) · X-High/,

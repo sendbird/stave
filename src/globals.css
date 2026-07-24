@@ -662,7 +662,7 @@
   }
 
   .model-effort-popover [data-provider="codex"] {
-    --model-effort-provider: #a2b9fc;
+    --model-effort-provider: #3941ff;
   }
 
   .model-effort-provider-title {
@@ -687,11 +687,7 @@
   }
 
   .model-effort-cell-visual {
-    background-color: color-mix(
-      in oklch,
-      var(--model-effort-provider) var(--model-effort-tone),
-      var(--muted)
-    );
+    background-color: var(--model-effort-cell-color);
   }
 
   .model-effort-cell-visual[data-selected="true"] {
@@ -701,134 +697,43 @@
         color-mix(in oklch, var(--model-effort-provider) 82%, var(--foreground));
   }
 
-  .model-effort-cell-particles {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    color: color-mix(
-      in oklch,
-      var(--model-effort-provider) 68%,
-      var(--foreground) 32%
-    );
-  }
-
-  .model-effort-cell-particles::before,
-  .model-effort-cell-particles::after {
-    position: absolute;
-    inset: -45% 0;
-    content: "";
-    background-repeat: repeat;
-    will-change: transform, opacity;
-  }
-
-  .model-effort-cell-visual[data-particles="selected"]
-    .model-effort-cell-particles::before {
-    opacity: 0.78;
-    background-image: radial-gradient(
-      circle,
-      currentColor 0 1.15px,
-      transparent 1.55px
-    );
-    background-position: 3px 5px;
-    background-size: 11px 17px;
-    animation: model-effort-bubbles-selected 2.8s linear infinite;
-  }
-
-  .model-effort-cell-visual[data-particles="selected"]
-    .model-effort-cell-particles::after {
-    opacity: 0.54;
-    background-image: radial-gradient(
-      circle,
-      currentColor 0 0.8px,
-      transparent 1.2px
-    );
-    background-position: 8px 12px;
-    background-size: 17px 23px;
-    animation: model-effort-bubbles-selected 3.7s linear -1.4s infinite;
-  }
-
-  .model-effort-cell-visual[data-particles="max"]
-    .model-effort-cell-particles::before {
-    opacity: 0.86;
-    background-image: radial-gradient(
-      circle,
-      currentColor 0 1px,
-      transparent 1.4px
-    );
-    background-position: 2px 4px;
-    background-size: 8px 12px;
-    animation: model-effort-bubbles-max 1.65s linear infinite;
-  }
-
-  .model-effort-cell-visual[data-particles="max"]
-    .model-effort-cell-particles::after {
-    opacity: 0.62;
-    background-image: radial-gradient(
-      circle,
-      currentColor 0 0.7px,
-      transparent 1.1px
-    );
-    background-position: 5px 9px;
-    background-size: 13px 17px;
-    animation: model-effort-bubbles-max 2.2s linear -0.8s infinite;
-  }
-
-  .model-effort-cell-visual[data-particles="ultra"]
-    .model-effort-cell-particles::before {
-    opacity: 0.94;
-    background-image: radial-gradient(
-      circle,
-      currentColor 0 1.55px,
-      transparent 2px
-    );
-    background-position: 4px 8px;
-    background-size: 15px 21px;
-    animation: model-effort-bubbles-ultra 1.9s linear infinite;
-  }
-
-  .model-effort-cell-visual[data-particles="ultra"]
-    .model-effort-cell-particles::after {
-    opacity: 0.72;
-    background-image: radial-gradient(
-      circle,
-      currentColor 0 1px,
-      transparent 1.45px
-    );
-    background-position: 11px 3px;
-    background-size: 19px 27px;
-    animation: model-effort-bubbles-ultra 2.7s linear -1.1s infinite;
-  }
-
-  .model-effort-auto-cell-pattern {
-    position: absolute;
-    inset: 0;
-    opacity: 0.45;
-    background-image:
-      linear-gradient(45deg, currentColor 25%, transparent 25%),
-      linear-gradient(-45deg, currentColor 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, currentColor 75%),
-      linear-gradient(-45deg, transparent 75%, currentColor 75%);
-    background-position:
-      0 0,
-      0 4px,
-      4px -4px,
-      -4px 0;
-    background-size: 8px 8px;
-    mask-image: linear-gradient(to bottom right, transparent, black);
+  .model-effort-cell-orb {
+    position: relative;
+    z-index: 1;
+    opacity: 0.92;
+    filter: drop-shadow(0 1px 2px oklch(0 0 0 / 0.42));
   }
 
   .model-effort-auto-cell-visual {
-    color: color-mix(in oklch, var(--primary) 64%, var(--foreground) 36%);
+    background:
+      radial-gradient(
+        circle at 50% 46%,
+        color-mix(in oklch, #5edb7a 20%, transparent),
+        transparent 65%
+      ),
+      color-mix(in oklch, #3ab05c 12%, var(--muted));
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, #3ab05c 24%, transparent);
+  }
+
+  .model-effort-auto-cell-visual[class*="ring-2"] {
+    --tw-ring-color: #3ab05c;
   }
 
   .model-effort-preview-value {
-    transition:
-      opacity var(--tt-in-dur) var(--tt-in-ease),
-      transform var(--tt-in-dur) var(--tt-in-ease);
+    animation: model-effort-preview-swap var(--tt-in-dur) var(--tt-in-ease) both;
+  }
 
-    @starting-style {
+  @keyframes model-effort-preview-swap {
+    from {
       opacity: 0;
-      transform: translateY(2px);
+      filter: blur(2px);
+      transform: translateY(4px);
+    }
+
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
     }
   }
 
@@ -853,13 +758,9 @@
       animation: none !important;
     }
 
-    .model-effort-cell-particles::before,
-    .model-effort-cell-particles::after {
-      animation: none !important;
-      opacity: 0.38;
-    }
-
     .model-effort-preview-value {
+      animation: none;
+      filter: none;
       transform: none;
     }
   }
@@ -885,40 +786,6 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes model-effort-bubbles-selected {
-  from {
-    transform: translate3d(0, 34%, 0);
-  }
-
-  to {
-    transform: translate3d(0, -34%, 0);
-  }
-}
-
-@keyframes model-effort-bubbles-max {
-  from {
-    transform: translate3d(-1px, 42%, 0) scale(0.9);
-  }
-
-  to {
-    transform: translate3d(1px, -42%, 0) scale(1.05);
-  }
-}
-
-@keyframes model-effort-bubbles-ultra {
-  from {
-    transform: translate3d(-2px, 44%, 0) scale(0.72);
-  }
-
-  55% {
-    transform: translate3d(2px, -2%, 0) scale(1);
-  }
-
-  to {
-    transform: translate3d(-1px, -44%, 0) scale(1.22);
   }
 }
 

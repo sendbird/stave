@@ -1,4 +1,4 @@
-import { Check, Minus, Sparkles, Zap } from "lucide-react";
+import { Minus, Sparkles, Zap } from "lucide-react";
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { ThinkingOrb, type OrbState } from "thinking-orbs";
 import {
   Button,
   Popover,
@@ -20,6 +21,7 @@ import {
 import {
   getProviderLabel,
   listCodexReasoningEffortsForModel,
+  STAVE_LOGO_URL,
 } from "@/lib/providers/model-catalog";
 import type { ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
 import {
@@ -64,10 +66,45 @@ interface ModelEffortSelectorProps {
   }) => void;
 }
 
-const PROVIDER_CELL_TONES: Record<ProviderId, readonly number[]> = {
-  "claude-code": [24, 35, 46, 58, 72],
-  codex: [22, 31, 40, 50, 62, 76],
+const PROVIDER_CELL_COLORS: Record<ProviderId, readonly string[]> = {
+  "claude-code": [
+    "color-mix(in oklch, #d97757 22%, var(--muted))",
+    "color-mix(in oklch, #d97757 38%, var(--muted))",
+    "color-mix(in oklch, #d97757 56%, var(--muted))",
+    "color-mix(in oklch, #d97757 78%, var(--muted))",
+    "#d97757",
+  ],
+  codex: [
+    "color-mix(in oklch, #b1a7ff 35%, var(--muted))",
+    "#b1a7ff",
+    "color-mix(in oklch, #b1a7ff 48%, #7a9dff)",
+    "#7a9dff",
+    "color-mix(in oklch, #7a9dff 35%, #3941ff)",
+    "#3941ff",
+  ],
 };
+
+interface CellOrbPresentation {
+  state: OrbState;
+  speed: number;
+  kind: "selected" | "max" | "ultra";
+}
+
+function resolveCellOrbPresentation(args: {
+  effort: string;
+  selected: boolean;
+}): CellOrbPresentation | null {
+  if (args.effort === "ultra") {
+    return { state: "composing", speed: 1.25, kind: "ultra" };
+  }
+  if (args.effort === "max") {
+    return { state: "solving", speed: 1, kind: "max" };
+  }
+  if (args.selected) {
+    return { state: "working", speed: 0.72, kind: "selected" };
+  }
+  return null;
+}
 
 function getCellKey(args: {
   providerId: ProviderId;
@@ -238,7 +275,7 @@ function ModelEffortMatrix(args: {
       <div
         role="grid"
         aria-label={`${getProviderLabel({ providerId: args.providerId })} model effort matrix`}
-        className="grid items-center gap-1 min-[500px]:gap-1.5"
+        className="grid items-center gap-0.5 min-[500px]:gap-1"
         style={{
           gridTemplateColumns: `4rem repeat(${effortOptions.length}, 2.75rem)`,
         }}
@@ -338,16 +375,18 @@ function ModelEffortMatrix(args: {
                           >
                             <span
                               className={cn(
-                                "model-effort-auto-cell-visual relative flex size-9 items-center justify-center overflow-hidden rounded-md bg-primary/12 transition-transform",
+                                "model-effort-auto-cell-visual relative flex size-9 items-center justify-center overflow-hidden rounded-md transition-transform",
                                 args.autoSelected &&
-                                  "scale-105 bg-primary/20 ring-2 ring-primary ring-offset-1 ring-offset-popover",
+                                  "scale-105 ring-2 ring-offset-1 ring-offset-popover",
                               )}
                             >
-                              <span
-                                aria-hidden="true"
-                                className="model-effort-auto-cell-pattern"
+                              <img
+                                src={STAVE_LOGO_URL}
+                                alt=""
+                                aria-hidden
+                                draggable={false}
+                                className="relative z-10 size-5"
                               />
-                              <Sparkles className="relative z-10 size-4" />
                             </span>
                           </button>
                         </span>
@@ -377,6 +416,10 @@ function ModelEffortMatrix(args: {
                 const selected =
                   option.key === args.selectedModelKey &&
                   effort.value === args.selectedEffort;
+                const orb = resolveCellOrbPresentation({
+                  effort: effort.value,
+                  selected,
+                });
                 const cellKey = getCellKey({
                   providerId: args.providerId,
                   model: option.model,
@@ -431,18 +474,11 @@ function ModelEffortMatrix(args: {
                   >
                     <span
                       data-selected={selected || undefined}
-                      data-particles={
-                        effort.value === "max"
-                          ? "max"
-                          : effort.value === "ultra"
-                            ? "ultra"
-                            : selected
-                              ? "selected"
-                              : undefined
-                      }
+                      data-orb={orb?.kind}
                       style={
                         {
-                          "--model-effort-tone": `${PROVIDER_CELL_TONES[args.providerId][effortIndex]}%`,
+                          "--model-effort-cell-color":
+                            PROVIDER_CELL_COLORS[args.providerId][effortIndex],
                         } as CSSProperties
                       }
                       className={cn(
@@ -450,16 +486,16 @@ function ModelEffortMatrix(args: {
                         selected && "scale-105",
                       )}
                     >
-                      {selected ||
-                      effort.value === "max" ||
-                      effort.value === "ultra" ? (
-                        <span
+                      {orb ? (
+                        <ThinkingOrb
+                          state={orb.state}
+                          size={20}
+                          speed={orb.speed}
+                          theme="dark"
                           aria-hidden="true"
-                          className="model-effort-cell-particles"
+                          data-orb-state={orb.state}
+                          className="model-effort-cell-orb"
                         />
-                      ) : null}
-                      {selected ? (
-                        <Check className="relative z-10 size-4" />
                       ) : null}
                     </span>
                   </button>
