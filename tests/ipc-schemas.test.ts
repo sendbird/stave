@@ -214,9 +214,22 @@ describe("provider IPC schemas", () => {
       SuggestPRDescriptionArgsSchema.safeParse({
         cwd: "/tmp/project",
         baseBranch: "main",
-        workspaceContext: "Use the active workspace task as the primary source of intent.",
+        providerId: "codex",
+        workspaceContext: "Use the active workspace task to explain the intent.",
+        runtimeOptions: {
+          model: "gpt-5.6-codex",
+          codexFileAccess: "read-only",
+          codexNetworkAccess: false,
+          codexApprovalPolicy: "never",
+        },
       }).success,
     ).toBe(true);
+    expect(
+      SuggestPRDescriptionArgsSchema.safeParse({
+        cwd: "/tmp/project",
+        providerId: "unknown",
+      }).success,
+    ).toBe(false);
   });
 
   test("accepts ready PR creation with optional auto-merge", () => {

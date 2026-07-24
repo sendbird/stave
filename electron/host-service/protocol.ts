@@ -214,8 +214,10 @@ export interface HostProviderSuggestPRDescriptionArgs {
   cwd?: string;
   baseBranch?: string;
   headBranch?: string;
+  providerId?: StreamTurnArgs["providerId"];
   promptTemplate?: string;
   workspaceContext?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }
 
 export interface HostProviderSuggestPRDescriptionResult {

@@ -909,8 +909,10 @@ contextBridge.exposeInMainWorld("api", {
       cwd?: string;
       baseBranch?: string;
       headBranch?: string;
+      providerId?: ProviderId;
       promptTemplate?: string;
       workspaceContext?: string;
+      runtimeOptions?: ProviderRuntimeOptions;
     }) =>
       ipcRenderer.invoke("provider:suggest-pr-description", args) as Promise<{
         ok: boolean;

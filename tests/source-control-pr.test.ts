@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildPullRequestDescriptionPrompt,
   buildPullRequestWorkspaceContext,
+  compactPullRequestDiff,
   generateFallbackPullRequestDraft,
   isReasonablePullRequestTitle,
   mergePullRequestDraft,
@@ -58,13 +60,61 @@ describe("buildPullRequestWorkspaceContext", () => {
       openTodos: ["Keep the draft tied to the active workspace", "Commit only current uncommitted files before PR creation"],
     });
 
-    expect(context).toContain("Use this workspace context as the primary source of intent");
+    expect(context).toContain("Use this workspace context to understand the intended outcome");
+    expect(context).toContain("Git diff and commit log as the source of truth");
     expect(context).toContain("Active task: Fix create PR drafting");
     expect(context).toContain("Task request:");
     expect(context).toContain(".stave/context/continued-from-fix-create-pr.md");
     expect(context).toContain("Workspace notes:");
     expect(context).toContain("Open todos:");
     expect(context).toContain("Do not carry over previous workspace or earlier PR summaries");
+  });
+});
+
+describe("buildPullRequestDescriptionPrompt", () => {
+  test("keeps evidence from every changed file when a long diff is compacted", () => {
+    const compacted = compactPullRequestDiff(
+      [
+        "diff --git a/src/first.ts b/src/first.ts",
+        "+++ b/src/first.ts",
+        `+${"first behavior ".repeat(40)}`,
+        "diff --git a/src/second.ts b/src/second.ts",
+        "+++ b/src/second.ts",
+        `+${"second behavior ".repeat(40)}`,
+      ].join("\n"),
+      320,
+    );
+
+    expect(compacted.length).toBeLessThanOrEqual(320);
+    expect(compacted).toContain("diff --git a/src/first.ts");
+    expect(compacted).toContain("diff --git a/src/second.ts");
+  });
+
+  test("makes git evidence authoritative and requires concrete change bullets", () => {
+    const prompt = buildPullRequestDescriptionPrompt({
+      baseTemplate: "TITLE: <title>\nBODY:\n## Summary\n## Changes",
+      baseBranch: "main",
+      headBranch: "fix/create-pr-summary",
+      commitLog: "abc123 fix(pr): summarize actual branch changes",
+      fileList: "src/lib/source-control-pr.ts | 20 ++++++++++----------",
+      diff: [
+        "diff --git a/src/lib/source-control-pr.ts b/src/lib/source-control-pr.ts",
+        "+export function buildPullRequestDescriptionPrompt() {}",
+      ].join("\n"),
+      workingTreeDiff: [
+        "diff --git a/tests/source-control-pr.test.ts b/tests/source-control-pr.test.ts",
+        '+test("summarizes concrete changes", () => {});',
+      ].join("\n"),
+      workspaceContext: "Requested: improve every PR even if the implementation is incomplete.",
+    });
+
+    expect(prompt).toContain("Git evidence (source of truth for completed work)");
+    expect(prompt).toContain("Workspace intent context (use for motivation only");
+    expect(prompt).toContain("buildPullRequestDescriptionPrompt");
+    expect(prompt).toContain("summarizes concrete changes");
+    expect(prompt).toContain("Base every Summary and Changes bullet");
+    expect(prompt).toContain("never describe requested-but-unimplemented work as complete");
+    expect(prompt).toContain("instead of listing filenames");
   });
 });
 

@@ -211,7 +211,8 @@ The dialog keeps the base branch simple by default. It shows the current remote 
 ### PR Creation Dialog (ship-aligned)
 
 - The dialog opens in a loading splash state until the suggested PR title and description are ready. Stave no longer shows a provisional fallback draft first and then replaces it in place.
-- Draft generation now includes the active workspace task, prompt-draft context, attached continuation brief snippets, notes, and open todos so the first AI draft stays focused on the current workspace instead of echoing older workspace PR summaries.
+- Draft generation uses the active task provider in an isolated read-only turn. Git commits and diffs are the source of truth for completed work; workspace task context, attached continuation briefs, notes, and todos provide intent only.
+- The drafting evidence includes committed changes, tracked working-tree changes, and bounded diffs for untracked files. Long diffs are compacted per file so one large file does not hide the rest of the change set.
 - The dialog includes a **Target Branch** picker so users can choose which base branch the PR should merge into before running `gh pr create`.
 - Suggested PR titles are normalized against the branch's latest conventional commit subject so the type and scope stay aligned with the workspace PR flow guidance.
 - The generated title and body remain editable until submission. The default PR description prompt is editable under **Settings → Prompts → Pull Request Description**.

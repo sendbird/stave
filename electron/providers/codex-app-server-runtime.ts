@@ -55,6 +55,7 @@ import {
   PRE_PR_REVIEW_OUTPUT_SCHEMA,
   type PrePrReviewFinding,
 } from "../../src/lib/source-control-review";
+import { parsePullRequestSuggestionResponse } from "../../src/lib/source-control-pr";
 import {
   resolveCodexAppServerReasoningEffort,
   resolveEffectiveCodexApprovalPolicy,
@@ -3741,23 +3742,13 @@ function resolveGitHeadRef(args: { cwd?: string }) {
   }
 }
 
-// Runs an isolated single-turn Codex review over the PR diff. It deliberately
-// uses an ephemeral read-only App Server thread so review state cannot leak
-// into the user's conversation thread and cannot mutate the workspace.
-export async function reviewCodexWorktreeDiff(args: {
+async function runCodexReadOnlyPrompt(args: {
   cwd?: string;
-  diff: string;
-  workingTreeDiff: string;
-  commitLog: string;
-  fileList: string;
-  baseBranch: string;
-  headBranch: string;
-  agentsContent?: string;
+  prompt: string;
   model?: string;
-  mode?: "review" | "intent";
-  intentContext?: string;
+  outputSchema?: unknown;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}): Promise<{ ok: boolean; findings?: PrePrReviewFinding[] }> {
+}): Promise<{ ok: boolean; text?: string }> {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
   const codexExecutablePath = resolveCodexExecutablePath({
@@ -3768,7 +3759,7 @@ export async function reviewCodexWorktreeDiff(args: {
   }
 
   const model = args.model?.trim() || args.runtimeOptions?.model?.trim();
-  const reviewRuntimeOptions: StreamTurnArgs["runtimeOptions"] = {
+  const readOnlyRuntimeOptions: StreamTurnArgs["runtimeOptions"] = {
     ...args.runtimeOptions,
     ...(model ? { model } : {}),
     codexFileAccess: "read-only",
@@ -3776,15 +3767,6 @@ export async function reviewCodexWorktreeDiff(args: {
     codexApprovalPolicy: "never",
     codexPlanMode: false,
   };
-  const reviewPrompt =
-    args.mode === "intent"
-      ? buildIntentGuardPrompt({
-          diff: args.diff,
-          workingTreeDiff: args.workingTreeDiff,
-          fileList: args.fileList,
-          intentContext: args.intentContext ?? "",
-        })
-      : buildReviewDiffPrompt(args);
 
   const client = getCodexAppServerClient({
     executablePath: codexExecutablePath,
@@ -3804,7 +3786,7 @@ export async function reviewCodexWorktreeDiff(args: {
       "thread/start",
       buildCodexThreadStartParams({
         cwd: runtimeCwd,
-        runtimeOptions: reviewRuntimeOptions,
+        runtimeOptions: readOnlyRuntimeOptions,
         ephemeral: true,
         sandbox: "read-only",
         approvalPolicy: "never",
@@ -3847,7 +3829,7 @@ export async function reviewCodexWorktreeDiff(args: {
           failureMessage =
             typeof error?.message === "string"
               ? error.message
-              : "Codex App Server review turn failed.";
+              : "Codex App Server read-only turn failed.";
         }
         resolveCompletion?.();
         return;
@@ -3856,7 +3838,7 @@ export async function reviewCodexWorktreeDiff(args: {
       if (message.method === "error") {
         failureMessage =
           extractCodexAppServerErrorMessage(params) ??
-          "Codex App Server review turn failed.";
+          "Codex App Server read-only turn failed.";
         resolveCompletion?.();
       }
     });
@@ -3873,9 +3855,9 @@ export async function reviewCodexWorktreeDiff(args: {
       buildCodexTurnStartParams({
         threadId,
         cwd: runtimeCwd,
-        prompt: reviewPrompt,
-        runtimeOptions: reviewRuntimeOptions,
-        outputSchema: PRE_PR_REVIEW_OUTPUT_SCHEMA,
+        prompt: args.prompt,
+        runtimeOptions: readOnlyRuntimeOptions,
+        outputSchema: args.outputSchema,
       }),
     );
     const immediateText = extractLatestAgentMessageTextFromTurn(
@@ -3887,7 +3869,7 @@ export async function reviewCodexWorktreeDiff(args: {
     if (turnResponse.turn.status === "failed") {
       failureMessage =
         turnResponse.turn.error?.message ??
-        "Codex App Server review turn failed.";
+        "Codex App Server read-only turn failed.";
     }
     if (
       turnResponse.turn.status !== "completed" &&
@@ -3899,10 +3881,7 @@ export async function reviewCodexWorktreeDiff(args: {
     if (failureMessage) {
       return { ok: false };
     }
-    return {
-      ok: true,
-      findings: parseReviewFindings(latestAgentMessageText),
-    };
+    return { ok: true, text: latestAgentMessageText };
   } catch {
     return { ok: false };
   } finally {
@@ -3911,6 +3890,58 @@ export async function reviewCodexWorktreeDiff(args: {
       void client.request("thread/delete", { threadId }).catch(() => {});
     }
   }
+}
+
+export async function suggestCodexPRDescription(args: {
+  cwd?: string;
+  prompt: string;
+  model?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<{ ok: boolean; title?: string; body?: string }> {
+  const result = await runCodexReadOnlyPrompt(args);
+  if (!result.ok || !result.text) {
+    return { ok: false };
+  }
+  const { title, body } = parsePullRequestSuggestionResponse(result.text);
+  return title || body ? { ok: true, title, body } : { ok: false };
+}
+
+// Runs an isolated single-turn Codex review over the PR diff. It deliberately
+// uses an ephemeral read-only App Server thread so review state cannot leak
+// into the user's conversation thread and cannot mutate the workspace.
+export async function reviewCodexWorktreeDiff(args: {
+  cwd?: string;
+  diff: string;
+  workingTreeDiff: string;
+  commitLog: string;
+  fileList: string;
+  baseBranch: string;
+  headBranch: string;
+  agentsContent?: string;
+  model?: string;
+  mode?: "review" | "intent";
+  intentContext?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<{ ok: boolean; findings?: PrePrReviewFinding[] }> {
+  const prompt =
+    args.mode === "intent"
+      ? buildIntentGuardPrompt({
+          diff: args.diff,
+          workingTreeDiff: args.workingTreeDiff,
+          fileList: args.fileList,
+          intentContext: args.intentContext ?? "",
+        })
+      : buildReviewDiffPrompt(args);
+  const result = await runCodexReadOnlyPrompt({
+    cwd: args.cwd,
+    prompt,
+    model: args.model,
+    outputSchema: PRE_PR_REVIEW_OUTPUT_SCHEMA,
+    runtimeOptions: args.runtimeOptions,
+  });
+  return result.ok
+    ? { ok: true, findings: parseReviewFindings(result.text ?? "") }
+    : { ok: false };
 }
 
 export async function streamCodexWithAppServer(

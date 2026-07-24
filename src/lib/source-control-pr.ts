@@ -9,6 +9,11 @@ const GENERIC_PR_TITLE_PATTERNS = [
   /^pr\b/i,
 ];
 const MAX_WORKSPACE_CONTEXT_BLOCK_CHARS = 1_200;
+const PR_TEMPLATE_MAX_CHARS = 4_000;
+const PR_AGENTS_GUIDANCE_MAX_CHARS = 2_000;
+const PR_WORKSPACE_CONTEXT_MAX_CHARS = 3_000;
+export const PR_BRANCH_DIFF_MAX_CHARS = 12_000;
+export const PR_WORKING_TREE_DIFF_MAX_CHARS = 8_000;
 
 function sanitizeInlineText(value?: string) {
   return (value ?? "").replace(/\s+/g, " ").trim();
@@ -241,7 +246,8 @@ export function buildPullRequestWorkspaceContext(args: {
   openTodos?: string[];
 }) {
   const lines = [
-    "Use this workspace context as the primary source of intent for the PR draft.",
+    "Use this workspace context to understand the intended outcome and motivation.",
+    "Treat the Git diff and commit log as the source of truth for work that is actually complete.",
     "Do not carry over previous workspace or earlier PR summaries unless the current diff clearly depends on them.",
   ];
 
@@ -276,6 +282,104 @@ export function buildPullRequestWorkspaceContext(args: {
   pushWorkspaceContextSection(lines, "Open todos", todoLines);
 
   return lines.join("\n").trim();
+}
+
+export function compactPullRequestDiff(diff: string, maxChars: number) {
+  const normalized = diff.replace(/\r\n?/g, "\n").trim();
+  if (!normalized || maxChars <= 0) {
+    return "";
+  }
+  if (normalized.length <= maxChars) {
+    return normalized;
+  }
+
+  const sections = normalized
+    .split(/(?=^diff --git )/m)
+    .map((section) => section.trim())
+    .filter(Boolean);
+  if (sections.length <= 1) {
+    return `${normalized.slice(0, Math.max(0, maxChars - 25)).trimEnd()}\n... [diff truncated]`;
+  }
+
+  const separatorChars = sections.length - 1;
+  const sectionBudget = Math.max(1, Math.floor((maxChars - separatorChars) / sections.length));
+  const marker = "\n... [file diff truncated]";
+  return sections
+    .map((section) => {
+      if (section.length <= sectionBudget) {
+        return section;
+      }
+      return `${section.slice(0, Math.max(0, sectionBudget - marker.length)).trimEnd()}${marker}`;
+    })
+    .join("\n")
+    .slice(0, maxChars);
+}
+
+export function buildPullRequestDescriptionPrompt(args: {
+  baseTemplate: string;
+  baseBranch: string;
+  headBranch: string;
+  commitLog: string;
+  fileList: string;
+  diff: string;
+  workingTreeDiff: string;
+  prTemplateContent?: string;
+  agentsContent?: string;
+  workspaceContext?: string;
+}) {
+  const branchDiff = compactPullRequestDiff(args.diff, PR_BRANCH_DIFF_MAX_CHARS);
+  const workingTreeDiff = compactPullRequestDiff(args.workingTreeDiff, PR_WORKING_TREE_DIFF_MAX_CHARS);
+
+  return [
+    ...(args.prTemplateContent
+      ? [
+          "Repository pull request template (highest priority for body structure):",
+          args.prTemplateContent.slice(0, PR_TEMPLATE_MAX_CHARS),
+          "",
+        ]
+      : []),
+    ...(args.agentsContent
+      ? [
+          "Repository guidelines from AGENTS.md (apply when consistent with the pull request template):",
+          args.agentsContent.slice(0, PR_AGENTS_GUIDANCE_MAX_CHARS),
+          "",
+        ]
+      : []),
+    ...(args.workspaceContext
+      ? [
+          "Workspace intent context (use for motivation only; it is not evidence that work is complete):",
+          args.workspaceContext.slice(0, PR_WORKSPACE_CONTEXT_MAX_CHARS),
+          "",
+        ]
+      : []),
+    "PR drafting instructions:",
+    args.baseTemplate,
+    "",
+    `Base branch: ${args.baseBranch}`,
+    `Head branch: ${args.headBranch}`,
+    "",
+    "Git evidence (source of truth for completed work):",
+    "",
+    "Recent commits:",
+    args.commitLog || "(no commits)",
+    "",
+    "Changed files and stats:",
+    args.fileList || "(no changed files available)",
+    "",
+    "Branch diff against the base branch:",
+    branchDiff || "(no committed branch diff)",
+    "",
+    "Uncommitted working tree diff, including new files when available:",
+    workingTreeDiff || "(no uncommitted diff)",
+    "",
+    "Evidence requirements (always apply):",
+    "- Read the Git evidence before drafting the title or body.",
+    "- Base every Summary and Changes bullet on behavior or implementation visible in the diff or commit log.",
+    "- Use workspace context only to explain why the evidenced changes matter; never describe requested-but-unimplemented work as complete.",
+    "- Summarize concrete behavior and implementation changes instead of listing filenames or saying only that files were updated.",
+    "- Populate every relevant repository-template section and remove empty placeholder sections.",
+    "- Mention tests or verification only when the Git evidence explicitly supports the claim; never invent results.",
+  ].join("\n");
 }
 
 export function resolvePullRequestTitle(args: {
