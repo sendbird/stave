@@ -720,13 +720,20 @@
   }
 
   .model-effort-preview-value {
-    transition:
-      opacity var(--tt-in-dur) var(--tt-in-ease),
-      transform var(--tt-in-dur) var(--tt-in-ease);
+    animation: model-effort-preview-swap var(--tt-in-dur) var(--tt-in-ease) both;
+  }
 
-    @starting-style {
+  @keyframes model-effort-preview-swap {
+    from {
       opacity: 0;
-      transform: translateY(2px);
+      filter: blur(2px);
+      transform: translateY(4px);
+    }
+
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
     }
   }
 
@@ -752,6 +759,8 @@
     }
 
     .model-effort-preview-value {
+      animation: none;
+      filter: none;
       transform: none;
     }
   }

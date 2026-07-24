@@ -150,11 +150,40 @@ test("selects model and effort from the provider heatmaps", async ({
   await expect(page.locator(".model-effort-preview-value")).toContainText(
     "Stave Auto",
   );
+  await expect
+    .poll(() =>
+      page
+        .locator(".model-effort-preview-value")
+        .evaluate((preview) => getComputedStyle(preview).animationName),
+    )
+    .toBe("model-effort-preview-swap");
+  await expect
+    .poll(() =>
+      page
+        .locator(".model-effort-preview-value")
+        .evaluate((preview) => getComputedStyle(preview).animationDuration),
+    )
+    .toBe("0.15s");
 
   await page.screenshot({
     path: testInfo.outputPath("model-effort-selector.png"),
     fullPage: true,
   });
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await codexGrid
+    .getByRole("gridcell", {
+      name: "GPT-5.6 Sol, Ultra effort",
+    })
+    .hover();
+  await expect
+    .poll(() =>
+      page
+        .locator(".model-effort-preview-value")
+        .evaluate((preview) => getComputedStyle(preview).animationName),
+    )
+    .toBe("none");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
 
   await claudeGrid
     .getByRole("gridcell", {
