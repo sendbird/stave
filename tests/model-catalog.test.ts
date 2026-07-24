@@ -282,7 +282,7 @@ describe("model catalog", () => {
     ).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6[1m]" }),
-    ).toBe("claude-opus-4-8[1m]");
+    ).toBe("claude-opus-5[1m]");
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6-fast" }),
     ).toBe("claude-opus-4-6-fast");
@@ -387,7 +387,7 @@ describe("model catalog", () => {
 
     test("toHumanModelName still returns static names when no dynamic entry exists", () => {
       expect(toHumanModelName({ model: DEFAULT_CLAUDE_OPUS_MODEL })).toBe(
-        "Claude Opus 4.8",
+        "Claude Opus 5",
       );
     });
 

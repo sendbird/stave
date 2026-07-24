@@ -26,7 +26,7 @@ export const MODEL_SHORTCUT_SLOT_LABELS = [
 ] as const;
 
 export const DEFAULT_MODEL_SHORTCUT_KEYS = [
-  "claude-code:claude-opus-4-8",
+  "claude-code:claude-opus-5",
   "codex:gpt-5.6-terra",
   "codex:gpt-5.6-sol",
   "",

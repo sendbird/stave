@@ -90,8 +90,8 @@ export const TASK_PRESET_SHORTCUT_SLOT_LABELS = [
  */
 export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
   {
-    id: "default-claude-opus-4-8-task",
-    label: "Opus 4.8",
+    id: "default-claude-opus-5-task",
+    label: "Opus 5",
     kind: "task",
     provider: "claude-code",
     model: DEFAULT_CLAUDE_OPUS_MODEL,

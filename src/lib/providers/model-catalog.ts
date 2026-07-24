@@ -6,8 +6,8 @@ import type {
 const CLAUDE_COLOR_ICON_URL = `${import.meta.env.BASE_URL}claude-color.svg`;
 const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
 export const STAVE_LOGO_URL = `${import.meta.env.BASE_URL}stave-logo.svg`;
-export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-4-8";
-export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-4-8[1m]";
+export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-5";
+export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-5[1m]";
 export const CLAUDE_FABLE_MODEL = "claude-fable-5";
 // Claude Sonnet 5 surfaced in the Claude CLI picker from 2.1.197, but the
 // model ID is passed straight through to the Anthropic API, which decides
@@ -18,6 +18,8 @@ export const DEFAULT_CLAUDE_SONNET_1M_MODEL = "claude-sonnet-5[1m]";
 // catalog default of the same family. Historical chat/turn records keep their
 // original IDs and render via the legacy display names below.
 const LEGACY_AUTOMATIC_CLAUDE_MODELS: Record<string, string> = {
+  "claude-opus-4-8": DEFAULT_CLAUDE_OPUS_MODEL,
+  "claude-opus-4-8[1m]": DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "claude-opus-4-7": DEFAULT_CLAUDE_OPUS_MODEL,
   "claude-opus-4-7[1m]": DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "claude-opus-4-6": DEFAULT_CLAUDE_OPUS_MODEL,
@@ -695,10 +697,12 @@ export function toHumanModelName(args: { model: string }) {
   // 2. Static known names
   const known: Record<string, string> = {
     [CLAUDE_FABLE_MODEL]: "Claude Fable 5",
-    [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 4.8",
-    [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 4.8 (1M)",
+    [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 5",
+    [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 5 (1M)",
     // Legacy labels kept so historical chat/turn records still render a
     // recognizable name after the preset options migrated.
+    "claude-opus-4-8": "Claude Opus 4.8",
+    "claude-opus-4-8[1m]": "Claude Opus 4.8 (1M)",
     "claude-opus-4-7": "Claude Opus 4.7",
     "claude-opus-4-7[1m]": "Claude Opus 4.7 (1M)",
     "claude-opus-4-6": "Claude Opus 4.6",

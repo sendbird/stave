@@ -72,7 +72,7 @@ describe("model shortcuts", () => {
   test("finds assigned model options and skips unavailable mappings", () => {
     const options = [
       {
-        key: "claude-code:claude-opus-4-8",
+        key: "claude-code:claude-opus-5",
         available: true,
       },
       {

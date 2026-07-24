@@ -227,19 +227,19 @@ describe("buildProviderRuntimeOptions", () => {
     },
     {
       sourceModel: "claude-sonnet-4-6",
-      expectedAdvisorModel: "claude-opus-4-8",
+      expectedAdvisorModel: "claude-opus-5",
     },
     {
       sourceModel: "claude-opus-4-6",
-      expectedAdvisorModel: "claude-opus-4-8",
+      expectedAdvisorModel: "claude-opus-5",
     },
     {
       sourceModel: "claude-opus-4-7",
-      expectedAdvisorModel: "claude-opus-4-8",
+      expectedAdvisorModel: "claude-opus-5",
     },
     {
       sourceModel: "claude-sonnet-4-6[1m]",
-      expectedAdvisorModel: "claude-opus-4-8",
+      expectedAdvisorModel: "claude-opus-5",
     },
   ])(
     "maps advisor source model `$sourceModel` to `$expectedAdvisorModel`",
