@@ -31,6 +31,7 @@ import {
   takeUtf8PrefixByBytes,
   takeUtf8SuffixByBytes,
 } from "../shared/bounded-text";
+import { ensureUtf8Locale } from "../shared/utf8-locale";
 import { Osc133Parser } from "../../src/lib/terminal/osc133";
 import { appendAbsoluteCursorPosition } from "../../src/lib/terminal/snapshot";
 import type {
@@ -871,7 +872,10 @@ export function createTerminalRuntime(args: {
       cols: args.cols ?? 80,
       rows: args.rows ?? 24,
       cwd: resolveCommandCwd({ cwd: args.cwd }),
-      env: args.env,
+      // GUI/Finder launches inherit no UTF-8 locale, which makes the PTY shell
+      // fragment multibyte input (e.g. Korean) on echo. Guarantee a UTF-8
+      // codeset for every session type funneled through here.
+      env: ensureUtf8Locale(args.env),
     });
 
     const sessionId = randomUUID();
