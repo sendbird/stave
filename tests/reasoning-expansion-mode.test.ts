@@ -112,7 +112,7 @@ describe("reasoning expansion mode settings", () => {
 
     useAppStore.getState().updateSettings({
       patch: {
-        chatSendPreview: false,
+        reasoningExpansionMode: "auto",
       },
     });
 

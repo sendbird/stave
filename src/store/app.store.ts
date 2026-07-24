@@ -158,10 +158,6 @@ import {
   normalizeTrustedToolEntries,
 } from "@/lib/providers/trusted-tools";
 import {
-  normalizeThinkingPhraseAnimationStyle,
-  type ThinkingPhraseAnimationStyle,
-} from "@/lib/thinking-phrases";
-import {
   buildSuggestTaskNamePayload,
   canTakeOverTask,
   getArchiveFallbackTaskId,
@@ -1103,11 +1099,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** User-installed custom theme definitions (persisted in localStorage). */
   userCustomThemes: CustomThemeDefinition[];
   themeOverrides: Record<ThemeModeName, ThemeOverrideValues>;
-  language: string;
-  updateMode: "auto" | "manual";
-  httpProxy: string;
-  smartSuggestions: boolean;
-  chatSendPreview: boolean;
   chatStreamingEnabled: boolean;
   messageFontSize: number;
   messageCodeFontSize: number;
@@ -1120,8 +1111,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   infoPanelSectionVisibility: WorkspaceInformationSectionVisibility;
   reasoningExpansionMode: "auto" | "manual";
   showInterimMessages: boolean;
-  thinkingPhraseAnimationStyle: ThinkingPhraseAnimationStyle;
-  claudeFastModeVisible: boolean;
   codexFastModeVisible: boolean;
   modelClaude: string;
   modelCodex: string;
@@ -1139,12 +1128,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * fixed provider + model, or launches a native CLI session.
    */
   taskPresets: TaskPreset[];
-  rulesPresetPrimary: string;
-  rulesPresetSecondary: string;
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
-  subagentsEnabled: boolean;
-  subagentsProfile: string;
   skillsEnabled: boolean;
   skillsAutoSuggest: boolean;
   sharedSkillsHome: string;
@@ -1177,8 +1162,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   visualCommentShortcut: VisualCommentShortcut;
   /** When enabled, visual comment screenshots are included as provider image context. */
   lensVisualCommentScreenshotsAsImageContext: boolean;
-  reviewStrictMode: boolean;
-  reviewChecklistPreset: string;
   prePrReviewEnabled: boolean;
   prePrReviewProvider: PrePrReviewProviderId;
   /** Queue the created ready PR for automatic merging. */
@@ -1254,11 +1237,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   codexReasoningSummarySupport: "auto" | "enabled" | "disabled";
   codexFastMode: boolean;
   codexPlanMode: boolean;
-  /**
-   * @deprecated No longer used. Kept temporarily so persisted settings
-   * deserialise without errors; will be removed in a future cleanup pass.
-   */
-  planAutoApprove?: boolean;
   // ---------------------------------------------------------------------------
   // Customisable AI prompt templates (Settings → Prompts)
   // ---------------------------------------------------------------------------
@@ -2227,11 +2205,6 @@ const defaultSettings: AppSettings = {
     light: {},
     dark: {},
   },
-  language: "English",
-  updateMode: "auto",
-  httpProxy: "",
-  smartSuggestions: true,
-  chatSendPreview: true,
   chatStreamingEnabled: true,
   messageFontSize: 18,
   messageCodeFontSize: 14,
@@ -2242,8 +2215,6 @@ const defaultSettings: AppSettings = {
   infoPanelSectionVisibility: {},
   reasoningExpansionMode: "manual",
   showInterimMessages: false,
-  thinkingPhraseAnimationStyle: "soft",
-  claudeFastModeVisible: true,
   codexFastModeVisible: true,
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
@@ -2256,12 +2227,8 @@ const defaultSettings: AppSettings = {
   autoRoutingEligibleClaudeModels: [],
   autoRoutingEligibleCodexModels: [],
   taskPresets: cloneDefaultTaskPresets(),
-  rulesPresetPrimary: "typescript-best-practices",
-  rulesPresetSecondary: "no-target-brand-keyword",
   permissionMode: "auto-safe",
   trustedTools: [],
-  subagentsEnabled: true,
-  subagentsProfile: "default",
   skillsEnabled: true,
   skillsAutoSuggest: true,
   sharedSkillsHome: "",
@@ -2277,8 +2244,6 @@ const defaultSettings: AppSettings = {
   midTurnSteeringEnabled: false,
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
-  reviewStrictMode: true,
-  reviewChecklistPreset: "safety-first",
   prePrReviewEnabled: false,
   prePrReviewProvider: DEFAULT_PRE_PR_REVIEW_PROVIDER,
   createPrAutoMergeEnabled: true,
@@ -2348,7 +2313,6 @@ const defaultSettings: AppSettings = {
   codexReasoningSummarySupport: "auto",
   codexFastMode: false,
   codexPlanMode: false,
-  planAutoApprove: undefined,
   promptResponseStyle: DEFAULT_PROMPT_RESPONSE_STYLE,
   promptPrDescription: DEFAULT_PROMPT_PR_DESCRIPTION,
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,
@@ -13538,7 +13502,6 @@ export const useAppStore = create<AppState>()(
             _legacyFontSizeMap[raw.messageCodeFontSize] ?? 14;
         }
         if (typeof raw.fastModeVisible === "boolean") {
-          state.settings.claudeFastModeVisible ??= raw.fastModeVisible;
           state.settings.codexFastModeVisible ??= raw.fastModeVisible;
           delete raw.fastModeVisible;
         }
@@ -13561,10 +13524,20 @@ export const useAppStore = create<AppState>()(
         delete raw.codexSupportsReasoningSummaries;
         delete raw.codexExperimentalPlanMode;
         delete raw.codexAdditionalReadableRoots;
-        state.settings.thinkingPhraseAnimationStyle =
-          normalizeThinkingPhraseAnimationStyle(
-            state.settings.thinkingPhraseAnimationStyle,
-          );
+        delete raw.language;
+        delete raw.updateMode;
+        delete raw.httpProxy;
+        delete raw.smartSuggestions;
+        delete raw.chatSendPreview;
+        delete raw.thinkingPhraseAnimationStyle;
+        delete raw.claudeFastModeVisible;
+        delete raw.rulesPresetPrimary;
+        delete raw.rulesPresetSecondary;
+        delete raw.subagentsEnabled;
+        delete raw.subagentsProfile;
+        delete raw.reviewStrictMode;
+        delete raw.reviewChecklistPreset;
+        delete raw.planAutoApprove;
         state.settings.promptResponseStyle = normalizeResponseStylePrompt(
           state.settings.promptResponseStyle,
         );

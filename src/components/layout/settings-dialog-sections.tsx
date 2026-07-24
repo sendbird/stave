@@ -144,10 +144,6 @@ import {
 } from "@/lib/providers/prompt-defaults";
 import type { PrePrReviewProviderId } from "@/lib/source-control-review";
 import type { PrMergeMethod } from "@/lib/pr-status";
-import {
-  THINKING_PHRASE_ANIMATION_OPTIONS,
-  normalizeThinkingPhraseAnimationStyle,
-} from "@/lib/thinking-phrases";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
 import { ChangelogSection } from "./settings-dialog-changelog-section";
 import { DeveloperSection } from "./settings-dialog-developer-section";
@@ -2125,8 +2121,6 @@ function ModelsSection() {
 
 function ChatSection() {
   const [
-    smartSuggestions,
-    chatSendPreview,
     chatStreamingEnabled,
     messageFontSize,
     messageCodeFontSize,
@@ -2136,7 +2130,6 @@ function ChatSection() {
     infoPanelScale,
     reasoningExpansionMode,
     showInterimMessages,
-    thinkingPhraseAnimationStyle,
     codexFastModeVisible,
     steerQueueEnterAction,
     midTurnSteeringEnabled,
@@ -2144,8 +2137,6 @@ function ChatSection() {
     useShallow(
       (state) =>
         [
-          state.settings.smartSuggestions,
-          state.settings.chatSendPreview,
           state.settings.chatStreamingEnabled,
           state.settings.messageFontSize,
           state.settings.messageCodeFontSize,
@@ -2155,7 +2146,6 @@ function ChatSection() {
           state.settings.infoPanelScale,
           state.settings.reasoningExpansionMode,
           state.settings.showInterimMessages,
-          state.settings.thinkingPhraseAnimationStyle,
           state.settings.codexFastModeVisible,
           state.settings.steerQueueEnterAction,
           state.settings.midTurnSteeringEnabled,
@@ -2284,20 +2274,6 @@ function ChatSection() {
           description="Toggle chat features and display preferences."
         >
           <SwitchField
-            title="Smart Suggestions"
-            checked={smartSuggestions}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { smartSuggestions: checked } })
-            }
-          />
-          <SwitchField
-            title="Send Preview"
-            checked={chatSendPreview}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { chatSendPreview: checked } })
-            }
-          />
-          <SwitchField
             title="Streaming UI"
             checked={chatStreamingEnabled}
             onCheckedChange={(checked) =>
@@ -2326,27 +2302,6 @@ function ChatSection() {
             onCheckedChange={(checked) =>
               updateSettings({ patch: { showInterimMessages: checked } })
             }
-          />
-          <SelectField
-            title="Reasoning Phrase Animation"
-            description="Animation used for in-progress reasoning labels while streaming, including the rotating phrase and the Thinking label in the reasoning step."
-            value={thinkingPhraseAnimationStyle}
-            onChange={(value) =>
-              updateSettings({
-                patch: {
-                  thinkingPhraseAnimationStyle:
-                    normalizeThinkingPhraseAnimationStyle(value),
-                },
-              })
-            }
-            options={THINKING_PHRASE_ANIMATION_OPTIONS.map((option) => ({
-              value: option.value,
-              label:
-                option.value === "soft"
-                  ? `${option.label} (Recommended)`
-                  : option.label,
-            }))}
-            placeholder="Select animation"
           />
           <SwitchField
             title="Show Fast Mode Toggle (Codex)"
@@ -2709,56 +2664,6 @@ function SkillsSection() {
               })
             )}
           </div>
-        </SettingsCard>
-      </SectionStack>
-    </>
-  );
-}
-
-function SubagentsSection() {
-  const [subagentsEnabled, subagentsProfile] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.settings.subagentsEnabled,
-          state.settings.subagentsProfile,
-        ] as const,
-    ),
-  );
-  const updateSettings = useAppStore((state) => state.updateSettings);
-
-  return (
-    <>
-      <SectionHeading
-        title="Subagents"
-        description="Control how the main agent delegates tasks to child agents."
-      />
-      <SectionStack>
-        <SettingsCard
-          title="Delegation"
-          description="Subagents allow the primary model to spawn lightweight child agents for research, exploration, and parallel workstreams."
-        >
-          <SwitchField
-            title="Enabled"
-            description="When enabled, the agent may delegate sub-tasks to smaller worker agents."
-            checked={subagentsEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { subagentsEnabled: checked } })
-            }
-          />
-          <LabeledField
-            title="Profile"
-            description="Optional profile identifier that controls the subagent model and tool policy."
-          >
-            <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background"
-              placeholder="default"
-              value={subagentsProfile}
-              onCommit={(nextValue) =>
-                updateSettings({ patch: { subagentsProfile: nextValue } })
-              }
-            />
-          </LabeledField>
         </SettingsCard>
       </SectionStack>
     </>
@@ -3706,8 +3611,6 @@ export function SettingsDialogSectionContent(args: {
       return <ToolingSection />;
     case "skills":
       return <SkillsSection />;
-    case "subagents":
-      return <SubagentsSection />;
     case "commandPalette":
       return <CommandPaletteSection />;
     case "editor":
