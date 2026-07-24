@@ -613,6 +613,12 @@ export function WorkspacePaneHost() {
     title: string;
   } | null>(null);
   const [taskHistoryOpen, setTaskHistoryOpen] = useState(false);
+  const [taskHistoryWorkspaceId, setTaskHistoryWorkspaceId] = useState<
+    string | null
+  >(null);
+  const [taskHistoryProjectPath, setTaskHistoryProjectPath] = useState<
+    string | null
+  >(null);
   const [editorTabsToClose, setEditorTabsToClose] =
     useState<EditorTabsCloseRequest | null>(null);
 
@@ -996,7 +1002,12 @@ export function WorkspacePaneHost() {
         setCliSessionToClose(detail);
       }
     }
-    function handleOpenTaskHistory() {
+    function handleOpenTaskHistory(event: Event) {
+      const detail = (
+        event as CustomEvent<{ workspaceId?: string; projectPath?: string }>
+      ).detail;
+      setTaskHistoryWorkspaceId(detail?.workspaceId ?? null);
+      setTaskHistoryProjectPath(detail?.projectPath ?? null);
       setTaskHistoryOpen(true);
     }
     function handleRequestCloseEditorTabs(event: Event) {
@@ -1090,7 +1101,15 @@ export function WorkspacePaneHost() {
       />
       <TaskHistoryDrawer
         open={taskHistoryOpen}
-        onOpenChange={setTaskHistoryOpen}
+        onOpenChange={(open) => {
+          setTaskHistoryOpen(open);
+          if (!open) {
+            setTaskHistoryWorkspaceId(null);
+            setTaskHistoryProjectPath(null);
+          }
+        }}
+        workspaceId={taskHistoryWorkspaceId}
+        projectPath={taskHistoryProjectPath}
       />
     </div>
   );

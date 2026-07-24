@@ -53,6 +53,7 @@ import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
+import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import {
   SortableDropIndicator,
   useSortableListMonitor,
@@ -840,6 +841,17 @@ function WorkspaceRowActions(args: {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onSelect={() =>
+                dispatchOpenTaskHistory({
+                  workspaceId: args.workspaceId,
+                  projectPath: args.projectPath,
+                })
+              }
+            >
+              Task History
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
               Settings
             </DropdownMenuItem>
@@ -1244,8 +1256,7 @@ export function ProjectWorkspaceSidebar(args: {
           direction,
         });
       }
-      const workspaceName =
-        project.workspaces[fromIndex]?.name ?? "Workspace";
+      const workspaceName = project.workspaces[fromIndex]?.name ?? "Workspace";
       setReorderAnnouncement(
         `${workspaceName} moved to position ${destinationIndex + 1} of ${project.workspaces.length}.`,
       );

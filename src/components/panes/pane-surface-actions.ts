@@ -32,8 +32,22 @@ export function dispatchPaneRenameRequest(args: { panelId: string }) {
   );
 }
 
-export function dispatchOpenTaskHistory() {
-  window.dispatchEvent(new CustomEvent(OPEN_TASK_HISTORY_EVENT));
+export interface OpenTaskHistoryRequest {
+  /** Workspace whose history to show. Omit to follow the active workspace. */
+  workspaceId?: string;
+  /** Project the workspace belongs to (needed to restore a task across projects). */
+  projectPath?: string;
+}
+
+export function dispatchOpenTaskHistory(args?: OpenTaskHistoryRequest) {
+  window.dispatchEvent(
+    new CustomEvent(OPEN_TASK_HISTORY_EVENT, {
+      detail: {
+        workspaceId: args?.workspaceId,
+        projectPath: args?.projectPath,
+      },
+    }),
+  );
 }
 
 export function dispatchEditorTabsCloseRequest(
