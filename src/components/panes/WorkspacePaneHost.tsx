@@ -757,6 +757,10 @@ export function WorkspacePaneHost() {
       // Surfaces missing from the restored layout still need panels.
       reconcilePanels(api);
       focusActiveSurface(api);
+      // Dockview can restore an active tab before its only-when-visible
+      // renderer is attached. Re-activating the selected panel invokes
+      // Dockview's idempotent repair path and restores the missing content.
+      api.activePanel?.api.setActive();
     },
     [focusActiveSurface, reconcilePanels],
   );
