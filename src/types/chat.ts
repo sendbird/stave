@@ -87,6 +87,16 @@ export interface PromptDraftRuntimeOverrides {
   model?: string;
 }
 
+export type TurnModelEffort = NonNullable<
+  | PromptDraftRuntimeOverrides["claudeEffort"]
+  | PromptDraftRuntimeOverrides["codexReasoningEffort"]
+>;
+
+export interface TurnModelInfo {
+  effort: TurnModelEffort;
+  fastMode?: boolean;
+}
+
 export interface PromptDraftQueuedNextTurn {
   queuedAt: string;
   sourceTurnId?: string;
@@ -252,6 +262,7 @@ export interface ChatMessage {
   role: MessageRole;
   model: string;
   providerId: "claude-code" | "codex" | "user";
+  modelInfo?: TurnModelInfo;
   content: string;
   displayContent?: string;
   startedAt?: string;

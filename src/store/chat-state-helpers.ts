@@ -8,6 +8,7 @@ import type {
   MessagePart,
   Task,
   TextPart,
+  TurnModelInfo,
 } from "@/types/chat";
 
 export function buildMessageId(args: { taskId: string; count: number }) {
@@ -170,6 +171,7 @@ export function buildPendingProviderTurnState(args: {
   turnId: string;
   provider: ProviderId;
   activeModel: string;
+  modelInfo?: TurnModelInfo;
   content: string;
   displayContent?: string;
   displayParts?: MessagePart[];
@@ -256,6 +258,7 @@ export function buildPendingProviderTurnState(args: {
     role: "assistant",
     model: args.activeModel,
     providerId: args.provider,
+    ...(args.modelInfo ? { modelInfo: args.modelInfo } : {}),
     content: "",
     startedAt: buildRecentTimestamp(),
     isStreaming: true,

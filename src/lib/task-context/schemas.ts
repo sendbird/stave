@@ -278,6 +278,21 @@ const ChatMessageSchema = z.object({
     z.literal("codex"),
     z.literal("user"),
   ]),
+  modelInfo: z
+    .object({
+      effort: z.union([
+        z.literal("minimal"),
+        z.literal("low"),
+        z.literal("medium"),
+        z.literal("high"),
+        z.literal("xhigh"),
+        z.literal("max"),
+        z.literal("ultra"),
+      ]),
+      fastMode: z.boolean().optional(),
+    })
+    .strict()
+    .optional(),
   content: z.string(),
   displayContent: z.string().optional(),
   startedAt: z.string().optional(),

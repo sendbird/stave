@@ -28,6 +28,7 @@ import type {
   TextPart,
   ThinkingPart,
   ToolUsePart,
+  TurnModelInfo,
   UserInputPart,
 } from "@/types/chat";
 
@@ -440,6 +441,7 @@ function createPlanAssistantMessage(args: {
   count: number;
   provider: ProviderId;
   model: string;
+  modelInfo?: TurnModelInfo;
   planText: string;
   isStreaming?: boolean;
 }): ChatMessage {
@@ -450,6 +452,7 @@ function createPlanAssistantMessage(args: {
     role: "assistant",
     model: args.model,
     providerId: args.provider,
+    ...(args.modelInfo ? { modelInfo: args.modelInfo } : {}),
     content: normalizedPlanText,
     startedAt,
     isStreaming: args.isStreaming ?? true,
@@ -888,6 +891,7 @@ export function replayProviderEventsToTaskState(args: {
           count: current.length + messageIndexOffset,
           provider: args.provider,
           model: args.model,
+          modelInfo: target.modelInfo,
           planText: event.planText,
         });
 

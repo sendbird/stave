@@ -1,4 +1,4 @@
-import type { PromptDraft } from "../../src/types/chat";
+import type { ChatMessage, PromptDraft } from "../../src/types/chat";
 import type { TaskProviderSessionState } from "../../src/lib/db/workspaces.db";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
 import type {
@@ -30,6 +30,7 @@ export interface PersistenceChatMessageRow {
   role: "user" | "assistant";
   model: string;
   providerId: string;
+  modelInfo?: ChatMessage["modelInfo"];
   content: string;
   isStreaming?: boolean;
   usage?: {

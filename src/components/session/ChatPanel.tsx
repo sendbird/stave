@@ -43,7 +43,7 @@ import {
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
-import { toHumanModelName } from "@/lib/providers/model-catalog";
+import { getTurnModelInfoLabel } from "@/lib/providers/turn-model-info";
 import { cn } from "@/lib/utils";
 import { resolveUserMessageClipboardPlainText } from "@/lib/user-message-copy";
 import { useAppStore } from "@/store/app.store";
@@ -123,6 +123,7 @@ interface MessageRowProps {
     role: "user" | "assistant";
     providerId: "claude-code" | "codex" | "user";
     model: string;
+    modelInfo?: ChatMessage["modelInfo"];
     content: string;
     displayContent?: string;
     startedAt?: string;
@@ -156,6 +157,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     [elapsedAnchorMs, message],
   );
   const userMessageSourceText = message.displayContent ?? message.content;
+  const turnModelInfoLabel = getTurnModelInfoLabel(message);
 
   function handleUserMessageCopy(event: ReactClipboardEvent<HTMLDivElement>) {
     if (message.role !== "user") {
@@ -204,18 +206,18 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               message.role === "assistant" && "self-stretch !ml-0 !mt-1",
             )}
           >
-            <div className="flex min-w-0 items-center gap-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
               {message.providerId !== "user" && message.model ? (
                 <MessageAction
                   key="provider-action"
-                  label={toHumanModelName({ model: message.model })}
+                  label={turnModelInfoLabel}
                   className="pointer-events-none h-7 cursor-default rounded-sm border border-border/70 bg-background px-2 text-sm font-normal text-foreground opacity-100"
                 >
                   <ModelIcon
                     providerId={message.providerId}
                     className="size-3.5"
                   />
-                  {toHumanModelName({ model: message.model })}
+                  {turnModelInfoLabel}
                 </MessageAction>
               ) : null}
               {message.role === "assistant" && elapsedLabel ? (
