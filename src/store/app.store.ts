@@ -107,6 +107,7 @@ import {
   type ModelRuntimePreferences,
   type UpdateModelRuntimePreferenceArgs,
 } from "@/lib/providers/model-runtime-preferences";
+import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
 import {
   normalizeAutoRoutingEligibleModels,
   normalizeAutoRoutingObjective,
@@ -11396,6 +11397,47 @@ export const useAppStore = create<AppState>()(
             }
             // ──────────────────────────────────────────────────────────────────────
 
+            const modelRuntimeSettings = applyModelRuntimePreference({
+              settings: get().settings,
+              providerId: provider,
+              model: activeModel,
+            });
+            const resolvedPromptDraftRuntimeState =
+              resolvePromptDraftRuntimeState({
+                promptDraft,
+                fallback: {
+                  claudePermissionMode:
+                    modelRuntimeSettings.claudePermissionMode,
+                  claudePermissionModeBeforePlan:
+                    modelRuntimeSettings.claudePermissionModeBeforePlan,
+                  claudeEffort: modelRuntimeSettings.claudeEffort,
+                  codexPlanMode: modelRuntimeSettings.codexPlanMode,
+                  codexReasoningEffort:
+                    modelRuntimeSettings.codexReasoningEffort,
+                },
+              });
+            const providerRuntimeOptions = buildProviderRuntimeOptions({
+              provider,
+              model: activeModel,
+              settings: {
+                ...modelRuntimeSettings,
+                ...resolvedPromptDraftRuntimeState,
+                ...(autoRoutingDecision?.claudeEffort
+                  ? { claudeEffort: autoRoutingDecision.claudeEffort }
+                  : {}),
+                ...(autoRoutingDecision?.codexReasoningEffort
+                  ? {
+                      codexReasoningEffort:
+                        autoRoutingDecision.codexReasoningEffort,
+                    }
+                  : {}),
+              },
+              providerSession,
+            });
+            const modelInfo = resolveTurnModelInfo({
+              providerId: provider,
+              runtimeOptions: providerRuntimeOptions,
+            });
             const conversation = buildCanonicalConversationRequest({
               turnId,
               taskId: resolvedTaskId,
@@ -11437,6 +11479,7 @@ export const useAppStore = create<AppState>()(
                   turnId,
                   provider,
                   activeModel,
+                  modelInfo,
                   content: promptContent,
                   displayContent: promptDisplayContent,
                   displayParts: promptDisplayParts,
@@ -11493,6 +11536,7 @@ export const useAppStore = create<AppState>()(
                   turnId,
                   provider,
                   activeModel,
+                  modelInfo,
                   content: promptContent,
                   displayContent: promptDisplayContent,
                   displayParts: promptDisplayParts,
@@ -11895,26 +11939,6 @@ export const useAppStore = create<AppState>()(
               });
             }
 
-            const modelRuntimeSettings = applyModelRuntimePreference({
-              settings: get().settings,
-              providerId: provider,
-              model: activeModel,
-            });
-            const resolvedPromptDraftRuntimeState =
-              resolvePromptDraftRuntimeState({
-                promptDraft,
-                fallback: {
-                  claudePermissionMode:
-                    modelRuntimeSettings.claudePermissionMode,
-                  claudePermissionModeBeforePlan:
-                    modelRuntimeSettings.claudePermissionModeBeforePlan,
-                  claudeEffort: modelRuntimeSettings.claudeEffort,
-                  codexPlanMode: modelRuntimeSettings.codexPlanMode,
-                  codexReasoningEffort:
-                    modelRuntimeSettings.codexReasoningEffort,
-                },
-              });
-
             runProviderTurn({
               turnId,
               provider,
@@ -11924,24 +11948,7 @@ export const useAppStore = create<AppState>()(
               workspaceId: taskWorkspaceId,
               cwd: workspaceCwd,
               runtimeOptions: applyProjectBasePromptToRuntimeOptions({
-                runtimeOptions: buildProviderRuntimeOptions({
-                  provider,
-                  model: activeModel,
-                  settings: {
-                    ...modelRuntimeSettings,
-                    ...resolvedPromptDraftRuntimeState,
-                    ...(autoRoutingDecision?.claudeEffort
-                      ? { claudeEffort: autoRoutingDecision.claudeEffort }
-                      : {}),
-                    ...(autoRoutingDecision?.codexReasoningEffort
-                      ? {
-                          codexReasoningEffort:
-                            autoRoutingDecision.codexReasoningEffort,
-                        }
-                      : {}),
-                  },
-                  providerSession,
-                }),
+                runtimeOptions: providerRuntimeOptions,
                 projectBasePrompt: resolveProjectBasePrompt({
                   projectPath: get().projectPath,
                   recentProjects: get().recentProjects,

@@ -36,6 +36,9 @@ same `ChatMessage.parts` shape before UI rendering.
 - `MessageResponse` renders only the final text response area below the trace.
 - Interim assistant text rendered outside the trace is user-configurable in
   Settings → Chat and defaults to hidden.
+- The assistant footer captures model information per turn instead of reading
+  current settings, then shows the model, effort, 1M context variant, and fast
+  mode when enabled.
 - Earlier assistant text that appears before later tool or system activity remains inside `ChainOfThought` as a trace step instead of being promoted to the final response.
 - Provider text segments must preserve their original item boundaries so in-place tool updates cannot merge commentary text into the final response block.
 - The normal assistant shell is bubbleless so AI Elements composition can stay close
