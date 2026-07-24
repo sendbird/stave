@@ -1,3 +1,14 @@
+## [0.11.6](https://github.com/sendbird/stave/compare/v0.11.5...v0.11.6) (2026-07-24)
+
+### Bug Fixes
+
+* Polish the combined model and effort heatmap selector with provider-specific controls, clearer previews, selected/highest-effort states, and narrow-viewport support.
+* Preserve focus when opening the selector, improve keyboard and pointer feedback, and respect reduced-motion preferences.
+* Enable grayscale font smoothing in the renderer for cleaner UI text on macOS and other supported platforms.
+
+### References
+
+* [#195](https://github.com/sendbird/stave/pull/195), [#196](https://github.com/sendbird/stave/pull/196)
 ## [0.11.5](https://github.com/sendbird/stave/compare/v0.11.4...v0.11.5) (2026-07-23)
 
 ### Features
