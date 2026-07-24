@@ -1,3 +1,19 @@
+## [0.11.8](https://github.com/sendbird/stave/compare/v0.11.7...v0.11.8) (2026-07-24)
+
+### Features
+
+* Open Task History directly from each workspace's kebab menu, including workspaces with no open tabs.
+* Load archived tasks from live workspace state or persistence, and switch projects and workspaces before restoring a task from another workspace.
+* Refresh provider effort heatmaps with branded Claude and Codex color ramps, animated Thinking Orbs, and a distinct Stave Auto cell.
+
+### Bug Fixes
+
+* Remove the legacy heatmap particle layers and respect reduced-motion preferences for effort indicators and preview transitions.
+
+### References
+
+* [#202](https://github.com/sendbird/stave/pull/202), [#203](https://github.com/sendbird/stave/pull/203)
+
 ## [0.11.7](https://github.com/sendbird/stave/compare/v0.11.6...v0.11.7) (2026-07-24)
 
 ### Features
