@@ -2210,15 +2210,27 @@ function ChatSection() {
           </LabeledField>
           <LabeledField
             title="Font Family"
-            description="Base sans-serif font for chat messages. Falls back to the Korean font, then sans-serif."
+            description="Base sans-serif font for the app UI and chat messages. Pick a preset or type any installed family. Falls back to the Korean font, then sans-serif."
           >
-            <DraftInput
-              value={messageFontFamily}
-              className="h-9 font-mono text-sm"
-              onCommit={(nextValue) =>
-                updateSettings({ patch: { messageFontFamily: nextValue } })
-              }
-            />
+            <div className="space-y-2">
+              <ChoiceButtons
+                value={messageFontFamily}
+                onChange={(value) =>
+                  updateSettings({ patch: { messageFontFamily: value } })
+                }
+                options={[
+                  { value: "Geist Variable", label: "Geist" },
+                  { value: "Inter Variable", label: "Inter" },
+                ]}
+              />
+              <DraftInput
+                value={messageFontFamily}
+                className="h-9 font-mono text-sm"
+                onCommit={(nextValue) =>
+                  updateSettings({ patch: { messageFontFamily: nextValue } })
+                }
+              />
+            </div>
           </LabeledField>
           <LabeledField
             title="Mono Font Family"
