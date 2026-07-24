@@ -279,7 +279,7 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_create_saved_account",
     {
       description:
-        "Create an OS-encrypted Lens account for one exact hostname. The password is accepted as input but never returned.",
+        "Create an OS-encrypted Lens account for one or more exact hostnames. The password is accepted as input but never returned.",
       inputSchema: {
         input: LensCredentialCreateArgsSchema.describe(
           "Complete saved-account input.",
@@ -331,7 +331,7 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_fill_saved_account",
     {
       description:
-        "Fill the current Lens page with a Stave-saved account for its exact hostname. When multiple accounts exist, the automatic-fill account is used unless username is provided. The password stays in the Electron main process and is never returned. Use submit=true only when the user asked to sign in.",
+        "Fill the current Lens page with a Stave-saved account whose hostnames include the page's exact hostname. When multiple accounts match, the automatic-fill account is used unless username is provided. The password stays in the Electron main process and is never returned. Use submit=true only when the user asked to sign in.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         username: z

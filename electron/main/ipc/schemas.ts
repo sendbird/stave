@@ -18,7 +18,7 @@ export const McpDiscoveryArgsSchema = z
 export const LensCredentialUpsertArgsSchema = z
   .object({
     id: z.string().uuid().optional(),
-    host: z.string().trim().min(1).max(2048),
+    hosts: z.array(z.string().trim().min(1).max(2048)).min(1).max(64),
     username: z.string().trim().min(1).max(512),
     password: z.string().min(1).max(8192).optional(),
     autoFill: z.boolean(),

@@ -10,7 +10,7 @@ describe("sanitizeMcpLogValue", () => {
           name: "stave_lens_create_saved_account",
           arguments: {
             input: {
-              host: "example.com",
+              hosts: ["example.com"],
               username: "person@example.com",
               password: "plain-secret-value",
               autoFill: true,
@@ -24,7 +24,7 @@ describe("sanitizeMcpLogValue", () => {
         name: "stave_lens_create_saved_account",
         arguments: {
           input: {
-            host: "example.com",
+            hosts: ["example.com"],
             username: "person@example.com",
             password: "[redacted]",
             autoFill: true,
