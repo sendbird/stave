@@ -166,6 +166,13 @@ const CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES = new Set([
   "stave_add_workspace_custom_field",
   "stave_set_workspace_custom_field",
   "stave_remove_workspace_custom_field",
+  "stave_list_routines",
+  "stave_create_routine",
+  "stave_update_routine",
+  "stave_remove_routine",
+  "stave_set_routine_enabled",
+  "stave_list_routine_information_references",
+  "stave_create_routine_information_resource",
 ]);
 /**
  * Tokens that mark a (non-Stave) MCP tool as read-only vs. mutating, used to

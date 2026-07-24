@@ -394,7 +394,7 @@ describe("Claude internal tool auto-allow", () => {
     })).toBe(true);
   });
 
-  test("auto-allows managed Stave workspace-information MCP tools", () => {
+  test("auto-allows managed Stave workspace-information and routine MCP tools", () => {
     expect(shouldAutoAllowClaudeTool({
       toolName: "stave_replace_workspace_notes",
       permissionMode: "default",
@@ -403,6 +403,18 @@ describe("Claude internal tool auto-allow", () => {
       toolName: "mcp__stave-local-mcp__stave_add_workspace_todo",
       permissionMode: "default",
     })).toBe(true);
+    expect(shouldAutoAllowClaudeTool({
+      toolName: "mcp__stave-local-mcp__stave_create_routine",
+      permissionMode: "default",
+    })).toBe(true);
+    expect(shouldAutoAllowClaudeTool({
+      toolName: "mcp__stave-local-mcp__stave_create_routine_information_resource",
+      permissionMode: "default",
+    })).toBe(true);
+    expect(shouldAutoAllowClaudeTool({
+      toolName: "mcp__stave-local-mcp__stave_run_routine_now",
+      permissionMode: "default",
+    })).toBe(false);
   });
 
   test("auto-allows mutating file tools in Claude auto mode", () => {
