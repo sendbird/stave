@@ -1,8 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-const PROMPT_PLACEHOLDER =
-  "Use / for commands, $ for skills, @ to search files (Enter to send)";
-
 test("shows the pane watermark when project is not selected", async ({
   page,
 }) => {
@@ -177,7 +174,7 @@ test("prompt input is focused after creating a task", async ({ page }) => {
     .getByRole("button", { name: "New Task" })
     .click();
 
-  await expect(page.getByPlaceholder(PROMPT_PLACEHOLDER)).toBeFocused();
+  await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused();
 });
 
 test("empty task keeps starting options next to the prompt input", async ({
@@ -267,8 +264,8 @@ test("empty task keeps starting options next to the prompt input", async ({
   await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused();
   const promptInput = page.locator("[data-prompt-input-root]");
   await expect(promptInput).toHaveCSS("border-top-width", "0px");
-  const promptSurfaceShadow = await promptInput.evaluate((element) =>
-    getComputedStyle(element.parentElement ?? element).boxShadow,
+  const promptSurfaceShadow = await promptInput.evaluate(
+    (element) => getComputedStyle(element.parentElement ?? element).boxShadow,
   );
   expect(promptSurfaceShadow).not.toBe("none");
 });
@@ -334,7 +331,7 @@ test("shortcut creates a new task in the selected workspace", async ({
     );
   });
 
-  await expect(page.getByPlaceholder(PROMPT_PLACEHOLDER)).toBeFocused();
+  await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused();
   await expect(taskChips).toHaveCount(1);
 });
 
@@ -607,7 +604,7 @@ test("stale streaming message does not show responding wave without an active tu
   await page.goto("/");
 
   await expect(page.getByLabel("Responding")).toHaveCount(0);
-  await expect(page.getByPlaceholder(PROMPT_PLACEHOLDER)).toBeEnabled();
+  await expect(page.getByRole("textbox", { name: "Prompt" })).toBeEnabled();
 });
 
 test("streaming-off mode still shows responding wave during active turns", async ({
@@ -701,7 +698,7 @@ test("streaming-off mode still shows responding wave during active turns", async
   await page.goto("/");
 
   await expect(page.getByLabel("Responding")).toHaveCount(1);
-  await expect(page.getByPlaceholder(PROMPT_PLACEHOLDER)).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "Prompt" })).toBeDisabled();
 });
 
 test("source control tab loads status surface", async ({ page }) => {
