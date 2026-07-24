@@ -334,7 +334,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   );
 });
 
-function ChatPanelMessageList() {
+function ChatPanelMessageList(props: {
+  scrollActivationKey?: string | number;
+}) {
   const taskId = useScopedTaskId();
   const [
     activeWorkspaceId,
@@ -392,7 +394,11 @@ function ChatPanelMessageList() {
     [visibleMessages],
   );
   const autoScrollKey = `${visibleMessages.length}:${lastVisibleMessageScrollFingerprint}`;
-  const forceScrollKey = `${latestVisibleMessageId ?? "none"}:${turnCompletionScrollTick}`;
+  const forceScrollKey = [
+    latestVisibleMessageId ?? "none",
+    turnCompletionScrollTick,
+    props.scrollActivationKey ?? 0,
+  ].join(":");
   const scrollContextKey = `${activeWorkspaceId}:${taskId}`;
   const traceExpansionMode = getReasoningTraceExpansionMode({ reasoningExpansionMode });
   const pendingInteraction = useMemo(
@@ -466,6 +472,7 @@ function ChatPanelMessageList() {
 
   return (
     <ConversationContent
+      data-testid={`conversation-scroll-${taskId}`}
       autoScrollKey={autoScrollKey}
       autoScrollBehavior="auto"
       forceScrollKey={forceScrollKey}
@@ -544,11 +551,15 @@ function ChatPanelMessageList() {
 
 const MemoizedChatPanelMessageList = memo(ChatPanelMessageList);
 
-export function ChatPanel() {
+export function ChatPanel(props: {
+  scrollActivationKey?: string | number;
+}) {
   return (
     <Conversation>
       <div className="flex h-full w-full flex-col">
-        <MemoizedChatPanelMessageList />
+        <MemoizedChatPanelMessageList
+          scrollActivationKey={props.scrollActivationKey}
+        />
       </div>
       <ConversationScrollButton tooltip="Scroll to bottom" />
     </Conversation>
