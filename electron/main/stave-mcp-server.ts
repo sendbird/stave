@@ -21,10 +21,24 @@ import type {
   StaveLocalMcpStatus,
 } from "../../src/lib/local-mcp";
 import {
+  RoutineInformationResourceCreateInputSchema,
+  RoutineUpsertInputSchema,
+} from "../../src/lib/routines";
+import {
   getStaveLocalMcpConfigPath,
   readStaveLocalMcpConfig,
   updateStaveLocalMcpConfig,
 } from "./stave-mcp-config";
+import {
+  createRoutineInformationResource,
+  createRoutine,
+  listRoutineInformationReferences,
+  listRoutines,
+  removeRoutine,
+  runRoutineNow,
+  setRoutineEnabled,
+  updateRoutine,
+} from "./routine-service";
 import { ensurePersistenceReady } from "./state";
 import {
   addWorkspaceAmplifyLink,
@@ -446,6 +460,143 @@ function createToolServer() {
           workspaceId,
           taskId,
         }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_list_routines",
+    {
+      description:
+        "List saved Stave routines and their recent run history so an agent can inspect existing routine specs before creating, updating, or deleting them.",
+    },
+    async () =>
+      toStructuredResult({
+        routines: await listRoutines(),
+      }),
+  );
+
+  server.registerTool(
+    "stave_create_routine",
+    {
+      description:
+        "Create a saved Stave routine from a complete routine spec. Use this when a user asks the AI to set up a recurring Claude or Codex workflow.",
+      inputSchema: {
+        input: RoutineUpsertInputSchema.describe("Complete routine spec."),
+      },
+    },
+    async ({ input }) =>
+      toStructuredResult({
+        routine: await createRoutine(input),
+      }),
+  );
+
+  server.registerTool(
+    "stave_update_routine",
+    {
+      description:
+        "Replace an existing Stave routine spec by id. Use this after listing routines and selecting the target routine to edit.",
+      inputSchema: {
+        id: z.string().min(1).describe("Routine id."),
+        input: RoutineUpsertInputSchema.describe(
+          "Complete next routine spec that should replace the saved one.",
+        ),
+      },
+    },
+    async ({ id, input }) =>
+      toStructuredResult({
+        routine: await updateRoutine({
+          id,
+          input,
+        }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_remove_routine",
+    {
+      description:
+        "Delete a saved Stave routine by id. This removes the routine definition and its routine-history entries, but not the task conversations created by earlier runs.",
+      inputSchema: {
+        id: z.string().min(1).describe("Routine id."),
+      },
+    },
+    async ({ id }) =>
+      toStructuredResult({
+        result: await removeRoutine({
+          id,
+        }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_set_routine_enabled",
+    {
+      description:
+        "Pause or resume a saved Stave routine without deleting it by setting its enabled flag.",
+      inputSchema: {
+        id: z.string().min(1).describe("Routine id."),
+        enabled: z
+          .boolean()
+          .describe("Whether the routine should remain scheduled."),
+      },
+    },
+    async ({ id, enabled }) =>
+      toStructuredResult({
+        routine: await setRoutineEnabled({
+          id,
+          enabled,
+        }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_run_routine_now",
+    {
+      description:
+        "Trigger an immediate manual run for a saved Stave routine by id.",
+      inputSchema: {
+        id: z.string().min(1).describe("Routine id."),
+      },
+    },
+    async ({ id }) =>
+      toStructuredResult({
+        run: await runRoutineNow({
+          id,
+        }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_list_routine_information_references",
+    {
+      description:
+        "List attachable Information panel references for the target workspace so an agent can reuse notes, todos, and linked resources in a routine spec.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Workspace id."),
+      },
+    },
+    async ({ workspaceId }) =>
+      toStructuredResult({
+        options: await listRoutineInformationReferences({
+          workspaceId,
+        }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_create_routine_information_resource",
+    {
+      description:
+        "Create a new Information panel item and return the routine attachment reference for it. Use this when the requested routine spec needs notes, todos, or linked resources that do not exist yet.",
+      inputSchema: {
+        input: RoutineInformationResourceCreateInputSchema.describe(
+          "Information resource payload to create and attach to a routine.",
+        ),
+      },
+    },
+    async ({ input }) =>
+      toStructuredResult({
+        result: await createRoutineInformationResource(input),
       }),
   );
 
