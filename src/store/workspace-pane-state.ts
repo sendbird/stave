@@ -6,6 +6,7 @@ import {
   type PaneTabMeta,
   type WorkspaceLensTab,
 } from "@/lib/panes/types";
+import { DEFAULT_LENS_SESSION_ID } from "@/lib/lens/lens.types";
 import type { WorkspaceActiveSurface } from "@/lib/terminal/types";
 
 export interface WorkspacePaneStoreState {
@@ -21,10 +22,53 @@ export interface WorkspacePaneStoreActions {
   closeTaskTab: (args: { taskId: string }) => void;
   closeCompareRun: (args: { compareRunId: string }) => void;
   createLensTab: () => string | null;
+  openLensTab: (args: { lensSessionId: string }) => string | null;
   closeLensTab: (args: { lensSessionId: string }) => void;
   setPaneTabMeta: (args: { panelId: string; meta: PaneTabMeta }) => void;
   renamePaneTab: (args: { panelId: string; title: string }) => void;
   setDockLayout: (args: { layout: PaneDockLayout | null }) => void;
+}
+
+export function resolveCreatedLensSessionId(
+  lensTabs: ReadonlyArray<WorkspaceLensTab>,
+  generatedId: string,
+): string {
+  return lensTabs.length === 0 ? DEFAULT_LENS_SESSION_ID : generatedId;
+}
+
+export function reduceOpenLensTab<
+  State extends WorkspacePaneReducerState,
+>(args: {
+  state: State;
+  lensSessionId: string;
+  createdAt: number;
+  nextSnapshotVersion: number;
+}): State | WorkspacePaneReducerPatch {
+  const existing = args.state.lensTabs.some(
+    (tab) => tab.id === args.lensSessionId,
+  );
+  const alreadyActive =
+    args.state.activeAppSurface.kind === "workspace" &&
+    args.state.activeSurface.kind === "lens" &&
+    args.state.activeSurface.lensSessionId === args.lensSessionId;
+  if (existing && alreadyActive) {
+    return args.state;
+  }
+
+  return {
+    lensTabs: existing
+      ? args.state.lensTabs
+      : [
+          ...args.state.lensTabs,
+          { id: args.lensSessionId, createdAt: args.createdAt },
+        ],
+    activeAppSurface: { kind: "workspace" },
+    activeSurface: {
+      kind: "lens",
+      lensSessionId: args.lensSessionId,
+    },
+    workspaceSnapshotVersion: args.nextSnapshotVersion,
+  };
 }
 
 interface WorkspacePaneReducerState extends WorkspacePaneStoreState {
@@ -79,10 +123,7 @@ export function reduceActiveSurfaceFromPane<
   switch (args.surface.kind) {
     case "task": {
       const taskId = args.surface.taskId;
-      if (
-        taskId &&
-        args.state.tasks.some((task) => task.id === taskId)
-      ) {
+      if (taskId && args.state.tasks.some((task) => task.id === taskId)) {
         patch.activeTaskId = taskId;
         if (!args.state.openTaskTabIds.includes(taskId)) {
           patch.openTaskTabIds = [...args.state.openTaskTabIds, taskId];
@@ -125,13 +166,13 @@ export function reduceActiveSurfaceFromPane<
   return { ...patch, workspaceSnapshotVersion: args.nextSnapshotVersion };
 }
 
-export function reduceCloseTaskTab<State extends WorkspacePaneReducerState>(
-  args: {
-    state: State;
-    taskId: string;
-    nextSnapshotVersion: number;
-  },
-): State | WorkspacePaneReducerPatch {
+export function reduceCloseTaskTab<
+  State extends WorkspacePaneReducerState,
+>(args: {
+  state: State;
+  taskId: string;
+  nextSnapshotVersion: number;
+}): State | WorkspacePaneReducerPatch {
   const closingIndex = args.state.openTaskTabIds.indexOf(args.taskId);
   if (closingIndex < 0) {
     return args.state;
@@ -198,13 +239,13 @@ export function reduceCloseCompareRun<
   };
 }
 
-export function reduceCloseLensTab<State extends WorkspacePaneReducerState>(
-  args: {
-    state: State;
-    lensSessionId: string;
-    nextSnapshotVersion: number;
-  },
-): State | WorkspacePaneReducerPatch {
+export function reduceCloseLensTab<
+  State extends WorkspacePaneReducerState,
+>(args: {
+  state: State;
+  lensSessionId: string;
+  nextSnapshotVersion: number;
+}): State | WorkspacePaneReducerPatch {
   const closingIndex = args.state.lensTabs.findIndex(
     (tab) => tab.id === args.lensSessionId,
   );
@@ -236,14 +277,14 @@ export function reduceCloseLensTab<State extends WorkspacePaneReducerState>(
   };
 }
 
-export function reducePaneTabMeta<State extends WorkspacePaneReducerState>(
-  args: {
-    state: State;
-    panelId: string;
-    meta: PaneTabMeta;
-    nextSnapshotVersion: number;
-  },
-): State | WorkspacePaneReducerPatch {
+export function reducePaneTabMeta<
+  State extends WorkspacePaneReducerState,
+>(args: {
+  state: State;
+  panelId: string;
+  meta: PaneTabMeta;
+  nextSnapshotVersion: number;
+}): State | WorkspacePaneReducerPatch {
   if (!parsePanePanelId(args.panelId)) {
     return args.state;
   }

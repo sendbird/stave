@@ -14,6 +14,7 @@ const actualCodexAppServerRuntime = await import(
 
 type SteerResponder = (args: {
   text: string;
+  clientMessageId?: string;
 }) => Promise<
   | { ok: true }
   | { ok: false; reason: "turn-not-steerable"; pendingRequestIds: string[] }
@@ -21,11 +22,16 @@ type SteerResponder = (args: {
 
 type Holder = {
   steeredTexts: string[];
+  clientMessageIds: Array<string | undefined>;
   rejectSteer: boolean;
   release?: () => void;
 };
 
-const holder: Holder = { steeredTexts: [], rejectSteer: false };
+const holder: Holder = {
+  steeredTexts: [],
+  clientMessageIds: [],
+  rejectSteer: false,
+};
 
 mock.module("../electron/providers/claude-sdk-runtime", () => ({
   ...actualClaudeRuntime,
@@ -46,7 +52,7 @@ mock.module("../electron/providers/claude-sdk-runtime", () => ({
     args.registerAbort?.(() => {
       holder.release?.();
     });
-    args.registerSteerResponder?.(async ({ text }) => {
+    args.registerSteerResponder?.(async ({ text, clientMessageId }) => {
       if (holder.rejectSteer) {
         return {
           ok: false,
@@ -55,6 +61,7 @@ mock.module("../electron/providers/claude-sdk-runtime", () => ({
         };
       }
       holder.steeredTexts.push(text);
+      holder.clientMessageIds.push(clientMessageId);
       return { ok: true };
     });
     // Keep the turn open until release() so steerTurn fires against a live
@@ -97,6 +104,7 @@ afterEach(async () => {
   holder.release?.();
   holder.release = undefined;
   holder.steeredTexts = [];
+  holder.clientMessageIds = [];
   holder.rejectSteer = false;
   await providerRuntime.shutdown();
 });
@@ -108,6 +116,7 @@ describe("providerRuntime.steerTurn", () => {
       text: "hello",
     });
     expect(result.ok).toBe(false);
+    expect(result.delivery).toBe("rejected");
     expect(result.message).toContain("No active steer responder");
     expect(result.message).toContain("ghost-turn");
   });
@@ -124,6 +133,7 @@ describe("providerRuntime.steerTurn", () => {
 
     const result = await providerRuntime.steerTurn({ turnId, text: "extra" });
     expect(result.ok).toBe(false);
+    expect(result.delivery).toBe("rejected");
     expect(result.message).toContain("turn not steerable");
     holder.release?.();
   });
@@ -137,15 +147,25 @@ describe("providerRuntime.steerTurn", () => {
     expect(started.ok).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 5));
 
-    const first = await providerRuntime.steerTurn({ turnId, text: "first" });
+    const first = await providerRuntime.steerTurn({
+      turnId,
+      text: "first",
+      clientMessageId: "client-steer-first",
+    });
     expect(first.ok).toBe(true);
+    expect(first.delivery).toBe("accepted");
     expect(holder.steeredTexts).toEqual(["first"]);
+    expect(holder.clientMessageIds).toEqual(["client-steer-first"]);
 
     // The session must NOT have been deleted — a second steer into the same
     // still-running turn must also succeed.
     const second = await providerRuntime.steerTurn({ turnId, text: "second" });
     expect(second.ok).toBe(true);
     expect(holder.steeredTexts).toEqual(["first", "second"]);
+    expect(holder.clientMessageIds).toEqual([
+      "client-steer-first",
+      undefined,
+    ]);
 
     // And aborting the still-active turn must succeed too.
     const abort = providerRuntime.abortTurn({ turnId });

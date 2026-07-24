@@ -132,6 +132,33 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.terminalDocked).toBe(true);
   });
 
+  test("preserves steer delivery metadata in workspace snapshots", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        messagesByTask: {
+          "task-1": [
+            {
+              id: "client-steer-1",
+              role: "user",
+              model: "user",
+              providerId: "user",
+              content: "Also update the tests",
+              parts: [{ type: "text", text: "Also update the tests" }],
+              steeredIntoTurnId: "turn-1",
+              steerDeliveryState: "accepted",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(parsed?.messagesByTask["task-1"]?.[0]).toMatchObject({
+      steeredIntoTurnId: "turn-1",
+      steerDeliveryState: "accepted",
+    });
+  });
+
   test("normalizes legacy fleet view workspace surfaces to task fallback", () => {
     const parsed = parseWorkspaceShell({
       payload: {

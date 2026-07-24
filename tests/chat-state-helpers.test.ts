@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildPendingProviderTurnState } from "@/store/chat-state-helpers";
+import {
+  buildPendingProviderTurnState,
+  buildSteeredUserMessageState,
+} from "@/store/chat-state-helpers";
 import type { ChatMessage, Task } from "@/types/chat";
 
 function task(id: string): Task {
@@ -146,5 +149,103 @@ describe("buildPendingProviderTurnState — display content", () => {
         mimeType: "image/png",
       },
     ]);
+  });
+});
+
+describe("buildSteeredUserMessageState", () => {
+  test("segments the live assistant around an accepted steer", () => {
+    const taskId = "task-steer";
+    const current: ChatMessage[] = [
+      {
+        id: `${taskId}-m-1`,
+        role: "user",
+        model: "user",
+        providerId: "user",
+        content: "Initial request",
+        parts: [{ type: "text", text: "Initial request" }],
+      },
+      {
+        id: `${taskId}-m-2`,
+        role: "assistant",
+        model: "gpt-5.4",
+        providerId: "codex",
+        content: "Working",
+        isStreaming: true,
+        parts: [{ type: "text", text: "Working" }],
+      },
+    ];
+
+    const next = buildSteeredUserMessageState({
+      messagesByTask: { [taskId]: current },
+      messageCountByTask: { [taskId]: 2 },
+      taskId,
+      content: "Also update the tests",
+      steeredIntoTurnId: "turn-1",
+      clientMessageId: "client-steer-1",
+      provider: "codex",
+      activeModel: "gpt-5.4",
+      turnStillActive: true,
+    });
+
+    const messages = next.messagesByTask[taskId] ?? [];
+    expect(messages.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+    ]);
+    expect(messages[1]).toMatchObject({
+      id: `${taskId}-m-2`,
+      isStreaming: false,
+    });
+    expect(messages[2]).toMatchObject({
+      id: "client-steer-1",
+      content: "Also update the tests",
+      steeredIntoTurnId: "turn-1",
+      steerDeliveryState: "accepted",
+    });
+    expect(messages[3]).toMatchObject({
+      role: "assistant",
+      model: "gpt-5.4",
+      providerId: "codex",
+      content: "",
+      isStreaming: true,
+    });
+    expect(next.messageCountByTask[taskId]).toBe(4);
+  });
+
+  test("records a late accepted steer without creating a stale assistant", () => {
+    const taskId = "task-late-steer";
+    const current: ChatMessage[] = [
+      {
+        id: `${taskId}-m-1`,
+        role: "assistant",
+        model: "claude-sonnet-4-5",
+        providerId: "claude-code",
+        content: "Done",
+        isStreaming: false,
+        parts: [{ type: "text", text: "Done" }],
+      },
+    ];
+
+    const next = buildSteeredUserMessageState({
+      messagesByTask: { [taskId]: current },
+      messageCountByTask: { [taskId]: 1 },
+      taskId,
+      content: "Late guidance",
+      steeredIntoTurnId: "turn-finished",
+      clientMessageId: "client-steer-late",
+      provider: "claude-code",
+      activeModel: "claude-sonnet-4-5",
+      turnStillActive: false,
+    });
+
+    expect(next.messagesByTask[taskId]).toHaveLength(2);
+    expect(next.messagesByTask[taskId]?.at(-1)).toMatchObject({
+      id: "client-steer-late",
+      role: "user",
+      steerDeliveryState: "accepted",
+    });
+    expect(next.messageCountByTask[taskId]).toBe(2);
   });
 });

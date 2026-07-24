@@ -16,6 +16,8 @@ import type {
   CodexPluginInstallResponse,
   ProviderId,
   ProviderRuntimeOptions,
+  ProviderSteerTurnRequest,
+  ProviderSteerTurnResponse,
   CodexReviewStartResponse,
   RateLimitsSnapshotResponse,
 } from "../src/lib/providers/provider.types";
@@ -81,6 +83,7 @@ import type {
   BrowserNavigationEventPayload,
   LensSecurityConfig,
   LensSessionDescriptor,
+  LensSessionPresentationRequestPayload,
   LensSessionProfileArgs,
   LensStateChangedPayload,
   LensStyleEdit,
@@ -209,9 +212,12 @@ function rememberPendingLensCdpApproval(
   }
   pendingLensCdpApprovalTimers.set(
     request.requestId,
-    setTimeout(() => {
-      forgetPendingLensCdpApproval(request.requestId);
-    }, Math.max(0, request.expiresAt - Date.now())),
+    setTimeout(
+      () => {
+        forgetPendingLensCdpApproval(request.requestId);
+      },
+      Math.max(0, request.expiresAt - Date.now()),
+    ),
   );
   return request;
 }
@@ -292,6 +298,29 @@ ipcRenderer.on(
   "lens:state-changed",
   (_event, payload: LensStateChangedPayload) => {
     for (const subscriber of lensStateChangedSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const lensSessionPresentationSubscribers = new Set<
+  (payload: LensSessionPresentationRequestPayload) => void
+>();
+const pendingLensSessionPresentationRequests = new Map<
+  string,
+  LensSessionPresentationRequestPayload
+>();
+ipcRenderer.on(
+  "lens:present-session",
+  (_event, payload: LensSessionPresentationRequestPayload) => {
+    if (lensSessionPresentationSubscribers.size === 0) {
+      pendingLensSessionPresentationRequests.set(
+        `${payload.workspaceId}\u0000${payload.lensSessionId}`,
+        payload,
+      );
+      return;
+    }
+    for (const subscriber of lensSessionPresentationSubscribers) {
       subscriber(payload);
     }
   },
@@ -618,7 +647,9 @@ contextBridge.exposeInMainWorld("api", {
     },
     abortTurn: (args: { turnId: string }) =>
       ipcRenderer.invoke("provider:abort-turn", args),
-    steerTurn: (args: { turnId: string; text: string; enabled?: boolean }) =>
+    steerTurn: (
+      args: ProviderSteerTurnRequest,
+    ): Promise<ProviderSteerTurnResponse> =>
       ipcRenderer.invoke("provider:steer-turn", args),
     cleanupTask: (args: { taskId: string }) =>
       ipcRenderer.invoke("provider:cleanup-task", args),
@@ -1206,9 +1237,7 @@ contextBridge.exposeInMainWorld("api", {
         run: RoutineRun | null;
         message?: string;
       }>,
-    createInformationResource: (
-      input: RoutineInformationResourceCreateInput,
-    ) =>
+    createInformationResource: (input: RoutineInformationResourceCreateInput) =>
       ipcRenderer.invoke(
         "routines:create-information-resource",
         input,
@@ -1823,7 +1852,10 @@ contextBridge.exposeInMainWorld("api", {
         entry?: LensDownloadEntry;
         message?: string;
       }>,
-    downloadPageAssets: (args: { workspaceId: string; lensSessionId?: string }) =>
+    downloadPageAssets: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+    }) =>
       ipcRenderer.invoke("lens:download-page-assets", args) as Promise<{
         ok: boolean;
         assetUrls?: string[];
@@ -1921,7 +1953,10 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         message?: string;
       }>,
-    stopAnnotationMode: (args: { workspaceId: string; lensSessionId?: string }) =>
+    stopAnnotationMode: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+    }) =>
       ipcRenderer.invoke("lens:stop-annotation-mode", args) as Promise<{
         ok: boolean;
         message?: string;
@@ -1981,6 +2016,18 @@ contextBridge.exposeInMainWorld("api", {
       lensStateChangedSubscribers.add(listener);
       return () => {
         lensStateChangedSubscribers.delete(listener);
+      };
+    },
+    subscribePresentationRequests: (
+      listener: (payload: LensSessionPresentationRequestPayload) => void,
+    ) => {
+      lensSessionPresentationSubscribers.add(listener);
+      for (const payload of pendingLensSessionPresentationRequests.values()) {
+        listener(payload);
+      }
+      pendingLensSessionPresentationRequests.clear();
+      return () => {
+        lensSessionPresentationSubscribers.delete(listener);
       };
     },
     subscribeCdpApprovalRequests: (

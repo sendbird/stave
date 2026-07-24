@@ -1019,6 +1019,7 @@ export const SteerTurnArgsSchema = z
      * var still works as a fallback (see `runtime.ts`'s `steerTurn`).
      */
     enabled: z.boolean().optional(),
+    clientMessageId: z.string().min(1).max(200).optional(),
   })
   .strict();
 

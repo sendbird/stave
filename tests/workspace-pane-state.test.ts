@@ -3,7 +3,9 @@ import {
   reduceActiveSurfaceFromPane,
   reduceCloseLensTab,
   reduceCloseTaskTab,
+  reduceOpenLensTab,
   reducePaneTabMeta,
+  resolveCreatedLensSessionId,
 } from "@/store/workspace-pane-state";
 
 function createState() {
@@ -64,6 +66,32 @@ describe("workspace pane state reducers", () => {
       activeSurface: { kind: "lens", lensSessionId: "lens-b" },
       lensTabs: [{ id: "lens-b", createdAt: 2 }],
       paneTabMeta: { "task:task-1": { pinned: true } },
+    });
+  });
+
+  test("uses the shared default session for the first Lens tab", () => {
+    expect(resolveCreatedLensSessionId([], "generated-id")).toBe("default");
+    expect(
+      resolveCreatedLensSessionId(
+        [{ id: "default", createdAt: 1 }],
+        "generated-id",
+      ),
+    ).toBe("generated-id");
+  });
+
+  test("adopts an existing Lens session without duplicating its tab", () => {
+    const state = createState();
+    const next = reduceOpenLensTab({
+      state,
+      lensSessionId: "lens-a",
+      createdAt: 10,
+      nextSnapshotVersion: 5,
+    });
+
+    expect(next).toMatchObject({
+      activeSurface: { kind: "lens", lensSessionId: "lens-a" },
+      lensTabs: state.lensTabs,
+      workspaceSnapshotVersion: 5,
     });
   });
 

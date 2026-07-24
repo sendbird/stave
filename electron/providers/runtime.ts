@@ -29,6 +29,10 @@ import {
 } from "../../src/lib/providers/codex-command-catalog";
 import { randomUUID } from "node:crypto";
 import { probeExecutableVersion } from "./runtime-shared";
+import {
+  PROVIDER_STEER_ACK_TIMEOUT_MS,
+  waitForSteerDelivery,
+} from "../../src/lib/providers/steer-delivery";
 
 const sdkTurnTimeoutMs = Number(
   process.env.STAVE_PROVIDER_TIMEOUT_MS ?? 300000,
@@ -61,7 +65,10 @@ type ActiveRuntimeSession = {
     answers?: Record<string, string>;
     denied?: boolean;
   }) => ProviderResponderResult;
-  steer?: (args: { text: string }) => Promise<ProviderResponderResult>;
+  steer?: (args: {
+    text: string;
+    clientMessageId?: string;
+  }) => Promise<ProviderResponderResult>;
   timeoutController?: TurnTimeoutController;
 };
 
@@ -210,7 +217,8 @@ async function deliverResponderResult<
   requestId: string;
   selectResponder: (session: ActiveRuntimeSession) => Responder | undefined;
   invoke: (responder: Responder) => ProviderResponderResult | Promise<ProviderResponderResult>;
-}): Promise<{ ok: boolean; message: string }> {
+  timeoutMs?: number;
+}): Promise<{ ok: boolean; message: string; timedOut?: boolean }> {
   const label = describeResponderKind(args.kind);
   const successLabel = describeResponderSuccessLabel(args.kind);
   const session = activeSessions.get(args.turnId);
@@ -229,7 +237,24 @@ async function deliverResponderResult<
     return { ok: false, message };
   }
 
-  const result = await args.invoke(responder);
+  const response = Promise.resolve().then(() => args.invoke(responder));
+  const delivery =
+    args.timeoutMs === undefined
+      ? ({ status: "resolved", value: await response } as const)
+      : await waitForSteerDelivery({
+          response,
+          timeoutMs: args.timeoutMs,
+        });
+  if (delivery.status === "timed-out") {
+    const message =
+      `${successLabel} delivery acknowledgement timed out after ` +
+      `${Math.round(args.timeoutMs! / 1_000)}s for turn ${args.turnId}. ` +
+      `requestId=${args.requestId}. The provider may still accept it; wait for the current response before retrying or queueing.`;
+    emitBridgeWarningForTurn({ turnId: args.turnId, message });
+    return { ok: false, message, timedOut: true };
+  }
+
+  const result = delivery.value;
   if (result.ok) {
     // The user has made their decision — resume the turn-level timeout so
     // the provider's generation budget resumes from the full allowance.
@@ -807,25 +832,36 @@ export const providerRuntime: ProviderRuntime = {
       invoke: (responder) => responder({ requestId, answers, denied }),
       selectResponder: (session) => session.respondUserInput,
     }),
-  steerTurn: ({ turnId, text, enabled }) => {
+  steerTurn: async ({ turnId, text, enabled, clientMessageId }) => {
     // `enabled` is the renderer's `settings.midTurnSteeringEnabled` toggle —
     // the primary, user-facing on/off switch. `STAVE_ENABLE_MID_TURN_STEERING`
     // remains as a legacy/ops fallback for builds where the setting hasn't
     // been surfaced or touched.
     if (enabled !== true && process.env.STAVE_ENABLE_MID_TURN_STEERING !== "1") {
-      return Promise.resolve({
+      return {
         ok: false,
         message:
           "Mid-turn steering is disabled. Enable it in Settings → Steer / Queue (or set STAVE_ENABLE_MID_TURN_STEERING=1).",
-      });
+        delivery: "rejected" as const,
+      };
     }
-    return deliverResponderResult({
+    const result = await deliverResponderResult({
       kind: "steer",
       turnId,
-      requestId: turnId,
-      invoke: (responder) => responder({ text }),
+      requestId: clientMessageId ?? turnId,
+      invoke: (responder) => responder({ text, clientMessageId }),
       selectResponder: (session) => session.steer,
+      timeoutMs: PROVIDER_STEER_ACK_TIMEOUT_MS,
     });
+    const { timedOut, ...response } = result;
+    return {
+      ...response,
+      delivery: timedOut
+        ? ("unknown" as const)
+        : response.ok
+          ? ("accepted" as const)
+          : ("rejected" as const),
+    };
   },
   checkAvailability: async ({ providerId, runtimeOptions }) => {
     if (providerId === "claude-code") {

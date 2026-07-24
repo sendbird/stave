@@ -287,6 +287,11 @@ export interface ChatMessage {
    * into. Absent for normal user messages.
    */
   steeredIntoTurnId?: string;
+  /**
+   * Delivery state for a mid-turn steer. Accepted steers are persisted so the
+   * transcript can distinguish them from new user turns.
+   */
+  steerDeliveryState?: "pending" | "accepted" | "unknown" | "rejected";
 }
 
 export type EditorTabContentState =

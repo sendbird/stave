@@ -301,11 +301,11 @@ export function buildPendingProviderTurnState(args: {
 
 /**
  * Build the message-list mutation for a follow-up that was *steered* into an
- * already-running turn (mid-turn injection). Unlike
- * `buildPendingProviderTurnState`, this only appends a single user message —
- * there is no assistant placeholder and no `activeTurnIdsByTask` mutation,
- * because the live turn's assistant response continues streaming into its
- * existing message untouched.
+ * already-running turn (mid-turn injection). When the target turn is still
+ * active, close the pre-steer assistant segment and create a fresh streaming
+ * assistant placeholder after the steered user message. This keeps the live
+ * assistant as the final message so subsequent provider events cannot make
+ * the steer look like a separate turn.
  */
 export function buildSteeredUserMessageState(args: {
   messagesByTask: Record<string, ChatMessage[]>;
@@ -313,27 +313,71 @@ export function buildSteeredUserMessageState(args: {
   taskId: string;
   content: string;
   steeredIntoTurnId: string;
+  clientMessageId: string;
+  provider: ProviderId;
+  activeModel: string;
+  turnStillActive: boolean;
 }) {
   const current = args.messagesByTask[args.taskId] ?? [];
   const baseMessageCount = Math.max(
     current.length,
     args.messageCountByTask[args.taskId] ?? 0,
   );
-  const userMessageId = buildMessageId({
-    taskId: args.taskId,
-    count: baseMessageCount,
-  });
+  const timestamp = buildRecentTimestamp();
+  const latestMessage = current.at(-1);
+  const segmentedCurrent =
+    args.turnStillActive &&
+    latestMessage?.role === "assistant" &&
+    latestMessage.isStreaming
+      ? [
+          ...current.slice(0, -1),
+          {
+            ...latestMessage,
+            isStreaming: false,
+            completedAt: latestMessage.completedAt ?? timestamp,
+          },
+        ]
+      : current;
 
   const userMessage: ChatMessage = {
-    id: userMessageId,
+    id: args.clientMessageId,
     role: "user",
     model: "user",
     providerId: "user",
     content: args.content,
     parts: [createUserTextPart({ text: args.content })],
     steeredIntoTurnId: args.steeredIntoTurnId,
+    steerDeliveryState: "accepted",
   };
-  const nextMessages = [...current, userMessage];
+  const assistantMessage: ChatMessage | null = args.turnStillActive
+    ? {
+        id: buildMessageId({
+          taskId: args.taskId,
+          count: baseMessageCount + 1,
+        }),
+        role: "assistant",
+        model:
+          latestMessage?.role === "assistant"
+            ? latestMessage.model
+            : args.activeModel,
+        providerId:
+          latestMessage?.role === "assistant" &&
+          latestMessage.providerId !== "user"
+            ? latestMessage.providerId
+            : args.provider,
+        ...(latestMessage?.role === "assistant" && latestMessage.modelInfo
+          ? { modelInfo: latestMessage.modelInfo }
+          : {}),
+        content: "",
+        startedAt: timestamp,
+        isStreaming: true,
+        parts: [],
+      }
+    : null;
+  const appendedMessages = assistantMessage
+    ? [userMessage, assistantMessage]
+    : [userMessage];
+  const nextMessages = [...segmentedCurrent, ...appendedMessages];
 
   return {
     messagesByTask: {
@@ -345,7 +389,7 @@ export function buildSteeredUserMessageState(args: {
       [args.taskId]: Math.max(
         nextMessages.length,
         (args.messageCountByTask[args.taskId] ?? current.length) +
-          (nextMessages.length - current.length),
+          appendedMessages.length,
       ),
     },
   };

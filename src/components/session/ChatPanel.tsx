@@ -131,6 +131,7 @@ interface MessageRowProps {
     parts: MessagePart[];
     displayParts?: MessagePart[];
     isStreaming?: boolean;
+    steerDeliveryState?: ChatMessage["steerDeliveryState"];
     usage?: MessageUsage;
   };
 }
@@ -158,6 +159,16 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   );
   const userMessageSourceText = message.displayContent ?? message.content;
   const turnModelInfoLabel = getTurnModelInfoLabel(message);
+  const steerDeliveryLabel =
+    message.steerDeliveryState === "accepted"
+      ? "Steered into active turn"
+      : message.steerDeliveryState === "pending"
+        ? "Steer pending"
+        : message.steerDeliveryState === "unknown"
+          ? "Steer delivery unconfirmed"
+          : message.steerDeliveryState === "rejected"
+            ? "Steer rejected"
+            : null;
 
   function handleUserMessageCopy(event: ReactClipboardEvent<HTMLDivElement>) {
     if (message.role !== "user") {
@@ -199,6 +210,11 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               showInterimMessages={showInterimMessages}
             />
           </MessageContent>
+          {message.role === "user" && steerDeliveryLabel ? (
+            <span className="self-end px-1 text-[11px] text-muted-foreground">
+              {steerDeliveryLabel}
+            </span>
+          ) : null}
           <MessageActions
             className={cn(
               message.role === "user" &&

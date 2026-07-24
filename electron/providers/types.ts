@@ -2,6 +2,8 @@ import type {
   CanonicalConversationRequest,
   ProviderGoalSnapshot,
   ProviderRuntimeOptions,
+  ProviderSteerTurnRequest,
+  ProviderSteerTurnResponse,
 } from "../../src/lib/providers/provider.types";
 import type { UserInputQuestion } from "../../src/types/chat";
 import type {
@@ -51,6 +53,11 @@ export type ProviderResponderResult =
   | { ok: true }
   | { ok: false; reason: "unknown-request"; pendingRequestIds: string[] }
   | { ok: false; reason: "turn-not-steerable"; pendingRequestIds: string[] };
+
+export type ProviderSteerResponder = (args: {
+  text: string;
+  clientMessageId?: string;
+}) => Promise<ProviderResponderResult>;
 
 export type BridgeEvent =
   | { type: "thinking"; text: string; isStreaming?: boolean }
@@ -128,14 +135,9 @@ export interface ProviderRuntime {
     answers?: Record<string, string>;
     denied?: boolean;
   }) => Promise<{ ok: boolean; message: string }>;
-  steerTurn: (args: {
-    turnId: string;
-    text: string;
-    enabled?: boolean;
-  }) => Promise<{
-    ok: boolean;
-    message: string;
-  }>;
+  steerTurn: (
+    args: ProviderSteerTurnRequest,
+  ) => Promise<ProviderSteerTurnResponse>;
   checkAvailability: (args: { providerId: ProviderId; runtimeOptions?: StreamTurnArgs["runtimeOptions"] }) => Promise<{
     ok: boolean;
     available: boolean;

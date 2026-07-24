@@ -12,6 +12,27 @@ import type { SkillPromptContext } from "@/lib/skills/types";
 export type ProviderId = "claude-code" | "codex";
 export type ClaudeSettingSource = "user" | "project" | "local";
 
+export interface ProviderSteerTurnRequest {
+  turnId: string;
+  text: string;
+  enabled?: boolean;
+  /**
+   * Stable client-generated identity forwarded to providers that can echo it
+   * back with the injected user message.
+   */
+  clientMessageId?: string;
+}
+
+export interface ProviderSteerTurnResponse {
+  ok: boolean;
+  message?: string;
+  /**
+   * `unknown` means the acknowledgement deadline elapsed. The provider may
+   * still accept the input, so callers must not silently queue or resend it.
+   */
+  delivery: "accepted" | "rejected" | "unknown";
+}
+
 export interface ProviderCommandCatalogRequest {
   providerId: ProviderId;
   cwd?: string;
