@@ -872,9 +872,8 @@ export function createTerminalRuntime(args: {
       cols: args.cols ?? 80,
       rows: args.rows ?? 24,
       cwd: resolveCommandCwd({ cwd: args.cwd }),
-      // GUI/Finder launches inherit no UTF-8 locale, which makes the PTY shell
-      // fragment multibyte input (e.g. Korean) on echo. Guarantee a UTF-8
-      // codeset for every session type funneled through here.
+      // GUI/Finder launches inherit no UTF-8 locale, which fragments multibyte
+      // input (e.g. Korean) on echo; force a UTF-8 codeset (see ensureUtf8Locale).
       env: ensureUtf8Locale(args.env),
     });
 
