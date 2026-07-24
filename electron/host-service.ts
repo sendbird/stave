@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import {
+  buildPullRequestDescriptionPrompt,
   generateFallbackPullRequestDraft,
   mergePullRequestDraft,
   resolvePullRequestComparisonBaseRef,
   resolvePullRequestTitle,
 } from "../src/lib/source-control-pr";
+import { DEFAULT_PROMPT_PR_DESCRIPTION } from "../src/lib/providers/prompt-defaults";
 import {
   cleanupAllScriptProcesses,
   getScriptStatuses,
@@ -85,6 +87,7 @@ import {
   reviewCodexWorktreeDiff,
   rollbackCodexThread,
   setCodexExperimentalFeatureEnablement,
+  suggestCodexPRDescription,
   startCodexMcpOauthLogin,
   startCodexReview,
   uninstallCodexPlugin,
@@ -123,6 +126,7 @@ import {
   JsonMessageFrameDecoder,
   serializeJsonFramedMessage,
 } from "./shared/json-message-framing";
+import { collectUntrackedWorkingTreeDiff } from "./host-service/pr-description-context";
 
 type HostServiceOutboundMessage =
   | AnyHostServiceResponseEnvelope
@@ -786,7 +790,8 @@ async function collectProviderPullRequestContext(args: {
   });
   const [
     diffResult,
-    workingTreeDiffResult,
+    trackedWorkingTreeDiffResult,
+    untrackedWorkingTreeDiff,
     logResult,
     statResult,
     statusResult,
@@ -796,10 +801,20 @@ async function collectProviderPullRequestContext(args: {
   ] = await Promise.all([
     runCommandArgs({
       command: "git",
-      commandArgs: ["diff", `${comparisonBaseRef}...HEAD`],
+      commandArgs: [
+        "diff",
+        "--no-ext-diff",
+        "--unified=2",
+        `${comparisonBaseRef}...HEAD`,
+      ],
       cwd,
     }),
-    runCommandArgs({ command: "git", commandArgs: ["diff", "HEAD"], cwd }),
+    runCommandArgs({
+      command: "git",
+      commandArgs: ["diff", "--no-ext-diff", "--unified=2", "HEAD"],
+      cwd,
+    }),
+    collectUntrackedWorkingTreeDiff({ cwd }),
     runCommandArgs({
       command: "git",
       commandArgs: [
@@ -846,9 +861,14 @@ async function collectProviderPullRequestContext(args: {
   }
 
   const diff = diffResult.ok ? diffResult.stdout.trim() : "";
-  const workingTreeDiff = workingTreeDiffResult.ok
-    ? workingTreeDiffResult.stdout.trim()
-    : "";
+  const workingTreeDiff = [
+    trackedWorkingTreeDiffResult.ok
+      ? trackedWorkingTreeDiffResult.stdout.trim()
+      : "",
+    untrackedWorkingTreeDiff.trim(),
+  ]
+    .filter(Boolean)
+    .join("\n");
   const commitLog = logResult.ok ? logResult.stdout.trim() : "";
   const fileList = [
     statResult.ok ? statResult.stdout.trim() : "",
@@ -881,8 +901,10 @@ async function suggestProviderPRDescription(args: {
   cwd?: string;
   baseBranch?: string;
   headBranch?: string;
+  providerId?: StreamTurnArgs["providerId"];
   promptTemplate?: string;
   workspaceContext?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
   const context = await collectProviderPullRequestContext(args);
   if (!context.ok) {
@@ -896,19 +918,38 @@ async function suggestProviderPRDescription(args: {
     fileList: context.fileList,
   });
 
-  const suggestion = await suggestClaudePRDescription({
-    cwd: context.cwd,
-    diff: context.diff,
-    workingTreeDiff: context.workingTreeDiff,
-    commitLog: context.commitLog,
-    fileList: context.fileList,
-    baseBranch: context.baseBranch,
-    headBranch: context.headBranch,
-    prTemplateContent: context.prTemplateContent,
-    agentsContent: context.agentsContent,
-    promptTemplate: args.promptTemplate,
-    workspaceContext: args.workspaceContext,
-  });
+  const baseTemplate =
+    args.promptTemplate === undefined
+      ? DEFAULT_PROMPT_PR_DESCRIPTION
+      : args.promptTemplate.trim();
+  const prompt = baseTemplate
+    ? buildPullRequestDescriptionPrompt({
+        baseTemplate,
+        baseBranch: context.baseBranch,
+        headBranch: context.headBranch,
+        commitLog: context.commitLog,
+        fileList: context.fileList,
+        diff: context.diff,
+        workingTreeDiff: context.workingTreeDiff,
+        prTemplateContent: context.prTemplateContent,
+        agentsContent: context.agentsContent,
+        workspaceContext: args.workspaceContext,
+      })
+    : "";
+  const suggestion = !prompt
+    ? { ok: false as const }
+    : args.providerId === "codex"
+      ? await suggestCodexPRDescription({
+          cwd: context.cwd,
+          prompt,
+          model: args.runtimeOptions?.model,
+          runtimeOptions: args.runtimeOptions,
+        })
+      : await suggestClaudePRDescription({
+          cwd: context.cwd,
+          prompt,
+          model: args.runtimeOptions?.model,
+        });
   const mergedDraft = mergePullRequestDraft({
     fallbackTitle: fallbackDraft.title,
     fallbackBody: fallbackDraft.body,

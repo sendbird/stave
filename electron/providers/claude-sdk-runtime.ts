@@ -4117,16 +4117,8 @@ export async function suggestClaudeCommitMessage(args: {
 
 export async function suggestClaudePRDescription(args: {
   cwd?: string;
-  diff: string;
-  workingTreeDiff: string;
-  commitLog: string;
-  fileList: string;
-  baseBranch: string;
-  headBranch: string;
-  prTemplateContent?: string;
-  agentsContent?: string;
-  promptTemplate?: string;
-  workspaceContext?: string;
+  prompt: string;
+  model?: string;
 }): Promise<{ ok: boolean; title?: string; body?: string }> {
   try {
     const mod = await getPrewarmedSdkModule();
@@ -4138,67 +4130,10 @@ export async function suggestClaudePRDescription(args: {
     }
 
     const claudeExecutablePath = getPrewarmedExecutablePath();
-
-    // An omitted prompt uses the built-in default; an explicitly empty prompt
-    // means the caller disabled PR description generation.
-    const { DEFAULT_PROMPT_PR_DESCRIPTION } =
-      await import("../../src/lib/providers/prompt-defaults");
-    const baseTemplate =
-      args.promptTemplate === undefined
-        ? DEFAULT_PROMPT_PR_DESCRIPTION
-        : args.promptTemplate.trim();
-    if (!baseTemplate) {
+    const prPrompt = args.prompt.trim();
+    if (!prPrompt) {
       return { ok: false };
     }
-
-    const prPrompt = [
-      ...(args.prTemplateContent
-        ? [
-            "Repository pull request template (highest priority for PR body structure):",
-            args.prTemplateContent.slice(0, 2000),
-            "",
-          ]
-        : []),
-      ...(args.agentsContent
-        ? [
-            "Repository guidelines from AGENTS.md (apply when consistent with the pull request template):",
-            args.agentsContent.slice(0, 2000),
-            "",
-          ]
-        : []),
-      ...(args.workspaceContext
-        ? [
-            "Current workspace context (treat this as the primary source of intent for the PR draft):",
-            args.workspaceContext.slice(0, 3000),
-            "",
-          ]
-        : []),
-      "Fallback PR generation instructions (use only for gaps not specified above):",
-      baseTemplate,
-      "",
-      `Base branch: ${args.baseBranch}`,
-      `Head branch: ${args.headBranch}`,
-      "",
-      "Commit log:",
-      args.commitLog || "(no commits)",
-      "",
-      "Changed files:",
-      args.fileList || "(no file list available)",
-      ...(args.diff.length > 0
-        ? [
-            "",
-            "Branch diff against the base branch (may be truncated):",
-            args.diff.slice(0, 6000),
-          ]
-        : []),
-      ...(args.workingTreeDiff.length > 0
-        ? [
-            "",
-            "Uncommitted working tree diff (may be truncated):",
-            args.workingTreeDiff.slice(0, 4000),
-          ]
-        : []),
-    ].join("\n");
 
     const stream = queryFn({
       prompt: prPrompt,
@@ -4206,7 +4141,7 @@ export async function suggestClaudePRDescription(args: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: "claude-haiku-4-5",
+        model: args.model?.trim() || "claude-haiku-4-5",
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),

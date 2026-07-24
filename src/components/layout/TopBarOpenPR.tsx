@@ -666,8 +666,21 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 cwd: workspaceCwd,
                 baseBranch: defaultBaseBranch,
                 headBranch: currentBranch || undefined,
+                providerId: activeTask?.provider,
                 promptTemplate: promptPrDescription,
                 workspaceContext: workspaceContext || undefined,
+                runtimeOptions:
+                  activeTask?.provider === "codex"
+                    ? {
+                        model: prePrReviewCodexModel,
+                        codexApprovalPolicy: "never",
+                        codexBinaryPath: prePrReviewCodexBinaryPath.trim() || undefined,
+                        codexFileAccess: "read-only",
+                        codexNetworkAccess: false,
+                        codexReasoningEffort: prePrReviewCodexReasoningEffort,
+                        codexWebSearch: "disabled",
+                      }
+                    : { model: prePrReviewClaudeModel },
               }),
             )
             .catch(() => undefined)
@@ -1802,14 +1815,16 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     </Select>
                   </div>
 
-                  <div className="flex min-w-0 items-center justify-between gap-3 sm:min-h-9 sm:justify-end">
-                    <div className="sm:text-right">
-                      <label className="text-sm font-medium" htmlFor="create-pr-auto-merge">
+                  <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:min-h-9 sm:w-auto">
+                    <div className="min-w-0 sm:text-right">
+                      <label className="block text-sm font-medium" htmlFor="create-pr-auto-merge">
                         Auto-merge
                       </label>
-                      {repoMergeSettings?.autoMergeAllowed === false ? (
-                        <p className="text-xs text-muted-foreground">Disabled by repository settings</p>
-                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        {repoMergeSettings?.autoMergeAllowed === false
+                          ? "Disabled by repository settings"
+                          : "Merge automatically after required checks pass."}
+                      </p>
                     </div>
                     <Switch
                       id="create-pr-auto-merge"

@@ -340,15 +340,17 @@ interface WindowProviderApi {
     cwd?: string;
   }) => Promise<{ ok: boolean; message?: string }>;
   /** Generates a PR title and description from the branch diff and commit log
-   *  using a lightweight single-turn Claude query. */
+   *  using a read-only single-turn query from the active task provider. */
   suggestPRDescription?: (args: {
     cwd?: string;
     baseBranch?: string;
     /** Workspace branch from the store — used as the authoritative branch
      *  name and for cwd validation on the main-process side. */
     headBranch?: string;
+    providerId?: ProviderId;
     promptTemplate?: string;
     workspaceContext?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<{
     ok: boolean;
     title?: string;
