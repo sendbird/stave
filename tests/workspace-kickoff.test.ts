@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { canApplyKickoffDialogOpenChange } from "@/components/layout/KickoffDialog.utils";
 import {
   DEFAULT_KICKOFF_SOURCE_CONFIGS,
   buildDeterministicKickoffProposal,
@@ -14,6 +15,18 @@ import { runWorkspaceKickoff } from "@/store/workspace-kickoff-actions";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
 describe("workspace kickoff", () => {
+  test("keeps the dialog open while kickoff work is in progress", () => {
+    expect(
+      canApplyKickoffDialogOpenChange({ open: false, busy: true }),
+    ).toBe(false);
+    expect(
+      canApplyKickoffDialogOpenChange({ open: false, busy: false }),
+    ).toBe(true);
+    expect(
+      canApplyKickoffDialogOpenChange({ open: true, busy: true }),
+    ).toBe(true);
+  });
+
   test("classifies Confluence before Jira on a shared host", () => {
     const classification = classifyKickoffSource({
       input: "https://example.atlassian.net/wiki/spaces/ENG/pages/123/Kickoff",
