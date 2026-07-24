@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createBridgeProviderSource } from "@/lib/providers/bridge.source";
+import type { ProviderSteerTurnResponse } from "@/lib/providers/provider.types";
 import {
   loadWorkspaceEditorTabBodies,
   loadWorkspaceShellLite,
@@ -4056,8 +4057,13 @@ describe("workspace store hydration ordering", () => {
       turnId: string;
       text: string;
       enabled?: boolean;
+      clientMessageId?: string;
     }> = [];
-    let nextSteerResult: { ok: boolean; message?: string } = { ok: true };
+    let nextSteerResult: ProviderSteerTurnResponse = {
+      ok: true,
+      delivery: "accepted",
+    };
+    let pendingSteerResult: Promise<ProviderSteerTurnResponse> | undefined;
 
     (globalThis as { window: unknown }).window = {
       localStorage,
@@ -4077,9 +4083,13 @@ describe("workspace store hydration ordering", () => {
           subscribeStreamEvents: () => () => {},
           abortTurn: async () => ({ ok: true, message: "aborted" }),
           cleanupTask: async () => ({ ok: true }),
-          steerTurn: async (args: { turnId: string; text: string }) => {
+          steerTurn: async (args: {
+            turnId: string;
+            text: string;
+            clientMessageId?: string;
+          }) => {
             steerCalls.push(args);
-            return nextSteerResult;
+            return pendingSteerResult ?? nextSteerResult;
           },
         },
         fs: {
@@ -4172,7 +4182,12 @@ describe("workspace store hydration ordering", () => {
       turnId: activeTurnId,
     });
     expect(steerCalls).toEqual([
-      { turnId: activeTurnId, text: "Steered follow-up", enabled: false },
+      {
+        turnId: activeTurnId,
+        text: "Steered follow-up",
+        enabled: false,
+        clientMessageId: expect.any(String),
+      },
     ]);
     const steeredState = useAppStore.getState();
     expect(
@@ -4180,15 +4195,54 @@ describe("workspace store hydration ordering", () => {
         (item) => item.content,
       ),
     ).toEqual(["Untagged follow-up", "Explicitly queued follow-up"]);
-    expect(steeredState.messagesByTask["task-main"]?.at(-1)).toMatchObject({
+    expect(steeredState.messagesByTask["task-main"]?.at(-2)).toMatchObject({
       role: "user",
       content: "Steered follow-up",
       steeredIntoTurnId: activeTurnId,
+      steerDeliveryState: "accepted",
     });
+    expect(steeredState.messagesByTask["task-main"]?.at(-1)).toMatchObject({
+      role: "assistant",
+      isStreaming: true,
+    });
+
+    // A delayed steer acknowledgement must not erase a newer draft written
+    // while the request was in flight (task switches and external store
+    // updates can still race even though the active composer is disabled).
+    let resolveDelayedSteer:
+      | ((result: ProviderSteerTurnResponse) => void)
+      | undefined;
+    pendingSteerResult = new Promise((resolve) => {
+      resolveDelayedSteer = resolve;
+    });
+    useAppStore.getState().updatePromptDraft({
+      taskId: "task-main",
+      patch: { text: "Delayed steer" },
+    });
+    const delayedSteerPromise = useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Delayed steer",
+      submitIntent: "steer",
+    });
+    useAppStore.getState().updatePromptDraft({
+      taskId: "task-main",
+      patch: { text: "Newer unsent draft" },
+    });
+    resolveDelayedSteer?.({ ok: true, delivery: "accepted" });
+    const delayedSteerResult = await delayedSteerPromise;
+    expect(delayedSteerResult).toMatchObject({ status: "steered" });
+    expect(
+      useAppStore.getState().promptDraftByTask["task-main"]?.text,
+    ).toBe("Newer unsent draft");
+    pendingSteerResult = undefined;
 
     // Explicit submitIntent: "steer" that the backend rejects surfaces
     // `steer-unavailable` and does NOT fall back to queueing the message.
-    nextSteerResult = { ok: false, message: "turn not steerable" };
+    nextSteerResult = {
+      ok: false,
+      delivery: "rejected",
+      message: "turn not steerable",
+    };
     const rejectedSteerResult = await useAppStore.getState().sendUserMessage({
       taskId: "task-main",
       content: "Rejected steer",
@@ -4208,7 +4262,33 @@ describe("workspace store hydration ordering", () => {
     ).toEqual(["Untagged follow-up", "Explicitly queued follow-up"]);
     expect(
       afterRejectionState.messagesByTask["task-main"]?.at(-1),
-    ).toMatchObject({ content: "Steered follow-up" });
+    ).toMatchObject({ role: "assistant", isStreaming: true });
+
+    nextSteerResult = {
+      ok: false,
+      delivery: "unknown",
+      message: "delivery acknowledgement timed out",
+    };
+    useAppStore.getState().updatePromptDraft({
+      taskId: "task-main",
+      patch: { text: "Unconfirmed steer" },
+    });
+    const messageCountBeforeUnknown =
+      useAppStore.getState().messagesByTask["task-main"]?.length;
+    const unknownResult = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Unconfirmed steer",
+      submitIntent: "steer",
+    });
+    expect(unknownResult).toMatchObject({
+      status: "steer-delivery-unknown",
+    });
+    expect(
+      useAppStore.getState().promptDraftByTask["task-main"]?.text,
+    ).toBe("Unconfirmed steer");
+    expect(
+      useAppStore.getState().messagesByTask["task-main"]?.length,
+    ).toBe(messageCountBeforeUnknown);
   });
 
   test("auto-dispatches Codex /goal objectives after the goal is set", async () => {

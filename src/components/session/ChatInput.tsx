@@ -229,6 +229,8 @@ interface ChatInputComposerProps {
 function ChatInputComposer(args: ChatInputComposerProps) {
   const [focusNonce, setFocusNonce] = useState(0);
   const [guidanceFocusNonce, setGuidanceFocusNonce] = useState(0);
+  const pendingSteerTaskIdsRef = useRef(new Set<string>());
+  const [, setPendingSteerRevision] = useState(0);
   const [
     promptDraft,
     promptFocusNonce,
@@ -312,6 +314,18 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     [activeTaskMessages],
   );
   const isInputBlocked = pendingApproval != null || pendingUserInput != null;
+  const isSteerSubmitting = pendingSteerTaskIdsRef.current.has(
+    args.providerSelectionTarget,
+  );
+
+  function setSteerSubmissionPending(taskId: string, pending: boolean) {
+    if (pending) {
+      pendingSteerTaskIdsRef.current.add(taskId);
+    } else {
+      pendingSteerTaskIdsRef.current.delete(taskId);
+    }
+    setPendingSteerRevision((revision) => revision + 1);
+  }
 
   const compareRunsById = useAppStore((state) => state.compareRunsById);
   const recentCompareRuns = useMemo(
@@ -909,6 +923,19 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             <span>Running · {runningDurationLabel}</span>
           </div>
         ) : null}
+        {isSteerSubmitting ? (
+          <div
+            className="mb-2 flex items-center gap-1.5 px-1 text-xs text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className="size-1.5 animate-pulse rounded-full bg-primary"
+              aria-hidden
+            />
+            <span>Steering · waiting for provider acknowledgement</span>
+          </div>
+        ) : null}
         {providerTurnDisplayState === "stalled" ? (
           <div className="mb-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-muted-foreground dark:bg-warning/15">
             <div className="flex flex-wrap items-center gap-2">
@@ -928,7 +955,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           focusToken={`${args.providerSelectionTarget}:${focusNonce}`}
           value={draftText}
           onBlur={commitCurrentDraftText}
-          disabled={isInputBlocked}
+          disabled={isInputBlocked || isSteerSubmitting}
           windowShortcutsEnabled={args.windowShortcutsEnabled}
           isTurnActive={args.isTurnActive}
           leadingToolbarAction={
@@ -1156,15 +1183,27 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             return args.onLocalChangeReview(request);
           }}
           onSubmit={async ({ text, filePaths, intent }) => {
+            const steerSubmission = intent === "steer";
+            const submissionTaskId = args.providerSelectionTarget;
+            if (
+              steerSubmission &&
+              pendingSteerTaskIdsRef.current.has(submissionTaskId)
+            ) {
+              return;
+            }
             cancelPendingDraftSave();
             const submittedDraft = {
-              taskId: args.providerSelectionTarget,
+              taskId: submissionTaskId,
               text: draftTextRef.current,
             };
-            adoptPromptDraftText({
-              taskId: submittedDraft.taskId,
-              text: "",
-            });
+            if (steerSubmission) {
+              setSteerSubmissionPending(submissionTaskId, true);
+            } else {
+              adoptPromptDraftText({
+                taskId: submittedDraft.taskId,
+                text: "",
+              });
+            }
             const restoreSubmittedDraft = () => {
               if (
                 syncedDraftRef.current.taskId !== submittedDraft.taskId ||
@@ -1174,6 +1213,20 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               }
               adoptPromptDraftText(submittedDraft);
               commitPromptDraftText(submittedDraft);
+            };
+            const clearSubmittedDraft = () => {
+              if (
+                syncedDraftRef.current.taskId !== submittedDraft.taskId ||
+                draftTextRef.current !== submittedDraft.text
+              ) {
+                return;
+              }
+              const clearedDraft = {
+                taskId: submittedDraft.taskId,
+                text: "",
+              };
+              adoptPromptDraftText(clearedDraft);
+              commitPromptDraftText(clearedDraft);
             };
             try {
               for (const fp of filePaths) {
@@ -1214,7 +1267,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   imageContexts.length > 0 ? imageContexts : undefined,
                 submitIntent: intent,
               });
-              if (result.status === "blocked") {
+              if (result.status === "steered") {
+                clearSubmittedDraft();
+              } else if (result.status === "blocked") {
                 restoreSubmittedDraft();
               } else if (result.status === "steer-unavailable") {
                 // Explicit steer request failed — restore the draft instead
@@ -1224,10 +1279,18 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                 toast.error("Couldn't steer this turn", {
                   description: result.message,
                 });
+              } else if (result.status === "steer-delivery-unknown") {
+                toast.warning("Steer delivery is unconfirmed", {
+                  description: result.message,
+                });
               }
             } catch (error) {
               restoreSubmittedDraft();
               throw error;
+            } finally {
+              if (steerSubmission) {
+                setSteerSubmissionPending(submissionTaskId, false);
+              }
             }
           }}
           onAbort={() => abortTaskTurn({ taskId: args.activeTaskId })}

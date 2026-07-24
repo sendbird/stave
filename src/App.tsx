@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
+import { presentLensSession } from "@/components/panes/pane-host-controller";
 import { TooltipProvider } from "@/components/ui";
 import type { LensSecurityConfig } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
+import { toast } from "sonner";
 
 function buildLensSecurityConfig(): LensSecurityConfig {
   const settings = useAppStore.getState().settings;
@@ -21,11 +23,33 @@ function pushLensSecurityConfig(): void {
 
 export default function App() {
   useEffect(() => {
+    const unsubscribe = window.api?.lens?.subscribePresentationRequests?.(
+      (payload) => {
+        void presentLensSession(payload)
+          .then((presented) => {
+            const reason = payload.reason?.trim();
+            if (presented && reason) {
+              toast.info("Lens opened for agent", { description: reason });
+            }
+          })
+          .catch((error) => {
+            console.error("[lens] Failed to present session", error);
+          });
+      },
+    );
+    return () => {
+      unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
     pushLensSecurityConfig();
     const unsubscribe = useAppStore.subscribe((state, prevState) => {
       if (
-        state.settings.lensAllowedHosts === prevState.settings.lensAllowedHosts &&
-        state.settings.lensBlockedHosts === prevState.settings.lensBlockedHosts &&
+        state.settings.lensAllowedHosts ===
+          prevState.settings.lensAllowedHosts &&
+        state.settings.lensBlockedHosts ===
+          prevState.settings.lensBlockedHosts &&
         state.settings.lensDeveloperModeCdp ===
           prevState.settings.lensDeveloperModeCdp &&
         state.settings.lensCdpApprovedHosts ===
@@ -43,7 +67,8 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    const setBootstrapStatus = useAppStore.getState().setPersistenceBootstrapStatus;
+    const setBootstrapStatus =
+      useAppStore.getState().setPersistenceBootstrapStatus;
     const unsubscribeBootstrapStatus =
       window.api?.persistence?.subscribeBootstrapStatus?.((payload) => {
         setBootstrapStatus(payload);
@@ -92,7 +117,10 @@ export default function App() {
   useEffect(() => {
     let timer: number | null = null;
 
-    const scheduleSnapshotFlush = (state: ReturnType<typeof useAppStore.getState>, delayMs: number) => {
+    const scheduleSnapshotFlush = (
+      state: ReturnType<typeof useAppStore.getState>,
+      delayMs: number,
+    ) => {
       if (timer !== null) {
         window.clearTimeout(timer);
         timer = null;
@@ -109,17 +137,18 @@ export default function App() {
     scheduleSnapshotFlush(useAppStore.getState(), 1200);
     const unsubscribe = useAppStore.subscribe((state, prevState) => {
       if (
-        state.hasHydratedWorkspaces === prevState.hasHydratedWorkspaces
-        && state.activeWorkspaceId === prevState.activeWorkspaceId
-        && state.workspaceSnapshotVersion === prevState.workspaceSnapshotVersion
-        && state.promptDraftPersistenceVersion === prevState.promptDraftPersistenceVersion
+        state.hasHydratedWorkspaces === prevState.hasHydratedWorkspaces &&
+        state.activeWorkspaceId === prevState.activeWorkspaceId &&
+        state.workspaceSnapshotVersion === prevState.workspaceSnapshotVersion &&
+        state.promptDraftPersistenceVersion ===
+          prevState.promptDraftPersistenceVersion
       ) {
         return;
       }
       const structuralChange =
-        state.hasHydratedWorkspaces !== prevState.hasHydratedWorkspaces
-        || state.activeWorkspaceId !== prevState.activeWorkspaceId
-        || state.workspaceSnapshotVersion !== prevState.workspaceSnapshotVersion;
+        state.hasHydratedWorkspaces !== prevState.hasHydratedWorkspaces ||
+        state.activeWorkspaceId !== prevState.activeWorkspaceId ||
+        state.workspaceSnapshotVersion !== prevState.workspaceSnapshotVersion;
       scheduleSnapshotFlush(state, structuralChange ? 1200 : 5000);
     });
 
@@ -148,14 +177,14 @@ export default function App() {
     };
     const unsubscribe = useAppStore.subscribe((state, prevState) => {
       if (
-        state.projectPath === prevState.projectPath
-        && state.projectName === prevState.projectName
-        && state.activeWorkspaceId === prevState.activeWorkspaceId
-        && state.workspaces === prevState.workspaces
-        && state.recentProjects === prevState.recentProjects
-        && state.workspaceBranchById === prevState.workspaceBranchById
-        && state.workspacePathById === prevState.workspacePathById
-        && state.workspaceDefaultById === prevState.workspaceDefaultById
+        state.projectPath === prevState.projectPath &&
+        state.projectName === prevState.projectName &&
+        state.activeWorkspaceId === prevState.activeWorkspaceId &&
+        state.workspaces === prevState.workspaces &&
+        state.recentProjects === prevState.recentProjects &&
+        state.workspaceBranchById === prevState.workspaceBranchById &&
+        state.workspacePathById === prevState.workspacePathById &&
+        state.workspaceDefaultById === prevState.workspaceDefaultById
       ) {
         return;
       }

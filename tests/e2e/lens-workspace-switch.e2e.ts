@@ -86,8 +86,19 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       lensSessionId?: string;
       bounds: { x: number; y: number; width: number; height: number };
     };
+    type LensPresentationPayload = {
+      workspaceId: string;
+      lensSessionId: string;
+      reason?: string;
+    };
     const lensVisibilityCalls: LensVisibilityCall[] = [];
     const lensBoundsCalls: LensBoundsCall[] = [];
+    const lensOpenCalls: Array<{
+      workspaceId: string;
+      lensSessionId: string;
+    }> = [];
+    let lensPresentationListener:
+      ((payload: LensPresentationPayload) => void) | null = null;
     let releaseLensOpen: (() => void) | null = null;
     const lensOpenGate = new Promise<void>((resolve) => {
       releaseLensOpen = resolve;
@@ -95,6 +106,13 @@ test("workspace switch with an open Lens keeps the active task surface visible",
     Object.assign(window, {
       __lensVisibilityCalls: lensVisibilityCalls,
       __lensBoundsCalls: lensBoundsCalls,
+      __lensOpenCalls: lensOpenCalls,
+      __presentLensSession: (payload: LensPresentationPayload) => {
+        if (!lensPresentationListener) {
+          throw new Error("Lens presentation subscriber is not ready");
+        }
+        lensPresentationListener(payload);
+      },
       __releaseLensOpen: () => releaseLensOpen?.(),
       __lensVisibilityMarker: 0,
     });
@@ -105,6 +123,7 @@ test("workspace switch with an open Lens keeps the active task surface visible",
         workspaceId: string;
         lensSessionId: string;
       }) => {
+        lensOpenCalls.push(args);
         await lensOpenGate;
         return {
           ok: true,
@@ -149,6 +168,16 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       subscribeNetworkEvents: () => unsubscribe,
       subscribeVisualCommentShortcutEvents: () => unsubscribe,
       subscribeStateChangedEvents: () => unsubscribe,
+      subscribePresentationRequests: (
+        listener: (payload: LensPresentationPayload) => void,
+      ) => {
+        lensPresentationListener = listener;
+        return () => {
+          if (lensPresentationListener === listener) {
+            lensPresentationListener = null;
+          }
+        };
+      },
     };
     const terminalMock = {
       runCommand: async () => ({
@@ -203,12 +232,41 @@ test("workspace switch with an open Lens keeps the active task surface visible",
   const sessionArea = page.getByTestId("session-area");
 
   await expect(alphaTaskChip).toBeVisible();
-  await page.getByRole("button", { name: "Lens", exact: true }).click();
+  await page.evaluate(() => {
+    const target = window as unknown as {
+      __presentLensSession: (payload: {
+        workspaceId: string;
+        lensSessionId: string;
+        reason?: string;
+      }) => void;
+    };
+    target.__presentLensSession({
+      workspaceId: "ws-alpha",
+      lensSessionId: "agent-lens",
+      reason: "Verify the page",
+    });
+  });
   await expect(page.getByTestId("lens-surface-panel")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const target = window as unknown as {
+          __lensOpenCalls: Array<{
+            workspaceId: string;
+            lensSessionId: string;
+          }>;
+        };
+        return target.__lensOpenCalls.at(-1);
+      }),
+    )
+    .toMatchObject({
+      workspaceId: "ws-alpha",
+      lensSessionId: "agent-lens",
+    });
 
-  // Resolve the pending native view creation from the same click that hides
-  // Lens, then switch workspaces before Dockview's layout settles. This used
-  // to restore the selected task tab with an empty tabpanel.
+  // Resolve the pending native view creation from the same task click that
+  // hides Lens, then switch workspaces before Dockview's layout settles. This
+  // used to restore the selected task tab with an empty tabpanel.
   await alphaTaskChip.evaluate((element) => {
     element.addEventListener(
       "click",

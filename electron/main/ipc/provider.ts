@@ -280,7 +280,11 @@ export function registerProviderHandlers() {
   ipcMain.handle("provider:steer-turn", (_event, args: unknown) => {
     const parsedArgs = SteerTurnArgsSchema.safeParse(args);
     if (!parsedArgs.success) {
-      return { ok: false, message: "Invalid steer-turn request." };
+      return {
+        ok: false,
+        message: "Invalid steer-turn request.",
+        delivery: "rejected" as const,
+      };
     }
     return invokeHostService("provider.steer-turn", parsedArgs.data);
   });

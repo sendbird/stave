@@ -129,7 +129,11 @@ export function attachBrowserSessionEventListeners(
   wc.on("did-navigate", () => {
     // New document: drop the previous page's favicon until the new page
     // reports one via page-favicon-updated.
-    updateNavigationState(workspaceId, { faviconUrl: undefined }, lensSessionId);
+    updateNavigationState(
+      workspaceId,
+      { faviconUrl: undefined },
+      lensSessionId,
+    );
     sendNavUpdate();
   });
   wc.on("did-navigate-in-page", sendNavUpdate);
@@ -249,9 +253,9 @@ export function attachBrowserSessionEventListeners(
       : null;
     if (session && annotationPrefix && message.startsWith(annotationPrefix)) {
       try {
-        const payload = JSON.parse(message.slice(annotationPrefix.length)) as
-          | Omit<LensAnnotationEventPayload, "workspaceId">
-          | null;
+        const payload = JSON.parse(
+          message.slice(annotationPrefix.length),
+        ) as Omit<LensAnnotationEventPayload, "workspaceId"> | null;
         if (payload?.type) {
           if (
             (payload.type === "add" || payload.type === "update") &&
@@ -315,10 +319,12 @@ export function attachBrowserSessionEventListeners(
 
 export function ensureBrowserSessionWithEvents(
   workspaceId: string,
-  options?: { managedByMcp?: boolean; lensSessionId?: string } & Omit<
-    LensSessionProfileArgs,
-    "workspaceId"
-  >,
+  options?: {
+    managedByMcp?: boolean;
+    lensSessionId?: string;
+    /** Keep a live session intact while a renderer tab adopts it. */
+    reuseExisting?: boolean;
+  } & Omit<LensSessionProfileArgs, "workspaceId">,
 ): {
   session: BrowserSessionState;
   created: boolean;
@@ -327,14 +333,15 @@ export function ensureBrowserSessionWithEvents(
   const existing = getBrowserSession(workspaceId, lensSessionId);
   if (
     existing &&
-    browserSessionUsesProfile(
-      workspaceId,
-      {
-        sessionScope: options?.sessionScope,
-        projectKey: options?.projectKey,
-      },
-      lensSessionId,
-    )
+    (options?.reuseExisting === true ||
+      browserSessionUsesProfile(
+        workspaceId,
+        {
+          sessionScope: options?.sessionScope,
+          projectKey: options?.projectKey,
+        },
+        lensSessionId,
+      ))
   ) {
     return { session: existing, created: false };
   }

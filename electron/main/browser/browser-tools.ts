@@ -14,12 +14,11 @@ import {
 } from "../ipc/schemas";
 import {
   destroyBrowserSession,
-  getBrowserSession,
-  getWebContentsForSession,
   listBrowserSessions,
-  setViewVisible,
+  resolvePreferredBrowserSession,
 } from "./browser-manager";
-import { ensureBrowserSessionWithEvents } from "./browser-session-events";
+import { acquireMcpBrowserSession } from "./browser-session-resolver";
+import { requestLensSessionPresentation } from "./browser-session-presentation";
 import { normalizeLensUrl } from "./browser-url";
 
 import {
@@ -60,16 +59,9 @@ function toStructuredResult<T>(value: T) {
   };
 }
 
-function requireSession(workspaceId: string, lensSessionId?: string) {
-  const session = getBrowserSession(workspaceId, lensSessionId);
-  if (!session) {
-    throw new Error(
-      `No browser session for workspace "${workspaceId}"${
-        lensSessionId ? ` and lens session "${lensSessionId}"` : ""
-      }. Open the Lens panel or call stave_lens_open_session first.`,
-    );
-  }
-  return session;
+async function acquireSession(workspaceId: string, lensSessionId?: string) {
+  return (await acquireMcpBrowserSession({ workspaceId, lensSessionId }))
+    .session;
 }
 
 function clampPositiveInteger(
@@ -105,14 +97,14 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_open_session",
     {
       description:
-        "Open or reuse a hidden workspace Lens browser session so agents can inspect a live page without the user opening the right rail panel first.",
+        "Open or reuse a workspace Lens browser session. When no id is given, this reuses the visible/recent Lens tab or creates a hidden default session.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         lensSessionId: z
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         url: z
           .string()
@@ -122,7 +114,7 @@ export function registerBrowserTools(server: McpServer): void {
           .enum(["project", "workspace"])
           .optional()
           .describe(
-            "Optional Lens browser storage scope. Defaults to workspace when projectKey is omitted.",
+            "Optional Lens browser storage scope. Defaults to the owning project when Stave can resolve it, otherwise the workspace.",
           ),
         projectKey: z
           .string()
@@ -133,15 +125,12 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, url, sessionScope, projectKey }) => {
-      const { session, created } = ensureBrowserSessionWithEvents(workspaceId, {
-        managedByMcp: true,
+      const { session, created } = await acquireMcpBrowserSession({
+        workspaceId,
         sessionScope,
         projectKey,
         lensSessionId,
       });
-      if (created) {
-        setViewVisible(workspaceId, false, session.lensSessionId);
-      }
 
       if (url?.trim()) {
         const targetUrl = normalizeLensUrl(url);
@@ -188,7 +177,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, selects the visible/recent session without creating one.",
           ),
         force: z
           .boolean()
@@ -199,7 +188,10 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, force }) => {
-      const session = getBrowserSession(workspaceId, lensSessionId);
+      const session = resolvePreferredBrowserSession(
+        workspaceId,
+        lensSessionId,
+      );
       const existed = Boolean(session);
       if (session && !session.managedByMcp && force !== true) {
         return toStructuredResult({
@@ -209,8 +201,59 @@ export function registerBrowserTools(server: McpServer): void {
             "Lens session is owned by the UI panel. Pass force=true to close it.",
         });
       }
-      destroyBrowserSession(workspaceId, lensSessionId);
+      if (session) {
+        destroyBrowserSession(workspaceId, session.lensSessionId);
+      }
       return toStructuredResult({ ok: true, closed: existed });
+    },
+  );
+
+  // ---- Present session in the UI ----
+  server.registerTool(
+    "stave_lens_present_session",
+    {
+      description:
+        "Reveal the same Lens session in Stave for user interaction, login, or visual confirmation. Keep routine agent inspection hidden.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            "Exact Lens session id. When omitted, selects the visible/recent workspace session.",
+          ),
+        reason: z
+          .string()
+          .max(500)
+          .optional()
+          .describe("Short user-facing reason the session needs to be shown"),
+      },
+    },
+    async ({ workspaceId, lensSessionId, reason }) => {
+      const { session, created } = await acquireMcpBrowserSession({
+        workspaceId,
+        lensSessionId,
+      });
+      const requested = requestLensSessionPresentation({
+        workspaceId,
+        lensSessionId: session.lensSessionId,
+        reason,
+      });
+      return toStructuredResult({
+        ok: requested,
+        requested,
+        created,
+        session: {
+          workspaceId: session.workspaceId,
+          lensSessionId: session.lensSessionId,
+          url: session.view.webContents.getURL(),
+          title: session.view.webContents.getTitle(),
+          isLoading: session.view.webContents.isLoading(),
+        },
+        ...(!requested
+          ? { message: "Stave renderer is not available to show Lens." }
+          : {}),
+      });
     },
   );
 
@@ -219,22 +262,21 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_navigate",
     {
       description:
-        "Navigate the workspace Lens browser to a URL. Open a session first with stave_lens_open_session or the right rail Lens panel.",
+        "Navigate the preferred workspace Lens session to a URL, creating a hidden default session automatically when needed.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         lensSessionId: z
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         url: z.string().describe("URL to navigate to"),
       },
     },
     async ({ workspaceId, lensSessionId, url }) => {
-      requireSession(workspaceId, lensSessionId);
-      const wc = getWebContentsForSession(workspaceId, lensSessionId);
-      if (!wc) throw new Error("WebContents not available");
+      const session = await acquireSession(workspaceId, lensSessionId);
+      const wc = session.view.webContents;
 
       const targetUrl = normalizeLensUrl(url);
       assertNavigationAllowed(targetUrl);
@@ -352,7 +394,7 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, username, submit }) => {
-      const session = requireSession(workspaceId);
+      const session = await acquireSession(workspaceId);
       const result = await fillLensCredentialForWebContents(
         session.view.webContents,
         { submit: submit === true, username },
@@ -373,7 +415,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         fullPage: z
           .boolean()
@@ -396,7 +438,7 @@ export function registerBrowserTools(server: McpServer): void {
         );
       }
 
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
 
       let clip:
         { x: number; y: number; width: number; height: number } | undefined;
@@ -444,7 +486,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         selector: z
           .string()
@@ -461,7 +503,7 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, selector, maxChars }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       let html = await getDocumentHTML(session.view.webContents.id, selector);
       const resolvedMaxChars = clampPositiveInteger(maxChars, {
         defaultValue: DEFAULT_HTML_MAX_CHARS,
@@ -490,13 +532,13 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         selector: z.string().describe("CSS selector of the target element"),
       },
     },
     async ({ workspaceId, lensSessionId, selector }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const text = await getTextContent(session.view.webContents.id, selector);
       return toStructuredResult({ ok: true, text });
     },
@@ -514,7 +556,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         expression: z
           .string()
@@ -522,7 +564,7 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, expression }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const result = await evaluateExpression(
         session.view.webContents.id,
         expression,
@@ -543,7 +585,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         limit: z
           .number()
@@ -554,7 +596,7 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, limit }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const entries = session.consoleLog.toArray();
       const n = clampPositiveInteger(limit, {
         defaultValue: DEFAULT_LOG_LIMIT,
@@ -581,7 +623,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         limit: z
           .number()
@@ -592,7 +634,7 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, limit }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const entries = session.networkLog.toArray();
       const n = clampPositiveInteger(limit, {
         defaultValue: DEFAULT_LOG_LIMIT,
@@ -619,7 +661,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         url: z.string().describe("HTTP(S) URL to download"),
         filename: z
@@ -629,7 +671,7 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, url, filename }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const targetUrl = normalizeLensUrl(url);
       assertNavigationAllowed(targetUrl);
       const entry = await triggerDownloadByUrl(
@@ -653,7 +695,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         limit: z
           .number()
@@ -664,7 +706,7 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, limit }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const entries = session.downloadLog.toArray();
       const n = clampPositiveInteger(limit, {
         defaultValue: DEFAULT_LOG_LIMIT,
@@ -691,12 +733,12 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
       },
     },
     async ({ workspaceId, lensSessionId }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const annotations = await session.view.webContents.executeJavaScript(
         "window.__staveGetAnnotations?.() ?? []",
       );
@@ -716,7 +758,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         selector: z.string().describe("CSS selector of the target element"),
         style: z
@@ -727,7 +769,7 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, selector, style }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const edits = await setElementStyle(
         session.view.webContents.id,
         selector,
@@ -749,13 +791,13 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         selector: z.string().describe("CSS selector of the element to inspect"),
       },
     },
     async ({ workspaceId, lensSessionId, selector }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const box = await getElementBoxModel(
         session.view.webContents.id,
         selector,
@@ -776,14 +818,14 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         selectorA: z.string().describe("CSS selector of the first element"),
         selectorB: z.string().describe("CSS selector of the second element"),
       },
     },
     async ({ workspaceId, lensSessionId, selectorA, selectorB }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const result = await measureElements(
         session.view.webContents.id,
         selectorA,
@@ -805,13 +847,13 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         selector: z.string().describe("CSS selector of the element to click"),
       },
     },
     async ({ workspaceId, lensSessionId, selector }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       await clickElement(session.view.webContents.id, selector);
       return toStructuredResult({ ok: true });
     },
@@ -829,7 +871,7 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         text: z.string().describe("Text to type"),
         selector: z
@@ -839,7 +881,7 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, text, selector }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       await typeText(session.view.webContents.id, text, selector);
       return toStructuredResult({ ok: true });
     },
@@ -857,12 +899,12 @@ export function registerBrowserTools(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Lens session id within the workspace (defaults to "default", the session the Lens panel uses)',
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
       },
     },
     async ({ workspaceId, lensSessionId }) => {
-      const session = requireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId);
       const tree = await getAccessibilitySnapshot(session.view.webContents.id);
       return toStructuredResult({ ok: true, tree });
     },

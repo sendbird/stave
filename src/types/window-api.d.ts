@@ -15,6 +15,8 @@ import type {
   CodexPluginInstallResponse,
   ProviderId,
   ProviderRuntimeOptions,
+  ProviderSteerTurnRequest,
+  ProviderSteerTurnResponse,
   CodexReviewStartResponse,
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
@@ -80,6 +82,7 @@ import type {
 } from "@/lib/workspace-scripts/types";
 import type { PersistenceBootstrapStatus } from "@/lib/persistence/bootstrap-status";
 import type { GraphCommit } from "@/lib/git-graph/types";
+import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.types";
 
 interface ProviderStreamTurnArgs {
   turnId?: string;
@@ -135,11 +138,9 @@ interface WindowProviderApi {
   abortTurn?: (args: {
     turnId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
-  steerTurn?: (args: {
-    turnId: string;
-    text: string;
-    enabled?: boolean;
-  }) => Promise<{ ok: boolean; message?: string }>;
+  steerTurn?: (
+    args: ProviderSteerTurnRequest,
+  ) => Promise<ProviderSteerTurnResponse>;
   cleanupTask?: (args: {
     taskId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
@@ -1837,7 +1838,10 @@ interface WindowLensApi {
     ok: boolean;
     sessions?: LensSessionDescriptor[];
   }>;
-  destroyView?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{ ok: boolean }>;
+  destroyView?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{ ok: boolean }>;
   clearSessionData?: (args: LensSessionProfileArgs) => Promise<{
     ok: boolean;
     sessionScope?: LensSessionScope;
@@ -1858,10 +1862,22 @@ interface WindowLensApi {
     lensSessionId?: string;
     url: string;
   }) => Promise<{ ok: boolean; message?: string }>;
-  goBack?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{ ok: boolean }>;
-  goForward?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{ ok: boolean }>;
-  reload?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{ ok: boolean }>;
-  getState?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{
+  goBack?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{ ok: boolean }>;
+  goForward?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{ ok: boolean }>;
+  reload?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{ ok: boolean }>;
+  getState?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{
     ok: boolean;
     state?: LensNavigationState;
     annotationModeActive?: boolean;
@@ -1895,14 +1911,20 @@ interface WindowLensApi {
     url: string;
     filename?: string;
   }) => Promise<{ ok: boolean; entry?: LensDownloadEntry; message?: string }>;
-  downloadPageAssets?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{
+  downloadPageAssets?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{
     ok: boolean;
     assetUrls?: string[];
     entries?: LensDownloadEntry[];
     errors?: Array<{ url: string; message: string }>;
     message?: string;
   }>;
-  listDownloads?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{
+  listDownloads?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{
     ok: boolean;
     entries?: LensDownloadEntry[];
     message?: string;
@@ -1961,7 +1983,10 @@ interface WindowLensApi {
     workspaceId: string;
     lensSessionId?: string;
   }) => Promise<{ ok: boolean; message?: string }>;
-  getAnnotations?: (args: { workspaceId: string; lensSessionId?: string }) => Promise<{
+  getAnnotations?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{
     ok: boolean;
     annotations?: LensAnnotation[];
     message?: string;
@@ -1986,6 +2011,9 @@ interface WindowLensApi {
   ) => () => void;
   subscribeStateChangedEvents?: (
     listener: (payload: LensStateChangedPayload) => void,
+  ) => () => void;
+  subscribePresentationRequests?: (
+    listener: (payload: LensSessionPresentationRequestPayload) => void,
   ) => () => void;
   subscribeCdpApprovalRequests?: (
     listener: (payload: LensCdpApprovalRequestPayload) => void,

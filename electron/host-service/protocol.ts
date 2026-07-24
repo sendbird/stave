@@ -16,6 +16,7 @@ import type {
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
   CodexReviewStartResponse,
+  ProviderSteerTurnResponse,
   RateLimitsSnapshotResponse,
 } from "../../src/lib/providers/provider.types";
 import type {
@@ -476,6 +477,8 @@ export interface HostServiceRequestMap {
   "provider.steer-turn": {
     turnId: string;
     text: string;
+    enabled?: boolean;
+    clientMessageId?: string;
   };
   "provider.check-availability": {
     providerId: StreamTurnArgs["providerId"];
@@ -805,7 +808,7 @@ export interface HostServiceResponseMap {
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;
-  "provider.steer-turn": HostProviderMutationResult;
+  "provider.steer-turn": ProviderSteerTurnResponse;
   "provider.check-availability": {
     ok: boolean;
     available: boolean;

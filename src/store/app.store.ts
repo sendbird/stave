@@ -188,17 +188,16 @@ import {
   type WorkspaceCliSessionTab,
   type WorkspaceTerminalTab,
 } from "@/lib/terminal/types";
-import {
-  buildPanePanelId,
-  parsePanePanelId,
-} from "@/lib/panes/types";
+import { buildPanePanelId, parsePanePanelId } from "@/lib/panes/types";
 import {
   reduceActiveSurfaceFromPane,
   reduceCloseCompareRun,
   reduceCloseLensTab,
   reduceCloseTaskTab,
+  reduceOpenLensTab,
   reducePaneTabMeta,
   removePaneTabMetaEntry,
+  resolveCreatedLensSessionId,
   type WorkspacePaneStoreActions,
   type WorkspacePaneStoreState,
 } from "@/store/workspace-pane-state";
@@ -297,6 +296,7 @@ import {
   createProviderTurnEventController,
   runProviderTurn,
 } from "@/store/provider-turn-runtime";
+import { submitSteerWithDeadline } from "@/store/steer-submit";
 import {
   applyPendingProviderEventsToStoreState,
   createWorkspaceSessionStateFromAppState,
@@ -323,9 +323,7 @@ import type {
   PromptDraftQueuedTurn,
   Task,
 } from "@/types/chat";
-import {
-  shouldIncludeImageAttachmentAsProviderContext,
-} from "@/lib/lens/lens-annotation-attachment";
+import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-annotation-attachment";
 import {
   buildPromptDraftContentForSend,
   buildPromptDraftDisplayContentForSend,
@@ -468,10 +466,7 @@ import {
 
 const LOCAL_ABORT_SYSTEM_EVENT_CONTENT =
   "Generation was stopped locally before completion.";
-
-export {
-  WORKSPACE_SIDEBAR_MIN_WIDTH,
-} from "@/store/layout.utils";
+export { WORKSPACE_SIDEBAR_MIN_WIDTH } from "@/store/layout.utils";
 export type { LayoutState } from "@/store/layout.utils";
 export {
   THEME_TOKEN_NAMES,
@@ -520,6 +515,12 @@ type SendUserMessageResult =
   | { status: "blocked" }
   | { status: "queued"; taskId: string; workspaceId: string }
   | { status: "steered"; taskId: string; workspaceId: string; turnId: string }
+  | {
+      status: "steer-delivery-unknown";
+      taskId: string;
+      workspaceId: string;
+      message: string;
+    }
   | {
       status: "steer-unavailable";
       taskId: string;
@@ -1272,7 +1273,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
 }
 
 interface AppState
-  extends WorkspaceKickoffActions,
+  extends
+    WorkspaceKickoffActions,
     WorkspacePaneStoreState,
     WorkspacePaneStoreActions {
   hasHydratedWorkspaces: boolean;
@@ -3249,7 +3251,9 @@ export const useAppStore = create<AppState>()(
                   workspaceId: owningWorkspaceId,
                 })
               : null;
-            if (owningSession?.activeTurnIdsByTask[args.taskId] !== args.turnId) {
+            if (
+              owningSession?.activeTurnIdsByTask[args.taskId] !== args.turnId
+            ) {
               return state;
             }
             const nextActivityByTask = markProviderTurnStalled({
@@ -8374,9 +8378,7 @@ export const useAppStore = create<AppState>()(
                 if (state.activeWorkspaceId !== resolvedWorkspaceId) {
                   return {};
                 }
-                const nextTasks = state.tasks.some(
-                  (task) => task.id === taskId,
-                )
+                const nextTasks = state.tasks.some((task) => task.id === taskId)
                   ? state.tasks.map((task) =>
                       task.id === taskId ? persistedTask : task,
                     )
@@ -9343,7 +9345,8 @@ export const useAppStore = create<AppState>()(
                   ? { kind: "task", taskId: nextActiveTaskId }
                   : state.activeSurface,
               openTaskTabIds:
-                nextActiveTaskId && !nextOpenTaskTabIds.includes(nextActiveTaskId)
+                nextActiveTaskId &&
+                !nextOpenTaskTabIds.includes(nextActiveTaskId)
                   ? [...nextOpenTaskTabIds, nextActiveTaskId]
                   : nextOpenTaskTabIds,
               paneTabMeta: removePaneTabMetaEntry({
@@ -9403,10 +9406,12 @@ export const useAppStore = create<AppState>()(
               draftProvider: provider,
               nativeSessionReadyByTask: {
                 ...state.nativeSessionReadyByTask,
-                [taskId]: Boolean(getProviderSessionId({
-                  sessions: state.providerSessionByTask[taskId],
-                  providerId: provider,
-                })),
+                [taskId]: Boolean(
+                  getProviderSessionId({
+                    sessions: state.providerSessionByTask[taskId],
+                    providerId: provider,
+                  }),
+                ),
               },
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(state),
@@ -9907,18 +9912,27 @@ export const useAppStore = create<AppState>()(
           if (!state.activeWorkspaceId) {
             return null;
           }
-          const nextTab = {
-            id: crypto.randomUUID(),
-            createdAt: Date.now(),
-          };
-          set((current) => ({
-            lensTabs: [...current.lensTabs, nextTab],
-            activeAppSurface: WORKSPACE_APP_SURFACE,
-            activeSurface: { kind: "lens", lensSessionId: nextTab.id },
-            workspaceSnapshotVersion:
-              incrementWorkspaceSnapshotVersion(current),
-          }));
-          return nextTab.id;
+          return state.openLensTab({
+            lensSessionId: resolveCreatedLensSessionId(
+              state.lensTabs,
+              crypto.randomUUID(),
+            ),
+          });
+        },
+        openLensTab: ({ lensSessionId }) => {
+          const normalizedLensSessionId = lensSessionId.trim();
+          if (!get().activeWorkspaceId || !normalizedLensSessionId) {
+            return null;
+          }
+          set((state) =>
+            reduceOpenLensTab({
+              state,
+              lensSessionId: normalizedLensSessionId,
+              createdAt: Date.now(),
+              nextSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+            }),
+          );
+          return normalizedLensSessionId;
         },
         closeLensTab: ({ lensSessionId }) =>
           set((state) =>
@@ -10880,18 +10894,27 @@ export const useAppStore = create<AppState>()(
                   "Switch to this task's workspace to steer its active turn.",
               } satisfies SendUserMessageResult;
             }
-            const steerResult = await steerTurn({
-              turnId: activeTurnId,
-              text: promptContent,
-              enabled: get().settings.midTurnSteeringEnabled,
-            }).catch(
-              () =>
-                ({ ok: false, message: undefined }) as {
-                  ok: boolean;
-                  message?: string;
-                },
-            );
+            const clientMessageId = crypto.randomUUID();
+            const steerResult = await submitSteerWithDeadline({
+              send: steerTurn,
+              request: {
+                turnId: activeTurnId,
+                text: promptContent,
+                enabled: get().settings.midTurnSteeringEnabled,
+                clientMessageId,
+              },
+            });
             if (!steerResult.ok) {
+              if (steerResult.delivery === "unknown") {
+                return {
+                  status: "steer-delivery-unknown",
+                  taskId: resolvedTaskId,
+                  workspaceId: taskWorkspaceId,
+                  message:
+                    steerResult.message ||
+                    "Steer delivery could not be confirmed. Wait for the current response before retrying or queueing.",
+                } satisfies SendUserMessageResult;
+              }
               return {
                 status: "steer-unavailable",
                 taskId: resolvedTaskId,
@@ -10902,26 +10925,48 @@ export const useAppStore = create<AppState>()(
               } satisfies SendUserMessageResult;
             }
             set((nextState) => {
+              const turnStillActive =
+                nextState.activeTurnIdsByTask[resolvedTaskId] === activeTurnId;
+              const activeModel =
+                provider === "claude-code"
+                  ? nextState.settings.modelClaude
+                  : nextState.settings.modelCodex;
               const steeredState = buildSteeredUserMessageState({
                 messagesByTask: nextState.messagesByTask,
                 messageCountByTask: nextState.messageCountByTask,
                 taskId: resolvedTaskId,
                 content: promptContent,
                 steeredIntoTurnId: activeTurnId,
+                clientMessageId,
+                provider,
+                activeModel,
+                turnStillActive,
               });
+              const currentDraft = nextState.promptDraftByTask[resolvedTaskId];
+              const shouldClearSubmittedDraft =
+                currentDraft?.text === promptDraft.text;
               return {
                 ...steeredState,
-                promptDraftByTask: {
-                  ...nextState.promptDraftByTask,
-                  [resolvedTaskId]: normalizePromptDraftForStorage({
-                    ...(nextState.promptDraftByTask[resolvedTaskId] ??
-                      sourcePromptDraft),
-                    text: "",
-                    attachedFilePaths: [],
-                    attachments: [],
-                    promptBatch: undefined,
-                  }),
-                },
+                promptDraftByTask: shouldClearSubmittedDraft
+                  ? {
+                      ...nextState.promptDraftByTask,
+                      [resolvedTaskId]: normalizePromptDraftForStorage({
+                        ...(currentDraft ?? sourcePromptDraft),
+                        text: "",
+                        attachedFilePaths: [],
+                        attachments: [],
+                        promptBatch: undefined,
+                      }),
+                    }
+                  : nextState.promptDraftByTask,
+                providerTurnActivityByTask: turnStillActive
+                  ? startProviderTurnActivity({
+                      activityByTask: nextState.providerTurnActivityByTask,
+                      taskId: resolvedTaskId,
+                      turnId: activeTurnId,
+                      providerId: provider,
+                    })
+                  : nextState.providerTurnActivityByTask,
                 workspaceSnapshotVersion:
                   incrementWorkspaceSnapshotVersion(nextState),
               };
@@ -11456,8 +11501,7 @@ export const useAppStore = create<AppState>()(
                   ? resolvedImageContexts
                   : undefined,
               skillContexts: skillSelection.selectedSkills,
-              nativeSessionId:
-                providerSessionCursor?.nativeSessionId ?? null,
+              nativeSessionId: providerSessionCursor?.nativeSessionId ?? null,
               syncedThroughMessageId:
                 providerSessionCursor?.syncedThroughMessageId ?? null,
               retrievedContextParts,

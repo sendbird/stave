@@ -11,33 +11,36 @@ Inspect and interact with a live web application through Stave's built-in browse
 
 ## What is Lens?
 
-Lens is a per-workspace embedded browser in the right rail panel. It renders pages via Electron's `WebContentsView` and exposes 10 MCP tools so AI agents can navigate, screenshot, read DOM, evaluate JavaScript, and interact with page elements programmatically.
+Lens is a per-workspace embedded browser backed by Electron's `WebContentsView`. AI agents can use it hidden through MCP, while users can reveal the same session in a workspace tab when interaction or visual confirmation is needed.
 
-## Opening Lens
+## Session Behavior
 
-1. Click the **Globe** icon in the right rail sidebar.
-2. Or use the **Command Palette**: search for "Show Lens".
-3. Enter a URL in the address bar and press Enter.
-4. Select the target task first if you want the picker to append context directly into chat.
+- MCP tools reuse the visible or most recently used Lens tab for the workspace.
+- If no session exists, any operational tool creates a hidden `default` session automatically. Calling `stave_lens_open_session` first is optional.
+- Keep routine inspection hidden. Use `stave_lens_present_session` only when the user must interact with the page, sign in, or visually confirm a result.
+- Revealing a hidden session preserves its URL, history, cookies, and page state.
+- Users can also open Lens with the **Globe** icon or the Command Palette action **Show Lens**.
 
 ## MCP Tools
 
 All tools require a `workspaceId` parameter.
 
-| Tool | Purpose |
-| --- | --- |
-| `stave_lens_navigate` | Load a URL in the browser |
-| `stave_lens_screenshot` | Capture viewport or full-page PNG |
-| `stave_lens_get_html` | Get outerHTML of page or a selector |
-| `stave_lens_get_text` | Get textContent of a selector |
-| `stave_lens_evaluate` | Run JavaScript in page context |
-| `stave_lens_get_console` | Read buffered console messages (up to 200) |
-| `stave_lens_get_network` | Read buffered network requests (up to 200) |
-| `stave_lens_click` | Click an element by CSS selector |
-| `stave_lens_type` | Type text into a focused or specified element |
-| `stave_lens_snapshot` | Get accessibility tree snapshot |
-| `stave_lens_inspect` | Get an element's box model (content size, padding, border, margin per side) |
-| `stave_lens_measure` | Measure the pixel gap between two elements (Figma-style spacing) |
+| Tool                         | Purpose                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| `stave_lens_open_session`    | Explicitly open or reuse a session (optional)                               |
+| `stave_lens_navigate`        | Load a URL, automatically acquiring a session                               |
+| `stave_lens_present_session` | Reveal the same session for user interaction                                |
+| `stave_lens_screenshot`      | Capture viewport or full-page PNG                                           |
+| `stave_lens_get_html`        | Get outerHTML of page or a selector                                         |
+| `stave_lens_get_text`        | Get textContent of a selector                                               |
+| `stave_lens_evaluate`        | Run JavaScript in page context                                              |
+| `stave_lens_get_console`     | Read buffered console messages (up to 200)                                  |
+| `stave_lens_get_network`     | Read buffered network requests (up to 200)                                  |
+| `stave_lens_click`           | Click an element by CSS selector                                            |
+| `stave_lens_type`            | Type text into a focused or specified element                               |
+| `stave_lens_snapshot`        | Get accessibility tree snapshot                                             |
+| `stave_lens_inspect`         | Get an element's box model (content size, padding, border, margin per side) |
+| `stave_lens_measure`         | Measure the pixel gap between two elements (Figma-style spacing)            |
 
 ## Element Picker
 
@@ -48,6 +51,7 @@ The crosshair button in the address bar activates the element picker.
 3. Press Escape to cancel.
 
 Captured data is inserted into the active task's prompt draft:
+
 - CSS selector, tag, ID, classes
 - Bounding box and computed styles
 - Truncated outerHTML and textContent
@@ -86,7 +90,7 @@ Combine Lens with a Figma MCP server for design-to-code verification:
 - **Accessibility snapshots** (`stave_lens_snapshot`) give a compact page structure summary — useful when full HTML is too verbose.
 - **Element picker** works best on non-minified, dev-build pages where class names are meaningful.
 - **Session persists** across panel switches. Switching to Explorer and back to Lens keeps your browsing state.
-- Each workspace has an **isolated session** (separate cookies, storage, cache).
+- The default **project profile** shares cookies and storage across a project's workspaces. The workspace profile setting provides isolation when needed.
 
 ## Avoid
 

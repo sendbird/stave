@@ -1,6 +1,7 @@
 import type {
   BridgeEvent,
   ProviderResponderResult,
+  ProviderSteerResponder,
   StreamTurnArgs,
 } from "./types";
 import {
@@ -2980,7 +2981,7 @@ export async function streamClaudeWithSdk(
       }) => ProviderResponderResult,
     ) => void;
     registerSteerResponder?: (
-      responder: (args: { text: string }) => Promise<ProviderResponderResult>,
+      responder: ProviderSteerResponder,
     ) => void;
   },
 ): Promise<BridgeEvent[] | null> {

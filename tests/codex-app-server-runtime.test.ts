@@ -5,7 +5,6 @@ import {
   buildCodexThreadResumeParams,
   buildCodexThreadStartParams,
   buildCodexTurnStartParams,
-  buildCodexTurnSteerParams,
   createCodexAppServerElicitationPauseController,
   describeJsonRpcLinePrefix,
   formatCodexAppServerErrorMessage,
@@ -20,6 +19,7 @@ import {
   summarizeCodexAppServerDebugMessage,
   toCodexConfigLayerDisplayValue,
 } from "../electron/providers/codex-app-server-runtime";
+import { buildCodexTurnSteerParams } from "../electron/providers/codex-app-server-steer";
 import {
   buildCodexDeveloperInstructions,
   CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS,
@@ -545,6 +545,8 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       `Base system prompt.\n\n${CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS}`,
     );
     expect(withBasePrompt).toContain("stave_lens_snapshot");
+    expect(withBasePrompt).toContain("stave_lens_present_session");
+    expect(withBasePrompt).toContain("hidden");
     expect(withBasePrompt).toContain("app-wide Stave approval dialog");
     expect(withBasePrompt).toContain("Never claim");
     expect(withBasePrompt).toContain("control-in-app-browser");
@@ -685,11 +687,13 @@ describe("Codex App Server plan-mode payloads", () => {
       threadId: "thread-1",
       expectedTurnId: "turn-42",
       text: "Also update the changelog.",
+      clientMessageId: "client-steer-42",
     });
 
     expect(params).toEqual({
       threadId: "thread-1",
       expectedTurnId: "turn-42",
+      clientUserMessageId: "client-steer-42",
       input: [
         {
           type: "text",
@@ -798,16 +802,20 @@ describe("summarizeCodexAppServerDebugMessage", () => {
   });
 
   test("formats nested model API JSON errors", () => {
-    expect(formatCodexAppServerErrorMessage(JSON.stringify({
-      type: "error",
-      error: {
-        type: "invalid_request_error",
-        message:
-          "The following tools cannot be used with reasoning.effort 'minimal': image_gen, web_search.",
-        param: "tools",
-      },
-      status: 400,
-    }))).toBe(
+    expect(
+      formatCodexAppServerErrorMessage(
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "invalid_request_error",
+            message:
+              "The following tools cannot be used with reasoning.effort 'minimal': image_gen, web_search.",
+            param: "tools",
+          },
+          status: 400,
+        }),
+      ),
+    ).toBe(
       "The following tools cannot be used with reasoning.effort 'minimal': image_gen, web_search. (param: tools, status: 400)",
     );
   });

@@ -52,6 +52,16 @@ export interface LensSessionDescriptor {
   sessionScope: LensSessionScope;
 }
 
+/**
+ * Main-to-renderer request to reveal the same session an agent was using
+ * hidden. Routine inspection should not emit this request.
+ */
+export interface LensSessionPresentationRequestPayload {
+  workspaceId: string;
+  lensSessionId: string;
+  reason?: string;
+}
+
 export interface ElementPickerResult {
   selector: string;
   tagName: string;

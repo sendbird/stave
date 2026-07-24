@@ -158,7 +158,9 @@ export function registerBrowserHandlers() {
       const deleted = await deleteLensCredential(parsed.data.id);
       return {
         ok: deleted,
-        message: deleted ? undefined : "The saved Lens account no longer exists.",
+        message: deleted
+          ? undefined
+          : "The saved Lens account no longer exists.",
       };
     } catch (err) {
       return {
@@ -203,6 +205,7 @@ export function registerBrowserHandlers() {
           sessionScope: args.sessionScope,
           projectKey: args.projectKey,
           lensSessionId: args.lensSessionId,
+          reuseExisting: true,
         });
         session.managedByMcp = false;
         return {
@@ -252,6 +255,7 @@ export function registerBrowserHandlers() {
             sessionScope: args.sessionScope,
             projectKey: args.projectKey,
             lensSessionId: args.lensSessionId,
+            reuseExisting: true,
           },
         );
         session.managedByMcp = false;
@@ -458,7 +462,10 @@ export function registerBrowserHandlers() {
       args: {
         workspaceId: string;
         lensSessionId?: string;
-        options?: { fullPage?: boolean; clip?: { x: number; y: number; width: number; height: number } };
+        options?: {
+          fullPage?: boolean;
+          clip?: { x: number; y: number; width: number; height: number };
+        };
       },
     ) => {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
@@ -590,7 +597,9 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        const assetUrls = await enumeratePageAssets(session.view.webContents.id);
+        const assetUrls = await enumeratePageAssets(
+          session.view.webContents.id,
+        );
         const entries: LensDownloadEntry[] = [];
         const errors: Array<{ url: string; message: string }> = [];
 

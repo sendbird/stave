@@ -9,6 +9,7 @@ import {
   SetNotificationBadgeArgsSchema,
   ShowNativeNotificationArgsSchema,
   StageFilesArgsSchema,
+  SteerTurnArgsSchema,
   SuggestPRDescriptionArgsSchema,
   TerminalCreateSessionArgsSchema,
   StreamTurnArgsSchema,
@@ -17,6 +18,24 @@ import {
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 
 describe("provider IPC schemas", () => {
+  test("accepts the full steer request contract", () => {
+    const parsed = SteerTurnArgsSchema.safeParse({
+      turnId: "turn-1",
+      text: "Also update the tests.",
+      enabled: true,
+      clientMessageId: "client-steer-1",
+    });
+
+    expect(parsed.success).toBe(true);
+    expect(
+      SteerTurnArgsSchema.safeParse({
+        turnId: "turn-1",
+        text: "Also update the tests.",
+        clientMessageId: "",
+      }).success,
+    ).toBe(false);
+  });
+
   test("accepts routine Information resource creation", () => {
     expect(
       RoutineInformationResourceCreateArgsSchema.safeParse({

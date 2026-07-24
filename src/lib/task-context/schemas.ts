@@ -314,6 +314,14 @@ const ChatMessageSchema = z.object({
   parts: z.array(MessagePartSchema),
   displayParts: z.array(MessagePartSchema).optional(),
   steeredIntoTurnId: z.string().optional(),
+  steerDeliveryState: z
+    .union([
+      z.literal("pending"),
+      z.literal("accepted"),
+      z.literal("unknown"),
+      z.literal("rejected"),
+    ])
+    .optional(),
 });
 
 const TaskSchema = z.object({

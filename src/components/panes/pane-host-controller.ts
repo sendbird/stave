@@ -1,4 +1,6 @@
 import type { PaneSurfaceDescriptor } from "@/lib/panes/types";
+import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.types";
+import { presentLensSessionInWorkspace } from "@/lib/lens/lens-session-presentation";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -9,7 +11,8 @@ import { useAppStore } from "@/store/app.store";
  * host component. Calls made while no host is mounted are queued (open) or
  * dropped (focus/close) — the host drains the queue on mount.
  */
-export type PaneSplitDirection = "left" | "right" | "above" | "below" | "within";
+export type PaneSplitDirection =
+  "left" | "right" | "above" | "below" | "within";
 
 export interface OpenSurfaceOptions {
   /** Activate (focus) the panel after opening. Defaults to true. */
@@ -98,4 +101,23 @@ export function focusOrCreateLensSurface(): string | null {
   }
   paneHost.openSurface({ kind: "lens", lensSessionId });
   return lensSessionId;
+}
+
+export async function presentLensSession(
+  payload: LensSessionPresentationRequestPayload,
+): Promise<boolean> {
+  return presentLensSessionInWorkspace(payload, {
+    hasWorkspace: (workspaceId) =>
+      useAppStore
+        .getState()
+        .workspaces.some((workspace) => workspace.id === workspaceId),
+    getActiveWorkspaceId: () => useAppStore.getState().activeWorkspaceId,
+    switchWorkspace: (workspaceId) =>
+      useAppStore.getState().switchWorkspace({ workspaceId }),
+    openLensTab: (lensSessionId) =>
+      useAppStore.getState().openLensTab({ lensSessionId }),
+    focusLensSurface: (lensSessionId) => {
+      paneHost.openSurface({ kind: "lens", lensSessionId });
+    },
+  });
 }

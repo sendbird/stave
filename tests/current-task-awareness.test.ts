@@ -121,6 +121,7 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     expect(context.content).toContain(
       "prefer `stave_lens_snapshot`, scoped `stave_lens_get_text`, or screenshots before raw HTML",
     );
+    expect(context.content).toContain("`stave_lens_present_session`");
     expect(context.content).toContain("Handoff procedure:");
     expect(context.content).toContain(
       "Write a plan file at the target's `.stave/context/plans/<taskIdPrefix>_<timestamp>.md`",

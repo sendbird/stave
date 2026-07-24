@@ -23,6 +23,7 @@ import {
   resolveLensSessionProfile,
   type ResolvedLensSessionProfile,
 } from "./browser-session-profile";
+import { selectPreferredLensSession } from "../../../src/lib/lens/lens-session-selection";
 import {
   DEFAULT_LENS_SESSION_ID,
   type BrowserConsoleEventPayload,
@@ -103,6 +104,10 @@ export interface BrowserSessionState {
   boxInspectActive: boolean;
   /** True when the session was opened only for MCP/headless inspection. */
   managedByMcp: boolean;
+  /** Whether the native view is currently presented in a renderer Lens tab. */
+  visible: boolean;
+  /** Monotonic activation order used to prefer the most recently shown tab. */
+  lastVisibleAt: number;
   navigationState: BrowserNavigationState;
   /** Last CSS-pixel bounds sent from renderer (for zoom-change re-apply). */
   lastCssBounds: LensBounds | null;
@@ -113,6 +118,7 @@ export interface BrowserSessionState {
 const CONSOLE_BUFFER_SIZE = 200;
 const NETWORK_BUFFER_SIZE = 200;
 const DOWNLOAD_BUFFER_SIZE = 200;
+let lensVisibilitySequence = 0;
 
 /** Registry keyed by sessionKey(workspaceId, lensSessionId). */
 const sessions = new Map<string, BrowserSessionState>();
@@ -263,7 +269,9 @@ function openLensAuthPopup(args: {
     },
   });
 
-  const session = sessions.get(sessionKey(args.workspaceId, args.lensSessionId));
+  const session = sessions.get(
+    sessionKey(args.workspaceId, args.lensSessionId),
+  );
   const popupWebContentsId = popup.webContents.id;
   if (session) {
     session.authPopups.add(popup);
@@ -577,6 +585,8 @@ export function createBrowserSession(
     annotations: [],
     boxInspectActive: false,
     managedByMcp: false,
+    visible: false,
+    lastVisibleAt: 0,
     navigationState: {
       url: "about:blank",
       title: "",
@@ -651,6 +661,16 @@ export function getWorkspaceBrowserSessions(
 ): BrowserSessionState[] {
   return [...sessions.values()].filter(
     (session) => session.workspaceId === workspaceId,
+  );
+}
+
+export function resolvePreferredBrowserSession(
+  workspaceId: string,
+  lensSessionId?: string,
+): BrowserSessionState | undefined {
+  return selectPreferredLensSession(
+    getWorkspaceBrowserSessions(workspaceId),
+    lensSessionId,
   );
 }
 
@@ -821,6 +841,10 @@ export function setViewVisible(
   if (!session) return;
   try {
     session.view.setVisible(visible);
+    session.visible = visible;
+    if (visible) {
+      session.lastVisibleAt = ++lensVisibilitySequence;
+    }
   } catch {
     // View may be destroyed
   }

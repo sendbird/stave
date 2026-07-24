@@ -1,6 +1,7 @@
 import type {
   BridgeEvent,
   ProviderResponderResult,
+  ProviderSteerResponder,
   StreamTurnArgs,
 } from "./types";
 import type {
@@ -92,6 +93,16 @@ import {
   getCodexMcpConfigPaths,
   McpConfigRefreshTracker,
 } from "./mcp-config-refresh";
+import {
+  registerPendingCodexAppServerResponse,
+  rejectAllPendingCodexAppServerResponses,
+  takePendingCodexAppServerResponse,
+  type PendingCodexAppServerResponse,
+} from "./codex-app-server-pending-request";
+import {
+  buildCodexTurnSteerParams,
+  CODEX_STEER_REQUEST_TIMEOUT_MS,
+} from "./codex-app-server-steer";
 
 const threadIdByTask = new Map<string, string>();
 const threadExecutableByTask = new Map<string, string>();
@@ -584,24 +595,6 @@ export function buildCodexTurnStartParams(args: {
       ? { summary: args.runtimeOptions.codexReasoningSummary }
       : {}),
     ...(args.outputSchema ? { outputSchema: args.outputSchema } : {}),
-  };
-}
-
-export function buildCodexTurnSteerParams(args: {
-  threadId: string;
-  expectedTurnId: string;
-  text: string;
-}) {
-  return {
-    threadId: args.threadId,
-    expectedTurnId: args.expectedTurnId,
-    input: [
-      {
-        type: "text" as const,
-        text: args.text,
-        text_elements: [],
-      },
-    ],
   };
 }
 
@@ -1826,13 +1819,7 @@ class CodexAppServerClient {
   private process: ChildProcessWithoutNullStreams | null = null;
   private startupPromise: Promise<void> | null = null;
   private nextRequestId = 1;
-  private pendingResponses = new Map<
-    JsonRpcId,
-    {
-      resolve: (value: unknown) => void;
-      reject: (reason?: unknown) => void;
-    }
-  >();
+  private pendingResponses = new Map<JsonRpcId, PendingCodexAppServerResponse>();
   private listeners = new Set<(message: JsonRpcMessage) => void>();
   private exitListeners = new Set<(message: string) => void>();
   private initialized = false;
@@ -1873,9 +1860,13 @@ class CodexAppServerClient {
     };
   }
 
-  async request<T = unknown>(method: string, params: unknown): Promise<T> {
+  async request<T = unknown>(
+    method: string,
+    params: unknown,
+    options?: { timeoutMs?: number },
+  ): Promise<T> {
     await this.ensureStarted();
-    return this.sendRequest<T>(method, params);
+    return this.sendRequest<T>(method, params, options);
   }
 
   async respond(requestId: JsonRpcId, result: unknown) {
@@ -1951,12 +1942,13 @@ class CodexAppServerClient {
           },
         );
         // If the dropped line was a response to a pending request, reject it
-        // now — otherwise the caller would await forever (there is no
-        // request timeout on this transport).
+        // immediately instead of waiting for its method-specific deadline.
         if (described.responseId !== null) {
-          const pending = this.pendingResponses.get(described.responseId);
+          const pending = takePendingCodexAppServerResponse({
+            pendingResponses: this.pendingResponses,
+            requestId: described.responseId,
+          });
           if (pending) {
-            this.pendingResponses.delete(described.responseId);
             pending.reject(
               new Error(
                 `Codex App Server response was dropped: oversized line (${lineBytes} bytes) exceeded ${CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES} bytes.`,
@@ -2027,6 +2019,7 @@ class CodexAppServerClient {
   private async sendRequest<T = unknown>(
     method: string,
     params: unknown,
+    options?: { timeoutMs?: number },
   ): Promise<T> {
     const child = this.process;
     if (!child) {
@@ -2035,7 +2028,14 @@ class CodexAppServerClient {
 
     const requestId = this.nextRequestId++;
     return new Promise<T>((resolve, reject) => {
-      this.pendingResponses.set(requestId, { resolve, reject });
+      registerPendingCodexAppServerResponse({
+        pendingResponses: this.pendingResponses,
+        requestId,
+        method,
+        timeoutMs: options?.timeoutMs,
+        resolve,
+        reject,
+      });
       child.stdin.write(
         JSON.stringify({
           jsonrpc: "2.0",
@@ -2087,11 +2087,13 @@ class CodexAppServerClient {
         Object.prototype.hasOwnProperty.call(message, "error"));
     if (hasResponseId) {
       const id = message.id as JsonRpcId;
-      const pending = this.pendingResponses.get(id);
+      const pending = takePendingCodexAppServerResponse({
+        pendingResponses: this.pendingResponses,
+        requestId: id,
+      });
       if (!pending) {
         return;
       }
-      this.pendingResponses.delete(id);
       if (message.error) {
         pending.reject(
           new Error(
@@ -2117,10 +2119,10 @@ class CodexAppServerClient {
     if (current && !current.killed) {
       current.kill();
     }
-    for (const pending of this.pendingResponses.values()) {
-      pending.reject(new Error(message));
-    }
-    this.pendingResponses.clear();
+    rejectAllPendingCodexAppServerResponses({
+      pendingResponses: this.pendingResponses,
+      error: new Error(message),
+    });
 
     // Notify turn-level listeners so waitForTurnCompletion resolves.
     for (const listener of this.exitListeners) {
@@ -3962,7 +3964,7 @@ export async function streamCodexWithAppServer(
       }) => ProviderResponderResult,
     ) => void;
     registerSteerResponder?: (
-      responder: (args: { text: string }) => Promise<ProviderResponderResult>,
+      responder: ProviderSteerResponder,
     ) => void;
   },
 ): Promise<BridgeEvent[] | null> {
@@ -4341,7 +4343,7 @@ export async function streamCodexWithAppServer(
     return { ok: true };
   });
 
-  args.registerSteerResponder?.(async ({ text }) => {
+  args.registerSteerResponder?.(async ({ text, clientMessageId }) => {
     if (!appServerTurnId || completed) {
       return {
         ok: false,
@@ -4356,7 +4358,9 @@ export async function streamCodexWithAppServer(
           threadId,
           expectedTurnId: appServerTurnId,
           text,
+          clientMessageId,
         }),
+        { timeoutMs: CODEX_STEER_REQUEST_TIMEOUT_MS },
       );
       // CRITICAL: the steer response may carry a *new* turnId. The notification
       // filter (see the `client.subscribe` handler below) drops any message

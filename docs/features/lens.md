@@ -20,7 +20,7 @@
 - For exact React file and line mapping, enable `Settings > Lens > React _debugSource` and run the target app in a React dev build.
 - CDP-backed actions such as screenshots, JavaScript evaluation, element clicks, and live style edits require `Settings > Lens > Developer Mode` plus per-host approval. Approved hosts are currently global across workspaces.
 - The first CDP action for an unapproved host opens an app-wide approval dialog, even when its Lens tab is hidden or closed. `Allow once` grants a short-lived workspace approval; `Always allow` saves the hostname.
-- External agents reach Lens through Stave Local MCP, not through the renderer UI directly. They can open a hidden Lens browser session with `stave_lens_open_session` before inspecting a page.
+- External agents reach Lens through Stave Local MCP, not through the renderer UI directly. Lens tools reuse a visible/recent workspace tab or create a hidden session automatically.
 
 ## Quick Start
 
@@ -112,12 +112,13 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 ### Use Lens From An External Agent
 
 1. Enable `Settings > Providers > Stave > Local MCP Server`.
-2. Call `stave_lens_open_session` for the target workspace, optionally with a URL.
-3. Call the other `stave_lens_*` tools through Local MCP. The first CDP-backed call for an unapproved host pauses while Stave shows its app-wide approval dialog.
-4. Approve the visible dialog within 60 seconds, or add the hostname under `Settings > Lens > Developer Mode > Approved CDP Hosts` and retry the tool.
-5. If the page requires a saved account, call `stave_lens_fill_saved_account`; the secret is injected inside Electron and is not returned to the agent.
-6. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
-7. Use the returned page data together with normal Stave task tools or your own external workflow.
+2. Call `stave_lens_navigate` or another `stave_lens_*` tool for the target workspace. Lens reuses a visible/recent tab or creates a hidden `default` session; `stave_lens_open_session` is optional.
+3. Keep routine inspection hidden. Call `stave_lens_present_session` only when the user needs to interact, sign in, or visually verify the page.
+4. The first CDP-backed call for an unapproved host pauses while Stave shows its app-wide approval dialog.
+5. Approve the visible dialog within 60 seconds, or add the hostname under `Settings > Lens > Developer Mode > Approved CDP Hosts` and retry the tool.
+6. If the page requires a saved account, call `stave_lens_fill_saved_account`; the secret is injected inside Electron and is not returned to the agent.
+7. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
+8. Use the returned page data together with normal Stave task tools or your own external workflow.
 
 ## Files And Data
 
@@ -145,6 +146,7 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
   "examples": [
     "stave_lens_open_session",
     "stave_lens_navigate",
+    "stave_lens_present_session",
     "stave_lens_list_saved_accounts",
     "stave_lens_create_saved_account",
     "stave_lens_update_saved_account",
@@ -170,7 +172,9 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 - External agents need Local MCP because the Lens browser lives inside the desktop app. Without MCP, only the current renderer UI can access it.
 - Saved accounts match one exact hostname. Wildcards and parent-domain matching are intentionally unsupported. Multiple accounts can share a hostname, but only one account per hostname can be enabled for automatic fill; enabling another account switches the previous one to on-demand use.
 - Automatic account use fills visible username and password fields but does not submit. JavaScript-heavy pages that render the form later can use `stave_lens_fill_saved_account` on demand.
-- `stave_lens_open_session` creates a hidden browser view for MCP inspection. If the user later opens the Lens panel for that workspace, the UI reuses the same session and becomes its owner.
+- Operational MCP tools acquire a session automatically. With no explicit id they prefer the visible/recent UI tab, then the hidden `default`; if none exists they create `default` hidden.
+- The first user-created Lens tab also uses `default`, so a hidden MCP session can be adopted without losing its page. Additional tabs keep distinct ids.
+- `stave_lens_present_session` asks the renderer to open the same session for user interaction instead of creating another browser.
 - `React _debugSource` only works in React dev builds. Production builds fall back to heuristic source hints.
 - Console and network logs are buffered, not infinite. Lens keeps the most recent entries only.
 - Download history is buffered in memory, while saved files remain on disk until the user removes them.
@@ -211,11 +215,11 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 - Cause: the target page is not running with React `_debugSource` metadata.
 - Fix: enable `Settings > Lens > React _debugSource` and run the target app in a React dev build.
 
-### Local MCP cannot call Lens tools
+### Local MCP opens the wrong Lens page
 
-- Symptom: `stave_lens_*` tools report that no browser session exists.
-- Cause: a Lens browser session has not been opened for that workspace yet.
-- Fix: call `stave_lens_open_session` for the matching workspace, or open the Lens panel manually, then retry the MCP call.
+- Symptom: an omitted `lensSessionId` targets a different page than expected.
+- Cause: the workspace has multiple Lens tabs and the intended tab was not the visible or most recently used UI session.
+- Fix: pass the exact `lensSessionId` returned by `stave_lens_list_sessions`.
 
 ## Related Docs
 
