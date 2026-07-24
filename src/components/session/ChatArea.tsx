@@ -1,4 +1,11 @@
-import { FolderOpen, Layers } from "lucide-react";
+import {
+  Bug,
+  FolderOpen,
+  Layers,
+  ListChecks,
+  SearchCode,
+  type LucideIcon,
+} from "lucide-react";
 import {
   memo,
   useCallback,
@@ -32,6 +39,65 @@ import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
 
 const EMPTY_MESSAGES: readonly unknown[] = [];
+
+const TASK_START_OPTIONS = [
+  {
+    label: "Plan a feature",
+    prompt: "Help me plan and implement a new feature in this workspace.",
+    icon: ListChecks,
+  },
+  {
+    label: "Fix an issue",
+    prompt: "Investigate and fix an issue in this workspace.",
+    icon: Bug,
+  },
+  {
+    label: "Review the code",
+    prompt: "Review the current code and suggest the most valuable improvements.",
+    icon: SearchCode,
+  },
+] as const satisfies readonly {
+  label: string;
+  prompt: string;
+  icon: LucideIcon;
+}[];
+
+function TaskStartPanel(props: { onSelect: (prompt: string) => void }) {
+  return (
+    <section
+      data-testid="empty-splash"
+      className="mx-auto w-full max-w-6xl px-3 pb-2 pt-10 sm:px-4"
+    >
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <h1 className="font-heading text-2xl font-semibold leading-tight tracking-[-0.02em] text-foreground">
+            What would you like to work on?
+          </h1>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Describe the outcome you want, or choose a starting point.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2" aria-label="Task starting points">
+          {TASK_START_OPTIONS.map((option) => {
+            const Icon = option.icon;
+            return (
+              <Button
+                key={option.label}
+                type="button"
+                variant="secondary"
+                className="h-11 rounded-full bg-muted/70 px-4 font-normal text-foreground shadow-none hover:bg-muted"
+                onClick={() => props.onSelect(option.prompt)}
+              >
+                <Icon className="size-4 text-muted-foreground" />
+                {option.label}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export interface ChatAreaProps {
   /**
@@ -71,6 +137,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
     refreshActiveManagedTask,
     createProject,
     createTask,
+    updatePromptDraft,
   ] = useAppStore(
     useShallow(
       (state) => {
@@ -98,6 +165,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
           state.refreshActiveManagedTask,
           state.createProject,
           state.createTask,
+          state.updatePromptDraft,
         ] as const;
       },
     ),
@@ -122,6 +190,21 @@ function ChatAreaImpl(props: ChatAreaProps) {
     isScopedTaskGloballyActive &&
     isTaskManaged(activeTask) &&
     Boolean(activeTurnId);
+
+  const handleTaskStartOption = useCallback(
+    (prompt: string) => {
+      updatePromptDraft({
+        taskId: activeTaskId,
+        patch: { text: prompt },
+      });
+      window.requestAnimationFrame(() => {
+        sessionAreaRef.current
+          ?.querySelector<HTMLElement>('[data-prompt-lexical-editor="true"]')
+          ?.focus();
+      });
+    },
+    [activeTaskId, updatePromptDraft],
+  );
 
   useEffect(() => {
     if (!shouldPollManagedTask) {
@@ -242,14 +325,8 @@ function ChatAreaImpl(props: ChatAreaProps) {
     return (
       <div {...sessionAreaProps}>
         <div className="relative flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto flex w-full max-w-6xl flex-col">
-              <EmptySplash
-                layout="top-card"
-                title="Start this task"
-                description="Send the first prompt to begin work in this workspace."
-              />
-            </div>
+          <div className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto">
+            <TaskStartPanel onSelect={handleTaskStartOption} />
           </div>
           <div className="relative z-30 shrink-0">
             <RenderProfiler id="ChatInput" thresholdMs={8}>

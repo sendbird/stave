@@ -76,7 +76,7 @@ export function MessageContent({ className, ...props }: HTMLAttributes<HTMLDivEl
     <div
       className={cn(
         "flex min-w-0 max-w-full w-full flex-col gap-3 text-foreground",
-        "group-[.is-user]:rounded-md group-[.is-user]:border group-[.is-user]:border-primary/35 group-[.is-user]:bg-primary/12 group-[.is-user]:px-4 group-[.is-user]:py-3",
+        "group-[.is-user]:rounded-md group-[.is-user]:bg-primary/12 group-[.is-user]:px-4 group-[.is-user]:py-3",
         className
       )}
       style={{ fontSize: `${messageFontSize}px`, lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
