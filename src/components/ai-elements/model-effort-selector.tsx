@@ -68,19 +68,19 @@ interface ModelEffortSelectorProps {
 
 const PROVIDER_CELL_COLORS: Record<ProviderId, readonly string[]> = {
   "claude-code": [
-    "color-mix(in oklch, #d97757 22%, var(--muted))",
-    "color-mix(in oklch, #d97757 38%, var(--muted))",
-    "color-mix(in oklch, #d97757 56%, var(--muted))",
-    "color-mix(in oklch, #d97757 78%, var(--muted))",
+    "color-mix(in srgb, #d97757 24%, var(--popover))",
+    "color-mix(in srgb, #d97757 40%, var(--popover))",
+    "color-mix(in srgb, #d97757 56%, var(--popover))",
+    "color-mix(in srgb, #d97757 76%, var(--popover))",
     "#d97757",
   ],
   codex: [
-    "color-mix(in oklch, #b1a7ff 35%, var(--muted))",
-    "#b1a7ff",
-    "color-mix(in oklch, #b1a7ff 48%, #7a9dff)",
-    "#7a9dff",
-    "color-mix(in oklch, #7a9dff 35%, #3941ff)",
-    "#3941ff",
+    "color-mix(in srgb, #4169c1 24%, var(--popover))",
+    "color-mix(in srgb, #4169c1 38%, var(--popover))",
+    "color-mix(in srgb, #4169c1 52%, var(--popover))",
+    "color-mix(in srgb, #4169c1 68%, var(--popover))",
+    "color-mix(in srgb, #4169c1 84%, var(--popover))",
+    "#4169c1",
   ],
 };
 
@@ -492,6 +492,7 @@ function ModelEffortMatrix(args: {
                           size={20}
                           speed={orb.speed}
                           theme="dark"
+                          style={{ width: 23, height: 23 }}
                           aria-hidden="true"
                           data-orb-state={orb.state}
                           className="model-effort-cell-orb"

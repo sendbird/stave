@@ -123,6 +123,18 @@ test("selects model and effort from the provider heatmaps", async ({
   await expect(
     codexGrid.locator('[data-orb-state="composing"]').first(),
   ).toBeVisible();
+  await expect
+    .poll(() =>
+      codexGrid
+        .locator(".model-effort-cell-orb")
+        .first()
+        .evaluate((orb) => ({
+          width: getComputedStyle(orb).width,
+          height: getComputedStyle(orb).height,
+          opacity: getComputedStyle(orb).opacity,
+        })),
+    )
+    .toEqual({ width: "23px", height: "23px", opacity: "1" });
   await expect(autoCell.locator('img[src*="stave-logo.svg"]')).toBeVisible();
   await expect
     .poll(() =>
@@ -139,7 +151,7 @@ test("selects model and effort from the provider heatmaps", async ({
         .first()
         .evaluate((cell) => getComputedStyle(cell).backgroundColor),
     )
-    .toBe("rgb(57, 65, 255)");
+    .toBe("rgb(65, 105, 193)");
 
   await autoCell.hover();
   await expect(
