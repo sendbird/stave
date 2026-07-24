@@ -22,7 +22,7 @@ describe("model effort selector utils", () => {
     ]);
     expect(rows.map((row) => row.option.model)).toEqual([
       "claude-fable-5",
-      "claude-opus-4-8",
+      "claude-opus-5",
       "claude-sonnet-5",
     ]);
   });
@@ -36,7 +36,7 @@ describe("model effort selector utils", () => {
     expect(fable).toBeDefined();
     expect(
       resolveClaudeMatrixOption({ row: opus!, context1M: true }).model,
-    ).toBe("claude-opus-4-8[1m]");
+    ).toBe("claude-opus-5[1m]");
     expect(
       resolveClaudeMatrixOption({ row: fable!, context1M: true }).model,
     ).toBe("claude-fable-5");

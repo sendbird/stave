@@ -28,6 +28,12 @@ describe("model shortcuts", () => {
     ]);
   });
 
+  test("upgrades persisted Opus 4.8 shortcuts to Opus 5", () => {
+    expect(normalizeModelShortcutKeys(["claude-code:claude-opus-4-8"])[0]).toBe(
+      "claude-code:claude-opus-5",
+    );
+  });
+
   test("resolves Alt+digit slots by keyboard code, including Alt+0", () => {
     expect(
       resolveModelShortcutSlot({
@@ -72,7 +78,7 @@ describe("model shortcuts", () => {
   test("finds assigned model options and skips unavailable mappings", () => {
     const options = [
       {
-        key: "claude-code:claude-opus-4-8",
+        key: "claude-code:claude-opus-5",
         available: true,
       },
       {

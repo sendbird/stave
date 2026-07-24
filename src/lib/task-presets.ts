@@ -1,8 +1,10 @@
 import {
   CLAUDE_SDK_MODEL_OPTIONS,
   CODEX_MODEL_OPTIONS,
+  DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   getDefaultModelForProvider,
+  upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
@@ -90,8 +92,8 @@ export const TASK_PRESET_SHORTCUT_SLOT_LABELS = [
  */
 export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
   {
-    id: "default-claude-opus-4-8-task",
-    label: "Opus 4.8",
+    id: "default-claude-opus-5-task",
+    label: "Opus 5",
     kind: "task",
     provider: "claude-code",
     model: DEFAULT_CLAUDE_OPUS_MODEL,
@@ -156,10 +158,14 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
   }
 
   const allowedModels = getAllModelOptionsForProvider(provider);
-  const candidateModel =
+  const rawCandidateModel =
     typeof input.model === "string" && input.model.trim().length > 0
       ? input.model.trim()
       : getDefaultModelForProvider({ providerId: provider });
+  const candidateModel =
+    provider === "claude-code"
+      ? upgradeSettingsScopedClaudeModel({ model: rawCandidateModel })
+      : rawCandidateModel;
   const model =
     kind === "cli-session"
       ? undefined
@@ -183,14 +189,20 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
 
   const trimmedLabel =
     typeof input.label === "string" ? input.label.trim() : "";
-  const label =
-    trimmedLabel.length > 0
+  const isLegacyDefaultOpusPreset =
+    input.id?.trim() === "default-claude-opus-4-8-task" &&
+    rawCandidateModel.toLowerCase() === DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL &&
+    trimmedLabel === "Opus 4.8";
+  const label = isLegacyDefaultOpusPreset
+    ? "Opus 5"
+    : trimmedLabel.length > 0
       ? trimmedLabel
       : buildDefaultPresetLabel({ kind, provider, model });
 
   return {
-    id:
-      typeof input.id === "string" && input.id.trim().length > 0
+    id: isLegacyDefaultOpusPreset
+      ? "default-claude-opus-5-task"
+      : typeof input.id === "string" && input.id.trim().length > 0
         ? input.id
         : generatePresetId(),
     label,

@@ -1140,12 +1140,12 @@ export function ProvidersSection() {
               </LabeledField>
               <LabeledField
                 title="Fallback Models"
-                description="Comma-separated Claude fallback models used when the primary model is overloaded or unavailable."
+                description="Comma-separated Claude fallback models used when the primary model is overloaded or unavailable. Opus 5 automatically falls back to Opus 4.8 when left blank."
               >
                 <DraftInput
                   className="h-10 rounded-md border-border/80 bg-background"
                   value={claudeFallbackModel}
-                  placeholder="claude-sonnet-5"
+                  placeholder="claude-opus-4-8"
                   onCommit={(value) =>
                     updateSettings({ patch: { claudeFallbackModel: value } })
                   }

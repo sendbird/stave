@@ -6,8 +6,10 @@ import type {
 const CLAUDE_COLOR_ICON_URL = `${import.meta.env.BASE_URL}claude-color.svg`;
 const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
 export const STAVE_LOGO_URL = `${import.meta.env.BASE_URL}stave-logo.svg`;
-export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-4-8";
-export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-4-8[1m]";
+export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-5";
+export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-5[1m]";
+export const DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL = "claude-opus-4-8";
+export const DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL = "claude-opus-4-8[1m]";
 export const CLAUDE_FABLE_MODEL = "claude-fable-5";
 // Claude Sonnet 5 surfaced in the Claude CLI picker from 2.1.197, but the
 // model ID is passed straight through to the Anthropic API, which decides
@@ -18,6 +20,8 @@ export const DEFAULT_CLAUDE_SONNET_1M_MODEL = "claude-sonnet-5[1m]";
 // catalog default of the same family. Historical chat/turn records keep their
 // original IDs and render via the legacy display names below.
 const LEGACY_AUTOMATIC_CLAUDE_MODELS: Record<string, string> = {
+  [DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL]: DEFAULT_CLAUDE_OPUS_MODEL,
+  [DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL]: DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "claude-opus-4-7": DEFAULT_CLAUDE_OPUS_MODEL,
   "claude-opus-4-7[1m]": DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "claude-opus-4-6": DEFAULT_CLAUDE_OPUS_MODEL,
@@ -27,7 +31,7 @@ const LEGACY_AUTOMATIC_CLAUDE_MODELS: Record<string, string> = {
 };
 
 // Source: https://platform.claude.com/docs/en/about-claude/models/overview
-// Latest models comparison (as of 2026-07-01)
+// Latest models comparison (as of 2026-07-25)
 // The [1m] suffix activates the 1M-token context window; the Claude SDK
 // parses it and auto-injects the `context-1m-2025-08-07` beta header.
 export const CLAUDE_SDK_MODEL_OPTIONS = [
@@ -441,6 +445,19 @@ export function upgradeSettingsScopedClaudeModel(args: { model: string }) {
   return args.model;
 }
 
+export function resolveDefaultClaudeFallbackModel(args: {
+  model: string;
+}): string | undefined {
+  const normalizedModel = args.model.trim().toLowerCase();
+  if (normalizedModel === DEFAULT_CLAUDE_OPUS_MODEL) {
+    return DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL;
+  }
+  if (normalizedModel === DEFAULT_CLAUDE_OPUS_1M_MODEL) {
+    return DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL;
+  }
+  return undefined;
+}
+
 export function resolveDefaultClaudeEffortForModel(args: {
   model: string;
 }): NonNullable<ProviderRuntimeOptions["claudeEffort"]> {
@@ -695,10 +712,12 @@ export function toHumanModelName(args: { model: string }) {
   // 2. Static known names
   const known: Record<string, string> = {
     [CLAUDE_FABLE_MODEL]: "Claude Fable 5",
-    [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 4.8",
-    [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 4.8 (1M)",
+    [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 5",
+    [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 5 (1M)",
     // Legacy labels kept so historical chat/turn records still render a
     // recognizable name after the preset options migrated.
+    [DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL]: "Claude Opus 4.8",
+    [DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL]: "Claude Opus 4.8 (1M)",
     "claude-opus-4-7": "Claude Opus 4.7",
     "claude-opus-4-7[1m]": "Claude Opus 4.7 (1M)",
     "claude-opus-4-6": "Claude Opus 4.6",

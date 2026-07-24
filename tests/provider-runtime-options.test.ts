@@ -187,6 +187,31 @@ describe("buildProviderRuntimeOptions", () => {
     });
   });
 
+  test("uses Opus 4.8 as the automatic fallback for Opus 5", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-opus-5",
+        settings,
+        providerSession: null,
+      }),
+    ).toMatchObject({
+      model: "claude-opus-5",
+      claudeFallbackModel: "claude-opus-4-8",
+    });
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-opus-5[1m]",
+        settings,
+        providerSession: null,
+      }),
+    ).toMatchObject({
+      model: "claude-opus-5[1m]",
+      claudeFallbackModel: "claude-opus-4-8[1m]",
+    });
+  });
+
   test("forwards trusted approval tools and maps Claude non-Bash entries", () => {
     expect(
       buildProviderRuntimeOptions({
@@ -227,19 +252,19 @@ describe("buildProviderRuntimeOptions", () => {
     },
     {
       sourceModel: "claude-sonnet-4-6",
-      expectedAdvisorModel: "claude-opus-4-8",
+      expectedAdvisorModel: "claude-opus-5",
     },
     {
       sourceModel: "claude-opus-4-6",
-      expectedAdvisorModel: "claude-opus-4-8",
+      expectedAdvisorModel: "claude-opus-5",
     },
     {
       sourceModel: "claude-opus-4-7",
-      expectedAdvisorModel: "claude-opus-4-8",
+      expectedAdvisorModel: "claude-opus-5",
     },
     {
       sourceModel: "claude-sonnet-4-6[1m]",
-      expectedAdvisorModel: "claude-opus-4-8",
+      expectedAdvisorModel: "claude-opus-5",
     },
   ])(
     "maps advisor source model `$sourceModel` to `$expectedAdvisorModel`",
