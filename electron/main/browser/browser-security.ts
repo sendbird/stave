@@ -145,6 +145,22 @@ export function setLensSecurityConfig(
     developerModeCdp: config.developerModeCdp === true,
     cdpApprovedHosts: normalizeLensHostList(config.cdpApprovedHosts),
   };
+
+  // Treat hydrated approved-host settings as authorization for requests that
+  // raced the renderer-to-main configuration sync.
+  if (currentSecurityConfig.developerModeCdp) {
+    for (const [requestId, pending] of pendingCdpApprovals) {
+      if (
+        hostMatchesList(
+          pending.host,
+          currentSecurityConfig.cdpApprovedHosts,
+        )
+      ) {
+        settlePendingCdpApproval(requestId, "approved");
+      }
+    }
+  }
+
   return getLensSecurityConfig();
 }
 
@@ -202,6 +218,20 @@ export async function assertCdpAllowed(args: {
   }
 
   const { getMainWindow } = await import("../window");
+  // Persisted renderer settings can arrive over IPC while the main-window
+  // module is loading. Re-check before creating a prompt from stale defaults.
+  if (!currentSecurityConfig.developerModeCdp) {
+    throw new Error(
+      "Lens Developer Mode CDP is disabled. Enable Settings > Lens > Developer Mode to allow CDP-backed Lens actions.",
+    );
+  }
+  if (
+    hostMatchesList(host, currentSecurityConfig.cdpApprovedHosts) ||
+    hasTransientCdpApproval(args.workspaceId, host)
+  ) {
+    return;
+  }
+
   const renderer = getMainWindow()?.webContents;
   if (!renderer || renderer.isDestroyed()) {
     throw new Error(
@@ -272,13 +302,14 @@ export function respondCdpApproval(response: LensCdpApprovalResponse): boolean {
 
   if (response.approved) {
     rememberTransientCdpApproval(pending.workspaceId, pending.host);
-    if (response.remember) {
-      addApprovedCdpHost(pending.host);
-    }
   }
 
-  return settlePendingCdpApproval(
+  const settled = settlePendingCdpApproval(
     response.requestId,
     response.approved ? "approved" : "denied",
   );
+  if (settled && response.approved && response.remember) {
+    addApprovedCdpHost(pending.host);
+  }
+  return settled;
 }
