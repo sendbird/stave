@@ -56,6 +56,7 @@ function seedWorkspace(page: import("@playwright/test").Page) {
           workspaceBranchById: { "ws-main": "main" },
           workspacePathById: { "ws-main": "/tmp/stave-project" },
           workspaceDefaultById: { "ws-main": true },
+          settings: { autoRoutingEnabled: true },
           ...workspaceSnapshot,
         },
         version: 0,
@@ -92,19 +93,44 @@ test("selects model and effort from the provider heatmaps", async ({
   });
   await expect(claudeGrid).toBeVisible();
   await expect(codexGrid).toBeVisible();
+  await expect
+    .poll(() =>
+      claudeGrid.evaluate((grid) =>
+        getComputedStyle(grid.closest("section")!)
+          .getPropertyValue("--model-effort-provider")
+          .trim(),
+      ),
+    )
+    .toBe("#d97757");
+  await expect
+    .poll(() =>
+      codexGrid.evaluate((grid) =>
+        getComputedStyle(grid.closest("section")!)
+          .getPropertyValue("--model-effort-provider")
+          .trim(),
+      ),
+    )
+    .toBe("#a2b9fc");
+  const autoCell = codexGrid.getByRole("gridcell", {
+    name: "Stave Auto · Let Stave choose model and effort",
+  });
+  await expect(autoCell).toBeVisible();
   await expect(
-    page.getByRole("button", {
-      name: "Auto · Let Stave choose model and effort",
-    }),
+    codexGrid.locator('[data-particles="max"]').first(),
   ).toBeVisible();
   await expect(
-    codexGrid.getByRole("gridcell", {
-      name: "Luna does not support Ultra effort",
-    }),
-  ).toHaveAttribute("aria-disabled", "true");
-  await expect(
-    codexGrid.locator('[data-particles="apex"]').first(),
+    codexGrid.locator('[data-particles="ultra"]').first(),
   ).toBeVisible();
+
+  await autoCell.hover();
+  await expect(
+    page.getByRole("tooltip", {
+      name: "Stave chooses the provider, model, and effort",
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".model-effort-preview-value")).toContainText(
+    "Stave Auto",
+  );
 
   await page.screenshot({
     path: testInfo.outputPath("model-effort-selector.png"),
@@ -132,6 +158,19 @@ test("selects model and effort from the provider heatmaps", async ({
     })
     .click();
   await expect(trigger).toHaveAccessibleName(/GPT-5\.6 Sol · Ultra · Fast/);
+
+  await trigger.click();
+  const selectedUltraCell = codexGrid.getByRole("gridcell", {
+    name: "GPT-5.6 Sol, Ultra effort",
+  });
+  await selectedUltraCell.focus();
+  await selectedUltraCell.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(autoCell).toBeFocused();
+  await autoCell.click();
+  await expect(trigger).toHaveAccessibleName(
+    /Stave chooses the provider, model, and effort/,
+  );
 });
 
 test("stacks the provider heatmaps without viewport overflow", async ({
