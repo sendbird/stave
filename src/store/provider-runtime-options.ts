@@ -52,7 +52,6 @@ type RuntimeSettings = Pick<
   | "claudeForkSession"
   | "claudeStrictMcpConfig"
   | "claudeFastMode"
-  | "claudeFastModeVisible"
   | "trustedTools"
   | "claudeSkills"
   | "claudePluginPaths"

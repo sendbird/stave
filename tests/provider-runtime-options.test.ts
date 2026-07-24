@@ -29,7 +29,6 @@ const settings = {
   claudeForkSession: false,
   claudeStrictMcpConfig: false,
   claudeFastMode: false,
-  claudeFastModeVisible: true,
   claudeSkills: "",
   claudePluginPaths: "",
   claudeAgentName: "",

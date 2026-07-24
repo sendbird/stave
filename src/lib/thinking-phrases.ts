@@ -10,33 +10,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const THINKING_PHRASE_ANIMATION_STYLES = [
-  "soft",
-  "typewriter",
-  "scramble",
-  "slot",
-  "bounce",
-] as const;
-
-export type ThinkingPhraseAnimationStyle = (typeof THINKING_PHRASE_ANIMATION_STYLES)[number];
-
-export const THINKING_PHRASE_ANIMATION_OPTIONS = [
-  { value: "soft", label: "Soft Fade" },
-  { value: "typewriter", label: "Typewriter" },
-  { value: "scramble", label: "Scramble" },
-  { value: "slot", label: "Slot Machine" },
-  { value: "bounce", label: "Bounce" },
-] as const satisfies ReadonlyArray<{
-  value: ThinkingPhraseAnimationStyle;
-  label: string;
-}>;
-
-export function normalizeThinkingPhraseAnimationStyle(value: unknown): ThinkingPhraseAnimationStyle {
-  return THINKING_PHRASE_ANIMATION_STYLES.includes(value as ThinkingPhraseAnimationStyle)
-    ? value as ThinkingPhraseAnimationStyle
-    : "soft";
-}
-
 const THINKING_PHRASES = [
   // ── Gaming ────────────────────────────────────────────────────────
   "Loading Next Level",               // classic loading screen
