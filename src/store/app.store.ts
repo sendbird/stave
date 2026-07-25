@@ -1,10 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { toast } from "sonner";
-import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import {
   listActiveWorkspaceTurns,
-  listLatestWorkspaceTurns,
   type PersistedTurnSummary,
 } from "@/lib/db/turns.db";
 import {
@@ -22,7 +19,6 @@ import {
   listWorkspaceSummaries,
   loadWorkspaceEditorTabBodies,
   loadTaskMessagesPage,
-  loadWorkspaceShell,
   loadWorkspaceShellForRestore,
   loadWorkspaceShellSummary,
   loadWorkspaceSnapshot,
@@ -30,17 +26,14 @@ import {
   loadProjectRegistrySnapshot,
   saveProjectRegistrySnapshot,
   type TaskProviderSessionState,
-  type WorkspaceShell,
   type WorkspaceSummary,
 } from "@/lib/db/workspaces.db";
 import type { PersistenceBootstrapPhase } from "@/lib/persistence/bootstrap-status";
 import type {
   CanonicalRetrievedContextPart,
-  ClaudeSettingSource,
   NormalizedProviderEvent,
   ProviderGoalSnapshot,
   ProviderId,
-  ProviderTurnRequest,
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import { getRepoMapContextCache } from "@/lib/fs/repo-map-context-cache";
@@ -70,7 +63,6 @@ import {
   buildNotificationExpiresAt,
   isNotificationAttentionKind,
   isNotificationUnread,
-  workspaceHasActiveTurns,
 } from "@/lib/notifications/notification.types";
 import {
   clearNotificationHistoryInList,
@@ -81,20 +73,13 @@ import {
   markNotificationReadInList,
   mergeNotificationIntoList,
 } from "@/lib/notifications/notification-state";
-import { buildNotificationToastOptions } from "@/lib/notifications/notification.utils";
 import {
-  DEFAULT_NOTIFICATION_SOUND_PRESET,
-  DEFAULT_NOTIFICATION_SOUND_MODE,
-  DEFAULT_NOTIFICATION_SOUND_VOLUME,
   normalizeNotificationSoundMode,
   normalizeNotificationSoundPreset,
   normalizeNotificationSoundVolume,
   playCustomNotificationSound,
   playNotificationSound,
-  type NotificationSoundMode,
-  type NotificationSoundPreset,
 } from "@/lib/notifications/notification-sound";
-import type { LensSessionScope } from "@/lib/lens/lens.types";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
 import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-request";
 import {
@@ -102,7 +87,6 @@ import {
   getProviderSessionId,
 } from "@/lib/providers/provider-sessions";
 import {
-  getDefaultModelForProvider,
   inferProviderIdFromModel,
   listProviderIds,
   normalizeModelSelection,
@@ -116,7 +100,6 @@ import {
   mergeModelRuntimePreference,
   mergeModelRuntimePreferenceSettings,
   normalizeModelRuntimePreferences,
-  type ModelRuntimePreferences,
   type UpdateModelRuntimePreferenceArgs,
 } from "@/lib/providers/model-runtime-preferences";
 import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
@@ -129,45 +112,30 @@ import {
 import {
   normalizeModelShortcutEfforts,
   normalizeModelShortcutKeys,
-  type ModelShortcutEffort,
 } from "@/lib/providers/model-shortcuts";
 import {
-  DEFAULT_APP_SHORTCUT_KEYS,
   normalizeAppShortcutKeys,
-  type AppShortcutKeys,
 } from "@/lib/app-shortcuts";
 import {
-  DEFAULT_PROMPT_COMMENT_SHORTCUT,
   normalizePromptCommentShortcut,
-  type PromptCommentShortcut,
 } from "@/lib/prompt-comment-shortcuts";
 import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
   normalizeVisualCommentShortcut,
-  type VisualCommentShortcut,
 } from "@/lib/visual-comment-shortcuts";
 import {
-  DEFAULT_STEER_QUEUE_ENTER_ACTION,
   normalizeSteerQueueEnterAction,
-  type SteerQueueEnterAction,
 } from "@/lib/steer-queue-shortcuts";
 import {
-  DEFAULT_PROMPT_RESPONSE_STYLE,
-  DEFAULT_PROMPT_PR_DESCRIPTION,
-  DEFAULT_PROMPT_INLINE_COMPLETION,
-  DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
   normalizeResponseStylePrompt,
 } from "@/lib/providers/prompt-defaults";
 import {
   collectIntentContext,
-  DEFAULT_PRE_PR_REVIEW_PROVIDER,
   deriveIntentComplianceStatus,
   normalizePrePrReviewProvider,
-  type PrePrReviewProviderId,
   type TurnIntentComplianceResult,
 } from "@/lib/source-control-review";
 import {
-  isTrustedApproval,
   normalizeTrustedToolEntries,
 } from "@/lib/providers/trusted-tools";
 import {
@@ -188,13 +156,11 @@ import {
 } from "@/lib/task-presets";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
-  DEFAULT_TERMINAL_FONT_SIZE,
   LEGACY_TERMINAL_FONT_FAMILY,
 } from "@/lib/terminal/defaults";
 import {
   getCliSessionTabDefaultTitle,
   getTerminalTabDefaultTitle,
-  buildTerminalSessionSlotKey,
   type CliSessionContextMode,
   type WorkspaceActiveSurface,
   type WorkspaceCliSessionTab,
@@ -223,7 +189,6 @@ import {
 } from "@/store/workspace-file-cache";
 import { resolveSkillSelections } from "@/lib/skills/catalog";
 import type { SkillCatalogEntry, SkillCatalogRoot } from "@/lib/skills/types";
-import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
 import {
   DEFAULT_PROVIDER_TIMEOUT_MS,
   PROVIDER_TIMEOUT_OPTIONS,
@@ -243,19 +208,11 @@ import {
   applyDetectedWorkspaceResources,
   buildIntentGuardContextInput,
   createEmptyWorkspaceInformation,
-  createWorkspaceConfluencePage,
-  createWorkspaceFigmaResource,
-  createWorkspaceInfoCustomField,
-  createWorkspaceJiraIssue,
-  createWorkspaceLinkedPullRequest,
-  createWorkspaceSlackThread,
-  createWorkspaceTodoItem,
   detectWorkspaceResourcesInText,
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import {
   normalizeWorkspaceInformationSectionVisibility,
-  type WorkspaceInformationSectionVisibility,
 } from "@/lib/workspace-information-sections";
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import {
@@ -268,11 +225,8 @@ import {
   findLatestPendingApprovalPart,
   findLatestPendingUserInput,
   findPendingApprovalMessageByRequestId,
-  findPendingUserInputMessageByRequestId,
   findLatestPendingUserInputPart,
   interruptPendingToolInteractionsInMessages,
-  updateApprovalPartsByRequestId,
-  updateUserInputPartsByRequestId,
 } from "@/store/provider-message.utils";
 import {
   buildReviewFeedbackFileContexts,
@@ -308,8 +262,6 @@ import {
   buildPendingProviderTurnState,
   buildSteeredUserMessageState,
   buildRecentTimestamp,
-  createFileContextPart,
-  createUserTextPart,
 } from "@/store/chat-state-helpers";
 import {
   createProviderTurnEventController,
@@ -323,20 +275,14 @@ import {
   saveActiveWorkspaceRuntimeCache,
 } from "@/store/workspace-runtime-state";
 import {
-  DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
   createWorkspaceKickoffResolver,
   runWorkspaceKickoff,
   type WorkspaceKickoffActions,
-  type WorkspaceKickoffSettings,
 } from "@/store/workspace-kickoff-actions";
 import type {
   Attachment,
   ChatMessage,
-  ClaudePermissionMode,
-  ClaudePermissionModeBeforePlan,
-  ClaudePlanModeApprovalScope,
   EditorTab,
-  MessagePart,
   PromptDraft,
   PromptDraftRuntimeOverrides,
   PromptDraftQueuedTurn,
@@ -349,7 +295,6 @@ import {
   buildPromptDraftDisplayPartsForSend,
   getImageAttachmentMimeType,
 } from "@/store/prompt-draft-message-content";
-import { DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE } from "@/types/chat";
 import {
   arePromptDraftRuntimeOverridesEqual,
   resolvePromptDraftModelForProvider,
@@ -394,7 +339,6 @@ import {
   normalizeComparablePath,
   parseGitWorktrees,
 } from "@/lib/source-control-worktrees";
-import { worktreeStatusHasMeaningfulChanges } from "@/lib/workspace-archive-status";
 import {
   type LayoutState,
   DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
@@ -451,27 +395,23 @@ import {
   toWorkspaceFolderName,
   resolveProjectNameFromPath,
   normalizeProjectDisplayName,
-  hashProjectPath,
   buildProjectDefaultWorkspaceId,
   buildImportedWorktreeWorkspaceId,
   buildLinkedWorktreeSymlinkPath,
   resolveImportedWorktreeName,
   resolveCurrentProjectDefaultWorkspaceId,
   normalizeCurrentProjectState,
-  normalizeArchivedWorkspacePaths,
   reconcileArchivedWorkspacePaths,
   cloneRecentProjectState,
   normalizeRecentProjectStates,
   upsertRecentProjectState,
   captureCurrentProjectState,
-  resolveProjectForWorkspaceId,
   resolveWorkspaceRemoteBaseBranchTarget,
   resolveTaskWorkspaceContext,
 } from "@/store/project.utils";
 import {
   type WorkspacePrInfo,
   type GitHubPrPayload,
-  type PrMergeMethod,
   derivePrStatus,
 } from "@/lib/pr-status";
 import {
@@ -489,6 +429,40 @@ import {
   reduceTaskScrollToLatestRequest,
   type TaskScrollToLatestRequest,
 } from "@/store/task-scroll.utils";
+import {
+  archivedWorktreePaths,
+  getArchivedWorktreePathSetForProject,
+  getLinkedWorktreePathSetForProject,
+  startWorkspaceArchiveCleanup,
+} from "@/store/workspace-archive-cleanup";
+import { closeTerminalSessionsForWorkspaces } from "@/store/workspace-terminal-cleanup";
+import {
+  shouldPreferLoadedWorkspaceState,
+  shouldReloadWorkspaceShellFromPersistence,
+  summarizeWorkspaceShell,
+} from "@/store/workspace-shell-summary";
+import {
+  buildApprovalNotificationInputs,
+  buildTaskTurnCompletedNotificationInput,
+  buildTaskTurnFailedNotificationInput,
+  buildUserInputNotificationInputs,
+  findTrustedApprovalResponses,
+  showNotificationToast,
+} from "@/store/app-notification-builders";
+import {
+  DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
+  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
+  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
+  createDefaultProviderAvailability,
+  defaultSettings,
+  normalizeBorderBeamSize,
+  normalizeBorderBeamStrength,
+  normalizeBorderBeamVariant,
+  normalizeLensSessionScope,
+  normalizeReasoningExpansionMode,
+  normalizeSidebarActiveWorkspaceLimit,
+  type AppSettings,
+} from "@/store/app-settings";
 
 const LOCAL_ABORT_SYSTEM_EVENT_CONTENT =
   "Generation was stopped locally before completion.";
@@ -514,6 +488,15 @@ export type {
   ThemeValidationResult,
 } from "@/lib/themes";
 export type { RecentProjectState } from "@/store/project.utils";
+// This module stays the public entry point for the app store, so settings and
+// archive-cleanup names that moved into sibling modules are re-exported here.
+export type { AppSettings } from "@/store/app-settings";
+export {
+  DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
+  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
+  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
+} from "@/store/app-settings";
+export { waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
 
 type NotificationContextOpenResult =
   | { status: "opened" }
@@ -1093,211 +1076,6 @@ function logWorkspaceSwitchMetric(args: {
   });
 }
 
-export interface AppSettings extends WorkspaceKickoffSettings {
-  showPresetBar: boolean;
-  themeMode: "light" | "dark" | "system";
-  /** ID of the active custom theme preset, or `null` for the default. */
-  customThemeId: string | null;
-  /** Show the Fleet View shortcut in the left workspace sidebar. */
-  sidebarShowFleetView: boolean;
-  /** Show the ranked Active workspaces section in the left workspace sidebar. */
-  sidebarShowActiveWorkspaces: boolean;
-  /** Maximum number of rows shown in the Active workspaces section. */
-  sidebarActiveWorkspaceLimit: number;
-  /**
-   * When `true`, an animated "border beam" highlight travels around the
-   * prompt input and active-workspace rows while a task is streaming. Purely
-   * decorative — honors `prefers-reduced-motion`.
-   */
-  borderBeamEnabled: boolean;
-  /**
-   * Size preset passed to the `border-beam` library.
-   */
-  borderBeamSize: BorderBeamSize;
-  /**
-   * Color palette preset passed to the `border-beam` library. These are the
-   * library's own presets — do not remap onto our theme tokens.
-   */
-  borderBeamVariant: BorderBeamColorVariant;
-  /**
-   * Overall beam opacity/intensity. Passed through to the library's
-   * `strength` prop as a 0-1 value.
-   */
-  borderBeamStrength: number;
-  /** User-installed custom theme definitions (persisted in localStorage). */
-  userCustomThemes: CustomThemeDefinition[];
-  themeOverrides: Record<ThemeModeName, ThemeOverrideValues>;
-  chatStreamingEnabled: boolean;
-  messageFontSize: number;
-  messageCodeFontSize: number;
-  messageFontFamily: string;
-  messageMonoFontFamily: string;
-  messageKoreanFontFamily: string;
-  /** Zoom scale for the workspace information panel (0.8 – 1.3, default 1). */
-  infoPanelScale: number;
-  /** Per-section visibility overrides for the workspace information panel. */
-  infoPanelSectionVisibility: WorkspaceInformationSectionVisibility;
-  reasoningExpansionMode: "auto" | "manual";
-  showInterimMessages: boolean;
-  codexFastModeVisible: boolean;
-  modelClaude: string;
-  modelCodex: string;
-  modelRuntimePreferences: ModelRuntimePreferences;
-  autoRoutingEnabled: boolean;
-  autoRoutingUseClassifier: boolean;
-  autoRoutingObjective: number;
-  autoRoutingSafetyEscalation: boolean;
-  autoRoutingAllowProviderSwitch: boolean;
-  autoRoutingEligibleClaudeModels: string[];
-  autoRoutingEligibleCodexModels: string[];
-  /**
-   * User-configurable presets rendered in the preset bar between the task
-   * tab strip and the chat panel. Each preset either seeds a new task with a
-   * fixed provider + model, or launches a native CLI session.
-   */
-  taskPresets: TaskPreset[];
-  permissionMode: "require-approval" | "auto-safe";
-  trustedTools: string[];
-  skillsEnabled: boolean;
-  skillsAutoSuggest: boolean;
-  sharedSkillsHome: string;
-  commandPaletteShowRecent: boolean;
-  commandPalettePinnedCommandIds: string[];
-  commandPaletteHiddenCommandIds: string[];
-  commandPaletteRecentCommandIds: string[];
-  /** Cmd/Ctrl+K shell chord bindings for navigation and panel actions. */
-  appShortcutKeys: AppShortcutKeys;
-  /** Alt+1..0 prompt-model bindings, stored as `provider:model` keys. */
-  modelShortcutKeys: string[];
-  /** Optional per-slot effort overrides for the Alt+1..0 prompt-model bindings. */
-  modelShortcutEfforts: ModelShortcutEffort[];
-  /** Composer shortcut that stages the current prompt text as a comment. */
-  promptCommentShortcut: PromptCommentShortcut;
-  /**
-   * Which key (Enter or Tab) steers vs queues during an active turn's
-   * steer-or-queue composer mode. The other key always does the opposite —
-   * neither is a fallback for the other.
-   */
-  steerQueueEnterAction: SteerQueueEnterAction;
-  /**
-   * Whether mid-turn steering is offered to the user at all. Previously this
-   * was solely gated by the `STAVE_ENABLE_MID_TURN_STEERING` env var on the
-   * main process; that env var still works as a fallback (e.g. for ops/dev
-   * use) but this setting is the primary, user-facing on/off switch.
-   */
-  midTurnSteeringEnabled: boolean;
-  /** Lens shortcut that toggles visual comment mode. */
-  visualCommentShortcut: VisualCommentShortcut;
-  /** When enabled, visual comment screenshots are included as provider image context. */
-  lensVisualCommentScreenshotsAsImageContext: boolean;
-  prePrReviewEnabled: boolean;
-  prePrReviewProvider: PrePrReviewProviderId;
-  /** Queue the created ready PR for automatic merging. */
-  createPrAutoMergeEnabled: boolean;
-  /** Merge strategy used when automatic merging is queued. */
-  createPrMergeMethod: PrMergeMethod;
-  terminalFontSize: number;
-  terminalFontFamily: string;
-  terminalCursorStyle: "block" | "bar" | "underline";
-  terminalLineHeight: number;
-  editorFontSize: number;
-  editorFontFamily: string;
-  editorWordWrap: boolean;
-  editorMinimap: boolean;
-  editorLineNumbers: "on" | "off" | "relative";
-  editorTabSize: number;
-  editorLspEnabled: boolean;
-  editorAiCompletions: boolean;
-  editorEslintEnabled: boolean;
-  editorFormatOnSave: boolean;
-  pythonLspCommand: string;
-  typescriptLspCommand: string;
-  diffViewMode: "unified" | "split";
-  /** Auto-refresh interval (seconds) for the Source Control panel. 0 = disabled. */
-  scmAutoRefreshSeconds: number;
-  confirmBeforeClose: boolean;
-  nativeNotificationsEnabled: boolean;
-  notificationSoundEnabled: boolean;
-  notificationSoundVolume: number;
-  notificationSoundPreset: NotificationSoundPreset;
-  notificationSoundMode: NotificationSoundMode;
-  /** Base64 data URL of the user-uploaded custom audio file. */
-  notificationSoundCustomAudioData: string | null;
-  /** Original file name of the uploaded custom audio, for display purposes. */
-  notificationSoundCustomAudioName: string | null;
-  providerDebugStream: boolean;
-  providerTimeoutMs: number;
-  claudeBinaryPath: string;
-  claudePermissionMode: ClaudePermissionMode;
-  /** Stores the permission mode that was active before entering plan mode, so it can be restored when plan mode is exited. */
-  claudePermissionModeBeforePlan: ClaudePermissionModeBeforePlan;
-  /** How much plan mode auto-approves non-mutating tool calls (Bash/Task/MCP). */
-  claudePlanModeApprovalScope: ClaudePlanModeApprovalScope;
-  claudeAllowDangerouslySkipPermissions: boolean;
-  claudeSandboxEnabled: boolean;
-  claudeAllowUnsandboxedCommands: boolean;
-  claudeTaskBudgetTokens: number;
-  claudeAdvisorModel: string;
-  claudeSettingSources: ClaudeSettingSource[];
-  claudeEffort: "low" | "medium" | "high" | "xhigh" | "max";
-  claudeThinkingMode: "adaptive" | "enabled" | "disabled";
-  claudeAgentProgressSummaries: boolean;
-  claudePromptSuggestions: boolean;
-  claudeForwardSubagentText: boolean;
-  claudeEnableFileCheckpointing: boolean;
-  claudeForkSession: boolean;
-  claudeStrictMcpConfig: boolean;
-  claudeFastMode: boolean;
-  claudeSkills: string;
-  claudePluginPaths: string;
-  claudeAgentName: string;
-  claudeFallbackModel: string;
-  claudeResumeSessionAt: string;
-  codexFileAccess: "read-only" | "workspace-write" | "danger-full-access";
-  codexNetworkAccess: boolean;
-  codexApprovalPolicy: "never" | "on-request" | "on-failure" | "untrusted";
-  codexBinaryPath: string;
-  codexReasoningEffort:
-    "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-  codexWebSearch: "disabled" | "cached" | "live";
-  codexShowRawReasoning: boolean;
-  codexReasoningSummary: "auto" | "concise" | "detailed" | "none";
-  codexReasoningSummarySupport: "auto" | "enabled" | "disabled";
-  codexFastMode: boolean;
-  codexPlanMode: boolean;
-  // ---------------------------------------------------------------------------
-  // Customisable AI prompt templates (Settings → Prompts)
-  // ---------------------------------------------------------------------------
-  /** Response formatting guidance injected into both Claude and Codex turns. Empty = disabled. */
-  promptResponseStyle: string;
-  /** Prompt template for AI-generated PR descriptions. */
-  promptPrDescription: string;
-  /** System prompt for inline code completion. */
-  promptInlineCompletion: string;
-  /** Preferred model for the Information panel's automatic latest-turn summary. */
-  workspaceTurnSummaryPrimaryModel: string;
-  /** Fallback model when the primary summary model is unavailable or fails. */
-  workspaceTurnSummaryFallbackModel: string;
-  /** Prompt template for the Information panel's automatic latest-turn summary. */
-  workspaceTurnSummaryPrompt: string;
-
-  // -- Lens (built-in browser) --
-  /** Heuristic search: AI uses class names, text, ID to grep source files. */
-  lensSourceMappingHeuristic: boolean;
-  /** React _debugSource: extract file:line from React fiber (dev builds). */
-  lensSourceMappingReactDebugSource: boolean;
-  /** Browser session storage scope for Lens sign-in cookies and site storage. */
-  lensSessionScope: LensSessionScope;
-  /** Hosts always allowed for Lens navigation. Empty = no allowlist restriction. */
-  lensAllowedHosts: string[];
-  /** Hosts always blocked for Lens navigation (wins over the allowlist). */
-  lensBlockedHosts: string[];
-  /** Master switch for CDP-backed Lens tools (screenshot/evaluate/click/etc.). */
-  lensDeveloperModeCdp: boolean;
-  /** Hosts the user has approved for CDP access (per-host opt-in). */
-  lensCdpApprovedHosts: string[];
-}
-
 interface AppState
   extends
     WorkspaceKickoffActions,
@@ -1732,579 +1510,11 @@ interface AppState
   }) => void;
 }
 
-function resolveTaskTitleFromSession(args: {
-  session: WorkspaceSessionState;
-  taskId: string;
-}) {
-  return (
-    args.session.tasks.find((task) => task.id === args.taskId)?.title.trim() ||
-    "Untitled Task"
-  );
-}
-
-function buildTaskTurnCompletedNotificationInput(args: {
-  state: Pick<
-    AppState,
-    "projectPath" | "projectName" | "workspaces" | "recentProjects"
-  >;
-  session: WorkspaceSessionState;
-  workspaceId: string;
-  taskId: string;
-  turnId: string;
-  provider: ProviderId;
-  events: NormalizedProviderEvent[];
-}): AppNotificationCreateInput | null {
-  const doneEvent = [...args.events]
-    .reverse()
-    .find(
-      (event): event is Extract<NormalizedProviderEvent, { type: "done" }> =>
-        event.type === "done",
-    );
-  if (!doneEvent) {
-    return null;
-  }
-  if (
-    workspaceHasActiveTurns({
-      activeTurnIdsByTask: args.session.activeTurnIdsByTask,
-    })
-  ) {
-    return null;
-  }
-
-  const project = resolveProjectForWorkspaceId({
-    state: {
-      projectPath: args.state.projectPath,
-      projectName: args.state.projectName,
-      workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
-    },
-    workspaceId: args.workspaceId,
-  });
-  const workspaceName = resolveWorkspaceName({
-    state: {
-      workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
-    },
-    workspaceId: args.workspaceId,
-  });
-  const taskTitle = resolveTaskTitleFromSession({
-    session: args.session,
-    taskId: args.taskId,
-  });
-
-  return {
-    id: crypto.randomUUID(),
-    kind: "task.turn_completed",
-    title: taskTitle,
-    body: `Latest run finished in ${workspaceName}.`,
-    projectPath: project?.projectPath ?? null,
-    projectName: project?.projectName ?? null,
-    workspaceId: args.workspaceId,
-    workspaceName,
-    taskId: args.taskId,
-    taskTitle,
-    turnId: args.turnId,
-    providerId: args.provider,
-    action: null,
-    payload: {
-      stopReason: doneEvent.stop_reason ?? null,
-    },
-    dedupeKey: `task.turn_completed:${args.turnId}`,
-  };
-}
-
-function buildTaskTurnFailedNotificationInput(args: {
-  state: Pick<
-    AppState,
-    "projectPath" | "projectName" | "workspaces" | "recentProjects"
-  >;
-  session: WorkspaceSessionState;
-  workspaceId: string;
-  taskId: string;
-  turnId: string;
-  provider: ProviderId;
-  events: NormalizedProviderEvent[];
-}): AppNotificationCreateInput | null {
-  const errorEvent = [...args.events]
-    .reverse()
-    .find(
-      (event): event is Extract<NormalizedProviderEvent, { type: "error" }> =>
-        event.type === "error" && event.recoverable === false,
-    );
-  if (!errorEvent) {
-    return null;
-  }
-  if (
-    workspaceHasActiveTurns({
-      activeTurnIdsByTask: args.session.activeTurnIdsByTask,
-    })
-  ) {
-    return null;
-  }
-
-  const project = resolveProjectForWorkspaceId({
-    state: {
-      projectPath: args.state.projectPath,
-      projectName: args.state.projectName,
-      workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
-    },
-    workspaceId: args.workspaceId,
-  });
-  const workspaceName = resolveWorkspaceName({
-    state: {
-      workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
-    },
-    workspaceId: args.workspaceId,
-  });
-  const taskTitle = resolveTaskTitleFromSession({
-    session: args.session,
-    taskId: args.taskId,
-  });
-
-  return {
-    id: crypto.randomUUID(),
-    kind: "task.turn_failed",
-    title: taskTitle,
-    body: `Latest run failed in ${workspaceName}.`,
-    projectPath: project?.projectPath ?? null,
-    projectName: project?.projectName ?? null,
-    workspaceId: args.workspaceId,
-    workspaceName,
-    taskId: args.taskId,
-    taskTitle,
-    turnId: args.turnId,
-    providerId: args.provider,
-    action: null,
-    payload: {
-      message: errorEvent.message,
-    },
-    dedupeKey: `task.turn_failed:${args.turnId}`,
-  };
-}
-
-function buildApprovalNotificationInputs(args: {
-  state: Pick<
-    AppState,
-    "projectPath" | "projectName" | "workspaces" | "recentProjects"
-  >;
-  session: WorkspaceSessionState;
-  workspaceId: string;
-  taskId: string;
-  turnId: string;
-  provider: ProviderId;
-  events: NormalizedProviderEvent[];
-  trustedTools?: readonly string[] | null;
-}): AppNotificationCreateInput[] {
-  const approvalEvents = args.events.filter(
-    (event): event is Extract<NormalizedProviderEvent, { type: "approval" }> =>
-      event.type === "approval" &&
-      !isTrustedApproval({
-        trustedTools: args.trustedTools,
-        toolName: event.toolName,
-        input: event.input,
-      }),
-  );
-  if (approvalEvents.length === 0) {
-    return [];
-  }
-
-  const project = resolveProjectForWorkspaceId({
-    state: {
-      projectPath: args.state.projectPath,
-      projectName: args.state.projectName,
-      workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
-    },
-    workspaceId: args.workspaceId,
-  });
-  const workspaceName = resolveWorkspaceName({
-    state: {
-      workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
-    },
-    workspaceId: args.workspaceId,
-  });
-  const taskTitle = resolveTaskTitleFromSession({
-    session: args.session,
-    taskId: args.taskId,
-  });
-  const taskMessages = args.session.messagesByTask[args.taskId] ?? [];
-
-  return approvalEvents.flatMap((event) => {
-    const location = findPendingApprovalMessageByRequestId({
-      messages: taskMessages,
-      requestId: event.requestId,
-    });
-    if (!location) {
-      return [];
-    }
-
-    return [
-      {
-        id: crypto.randomUUID(),
-        kind: "task.approval_requested",
-        title: taskTitle,
-        body: `${event.toolName}: ${event.description}`,
-        projectPath: project?.projectPath ?? null,
-        projectName: project?.projectName ?? null,
-        workspaceId: args.workspaceId,
-        workspaceName,
-        taskId: args.taskId,
-        taskTitle,
-        turnId: args.turnId,
-        providerId: args.provider,
-        action: {
-          type: "approval",
-          requestId: event.requestId,
-          messageId: location.messageId,
-        },
-        payload: {
-          toolName: event.toolName,
-          description: event.description,
-        },
-        dedupeKey: `task.approval_requested:${args.turnId}:${event.requestId}`,
-      } satisfies AppNotificationCreateInput,
-    ];
-  });
-}
-
-function findTrustedApprovalResponses(args: {
-  session: WorkspaceSessionState;
-  taskId: string;
-  events: NormalizedProviderEvent[];
-  trustedTools?: readonly string[] | null;
-}) {
-  const taskMessages = args.session.messagesByTask[args.taskId] ?? [];
-  return args.events.flatMap((event) => {
-    if (
-      event.type !== "approval" ||
-      !isTrustedApproval({
-        trustedTools: args.trustedTools,
-        toolName: event.toolName,
-        input: event.input,
-      })
-    ) {
-      return [];
-    }
-    const location = findPendingApprovalMessageByRequestId({
-      messages: taskMessages,
-      requestId: event.requestId,
-    });
-    return location
-      ? [{ messageId: location.messageId, requestId: event.requestId }]
-      : [];
-  });
-}
-
-function formatUserInputQuestionSummary(
-  event: Extract<NormalizedProviderEvent, { type: "user_input" }>,
-) {
-  const firstQuestion = event.questions[0];
-  const questionText =
-    firstQuestion?.header.trim() || firstQuestion?.question.trim() || "";
-  if (questionText) {
-    return questionText;
-  }
-  if (event.questions.length > 1) {
-    return `${event.questions.length} questions`;
-  }
-  return "User input requested";
-}
-
-function buildUserInputNotificationInputs(args: {
-  state: Pick<
-    AppState,
-    "projectPath" | "projectName" | "workspaces" | "recentProjects"
-  >;
-  session: WorkspaceSessionState;
-  workspaceId: string;
-  taskId: string;
-  turnId: string;
-  provider: ProviderId;
-  events: NormalizedProviderEvent[];
-}): AppNotificationCreateInput[] {
-  const userInputEvents = args.events.filter(
-    (
-      event,
-    ): event is Extract<NormalizedProviderEvent, { type: "user_input" }> =>
-      event.type === "user_input",
-  );
-  if (userInputEvents.length === 0) {
-    return [];
-  }
-
-  const project = resolveProjectForWorkspaceId({
-    state: {
-      projectPath: args.state.projectPath,
-      projectName: args.state.projectName,
-      workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
-    },
-    workspaceId: args.workspaceId,
-  });
-  const workspaceName = resolveWorkspaceName({
-    state: {
-      workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
-    },
-    workspaceId: args.workspaceId,
-  });
-  const taskTitle = resolveTaskTitleFromSession({
-    session: args.session,
-    taskId: args.taskId,
-  });
-  const taskMessages = args.session.messagesByTask[args.taskId] ?? [];
-
-  return userInputEvents.flatMap((event) => {
-    const location = findPendingUserInputMessageByRequestId({
-      messages: taskMessages,
-      requestId: event.requestId,
-    });
-    if (!location) {
-      return [];
-    }
-
-    const question = formatUserInputQuestionSummary(event);
-    return [
-      {
-        id: crypto.randomUUID(),
-        kind: "task.user_input_requested",
-        title: taskTitle,
-        body: `${event.toolName}: ${question}`,
-        projectPath: project?.projectPath ?? null,
-        projectName: project?.projectName ?? null,
-        workspaceId: args.workspaceId,
-        workspaceName,
-        taskId: args.taskId,
-        taskTitle,
-        turnId: args.turnId,
-        providerId: args.provider,
-        action: null,
-        payload: {
-          toolName: event.toolName,
-          question,
-          questionCount: event.questions.length,
-          requestId: event.requestId,
-          messageId: location.messageId,
-        },
-        dedupeKey: `task.user_input_requested:${args.turnId}:${event.requestId}`,
-      } satisfies AppNotificationCreateInput,
-    ];
-  });
-}
-
-function showNotificationToast(notification: AppNotification) {
-  const { tone, title, ...toastOptions } =
-    buildNotificationToastOptions(notification);
-
-  if (tone === "success") {
-    toast.success(title, toastOptions);
-    return;
-  }
-
-  toast.warning(title, toastOptions);
-}
-
 const ARCHIVED_TASK_TURN_NOTICE =
   "Generation stopped because the task was archived before this turn completed.";
 export const STAVE_OPEN_SETTINGS_EVENT = "stave:open-settings";
 const WORKSPACE_PR_STATUS_FRESH_MS = 4 * 60 * 1000;
 const WORKSPACE_PR_STATUS_POLL_CONCURRENCY = 3;
-export const SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN = 1;
-export const SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX = 9;
-export const DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT = 5;
-
-function normalizeReasoningExpansionMode(value: unknown): "auto" | "manual" {
-  return value === "auto" ? "auto" : "manual";
-}
-
-function normalizeBorderBeamSize(
-  value: unknown,
-): AppSettings["borderBeamSize"] {
-  return value === "sm" || value === "md" || value === "line" ? value : "md";
-}
-
-function normalizeBorderBeamVariant(
-  value: unknown,
-): AppSettings["borderBeamVariant"] {
-  return value === "colorful" ||
-    value === "mono" ||
-    value === "ocean" ||
-    value === "sunset"
-    ? value
-    : "colorful";
-}
-
-function normalizeBorderBeamStrength(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return defaultSettings.borderBeamStrength;
-  }
-  return Math.min(1, Math.max(0, value));
-}
-
-function normalizeSidebarActiveWorkspaceLimit(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT;
-  }
-  return Math.min(
-    SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
-    Math.max(SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN, Math.round(value)),
-  );
-}
-
-const defaultSettings: AppSettings = {
-  showPresetBar: true,
-  themeMode: "dark",
-  customThemeId: null,
-  sidebarShowFleetView: true,
-  sidebarShowActiveWorkspaces: true,
-  sidebarActiveWorkspaceLimit: DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
-  borderBeamEnabled: false,
-  borderBeamSize: "md",
-  borderBeamVariant: "colorful",
-  borderBeamStrength: 1,
-  userCustomThemes: [],
-  themeOverrides: {
-    light: {},
-    dark: {},
-  },
-  chatStreamingEnabled: true,
-  messageFontSize: 18,
-  messageCodeFontSize: 14,
-  messageFontFamily: "Geist Variable",
-  messageMonoFontFamily: "JetBrains Mono",
-  messageKoreanFontFamily: "Pretendard Variable",
-  infoPanelScale: 1,
-  infoPanelSectionVisibility: {},
-  reasoningExpansionMode: "manual",
-  showInterimMessages: false,
-  codexFastModeVisible: true,
-  modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
-  modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
-  modelRuntimePreferences: {},
-  autoRoutingEnabled: false,
-  autoRoutingUseClassifier: false,
-  autoRoutingObjective: 0.5,
-  autoRoutingSafetyEscalation: true,
-  autoRoutingAllowProviderSwitch: false,
-  autoRoutingEligibleClaudeModels: [],
-  autoRoutingEligibleCodexModels: [],
-  taskPresets: cloneDefaultTaskPresets(),
-  permissionMode: "auto-safe",
-  trustedTools: [],
-  skillsEnabled: true,
-  skillsAutoSuggest: true,
-  sharedSkillsHome: "",
-  commandPaletteShowRecent: true,
-  commandPalettePinnedCommandIds: [],
-  commandPaletteHiddenCommandIds: [],
-  commandPaletteRecentCommandIds: [],
-  appShortcutKeys: { ...DEFAULT_APP_SHORTCUT_KEYS },
-  modelShortcutKeys: normalizeModelShortcutKeys(),
-  modelShortcutEfforts: normalizeModelShortcutEfforts(),
-  promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
-  steerQueueEnterAction: DEFAULT_STEER_QUEUE_ENTER_ACTION,
-  midTurnSteeringEnabled: false,
-  visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
-  lensVisualCommentScreenshotsAsImageContext: false,
-  prePrReviewEnabled: false,
-  prePrReviewProvider: DEFAULT_PRE_PR_REVIEW_PROVIDER,
-  createPrAutoMergeEnabled: true,
-  createPrMergeMethod: "default",
-  terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
-  terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
-  terminalCursorStyle: "block",
-  terminalLineHeight: 1,
-  editorFontSize: 14,
-  editorFontFamily: "JetBrains Mono, monospace",
-  editorWordWrap: true,
-  editorMinimap: false,
-  editorLineNumbers: "on" as const,
-  editorTabSize: 2,
-  editorLspEnabled: false,
-  editorAiCompletions: false,
-  editorEslintEnabled: false,
-  editorFormatOnSave: false,
-  pythonLspCommand: "",
-  typescriptLspCommand: "",
-  diffViewMode: "unified",
-  scmAutoRefreshSeconds: 0,
-  confirmBeforeClose: true,
-  nativeNotificationsEnabled: true,
-  notificationSoundEnabled: true,
-  notificationSoundVolume: DEFAULT_NOTIFICATION_SOUND_VOLUME,
-  notificationSoundPreset: DEFAULT_NOTIFICATION_SOUND_PRESET,
-  notificationSoundMode: DEFAULT_NOTIFICATION_SOUND_MODE,
-  notificationSoundCustomAudioData: null,
-  notificationSoundCustomAudioName: null,
-  providerDebugStream: false,
-  providerTimeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
-  claudeBinaryPath: "",
-  claudePermissionMode: "auto",
-  claudePermissionModeBeforePlan: null,
-  claudePlanModeApprovalScope: DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
-  claudeAllowDangerouslySkipPermissions: false,
-  claudeSandboxEnabled: false,
-  claudeAllowUnsandboxedCommands: true,
-  claudeTaskBudgetTokens: 0,
-  claudeAdvisorModel: "",
-  claudeSettingSources: ["project"],
-  claudeEffort: "high",
-  claudeThinkingMode: "adaptive",
-  claudeAgentProgressSummaries: false,
-  claudePromptSuggestions: true,
-  claudeForwardSubagentText: false,
-  claudeEnableFileCheckpointing: false,
-  claudeForkSession: false,
-  claudeStrictMcpConfig: false,
-  claudeFastMode: false,
-  claudeSkills: "",
-  claudePluginPaths: "",
-  claudeAgentName: "",
-  claudeFallbackModel: "",
-  claudeResumeSessionAt: "",
-  codexFileAccess: "danger-full-access",
-  codexNetworkAccess: true,
-  codexApprovalPolicy: "never",
-  codexBinaryPath: "",
-  // Matches the codex-cli 0.144.1 server-catalog default effort (xhigh) for
-  // the default model family (GPT-5.6).
-  codexReasoningEffort: "xhigh",
-  codexWebSearch: "live",
-  codexShowRawReasoning: false,
-  codexReasoningSummary: "auto",
-  codexReasoningSummarySupport: "auto",
-  codexFastMode: false,
-  codexPlanMode: false,
-  promptResponseStyle: DEFAULT_PROMPT_RESPONSE_STYLE,
-  promptPrDescription: DEFAULT_PROMPT_PR_DESCRIPTION,
-  promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,
-  workspaceTurnSummaryPrimaryModel: "gpt-5.6-luna",
-  workspaceTurnSummaryFallbackModel: "claude-haiku-4-5",
-  workspaceTurnSummaryPrompt: DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
-  ...DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
-
-  // Lens
-  lensSourceMappingHeuristic: true,
-  lensSourceMappingReactDebugSource: false,
-  lensSessionScope: "project",
-  lensAllowedHosts: [],
-  lensBlockedHosts: [],
-  lensDeveloperModeCdp: true,
-  lensCdpApprovedHosts: [],
-};
-
-function normalizeLensSessionScope(value: unknown): LensSessionScope {
-  return value === "workspace" ? "workspace" : "project";
-}
-
-function createDefaultProviderAvailability() {
-  return Object.fromEntries(
-    listProviderIds().map((providerId) => [providerId, true] as const),
-  ) as Record<ProviderId, boolean>;
-}
 
 function incrementWorkspaceSnapshotVersion(
   state: Pick<AppState, "workspaceSnapshotVersion">,
@@ -2606,378 +1816,6 @@ function mergeRecentProjectsByPath(args: {
       ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
     };
   });
-}
-
-function summarizeWorkspaceShell(
-  snapshot:
-    | Awaited<ReturnType<typeof loadWorkspaceShell>>
-    | Awaited<ReturnType<typeof loadWorkspaceShellSummary>>,
-) {
-  if (!snapshot) {
-    return 0;
-  }
-  return (
-    snapshot.tasks.length +
-    ("terminalTabCount" in snapshot
-      ? snapshot.terminalTabCount
-      : (snapshot.terminalTabs?.length ?? 0)) +
-    ("cliSessionTabCount" in snapshot
-      ? snapshot.cliSessionTabCount
-      : (snapshot.cliSessionTabs?.length ?? 0)) +
-    Object.values(snapshot.messageCountByTask).reduce(
-      (sum, count) => sum + count,
-      0,
-    )
-  );
-}
-
-function summarizeWorkspaceSession(session?: WorkspaceSessionState | null) {
-  if (!session) {
-    return 0;
-  }
-  return (
-    session.tasks.length +
-    (session.terminalTabs?.length ?? 0) +
-    (session.cliSessionTabs?.length ?? 0) +
-    Object.values(session.messageCountByTask).reduce(
-      (sum, count) => sum + count,
-      0,
-    )
-  );
-}
-
-async function closeTerminalSessionsForWorkspaces(workspaceIds: string[]) {
-  const api = window.api?.terminal?.closeSessionsBySlotPrefix;
-  if (!api || workspaceIds.length === 0) {
-    return;
-  }
-  await Promise.allSettled(
-    workspaceIds.flatMap((wsId) => [
-      api({
-        prefix: buildTerminalSessionSlotKey({
-          surface: "terminal",
-          workspaceId: wsId,
-          tabId: "",
-        }),
-      }),
-      api({
-        prefix: buildTerminalSessionSlotKey({
-          surface: "cli",
-          workspaceId: wsId,
-          tabId: "",
-        }),
-      }),
-    ]),
-  );
-}
-
-const activeWorkspaceArchiveCleanups = new Set<Promise<void>>();
-
-/**
- * Normalized worktree paths the user explicitly archived this session. When a
- * worktree is genuinely dirty, archive intentionally preserves it on disk to
- * protect uncommitted work — but `refreshWorkspaces` would then re-discover and
- * re-register it ("resurrection"). This tombstone tells the discovery pass to
- * skip those paths so an archived workspace stays archived.
- */
-const archivedWorktreePaths = new Set<string>();
-
-function getArchivedWorktreePathSetForProject(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
-}) {
-  const normalizedProjectPath = normalizeComparablePath(args.projectPath);
-  const project = normalizedProjectPath
-    ? (args.recentProjects.find(
-        (item) =>
-          normalizeComparablePath(item.projectPath) === normalizedProjectPath,
-      ) ?? null)
-    : null;
-  return new Set([
-    ...normalizeArchivedWorkspacePaths({
-      paths: project?.archivedWorkspacePaths,
-    }),
-    ...archivedWorktreePaths,
-  ]);
-}
-
-/**
- * Normalized worktree paths the user explicitly imported from outside this
- * project checkout ("linked" worktrees). They usually belong to another clone,
- * so the project's `git worktree list` does not report them — without this set
- * the stale-workspace cleanup would immediately unregister them again.
- */
-function getLinkedWorktreePathSetForProject(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
-}) {
-  const normalizedProjectPath = normalizeComparablePath(args.projectPath);
-  const project = normalizedProjectPath
-    ? (args.recentProjects.find(
-        (item) =>
-          normalizeComparablePath(item.projectPath) === normalizedProjectPath,
-      ) ?? null)
-    : null;
-  return new Set(
-    normalizeArchivedWorkspacePaths({
-      paths: project?.linkedWorkspacePaths,
-    }),
-  );
-}
-
-type WorkspaceArchiveCommandRunner = (args: {
-  cwd?: string;
-  command: string;
-}) => Promise<{
-  ok: boolean;
-  code: number;
-  stdout: string;
-  stderr: string;
-}>;
-
-/**
- * Wait for every background workspace-archive cleanup promise to settle.
- * Archive cleanup (git worktree removal, branch deletion, persistence close)
- * runs detached so the UI can archive a workspace instantly. Tests and
- * shutdown code paths can use this to observe the real completion of that
- * deferred work.
- */
-export async function waitForPendingWorkspaceArchiveCleanups(): Promise<void> {
-  while (activeWorkspaceArchiveCleanups.size > 0) {
-    const pending = Array.from(activeWorkspaceArchiveCleanups);
-    await Promise.allSettled(pending);
-  }
-}
-
-function startWorkspaceArchiveCleanup(args: {
-  workspaceId: string;
-  workspacePath?: string;
-  workspaceBranch?: string;
-  projectPath?: string | null;
-  isLinkedWorktree?: boolean;
-}): void {
-  // Tombstone the path synchronously so a refresh racing the detached cleanup
-  // below does not re-register the workspace being archived.
-  if (args.workspacePath) {
-    const normalizedArchivedPath = normalizeComparablePath(args.workspacePath);
-    if (normalizedArchivedPath) {
-      archivedWorktreePaths.add(normalizedArchivedPath);
-    }
-  }
-  const promise = performWorkspaceArchiveCleanup(args);
-  activeWorkspaceArchiveCleanups.add(promise);
-  promise
-    .catch((error) => {
-      console.error(
-        "[workspace-archive] background cleanup rejected",
-        args,
-        error,
-      );
-    })
-    .finally(() => {
-      activeWorkspaceArchiveCleanups.delete(promise);
-    });
-}
-
-async function workspaceHasLocalChanges(args: {
-  runner: WorkspaceArchiveCommandRunner;
-  workspacePath: string;
-  workspaceId: string;
-}) {
-  const statusResult = await args.runner({
-    cwd: args.workspacePath,
-    command: "git status --porcelain --untracked-files=all",
-  });
-  if (!statusResult.ok) {
-    console.warn("[workspace-archive] dirty check failed", {
-      workspaceId: args.workspaceId,
-      workspacePath: args.workspacePath,
-      stderr: statusResult.stderr,
-    });
-    return true;
-  }
-  // Ignore Stave's own self-managed untracked entries (the linked node_modules
-  // symlink), which `.gitignore`'s `node_modules/` dir-only pattern misses and
-  // would otherwise make every symlinked worktree look permanently dirty.
-  return worktreeStatusHasMeaningfulChanges(statusResult.stdout);
-}
-
-async function workspaceBranchHasUnpushedCommits(args: {
-  runner: WorkspaceArchiveCommandRunner;
-  projectPath: string;
-  workspaceId: string;
-  workspaceBranch: string;
-}) {
-  const unpushedResult = await args.runner({
-    cwd: args.projectPath,
-    command: `git rev-list --count ${JSON.stringify(args.workspaceBranch)} --not --remotes`,
-  });
-  if (!unpushedResult.ok) {
-    console.warn("[workspace-archive] unpushed branch check failed", {
-      workspaceId: args.workspaceId,
-      workspaceBranch: args.workspaceBranch,
-      stderr: unpushedResult.stderr,
-    });
-    return true;
-  }
-  const count = Number.parseInt(unpushedResult.stdout.trim(), 10);
-  return Number.isFinite(count) && count > 0;
-}
-
-async function performWorkspaceArchiveCleanup(args: {
-  workspaceId: string;
-  workspacePath?: string;
-  workspaceBranch?: string;
-  projectPath?: string | null;
-  isLinkedWorktree?: boolean;
-}) {
-  const { workspaceId, workspacePath, workspaceBranch, projectPath } = args;
-  try {
-    const stopWorkspaceScripts = window.api?.scripts?.stopAll;
-    if (stopWorkspaceScripts) {
-      await stopWorkspaceScripts({ workspaceId });
-    }
-  } catch (error) {
-    console.error(
-      "[workspace-archive] stopScripts failed",
-      { workspaceId },
-      error,
-    );
-  }
-  try {
-    await closeTerminalSessionsForWorkspaces([workspaceId]);
-  } catch (error) {
-    console.error(
-      "[workspace-archive] closeTerminalSessions failed",
-      { workspaceId },
-      error,
-    );
-  }
-  const runner = window.api?.terminal?.runCommand;
-  if (runner && projectPath && workspacePath && args.isLinkedWorktree) {
-    // Linked worktrees live outside this checkout and stay owned by whatever
-    // created them: never remove the worktree or its branch, only the symlink
-    // Stave placed under `.stave/workspaces/`.
-    try {
-      const symlinkPath = buildLinkedWorktreeSymlinkPath({
-        projectPath,
-        worktreePath: workspacePath,
-      });
-      await runner({
-        cwd: projectPath,
-        command: `if [ -L ${JSON.stringify(symlinkPath)} ]; then rm ${JSON.stringify(symlinkPath)}; fi`,
-      });
-    } catch (error) {
-      console.error(
-        "[workspace-archive] linked symlink cleanup failed",
-        { workspaceId, workspacePath },
-        error,
-      );
-    }
-  } else if (runner && projectPath && workspacePath) {
-    try {
-      const hasLocalChanges = await workspaceHasLocalChanges({
-        runner,
-        workspacePath,
-        workspaceId,
-      });
-      let didRemoveWorktree = false;
-      if (hasLocalChanges) {
-        console.warn("[workspace-archive] preserving dirty worktree", {
-          workspaceId,
-          workspacePath,
-        });
-      } else {
-        // `worktreeStatusHasMeaningfulChanges` ignores the linked
-        // `node_modules` symlink, but `git worktree remove` still refuses to
-        // delete a worktree that contains untracked entries. Drop the
-        // self-managed symlink first so a pristine symlinked worktree is
-        // actually removable — otherwise it silently survives on disk and
-        // resurrects as a rediscovered workspace later.
-        const nodeModulesSymlinkPath = `${workspacePath}/node_modules`;
-        await runner({
-          cwd: projectPath,
-          command: `if [ -L ${JSON.stringify(nodeModulesSymlinkPath)} ]; then rm ${JSON.stringify(nodeModulesSymlinkPath)}; fi`,
-        });
-        const removeResult = await runner({
-          cwd: projectPath,
-          command: `git worktree remove ${JSON.stringify(workspacePath)}`,
-        });
-        didRemoveWorktree = removeResult.ok;
-        if (!removeResult.ok) {
-          console.warn(
-            "[workspace-archive] git worktree remove failed; preserving worktree",
-            {
-              workspaceId,
-              workspacePath,
-              stderr: removeResult.stderr,
-            },
-          );
-        }
-        await runner({
-          cwd: projectPath,
-          command: "git worktree prune",
-        });
-      }
-
-      if (workspaceBranch && didRemoveWorktree) {
-        const hasUnpushedCommits = await workspaceBranchHasUnpushedCommits({
-          runner,
-          projectPath,
-          workspaceId,
-          workspaceBranch,
-        });
-        if (hasUnpushedCommits) {
-          console.warn("[workspace-archive] preserving unpushed branch", {
-            workspaceId,
-            workspaceBranch,
-          });
-        } else {
-          await runner({
-            cwd: projectPath,
-            command: `git branch -d ${JSON.stringify(workspaceBranch)}`,
-          });
-        }
-      }
-    } catch (error) {
-      console.error(
-        "[workspace-archive] git cleanup failed",
-        { workspaceId, workspacePath, workspaceBranch },
-        error,
-      );
-    }
-  }
-  try {
-    await closeWorkspacePersistence({ workspaceId });
-  } catch (error) {
-    console.error(
-      "[workspace-archive] closeWorkspacePersistence failed",
-      { workspaceId },
-      error,
-    );
-  }
-}
-
-function shouldReloadWorkspaceShellFromPersistence(args: {
-  cachedWorkspaceState?: WorkspaceSessionState;
-}) {
-  return summarizeWorkspaceSession(args.cachedWorkspaceState) === 0;
-}
-
-function shouldPreferLoadedWorkspaceState(args: {
-  cachedWorkspaceState?: WorkspaceSessionState;
-  loadedWorkspaceShellState?: {
-    shell: WorkspaceShell | null;
-    workspaceState: WorkspaceSessionState;
-  } | null;
-}) {
-  if (!args.loadedWorkspaceShellState) {
-    return false;
-  }
-  return (
-    summarizeWorkspaceShell(args.loadedWorkspaceShellState.shell) >
-    summarizeWorkspaceSession(args.cachedWorkspaceState)
-  );
 }
 
 export const useAppStore = create<AppState>()(

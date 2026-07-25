@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import * as pty from "node-pty";
@@ -26,11 +26,7 @@ import {
   unbindTerminalSessionSlotBySlotKey,
 } from "../main/terminal-session-slot-registry";
 import { resolveCommandCwd } from "../main/utils/command";
-import {
-  byteLengthUtf8,
-  takeUtf8PrefixByBytes,
-  takeUtf8SuffixByBytes,
-} from "../shared/bounded-text";
+import { byteLengthUtf8 } from "../shared/bounded-text";
 import { ensureUtf8Locale } from "../shared/utf8-locale";
 import { Osc133Parser } from "../../src/lib/terminal/osc133";
 import { appendAbsoluteCursorPosition } from "../../src/lib/terminal/snapshot";
@@ -40,16 +36,34 @@ import type {
   HostTerminalMutationResult,
   HostTerminalReadSessionResult,
 } from "./protocol";
+import type {
+  TerminalSessionEntry,
+  TerminalSnapshotPersistence,
+} from "./terminal-session-entry";
+import {
+  createBufferedDataHandler,
+  createOscColorInterceptor,
+} from "./terminal-pty-stream";
+import {
+  collectRecentCodexSessionFiles,
+  readCodexSessionMeta,
+} from "./codex-native-session-files";
+import {
+  appendBackgroundBuffer,
+  appendOutputChunk,
+  appendPendingPush,
+  bufferPendingPushOutput,
+  drainBackgroundBuffer,
+  logTerminalPushBackpressure,
+  maybeLogTerminalBackpressure,
+  maybeLogTerminalRecovery,
+  shiftBoundedOutput,
+} from "./terminal-session-buffers";
 
 const DEFAULT_TERMINAL_FOREGROUND = "#d4d4d4";
 const DEFAULT_TERMINAL_BACKGROUND = "#1e1e1e";
 const TERMINAL_SESSION_CLOSE_TIMEOUT_MS = 5_000;
 const TERMINAL_PUSH_BACKLOG_WARN_BYTES = 128 * 1024;
-const TERMINAL_PUSH_BACKLOG_LOG_INTERVAL_MS = 2_000;
-
-const TERMINAL_BACKGROUND_BUFFER_MAX_BYTES = 2 * 1024 * 1024;
-const TERMINAL_OUTPUT_CHUNKS_MAX_BYTES = 2 * 1024 * 1024;
-const TERMINAL_PENDING_PUSH_MAX_BYTES = 2 * 1024 * 1024;
 const TERMINAL_PUSH_FLUSH_MAX_BYTES = 128 * 1024;
 const TERMINAL_PUSH_ACK_HIGH_WATER_BYTES = 512 * 1024;
 const TERMINAL_PUSH_ACK_LOW_WATER_BYTES = 128 * 1024;
@@ -61,143 +75,6 @@ const CODEX_SESSION_DISCOVERY_POLL_MS = 500;
 const CODEX_SESSION_DISCOVERY_MAX_ATTEMPTS = 60;
 const CODEX_SESSION_DISCOVERY_LOOKBACK_MS = 15_000;
 const CODEX_SESSION_DISCOVERY_MATCH_WINDOW_MS = 60_000;
-
-interface TerminalSessionEntry {
-  pty: pty.IPty;
-  dataSubscription: pty.IDisposable | null;
-  exitSubscription: pty.IDisposable | null;
-  headlessTerminal: HeadlessTerminal;
-  serializeAddon: SerializeAddon;
-  headlessDataSubscription: { dispose: () => void } | null;
-  lastHeadlessWritePromise: Promise<void>;
-  outputChunks: string[];
-  outputChunksBytes: number;
-  pendingPush: string[];
-  pendingPushBytes: number;
-  peakPendingPushBytes: number;
-  lastBackpressureLogAt: number;
-  backlogWarningActive: boolean;
-  pushScheduled: boolean;
-  pushWriteInFlight: boolean;
-  lastPushWritePromise: Promise<void> | null;
-  deliveryMode: "poll" | "push";
-  closing: boolean;
-  slotKey: string | null;
-  closed: Promise<void>;
-  close: () => void;
-  disposePtyListeners: () => void;
-  disposeHeadlessMirror: () => void;
-  flushPushOutput: () => void;
-  markClosed: () => void;
-  activeAttachmentId: string | null;
-  streamReadyAttachmentId: string | null;
-  backgroundBuffer: string[];
-  backgroundBufferBytes: number;
-  exitCode: number | null;
-  exitSignal: number | undefined;
-  nativeSessionId: string | null;
-  disposeNativeSessionDiscovery: (() => void) | null;
-  outputSequence: number;
-  sentOutputBytes: number;
-  acknowledgedOutputBytes: number;
-  flowPaused: boolean;
-  persistedScreenState: string | null;
-  osc133Parser: Osc133Parser;
-}
-
-interface TerminalSnapshotPersistence {
-  saveTerminalSnapshot(args: { slotKey: string; screenState: string }): void;
-  loadTerminalSnapshot(args: {
-    slotKey: string;
-  }): { screen_state: string; updated_at: string } | undefined;
-  deleteTerminalSnapshot(args: { slotKey: string }): void;
-}
-
-function createBufferedDataHandler(onData: (data: string) => void) {
-  let buffer = "";
-  let flushTimer: ReturnType<typeof setTimeout> | null = null;
-
-  function flush() {
-    flushTimer = null;
-    if (buffer.length > 0) {
-      onData(buffer);
-      buffer = "";
-    }
-  }
-
-  return (data: string) => {
-    buffer += data;
-    let sendUpTo = buffer.length;
-
-    if (buffer.endsWith("\x1b")) {
-      sendUpTo = buffer.length - 1;
-    } else if (buffer.endsWith("\x1b[")) {
-      sendUpTo = buffer.length - 2;
-    } else {
-      const csiTail = buffer.match(/\x1b\[[0-9;]*$/);
-      if (csiTail) {
-        sendUpTo = buffer.length - csiTail[0].length;
-      }
-    }
-
-    if (sendUpTo === buffer.length) {
-      const oscStart = buffer.lastIndexOf("\x1b]");
-      if (oscStart >= 0) {
-        const afterOsc = buffer.substring(oscStart);
-        const hasTerminator =
-          afterOsc.includes("\x07") || afterOsc.includes("\x1b\\");
-        if (!hasTerminator) {
-          sendUpTo = oscStart;
-        }
-      }
-    }
-
-    if (sendUpTo > 0) {
-      onData(buffer.substring(0, sendUpTo));
-      buffer = buffer.substring(sendUpTo);
-    }
-
-    // If incomplete sequence remains, schedule a flush timeout so it doesn't
-    // block spinner/animation frames indefinitely.  xterm.js parsers on both
-    // the headless mirror and the renderer handle partial sequences gracefully.
-    if (flushTimer !== null) {
-      clearTimeout(flushTimer);
-      flushTimer = null;
-    }
-    if (buffer.length > 0) {
-      flushTimer = setTimeout(flush, 32);
-    }
-  };
-}
-
-function createOscColorInterceptor(args: {
-  writeToPty: (data: string) => void;
-  foreground: string;
-  background: string;
-}) {
-  function hexToX11(hex: string) {
-    const value = hex.replace("#", "");
-    return `rgb:${value.substring(0, 2)}/${value.substring(2, 4)}/${value.substring(4, 6)}`;
-  }
-
-  const foreground = hexToX11(args.foreground);
-  const background = hexToX11(args.background);
-
-  return (data: string) =>
-    data.replace(
-      /\x1b\](10|11);?\?(?:\x07|\x1b\\)/g,
-      (_match, code: string) => {
-        args.writeToPty(
-          `\x1b]${code};${code === "10" ? foreground : background}\x1b\\`,
-        );
-        return "";
-      },
-    );
-}
-
-function logTerminalPushBackpressure(message: string) {
-  process.stderr.write(`[terminal:push-backpressure] ${message}\n`);
-}
 
 export function createTerminalRuntime(args: {
   emitEvent: <TEvent extends keyof HostServiceEventMap>(
@@ -235,92 +112,6 @@ export function createTerminalRuntime(args: {
         codexSessionIdClaimByNativeId.delete(nativeSessionId);
       }
     }
-  }
-
-  function readCodexSessionMeta(args: { filePath: string }) {
-    try {
-      const firstLine = readFileSync(args.filePath, "utf8")
-        .split("\n", 1)[0]
-        ?.trim();
-      if (!firstLine) {
-        return null;
-      }
-      const parsed = JSON.parse(firstLine) as {
-        type?: string;
-        payload?: { id?: string; cwd?: string; timestamp?: string };
-      };
-      if (parsed.type !== "session_meta") {
-        return null;
-      }
-      const nativeSessionId = parsed.payload?.id?.trim();
-      const cwd = parsed.payload?.cwd?.trim();
-      const timestamp = parsed.payload?.timestamp?.trim();
-      if (!nativeSessionId || !cwd || !timestamp) {
-        return null;
-      }
-      const timestampMs = Date.parse(timestamp);
-      if (!Number.isFinite(timestampMs)) {
-        return null;
-      }
-      return {
-        nativeSessionId,
-        cwd: normalizeSessionCwd(cwd),
-        timestampMs,
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  function collectRecentCodexSessionFiles(args: {
-    rootPath: string;
-    earliestMtimeMs: number;
-  }) {
-    const recentFiles: string[] = [];
-    const stack = [args.rootPath];
-
-    while (stack.length > 0) {
-      const currentDir = stack.pop();
-      if (!currentDir) {
-        continue;
-      }
-      let entries;
-      try {
-        entries = readdirSync(currentDir, { withFileTypes: true });
-      } catch {
-        continue;
-      }
-
-      for (const entry of entries) {
-        const fullPath = path.join(currentDir, entry.name);
-        if (entry.isDirectory()) {
-          stack.push(fullPath);
-          continue;
-        }
-        if (!entry.isFile() || !entry.name.endsWith(".jsonl")) {
-          continue;
-        }
-        let stats;
-        try {
-          stats = statSync(fullPath);
-        } catch {
-          continue;
-        }
-        if (stats.mtimeMs >= args.earliestMtimeMs) {
-          recentFiles.push(fullPath);
-        }
-      }
-    }
-
-    recentFiles.sort((left, right) => {
-      try {
-        return statSync(right).mtimeMs - statSync(left).mtimeMs;
-      } catch {
-        return 0;
-      }
-    });
-
-    return recentFiles;
   }
 
   function startCodexNativeSessionDiscovery(args: {
@@ -468,141 +259,6 @@ export function createTerminalRuntime(args: {
     return null;
   }
 
-  function bufferPendingPushOutput(session: TerminalSessionEntry) {
-    drainPendingPush({
-      session,
-      append: (chunk) => appendOutputChunk(session, chunk),
-    });
-  }
-
-  function appendBounded(
-    buffer: string[],
-    tracker: { bytes: number },
-    data: string,
-    maxBytes: number,
-  ) {
-    let nextData = data;
-    const nextDataBytes = byteLengthUtf8(nextData);
-    if (nextDataBytes > maxBytes) {
-      nextData = takeUtf8SuffixByBytes({
-        value: nextData,
-        maxBytes,
-      }).suffix;
-      buffer.length = 0;
-      tracker.bytes = 0;
-    }
-
-    buffer.push(nextData);
-    tracker.bytes += byteLengthUtf8(nextData);
-    while (tracker.bytes > maxBytes && buffer.length > 0) {
-      const removed = buffer.shift()!;
-      tracker.bytes -= byteLengthUtf8(removed);
-    }
-  }
-
-  function appendBackgroundBuffer(session: TerminalSessionEntry, data: string) {
-    appendBounded(
-      session.backgroundBuffer,
-      {
-        get bytes() {
-          return session.backgroundBufferBytes;
-        },
-        set bytes(v) {
-          session.backgroundBufferBytes = v;
-        },
-      },
-      data,
-      TERMINAL_BACKGROUND_BUFFER_MAX_BYTES,
-    );
-  }
-
-  function appendOutputChunk(session: TerminalSessionEntry, data: string) {
-    appendBounded(
-      session.outputChunks,
-      {
-        get bytes() {
-          return session.outputChunksBytes;
-        },
-        set bytes(v) {
-          session.outputChunksBytes = v;
-        },
-      },
-      data,
-      TERMINAL_OUTPUT_CHUNKS_MAX_BYTES,
-    );
-  }
-
-  function appendPendingPush(session: TerminalSessionEntry, data: string) {
-    appendBounded(
-      session.pendingPush,
-      {
-        get bytes() {
-          return session.pendingPushBytes;
-        },
-        set bytes(v) {
-          session.pendingPushBytes = v;
-        },
-      },
-      data,
-      TERMINAL_PENDING_PUSH_MAX_BYTES,
-    );
-  }
-
-  function drainPendingPush(args: {
-    session: TerminalSessionEntry;
-    append: (chunk: string) => void;
-  }) {
-    const { session } = args;
-    while (session.pendingPush.length > 0) {
-      const nextChunk = session.pendingPush.shift();
-      if (!nextChunk) {
-        continue;
-      }
-      session.pendingPushBytes = Math.max(
-        0,
-        session.pendingPushBytes - byteLengthUtf8(nextChunk),
-      );
-      args.append(nextChunk);
-    }
-    session.pushScheduled = false;
-  }
-
-  function shiftBoundedOutput(args: { chunks: string[]; maxBytes: number }) {
-    if (args.maxBytes <= 0 || args.chunks.length === 0) {
-      return { output: "", bytes: 0 };
-    }
-
-    let remainingBytes = args.maxBytes;
-    let output = "";
-
-    while (args.chunks.length > 0 && remainingBytes > 0) {
-      const nextChunk = args.chunks[0] ?? "";
-      const nextChunkBytes = byteLengthUtf8(nextChunk);
-      if (nextChunkBytes <= remainingBytes) {
-        output += args.chunks.shift()!;
-        remainingBytes -= nextChunkBytes;
-        continue;
-      }
-
-      const { prefix, rest } = takeUtf8PrefixByBytes({
-        value: nextChunk,
-        maxBytes: remainingBytes,
-      });
-      if (!prefix) {
-        break;
-      }
-      output += prefix;
-      args.chunks[0] = rest;
-      remainingBytes -= byteLengthUtf8(prefix);
-      break;
-    }
-
-    return {
-      output,
-      bytes: args.maxBytes - remainingBytes,
-    };
-  }
-
   function hasActiveAttachment(session: TerminalSessionEntry) {
     return session.activeAttachmentId !== null;
   }
@@ -661,16 +317,6 @@ export function createTerminalRuntime(args: {
     session.flowPaused = false;
   }
 
-  function drainBackgroundBuffer(session: TerminalSessionEntry): string {
-    if (session.backgroundBuffer.length === 0) {
-      return "";
-    }
-    const backlog = session.backgroundBuffer.join("");
-    session.backgroundBuffer.length = 0;
-    session.backgroundBufferBytes = 0;
-    return backlog;
-  }
-
   function serializeScreenState(session: TerminalSessionEntry): string {
     const activeBuffer = session.headlessTerminal.buffer.active;
     for (const scrollback of TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES) {
@@ -702,46 +348,6 @@ export function createTerminalRuntime(args: {
         screenState,
       });
     }
-  }
-
-  function maybeLogTerminalBackpressure(args: {
-    session: TerminalSessionEntry;
-    sessionId: string;
-    reason: string;
-    flushedBytes?: number;
-  }) {
-    const now = Date.now();
-    if (
-      now - args.session.lastBackpressureLogAt <
-      TERMINAL_PUSH_BACKLOG_LOG_INTERVAL_MS
-    ) {
-      return;
-    }
-    args.session.lastBackpressureLogAt = now;
-    args.session.backlogWarningActive = true;
-    const flushedSuffix =
-      typeof args.flushedBytes === "number"
-        ? ` flushedBytes=${args.flushedBytes}`
-        : "";
-    logTerminalPushBackpressure(
-      `reason=${args.reason} session=${args.sessionId} slot=${args.session.slotKey ?? "none"} deliveryMode=${args.session.deliveryMode} pendingChunks=${args.session.pendingPush.length} pendingBytes=${args.session.pendingPushBytes} peakPendingBytes=${args.session.peakPendingPushBytes}${flushedSuffix}`,
-    );
-  }
-
-  function maybeLogTerminalRecovery(args: {
-    session: TerminalSessionEntry;
-    sessionId: string;
-  }) {
-    if (
-      !args.session.backlogWarningActive ||
-      args.session.pendingPushBytes > 0
-    ) {
-      return;
-    }
-    args.session.backlogWarningActive = false;
-    logTerminalPushBackpressure(
-      `reason=drained session=${args.sessionId} slot=${args.session.slotKey ?? "none"} peakPendingBytes=${args.session.peakPendingPushBytes}`,
-    );
   }
 
   function mirrorPtyOutput(session: TerminalSessionEntry, data: string) {
