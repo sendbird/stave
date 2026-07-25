@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
+  ArrowRight,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -147,6 +148,13 @@ interface InlineNotice {
 }
 
 type Step = CreatePrDialogStep;
+
+/**
+ * Single label language for every field inside the Create PR dialog so labels,
+ * controls, and card padding line up on one grid.
+ */
+const FIELD_LABEL_CLASS =
+  "block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground";
 
 function InlineNoticeBanner(props: { notice: InlineNotice }) {
   const toneClassName =
@@ -376,30 +384,33 @@ function PullRequestBranchFields(props: {
   const headBranch = props.currentBranch?.trim() || "HEAD";
 
   return (
-    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-      <div className="min-w-0 space-y-2">
-        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          From Branch
-        </p>
-        <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background/80 px-3 text-sm shadow-xs">
-          <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{headBranch}</span>
+    <div className="min-w-0 rounded-xl border border-border/70 bg-muted/20 p-3">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
+        <div className="min-w-0 space-y-1.5">
+          <p className={FIELD_LABEL_CLASS}>From</p>
+          <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background/80 px-3 text-sm shadow-xs">
+            <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{headBranch}</span>
+          </div>
         </div>
-      </div>
 
-      <div className="min-w-0 space-y-2">
-        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          Target Branch
-        </p>
-        <CreateWorkspaceBranchPicker
-          value={props.targetBranch}
-          defaultBranch={props.defaultBranch}
-          disabled={props.disabled}
-          localBranches={[]}
-          loading={props.loading}
-          remoteBranches={props.targetBranchOptions}
-          onChange={props.onTargetBranchChange}
+        <ArrowRight
+          className="hidden size-4 shrink-0 text-muted-foreground sm:mb-2.5 sm:block"
+          aria-hidden="true"
         />
+
+        <div className="min-w-0 space-y-1.5">
+          <p className={FIELD_LABEL_CLASS}>Into</p>
+          <CreateWorkspaceBranchPicker
+            value={props.targetBranch}
+            defaultBranch={props.defaultBranch}
+            disabled={props.disabled}
+            localBranches={[]}
+            loading={props.loading}
+            remoteBranches={props.targetBranchOptions}
+            onChange={props.onTargetBranchChange}
+          />
+        </div>
       </div>
     </div>
   );
@@ -1948,14 +1959,21 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   }}
                 />
 
-                <div className="grid gap-3 rounded-lg border border-border/70 bg-muted/20 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                  <div className="min-w-0 space-y-2">
-                    <label
-                      className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
-                      htmlFor="create-pr-merge-method"
-                    >
-                      Merge method
-                    </label>
+                <div className="min-w-0 space-y-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+                  <p className={FIELD_LABEL_CLASS}>Merge behavior</p>
+
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                    <div className="min-w-0">
+                      <label
+                        className="block text-sm font-medium leading-5"
+                        htmlFor="create-pr-merge-method"
+                      >
+                        Merge method
+                      </label>
+                      <p className="text-xs leading-4 text-muted-foreground">
+                        Used when the PR is merged.
+                      </p>
+                    </div>
                     <Select
                       value={dialogMergeMethod}
                       onValueChange={(value) =>
@@ -1965,7 +1983,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     >
                       <SelectTrigger
                         id="create-pr-merge-method"
-                        className="h-9 w-full"
+                        className="h-9 w-40 shrink-0 justify-self-end"
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -2007,22 +2025,25 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     </Select>
                   </div>
 
-                  <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:min-h-9 sm:w-auto">
-                    <div className="min-w-0 sm:text-right">
+                  <div className="h-px bg-border/60" aria-hidden="true" />
+
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                    <div className="min-w-0">
                       <label
-                        className="block text-sm font-medium"
+                        className="block text-sm font-medium leading-5"
                         htmlFor="create-pr-auto-merge"
                       >
                         Auto-merge
                       </label>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs leading-4 text-muted-foreground">
                         {repoMergeSettings?.autoMergeAllowed === false
-                          ? "Disabled by repository settings"
+                          ? "Disabled by repository settings."
                           : "Merge automatically after required checks pass."}
                       </p>
                     </div>
                     <Switch
                       id="create-pr-auto-merge"
+                      className="shrink-0 justify-self-end"
                       checked={dialogAutoMerge}
                       onCheckedChange={setDialogAutoMerge}
                       disabled={
@@ -2048,7 +2069,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 {/* PR Title */}
                 <div className="space-y-2">
                   <label
-                    className="text-sm font-medium"
+                    className="block text-sm font-medium leading-5"
                     htmlFor="pr-title-input"
                   >
                     Title
@@ -2076,7 +2097,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 {/* PR Description */}
                 <div className="min-w-0 space-y-2">
                   <label
-                    className="text-sm font-medium"
+                    className="block text-sm font-medium leading-5"
                     htmlFor="pr-body-input"
                   >
                     Description
@@ -2100,34 +2121,37 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   <div className="space-y-2">
                     <button
                       type="button"
-                      className="flex w-full items-center gap-1 text-sm font-medium text-amber-500"
+                      className="flex w-full min-w-0 items-center gap-1.5 text-left text-sm font-medium leading-5 text-warning"
                       onClick={() => setChangesExpanded((v) => !v)}
                       aria-expanded={changesExpanded}
                       aria-controls="create-pr-changed-files"
                     >
                       {changesExpanded ? (
-                        <ChevronDown className="size-3.5" />
+                        <ChevronDown className="size-3.5 shrink-0" />
                       ) : (
-                        <ChevronRight className="size-3.5" />
+                        <ChevronRight className="size-3.5 shrink-0" />
                       )}
-                      {changedFiles.length} uncommitted file
-                      {changedFiles.length !== 1 ? "s" : ""}
-                      <span className="ml-1 text-xs font-normal text-muted-foreground">
-                        (all files selected by default)
+                      <span className="shrink-0">
+                        {changedFiles.length} uncommitted file
+                        {changedFiles.length !== 1 ? "s" : ""}
+                      </span>
+                      <span className="min-w-0 truncate text-xs font-normal text-muted-foreground">
+                        all files selected by default
                       </span>
                     </button>
 
-                    <div id="create-pr-changed-files">
+                    <div id="create-pr-changed-files" className="min-w-0">
                       {changesExpanded && (
-                        <>
-                          <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-muted/30 p-2 text-xs">
+                        <div className="min-w-0 space-y-2">
+                          <div className="max-h-40 min-w-0 overflow-y-auto rounded-md border border-border/70 bg-muted/30 p-2 text-xs">
                             {changedFiles.map((file) => (
                               <label
                                 key={file.path}
-                                className="flex items-center gap-2 py-0.5"
+                                className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-1 hover:bg-muted/50"
                               >
                                 <input
                                   type="checkbox"
+                                  className="size-3.5 shrink-0 accent-primary"
                                   checked={selectedFilePaths.includes(
                                     file.path,
                                   )}
@@ -2155,7 +2179,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                                 <span className="w-5 shrink-0 text-center font-mono font-medium text-muted-foreground">
                                   {file.code}
                                 </span>
-                                <span className="truncate font-mono">
+                                <span className="min-w-0 truncate font-mono">
                                   {file.path}
                                 </span>
                               </label>
@@ -2163,35 +2187,45 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                           </div>
 
                           {selectedFilePaths.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs leading-4 text-muted-foreground">
                               Select at least one file to enable automatic
                               commit. Unselected files will remain untouched.
                             </p>
                           ) : null}
 
-                          <Input
-                            id="commit-message-input"
-                            className="h-9 text-sm"
-                            placeholder={generateFallbackCommitMessage(
-                              selectedFilePaths.length > 0
-                                ? changedFiles.filter((file) =>
-                                    selectedFilePaths.includes(file.path),
-                                  )
-                                : changedFiles,
-                            )}
-                            value={commitMessage}
-                            onChange={(e) => setCommitMessage(e.target.value)}
-                            disabled={isDialogBusy}
-                            aria-invalid={isCommitMessageInvalid}
-                          />
-                          {isCommitMessageInvalid ? (
-                            <p className="text-xs text-destructive">
-                              Use a Conventional Commit message such as{" "}
-                              <code>fix(topbar): stabilize create pr flow</code>
-                              .
-                            </p>
-                          ) : null}
-                        </>
+                          <div className="min-w-0 space-y-2">
+                            <label
+                              className={FIELD_LABEL_CLASS}
+                              htmlFor="commit-message-input"
+                            >
+                              Commit message
+                            </label>
+                            <Input
+                              id="commit-message-input"
+                              className="h-9 text-sm"
+                              placeholder={generateFallbackCommitMessage(
+                                selectedFilePaths.length > 0
+                                  ? changedFiles.filter((file) =>
+                                      selectedFilePaths.includes(file.path),
+                                    )
+                                  : changedFiles,
+                              )}
+                              value={commitMessage}
+                              onChange={(e) => setCommitMessage(e.target.value)}
+                              disabled={isDialogBusy}
+                              aria-invalid={isCommitMessageInvalid}
+                            />
+                            {isCommitMessageInvalid ? (
+                              <p className="text-xs leading-4 text-destructive">
+                                Use a Conventional Commit message such as{" "}
+                                <code>
+                                  fix(topbar): stabilize create pr flow
+                                </code>
+                                .
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
