@@ -158,7 +158,51 @@ async function expectLatestMessageAtBottom(
     .toBeLessThanOrEqual(BOTTOM_THRESHOLD_PX);
 }
 
-test("workspace and task switches keep the latest message at the bottom through right-panel reflow", async ({
+interface ScrollAnchorSnapshot {
+  messageId: string;
+  offset: number;
+}
+
+async function getScrollAnchor(
+  scrollContainer: Locator,
+): Promise<ScrollAnchorSnapshot | null> {
+  return scrollContainer.evaluate((container) => {
+    const containerTop = container.getBoundingClientRect().top;
+    const anchor = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-message-id]"),
+    ).find((node) => node.getBoundingClientRect().bottom > containerTop);
+    const messageId = anchor?.dataset.messageId;
+    if (!anchor || !messageId) {
+      return null;
+    }
+    return {
+      messageId,
+      offset: Math.round(containerTop - anchor.getBoundingClientRect().top),
+    };
+  });
+}
+
+async function expectScrollAnchor(
+  scrollContainer: Locator,
+  expected: ScrollAnchorSnapshot,
+) {
+  await expect
+    .poll(
+      async () => (await getScrollAnchor(scrollContainer))?.messageId ?? null,
+    )
+    .toBe(expected.messageId);
+  await expect
+    .poll(async () => {
+      const current = await getScrollAnchor(scrollContainer);
+      if (!current) {
+        return Number.POSITIVE_INFINITY;
+      }
+      return Math.abs(current.offset - expected.offset);
+    })
+    .toBeLessThanOrEqual(4);
+}
+
+test("workspace and task switches preserve conversation scroll intent through right-panel reflow", async ({
   page,
 }) => {
   await installChatScrollHarness(page);
@@ -213,6 +257,28 @@ test("workspace and task switches keep the latest message at the bottom through 
   );
   await alphaScrollContainer.hover();
   await page.mouse.wheel(0, -1_200);
+  await expect(
+    page.getByRole("button", { name: "scroll-to-bottom" }),
+  ).toBeVisible();
+  const expectedAlphaAnchor = await getScrollAnchor(alphaScrollContainer);
+  if (!expectedAlphaAnchor) {
+    throw new Error("Unable to capture the scrolled Alpha task anchor.");
+  }
+
+  await betaTaskTab.click();
+  await expectLatestMessageAtBottom(page, "task-beta", 44);
+
+  await alphaTaskTab.click();
+  await expectScrollAnchor(alphaScrollContainer, expectedAlphaAnchor);
+  await expect(
+    page.getByRole("button", { name: "scroll-to-bottom" }),
+  ).toBeVisible();
+
+  await secondaryWorkspaceButton.click();
+  await expectLatestMessageAtBottom(page, "task-gamma", 40);
+
+  await primaryWorkspaceButton.click();
+  await expectScrollAnchor(alphaScrollContainer, expectedAlphaAnchor);
   await expect(
     page.getByRole("button", { name: "scroll-to-bottom" }),
   ).toBeVisible();
