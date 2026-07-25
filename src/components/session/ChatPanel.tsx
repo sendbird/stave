@@ -58,6 +58,29 @@ import { AssistantMessageBody } from "./message/assistant-trace";
 import { SessionLoadingState } from "./SessionLoadingState";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
+const CHAT_SCROLL_ANCHOR_LIMIT = 200;
+
+interface ChatScrollAnchor {
+  messageId: string;
+  offset: number;
+}
+
+const chatScrollAnchors = new Map<string, ChatScrollAnchor>();
+
+function saveChatScrollAnchor(
+  scrollContextKey: string,
+  anchor: ChatScrollAnchor,
+) {
+  chatScrollAnchors.delete(scrollContextKey);
+  chatScrollAnchors.set(scrollContextKey, anchor);
+  if (chatScrollAnchors.size <= CHAT_SCROLL_ANCHOR_LIMIT) {
+    return;
+  }
+  const oldestKey = chatScrollAnchors.keys().next().value;
+  if (oldestKey) {
+    chatScrollAnchors.delete(oldestKey);
+  }
+}
 
 function escapeAttributeSelectorValue(value: string) {
   return value.replace(/["\\]/g, "\\$&");
@@ -357,7 +380,6 @@ function ChatPanelMessageList(props: {
 }) {
   const taskId = useScopedTaskId();
   const [
-    activeWorkspaceId,
     activeTurnId,
     chatStreamingEnabled,
     showInterimMessages,
@@ -367,7 +389,6 @@ function ChatPanelMessageList(props: {
     useShallow(
       (state) =>
         [
-          state.activeWorkspaceId,
           state.activeTurnIdsByTask[taskId],
           state.settings.chatStreamingEnabled,
           state.settings.showInterimMessages,
@@ -415,9 +436,19 @@ function ChatPanelMessageList(props: {
   const forceScrollKey = [
     latestVisibleMessageId ?? "none",
     turnCompletionScrollTick,
-    props.scrollActivationKey ?? 0,
   ].join(":");
-  const scrollContextKey = `${activeWorkspaceId}:${taskId}`;
+  const scrollContextKey = taskId;
+  const messageIndexById = useMemo(
+    () =>
+      new Map(
+        visibleMessages.map((message, index) => [message.id, index] as const),
+      ),
+    [visibleMessages],
+  );
+  const restoreAnchor = chatScrollAnchors.get(scrollContextKey);
+  const restoreItemIndex = restoreAnchor
+    ? messageIndexById.get(restoreAnchor.messageId)
+    : undefined;
   const traceExpansionMode = getReasoningTraceExpansionMode({ reasoningExpansionMode });
   const pendingInteraction = useMemo(
     () => findLatestPendingToolInteraction({ messages: visibleMessages }),
@@ -496,9 +527,33 @@ function ChatPanelMessageList(props: {
       forceScrollKey={forceScrollKey}
       scrollScopeKey={scrollContextKey}
       forceScrollScopeKey={scrollContextKey}
+      restoreScrollPosition={restoreItemIndex != null}
       withInnerLayout={
         visibleMessages.length === 0 && !showConversationLoadingState
       }
+      onScrollPositionChange={({ atBottom, container }) => {
+        if (atBottom) {
+          chatScrollAnchors.delete(scrollContextKey);
+          return;
+        }
+        const containerTop = container.getBoundingClientRect().top;
+        const anchorNode = Array.from(
+          container.querySelectorAll<HTMLElement>("[data-message-id]"),
+        ).find((node) => node.getBoundingClientRect().bottom > containerTop);
+        const messageId = anchorNode?.dataset.messageId;
+        if (!anchorNode || !messageId) {
+          return;
+        }
+        saveChatScrollAnchor(scrollContextKey, {
+          messageId,
+          offset: Math.max(
+            0,
+            Math.round(
+              containerTop - anchorNode.getBoundingClientRect().top,
+            ),
+          ),
+        });
+      }}
     >
       {hasOlderMessages ? (
         <div className="mx-auto mb-3 flex w-full max-w-6xl px-3 pt-3 sm:px-5 sm:pt-4">
@@ -543,6 +598,10 @@ function ChatPanelMessageList(props: {
           data={visibleMessages}
           forceScrollKey={forceScrollKey}
           forceScrollScopeKey={scrollContextKey}
+          restoreKey={props.scrollActivationKey}
+          restoreItemIndex={restoreItemIndex}
+          restoreItemId={restoreAnchor?.messageId}
+          restoreItemOffset={restoreAnchor?.offset}
           itemKey={(_, message) => message.id}
           itemContent={(index, message) => (
             <MessageRow
