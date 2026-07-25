@@ -294,7 +294,10 @@ export function TurnActivitySurface(props: {
     <div
       data-testid="turn-activity-stack"
       className={cn(
-        "relative mx-3 mb-1",
+        // The shelf slides under the prompt input: `-mb-3` pulls the composer
+        // up over the surface's extra `pb-3`, so the squared bottom edge reads
+        // as tucked behind the composer instead of floating above it.
+        "relative z-0 mx-3 -mb-3",
         "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2",
         "motion-reduce:transition-none",
       )}
@@ -303,7 +306,7 @@ export function TurnActivitySurface(props: {
         aria-label="Turn activity"
         data-testid="turn-activity"
         className={cn(
-          "turn-activity-surface relative flex min-h-0 flex-col overflow-hidden rounded-xl bg-card",
+          "turn-activity-surface relative flex min-h-0 flex-col overflow-hidden rounded-t-xl rounded-b-none bg-card pb-3",
           "transition-[box-shadow,border-color] duration-200 ease-out motion-reduce:transition-none",
         )}
       >

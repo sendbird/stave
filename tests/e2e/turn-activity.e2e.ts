@@ -220,9 +220,19 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
       conversation: conversationElement.getBoundingClientRect().toJSON(),
       stackPosition: window.getComputedStyle(stackElement).position,
       activityShadow: window.getComputedStyle(activityElement).boxShadow,
+      activityBottomLeftRadius:
+        window.getComputedStyle(activityElement).borderBottomLeftRadius,
+      activityBottomRightRadius:
+        window.getComputedStyle(activityElement).borderBottomRightRadius,
+      activityTopLeftRadius:
+        window.getComputedStyle(activityElement).borderTopLeftRadius,
       promptShadow: window.getComputedStyle(
         promptElement.parentElement as HTMLElement,
       ).boxShadow,
+      headlineBottom:
+        activityElement
+          .querySelector<HTMLElement>("p[aria-live]")
+          ?.getBoundingClientRect().bottom ?? null,
     };
   });
 
@@ -235,10 +245,22 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
     Math.round((layout?.prompt.width ?? 0) - (layout?.activity.width ?? 0)),
   ).toBe(24);
   expect(layout?.activity.left).toBeGreaterThan(layout?.prompt.left ?? 0);
-  expect(layout?.activity.bottom).toBeLessThan(layout?.prompt.top ?? 0);
+  // The shelf tucks under the composer: squared bottom corners, rounded top,
+  // and its bottom edge sits below the prompt input's top edge.
+  expect(layout?.activityBottomLeftRadius).toBe("0px");
+  expect(layout?.activityBottomRightRadius).toBe("0px");
+  expect(layout?.activityTopLeftRadius).not.toBe("0px");
+  expect(layout?.activity.bottom).toBeGreaterThan(layout?.prompt.top ?? 0);
   expect(
-    Math.round((layout?.prompt.top ?? 0) - (layout?.activity.bottom ?? 0)),
-  ).toBe(4);
+    Math.round((layout?.activity.bottom ?? 0) - (layout?.prompt.top ?? 0)),
+  ).toBe(12);
+  // Only the shelf's padding may sit under the composer. The composer's focus
+  // ring is a 3px outward spread on `.prompt-input-shell`, so shelf text has to
+  // clear the prompt's top edge by more than that or the ring would clip it.
+  expect(layout?.headlineBottom).not.toBeNull();
+  expect(
+    Math.round((layout?.prompt.top ?? 0) - (layout?.headlineBottom ?? 0)),
+  ).toBeGreaterThan(3);
   expect(layout?.conversation.bottom).toBeLessThanOrEqual(
     layout?.activity.top ?? 0,
   );
