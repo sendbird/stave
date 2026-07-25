@@ -27,6 +27,78 @@ describe("routine schedule", () => {
       "Every 3 weeks",
     );
   });
+
+  test("anchors daily schedules to the chosen local start time", () => {
+    // Local wall-clock anchors, so build expectations from local dates too.
+    const beforeStart = new Date(2026, 0, 13, 8, 0);
+    const afterStart = new Date(2026, 0, 13, 10, 0);
+    const at = { hour: 9, minute: 30 };
+
+    expect(
+      computeNextRoutineRunAt({
+        schedule: { every: 1, unit: "days", at },
+        after: beforeStart,
+      }),
+    ).toBe(new Date(2026, 0, 13, 9, 30).toISOString());
+    expect(
+      computeNextRoutineRunAt({
+        schedule: { every: 1, unit: "days", at },
+        after: afterStart,
+      }),
+    ).toBe(new Date(2026, 0, 14, 9, 30).toISOString());
+    expect(
+      computeNextRoutineRunAt({
+        schedule: { every: 3, unit: "days", at },
+        after: afterStart,
+      }),
+    ).toBe(new Date(2026, 0, 16, 9, 30).toISOString());
+  });
+
+  test("anchors weekly schedules to the chosen weekday and time", () => {
+    // 2026-01-13 is a Tuesday (local).
+    const tuesday = new Date(2026, 0, 13, 10, 0);
+    const at = { hour: 9, minute: 0 };
+
+    // Monday (1) has already passed this week → next Monday.
+    expect(
+      computeNextRoutineRunAt({
+        schedule: { every: 1, unit: "weeks", at, weekday: 1 },
+        after: tuesday,
+      }),
+    ).toBe(new Date(2026, 0, 19, 9, 0).toISOString());
+    // Friday (5) is still ahead this week.
+    expect(
+      computeNextRoutineRunAt({
+        schedule: { every: 1, unit: "weeks", at, weekday: 5 },
+        after: tuesday,
+      }),
+    ).toBe(new Date(2026, 0, 16, 9, 0).toISOString());
+    // Same weekday, time already passed → skip a full period.
+    expect(
+      computeNextRoutineRunAt({
+        schedule: { every: 2, unit: "weeks", at, weekday: 2 },
+        after: tuesday,
+      }),
+    ).toBe(new Date(2026, 0, 27, 9, 0).toISOString());
+  });
+
+  test("formats schedule anchors", () => {
+    expect(
+      formatRoutineSchedule({
+        every: 1,
+        unit: "days",
+        at: { hour: 9, minute: 5 },
+      }),
+    ).toBe("Every 1 day at 09:05");
+    expect(
+      formatRoutineSchedule({
+        every: 2,
+        unit: "weeks",
+        at: { hour: 14, minute: 30 },
+        weekday: 1,
+      }),
+    ).toBe("Every 2 weeks on Mon at 14:30");
+  });
 });
 
 describe("routine spec validation", () => {
@@ -125,6 +197,59 @@ describe("routine spec validation", () => {
       RoutineUpsertInputSchema.safeParse({
         ...validInput,
         schedule: { every: 0, unit: "minutes" },
+      }).success,
+    ).toBe(false);
+  });
+
+  test("restricts schedule anchors to day and week schedules", () => {
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...validInput,
+        schedule: {
+          every: 1,
+          unit: "days",
+          at: { hour: 9, minute: 0 },
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...validInput,
+        schedule: {
+          every: 1,
+          unit: "weeks",
+          at: { hour: 9, minute: 0 },
+          weekday: 1,
+        },
+      }).success,
+    ).toBe(true);
+    // Start time is meaningless for minute/hour intervals.
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...validInput,
+        schedule: {
+          every: 30,
+          unit: "minutes",
+          at: { hour: 9, minute: 0 },
+        },
+      }).success,
+    ).toBe(false);
+    // A weekday anchor requires a week schedule and a start time.
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...validInput,
+        schedule: {
+          every: 1,
+          unit: "days",
+          at: { hour: 9, minute: 0 },
+          weekday: 1,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...validInput,
+        schedule: { every: 1, unit: "weeks", weekday: 1 },
       }).success,
     ).toBe(false);
   });
