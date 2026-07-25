@@ -243,11 +243,11 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
               <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-background text-primary shadow-sm ring-1 ring-border/65">
                 <ClipboardCheck className="size-4" aria-hidden="true" />
               </div>
-              <div className="min-w-0 space-y-0">
-                <p className="text-sm leading-4 font-medium text-foreground">
+              <div className="min-w-0 space-y-1">
+                <p className="text-sm leading-5 font-medium text-foreground">
                   Start with a lightweight plan
                 </p>
-                <p className="text-xs leading-[1.25] text-muted-foreground">
+                <p className="text-xs leading-4 text-muted-foreground">
                   Plans stay as editable markdown and can promote checklist
                   items into workspace todos.
                 </p>
