@@ -10,232 +10,32 @@ import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { Terminal as XTerm, type ITheme } from "@xterm/xterm";
+import { Terminal as XTerm } from "@xterm/xterm";
 import { TerminalOutputScheduler } from "@/lib/terminal/terminal-output-scheduler";
+import {
+  focusTerminalInstanceSurface,
+  waitForAnimationFrames,
+} from "@/components/layout/terminal-instance-focus";
+import {
+  getResolvedTerminalThemeKey,
+  resolveTerminalTheme,
+} from "@/components/layout/terminal-instance-theme";
+import { restoreTerminalScreenState } from "@/components/layout/terminal-instance-screen-state";
+
+// This module stays the public entry point for the terminal instance hook, so
+// helpers that moved into sibling modules are re-exported here unchanged.
+export { focusTerminalInstanceSurface } from "@/components/layout/terminal-instance-focus";
+export { restoreTerminalScreenState } from "@/components/layout/terminal-instance-screen-state";
 
 const AUTO_FOCUS_MAX_ATTEMPTS = 60;
 const WEBGL_MAX_AUTOMATIC_RETRIES = 3;
 
 export const TERMINAL_WRITE_ERROR_THRESHOLD = 5;
 
-const DEFAULT_TERMINAL_BACKGROUND = "#1f1f1f";
-const DEFAULT_TERMINAL_FOREGROUND = "#eaeaea";
-
-type FocusableTarget = {
-  focus?: (this: unknown, options?: { preventScroll?: boolean }) => void;
-};
-
-type FocusDocument = {
-  activeElement?: unknown;
-};
-
-type QueryableContainer = FocusableTarget & {
-  querySelector?: (selector: string) => unknown;
-  contains?: (target: any) => boolean;
-  ownerDocument?: FocusDocument | null;
-};
-
-function resolveActiveElement(args: {
-  container?: QueryableContainer | null;
-  getActiveElement?: (() => unknown) | undefined;
-}) {
-  if (typeof args.getActiveElement === "function") {
-    return args.getActiveElement();
-  }
-  if (args.container?.ownerDocument) {
-    return args.container.ownerDocument.activeElement;
-  }
-  if (typeof document !== "undefined") {
-    return document.activeElement;
-  }
-  return undefined;
-}
-
-function isFocusInsideContainer(args: {
-  container?: QueryableContainer | null;
-  activeElement: unknown;
-}) {
-  if (!args.container || !args.activeElement) {
-    return false;
-  }
-  if (typeof args.container.contains === "function") {
-    return args.container.contains(args.activeElement);
-  }
-  return args.activeElement === args.container;
-}
-
-function focusAndVerify(args: {
-  target: FocusableTarget;
-  focusOptions?: { preventScroll?: boolean };
-  container?: QueryableContainer | null;
-  getActiveElement?: (() => unknown) | undefined;
-}) {
-  args.target.focus?.call(args.target, args.focusOptions);
-
-  const activeElement = resolveActiveElement({
-    container: args.container,
-    getActiveElement: args.getActiveElement,
-  });
-
-  if (activeElement === undefined) {
-    return true;
-  }
-
-  return (
-    activeElement === args.target ||
-    isFocusInsideContainer({
-      container: args.container,
-      activeElement,
-    })
-  );
-}
-
-export function focusTerminalInstanceSurface(args: {
-  terminal?: FocusableTarget | null;
-  container?: QueryableContainer | null;
-  getActiveElement?: () => unknown;
-}) {
-  if (args.terminal && typeof args.terminal.focus === "function") {
-    if (
-      focusAndVerify({
-        target: args.terminal,
-        container: args.container,
-        getActiveElement: args.getActiveElement,
-      })
-    ) {
-      return true;
-    }
-  }
-
-  const textarea = args.container?.querySelector?.("textarea");
-  if (
-    textarea &&
-    typeof (textarea as FocusableTarget | null | undefined)?.focus ===
-      "function"
-  ) {
-    if (
-      focusAndVerify({
-        target: textarea as FocusableTarget,
-        focusOptions: { preventScroll: true },
-        container: args.container,
-        getActiveElement: args.getActiveElement,
-      })
-    ) {
-      return true;
-    }
-  }
-
-  if (args.container && typeof args.container.focus === "function") {
-    if (
-      focusAndVerify({
-        target: args.container,
-        focusOptions: { preventScroll: true },
-        container: args.container,
-        getActiveElement: args.getActiveElement,
-      })
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function waitForAnimationFrames(count: number) {
-  return new Promise<void>((resolve) => {
-    function step(remaining: number) {
-      if (remaining <= 0) {
-        resolve();
-        return;
-      }
-      window.requestAnimationFrame(() => step(remaining - 1));
-    }
-    step(count);
-  });
-}
-
-/** Parse an rgb/rgba string and return the channel values, or null. */
-function parseRgb(rgb: string): [number, number, number] | null {
-  const match = rgb.match(/(\d+)/g);
-  if (!match || match.length < 3) {
-    return null;
-  }
-  return [Number(match[0]), Number(match[1]), Number(match[2])];
-}
-
-function resolveTerminalTheme(): ITheme {
-  if (typeof document === "undefined") {
-    return {
-      background: DEFAULT_TERMINAL_BACKGROUND,
-      foreground: DEFAULT_TERMINAL_FOREGROUND,
-    };
-  }
-
-  // xterm.js (and its WebGL addon) cannot parse oklch() color strings. Resolve
-  // CSS custom properties through a probe element so the browser converts
-  // oklch/etc. to an rgb() string that xterm can consume.
-  const probe = document.createElement("div");
-  probe.style.display = "none";
-  probe.style.backgroundColor = "var(--color-terminal)";
-  probe.style.color = "var(--color-terminal-foreground)";
-  probe.style.caretColor = "var(--color-primary)";
-  document.documentElement.appendChild(probe);
-  const computed = getComputedStyle(probe);
-  const background = computed.backgroundColor || DEFAULT_TERMINAL_BACKGROUND;
-  const foreground = computed.color || DEFAULT_TERMINAL_FOREGROUND;
-  const cursor = computed.caretColor || foreground;
-  probe.remove();
-
-  // Derive a visible selection colour from the foreground so selected text
-  // stands out regardless of the terminal palette.
-  const fg = parseRgb(foreground);
-  const selectionBackground = fg
-    ? `rgba(${fg[0]}, ${fg[1]}, ${fg[2]}, 0.35)`
-    : undefined;
-  const selectionInactiveBackground = fg
-    ? `rgba(${fg[0]}, ${fg[1]}, ${fg[2]}, 0.2)`
-    : undefined;
-
-  return {
-    background,
-    foreground,
-    cursor,
-    selectionBackground,
-    selectionInactiveBackground,
-  };
-}
-
-function getResolvedTerminalThemeKey(theme: ITheme) {
-  return `${theme.background}::${theme.foreground}::${theme.cursor}::${theme.selectionBackground}`;
-}
-
 function describeTerminalError(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim()
     ? error.message.trim()
     : fallback;
-}
-
-type ScreenStateTerminalLike = {
-  reset: () => void;
-  write: (data: string) => void;
-};
-
-export function restoreTerminalScreenState(args: {
-  terminal?: ScreenStateTerminalLike | null;
-  screenState: string;
-}) {
-  const terminal = args.terminal;
-  if (!terminal) {
-    return;
-  }
-
-  // Snapshot replay needs a fresh parser/render surface. `clear()` only emits
-  // ANSI erase commands into the existing state, which can leave stale session
-  // state behind when a new PTY is attached to the same renderer.
-  terminal.reset();
-  if (args.screenState) {
-    terminal.write(args.screenState);
-  }
 }
 
 export interface TerminalInstanceController {

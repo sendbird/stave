@@ -19,7 +19,10 @@ import {
   type KickoffProposalDraft,
   type KickoffSourceConfig,
 } from "@/lib/workspace-kickoff";
-import type { AppSettings } from "@/store/app.store";
+// Imported from `app-settings` rather than `app.store` so this module has no
+// edge back into the store: `app-settings` depends on this file for the kickoff
+// settings defaults.
+import type { AppSettings } from "@/store/app-settings";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 import {
   resolveProjectBasePrompt,

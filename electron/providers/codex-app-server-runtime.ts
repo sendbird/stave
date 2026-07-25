@@ -12,30 +12,19 @@ import type {
 import type {
   CodexAppServerSnapshot,
   CodexAppServerSnapshotResponse,
-  CodexConfigLayerSnapshot,
-  CodexConfigOriginSnapshot,
-  CodexConfigRequirementsSnapshot,
-  CodexConfigSnapshot,
   CodexExternalAgentConfigMigrationItem,
-  CodexModelCatalogEntry,
   CodexModelCatalogResponse,
   CodexMcpOauthLoginResponse,
   CodexMcpResourceReadResponse,
-  CodexMcpServerStatusSnapshot,
   CodexMutationResponse,
   CodexPluginDetailResponse,
-  CodexPluginDetailSnapshot,
   CodexPluginInstallResponse,
   CodexPluginMarketplaceSnapshot,
-  CodexPluginSummarySnapshot,
   CodexRateLimitSnapshot,
   CodexReviewStartResponse,
   CodexSkillCatalogGroup,
   CodexThreadForkResponse,
   CodexThreadReadResponse,
-  CodexThreadSnapshot,
-  ProviderGoalSnapshot,
-  ProviderGoalStatus,
 } from "../../src/lib/providers/provider.types";
 import {
   buildCodexCliEnv,
@@ -63,7 +52,6 @@ import {
   resolveEffectiveCodexFileAccessMode,
 } from "../../src/lib/providers/codex-runtime-options";
 import {
-  execFileSync,
   spawn,
   type ChildProcessWithoutNullStreams,
 } from "node:child_process";
@@ -81,7 +69,6 @@ import {
   getConnectedToolLabel,
   normalizeConnectedToolIds,
 } from "../../src/lib/providers/connected-tool-status";
-import type { UserInputQuestion } from "../../src/types/chat";
 import { getCodexMcpRegistrationStatus } from "../main/codex-mcp";
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import {
@@ -103,6 +90,55 @@ import {
   buildCodexTurnSteerParams,
   CODEX_STEER_REQUEST_TIMEOUT_MS,
 } from "./codex-app-server-steer";
+import { isRecord, toTrimmedString } from "./codex-app-server-json";
+import {
+  toCodexUserFacingErrorMessage,
+  toErrorMessage,
+} from "./codex-app-server-errors";
+import { resolveGitHeadRef } from "./git-head-ref";
+import {
+  buildCodexGoalStatusEvent,
+  normalizeCodexThreadGoal,
+  readCodexGoalStatusEvent,
+  runCodexCompactSlashCommand,
+  runCodexGoalSlashCommand,
+  type CodexElicitationPauseClient,
+} from "./codex-goal-commands";
+import {
+  mapCodexConfigSnapshot,
+  mapCodexMcpStatusSnapshot,
+  mapCodexModelCatalogEntry,
+  mapCodexPluginDetail,
+  mapCodexPluginSummary,
+  mapCodexRateLimitBuckets,
+  mapCodexThreadSnapshot,
+} from "./codex-snapshot-mappers";
+import {
+  coerceElicitationAnswer,
+  mapCodexElicitationToApproval,
+  mapCodexElicitationToUserInput,
+  type ElicitationFieldDescriptor,
+} from "./codex-elicitation-mapping";
+
+// This module stays the public entry point for the Codex App Server runtime, so
+// helpers that moved into sibling modules are re-exported here unchanged.
+export { formatCodexAppServerErrorMessage } from "./codex-app-server-errors";
+export {
+  formatCodexGoal,
+  isCodexCompactSlashCommand,
+  mapCodexThreadGoalToProviderGoal,
+  parseCodexGoalSlashCommand,
+  runCodexCompactSlashCommand,
+  runCodexGoalSlashCommand,
+  type CodexGoalSlashCommand,
+  type CodexThreadGoal,
+  type CodexThreadGoalStatus,
+} from "./codex-goal-commands";
+export { toCodexConfigLayerDisplayValue } from "./codex-snapshot-mappers";
+export {
+  mapCodexElicitationToApproval,
+  mapCodexElicitationToUserInput,
+} from "./codex-elicitation-mapping";
 
 const threadIdByTask = new Map<string, string>();
 const threadExecutableByTask = new Map<string, string>();
@@ -212,12 +248,6 @@ interface PendingUserInputRequest {
 interface CodexMcpServerStatus {
   name: string;
   authStatus?: string | null;
-}
-
-interface ElicitationFieldDescriptor {
-  key: string;
-  kind: "text" | "number" | "integer" | "boolean" | "enum" | "multi_enum";
-  optionValueByLabel?: Record<string, string>;
 }
 
 function resolveFileAccessMode(args: {
@@ -383,70 +413,6 @@ async function hasConnectedStaveLocalMcpForCodex() {
     manifest,
   });
   return status.installed && status.matchesCurrentManifest;
-}
-
-function toCodexUserFacingErrorMessage(args: { message: string }) {
-  const message = formatCodexAppServerErrorMessage(args.message);
-  const lower = message.toLowerCase();
-  if (
-    lower.includes("auth") ||
-    lower.includes("api key") ||
-    lower.includes("login") ||
-    lower.includes("unauthorized")
-  ) {
-    return "Codex authentication failed. Run `codex login` and retry.";
-  }
-  if (
-    lower.includes("rate limit") ||
-    lower.includes("quota") ||
-    lower.includes("insufficient_quota")
-  ) {
-    return "Codex rate limit/quota reached. Retry after reset or check account limits.";
-  }
-  if (lower.includes("billing") || lower.includes("payment")) {
-    return "Codex billing/subscription issue detected. Check account payment status.";
-  }
-  if (
-    lower.includes("stream disconnected") ||
-    lower.includes("error sending request for url")
-  ) {
-    return "Codex network/model endpoint is unreachable. Check internet/proxy/firewall and retry.";
-  }
-  return message;
-}
-
-export function formatCodexAppServerErrorMessage(message: string) {
-  const trimmed = message.trim();
-  if (!trimmed) {
-    return "Codex App Server error.";
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch {
-    return trimmed;
-  }
-  if (!isRecord(parsed)) {
-    return trimmed;
-  }
-
-  const error = isRecord(parsed.error) ? parsed.error : null;
-  const nestedMessage =
-    toTrimmedString(error?.message) ?? toTrimmedString(parsed.message);
-  if (!nestedMessage) {
-    return trimmed;
-  }
-
-  const details = [
-    (toTrimmedString(error?.param) ?? toTrimmedString(parsed.param))
-      ? `param: ${toTrimmedString(error?.param) ?? toTrimmedString(parsed.param)}`
-      : null,
-    typeof parsed.status === "number" ? `status: ${parsed.status}` : null,
-  ].filter(Boolean);
-  return details.length > 0
-    ? `${nestedMessage} (${details.join(", ")})`
-    : nestedMessage;
 }
 
 function appendBoundedCodexBuffer(args: {
@@ -832,347 +798,6 @@ function mapApprovalToolName(method: ServerRequestMethod) {
   }
 }
 
-function toErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
-
-export type CodexThreadGoalStatus = ProviderGoalStatus;
-
-export interface CodexThreadGoal {
-  threadId: string;
-  objective: string;
-  status: CodexThreadGoalStatus;
-  tokenBudget: number | null;
-  tokensUsed: number;
-  timeUsedSeconds: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export type CodexGoalSlashCommand =
-  | { kind: "get" }
-  | { kind: "clear" }
-  | { kind: "set"; objective: string }
-  | { kind: "status"; status: "active" | "paused" };
-
-export function parseCodexGoalSlashCommand(
-  input: string,
-): CodexGoalSlashCommand | null {
-  const match = input.trim().match(/^\/goal(?:\s+([\s\S]*))?$/i);
-  if (!match) {
-    return null;
-  }
-
-  const argument = (match[1] ?? "").trim();
-  if (!argument) {
-    return { kind: "get" };
-  }
-
-  const normalizedArgument = argument.toLowerCase();
-  if (normalizedArgument === "clear") {
-    return { kind: "clear" };
-  }
-  if (normalizedArgument === "pause") {
-    return { kind: "status", status: "paused" };
-  }
-  if (normalizedArgument === "resume") {
-    return { kind: "status", status: "active" };
-  }
-
-  return { kind: "set", objective: argument };
-}
-
-function formatCodexGoalStatus(status: CodexThreadGoalStatus) {
-  switch (status) {
-    case "usageLimited":
-      return "usage limited";
-    case "budgetLimited":
-      return "budget limited";
-    default:
-      return status;
-  }
-}
-
-function formatCodexGoalElapsedTime(totalSeconds: number) {
-  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return "0s";
-  }
-  const seconds = Math.floor(totalSeconds);
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainingSeconds = seconds % 60;
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${remainingSeconds}s`;
-  }
-  return `${remainingSeconds}s`;
-}
-
-export function formatCodexGoal(goal: CodexThreadGoal) {
-  const tokenBudget =
-    typeof goal.tokenBudget === "number" && goal.tokenBudget > 0
-      ? ` / ${goal.tokenBudget}`
-      : "";
-  return [
-    `Codex goal: ${goal.objective}`,
-    `Status: ${formatCodexGoalStatus(goal.status)}`,
-    `Usage: ${goal.tokensUsed}${tokenBudget} tokens, ${formatCodexGoalElapsedTime(goal.timeUsedSeconds)}`,
-  ].join("\n");
-}
-
-function isCodexThreadGoalStatus(
-  value: unknown,
-): value is CodexThreadGoalStatus {
-  return (
-    value === "active" ||
-    value === "paused" ||
-    value === "blocked" ||
-    value === "usageLimited" ||
-    value === "budgetLimited" ||
-    value === "complete"
-  );
-}
-
-function normalizeGoalNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function normalizeCodexThreadGoal(value: unknown): CodexThreadGoal | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  const goal = value as Record<string, unknown>;
-  const threadId =
-    typeof goal.threadId === "string" ? goal.threadId.trim() : "";
-  const objective =
-    typeof goal.objective === "string" ? goal.objective.trim() : "";
-  if (!threadId || !objective || !isCodexThreadGoalStatus(goal.status)) {
-    return null;
-  }
-  const rawTokenBudget = goal.tokenBudget;
-  return {
-    threadId,
-    objective,
-    status: goal.status,
-    tokenBudget:
-      typeof rawTokenBudget === "number" && Number.isFinite(rawTokenBudget)
-        ? rawTokenBudget
-        : null,
-    tokensUsed: normalizeGoalNumber(goal.tokensUsed),
-    timeUsedSeconds: normalizeGoalNumber(goal.timeUsedSeconds),
-    createdAt: normalizeGoalNumber(goal.createdAt),
-    updatedAt: normalizeGoalNumber(goal.updatedAt),
-  };
-}
-
-export function mapCodexThreadGoalToProviderGoal(
-  goal: CodexThreadGoal,
-): ProviderGoalSnapshot {
-  return {
-    providerId: "codex",
-    nativeSessionId: goal.threadId,
-    objective: goal.objective,
-    status: goal.status,
-    tokenBudget: goal.tokenBudget,
-    tokensUsed: goal.tokensUsed,
-    timeUsedSeconds: goal.timeUsedSeconds,
-    createdAt: goal.createdAt,
-    updatedAt: goal.updatedAt,
-  };
-}
-
-function buildCodexGoalStatusEvent(goal: CodexThreadGoal | null): BridgeEvent {
-  return {
-    type: "goal_status",
-    providerId: "codex",
-    goal: goal ? mapCodexThreadGoalToProviderGoal(goal) : null,
-  };
-}
-
-async function readCodexGoalStatusEvent(args: {
-  client: CodexElicitationPauseClient;
-  threadId: string;
-}): Promise<BridgeEvent | null> {
-  try {
-    const response = await args.client.request<{
-      goal: CodexThreadGoal | null;
-    }>("thread/goal/get", {
-      threadId: args.threadId,
-    });
-    return buildCodexGoalStatusEvent(response.goal);
-  } catch (error) {
-    console.warn("[provider-runtime] Codex goal status sync failed", {
-      threadId: args.threadId,
-      error: toErrorMessage(error),
-    });
-    return null;
-  }
-}
-
-type CodexElicitationPauseClient = {
-  request<T = unknown>(method: string, params: unknown): Promise<T>;
-};
-
-export async function runCodexGoalSlashCommand(args: {
-  client: CodexElicitationPauseClient;
-  threadId: string;
-  input: string;
-}): Promise<BridgeEvent[] | null> {
-  const command = parseCodexGoalSlashCommand(args.input);
-  if (!command) {
-    return null;
-  }
-
-  try {
-    if (command.kind === "get") {
-      const response = await args.client.request<{
-        goal: CodexThreadGoal | null;
-      }>("thread/goal/get", {
-        threadId: args.threadId,
-      });
-      return [
-        buildCodexGoalStatusEvent(response.goal),
-        {
-          type: "text",
-          text: response.goal
-            ? formatCodexGoal(response.goal)
-            : "No Codex goal is set for this thread.",
-        },
-        { type: "done" },
-      ];
-    }
-
-    if (command.kind === "clear") {
-      const response = await args.client.request<{ cleared: boolean }>(
-        "thread/goal/clear",
-        {
-          threadId: args.threadId,
-        },
-      );
-      return [
-        buildCodexGoalStatusEvent(null),
-        {
-          type: "text",
-          text: response.cleared
-            ? "Cleared the Codex goal."
-            : "No Codex goal was set for this thread.",
-        },
-        { type: "done" },
-      ];
-    }
-
-    if (command.kind === "status") {
-      const current = await args.client.request<{
-        goal: CodexThreadGoal | null;
-      }>("thread/goal/get", {
-        threadId: args.threadId,
-      });
-      if (!current.goal) {
-        return [
-          buildCodexGoalStatusEvent(null),
-          {
-            type: "text",
-            text: "No Codex goal is set for this thread.",
-          },
-          { type: "done" },
-        ];
-      }
-      const response = await args.client.request<{ goal: CodexThreadGoal }>(
-        "thread/goal/set",
-        {
-          threadId: args.threadId,
-          status: command.status,
-        },
-      );
-      return [
-        buildCodexGoalStatusEvent(response.goal),
-        {
-          type: "text",
-          text: `${command.status === "paused" ? "Paused" : "Resumed"} the Codex goal.\n\n${formatCodexGoal(response.goal)}`,
-        },
-        { type: "done" },
-      ];
-    }
-
-    const response = await args.client.request<{ goal: CodexThreadGoal }>(
-      "thread/goal/set",
-      {
-        threadId: args.threadId,
-        objective: command.objective,
-        status: "active",
-      },
-    );
-    return [buildCodexGoalStatusEvent(response.goal), { type: "done" }];
-  } catch (error) {
-    return [
-      {
-        type: "error",
-        message: toCodexUserFacingErrorMessage({
-          message: toErrorMessage(error),
-        }),
-        recoverable: true,
-      },
-      { type: "done" },
-    ];
-  }
-}
-
-const CODEX_COMPACT_SLASH_COMMAND_PATTERN = /^\/compact(?:\s|$)/i;
-
-export function isCodexCompactSlashCommand(input: string): boolean {
-  return CODEX_COMPACT_SLASH_COMMAND_PATTERN.test(input.trimStart());
-}
-
-// The Codex App Server does not parse chat slash commands the way the Codex
-// TUI does; "/compact" sent as a plain user turn just reaches the model as
-// text. Intercept it here and call the dedicated compaction RPC instead, so
-// chat "/compact" behaves like the Claude provider's native /compact.
-export async function runCodexCompactSlashCommand(args: {
-  client: CodexElicitationPauseClient;
-  threadId: string;
-  input: string;
-  cwd?: string;
-}): Promise<BridgeEvent[] | null> {
-  if (!isCodexCompactSlashCommand(args.input)) {
-    return null;
-  }
-
-  try {
-    await args.client.request("thread/compact/start", {
-      threadId: args.threadId,
-    });
-    const gitRef = args.cwd ? resolveGitHeadRef({ cwd: args.cwd }) : undefined;
-    return [
-      {
-        type: "system",
-        content: "Context compacted (manual).",
-        compactBoundary: {
-          trigger: "manual",
-          ...(gitRef ? { gitRef } : {}),
-        },
-      },
-      {
-        type: "text",
-        text: "Compacted the Codex conversation context. You can continue this thread with the summarized history.",
-      },
-      { type: "done" },
-    ];
-  } catch (error) {
-    return [
-      {
-        type: "error",
-        message: toCodexUserFacingErrorMessage({
-          message: toErrorMessage(error),
-        }),
-        recoverable: true,
-      },
-      { type: "done" },
-    ];
-  }
-}
-
 export function createCodexAppServerElicitationPauseController(args: {
   client: CodexElicitationPauseClient;
   threadId: string;
@@ -1296,10 +921,6 @@ function mapUserInputQuestions(questions: Array<Record<string, unknown>>) {
   }));
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
 function shouldDebugCodexAppServerMessage(message: JsonRpcMessage) {
   return (
     message.method === "error" ||
@@ -1339,12 +960,6 @@ export function summarizeCodexAppServerDebugMessage(message: JsonRpcMessage) {
   };
 }
 
-function toTrimmedString(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
-}
-
 function extractCodexAppServerErrorMessage(
   params: Record<string, unknown> | null,
 ) {
@@ -1365,424 +980,6 @@ function extractCodexAppServerErrorMessage(
   }
   const nestedError = isRecord(error.error) ? error.error : null;
   return toTrimmedString(nestedError?.message);
-}
-
-function parseStringOptions(args: {
-  rawOptions: unknown;
-  fallbackDescription?: string;
-}) {
-  if (!Array.isArray(args.rawOptions)) {
-    return null;
-  }
-  const parsed = args.rawOptions.flatMap((option) => {
-    if (typeof option === "string" && option.trim()) {
-      return [
-        {
-          label: option.trim(),
-          value: option.trim(),
-          description: args.fallbackDescription ?? option.trim(),
-        },
-      ];
-    }
-    if (
-      !isRecord(option) ||
-      typeof option.const !== "string" ||
-      !option.const.trim()
-    ) {
-      return [];
-    }
-    const value = option.const.trim();
-    const label =
-      typeof option.title === "string" && option.title.trim()
-        ? option.title.trim()
-        : value;
-    return [
-      {
-        label,
-        value,
-        description: args.fallbackDescription ?? value,
-      },
-    ];
-  });
-  return parsed.length > 0 ? parsed : null;
-}
-
-function mapDefaultValueToLabel(args: {
-  value: unknown;
-  optionValueByLabel: Record<string, string>;
-}) {
-  if (typeof args.value !== "string") {
-    return undefined;
-  }
-  const matched = Object.entries(args.optionValueByLabel).find(
-    ([, optionValue]) => optionValue === args.value,
-  );
-  return matched?.[0];
-}
-
-function buildElicitationQuestionFromProperty(args: {
-  formMessage: string;
-  key: string;
-  property: Record<string, unknown>;
-  requiredKeys: Set<string>;
-}): { question: UserInputQuestion; field: ElicitationFieldDescriptor } | null {
-  const title = toTrimmedString(args.property.title) ?? args.key;
-  const description =
-    toTrimmedString(args.property.description) ?? `Provide ${title}.`;
-  const required = args.requiredKeys.has(args.key);
-
-  if (args.property.type === "boolean") {
-    return {
-      question: {
-        key: args.key,
-        header: args.formMessage,
-        question: description,
-        inputType: "boolean",
-        options: [
-          { label: "Yes", description: "true" },
-          { label: "No", description: "false" },
-        ],
-        allowCustom: false,
-        required,
-        defaultValue:
-          typeof args.property.default === "boolean"
-            ? args.property.default
-              ? "Yes"
-              : "No"
-            : undefined,
-      },
-      field: {
-        key: args.key,
-        kind: "boolean",
-        optionValueByLabel: {
-          Yes: "true",
-          No: "false",
-        },
-      },
-    };
-  }
-
-  if (args.property.type === "number" || args.property.type === "integer") {
-    return {
-      question: {
-        key: args.key,
-        header: args.formMessage,
-        question: description,
-        inputType: args.property.type,
-        options: [],
-        allowCustom: true,
-        required,
-        placeholder: title,
-        defaultValue:
-          typeof args.property.default === "number"
-            ? String(args.property.default)
-            : undefined,
-      },
-      field: {
-        key: args.key,
-        kind: args.property.type,
-      },
-    };
-  }
-
-  if (args.property.type === "array" && isRecord(args.property.items)) {
-    const options = parseStringOptions({
-      rawOptions:
-        args.property.items.anyOf ??
-        args.property.items.oneOf ??
-        args.property.items.enum,
-      fallbackDescription: description,
-    });
-    if (!options) {
-      return null;
-    }
-    const optionValueByLabel = Object.fromEntries(
-      options.map((option) => [option.label, option.value]),
-    );
-    const defaultValue = Array.isArray(args.property.default)
-      ? args.property.default
-          .map(
-            (value) =>
-              mapDefaultValueToLabel({ value, optionValueByLabel }) ??
-              (typeof value === "string" ? value : ""),
-          )
-          .filter(Boolean)
-          .join(", ")
-      : undefined;
-    return {
-      question: {
-        key: args.key,
-        header: args.formMessage,
-        question: description,
-        inputType: "text",
-        options: options.map((option) => ({
-          label: option.label,
-          description: option.description,
-        })),
-        multiSelect: true,
-        allowCustom: false,
-        required,
-        defaultValue,
-      },
-      field: {
-        key: args.key,
-        kind: "multi_enum",
-        optionValueByLabel,
-      },
-    };
-  }
-
-  const scalarOptions = parseStringOptions({
-    rawOptions:
-      args.property.oneOf ?? args.property.anyOf ?? args.property.enum,
-    fallbackDescription: description,
-  });
-  if (scalarOptions) {
-    const optionValueByLabel = Object.fromEntries(
-      scalarOptions.map((option) => [option.label, option.value]),
-    );
-    return {
-      question: {
-        key: args.key,
-        header: args.formMessage,
-        question: description,
-        inputType: "text",
-        options: scalarOptions.map((option) => ({
-          label: option.label,
-          description: option.description,
-        })),
-        allowCustom: false,
-        required,
-        defaultValue: mapDefaultValueToLabel({
-          value: args.property.default,
-          optionValueByLabel,
-        }),
-      },
-      field: {
-        key: args.key,
-        kind: "enum",
-        optionValueByLabel,
-      },
-    };
-  }
-
-  if (args.property.type === "string" || !("type" in args.property)) {
-    return {
-      question: {
-        key: args.key,
-        header: args.formMessage,
-        question: description,
-        inputType: "text",
-        options: [],
-        allowCustom: true,
-        required,
-        placeholder: title,
-        defaultValue:
-          typeof args.property.default === "string"
-            ? args.property.default
-            : undefined,
-      },
-      field: {
-        key: args.key,
-        kind: "text",
-      },
-    };
-  }
-
-  return null;
-}
-
-export function mapCodexElicitationToUserInput(
-  params: Record<string, unknown>,
-) {
-  const mode = params.mode === "url" ? "url" : "form";
-  const message =
-    toTrimmedString(params.message) ??
-    "Additional input is required to continue.";
-
-  if (mode === "url") {
-    const linkUrl = toTrimmedString(params.url);
-    if (!linkUrl) {
-      return null;
-    }
-    return {
-      mode,
-      questions: [
-        {
-          key: "__elicitation_url__",
-          header: "MCP URL Elicitation",
-          question: message,
-          inputType: "url_notice" as const,
-          options: [],
-          allowCustom: false,
-          required: false,
-          linkUrl,
-        },
-      ],
-      fields: [] as ElicitationFieldDescriptor[],
-    };
-  }
-
-  const requestedSchema = isRecord(params.requestedSchema)
-    ? params.requestedSchema
-    : null;
-  const properties =
-    requestedSchema && isRecord(requestedSchema.properties)
-      ? requestedSchema.properties
-      : null;
-  if (!properties) {
-    return null;
-  }
-  if (Object.keys(properties).length === 0) {
-    const meta = isRecord(params._meta) ? params._meta : null;
-    const toolDescription =
-      meta && typeof meta.tool_description === "string"
-        ? meta.tool_description.trim()
-        : "";
-    return {
-      mode,
-      questions: [
-        {
-          key: "__elicitation_accept__",
-          header: message,
-          question:
-            toolDescription ||
-            "Submit to allow this MCP request, or decline to cancel it.",
-          inputType: "text" as const,
-          options: [],
-          allowCustom: false,
-          required: false,
-        },
-      ],
-      fields: [] as ElicitationFieldDescriptor[],
-    };
-  }
-  const requiredKeys = new Set(
-    Array.isArray(requestedSchema.required)
-      ? requestedSchema.required.filter(
-          (value): value is string => typeof value === "string",
-        )
-      : [],
-  );
-
-  const mapped = Object.entries(properties).flatMap(([key, property]) => {
-    if (!isRecord(property)) {
-      return [];
-    }
-    const question = buildElicitationQuestionFromProperty({
-      formMessage: message,
-      key,
-      property,
-      requiredKeys,
-    });
-    return question ? [question] : [];
-  });
-
-  if (mapped.length === 0) {
-    return null;
-  }
-
-  return {
-    mode,
-    questions: mapped.map((entry) => entry.question),
-    fields: mapped.map((entry) => entry.field),
-  };
-}
-
-function inferCodexMcpToolName(args: {
-  message: string;
-  meta: Record<string, unknown> | null;
-}) {
-  const metaToolName =
-    toTrimmedString(args.meta?.tool_name) ??
-    toTrimmedString(args.meta?.toolName);
-  if (metaToolName) {
-    return metaToolName;
-  }
-
-  const quotedToolName = args.message
-    .match(/tool\s+["'“”]([^"'“”]+)["'“”]/i)?.[1]
-    ?.trim();
-  return quotedToolName && quotedToolName.length > 0
-    ? quotedToolName
-    : "MCP tool";
-}
-
-export function mapCodexElicitationToApproval(params: Record<string, unknown>) {
-  if ((params.mode === "url" ? "url" : "form") !== "form") {
-    return null;
-  }
-
-  const message =
-    toTrimmedString(params.message) ??
-    "Additional input is required to continue.";
-  const meta = isRecord(params._meta) ? params._meta : null;
-  const approvalKind = toTrimmedString(meta?.codex_approval_kind);
-  if (approvalKind !== "mcp_tool_call") {
-    return null;
-  }
-
-  const requestedSchema = isRecord(params.requestedSchema)
-    ? params.requestedSchema
-    : null;
-  const properties =
-    requestedSchema && isRecord(requestedSchema.properties)
-      ? requestedSchema.properties
-      : null;
-  if (!properties || Object.keys(properties).length !== 0) {
-    return null;
-  }
-
-  const toolDescription =
-    typeof meta?.tool_description === "string"
-      ? meta.tool_description.trim()
-      : "";
-
-  return {
-    toolName: inferCodexMcpToolName({ message, meta }),
-    description: toolDescription || message,
-  };
-}
-
-function coerceElicitationAnswer(args: {
-  rawValue: string;
-  field: ElicitationFieldDescriptor;
-}) {
-  const trimmed = args.rawValue.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  if (args.field.kind === "number") {
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  if (args.field.kind === "integer") {
-    const parsed = Number.parseInt(trimmed, 10);
-    return Number.isInteger(parsed) ? parsed : undefined;
-  }
-  if (args.field.kind === "boolean") {
-    const normalized =
-      args.field.optionValueByLabel?.[trimmed] ?? trimmed.toLowerCase();
-    if (normalized === "true") {
-      return true;
-    }
-    if (normalized === "false") {
-      return false;
-    }
-    return undefined;
-  }
-  if (args.field.kind === "multi_enum") {
-    return trimmed
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .map((part) => args.field.optionValueByLabel?.[part] ?? part);
-  }
-  if (args.field.kind === "enum") {
-    return args.field.optionValueByLabel?.[trimmed] ?? trimmed;
-  }
-  return trimmed;
 }
 
 function mapCodexMcpServerStatus(args: {
@@ -2291,399 +1488,6 @@ function getCodexAppServerClientFromRuntimeOptions(args: {
   });
 }
 
-function toCodexStatusLabel(status: unknown) {
-  if (!status || typeof status !== "object") {
-    return "unknown";
-  }
-  const type = (status as { type?: unknown }).type;
-  return typeof type === "string" ? type : "unknown";
-}
-
-function toCodexSourceLabel(source: unknown) {
-  if (typeof source === "string") {
-    return source;
-  }
-  if (!source || typeof source !== "object") {
-    return "unknown";
-  }
-  const sourceRecord = source as Record<string, unknown>;
-  if (typeof sourceRecord.custom === "string") {
-    return `custom:${sourceRecord.custom}`;
-  }
-  const subAgent = sourceRecord.subAgent;
-  if (subAgent != null) {
-    return `subAgent:${String(subAgent)}`;
-  }
-  if (typeof sourceRecord.type === "string") {
-    const detail = [
-      sourceRecord.id,
-      sourceRecord.name,
-      sourceRecord.label,
-    ].find(
-      (value) =>
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean",
-    );
-    return detail == null
-      ? sourceRecord.type
-      : `${sourceRecord.type}:${String(detail)}`;
-  }
-  const firstScalarEntry = Object.entries(sourceRecord).find(
-    ([, value]) =>
-      typeof value === "string" ||
-      typeof value === "number" ||
-      typeof value === "boolean",
-  );
-  if (firstScalarEntry) {
-    const [key, value] = firstScalarEntry;
-    return `${key}:${String(value)}`;
-  }
-  return "unknown";
-}
-
-export function toCodexConfigLayerDisplayValue(
-  value: unknown,
-  fallback = "unknown",
-) {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : fallback;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (Array.isArray(value)) {
-    const parts = value
-      .map((entry) => toCodexConfigLayerDisplayValue(entry, ""))
-      .filter(Boolean);
-    return parts.length > 0 ? parts.join(" / ") : fallback;
-  }
-  if (!value || typeof value !== "object") {
-    return fallback;
-  }
-  const record = value as Record<string, unknown>;
-  const pickScalar = (...entries: unknown[]) =>
-    entries.find(
-      (entry) =>
-        (typeof entry === "string" && entry.trim().length > 0) ||
-        typeof entry === "number" ||
-        typeof entry === "boolean",
-    );
-  const detail = pickScalar(
-    record.displayName,
-    record.label,
-    record.title,
-    record.path,
-    record.id,
-    record.name,
-  );
-  const kind = pickScalar(
-    record.kind,
-    record.type,
-    record.scope,
-    record.source,
-  );
-  if (detail != null) {
-    const detailLabel =
-      typeof detail === "string" ? detail.trim() : String(detail);
-    if (kind != null) {
-      const kindLabel = typeof kind === "string" ? kind.trim() : String(kind);
-      if (kindLabel.length > 0 && kindLabel !== detailLabel) {
-        return `${kindLabel}:${detailLabel}`;
-      }
-    }
-    return detailLabel;
-  }
-  const firstScalarEntry = Object.entries(record).find(
-    ([, entry]) =>
-      (typeof entry === "string" && entry.trim().length > 0) ||
-      typeof entry === "number" ||
-      typeof entry === "boolean",
-  );
-  if (firstScalarEntry) {
-    const [key, entry] = firstScalarEntry;
-    const entryLabel = typeof entry === "string" ? entry.trim() : String(entry);
-    return `${key}:${entryLabel}`;
-  }
-  const fallbackText = toText(value);
-  if (!fallbackText || fallbackText === "{}" || fallbackText === "null") {
-    return fallback;
-  }
-  return fallbackText.length > 180
-    ? `${fallbackText.slice(0, 179)}…`
-    : fallbackText;
-}
-
-function mapCodexModelCatalogEntry(model: any): CodexModelCatalogEntry {
-  return {
-    id: String(model?.id ?? model?.model ?? ""),
-    model: String(model?.model ?? ""),
-    displayName: String(model?.displayName ?? model?.model ?? ""),
-    description:
-      typeof model?.description === "string" ? model.description : "",
-    hidden: Boolean(model?.hidden),
-    isDefault: Boolean(model?.isDefault),
-    supportsPersonality: Boolean(model?.supportsPersonality),
-    defaultReasoningEffort:
-      typeof model?.defaultReasoningEffort === "string"
-        ? model.defaultReasoningEffort
-        : "medium",
-    supportedReasoningEfforts: Array.isArray(model?.supportedReasoningEfforts)
-      ? model.supportedReasoningEfforts
-          .map((entry: any) =>
-            typeof entry === "string"
-              ? entry
-              : typeof entry?.value === "string"
-                ? entry.value
-                : "",
-          )
-          .filter(Boolean)
-      : [],
-    inputModalities: Array.isArray(model?.inputModalities)
-      ? model.inputModalities
-          .map((entry: unknown) => String(entry ?? "").trim())
-          .filter(Boolean)
-      : [],
-    additionalSpeedTiers: Array.isArray(model?.additionalSpeedTiers)
-      ? model.additionalSpeedTiers
-          .map((entry: unknown) => String(entry ?? "").trim())
-          .filter(Boolean)
-      : [],
-    upgrade: typeof model?.upgrade === "string" ? model.upgrade : null,
-    upgradeInfo:
-      model?.upgradeInfo && typeof model.upgradeInfo === "object"
-        ? {
-            model: String(model.upgradeInfo.model ?? ""),
-            upgradeCopy:
-              typeof model.upgradeInfo.upgradeCopy === "string"
-                ? model.upgradeInfo.upgradeCopy
-                : null,
-            modelLink:
-              typeof model.upgradeInfo.modelLink === "string"
-                ? model.upgradeInfo.modelLink
-                : null,
-            migrationMarkdown:
-              typeof model.upgradeInfo.migrationMarkdown === "string"
-                ? model.upgradeInfo.migrationMarkdown
-                : null,
-          }
-        : null,
-    availabilityNux:
-      typeof model?.availabilityNux?.message === "string"
-        ? model.availabilityNux.message
-        : typeof model?.availabilityNux === "string"
-          ? model.availabilityNux
-          : null,
-  };
-}
-
-function mapCodexMcpStatusSnapshot(server: any): CodexMcpServerStatusSnapshot {
-  const tools =
-    server?.tools && typeof server.tools === "object"
-      ? Object.values(server.tools).map((tool: any) => ({
-          name: String(tool?.name ?? ""),
-          ...(typeof tool?.title === "string" ? { title: tool.title } : {}),
-          ...(typeof tool?.description === "string"
-            ? { description: tool.description }
-            : {}),
-        }))
-      : [];
-  const resources = Array.isArray(server?.resources)
-    ? server.resources.map((resource: any) => ({
-        uri: String(resource?.uri ?? ""),
-        name: String(resource?.name ?? resource?.title ?? resource?.uri ?? ""),
-        ...(typeof resource?.title === "string"
-          ? { title: resource.title }
-          : {}),
-        ...(typeof resource?.description === "string"
-          ? { description: resource.description }
-          : {}),
-        ...(typeof resource?.mimeType === "string"
-          ? { mimeType: resource.mimeType }
-          : {}),
-      }))
-    : [];
-  const resourceTemplates = Array.isArray(server?.resourceTemplates)
-    ? server.resourceTemplates.map((template: any) => ({
-        uriTemplate: String(template?.uriTemplate ?? ""),
-        name: String(
-          template?.name ?? template?.title ?? template?.uriTemplate ?? "",
-        ),
-        ...(typeof template?.title === "string"
-          ? { title: template.title }
-          : {}),
-        ...(typeof template?.description === "string"
-          ? { description: template.description }
-          : {}),
-        ...(typeof template?.mimeType === "string"
-          ? { mimeType: template.mimeType }
-          : {}),
-      }))
-    : [];
-
-  return {
-    name: String(server?.name ?? ""),
-    enabled: true,
-    disabledReason: null,
-    transportType:
-      typeof server?.transportType === "string" ? server.transportType : "mcp",
-    url: typeof server?.url === "string" ? server.url : null,
-    bearerTokenEnvVar:
-      typeof server?.bearerTokenEnvVar === "string"
-        ? server.bearerTokenEnvVar
-        : null,
-    authStatus:
-      typeof server?.authStatus === "string"
-        ? server.authStatus
-        : typeof server?.authStatus?.type === "string"
-          ? server.authStatus.type
-          : null,
-    startupTimeoutSec:
-      typeof server?.startupTimeoutSec === "number"
-        ? server.startupTimeoutSec
-        : null,
-    toolTimeoutSec:
-      typeof server?.toolTimeoutSec === "number" ? server.toolTimeoutSec : null,
-    ...(tools.length > 0 ? { tools } : {}),
-    ...(resources.length > 0 ? { resources } : {}),
-    ...(resourceTemplates.length > 0 ? { resourceTemplates } : {}),
-  };
-}
-
-function mapCodexPluginSummary(
-  plugin: any,
-  marketplace: any,
-): CodexPluginSummarySnapshot {
-  return {
-    id: String(plugin?.id ?? ""),
-    name: String(plugin?.name ?? ""),
-    marketplaceName: String(marketplace?.name ?? ""),
-    marketplacePath: String(marketplace?.path ?? ""),
-    marketplaceDisplayName:
-      typeof marketplace?.interface?.displayName === "string"
-        ? marketplace.interface.displayName
-        : null,
-    source: toCodexSourceLabel(plugin?.source),
-    installed: Boolean(plugin?.installed),
-    enabled: Boolean(plugin?.enabled),
-    installPolicy:
-      typeof plugin?.installPolicy === "string"
-        ? plugin.installPolicy
-        : "unknown",
-    authPolicy:
-      typeof plugin?.authPolicy === "string" ? plugin.authPolicy : "unknown",
-  };
-}
-
-function mapCodexPluginDetail(plugin: any): CodexPluginDetailSnapshot {
-  return {
-    marketplaceName: String(plugin?.marketplaceName ?? ""),
-    marketplacePath: String(plugin?.marketplacePath ?? ""),
-    id: String(plugin?.summary?.id ?? ""),
-    name: String(plugin?.summary?.name ?? ""),
-    source: toCodexSourceLabel(plugin?.summary?.source),
-    installed: Boolean(plugin?.summary?.installed),
-    enabled: Boolean(plugin?.summary?.enabled),
-    installPolicy:
-      typeof plugin?.summary?.installPolicy === "string"
-        ? plugin.summary.installPolicy
-        : "unknown",
-    authPolicy:
-      typeof plugin?.summary?.authPolicy === "string"
-        ? plugin.summary.authPolicy
-        : "unknown",
-    description:
-      typeof plugin?.description === "string" ? plugin.description : null,
-    skills: Array.isArray(plugin?.skills)
-      ? plugin.skills.map((skill: any) => ({
-          name: String(skill?.name ?? ""),
-          description: String(skill?.description ?? ""),
-          shortDescription:
-            typeof skill?.shortDescription === "string"
-              ? skill.shortDescription
-              : null,
-          path: String(skill?.path ?? ""),
-          enabled: Boolean(skill?.enabled),
-        }))
-      : [],
-    apps: Array.isArray(plugin?.apps)
-      ? plugin.apps.map((app: any) => ({
-          id: String(app?.id ?? ""),
-          name: String(app?.name ?? ""),
-          description:
-            typeof app?.description === "string" ? app.description : null,
-          installUrl:
-            typeof app?.installUrl === "string" ? app.installUrl : null,
-          needsAuth: Boolean(app?.needsAuth),
-        }))
-      : [],
-    mcpServers: Array.isArray(plugin?.mcpServers)
-      ? plugin.mcpServers
-          .map((server: unknown) => String(server ?? "").trim())
-          .filter(Boolean)
-      : [],
-  };
-}
-
-function mapCodexThreadSnapshot(
-  thread: any,
-  archived: boolean,
-): CodexThreadSnapshot {
-  return {
-    id: String(thread?.id ?? ""),
-    forkedFromId:
-      typeof thread?.forkedFromId === "string" ? thread.forkedFromId : null,
-    preview: typeof thread?.preview === "string" ? thread.preview : "",
-    modelProvider:
-      typeof thread?.modelProvider === "string"
-        ? thread.modelProvider
-        : "openai",
-    createdAt: typeof thread?.createdAt === "number" ? thread.createdAt : 0,
-    updatedAt: typeof thread?.updatedAt === "number" ? thread.updatedAt : 0,
-    status: toCodexStatusLabel(thread?.status),
-    cwd: typeof thread?.cwd === "string" ? thread.cwd : "",
-    cliVersion: typeof thread?.cliVersion === "string" ? thread.cliVersion : "",
-    source: toCodexSourceLabel(thread?.source),
-    agentNickname:
-      typeof thread?.agentNickname === "string" ? thread.agentNickname : null,
-    agentRole: typeof thread?.agentRole === "string" ? thread.agentRole : null,
-    name: typeof thread?.name === "string" ? thread.name : null,
-    archived,
-  };
-}
-
-function mapCodexConfigSnapshot(response: any): CodexConfigSnapshot {
-  const origins: Record<string, CodexConfigOriginSnapshot> = {};
-  if (response?.origins && typeof response.origins === "object") {
-    for (const [key, origin] of Object.entries(response.origins)) {
-      origins[key] = {
-        name: String((origin as any)?.name ?? ""),
-        version: String((origin as any)?.version ?? ""),
-      };
-    }
-  }
-
-  return {
-    config:
-      response?.config && typeof response.config === "object"
-        ? (response.config as Record<string, unknown>)
-        : {},
-    origins,
-    layers: Array.isArray(response?.layers)
-      ? response.layers.map((layer: any): CodexConfigLayerSnapshot => ({
-          name: toCodexConfigLayerDisplayValue(layer?.name),
-          version: toCodexConfigLayerDisplayValue(layer?.version, ""),
-          disabledReason:
-            typeof layer?.disabledReason === "string"
-              ? layer.disabledReason
-              : null,
-          config: layer?.config ?? null,
-        }))
-      : [],
-  };
-}
-
 async function listPaginatedCodexData<T>(args: {
   client: CodexAppServerClient;
   method: string;
@@ -2740,105 +1544,6 @@ export async function getCodexModelCatalog(args: {
       models: [],
     };
   }
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-/**
- * Newer Codex plans (e.g. business) report a credit-style `individualLimit`
- * (used/limit as numeric strings + `remainingPercent`) instead of the
- * primary/secondary windows — with those set to null. Normalize it so the
- * status bar has a usable used-percent either way.
- */
-function mapCodexIndividualLimit(raw: any) {
-  if (!raw || typeof raw !== "object") {
-    return null;
-  }
-  const used = toFiniteNumber(raw.used);
-  const limit = toFiniteNumber(raw.limit);
-  const remainingPercent = toFiniteNumber(raw.remainingPercent);
-  let usedPercent: number | null = null;
-  if (used !== null && limit !== null && limit > 0) {
-    usedPercent = (used / limit) * 100;
-  } else if (remainingPercent !== null) {
-    usedPercent = 100 - remainingPercent;
-  }
-  if (usedPercent === null) {
-    return null;
-  }
-  return {
-    usedPercent,
-    used,
-    limit,
-    resetsAt: typeof raw.resetsAt === "number" ? raw.resetsAt : null,
-  };
-}
-
-function mapCodexRateLimitBuckets(response: any): CodexRateLimitSnapshot[] {
-  const buckets =
-    response?.rateLimitsByLimitId &&
-    typeof response.rateLimitsByLimitId === "object"
-      ? Object.values(response.rateLimitsByLimitId)
-      : response?.rateLimits
-        ? [response.rateLimits]
-        : [];
-  return buckets.map((bucket: any) => ({
-    limitId: typeof bucket?.limitId === "string" ? bucket.limitId : null,
-    limitName: typeof bucket?.limitName === "string" ? bucket.limitName : null,
-    planType: typeof bucket?.planType === "string" ? bucket.planType : null,
-    primary: bucket?.primary
-      ? {
-          usedPercent:
-            typeof bucket.primary.usedPercent === "number"
-              ? bucket.primary.usedPercent
-              : 0,
-          windowDurationMins:
-            typeof bucket.primary.windowDurationMins === "number"
-              ? bucket.primary.windowDurationMins
-              : null,
-          resetsAt:
-            typeof bucket.primary.resetsAt === "number"
-              ? bucket.primary.resetsAt
-              : null,
-        }
-      : null,
-    secondary: bucket?.secondary
-      ? {
-          usedPercent:
-            typeof bucket.secondary.usedPercent === "number"
-              ? bucket.secondary.usedPercent
-              : 0,
-          windowDurationMins:
-            typeof bucket.secondary.windowDurationMins === "number"
-              ? bucket.secondary.windowDurationMins
-              : null,
-          resetsAt:
-            typeof bucket.secondary.resetsAt === "number"
-              ? bucket.secondary.resetsAt
-              : null,
-        }
-      : null,
-    individualLimit: mapCodexIndividualLimit(bucket?.individualLimit),
-    credits: bucket?.credits
-      ? {
-          hasCredits: Boolean(bucket.credits.hasCredits),
-          unlimited: Boolean(bucket.credits.unlimited),
-          balance:
-            typeof bucket.credits.balance === "string"
-              ? bucket.credits.balance
-              : null,
-        }
-      : null,
-  }));
 }
 
 async function requestCodexRateLimitBuckets(
@@ -3766,23 +2471,6 @@ function extractLatestAgentMessageTextFromTurn(turn: unknown) {
     }
   }
   return "";
-}
-
-function resolveGitHeadRef(args: { cwd?: string }) {
-  if (!args.cwd) {
-    return undefined;
-  }
-  try {
-    const output = execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: args.cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    const ref = output.trim();
-    return ref || undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 async function runCodexReadOnlyPrompt(args: {
