@@ -1,15 +1,39 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, LoaderCircle, TriangleAlert } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  LoaderCircle,
+  TriangleAlert,
+} from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { Badge, Button, Switch, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   ClaudeContextUsageSnapshot,
   ClaudePluginReloadSnapshot,
   CodexMcpServerStatusSnapshot,
 } from "@/lib/providers/provider.types";
-import type { StaveLocalMcpRequestLog, StaveLocalMcpStatus } from "@/lib/local-mcp";
+import type {
+  StaveLocalMcpRequestLog,
+  StaveLocalMcpStatus,
+} from "@/lib/local-mcp";
 import {
   DEFAULT_PROVIDER_TIMEOUT_MS,
   formatClaudeSettingSources,
@@ -17,14 +41,17 @@ import {
   formatTokenBudget,
   PROVIDER_TIMEOUT_OPTIONS,
 } from "@/lib/providers/runtime-option-contract";
-import { getRepoMapCacheSnapshot, clearRepoMapContextCache, type RepoMapCacheEntry } from "@/lib/fs/repo-map-context-cache";
+import {
+  getRepoMapCacheSnapshot,
+  clearRepoMapContextCache,
+  type RepoMapCacheEntry,
+} from "@/lib/fs/repo-map-context-cache";
 import { useAppStore } from "@/store/app.store";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import {
   DraftInput,
   LabeledField,
   readInt,
-  SectionHeading,
   SectionStack,
   SettingsCard,
   SwitchField,
@@ -78,10 +105,14 @@ function formatCodexMcpEnabledState(server: CodexMcpServerStatusSnapshot) {
   if (server.enabled) {
     return "enabled";
   }
-  return server.disabledReason ? `disabled (${server.disabledReason})` : "disabled";
+  return server.disabledReason
+    ? `disabled (${server.disabledReason})`
+    : "disabled";
 }
 
-function formatClaudeCodeRegistrationState(status: StaveLocalMcpStatus["claudeCodeRegistration"]) {
+function formatClaudeCodeRegistrationState(
+  status: StaveLocalMcpStatus["claudeCodeRegistration"],
+) {
   if (status.error) {
     return "error";
   }
@@ -97,7 +128,9 @@ function formatClaudeCodeRegistrationState(status: StaveLocalMcpStatus["claudeCo
   return "not installed";
 }
 
-function formatCodexRegistrationState(status: StaveLocalMcpStatus["codexRegistration"]) {
+function formatCodexRegistrationState(
+  status: StaveLocalMcpStatus["codexRegistration"],
+) {
   if (status.error) {
     return "error";
   }
@@ -114,7 +147,9 @@ function formatCodexRegistrationState(status: StaveLocalMcpStatus["codexRegistra
 }
 
 export function ProviderTimeoutCard() {
-  const providerTimeoutMs = useAppStore((state) => state.settings.providerTimeoutMs);
+  const providerTimeoutMs = useAppStore(
+    (state) => state.settings.providerTimeoutMs,
+  );
   const updateSettings = useAppStore((state) => state.updateSettings);
   const selectedValue = providerTimeoutMs || DEFAULT_PROVIDER_TIMEOUT_MS;
 
@@ -131,7 +166,10 @@ export function ProviderTimeoutCard() {
           <Select
             value={String(selectedValue)}
             onValueChange={(value) =>
-              updateSettings({ patch: { providerTimeoutMs: readInt(value, selectedValue) } })}
+              updateSettings({
+                patch: { providerTimeoutMs: readInt(value, selectedValue) },
+              })
+            }
           >
             <SelectTrigger className="w-40 rounded-md border-border/80 bg-background">
               <SelectValue />
@@ -154,7 +192,9 @@ export function ProviderTimeoutCard() {
 }
 
 export function CodexBinaryPathCard() {
-  const codexBinaryPath = useAppStore((state) => state.settings.codexBinaryPath);
+  const codexBinaryPath = useAppStore(
+    (state) => state.settings.codexBinaryPath,
+  );
   const updateSettings = useAppStore((state) => state.updateSettings);
 
   return (
@@ -166,7 +206,9 @@ export function CodexBinaryPathCard() {
         className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
         placeholder="/usr/local/bin/codex"
         value={codexBinaryPath}
-        onCommit={(nextValue) => updateSettings({ patch: { codexBinaryPath: nextValue } })}
+        onCommit={(nextValue) =>
+          updateSettings({ patch: { codexBinaryPath: nextValue } })
+        }
       />
       <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-muted-foreground">
         <p className="flex items-center gap-2 font-medium text-foreground">
@@ -174,8 +216,9 @@ export function CodexBinaryPathCard() {
           Supported Codex baseline
         </p>
         <p className="mt-1">
-          Stave targets the Codex App Server path in local `codex` CLI `0.142.0`.
-          If your installed CLI is older, update it or point this field at the version you want Stave to use.
+          Stave targets the Codex App Server path in local `codex` CLI
+          `0.142.0`. If your installed CLI is older, update it or point this
+          field at the version you want Stave to use.
         </p>
       </div>
     </SettingsCard>
@@ -183,7 +226,9 @@ export function CodexBinaryPathCard() {
 }
 
 export function ClaudeBinaryPathCard() {
-  const claudeBinaryPath = useAppStore((state) => state.settings.claudeBinaryPath);
+  const claudeBinaryPath = useAppStore(
+    (state) => state.settings.claudeBinaryPath,
+  );
   const updateSettings = useAppStore((state) => state.updateSettings);
 
   return (
@@ -195,10 +240,14 @@ export function ClaudeBinaryPathCard() {
         className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
         placeholder="/usr/local/bin/claude"
         value={claudeBinaryPath}
-        onCommit={(nextValue) => updateSettings({ patch: { claudeBinaryPath: nextValue } })}
+        onCommit={(nextValue) =>
+          updateSettings({ patch: { claudeBinaryPath: nextValue } })
+        }
       />
       <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
-        Use this when the shell `claude` auth state and Stave&apos;s Tooling panel disagree, or when multiple Claude installs exist on the same machine.
+        Use this when the shell `claude` auth state and Stave&apos;s Tooling
+        panel disagree, or when multiple Claude installs exist on the same
+        machine.
       </p>
     </SettingsCard>
   );
@@ -213,22 +262,32 @@ export function ClaudeRuntimeToolsCard() {
     projectPath,
     providerSessionByTask,
     refreshProviderCommandCatalog,
-  ] = useAppStore(useShallow((state) => [
-    state.settings,
-    state.activeTaskId,
-    state.activeWorkspaceId,
-    state.workspacePathById,
-    state.projectPath,
-    state.providerSessionByTask,
-    state.refreshProviderCommandCatalog,
-  ] as const));
-  const [claudeContextUsage, setClaudeContextUsage] = useState<ClaudeContextUsageSnapshot | null>(null);
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.settings,
+          state.activeTaskId,
+          state.activeWorkspaceId,
+          state.workspacePathById,
+          state.projectPath,
+          state.providerSessionByTask,
+          state.refreshProviderCommandCatalog,
+        ] as const,
+    ),
+  );
+  const [claudeContextUsage, setClaudeContextUsage] =
+    useState<ClaudeContextUsageSnapshot | null>(null);
   const [claudeContextUsageDetail, setClaudeContextUsageDetail] = useState("");
-  const [claudePluginReload, setClaudePluginReload] = useState<ClaudePluginReloadSnapshot | null>(null);
+  const [claudePluginReload, setClaudePluginReload] =
+    useState<ClaudePluginReloadSnapshot | null>(null);
   const [claudePluginReloadDetail, setClaudePluginReloadDetail] = useState("");
-  const [isLoadingClaudeContextUsage, setIsLoadingClaudeContextUsage] = useState(false);
-  const [isReloadingClaudePlugins, setIsReloadingClaudePlugins] = useState(false);
-  const workspaceCwd = workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
+  const [isLoadingClaudeContextUsage, setIsLoadingClaudeContextUsage] =
+    useState(false);
+  const [isReloadingClaudePlugins, setIsReloadingClaudePlugins] =
+    useState(false);
+  const workspaceCwd =
+    workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
   const claudeRuntimeOptions = buildProviderRuntimeOptions({
     provider: "claude-code",
     model: settings.modelClaude,
@@ -256,7 +315,11 @@ export function ClaudeRuntimeToolsCard() {
       setClaudeContextUsageDetail(result.detail);
     } catch (error) {
       setClaudeContextUsage(null);
-      setClaudeContextUsageDetail(error instanceof Error ? error.message : "Failed to load Claude context usage.");
+      setClaudeContextUsageDetail(
+        error instanceof Error
+          ? error.message
+          : "Failed to load Claude context usage.",
+      );
     } finally {
       setIsLoadingClaudeContextUsage(false);
     }
@@ -283,7 +346,11 @@ export function ClaudeRuntimeToolsCard() {
       }
     } catch (error) {
       setClaudePluginReload(null);
-      setClaudePluginReloadDetail(error instanceof Error ? error.message : "Failed to reload Claude plugins.");
+      setClaudePluginReloadDetail(
+        error instanceof Error
+          ? error.message
+          : "Failed to reload Claude plugins.",
+      );
     } finally {
       setIsReloadingClaudePlugins(false);
     }
@@ -301,7 +368,9 @@ export function ClaudeRuntimeToolsCard() {
           disabled={isLoadingClaudeContextUsage}
           onClick={() => void handleLoadClaudeContextUsage()}
         >
-          {isLoadingClaudeContextUsage ? "Loading Context..." : "Inspect Context Usage"}
+          {isLoadingClaudeContextUsage
+            ? "Loading Context..."
+            : "Inspect Context Usage"}
         </Button>
         <Button
           className="h-9"
@@ -315,15 +384,21 @@ export function ClaudeRuntimeToolsCard() {
       <div className="space-y-1 rounded-md border border-border/80 bg-background px-3 py-2">
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="text-muted-foreground">Workspace</span>
-          <span className="font-mono text-foreground">{workspaceCwd ?? "<process cwd>"}</span>
+          <span className="font-mono text-foreground">
+            {workspaceCwd ?? "<process cwd>"}
+          </span>
         </div>
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="text-muted-foreground">Setting Sources</span>
-          <span className="font-mono text-foreground">{formatClaudeSettingSources(settings.claudeSettingSources)}</span>
+          <span className="font-mono text-foreground">
+            {formatClaudeSettingSources(settings.claudeSettingSources)}
+          </span>
         </div>
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="text-muted-foreground">Task Budget</span>
-          <span className="font-mono text-foreground">{formatTokenBudget(settings.claudeTaskBudgetTokens)}</span>
+          <span className="font-mono text-foreground">
+            {formatTokenBudget(settings.claudeTaskBudgetTokens)}
+          </span>
         </div>
       </div>
 
@@ -332,24 +407,35 @@ export function ClaudeRuntimeToolsCard() {
           <div className="flex items-center justify-between gap-3 text-sm">
             <span className="font-medium text-foreground">Context usage</span>
             <span className="font-mono text-muted-foreground">
-              {claudeContextUsage.totalTokens.toLocaleString()} / {claudeContextUsage.maxTokens.toLocaleString()} ({Math.round(claudeContextUsage.percentage)}%)
+              {claudeContextUsage.totalTokens.toLocaleString()} /{" "}
+              {claudeContextUsage.maxTokens.toLocaleString()} (
+              {Math.round(claudeContextUsage.percentage)}%)
             </span>
           </div>
           <div className="space-y-1">
             {claudeContextUsage.categories.map((category) => (
-              <div key={category.name} className="flex items-center justify-between gap-3 text-sm">
+              <div
+                key={category.name}
+                className="flex items-center justify-between gap-3 text-sm"
+              >
                 <span className="text-muted-foreground">{category.name}</span>
-                <span className="font-mono text-foreground">{category.tokens.toLocaleString()}</span>
+                <span className="font-mono text-foreground">
+                  {category.tokens.toLocaleString()}
+                </span>
               </div>
             ))}
           </div>
           <div className="flex items-center justify-between gap-3 text-sm">
             <span className="text-muted-foreground">Memory files</span>
-            <span className="font-mono text-foreground">{claudeContextUsage.memoryFiles.length}</span>
+            <span className="font-mono text-foreground">
+              {claudeContextUsage.memoryFiles.length}
+            </span>
           </div>
           <div className="flex items-center justify-between gap-3 text-sm">
             <span className="text-muted-foreground">MCP tools</span>
-            <span className="font-mono text-foreground">{claudeContextUsage.mcpTools.length}</span>
+            <span className="font-mono text-foreground">
+              {claudeContextUsage.mcpTools.length}
+            </span>
           </div>
         </div>
       ) : null}
@@ -364,27 +450,40 @@ export function ClaudeRuntimeToolsCard() {
           <div className="grid gap-2 sm:grid-cols-4">
             <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
               <p className="text-muted-foreground">Commands</p>
-              <p className="font-mono text-foreground">{claudePluginReload.commandCount}</p>
+              <p className="font-mono text-foreground">
+                {claudePluginReload.commandCount}
+              </p>
             </div>
             <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
               <p className="text-muted-foreground">Agents</p>
-              <p className="font-mono text-foreground">{claudePluginReload.agentCount}</p>
+              <p className="font-mono text-foreground">
+                {claudePluginReload.agentCount}
+              </p>
             </div>
             <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
               <p className="text-muted-foreground">Plugins</p>
-              <p className="font-mono text-foreground">{claudePluginReload.plugins.length}</p>
+              <p className="font-mono text-foreground">
+                {claudePluginReload.plugins.length}
+              </p>
             </div>
             <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
               <p className="text-muted-foreground">Errors</p>
-              <p className="font-mono text-foreground">{claudePluginReload.errorCount}</p>
+              <p className="font-mono text-foreground">
+                {claudePluginReload.errorCount}
+              </p>
             </div>
           </div>
           {claudePluginReload.plugins.length > 0 ? (
             <div className="space-y-1">
               {claudePluginReload.plugins.map((plugin) => (
-                <div key={`${plugin.name}:${plugin.path}`} className="flex items-center justify-between gap-3 text-sm">
+                <div
+                  key={`${plugin.name}:${plugin.path}`}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
                   <span className="text-muted-foreground">{plugin.name}</span>
-                  <span className="font-mono text-foreground">{plugin.path}</span>
+                  <span className="font-mono text-foreground">
+                    {plugin.path}
+                  </span>
                 </div>
               ))}
             </div>
@@ -392,9 +491,14 @@ export function ClaudeRuntimeToolsCard() {
           {claudePluginReload.mcpServers.length > 0 ? (
             <div className="space-y-1">
               {claudePluginReload.mcpServers.map((server) => (
-                <div key={server.name} className="flex items-center justify-between gap-3 text-sm">
+                <div
+                  key={server.name}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
                   <span className="text-muted-foreground">{server.name}</span>
-                  <span className="font-mono text-foreground">{server.status}</span>
+                  <span className="font-mono text-foreground">
+                    {server.status}
+                  </span>
                 </div>
               ))}
             </div>
@@ -411,7 +515,9 @@ export function ClaudeRuntimeToolsCard() {
 }
 
 export function CodexMcpStatusCard() {
-  const codexBinaryPath = useAppStore((state) => state.settings.codexBinaryPath);
+  const codexBinaryPath = useAppStore(
+    (state) => state.settings.codexBinaryPath,
+  );
   const [state, setState] = useState<CodexMcpViewState>({
     status: "loading",
     servers: [],
@@ -435,7 +541,10 @@ export function CodexMcpStatusCard() {
       ...current,
       busy: true,
       status: current.servers.length > 0 ? current.status : "loading",
-      detail: current.servers.length > 0 ? current.detail : "Loading Codex MCP status...",
+      detail:
+        current.servers.length > 0
+          ? current.detail
+          : "Loading Codex MCP status...",
     }));
 
     try {
@@ -454,7 +563,10 @@ export function CodexMcpStatusCard() {
       setState({
         status: "error",
         servers: [],
-        detail: error instanceof Error ? error.message : "Failed to load Codex MCP status.",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Failed to load Codex MCP status.",
         busy: false,
       });
     }
@@ -465,7 +577,9 @@ export function CodexMcpStatusCard() {
   }, [codexBinaryPath]);
 
   const enabledCount = state.servers.filter((server) => server.enabled).length;
-  const tokenAuthCount = state.servers.filter((server) => server.authStatus === "bearer_token").length;
+  const tokenAuthCount = state.servers.filter(
+    (server) => server.authStatus === "bearer_token",
+  ).length;
 
   return (
     <SettingsCard
@@ -501,25 +615,38 @@ export function CodexMcpStatusCard() {
       {state.servers.length > 0 ? (
         <div className="space-y-2 rounded-md border border-border/80 bg-background px-3 py-2">
           {state.servers.map((server) => (
-            <div key={server.name} className="space-y-1 rounded-md border border-border/70 bg-muted/15 px-3 py-2">
+            <div
+              key={server.name}
+              className="space-y-1 rounded-md border border-border/70 bg-muted/15 px-3 py-2"
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">{server.name}</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {server.name}
+                  </span>
                   <Badge variant={server.enabled ? "success" : "outline"}>
                     {formatCodexMcpEnabledState(server)}
                   </Badge>
-                  <Badge variant="outline">{formatCodexMcpAuthStatus(server.authStatus)}</Badge>
+                  <Badge variant="outline">
+                    {formatCodexMcpAuthStatus(server.authStatus)}
+                  </Badge>
                 </div>
-                <span className="font-mono text-xs text-muted-foreground">{server.transportType}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {server.transportType}
+                </span>
               </div>
               <div className="space-y-1 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between gap-3">
                   <span>URL</span>
-                  <span className="font-mono text-foreground">{server.url ?? "-"}</span>
+                  <span className="font-mono text-foreground">
+                    {server.url ?? "-"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span>Bearer token env</span>
-                  <span className="font-mono text-foreground">{server.bearerTokenEnvVar ?? "-"}</span>
+                  <span className="font-mono text-foreground">
+                    {server.bearerTokenEnvVar ?? "-"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -531,7 +658,8 @@ export function CodexMcpStatusCard() {
         <div className="space-y-2 rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
           <p>{state.detail}</p>
           <p>
-            Stave mirrors the Codex-native MCP surface here and forwards slash commands to Codex unchanged.
+            Stave mirrors the Codex-native MCP surface here and forwards slash
+            commands to Codex unchanged.
           </p>
         </div>
       ) : null}
@@ -540,11 +668,17 @@ export function CodexMcpStatusCard() {
 }
 
 export function DeveloperSection() {
-  const providerDebugStream = useAppStore((state) => state.settings.providerDebugStream);
+  const providerDebugStream = useAppStore(
+    (state) => state.settings.providerDebugStream,
+  );
   const [gpuStatus, setGpuStatus] = useState<GpuStatusSnapshot | null>(null);
   const [gpuStatusError, setGpuStatusError] = useState("");
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const gpuStatusRows = gpuStatus ? Object.entries(gpuStatus.featureStatus).sort(([left], [right]) => left.localeCompare(right)) : [];
+  const gpuStatusRows = gpuStatus
+    ? Object.entries(gpuStatus.featureStatus).sort(([left], [right]) =>
+        left.localeCompare(right),
+      )
+    : [];
 
   useEffect(() => {
     let cancelled = false;
@@ -569,7 +703,9 @@ export function DeveloperSection() {
         if (cancelled) {
           return;
         }
-        setGpuStatusError(error instanceof Error ? error.message : "Failed to load GPU status.");
+        setGpuStatusError(
+          error instanceof Error ? error.message : "Failed to load GPU status.",
+        );
       }
     }
 
@@ -581,7 +717,6 @@ export function DeveloperSection() {
 
   return (
     <>
-      <SectionHeading title="Developer" description="Advanced diagnostics and global provider tooling overrides." />
       <SectionStack>
         <ProviderTimeoutCard />
 
@@ -591,7 +726,9 @@ export function DeveloperSection() {
         >
           <Switch
             checked={providerDebugStream}
-            onCheckedChange={(checked) => updateSettings({ patch: { providerDebugStream: checked } })}
+            onCheckedChange={(checked) =>
+              updateSettings({ patch: { providerDebugStream: checked } })
+            }
           />
         </SettingsCard>
 
@@ -602,14 +739,21 @@ export function DeveloperSection() {
           {gpuStatus ? (
             <div className="space-y-2 rounded-md border border-border/80 bg-background px-3 py-2">
               <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium text-foreground">Hardware acceleration</span>
+                <span className="font-medium text-foreground">
+                  Hardware acceleration
+                </span>
                 <span className="font-mono text-muted-foreground">
-                  {gpuStatus.hardwareAccelerationEnabled ? "enabled" : "disabled"}
+                  {gpuStatus.hardwareAccelerationEnabled
+                    ? "enabled"
+                    : "disabled"}
                 </span>
               </div>
               <div className="space-y-1">
                 {gpuStatusRows.map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between gap-3 text-sm">
+                  <div
+                    key={key}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
                     <span className="text-muted-foreground">{key}</span>
                     <span className="font-mono text-foreground">{value}</span>
                   </div>
@@ -655,7 +799,9 @@ export function LocalMcpServerCard() {
     setState((current) => ({
       ...current,
       status: current.snapshot ? current.status : "loading",
-      detail: current.snapshot ? current.detail : "Loading local MCP server status...",
+      detail: current.snapshot
+        ? current.detail
+        : "Loading local MCP server status...",
     }));
 
     try {
@@ -674,16 +820,19 @@ export function LocalMcpServerCard() {
         snapshot: result.status,
         detail: result.status.running
           ? "Local MCP server is running."
-          : (result.status.config.enabled
-              ? "Local MCP server is configured but not currently running."
-              : "Local MCP server is disabled."),
+          : result.status.config.enabled
+            ? "Local MCP server is configured but not currently running."
+            : "Local MCP server is disabled.",
         busy: false,
       });
     } catch (error) {
       setState({
         status: "error",
         snapshot: null,
-        detail: error instanceof Error ? error.message : "Failed to load local MCP status.",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Failed to load local MCP status.",
         busy: false,
       });
     }
@@ -733,16 +882,19 @@ export function LocalMcpServerCard() {
         snapshot: result.status,
         detail: result.status.running
           ? "Local MCP settings saved and server restarted."
-          : (result.status.config.enabled
-              ? "Local MCP settings saved."
-              : "Local MCP server disabled."),
+          : result.status.config.enabled
+            ? "Local MCP settings saved."
+            : "Local MCP server disabled.",
         busy: false,
       });
     } catch (error) {
       setState((current) => ({
         ...current,
         status: "error",
-        detail: error instanceof Error ? error.message : "Failed to update local MCP settings.",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Failed to update local MCP settings.",
         busy: false,
       }));
     }
@@ -787,7 +939,10 @@ export function LocalMcpServerCard() {
       setState((current) => ({
         ...current,
         status: "error",
-        detail: error instanceof Error ? error.message : "Failed to rotate local MCP token.",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Failed to rotate local MCP token.",
         busy: false,
       }));
     }
@@ -804,7 +959,10 @@ export function LocalMcpServerCard() {
       setState((current) => ({
         ...current,
         status: "error",
-        detail: error instanceof Error ? error.message : `Failed to copy ${label.toLowerCase()}.`,
+        detail:
+          error instanceof Error
+            ? error.message
+            : `Failed to copy ${label.toLowerCase()}.`,
       }));
     }
   }
@@ -815,7 +973,9 @@ export function LocalMcpServerCard() {
         title="Local MCP Server"
         description="Manage the packaged-app loopback MCP endpoint used by same-machine bots and helpers."
       >
-        <p className="text-sm text-muted-foreground">Loading local MCP server status...</p>
+        <p className="text-sm text-muted-foreground">
+          Loading local MCP server status...
+        </p>
       </SettingsCard>
     );
   }
@@ -834,14 +994,18 @@ export function LocalMcpServerCard() {
       {snapshot && config ? (
         <>
           <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
-            `Claude Code` and `Codex` are opt-in. Stave only writes its managed MCP entry to your user-level CLI config files after you turn those settings on.
+            `Claude Code` and `Codex` are opt-in. Stave only writes its managed
+            MCP entry to your user-level CLI config files after you turn those
+            settings on.
           </p>
 
           <SwitchField
             title="Server"
             description="Enable or disable the localhost MCP surface exposed by the desktop app."
             checked={config.enabled}
-            onCheckedChange={(checked) => void applyConfigPatch({ enabled: checked })}
+            onCheckedChange={(checked) =>
+              void applyConfigPatch({ enabled: checked })
+            }
           />
 
           <LabeledField
@@ -853,9 +1017,14 @@ export function LocalMcpServerCard() {
               inputMode="numeric"
               placeholder="0"
               value={String(config.port)}
-              onCommit={(nextValue) => void applyConfigPatch({
-                port: Math.max(0, Math.min(65_535, readInt(nextValue.trim(), 0))),
-              })}
+              onCommit={(nextValue) =>
+                void applyConfigPatch({
+                  port: Math.max(
+                    0,
+                    Math.min(65_535, readInt(nextValue.trim(), 0)),
+                  ),
+                })
+              }
             />
           </LabeledField>
 
@@ -863,14 +1032,18 @@ export function LocalMcpServerCard() {
             title="Claude Code"
             description="Opt-in and off by default. When enabled, Stave manages only its own MCP entry in `~/.claude/settings.json` for the external Claude Code app. This does not affect Stave's internal Claude runtime."
             checked={config.claudeCodeAutoRegister}
-            onCheckedChange={(checked) => void applyConfigPatch({ claudeCodeAutoRegister: checked })}
+            onCheckedChange={(checked) =>
+              void applyConfigPatch({ claudeCodeAutoRegister: checked })
+            }
           />
 
           <SwitchField
             title="Codex"
             description="Opt-in and off by default. When enabled, Stave manages only its own MCP entry in `~/.codex/config.toml` for Codex. Stave also injects the current token into the in-app Codex runtime env."
             checked={config.codexAutoRegister}
-            onCheckedChange={(checked) => void applyConfigPatch({ codexAutoRegister: checked })}
+            onCheckedChange={(checked) =>
+              void applyConfigPatch({ codexAutoRegister: checked })
+            }
           />
 
           <LabeledField
@@ -882,7 +1055,9 @@ export function LocalMcpServerCard() {
                 className="h-10 flex-1 rounded-md border-border/80 bg-background font-mono text-sm"
                 spellCheck={false}
                 value={config.token}
-                onCommit={(nextValue) => void applyConfigPatch({ token: nextValue.trim() })}
+                onCommit={(nextValue) =>
+                  void applyConfigPatch({ token: nextValue.trim() })
+                }
               />
               <div className="flex gap-2">
                 <Button
@@ -909,22 +1084,32 @@ export function LocalMcpServerCard() {
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-muted-foreground">Status</span>
               <span className="font-mono text-foreground">
-                {snapshot.running ? "running" : (config.enabled ? "stopped" : "disabled")}
+                {snapshot.running
+                  ? "running"
+                  : config.enabled
+                    ? "stopped"
+                    : "disabled"}
               </span>
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-muted-foreground">Config file</span>
-              <span className="font-mono text-foreground">{snapshot.configPath}</span>
+              <span className="font-mono text-foreground">
+                {snapshot.configPath}
+              </span>
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-muted-foreground">Claude Code</span>
               <span className="font-mono text-foreground">
-                {formatClaudeCodeRegistrationState(snapshot.claudeCodeRegistration)}
+                {formatClaudeCodeRegistrationState(
+                  snapshot.claudeCodeRegistration,
+                )}
               </span>
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-muted-foreground">Claude settings</span>
-              <span className="font-mono text-foreground">{snapshot.claudeCodeRegistration.configPath}</span>
+              <span className="font-mono text-foreground">
+                {snapshot.claudeCodeRegistration.configPath}
+              </span>
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-muted-foreground">Codex</span>
@@ -934,24 +1119,35 @@ export function LocalMcpServerCard() {
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-muted-foreground">Codex config</span>
-              <span className="font-mono text-foreground">{snapshot.codexRegistration.configPath}</span>
+              <span className="font-mono text-foreground">
+                {snapshot.codexRegistration.configPath}
+              </span>
             </div>
             {manifest ? (
               <>
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">MCP URL</span>
-                  <span className="font-mono text-foreground">{manifest.url}</span>
+                  <span className="font-mono text-foreground">
+                    {manifest.url}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">Health URL</span>
-                  <span className="font-mono text-foreground">{manifest.healthUrl}</span>
+                  <span className="font-mono text-foreground">
+                    {manifest.healthUrl}
+                  </span>
                 </div>
               </>
             ) : null}
             {snapshot.manifestPaths.map((manifestPath) => (
-              <div key={manifestPath} className="flex items-center justify-between gap-3 text-sm">
+              <div
+                key={manifestPath}
+                className="flex items-center justify-between gap-3 text-sm"
+              >
                 <span className="text-muted-foreground">Manifest</span>
-                <span className="font-mono text-foreground">{manifestPath}</span>
+                <span className="font-mono text-foreground">
+                  {manifestPath}
+                </span>
               </div>
             ))}
           </div>
@@ -982,7 +1178,9 @@ export function LocalMcpServerCard() {
               size="sm"
               variant="outline"
               disabled={state.busy}
-              onClick={() => void handleCopy(snapshot.configPath, "Config path")}
+              onClick={() =>
+                void handleCopy(snapshot.configPath, "Config path")
+              }
             >
               Copy Config Path
             </Button>
@@ -1062,9 +1260,10 @@ function getLocalMcpRequestLogDetail(args: {
   const end = args.offset + args.count;
   const page = Math.floor(args.offset / args.limit) + 1;
   const totalPages = Math.max(1, Math.ceil(args.total / args.limit));
-  const refreshMode = args.offset === 0
-    ? "Auto-refresh is active on this page."
-    : "Auto-refresh pauses while browsing older pages.";
+  const refreshMode =
+    args.offset === 0
+      ? "Auto-refresh is active on this page."
+      : "Auto-refresh pauses while browsing older pages.";
   return `Showing ${start}-${end} of ${args.total} local MCP requests (page ${page} of ${totalPages}). ${refreshMode}`;
 }
 
@@ -1082,11 +1281,12 @@ type LocalMcpRequestPayloadLoadState =
 
 function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
   const [open, setOpen] = useState(false);
-  const [payloadState, setPayloadState] = useState<LocalMcpRequestPayloadLoadState>(
-    log.hasRequestPayload
-      ? { status: "idle", payload: null, error: "" }
-      : { status: "empty", payload: null, error: "" },
-  );
+  const [payloadState, setPayloadState] =
+    useState<LocalMcpRequestPayloadLoadState>(
+      log.hasRequestPayload
+        ? { status: "idle", payload: null, error: "" }
+        : { status: "empty", payload: null, error: "" },
+    );
   const payloadText = useMemo(() => {
     if (payloadState.status !== "ready") {
       return "";
@@ -1101,7 +1301,11 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
       return;
     }
     if (log.requestPayload != null) {
-      setPayloadState({ status: "ready", payload: log.requestPayload, error: "" });
+      setPayloadState({
+        status: "ready",
+        payload: log.requestPayload,
+        error: "",
+      });
     }
   }, [log.hasRequestPayload, log.requestPayload]);
 
@@ -1109,7 +1313,12 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
     const nextOpen = !open;
     setOpen(nextOpen);
 
-    if (!nextOpen || !log.hasRequestPayload || payloadState.status === "loading" || payloadState.status === "ready") {
+    if (
+      !nextOpen ||
+      !log.hasRequestPayload ||
+      payloadState.status === "loading" ||
+      payloadState.status === "ready"
+    ) {
       return;
     }
 
@@ -1139,12 +1348,19 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
         setPayloadState({ status: "empty", payload: null, error: "" });
         return;
       }
-      setPayloadState({ status: "ready", payload: result.log.requestPayload, error: "" });
+      setPayloadState({
+        status: "ready",
+        payload: result.log.requestPayload,
+        error: "",
+      });
     } catch (error) {
       setPayloadState({
         status: "error",
         payload: null,
-        error: error instanceof Error ? error.message : "Failed to load request payload.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load request payload.",
       });
     }
   }
@@ -1206,12 +1422,10 @@ export function LocalMcpRequestLogCard() {
     hasMore: false,
   });
   const page = Math.floor(state.offset / state.limit) + 1;
-  const totalPages = state.total === 0 ? 1 : Math.ceil(state.total / state.limit);
+  const totalPages =
+    state.total === 0 ? 1 : Math.ceil(state.total / state.limit);
 
-  async function refreshLogs(args?: {
-    silent?: boolean;
-    offset?: number;
-  }) {
+  async function refreshLogs(args?: { silent?: boolean; offset?: number }) {
     const listRequestLogs = window.api?.localMcp?.listRequestLogs;
     if (!listRequestLogs) {
       setState({
@@ -1237,7 +1451,10 @@ export function LocalMcpRequestLogCard() {
         ...current,
         busy: true,
         status: current.logs.length > 0 ? current.status : "loading",
-        detail: current.logs.length > 0 ? current.detail : "Loading local MCP request logs...",
+        detail:
+          current.logs.length > 0
+            ? current.detail
+            : "Loading local MCP request logs...",
       }));
     }
 
@@ -1281,7 +1498,10 @@ export function LocalMcpRequestLogCard() {
       setState((current) => ({
         ...current,
         status: "error",
-        detail: error instanceof Error ? error.message : "Failed to load local MCP request logs.",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Failed to load local MCP request logs.",
         busy: false,
       }));
     }
@@ -1356,7 +1576,10 @@ export function LocalMcpRequestLogCard() {
       setState((current) => ({
         ...current,
         status: "error",
-        detail: error instanceof Error ? error.message : "Failed to clear local MCP request logs.",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Failed to clear local MCP request logs.",
         busy: false,
       }));
     }
@@ -1382,7 +1605,9 @@ export function LocalMcpRequestLogCard() {
       description="Captures recent inbound requests to the embedded local MCP server."
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <span className="max-w-3xl text-sm text-muted-foreground">{state.detail}</span>
+        <span className="max-w-3xl text-sm text-muted-foreground">
+          {state.detail}
+        </span>
         <div className="flex flex-wrap gap-2">
           <Button
             className="h-8 gap-1 text-xs"
@@ -1423,7 +1648,9 @@ export function LocalMcpRequestLogCard() {
 
       {state.logs.length === 0 ? (
         <p className="rounded-md border border-border/80 bg-background px-3 py-2 text-sm text-muted-foreground">
-          No requests yet. Health checks are excluded, the latest page auto-refreshes while it stays open, and payloads load only when you expand a row.
+          No requests yet. Health checks are excluded, the latest page
+          auto-refreshes while it stays open, and payloads load only when you
+          expand a row.
         </p>
       ) : (
         <div className="overflow-hidden rounded-md border border-border/80 bg-background">
@@ -1439,12 +1666,17 @@ export function LocalMcpRequestLogCard() {
             <TableBody>
               {state.logs.map((log) => (
                 <TableRow key={log.id}>
-                  <TableCell className="align-top text-xs text-muted-foreground" title={log.createdAt}>
+                  <TableCell
+                    className="align-top text-xs text-muted-foreground"
+                    title={log.createdAt}
+                  >
                     {formatRelativeTime(log.createdAt)}
                   </TableCell>
                   <TableCell className="align-top">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">{getLocalMcpRequestPrimaryLabel(log)}</Badge>
+                      <Badge variant="outline">
+                        {getLocalMcpRequestPrimaryLabel(log)}
+                      </Badge>
                       {log.toolName && log.rpcMethod ? (
                         <Badge variant="secondary">{log.rpcMethod}</Badge>
                       ) : null}
@@ -1455,10 +1687,16 @@ export function LocalMcpRequestLogCard() {
                   </TableCell>
                   <TableCell className="align-top">
                     <div className="flex flex-col gap-1">
-                      <Badge variant={getLocalMcpRequestBadgeVariant(log)}>{log.statusCode}</Badge>
-                      <span className="text-xs text-muted-foreground">{log.durationMs}ms</span>
+                      <Badge variant={getLocalMcpRequestBadgeVariant(log)}>
+                        {log.statusCode}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {log.durationMs}ms
+                      </span>
                       {log.errorMessage ? (
-                        <span className="text-xs text-destructive">{log.errorMessage}</span>
+                        <span className="text-xs text-destructive">
+                          {log.errorMessage}
+                        </span>
                       ) : null}
                     </div>
                   </TableCell>
@@ -1475,7 +1713,8 @@ export function LocalMcpRequestLogCard() {
             </span>
             {state.offset === 0 ? (
               <span className="text-xs text-muted-foreground">
-                Auto-refreshing latest page every {Math.floor(LOCAL_MCP_REQUEST_LOG_AUTO_REFRESH_MS / 1000)}s.
+                Auto-refreshing latest page every{" "}
+                {Math.floor(LOCAL_MCP_REQUEST_LOG_AUTO_REFRESH_MS / 1000)}s.
               </span>
             ) : (
               <span className="text-xs text-muted-foreground">
@@ -1570,7 +1809,10 @@ function RepoMapCacheEntryRow(props: {
   return (
     <div className="space-y-1 rounded-md border border-border/80 bg-background px-3 py-2">
       <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium text-foreground truncate" title={workspacePath}>
+        <span
+          className="font-medium text-foreground truncate"
+          title={workspacePath}
+        >
           {shortenPath(workspacePath)}
         </span>
         <span className="shrink-0 font-mono text-xs text-muted-foreground">
@@ -1580,15 +1822,21 @@ function RepoMapCacheEntryRow(props: {
       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
         <div className="flex justify-between text-muted-foreground">
           <span>Files</span>
-          <span className="font-mono text-foreground">{entry.fileCount} ({entry.codeFileCount} code)</span>
+          <span className="font-mono text-foreground">
+            {entry.fileCount} ({entry.codeFileCount} code)
+          </span>
         </div>
         <div className="flex justify-between text-muted-foreground">
           <span>Hotspots</span>
-          <span className="font-mono text-foreground">{entry.hotspotCount}</span>
+          <span className="font-mono text-foreground">
+            {entry.hotspotCount}
+          </span>
         </div>
         <div className="flex justify-between text-muted-foreground">
           <span>Entrypoints</span>
-          <span className="font-mono text-foreground">{entry.entrypointCount}</span>
+          <span className="font-mono text-foreground">
+            {entry.entrypointCount}
+          </span>
         </div>
         <div className="flex justify-between text-muted-foreground">
           <span>Docs</span>

@@ -40,7 +40,6 @@ import { useAppStore } from "@/store/app.store";
 import {
   DraftInput,
   LabeledField,
-  SectionHeading,
   SectionStack,
   SettingsCard,
 } from "./settings-dialog.shared";
@@ -266,10 +265,6 @@ export function KickoffSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Kickoff"
-        description="Turn external work sources into editable workspace proposals. Integrations stay configurable and use your existing provider and MCP setup."
-      />
       <SectionStack>
         <SettingsCard
           title="Kickoff Sources"

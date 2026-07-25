@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildTopBarBranchGroups,
   normalizeRemoteBranchName,
+  resolveDefaultBranchDrift,
   validateNewBranchName,
 } from "@/components/layout/TopBarBranchDropdown.utils";
 
@@ -77,8 +78,37 @@ describe("TopBarBranchDropdown utils", () => {
   });
 
   test("normalizes remote branch names by dropping the remote prefix", () => {
-    expect(normalizeRemoteBranchName("origin/feature/auth")).toBe("feature/auth");
+    expect(normalizeRemoteBranchName("origin/feature/auth")).toBe(
+      "feature/auth",
+    );
     expect(normalizeRemoteBranchName("main")).toBe("main");
+  });
+
+  test("detects actual Git drift only for the default workspace", () => {
+    expect(
+      resolveDefaultBranchDrift({
+        isDefaultWorkspace: true,
+        expectedBranch: "main",
+        actualBranch: "feature/accidental",
+      }),
+    ).toEqual({
+      expectedBranch: "main",
+      actualBranch: "feature/accidental",
+    });
+    expect(
+      resolveDefaultBranchDrift({
+        isDefaultWorkspace: true,
+        expectedBranch: "main",
+        actualBranch: "main",
+      }),
+    ).toBeNull();
+    expect(
+      resolveDefaultBranchDrift({
+        isDefaultWorkspace: false,
+        expectedBranch: "main",
+        actualBranch: "feature/worktree",
+      }),
+    ).toBeNull();
   });
 
   test("validates new branch names before invoking git", () => {
@@ -95,7 +125,10 @@ describe("TopBarBranchDropdown utils", () => {
       validateNewBranchName({ value: "feature..bad", existingBranches: [] }),
     ).toBe("Use a valid git branch name.");
     expect(
-      validateNewBranchName({ value: "feature/good_name", existingBranches: [] }),
+      validateNewBranchName({
+        value: "feature/good_name",
+        existingBranches: [],
+      }),
     ).toBeNull();
   });
 });

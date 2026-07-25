@@ -149,34 +149,36 @@ export function ModelSelector(args: ModelSelectorProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <div className={cn("relative", className)}>
-        <DialogTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              "inline-flex h-9 max-w-[240px] items-center justify-between gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
-              open
-                ? "bg-muted/70 focus-visible:border-primary/50"
-                : "focus-visible:border-border/60",
-              triggerClassName,
-            )}
-            disabled={disabled}
-            aria-label={triggerAriaLabel}
-            title="Open model selector (Alt+P). Use Alt+1..0 for mapped models."
-          >
-            <span className="flex min-w-0 items-center gap-1.5">
-              {value.isAuto ? (
-                <Sparkles className="size-3.5 shrink-0 text-primary" />
-              ) : (
-                <ModelIcon
-                  providerId={value.providerId}
-                  model={value.model}
-                  className="size-3.5"
-                />
+        <DialogTrigger
+          render={
+            <button
+              type="button"
+              className={cn(
+                "inline-flex h-9 max-w-[240px] items-center justify-between gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+                open
+                  ? "bg-muted/70 focus-visible:border-primary/50"
+                  : "focus-visible:border-border/60",
+                triggerClassName,
               )}
-              <span className="truncate">{value.label}</span>
-            </span>
-            <ChevronDown className="size-3.5 text-muted-foreground" />
-          </button>
+              disabled={disabled}
+              aria-label={triggerAriaLabel}
+              title="Open model selector (Alt+P). Use Alt+1..0 for mapped models."
+            />
+          }
+        >
+          <span className="flex min-w-0 items-center gap-1.5">
+            {value.isAuto ? (
+              <Sparkles className="size-3.5 shrink-0 text-primary" />
+            ) : (
+              <ModelIcon
+                providerId={value.providerId}
+                model={value.model}
+                className="size-3.5"
+              />
+            )}
+            <span className="truncate">{value.label}</span>
+          </span>
+          <ChevronDown className="size-3.5 text-muted-foreground" />
         </DialogTrigger>
       </div>
       <DialogContent

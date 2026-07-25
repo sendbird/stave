@@ -6,13 +6,7 @@ import {
   SearchCode,
   type LucideIcon,
 } from "lucide-react";
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useRef,
-  type MouseEvent,
-} from "react";
+import { memo, useCallback, useEffect, useRef, type MouseEvent } from "react";
 import { ChatInput } from "@/components/session/ChatInput";
 import { ChatPanel } from "@/components/session/ChatPanel";
 import {
@@ -21,7 +15,6 @@ import {
 } from "@/components/session/chat-area.utils";
 import { EmptySplash } from "@/components/session/EmptySplash";
 import { PlanViewer } from "@/components/session/PlanViewer";
-import { TodoFloater } from "@/components/session/TodoFloater";
 import { SessionLoadingState } from "@/components/session/SessionLoadingState";
 import {
   Button,
@@ -53,7 +46,8 @@ const TASK_START_OPTIONS = [
   },
   {
     label: "Review the code",
-    prompt: "Review the current code and suggest the most valuable improvements.",
+    prompt:
+      "Review the current code and suggest the most valuable improvements.",
     icon: SearchCode,
   },
 ] as const satisfies readonly {
@@ -141,36 +135,34 @@ function ChatAreaImpl(props: ChatAreaProps) {
     createTask,
     updatePromptDraft,
   ] = useAppStore(
-    useShallow(
-      (state) => {
-        const scopedTaskId = explicitTaskId ?? state.activeTaskId;
-        return [
-          state.projectPath,
-          state.hasHydratedWorkspaces,
-          state.workspaces.length > 0,
-          state.workspaces.some(
-            (workspace) => workspace.id === state.activeWorkspaceId,
-          ),
-          state.tasks.some(
-            (task) => task.id === scopedTaskId && !isTaskArchived(task),
-          ),
-          scopedTaskId,
-          state.messageCountByTask[scopedTaskId] ??
-            (state.messagesByTask[scopedTaskId] ?? EMPTY_MESSAGES).length,
-          state.tasks.find(
-            (task) => task.id === scopedTaskId && !isTaskArchived(task),
-          ) ?? null,
-          state.activeTurnIdsByTask[scopedTaskId],
-          state.activeTaskId === scopedTaskId,
-          state.persistenceBootstrapPhase,
-          state.persistenceBootstrapMessage,
-          state.refreshActiveManagedTask,
-          state.createProject,
-          state.createTask,
-          state.updatePromptDraft,
-        ] as const;
-      },
-    ),
+    useShallow((state) => {
+      const scopedTaskId = explicitTaskId ?? state.activeTaskId;
+      return [
+        state.projectPath,
+        state.hasHydratedWorkspaces,
+        state.workspaces.length > 0,
+        state.workspaces.some(
+          (workspace) => workspace.id === state.activeWorkspaceId,
+        ),
+        state.tasks.some(
+          (task) => task.id === scopedTaskId && !isTaskArchived(task),
+        ),
+        scopedTaskId,
+        state.messageCountByTask[scopedTaskId] ??
+          (state.messagesByTask[scopedTaskId] ?? EMPTY_MESSAGES).length,
+        state.tasks.find(
+          (task) => task.id === scopedTaskId && !isTaskArchived(task),
+        ) ?? null,
+        state.activeTurnIdsByTask[scopedTaskId],
+        state.activeTaskId === scopedTaskId,
+        state.persistenceBootstrapPhase,
+        state.persistenceBootstrapMessage,
+        state.refreshActiveManagedTask,
+        state.createProject,
+        state.createTask,
+        state.updatePromptDraft,
+      ] as const;
+    }),
   );
   const viewMode = resolveChatAreaViewMode({
     projectPath,
@@ -226,12 +218,11 @@ function ChatAreaImpl(props: ChatAreaProps) {
         return;
       }
 
-      // Popover/palette content is portaled but still bubbles through this
-      // React tree; stealing focus mid-click dismisses the popover before the
-      // click lands (Radix treats the focus shift as an outside interaction).
+      // Portaled popup content still bubbles through this React tree. Keep the
+      // session focus handler from stealing focus before the click lands.
       if (
         target.closest(
-          "button, a, input, textarea, select, [role='button'], [role='link'], [role='textbox'], [role='option'], [contenteditable='true'], [data-radix-popper-content-wrapper]",
+          "button, a, input, textarea, select, [role='button'], [role='link'], [role='textbox'], [role='option'], [contenteditable='true'], [data-ui-popup-positioner]",
         )
       ) {
         return;
@@ -351,13 +342,12 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <ChatPanel scrollActivationKey={props.scrollActivationKey} />
           </RenderProfiler>
           <div className="pointer-events-none absolute inset-0">
-            {/* Keep floating plan/todo cards inside the message pane so they are
+            {/* Keep the floating plan card inside the message pane so it is
                 structurally separated from the input dock without measuring
                 dock height changes frame-by-frame. */}
             <RenderProfiler id="PlanViewer">
               <PlanViewer />
             </RenderProfiler>
-            <TodoFloater />
           </div>
         </div>
         <div className="relative z-30 shrink-0">

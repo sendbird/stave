@@ -1,5 +1,12 @@
-import { LoaderCircle } from "lucide-react";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui";
+import { ThinkingOrb } from "thinking-orbs";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface SessionLoadingStateProps {
@@ -16,11 +23,21 @@ export function SessionLoadingState(args: SessionLoadingStateProps) {
         className="max-w-5xl items-stretch gap-5 rounded-[28px] border border-border/70 bg-card p-6 text-left shadow-sm"
       >
         <EmptyHeader className="max-w-none flex-row items-center gap-4">
-          <EmptyMedia variant="icon" className="size-11 rounded-2xl bg-primary/10 text-primary">
-            <LoaderCircle className="size-5 animate-spin" />
+          <EmptyMedia
+            variant="icon"
+            className="size-16 rounded-full bg-muted/45 ring-1 ring-border/70"
+          >
+            <ThinkingOrb
+              state="working"
+              size={64}
+              theme="auto"
+              aria-label={args.title}
+            />
           </EmptyMedia>
           <div className="min-w-0 space-y-1">
-            <EmptyTitle className="text-left text-base">{args.title}</EmptyTitle>
+            <EmptyTitle className="text-left text-base">
+              {args.title}
+            </EmptyTitle>
             <EmptyDescription className="text-left">
               {args.description}
             </EmptyDescription>

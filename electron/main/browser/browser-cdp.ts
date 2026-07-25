@@ -13,18 +13,11 @@ import type {
 import { getSessionIdentityForWebContentsId } from "./browser-manager";
 import { assertCdpAllowed } from "./browser-security";
 import { getLensBoxModelScript } from "./browser-style-capture";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getDebugger(webContentsId: number): Electron.Debugger {
-  const wc = webContents.fromId(webContentsId);
-  if (!wc || wc.isDestroyed()) {
-    throw new Error(`WebContents ${webContentsId} not found or destroyed`);
-  }
-  return wc.debugger;
-}
+import {
+  detachCdpController,
+  ensureCdpAttached,
+  sendCdpCommand,
+} from "./browser-cdp-controller";
 
 export async function assertCdpAllowedForWebContentsId(
   webContentsId: number,
@@ -50,19 +43,13 @@ export async function assertCdpAllowedForWebContentsId(
 
 /** Ensure the debugger is attached, attaching lazily if needed. */
 export function ensureDebuggerAttached(webContentsId: number): void {
-  const dbg = getDebugger(webContentsId);
-  if (!dbg.isAttached()) {
-    dbg.attach("1.3");
-  }
+  ensureCdpAttached(webContentsId);
 }
 
 /** Detach the debugger if attached. Safe to call multiple times. */
 export function detachDebugger(webContentsId: number): void {
   try {
-    const dbg = getDebugger(webContentsId);
-    if (dbg.isAttached()) {
-      dbg.detach();
-    }
+    detachCdpController(webContentsId);
   } catch {
     // Already destroyed – nothing to do
   }
@@ -73,9 +60,7 @@ async function sendCommand(
   method: string,
   params?: Record<string, unknown>,
 ): Promise<unknown> {
-  ensureDebuggerAttached(webContentsId);
-  const dbg = getDebugger(webContentsId);
-  return dbg.sendCommand(method, params);
+  return sendCdpCommand(webContentsId, method, params);
 }
 
 // ---------------------------------------------------------------------------
@@ -189,7 +174,10 @@ export async function getElementBoxModel(
   webContentsId: number,
   selector: string,
 ): Promise<LensBoxModel> {
-  await assertCdpAllowedForWebContentsId(webContentsId, "read element box model");
+  await assertCdpAllowedForWebContentsId(
+    webContentsId,
+    "read element box model",
+  );
 
   const expression = `(() => {
     ${getLensBoxModelScript()}
@@ -219,7 +207,11 @@ export async function measureElements(
   webContentsId: number,
   selectorA: string,
   selectorB: string,
-): Promise<{ measurement: LensMeasurement; from: LensBoxModel; to: LensBoxModel }> {
+): Promise<{
+  measurement: LensMeasurement;
+  from: LensBoxModel;
+  to: LensBoxModel;
+}> {
   await assertCdpAllowedForWebContentsId(webContentsId, "measure elements");
 
   const expression = `(() => {
@@ -248,13 +240,20 @@ export async function measureElements(
     );
   }
   const value = result.result.value as
-    | { ok: true; measurement: LensMeasurement; from: LensBoxModel; to: LensBoxModel }
+    | {
+        ok: true;
+        measurement: LensMeasurement;
+        from: LensBoxModel;
+        to: LensBoxModel;
+      }
     | { ok: false; missing: string[] }
     | null;
   if (!value?.ok) {
     const missing = value && "missing" in value ? value.missing.join(", ") : "";
     throw new Error(
-      missing ? `Element(s) not found: ${missing}` : "Unable to measure elements.",
+      missing
+        ? `Element(s) not found: ${missing}`
+        : "Unable to measure elements.",
     );
   }
   return { measurement: value.measurement, from: value.from, to: value.to };

@@ -13,6 +13,7 @@ import { useAppStore } from "@/store/app.store";
  */
 export const PANE_RENAME_REQUEST_EVENT = "stave:pane-rename-request";
 export const OPEN_TASK_HISTORY_EVENT = "stave:open-task-history";
+export const OPEN_TASK_SESSION_IDS_EVENT = "stave:open-task-session-ids";
 export const REQUEST_CLOSE_CLI_SESSION_EVENT =
   "stave:request-close-cli-session";
 export const REQUEST_CLOSE_EDITOR_TABS_EVENT =
@@ -46,6 +47,14 @@ export function dispatchOpenTaskHistory(args?: OpenTaskHistoryRequest) {
         workspaceId: args?.workspaceId,
         projectPath: args?.projectPath,
       },
+    }),
+  );
+}
+
+export function dispatchOpenTaskSessionIds(args: { taskId: string }) {
+  window.dispatchEvent(
+    new CustomEvent(OPEN_TASK_SESSION_IDS_EVENT, {
+      detail: { taskId: args.taskId },
     }),
   );
 }

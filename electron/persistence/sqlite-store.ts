@@ -31,6 +31,7 @@ import type {
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
+import { buildNotificationExpiresAt } from "../../src/lib/notifications/notification.types";
 import {
   createEmptyRoutineState,
   normalizeRoutineState,
@@ -108,6 +109,7 @@ interface NotificationRow {
   id: string;
   kind:
     | "task.turn_completed"
+    | "task.turn_failed"
     | "task.approval_requested"
     | "task.user_input_requested";
   title: string;
@@ -124,6 +126,8 @@ interface NotificationRow {
   payload_json: string;
   created_at: string;
   read_at: string | null;
+  resolved_at: string | null;
+  expires_at: string | null;
 }
 
 interface LocalMcpRequestLogRow {
@@ -289,7 +293,9 @@ export class SqliteStore {
         payload_json TEXT NOT NULL,
         source_dedupe_key TEXT,
         created_at TEXT NOT NULL,
-        read_at TEXT
+        read_at TEXT,
+        resolved_at TEXT,
+        expires_at TEXT
       );
 
       CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_source_dedupe
@@ -345,6 +351,36 @@ export class SqliteStore {
     } catch {
       // column already exists
     }
+    try {
+      this.db.exec("ALTER TABLE notifications ADD COLUMN resolved_at TEXT");
+    } catch {
+      // column already exists
+    }
+    try {
+      this.db.exec("ALTER TABLE notifications ADD COLUMN expires_at TEXT");
+    } catch {
+      // column already exists
+    }
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_notifications_expires
+        ON notifications (expires_at)
+        WHERE expires_at IS NOT NULL;
+    `);
+    this.db
+      .prepare(
+        `
+      UPDATE notifications
+      SET expires_at = strftime(
+        '%Y-%m-%dT%H:%M:%fZ',
+        read_at,
+        '+7 days'
+      )
+      WHERE expires_at IS NULL
+        AND read_at IS NOT NULL
+        AND kind IN ('task.turn_completed', 'task.turn_failed')
+    `,
+      )
+      .run();
     this.purgeLegacyTurnJournal();
   }
 
@@ -430,6 +466,8 @@ export class SqliteStore {
       payload: JSON.parse(row.payload_json) as Record<string, unknown>,
       createdAt: row.created_at,
       readAt: row.read_at,
+      resolvedAt: row.resolved_at,
+      expiresAt: row.expires_at,
     };
   }
 
@@ -532,7 +570,9 @@ export class SqliteStore {
         action_json,
         payload_json,
         created_at,
-        read_at
+        read_at,
+        resolved_at,
+        expires_at
       FROM notifications
       WHERE id = ?
     `,
@@ -563,7 +603,9 @@ export class SqliteStore {
         action_json,
         payload_json,
         created_at,
-        read_at
+        read_at,
+        resolved_at,
+        expires_at
       FROM notifications
       WHERE source_dedupe_key = ?
       LIMIT 1
@@ -1047,6 +1089,15 @@ export class SqliteStore {
     const notification = args.notification;
     const createdAt = notification.createdAt ?? new Date().toISOString();
     const readAt = notification.readAt ?? null;
+    const resolvedAt = notification.resolvedAt ?? null;
+    const pendingAttention =
+      (notification.kind === "task.approval_requested" ||
+        notification.kind === "task.user_input_requested") &&
+      !resolvedAt;
+    const expiresAt = pendingAttention
+      ? null
+      : (notification.expiresAt ??
+        (readAt ? buildNotificationExpiresAt({ readAt }) : null));
     const actionJson = notification.action
       ? JSON.stringify(notification.action)
       : null;
@@ -1073,9 +1124,11 @@ export class SqliteStore {
         payload_json,
         source_dedupe_key,
         created_at,
-        read_at
+        read_at,
+        resolved_at,
+        expires_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       )
       .run(
@@ -1096,6 +1149,8 @@ export class SqliteStore {
         dedupeKey,
         createdAt,
         readAt,
+        resolvedAt,
+        expiresAt,
       );
 
     if (result.changes > 0) {
@@ -1124,6 +1179,11 @@ export class SqliteStore {
   }): PersistenceNotificationRecord[] {
     const limit = Math.max(1, Math.min(500, args?.limit ?? 100));
     const unreadOnly = args?.unreadOnly === true;
+    const pendingAttentionPredicate = `
+      kind IN ('task.approval_requested', 'task.user_input_requested')
+      AND resolved_at IS NULL
+      AND expires_at IS NULL
+    `;
     const rows = this.db
       .prepare(
         `
@@ -1143,11 +1203,23 @@ export class SqliteStore {
         action_json,
         payload_json,
         created_at,
-        read_at
+        read_at,
+        resolved_at,
+        expires_at
       FROM notifications
-      ${unreadOnly ? "WHERE read_at IS NULL" : ""}
+      WHERE (
+        (${pendingAttentionPredicate})
+        OR id IN (
+          SELECT id
+          FROM notifications
+          WHERE NOT (${pendingAttentionPredicate})
+          ${unreadOnly ? "AND read_at IS NULL" : ""}
+          ORDER BY created_at DESC, id DESC
+          LIMIT ?
+        )
+      )
+      ${unreadOnly ? "AND read_at IS NULL" : ""}
       ORDER BY created_at DESC, id DESC
-      LIMIT ?
     `,
       )
       .all(limit) as NotificationRow[];
@@ -1158,31 +1230,87 @@ export class SqliteStore {
   markNotificationRead(args: {
     id: string;
     readAt?: string;
+    resolvedAt?: string;
   }): PersistenceNotificationRecord | null {
     const readAt = args.readAt ?? new Date().toISOString();
+    const expiresAt = buildNotificationExpiresAt({
+      readAt: args.resolvedAt ?? readAt,
+    });
     this.db
       .prepare(
         `
       UPDATE notifications
-      SET read_at = COALESCE(read_at, ?)
+      SET
+        read_at = COALESCE(read_at, ?),
+        resolved_at = COALESCE(resolved_at, ?),
+        expires_at = CASE
+          WHEN kind IN ('task.approval_requested', 'task.user_input_requested')
+            AND COALESCE(resolved_at, ?) IS NULL
+          THEN NULL
+          ELSE COALESCE(expires_at, ?)
+        END
       WHERE id = ?
     `,
       )
-      .run(readAt, args.id);
+      .run(
+        readAt,
+        args.resolvedAt ?? null,
+        args.resolvedAt ?? null,
+        expiresAt,
+        args.id,
+      );
     return this.getNotificationById(args.id);
   }
 
   markAllNotificationsRead(args?: { readAt?: string }): number {
     const readAt = args?.readAt ?? new Date().toISOString();
+    const expiresAt = buildNotificationExpiresAt({ readAt });
     const result = this.db
       .prepare(
         `
       UPDATE notifications
-      SET read_at = ?
+      SET
+        read_at = ?,
+        expires_at = CASE
+          WHEN kind IN ('task.approval_requested', 'task.user_input_requested')
+            AND resolved_at IS NULL
+          THEN NULL
+          ELSE COALESCE(expires_at, ?)
+        END
       WHERE read_at IS NULL
     `,
       )
-      .run(readAt);
+      .run(readAt, expiresAt);
+    return result.changes;
+  }
+
+  pruneNotifications(args?: { now?: string }): number {
+    const now = args?.now ?? new Date().toISOString();
+    const result = this.db
+      .prepare(
+        `
+      DELETE FROM notifications
+      WHERE expires_at IS NOT NULL
+        AND expires_at <= ?
+        AND NOT (
+          kind IN ('task.approval_requested', 'task.user_input_requested')
+          AND resolved_at IS NULL
+        )
+    `,
+      )
+      .run(now);
+    return result.changes;
+  }
+
+  clearNotificationHistory(): number {
+    const result = this.db
+      .prepare(
+        `
+      DELETE FROM notifications
+      WHERE (read_at IS NOT NULL OR resolved_at IS NOT NULL)
+    `,
+      )
+      .run();
     return result.changes;
   }
 
@@ -1465,15 +1593,13 @@ export class SqliteStore {
       ) as WorkspaceMessageRow[];
 
     return {
-      messages: rows
-        .reverse()
-        .map((row) =>
-          this.mapTaskMessageRow({
-            workspaceId: args.workspaceId,
-            taskId: args.taskId,
-            row,
-          }),
-        ),
+      messages: rows.reverse().map((row) =>
+        this.mapTaskMessageRow({
+          workspaceId: args.workspaceId,
+          taskId: args.taskId,
+          row,
+        }),
+      ),
       totalCount,
       limit,
       offset,

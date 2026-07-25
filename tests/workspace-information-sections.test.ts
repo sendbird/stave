@@ -3,11 +3,24 @@ import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 import {
   CORE_WORKSPACE_INFORMATION_SECTIONS,
   normalizeWorkspaceInformationSectionVisibility,
+  parseWorkspaceInformationOpenSections,
   resolveVisibleWorkspaceInformationSections,
   workspaceInformationSectionHasContent,
 } from "@/lib/workspace-information-sections";
 
 describe("workspace information section visibility", () => {
+  test("opens only Summary until the user asks for more detail", () => {
+    expect(parseWorkspaceInformationOpenSections(null)).toEqual(["overview"]);
+    expect(parseWorkspaceInformationOpenSections("not-json")).toEqual([
+      "overview",
+    ]);
+    expect(
+      parseWorkspaceInformationOpenSections(
+        JSON.stringify(["overview", "plans", "unknown"]),
+      ),
+    ).toEqual(["overview", "plans"]);
+  });
+
   test("normalizes only known boolean entries", () => {
     expect(
       normalizeWorkspaceInformationSectionVisibility({

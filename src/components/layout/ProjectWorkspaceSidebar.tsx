@@ -3,7 +3,6 @@ import {
   ChevronDown,
   ChevronRight,
   FolderOpen,
-  FolderTree,
   GitBranch,
   LayoutGrid,
   LoaderCircle,
@@ -11,11 +10,11 @@ import {
   PanelLeft,
   Plus,
   RefreshCw,
+  Rocket,
   Rows2,
   Rows3,
   Search,
   Settings,
-  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -26,6 +25,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactElement,
   type ReactNode,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -53,6 +53,7 @@ import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
+import { ProjectIdentityMark } from "@/components/layout/project-appearance";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import {
   SortableDropIndicator,
@@ -92,7 +93,6 @@ import {
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
-import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
@@ -273,7 +273,7 @@ function WorkspaceHoverPreviewTooltip(args: {
   projectName?: string;
   shortcutLabel?: string | null;
   side: "top" | "right";
-  children: ReactNode;
+  children: ReactElement;
 }) {
   const { tasks, messageCountByTask, activeTurnIdsByTask, hasRuntimeState } =
     useWorkspaceHoverPreviewState(args.workspaceId);
@@ -347,7 +347,7 @@ function WorkspaceHoverPreviewTooltip(args: {
 
   return (
     <Tooltip onOpenChange={handleOpenChange}>
-      <TooltipTrigger asChild>{args.children}</TooltipTrigger>
+      <TooltipTrigger render={args.children} />
       <TooltipContent
         side={args.side}
         align="start"
@@ -636,38 +636,40 @@ const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
   const hasMetaActions = Boolean(args.shortcutLabel) || respondingTaskCount > 0;
 
   return (
-    <span className="flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
-      <span className="inline-flex min-w-0 flex-1 items-center gap-1">
-        <GitBranch className="size-3 shrink-0 text-muted-foreground/70" />
-        <span className="truncate">{branchLabel}</span>
+    <span className="col-span-2 grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2 text-[11px] leading-4 text-muted-foreground">
+      <span className="flex size-4 items-center justify-center">
+        <GitBranch className="size-4 shrink-0 text-muted-foreground/70" />
       </span>
-      {hasMetaActions ? (
-        <span
-          className={cn(
-            "flex shrink-0 items-center gap-1.5 transition-opacity",
-            getWorkspaceRespondingCountVisibilityClasses({
-              hasHoverActions: args.hasHoverActions,
-              isClosing: args.isClosing,
-            }),
-          )}
-        >
-          {args.shortcutLabel ? (
-            <WorkspaceShortcutChip
-              modifier={workspaceShortcutModifierLabel}
-              label={args.shortcutLabel}
-              className="h-4 shrink-0 px-1 text-[10px]"
-            />
-          ) : null}
-          {respondingTaskCount > 0 ? (
-            <Badge
-              variant="outline"
-              className="h-4 min-w-5 shrink-0 justify-center rounded-sm border-primary/30 bg-primary/10 px-1 text-[10px] font-medium tabular-nums text-primary"
-            >
-              {respondingTaskCount}
-            </Badge>
-          ) : null}
-        </span>
-      ) : null}
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="min-w-0 flex-1 truncate">{branchLabel}</span>
+        {hasMetaActions ? (
+          <span
+            className={cn(
+              "ml-auto flex shrink-0 items-center gap-1.5 transition-opacity",
+              getWorkspaceRespondingCountVisibilityClasses({
+                hasHoverActions: args.hasHoverActions,
+                isClosing: args.isClosing,
+              }),
+            )}
+          >
+            {args.shortcutLabel ? (
+              <WorkspaceShortcutChip
+                modifier={workspaceShortcutModifierLabel}
+                label={args.shortcutLabel}
+                className="h-4 shrink-0 px-1 text-[10px]"
+              />
+            ) : null}
+            {respondingTaskCount > 0 ? (
+              <Badge
+                variant="outline"
+                className="h-4 min-w-5 shrink-0 justify-center rounded-sm border-primary/30 bg-primary/10 px-1 text-[10px] font-medium tabular-nums text-primary"
+              >
+                {respondingTaskCount}
+              </Badge>
+            ) : null}
+          </span>
+        ) : null}
+      </span>
     </span>
   );
 });
@@ -824,21 +826,23 @@ function WorkspaceRowActions(args: {
           />
         ) : null}
         <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 rounded-md p-0 text-muted-foreground"
-              disabled={isClosing}
-              aria-label={`workspace-actions-${args.workspaceId}`}
-            >
-              {isClosing ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
-              ) : (
-                <MoreVertical className="size-3.5" />
-              )}
-            </Button>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 rounded-md p-0 text-muted-foreground"
+                disabled={isClosing}
+                aria-label={`workspace-actions-${args.workspaceId}`}
+              />
+            }
+          >
+            {isClosing ? (
+              <LoaderCircle className="size-3.5 animate-spin" />
+            ) : (
+              <MoreVertical className="size-3.5" />
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
@@ -1012,10 +1016,17 @@ export function ProjectWorkspaceSidebar(args: {
   );
 
   const projects = useMemo(() => {
+    const rememberedCurrentProject = currentProjectPath
+      ? recentProjects.find(
+          (project) => project.projectPath === currentProjectPath,
+        )
+      : null;
     const currentProject = currentProjectPath
       ? ({
           projectPath: currentProjectPath,
           projectName: currentProjectName ?? "project",
+          appearanceIcon: rememberedCurrentProject?.appearanceIcon,
+          appearanceColor: rememberedCurrentProject?.appearanceColor,
           workspaces: workspaces.map((workspace) => ({
             id: workspace.id,
             name: workspace.name,
@@ -1033,6 +1044,8 @@ export function ProjectWorkspaceSidebar(args: {
         ({
           projectPath: project.projectPath,
           projectName: project.projectName,
+          appearanceIcon: project.appearanceIcon,
+          appearanceColor: project.appearanceColor,
           workspaces: project.workspaces.map((workspace) => ({
             id: workspace.id,
             name: workspace.name,
@@ -1386,8 +1399,7 @@ export function ProjectWorkspaceSidebar(args: {
       <aside
         data-testid="project-workspace-sidebar"
         className={cn(
-          `${UI_LAYER_CLASS.floatingChrome} hidden h-full shrink-0 overflow-hidden bg-sidebar text-sidebar-foreground lg:flex lg:flex-col`,
-          args.collapsed && "border-r border-sidebar-border/60",
+          "relative z-0 stave-project-sidebar hidden h-full shrink-0 overflow-hidden text-sidebar-foreground lg:flex lg:flex-col",
         )}
         style={{
           width: `${args.collapsed ? COLLAPSED_PROJECT_SIDEBAR_WIDTH : args.width}px`,
@@ -1418,36 +1430,40 @@ export function ProjectWorkspaceSidebar(args: {
             {args.collapsed ? (
               <div className="flex flex-col items-center">
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-10 w-10 rounded-md bg-sidebar-accent/60 p-0 hover:bg-sidebar-accent"
-                      onClick={() => setOpenPathDialogOpen(true)}
-                      aria-label="open-project"
-                    >
-                      <FolderOpen className="size-4" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-10 w-10 rounded-md bg-sidebar-accent/60 p-0 hover:bg-sidebar-accent"
+                        onClick={() => setOpenPathDialogOpen(true)}
+                        aria-label="open-project"
+                      />
+                    }
+                  >
+                    <FolderOpen className="size-4" />
                   </TooltipTrigger>
                   <TooltipContent side="right">Open Project</TooltipContent>
                 </Tooltip>
                 {sidebarShowFleetView ? (
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={cn(
-                          "h-10 w-10 rounded-md p-0",
-                          activeAppSurface.kind === "fleet-view"
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "hover:bg-sidebar-accent",
-                        )}
-                        onClick={() => openFleetView()}
-                        aria-label="open-fleet-view"
-                      >
-                        <LayoutGrid className="size-4" />
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "h-10 w-10 rounded-md p-0",
+                            activeAppSurface.kind === "fleet-view"
+                              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                              : "hover:bg-sidebar-accent",
+                          )}
+                          onClick={() => openFleetView()}
+                          aria-label="open-fleet-view"
+                        />
+                      }
+                    >
+                      <LayoutGrid className="size-4" />
                     </TooltipTrigger>
                     <TooltipContent side="right">Fleet View</TooltipContent>
                   </Tooltip>
@@ -1456,20 +1472,22 @@ export function ProjectWorkspaceSidebar(args: {
             ) : (
               <div className="flex w-full items-center justify-end gap-2">
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 w-9 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-                      onClick={() =>
-                        setLayout({
-                          patch: { workspaceSidebarCollapsed: true },
-                        })
-                      }
-                      aria-label="collapse-project-list"
-                    >
-                      <PanelLeft className="size-4" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                        onClick={() =>
+                          setLayout({
+                            patch: { workspaceSidebarCollapsed: true },
+                          })
+                        }
+                        aria-label="collapse-project-list"
+                      />
+                    }
+                  >
+                    <PanelLeft className="size-4" />
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     Collapse Project List
@@ -1618,41 +1636,42 @@ export function ProjectWorkspaceSidebar(args: {
                 </span>
                 <div className="flex items-center gap-1">
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        onClick={() => setOpenPathDialogOpen(true)}
-                        aria-label="open-project"
-                      >
-                        <FolderOpen className="size-4" />
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          onClick={() => setOpenPathDialogOpen(true)}
+                          aria-label="open-project"
+                        />
+                      }
+                    >
+                      <FolderOpen className="size-4" />
                     </TooltipTrigger>
                     <TooltipContent side="top">Open Project</TooltipContent>
                   </Tooltip>
                   <DropdownMenu>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex">
-                          <DropdownMenuTrigger asChild>
+                      <TooltipTrigger render={<span className="inline-flex" />}>
+                        <DropdownMenuTrigger
+                          render={
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                               aria-label="workspace-item-display-mode"
-                            >
-                              {workspaceSidebarItemDisplayMode ===
-                              "expanded" ? (
-                                <Rows3 className="size-4" />
-                              ) : (
-                                <Rows2 className="size-4" />
-                              )}
-                            </Button>
-                          </DropdownMenuTrigger>
-                        </span>
+                            />
+                          }
+                        >
+                          {workspaceSidebarItemDisplayMode === "expanded" ? (
+                            <Rows3 className="size-4" />
+                          ) : (
+                            <Rows2 className="size-4" />
+                          )}
+                        </DropdownMenuTrigger>
                       </TooltipTrigger>
                       <TooltipContent side="top">
                         Workspace row display
@@ -1728,7 +1747,14 @@ export function ProjectWorkspaceSidebar(args: {
                           id={project.projectPath}
                           disabled={projectReorderingDisabled}
                           previewTitle={project.projectName}
-                          previewIcon={<FolderTree className="size-4" />}
+                          previewIcon={
+                            <ProjectIdentityMark
+                              icon={project.appearanceIcon}
+                              color={project.appearanceColor}
+                              className="size-5 rounded-md"
+                              iconClassName="size-3"
+                            />
+                          }
                           indicatorGap="0.75rem"
                         >
                           {({ handleRef, isDragging }) => (
@@ -1808,56 +1834,62 @@ export function ProjectWorkspaceSidebar(args: {
                                   )}
                                 >
                                   <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="relative h-8 w-8 shrink-0 rounded-md p-0 text-muted-foreground"
-                                        onClick={() => {
-                                          setCollapsedByProjectPath(
-                                            (current) => ({
-                                              ...current,
-                                              [project.projectPath]: !collapsed,
-                                            }),
-                                          );
-                                        }}
-                                        aria-label={`toggle-project-${project.projectPath}`}
-                                        aria-expanded={!collapsed}
-                                      >
-                                        {projectBusy ? (
-                                          <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
-                                        ) : (
-                                          <>
-                                            <FolderTree
-                                              className={cn(
-                                                "size-4 transition-all duration-200",
-                                                "group-hover/project-row:scale-75 group-hover/project-row:opacity-0",
-                                                "group-focus-within/project-row:scale-75 group-focus-within/project-row:opacity-0",
-                                              )}
-                                            />
-                                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                              {collapsed ? (
-                                                <ChevronRight
-                                                  className={cn(
-                                                    "size-4 scale-75 opacity-0 transition-all duration-200",
-                                                    "group-hover/project-row:scale-100 group-hover/project-row:opacity-100",
-                                                    "group-focus-within/project-row:scale-100 group-focus-within/project-row:opacity-100",
-                                                  )}
-                                                />
-                                              ) : (
-                                                <ChevronDown
-                                                  className={cn(
-                                                    "size-4 scale-75 opacity-0 transition-all duration-200",
-                                                    "group-hover/project-row:scale-100 group-hover/project-row:opacity-100",
-                                                    "group-focus-within/project-row:scale-100 group-focus-within/project-row:opacity-100",
-                                                  )}
-                                                />
-                                              )}
-                                            </span>
-                                          </>
-                                        )}
-                                      </Button>
+                                    <TooltipTrigger
+                                      render={
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="relative h-8 w-8 shrink-0 rounded-md p-0 text-muted-foreground"
+                                          onClick={() => {
+                                            setCollapsedByProjectPath(
+                                              (current) => ({
+                                                ...current,
+                                                [project.projectPath]:
+                                                  !collapsed,
+                                              }),
+                                            );
+                                          }}
+                                          aria-label={`toggle-project-${project.projectPath}`}
+                                          aria-expanded={!collapsed}
+                                        />
+                                      }
+                                    >
+                                      {projectBusy ? (
+                                        <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
+                                      ) : (
+                                        <>
+                                          <ProjectIdentityMark
+                                            icon={project.appearanceIcon}
+                                            color={project.appearanceColor}
+                                            className={cn(
+                                              "size-7 transition-all duration-200",
+                                              "group-hover/project-row:scale-75 group-hover/project-row:opacity-0",
+                                              "group-focus-within/project-row:scale-75 group-focus-within/project-row:opacity-0",
+                                            )}
+                                            iconClassName="size-3.5"
+                                          />
+                                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                            {collapsed ? (
+                                              <ChevronRight
+                                                className={cn(
+                                                  "size-4 scale-75 opacity-0 transition-all duration-200",
+                                                  "group-hover/project-row:scale-100 group-hover/project-row:opacity-100",
+                                                  "group-focus-within/project-row:scale-100 group-focus-within/project-row:opacity-100",
+                                                )}
+                                              />
+                                            ) : (
+                                              <ChevronDown
+                                                className={cn(
+                                                  "size-4 scale-75 opacity-0 transition-all duration-200",
+                                                  "group-hover/project-row:scale-100 group-hover/project-row:opacity-100",
+                                                  "group-focus-within/project-row:scale-100 group-focus-within/project-row:opacity-100",
+                                                )}
+                                              />
+                                            )}
+                                          </span>
+                                        </>
+                                      )}
                                     </TooltipTrigger>
                                     <TooltipContent side="right">
                                       {collapsed
@@ -1888,92 +1920,100 @@ export function ProjectWorkspaceSidebar(args: {
                                       )}
                                     >
                                       <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 w-7 rounded-md p-0"
-                                            disabled={projectBusy}
-                                            onClick={() =>
-                                              void args.onKickoffWorkspace(
-                                                project.projectPath,
-                                              )
-                                            }
-                                            aria-label={`Kick off workspace for ${project.projectName}`}
-                                          >
-                                            <Sparkles className="size-3.5" />
-                                          </Button>
+                                        <TooltipTrigger
+                                          render={
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-7 w-7 rounded-md p-0"
+                                              disabled={projectBusy}
+                                              onClick={() =>
+                                                void args.onKickoffWorkspace(
+                                                  project.projectPath,
+                                                )
+                                              }
+                                              aria-label={`Kick off workspace for ${project.projectName}`}
+                                            />
+                                          }
+                                        >
+                                          <Rocket className="size-3.5" />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
                                           Kick off workspace
                                         </TooltipContent>
                                       </Tooltip>
                                       <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 w-7 rounded-md p-0"
-                                            disabled={projectBusy}
-                                            onClick={() =>
-                                              void handleCreateWorkspaceRequest(
-                                                project.projectPath,
-                                              )
-                                            }
-                                            aria-label={`new-workspace-${project.projectPath}`}
-                                          >
-                                            <Plus className="size-3.5" />
-                                          </Button>
+                                        <TooltipTrigger
+                                          render={
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-7 w-7 rounded-md p-0"
+                                              disabled={projectBusy}
+                                              onClick={() =>
+                                                void handleCreateWorkspaceRequest(
+                                                  project.projectPath,
+                                                )
+                                              }
+                                              aria-label={`new-workspace-${project.projectPath}`}
+                                            />
+                                          }
+                                        >
+                                          <Plus className="size-3.5" />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
                                           New workspace
                                         </TooltipContent>
                                       </Tooltip>
                                       <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 w-7 rounded-md p-0"
-                                            disabled={projectBusy}
-                                            onClick={() =>
-                                              void hydrateWorkspaces()
-                                            }
-                                            aria-label={`refresh-workspaces-${project.projectPath}`}
-                                          >
-                                            <RefreshCw className="size-3.5" />
-                                          </Button>
+                                        <TooltipTrigger
+                                          render={
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-7 w-7 rounded-md p-0"
+                                              disabled={projectBusy}
+                                              onClick={() =>
+                                                void hydrateWorkspaces()
+                                              }
+                                              aria-label={`refresh-workspaces-${project.projectPath}`}
+                                            />
+                                          }
+                                        >
+                                          <RefreshCw className="size-3.5" />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
                                           Refresh workspaces
                                         </TooltipContent>
                                       </Tooltip>
                                       <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 w-7 rounded-md p-0"
-                                            disabled={projectBusy}
-                                            onMouseEnter={
-                                              args.onPreloadSettings
-                                            }
-                                            onFocus={args.onPreloadSettings}
-                                            onClick={() =>
-                                              args.onOpenSettings({
-                                                section: "projects",
-                                                projectPath:
-                                                  project.projectPath,
-                                              })
-                                            }
-                                            aria-label={`project-settings-${project.projectPath}`}
-                                          >
-                                            <Settings className="size-3.5" />
-                                          </Button>
+                                        <TooltipTrigger
+                                          render={
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-7 w-7 rounded-md p-0"
+                                              disabled={projectBusy}
+                                              onMouseEnter={
+                                                args.onPreloadSettings
+                                              }
+                                              onFocus={args.onPreloadSettings}
+                                              onClick={() =>
+                                                args.onOpenSettings({
+                                                  section: "projects",
+                                                  projectPath:
+                                                    project.projectPath,
+                                                })
+                                              }
+                                              aria-label={`project-settings-${project.projectPath}`}
+                                            />
+                                          }
+                                        >
+                                          <Settings className="size-3.5" />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
                                           Project settings
@@ -2077,10 +2117,10 @@ export function ProjectWorkspaceSidebar(args: {
                                                         : undefined
                                                     }
                                                     className={cn(
-                                                      "flex min-w-0 flex-1 gap-2 text-left text-sm",
+                                                      "min-w-0 flex-1 text-left text-sm",
                                                       isExpandedWorkspaceItem
-                                                        ? "items-start px-3 py-2.5"
-                                                        : "items-center px-3 py-2",
+                                                        ? "grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2 gap-y-1 px-3 py-2.5"
+                                                        : "flex items-center gap-2 px-3 py-2",
                                                       handleRef &&
                                                         "cursor-pointer active:cursor-grabbing",
                                                       isDragging &&
@@ -2193,7 +2233,7 @@ export function ProjectWorkspaceSidebar(args: {
                                                       />
                                                     </span>
                                                     {isExpandedWorkspaceItem ? (
-                                                      <span className="flex min-w-0 flex-1 flex-col gap-1">
+                                                      <>
                                                         <InlineWorkspaceLabel
                                                           workspaceId={
                                                             workspace.id
@@ -2244,7 +2284,7 @@ export function ProjectWorkspaceSidebar(args: {
                                                             isClosingWorkspace
                                                           }
                                                         />
-                                                      </span>
+                                                      </>
                                                     ) : (
                                                       <InlineWorkspaceLabel
                                                         workspaceId={
@@ -2413,18 +2453,20 @@ export function ProjectWorkspaceSidebar(args: {
                   onOpenSettings={() => args.onOpenSettings()}
                 />
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-10 w-10 rounded-md p-0"
-                      aria-label="open-settings"
-                      onMouseEnter={args.onPreloadSettings}
-                      onFocus={args.onPreloadSettings}
-                      onClick={() => args.onOpenSettings()}
-                    >
-                      <Settings className="size-4" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-10 w-10 rounded-md p-0"
+                        aria-label="open-settings"
+                        onMouseEnter={args.onPreloadSettings}
+                        onFocus={args.onPreloadSettings}
+                        onClick={() => args.onOpenSettings()}
+                      />
+                    }
+                  >
+                    <Settings className="size-4" />
                   </TooltipTrigger>
                   <TooltipContent side="right">Settings</TooltipContent>
                 </Tooltip>
@@ -2440,18 +2482,20 @@ export function ProjectWorkspaceSidebar(args: {
                   />
                 </div>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 rounded-md p-0"
-                      aria-label="open-settings"
-                      onMouseEnter={args.onPreloadSettings}
-                      onFocus={args.onPreloadSettings}
-                      onClick={() => args.onOpenSettings()}
-                    >
-                      <Settings className="size-3.5" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 rounded-md p-0"
+                        aria-label="open-settings"
+                        onMouseEnter={args.onPreloadSettings}
+                        onFocus={args.onPreloadSettings}
+                        onClick={() => args.onOpenSettings()}
+                      />
+                    }
+                  >
+                    <Settings className="size-3.5" />
                   </TooltipTrigger>
                   <TooltipContent side="top">Settings</TooltipContent>
                 </Tooltip>

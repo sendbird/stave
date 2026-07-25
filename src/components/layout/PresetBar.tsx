@@ -172,39 +172,43 @@ function PresetChip(props: PresetChipProps) {
         }
       }}
     >
-      <PopoverAnchor asChild>
-        <div
-          className={cn(
-            "group relative flex h-7 shrink-0 items-stretch rounded-md border border-border/60",
-            "bg-card/70 text-foreground shadow-sm transition-colors hover:bg-card",
-            "focus-within:ring-1 focus-within:ring-primary/40",
-          )}
-          data-preset-id={preset.id}
-        >
-          <button
-            type="button"
-            onClick={() => onApply(preset)}
+      <PopoverAnchor
+        render={
+          <div
             className={cn(
-              "flex min-w-0 items-center gap-1.5 rounded-l-md px-2 text-xs",
-              "outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
+              "group relative flex h-7 shrink-0 items-stretch rounded-md border border-border/60",
+              "bg-card/70 text-foreground shadow-sm transition-colors hover:bg-card",
+              "focus-within:ring-1 focus-within:ring-primary/40",
             )}
-            title={buildChipTitle(preset)}
-          >
-            <ModelIcon
-              providerId={preset.provider}
-              model={preset.model}
-              className="size-3.5 shrink-0"
+            data-preset-id={preset.id}
+          />
+        }
+      >
+        <button
+          type="button"
+          onClick={() => onApply(preset)}
+          className={cn(
+            "flex min-w-0 items-center gap-1.5 rounded-l-md px-2 text-xs",
+            "outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
+          )}
+          title={buildChipTitle(preset)}
+        >
+          <ModelIcon
+            providerId={preset.provider}
+            model={preset.model}
+            className="size-3.5 shrink-0"
+          />
+          <span className="truncate max-w-[140px]">{preset.label}</span>
+          {preset.kind === "cli-session" ? (
+            <SquareTerminal
+              className="size-3 shrink-0 text-muted-foreground"
+              aria-label="CLI session"
             />
-            <span className="truncate max-w-[140px]">{preset.label}</span>
-            {preset.kind === "cli-session" ? (
-              <SquareTerminal
-                className="size-3 shrink-0 text-muted-foreground"
-                aria-label="CLI session"
-              />
-            ) : null}
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          ) : null}
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
               <Button
                 type="button"
                 variant="ghost"
@@ -212,34 +216,31 @@ function PresetChip(props: PresetChipProps) {
                 className={cn(
                   "h-full w-5 shrink-0 rounded-l-none rounded-r-md px-0 text-muted-foreground",
                   "opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100",
-                  "data-[state=open]:opacity-100",
+                  "data-open:opacity-100",
                 )}
                 aria-label="Preset actions"
-              >
-                <Ellipsis className="size-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-40"
-              // Keep focus where it is when the menu closes after "Edit…".
-              // Radix's default focus-return lands outside the freshly opened
-              // preset editor Popover and immediately dismisses it.
-              onCloseAutoFocus={(event) => event.preventDefault()}
-            >
-              <DropdownMenuItem onSelect={() => onRequestEdit()}>
-                Edit…
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => onDelete()}
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              />
+            }
+          >
+            <Ellipsis className="size-3" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="w-40"
+            // Keep focus where it is when the menu closes after "Edit…".
+            // The default focus return lands outside the freshly opened
+            // preset editor Popover and immediately dismisses it.
+            finalFocus={false}
+          >
+            <DropdownMenuItem onSelect={() => onRequestEdit()}>
+              Edit…
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={() => onDelete()}>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </PopoverAnchor>
       <PopoverContent align="start" className="w-72">
         <TaskPresetEditor

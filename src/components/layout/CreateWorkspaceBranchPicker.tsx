@@ -234,37 +234,39 @@ export function CreateWorkspaceBranchPicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          disabled={disabled}
-          className={cn(
-            "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background/80 px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
-            open && "border-primary/70 bg-secondary/50",
-          )}
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">{value}</span>
-          </span>
-          <span className="ml-auto flex items-center gap-2">
-            {loading ? (
-              <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-            ) : showScopeBadges ? (
-              <span className="rounded border border-border/70 bg-background/80 px-1.5 py-px text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                {getScopeLabel(selectedScope)}
-              </span>
-            ) : null}
-            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-          </span>
-        </button>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            disabled={disabled}
+            className={cn(
+              "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background/80 px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
+              open && "border-primary/70 bg-secondary/50",
+            )}
+          />
+        }
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">{value}</span>
+        </span>
+        <span className="ml-auto flex items-center gap-2">
+          {loading ? (
+            <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+          ) : showScopeBadges ? (
+            <span className="rounded border border-border/70 bg-background/80 px-1.5 py-px text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+              {getScopeLabel(selectedScope)}
+            </span>
+          ) : null}
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+        </span>
       </PopoverTrigger>
       <PopoverContent
         align="start"
         sideOffset={8}
-        className="max-w-[32rem] gap-0 overflow-hidden border border-border/80 bg-card p-0 shadow-2xl"
-        style={{ width: "var(--radix-popover-trigger-width)" }}
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        className="max-w-[32rem] gap-0 overflow-hidden border border-border/80 bg-card p-0"
+        style={{ width: "var(--anchor-width)" }}
+        initialFocus={false}
       >
         <div className="border-b border-border/70 p-2">
           <div className="relative">

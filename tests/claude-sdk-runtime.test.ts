@@ -16,6 +16,7 @@ import {
   mapClaudeMessageToEvents,
   parseClaudeQuestionList,
   parseClaudeRouteClassificationJson,
+  resolveClaudeTurnStopReason,
   resolveClaudeDisallowedTools,
   resolveClaudePlanModeApprovalScope,
   shouldAutoAllowClaudeTool,
@@ -94,8 +95,67 @@ describe("mapClaudeMessageToEvents", () => {
       claudeDebugStream: false,
     });
 
+    expect(events).toEqual([{ type: "text", text: "Current cost: $0.12" }]);
+  });
+
+  test.each([
+    {
+      error: "authentication_failed",
+      message:
+        "Claude authentication failed. Run `claude auth login` and retry.",
+    },
+    {
+      error: "billing_error",
+      message:
+        "Claude billing/subscription issue detected. Check plan/payment status and retry.",
+    },
+  ])(
+    "normalizes Claude $error assistant failures as errors",
+    ({ error, message }) => {
+      const events = mapClaudeMessageToEvents({
+        message: {
+          type: "assistant",
+          error,
+          message: { content: [] },
+        } as never,
+        claudeDebugStream: false,
+      });
+
+      expect(events).toEqual([
+        {
+          type: "error",
+          message,
+          recoverable: true,
+        },
+      ]);
+    },
+  );
+
+  test("normalizes an errored Claude result before its usage metadata", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "result",
+        is_error: true,
+        result: "Claude request failed",
+        usage: {
+          input_tokens: 10,
+          output_tokens: 2,
+        },
+      } as never,
+      claudeDebugStream: false,
+    });
+
     expect(events).toEqual([
-      { type: "text", text: "Current cost: $0.12" },
+      {
+        type: "error",
+        message: "Claude request failed",
+        recoverable: true,
+      },
+      {
+        type: "usage",
+        inputTokens: 10,
+        outputTokens: 2,
+      },
     ]);
   });
 
@@ -112,7 +172,10 @@ describe("mapClaudeMessageToEvents", () => {
     });
 
     expect(events).toEqual([
-      { type: "system", content: "Subagent progress: Analyzing authentication module" },
+      {
+        type: "system",
+        content: "Subagent progress: Analyzing authentication module",
+      },
     ]);
   });
 
@@ -203,7 +266,12 @@ describe("mapClaudeMessageToEvents", () => {
     });
 
     expect(events).toEqual([
-      { type: "tool_progress", toolUseId: "tool-abc", toolName: "Bash", elapsedSeconds: 15 },
+      {
+        type: "tool_progress",
+        toolUseId: "tool-abc",
+        toolName: "Bash",
+        elapsedSeconds: 15,
+      },
     ]);
   });
 
@@ -212,13 +280,15 @@ describe("mapClaudeMessageToEvents", () => {
       message: {
         type: "assistant",
         message: {
-          content: [{
-            type: "tool_use",
-            name: "ExitPlanMode",
-            input: {
-              plan: "1. Inspect the task\n2. Ship the patch",
+          content: [
+            {
+              type: "tool_use",
+              name: "ExitPlanMode",
+              input: {
+                plan: "1. Inspect the task\n2. Ship the patch",
+              },
             },
-          }],
+          ],
         },
       } as never,
       claudeDebugStream: false,
@@ -263,7 +333,7 @@ describe("mapClaudeMessageToEvents", () => {
           index: 0,
           delta: {
             type: "input_json_delta",
-            partial_json: "{\"plan\":\"1. Inspect the task\\n2. Ship the patch\"}",
+            partial_json: '{"plan":"1. Inspect the task\\n2. Ship the patch"}',
           },
         },
       } as never,
@@ -295,24 +365,68 @@ describe("mapClaudeMessageToEvents", () => {
   });
 });
 
+describe("resolveClaudeTurnStopReason", () => {
+  test.each(["authentication_failed", "billing_error"] as const)(
+    "marks Claude %s assistant failures as runtime failures",
+    (error) => {
+      expect(
+        resolveClaudeTurnStopReason({
+          message: {
+            type: "assistant",
+            error,
+            message: { content: [] },
+          } as never,
+        }),
+      ).toBe("runtime_failure");
+    },
+  );
+
+  test("uses runtime_failure for errored results without an SDK stop reason", () => {
+    expect(
+      resolveClaudeTurnStopReason({
+        message: {
+          type: "result",
+          is_error: true,
+        } as never,
+      }),
+    ).toBe("runtime_failure");
+  });
+
+  test("preserves an explicit SDK result stop reason", () => {
+    expect(
+      resolveClaudeTurnStopReason({
+        message: {
+          type: "result",
+          is_error: true,
+          stop_reason: "max_tokens",
+        } as never,
+      }),
+    ).toBe("max_tokens");
+  });
+});
+
 describe("buildClaudeApprovalPermissionResult", () => {
   test("returns an allow payload with updated input for approved tools", () => {
-    expect(buildClaudeApprovalPermissionResult({
-      approved: true,
-      normalizedInput: { skill: "keybindings-help" },
-      denialMessage: "denied",
-    })).toEqual({
+    expect(
+      buildClaudeApprovalPermissionResult({
+        approved: true,
+        normalizedInput: { skill: "keybindings-help" },
+        denialMessage: "denied",
+      }),
+    ).toEqual({
       behavior: "allow",
       updatedInput: { skill: "keybindings-help" },
     });
   });
 
   test("returns a deny payload with a message for rejected tools", () => {
-    expect(buildClaudeApprovalPermissionResult({
-      approved: false,
-      normalizedInput: { file_path: "/tmp/demo" },
-      denialMessage: "User denied permission for Read.",
-    })).toEqual({
+    expect(
+      buildClaudeApprovalPermissionResult({
+        approved: false,
+        normalizedInput: { file_path: "/tmp/demo" },
+        denialMessage: "User denied permission for Read.",
+      }),
+    ).toEqual({
       behavior: "deny",
       message: "User denied permission for Read.",
     });
@@ -321,25 +435,41 @@ describe("buildClaudeApprovalPermissionResult", () => {
 
 describe("buildClaudeUserInputPermissionResult", () => {
   test("returns an allow payload with merged answers for approved question responses", () => {
-    expect(buildClaudeUserInputPermissionResult({
-      normalizedInput: {
-        questions: [{ header: "Name", question: "Who?", options: [{ label: "A", description: "A" }] }],
-      },
-      answers: { name: "Asty" },
-    })).toEqual({
+    expect(
+      buildClaudeUserInputPermissionResult({
+        normalizedInput: {
+          questions: [
+            {
+              header: "Name",
+              question: "Who?",
+              options: [{ label: "A", description: "A" }],
+            },
+          ],
+        },
+        answers: { name: "Asty" },
+      }),
+    ).toEqual({
       behavior: "allow",
       updatedInput: {
-        questions: [{ header: "Name", question: "Who?", options: [{ label: "A", description: "A" }] }],
+        questions: [
+          {
+            header: "Name",
+            question: "Who?",
+            options: [{ label: "A", description: "A" }],
+          },
+        ],
         answers: { name: "Asty" },
       },
     });
   });
 
   test("returns a deny payload when the user declines to answer", () => {
-    expect(buildClaudeUserInputPermissionResult({
-      normalizedInput: { questions: [] },
-      denied: true,
-    })).toEqual({
+    expect(
+      buildClaudeUserInputPermissionResult({
+        normalizedInput: { questions: [] },
+        denied: true,
+      }),
+    ).toEqual({
       behavior: "deny",
       message: "User declined to answer questions.",
     });
@@ -348,105 +478,136 @@ describe("buildClaudeUserInputPermissionResult", () => {
 
 describe("activated skill tool redirection", () => {
   test("extracts the requested skill slug from skill tool input", () => {
-    expect(extractClaudeRequestedSkillSlug({
-      input: {
-        command: "/stave-release patch",
-      },
-    })).toBe("stave-release");
+    expect(
+      extractClaudeRequestedSkillSlug({
+        input: {
+          command: "/stave-release patch",
+        },
+      }),
+    ).toBe("stave-release");
   });
 
   test("extracts the requested skill slug from nested skill tool input", () => {
-    expect(extractClaudeRequestedSkillSlug({
-      input: {
+    expect(
+      extractClaudeRequestedSkillSlug({
         input: {
-          name: "$reviewer",
+          input: {
+            name: "$reviewer",
+          },
         },
-      },
-    })).toBe("reviewer");
+      }),
+    ).toBe("reviewer");
   });
 
   test("redirects Skill tool usage for already activated stave skills", () => {
-    expect(shouldRedirectClaudePreloadedSkillToolUse({
-      toolName: "Skill",
-      input: {
-        skill: "stave-release",
-      },
-      preloadedSkillSlugs: new Set(["stave-release"]),
-    })).toBe("stave-release");
+    expect(
+      shouldRedirectClaudePreloadedSkillToolUse({
+        toolName: "Skill",
+        input: {
+          skill: "stave-release",
+        },
+        preloadedSkillSlugs: new Set(["stave-release"]),
+      }),
+    ).toBe("stave-release");
   });
 
   test("allows Skill tool usage when the requested skill was not preloaded by stave", () => {
-    expect(shouldRedirectClaudePreloadedSkillToolUse({
-      toolName: "Skill",
-      input: {
-        skill: "commit",
-      },
-      preloadedSkillSlugs: new Set(["stave-release"]),
-    })).toBeNull();
+    expect(
+      shouldRedirectClaudePreloadedSkillToolUse({
+        toolName: "Skill",
+        input: {
+          skill: "commit",
+        },
+        preloadedSkillSlugs: new Set(["stave-release"]),
+      }),
+    ).toBeNull();
   });
 });
 
 describe("Claude internal tool auto-allow", () => {
   test("auto-allows ExitPlanMode without surfacing an approval wait", () => {
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "ExitPlanMode",
-      permissionMode: "default",
-    })).toBe(true);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "ExitPlanMode",
+        permissionMode: "default",
+      }),
+    ).toBe(true);
   });
 
   test("auto-allows managed Stave workspace-information and routine MCP tools", () => {
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "stave_replace_workspace_notes",
-      permissionMode: "default",
-    })).toBe(true);
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "mcp__stave-local-mcp__stave_add_workspace_todo",
-      permissionMode: "default",
-    })).toBe(true);
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "mcp__stave-local-mcp__stave_create_routine",
-      permissionMode: "default",
-    })).toBe(true);
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "mcp__stave-local-mcp__stave_create_routine_information_resource",
-      permissionMode: "default",
-    })).toBe(true);
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "mcp__stave-local-mcp__stave_run_routine_now",
-      permissionMode: "default",
-    })).toBe(false);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "stave_replace_workspace_notes",
+        permissionMode: "default",
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "mcp__stave-local-mcp__stave_add_workspace_todo",
+        permissionMode: "default",
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "mcp__stave-local-mcp__stave_create_routine",
+        permissionMode: "default",
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName:
+          "mcp__stave-local-mcp__stave_create_routine_information_resource",
+        permissionMode: "default",
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "mcp__stave-local-mcp__stave_run_routine_now",
+        permissionMode: "default",
+      }),
+    ).toBe(false);
   });
 
   test("auto-allows mutating file tools in Claude auto mode", () => {
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "Edit",
-      permissionMode: "auto",
-    })).toBe(true);
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "Write",
-      permissionMode: "auto",
-    })).toBe(true);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "Edit",
+        permissionMode: "auto",
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "Write",
+        permissionMode: "auto",
+      }),
+    ).toBe(true);
   });
 
   test("auto-allows mutating file tools in Claude acceptEdits mode", () => {
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "Edit",
-      permissionMode: "acceptEdits",
-    })).toBe(true);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "Edit",
+        permissionMode: "acceptEdits",
+      }),
+    ).toBe(true);
   });
 
   test("does not auto-allow Bash in Claude auto mode", () => {
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "Bash",
-      permissionMode: "auto",
-    })).toBe(false);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "Bash",
+        permissionMode: "auto",
+      }),
+    ).toBe(false);
   });
 
   test("does not auto-allow ordinary tools", () => {
-    expect(shouldAutoAllowClaudeTool({
-      toolName: "Bash",
-      permissionMode: "default",
-    })).toBe(false);
+    expect(
+      shouldAutoAllowClaudeTool({
+        toolName: "Bash",
+        permissionMode: "default",
+      }),
+    ).toBe(false);
   });
 
   test("keeps saved-account mutations behind approval", () => {
@@ -455,27 +616,33 @@ describe("Claude internal tool auto-allow", () => {
       "mcp__stave-local-mcp__stave_lens_update_saved_account",
       "mcp__stave-local-mcp__stave_lens_delete_saved_account",
     ]) {
-      expect(shouldAutoAllowClaudeTool({
-        toolName,
-        permissionMode: "default",
-      })).toBe(false);
+      expect(
+        shouldAutoAllowClaudeTool({
+          toolName,
+          permissionMode: "default",
+        }),
+      ).toBe(false);
     }
   });
 });
 
 describe("Claude permission mode decisions", () => {
   test("denies unapproved tools without prompting in dontAsk mode", () => {
-    expect(resolveClaudePermissionModeDecision({
-      permissionMode: "dontAsk",
-      toolName: "Bash",
-    })).toBe("deny");
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "dontAsk",
+        toolName: "Bash",
+      }),
+    ).toBe("deny");
   });
 
   test("auto-allows all tools in bypassPermissions mode", () => {
-    expect(resolveClaudePermissionModeDecision({
-      permissionMode: "bypassPermissions",
-      toolName: "Bash",
-    })).toBe("allow");
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "bypassPermissions",
+        toolName: "Bash",
+      }),
+    ).toBe("allow");
   });
 
   test("auto-allows Claude Code read-only built-in tools in plan mode", () => {
@@ -490,35 +657,45 @@ describe("Claude permission mode decisions", () => {
       "BashOutput",
       "TodoRead",
     ]) {
-      expect(resolveClaudePermissionModeDecision({
-        permissionMode: "plan",
-        toolName,
-      })).toBe("allow");
-      expect(shouldAutoAllowClaudeTool({
-        permissionMode: "plan",
-        toolName,
-      })).toBe(true);
+      expect(
+        resolveClaudePermissionModeDecision({
+          permissionMode: "plan",
+          toolName,
+        }),
+      ).toBe("allow");
+      expect(
+        shouldAutoAllowClaudeTool({
+          permissionMode: "plan",
+          toolName,
+        }),
+      ).toBe(true);
     }
   });
 
   test("still prompts for read-only built-in tools outside plan/bypass modes", () => {
     // In default mode the user explicitly asked to be consulted — Read should
     // still prompt there.
-    expect(resolveClaudePermissionModeDecision({
-      permissionMode: "default",
-      toolName: "Read",
-    })).toBe("prompt");
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "default",
+        toolName: "Read",
+      }),
+    ).toBe("prompt");
     // In acceptEdits/auto the read-only fast-path is intentionally not taken,
     // because those modes only relax *mutating* tool approvals; this test pins
     // the current behaviour so future relaxations are deliberate.
-    expect(resolveClaudePermissionModeDecision({
-      permissionMode: "acceptEdits",
-      toolName: "Read",
-    })).toBe("prompt");
-    expect(resolveClaudePermissionModeDecision({
-      permissionMode: "auto",
-      toolName: "Read",
-    })).toBe("prompt");
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "acceptEdits",
+        toolName: "Read",
+      }),
+    ).toBe("prompt");
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "auto",
+        toolName: "Read",
+      }),
+    ).toBe("prompt");
   });
 
   test("decision function still returns prompt for Bash in plan mode", () => {
@@ -528,32 +705,38 @@ describe("Claude permission mode decisions", () => {
     // *non-mutating* Bash command based on the plan-mode approval scope
     // (shouldAutoAllowPlanModeScopedTool). Keeping this "prompt" preserves
     // that ordering so mutating commands are always inspected first.
-    expect(resolveClaudePermissionModeDecision({
-      permissionMode: "plan",
-      toolName: "Bash",
-    })).toBe("prompt");
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "plan",
+        toolName: "Bash",
+      }),
+    ).toBe("prompt");
   });
 
   test("auto-allows TodoWrite in plan mode because it does not mutate the filesystem", () => {
     // TodoWrite only mutates the in-session todo tracker, so hard-denying it
     // just broke the agent's own progress tracking and caused mid-plan
     // stalls.
-    expect(resolveClaudePermissionModeDecision({
-      permissionMode: "plan",
-      toolName: "TodoWrite",
-    })).toBe("allow");
-    expect(shouldAutoAllowClaudeTool({
-      permissionMode: "plan",
-      toolName: "TodoWrite",
-    })).toBe(true);
+    expect(
+      resolveClaudePermissionModeDecision({
+        permissionMode: "plan",
+        toolName: "TodoWrite",
+      }),
+    ).toBe("allow");
+    expect(
+      shouldAutoAllowClaudeTool({
+        permissionMode: "plan",
+        toolName: "TodoWrite",
+      }),
+    ).toBe(true);
   });
 });
 
 describe("resolveClaudePlanModeApprovalScope", () => {
   test("uses the runtime value when valid", () => {
-    expect(
-      resolveClaudePlanModeApprovalScope({ runtimeValue: "bash" }),
-    ).toBe("bash");
+    expect(resolveClaudePlanModeApprovalScope({ runtimeValue: "bash" })).toBe(
+      "bash",
+    );
   });
 
   test("falls back to the env value when no runtime value", () => {
@@ -565,7 +748,10 @@ describe("resolveClaudePlanModeApprovalScope", () => {
   test("defaults to the broadest scope for missing or invalid input", () => {
     expect(resolveClaudePlanModeApprovalScope({})).toBe("bashTaskAndMcp");
     expect(
-      resolveClaudePlanModeApprovalScope({ runtimeValue: undefined, envValue: "nope" }),
+      resolveClaudePlanModeApprovalScope({
+        runtimeValue: undefined,
+        envValue: "nope",
+      }),
     ).toBe("bashTaskAndMcp");
   });
 });
@@ -783,7 +969,9 @@ describe("buildClaudeSystemPrompt", () => {
     // Base system prompt lives in the static (cacheable) prefix, parts[0].
     expect(parts[0]).toContain("Follow repository conventions.");
     // Workspace context sits in the dynamic suffix (parts[2]).
-    expect(parts[2]).toContain("Resolve every relative filesystem path against the workspace root above.");
+    expect(parts[2]).toContain(
+      "Resolve every relative filesystem path against the workspace root above.",
+    );
   });
 
   test("always includes the Stave turn-behavior guardrail in the static prefix", () => {
@@ -1012,15 +1200,12 @@ describe("resolveClaudeDisallowedTools", () => {
     // shouldDenyClaudeToolInPlanMode gate can allow Write to handoff plan
     // files. Edit / MultiEdit / NotebookEdit always target existing source
     // files, so they stay globally blocked in plan mode.
-    expect(resolveClaudeDisallowedTools({
-      permissionMode: "plan",
-      runtimeDisallowedTools: ["Read", "Edit"],
-    })).toEqual([
-      "Read",
-      "Edit",
-      "MultiEdit",
-      "NotebookEdit",
-    ]);
+    expect(
+      resolveClaudeDisallowedTools({
+        permissionMode: "plan",
+        runtimeDisallowedTools: ["Read", "Edit"],
+      }),
+    ).toEqual(["Read", "Edit", "MultiEdit", "NotebookEdit"]);
   });
 
   test("keeps Write callable in plan mode so the handoff gate can decide", () => {
@@ -1035,127 +1220,280 @@ describe("resolveClaudeDisallowedTools", () => {
   });
 
   test("preserves runtime disallowed tools outside plan mode", () => {
-    expect(resolveClaudeDisallowedTools({
-      permissionMode: "default",
-      runtimeDisallowedTools: ["Read"],
-    })).toEqual(["Read"]);
+    expect(
+      resolveClaudeDisallowedTools({
+        permissionMode: "default",
+        runtimeDisallowedTools: ["Read"],
+      }),
+    ).toEqual(["Read"]);
   });
 
   test("does not disable TodoWrite in plan mode", () => {
     // TodoWrite is auto-allowed in plan mode, so the disallowed-tools list
     // must not drop it back onto the deny side.
-    expect(resolveClaudeDisallowedTools({
-      permissionMode: "plan",
-      runtimeDisallowedTools: [],
-    })).not.toContain("TodoWrite");
+    expect(
+      resolveClaudeDisallowedTools({
+        permissionMode: "plan",
+        runtimeDisallowedTools: [],
+      }),
+    ).not.toContain("TodoWrite");
   });
 });
 
 describe("shouldDenyClaudeToolInPlanMode", () => {
   test("denies mutating built-in tools", () => {
-    expect(shouldDenyClaudeToolInPlanMode({
-      toolName: "Edit",
-      input: { file_path: "/workspace/stave/src/app.ts" },
-    })).toBe(true);
+    expect(
+      shouldDenyClaudeToolInPlanMode({
+        toolName: "Edit",
+        input: { file_path: "/workspace/stave/src/app.ts" },
+      }),
+    ).toBe(true);
   });
 
   test("denies mutating Bash commands", () => {
-    expect(shouldDenyClaudeToolInPlanMode({
-      toolName: "Bash",
-      input: { command: "echo hi > notes.txt" },
-    })).toBe(true);
+    expect(
+      shouldDenyClaudeToolInPlanMode({
+        toolName: "Bash",
+        input: { command: "echo hi > notes.txt" },
+      }),
+    ).toBe(true);
   });
 
   test("allows read-only Bash commands", () => {
-    expect(shouldDenyClaudeToolInPlanMode({
-      toolName: "Bash",
-      input: { command: "ls -la src" },
-    })).toBe(false);
+    expect(
+      shouldDenyClaudeToolInPlanMode({
+        toolName: "Bash",
+        input: { command: "ls -la src" },
+      }),
+    ).toBe(false);
   });
 
   test("allows non-mutating read tools", () => {
-    expect(shouldDenyClaudeToolInPlanMode({
-      toolName: "Read",
-      input: { file_path: "/workspace/stave/README.md" },
-    })).toBe(false);
+    expect(
+      shouldDenyClaudeToolInPlanMode({
+        toolName: "Read",
+        input: { file_path: "/workspace/stave/README.md" },
+      }),
+    ).toBe(false);
   });
 
   test("does not hard-deny TodoWrite in plan mode", () => {
     // TodoWrite mutates only the in-session todo tracker, so plan mode must
     // let it through.
-    expect(shouldDenyClaudeToolInPlanMode({
-      toolName: "TodoWrite",
-      input: { todos: [] },
-    })).toBe(false);
+    expect(
+      shouldDenyClaudeToolInPlanMode({
+        toolName: "TodoWrite",
+        input: { todos: [] },
+      }),
+    ).toBe(false);
   });
 
   test("allows Write when the target is a workspace handoff plan file", () => {
     // The workspace handoff convention requires writing a plan file under
     // .stave/context/plans/**. Plan mode must make a per-call exception for
     // that exact path so the convention is actually followable.
-    expect(shouldDenyClaudeToolInPlanMode({
-      toolName: "Write",
-      input: {
-        file_path:
-          "/workspace/stave/.stave/context/plans/abcd1234_2026-04-01T01-02-03.md",
-        content: "## Plan\n- Do the thing",
-      },
-    })).toBe(false);
+    expect(
+      shouldDenyClaudeToolInPlanMode({
+        toolName: "Write",
+        input: {
+          file_path:
+            "/workspace/stave/.stave/context/plans/abcd1234_2026-04-01T01-02-03.md",
+          content: "## Plan\n- Do the thing",
+        },
+      }),
+    ).toBe(false);
   });
 
   test("still denies Write for non-handoff targets in plan mode", () => {
-    expect(shouldDenyClaudeToolInPlanMode({
-      toolName: "Write",
-      input: {
-        file_path: "/workspace/stave/src/app.ts",
-        content: "export const a = 1;",
-      },
-    })).toBe(true);
+    expect(
+      shouldDenyClaudeToolInPlanMode({
+        toolName: "Write",
+        input: {
+          file_path: "/workspace/stave/src/app.ts",
+          content: "export const a = 1;",
+        },
+      }),
+    ).toBe(true);
   });
 
   test("allows Write to a handoff plan file with a relative path", () => {
-    expect(shouldDenyClaudeToolInPlanMode({
-      toolName: "Write",
-      input: {
-        file_path: ".stave/context/plans/abcd1234_2026-04-01T01-02-03.md",
-        content: "## Plan\n- Ship",
-      },
-    })).toBe(false);
+    expect(
+      shouldDenyClaudeToolInPlanMode({
+        toolName: "Write",
+        input: {
+          file_path: ".stave/context/plans/abcd1234_2026-04-01T01-02-03.md",
+          content: "## Plan\n- Ship",
+        },
+      }),
+    ).toBe(false);
   });
 });
 
 describe("SubagentProgressTracker", () => {
   test("resolves toolUseId from tracked Agent tool events (positional fallback)", () => {
     const tracker = new SubagentProgressTracker();
-    tracker.trackEvent({ type: "tool", toolName: "agent", toolUseId: "toolu_1", input: "{}", state: "input-streaming" });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "agent",
+      toolUseId: "toolu_1",
+      input: "{}",
+      state: "input-streaming",
+    });
     expect(tracker.resolveToolUseId({})).toBe("toolu_1");
+  });
+
+  test("resolves progress from a tracked legacy Task tool event", () => {
+    const tracker = new SubagentProgressTracker();
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "Task",
+      toolUseId: "toolu_task",
+      input: "{}",
+      state: "input-streaming",
+    });
+    tracker.processRawMessage({
+      type: "hook_started",
+      input: { agent_id: "legacy-task", tool_use_id: "toolu_task" },
+    });
+
+    expect(tracker.resolveToolUseId({})).toBe("toolu_task");
+    expect(tracker.resolveToolUseId({ agent_id: "legacy-task" })).toBe(
+      "toolu_task",
+    );
+  });
+
+  test("keeps Agent and legacy Task progress correlated independently", () => {
+    const tracker = new SubagentProgressTracker();
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "Agent",
+      toolUseId: "toolu_agent",
+      input: "{}",
+      state: "input-streaming",
+    });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "task",
+      toolUseId: "toolu_task",
+      input: "{}",
+      state: "input-streaming",
+    });
+
+    expect(tracker.resolveToolUseId({ tool_use_id: "toolu_agent" })).toBe(
+      "toolu_agent",
+    );
+    expect(tracker.resolveToolUseId({})).toBe("toolu_task");
+
+    tracker.trackEvent({
+      type: "tool_result",
+      tool_use_id: "toolu_task",
+      output: "done",
+    });
+    expect(tracker.resolveToolUseId({})).toBe("toolu_agent");
+  });
+
+  test("does not revive completed subagent work from late progress", () => {
+    const tracker = new SubagentProgressTracker();
+    const startEvent = {
+      type: "tool" as const,
+      toolName: "Agent",
+      toolUseId: "toolu_agent",
+      input: "{}",
+      state: "input-streaming" as const,
+    };
+    tracker.trackEvent(startEvent);
+    tracker.trackEvent(startEvent);
+    tracker.processRawMessage({
+      type: "hook_started",
+      input: { agent_id: "agent-1", tool_use_id: "toolu_agent" },
+    });
+    tracker.trackEvent({
+      type: "tool_result",
+      tool_use_id: "toolu_agent",
+      output: "done",
+    });
+
+    expect(
+      tracker.resolveToolUseId({
+        agent_id: "agent-1",
+        tool_use_id: "toolu_agent",
+      }),
+    ).toBeUndefined();
+    expect(tracker.resolveToolUseId({ agent_id: "agent-1" })).toBeUndefined();
+    expect(tracker.resolveToolUseId({})).toBeUndefined();
   });
 
   test("returns the most recent active Agent when multiple are pending", () => {
     const tracker = new SubagentProgressTracker();
-    tracker.trackEvent({ type: "tool", toolName: "agent", toolUseId: "toolu_1", input: "{}", state: "input-streaming" });
-    tracker.trackEvent({ type: "tool", toolName: "agent", toolUseId: "toolu_2", input: "{}", state: "input-streaming" });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "agent",
+      toolUseId: "toolu_1",
+      input: "{}",
+      state: "input-streaming",
+    });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "agent",
+      toolUseId: "toolu_2",
+      input: "{}",
+      state: "input-streaming",
+    });
     expect(tracker.resolveToolUseId({})).toBe("toolu_2");
   });
 
   test("removes completed agents from tracking", () => {
     const tracker = new SubagentProgressTracker();
-    tracker.trackEvent({ type: "tool", toolName: "agent", toolUseId: "toolu_1", input: "{}", state: "input-streaming" });
-    tracker.trackEvent({ type: "tool", toolName: "agent", toolUseId: "toolu_2", input: "{}", state: "input-streaming" });
-    tracker.trackEvent({ type: "tool_result", tool_use_id: "toolu_2", output: "done" });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "agent",
+      toolUseId: "toolu_1",
+      input: "{}",
+      state: "input-streaming",
+    });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "agent",
+      toolUseId: "toolu_2",
+      input: "{}",
+      state: "input-streaming",
+    });
+    tracker.trackEvent({
+      type: "tool_result",
+      tool_use_id: "toolu_2",
+      output: "done",
+    });
     expect(tracker.resolveToolUseId({})).toBe("toolu_1");
   });
 
   test("ignores non-agent tool events", () => {
     const tracker = new SubagentProgressTracker();
-    tracker.trackEvent({ type: "tool", toolName: "Bash", toolUseId: "toolu_bash", input: "ls", state: "input-streaming" });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "Bash",
+      toolUseId: "toolu_bash",
+      input: "ls",
+      state: "input-streaming",
+    });
     expect(tracker.resolveToolUseId({})).toBeUndefined();
   });
 
   test("correlates via agent_id from hook metadata", () => {
     const tracker = new SubagentProgressTracker();
-    tracker.trackEvent({ type: "tool", toolName: "agent", toolUseId: "toolu_1", input: "{}", state: "input-streaming" });
-    tracker.trackEvent({ type: "tool", toolName: "agent", toolUseId: "toolu_2", input: "{}", state: "input-streaming" });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "agent",
+      toolUseId: "toolu_1",
+      input: "{}",
+      state: "input-streaming",
+    });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "agent",
+      toolUseId: "toolu_2",
+      input: "{}",
+      state: "input-streaming",
+    });
 
     // Hook message maps agent_id "A" to toolu_1
     tracker.processRawMessage({
@@ -1176,11 +1514,25 @@ describe("SubagentProgressTracker", () => {
 
   test("uses direct tool_use_id on progress message when available", () => {
     const tracker = new SubagentProgressTracker();
-    tracker.trackEvent({ type: "tool", toolName: "agent", toolUseId: "toolu_1", input: "{}", state: "input-streaming" });
-    tracker.trackEvent({ type: "tool", toolName: "agent", toolUseId: "toolu_2", input: "{}", state: "input-streaming" });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "agent",
+      toolUseId: "toolu_1",
+      input: "{}",
+      state: "input-streaming",
+    });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "agent",
+      toolUseId: "toolu_2",
+      input: "{}",
+      state: "input-streaming",
+    });
 
     // Progress message carries its own tool_use_id
-    expect(tracker.resolveToolUseId({ tool_use_id: "toolu_1" })).toBe("toolu_1");
+    expect(tracker.resolveToolUseId({ tool_use_id: "toolu_1" })).toBe(
+      "toolu_1",
+    );
   });
 
   test("returns undefined when no agents have been tracked", () => {
@@ -1191,21 +1543,21 @@ describe("SubagentProgressTracker", () => {
 
 describe("resolveClaudeApprovalDecisionTimeoutMs", () => {
   test("returns default when env var is unset", () => {
-    expect(resolveClaudeApprovalDecisionTimeoutMs({ envValue: undefined })).toBe(
-      CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
-    );
+    expect(
+      resolveClaudeApprovalDecisionTimeoutMs({ envValue: undefined }),
+    ).toBe(CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS);
   });
 
   test("respects a positive integer env value", () => {
-    expect(
-      resolveClaudeApprovalDecisionTimeoutMs({ envValue: "60000" }),
-    ).toBe(60000);
+    expect(resolveClaudeApprovalDecisionTimeoutMs({ envValue: "60000" })).toBe(
+      60000,
+    );
   });
 
   test("falls back for non-numeric or non-positive env values", () => {
-    expect(
-      resolveClaudeApprovalDecisionTimeoutMs({ envValue: "abc" }),
-    ).toBe(CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS);
+    expect(resolveClaudeApprovalDecisionTimeoutMs({ envValue: "abc" })).toBe(
+      CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
+    );
     expect(resolveClaudeApprovalDecisionTimeoutMs({ envValue: "0" })).toBe(
       CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
     );
@@ -1248,7 +1600,9 @@ describe("waitForClaudeToolDecision", () => {
       },
       timeoutMs: 10,
     });
-    await expect(promise).rejects.toBeInstanceOf(ClaudeToolDecisionTimeoutError);
+    await expect(promise).rejects.toBeInstanceOf(
+      ClaudeToolDecisionTimeoutError,
+    );
     // Cleanup must run so the resolver registry does not leak.
     expect(cleaned).toBe(true);
   });

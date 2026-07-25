@@ -1,9 +1,54 @@
-import { Check, ClipboardList, Copy, Crosshair, File, GitBranch, GitCommitHorizontal, GitGraph, GitPullRequest, History, ListChecks, LoaderCircle, Minus, Plus, RefreshCw, RotateCcw, Timer, Wrench } from "lucide-react";
+import {
+  Check,
+  ClipboardList,
+  Copy,
+  Crosshair,
+  File,
+  GitBranch,
+  GitCommitHorizontal,
+  GitGraph,
+  GitPullRequest,
+  History,
+  ListChecks,
+  LoaderCircle,
+  Minus,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Timer,
+  Wrench,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useAppStore } from "@/store/app.store";
-import { Badge, Button, Input, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  Badge,
+  Button,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   PR_STATUS_VISUAL,
   PR_TONE_ICON_CLASS,
@@ -21,7 +66,11 @@ import {
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
 import { VerificationStatusIcon } from "./VerificationStatusIcon";
 import { WorkspaceFileIcon } from "./explorer-entry-icon";
-import type { SourceControlItemViewModel, SourceControlSection, SourceControlSummary } from "./editor-panel.utils";
+import type {
+  SourceControlItemViewModel,
+  SourceControlSection,
+  SourceControlSummary,
+} from "./editor-panel.utils";
 
 type SourceControlPanelView = "changes" | "history" | "checks";
 
@@ -72,11 +121,21 @@ function ChecksSection(args: {
   return (
     <section className="space-y-2 rounded-xl border border-border/70 bg-background/60 px-3 py-2.5">
       <div className="flex items-center gap-2">
-        <span className={cn("flex size-4 items-center justify-center", CHECKS_TONE_TEXT[args.tone])}>
+        <span
+          className={cn(
+            "flex size-4 items-center justify-center",
+            CHECKS_TONE_TEXT[args.tone],
+          )}
+        >
           {args.icon}
         </span>
         <p className="text-xs font-medium text-foreground">{args.title}</p>
-        <span className={cn("ml-auto truncate text-[11px] font-medium", CHECKS_TONE_TEXT[args.tone])}>
+        <span
+          className={cn(
+            "ml-auto truncate text-[11px] font-medium",
+            CHECKS_TONE_TEXT[args.tone],
+          )}
+        >
           {args.summary}
         </span>
       </div>
@@ -131,7 +190,9 @@ function ChecksTabContent(props: {
       >
         {props.checks.pr ? (
           <p className="truncate text-[11px] text-muted-foreground">
-            <span className={cn("font-medium", PR_TONE_ICON_CLASS[prVisual.tone])}>
+            <span
+              className={cn("font-medium", PR_TONE_ICON_CLASS[prVisual.tone])}
+            >
               #{props.checks.pr.number}
             </span>{" "}
             {props.checks.pr.title}
@@ -147,7 +208,9 @@ function ChecksTabContent(props: {
         icon={<ListChecks className="size-4" />}
         title="Verification"
         summary={verificationSummary}
-        tone={verification ? statusToChecksTone(verification.status) : "neutral"}
+        tone={
+          verification ? statusToChecksTone(verification.status) : "neutral"
+        }
       >
         {verification && verification.failures.length > 0 ? (
           <div className="space-y-1.5">
@@ -168,7 +231,10 @@ function ChecksTabContent(props: {
             ) : null}
             <ul className="space-y-1.5">
               {verification.failures.map((failure, index) => (
-                <li key={`${failure.scriptId}-${index}`} className="text-[11px]">
+                <li
+                  key={`${failure.scriptId}-${index}`}
+                  className="text-[11px]"
+                >
                   <div className="flex items-center gap-1.5 font-medium text-foreground">
                     <span
                       className={cn(
@@ -232,7 +298,9 @@ function ChecksTabContent(props: {
                     </span>
                     <span className="truncate">
                       {finding.file}
-                      {typeof finding.line === "number" ? `:${finding.line}` : ""}
+                      {typeof finding.line === "number"
+                        ? `:${finding.line}`
+                        : ""}
                     </span>
                   </span>
                   <span className="whitespace-pre-wrap break-words text-muted-foreground">
@@ -252,7 +320,9 @@ function ChecksTabContent(props: {
         tone={treeTone}
       >
         <p className="truncate text-[11px] text-muted-foreground">
-          <span className="font-medium text-foreground">{props.sourceBranch}</span>
+          <span className="font-medium text-foreground">
+            {props.sourceBranch}
+          </span>
           {" · "}
           {stagedCount} staged · {workingTreeCount} working tree
           {conflictCount > 0 ? ` · ${conflictCount} conflicts` : ""}
@@ -263,7 +333,9 @@ function ChecksTabContent(props: {
         icon={<ClipboardList className="size-4" />}
         title="Todos"
         summary={
-          totalTodoCount === 0 ? "None" : `${openTodoCount} open / ${totalTodoCount}`
+          totalTodoCount === 0
+            ? "None"
+            : `${openTodoCount} open / ${totalTodoCount}`
         }
         tone={openTodoCount > 0 ? "warn" : "ok"}
       >
@@ -276,7 +348,9 @@ function ChecksTabContent(props: {
               </li>
             ))}
             {openTodos.length > 6 ? (
-              <li className="pl-2.5 text-[10px]">+{openTodos.length - 6} more</li>
+              <li className="pl-2.5 text-[10px]">
+                +{openTodos.length - 6} more
+              </li>
             ) : null}
           </ul>
         ) : null}
@@ -321,11 +395,12 @@ function SourceControlActionButton(args: {
   onClick: () => void;
   tone?: "default" | "destructive" | "success";
 }) {
-  const toneClassName = args.tone === "destructive"
-    ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
-    : args.tone === "success"
-      ? "text-success hover:bg-success/10 hover:text-success"
-      : "text-muted-foreground hover:bg-muted hover:text-foreground";
+  const toneClassName =
+    args.tone === "destructive"
+      ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+      : args.tone === "success"
+        ? "text-success hover:bg-success/10 hover:text-success"
+        : "text-muted-foreground hover:bg-muted hover:text-foreground";
 
   return (
     <Button
@@ -334,7 +409,10 @@ function SourceControlActionButton(args: {
       variant="ghost"
       aria-label={args.label}
       title={args.label}
-      className={cn("size-6 rounded-sm border border-transparent p-0 transition-colors", toneClassName)}
+      className={cn(
+        "size-6 rounded-sm border border-transparent p-0 transition-colors",
+        toneClassName,
+      )}
       disabled={args.disabled}
       onClick={args.onClick}
     >
@@ -362,78 +440,91 @@ function SourceControlRow(args: {
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div className="group flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 transition-colors hover:bg-muted/30 focus-within:bg-muted/30">
-          <button
-            type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            onClick={() => args.onOpenDiff(args.item.item.path)}
-          >
-            <WorkspaceFileIcon fileName={args.item.fileName} className="h-4 w-[14px]" />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="truncate text-sm font-medium">{args.item.fileName}</span>
-                {args.item.hasMixedChanges ? (
-                  <Badge variant="outline" className="rounded-md px-1.5 text-[10px]">
-                    partial
-                  </Badge>
-                ) : null}
-                {args.item.isUntracked ? (
-                  <Badge variant="outline" className="rounded-md px-1.5 text-[10px]">
-                    new
-                  </Badge>
-                ) : null}
-                {args.item.verificationStatus ? (
-                  <VerificationStatusIcon
-                    status={args.item.verificationStatus}
-                    className="size-3"
-                  />
-                ) : null}
-              </div>
-              <p className="truncate text-[11px] text-muted-foreground">
-                {args.item.pathDetail}
-              </p>
+      <ContextMenuTrigger
+        render={
+          <div className="group flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 transition-colors hover:bg-muted/30 focus-within:bg-muted/30" />
+        }
+      >
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          onClick={() => args.onOpenDiff(args.item.item.path)}
+        >
+          <WorkspaceFileIcon
+            fileName={args.item.fileName}
+            className="h-4 w-[14px]"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-medium">
+                {args.item.fileName}
+              </span>
+              {args.item.hasMixedChanges ? (
+                <Badge
+                  variant="outline"
+                  className="rounded-md px-1.5 text-[10px]"
+                >
+                  partial
+                </Badge>
+              ) : null}
+              {args.item.isUntracked ? (
+                <Badge
+                  variant="outline"
+                  className="rounded-md px-1.5 text-[10px]"
+                >
+                  new
+                </Badge>
+              ) : null}
+              {args.item.verificationStatus ? (
+                <VerificationStatusIcon
+                  status={args.item.verificationStatus}
+                  className="size-3"
+                />
+              ) : null}
             </div>
-          </button>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {args.item.pathDetail}
+            </p>
+          </div>
+        </button>
 
-          <div className="relative flex h-6 w-[84px] shrink-0 items-center justify-end">
-            <span
-              className={cn(
-                "pointer-events-none absolute inset-0 flex items-center justify-end pr-1 font-mono text-[11px] font-medium transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0",
-                statusClassName,
-              )}
-            >
-              {args.item.displayCode}
-            </span>
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-              {args.item.canStage ? (
-                <SourceControlActionButton
-                  label="Stage"
-                  disabled={args.isScmBusy}
-                  icon={<Plus className="size-3.5" />}
-                  onClick={() => args.onStage(args.item.item)}
-                  tone="success"
-                />
-              ) : null}
-              {args.item.canUnstage ? (
-                <SourceControlActionButton
-                  label="Unstage"
-                  disabled={args.isScmBusy}
-                  icon={<Minus className="size-3.5" />}
-                  onClick={() => args.onUnstage(args.item.item)}
-                  tone="default"
-                />
-              ) : null}
-              {args.item.canDiscard ? (
-                <SourceControlActionButton
-                  label="Discard"
-                  disabled={args.isScmBusy}
-                  icon={<RotateCcw className="size-3.5" />}
-                  onClick={() => args.onDiscard(args.item.item)}
-                  tone="destructive"
-                />
-              ) : null}
-            </div>
+        <div className="relative flex h-6 w-[84px] shrink-0 items-center justify-end">
+          <span
+            className={cn(
+              "pointer-events-none absolute inset-0 flex items-center justify-end pr-1 font-mono text-[11px] font-medium transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0",
+              statusClassName,
+            )}
+          >
+            {args.item.displayCode}
+          </span>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+            {args.item.canStage ? (
+              <SourceControlActionButton
+                label="Stage"
+                disabled={args.isScmBusy}
+                icon={<Plus className="size-3.5" />}
+                onClick={() => args.onStage(args.item.item)}
+                tone="success"
+              />
+            ) : null}
+            {args.item.canUnstage ? (
+              <SourceControlActionButton
+                label="Unstage"
+                disabled={args.isScmBusy}
+                icon={<Minus className="size-3.5" />}
+                onClick={() => args.onUnstage(args.item.item)}
+                tone="default"
+              />
+            ) : null}
+            {args.item.canDiscard ? (
+              <SourceControlActionButton
+                label="Discard"
+                disabled={args.isScmBusy}
+                icon={<RotateCcw className="size-3.5" />}
+                onClick={() => args.onDiscard(args.item.item)}
+                tone="destructive"
+              />
+            ) : null}
           </div>
         </div>
       </ContextMenuTrigger>
@@ -442,15 +533,23 @@ function SourceControlRow(args: {
           <File className="size-4" />
           Open Changes
         </ContextMenuItem>
-        {(args.item.canStage || args.item.canUnstage || args.item.canDiscard) ? <ContextMenuSeparator /> : null}
+        {args.item.canStage || args.item.canUnstage || args.item.canDiscard ? (
+          <ContextMenuSeparator />
+        ) : null}
         {args.item.canStage ? (
-          <ContextMenuItem disabled={args.isScmBusy} onSelect={() => args.onStage(args.item.item)}>
+          <ContextMenuItem
+            disabled={args.isScmBusy}
+            onSelect={() => args.onStage(args.item.item)}
+          >
             <Plus className="size-4" />
             Stage
           </ContextMenuItem>
         ) : null}
         {args.item.canUnstage ? (
-          <ContextMenuItem disabled={args.isScmBusy} onSelect={() => args.onUnstage(args.item.item)}>
+          <ContextMenuItem
+            disabled={args.isScmBusy}
+            onSelect={() => args.onUnstage(args.item.item)}
+          >
             <Minus className="size-4" />
             Unstage
           </ContextMenuItem>
@@ -483,14 +582,20 @@ function SourceControlHistoryRow(args: {
     <div className="flex gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-muted/20">
       <div className="relative flex w-5 shrink-0 justify-center pt-1.5">
         <span className="size-2.5 rounded-full border border-border/80 bg-background shadow-xs" />
-        {!args.isLast ? <span className="absolute bottom-[-12px] top-4 w-px bg-border/70" /> : null}
+        {!args.isLast ? (
+          <span className="absolute bottom-[-12px] top-4 w-px bg-border/70" />
+        ) : null}
       </div>
       <div className="min-w-0 flex-1 py-0.5">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{args.item.subject}</p>
+            <p className="truncate text-sm font-medium text-foreground">
+              {args.item.subject}
+            </p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-mono text-[11px] text-foreground/70">{args.item.hash}</span>
+              <span className="font-mono text-[11px] text-foreground/70">
+                {args.item.hash}
+              </span>
               <span className="size-1 rounded-full bg-border" />
               <span>{args.item.relativeDate}</span>
             </div>
@@ -520,7 +625,10 @@ export function WorkspaceChangesPanel(props: {
   sourceControlSections: SourceControlSection[];
   onCopySourceControlPath: (path: string) => Promise<void>;
   onSelectDiff: (path: string) => Promise<void>;
-  onStageAction: (args: { action: "stage" | "unstage"; item: SourceControlStatusItem }) => Promise<void>;
+  onStageAction: (args: {
+    action: "stage" | "unstage";
+    item: SourceControlStatusItem;
+  }) => Promise<void>;
   onDiscardChange: (item: SourceControlStatusItem) => Promise<void>;
   sourceHistory: SourceControlHistoryEntry[];
   onRefresh: () => Promise<void>;
@@ -550,38 +658,69 @@ export function WorkspaceChangesPanel(props: {
     props.sourceControlSummary.conflictCount;
   const showStageAll = props.sourceControlSummary.workingTreeCount > 0;
   const showUnstageAll = props.canUnstageAnyChanges;
-  const showComposer = props.filteredScmItems.length > 0 || props.commitMessage.trim().length > 0;
+  const showComposer =
+    props.filteredScmItems.length > 0 || props.commitMessage.trim().length > 0;
   const summaryLabels = [
     props.sourceControlSummary.stagedCount > 0
-      ? { className: "text-success", text: `Staged ${props.sourceControlSummary.stagedCount}` }
+      ? {
+          className: "text-success",
+          text: `Staged ${props.sourceControlSummary.stagedCount}`,
+        }
       : null,
     props.sourceControlSummary.workingTreeCount > 0
-      ? { className: "text-muted-foreground", text: `Working tree ${props.sourceControlSummary.workingTreeCount}` }
+      ? {
+          className: "text-muted-foreground",
+          text: `Working tree ${props.sourceControlSummary.workingTreeCount}`,
+        }
       : null,
     props.sourceControlSummary.conflictCount > 0
-      ? { className: "text-destructive", text: `Conflicts ${props.sourceControlSummary.conflictCount}` }
+      ? {
+          className: "text-destructive",
+          text: `Conflicts ${props.sourceControlSummary.conflictCount}`,
+        }
       : null,
   ].filter(Boolean) as Array<{ className: string; text: string }>;
 
   return (
-    <Tabs value={view} onValueChange={(nextValue) => setView(nextValue as SourceControlPanelView)} className="flex h-full min-h-0 flex-col gap-0">
+    <Tabs
+      value={view}
+      onValueChange={(nextValue) =>
+        setView(nextValue as SourceControlPanelView)
+      }
+      className="flex h-full min-h-0 flex-col gap-0"
+    >
       <div className="flex items-center gap-2 border-b border-border/80 px-3 py-2">
         <TabsList className="h-auto flex-1 justify-start rounded-xl border border-border/70 bg-muted/30 p-1">
-          <TabsTrigger value="changes" className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium">
+          <TabsTrigger
+            value="changes"
+            className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
+          >
             <span>Changes</span>
-            <span className="text-[11px] text-muted-foreground">{props.filteredScmItems.length}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {props.filteredScmItems.length}
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="history" className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium">
+          <TabsTrigger
+            value="history"
+            className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
+          >
             <History className="size-3.5" />
             <span>History</span>
-            <span className="text-[11px] text-muted-foreground">{props.sourceHistory.length}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {props.sourceHistory.length}
+            </span>
           </TabsTrigger>
           {showChecksTab ? (
-            <TabsTrigger value="checks" className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium">
+            <TabsTrigger
+              value="checks"
+              className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
+            >
               <ListChecks className="size-3.5" />
               <span>Checks</span>
               {checksAttentionCount > 0 ? (
-                <span className="text-[11px] text-destructive">{checksAttentionCount}</span>
+                <span className="text-[11px] text-destructive">
+                  {checksAttentionCount}
+                </span>
               ) : null}
             </TabsTrigger>
           ) : null}
@@ -589,23 +728,28 @@ export function WorkspaceChangesPanel(props: {
         {props.verification ? (
           props.verification.failures.length > 0 ? (
             <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
-                    VERIFICATION_STATUS_VISUAL[props.verification.status].iconClassName,
-                  )}
-                  aria-label={describeTurnVerification(props.verification)}
-                >
-                  <VerificationStatusIcon status={props.verification.status} />
-                  <span>{props.verification.failures.length}</span>
-                </button>
+              <PopoverTrigger
+                render={
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
+                      VERIFICATION_STATUS_VISUAL[props.verification.status]
+                        .iconClassName,
+                    )}
+                    aria-label={describeTurnVerification(props.verification)}
+                  />
+                }
+              >
+                <VerificationStatusIcon status={props.verification.status} />
+                <span>{props.verification.failures.length}</span>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-0">
                 <PopoverHeader className="border-b border-border/70 px-3 py-2">
                   <div className="flex items-center justify-between gap-2">
-                    <PopoverTitle className="text-xs">Verification</PopoverTitle>
+                    <PopoverTitle className="text-xs">
+                      Verification
+                    </PopoverTitle>
                     {props.onFixVerificationWithAgent ? (
                       <Button
                         type="button"
@@ -675,7 +819,8 @@ export function WorkspaceChangesPanel(props: {
             <div
               className={cn(
                 "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
-                VERIFICATION_STATUS_VISUAL[props.verification.status].iconClassName,
+                VERIFICATION_STATUS_VISUAL[props.verification.status]
+                  .iconClassName,
               )}
               title={describeTurnVerification(props.verification)}
             >
@@ -686,25 +831,28 @@ export function WorkspaceChangesPanel(props: {
         {props.intentCompliance ? (
           props.intentCompliance.findings.length > 0 ? (
             <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
-                    VERIFICATION_STATUS_VISUAL[props.intentCompliance.status].iconClassName,
-                  )}
-                  aria-label={`Intent guard: ${props.intentCompliance.findings.length} possible issue${props.intentCompliance.findings.length === 1 ? "" : "s"} vs the pinned intent`}
-                >
-                  <Crosshair className="size-3.5" />
-                  <span>{props.intentCompliance.findings.length}</span>
-                </button>
+              <PopoverTrigger
+                render={
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
+                      VERIFICATION_STATUS_VISUAL[props.intentCompliance.status]
+                        .iconClassName,
+                    )}
+                    aria-label={`Intent guard: ${props.intentCompliance.findings.length} possible issue${props.intentCompliance.findings.length === 1 ? "" : "s"} vs the pinned intent`}
+                  />
+                }
+              >
+                <Crosshair className="size-3.5" />
+                <span>{props.intentCompliance.findings.length}</span>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-0">
                 <PopoverHeader className="border-b border-border/70 px-3 py-2">
                   <PopoverTitle className="text-xs">Intent guard</PopoverTitle>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Possible deviations from the pinned intent. Click to open the
-                    file.
+                    Possible deviations from the pinned intent. Click to open
+                    the file.
                   </p>
                 </PopoverHeader>
                 <ul className="max-h-72 overflow-y-auto py-1">
@@ -740,7 +888,8 @@ export function WorkspaceChangesPanel(props: {
             <div
               className={cn(
                 "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
-                VERIFICATION_STATUS_VISUAL[props.intentCompliance.status].iconClassName,
+                VERIFICATION_STATUS_VISUAL[props.intentCompliance.status]
+                  .iconClassName,
               )}
               title="Intent guard: consistent with the pinned intent"
             >
@@ -770,28 +919,35 @@ export function WorkspaceChangesPanel(props: {
             disabled={props.isScmBusy}
             onClick={() => void props.onRefresh()}
           >
-            <RefreshCw className={cn("size-3.5", props.isScmBusy && "animate-spin")} />
+            <RefreshCw
+              className={cn("size-3.5", props.isScmBusy && "animate-spin")}
+            />
           </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                size="xs"
-                variant="ghost"
-                aria-label="Auto refresh options"
-                title={props.autoRefreshSeconds > 0
-                  ? `Auto refresh: ${formatAutoRefreshShortLabel(props.autoRefreshSeconds)}`
-                  : "Auto refresh: Off"}
-                className={cn(
-                  "h-8 gap-1 rounded-lg px-1.5 text-muted-foreground hover:text-foreground",
-                  props.autoRefreshSeconds > 0 && "text-success hover:text-success",
-                )}
-              >
-                <Timer className="size-3.5" />
-                <span className="text-[11px] font-medium">
-                  {formatAutoRefreshShortLabel(props.autoRefreshSeconds)}
-                </span>
-              </Button>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Auto refresh options"
+                  title={
+                    props.autoRefreshSeconds > 0
+                      ? `Auto refresh: ${formatAutoRefreshShortLabel(props.autoRefreshSeconds)}`
+                      : "Auto refresh: Off"
+                  }
+                  className={cn(
+                    "h-8 gap-1 rounded-lg px-1.5 text-muted-foreground hover:text-foreground",
+                    props.autoRefreshSeconds > 0 &&
+                      "text-success hover:text-success",
+                  )}
+                />
+              }
+            >
+              <Timer className="size-3.5" />
+              <span className="text-[11px] font-medium">
+                {formatAutoRefreshShortLabel(props.autoRefreshSeconds)}
+              </span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -803,11 +959,15 @@ export function WorkspaceChangesPanel(props: {
                 return (
                   <DropdownMenuItem
                     key={option.seconds}
-                    onSelect={() => props.onAutoRefreshSecondsChange(option.seconds)}
+                    onSelect={() =>
+                      props.onAutoRefreshSecondsChange(option.seconds)
+                    }
                     className="justify-between"
                   >
                     <span>{option.label}</span>
-                    {isActive ? <Check className="size-3.5 text-success" /> : null}
+                    {isActive ? (
+                      <Check className="size-3.5 text-success" />
+                    ) : null}
                   </DropdownMenuItem>
                 );
               })}
@@ -821,7 +981,10 @@ export function WorkspaceChangesPanel(props: {
           <section className="space-y-3 px-1">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <Badge variant="outline" className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal">
+                <Badge
+                  variant="outline"
+                  className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal"
+                >
                   <GitBranch className="size-3.5 text-muted-foreground" />
                   <span className="truncate">{props.sourceBranch}</span>
                 </Badge>
@@ -829,7 +992,9 @@ export function WorkspaceChangesPanel(props: {
                   {formatFileCount(props.filteredScmItems.length)} changed
                 </p>
               </div>
-              {props.isScmBusy ? <LoaderCircle className="size-4 shrink-0 animate-spin text-muted-foreground" /> : null}
+              {props.isScmBusy ? (
+                <LoaderCircle className="size-4 shrink-0 animate-spin text-muted-foreground" />
+              ) : null}
             </div>
 
             {summaryLabels.length > 0 ? (
@@ -842,7 +1007,9 @@ export function WorkspaceChangesPanel(props: {
               </div>
             ) : null}
 
-            <p className="text-xs text-muted-foreground">{props.sourceControlHint}</p>
+            <p className="text-xs text-muted-foreground">
+              {props.sourceControlHint}
+            </p>
 
             {showComposer ? (
               <div className="space-y-3 border-t border-border/70 pt-3">
@@ -851,9 +1018,17 @@ export function WorkspaceChangesPanel(props: {
                     className="h-9 rounded-lg border-border/70 bg-background/90 text-sm"
                     placeholder={`Commit staged changes on "${props.sourceBranch}"`}
                     value={props.commitMessage}
-                    onChange={(event) => props.onCommitMessageChange(event.target.value)}
+                    onChange={(event) =>
+                      props.onCommitMessageChange(event.target.value)
+                    }
                     onKeyDown={(event) => {
-                      if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && props.commitMessage.trim() && props.canCommitStagedChanges && !props.isScmBusy) {
+                      if (
+                        (event.metaKey || event.ctrlKey) &&
+                        event.key === "Enter" &&
+                        props.commitMessage.trim() &&
+                        props.canCommitStagedChanges &&
+                        !props.isScmBusy
+                      ) {
                         event.preventDefault();
                         void props.onCommit();
                       }
@@ -863,13 +1038,17 @@ export function WorkspaceChangesPanel(props: {
                   <Button
                     size="sm"
                     className="h-9 rounded-lg px-3 text-sm"
-                    disabled={props.isScmBusy || !props.commitMessage.trim() || !props.canCommitStagedChanges}
+                    disabled={
+                      props.isScmBusy ||
+                      !props.commitMessage.trim() ||
+                      !props.canCommitStagedChanges
+                    }
                     onClick={() => void props.onCommit()}
                   >
                     Commit
                   </Button>
                 </div>
-                {(showStageAll || showUnstageAll) ? (
+                {showStageAll || showUnstageAll ? (
                   <div className="flex flex-wrap items-center gap-2">
                     {showStageAll ? (
                       <Button
@@ -902,7 +1081,8 @@ export function WorkspaceChangesPanel(props: {
           <div className="space-y-3">
             {props.hasConflicts ? (
               <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning dark:bg-warning/15">
-                Conflict detected. Resolve, stage, or discard the affected files before committing.
+                Conflict detected. Resolve, stage, or discard the affected files
+                before committing.
               </div>
             ) : null}
             {props.sourceError ? (
@@ -912,7 +1092,9 @@ export function WorkspaceChangesPanel(props: {
             ) : null}
             {!props.sourceError && props.filteredScmItems.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-3 py-3">
-                <p className="text-sm text-muted-foreground">No local changes.</p>
+                <p className="text-sm text-muted-foreground">
+                  No local changes.
+                </p>
               </div>
             ) : null}
             {props.sourceControlSections.map((section) => (
@@ -921,7 +1103,10 @@ export function WorkspaceChangesPanel(props: {
                   <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                     {section.title}
                   </p>
-                  <Badge variant={section.badgeVariant} className="rounded-md px-2 font-normal">
+                  <Badge
+                    variant={section.badgeVariant}
+                    className="rounded-md px-2 font-normal"
+                  >
                     {section.items.length}
                   </Badge>
                 </div>
@@ -931,11 +1116,25 @@ export function WorkspaceChangesPanel(props: {
                       key={`${item.displayCode}:${item.pathLabel}`}
                       item={item}
                       isScmBusy={props.isScmBusy}
-                      onCopyPath={(path) => void props.onCopySourceControlPath(path)}
+                      onCopyPath={(path) =>
+                        void props.onCopySourceControlPath(path)
+                      }
                       onOpenDiff={(path) => void props.onSelectDiff(path)}
-                      onStage={(sourceItem) => void props.onStageAction({ action: "stage", item: sourceItem })}
-                      onUnstage={(sourceItem) => void props.onStageAction({ action: "unstage", item: sourceItem })}
-                      onDiscard={(sourceItem) => void props.onDiscardChange(sourceItem)}
+                      onStage={(sourceItem) =>
+                        void props.onStageAction({
+                          action: "stage",
+                          item: sourceItem,
+                        })
+                      }
+                      onUnstage={(sourceItem) =>
+                        void props.onStageAction({
+                          action: "unstage",
+                          item: sourceItem,
+                        })
+                      }
+                      onDiscard={(sourceItem) =>
+                        void props.onDiscardChange(sourceItem)
+                      }
                     />
                   ))}
                 </div>
@@ -949,13 +1148,20 @@ export function WorkspaceChangesPanel(props: {
         <div className="space-y-3 px-3 py-2">
           <div className="flex items-center justify-between gap-3 px-1">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <Badge variant="outline" className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal">
+              <Badge
+                variant="outline"
+                className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal"
+              >
                 <GitBranch className="size-3.5 text-muted-foreground" />
                 <span className="truncate">{props.sourceBranch}</span>
               </Badge>
-              <p className="text-xs text-muted-foreground">{formatRecentCommitCount(props.sourceHistory.length)}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatRecentCommitCount(props.sourceHistory.length)}
+              </p>
             </div>
-            {props.isScmBusy ? <LoaderCircle className="size-4 shrink-0 animate-spin text-muted-foreground" /> : null}
+            {props.isScmBusy ? (
+              <LoaderCircle className="size-4 shrink-0 animate-spin text-muted-foreground" />
+            ) : null}
           </div>
 
           {props.sourceHistory.length === 0 ? (
@@ -968,7 +1174,9 @@ export function WorkspaceChangesPanel(props: {
                 <SourceControlHistoryRow
                   key={`${item.hash}:${item.subject}`}
                   item={item}
-                  isLast={index === Math.min(props.sourceHistory.length, 10) - 1}
+                  isLast={
+                    index === Math.min(props.sourceHistory.length, 10) - 1
+                  }
                 />
               ))}
             </div>

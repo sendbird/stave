@@ -408,85 +408,93 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
               <TooltipProvider>
                 <div className="flex shrink-0 items-center gap-1">
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={handleCopyHandoff}
-                        disabled={!handoffSummary}
-                      >
-                        <Copy className="size-3.5" />
-                        Copy Handoff
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-2"
+                          onClick={handleCopyHandoff}
+                          disabled={!handoffSummary}
+                        />
+                      }
+                    >
+                      <Copy className="size-3.5" />
+                      Copy Handoff
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       Copy the task handoff summary
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 gap-2"
-                        onClick={handlePasteHandoff}
-                        disabled={!handoffSummary || !activeSessionId}
-                      >
-                        <ClipboardPaste className="size-3.5" />
-                        Paste Handoff
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-2"
+                          onClick={handlePasteHandoff}
+                          disabled={!handoffSummary || !activeSessionId}
+                        />
+                      }
+                    >
+                      <ClipboardPaste className="size-3.5" />
+                      Paste Handoff
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       Paste the handoff into the live CLI session
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 rounded-md p-0 text-muted-foreground"
-                        onClick={() => {
-                          restartActiveSession();
-                          toast.message("CLI session restarted");
-                        }}
-                        disabled={!activeTab}
-                        aria-label="restart-cli-session"
-                      >
-                        <RefreshCw className="size-3.5" />
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 rounded-md p-0 text-muted-foreground"
+                          onClick={() => {
+                            restartActiveSession();
+                            toast.message("CLI session restarted");
+                          }}
+                          disabled={!activeTab}
+                          aria-label="restart-cli-session"
+                        />
+                      }
+                    >
+                      <RefreshCw className="size-3.5" />
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       Restart Session
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 rounded-md p-0 text-muted-foreground"
-                        onClick={() => {
-                          if (activeTab) {
-                            window.dispatchEvent(
-                              new CustomEvent(
-                                "stave:request-close-cli-session",
-                                {
-                                  detail: {
-                                    id: activeTab.id,
-                                    title: activeTab.title,
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 rounded-md p-0 text-muted-foreground"
+                          onClick={() => {
+                            if (activeTab) {
+                              window.dispatchEvent(
+                                new CustomEvent(
+                                  "stave:request-close-cli-session",
+                                  {
+                                    detail: {
+                                      id: activeTab.id,
+                                      title: activeTab.title,
+                                    },
                                   },
-                                },
-                              ),
-                            );
-                          }
-                        }}
-                        disabled={!activeTab}
-                        aria-label="close-cli-session"
-                      >
-                        <X className="size-3.5" />
-                      </Button>
+                                ),
+                              );
+                            }
+                          }}
+                          disabled={!activeTab}
+                          aria-label="close-cli-session"
+                        />
+                      }
+                    >
+                      <X className="size-3.5" />
                     </TooltipTrigger>
                     <TooltipContent side="bottom">Close Session</TooltipContent>
                   </Tooltip>

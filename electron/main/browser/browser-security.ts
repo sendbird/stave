@@ -8,6 +8,10 @@ import {
   normalizeLensHostEntry,
   normalizeLensHostList,
 } from "../../../src/lib/lens/lens-security";
+import {
+  publishLensCdpPolicy,
+  type LensTransientCdpApproval,
+} from "./browser-cdp-policy";
 
 const CDP_APPROVAL_TIMEOUT_MS = 60_000;
 const TRANSIENT_CDP_APPROVAL_MS = 60_000;
@@ -36,7 +40,7 @@ const pendingCdpApprovals = new Map<
   }
 >();
 const pendingCdpApprovalKeys = new Map<string, string>();
-const transientCdpApprovals = new Map<string, number>();
+const transientCdpApprovals = new Map<string, LensTransientCdpApproval>();
 
 type CdpApprovalOutcome = "approved" | "denied" | "timed-out";
 
@@ -86,22 +90,44 @@ function cdpApprovalKey(workspaceId: string, host: string): string {
 
 function hasTransientCdpApproval(workspaceId: string, host: string): boolean {
   const key = cdpApprovalKey(workspaceId, host);
-  const expiresAt = transientCdpApprovals.get(key);
-  if (!expiresAt) {
+  const approval = transientCdpApprovals.get(key);
+  if (!approval) {
     return false;
   }
-  if (expiresAt <= Date.now()) {
+  if (approval.expiresAt <= Date.now()) {
     transientCdpApprovals.delete(key);
     return false;
   }
   return true;
 }
 
+function getActiveTransientCdpApprovals(): LensTransientCdpApproval[] {
+  const now = Date.now();
+  const active: LensTransientCdpApproval[] = [];
+  for (const [key, approval] of transientCdpApprovals) {
+    if (approval.expiresAt <= now) {
+      transientCdpApprovals.delete(key);
+      continue;
+    }
+    active.push({ ...approval });
+  }
+  return active;
+}
+
+function publishCurrentCdpPolicy(): void {
+  publishLensCdpPolicy({
+    ...currentSecurityConfig,
+    transientCdpApprovals: getActiveTransientCdpApprovals(),
+  });
+}
+
 function rememberTransientCdpApproval(workspaceId: string, host: string): void {
-  transientCdpApprovals.set(
-    cdpApprovalKey(workspaceId, host),
-    Date.now() + TRANSIENT_CDP_APPROVAL_MS,
-  );
+  transientCdpApprovals.set(cdpApprovalKey(workspaceId, host), {
+    workspaceId,
+    host,
+    expiresAt: Date.now() + TRANSIENT_CDP_APPROVAL_MS,
+  });
+  publishCurrentCdpPolicy();
 }
 
 function addApprovedCdpHost(host: string): void {
@@ -145,19 +171,24 @@ export function setLensSecurityConfig(
     developerModeCdp: config.developerModeCdp === true,
     cdpApprovedHosts: normalizeLensHostList(config.cdpApprovedHosts),
   };
+  if (!currentSecurityConfig.developerModeCdp) {
+    transientCdpApprovals.clear();
+  }
+  publishCurrentCdpPolicy();
 
   // Treat hydrated approved-host settings as authorization for requests that
   // raced the renderer-to-main configuration sync.
   if (currentSecurityConfig.developerModeCdp) {
     for (const [requestId, pending] of pendingCdpApprovals) {
       if (
-        hostMatchesList(
-          pending.host,
-          currentSecurityConfig.cdpApprovedHosts,
-        )
+        hostMatchesList(pending.host, currentSecurityConfig.cdpApprovedHosts)
       ) {
         settlePendingCdpApproval(requestId, "approved");
       }
+    }
+  } else {
+    for (const requestId of [...pendingCdpApprovals.keys()]) {
+      settlePendingCdpApproval(requestId, "denied");
     }
   }
 

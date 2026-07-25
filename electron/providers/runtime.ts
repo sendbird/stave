@@ -116,17 +116,15 @@ function upsertActiveSession(args: {
 
 function toClaudeErrorEvents(args: { message: string }): BridgeEvent[] {
   return [
-    { type: "system", content: "claude-code SDK turn failed" },
-    { type: "text", text: args.message },
-    { type: "done" as const },
+    { type: "error", message: args.message, recoverable: true },
+    { type: "done", stop_reason: "runtime_failure" },
   ];
 }
 
 function toCodexErrorEvents(args: { message: string }): BridgeEvent[] {
   return [
-    { type: "system", content: "codex turn failed" },
-    { type: "text", text: args.message },
-    { type: "done" as const },
+    { type: "error", message: args.message, recoverable: true },
+    { type: "done", stop_reason: "runtime_failure" },
   ];
 }
 
@@ -210,13 +208,17 @@ function describeResponderSuccessLabel(kind: ResponderKind) {
  *   turns an opaque "didn't land" into a diagnosable "we expected X, got Y".
  */
 async function deliverResponderResult<
-  Responder extends (...args: never[]) => ProviderResponderResult | Promise<ProviderResponderResult>,
+  Responder extends (
+    ...args: never[]
+  ) => ProviderResponderResult | Promise<ProviderResponderResult>,
 >(args: {
   kind: ResponderKind;
   turnId: string;
   requestId: string;
   selectResponder: (session: ActiveRuntimeSession) => Responder | undefined;
-  invoke: (responder: Responder) => ProviderResponderResult | Promise<ProviderResponderResult>;
+  invoke: (
+    responder: Responder,
+  ) => ProviderResponderResult | Promise<ProviderResponderResult>;
   timeoutMs?: number;
 }): Promise<{ ok: boolean; message: string; timedOut?: boolean }> {
   const label = describeResponderKind(args.kind);
@@ -549,8 +551,8 @@ async function runProviderTurn(
     return Promise.race([task, timeoutController.promise]);
   };
 
-  const wrapStreamOnEvent = (downstream?: (event: BridgeEvent) => void) =>
-    (event: BridgeEvent) => {
+  const wrapStreamOnEvent =
+    (downstream?: (event: BridgeEvent) => void) => (event: BridgeEvent) => {
       if (timeoutController.timedOut) {
         return;
       }
@@ -719,7 +721,10 @@ export const providerRuntime: ProviderRuntime = {
             appendStreamEvent(session, errorEvent);
           }
           options?.onEvent?.(errorEvent);
-          const doneEvent: BridgeEvent = { type: "done" };
+          const doneEvent: BridgeEvent = {
+            type: "done",
+            stop_reason: "runtime_failure",
+          };
           if (shouldBufferForPolling) {
             appendStreamEvent(session, doneEvent);
           }
@@ -837,7 +842,10 @@ export const providerRuntime: ProviderRuntime = {
     // the primary, user-facing on/off switch. `STAVE_ENABLE_MID_TURN_STEERING`
     // remains as a legacy/ops fallback for builds where the setting hasn't
     // been surfaced or touched.
-    if (enabled !== true && process.env.STAVE_ENABLE_MID_TURN_STEERING !== "1") {
+    if (
+      enabled !== true &&
+      process.env.STAVE_ENABLE_MID_TURN_STEERING !== "1"
+    ) {
       return {
         ok: false,
         message:

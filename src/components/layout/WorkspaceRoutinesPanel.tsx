@@ -1,19 +1,19 @@
 import {
   AlertCircle,
   Clock3,
+  Copy,
+  ListChecks,
   Pause,
   Pencil,
   Play,
   Plus,
   RefreshCw,
+  SquareTerminal,
   Trash2,
+  Workflow,
 } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { ThinkingOrb } from "thinking-orbs";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ProviderModelPicker } from "@/components/session/ProviderModelPicker";
 import {
@@ -38,13 +38,16 @@ import {
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { RoutineInformationResourceCreator } from "@/components/layout/RoutineInformationResourceCreator";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import {
+  AUTOMATION_TRUST_POLICIES,
   createDefaultRoutineRuntime,
   formatRoutineSchedule,
   formatRoutineScheduleTime,
   getRoutineInformationReferenceKey,
   ROUTINE_WEEKDAY_LABELS,
   RoutineUpsertInputSchema,
+  type AutomationTrustPolicy,
   type RoutineEnvironmentInput,
   type RoutineRun,
   type RoutineRuntimeConfig,
@@ -61,6 +64,7 @@ import {
 } from "@/store/project.utils";
 import { useAppStore } from "@/store/app.store";
 import { cn } from "@/lib/utils";
+import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 
 interface RoutineEnvironmentOption {
   value: string;
@@ -123,15 +127,16 @@ function createRoutineDraft(
       every: 1,
       unit: "days",
     },
-    environment:
-      environment ?? {
-        kind: "repository",
-        workspaceId: "",
-        path: "",
-        projectPath: "",
-        label: "",
-      },
+    environment: environment ?? {
+      kind: "repository",
+      workspaceId: "",
+      path: "",
+      projectPath: "",
+      label: "",
+    },
     runtime: createDefaultRoutineRuntime("codex"),
+    trustPolicy: "review-required",
+    maxConcurrentRuns: 1,
     informationReferences: [],
   };
 }
@@ -188,6 +193,8 @@ function routineToDraft(routine: RoutineSpec): RoutineUpsertInput {
     schedule: routine.schedule,
     environment: routine.environment,
     runtime: routine.runtime,
+    trustPolicy: routine.trustPolicy,
+    maxConcurrentRuns: routine.maxConcurrentRuns,
     informationReferences: routine.informationReferences,
   };
 }
@@ -212,8 +219,7 @@ function getRunStatusPresentation(status: RoutineRun["status"]) {
     case "failed":
       return {
         label: "Failed",
-        className:
-          "border-destructive/40 bg-destructive/10 text-destructive",
+        className: "border-destructive/40 bg-destructive/10 text-destructive",
       };
     case "waiting":
       return {
@@ -233,6 +239,31 @@ function getRunStatusPresentation(status: RoutineRun["status"]) {
   }
 }
 
+const AUTOMATION_TRUST_PRESENTATION: Record<
+  AutomationTrustPolicy,
+  { label: string; description: string }
+> = {
+  "review-required": {
+    label: "Review required",
+    description:
+      "Sensitive provider actions use the strict approval path and can wait for you.",
+  },
+  "workspace-trusted": {
+    label: "Workspace policy",
+    description:
+      "Inherit the provider permissions configured for this automation.",
+  },
+  unattended: {
+    label: "Unattended",
+    description:
+      "Avoid interactive approval prompts while preserving the configured sandbox and file access.",
+  },
+};
+
+function formatAutomationTrustPolicy(policy: AutomationTrustPolicy) {
+  return AUTOMATION_TRUST_PRESENTATION[policy].label;
+}
+
 function FormLabel(props: {
   label: string;
   description?: string;
@@ -240,9 +271,7 @@ function FormLabel(props: {
 }) {
   return (
     <label className="grid gap-1.5">
-      <span className="text-xs font-medium text-foreground">
-        {props.label}
-      </span>
+      <span className="text-xs font-medium text-foreground">{props.label}</span>
       {props.description ? (
         <span className="text-[11px] leading-4 text-muted-foreground">
           {props.description}
@@ -289,13 +318,11 @@ function RuntimeFields(props: {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["low", "medium", "high", "xhigh", "max"].map(
-                    (effort) => (
-                      <SelectItem key={effort} value={effort}>
-                        {effort}
-                      </SelectItem>
-                    ),
-                  )}
+                  {["low", "medium", "high", "xhigh", "max"].map((effort) => (
+                    <SelectItem key={effort} value={effort}>
+                      {effort}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </FormLabel>
@@ -373,18 +400,13 @@ function RuntimeFields(props: {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[
-                    "low",
-                    "medium",
-                    "high",
-                    "xhigh",
-                    "max",
-                    "ultra",
-                  ].map((effort) => (
-                    <SelectItem key={effort} value={effort}>
-                      {effort}
-                    </SelectItem>
-                  ))}
+                  {["low", "medium", "high", "xhigh", "max", "ultra"].map(
+                    (effort) => (
+                      <SelectItem key={effort} value={effort}>
+                        {effort}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
             </FormLabel>
@@ -403,16 +425,13 @@ function RuntimeFields(props: {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[
-                    "never",
-                    "on-request",
-                    "on-failure",
-                    "untrusted",
-                  ].map((policy) => (
-                    <SelectItem key={policy} value={policy}>
-                      {policy}
-                    </SelectItem>
-                  ))}
+                  {["never", "on-request", "on-failure", "untrusted"].map(
+                    (policy) => (
+                      <SelectItem key={policy} value={policy}>
+                        {policy}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
             </FormLabel>
@@ -432,15 +451,13 @@ function RuntimeFields(props: {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[
-                    "read-only",
-                    "workspace-write",
-                    "danger-full-access",
-                  ].map((access) => (
-                    <SelectItem key={access} value={access}>
-                      {access}
-                    </SelectItem>
-                  ))}
+                  {["read-only", "workspace-write", "danger-full-access"].map(
+                    (access) => (
+                      <SelectItem key={access} value={access}>
+                        {access}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
             </FormLabel>
@@ -511,9 +528,7 @@ function RoutineEditor(props: {
   informationLoading: boolean;
   saving: boolean;
   onDraftChange: (draft: RoutineUpsertInput) => void;
-  onInformationCreated: (
-    option: WorkspaceInformationReferenceOption,
-  ) => void;
+  onInformationCreated: (option: WorkspaceInformationReferenceOption) => void;
   onCancel: () => void;
   onSave: () => void;
 }) {
@@ -530,7 +545,9 @@ function RoutineEditor(props: {
     ]),
   );
 
-  function attachInformationOption(option: WorkspaceInformationReferenceOption) {
+  function attachInformationOption(
+    option: WorkspaceInformationReferenceOption,
+  ) {
     if (option.reference.section === "lens") {
       return;
     }
@@ -566,10 +583,10 @@ function RoutineEditor(props: {
       <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-3 py-2">
         <div>
           <div className="text-sm font-semibold text-foreground">
-            {props.routineId ? "Edit routine" : "New routine"}
+            {props.routineId ? "Edit automation" : "New automation"}
           </div>
           <div className="text-[11px] text-muted-foreground">
-            Runs while the Stave desktop app is open.
+            Runs in a fresh task while the Stave desktop app is open.
           </div>
         </div>
         <div className="flex items-center gap-1.5">
@@ -756,6 +773,59 @@ function RoutineEditor(props: {
           </section>
 
           <section className="grid gap-3">
+            <SectionHeading title="Execution policy" />
+            <FormLabel
+              label="Trust policy"
+              description={
+                AUTOMATION_TRUST_PRESENTATION[props.draft.trustPolicy]
+                  .description
+              }
+            >
+              <Select
+                value={props.draft.trustPolicy}
+                onValueChange={(trustPolicy) =>
+                  props.onDraftChange({
+                    ...props.draft,
+                    trustPolicy: trustPolicy as AutomationTrustPolicy,
+                  })
+                }
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AUTOMATION_TRUST_POLICIES.map((policy) => (
+                    <SelectItem key={policy} value={policy}>
+                      {formatAutomationTrustPolicy(policy)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormLabel>
+            <FormLabel
+              label="Concurrent runs"
+              description="Maximum active executions for this automation. Scheduled occurrences beyond the limit are recorded as skipped."
+            >
+              <Input
+                type="number"
+                min={1}
+                max={8}
+                value={props.draft.maxConcurrentRuns}
+                onChange={(event) =>
+                  props.onDraftChange({
+                    ...props.draft,
+                    maxConcurrentRuns: Math.max(
+                      1,
+                      Math.min(8, Number(event.target.value) || 1),
+                    ),
+                  })
+                }
+                className="h-9 text-xs"
+              />
+            </FormLabel>
+          </section>
+
+          <section className="grid gap-3">
             <SectionHeading title="Repository" />
             <FormLabel
               label="Repository"
@@ -819,8 +889,8 @@ function RoutineEditor(props: {
             />
             <p className="text-[11px] leading-4 text-muted-foreground">
               Create each resource in the repository&apos;s Default Workspace.
-              It is attached to this routine immediately and resolved again on
-              every run.
+              It is attached to this automation immediately and resolved again
+              on every run.
             </p>
             {!props.draft.environment.workspaceId ? (
               <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
@@ -900,9 +970,100 @@ function SectionHeading(props: { title: string; detail?: string }) {
   );
 }
 
-export function WorkspaceRoutinesPanel(props: {
-  onRequestClose?: () => void;
+function AutomationRunCard(props: {
+  run: RoutineRun;
+  automation?: RoutineSpec;
+  onOpen: (run: RoutineRun) => void;
 }) {
+  const presentation = getRunStatusPresentation(props.run.status);
+  return (
+    <article className="rounded-lg border border-border/70 bg-background p-3 shadow-xs">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {props.automation ? (
+            <p className="truncate text-xs font-semibold text-foreground">
+              {props.automation.name}
+            </p>
+          ) : null}
+          <div className="mt-1 flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn("h-5 px-1.5 text-[9px]", presentation.className)}
+            >
+              {presentation.label}
+            </Badge>
+            <span className="text-[10px] text-muted-foreground">
+              {formatDateTime(props.run.startedAt)}
+            </span>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => void copyTextToClipboard(props.run.id)}
+          aria-label="Copy execution ID"
+          title="Copy execution ID"
+        >
+          <Copy className="size-3.5" />
+        </Button>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-y border-border/60 py-2 text-[10px]">
+        <Detail label="Execution">
+          <span className="font-mono" title={props.run.id}>
+            {props.run.id.slice(0, 8)}
+          </span>
+        </Detail>
+        <Detail label="Config">
+          <span className="font-mono">{props.run.configHash ?? "legacy"}</span>
+        </Detail>
+        <Detail label="Trust">
+          {formatAutomationTrustPolicy(props.run.trustPolicy)}
+        </Detail>
+        <Detail label="Trigger">
+          {props.run.trigger === "scheduled" ? "Schedule" : "Manual"}
+        </Detail>
+      </dl>
+
+      {props.run.error ? (
+        <p
+          className={cn(
+            "mt-3 text-[11px] leading-4",
+            props.run.status === "skipped"
+              ? "text-muted-foreground"
+              : "text-destructive",
+          )}
+        >
+          {props.run.error}
+        </p>
+      ) : props.run.resultPreview ? (
+        <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-[11px] leading-4 text-foreground">
+          {props.run.resultPreview}
+        </p>
+      ) : (
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          {props.run.status === "completed"
+            ? "Completed without a text response. Open the task to inspect its tool output."
+            : props.run.status === "waiting"
+              ? "Waiting for approval or user input."
+              : "The task is still running."}
+        </p>
+      )}
+      {props.run.taskId ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 h-7 px-2 text-[10px]"
+          onClick={() => props.onOpen(props.run)}
+        >
+          Open task result
+        </Button>
+      ) : null}
+    </article>
+  );
+}
+
+export function WorkspaceRoutinesPanel(props: { onRequestClose?: () => void }) {
   const [
     recentProjects,
     projectPath,
@@ -913,18 +1074,23 @@ export function WorkspaceRoutinesPanel(props: {
     activeWorkspaceId,
     flushActiveWorkspaceSnapshot,
     focusTaskAttention,
+    setLayout,
   ] = useAppStore(
-    useShallow((state) => [
-      state.recentProjects,
-      state.projectPath,
-      state.projectName,
-      state.workspaces,
-      state.workspacePathById,
-      state.workspaceDefaultById,
-      state.activeWorkspaceId,
-      state.flushActiveWorkspaceSnapshot,
-      state.focusTaskAttention,
-    ] as const),
+    useShallow(
+      (state) =>
+        [
+          state.recentProjects,
+          state.projectPath,
+          state.projectName,
+          state.workspaces,
+          state.workspacePathById,
+          state.workspaceDefaultById,
+          state.activeWorkspaceId,
+          state.flushActiveWorkspaceSnapshot,
+          state.focusTaskAttention,
+          state.setLayout,
+        ] as const,
+    ),
   );
   const [snapshot, setSnapshot] = useState<RoutineSnapshot>({
     routines: [],
@@ -944,6 +1110,9 @@ export function WorkspaceRoutinesPanel(props: {
   const [busyRoutineId, setBusyRoutineId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [deleteRoutine, setDeleteRoutine] = useState<RoutineSpec | null>(null);
+  const [activeView, setActiveView] = useState<"automations" | "runs">(
+    "automations",
+  );
 
   const activeProject = useMemo(
     () =>
@@ -973,9 +1142,9 @@ export function WorkspaceRoutinesPanel(props: {
     [activeProject, recentProjects],
   );
   const defaultEnvironment = useMemo<RoutineEnvironmentInput | null>(() => {
-    const active = environmentOptions.find(
-      (option) => option.projectPath === projectPath,
-    ) ?? environmentOptions[0];
+    const active =
+      environmentOptions.find((option) => option.projectPath === projectPath) ??
+      environmentOptions[0];
     return active
       ? {
           kind: "repository",
@@ -991,7 +1160,7 @@ export function WorkspaceRoutinesPanel(props: {
     const list = window.api?.routines?.list;
     if (!list) {
       setLoading(false);
-      setError("Routines are available in the Stave desktop app.");
+      setError("Automations are available in the Stave desktop app.");
       return;
     }
     if (!options?.quiet) {
@@ -1000,7 +1169,7 @@ export function WorkspaceRoutinesPanel(props: {
     try {
       const result = await list();
       if (!result.ok) {
-        setError(result.message ?? "Failed to load routines.");
+        setError(result.message ?? "Failed to load automations.");
         return;
       }
       setSnapshot(result.snapshot);
@@ -1016,7 +1185,7 @@ export function WorkspaceRoutinesPanel(props: {
       });
     } catch (loadError) {
       setError(
-        getRoutineErrorMessage(loadError, "Failed to load routines."),
+        getRoutineErrorMessage(loadError, "Failed to load automations."),
       );
     } finally {
       if (!options?.quiet) {
@@ -1036,8 +1205,7 @@ export function WorkspaceRoutinesPanel(props: {
   const informationWorkspaceId = draft?.environment.workspaceId ?? null;
   useEffect(() => {
     let cancelled = false;
-    const listReferences =
-      window.api?.routines?.listInformationReferences;
+    const listReferences = window.api?.routines?.listInformationReferences;
     if (!informationWorkspaceId || !listReferences) {
       setInformationOptions([]);
       setInformationLoading(false);
@@ -1077,11 +1245,7 @@ export function WorkspaceRoutinesPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [
-    activeWorkspaceId,
-    flushActiveWorkspaceSnapshot,
-    informationWorkspaceId,
-  ]);
+  }, [activeWorkspaceId, flushActiveWorkspaceSnapshot, informationWorkspaceId]);
 
   const selectedRoutine =
     snapshot.routines.find((routine) => routine.id === selectedRoutineId) ??
@@ -1089,13 +1253,28 @@ export function WorkspaceRoutinesPanel(props: {
   const selectedRuns = selectedRoutine
     ? snapshot.runs.filter((run) => run.routineId === selectedRoutine.id)
     : [];
-  const selectedRoutineHasActiveRun = selectedRuns.some(
+  const selectedRoutineActiveRunCount = selectedRuns.filter(
     (run) => run.status === "running" || run.status === "waiting",
-  );
+  ).length;
+  const selectedRoutineHasActiveRun = selectedRoutineActiveRunCount > 0;
+  const selectedRoutineAtConcurrencyLimit = selectedRoutine
+    ? selectedRoutineActiveRunCount >= selectedRoutine.maxConcurrentRuns
+    : false;
 
   function startCreate() {
+    setActiveView("automations");
     setEditingRoutineId(null);
     setDraft(createRoutineDraft(defaultEnvironment));
+  }
+
+  function openCommandsAndProcesses() {
+    setLayout({
+      patch: {
+        sidebarOverlayVisible: true,
+        sidebarOverlayTab: "scripts",
+      },
+    });
+    props.onRequestClose?.();
   }
 
   function startEdit(routine: RoutineSpec) {
@@ -1114,7 +1293,7 @@ export function WorkspaceRoutinesPanel(props: {
     }
     const parsed = RoutineUpsertInputSchema.safeParse(draft);
     if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message ?? "Invalid routine spec.");
+      toast.error(parsed.error.issues[0]?.message ?? "Invalid automation.");
       return;
     }
     const api = window.api?.routines;
@@ -1122,7 +1301,7 @@ export function WorkspaceRoutinesPanel(props: {
       (editingRoutineId && !api?.update) ||
       (!editingRoutineId && !api?.create)
     ) {
-      toast.error("Routine service is unavailable.");
+      toast.error("Automation service is unavailable.");
       return;
     }
     setSaving(true);
@@ -1134,16 +1313,18 @@ export function WorkspaceRoutinesPanel(props: {
           })
         : await api!.create!(parsed.data);
       if (!result.ok || !result.routine) {
-        toast.error(result.message ?? "Failed to save routine.");
+        toast.error(result.message ?? "Failed to save automation.");
         return;
       }
       setSelectedRoutineId(result.routine.id);
       cancelEdit();
       await loadSnapshot();
-      toast.success(editingRoutineId ? "Routine updated" : "Routine created");
+      toast.success(
+        editingRoutineId ? "Automation updated" : "Automation created",
+      );
     } catch (saveError) {
       toast.error(
-        getRoutineErrorMessage(saveError, "Failed to save routine."),
+        getRoutineErrorMessage(saveError, "Failed to save automation."),
       );
     } finally {
       setSaving(false);
@@ -1153,7 +1334,7 @@ export function WorkspaceRoutinesPanel(props: {
   async function runNow(routine: RoutineSpec) {
     const api = window.api?.routines?.runNow;
     if (!api) {
-      toast.error("Routine service is unavailable.");
+      toast.error("Automation service is unavailable.");
       return;
     }
     setBusyRoutineId(routine.id);
@@ -1163,18 +1344,18 @@ export function WorkspaceRoutinesPanel(props: {
       }
       const result = await api({ id: routine.id });
       if (!result.ok || !result.run) {
-        toast.error(result.message ?? "Failed to start routine.");
+        toast.error(result.message ?? "Failed to start automation.");
         return;
       }
       await loadSnapshot({ quiet: true });
       if (result.run.status === "failed") {
-        toast.error(result.run.error ?? "Failed to start routine.");
+        toast.error(result.run.error ?? "Failed to start automation.");
         return;
       }
-      toast.success("Routine started");
+      toast.success("Automation started");
     } catch (runError) {
       toast.error(
-        getRoutineErrorMessage(runError, "Failed to start routine."),
+        getRoutineErrorMessage(runError, "Failed to start automation."),
       );
     } finally {
       setBusyRoutineId(null);
@@ -1184,7 +1365,7 @@ export function WorkspaceRoutinesPanel(props: {
   async function toggleEnabled(routine: RoutineSpec) {
     const api = window.api?.routines?.setEnabled;
     if (!api) {
-      toast.error("Routine service is unavailable.");
+      toast.error("Automation service is unavailable.");
       return;
     }
     setBusyRoutineId(routine.id);
@@ -1194,13 +1375,13 @@ export function WorkspaceRoutinesPanel(props: {
         enabled: !routine.enabled,
       });
       if (!result.ok) {
-        toast.error(result.message ?? "Failed to update routine.");
+        toast.error(result.message ?? "Failed to update automation.");
         return;
       }
       await loadSnapshot({ quiet: true });
     } catch (updateError) {
       toast.error(
-        getRoutineErrorMessage(updateError, "Failed to update routine."),
+        getRoutineErrorMessage(updateError, "Failed to update automation."),
       );
     } finally {
       setBusyRoutineId(null);
@@ -1213,22 +1394,22 @@ export function WorkspaceRoutinesPanel(props: {
     }
     const api = window.api?.routines?.remove;
     if (!api) {
-      toast.error("Routine service is unavailable.");
+      toast.error("Automation service is unavailable.");
       return;
     }
     setBusyRoutineId(deleteRoutine.id);
     try {
       const result = await api({ id: deleteRoutine.id });
       if (!result.ok) {
-        toast.error(result.message ?? "Failed to delete routine.");
+        toast.error(result.message ?? "Failed to delete automation.");
         return;
       }
       setDeleteRoutine(null);
       await loadSnapshot();
-      toast.success("Routine deleted");
+      toast.success("Automation deleted");
     } catch (deleteError) {
       toast.error(
-        getRoutineErrorMessage(deleteError, "Failed to delete routine."),
+        getRoutineErrorMessage(deleteError, "Failed to delete automation."),
       );
     } finally {
       setBusyRoutineId(null);
@@ -1256,7 +1437,7 @@ export function WorkspaceRoutinesPanel(props: {
         // selectTask silently no-ops when the task is gone (for example runs
         // recorded before the task was persisted). Surface that instead of
         // leaving the click without any feedback.
-        toast.error("This run's task conversation could not be found.");
+        toast.error("This automation's task conversation could not be found.");
         return;
       }
       props.onRequestClose?.();
@@ -1295,29 +1476,71 @@ export function WorkspaceRoutinesPanel(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-card">
-      <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-3 py-2">
-        <div className="text-xs text-muted-foreground">
-          {snapshot.routines.length}{" "}
-          {snapshot.routines.length === 1 ? "routine" : "routines"}
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 px-3 py-2">
+        <div
+          className="flex min-w-0 items-center gap-1"
+          role="tablist"
+          aria-label="Automation control views"
+        >
+          <Button
+            variant={activeView === "automations" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-8 gap-1.5 px-2.5 text-xs"
+            role="tab"
+            aria-selected={activeView === "automations"}
+            onClick={() => setActiveView("automations")}
+          >
+            <Workflow className="size-3.5" />
+            Automations
+            <span className="tabular-nums text-muted-foreground">
+              {snapshot.routines.length}
+            </span>
+          </Button>
+          <Button
+            variant={activeView === "runs" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-8 gap-1.5 px-2.5 text-xs"
+            role="tab"
+            aria-selected={activeView === "runs"}
+            onClick={() => setActiveView("runs")}
+          >
+            <ListChecks className="size-3.5" />
+            Runs
+            <span className="tabular-nums text-muted-foreground">
+              {snapshot.runs.length}
+            </span>
+          </Button>
         </div>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
             className="size-8"
+            onClick={openCommandsAndProcesses}
+            aria-label={`Open ${WORKSPACE_TOOLS_LABEL}`}
+            title={WORKSPACE_TOOLS_LABEL}
+          >
+            <SquareTerminal className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
             onClick={() => void loadSnapshot()}
-            aria-label="Refresh routines"
+            aria-label="Refresh automations"
           >
             <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
           </Button>
-          <Button
-            size="sm"
-            className="h-8 gap-1.5 px-2.5 text-xs"
-            onClick={startCreate}
-          >
-            <Plus className="size-3.5" />
-            New
-          </Button>
+          {activeView === "automations" ? (
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 px-2.5 text-xs"
+              onClick={startCreate}
+            >
+              <Plus className="size-3.5" />
+              New
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -1328,22 +1551,77 @@ export function WorkspaceRoutinesPanel(props: {
         </div>
       ) : null}
 
-      {!loading && snapshot.routines.length === 0 ? (
+      {loading &&
+      snapshot.routines.length === 0 &&
+      snapshot.runs.length === 0 ? (
+        <div
+          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 py-10 text-center"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="grid size-20 place-items-center rounded-full bg-muted/45 ring-1 ring-border/70">
+            <ThinkingOrb
+              state="searching"
+              size={64}
+              theme="auto"
+              aria-label="Loading automation center"
+            />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Loading automation center
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Restoring workflows, execution policy, and run history.
+            </p>
+          </div>
+        </div>
+      ) : activeView === "runs" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {snapshot.runs.length === 0 ? (
+            <Empty className="h-full border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ListChecks />
+                </EmptyMedia>
+                <EmptyTitle>No automation runs yet</EmptyTitle>
+                <EmptyDescription>
+                  Every manual or scheduled execution appears here with its
+                  immutable ID, config hash, trust policy, and result.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <div className="grid gap-2">
+              {snapshot.runs.map((run) => (
+                <AutomationRunCard
+                  key={run.id}
+                  run={run}
+                  automation={snapshot.routines.find(
+                    (routine) => routine.id === run.routineId,
+                  )}
+                  onOpen={(target) => void openRunResult(target)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : !loading && snapshot.routines.length === 0 ? (
         <Empty className="flex-1 border-0">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Clock3 />
             </EmptyMedia>
-            <EmptyTitle>No routines yet</EmptyTitle>
+            <EmptyTitle>No automations yet</EmptyTitle>
             <EmptyDescription>
-              Schedule repeatable work with its own model, permissions,
-              repository, and Information resources.
+              Schedule fresh-context agent work with its own model, trust
+              policy, repository, and Information resources.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button size="sm" onClick={startCreate}>
               <Plus className="size-4" />
-              Create routine
+              Create automation
             </Button>
           </EmptyContent>
         </Empty>
@@ -1390,9 +1668,7 @@ export function WorkspaceRoutinesPanel(props: {
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
                     <span>{formatRoutineSchedule(routine.schedule)}</span>
-                    <span className="truncate">
-                      {routine.runtime.model}
-                    </span>
+                    <span className="truncate">{routine.runtime.model}</span>
                   </div>
                 </button>
               );
@@ -1419,7 +1695,7 @@ export function WorkspaceRoutinesPanel(props: {
                       onClick={() => void runNow(selectedRoutine)}
                       disabled={
                         busyRoutineId === selectedRoutine.id ||
-                        selectedRoutineHasActiveRun
+                        selectedRoutineAtConcurrencyLimit
                       }
                       aria-label="Run now"
                     >
@@ -1430,7 +1706,7 @@ export function WorkspaceRoutinesPanel(props: {
                       size="icon"
                       className="size-8"
                       onClick={() => startEdit(selectedRoutine)}
-                      aria-label="Edit routine"
+                      aria-label="Edit automation"
                     >
                       <Pencil className="size-3.5" />
                     </Button>
@@ -1457,6 +1733,13 @@ export function WorkspaceRoutinesPanel(props: {
                   </Detail>
                   <Detail label="Effort">
                     {selectedRoutine.runtime.effort}
+                  </Detail>
+                  <Detail label="Trust">
+                    {formatAutomationTrustPolicy(selectedRoutine.trustPolicy)}
+                  </Detail>
+                  <Detail label="Concurrency">
+                    {selectedRoutineActiveRunCount}/
+                    {selectedRoutine.maxConcurrentRuns}
                   </Detail>
                 </div>
 
@@ -1504,64 +1787,13 @@ export function WorkspaceRoutinesPanel(props: {
                   </div>
                 ) : (
                   <div className="grid gap-2">
-                    {selectedRuns.map((run) => {
-                      const presentation = getRunStatusPresentation(run.status);
-                      return (
-                        <div
-                          key={run.id}
-                          className="rounded-md border border-border/70 p-2.5"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "h-5 px-1.5 text-[9px]",
-                                presentation.className,
-                              )}
-                            >
-                              {presentation.label}
-                            </Badge>
-                            <span className="text-[10px] text-muted-foreground">
-                              {formatDateTime(run.startedAt)}
-                            </span>
-                          </div>
-                          {run.error ? (
-                            <p
-                              className={cn(
-                                "mt-2 text-[11px] leading-4",
-                                run.status === "skipped"
-                                  ? "text-muted-foreground"
-                                  : "text-destructive",
-                              )}
-                            >
-                              {run.error}
-                            </p>
-                          ) : run.resultPreview ? (
-                            <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-[11px] leading-4 text-foreground">
-                              {run.resultPreview}
-                            </p>
-                          ) : (
-                            <p className="mt-2 text-[11px] text-muted-foreground">
-                              {run.status === "completed"
-                                ? "Completed without a text response. Open the task to inspect its tool output."
-                                : run.status === "waiting"
-                                  ? "Waiting for approval or user input."
-                                  : "The task is still running."}
-                            </p>
-                          )}
-                          {run.taskId ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="mt-1.5 h-7 px-2 text-[10px]"
-                              onClick={() => void openRunResult(run)}
-                            >
-                              Open task result
-                            </Button>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+                    {selectedRuns.map((run) => (
+                      <AutomationRunCard
+                        key={run.id}
+                        run={run}
+                        onOpen={(target) => void openRunResult(target)}
+                      />
+                    ))}
                   </div>
                 )}
               </section>
@@ -1572,16 +1804,14 @@ export function WorkspaceRoutinesPanel(props: {
 
       <ConfirmDialog
         open={Boolean(deleteRoutine)}
-        title="Delete routine"
+        title="Delete automation"
         description={
           deleteRoutine
             ? `Delete "${deleteRoutine.name}" and its saved run history? Created task conversations remain in their workspaces.`
             : ""
         }
         confirmLabel="Delete"
-        loading={Boolean(
-          deleteRoutine && busyRoutineId === deleteRoutine.id,
-        )}
+        loading={Boolean(deleteRoutine && busyRoutineId === deleteRoutine.id)}
         onCancel={() => setDeleteRoutine(null)}
         onConfirm={() => void confirmDelete()}
       />

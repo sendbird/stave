@@ -29,6 +29,7 @@ import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import { Card, Toaster, toast } from "@/components/ui";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { QuitConfirmationDialog } from "@/components/layout/QuitConfirmationDialog";
+import { requestComparePreparation } from "@/components/compare/compare-prepare-request";
 import { listLatestWorkspaceTurns } from "@/lib/db/turns.db";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { isTaskArchived } from "@/lib/tasks";
@@ -124,7 +125,6 @@ export function AppShell() {
     refreshProjectFiles,
     refreshWorkspaces,
     openFleetView,
-    startCompareRunFromActiveDraft,
     openProject,
     switchWorkspace,
     abortTaskTurn,
@@ -166,7 +166,6 @@ export function AppShell() {
           state.refreshProjectFiles,
           state.refreshWorkspaces,
           state.openFleetView,
-          state.startCompareRunFromActiveDraft,
           state.openProject,
           state.switchWorkspace,
           state.abortTaskTurn,
@@ -276,17 +275,20 @@ export function AppShell() {
   const handleContinueWorkspace = useCallback(() => {
     dispatchTopBarPrAction("continue");
   }, []);
-  const handleStartCompareRun = useCallback(async () => {
-    const result = await startCompareRunFromActiveDraft();
-    if (!result.ok) {
-      toast.error("Unable to start compare run", {
-        description: result.message,
-      });
+  const handleStartCompareRun = useCallback(() => {
+    const state = useAppStore.getState();
+    const taskId = state.activeTaskId.trim();
+    const taskExists = state.tasks.some(
+      (task) => task.id === taskId && !isTaskArchived(task),
+    );
+    if (!taskId || !taskExists) {
+      toast.error("Open a task before comparing runs");
       return;
     }
-    toast.success("Compare run started");
     setCommandPaletteOpen(false);
-  }, [startCompareRunFromActiveDraft]);
+    state.selectTask({ taskId });
+    requestComparePreparation(taskId);
+  }, []);
   const handleOpenLatestCompletedTurnTask = useCallback(async () => {
     const stateBefore = useAppStore.getState();
     if (stateBefore.workspaces.length === 0) {
@@ -335,10 +337,14 @@ export function AppShell() {
 
       if (isTaskArchived(targetTask)) {
         stateAfter.restoreTask({ taskId: latestTarget.taskId });
+        stateAfter.requestTaskScrollToLatest({
+          taskId: latestTarget.taskId,
+        });
         return;
       }
 
       stateAfter.selectTask({ taskId: latestTarget.taskId });
+      stateAfter.requestTaskScrollToLatest({ taskId: latestTarget.taskId });
     } catch (error) {
       toast.error("Unable to find the latest completed turn", {
         description:
@@ -1316,7 +1322,7 @@ export function AppShell() {
             <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
           </div>
         ) : null}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-tl-xl">
           <TopBar />
           <div
             ref={panelRowRef}

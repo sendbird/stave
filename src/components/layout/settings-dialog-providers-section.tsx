@@ -60,7 +60,6 @@ import {
   DraftInput,
   LabeledField,
   readInt,
-  SectionHeading,
   SectionStack,
   SettingsFieldGuide,
   SettingsCard,
@@ -547,16 +546,16 @@ function DescribedSelect<T extends string>(args: {
           <SelectValue placeholder={triggerLabel} />
         </SelectTrigger>
         <SelectContent
-          position="popper"
+          alignItemWithTrigger={false}
           align="start"
           sideOffset={6}
-          className={`${UI_LAYER_CLASS.popover} min-w-[var(--radix-select-trigger-width)] max-w-sm bg-popover`}
+          className={`${UI_LAYER_CLASS.popover} min-w-[var(--anchor-width)] max-w-sm bg-popover`}
         >
           {args.options.map((option) => (
             <SelectItem
               key={option.value}
               value={option.value}
-              textValue={option.label}
+              label={option.label}
             >
               {option.label}
             </SelectItem>
@@ -731,10 +730,6 @@ export function ProvidersSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Providers"
-        description="Provider-specific runtime controls and connected feature status for Claude and Codex."
-      />
       <SettingsCard
         title="Trusted Approvals"
         description="Approvals marked as always allowed. Bash entries are stored as command prefixes instead of trusting every shell command."
@@ -1079,7 +1074,9 @@ export function ProvidersSection() {
                   <SettingsFieldGuide
                     title="Claude Plan Mode Approvals"
                     summary="Controls how many approval prompts plan mode shows. Plan mode is always read-only — mutating file edits and mutating Bash are hard-denied at every level; these options only relax the prompt for non-mutating Bash, subagents, and read-only MCP tools."
-                    items={buildGuideItems(CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP)}
+                    items={buildGuideItems(
+                      CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP,
+                    )}
                     examples={buildGuideExamples(
                       CLAUDE_PLAN_MODE_APPROVAL_SCOPE_HELP,
                     )}

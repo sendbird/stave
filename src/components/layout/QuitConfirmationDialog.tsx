@@ -47,11 +47,8 @@ export function QuitConfirmationDialog(props: QuitConfirmationDialogProps) {
     >
       <DialogContent
         showCloseButton={false}
-        className="max-w-[min(30rem,calc(100vw-2rem))] gap-0 overflow-hidden border border-border/70 bg-background p-0 shadow-2xl"
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          confirmButtonRef.current?.focus();
-        }}
+        className="max-w-[min(30rem,calc(100vw-2rem))] gap-0 overflow-hidden border border-border/70 bg-background p-0"
+        initialFocus={() => confirmButtonRef.current}
       >
         <form onSubmit={handleSubmit}>
           <div className="border-b border-border/60 bg-linear-to-b from-muted/45 to-transparent px-5 py-5">

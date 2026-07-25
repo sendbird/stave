@@ -34,18 +34,61 @@ afterEach(() => {
 });
 
 describe("task stream switching", () => {
+  test("requests the latest message when the active task is selected again", async () => {
+    const localStorage = createMemoryStorage();
+    (globalThis as { window?: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+    };
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-1",
+      activeAppSurface: { kind: "workspace" },
+      activeSurface: { kind: "task", taskId: "task-1" },
+      tasks: [
+        {
+          id: "task-1",
+          title: "Task 1",
+          provider: "codex",
+          updatedAt: "2026-03-10T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+    });
+
+    useAppStore.getState().selectTask({ taskId: "task-1" });
+    expect(useAppStore.getState().scrollToLatestMessageRequest).toEqual({
+      taskId: "task-1",
+      nonce: 1,
+    });
+
+    useAppStore.getState().selectTask({ taskId: "task-1" });
+    expect(useAppStore.getState().scrollToLatestMessageRequest).toEqual({
+      taskId: "task-1",
+      nonce: 2,
+    });
+  });
+
   test("keeps streaming updates attached to the original task after selecting another task", async () => {
     const localStorage = createMemoryStorage();
-    let streamListener: ((payload: {
-      streamId: string;
-      event: unknown;
-      sequence: number;
-      done: boolean;
-      taskId: string | null;
-      workspaceId: string | null;
-      providerId: "claude-code" | "codex";
-      turnId: string | null;
-    }) => void) | null = null;
+    let streamListener:
+      | ((payload: {
+          streamId: string;
+          event: unknown;
+          sequence: number;
+          done: boolean;
+          taskId: string | null;
+          workspaceId: string | null;
+          providerId: "claude-code" | "codex";
+          turnId: string | null;
+        }) => void)
+      | null = null;
 
     (globalThis as { window?: unknown }).window = {
       localStorage,
@@ -78,7 +121,9 @@ describe("task stream switching", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      workspaces: [{ id: "ws-main", name: "Main", updatedAt: "2026-03-10T00:00:00.000Z" }],
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-03-10T00:00:00.000Z" },
+      ],
       activeWorkspaceId: "ws-main",
       projectPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
@@ -159,7 +204,9 @@ describe("task stream switching", () => {
     expect(nextState.activeTurnIdsByTask["task-1"]).toBeUndefined();
     expect(nextState.messagesByTask["task-2"]).toEqual([]);
     expect(taskOneAssistant?.role).toBe("assistant");
-    expect(taskOneAssistant?.content).toBe("Task 1 kept updating in the background.");
+    expect(taskOneAssistant?.content).toBe(
+      "Task 1 kept updating in the background.",
+    );
     expect(taskOneAssistant?.isStreaming).toBe(false);
   });
 });

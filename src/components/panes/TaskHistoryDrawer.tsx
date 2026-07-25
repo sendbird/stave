@@ -135,8 +135,12 @@ export function TaskHistoryDrawer(args: {
   }
 
   return (
-    <Drawer open={args.open} onOpenChange={handleOpenChange} direction="right">
-      <DrawerContent className="data-[vaul-drawer-direction=right]:w-[min(28rem,92vw)] data-[vaul-drawer-direction=right]:sm:max-w-[28rem]">
+    <Drawer
+      open={args.open}
+      onOpenChange={handleOpenChange}
+      swipeDirection="right"
+    >
+      <DrawerContent className="data-[swipe-direction=right]:w-[min(28rem,92vw)] data-[swipe-direction=right]:sm:max-w-[28rem]">
         <DrawerHeader className="border-b border-border/70 px-5 py-5 text-left">
           <DrawerTitle>Task History</DrawerTitle>
           <DrawerDescription>
@@ -194,9 +198,7 @@ export function TaskHistoryDrawer(args: {
           )}
         </div>
         <DrawerFooter className="border-t border-border/70 px-5 py-4">
-          <DrawerClose asChild>
-            <Button variant="outline">Close</Button>
-          </DrawerClose>
+          <DrawerClose render={<Button variant="outline" />}>Close</DrawerClose>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

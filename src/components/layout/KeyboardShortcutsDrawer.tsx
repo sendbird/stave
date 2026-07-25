@@ -1,14 +1,8 @@
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Keyboard } from "lucide-react";
+import { Keyboard, Search, X } from "lucide-react";
 import {
-  Badge,
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Drawer,
   DrawerClose,
   DrawerContent,
@@ -16,6 +10,7 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
+  Input,
   Kbd,
   KbdGroup,
   KbdSeparator,
@@ -39,6 +34,7 @@ import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
   normalizeVisualCommentShortcut,
 } from "@/lib/visual-comment-shortcuts";
+import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import {
   getTaskPresetShortcutLabel,
   TASK_PRESET_SHORTCUT_SLOT_LABELS,
@@ -68,7 +64,7 @@ function ShortcutKeys({
   sequenceJoiner = "or",
 }: Pick<ShortcutItem, "sequences" | "sequenceJoiner">) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
       {sequences.map((sequence, sequenceIndex) => (
         <Fragment key={sequence.join("-")}>
           {sequenceIndex > 0 ? (
@@ -94,6 +90,7 @@ export function KeyboardShortcutsDrawer({
   open,
   onOpenChange,
 }: KeyboardShortcutsDrawerProps) {
+  const [searchQuery, setSearchQuery] = useState("");
   const modifierLabel = useMemo(
     () =>
       typeof navigator !== "undefined" &&
@@ -154,10 +151,10 @@ export function KeyboardShortcutsDrawer({
       normalizedVisualCommentShortcut === "mod-alt-period"
         ? [[modifierLabel, "Alt", "."]]
         : normalizedVisualCommentShortcut === "mod-period"
-        ? [[modifierLabel, "."]]
-        : normalizedVisualCommentShortcut === "mod-shift-period"
-          ? [[modifierLabel, "Shift", "."]]
-          : [["Disabled"]],
+          ? [[modifierLabel, "."]]
+          : normalizedVisualCommentShortcut === "mod-shift-period"
+            ? [[modifierLabel, "Shift", "."]]
+            : [["Disabled"]],
     [modifierLabel, normalizedVisualCommentShortcut],
   );
   const modelShortcutItems = useMemo<ShortcutItem[]>(() => {
@@ -257,10 +254,6 @@ export function KeyboardShortcutsDrawer({
     };
   };
 
-  if (!open) {
-    return null;
-  }
-
   const sections = useMemo<ShortcutSection[]>(
     () => [
       {
@@ -342,9 +335,9 @@ export function KeyboardShortcutsDrawer({
           }),
           buildShellShortcutItem({
             actionId: "view.show-scripts",
-            label: "Open scripts panel",
+            label: `Open ${WORKSPACE_TOOLS_LABEL}`,
             description:
-              "Open the workspace scripts runtime, hooks, and services panel.",
+              "Open workspace commands, processes, lifecycle triggers, and recent runs.",
           }),
           buildShellShortcutItem({
             actionId: "view.show-lens",
@@ -480,82 +473,150 @@ export function KeyboardShortcutsDrawer({
       visualCommentShortcutSequences,
     ],
   );
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredSections = useMemo(() => {
+    if (!normalizedSearchQuery) {
+      return sections;
+    }
+    return sections.flatMap((section) => {
+      const sectionMatches = `${section.title} ${section.description}`
+        .toLowerCase()
+        .includes(normalizedSearchQuery);
+      const shortcuts = sectionMatches
+        ? section.shortcuts
+        : section.shortcuts.filter((shortcut) =>
+            `${shortcut.label} ${shortcut.description} ${shortcut.sequences
+              .flat()
+              .join(" ")}`
+              .toLowerCase()
+              .includes(normalizedSearchQuery),
+          );
+      return shortcuts.length > 0 ? [{ ...section, shortcuts }] : [];
+    });
+  }, [normalizedSearchQuery, sections]);
+  const visibleShortcutCount = useMemo(
+    () =>
+      filteredSections.reduce(
+        (count, section) => count + section.shortcuts.length,
+        0,
+      ),
+    [filteredSections],
+  );
+
+  if (!open) {
+    return null;
+  }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} direction="top">
-      <DrawerContent className="overflow-hidden border-border/80 bg-card shadow-2xl data-[vaul-drawer-direction=top]:mb-0 data-[vaul-drawer-direction=top]:h-dvh data-[vaul-drawer-direction=top]:max-h-dvh data-[vaul-drawer-direction=top]:rounded-b-none data-[vaul-drawer-direction=top]:border-b-0">
+    <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="up">
+      <DrawerContent className="overflow-hidden border-border/80 bg-background data-[swipe-direction=up]:mb-0 data-[swipe-direction=up]:h-dvh data-[swipe-direction=up]:max-h-dvh data-[swipe-direction=up]:rounded-b-none data-[swipe-direction=up]:border-b-0">
         <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
-          <DrawerHeader className="shrink-0 gap-0 border-b border-border/70 px-5 pb-5 pt-5 !text-left md:px-6">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/80 text-foreground">
-                  <Keyboard className="size-5" />
-                </div>
+          <DrawerHeader className="shrink-0 gap-0 border-b border-border/65 bg-[linear-gradient(110deg,color-mix(in_oklch,var(--surface)_90%,var(--background)),var(--background))] px-5 py-4 !text-left md:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Keyboard className="size-5 shrink-0 text-primary" />
                 <div className="min-w-0 text-left">
-                  <DrawerTitle className="truncate text-lg font-semibold leading-tight">
-                    Keyboard Shortcuts
+                  <DrawerTitle className="font-heading truncate text-lg font-semibold leading-tight">
+                    Keyboard reference
                   </DrawerTitle>
                   <DrawerDescription className="mt-0.5 truncate">
-                    The current shell shortcuts available in Stave.
+                    Search every active Stave shortcut and custom binding.
                   </DrawerDescription>
                 </div>
               </div>
-              <Badge
-                variant="secondary"
-                className="hidden shrink-0 sm:inline-flex"
-              >
-                {modifierLabel} on this device
-              </Badge>
+              <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:min-w-64">
+                <div className="relative min-w-0 flex-1">
+                  <Search
+                    className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Find an action or key…"
+                    aria-label="Search keyboard shortcuts"
+                    className="h-9 bg-background/55 pl-8 pr-8"
+                  />
+                  {searchQuery ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2"
+                      aria-label="Clear shortcut search"
+                      onClick={() => setSearchQuery("")}
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  ) : null}
+                </div>
+                <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+                  {visibleShortcutCount} shown
+                </span>
+              </div>
             </div>
           </DrawerHeader>
-          <div
-            data-vaul-no-drag
-            className="grid min-h-0 flex-1 auto-rows-max content-start items-start gap-4 overflow-y-auto overscroll-contain px-5 py-5 md:grid-cols-2 md:px-6 xl:grid-cols-4"
-          >
-            {sections.map((section) => (
-              <Card
-                key={section.title}
-                className="self-start border-border/70 bg-background/75 shadow-sm"
-              >
-                <CardHeader className="gap-1.5 pb-3">
-                  <CardTitle className="text-sm font-semibold">
-                    {section.title}
-                  </CardTitle>
-                  <CardDescription>{section.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {section.shortcuts.map((shortcut) => (
-                    <div
-                      key={shortcut.label}
-                      className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card/80 px-3 py-3"
-                    >
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {shortcut.label}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {shortcut.description}
-                        </p>
-                      </div>
-                      <ShortcutKeys
-                        sequences={shortcut.sequences}
-                        sequenceJoiner={shortcut.sequenceJoiner}
-                      />
+          <div className="grid min-h-0 flex-1 auto-rows-max content-start items-start gap-x-8 gap-y-7 overflow-y-auto overscroll-contain px-5 py-6 md:grid-cols-2 md:px-6 xl:grid-cols-3">
+            {filteredSections.length > 0 ? (
+              filteredSections.map((section) => (
+                <section
+                  key={section.title}
+                  className="self-start border-t-2 border-primary/25"
+                >
+                  <header className="px-1 py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <h2 className="text-xs font-semibold tracking-[0.12em] text-foreground uppercase">
+                        {section.title}
+                      </h2>
+                      <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                        {section.shortcuts.length}
+                      </span>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            ))}
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {section.description}
+                    </p>
+                  </header>
+                  <div className="border-b border-border/55">
+                    {section.shortcuts.map((shortcut) => (
+                      <div
+                        key={shortcut.label}
+                        className="flex flex-col gap-2 border-t border-border/55 px-1 py-3 transition-colors hover:bg-accent/12"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">
+                            {shortcut.label}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            {shortcut.description}
+                          </p>
+                        </div>
+                        <ShortcutKeys
+                          sequences={shortcut.sequences}
+                          sequenceJoiner={shortcut.sequenceJoiner}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))
+            ) : (
+              <div className="col-span-full py-20 text-center">
+                <p className="text-sm font-medium text-foreground">
+                  No shortcut matches “{searchQuery.trim()}”
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Try an action name, panel, or key combination.
+                </p>
+              </div>
+            )}
           </div>
           <DrawerFooter className="mt-0 shrink-0 border-t border-border/70 px-5 py-4 md:flex-row md:items-start md:justify-between md:px-6">
-            <p className="max-w-4xl text-sm text-muted-foreground">
-              Workspace quick jump follows the sidebar's top-to-bottom order.
-              Quick open and the shortcut guide are ignored while typing in
-              inputs, and command palette, plan mode, model selector, model
-              shortcuts, and shell chords stay globally available.
+            <p className="max-w-4xl text-xs leading-5 text-muted-foreground">
+              Showing {modifierLabel} bindings for this device. Customize shell,
+              model, and preset shortcuts from Settings → Command Palette.
             </p>
-            <DrawerClose asChild>
-              <Button variant="outline">Close</Button>
+            <DrawerClose render={<Button variant="outline" />}>
+              Close
             </DrawerClose>
           </DrawerFooter>
         </div>

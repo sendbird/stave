@@ -60,7 +60,7 @@ import {
   type ReactNode,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { DraftInput, SectionHeading } from "./settings-dialog.shared";
+import { DraftInput } from "./settings-dialog.shared";
 
 type SnapshotState = {
   status: "idle" | "loading" | "ready" | "error";
@@ -275,13 +275,12 @@ export function CodexSection() {
         ] as const,
     ),
   );
-  const currentThreadId =
-    activeTaskId
-      ? getProviderSessionId({
-          sessions: providerSessionByTask[activeTaskId],
-          providerId: "codex",
-        })
-      : null;
+  const currentThreadId = activeTaskId
+    ? getProviderSessionId({
+        sessions: providerSessionByTask[activeTaskId],
+        providerId: "codex",
+      })
+    : null;
   const workspaceCwd =
     workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
   const trimmedBinaryPath = codexBinaryPath.trim();
@@ -1115,10 +1114,6 @@ export function CodexSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Codex"
-        description="Inspect the live Codex App Server surface, manage plugins and threads, and verify how the current runtime differs from Stave defaults."
-      />
       <section className="overflow-hidden rounded-2xl border border-border/70 bg-background/70">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -1516,7 +1511,7 @@ export function CodexSection() {
                     title="Plugins and apps"
                     description="Installed, discoverable, and currently accessible extension surfaces."
                   >
-                    <Accordion type="multiple" className="w-full space-y-3">
+                    <Accordion multiple className="w-full space-y-3">
                       <AccordionItem
                         value="plugins"
                         className="rounded-xl border border-border/70 px-3"
@@ -2510,7 +2505,7 @@ export function CodexSection() {
                     title="Config layers"
                     description="Merged config plus per-layer diagnostics returned by Codex."
                   >
-                    <Accordion type="multiple" className="w-full space-y-3">
+                    <Accordion multiple className="w-full space-y-3">
                       {snapshot.config?.layers.map((layer, index) => (
                         <AccordionItem
                           key={`${layer.name}:${layer.version}:${index}`}

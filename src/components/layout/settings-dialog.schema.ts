@@ -9,6 +9,7 @@ import {
   KeyRound,
   Palette,
   Package2,
+  Rocket,
   ScrollText,
   SearchCheck,
   Shield,
@@ -17,6 +18,7 @@ import {
   TerminalSquare,
   Wrench,
 } from "lucide-react";
+import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
 
 export const settingsSections = [
   {
@@ -42,15 +44,17 @@ export const settingsSections = [
   },
   {
     id: "scripts",
-    label: "Scripts",
-    icon: Sparkles,
-    description: "Project automation, services, actions, and hooks.",
+    label: WORKSPACE_TOOLS_PRESENTATION.label,
+    icon: WORKSPACE_TOOLS_PRESENTATION.icon,
+    description:
+      "One-shot commands, long-running processes, lifecycle triggers, and execution environments.",
     keywords: [
       "quick commands",
       "commands",
-      "automation",
+      "processes",
       "service",
       "hooks",
+      "scripts",
       "npm",
       "pnpm",
       "yarn",
@@ -95,10 +99,10 @@ export const settingsSections = [
   },
   {
     id: "codex",
-    label: "Codex",
+    label: "Codex Inspector",
     icon: Package2,
     description:
-      "Codex app server status, extensions, threads, commands, and advanced config.",
+      "Advanced App Server, plugin, thread, command, and config diagnostics.",
     keywords: [
       "app server",
       "plugins",
@@ -118,7 +122,7 @@ export const settingsSections = [
   {
     id: "kickoff",
     label: "Kickoff",
-    icon: Sparkles,
+    icon: Rocket,
     description: "External source matching and workspace proposal settings.",
     keywords: ["workspace", "jira", "slack", "figma", "prd", "source"],
   },
@@ -209,7 +213,6 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
         "providers",
         "presets",
         "models",
-        "codex",
         "mcp",
         "kickoff",
         "prompts",
@@ -217,7 +220,10 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
       ],
     },
     { label: "Interface", ids: ["commandPalette", "lens"] },
-    { label: "System", ids: ["tooling", "developer", "changelog"] },
+    {
+      label: "System & Advanced",
+      ids: ["tooling", "codex", "developer", "changelog"],
+    },
   ];
 
 export function getSettingsSectionSearchText(

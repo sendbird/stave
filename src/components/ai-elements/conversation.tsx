@@ -32,6 +32,7 @@ interface ConversationContextValue {
   setContainerEl: (next: HTMLDivElement | null) => void;
   atBottom: boolean;
   stickToBottomRef: MutableRefObject<boolean>;
+  userScrollIntentUntilRef: MutableRefObject<number>;
   setAtBottom: (next: boolean) => void;
   setStickToBottom: (next: boolean) => void;
   scrollToBottom: (args?: { behavior?: ScrollBehavior }) => void;
@@ -81,6 +82,14 @@ function getDistanceFromBottom(container: HTMLDivElement) {
   return container.scrollHeight - container.scrollTop - container.clientHeight;
 }
 
+function isMeasurableScrollContainer(container: HTMLDivElement) {
+  return (
+    container.isConnected &&
+    container.clientHeight > 0 &&
+    container.getClientRects().length > 0
+  );
+}
+
 function useConversationContext() {
   const context = useContext(ConversationContext);
   if (!context) {
@@ -101,6 +110,7 @@ export function Conversation({
   // State is only used by consumers that need to reactively show/hide (e.g., scroll button).
   const atBottomRef = useRef(true);
   const stickToBottomRef = useRef(true);
+  const userScrollIntentUntilRef = useRef(0);
   const [atBottom, setAtBottomState] = useState(true);
   const scrollToBottomOverrideRef = useRef<ScrollToBottomHandler | null>(null);
   const scrollToBottomFrameRef = useRef<number | null>(null);
@@ -121,6 +131,7 @@ export function Conversation({
 
   const scrollToBottom = useCallback((args?: ScrollToBottomArgs) => {
     stickToBottomRef.current = true;
+    userScrollIntentUntilRef.current = 0;
     // Always scroll the container directly — this is the most reliable path
     // with customScrollParent. The override (Virtuoso scrollToIndex) is called
     // as a supplementary hint but container.scrollTo is the primary driver.
@@ -142,7 +153,11 @@ export function Conversation({
       }
       scrollToBottomFrameRef.current = requestAnimationFrame(() => {
         scrollToBottomFrameRef.current = null;
-        if (!stickToBottomRef.current) {
+        if (
+          !stickToBottomRef.current ||
+          containerRef.current !== container ||
+          !container.isConnected
+        ) {
           return;
         }
         container.scrollTo({ top: container.scrollHeight, behavior });
@@ -158,6 +173,7 @@ export function Conversation({
     return () => {
       if (scrollToBottomFrameRef.current !== null) {
         cancelAnimationFrame(scrollToBottomFrameRef.current);
+        scrollToBottomFrameRef.current = null;
       }
     };
   }, []);
@@ -179,6 +195,7 @@ export function Conversation({
       setContainerEl,
       atBottom,
       stickToBottomRef,
+      userScrollIntentUntilRef,
       setAtBottom,
       setStickToBottom,
       scrollToBottom,
@@ -229,6 +246,7 @@ export function ConversationContent(props: ConversationContentProps) {
     setContainerEl,
     setAtBottom,
     stickToBottomRef,
+    userScrollIntentUntilRef,
     setStickToBottom,
     scrollToBottom,
   } = useConversationContext();
@@ -245,37 +263,73 @@ export function ConversationContent(props: ConversationContentProps) {
     className,
     ...rest
   } = props;
-  const lastReportedScrollTopRef = useRef<number>(0);
-  const lastReportedAtBottomRef = useRef(true);
+  const lastReportedScrollRef = useRef<{
+    scope?: string | number;
+    scrollTop: number;
+    atBottom: boolean;
+  }>({
+    scope: undefined,
+    scrollTop: Number.NaN,
+    atBottom: true,
+  });
   const scrollThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollReportFrameRef = useRef<number | null>(null);
   const pendingScrollReportRef = useRef<{
+    scope?: string | number;
     handler: ScrollPositionChangeHandler;
     args: ScrollPositionChangeArgs;
   } | null>(null);
   const emitScrollPositionChange = useCallback(
-    (report: {
-      handler: ScrollPositionChangeHandler;
-      args: ScrollPositionChangeArgs;
-    }) => {
+    (
+      report: {
+        scope?: string | number;
+        handler: ScrollPositionChangeHandler;
+        args: ScrollPositionChangeArgs;
+      },
+      force = false,
+    ) => {
+      const currentArgs = force
+        ? {
+            ...report.args,
+            scrollTop: report.args.container.scrollTop,
+            atBottom:
+              getDistanceFromBottom(report.args.container) <
+              AT_BOTTOM_THRESHOLD,
+          }
+        : report.args;
+      const previous = lastReportedScrollRef.current;
       if (
-        report.args.scrollTop === lastReportedScrollTopRef.current &&
-        report.args.atBottom === lastReportedAtBottomRef.current
+        !force &&
+        report.scope === previous.scope &&
+        currentArgs.scrollTop === previous.scrollTop &&
+        currentArgs.atBottom === previous.atBottom
       ) {
         return;
       }
-      lastReportedScrollTopRef.current = report.args.scrollTop;
-      lastReportedAtBottomRef.current = report.args.atBottom;
-      report.handler(report.args);
+      lastReportedScrollRef.current = {
+        scope: report.scope,
+        scrollTop: currentArgs.scrollTop,
+        atBottom: currentArgs.atBottom,
+      };
+      report.handler(currentArgs);
     },
     [],
   );
-  const flushPendingScrollReport = useCallback(() => {
-    const pending = pendingScrollReportRef.current;
-    pendingScrollReportRef.current = null;
-    if (pending) {
-      emitScrollPositionChange(pending);
-    }
-  }, [emitScrollPositionChange]);
+  const flushPendingScrollReport = useCallback(
+    (clear = true) => {
+      const pending = pendingScrollReportRef.current;
+      if (clear) {
+        pendingScrollReportRef.current = null;
+      }
+      if (pending && isMeasurableScrollContainer(pending.args.container)) {
+        // Virtuoso can replace the visible rows without changing scrollTop.
+        // Re-run the handler against the current DOM so the trailing capture
+        // records the settled message anchor rather than a recycled row.
+        emitScrollPositionChange(pending, true);
+      }
+    },
+    [emitScrollPositionChange],
+  );
   const lastAutoScrollScopeRef = useRef<{
     initialized: boolean;
     scope?: string | number;
@@ -290,6 +344,9 @@ export function ConversationContent(props: ConversationContentProps) {
     scope: forceScrollScopeKey,
     key: forceScrollKey,
   });
+  const markUserScrollIntent = () => {
+    userScrollIntentUntilRef.current = Date.now() + 1_500;
+  };
   useEffect(() => {
     const previous = lastAutoScrollScopeRef.current;
     const scopeChanged =
@@ -347,8 +404,6 @@ export function ConversationContent(props: ConversationContentProps) {
     // following the bottom after this forced scroll.
     setStickToBottom(true);
     const behavior = autoScrollBehavior ?? "auto";
-    // Single RAF is sufficient — the double/triple RAF pattern caused jitter
-    // by issuing multiple scroll commands across successive frames.
     const rafId = requestAnimationFrame(() => {
       scrollToBottom({ behavior });
     });
@@ -364,14 +419,34 @@ export function ConversationContent(props: ConversationContentProps) {
   ]);
 
   useEffect(() => {
+    const flushBeforeNavigation = () => {
+      if (pendingScrollReportRef.current) {
+        // Pointer and keyboard navigation can hide the active Dockview pane
+        // before the trailing timer runs. Capture its settled virtual rows at
+        // the interaction boundary while their geometry is still measurable.
+        flushPendingScrollReport();
+      }
+    };
+    document.addEventListener("pointerdown", flushBeforeNavigation, true);
+    document.addEventListener("keydown", flushBeforeNavigation, true);
+
     return () => {
+      document.removeEventListener("pointerdown", flushBeforeNavigation, true);
+      document.removeEventListener("keydown", flushBeforeNavigation, true);
       if (scrollThrottleRef.current !== null) {
         clearTimeout(scrollThrottleRef.current);
         scrollThrottleRef.current = null;
       }
+      if (scrollReportFrameRef.current !== null) {
+        cancelAnimationFrame(scrollReportFrameRef.current);
+        scrollReportFrameRef.current = null;
+      }
+      // A large wheel gesture can emit several scroll events before a fast
+      // task switch. Preserve the latest geometry while the old pane is still
+      // measurable, but never write from an already detached or hidden pane.
       flushPendingScrollReport();
     };
-  }, [flushPendingScrollReport]);
+  }, [flushPendingScrollReport, scrollScopeKey]);
 
   return (
     <div
@@ -383,16 +458,51 @@ export function ConversationContent(props: ConversationContentProps) {
         "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
         className,
       )}
+      {...rest}
+      onWheelCapture={markUserScrollIntent}
+      onTouchStartCapture={markUserScrollIntent}
+      onPointerDownCapture={(event) => {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const scrollbarHit =
+          event.pointerType === "mouse" && event.clientX >= bounds.right - 18;
+        if (event.pointerType === "touch" || scrollbarHit) {
+          markUserScrollIntent();
+        }
+      }}
+      onKeyDownCapture={(event) => {
+        if (
+          [
+            "ArrowDown",
+            "ArrowUp",
+            "End",
+            "Home",
+            "PageDown",
+            "PageUp",
+            " ",
+          ].includes(event.key)
+        ) {
+          markUserScrollIntent();
+        }
+      }}
       onScroll={(event) => {
         const target = event.currentTarget;
         const distance =
           target.scrollHeight - target.scrollTop - target.clientHeight;
         const nextAtBottom = distance < AT_BOTTOM_THRESHOLD;
         setAtBottom(nextAtBottom);
-        setStickToBottom(nextAtBottom);
+        if (nextAtBottom) {
+          userScrollIntentUntilRef.current = 0;
+          setStickToBottom(true);
+        } else if (Date.now() <= userScrollIntentUntilRef.current) {
+          // Layout measurement and programmatic restoration also emit trusted
+          // scroll events. Only an actual wheel/touch/scrollbar/keyboard gesture
+          // may opt the conversation out of following the latest message.
+          setStickToBottom(false);
+        }
 
         if (onScrollPositionChange) {
           const report = {
+            scope: scrollScopeKey,
             handler: onScrollPositionChange,
             args: {
               scrollTop: target.scrollTop,
@@ -400,6 +510,7 @@ export function ConversationContent(props: ConversationContentProps) {
               atBottom: nextAtBottom,
             },
           };
+          pendingScrollReportRef.current = report;
           if (scrollThrottleRef.current === null) {
             // Capture the leading position while the pane is still visible.
             // A trailing-only debounce can run after a fast pane switch, when
@@ -410,11 +521,19 @@ export function ConversationContent(props: ConversationContentProps) {
               flushPendingScrollReport();
             }, 100);
           } else {
-            pendingScrollReportRef.current = report;
+            // Keep the 100 ms trailing capture for a fully settled wheel
+            // gesture, but also commit the latest visible geometry once per
+            // frame so an immediate task switch cannot retain an intermediate
+            // anchor from the gesture's first scroll event.
+            if (scrollReportFrameRef.current === null) {
+              scrollReportFrameRef.current = requestAnimationFrame(() => {
+                scrollReportFrameRef.current = null;
+                flushPendingScrollReport(false);
+              });
+            }
           }
         }
       }}
-      {...rest}
     >
       {withInnerLayout ? (
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5">
@@ -480,6 +599,8 @@ export function ConversationVirtualList<T>(
     height: number;
   } | null>(null);
   const resizeFrameRef = useRef<number | null>(null);
+  const listHeightFrameRef = useRef<number | null>(null);
+  const bottomOverrideFrameRef = useRef<number | null>(null);
   const [containerResizeTick, setContainerResizeTick] = useState(0);
   const lastIndex = props.data.length - 1;
 
@@ -494,7 +615,10 @@ export function ConversationVirtualList<T>(
         return (
           <div
             ref={ref}
-            className={cn("mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 sm:pt-5", className)}
+            className={cn(
+              "mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 sm:pt-5",
+              className,
+            )}
             {...rest}
           />
         );
@@ -503,12 +627,7 @@ export function ConversationVirtualList<T>(
         itemProps: ComponentPropsWithoutRef<"div">,
       ) {
         const { className, ...rest } = itemProps;
-        return (
-          <div
-            className={cn("pb-3 last:pb-6", className)}
-            {...rest}
-          />
-        );
+        return <div className={cn("pb-3 last:pb-6", className)} {...rest} />;
       },
     };
   }, []);
@@ -528,14 +647,22 @@ export function ConversationVirtualList<T>(
       // The previous double-RAF pattern fought with Virtuoso's internal scroll.
       if (containerEl) {
         const behavior = args?.behavior ?? "auto";
-        requestAnimationFrame(() => {
-          if (stickToBottomRef.current) {
+        if (bottomOverrideFrameRef.current !== null) {
+          cancelAnimationFrame(bottomOverrideFrameRef.current);
+        }
+        bottomOverrideFrameRef.current = requestAnimationFrame(() => {
+          bottomOverrideFrameRef.current = null;
+          if (stickToBottomRef.current && containerEl.isConnected) {
             containerEl.scrollTo({ top: containerEl.scrollHeight, behavior });
           }
         });
       }
     });
     return () => {
+      if (bottomOverrideFrameRef.current !== null) {
+        cancelAnimationFrame(bottomOverrideFrameRef.current);
+        bottomOverrideFrameRef.current = null;
+      }
       setScrollToBottomOverride(null);
     };
   }, [containerEl, lastIndex, setScrollToBottomOverride]);
@@ -601,6 +728,35 @@ export function ConversationVirtualList<T>(
       }
     };
   }, [containerEl, lastIndex, stickToBottomRef]);
+
+  const handleTotalListHeightChanged = useCallback(() => {
+    if (
+      !containerEl ||
+      lastIndex < 0 ||
+      !stickToBottomRef.current ||
+      getDistanceFromBottom(containerEl) <= AT_BOTTOM_THRESHOLD
+    ) {
+      return;
+    }
+    if (listHeightFrameRef.current !== null) {
+      cancelAnimationFrame(listHeightFrameRef.current);
+    }
+    listHeightFrameRef.current = requestAnimationFrame(() => {
+      listHeightFrameRef.current = null;
+      if (stickToBottomRef.current) {
+        setContainerResizeTick((current) => current + 1);
+      }
+    });
+  }, [containerEl, lastIndex, stickToBottomRef]);
+
+  useEffect(() => {
+    return () => {
+      if (listHeightFrameRef.current !== null) {
+        cancelAnimationFrame(listHeightFrameRef.current);
+        listHeightFrameRef.current = null;
+      }
+    };
+  }, []);
 
   // Restore scroll position on task switch or data changes.
   // Reads sticky intent from the shared ref so user scrolling does not add an
@@ -764,11 +920,7 @@ export function ConversationVirtualList<T>(
       restoreToBottom("force-scroll-key");
       return cancelScheduledFrames;
     }
-    if (
-      !restoreRequested &&
-      !listScopeChanged &&
-      stickToBottomRef.current
-    ) {
+    if (!restoreRequested && !listScopeChanged && stickToBottomRef.current) {
       restoreToBottom("list-update-while-sticky");
       return cancelScheduledFrames;
     }
@@ -818,14 +970,23 @@ export function ConversationVirtualList<T>(
       return cancelScheduledFrames;
     }
     let attempts = 0;
+    let settledFrames = 0;
     const maxAttempts = 4;
     const runPreciseRestore = () => {
       attempts += 1;
       const result = refineSavedAnchorPosition(savedMessageId, savedOffset);
       if (result === "missing") {
+        settledFrames = 0;
         restoreToSavedAnchor(savedIndex, savedOffset);
+      } else if (result === "adjusted") {
+        settledFrames = 0;
+      } else {
+        settledFrames += 1;
       }
-      if (attempts < maxAttempts) {
+      // Virtuoso can remeasure once after the first apparently settled frame.
+      // Require two consecutive stable frames, while still capping the retry
+      // window so restoration cannot keep fighting later user input.
+      if (attempts < maxAttempts && settledFrames < 2) {
         rafIds.push(requestAnimationFrame(runPreciseRestore));
       }
     };
@@ -892,6 +1053,7 @@ export function ConversationVirtualList<T>(
       defaultItemHeight={120}
       atBottomThreshold={AT_BOTTOM_THRESHOLD}
       atBottomStateChange={handleAtBottomChange}
+      totalListHeightChanged={handleTotalListHeightChanged}
       followOutput={followOutput}
       computeItemKey={props.itemKey}
       components={components}
@@ -959,7 +1121,7 @@ export function ConversationScrollButton(props: ConversationScrollButtonProps) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipTrigger render={button}></TooltipTrigger>
         <TooltipContent side="top">{tooltip}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -1047,7 +1209,7 @@ export function ConversationDownload(args: ConversationDownloadProps) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipTrigger render={button}></TooltipTrigger>
         <TooltipContent side="top">{tooltip}</TooltipContent>
       </Tooltip>
     </TooltipProvider>

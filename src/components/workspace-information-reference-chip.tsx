@@ -1,5 +1,10 @@
 import { Info, X } from "lucide-react";
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
+import {
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui";
 import {
   getWorkspaceInformationReferenceLabel,
   type WorkspaceInformationReference,
@@ -29,18 +34,20 @@ export function WorkspaceInformationReferenceChip(args: {
       </span>
       {args.onRemove ? (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              disabled={args.disabled}
-              aria-label={`Remove ${label}`}
-              onClick={args.onRemove}
-              className="-mr-1 size-5 text-primary/70 hover:text-primary"
-            >
-              <X className="size-3" />
-            </Button>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                disabled={args.disabled}
+                aria-label={`Remove ${label}`}
+                onClick={args.onRemove}
+                className="-mr-1 size-5 text-primary/70 hover:text-primary"
+              />
+            }
+          >
+            <X className="size-3" />
           </TooltipTrigger>
           <TooltipContent>Remove Information reference</TooltipContent>
         </Tooltip>

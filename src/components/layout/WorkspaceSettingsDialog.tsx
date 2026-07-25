@@ -12,13 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
+import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { ScriptsManager } from "@/components/scripts";
 import { WorkspaceSyncStatusCard } from "./WorkspaceSyncStatusCard";
 
@@ -59,7 +55,8 @@ export function WorkspaceSettingsContent(props: {
   const canEditLabel = props.isDefault !== true && Boolean(props.onRename);
   const normalizedLabel = label.trim();
   const currentLabel = props.workspaceName.trim();
-  const labelChanged = normalizedLabel.length > 0 && normalizedLabel !== currentLabel;
+  const labelChanged =
+    normalizedLabel.length > 0 && normalizedLabel !== currentLabel;
 
   useEffect(() => {
     setLabel(props.workspaceName);
@@ -87,7 +84,9 @@ export function WorkspaceSettingsContent(props: {
         workspaceId: props.workspaceId,
         name: normalizedLabel,
       });
-      setLabelMessage(result.ok ? "Saved." : (result.message ?? "Save failed."));
+      setLabelMessage(
+        result.ok ? "Saved." : (result.message ?? "Save failed."),
+      );
     } finally {
       setIsSavingLabel(false);
     }
@@ -157,12 +156,9 @@ export function WorkspaceSettingsContent(props: {
       >
         <TabsList className="min-w-36 shrink-0">
           <TabsTrigger value="sync">Sync</TabsTrigger>
-          <TabsTrigger value="scripts">Scripts</TabsTrigger>
+          <TabsTrigger value="scripts">{WORKSPACE_TOOLS_LABEL}</TabsTrigger>
         </TabsList>
-        <TabsContent
-          value="sync"
-          className="max-h-[60vh] overflow-y-auto pt-2"
-        >
+        <TabsContent value="sync" className="max-h-[60vh] overflow-y-auto pt-2">
           <WorkspaceSyncStatusCard cwd={props.workspacePath} />
         </TabsContent>
         <TabsContent

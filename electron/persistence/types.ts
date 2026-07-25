@@ -198,7 +198,10 @@ export interface PersistenceLocalMcpRequestLog {
   createdAt: string;
 }
 
-export interface PersistenceLocalMcpRequestLogCreateInput extends Omit<PersistenceLocalMcpRequestLog, "createdAt" | "hasRequestPayload"> {
+export interface PersistenceLocalMcpRequestLogCreateInput extends Omit<
+  PersistenceLocalMcpRequestLog,
+  "createdAt" | "hasRequestPayload"
+> {
   createdAt?: string;
 }
 
@@ -216,12 +219,11 @@ export type PersistenceNotificationKind =
   | "task.approval_requested"
   | "task.user_input_requested";
 
-export type PersistenceNotificationAction =
-  | {
-      type: "approval";
-      requestId: string;
-      messageId?: string | null;
-    };
+export type PersistenceNotificationAction = {
+  type: "approval";
+  requestId: string;
+  messageId?: string | null;
+};
 
 export interface PersistenceNotificationRecord {
   id: string;
@@ -240,9 +242,14 @@ export interface PersistenceNotificationRecord {
   payload: Record<string, unknown>;
   createdAt: string;
   readAt: string | null;
+  resolvedAt?: string | null;
+  expiresAt?: string | null;
 }
 
-export interface PersistenceNotificationCreateInput extends Omit<PersistenceNotificationRecord, "createdAt" | "readAt"> {
+export interface PersistenceNotificationCreateInput extends Omit<
+  PersistenceNotificationRecord,
+  "createdAt" | "readAt"
+> {
   createdAt?: string;
   readAt?: string | null;
   dedupeKey?: string | null;
@@ -267,5 +274,4 @@ export interface PersistenceRpcErrorResponse {
 }
 
 export type PersistenceRpcResponse<TResult = unknown> =
-  | PersistenceRpcSuccessResponse<TResult>
-  | PersistenceRpcErrorResponse;
+  PersistenceRpcSuccessResponse<TResult> | PersistenceRpcErrorResponse;

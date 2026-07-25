@@ -39,6 +39,40 @@ export const LensCredentialDeleteArgsSchema = z
   .object({ id: z.string().uuid() })
   .strict();
 
+export const LensLogQueryArgsSchema = z
+  .object({
+    workspaceId: z.string().min(1).max(200),
+    lensSessionId: z.string().min(1).max(200).optional(),
+    limit: z.number().int().min(1).max(500).optional(),
+  })
+  .strict();
+
+export const LensLogClearArgsSchema = LensLogQueryArgsSchema.omit({
+  limit: true,
+}).strict();
+
+export const LensDiagnosticsCaptureArgsSchema = LensLogClearArgsSchema.extend({
+  enabled: z.boolean(),
+}).strict();
+
+export const LensConsoleEntryDetailArgsSchema = LensLogClearArgsSchema.extend({
+  entryId: z.string().min(1).max(512),
+}).strict();
+
+export const LensConsoleObjectPropertiesArgsSchema =
+  LensConsoleEntryDetailArgsSchema.extend({
+    objectHandle: z.string().uuid(),
+    limit: z.number().int().min(1).max(100).optional(),
+  }).strict();
+
+export const LensNetworkEntryDetailArgsSchema =
+  LensConsoleEntryDetailArgsSchema;
+
+export const LensNetworkBodyArgsSchema =
+  LensNetworkEntryDetailArgsSchema.extend({
+    kind: z.enum(["request", "response"]),
+  }).strict();
+
 export const SuggestTaskNameArgsSchema = z
   .object({
     prompt: z.string().max(2000),
@@ -1080,6 +1114,8 @@ export const NotificationRecordSchema = z
     payload: NotificationPayloadSchema.optional(),
     createdAt: z.string().max(100),
     readAt: z.string().max(100).nullable().optional(),
+    resolvedAt: z.string().max(100).nullable().optional(),
+    expiresAt: z.string().max(100).nullable().optional(),
   })
   .strict();
 
@@ -1110,6 +1146,7 @@ export const MarkNotificationReadArgsSchema = z
   .object({
     id: z.string().min(1).max(200),
     readAt: z.string().max(100).optional(),
+    resolvedAt: z.string().max(100).optional(),
   })
   .strict();
 
@@ -1117,6 +1154,18 @@ export const MarkAllNotificationsReadArgsSchema = z
   .object({
     readAt: z.string().max(100).optional(),
   })
+  .strict()
+  .optional();
+
+export const PruneNotificationsArgsSchema = z
+  .object({
+    now: z.string().max(100).optional(),
+  })
+  .strict()
+  .optional();
+
+export const ClearNotificationHistoryArgsSchema = z
+  .object({})
   .strict()
   .optional();
 

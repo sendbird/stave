@@ -44,15 +44,20 @@ export function ScriptEntryCard(props: {
   issues: ScriptEntryFieldIssues;
   expanded: boolean;
   onToggleExpand: () => void;
-  onFieldChange: (field: keyof ScriptEditorEntry, value: string | boolean) => void;
+  onFieldChange: (
+    field: keyof ScriptEditorEntry,
+    value: string | boolean,
+  ) => void;
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
   onDuplicate: () => void;
   run: ScriptEntryRunControls;
 }) {
-  const title = props.entry.label.trim()
-    || props.entry.id.trim()
-    || `${props.kind === "service" ? "Service" : "Action"} ${props.index + 1}`;
+  const title =
+    props.entry.label.trim() ||
+    props.entry.id.trim() ||
+    `${props.kind === "service" ? "Process" : "Command"} ${props.index + 1}`;
+  const kindLabel = props.kind === "service" ? "process" : "command";
   const moveUpDisabled = props.index === 0;
   const moveDownDisabled = props.index === props.totalCount - 1;
   const hasIssues = Object.keys(props.issues).length > 0;
@@ -64,7 +69,9 @@ export function ScriptEntryCard(props: {
     <div
       className={cn(
         "rounded-lg border bg-card/60",
-        hasIssues && !props.expanded ? "border-destructive/50" : "border-border/70",
+        hasIssues && !props.expanded
+          ? "border-destructive/50"
+          : "border-border/70",
       )}
     >
       <div className="flex flex-col gap-3 p-3 xl:flex-row xl:items-start xl:justify-between">
@@ -75,21 +82,36 @@ export function ScriptEntryCard(props: {
           aria-expanded={props.expanded}
         >
           <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center text-muted-foreground">
-            {props.expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+            {props.expanded ? (
+              <ChevronDown className="size-4" />
+            ) : (
+              <ChevronRight className="size-4" />
+            )}
           </span>
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate text-sm font-medium text-foreground">{title}</span>
+              <span className="truncate text-sm font-medium text-foreground">
+                {title}
+              </span>
               {props.entry.id.trim() ? (
-                <Badge variant="outline" className="rounded-sm px-2 py-0 font-mono text-[10px]">
+                <Badge
+                  variant="outline"
+                  className="rounded-sm px-2 py-0 font-mono text-[10px]"
+                >
                   {props.entry.id.trim()}
                 </Badge>
               ) : (
-                <Badge variant="secondary" className="rounded-sm px-2 py-0 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="rounded-sm px-2 py-0 text-[10px]"
+                >
                   draft id
                 </Badge>
               )}
-              <Badge variant="secondary" className="rounded-sm px-2 py-0 font-normal">
+              <Badge
+                variant="secondary"
+                className="rounded-sm px-2 py-0 font-normal"
+              >
                 {targetLabel(props.entry.target, props.targetOptions)}
               </Badge>
               {props.kind === "service" && props.entry.orbitEnabled ? (
@@ -110,7 +132,9 @@ export function ScriptEntryCard(props: {
               ) : null}
             </div>
             {props.entry.description.trim() ? (
-              <p className="text-xs text-muted-foreground">{props.entry.description.trim()}</p>
+              <p className="text-xs text-muted-foreground">
+                {props.entry.description.trim()}
+              </p>
             ) : (
               <p className="text-xs text-muted-foreground">
                 One command per line. JSON stays normalized behind the form.
@@ -119,7 +143,7 @@ export function ScriptEntryCard(props: {
             {props.triggers.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Hooks
+                  Triggers
                 </span>
                 {props.triggers.map((trigger) => (
                   <Badge
@@ -142,11 +166,17 @@ export function ScriptEntryCard(props: {
               size="sm"
               className="gap-1.5"
               disabled={!isRunning && Boolean(props.run.disabledReason)}
-              title={!isRunning ? props.run.disabledReason ?? undefined : undefined}
+              title={
+                !isRunning ? (props.run.disabledReason ?? undefined) : undefined
+              }
               onClick={isRunning ? props.run.onStop : props.run.onRun}
             >
-              {isRunning ? <Square className="size-3.5" /> : <Play className="size-3.5" />}
-              {isRunning ? "Stop" : "Run"}
+              {isRunning ? (
+                <Square className="size-3.5" />
+              ) : (
+                <Play className="size-3.5" />
+              )}
+              {isRunning ? "Stop" : props.kind === "service" ? "Start" : "Run"}
             </Button>
           ) : null}
           <Button
@@ -176,16 +206,12 @@ export function ScriptEntryCard(props: {
             size="icon"
             className="size-8"
             onClick={props.onDuplicate}
-            aria-label="Duplicate"
-            title="Duplicate"
+            aria-label={`Duplicate ${kindLabel}`}
+            title={`Duplicate ${kindLabel}`}
           >
             <Copy className="size-3.5" />
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={props.onToggleExpand}
-          >
+          <Button variant="outline" size="sm" onClick={props.onToggleExpand}>
             {props.expanded ? "Done" : "Edit"}
           </Button>
           <Button
@@ -193,8 +219,8 @@ export function ScriptEntryCard(props: {
             size="icon"
             className="size-8 text-destructive hover:text-destructive"
             onClick={props.onRemove}
-            aria-label="Delete"
-            title="Delete"
+            aria-label={`Delete ${kindLabel}`}
+            title={`Delete ${kindLabel}`}
           >
             <Trash2 className="size-3.5" />
           </Button>
@@ -202,10 +228,14 @@ export function ScriptEntryCard(props: {
       </div>
 
       {props.run.available && !isRunning && props.run.disabledReason ? (
-        <p className="px-3 pb-1 text-[11px] text-muted-foreground">{props.run.disabledReason}</p>
+        <p className="px-3 pb-1 text-[11px] text-muted-foreground">
+          {props.run.disabledReason}
+        </p>
       ) : null}
       {!props.run.available && props.run.hint ? (
-        <p className="px-3 pb-1 text-[11px] text-muted-foreground">{props.run.hint}</p>
+        <p className="px-3 pb-1 text-[11px] text-muted-foreground">
+          {props.run.hint}
+        </p>
       ) : null}
 
       {props.run.available ? (

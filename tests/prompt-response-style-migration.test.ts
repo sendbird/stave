@@ -3,6 +3,7 @@ import { createJSONStorage } from "zustand/middleware";
 import {
   DEFAULT_PROMPT_RESPONSE_STYLE,
   LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE,
+  LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE_WITH_LINKS,
 } from "@/lib/providers/prompt-defaults";
 
 interface StorageLike {
@@ -50,14 +51,17 @@ describe("prompt response style migration", () => {
       },
     };
 
-    localStorage.setItem("stave-store", JSON.stringify({
-      state: {
-        settings: {
-          promptResponseStyle: LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE,
+    localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          settings: {
+            promptResponseStyle: LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE,
+          },
         },
-      },
-      version: 0,
-    }));
+        version: 0,
+      }),
+    );
 
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState(useAppStore.getInitialState());
@@ -65,7 +69,9 @@ describe("prompt response style migration", () => {
     const persistedStore = useAppStore as typeof useAppStore & {
       persist: {
         rehydrate: () => Promise<void>;
-        setOptions: (options: { storage: ReturnType<typeof createJSONStorage> }) => void;
+        setOptions: (options: {
+          storage: ReturnType<typeof createJSONStorage>;
+        }) => void;
       };
     };
     persistedStore.persist.setOptions({
@@ -73,7 +79,9 @@ describe("prompt response style migration", () => {
     });
     await persistedStore.persist.rehydrate();
 
-    expect(useAppStore.getState().settings.promptResponseStyle).toBe(DEFAULT_PROMPT_RESPONSE_STYLE);
+    expect(useAppStore.getState().settings.promptResponseStyle).toBe(
+      DEFAULT_PROMPT_RESPONSE_STYLE,
+    );
   });
 
   test("preserves customized response style prompts during rehydrate", async () => {
@@ -93,14 +101,17 @@ describe("prompt response style migration", () => {
       "- Use inline code for CLI flags only.",
     ].join("\n");
 
-    localStorage.setItem("stave-store", JSON.stringify({
-      state: {
-        settings: {
-          promptResponseStyle: customPrompt,
+    localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          settings: {
+            promptResponseStyle: customPrompt,
+          },
         },
-      },
-      version: 0,
-    }));
+        version: 0,
+      }),
+    );
 
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState(useAppStore.getInitialState());
@@ -108,7 +119,9 @@ describe("prompt response style migration", () => {
     const persistedStore = useAppStore as typeof useAppStore & {
       persist: {
         rehydrate: () => Promise<void>;
-        setOptions: (options: { storage: ReturnType<typeof createJSONStorage> }) => void;
+        setOptions: (options: {
+          storage: ReturnType<typeof createJSONStorage>;
+        }) => void;
       };
     };
     persistedStore.persist.setOptions({
@@ -116,6 +129,53 @@ describe("prompt response style migration", () => {
     });
     await persistedStore.persist.rehydrate();
 
-    expect(useAppStore.getState().settings.promptResponseStyle).toBe(customPrompt);
+    expect(useAppStore.getState().settings.promptResponseStyle).toBe(
+      customPrompt,
+    );
+  });
+
+  test("rehydrates the structured markdown-link default into the conversational default", async () => {
+    const localStorage = createMemoryStorage();
+    (globalThis as { window?: unknown }).window = {
+      localStorage,
+      api: {
+        fs: {
+          listFiles: async () => ({ ok: true, files: [] }),
+        },
+      },
+    };
+
+    localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          settings: {
+            promptResponseStyle:
+              LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE_WITH_LINKS,
+          },
+        },
+        version: 0,
+      }),
+    );
+
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState(useAppStore.getInitialState());
+
+    const persistedStore = useAppStore as typeof useAppStore & {
+      persist: {
+        rehydrate: () => Promise<void>;
+        setOptions: (options: {
+          storage: ReturnType<typeof createJSONStorage>;
+        }) => void;
+      };
+    };
+    persistedStore.persist.setOptions({
+      storage: createJSONStorage(() => localStorage as Storage),
+    });
+    await persistedStore.persist.rehydrate();
+
+    expect(useAppStore.getState().settings.promptResponseStyle).toBe(
+      DEFAULT_PROMPT_RESPONSE_STYLE,
+    );
   });
 });

@@ -87,10 +87,7 @@ describe("normalizeMessagesForSnapshot", () => {
             model: "claude-sonnet-4-6",
             providerId: "claude-code",
             content: "done",
-            parts: [
-              legacyPart,
-              { type: "text", text: "done" },
-            ],
+            parts: [legacyPart, { type: "text", text: "done" }],
           },
         ],
       },
@@ -134,11 +131,15 @@ describe("normalizeMessagesForSnapshot", () => {
     }
     expect(normalizedPart.content).toContain("image payload omitted");
     expect(normalizedPart.content).not.toContain("data:image/png;base64");
-    expect(normalizedPart.content.length).toBeLessThanOrEqual(MAX_FILE_CONTEXT_CONTENT_CHARS);
+    expect(normalizedPart.content.length).toBeLessThanOrEqual(
+      MAX_FILE_CONTEXT_CONTENT_CHARS,
+    );
   });
 
   test("sanitizes oversized tool outputs in persisted history", () => {
-    const oversizedToolOutput = "y".repeat(MAX_FILE_CONTEXT_CONTENT_CHARS + 256);
+    const oversizedToolOutput = "y".repeat(
+      MAX_FILE_CONTEXT_CONTENT_CHARS + 256,
+    );
     const normalized = normalizeMessagesForSnapshot({
       messagesByTask: {
         "task-1": [
@@ -169,11 +170,15 @@ describe("normalizeMessagesForSnapshot", () => {
       throw new Error("expected tool_use part");
     }
     expect(normalizedPart.output).toContain("tool output truncated");
-    expect(normalizedPart.output?.length).toBeLessThanOrEqual(MAX_FILE_CONTEXT_CONTENT_CHARS);
+    expect(normalizedPart.output?.length).toBeLessThanOrEqual(
+      MAX_FILE_CONTEXT_CONTENT_CHARS,
+    );
   });
 
   test("sanitizes oversized approval descriptions in persisted history", () => {
-    const oversizedApprovalDescription = "Input: ".concat("y".repeat(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS + 256));
+    const oversizedApprovalDescription = "Input: ".concat(
+      "y".repeat(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS + 256),
+    );
     const normalized = normalizeMessagesForSnapshot({
       messagesByTask: {
         "task-1": [
@@ -202,8 +207,12 @@ describe("normalizeMessagesForSnapshot", () => {
     if (normalizedPart?.type !== "approval") {
       throw new Error("expected approval part");
     }
-    expect(normalizedPart.description).toContain("approval description truncated");
-    expect(normalizedPart.description.length).toBeLessThanOrEqual(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS);
+    expect(normalizedPart.description).toContain(
+      "approval description truncated",
+    );
+    expect(normalizedPart.description.length).toBeLessThanOrEqual(
+      MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
+    );
   });
 });
 

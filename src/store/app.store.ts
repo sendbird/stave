@@ -8,10 +8,12 @@ import {
   type PersistedTurnSummary,
 } from "@/lib/db/turns.db";
 import {
+  clearNotificationHistory as clearPersistedNotificationHistory,
   createNotification as createPersistedNotification,
   listNotifications as listPersistedNotifications,
   markAllNotificationsRead as markAllPersistedNotificationsRead,
   markNotificationRead as markPersistedNotificationRead,
+  pruneNotifications as prunePersistedNotifications,
 } from "@/lib/db/notifications.db";
 import { workspaceFsAdapter } from "@/lib/fs";
 import type { WorkspaceFileData, WorkspaceImageData } from "@/lib/fs/fs.types";
@@ -65,10 +67,20 @@ import type {
   AppNotificationCreateInput,
 } from "@/lib/notifications/notification.types";
 import {
+  buildNotificationExpiresAt,
+  isNotificationAttentionKind,
   isNotificationUnread,
-  sortNotificationsNewestFirst,
   workspaceHasActiveTurns,
 } from "@/lib/notifications/notification.types";
+import {
+  clearNotificationHistoryInList,
+  findPendingApprovalNotificationIds,
+  findPendingUserInputNotificationIds,
+  getNotificationHistoryClearableIds,
+  markAllNotificationsReadInList,
+  markNotificationReadInList,
+  mergeNotificationIntoList,
+} from "@/lib/notifications/notification-state";
 import { buildNotificationToastOptions } from "@/lib/notifications/notification.utils";
 import {
   DEFAULT_NOTIFICATION_SOUND_PRESET,
@@ -267,15 +279,22 @@ import {
   formatReviewFeedbackPrompt,
 } from "@/lib/review-feedback";
 import {
-  buildCompareWorkspaceName,
   buildDefaultCompareVariants,
   buildInitialCompareRun,
+  finalizeCompareRunLaunch,
+  finishCompareRunsForTask,
+  normalizeCompareReviewCriteria,
+  normalizePersistedCompareRuns,
   normalizeCompareVariants,
+  patchCompareRunVariant,
+  resolveCompareTurnOutcome,
   type CompareRun,
   type CompareRunVariant,
-  type CompareRunVariantConfig,
+  type StartCompareRun,
   type StartCompareRunResult,
 } from "@/lib/compare-runs";
+import { launchReadyCompareJudgesFromStore } from "@/store/compare-run-judge";
+import { launchCompareRunVariants } from "@/store/compare-run-start";
 import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import {
   applyProjectBasePromptToRuntimeOptions,
@@ -404,6 +423,8 @@ import {
   MAX_USER_THEMES,
 } from "@/lib/themes";
 import {
+  type ProjectAppearanceColorId,
+  type ProjectAppearanceIconId,
   type RecentProjectState,
   normalizeWorkspaceInitCommand,
   normalizeProjectWorkspaceInitCommand,
@@ -415,6 +436,7 @@ import {
   summarizeTerminalCommandDetail,
   summarizeWorkspaceInitCommand,
   updateCurrentProjectTextPreference,
+  updateCurrentProjectAppearance,
   buildWorkspaceRootNodeModulesSymlinkCommand,
   buildWorkspaceCreationNotice,
   isDefaultWorkspaceName,
@@ -463,6 +485,10 @@ import {
   applyApprovalState,
   applyUserInputState,
 } from "@/store/editor.utils";
+import {
+  reduceTaskScrollToLatestRequest,
+  type TaskScrollToLatestRequest,
+} from "@/store/task-scroll.utils";
 
 const LOCAL_ABORT_SYSTEM_EVENT_CONTENT =
   "Generation was stopped locally before completion.";
@@ -1320,6 +1346,7 @@ interface AppState
     taskId: string;
     nonce: number;
   } | null;
+  scrollToLatestMessageRequest: TaskScrollToLatestRequest | null;
   pendingCloseEditorTabId: string | null;
   pendingEditorSelection: {
     tabId: string;
@@ -1435,6 +1462,11 @@ interface AppState
     projectPath?: string;
     enabled: boolean;
   }) => void;
+  setProjectAppearance: (args: {
+    projectPath?: string;
+    icon: ProjectAppearanceIconId;
+    color: ProjectAppearanceColorId;
+  }) => void;
   setDarkMode: (args: { enabled: boolean }) => void;
   installCustomTheme: (args: { theme: CustomThemeDefinition }) => {
     ok: boolean;
@@ -1455,11 +1487,8 @@ interface AppState
   closeFleetView: () => void;
   toggleFleetView: () => void;
   openCompareRun: (args: { compareRunId: string }) => void;
-  startCompareRun: (args: {
-    seedPrompt: string;
-    variants?: CompareRunVariantConfig[];
-  }) => Promise<StartCompareRunResult>;
-  startCompareRunFromActiveDraft: () => Promise<StartCompareRunResult>;
+  startCompareRun: StartCompareRun;
+  startCompareRunFromActiveDraft: () => ReturnType<StartCompareRun>;
   openCompareVariant: (args: {
     compareRunId: string;
     variantId: string;
@@ -1477,6 +1506,7 @@ interface AppState
     projectPath?: string;
     refreshFromPersistence?: boolean;
   }) => Promise<void>;
+  requestTaskScrollToLatest: (args: { taskId: string }) => void;
   selectTask: (args: { taskId: string }) => void;
   loadTaskMessages: (args: {
     taskId: string;
@@ -1577,8 +1607,12 @@ interface AppState
     workspacePath?: string | null;
   }) => Promise<void>;
   takeOverTask: (args: { taskId: string }) => void;
-  markNotificationRead: (args: { id: string }) => Promise<void>;
+  markNotificationRead: (args: {
+    id: string;
+    resolvedAt?: string;
+  }) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
+  clearNotificationHistory: () => Promise<number>;
   openNotificationContext: (args: {
     notificationId: string;
     targetSurface?: "task" | "fleet";
@@ -1696,78 +1730,6 @@ interface AppState
     taskId: string;
     instruction?: string;
   }) => void;
-}
-
-function mergeNotificationIntoList(args: {
-  notifications: AppNotification[];
-  notification: AppNotification;
-}) {
-  return sortNotificationsNewestFirst([
-    args.notification,
-    ...args.notifications.filter((item) => item.id !== args.notification.id),
-  ]);
-}
-
-function markNotificationReadInList(args: {
-  notifications: AppNotification[];
-  id: string;
-  readAt: string;
-}) {
-  return args.notifications.map((notification) => {
-    if (notification.id !== args.id || notification.readAt) {
-      return notification;
-    }
-    return {
-      ...notification,
-      readAt: args.readAt,
-    };
-  });
-}
-
-function findUnreadApprovalNotificationIds(args: {
-  notifications: AppNotification[];
-  taskId: string;
-  messageId: string;
-  requestId: string;
-}) {
-  return args.notifications.flatMap((notification) => {
-    if (!isNotificationUnread(notification)) {
-      return [];
-    }
-
-    const action = notification.action;
-    if (action?.type !== "approval" || action.requestId !== args.requestId) {
-      return [];
-    }
-
-    if (action.messageId) {
-      return action.messageId === args.messageId ? [notification.id] : [];
-    }
-
-    if (notification.taskId?.trim() !== args.taskId.trim()) {
-      return [];
-    }
-
-    return [notification.id];
-  });
-}
-
-function markAllNotificationsReadInList(args: {
-  notifications: AppNotification[];
-  readAt: string;
-}) {
-  let changed = false;
-  const nextNotifications = args.notifications.map((notification) => {
-    if (notification.readAt) {
-      return notification;
-    }
-    changed = true;
-    return {
-      ...notification,
-      readAt: args.readAt,
-    };
-  });
-  return changed ? nextNotifications : args.notifications;
 }
 
 function resolveTaskTitleFromSession(args: {
@@ -4031,6 +3993,18 @@ export const useAppStore = create<AppState>()(
           };
         }
 
+        if (isNotificationAttentionKind(notification.kind)) {
+          await get().focusTaskAttention({
+            taskId,
+            workspaceId,
+            projectPath,
+          });
+          if (options.targetSurface === "fleet") {
+            get().openFleetView();
+          }
+          return { status: "opened" };
+        }
+
         if (options.targetSurface === "fleet") {
           await get().focusTaskAttention({
             taskId,
@@ -4685,6 +4659,7 @@ export const useAppStore = create<AppState>()(
         paneTabMeta: {},
         dockLayout: null,
         focusPendingInteractionRequest: null,
+        scrollToLatestMessageRequest: null,
         pendingCloseEditorTabId: null,
         pendingEditorSelection: null,
         projectName: null,
@@ -5587,6 +5562,14 @@ export const useAppStore = create<AppState>()(
           });
         },
         hydrateNotifications: async () => {
+          try {
+            await prunePersistedNotifications();
+          } catch (error) {
+            console.error(
+              "[notifications] failed to prune expired notifications",
+              error,
+            );
+          }
           try {
             const notifications = await listPersistedNotifications({
               limit: 500,
@@ -7565,6 +7548,17 @@ export const useAppStore = create<AppState>()(
             return recentProjects ? { recentProjects } : state;
           });
         },
+        setProjectAppearance: ({ projectPath, icon, color }) => {
+          set((state) => {
+            const recentProjects = updateCurrentProjectAppearance({
+              state,
+              projectPath,
+              icon,
+              color,
+            });
+            return recentProjects ? { recentProjects } : state;
+          });
+        },
         setProjectWorkspaceUseRootNodeModulesSymlink: ({
           projectPath,
           enabled,
@@ -8048,7 +8042,12 @@ export const useAppStore = create<AppState>()(
           }
           return get().startCompareRun({ seedPrompt });
         },
-        startCompareRun: async ({ seedPrompt, variants }) => {
+        startCompareRun: async ({
+          seedPrompt,
+          variants,
+          judge,
+          reviewCriteria,
+        }) => {
           const normalizedSeedPrompt = seedPrompt.trim();
           if (!normalizedSeedPrompt) {
             return {
@@ -8092,6 +8091,8 @@ export const useAppStore = create<AppState>()(
             baseWorkspaceId,
             baseBranch,
             variants: normalizedVariants,
+            reviewCriteria: normalizeCompareReviewCriteria(reviewCriteria),
+            judge,
             now,
           });
 
@@ -8106,123 +8107,65 @@ export const useAppStore = create<AppState>()(
           const updateVariant = (
             variantId: string,
             patch: Partial<CompareRunVariant>,
+            expectedStatuses?: readonly CompareRunVariant["status"][],
           ) => {
             set((state) => {
-              const currentRun = state.compareRunsById[compareRunId];
-              if (!currentRun) {
-                return state;
-              }
-              return {
-                compareRunsById: {
-                  ...state.compareRunsById,
-                  [compareRunId]: {
-                    ...currentRun,
-                    updatedAt: buildRecentTimestamp(),
-                    variants: currentRun.variants.map((variant) =>
-                      variant.id === variantId
-                        ? { ...variant, ...patch }
-                        : variant,
-                    ),
-                  },
-                },
-              };
+              const compareRunsById = patchCompareRunVariant({
+                runsById: state.compareRunsById,
+                compareRunId,
+                variantId,
+                patch,
+                expectedStatuses,
+                now: buildRecentTimestamp(),
+              });
+              return compareRunsById === state.compareRunsById
+                ? state
+                : { compareRunsById };
             });
           };
-
-          for (let index = 0; index < compareRun.variants.length; index += 1) {
-            const variant = compareRun.variants[index];
-            if (!variant) {
-              continue;
-            }
-            updateVariant(variant.id, { status: "creating" });
-            const workspaceName = buildCompareWorkspaceName({
-              seedPrompt: normalizedSeedPrompt,
-              compareRunId,
-              index,
-              provider: variant.provider,
-            });
-            const createResult = await get().createWorkspace({
-              name: workspaceName,
-              mode: "branch",
-              fromBranch: baseBranch,
-              initialTaskTitle: variant.label?.trim() || `Compare ${index + 1}`,
-            });
-            if (!createResult.ok) {
-              updateVariant(variant.id, {
-                status: "failed",
-                error:
-                  createResult.message?.trim() || "Workspace creation failed.",
-              });
-              continue;
-            }
-
-            const stateAfterCreate = get();
-            const workspaceId = stateAfterCreate.activeWorkspaceId;
-            const taskId = stateAfterCreate.activeTaskId;
-            updateVariant(variant.id, {
-              workspaceId,
-              workspaceName:
-                stateAfterCreate.workspaces.find(
-                  (workspace) => workspace.id === workspaceId,
-                )?.name ?? workspaceName,
-              workspacePath: stateAfterCreate.workspacePathById[workspaceId],
-              branchName: stateAfterCreate.workspaceBranchById[workspaceId],
-              taskId,
-            });
-
-            stateAfterCreate.setTaskProvider({
-              taskId,
-              provider: variant.provider,
-            });
-            if (variant.model?.trim()) {
+          await launchCompareRunVariants({
+            compareRun,
+            seedPrompt: normalizedSeedPrompt,
+            baseBranch,
+            updateVariant,
+            createWorkspace: (input) => get().createWorkspace(input),
+            readCreatedCandidate: (fallbackWorkspaceName) => {
+              const state = get();
+              const workspaceId = state.activeWorkspaceId;
+              const taskId = state.activeTaskId;
+              return workspaceId && taskId
+                ? {
+                    workspaceId,
+                    taskId,
+                    workspaceName:
+                      state.workspaces.find(
+                        (workspace) => workspace.id === workspaceId,
+                      )?.name ?? fallbackWorkspaceName,
+                    workspacePath: state.workspacePathById[workspaceId],
+                    branchName: state.workspaceBranchById[workspaceId],
+                  }
+                : null;
+            },
+            setTaskProvider: (input) => get().setTaskProvider(input),
+            setTaskModel: ({ taskId, model }) =>
               get().updatePromptDraft({
                 taskId,
-                patch: {
-                  runtimeOverrides: {
-                    model: variant.model.trim(),
-                  },
-                },
-              });
-            }
-
-            const launchResult = await get().sendUserMessage({
-              taskId,
-              content: normalizedSeedPrompt,
-            });
-            updateVariant(variant.id, {
-              status: launchResult.status === "blocked" ? "failed" : "running",
-              error:
-                launchResult.status === "blocked"
-                  ? "Variant launch was blocked."
-                  : undefined,
-            });
-          }
+                patch: { runtimeOverrides: { model } },
+              }),
+            sendUserMessage: (input) => get().sendUserMessage(input),
+          });
 
           set((state) => {
-            const currentRun = state.compareRunsById[compareRunId];
-            if (!currentRun) {
+            const compareRunsById = finalizeCompareRunLaunch({
+              runsById: state.compareRunsById,
+              compareRunId,
+              now: buildRecentTimestamp(),
+            });
+            if (compareRunsById === state.compareRunsById) {
               return state;
             }
-            const hasRunningVariant = currentRun.variants.some(
-              (variant) => variant.status === "running",
-            );
-            const hasCreatingVariant = currentRun.variants.some(
-              (variant) => variant.status === "creating",
-            );
-            const nextStatus =
-              hasRunningVariant || hasCreatingVariant ? "running" : "failed";
             return {
-              compareRunsById: {
-                ...state.compareRunsById,
-                [compareRunId]: {
-                  ...currentRun,
-                  status: nextStatus,
-                  updatedAt: buildRecentTimestamp(),
-                  ...(nextStatus === "failed"
-                    ? { error: "No compare variants could be started." }
-                    : {}),
-                },
-              },
+              compareRunsById,
               activeCompareRunId: compareRunId,
               activeAppSurface: WORKSPACE_APP_SURFACE,
               activeSurface: {
@@ -8234,6 +8177,18 @@ export const useAppStore = create<AppState>()(
             };
           });
 
+          const finalRun = get().compareRunsById[compareRunId];
+          if (
+            finalRun?.status === "failed" ||
+            finalRun?.status === "cancelled"
+          ) {
+            return {
+              ok: false,
+              compareRunId,
+              message:
+                finalRun.error || "No compare variants could be started.",
+            };
+          }
           return { ok: true, compareRunId };
         },
         openCompareVariant: async ({ compareRunId, variantId }) => {
@@ -8259,6 +8214,22 @@ export const useAppStore = create<AppState>()(
             return {
               ok: false,
               message: "Compare variant is no longer available.",
+            };
+          }
+          if (keptVariant.status !== "completed") {
+            return {
+              ok: false,
+              message: "Wait until this candidate finishes before keeping it.",
+            };
+          }
+          if (
+            run.judge?.status === "pending" ||
+            run.judge?.status === "running"
+          ) {
+            return {
+              ok: false,
+              message:
+                "Wait for the independent judge before keeping a result.",
             };
           }
 
@@ -8310,6 +8281,15 @@ export const useAppStore = create<AppState>()(
           const run = get().compareRunsById[compareRunId];
           if (!run) {
             return { ok: false, message: "Compare run was not found." };
+          }
+          if (run.keptVariantId) {
+            return {
+              ok: false,
+              message: "The kept candidate is no longer part of this run.",
+            };
+          }
+          if (run.status === "cancelled") {
+            return { ok: true, compareRunId };
           }
 
           for (const variant of run.variants) {
@@ -8426,6 +8406,8 @@ export const useAppStore = create<AppState>()(
             },
           }));
         },
+        requestTaskScrollToLatest: ({ taskId }) =>
+          set((state) => reduceTaskScrollToLatestRequest({ state, taskId })),
         selectTask: ({ taskId }) => {
           const stateBefore = get();
           const targetTask =
@@ -8454,6 +8436,7 @@ export const useAppStore = create<AppState>()(
                 mode: "latest",
               });
             }
+            get().requestTaskScrollToLatest({ taskId });
             return;
           }
           set((state) => ({
@@ -10412,19 +10395,25 @@ export const useAppStore = create<AppState>()(
             };
           });
         },
-        markNotificationRead: async ({ id }) => {
+        markNotificationRead: async ({ id, resolvedAt }) => {
           const readAt = new Date().toISOString();
+          const expiresAt = buildNotificationExpiresAt({
+            readAt: resolvedAt ?? readAt,
+          });
           set((state) => ({
             notifications: markNotificationReadInList({
               notifications: state.notifications,
               id,
               readAt,
+              resolvedAt,
+              expiresAt,
             }),
           }));
           try {
             const persisted = await markPersistedNotificationRead({
               id,
               readAt,
+              resolvedAt,
             });
             if (!persisted) {
               return;
@@ -10447,10 +10436,12 @@ export const useAppStore = create<AppState>()(
         },
         markAllNotificationsRead: async () => {
           const readAt = new Date().toISOString();
+          const expiresAt = buildNotificationExpiresAt({ readAt });
           set((state) => ({
             notifications: markAllNotificationsReadInList({
               notifications: state.notifications,
               readAt,
+              expiresAt,
             }),
           }));
           try {
@@ -10465,6 +10456,27 @@ export const useAppStore = create<AppState>()(
             );
           }
         },
+        clearNotificationHistory: async () => {
+          const notificationIds = getNotificationHistoryClearableIds(
+            get().notifications,
+          );
+          try {
+            const count = await clearPersistedNotificationHistory();
+            set((state) => ({
+              notifications: clearNotificationHistoryInList({
+                notifications: state.notifications,
+                notificationIds,
+              }),
+            }));
+            return count;
+          } catch (error) {
+            console.error(
+              "[notifications] failed to clear notification history",
+              error,
+            );
+            throw error;
+          }
+        },
         openNotificationContext: async ({ notificationId, targetSurface }) => {
           const notification = get().notifications.find(
             (item) => item.id === notificationId,
@@ -10475,7 +10487,10 @@ export const useAppStore = create<AppState>()(
           const result = await openNotificationContextInternal(notification, {
             targetSurface,
           });
-          if (isNotificationUnread(notification)) {
+          if (
+            isNotificationUnread(notification) &&
+            !isNotificationAttentionKind(notification.kind)
+          ) {
             await get().markNotificationRead({ id: notification.id });
           }
           return result;
@@ -10523,7 +10538,6 @@ export const useAppStore = create<AppState>()(
               notification.action.messageId ?? locatedApproval.messageId,
             approved,
           });
-          await latestState.markNotificationRead({ id: notification.id });
         },
         addReviewComment: ({ taskId, filePath, line, side, body }) => {
           const normalizedTaskId = taskId.trim();
@@ -11897,6 +11911,24 @@ export const useAppStore = create<AppState>()(
                     }
                   }
                   if (applied.turnCompleted) {
+                    const compareOutcome =
+                      resolveCompareTurnOutcome(pendingEvents);
+                    set((state) => {
+                      const compareRunsById = finishCompareRunsForTask({
+                        runsById: state.compareRunsById,
+                        taskId: resolvedTaskId,
+                        outcome: compareOutcome.status,
+                        error:
+                          compareOutcome.status === "completed"
+                            ? undefined
+                            : compareOutcome.error,
+                        now: buildRecentTimestamp(),
+                      });
+                      return compareRunsById === state.compareRunsById
+                        ? state
+                        : { compareRunsById };
+                    });
+                    void launchReadyCompareJudgesFromStore(get, set);
                     const latestWorkspaceSession = getWorkspaceSessionForState({
                       state: latestState,
                       workspaceId: taskWorkspaceId,
@@ -12257,16 +12289,20 @@ export const useAppStore = create<AppState>()(
               });
             }
             const latestState = get();
-            const unreadNotificationIds = findUnreadApprovalNotificationIds({
+            const pendingNotificationIds = findPendingApprovalNotificationIds({
               notifications: latestState.notifications,
               taskId,
               messageId,
               requestId,
             });
-            if (unreadNotificationIds.length > 0) {
+            if (pendingNotificationIds.length > 0) {
+              const notificationResolvedAt = new Date(resolvedAt).toISOString();
               void Promise.all(
-                unreadNotificationIds.map((notificationId) =>
-                  latestState.markNotificationRead({ id: notificationId }),
+                pendingNotificationIds.map((notificationId) =>
+                  latestState.markNotificationRead({
+                    id: notificationId,
+                    resolvedAt: notificationResolvedAt,
+                  }),
                 ),
               );
             }
@@ -12496,6 +12532,24 @@ export const useAppStore = create<AppState>()(
                 turnId: activeTurnId,
                 lastEventAt: resolvedAt,
               });
+            }
+            const latestState = get();
+            const pendingNotificationIds = findPendingUserInputNotificationIds({
+              notifications: latestState.notifications,
+              taskId,
+              messageId,
+              requestId,
+            });
+            if (pendingNotificationIds.length > 0) {
+              const notificationResolvedAt = new Date(resolvedAt).toISOString();
+              void Promise.all(
+                pendingNotificationIds.map((notificationId) =>
+                  latestState.markNotificationRead({
+                    id: notificationId,
+                    resolvedAt: notificationResolvedAt,
+                  }),
+                ),
+              );
             }
           };
 
@@ -13360,6 +13414,10 @@ export const useAppStore = create<AppState>()(
         // Migrate legacy fastModeVisible → per-provider fields.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const raw = state.settings as any;
+        state.compareRunsById = normalizePersistedCompareRuns({
+          runsById: state.compareRunsById,
+          now: buildRecentTimestamp(),
+        });
         state.settings.modelRuntimePreferences =
           normalizeModelRuntimePreferences(raw.modelRuntimePreferences);
         state.settings.infoPanelSectionVisibility =

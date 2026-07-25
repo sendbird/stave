@@ -1,10 +1,29 @@
 import { FileCode2, LoaderCircle, Search } from "lucide-react";
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Badge, Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui";
+import {
+  Badge,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
-import { rankFileSearchResults, splitFileSearchPath } from "./file-search-utils";
+import {
+  rankFileSearchResults,
+  splitFileSearchPath,
+} from "./file-search-utils";
 
 interface TopBarFileSearchProps {
   noDragStyle?: CSSProperties;
@@ -39,13 +58,18 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
     activeEditorTabId,
     refreshProjectFiles,
     openFileFromTree,
-  ] = useAppStore(useShallow((state) => [
-    state.projectFiles,
-    state.editorTabs,
-    state.activeEditorTabId,
-    state.refreshProjectFiles,
-    state.openFileFromTree,
-  ] as const));
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.projectFiles,
+          state.editorTabs,
+          state.activeEditorTabId,
+          state.refreshProjectFiles,
+          state.openFileFromTree,
+        ] as const,
+    ),
+  );
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const suppressBlurRef = useRef(false);
   const [query, setQuery] = useState("");
@@ -56,7 +80,11 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
   const normalizedQuery = deferredQuery.trim();
 
   function getInputElement() {
-    return wrapperRef.current?.querySelector<HTMLInputElement>("[data-slot='command-input']") ?? null;
+    return (
+      wrapperRef.current?.querySelector<HTMLInputElement>(
+        "[data-slot='command-input']",
+      ) ?? null
+    );
   }
 
   useEffect(() => {
@@ -66,13 +94,15 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
 
     let cancelled = false;
     setIsPreparingFiles(true);
-    void refreshProjectFiles().catch(() => {
-      // IPC/fs failure — swallow; file list stays empty.
-    }).finally(() => {
-      if (!cancelled) {
-        setIsPreparingFiles(false);
-      }
-    });
+    void refreshProjectFiles()
+      .catch(() => {
+        // IPC/fs failure — swallow; file list stays empty.
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsPreparingFiles(false);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -89,15 +119,21 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
 
       const target = event.target as HTMLElement;
       if (
-        target.isContentEditable
-        || Boolean(target.closest("input, textarea, select, [role='textbox'], [contenteditable='true']"))
+        target.isContentEditable ||
+        Boolean(
+          target.closest(
+            "input, textarea, select, [role='textbox'], [contenteditable='true']",
+          ),
+        )
       ) {
         return;
       }
 
       event.preventDefault();
 
-      const input = wrapperRef.current?.querySelector<HTMLInputElement>("[data-slot='command-input']");
+      const input = wrapperRef.current?.querySelector<HTMLInputElement>(
+        "[data-slot='command-input']",
+      );
       const isInputFocusable = input != null && input.offsetParent !== null;
 
       if (isInputFocusable) {
@@ -108,7 +144,9 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
         setIsMobileExpanded(true);
         setIsOpen(true);
         setTimeout(() => {
-          wrapperRef.current?.querySelector<HTMLInputElement>("[data-slot='command-input']")?.focus();
+          wrapperRef.current
+            ?.querySelector<HTMLInputElement>("[data-slot='command-input']")
+            ?.focus();
           suppressBlurRef.current = false;
         }, 50);
       }
@@ -119,7 +157,8 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
   }, []);
 
   const openEditorItems = useMemo(() => {
-    const activeTab = editorTabs.find((tab) => tab.id === activeEditorTabId) ?? null;
+    const activeTab =
+      editorTabs.find((tab) => tab.id === activeEditorTabId) ?? null;
     const orderedTabs = activeTab
       ? [activeTab, ...editorTabs.filter((tab) => tab.id !== activeEditorTabId)]
       : editorTabs;
@@ -142,16 +181,26 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
     return items;
   }, [activeEditorTabId, editorTabs]);
 
-  const openEditorFilePaths = useMemo(() => new Set(openEditorItems.map((item) => item.filePath)), [openEditorItems]);
+  const openEditorFilePaths = useMemo(
+    () => new Set(openEditorItems.map((item) => item.filePath)),
+    [openEditorItems],
+  );
 
-  const filteredFileItems = useMemo(() => rankFileSearchResults({
-    files: projectFiles,
-    query: normalizedQuery,
-    limit: DEFAULT_FILE_RESULT_LIMIT,
-  }).map((item) => toFileItem(item.filePath, item.score)), [normalizedQuery, projectFiles]);
+  const filteredFileItems = useMemo(
+    () =>
+      rankFileSearchResults({
+        files: projectFiles,
+        query: normalizedQuery,
+        limit: DEFAULT_FILE_RESULT_LIMIT,
+      }).map((item) => toFileItem(item.filePath, item.score)),
+    [normalizedQuery, projectFiles],
+  );
 
   const browseFileItems = useMemo(
-    () => filteredFileItems.filter((item) => !openEditorFilePaths.has(item.filePath)).slice(0, DEFAULT_FILE_RESULT_LIMIT),
+    () =>
+      filteredFileItems
+        .filter((item) => !openEditorFilePaths.has(item.filePath))
+        .slice(0, DEFAULT_FILE_RESULT_LIMIT),
     [filteredFileItems, openEditorFilePaths],
   );
 
@@ -176,7 +225,9 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
     setIsMobileExpanded(true);
     setIsOpen(true);
     setTimeout(() => {
-      wrapperRef.current?.querySelector<HTMLInputElement>("[data-slot='command-input']")?.focus();
+      wrapperRef.current
+        ?.querySelector<HTMLInputElement>("[data-slot='command-input']")
+        ?.focus();
       suppressBlurRef.current = false;
     }, 50);
   }
@@ -184,9 +235,10 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
   return (
     <div
       ref={wrapperRef}
-      className={isMobileExpanded
-        ? "relative w-[260px]"
-        : "relative w-9 md:w-[260px] lg:w-[320px] xl:w-[380px]"
+      className={
+        isMobileExpanded
+          ? "relative w-[260px]"
+          : "relative w-9 md:w-[260px] lg:w-[320px] xl:w-[380px]"
       }
       style={noDragStyle}
       onBlurCapture={(event) => {
@@ -194,16 +246,20 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
           return;
         }
         const nextTarget = event.relatedTarget;
-        if (nextTarget instanceof Node && wrapperRef.current?.contains(nextTarget)) {
+        if (
+          nextTarget instanceof Node &&
+          wrapperRef.current?.contains(nextTarget)
+        ) {
           return;
         }
         closeSearch();
       }}
     >
       <button
-        className={isMobileExpanded
-          ? "hidden"
-          : "flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-background/75 text-muted-foreground transition-colors hover:bg-background hover:text-foreground md:hidden"
+        className={
+          isMobileExpanded
+            ? "hidden"
+            : "flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-background/75 text-muted-foreground transition-colors hover:bg-background hover:text-foreground md:hidden"
         }
         onClick={handleCompactButtonClick}
         aria-label="Go to file"
@@ -215,7 +271,11 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
       <div className={isMobileExpanded ? undefined : "hidden md:block"}>
         <Command
           shouldFilter={false}
-          className="relative overflow-visible bg-transparent p-0 [&_[data-slot=command-input-wrapper]]:p-0 [&_[data-slot=input-group]]:h-9 [&_[data-slot=input-group]]:rounded-lg [&_[data-slot=input-group]]:border-border/70 [&_[data-slot=input-group]]:bg-background/75 [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group-addon]]:gap-1.5 [&_[data-slot=command-input]]:h-9 [&_[data-slot=command-input]]:px-0 [&_[data-slot=command-input]]:text-sm"
+          className={cn(
+            "relative overflow-visible bg-transparent p-0 [&_[data-slot=command-input-wrapper]]:h-7 [&_[data-slot=command-input-wrapper]]:gap-2 [&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border/70 [&_[data-slot=command-input-wrapper]]:bg-background/75 [&_[data-slot=command-input-wrapper]]:px-2.5 [&_[data-slot=command-input-wrapper]]:shadow-none [&_[data-slot=command-input-wrapper]]:transition-[background-color,border-color,box-shadow] [&_[data-slot=command-input-wrapper]]:duration-200 [&_[data-slot=command-input]]:h-7 [&_[data-slot=command-input]]:px-0 [&_[data-slot=command-input]]:text-sm",
+            isOpen &&
+              "[&_[data-slot=command-input-wrapper]]:border-ring/70 [&_[data-slot=command-input-wrapper]]:bg-background [&_[data-slot=command-input-wrapper]]:ring-3 [&_[data-slot=command-input-wrapper]]:ring-ring/20",
+          )}
         >
           <div className="relative">
             <CommandInput
@@ -240,6 +300,8 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                 getInputElement()?.blur();
               }}
               placeholder="Go to file..."
+              aria-label="Go to file"
+              aria-expanded={isOpen}
               data-file-search-input
             />
           </div>
@@ -250,9 +312,13 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
             >
               <div className="flex items-center justify-between gap-3 border-b border-border/70 px-3 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Go to File</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Go to File
+                  </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {normalizedQuery ? "Matching workspace files" : "Open editors and workspace files"}
+                    {normalizedQuery
+                      ? "Matching workspace files"
+                      : "Open editors and workspace files"}
                   </p>
                 </div>
                 <Badge variant="secondary" className="shrink-0">
@@ -273,81 +339,62 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                       : "No matching files."}
                   </CommandEmpty>
                 ) : null}
-                {normalizedQuery
-                  ? (
-                    <CommandGroup heading={`Files (${filteredFileItems.length})`}>
-                      {filteredFileItems.map((item) => {
-                        const isOpenFile = editorTabs.some((tab) => tab.filePath === item.filePath);
-                        const isActive = activeEditorTabId === `file:${item.filePath}`;
+                {normalizedQuery ? (
+                  <CommandGroup heading={`Files (${filteredFileItems.length})`}>
+                    {filteredFileItems.map((item) => {
+                      const isOpenFile = editorTabs.some(
+                        (tab) => tab.filePath === item.filePath,
+                      );
+                      const isActive =
+                        activeEditorTabId === `file:${item.filePath}`;
 
-                        return (
-                          <CommandItem
-                            key={item.id}
-                            value={item.id}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onSelect={() => {
-                              void handleSelectItem(item);
-                            }}
-                            className="items-start gap-3 rounded-lg px-3 py-3"
-                          >
-                            <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/80">
-                              <FileCode2 className="size-4 text-muted-foreground" />
+                      return (
+                        <CommandItem
+                          key={item.id}
+                          value={item.id}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onSelect={() => {
+                            void handleSelectItem(item);
+                          }}
+                          className="items-start gap-3 rounded-lg px-3 py-3"
+                        >
+                          <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/80">
+                            <FileCode2 className="size-4 text-muted-foreground" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="truncate text-sm font-medium">
+                                {item.title}
+                              </span>
+                              {isActive ? (
+                                <Badge variant="secondary" className="shrink-0">
+                                  Active
+                                </Badge>
+                              ) : isOpenFile ? (
+                                <Badge variant="outline" className="shrink-0">
+                                  Open
+                                </Badge>
+                              ) : null}
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="truncate text-sm font-medium">{item.title}</span>
-                                {isActive ? (
-                                  <Badge variant="secondary" className="shrink-0">Active</Badge>
-                                ) : isOpenFile ? (
-                                  <Badge variant="outline" className="shrink-0">Open</Badge>
-                                ) : null}
-                              </div>
-                              <p className="truncate text-xs text-muted-foreground">{item.subtitle}</p>
-                            </div>
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  )
-                  : (
-                    <>
-                      {openEditorItems.length > 0 ? (
-                        <CommandGroup heading={`Open editors (${openEditorItems.length})`}>
-                          {openEditorItems.map((item) => {
-                            const isActive = activeEditorTabId === `file:${item.filePath}`;
+                            <p className="truncate text-xs text-muted-foreground">
+                              {item.subtitle}
+                            </p>
+                          </div>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                ) : (
+                  <>
+                    {openEditorItems.length > 0 ? (
+                      <CommandGroup
+                        heading={`Open editors (${openEditorItems.length})`}
+                      >
+                        {openEditorItems.map((item) => {
+                          const isActive =
+                            activeEditorTabId === `file:${item.filePath}`;
 
-                            return (
-                              <CommandItem
-                                key={item.id}
-                                value={item.id}
-                                onMouseDown={(event) => event.preventDefault()}
-                                onSelect={() => {
-                                  void handleSelectItem(item);
-                                }}
-                                className="items-start gap-3 rounded-lg px-3 py-3"
-                              >
-                                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/80">
-                                  <FileCode2 className="size-4 text-muted-foreground" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="truncate text-sm font-medium">{item.title}</span>
-                                    {isActive ? (
-                                      <Badge variant="secondary" className="shrink-0">Active</Badge>
-                                    ) : (
-                                      <Badge variant="outline" className="shrink-0">Open</Badge>
-                                    )}
-                                  </div>
-                                  <p className="truncate text-xs text-muted-foreground">{item.subtitle}</p>
-                                </div>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      ) : null}
-                      {browseFileItems.length > 0 ? (
-                        <CommandGroup heading={`Workspace files (${Math.min(browseFileItems.length, DEFAULT_FILE_RESULT_LIMIT)})`}>
-                          {browseFileItems.map((item) => (
+                          return (
                             <CommandItem
                               key={item.id}
                               value={item.id}
@@ -361,15 +408,66 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                                 <FileCode2 className="size-4 text-muted-foreground" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <span className="truncate text-sm font-medium">{item.title}</span>
-                                <p className="truncate text-xs text-muted-foreground">{item.subtitle}</p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="truncate text-sm font-medium">
+                                    {item.title}
+                                  </span>
+                                  {isActive ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className="shrink-0"
+                                    >
+                                      Active
+                                    </Badge>
+                                  ) : (
+                                    <Badge
+                                      variant="outline"
+                                      className="shrink-0"
+                                    >
+                                      Open
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {item.subtitle}
+                                </p>
                               </div>
                             </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      ) : null}
-                    </>
-                  )}
+                          );
+                        })}
+                      </CommandGroup>
+                    ) : null}
+                    {browseFileItems.length > 0 ? (
+                      <CommandGroup
+                        heading={`Workspace files (${Math.min(browseFileItems.length, DEFAULT_FILE_RESULT_LIMIT)})`}
+                      >
+                        {browseFileItems.map((item) => (
+                          <CommandItem
+                            key={item.id}
+                            value={item.id}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onSelect={() => {
+                              void handleSelectItem(item);
+                            }}
+                            className="items-start gap-3 rounded-lg px-3 py-3"
+                          >
+                            <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/80">
+                              <FileCode2 className="size-4 text-muted-foreground" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="truncate text-sm font-medium">
+                                {item.title}
+                              </span>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {item.subtitle}
+                              </p>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    ) : null}
+                  </>
+                )}
               </CommandList>
             </div>
           ) : null}

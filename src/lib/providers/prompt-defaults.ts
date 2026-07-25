@@ -18,7 +18,7 @@ export const LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE = [
   "- When referencing files, use inline code for paths and filenames.",
 ].join("\n");
 
-export const DEFAULT_PROMPT_RESPONSE_STYLE = [
+export const LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE_WITH_LINKS = [
   "Response formatting rules:",
   "- Be concise. Do not repeat what the user already knows.",
   "- Use markdown headers (##, ###) to organize long responses into clear sections.",
@@ -29,12 +29,29 @@ export const DEFAULT_PROMPT_RESPONSE_STYLE = [
   "- Put the file path in the link target, for example `[src/App.tsx](src/App.tsx)` or `[app.store.ts](src/store/app.store.ts#L5161)`.",
 ].join("\n");
 
+export const DEFAULT_PROMPT_RESPONSE_STYLE = [
+  "Response style guidelines:",
+  "- Lead with the outcome or the information the user needs next.",
+  "- Be concise and do not repeat context the user already knows.",
+  "- Use headings or lists only when they make a longer answer easier to scan; keep simple answers conversational.",
+  '- Avoid process narration such as "I will now" or "Let me".',
+  "- Put code in fenced code blocks with the correct language tag.",
+  "- When referencing files, use markdown links so file chips can render.",
+  "- Put the file path in the link target, for example `[src/App.tsx](src/App.tsx)` or `[app.store.ts](src/store/app.store.ts#L5161)`.",
+].join("\n");
+
 function normalizePromptTemplateValue(value: string) {
   return value.replaceAll("\r\n", "\n").trim();
 }
 
 export function normalizeResponseStylePrompt(value: string) {
-  return normalizePromptTemplateValue(value) === normalizePromptTemplateValue(LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE)
+  const normalized = normalizePromptTemplateValue(value);
+  return normalized ===
+    normalizePromptTemplateValue(LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE) ||
+    normalized ===
+      normalizePromptTemplateValue(
+        LEGACY_DEFAULT_PROMPT_RESPONSE_STYLE_WITH_LINKS,
+      )
     ? DEFAULT_PROMPT_RESPONSE_STYLE
     : value;
 }
@@ -58,7 +75,7 @@ export const DEFAULT_PROMPT_PR_DESCRIPTION = [
   "- Default to a Conventional Commits-style suggested title: <type>(<optional scope>): <short description>",
   "- The scope is optional. Omit it unless the diff or commit history clearly establishes a meaningful scope",
   "- Never invent a scope by splitting off the first word of the subject or head branch",
-  "- Allowed types: feat, fix, refactor, style, docs, test, build, ci, chore, perf, revert",
+  "- Allowed types: feat, fix, refactor, chore, docs, test, perf, ci, build, revert",
   "- If the recent commit log already includes a conventional commit title, reuse the same type and scope in the PR title",
   "- Keep the description part lowercase; do not capitalize the first word after ': '",
   "- Keep the summary focused on the 'why', changes on the 'what'",

@@ -120,15 +120,14 @@ describe("notification routing", () => {
     expect(useAppStore.getState().activeSurface).toBe(previousWorkspaceSurface);
   });
 
-  test("can route a blocked notification into Fleet View attention", async () => {
+  test("routes a blocked notification to its exact task attention", async () => {
     const result = await useAppStore.getState().openNotificationContext({
       notificationId: "notification-user-input",
-      targetSurface: "fleet",
     });
 
     expect(result).toEqual({ status: "opened" });
     expect(useAppStore.getState().activeAppSurface).toEqual({
-      kind: "fleet-view",
+      kind: "workspace",
     });
     expect(useAppStore.getState().activeSurface).toEqual({
       kind: "task",
@@ -138,6 +137,6 @@ describe("notification routing", () => {
     expect(useAppStore.getState().focusPendingInteractionRequest?.taskId).toBe(
       "task-blocked",
     );
-    expect(useAppStore.getState().notifications[0]?.readAt).toBeString();
+    expect(useAppStore.getState().notifications[0]?.readAt).toBeNull();
   });
 });

@@ -1,8 +1,24 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
-import { ArrowRightCircle, ClipboardCheck, Copy, Minus, Maximize2 } from "lucide-react";
-import { Button, Textarea, WaveIndicator } from "@/components/ui";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react";
+import {
+  ArrowRightCircle,
+  ClipboardCheck,
+  Copy,
+  Minus,
+  Maximize2,
+} from "lucide-react";
+import { Button, Textarea } from "@/components/ui";
 import { MessageResponse } from "@/components/ai-elements";
-import { getTaskControlOwner, isTaskArchived, isTaskManaged } from "@/lib/tasks";
+import {
+  getTaskControlOwner,
+  isTaskArchived,
+  isTaskManaged,
+} from "@/lib/tasks";
 import { APPROVE_PLAN_MESSAGE } from "@/lib/providers/plan-response";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { useAppStore } from "@/store/app.store";
@@ -12,7 +28,6 @@ import {
 } from "@/store/prompt-draft-runtime";
 import {
   buildPlanViewerContextKey,
-  resolvePlanViewerAutoViewState,
   resolvePlanViewerLayout,
   resolvePlanViewerState,
   type PlanViewerViewState,
@@ -21,7 +36,11 @@ import { useScopedTaskId } from "@/components/session/task-scope-context";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 
-const EMPTY_PROMPT_DRAFT: PromptDraft = { text: "", attachedFilePaths: [], attachments: [] };
+const EMPTY_PROMPT_DRAFT: PromptDraft = {
+  text: "",
+  attachedFilePaths: [],
+  attachments: [],
+};
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
 interface DragState {
@@ -50,20 +69,37 @@ export function PlanViewer() {
   const dragRef = useRef<DragState | null>(null);
 
   const activeTaskId = useScopedTaskId();
-  const [activeWorkspaceId, activeTask, draftProvider, promptDraft, claudePermissionMode, claudePermissionModeBeforePlan, codexPlanMode, sendUserMessage, createTask, updatePromptDraft, clearTaskProviderSession] = useAppStore(
-    useShallow((state) => [
-      state.activeWorkspaceId,
-      state.tasks.find((task) => task.id === activeTaskId && !isTaskArchived(task)) ?? null,
-      state.draftProvider,
-      state.promptDraftByTask[activeTaskId] ?? EMPTY_PROMPT_DRAFT,
-      state.settings.claudePermissionMode,
-      state.settings.claudePermissionModeBeforePlan,
-      state.settings.codexPlanMode,
-      state.sendUserMessage,
-      state.createTask,
-      state.updatePromptDraft,
-      state.clearTaskProviderSession,
-    ] as const),
+  const [
+    activeWorkspaceId,
+    activeTask,
+    draftProvider,
+    promptDraft,
+    claudePermissionMode,
+    claudePermissionModeBeforePlan,
+    codexPlanMode,
+    sendUserMessage,
+    createTask,
+    updatePromptDraft,
+    clearTaskProviderSession,
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.activeWorkspaceId,
+          state.tasks.find(
+            (task) => task.id === activeTaskId && !isTaskArchived(task),
+          ) ?? null,
+          state.draftProvider,
+          state.promptDraftByTask[activeTaskId] ?? EMPTY_PROMPT_DRAFT,
+          state.settings.claudePermissionMode,
+          state.settings.claudePermissionModeBeforePlan,
+          state.settings.codexPlanMode,
+          state.sendUserMessage,
+          state.createTask,
+          state.updatePromptDraft,
+          state.clearTaskProviderSession,
+        ] as const,
+    ),
   );
   const activeProvider = activeTask?.provider ?? draftProvider;
   const taskRuntimeState = resolvePromptDraftRuntimeState({
@@ -75,7 +111,8 @@ export function PlanViewer() {
     },
   });
   const effectiveClaudePermissionMode = taskRuntimeState.claudePermissionMode;
-  const effectiveClaudePermissionModeBeforePlan = taskRuntimeState.claudePermissionModeBeforePlan;
+  const effectiveClaudePermissionModeBeforePlan =
+    taskRuntimeState.claudePermissionModeBeforePlan;
   const effectiveCodexPlanMode = taskRuntimeState.codexPlanMode;
   const providerLabel = activeProvider === "codex" ? "Codex" : "Claude";
   const isManagedTask = isTaskManaged(activeTask);
@@ -83,26 +120,33 @@ export function PlanViewer() {
     ? `Plan responses are managed by ${getTaskControlOwner(activeTask) === "external" ? "an external controller" : "Stave"}. Take over to reply here.`
     : null;
 
-  const [latestPlanMessage, lastMessage, isTurnActive] = useAppStore(useShallow((state) => {
-    const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
-    const lastMessage = messages.at(-1) ?? null;
-    let latestPlanMessage: (typeof lastMessage) | null = null;
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      const message = messages[i];
-      if (message && message.role === "assistant" && message.isPlanResponse && message.planText?.trim()) {
-        latestPlanMessage = message;
-        break;
+  const [latestPlanMessage, lastMessage, isTurnActive] = useAppStore(
+    useShallow((state) => {
+      const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
+      const lastMessage = messages.at(-1) ?? null;
+      let latestPlanMessage: typeof lastMessage | null = null;
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const message = messages[i];
+        if (
+          message &&
+          message.role === "assistant" &&
+          message.isPlanResponse &&
+          message.planText?.trim()
+        ) {
+          latestPlanMessage = message;
+          break;
+        }
       }
-    }
-    return [
-      latestPlanMessage,
-      lastMessage,
-      Boolean(state.activeTurnIdsByTask[activeTaskId]),
-    ] as const;
-  }));
+      return [
+        latestPlanMessage,
+        lastMessage,
+        Boolean(state.activeTurnIdsByTask[activeTaskId]),
+      ] as const;
+    }),
+  );
 
   // Use the latest plan message for the plan text and pending state
-  const { planText, isPlanPreparing, isPlanPending, canReplyToPlan } = resolvePlanViewerState({
+  const { planText, isPlanPending, canReplyToPlan } = resolvePlanViewerState({
     activeProvider,
     claudePermissionMode: effectiveClaudePermissionMode,
     codexPlanMode: effectiveCodexPlanMode,
@@ -110,9 +154,10 @@ export function PlanViewer() {
     lastMessage,
     isTurnActive,
   });
-  const planReplyNotice = !isManagedTask && isPlanPending && !canReplyToPlan
-    ? `Wait for ${providerLabel} to finish the current turn before replying to the plan.`
-    : null;
+  const planReplyNotice =
+    !isManagedTask && isPlanPending && !canReplyToPlan
+      ? `Wait for ${providerLabel} to finish the current turn before replying to the plan.`
+      : null;
   const replyNotice = managedNotice ?? planReplyNotice;
   const planViewerContextKey = buildPlanViewerContextKey({
     activeWorkspaceId,
@@ -144,17 +189,6 @@ export function PlanViewer() {
     }
   }, [isPlanPending]);
 
-  useEffect(() => {
-    const nextViewState = resolvePlanViewerAutoViewState({
-      viewState,
-      isPlanPreparing,
-      planText,
-    });
-    if (nextViewState !== viewState) {
-      setViewState(nextViewState);
-    }
-  }, [isPlanPreparing, planText, viewState]);
-
   // Clear drag position whenever the viewer is not minimised.
   useEffect(() => {
     if (viewState !== "minimized") {
@@ -185,7 +219,10 @@ export function PlanViewer() {
     if (nextPlanModeState.shouldClearCodexSession) {
       clearTaskProviderSession({ taskId: activeTaskId, providerId: "codex" });
     }
-    void sendUserMessage({ taskId: activeTaskId, content: APPROVE_PLAN_MESSAGE });
+    void sendUserMessage({
+      taskId: activeTaskId,
+      content: APPROVE_PLAN_MESSAGE,
+    });
     setRevising(false);
     setRevisionText("");
   }, [
@@ -224,7 +261,10 @@ export function PlanViewer() {
 
   function handleRevise() {
     if (isManagedTask || !canReplyToPlan || !revisionText.trim()) return;
-    void sendUserMessage({ taskId: activeTaskId, content: revisionText.trim() });
+    void sendUserMessage({
+      taskId: activeTaskId,
+      content: revisionText.trim(),
+    });
     setRevising(false);
     setRevisionText("");
   }
@@ -233,28 +273,31 @@ export function PlanViewer() {
   // Drag logic for the minimised pill
   // ---------------------------------------------------------------------------
 
-  const onHeaderPointerDown = useCallback((e: PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    if (dragRef.current !== null) return; // already dragging
-    const outer = outerRef.current;
-    if (!outer) return;
-    const containerRect = outer.parentElement?.getBoundingClientRect();
-    if (!containerRect) return;
-    const outerRect = outer.getBoundingClientRect();
-    dragRef.current = {
-      pointerId: e.pointerId,
-      startMouseX: e.clientX,
-      startMouseY: e.clientY,
-      // Use stored position if we have it, otherwise derive from current render.
-      startPosX: dragPos?.x ?? (outerRect.left - containerRect.left),
-      startPosY: dragPos?.y ?? (outerRect.top - containerRect.top),
-      containerWidth: containerRect.width,
-      containerHeight: containerRect.height,
-      cardWidth: outer.offsetWidth,
-      cardHeight: outer.offsetHeight,
-      active: false,
-    };
-  }, [dragPos]);
+  const onHeaderPointerDown = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      if (dragRef.current !== null) return; // already dragging
+      const outer = outerRef.current;
+      if (!outer) return;
+      const containerRect = outer.parentElement?.getBoundingClientRect();
+      if (!containerRect) return;
+      const outerRect = outer.getBoundingClientRect();
+      dragRef.current = {
+        pointerId: e.pointerId,
+        startMouseX: e.clientX,
+        startMouseY: e.clientY,
+        // Use stored position if we have it, otherwise derive from current render.
+        startPosX: dragPos?.x ?? outerRect.left - containerRect.left,
+        startPosY: dragPos?.y ?? outerRect.top - containerRect.top,
+        containerWidth: containerRect.width,
+        containerHeight: containerRect.height,
+        cardWidth: outer.offsetWidth,
+        cardHeight: outer.offsetHeight,
+        active: false,
+      };
+    },
+    [dragPos],
+  );
 
   const onHeaderPointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
     const state = dragRef.current;
@@ -267,8 +310,14 @@ export function PlanViewer() {
       state.active = true;
       e.currentTarget.setPointerCapture(state.pointerId);
     }
-    const newX = Math.max(0, Math.min(state.containerWidth - state.cardWidth, state.startPosX + dx));
-    const newY = Math.max(0, Math.min(state.containerHeight - state.cardHeight, state.startPosY + dy));
+    const newX = Math.max(
+      0,
+      Math.min(state.containerWidth - state.cardWidth, state.startPosX + dx),
+    );
+    const newY = Math.max(
+      0,
+      Math.min(state.containerHeight - state.cardHeight, state.startPosY + dy),
+    );
     setDragPos({ x: newX, y: newY });
   }, []);
 
@@ -282,12 +331,15 @@ export function PlanViewer() {
 
   const isMinimized = viewState === "minimized";
   const isExpanded = viewState === "expanded";
-  const { wrapperClassName, wrapperStyle, cardClassName } = resolvePlanViewerLayout({
-    viewState,
-    dragPos,
-  });
+  const { wrapperClassName, wrapperStyle, cardClassName } =
+    resolvePlanViewerLayout({
+      viewState,
+      dragPos,
+    });
 
-  if (!isPlanPreparing && !isPlanPending) {
+  // TurnActivity owns the in-progress planning state. The dedicated plan
+  // viewer appears only when there is an actual plan to review.
+  if (!isPlanPending) {
     return null;
   }
 
@@ -309,35 +361,34 @@ export function PlanViewer() {
           >
             <ClipboardCheck className="size-4 shrink-0 text-primary" />
             <p className="flex-1 truncate text-sm font-medium">
-              {isPlanPreparing ? "Preparing plan\u2026" : `Review ${providerLabel}'s Plan`}
+              {`Review ${providerLabel}'s Plan`}
             </p>
           </div>
-          {isPlanPreparing ? (
-            <WaveIndicator className="text-primary" />
-          ) : (
-            <>
-              <button
-                onClick={() => setViewState(isMinimized ? "normal" : "minimized")}
-                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                title={isMinimized ? "Restore" : "Minimize"}
-              >
-                <Minus className="size-4" />
-              </button>
-              <button
-                onClick={() => setViewState(isExpanded ? "normal" : "expanded")}
-                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                title={isExpanded ? "Restore" : "Expand"}
-              >
-                <Maximize2 className="size-3.5" />
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => setViewState(isMinimized ? "normal" : "minimized")}
+            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            title={isMinimized ? "Restore" : "Minimize"}
+          >
+            <Minus className="size-4" />
+          </button>
+          <button
+            onClick={() => setViewState(isExpanded ? "normal" : "expanded")}
+            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            title={isExpanded ? "Restore" : "Expand"}
+          >
+            <Maximize2 className="size-3.5" />
+          </button>
         </div>
 
-        {/* Body — hidden when preparing or minimized */}
-        {!isPlanPreparing && !isMinimized && (
+        {/* Body — hidden when minimized */}
+        {!isMinimized && (
           <>
-            <div className={["min-h-0 overflow-y-auto px-4 py-3", isExpanded ? "flex-1" : "max-h-72"].join(" ")}>
+            <div
+              className={[
+                "min-h-0 overflow-y-auto px-4 py-3",
+                isExpanded ? "flex-1" : "max-h-72",
+              ].join(" ")}
+            >
               <MessageResponse>{planText || "Plan ready."}</MessageResponse>
             </div>
             {revising ? (
@@ -348,7 +399,11 @@ export function PlanViewer() {
                   disabled={!canReplyToPlan}
                   onChange={(e) => setRevisionText(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    if (
+                      e.key === "Enter" &&
+                      !e.shiftKey &&
+                      !e.nativeEvent.isComposing
+                    ) {
                       e.preventDefault();
                       handleRevise();
                     }
@@ -361,29 +416,59 @@ export function PlanViewer() {
                   className="min-h-[72px] rounded-lg border-border/70 bg-background text-base leading-7"
                 />
                 <div className="mt-2 flex items-center gap-2">
-                  <Button size="sm" onClick={handleRevise} disabled={!canReplyToPlan || !revisionText.trim()}>
+                  <Button
+                    size="sm"
+                    onClick={handleRevise}
+                    disabled={!canReplyToPlan || !revisionText.trim()}
+                  >
                     Send
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => { setRevising(false); setRevisionText(""); }}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setRevising(false);
+                      setRevisionText("");
+                    }}
+                  >
                     Cancel
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 py-3">
-                <Button size="sm" variant="outline" onClick={handleCopy} disabled={!planText}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopy}
+                  disabled={!planText}
+                >
                   <Copy className="size-3.5" />
                   {copied ? "Copied!" : "Copy"}
                 </Button>
-                <Button size="sm" variant="outline" onClick={handleHandoff} disabled={isManagedTask || !planText}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleHandoff}
+                  disabled={isManagedTask || !planText}
+                >
                   <ArrowRightCircle className="size-3.5" />
                   Handoff
                 </Button>
-                <Button size="sm" disabled={isManagedTask || !canReplyToPlan} onClick={handleApprove}>
+                <Button
+                  size="sm"
+                  disabled={isManagedTask || !canReplyToPlan}
+                  onClick={handleApprove}
+                >
                   <ClipboardCheck className="size-3.5" />
                   Approve
                 </Button>
-                <Button size="sm" variant="outline" disabled={isManagedTask || !canReplyToPlan} onClick={() => setRevising(true)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isManagedTask || !canReplyToPlan}
+                  onClick={() => setRevising(true)}
+                >
                   Revise
                 </Button>
                 {replyNotice ? (

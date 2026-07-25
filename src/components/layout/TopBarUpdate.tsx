@@ -1,14 +1,5 @@
-import {
-  ArrowUpCircle,
-  LoaderCircle,
-  RefreshCcw,
-} from "lucide-react";
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type CSSProperties,
-} from "react";
+import { ArrowUpCircle, LoaderCircle, RefreshCcw } from "lucide-react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Badge,
@@ -36,10 +27,7 @@ import { getRespondingTasks } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
-function InfoRow(args: {
-  label: string;
-  value: string | null;
-}) {
+function InfoRow(args: { label: string; value: string | null }) {
   return (
     <div className="flex items-start justify-between gap-3 text-sm">
       <span className="text-muted-foreground">{args.label}</span>
@@ -50,20 +38,17 @@ function InfoRow(args: {
   );
 }
 
-export function TopBarUpdate(props: {
-  noDragStyle: CSSProperties;
-}) {
+export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
   const [tasks, activeTurnIdsByTask] = useAppStore(
-    useShallow((state) => [
-      state.tasks,
-      state.activeTurnIdsByTask,
-    ] as const),
+    useShallow((state) => [state.tasks, state.activeTurnIdsByTask] as const),
   );
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState(false);
-  const [snapshot, setSnapshot] = useState<AppUpdateStatusSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<AppUpdateStatusSnapshot | null>(
+    null,
+  );
   const respondingTasks = useMemo(
     () =>
       getRespondingTasks({
@@ -72,12 +57,10 @@ export function TopBarUpdate(props: {
       }),
     [activeTurnIdsByTask, tasks],
   );
-  const respondingTaskSummaries = respondingTasks
-    .slice(0, 3)
-    .map((task) => ({
-      id: task.id,
-      title: task.title.trim() || "Untitled Task",
-    }));
+  const respondingTaskSummaries = respondingTasks.slice(0, 3).map((task) => ({
+    id: task.id,
+    title: task.title.trim() || "Untitled Task",
+  }));
 
   async function refreshStatus() {
     const getStatus = window.api?.tooling?.getAppUpdateStatus;
@@ -170,9 +153,9 @@ export function TopBarUpdate(props: {
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex">
-              <PopoverTrigger asChild>
+          <TooltipTrigger render={<span className="inline-flex" />}>
+            <PopoverTrigger
+              render={
                 <Button
                   variant="ghost"
                   size="sm"
@@ -182,28 +165,28 @@ export function TopBarUpdate(props: {
                   )}
                   style={props.noDragStyle}
                   aria-label="app-update"
-                >
-                  {loading ? (
-                    <LoaderCircle className="size-4 animate-spin" />
-                  ) : (
-                    <ArrowUpCircle className="size-4" />
-                  )}
-                  {hasUpdate ? (
-                    <span className="absolute -right-0.5 -top-0.5 inline-flex size-2.5 rounded-full bg-primary" />
-                  ) : null}
-                  {!hasUpdate && hasIssue ? (
-                    <span className="absolute -right-0.5 -top-0.5 inline-flex size-2.5 rounded-full bg-warning" />
-                  ) : null}
-                </Button>
-              </PopoverTrigger>
-            </span>
+                />
+              }
+            >
+              {loading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <ArrowUpCircle className="size-4" />
+              )}
+              {hasUpdate ? (
+                <span className="absolute -right-0.5 -top-0.5 inline-flex size-2.5 rounded-full bg-primary" />
+              ) : null}
+              {!hasUpdate && hasIssue ? (
+                <span className="absolute -right-0.5 -top-0.5 inline-flex size-2.5 rounded-full bg-warning" />
+              ) : null}
+            </PopoverTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom">App Update</TooltipContent>
         </Tooltip>
         <PopoverContent
           align="end"
           sideOffset={10}
-          className="w-[min(24rem,calc(100vw-1rem))] rounded-xl border-border/80 bg-card p-0 shadow-2xl"
+          className="w-[min(24rem,calc(100vw-1rem))] rounded-xl border-border/80 bg-card p-0"
           style={props.noDragStyle}
         >
           <PopoverHeader className="border-b border-border/70 px-4 py-3">
@@ -213,12 +196,15 @@ export function TopBarUpdate(props: {
                   App Update
                 </PopoverTitle>
                 <p className="text-xs text-muted-foreground">
-                  {snapshot?.summary ?? "Checking for the latest Stave release..."}
+                  {snapshot?.summary ??
+                    "Checking for the latest Stave release..."}
                 </p>
               </div>
               {snapshot ? (
                 <Badge
-                  variant={hasUpdate ? "success" : hasIssue ? "warning" : "secondary"}
+                  variant={
+                    hasUpdate ? "success" : hasIssue ? "warning" : "secondary"
+                  }
                   className="shrink-0"
                 >
                   {snapshot.state === "available"
@@ -235,7 +221,10 @@ export function TopBarUpdate(props: {
 
           <div className="space-y-3 px-4 py-3">
             <div className="space-y-2">
-              <InfoRow label="Installed" value={snapshot?.currentVersion ?? null} />
+              <InfoRow
+                label="Installed"
+                value={snapshot?.currentVersion ?? null}
+              />
               <InfoRow label="Latest" value={snapshot?.latestVersion ?? null} />
               <InfoRow label="Last Checked" value={checkedAt} />
             </div>
@@ -256,7 +245,9 @@ export function TopBarUpdate(props: {
                 disabled={loading}
                 onClick={() => void refreshStatus()}
               >
-                <RefreshCcw className={cn("size-4", loading && "animate-spin")} />
+                <RefreshCcw
+                  className={cn("size-4", loading && "animate-spin")}
+                />
                 Refresh
               </Button>
               <Button
@@ -290,7 +281,8 @@ export function TopBarUpdate(props: {
 
           <div className="space-y-3">
             <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
-              Save any context you still need before continuing. Stave will close and restart to apply the update.
+              Save any context you still need before continuing. Stave will
+              close and restart to apply the update.
             </div>
 
             <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
@@ -305,7 +297,8 @@ export function TopBarUpdate(props: {
                 ))}
                 {respondingTasks.length > respondingTaskSummaries.length ? (
                   <li className="text-muted-foreground">
-                    +{respondingTasks.length - respondingTaskSummaries.length} more
+                    +{respondingTasks.length - respondingTaskSummaries.length}{" "}
+                    more
                   </li>
                 ) : null}
               </ul>

@@ -69,16 +69,18 @@ export function PaneHeaderActions(_props: IDockviewHeaderActionsProps) {
   return (
     <div className="flex h-full items-center gap-0.5 px-1">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0 rounded-sm p-0 text-muted-foreground"
-            aria-label="Create new pane tab"
-          >
-            <Plus className="size-4" />
-          </Button>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 rounded-sm p-0 text-muted-foreground"
+              aria-label="Create new pane tab"
+            />
+          }
+        >
+          <Plus className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuItem onSelect={() => createTask({ title: "" })}>
@@ -160,16 +162,18 @@ export function PaneHeaderActions(_props: IDockviewHeaderActionsProps) {
         </DropdownMenuContent>
       </DropdownMenu>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0 rounded-sm p-0 text-muted-foreground"
-            aria-label="Pane options"
-          >
-            <Ellipsis className="size-4" />
-          </Button>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 rounded-sm p-0 text-muted-foreground"
+              aria-label="Pane options"
+            />
+          }
+        >
+          <Ellipsis className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onSelect={() => dispatchOpenTaskHistory()}>

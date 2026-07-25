@@ -111,23 +111,25 @@ export function EmptySplash({
 
   const cliSessionDropdown = showCreateCliSessionAction ? (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            isTopCard
-              ? "h-11 w-full justify-between rounded-md border-border bg-background/80 px-3"
-              : undefined,
-          )}
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <SquareTerminal className="size-4" />
-            <span className="truncate">New CLI Session</span>
-          </span>
-          {isTopCard ? (
-            <ChevronDown className="size-4 text-muted-foreground" />
-          ) : null}
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            className={cn(
+              isTopCard
+                ? "h-11 w-full justify-between rounded-md border-border bg-background/80 px-3"
+                : undefined,
+            )}
+          />
+        }
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <SquareTerminal className="size-4" />
+          <span className="truncate">New CLI Session</span>
+        </span>
+        {isTopCard ? (
+          <ChevronDown className="size-4 text-muted-foreground" />
+        ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>Start Here</DropdownMenuLabel>

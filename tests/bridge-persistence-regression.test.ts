@@ -3829,9 +3829,9 @@ describe("workspace store hydration ordering", () => {
     const draftAfterDispatch =
       useAppStore.getState().promptDraftByTask["task-main"];
     expect(draftAfterDispatch?.text).toBe("Composer draft in progress");
-    expect(draftAfterDispatch?.queuedTurns?.map((item) => item.content)).toEqual(
-      ["Third prompt"],
-    );
+    expect(
+      draftAfterDispatch?.queuedTurns?.map((item) => item.content),
+    ).toEqual(["Third prompt"]);
 
     // With the dispatched turn now live, manual dispatch is blocked so the
     // remaining item cannot double-send; it stays queued for auto-dispatch.
@@ -5730,7 +5730,8 @@ describe("workspace store hydration ordering", () => {
             }
             if (
               call.cwd === "/tmp/stave-project-close" &&
-              call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
+              call.command ===
+                `git worktree remove ${JSON.stringify(workspacePath)}`
             ) {
               return { ok: true, code: 0, stdout: "", stderr: "" };
             }
@@ -6066,7 +6067,8 @@ describe("workspace store hydration ordering", () => {
               }
               if (
                 call.cwd === "/tmp/stave-project-close" &&
-                call.command === `git worktree remove ${JSON.stringify(workspacePath)}`
+                call.command ===
+                  `git worktree remove ${JSON.stringify(workspacePath)}`
               ) {
                 return { ok: true, code: 0, stdout: "", stderr: "" };
               }
@@ -7342,6 +7344,7 @@ describe("workspace store hydration ordering", () => {
       state: "approval-responded",
     });
     expect(useAppStore.getState().notifications[0]?.readAt).toBeString();
+    expect(useAppStore.getState().notifications[0]?.resolvedAt).toBeString();
     expect(useAppStore.getState().messagesByTask["task-main"]).toEqual([]);
   });
 

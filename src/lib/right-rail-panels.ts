@@ -3,16 +3,12 @@ import {
   GitBranch,
   Info,
   SearchCheck,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
 
 export type RightRailPanelId =
-  | "explorer"
-  | "changes"
-  | "information"
-  | "skills"
-  | "scripts";
+  "explorer" | "changes" | "information" | "skills" | "scripts";
 
 /** Panels the right rail actually renders as sidebar overlays. */
 export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
@@ -28,7 +24,7 @@ export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
   changes: "Source Control",
   information: "Information",
   skills: "Skills",
-  scripts: "Scripts",
+  scripts: WORKSPACE_TOOLS_PRESENTATION.label,
 };
 
 export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
@@ -36,5 +32,5 @@ export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
   changes: GitBranch,
   information: Info,
   skills: SearchCheck,
-  scripts: Sparkles,
+  scripts: WORKSPACE_TOOLS_PRESENTATION.icon,
 };

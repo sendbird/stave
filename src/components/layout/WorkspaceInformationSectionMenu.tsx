@@ -40,15 +40,17 @@ export function WorkspaceInformationSectionMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8 rounded-md"
-          aria-label="Configure information panel sections"
-        >
-          <Settings2 className="size-3.5" />
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 rounded-md"
+            aria-label="Configure information panel sections"
+          />
+        }
+      >
+        <Settings2 className="size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Visible sections</DropdownMenuLabel>

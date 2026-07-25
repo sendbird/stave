@@ -4,7 +4,12 @@ import type {
   AppNotificationAction,
   AppNotificationCreateInput,
 } from "@/lib/notifications/notification.types";
-import { sortNotificationsNewestFirst } from "@/lib/notifications/notification.types";
+import {
+  buildNotificationExpiresAt,
+  isNotificationHistoryClearable,
+  isNotificationPendingAttention,
+  sortNotificationsNewestFirst,
+} from "@/lib/notifications/notification.types";
 
 const ProviderIdSchema = z.preprocess(
   (value) => (value === "stave" ? "claude-code" : value),
@@ -12,61 +17,71 @@ const ProviderIdSchema = z.preprocess(
 );
 
 const AppNotificationActionSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("approval"),
-    requestId: z.string(),
-    messageId: z.string().nullable().optional(),
-  }).strict(),
+  z
+    .object({
+      type: z.literal("approval"),
+      requestId: z.string(),
+      messageId: z.string().nullable().optional(),
+    })
+    .strict(),
 ]);
 
-const AppNotificationSchema = z.object({
-  id: z.string(),
-  kind: z.union([
-    z.literal("task.turn_completed"),
-    z.literal("task.turn_failed"),
-    z.literal("task.approval_requested"),
-    z.literal("task.user_input_requested"),
-  ]),
-  title: z.string(),
-  body: z.string(),
-  projectPath: z.string().nullable().optional(),
-  projectName: z.string().nullable().optional(),
-  workspaceId: z.string().nullable().optional(),
-  workspaceName: z.string().nullable().optional(),
-  taskId: z.string().nullable().optional(),
-  taskTitle: z.string().nullable().optional(),
-  turnId: z.string().nullable().optional(),
-  providerId: ProviderIdSchema.nullable().optional(),
-  action: AppNotificationActionSchema.nullable().optional(),
-  payload: z.record(z.string(), z.unknown()).optional(),
-  createdAt: z.string(),
-  readAt: z.string().nullable().optional(),
-}).strict();
+const AppNotificationSchema = z
+  .object({
+    id: z.string(),
+    kind: z.union([
+      z.literal("task.turn_completed"),
+      z.literal("task.turn_failed"),
+      z.literal("task.approval_requested"),
+      z.literal("task.user_input_requested"),
+    ]),
+    title: z.string(),
+    body: z.string(),
+    projectPath: z.string().nullable().optional(),
+    projectName: z.string().nullable().optional(),
+    workspaceId: z.string().nullable().optional(),
+    workspaceName: z.string().nullable().optional(),
+    taskId: z.string().nullable().optional(),
+    taskTitle: z.string().nullable().optional(),
+    turnId: z.string().nullable().optional(),
+    providerId: ProviderIdSchema.nullable().optional(),
+    action: AppNotificationActionSchema.nullable().optional(),
+    payload: z.record(z.string(), z.unknown()).optional(),
+    createdAt: z.string(),
+    readAt: z.string().nullable().optional(),
+    resolvedAt: z.string().nullable().optional(),
+    expiresAt: z.string().nullable().optional(),
+  })
+  .strict();
 
-const AppNotificationCreateInputSchema = z.object({
-  id: z.string(),
-  kind: z.union([
-    z.literal("task.turn_completed"),
-    z.literal("task.turn_failed"),
-    z.literal("task.approval_requested"),
-    z.literal("task.user_input_requested"),
-  ]),
-  title: z.string(),
-  body: z.string(),
-  projectPath: z.string().nullable().optional(),
-  projectName: z.string().nullable().optional(),
-  workspaceId: z.string().nullable().optional(),
-  workspaceName: z.string().nullable().optional(),
-  taskId: z.string().nullable().optional(),
-  taskTitle: z.string().nullable().optional(),
-  turnId: z.string().nullable().optional(),
-  providerId: ProviderIdSchema.nullable().optional(),
-  action: AppNotificationActionSchema.nullable().optional(),
-  payload: z.record(z.string(), z.unknown()).optional(),
-  createdAt: z.string().optional(),
-  readAt: z.string().nullable().optional(),
-  dedupeKey: z.string().nullable().optional(),
-}).strict();
+const AppNotificationCreateInputSchema = z
+  .object({
+    id: z.string(),
+    kind: z.union([
+      z.literal("task.turn_completed"),
+      z.literal("task.turn_failed"),
+      z.literal("task.approval_requested"),
+      z.literal("task.user_input_requested"),
+    ]),
+    title: z.string(),
+    body: z.string(),
+    projectPath: z.string().nullable().optional(),
+    projectName: z.string().nullable().optional(),
+    workspaceId: z.string().nullable().optional(),
+    workspaceName: z.string().nullable().optional(),
+    taskId: z.string().nullable().optional(),
+    taskTitle: z.string().nullable().optional(),
+    turnId: z.string().nullable().optional(),
+    providerId: ProviderIdSchema.nullable().optional(),
+    action: AppNotificationActionSchema.nullable().optional(),
+    payload: z.record(z.string(), z.unknown()).optional(),
+    createdAt: z.string().optional(),
+    readAt: z.string().nullable().optional(),
+    resolvedAt: z.string().nullable().optional(),
+    expiresAt: z.string().nullable().optional(),
+    dedupeKey: z.string().nullable().optional(),
+  })
+  .strict();
 
 const FallbackNotificationRowSchema = AppNotificationSchema.extend({
   dedupeKey: z.string().nullable().optional(),
@@ -94,13 +109,20 @@ interface RequiredPersistenceApi {
   markNotificationRead: (args: {
     id: string;
     readAt?: string;
+    resolvedAt?: string;
   }) => Promise<{
     ok: boolean;
     notification: AppNotification | null;
   }>;
-  markAllNotificationsRead: (args?: {
-    readAt?: string;
-  }) => Promise<{
+  markAllNotificationsRead: (args?: { readAt?: string }) => Promise<{
+    ok: boolean;
+    count: number;
+  }>;
+  pruneNotifications?: (args?: { now?: string }) => Promise<{
+    ok: boolean;
+    count: number;
+  }>;
+  clearNotificationHistory?: () => Promise<{
     ok: boolean;
     count: number;
   }>;
@@ -131,14 +153,27 @@ function normalizeNotificationRecord(payload: unknown): AppNotification | null {
     action: (parsed.data.action ?? null) as AppNotificationAction | null,
     payload: parsed.data.payload ?? {},
     readAt: parsed.data.readAt ?? null,
+    resolvedAt: parsed.data.resolvedAt ?? null,
+    expiresAt: parsed.data.expiresAt ?? null,
   };
 }
 
-function normalizeFallbackRow(payload: unknown): FallbackNotificationRow | null {
+function normalizeFallbackRow(
+  payload: unknown,
+): FallbackNotificationRow | null {
   const parsed = FallbackNotificationRowSchema.safeParse(payload);
   if (!parsed.success) {
     return null;
   }
+  const readAt = parsed.data.readAt ?? null;
+  const pendingAttention = isNotificationPendingAttention({
+    kind: parsed.data.kind,
+    resolvedAt: parsed.data.resolvedAt,
+  });
+  const expiresAt = pendingAttention
+    ? null
+    : (parsed.data.expiresAt ??
+      (readAt ? buildNotificationExpiresAt({ readAt }) : null));
   return {
     id: parsed.data.id,
     kind: parsed.data.kind,
@@ -155,12 +190,20 @@ function normalizeFallbackRow(payload: unknown): FallbackNotificationRow | null 
     action: (parsed.data.action ?? null) as AppNotificationAction | null,
     payload: parsed.data.payload ?? {},
     createdAt: parsed.data.createdAt,
-    readAt: parsed.data.readAt ?? null,
+    readAt,
+    resolvedAt: parsed.data.resolvedAt ?? null,
+    expiresAt,
     dedupeKey: parsed.data.dedupeKey ?? null,
   };
 }
 
-function toFallbackRow(input: AppNotificationCreateInput): FallbackNotificationRow {
+function toFallbackRow(
+  input: AppNotificationCreateInput,
+): FallbackNotificationRow {
+  const pendingAttention = isNotificationPendingAttention({
+    kind: input.kind,
+    resolvedAt: input.resolvedAt,
+  });
   return {
     id: input.id,
     kind: input.kind,
@@ -178,6 +221,13 @@ function toFallbackRow(input: AppNotificationCreateInput): FallbackNotificationR
     payload: input.payload ?? {},
     createdAt: input.createdAt ?? new Date().toISOString(),
     readAt: input.readAt ?? null,
+    resolvedAt: input.resolvedAt ?? null,
+    expiresAt: pendingAttention
+      ? null
+      : (input.expiresAt ??
+        (input.readAt
+          ? buildNotificationExpiresAt({ readAt: input.readAt })
+          : null)),
     dedupeKey: input.dedupeKey ?? null,
   };
 }
@@ -202,15 +252,14 @@ function normalizeCreateInput(
     payload: input.payload ?? {},
     createdAt: input.createdAt,
     readAt: input.readAt ?? null,
+    resolvedAt: input.resolvedAt ?? null,
+    expiresAt: input.expiresAt ?? null,
     dedupeKey: input.dedupeKey ?? null,
   };
 }
 
 function toPublicNotification(row: FallbackNotificationRow): AppNotification {
-  const {
-    dedupeKey: _dedupeKey,
-    ...notification
-  } = row;
+  const { dedupeKey: _dedupeKey, ...notification } = row;
   return notification;
 }
 
@@ -225,7 +274,9 @@ function loadFallbackRows() {
     }
     const parsed = JSON.parse(raw) as unknown[];
     const rows = Array.isArray(parsed)
-      ? parsed.map(normalizeFallbackRow).filter((row): row is FallbackNotificationRow => Boolean(row))
+      ? parsed
+          .map(normalizeFallbackRow)
+          .filter((row): row is FallbackNotificationRow => Boolean(row))
       : memoryFallbackRows;
     memoryFallbackRows = rows;
     return rows;
@@ -246,13 +297,36 @@ function saveFallbackRows(rows: FallbackNotificationRow[]) {
   }
 }
 
+function isPendingAttentionNotification(
+  notification: Pick<AppNotification, "kind" | "resolvedAt">,
+) {
+  return isNotificationPendingAttention(notification);
+}
+
+function pruneFallbackRows(now: string) {
+  const rows = loadFallbackRows();
+  const nextRows = rows.filter(
+    (row) =>
+      isNotificationPendingAttention(row) ||
+      !row.expiresAt ||
+      row.expiresAt > now,
+  );
+  if (nextRows.length !== rows.length) {
+    saveFallbackRows(nextRows);
+  }
+  return {
+    count: rows.length - nextRows.length,
+    rows: nextRows,
+  };
+}
+
 function getPersistenceApi() {
   const api = window.api?.persistence;
   if (
-    !api?.listNotifications
-    || !api.createNotification
-    || !api.markNotificationRead
-    || !api.markAllNotificationsRead
+    !api?.listNotifications ||
+    !api.createNotification ||
+    !api.markNotificationRead ||
+    !api.markAllNotificationsRead
   ) {
     return null;
   }
@@ -268,7 +342,12 @@ export async function listNotifications(args?: {
     const notifications = loadFallbackRows()
       .map(toPublicNotification)
       .filter((notification) => !args?.unreadOnly || !notification.readAt);
-    return sortNotificationsNewestFirst(notifications).slice(0, Math.max(1, args?.limit ?? 100));
+    const sorted = sortNotificationsNewestFirst(notifications);
+    const pending = sorted.filter(isPendingAttentionNotification);
+    const regular = sorted
+      .filter((notification) => !isPendingAttentionNotification(notification))
+      .slice(0, Math.max(1, args?.limit ?? 100));
+    return sortNotificationsNewestFirst([...pending, ...regular]);
   }
 
   const response = await persistence.listNotifications(args);
@@ -278,14 +357,18 @@ export async function listNotifications(args?: {
 
   const notifications = response.notifications
     .map(normalizeNotificationRecord)
-    .filter((notification): notification is AppNotification => Boolean(notification));
+    .filter((notification): notification is AppNotification =>
+      Boolean(notification),
+    );
   return sortNotificationsNewestFirst(notifications);
 }
 
 export async function createNotification(args: {
   notification: AppNotificationCreateInput;
 }): Promise<{ inserted: boolean; notification: AppNotification | null }> {
-  const parsedInput = AppNotificationCreateInputSchema.safeParse(args.notification);
+  const parsedInput = AppNotificationCreateInputSchema.safeParse(
+    args.notification,
+  );
   if (!parsedInput.success) {
     throw new Error("Invalid notification payload.");
   }
@@ -296,7 +379,7 @@ export async function createNotification(args: {
     const candidate = toFallbackRow(normalizedInput);
     const rows = loadFallbackRows();
     const existing = candidate.dedupeKey
-      ? rows.find((row) => row.dedupeKey === candidate.dedupeKey) ?? null
+      ? (rows.find((row) => row.dedupeKey === candidate.dedupeKey) ?? null)
       : null;
     if (existing) {
       return { inserted: false, notification: toPublicNotification(existing) };
@@ -314,25 +397,37 @@ export async function createNotification(args: {
   }
   return {
     inserted: response.inserted,
-    notification: response.notification ? normalizeNotificationRecord(response.notification) : null,
+    notification: response.notification
+      ? normalizeNotificationRecord(response.notification)
+      : null,
   };
 }
 
 export async function markNotificationRead(args: {
   id: string;
   readAt?: string;
+  resolvedAt?: string;
 }): Promise<AppNotification | null> {
   const persistence = getPersistenceApi();
   if (!persistence) {
     const rows = loadFallbackRows();
+    const requestedReadAt = args.readAt ?? new Date().toISOString();
     let nextNotification: AppNotification | null = null;
     const nextRows = rows.map((row) => {
       if (row.id !== args.id) {
         return row;
       }
+      const readAt = row.readAt ?? requestedReadAt;
+      const resolvedAt = row.resolvedAt ?? args.resolvedAt ?? null;
+      const retentionAnchor = args.resolvedAt ?? readAt;
       const updated = {
         ...row,
-        readAt: row.readAt ?? args.readAt ?? new Date().toISOString(),
+        readAt,
+        resolvedAt,
+        expiresAt: isNotificationPendingAttention({ ...row, resolvedAt })
+          ? null
+          : (row.expiresAt ??
+            buildNotificationExpiresAt({ readAt: retentionAnchor })),
       };
       nextNotification = toPublicNotification(updated);
       return updated;
@@ -345,7 +440,9 @@ export async function markNotificationRead(args: {
   if (!response.ok) {
     throw new Error(`Failed to mark notification as read: ${args.id}`);
   }
-  return response.notification ? normalizeNotificationRecord(response.notification) : null;
+  return response.notification
+    ? normalizeNotificationRecord(response.notification)
+    : null;
 }
 
 export async function markAllNotificationsRead(args?: {
@@ -354,6 +451,7 @@ export async function markAllNotificationsRead(args?: {
   const persistence = getPersistenceApi();
   if (!persistence) {
     const readAt = args?.readAt ?? new Date().toISOString();
+    const expiresAt = buildNotificationExpiresAt({ readAt });
     let changed = 0;
     const nextRows = loadFallbackRows().map((row) => {
       if (row.readAt) {
@@ -363,6 +461,9 @@ export async function markAllNotificationsRead(args?: {
       return {
         ...row,
         readAt,
+        expiresAt: isNotificationPendingAttention(row)
+          ? null
+          : (row.expiresAt ?? expiresAt),
       };
     });
     saveFallbackRows(nextRows);
@@ -372,6 +473,38 @@ export async function markAllNotificationsRead(args?: {
   const response = await persistence.markAllNotificationsRead(args);
   if (!response.ok) {
     throw new Error("Failed to mark all notifications as read.");
+  }
+  return response.count;
+}
+
+export async function pruneNotifications(args?: {
+  now?: string;
+}): Promise<number> {
+  const now = args?.now ?? new Date().toISOString();
+  const persistence = getPersistenceApi();
+  if (!persistence?.pruneNotifications) {
+    return pruneFallbackRows(now).count;
+  }
+
+  const response = await persistence.pruneNotifications({ now });
+  if (!response.ok) {
+    throw new Error("Failed to prune expired notifications.");
+  }
+  return response.count;
+}
+
+export async function clearNotificationHistory(): Promise<number> {
+  const persistence = getPersistenceApi();
+  if (!persistence?.clearNotificationHistory) {
+    const rows = loadFallbackRows();
+    const nextRows = rows.filter((row) => !isNotificationHistoryClearable(row));
+    saveFallbackRows(nextRows);
+    return rows.length - nextRows.length;
+  }
+
+  const response = await persistence.clearNotificationHistory();
+  if (!response.ok) {
+    throw new Error("Failed to clear notification history.");
   }
   return response.count;
 }

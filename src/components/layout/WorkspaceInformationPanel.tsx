@@ -1,5 +1,4 @@
 import {
-  Bot,
   BookOpen,
   CalendarIcon,
   ClipboardCheck,
@@ -8,7 +7,6 @@ import {
   ChevronRight,
   Circle,
   CircleDot,
-  CloudUpload,
   ExternalLink,
   GitMerge,
   GitPullRequest,
@@ -24,9 +22,9 @@ import {
   SlidersHorizontal,
   Sparkles,
   StickyNote,
-  UserRound,
   X,
 } from "lucide-react";
+import { AmplifyIcon } from "@/components/brand-icons";
 import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
 import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
 import {
@@ -111,13 +109,13 @@ import {
   PR_STATUS_VISUAL,
   PR_TONE_BADGE_CLASS,
 } from "@/lib/pr-status";
-import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import {
   formatWorkspaceInfoTaskSeedPrompt,
   resolveWorkspaceInfoTaskSeedTitle,
 } from "@/lib/workspace-information-task-seed";
 import {
+  parseWorkspaceInformationOpenSections,
   WORKSPACE_INFORMATION_SECTION_IDS,
   resolveVisibleWorkspaceInformationSections,
   type WorkspaceInformationSectionId,
@@ -132,6 +130,7 @@ import {
 } from "@/hooks/use-sortable-list";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
+import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
 
 // ---------------------------------------------------------------------------
 // Utility helpers (unchanged business logic)
@@ -167,7 +166,7 @@ function openExternalUrl(url: string) {
 }
 
 const WORKSPACE_INFORMATION_ACCORDION_STORAGE_KEY =
-  "stave:workspace-information-open-sections:v1";
+  "stave:workspace-information-open-sections:v2";
 
 interface LinkedPullRequestPreview {
   url: string;
@@ -181,30 +180,12 @@ interface LinkedPullRequestPreview {
 
 function readStoredWorkspaceInformationSections(): WorkspaceInformationSectionId[] {
   if (typeof window === "undefined") {
-    return [...WORKSPACE_INFORMATION_SECTION_IDS];
+    return ["overview"];
   }
 
-  try {
-    const raw = window.localStorage.getItem(
-      WORKSPACE_INFORMATION_ACCORDION_STORAGE_KEY,
-    );
-    if (!raw) {
-      return [...WORKSPACE_INFORMATION_SECTION_IDS];
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [...WORKSPACE_INFORMATION_SECTION_IDS];
-    }
-
-    return parsed.filter((value): value is WorkspaceInformationSectionId =>
-      WORKSPACE_INFORMATION_SECTION_IDS.includes(
-        value as WorkspaceInformationSectionId,
-      ),
-    );
-  } catch {
-    return [...WORKSPACE_INFORMATION_SECTION_IDS];
-  }
+  return parseWorkspaceInformationOpenSections(
+    window.localStorage.getItem(WORKSPACE_INFORMATION_ACCORDION_STORAGE_KEY),
+  );
 }
 
 const WORKSPACE_INFORMATION_SECTION_ORDER_STORAGE_KEY =
@@ -596,32 +577,6 @@ function SectionHeader(props: {
   );
 }
 
-function SummaryEntry(props: {
-  icon: ReactNode;
-  label: string;
-  children: ReactNode;
-  tone?: "default" | "muted";
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted/70 text-muted-foreground">
-          {props.icon}
-        </span>
-        <span>{props.label}</span>
-      </div>
-      <p
-        className={cn(
-          "pl-7 text-[15px] leading-6 text-foreground/95",
-          props.tone === "muted" && "text-muted-foreground",
-        )}
-      >
-        {props.children}
-      </p>
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Inline link row — compact clickable item for Jira/Figma/GitHub
 // ---------------------------------------------------------------------------
@@ -638,7 +593,7 @@ function InlineLinkRow(props: {
   onTogglePin?: () => void;
 }) {
   return (
-    <div className="group/link-row flex items-center gap-2.5 rounded-md px-1.5 py-2">
+    <div className="group/link-row flex items-center gap-2.5 rounded-md px-1.5 py-2 transition-colors hover:bg-muted/40 focus-within:bg-muted/40">
       <span className="flex size-6 shrink-0 items-center justify-center">
         {props.icon}
       </span>
@@ -662,32 +617,31 @@ function InlineLinkRow(props: {
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
         {props.onTogglePin ? (
-          <TooltipProvider delayDuration={300}>
+          <TooltipProvider delay={300}>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex size-7 items-center justify-center rounded-sm transition-opacity hover:bg-muted",
-                    props.pinned
-                      ? "text-primary opacity-100"
-                      : "text-muted-foreground/60 opacity-0 hover:text-foreground group-hover/link-row:opacity-100",
-                  )}
-                  onClick={props.onTogglePin}
-                  aria-pressed={props.pinned}
-                  aria-label={
-                    props.pinned
-                      ? "Unpin intent anchor"
-                      : "Pin as intent anchor"
-                  }
-                >
-                  <Pin
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
                     className={cn(
-                      "size-3.5",
-                      props.pinned ? "fill-current" : "",
+                      "flex size-7 items-center justify-center rounded-sm transition-opacity hover:bg-muted",
+                      props.pinned
+                        ? "text-primary opacity-100"
+                        : "text-muted-foreground/60 opacity-0 hover:text-foreground group-hover/link-row:opacity-100",
                     )}
+                    onClick={props.onTogglePin}
+                    aria-pressed={props.pinned}
+                    aria-label={
+                      props.pinned
+                        ? "Unpin intent anchor"
+                        : "Pin as intent anchor"
+                    }
                   />
-                </button>
+                }
+              >
+                <Pin
+                  className={cn("size-3.5", props.pinned ? "fill-current" : "")}
+                />
               </TooltipTrigger>
               <TooltipContent
                 side="left"
@@ -709,17 +663,19 @@ function InlineLinkRow(props: {
         ) : null}
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/link-row:opacity-100">
           {props.actions}
-          <TooltipProvider delayDuration={300}>
+          <TooltipProvider delay={300}>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
-                  onClick={props.onRemove}
-                  aria-label="Remove"
-                >
-                  <X className="size-3.5" />
-                </button>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+                    onClick={props.onRemove}
+                    aria-label="Remove"
+                  />
+                }
+              >
+                <X className="size-3.5" />
               </TooltipTrigger>
               <TooltipContent side="left">Remove</TooltipContent>
             </Tooltip>
@@ -735,18 +691,20 @@ function CreateTaskActionButton(props: {
   onClick: () => void;
 }) {
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider delay={300}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-            disabled={props.disabled}
-            onClick={props.onClick}
-            aria-label="Create task"
-          >
-            <MessageSquarePlus className="size-3.5" />
-          </button>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+              disabled={props.disabled}
+              onClick={props.onClick}
+              aria-label="Create task"
+            />
+          }
+        >
+          <MessageSquarePlus className="size-3.5" />
         </TooltipTrigger>
         <TooltipContent side="left">Create task</TooltipContent>
       </Tooltip>
@@ -938,24 +896,26 @@ function CustomFieldDatePicker(props: {
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn(
-            "h-9 w-full justify-start text-left text-sm font-normal",
-            !props.value && "text-muted-foreground",
-          )}
-        >
-          <CalendarIcon className="mr-2 size-4" />
-          {isValid
-            ? selected.toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })
-            : "Pick a date"}
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              "h-9 w-full justify-start text-left text-sm font-normal",
+              !props.value && "text-muted-foreground",
+            )}
+          />
+        }
+      >
+        <CalendarIcon className="mr-2 size-4" />
+        {isValid
+          ? selected.toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })
+          : "Pick a date"}
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
@@ -1211,30 +1171,56 @@ function NotesSectionBody(props: {
 
   if (isEditing) {
     return (
-      <Textarea
-        autoFocus
-        className="min-h-24 resize-none text-sm"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onFocus={(event) => {
-          const length = event.currentTarget.value.length;
-          event.currentTarget.setSelectionRange(length, length);
-        }}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            cancel();
-          } else if (
-            event.key === "Enter" &&
-            (event.metaKey || event.ctrlKey)
-          ) {
-            event.preventDefault();
-            commit();
-          }
-        }}
-        placeholder="Notes, blockers, handoff details..."
-      />
+      <div className="space-y-2">
+        <Textarea
+          autoFocus
+          className="min-h-40 resize-y text-sm leading-6"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onFocus={(event) => {
+            const length = event.currentTarget.value.length;
+            event.currentTarget.setSelectionRange(length, length);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              cancel();
+            } else if (
+              event.key === "Enter" &&
+              (event.metaKey || event.ctrlKey)
+            ) {
+              event.preventDefault();
+              commit();
+            }
+          }}
+          placeholder="Notes, blockers, handoff details..."
+        />
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[11px] text-muted-foreground">
+            Markdown · ⌘/Ctrl+Enter to save
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8"
+              onClick={cancel}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8"
+              onClick={commit}
+              disabled={draft === props.notes}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -1672,7 +1658,7 @@ export function WorkspaceInformationPanel() {
           <SectionReorderContext.Provider value={moveSectionForKeyboard}>
             <SectionVisibilityContext.Provider value={visibleSections}>
               <Accordion
-                type="multiple"
+                multiple
                 value={openSections}
                 onValueChange={(value) =>
                   setOpenSections(value as WorkspaceInformationSectionId[])
@@ -1695,42 +1681,17 @@ export function WorkspaceInformationPanel() {
                   }
                 >
                   {latestTurnSummary ? (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {latestTurnSummary.taskTitle ? (
-                          <span className="min-w-0 truncate font-medium text-foreground/80">
-                            {latestTurnSummary.taskTitle}
-                          </span>
-                        ) : null}
-                        <Badge
-                          variant="outline"
-                          className="h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none"
-                        >
-                          {toHumanModelName({ model: latestTurnSummary.model })}
-                        </Badge>
-                      </div>
-
-                      <div className="space-y-3">
-                        <SummaryEntry
-                          icon={<UserRound className="size-3.5" />}
-                          label="user"
-                        >
-                          {latestTurnSummary.requestSummary}
-                        </SummaryEntry>
-                        <div className="border-t border-border/40" />
-                        <SummaryEntry
-                          icon={<Bot className="size-3.5" />}
-                          label="ai"
-                          tone="muted"
-                        >
-                          {latestTurnSummary.workSummary}
-                        </SummaryEntry>
-                      </div>
-                    </div>
+                    <WorkspaceTurnSummary summary={latestTurnSummary} />
                   ) : (
-                    <p className="text-[15px] leading-6 text-muted-foreground">
-                      No summary yet. Finish a turn.
-                    </p>
+                    <div className="bg-muted/18 px-3 py-4">
+                      <p className="text-sm font-medium text-foreground">
+                        No completed turn yet
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        The latest request, outcome, and model will appear here
+                        after the first completed response.
+                      </p>
+                    </div>
                   )}
                 </SectionHeader>
 
@@ -1899,11 +1860,21 @@ export function WorkspaceInformationPanel() {
                   <WorkspacePlansSection
                     embedded
                     workspacePath={workspacePath}
+                    taskId={activeTaskId}
                     refreshNonce={workspacePlansRefreshNonce}
                     onEntriesChange={handlePlansEntriesChange}
                     onOpenFile={({ filePath }) =>
                       openFileFromTree({ filePath })
                     }
+                    onPlanDeleted={async ({ filePath }) => {
+                      const appState = useAppStore.getState();
+                      appState.editorTabs
+                        .filter((tab) => tab.filePath === filePath)
+                        .forEach((tab) =>
+                          appState.closeEditorTab({ tabId: tab.id }),
+                        );
+                      await appState.refreshProjectFiles();
+                    }}
                     onImportTodos={async ({ filePath }) => {
                       if (!workspacePath) {
                         return;
@@ -2524,7 +2495,7 @@ export function WorkspaceInformationPanel() {
                   value="amplify"
                   order={sectionOrderIndexById.amplify}
                   title="Amplify"
-                  icon={<CloudUpload className="size-4" />}
+                  icon={<AmplifyIcon className="h-4 w-auto shrink-0" />}
                   count={workspaceInformation.amplifyLinks?.length ?? 0}
                   action={
                     <AddButton
@@ -2587,9 +2558,7 @@ export function WorkspaceInformationPanel() {
                       return (
                         <InlineLinkRow
                           key={link.id}
-                          icon={
-                            <CloudUpload className="size-4 text-muted-foreground/70" />
-                          }
+                          icon={<AmplifyIcon className="h-4 w-auto shrink-0" />}
                           label={label}
                           sublabel={host || undefined}
                           url={link.url}

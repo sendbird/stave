@@ -8,13 +8,19 @@ import {
   EmptyTitle,
 } from "@/components/ui";
 import { ScriptEntryCard } from "./ScriptEntryCard";
-import { collectEntryTriggers, findDuplicateEntryIds } from "./scripts-manager-state";
+import {
+  collectEntryTriggers,
+  findDuplicateEntryIds,
+  getScriptEditorRunDisabledReason,
+  type ScriptEditorScopeId,
+} from "./scripts-manager-state";
 import {
   validateScriptEditorEntry,
   type ScriptEditorEntry,
   type ScriptEditorState,
 } from "@/lib/workspace-scripts/editor";
 import { scriptEntryKey } from "@/lib/workspace-scripts/runtime-state";
+import type { ScriptEntryOrigin } from "@/lib/workspace-scripts/origins";
 import type { ScriptUiState } from "@/lib/workspace-scripts/runtime-state";
 import type { ScriptKind } from "@/lib/workspace-scripts/types";
 
@@ -25,7 +31,11 @@ export function ScriptEntriesTab(props: {
   targetOptions: Array<{ id: string; label: string }>;
   expandedEntryKey: string | null;
   onExpandedChange: (key: string | null) => void;
-  onFieldChange: (index: number, field: keyof ScriptEditorEntry, value: string | boolean) => void;
+  onFieldChange: (
+    index: number,
+    field: keyof ScriptEditorEntry,
+    value: string | boolean,
+  ) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
   onMove: (index: number, direction: -1 | 1) => void;
@@ -34,17 +44,19 @@ export function ScriptEntriesTab(props: {
   runtimeAvailable: boolean;
   runtimeHint?: string;
   isDirty: boolean;
-  resolvedIds: Set<string>;
+  selectedScopeId: ScriptEditorScopeId;
+  entryOrigins: Record<string, ScriptEntryOrigin>;
   runStateByKey: Record<string, ScriptUiState>;
   onRunEntry: (id: string) => void;
   onStopEntry: (id: string) => void;
   onClearLog: (id: string) => void;
 }) {
-  const kindLabel = props.kind === "service" ? "Services" : "Actions";
-  const kindDescription = props.kind === "service"
-    ? "Long-running processes that stay available until you stop them."
-    : "Short-lived commands you run on demand or from hooks.";
-  const addLabel = props.kind === "service" ? "Add service" : "Add action";
+  const kindLabel = props.kind === "service" ? "Processes" : "Commands";
+  const kindDescription =
+    props.kind === "service"
+      ? "Long-running processes that stay available until you stop them."
+      : "One-shot commands you run on demand or from lifecycle triggers.";
+  const addLabel = props.kind === "service" ? "Add process" : "Add command";
 
   const duplicates = findDuplicateEntryIds(props.entries);
 
@@ -72,7 +84,9 @@ export function ScriptEntriesTab(props: {
             <EmptyMedia>
               <FilePenLine className="size-4" />
             </EmptyMedia>
-            <EmptyTitle>No {props.kind}s yet</EmptyTitle>
+            <EmptyTitle>
+              No {props.kind === "service" ? "processes" : "commands"} yet
+            </EmptyTitle>
             <EmptyDescription>
               Click "{addLabel}" to create the first entry.
             </EmptyDescription>
@@ -94,12 +108,12 @@ export function ScriptEntriesTab(props: {
             });
             const id = entry.id.trim();
             const runKey = scriptEntryKey(props.kind, id);
-            const inResolved = Boolean(id) && props.resolvedIds.has(runKey);
-            const disabledReason = props.isDirty
-              ? "Save changes first — Run executes the saved config."
-              : !inResolved
-                ? "Not active in the resolved config."
-                : null;
+            const disabledReason = getScriptEditorRunDisabledReason({
+              entryId: id,
+              isDirty: props.isDirty,
+              selectedScopeId: props.selectedScopeId,
+              origin: props.entryOrigins[runKey],
+            });
             return (
               <ScriptEntryCard
                 key={stableKey}
@@ -112,9 +126,13 @@ export function ScriptEntriesTab(props: {
                 issues={issues}
                 expanded={props.expandedEntryKey === stableKey}
                 onToggleExpand={() =>
-                  props.onExpandedChange(props.expandedEntryKey === stableKey ? null : stableKey)
+                  props.onExpandedChange(
+                    props.expandedEntryKey === stableKey ? null : stableKey,
+                  )
                 }
-                onFieldChange={(field, value) => props.onFieldChange(index, field, value)}
+                onFieldChange={(field, value) =>
+                  props.onFieldChange(index, field, value)
+                }
                 onRemove={() => props.onRemove(index)}
                 onMove={(direction) => props.onMove(index, direction)}
                 onDuplicate={() => props.onDuplicate(index)}

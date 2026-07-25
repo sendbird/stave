@@ -24,6 +24,8 @@ function createInput(
       label: "Project",
     },
     runtime: createDefaultRoutineRuntime("codex"),
+    trustPolicy: "review-required",
+    maxConcurrentRuns: 1,
     informationReferences: [],
     ...overrides,
   };
@@ -33,12 +35,8 @@ function createHarness(args?: {
   initialState?: RoutineState;
   initialNow?: string;
 }) {
-  let state = structuredClone(
-    args?.initialState ?? createEmptyRoutineState(),
-  );
-  let currentNow = new Date(
-    args?.initialNow ?? "2026-07-23T00:00:00.000Z",
-  );
+  let state = structuredClone(args?.initialState ?? createEmptyRoutineState());
+  let currentNow = new Date(args?.initialNow ?? "2026-07-23T00:00:00.000Z");
   let intervalCallback: (() => void) | null = null;
   const completedTurnIds: string[] = [];
   const runTaskCalls: unknown[] = [];
@@ -143,7 +141,9 @@ describe("routine host runtime", () => {
       turnId: "turn-1",
       status: "running",
       trigger: "manual",
+      trustPolicy: "review-required",
     });
+    expect(run.configHash).toMatch(/^[a-f0-9]{16}$/);
     expect(harness.getRunTaskCalls()[0]).toMatchObject({
       workspaceId: "ws-1",
       controlMode: "interactive",
@@ -222,9 +222,9 @@ describe("routine host runtime", () => {
     const routine = await harness.runtime.create(createInput());
     await harness.runtime.runNow({ id: routine.id });
 
-    await expect(
-      harness.runtime.remove({ id: routine.id }),
-    ).rejects.toThrow("Wait for the active run");
+    await expect(harness.runtime.remove({ id: routine.id })).rejects.toThrow(
+      "Wait for the active run",
+    );
   });
 
   test("runs a missed due routine once and advances from the current time", async () => {
@@ -267,7 +267,7 @@ describe("routine host runtime", () => {
     );
   });
 
-  test("records and advances an overlapping scheduled occurrence", async () => {
+  test("records and advances a scheduled occurrence beyond its concurrency limit", async () => {
     const harness = createHarness();
     harness.runtime.start();
     const routine = await harness.runtime.create(
@@ -285,7 +285,8 @@ describe("routine host runtime", () => {
     expect(harness.getState().runs[0]).toMatchObject({
       routineId: routine.id,
       status: "skipped",
-      error: "Skipped because the previous routine run is still active.",
+      error:
+        "Skipped because the automation reached its concurrency limit (1).",
     });
     expect(harness.getState().routines[0]?.nextRunAt).toBe(
       "2026-07-23T00:02:00.000Z",
@@ -309,6 +310,8 @@ describe("routine host runtime", () => {
       completedAt: null,
       resultPreview: null,
       error: null,
+      configHash: null,
+      trustPolicy: "review-required",
     });
     const harness = createHarness({ initialState });
 
@@ -323,15 +326,51 @@ describe("routine host runtime", () => {
     harness.runtime.stop();
   });
 
+  test("enforces the configured concurrent run limit", async () => {
+    const harness = createHarness();
+    const automation = await harness.runtime.create(
+      createInput({ maxConcurrentRuns: 2 }),
+    );
+
+    await harness.runtime.runNow({ id: automation.id });
+    await harness.runtime.runNow({ id: automation.id });
+
+    await expect(harness.runtime.runNow({ id: automation.id })).rejects.toThrow(
+      "concurrency limit (2)",
+    );
+  });
+
+  test("captures an immutable config hash and unattended trust policy", async () => {
+    const harness = createHarness();
+    const automation = await harness.runtime.create(
+      createInput({
+        trustPolicy: "unattended",
+        runtime: {
+          ...createDefaultRoutineRuntime("codex"),
+          approvalPolicy: "on-request",
+        },
+      }),
+    );
+    const firstRun = await harness.runtime.runNow({ id: automation.id });
+
+    expect(firstRun.trustPolicy).toBe("unattended");
+    expect(firstRun.configHash).toMatch(/^[a-f0-9]{16}$/);
+    expect(harness.getRunTaskCalls()[0]).toMatchObject({
+      runtimeOptions: {
+        codexApprovalPolicy: "never",
+      },
+    });
+  });
+
   test("lists Information references but excludes live Lens state", async () => {
     const harness = createHarness();
     const options = await harness.runtime.listInformationReferences({
       workspaceId: "ws-1",
     });
 
-    expect(options.some((option) => option.reference.token === "@info:notes")).toBe(
-      true,
-    );
+    expect(
+      options.some((option) => option.reference.token === "@info:notes"),
+    ).toBe(true);
     expect(options.some((option) => option.reference.token === "@lens")).toBe(
       false,
     );

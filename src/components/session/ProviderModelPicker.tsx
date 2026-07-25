@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
  */
 
 interface ProviderModelPickerProps {
+  /** Prefix used to give both selects distinct accessible names. */
+  ariaLabel?: string;
   selectedProvider: ProviderId;
   selectedModel: string;
   onProviderChange: (providerId: ProviderId) => void;
@@ -51,8 +53,14 @@ export function pickDefaultModelForProvider(providerId: ProviderId): string {
 export function ProviderModelPicker(args: ProviderModelPickerProps) {
   const providerIds = useMemo(() => listProviderIds(), []);
   const providerModels = useMemo(
-    () => getSdkModelOptions({ providerId: args.selectedProvider }),
-    [args.selectedProvider],
+    () =>
+      [
+        ...new Set([
+          args.selectedModel,
+          ...getSdkModelOptions({ providerId: args.selectedProvider }),
+        ]),
+      ].filter(Boolean),
+    [args.selectedModel, args.selectedProvider],
   );
   const providerAvailable = args.providerAvailable !== false;
   return (
@@ -68,6 +76,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
         disabled={args.disabled}
       >
         <SelectTrigger
+          aria-label={`${args.ariaLabel ?? "Model"} provider`}
           className={cn(
             "h-8 text-xs",
             args.providerSelectClassName ?? "w-[150px] shrink-0",
@@ -77,11 +86,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
         </SelectTrigger>
         <SelectContent>
           {providerIds.map((providerId) => (
-            <SelectItem
-              key={providerId}
-              value={providerId}
-              className="text-xs"
-            >
+            <SelectItem key={providerId} value={providerId} className="text-xs">
               <span className="flex items-center gap-2">
                 <ModelIcon providerId={providerId} className="size-3.5" />
                 {getProviderLabel({ providerId, variant: "full" })}
@@ -97,6 +102,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
         disabled={args.disabled}
       >
         <SelectTrigger
+          aria-label={`${args.ariaLabel ?? "Model"} model`}
           className={cn(
             "h-8 w-full min-w-0 flex-1 text-xs",
             args.modelSelectClassName ?? "",

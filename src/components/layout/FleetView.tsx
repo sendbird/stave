@@ -1,7 +1,6 @@
 import {
   AlertTriangle,
   ArrowRight,
-  Bot,
   ChevronDown,
   ChevronRight,
   CircleDashed,
@@ -9,6 +8,7 @@ import {
   FolderTree,
   LoaderCircle,
   Minus,
+  Radar,
   Radio,
   Search,
   ShieldCheck,
@@ -203,10 +203,13 @@ function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
 
   return (
     <span
-      className="inline-flex size-5 shrink-0 items-center justify-center rounded-sm bg-muted/60 text-muted-foreground"
+      className={cn(
+        "inline-flex size-4 shrink-0 items-center justify-center",
+        provider === "codex" ? "text-provider-codex" : "text-provider-claude",
+      )}
       title={`${label} provider`}
     >
-      <Icon className="size-3" aria-hidden="true" />
+      <Icon className="size-3.5" aria-hidden="true" />
       <span className="sr-only">{label} provider</span>
     </span>
   );
@@ -393,6 +396,14 @@ function FleetTaskRow(args: {
 }) {
   const taskTitle = formatTaskTitle(args.row.task);
   const statusLabel = formatFleetStatusLabel(args.row.status);
+  const statusRailClassName: Record<FleetDisplayStatus, string> = {
+    "waiting-input": "before:bg-warning",
+    "waiting-approval": "before:bg-warning",
+    error: "before:bg-destructive",
+    running: "before:bg-primary",
+    idle: "before:bg-border",
+    unknown: "before:bg-muted-foreground/35",
+  };
 
   return (
     <button
@@ -400,8 +411,9 @@ function FleetTaskRow(args: {
       data-fleet-task-row="true"
       data-task-key={args.taskKey}
       className={cn(
-        "group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 px-4 py-2.5 text-left transition-colors hover:bg-muted/25 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70",
-        args.isFocused && "bg-muted/15",
+        "group relative grid min-h-15 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border/45 px-4 py-2.5 pl-5 text-left transition-[background-color,color] duration-150 before:absolute before:inset-y-2.5 before:left-0 before:w-0.5 before:rounded-r-full hover:bg-accent/20 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55",
+        statusRailClassName[args.row.status],
+        args.isFocused && "bg-accent/15",
       )}
       tabIndex={args.tabIndex}
       aria-label={`Open ${taskTitle}, ${statusLabel}`}
@@ -442,11 +454,11 @@ function FleetTaskRow(args: {
     >
       <span className="min-w-0 space-y-1">
         <span className="flex min-w-0 items-center gap-2">
-          <FleetStatusBadge status={args.row.status} />
           <FleetProviderIcon provider={args.row.task.provider} />
           <span className="truncate text-sm font-medium text-foreground">
             {taskTitle}
           </span>
+          <FleetStatusBadge status={args.row.status} />
         </span>
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span className="truncate">
@@ -462,7 +474,7 @@ function FleetTaskRow(args: {
           ) : null}
         </span>
       </span>
-      <span className="inline-flex h-8 items-center gap-1 rounded-sm px-2 text-sm text-muted-foreground transition-colors group-hover:text-foreground">
+      <span className="inline-flex h-8 items-center gap-1 px-2 text-sm text-muted-foreground transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground">
         <ArrowRight className="size-4" aria-hidden="true" />
         <span className="hidden sm:inline">Open</span>
       </span>
@@ -507,7 +519,7 @@ function FleetWorkspaceSection(args: {
   }) => void;
   onAttentionTargetsChange: (
     workspaceId: string,
-    targets: FleetAttentionTarget[],
+    targets: FleetAttentionTarget[] | null,
   ) => void;
   onLifecycleChange: (
     workspaceId: string,
@@ -753,17 +765,18 @@ function FleetWorkspaceSection(args: {
     return { completed, total };
   }, [activeTodos]);
 
-  const lifecycle = useMemo<FleetLifecycleStatus>(
-    () =>
-      deriveFleetLifecycleStatus({
-        prStatus,
-        hasRunningTask: rows.some(
-          (row) => row.status !== "unknown" && row.status !== "idle",
-        ),
-        hasRecentActivity: rows.some((row) => row.messageCount > 0),
-      }),
-    [prStatus, rows],
-  );
+  const lifecycle = useMemo<FleetLifecycleStatus | null>(() => {
+    if (!hasRuntimeState && (loadedShell === undefined || didShellLoadFail)) {
+      return null;
+    }
+    return deriveFleetLifecycleStatus({
+      prStatus,
+      hasRunningTask: rows.some(
+        (row) => row.status !== "unknown" && row.status !== "idle",
+      ),
+      hasRecentActivity: rows.some((row) => row.messageCount > 0),
+    });
+  }, [didShellLoadFail, hasRuntimeState, loadedShell, prStatus, rows]);
   const isVisible = !args.isFilterActive || filteredRows.length > 0;
   const visibility = useMemo<FleetWorkspaceVisibility>(
     () => ({
@@ -787,8 +800,16 @@ function FleetWorkspaceSection(args: {
   );
 
   useEffect(() => {
-    args.onAttentionTargetsChange(workspaceKey, attentionTargets);
-  }, [args.onAttentionTargetsChange, attentionTargets, workspaceKey]);
+    args.onAttentionTargetsChange(
+      workspaceKey,
+      taskState.hasRuntimeState ? attentionTargets : null,
+    );
+  }, [
+    args.onAttentionTargetsChange,
+    attentionTargets,
+    taskState.hasRuntimeState,
+    workspaceKey,
+  ]);
 
   useEffect(() => {
     args.onLifecycleChange(workspaceKey, lifecycle);
@@ -803,10 +824,10 @@ function FleetWorkspaceSection(args: {
   }
 
   return (
-    <section className="border-b border-border/70">
+    <section className="ml-3 border-l border-border/55">
       <button
         type="button"
-        className="group flex min-h-12 w-full items-center justify-between gap-3 bg-card/60 px-4 py-2 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+        className="group flex min-h-12 w-full items-center justify-between gap-3 bg-surface/55 px-4 py-2 text-left transition-colors hover:bg-accent/20 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55"
         aria-expanded={!args.isCollapsed}
         aria-label={`${args.isCollapsed ? "Expand" : "Collapse"} ${displayWorkspaceName} workspace section`}
         onClick={() => args.onToggleWorkspace(workspaceKey)}
@@ -940,7 +961,7 @@ function FleetLaneHeader(args: {
   return (
     <button
       type="button"
-      className="flex min-h-8 w-full items-center gap-2 border-t border-border/60 bg-background/80 px-4 py-1.5 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+      className="flex min-h-8 w-full items-center gap-2 border-t border-border/45 bg-background/70 px-4 py-1.5 text-left transition-colors hover:bg-accent/15 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55"
       aria-expanded={!args.isCollapsed}
       aria-label={`${args.isCollapsed ? "Expand" : "Collapse"} ${FLEET_LIFECYCLE_LABEL[args.lane]} lane`}
       onClick={args.onToggle}
@@ -1051,10 +1072,19 @@ export function FleetView() {
   }, [attentionTargets, selectedAttentionKey]);
 
   const handleAttentionTargetsChange = useCallback(
-    (workspaceId: string, targets: FleetAttentionTarget[]) => {
+    (workspaceId: string, targets: FleetAttentionTarget[] | null) => {
       setAttentionTargetsByWorkspaceId((current) => {
-        const existing = current[workspaceId] ?? [];
+        const existing = current[workspaceId];
+        if (targets === null) {
+          if (!existing) {
+            return current;
+          }
+          const next = { ...current };
+          delete next[workspaceId];
+          return next;
+        }
         const isEqual =
+          existing !== undefined &&
           existing.length === targets.length &&
           existing.every(
             (target, index) =>
@@ -1066,13 +1096,7 @@ export function FleetView() {
           return current;
         }
 
-        const next = { ...current };
-        if (targets.length > 0) {
-          next[workspaceId] = targets;
-        } else {
-          delete next[workspaceId];
-        }
-        return next;
+        return { ...current, [workspaceId]: targets };
       });
     },
     [],
@@ -1336,6 +1360,34 @@ export function FleetView() {
     (count, project) => count + project.workspaces.length,
     0,
   );
+  const attentionCoverageCount = allWorkspaceKeys.filter(
+    (workspaceKey) => workspaceKey in attentionTargetsByWorkspaceId,
+  ).length;
+  const uninspectedWorkspaceCount = Math.max(
+    0,
+    totalWorkspaceCount - attentionCoverageCount,
+  );
+  const attentionCoverageComplete =
+    totalWorkspaceCount > 0 && uninspectedWorkspaceCount === 0;
+  const lifecycleCounts = useMemo(() => {
+    const counts: Record<FleetLifecycleStatus, number> = {
+      "in-progress": 0,
+      "in-review": 0,
+      backlog: 0,
+      done: 0,
+    };
+    for (const workspaceKey of allWorkspaceKeys) {
+      const lifecycle = lifecycleByWorkspaceId[workspaceKey];
+      if (lifecycle) {
+        counts[lifecycle] += 1;
+      }
+    }
+    return counts;
+  }, [allWorkspaceKeys, lifecycleByWorkspaceId]);
+  const unclassifiedWorkspaceCount = Math.max(
+    0,
+    totalWorkspaceCount - Object.keys(lifecycleByWorkspaceId).length,
+  );
   const isFilterEmpty =
     isFilterActive && filterStateSettled && matchedTaskCount === 0;
 
@@ -1344,20 +1396,18 @@ export function FleetView() {
       ref={fleetRootRef}
       className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background"
     >
-      <header className="flex min-h-14 items-center justify-between gap-3 border-b border-border/80 bg-card px-4 py-2.5">
+      <header className="flex min-h-18 items-center justify-between gap-4 border-b border-border/65 bg-[linear-gradient(110deg,color-mix(in_oklch,var(--surface)_92%,var(--background)),var(--background))] px-5 py-3">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <Bot className="size-4 shrink-0 text-muted-foreground" />
-            <h1 className="truncate text-sm font-semibold text-foreground">
+            <Radar className="size-4.5 shrink-0 text-primary" />
+            <h1 className="font-heading truncate text-base font-semibold tracking-[-0.01em] text-foreground">
               Fleet View
             </h1>
           </div>
-          <p className="truncate text-xs text-muted-foreground">
-            {projects.length} project{projects.length === 1 ? "" : "s"} ·{" "}
-            {totalWorkspaceCount} workspace
-            {totalWorkspaceCount === 1 ? "" : "s"}
-            {attentionTargets.length > 0
-              ? ` · ${attentionTargets.length} needs attention`
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            Action inbox for blockers, active work, and review-ready results.
+            {totalWorkspaceCount > 0
+              ? ` ${attentionCoverageCount}/${totalWorkspaceCount} live-inspected.`
               : ""}
           </p>
         </div>
@@ -1365,18 +1415,34 @@ export function FleetView() {
           <Button
             type="button"
             size="sm"
-            className="h-8 rounded-sm"
+            variant={attentionTargets.length > 0 ? "default" : "ghost"}
+            className="h-8"
             disabled={attentionTargets.length === 0}
             onClick={openNextAttentionTarget}
           >
-            <ArrowRight className="size-4" aria-hidden="true" />
-            Next Needs Input
+            {attentionTargets.length > 0 ? (
+              <ArrowRight className="size-4" aria-hidden="true" />
+            ) : attentionCoverageComplete ? (
+              <ShieldCheck className="size-4" aria-hidden="true" />
+            ) : (
+              <CircleDashed className="size-4" aria-hidden="true" />
+            )}
+            {attentionTargets.length > 0
+              ? "Open next blocker"
+              : attentionCoverageComplete
+                ? "All clear"
+                : `${uninspectedWorkspaceCount} not inspected`}
+            {attentionTargets.length > 0 ? (
+              <kbd className="ml-1 rounded-[0.25rem] border border-primary-foreground/20 bg-primary-foreground/10 px-1 font-mono text-[9px]">
+                N
+              </kbd>
+            ) : null}
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 w-8 rounded-sm p-0 text-muted-foreground hover:text-foreground"
+            className="h-8 w-8 p-0"
             aria-label="close-fleet-view"
             title="Close Fleet View"
             onClick={closeFleetView}
@@ -1386,18 +1452,91 @@ export function FleetView() {
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-border/80 bg-card px-4 py-2">
-        <span className="mr-1 text-xs font-medium text-muted-foreground">
-          Filter
+      <section
+        aria-label="Fleet summary"
+        className="grid shrink-0 grid-cols-5 border-b border-border/65 bg-surface/35"
+      >
+        <button
+          type="button"
+          className={cn(
+            "group min-w-0 border-r border-border/55 px-4 py-3 text-left transition-colors hover:bg-warning/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55",
+            statusFilter === "attention" && "bg-warning/8",
+          )}
+          aria-pressed={statusFilter === "attention"}
+          onClick={() =>
+            setStatusFilter((current) =>
+              current === "attention" ? "all" : "attention",
+            )
+          }
+        >
+          <span className="block text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            Needs you
+          </span>
+          <span className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-xl font-semibold tabular-nums text-warning">
+              {attentionTargets.length}
+            </span>
+            <span className="truncate text-[11px] text-muted-foreground">
+              {attentionCoverageComplete ? "blocker" : "known blocker"}
+              {attentionTargets.length === 1 ? "" : "s"}
+            </span>
+          </span>
+        </button>
+        {(
+          [
+            ["in-progress", "In motion", "text-primary"],
+            ["in-review", "Ready to review", "text-info"],
+            ["backlog", "Backlog", "text-muted-foreground"],
+            ["done", "Done", "text-success"],
+          ] as const
+        ).map(([status, label, tone], index) => (
+          <div
+            key={status}
+            className={cn(
+              "min-w-0 px-4 py-3",
+              index < 3 && "border-r border-border/55",
+            )}
+          >
+            <span className="block text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+              {label}
+            </span>
+            <span
+              className={cn(
+                "mt-1 block text-xl font-semibold tabular-nums",
+                tone,
+              )}
+            >
+              {lifecycleCounts[status]}
+            </span>
+          </div>
+        ))}
+      </section>
+
+      {unclassifiedWorkspaceCount > 0 ? (
+        <div className="flex items-center gap-2 border-b border-border/55 bg-muted/25 px-4 py-1.5 text-[11px] text-muted-foreground">
+          <CircleDashed className="size-3.5" aria-hidden="true" />
+          {unclassifiedWorkspaceCount} workspace
+          {unclassifiedWorkspaceCount === 1 ? "" : "s"} still loading or
+          unavailable; summary counts are provisional.
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background/85 px-4 py-2">
+        <span className="mr-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+          Show
         </span>
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center gap-0.5 rounded-md bg-muted/45 p-0.5">
           {FLEET_FILTER_OPTIONS.map((option) => (
             <Button
               key={option.value}
               type="button"
               size="sm"
               variant={statusFilter === option.value ? "secondary" : "ghost"}
-              className="h-7 rounded-sm px-2 text-xs"
+              className={cn(
+                "h-6.5 px-2 text-[11px]",
+                statusFilter === option.value &&
+                  "border-border/55 bg-background/85 shadow-[0_1px_2px_oklch(0_0_0/0.08)]",
+              )}
               aria-pressed={statusFilter === option.value}
               onClick={() => setStatusFilter(option.value)}
             >
@@ -1405,7 +1544,7 @@ export function FleetView() {
             </Button>
           ))}
         </div>
-        <div className="relative ml-auto w-full min-w-48 max-w-xs sm:w-56">
+        <div className="relative ml-auto w-full min-w-48 max-w-xs sm:w-64">
           <Search
             className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
@@ -1415,9 +1554,9 @@ export function FleetView() {
             data-fleet-filter-input="true"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search tasks..."
+            placeholder="Find task, workspace, or project…"
             aria-label="Search tasks, workspaces, or projects"
-            className="h-8 pl-8 pr-8 text-xs"
+            className="h-8 border-transparent bg-muted/35 pl-8 pr-8 text-xs hover:border-border/70"
           />
           {searchQuery ? (
             <Button
@@ -1438,7 +1577,7 @@ export function FleetView() {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 rounded-sm px-2 text-xs text-muted-foreground"
+            className="h-7 px-2 text-xs"
             onClick={clearFilters}
           >
             Clear filters
@@ -1448,17 +1587,17 @@ export function FleetView() {
 
       {attentionTargets.length > 0 ? (
         <section
-          className="border-b border-warning/25 bg-warning/5 px-4 py-2.5"
+          className="border-b border-warning/20 bg-[linear-gradient(90deg,color-mix(in_oklch,var(--warning)_8%,transparent),transparent_70%)] px-4 py-2.5"
           aria-label="Tasks needing attention"
           aria-live="polite"
         >
           <div className="mb-1.5 flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-warning">
+            <p className="text-xs font-semibold text-warning">
               {attentionTargets.length} task
               {attentionTargets.length === 1 ? "" : "s"} need attention
             </p>
             <span className="text-[11px] text-muted-foreground">
-              Select a task to open it
+              Ordered by urgency · press N for next
             </span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-0.5" role="list">
@@ -1473,8 +1612,9 @@ export function FleetView() {
                   <button
                     type="button"
                     className={cn(
-                      "flex min-w-52 max-w-xs shrink-0 items-center gap-2 rounded-sm border border-warning/25 bg-background/70 px-2.5 py-2 text-left transition-colors hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
-                      selectedAttentionKey === targetKey && "bg-warning/10",
+                      "flex min-w-52 max-w-xs shrink-0 items-center gap-2 border-l-2 border-warning/40 bg-background/35 px-2.5 py-2 text-left transition-[background-color,border-color,transform] duration-150 hover:translate-x-0.5 hover:border-warning hover:bg-warning/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+                      selectedAttentionKey === targetKey &&
+                        "border-warning bg-warning/10",
                     )}
                     aria-label={`Open ${target.taskTitle}, ${formatFleetStatusLabel(target.status)}, ${target.workspaceName} in ${target.projectName}`}
                     onClick={() => openAttentionTarget(target)}
@@ -1588,12 +1728,12 @@ export function FleetView() {
               return (
                 <section
                   key={project.projectPath}
-                  className="border-b border-border/80"
+                  className="border-b border-border/65"
                   hidden={hideProject}
                 >
                   <button
                     type="button"
-                    className="flex min-h-12 w-full items-center gap-2 bg-muted/25 px-4 py-2 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+                    className="flex min-h-13 w-full items-center gap-2 bg-surface/35 px-4 py-2 text-left transition-colors hover:bg-accent/18 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55"
                     aria-expanded={!projectIsCollapsed}
                     aria-label={`${projectIsCollapsed ? "Expand" : "Collapse"} ${project.projectName} project section`}
                     onClick={() => toggleProject(project.projectPath)}

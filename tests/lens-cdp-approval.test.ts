@@ -32,6 +32,8 @@ const {
   respondCdpApproval,
   setLensSecurityConfig,
 } = await import("../electron/main/browser/browser-security");
+const { subscribeLensCdpPolicy } =
+  await import("../electron/main/browser/browser-cdp-policy");
 
 describe("Lens CDP approval coordination", () => {
   afterEach(() => {
@@ -188,5 +190,53 @@ describe("Lens CDP approval coordination", () => {
     await pending;
 
     expect(getLensSecurityConfig().cdpApprovedHosts).toContain(host);
+  });
+
+  test("keeps allow-once approval active when persisted policy is republished", async () => {
+    const workspaceId = `workspace-${Date.now()}`;
+    const host = `${Date.now()}.transient.test`;
+    const policies: Array<{
+      transientCdpApprovals: ReadonlyArray<{
+        workspaceId: string;
+        host: string;
+        expiresAt: number;
+      }>;
+    }> = [];
+    const unsubscribe = subscribeLensCdpPolicy((policy) => {
+      policies.push(policy);
+    });
+
+    try {
+      const pending = assertCdpAllowed({
+        workspaceId,
+        url: `https://${host}`,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const request = sentApprovalRequests[0];
+
+      expect(
+        respondCdpApproval({
+          requestId: request.payload.requestId,
+          approved: true,
+          remember: false,
+        }),
+      ).toBe(true);
+      await pending;
+
+      setLensSecurityConfig({
+        allowedHosts: [],
+        blockedHosts: [],
+        developerModeCdp: true,
+        cdpApprovedHosts: [],
+      });
+
+      expect(policies.at(-1)?.transientCdpApprovals).toContainEqual({
+        workspaceId,
+        host,
+        expiresAt: expect.any(Number),
+      });
+    } finally {
+      unsubscribe();
+    }
   });
 });

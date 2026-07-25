@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   computeNextRoutineRunAt,
   normalizeRoutineState,
@@ -67,9 +67,7 @@ interface RoutineRuntimeDependencies {
     taskId: string;
     turnId?: string;
   }) => Promise<RoutineTaskStatusResult>;
-  getWorkspaceInformation: (args: {
-    workspaceId: string;
-  }) => Promise<{
+  getWorkspaceInformation: (args: { workspaceId: string }) => Promise<{
     workspaceId: string;
     workspaceInformation: WorkspaceInformationState;
   }>;
@@ -88,10 +86,7 @@ export interface RoutineRuntime {
     input: RoutineUpsertInput;
   }) => Promise<RoutineSpec>;
   remove: (args: { id: string }) => Promise<{ ok: true; id: string }>;
-  setEnabled: (args: {
-    id: string;
-    enabled: boolean;
-  }) => Promise<RoutineSpec>;
+  setEnabled: (args: { id: string; enabled: boolean }) => Promise<RoutineSpec>;
   runNow: (args: { id: string }) => Promise<RoutineRun>;
   listInformationReferences: (args: {
     workspaceId: string;
@@ -120,12 +115,66 @@ function truncateResultPreview(value: string | null) {
   return `${normalized.slice(0, ROUTINE_RESULT_PREVIEW_MAX_LENGTH - 1)}…`;
 }
 
-function hasActiveRun(state: RoutineState, routineId: string) {
-  return state.runs.some(
+function countActiveRuns(state: RoutineState, routineId: string) {
+  return state.runs.filter(
     (run) =>
       run.routineId === routineId &&
       (run.status === "running" || run.status === "waiting"),
-  );
+  ).length;
+}
+
+function serializeConfigValue(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(serializeConfigValue).join(",")}]`;
+  }
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${serializeConfigValue(record[key])}`)
+    .join(",")}}`;
+}
+
+function createAutomationConfigHash(routine: RoutineSpec) {
+  const executionConfig = {
+    environment: routine.environment,
+    informationReferences: routine.informationReferences,
+    maxConcurrentRuns: routine.maxConcurrentRuns,
+    prompt: routine.prompt,
+    runtime: routine.runtime,
+    schedule: routine.schedule,
+    trustPolicy: routine.trustPolicy,
+  };
+  return createHash("sha256")
+    .update(serializeConfigValue(executionConfig))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+function automationRuntimeToProviderOptions(routine: RoutineSpec) {
+  const options = routineRuntimeToProviderOptions(routine.runtime);
+  if (routine.trustPolicy === "workspace-trusted") {
+    return options;
+  }
+  if (routine.runtime.provider === "codex") {
+    return {
+      ...options,
+      codexApprovalPolicy:
+        routine.trustPolicy === "unattended" ? "never" : "untrusted",
+    } as const;
+  }
+  return {
+    ...options,
+    claudePermissionMode:
+      routine.trustPolicy === "unattended" ? "dontAsk" : "default",
+    claudeAllowUnsandboxedCommands:
+      routine.trustPolicy === "unattended"
+        ? options.claudeAllowUnsandboxedCommands
+        : false,
+    claudeAllowDangerouslySkipPermissions: false,
+  } as const;
 }
 
 function buildRoutineTaskTitle(args: { routine: RoutineSpec; now: Date }) {
@@ -204,6 +253,8 @@ export function createRoutineRuntime(
       completedAt: null,
       resultPreview: null,
       error: null,
+      configHash: createAutomationConfigHash(args.routine),
+      trustPolicy: args.routine.trustPolicy,
     };
     let state = saveState({
       ...args.state,
@@ -228,7 +279,7 @@ export function createRoutineRuntime(
           now: startedAtDate,
         }),
         provider: args.routine.runtime.provider,
-        runtimeOptions: routineRuntimeToProviderOptions(args.routine.runtime),
+        runtimeOptions: automationRuntimeToProviderOptions(args.routine),
         informationReferences: args.routine.informationReferences,
         controlMode: "interactive",
         controlOwner: "stave",
@@ -314,9 +365,7 @@ export function createRoutineRuntime(
           nextRun = {
             ...run,
             status: "waiting",
-            resultPreview: truncateResultPreview(
-              status.latestAssistantText,
-            ),
+            resultPreview: truncateResultPreview(status.latestAssistantText),
           };
         } else if (run.status !== "running") {
           nextRun = {
@@ -371,7 +420,9 @@ export function createRoutineRuntime(
       const latestRoutine =
         state.routines.find((candidate) => candidate.id === routine.id) ??
         routine;
-      if (hasActiveRun(state, routine.id)) {
+      if (
+        countActiveRuns(state, routine.id) >= latestRoutine.maxConcurrentRuns
+      ) {
         const skippedRun: RoutineRun = {
           id: randomUUID(),
           routineId: routine.id,
@@ -385,7 +436,9 @@ export function createRoutineRuntime(
           startedAt: tickNow.toISOString(),
           completedAt: tickNow.toISOString(),
           resultPreview: null,
-          error: "Skipped because the previous routine run is still active.",
+          error: `Skipped because the automation reached its concurrency limit (${latestRoutine.maxConcurrentRuns}).`,
+          configHash: createAutomationConfigHash(latestRoutine),
+          trustPolicy: latestRoutine.trustPolicy,
         };
         state = saveState({
           ...state,
@@ -526,8 +579,10 @@ export function createRoutineRuntime(
         if (!state.routines.some((routine) => routine.id === id)) {
           throw new Error(`Routine not found: ${id}`);
         }
-        if (hasActiveRun(state, id)) {
-          throw new Error("Wait for the active run before deleting this routine.");
+        if (countActiveRuns(state, id) > 0) {
+          throw new Error(
+            "Wait for the active run before deleting this routine.",
+          );
         }
         saveState({
           ...state,
@@ -570,8 +625,10 @@ export function createRoutineRuntime(
         if (!routine) {
           throw new Error(`Routine not found: ${id}`);
         }
-        if (hasActiveRun(state, id)) {
-          throw new Error("This routine already has an active run.");
+        if (countActiveRuns(state, id) >= routine.maxConcurrentRuns) {
+          throw new Error(
+            `This automation reached its concurrency limit (${routine.maxConcurrentRuns}).`,
+          );
         }
         const started = await startRoutineRun({
           state,

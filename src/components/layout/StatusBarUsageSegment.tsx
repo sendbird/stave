@@ -85,11 +85,7 @@ function UsageWindowRow({
   );
 }
 
-function ClaudeDetail({
-  snapshot,
-}: {
-  snapshot: ClaudeUsageSnapshot | null;
-}) {
+function ClaudeDetail({ snapshot }: { snapshot: ClaudeUsageSnapshot | null }) {
   if (!snapshot || snapshot.source === "unavailable") {
     return (
       <p className="text-xs text-muted-foreground">
@@ -220,7 +216,8 @@ export function StatusBarUsageSegment({
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
 
   const label = provider === "claude" ? "Claude" : "Codex";
-  const claudeSnapshot = provider === "claude" ? (snapshot?.claude ?? null) : null;
+  const claudeSnapshot =
+    provider === "claude" ? (snapshot?.claude ?? null) : null;
   const codexSnapshot = provider === "codex" ? (snapshot?.codex ?? null) : null;
   const codexHeadlineBucket = codexSnapshot?.buckets[0] ?? null;
   const headlinePercent =
@@ -235,33 +232,35 @@ export function StatusBarUsageSegment({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 gap-1.5 rounded-none px-2 text-xs text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-          aria-label={`${label.toLowerCase()}-usage`}
-        >
-          <span
-            className={cn(
-              "inline-block size-1.5 rounded-full",
-              headlinePercent === null
-                ? "bg-muted-foreground/40"
-                : usageToneClass(clampUsagePercent(headlinePercent)),
-            )}
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1.5 rounded-none px-2 text-xs text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+            aria-label={`${label.toLowerCase()}-usage`}
           />
-          <span>{label}</span>
-          <span className="font-mono">
-            {headlinePercent === null ? "—" : formatPercent(headlinePercent)}
-          </span>
-        </Button>
+        }
+      >
+        <span
+          className={cn(
+            "inline-block size-1.5 rounded-full",
+            headlinePercent === null
+              ? "bg-muted-foreground/40"
+              : usageToneClass(clampUsagePercent(headlinePercent)),
+          )}
+        />
+        <span>{label}</span>
+        <span className="font-mono">
+          {headlinePercent === null ? "—" : formatPercent(headlinePercent)}
+        </span>
       </PopoverTrigger>
       <PopoverContent
         side="top"
         align="start"
         sideOffset={8}
-        className="w-72 gap-0 overflow-hidden border border-border/80 bg-card p-0 shadow-2xl"
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        className="w-72 gap-0 overflow-hidden border border-border/80 bg-card p-0"
+        initialFocus={false}
       >
         <div className="flex items-center justify-between border-b border-border/70 px-3 py-2.5">
           <span className="text-sm font-medium">{label} Usage</span>

@@ -140,10 +140,7 @@ export function LensCdpApprovalDialog() {
       <DialogContent
         showCloseButton={false}
         className="sm:max-w-lg"
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          denyButtonRef.current?.focus();
-        }}
+        initialFocus={() => denyButtonRef.current}
       >
         <DialogHeader className="gap-3">
           <div className="flex items-start gap-3">

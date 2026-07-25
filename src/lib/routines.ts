@@ -16,60 +16,75 @@ export const ROUTINE_SCHEDULE_UNITS = [
 export const RoutineScheduleUnitSchema = z.enum(ROUTINE_SCHEDULE_UNITS);
 export type RoutineScheduleUnit = z.infer<typeof RoutineScheduleUnitSchema>;
 
-export const RoutineScheduleTimeSchema = z.object({
-  hour: z.number().int().min(0).max(23),
-  minute: z.number().int().min(0).max(59),
-}).strict();
+export const RoutineScheduleTimeSchema = z
+  .object({
+    hour: z.number().int().min(0).max(23),
+    minute: z.number().int().min(0).max(59),
+  })
+  .strict();
 export type RoutineScheduleTime = z.infer<typeof RoutineScheduleTimeSchema>;
 
-export const RoutineScheduleSchema = z.object({
-  every: z.number().int().min(1).max(999),
-  unit: RoutineScheduleUnitSchema,
-  /**
-   * Optional local start time for day/week schedules. When set, runs snap to
-   * this time of day instead of "interval after the previous run".
-   */
-  at: RoutineScheduleTimeSchema.optional(),
-  /**
-   * Optional local weekday (0 = Sunday … 6 = Saturday) for week schedules.
-   * Requires `at` so an anchored week schedule always has a concrete time.
-   */
-  weekday: z.number().int().min(0).max(6).optional(),
-}).strict().superRefine((schedule, context) => {
-  if (
-    schedule.at &&
-    (schedule.unit === "minutes" || schedule.unit === "hours")
-  ) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["at"],
-      message: "Start time applies only to day or week schedules.",
-    });
-  }
-  if (schedule.weekday !== undefined && schedule.unit !== "weeks") {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["weekday"],
-      message: "Start day applies only to week schedules.",
-    });
-  }
-  if (schedule.weekday !== undefined && !schedule.at) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["weekday"],
-      message: "Start day requires a start time.",
-    });
-  }
-});
+export const RoutineScheduleSchema = z
+  .object({
+    every: z.number().int().min(1).max(999),
+    unit: RoutineScheduleUnitSchema,
+    /**
+     * Optional local start time for day/week schedules. When set, runs snap to
+     * this time of day instead of "interval after the previous run".
+     */
+    at: RoutineScheduleTimeSchema.optional(),
+    /**
+     * Optional local weekday (0 = Sunday … 6 = Saturday) for week schedules.
+     * Requires `at` so an anchored week schedule always has a concrete time.
+     */
+    weekday: z.number().int().min(0).max(6).optional(),
+  })
+  .strict()
+  .superRefine((schedule, context) => {
+    if (
+      schedule.at &&
+      (schedule.unit === "minutes" || schedule.unit === "hours")
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["at"],
+        message: "Start time applies only to day or week schedules.",
+      });
+    }
+    if (schedule.weekday !== undefined && schedule.unit !== "weeks") {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["weekday"],
+        message: "Start day applies only to week schedules.",
+      });
+    }
+    if (schedule.weekday !== undefined && !schedule.at) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["weekday"],
+        message: "Start day requires a start time.",
+      });
+    }
+  });
 export type RoutineSchedule = z.infer<typeof RoutineScheduleSchema>;
 
-export const RoutineEnvironmentInputSchema = z.object({
-  kind: z.literal("repository"),
-  workspaceId: z.string().min(1),
-  path: z.string().min(1),
-  projectPath: z.string().min(1),
-  label: z.string().min(1),
-}).strict();
+export const AUTOMATION_TRUST_POLICIES = [
+  "review-required",
+  "workspace-trusted",
+  "unattended",
+] as const;
+export const AutomationTrustPolicySchema = z.enum(AUTOMATION_TRUST_POLICIES);
+export type AutomationTrustPolicy = z.infer<typeof AutomationTrustPolicySchema>;
+
+export const RoutineEnvironmentInputSchema = z
+  .object({
+    kind: z.literal("repository"),
+    workspaceId: z.string().min(1),
+    path: z.string().min(1),
+    projectPath: z.string().min(1),
+    label: z.string().min(1),
+  })
+  .strict();
 export type RoutineEnvironmentInput = z.infer<
   typeof RoutineEnvironmentInputSchema
 >;
@@ -115,8 +130,9 @@ const RoutineInformationExternalResourceBaseSchema = z.object({
   note: RoutineInformationNoteSchema,
 });
 
-export const RoutineInformationResourceCreateInputSchema =
-  z.discriminatedUnion("kind", [
+export const RoutineInformationResourceCreateInputSchema = z.discriminatedUnion(
+  "kind",
+  [
     z
       .object({
         kind: z.literal("notes"),
@@ -177,93 +193,90 @@ export const RoutineInformationResourceCreateInputSchema =
         value: z
           .union([z.string().max(10_000), z.number(), z.boolean(), z.null()])
           .optional(),
-        options: z
-          .array(z.string().trim().min(1).max(200))
-          .max(100)
-          .optional(),
+        options: z.array(z.string().trim().min(1).max(200)).max(100).optional(),
       })
       .strict(),
-  ]);
+  ],
+);
 export type RoutineInformationResourceCreateInput = z.infer<
   typeof RoutineInformationResourceCreateInputSchema
 >;
 
-export const RoutineInformationReferenceSchema = z.object({
-  section: z.enum([
-    "turn-summary",
-    "notes",
-    "todo",
-    "pr",
-    "jira",
-    "confluence",
-    "storybook",
-    "amplify",
-    "slack",
-    "figma",
-    "custom",
-  ]),
-  scope: z.enum(["section", "item"]),
-  itemId: z.string().optional(),
-  label: z.string(),
-  token: z.string().min(1),
-}).strict();
+export const RoutineInformationReferenceSchema = z
+  .object({
+    section: z.enum([
+      "turn-summary",
+      "notes",
+      "todo",
+      "pr",
+      "jira",
+      "confluence",
+      "storybook",
+      "amplify",
+      "slack",
+      "figma",
+      "custom",
+    ]),
+    scope: z.enum(["section", "item"]),
+    itemId: z.string().optional(),
+    label: z.string(),
+    token: z.string().min(1),
+  })
+  .strict();
 
-const ClaudeRoutineRuntimeSchema = z.object({
-  provider: z.literal("claude-code"),
-  model: z.string().min(1),
-  effort: z.enum(["low", "medium", "high", "xhigh", "max"]),
-  permissionMode: z.enum([
-    "default",
-    "acceptEdits",
-    "bypassPermissions",
-    "plan",
-    "dontAsk",
-    "auto",
-  ]),
-  sandboxEnabled: z.boolean(),
-  allowUnsandboxedCommands: z.boolean(),
-  allowDangerouslySkipPermissions: z.boolean(),
-}).strict();
+const ClaudeRoutineRuntimeSchema = z
+  .object({
+    provider: z.literal("claude-code"),
+    model: z.string().min(1),
+    effort: z.enum(["low", "medium", "high", "xhigh", "max"]),
+    permissionMode: z.enum([
+      "default",
+      "acceptEdits",
+      "bypassPermissions",
+      "plan",
+      "dontAsk",
+      "auto",
+    ]),
+    sandboxEnabled: z.boolean(),
+    allowUnsandboxedCommands: z.boolean(),
+    allowDangerouslySkipPermissions: z.boolean(),
+  })
+  .strict();
 
-const CodexRoutineRuntimeSchema = z.object({
-  provider: z.literal("codex"),
-  model: z.string().min(1),
-  effort: z.enum(["low", "medium", "high", "xhigh", "max", "ultra"]),
-  fileAccess: z.enum([
-    "read-only",
-    "workspace-write",
-    "danger-full-access",
-  ]),
-  approvalPolicy: z.enum([
-    "never",
-    "on-request",
-    "on-failure",
-    "untrusted",
-  ]),
-  networkAccess: z.boolean(),
-  webSearch: z.enum(["disabled", "cached", "live"]),
-}).strict();
+const CodexRoutineRuntimeSchema = z
+  .object({
+    provider: z.literal("codex"),
+    model: z.string().min(1),
+    effort: z.enum(["low", "medium", "high", "xhigh", "max", "ultra"]),
+    fileAccess: z.enum(["read-only", "workspace-write", "danger-full-access"]),
+    approvalPolicy: z.enum(["never", "on-request", "on-failure", "untrusted"]),
+    networkAccess: z.boolean(),
+    webSearch: z.enum(["disabled", "cached", "live"]),
+  })
+  .strict();
 
 export const RoutineRuntimeConfigSchema = z.discriminatedUnion("provider", [
   ClaudeRoutineRuntimeSchema,
   CodexRoutineRuntimeSchema,
 ]);
-export type RoutineRuntimeConfig = z.infer<
-  typeof RoutineRuntimeConfigSchema
->;
+export type RoutineRuntimeConfig = z.infer<typeof RoutineRuntimeConfigSchema>;
 
-export const RoutineUpsertInputSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  prompt: z.string().trim().min(1).max(100_000),
-  enabled: z.boolean(),
-  schedule: RoutineScheduleSchema,
-  environment: RoutineEnvironmentInputSchema,
-  runtime: RoutineRuntimeConfigSchema,
-  informationReferences: z
-    .array(RoutineInformationReferenceSchema)
-    .max(100)
-    .default([]),
-}).strict();
+export const RoutineUpsertInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    prompt: z.string().trim().min(1).max(100_000),
+    enabled: z.boolean(),
+    schedule: RoutineScheduleSchema,
+    environment: RoutineEnvironmentInputSchema,
+    runtime: RoutineRuntimeConfigSchema,
+    trustPolicy: AutomationTrustPolicySchema.default("review-required"),
+    maxConcurrentRuns: z.number().int().min(1).max(8).default(1),
+    informationReferences: z
+      .array(RoutineInformationReferenceSchema)
+      .max(100)
+      .default([]),
+  })
+  .strict();
 export type RoutineUpsertInput = z.infer<typeof RoutineUpsertInputSchema>;
 
 export const RoutineSpecSchema = RoutineUpsertInputSchema.omit({
@@ -289,28 +302,38 @@ export const ROUTINE_RUN_STATUSES = [
 export const RoutineRunStatusSchema = z.enum(ROUTINE_RUN_STATUSES);
 export type RoutineRunStatus = z.infer<typeof RoutineRunStatusSchema>;
 
-export const RoutineRunSchema = z.object({
-  id: z.string().min(1),
-  routineId: z.string().min(1),
-  workspaceId: z.string().min(1),
-  projectPath: z.string().min(1),
-  taskId: z.string().nullable(),
-  turnId: z.string().nullable(),
-  status: RoutineRunStatusSchema,
-  trigger: z.enum(["scheduled", "manual"]),
-  scheduledFor: z.string().datetime().nullable(),
-  startedAt: z.string().datetime(),
-  completedAt: z.string().datetime().nullable(),
-  resultPreview: z.string().nullable(),
-  error: z.string().nullable(),
-}).strict();
+export const RoutineRunSchema = z
+  .object({
+    id: z.string().min(1),
+    routineId: z.string().min(1),
+    workspaceId: z.string().min(1),
+    projectPath: z.string().min(1),
+    taskId: z.string().nullable(),
+    turnId: z.string().nullable(),
+    status: RoutineRunStatusSchema,
+    trigger: z.enum(["scheduled", "manual"]),
+    scheduledFor: z.string().datetime().nullable(),
+    startedAt: z.string().datetime(),
+    completedAt: z.string().datetime().nullable(),
+    resultPreview: z.string().nullable(),
+    error: z.string().nullable(),
+    configHash: z
+      .string()
+      .regex(/^[a-f0-9]{16}$/)
+      .nullable()
+      .default(null),
+    trustPolicy: AutomationTrustPolicySchema.default("review-required"),
+  })
+  .strict();
 export type RoutineRun = z.infer<typeof RoutineRunSchema>;
 
-export const RoutineStateSchema = z.object({
-  version: z.literal(1),
-  routines: z.array(RoutineSpecSchema),
-  runs: z.array(RoutineRunSchema),
-}).strict();
+export const RoutineStateSchema = z
+  .object({
+    version: z.literal(1),
+    routines: z.array(RoutineSpecSchema),
+    runs: z.array(RoutineRunSchema),
+  })
+  .strict();
 export type RoutineState = z.infer<typeof RoutineStateSchema>;
 
 export interface RoutineSnapshot {
@@ -348,12 +371,10 @@ export function computeNextRoutineRunAt(args: {
   schedule: RoutineSchedule;
   after: Date | string | number;
 }) {
-  const after =
-    args.after instanceof Date ? args.after : new Date(args.after);
+  const after = args.after instanceof Date ? args.after : new Date(args.after);
   const { schedule } = args;
   const anchored =
-    schedule.at &&
-    (schedule.unit === "days" || schedule.unit === "weeks");
+    schedule.at && (schedule.unit === "days" || schedule.unit === "weeks");
   if (!anchored || !schedule.at) {
     return new Date(
       after.getTime() + getRoutineScheduleIntervalMs(schedule),
@@ -368,11 +389,11 @@ export function computeNextRoutineRunAt(args: {
   candidate.setHours(schedule.at.hour, schedule.at.minute, 0, 0);
   if (schedule.unit === "weeks" && schedule.weekday !== undefined) {
     candidate.setDate(
-      candidate.getDate() +
-        ((schedule.weekday - candidate.getDay() + 7) % 7),
+      candidate.getDate() + ((schedule.weekday - candidate.getDay() + 7) % 7),
     );
   }
-  const stepDays = schedule.unit === "weeks" ? schedule.every * 7 : schedule.every;
+  const stepDays =
+    schedule.unit === "weeks" ? schedule.every * 7 : schedule.every;
   while (candidate.getTime() <= after.getTime()) {
     candidate.setDate(candidate.getDate() + stepDays);
   }

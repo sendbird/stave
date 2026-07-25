@@ -56,16 +56,27 @@ test("settings models persist after reload", async ({ page }) => {
   await page.getByRole("button", { name: "open-settings" }).click();
   await page.getByRole("button", { name: "Models" }).click();
 
-  const claudeInput = page.locator('input[list="claude-model-options"]');
-  await claudeInput.fill("claude-opus-4-6");
-  await page.getByRole("button", { name: "close-settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByRole("button", { name: /^Claude model:/ }).click();
+
+  const modelPicker = page.getByRole("dialog", { name: "Select model" });
+  await modelPicker.getByPlaceholder("Search model").fill("Claude Opus 4.8");
+  await modelPicker
+    .getByRole("option", {
+      name: /^Claude Opus 4\.8 claude-opus-4-8$/,
+    })
+    .click();
+  await expect(
+    settings.getByRole("button", { name: "Claude model: Claude Opus 4.8" }),
+  ).toBeVisible();
+  await settings.getByRole("button", { name: "back-to-app" }).click();
 
   await page.reload();
   await page.getByRole("button", { name: "open-settings" }).click();
   await page.getByRole("button", { name: "Models" }).click();
-  await expect(page.locator('input[list="claude-model-options"]')).toHaveValue(
-    "claude-opus-4-6",
-  );
+  await expect(
+    page.getByRole("button", { name: "Claude model: Claude Opus 4.8" }),
+  ).toBeVisible();
 });
 
 test("new task button creates a visible task item", async ({ page }) => {
@@ -629,19 +640,7 @@ test("streaming-off mode still shows responding wave during active turns", async
                 unread: false,
               },
             ],
-            messagesByTask: {
-              "task-1": [
-                {
-                  id: "task-1-message-1",
-                  role: "assistant",
-                  model: "claude-code",
-                  providerId: "claude-code",
-                  content: "Streaming response",
-                  isStreaming: true,
-                  parts: [{ type: "text", text: "Streaming response" }],
-                },
-              ],
-            },
+            messagesByTask: { "task-1": [] },
           },
         },
       ]),
@@ -673,35 +672,79 @@ test("streaming-off mode still shows responding wave during active turns", async
               unread: false,
             },
           ],
-          activeTurnIdsByTask: { "task-1": "turn-1" },
           settings: { chatStreamingEnabled: false },
-          messagesByTask: {
-            "task-1": [
-              {
-                id: "task-1-message-1",
-                role: "assistant",
-                model: "claude-code",
-                providerId: "claude-code",
-                content: "Streaming response",
-                isStreaming: true,
-                parts: [{ type: "text", text: "Streaming response" }],
-              },
-            ],
-          },
+          messagesByTask: { "task-1": [] },
         },
         version: 0,
       }),
     );
+
+    (window as unknown as { api?: Record<string, unknown> }).api = {
+      provider: {
+        streamTurn: () => new Promise(() => {}),
+      },
+    };
   });
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
+  const prompt = page.getByRole("textbox", { name: "Prompt" });
+  await prompt.fill("Keep this turn active");
+  await page.getByRole("button", { name: "Send" }).click();
+
   await expect(page.getByLabel("Responding")).toHaveCount(1);
-  await expect(page.getByRole("textbox", { name: "Prompt" })).toBeDisabled();
+  await expect(prompt).toBeEnabled();
 });
 
 test("source control tab loads status surface", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          projectPath: "/tmp/stave-project",
+          projectName: "stave-project",
+          workspaces: [
+            {
+              id: "ws-main",
+              name: "main",
+              updatedAt: "2026-03-06T01:00:00.000Z",
+            },
+          ],
+          activeWorkspaceId: "ws-main",
+          workspaceBranchById: { "ws-main": "main" },
+          workspacePathById: { "ws-main": "/tmp/stave-project" },
+          workspaceDefaultById: { "ws-main": true },
+        },
+        version: 0,
+      }),
+    );
+
+    (window as unknown as { api?: Record<string, unknown> }).api = {
+      provider: {
+        streamTurn: async () => [],
+      },
+      terminal: {
+        runCommand: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }),
+      },
+      sourceControl: {
+        getStatus: async () => ({
+          ok: true,
+          branch: "main",
+          items: [],
+          hasConflicts: false,
+          stderr: "",
+        }),
+        getHistory: async () => ({
+          ok: true,
+          items: [],
+          stderr: "",
+        }),
+      },
+    };
+  });
+
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
@@ -1235,7 +1278,7 @@ test("source control actions update status and history surfaces", async ({
   await expect(rightPanel.getByText("Source Control")).toBeVisible();
   await expect(rightPanel.getByRole("tab", { name: /Changes/ })).toBeVisible();
   await expect(rightPanel.getByRole("tab", { name: /History/ })).toBeVisible();
-  await expect(rightPanel.getByText("1 changed")).toBeVisible();
+  await expect(rightPanel.getByText("1 file changed")).toBeVisible();
   const autoRefreshButton = rightPanel.getByRole("button", {
     name: "Auto refresh options",
   });

@@ -1,5 +1,12 @@
 import { LoaderCircle } from "lucide-react";
-import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
+import { createPortal } from "react-dom";
 import { Card, Button } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
@@ -27,6 +34,8 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
     onCancel,
   } = args;
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     if (!open || loading) {
@@ -54,16 +63,52 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
     }
   }
 
-  return (
-    <div className={cn(UI_LAYER_CLASS.dialog, "fixed inset-0 flex items-center justify-center bg-overlay p-4")} onMouseDown={loading ? undefined : onCancel}>
-      <Card className="w-full max-w-md rounded-lg border-border/80 bg-card p-4 shadow-xl" onMouseDown={(event) => event.stopPropagation()}>
+  const dialog = (
+    <div
+      className={cn(
+        UI_LAYER_CLASS.dialog,
+        "fixed inset-0 flex items-center justify-center bg-overlay p-4",
+      )}
+      onMouseDown={loading ? undefined : onCancel}
+    >
+      <Card
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        className="w-full max-w-md rounded-lg border-border/80 bg-card p-4 shadow-xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
-          <h3 className="text-base font-semibold text-foreground">{title}</h3>
-          {description ? <p className="mt-2 text-sm text-muted-foreground">{description}</p> : null}
+          <h3 id={titleId} className="text-base font-semibold text-foreground">
+            {title}
+          </h3>
+          {description ? (
+            <p
+              id={descriptionId}
+              className="mt-2 text-sm text-muted-foreground"
+            >
+              {description}
+            </p>
+          ) : null}
           <div className="mt-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>{cancelLabel}</Button>
-            <Button ref={confirmButtonRef} type="submit" variant="destructive" disabled={loading}>
-              {loading ? <LoaderCircle className="size-4 animate-spin" /> : null}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={loading}
+            >
+              {cancelLabel}
+            </Button>
+            <Button
+              ref={confirmButtonRef}
+              type="submit"
+              variant="destructive"
+              disabled={loading}
+            >
+              {loading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : null}
               {confirmLabel}
             </Button>
           </div>
@@ -71,4 +116,13 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
       </Card>
     </div>
   );
+
+  // Confirmations can be opened from nested chrome such as the top bar.
+  // Portal to the document root so those local stacking contexts never sit
+  // below session chrome like the prompt input.
+  if (typeof document === "undefined" || !document.body) {
+    return dialog;
+  }
+
+  return createPortal(dialog, document.body);
 }

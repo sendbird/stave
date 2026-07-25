@@ -13,6 +13,7 @@ import {
   WebContentsView,
   session as electronSession,
 } from "electron";
+import { randomUUID } from "node:crypto";
 import { attachPartitionDownloadHandler } from "./browser-downloads";
 import { isDevToolsShortcut } from "../keyboard-shortcuts";
 import { getMainWindow, toggleMainWindowDevTools } from "../window";
@@ -37,6 +38,15 @@ import {
   type LensSessionDescriptor,
   type LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
+import {
+  sanitizeLensNetworkHeaders,
+  sanitizeLensNetworkUrl,
+} from "../../../src/lib/lens/lens-network";
+import {
+  clearLensCdpDiagnostics,
+  getLensCdpDiagnosticsState,
+  stopLensCdpDiagnostics,
+} from "./browser-cdp-diagnostics";
 
 export { DEFAULT_LENS_SESSION_ID };
 
@@ -66,6 +76,15 @@ export class RingBuffer<T> {
     this.items.push(item);
   }
 
+  upsert(predicate: (item: T) => boolean, item: T) {
+    const index = this.items.findIndex(predicate);
+    if (index >= 0) {
+      this.items[index] = item;
+      return;
+    }
+    this.push(item);
+  }
+
   toArray(): T[] {
     return [...this.items];
   }
@@ -92,7 +111,6 @@ export interface BrowserSessionState {
   /** webContents id of the view, captured at creation (survives destroy). */
   webContentsId: number;
   authPopups: Set<BrowserWindow>;
-  debuggerAttached: boolean;
   consoleLog: RingBuffer<BrowserConsoleEntry>;
   networkLog: RingBuffer<BrowserNetworkEntry>;
   downloadLog: RingBuffer<LensDownloadEntry>;
@@ -132,6 +150,15 @@ const webContentsSessionIndex = new Map<number, BrowserSessionState>();
 
 /** Partition name → will-download listener cleanup (attached once per partition). */
 const partitionDownloadCleanups = new Map<string, () => void>();
+const networkRequestMetadata = new Map<
+  string,
+  {
+    startedAt: string;
+    startedAtMs: number;
+    requestHeaders?: ReturnType<typeof sanitizeLensNetworkHeaders>;
+  }
+>();
+const MAX_NETWORK_REQUEST_METADATA = NETWORK_BUFFER_SIZE * 5;
 
 function sessionKey(workspaceId: string, lensSessionId: string): string {
   return `${workspaceId}\u0000${lensSessionId}`;
@@ -222,6 +249,55 @@ function extractResponseSize(
   }
 
   return undefined;
+}
+
+function networkRequestKey(partition: string, requestId: number) {
+  return `${partition}:${requestId}`;
+}
+
+function formatNetworkTimestamp(timestamp: number) {
+  const parsed = new Date(timestamp);
+  return Number.isNaN(parsed.getTime())
+    ? new Date().toISOString()
+    : parsed.toISOString();
+}
+
+function rememberNetworkRequest(
+  key: string,
+  metadata: {
+    startedAt: string;
+    startedAtMs: number;
+    requestHeaders?: ReturnType<typeof sanitizeLensNetworkHeaders>;
+  },
+) {
+  if (networkRequestMetadata.size >= MAX_NETWORK_REQUEST_METADATA) {
+    const oldestKey = networkRequestMetadata.keys().next().value;
+    if (oldestKey) {
+      networkRequestMetadata.delete(oldestKey);
+    }
+  }
+  networkRequestMetadata.set(key, metadata);
+}
+
+function takeNetworkRequest(partition: string, requestId: number) {
+  const key = networkRequestKey(partition, requestId);
+  const metadata = networkRequestMetadata.get(key);
+  networkRequestMetadata.delete(key);
+  return metadata;
+}
+
+function getNetworkDurationMs(
+  startedAtMs: number | undefined,
+  completedAtMs: number,
+) {
+  if (
+    startedAtMs === undefined ||
+    !Number.isFinite(startedAtMs) ||
+    !Number.isFinite(completedAtMs)
+  ) {
+    return undefined;
+  }
+  return Math.max(0, Math.round((completedAtMs - startedAtMs) * 100) / 100);
 }
 
 function openLensAuthPopup(args: {
@@ -386,6 +462,28 @@ function registerPartitionNetworkDispatch(
   ses: Electron.Session,
   partition: string,
 ): void {
+  ses.webRequest.onBeforeSendHeaders(
+    { urls: ["<all_urls>"] },
+    (details, callback) => {
+      const target = resolvePartitionTrafficTarget(
+        partition,
+        details.webContentsId,
+      );
+      if (target) {
+        if (getLensCdpDiagnosticsState(target.webContentsId).enabled) {
+          callback({ requestHeaders: details.requestHeaders });
+          return;
+        }
+        rememberNetworkRequest(networkRequestKey(partition, details.id), {
+          startedAt: formatNetworkTimestamp(details.timestamp),
+          startedAtMs: details.timestamp,
+          requestHeaders: sanitizeLensNetworkHeaders(details.requestHeaders),
+        });
+      }
+      callback({ requestHeaders: details.requestHeaders });
+    },
+  );
+
   ses.webRequest.onCompleted({ urls: ["<all_urls>"] }, (details) => {
     const target = resolvePartitionTrafficTarget(
       partition,
@@ -394,16 +492,35 @@ function registerPartitionNetworkDispatch(
     if (!target) {
       return;
     }
+    const requestMetadata = takeNetworkRequest(partition, details.id);
+    if (getLensCdpDiagnosticsState(target.webContentsId).enabled) {
+      return;
+    }
     pushNetworkEntry(
       target.workspaceId,
       {
         requestId: String(details.id),
-        url: details.url,
+        url: sanitizeLensNetworkUrl(details.url),
         method: details.method,
         status: details.statusCode,
+        statusText: details.statusLine,
+        resourceType: details.resourceType,
         mimeType: extractMimeType(details.responseHeaders),
         responseSize: extractResponseSize(details.responseHeaders),
-        timestamp: new Date().toISOString(),
+        referrer: details.referrer || undefined,
+        startedAt: requestMetadata?.startedAt,
+        durationMs: getNetworkDurationMs(
+          requestMetadata?.startedAtMs,
+          details.timestamp,
+        ),
+        fromCache: details.fromCache,
+        error:
+          details.error && details.error !== "net::OK"
+            ? details.error
+            : undefined,
+        requestHeaders: requestMetadata?.requestHeaders,
+        responseHeaders: sanitizeLensNetworkHeaders(details.responseHeaders),
+        timestamp: formatNetworkTimestamp(details.timestamp),
       },
       target.lensSessionId,
     );
@@ -417,14 +534,28 @@ function registerPartitionNetworkDispatch(
     if (!target) {
       return;
     }
+    const requestMetadata = takeNetworkRequest(partition, details.id);
+    if (getLensCdpDiagnosticsState(target.webContentsId).enabled) {
+      return;
+    }
     pushNetworkEntry(
       target.workspaceId,
       {
         requestId: String(details.id),
-        url: details.url,
+        url: sanitizeLensNetworkUrl(details.url),
         method: details.method,
         status: 0,
-        timestamp: new Date().toISOString(),
+        resourceType: details.resourceType,
+        referrer: details.referrer || undefined,
+        startedAt: requestMetadata?.startedAt,
+        durationMs: getNetworkDurationMs(
+          requestMetadata?.startedAtMs,
+          details.timestamp,
+        ),
+        fromCache: details.fromCache,
+        error: details.error,
+        requestHeaders: requestMetadata?.requestHeaders,
+        timestamp: formatNetworkTimestamp(details.timestamp),
       },
       target.lensSessionId,
     );
@@ -575,7 +706,6 @@ export function createBrowserSession(
     view,
     webContentsId: view.webContents.id,
     authPopups: new Set(),
-    debuggerAttached: false,
     consoleLog: new RingBuffer<BrowserConsoleEntry>(CONSOLE_BUFFER_SIZE),
     networkLog: new RingBuffer<BrowserNetworkEntry>(NETWORK_BUFFER_SIZE),
     downloadLog: new RingBuffer<LensDownloadEntry>(DOWNLOAD_BUFFER_SIZE),
@@ -653,6 +783,31 @@ export function getBrowserSession(
   return sessions.get(
     sessionKey(workspaceId, normalizeLensSessionId(lensSessionId)),
   );
+}
+
+export type BrowserSessionLogKind = "console" | "network";
+
+/**
+ * Clear one diagnostic log without disturbing the page, downloads, or the
+ * sibling log. Returns false when the requested session no longer exists.
+ */
+export function clearBrowserSessionLog(
+  workspaceId: string,
+  kind: BrowserSessionLogKind,
+  lensSessionId?: string,
+): boolean {
+  const session = getBrowserSession(workspaceId, lensSessionId);
+  if (!session) {
+    return false;
+  }
+
+  if (kind === "console") {
+    session.consoleLog.clear();
+  } else {
+    session.networkLog.clear();
+  }
+  clearLensCdpDiagnostics(session.webContentsId, kind);
+  return true;
 }
 
 /** All live sessions belonging to one workspace. */
@@ -737,17 +892,9 @@ export function destroyBrowserSession(
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return;
 
-  // Detach debugger if still attached
-  if (session.debuggerAttached) {
-    try {
-      const wc = session.view.webContents;
-      if (wc && !wc.isDestroyed() && wc.debugger.isAttached()) {
-        wc.debugger.detach();
-      }
-    } catch {
-      // webContents may already be destroyed
-    }
-  }
+  // The controller owns debugger attachment state. Always clear its capture
+  // and detach before closing the underlying WebContentsView.
+  stopLensCdpDiagnostics(session.webContentsId, true);
 
   for (const popup of [...session.authPopups]) {
     try {
@@ -867,7 +1014,7 @@ export function updateNavigationState(
 
 export function pushConsoleEntry(
   workspaceId: string,
-  entry: BrowserConsoleEntry,
+  entry: Omit<BrowserConsoleEntry, "id"> & { id?: string },
   lensSessionId?: string,
 ): void {
   const session = getBrowserSession(workspaceId, lensSessionId);
@@ -875,7 +1022,12 @@ export function pushConsoleEntry(
     return;
   }
 
-  session.consoleLog.push(entry);
+  const normalizedEntry: BrowserConsoleEntry = {
+    ...entry,
+    id: entry.id ?? randomUUID(),
+    captureSource: entry.captureSource ?? "electron",
+  };
+  session.consoleLog.push(normalizedEntry);
 
   const renderer = getMainWindow()?.webContents;
   if (!renderer || renderer.isDestroyed()) {
@@ -885,13 +1037,16 @@ export function pushConsoleEntry(
   renderer.send("lens:console-entry", {
     workspaceId,
     lensSessionId: session.lensSessionId,
-    entry,
+    entry: normalizedEntry,
   } satisfies BrowserConsoleEventPayload);
 }
 
 export function pushNetworkEntry(
   workspaceId: string,
-  entry: BrowserNetworkEntry,
+  entry: Omit<BrowserNetworkEntry, "entryId" | "state"> & {
+    entryId?: string;
+    state?: BrowserNetworkEntry["state"];
+  },
   lensSessionId?: string,
 ): void {
   const session = getBrowserSession(workspaceId, lensSessionId);
@@ -899,7 +1054,27 @@ export function pushNetworkEntry(
     return;
   }
 
-  session.networkLog.push(entry);
+  const state =
+    entry.state ??
+    (entry.error
+      ? "failed"
+      : entry.status !== undefined
+        ? "complete"
+        : "pending");
+  const normalizedEntry: BrowserNetworkEntry = {
+    ...entry,
+    entryId:
+      entry.entryId ??
+      `${entry.captureSource ?? "webRequest"}:${entry.requestId}:${entry.startedAt ?? entry.timestamp}`,
+    state,
+    captureSource: entry.captureSource ?? "webRequest",
+    completedAt:
+      entry.completedAt ?? (state === "pending" ? undefined : entry.timestamp),
+  };
+  session.networkLog.upsert(
+    (candidate) => candidate.entryId === normalizedEntry.entryId,
+    normalizedEntry,
+  );
 
   const renderer = getMainWindow()?.webContents;
   if (!renderer || renderer.isDestroyed()) {
@@ -909,6 +1084,6 @@ export function pushNetworkEntry(
   renderer.send("lens:network-entry", {
     workspaceId,
     lensSessionId: session.lensSessionId,
-    entry,
+    entry: normalizedEntry,
   } satisfies BrowserNetworkEventPayload);
 }

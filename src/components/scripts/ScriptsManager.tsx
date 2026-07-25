@@ -24,23 +24,27 @@ import { ScriptHooksTab } from "./ScriptHooksTab";
 import { ScriptTargetsTab } from "./ScriptTargetsTab";
 import {
   buildEditorScopes,
+  buildEditorHookCandidates,
+  buildEditorTargetOptions,
+  getScriptEditorRunDisabledReason,
   isPlainRecord,
   snapshotScriptEditorState,
   removeMatchingHookLinks,
   isHookLinked,
+  scriptEditorScopeKey,
   type EditorFileState,
   type ScriptEditorScope,
   type ScriptEditorScopeId,
   type ScriptsTabValue,
 } from "./scripts-manager-state";
 import {
-  SCRIPT_TRIGGER_IDS,
   DEFAULT_SCRIPT_TARGET_IDS,
+  SCRIPT_TRIGGER_IDS,
   STAVE_CONFIG_DIR,
+  WORKSPACE_TOOLS_LABEL,
 } from "@/lib/workspace-scripts/constants";
 import {
   buildScriptConfigFromEditorState,
-  buildScriptEditorCandidates,
   buildScriptEditorState,
   createEmptyScriptEditorEntry,
   createEmptyScriptEditorState,
@@ -86,18 +90,23 @@ export function ScriptsManager(props: {
   hideTitle?: boolean;
 }) {
   const scopes = useMemo(
-    () => buildEditorScopes({
-      projectPath: props.projectPath,
-      workspacePath: props.workspacePath,
-    }),
+    () =>
+      buildEditorScopes({
+        projectPath: props.projectPath,
+        workspacePath: props.workspacePath,
+      }),
     [props.projectPath, props.workspacePath],
   );
-  const [selectedScopeId, setSelectedScopeId] = useState<ScriptEditorScopeId | null>(null);
+  const [selectedScopeId, setSelectedScopeId] =
+    useState<ScriptEditorScopeId | null>(null);
   const [initialScopeResolved, setInitialScopeResolved] = useState(false);
   const selectedScope = useMemo(
-    () => initialScopeResolved
-      ? (scopes.find((scope) => scope.id === selectedScopeId) ?? scopes[0] ?? null)
-      : null,
+    () =>
+      initialScopeResolved
+        ? (scopes.find((scope) => scope.id === selectedScopeId) ??
+          scopes[0] ??
+          null)
+        : null,
     [initialScopeResolved, scopes, selectedScopeId],
   );
 
@@ -109,7 +118,9 @@ export function ScriptsManager(props: {
     parsedConfig: null,
     error: "",
   });
-  const [editorState, setEditorState] = useState<ScriptEditorState>(createEmptyScriptEditorState());
+  const [editorState, setEditorState] = useState<ScriptEditorState>(
+    createEmptyScriptEditorState(),
+  );
   const [savedContentSnapshot, setSavedContentSnapshot] = useState("");
   const [savedEditorStateSnapshot, setSavedEditorStateSnapshot] = useState(
     snapshotScriptEditorState(createEmptyScriptEditorState()),
@@ -117,33 +128,41 @@ export function ScriptsManager(props: {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<ScriptsTabValue>("actions");
   const [expandedEntryKey, setExpandedEntryKey] = useState<string | null>(null);
-  const resolvedConfigRef = useRef(props.resolvedConfig);
+  const loadRequestRef = useRef(0);
+  const activeScopeKey = scriptEditorScopeKey(selectedScope);
+  const activeScopeKeyRef = useRef(activeScopeKey);
 
-  const runtimeArgs = props.runtime && props.projectPath && props.workspacePath
-    ? {
-        workspaceId: props.runtime.workspaceId,
-        projectPath: props.projectPath,
-        workspacePath: props.workspacePath,
-        workspaceName: props.runtime.workspaceName,
-        branch: props.runtime.branch || props.runtime.workspaceName,
-      }
-    : null;
+  const runtimeArgs =
+    props.runtime && props.projectPath && props.workspacePath
+      ? {
+          workspaceId: props.runtime.workspaceId,
+          projectPath: props.projectPath,
+          workspacePath: props.workspacePath,
+          workspaceName: props.runtime.workspaceName,
+          branch: props.runtime.branch || props.runtime.workspaceName,
+        }
+      : null;
   const runtime = useWorkspaceScriptsRuntime(runtimeArgs);
 
   useEffect(() => {
-    resolvedConfigRef.current = props.resolvedConfig;
-  }, [props.resolvedConfig]);
-
-  useEffect(() => {
+    loadRequestRef.current += 1;
     setInitialScopeResolved(false);
     setSelectedScopeId(null);
-  }, [props.projectPath]);
+  }, [props.projectPath, props.workspacePath]);
+
+  useEffect(() => {
+    activeScopeKeyRef.current = activeScopeKey;
+    loadRequestRef.current += 1;
+  }, [activeScopeKey]);
 
   useEffect(() => {
     if (!initialScopeResolved) {
       return;
     }
-    if (!selectedScopeId || !scopes.some((scope) => scope.id === selectedScopeId)) {
+    if (
+      !selectedScopeId ||
+      !scopes.some((scope) => scope.id === selectedScopeId)
+    ) {
       setSelectedScopeId(scopes[0]?.id ?? null);
     }
   }, [initialScopeResolved, scopes, selectedScopeId]);
@@ -169,12 +188,19 @@ export function ScriptsManager(props: {
         return;
       }
 
-      const workspaceFile = await readFile({
-        rootPath: workspaceScope.rootPath,
-        filePath: workspaceScope.filePath,
-      });
+      let workspaceFile: Awaited<ReturnType<typeof readFile>> | null = null;
+      try {
+        workspaceFile = await readFile({
+          rootPath: workspaceScope.rootPath,
+          filePath: workspaceScope.filePath,
+        });
+      } catch {
+        // Fall back to the project config when probing the workspace file
+        // fails. The selected scope load will surface any persistent bridge
+        // error with its full context.
+      }
       if (!cancelled) {
-        setSelectedScopeId(workspaceFile.ok ? "workspace" : "project");
+        setSelectedScopeId(workspaceFile?.ok ? "workspace" : "project");
         setInitialScopeResolved(true);
       }
     }
@@ -189,8 +215,16 @@ export function ScriptsManager(props: {
   }, [initialScopeResolved, scopes]);
 
   const loadSelectedScope = useCallback(async (scope: ScriptEditorScope) => {
+    const requestId = ++loadRequestRef.current;
+    const requestedScopeKey = scriptEditorScopeKey(scope);
+    const canCommit = () =>
+      loadRequestRef.current === requestId &&
+      activeScopeKeyRef.current === requestedScopeKey;
     const readFile = window.api?.fs?.readFile;
     if (!readFile) {
+      if (!canCommit()) {
+        return;
+      }
       setFileState({
         status: "error",
         exists: false,
@@ -208,10 +242,28 @@ export function ScriptsManager(props: {
       error: "",
     }));
 
-    const result = await readFile({
-      rootPath: scope.rootPath,
-      filePath: scope.filePath,
-    });
+    let result: Awaited<ReturnType<typeof readFile>>;
+    try {
+      result = await readFile({
+        rootPath: scope.rootPath,
+        filePath: scope.filePath,
+      });
+    } catch (error) {
+      if (canCommit()) {
+        setFileState({
+          status: "error",
+          exists: false,
+          revision: null,
+          rawConfig: null,
+          parsedConfig: null,
+          error: `Failed to read ${scope.filePath}: ${String(error)}`,
+        });
+      }
+      return;
+    }
+    if (!canCommit()) {
+      return;
+    }
 
     if (!result.ok) {
       if (result.stderr?.includes("ENOENT")) {
@@ -243,7 +295,7 @@ export function ScriptsManager(props: {
         revision: null,
         rawConfig: null,
         parsedConfig: null,
-        error: result.stderr ?? "Failed to read scripts config.",
+        error: result.stderr ?? "Failed to read execution config.",
       });
       return;
     }
@@ -289,10 +341,7 @@ export function ScriptsManager(props: {
       return;
     }
 
-    const nextEditorState = buildScriptEditorState({
-      config: parsed.data,
-      resolvedConfig: resolvedConfigRef.current,
-    });
+    const nextEditorState = buildScriptEditorState({ config: parsed.data });
     const initialContent = formatScriptConfigFile(
       mergeScriptConfigIntoRaw({
         rawConfig: rawJson,
@@ -326,73 +375,54 @@ export function ScriptsManager(props: {
     [editorState],
   );
   const currentSaveContent = useMemo(
-    () => formatScriptConfigFile(
-      mergeScriptConfigIntoRaw({
-        rawConfig: fileState.rawConfig,
-        config: currentConfig,
-      }),
-    ),
+    () =>
+      formatScriptConfigFile(
+        mergeScriptConfigIntoRaw({
+          rawConfig: fileState.rawConfig,
+          config: currentConfig,
+        }),
+      ),
     [currentConfig, fileState.rawConfig],
   );
   const currentEditorStateSnapshot = useMemo(
     () => snapshotScriptEditorState(editorState),
     [editorState],
   );
-  const isDirty = fileState.status === "ready" && (
-    currentSaveContent !== savedContentSnapshot
-    || currentEditorStateSnapshot !== savedEditorStateSnapshot
+  const isDirty =
+    fileState.status === "ready" &&
+    (currentSaveContent !== savedContentSnapshot ||
+      currentEditorStateSnapshot !== savedEditorStateSnapshot);
+
+  const targetOptions = useMemo(
+    () => buildEditorTargetOptions(editorState),
+    [editorState],
   );
 
-  const targetOptions = useMemo(() => {
-    const next = new Map<string, string>([
-      [DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, "Workspace"],
-      [DEFAULT_SCRIPT_TARGET_IDS.PROJECT, "Project"],
-    ]);
-
-    for (const target of Object.values(props.resolvedConfig?.targets ?? {})) {
-      next.set(target.id, target.label);
-    }
-
-    for (const target of editorState.targets) {
-      const targetId = target.id.trim();
-      if (targetId) {
-        next.set(targetId, target.label.trim() || targetId);
-      }
-    }
-
-    for (const entry of [...editorState.actions, ...editorState.services]) {
-      const targetId = entry.target.trim();
-      if (targetId) {
-        next.set(targetId, next.get(targetId) ?? targetId);
-      }
-    }
-
-    return [...next.entries()].map(([id, label]) => ({ id, label }));
-  }, [editorState.actions, editorState.services, editorState.targets, props.resolvedConfig?.targets]);
-
   const hookCandidates = useMemo(
-    () => buildScriptEditorCandidates({
-      state: editorState,
-      resolvedConfig: props.resolvedConfig,
-    }),
-    [editorState, props.resolvedConfig],
+    () => buildEditorHookCandidates(editorState),
+    [editorState],
   );
 
   const unresolvedHookRefs = useMemo(() => {
-    return SCRIPT_TRIGGER_IDS.flatMap((trigger) => (
-      editorState.hooks[trigger] ?? []
-    ).filter((link) => {
-      if (link.scriptKind) {
-        return !hookCandidates.some((candidate) => (
-          candidate.scriptId === link.scriptId
-          && candidate.scriptKind === link.scriptKind
-        ));
-      }
-      return !hookCandidates.some((candidate) => candidate.scriptId === link.scriptId);
-    }).map((link) => ({
-      trigger,
-      link,
-    })));
+    return SCRIPT_TRIGGER_IDS.flatMap((trigger) =>
+      (editorState.hooks[trigger] ?? [])
+        .filter((link) => {
+          if (link.scriptKind) {
+            return !hookCandidates.some(
+              (candidate) =>
+                candidate.scriptId === link.scriptId &&
+                candidate.scriptKind === link.scriptKind,
+            );
+          }
+          return !hookCandidates.some(
+            (candidate) => candidate.scriptId === link.scriptId,
+          );
+        })
+        .map((link) => ({
+          trigger,
+          link,
+        })),
+    );
   }, [editorState.hooks, hookCandidates]);
 
   const usageCountById = useMemo(() => {
@@ -406,14 +436,6 @@ export function ScriptsManager(props: {
     return counts;
   }, [editorState.actions, editorState.services]);
 
-  const resolvedIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const entry of [...(props.resolvedConfig?.actions ?? []), ...(props.resolvedConfig?.services ?? [])]) {
-      ids.add(scriptEntryKey(entry.kind, entry.id));
-    }
-    return ids;
-  }, [props.resolvedConfig]);
-
   const actionsCount = editorState.actions.length;
   const servicesCount = editorState.services.length;
   const targetsCount = editorState.targets.length;
@@ -422,56 +444,63 @@ export function ScriptsManager(props: {
     0,
   );
 
-  const updateEntryField = useCallback((
-    kind: ScriptKind,
-    index: number,
-    field: keyof ScriptEditorEntry,
-    value: string | boolean,
-  ) => {
-    setEditorState((current) => {
-      const collectionKey = kind === "service" ? "services" : "actions";
-      const nextEntries = current[collectionKey].map((entry, entryIndex) => (
-        entryIndex === index
-          ? { ...entry, [field]: value }
-          : entry
-      ));
+  const updateEntryField = useCallback(
+    (
+      kind: ScriptKind,
+      index: number,
+      field: keyof ScriptEditorEntry,
+      value: string | boolean,
+    ) => {
+      setEditorState((current) => {
+        const collectionKey = kind === "service" ? "services" : "actions";
+        const nextEntries = current[collectionKey].map((entry, entryIndex) =>
+          entryIndex === index ? { ...entry, [field]: value } : entry,
+        );
 
-      let nextHooks = current.hooks;
-      if (field === "id") {
-        const previousId = current[collectionKey][index]?.id.trim();
-        const nextId = String(value).trim();
-        if (previousId && previousId !== nextId) {
-          nextHooks = Object.fromEntries(
-            Object.entries(current.hooks).map(([trigger, links]) => [
-              trigger,
-              (links ?? []).map((link) => (
-                link.scriptId === previousId && link.scriptKind === kind
-                  ? { ...link, scriptId: nextId }
-                  : link
-              )),
-            ]),
-          ) as ScriptEditorState["hooks"];
+        let nextHooks = current.hooks;
+        if (field === "id") {
+          const previousId = current[collectionKey][index]?.id.trim();
+          const nextId = String(value).trim();
+          if (previousId && previousId !== nextId) {
+            nextHooks = Object.fromEntries(
+              Object.entries(current.hooks).map(([trigger, links]) => [
+                trigger,
+                (links ?? []).map((link) =>
+                  link.scriptId === previousId && link.scriptKind === kind
+                    ? { ...link, scriptId: nextId }
+                    : link,
+                ),
+              ]),
+            ) as ScriptEditorState["hooks"];
+          }
         }
-      }
 
-      return {
+        return {
+          ...current,
+          [collectionKey]: nextEntries,
+          hooks: nextHooks,
+        };
+      });
+    },
+    [],
+  );
+
+  const addEntry = useCallback(
+    (kind: ScriptKind) => {
+      const collectionKey = kind === "service" ? "services" : "actions";
+      const newIndex = editorState[collectionKey].length;
+      setEditorState((current) => ({
         ...current,
-        [collectionKey]: nextEntries,
-        hooks: nextHooks,
-      };
-    });
-  }, []);
-
-  const addEntry = useCallback((kind: ScriptKind) => {
-    const collectionKey = kind === "service" ? "services" : "actions";
-    const newIndex = editorState[collectionKey].length;
-    setEditorState((current) => ({
-      ...current,
-      [collectionKey]: [...current[collectionKey], createEmptyScriptEditorEntry(kind)],
-    }));
-    setActiveTab(kind === "service" ? "services" : "actions");
-    setExpandedEntryKey(`${kind}:${newIndex}`);
-  }, [editorState]);
+        [collectionKey]: [
+          ...current[collectionKey],
+          createEmptyScriptEditorEntry(kind),
+        ],
+      }));
+      setActiveTab(kind === "service" ? "services" : "actions");
+      setExpandedEntryKey(`${kind}:${newIndex}`);
+    },
+    [editorState],
+  );
 
   const duplicateEntry = useCallback((kind: ScriptKind, index: number) => {
     setEditorState((current) => {
@@ -497,15 +526,19 @@ export function ScriptsManager(props: {
     setEditorState((current) => {
       const collectionKey = kind === "service" ? "services" : "actions";
       const removedEntry = current[collectionKey][index];
-      const nextEntries = current[collectionKey].filter((_, entryIndex) => entryIndex !== index);
+      const nextEntries = current[collectionKey].filter(
+        (_, entryIndex) => entryIndex !== index,
+      );
       const nextHooks = Object.fromEntries(
-        Object.entries(current.hooks).map(([trigger, links]) => [
-          trigger,
-          removeMatchingHookLinks(links, {
-            scriptId: removedEntry?.id.trim() ?? "",
-            scriptKind: kind,
-          }),
-        ]).filter(([, links]) => (links as ScriptEditorHookLink[]).length > 0),
+        Object.entries(current.hooks)
+          .map(([trigger, links]) => [
+            trigger,
+            removeMatchingHookLinks(links, {
+              scriptId: removedEntry?.id.trim() ?? "",
+              scriptKind: kind,
+            }),
+          ])
+          .filter(([, links]) => (links as ScriptEditorHookLink[]).length > 0),
       ) as ScriptEditorState["hooks"];
 
       return {
@@ -517,95 +550,114 @@ export function ScriptsManager(props: {
     setExpandedEntryKey(null);
   }, []);
 
-  const moveEntry = useCallback((kind: ScriptKind, index: number, direction: -1 | 1) => {
-    setEditorState((current) => {
-      const collectionKey = kind === "service" ? "services" : "actions";
-      const entries = current[collectionKey];
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= entries.length) {
-        return current;
-      }
-      const nextEntries = [...entries];
-      const [moved] = nextEntries.splice(index, 1);
-      if (!moved) {
-        return current;
-      }
-      nextEntries.splice(targetIndex, 0, moved);
-      return {
+  const moveEntry = useCallback(
+    (kind: ScriptKind, index: number, direction: -1 | 1) => {
+      setEditorState((current) => {
+        const collectionKey = kind === "service" ? "services" : "actions";
+        const entries = current[collectionKey];
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= entries.length) {
+          return current;
+        }
+        const nextEntries = [...entries];
+        const [moved] = nextEntries.splice(index, 1);
+        if (!moved) {
+          return current;
+        }
+        nextEntries.splice(targetIndex, 0, moved);
+        return {
+          ...current,
+          [collectionKey]: nextEntries,
+        };
+      });
+      setExpandedEntryKey(null);
+    },
+    [],
+  );
+
+  const updateHookLinks = useCallback(
+    (trigger: ScriptTrigger, nextLinks: ScriptEditorHookLink[]) => {
+      setEditorState((current) => ({
         ...current,
-        [collectionKey]: nextEntries,
-      };
-    });
-    setExpandedEntryKey(null);
-  }, []);
+        hooks: {
+          ...current.hooks,
+          ...(nextLinks.length > 0
+            ? { [trigger]: nextLinks }
+            : { [trigger]: undefined }),
+        },
+      }));
+    },
+    [],
+  );
 
-  const updateHookLinks = useCallback((
-    trigger: ScriptTrigger,
-    nextLinks: ScriptEditorHookLink[],
-  ) => {
-    setEditorState((current) => ({
-      ...current,
-      hooks: {
-        ...current.hooks,
-        ...(nextLinks.length > 0 ? { [trigger]: nextLinks } : { [trigger]: undefined }),
-      },
-    }));
-  }, []);
+  const toggleHookLink = useCallback(
+    (
+      trigger: ScriptTrigger,
+      candidate: ScriptEditorCandidate,
+      enabled: boolean,
+    ) => {
+      const currentLinks = editorState.hooks[trigger] ?? [];
+      if (!enabled) {
+        updateHookLinks(
+          trigger,
+          currentLinks.filter(
+            (link) =>
+              !(
+                link.scriptId === candidate.scriptId &&
+                (link.scriptKind === candidate.scriptKind ||
+                  link.scriptKind === null)
+              ),
+          ),
+        );
+        return;
+      }
 
-  const toggleHookLink = useCallback((
-    trigger: ScriptTrigger,
-    candidate: ScriptEditorCandidate,
-    enabled: boolean,
-  ) => {
-    const currentLinks = editorState.hooks[trigger] ?? [];
-    if (!enabled) {
+      if (isHookLinked(currentLinks, candidate)) {
+        updateHookLinks(
+          trigger,
+          currentLinks.map((link) =>
+            link.scriptId === candidate.scriptId && link.scriptKind === null
+              ? { ...link, scriptKind: candidate.scriptKind }
+              : link,
+          ),
+        );
+        return;
+      }
+
+      updateHookLinks(trigger, [
+        ...currentLinks,
+        {
+          scriptId: candidate.scriptId,
+          scriptKind: candidate.scriptKind,
+          blocking: true,
+        },
+      ]);
+    },
+    [editorState.hooks, updateHookLinks],
+  );
+
+  const toggleHookBlocking = useCallback(
+    (
+      trigger: ScriptTrigger,
+      candidate: ScriptEditorCandidate,
+      blocking: boolean,
+    ) => {
       updateHookLinks(
         trigger,
-        currentLinks.filter((link) => !(
-          link.scriptId === candidate.scriptId
-          && (link.scriptKind === candidate.scriptKind || link.scriptKind === null)
-        )),
+        (editorState.hooks[trigger] ?? []).map((link) =>
+          link.scriptId === candidate.scriptId &&
+          (link.scriptKind === candidate.scriptKind || link.scriptKind === null)
+            ? {
+                ...link,
+                scriptKind: link.scriptKind ?? candidate.scriptKind,
+                blocking,
+              }
+            : link,
+        ),
       );
-      return;
-    }
-
-    if (isHookLinked(currentLinks, candidate)) {
-      updateHookLinks(
-        trigger,
-        currentLinks.map((link) => (
-          link.scriptId === candidate.scriptId && link.scriptKind === null
-            ? { ...link, scriptKind: candidate.scriptKind }
-            : link
-        )),
-      );
-      return;
-    }
-
-    updateHookLinks(trigger, [
-      ...currentLinks,
-      {
-        scriptId: candidate.scriptId,
-        scriptKind: candidate.scriptKind,
-        blocking: true,
-      },
-    ]);
-  }, [editorState.hooks, updateHookLinks]);
-
-  const toggleHookBlocking = useCallback((
-    trigger: ScriptTrigger,
-    candidate: ScriptEditorCandidate,
-    blocking: boolean,
-  ) => {
-    updateHookLinks(
-      trigger,
-      (editorState.hooks[trigger] ?? []).map((link) => (
-        link.scriptId === candidate.scriptId
-        && (link.scriptKind === candidate.scriptKind || link.scriptKind === null)
-          ? { ...link, scriptKind: link.scriptKind ?? candidate.scriptKind, blocking }
-          : link
-      )),
-    );
-  }, [editorState.hooks, updateHookLinks]);
+    },
+    [editorState.hooks, updateHookLinks],
+  );
 
   // ---- Targets --------------------------------------------------------------
   const addTarget = useCallback(() => {
@@ -621,8 +673,10 @@ export function ScriptsManager(props: {
       if (current.targets.some((target) => target.id.trim() === id)) {
         return current;
       }
-      const cwd: ScriptTargetScope = id === DEFAULT_SCRIPT_TARGET_IDS.PROJECT ? "project" : "workspace";
-      const label = id === DEFAULT_SCRIPT_TARGET_IDS.PROJECT ? "Project" : "Workspace";
+      const cwd: ScriptTargetScope =
+        id === DEFAULT_SCRIPT_TARGET_IDS.PROJECT ? "project" : "workspace";
+      const label =
+        id === DEFAULT_SCRIPT_TARGET_IDS.PROJECT ? "Project" : "Workspace";
       return {
         ...current,
         targets: [
@@ -634,63 +688,72 @@ export function ScriptsManager(props: {
     setActiveTab("targets");
   }, []);
 
-  const updateTargetField = useCallback((
-    index: number,
-    field: "id" | "label" | "shell",
-    value: string,
-  ) => {
-    setEditorState((current) => {
-      const nextTargets = current.targets.map((target, targetIndex) => (
-        targetIndex === index ? { ...target, [field]: value } : target
-      ));
+  const updateTargetField = useCallback(
+    (index: number, field: "id" | "label" | "shell", value: string) => {
+      setEditorState((current) => {
+        const nextTargets = current.targets.map((target, targetIndex) =>
+          targetIndex === index ? { ...target, [field]: value } : target,
+        );
 
-      // Renaming a target id re-points every entry that referenced the old id.
-      let nextActions = current.actions;
-      let nextServices = current.services;
-      if (field === "id") {
-        const previousId = current.targets[index]?.id.trim();
-        const nextId = value.trim();
-        if (previousId && previousId !== nextId && nextId) {
-          const repoint = (entries: ScriptEditorEntry[]) =>
-            entries.map((entry) => (
-              entry.target.trim() === previousId ? { ...entry, target: nextId } : entry
-            ));
-          nextActions = repoint(current.actions);
-          nextServices = repoint(current.services);
+        // Renaming a target id re-points every entry that referenced the old id.
+        let nextActions = current.actions;
+        let nextServices = current.services;
+        if (field === "id") {
+          const previousId = current.targets[index]?.id.trim();
+          const nextId = value.trim();
+          if (previousId && previousId !== nextId && nextId) {
+            const repoint = (entries: ScriptEditorEntry[]) =>
+              entries.map((entry) =>
+                entry.target.trim() === previousId
+                  ? { ...entry, target: nextId }
+                  : entry,
+              );
+            nextActions = repoint(current.actions);
+            nextServices = repoint(current.services);
+          }
         }
-      }
 
-      return {
+        return {
+          ...current,
+          targets: nextTargets,
+          actions: nextActions,
+          services: nextServices,
+        };
+      });
+    },
+    [],
+  );
+
+  const updateTargetCwd = useCallback(
+    (index: number, cwd: ScriptTargetScope) => {
+      setEditorState((current) => ({
         ...current,
-        targets: nextTargets,
-        actions: nextActions,
-        services: nextServices,
-      };
-    });
-  }, []);
+        targets: current.targets.map((target, targetIndex) =>
+          targetIndex === index ? { ...target, cwd } : target,
+        ),
+      }));
+    },
+    [],
+  );
 
-  const updateTargetCwd = useCallback((index: number, cwd: ScriptTargetScope) => {
-    setEditorState((current) => ({
-      ...current,
-      targets: current.targets.map((target, targetIndex) => (
-        targetIndex === index ? { ...target, cwd } : target
-      )),
-    }));
-  }, []);
-
-  const updateTargetEnv = useCallback((index: number, rows: ScriptEditorEnvRow[]) => {
-    setEditorState((current) => ({
-      ...current,
-      targets: current.targets.map((target, targetIndex) => (
-        targetIndex === index ? { ...target, envRows: rows } : target
-      )),
-    }));
-  }, []);
+  const updateTargetEnv = useCallback(
+    (index: number, rows: ScriptEditorEnvRow[]) => {
+      setEditorState((current) => ({
+        ...current,
+        targets: current.targets.map((target, targetIndex) =>
+          targetIndex === index ? { ...target, envRows: rows } : target,
+        ),
+      }));
+    },
+    [],
+  );
 
   const removeTarget = useCallback((index: number) => {
     setEditorState((current) => ({
       ...current,
-      targets: current.targets.filter((_, targetIndex) => targetIndex !== index),
+      targets: current.targets.filter(
+        (_, targetIndex) => targetIndex !== index,
+      ),
     }));
   }, []);
 
@@ -722,18 +785,24 @@ export function ScriptsManager(props: {
 
     const issues = validateScriptEditorState(editorState);
     if (issues.length > 0) {
-      toast.error("Scripts config is incomplete", {
+      toast.error("Execution config is incomplete", {
         description: issues[0],
       });
       return;
     }
 
+    const savingScopeKey = scriptEditorScopeKey(selectedScope);
+    const scopeIsStillActive = () =>
+      activeScopeKeyRef.current === savingScopeKey;
     setSaving(true);
     try {
       const mkdirResult = await createDirectory({
         rootPath: selectedScope.rootPath,
         directoryPath: STAVE_CONFIG_DIR,
       });
+      if (!scopeIsStillActive()) {
+        return;
+      }
       if (!mkdirResult.ok && !mkdirResult.alreadyExists) {
         toast.error("Failed to prepare .stave directory", {
           description: mkdirResult.stderr ?? "Unknown error",
@@ -747,63 +816,120 @@ export function ScriptsManager(props: {
         content: currentSaveContent,
         expectedRevision: fileState.revision,
       });
+      if (!scopeIsStillActive()) {
+        return;
+      }
       if (!result.ok) {
-        toast.error(result.conflict ? "Scripts config changed on disk" : "Failed to save scripts config", {
-          description: result.stderr ?? (result.conflict
-            ? "Reload the file and re-apply your changes."
-            : "Unknown error"),
-        });
+        toast.error(
+          result.conflict
+            ? "Execution config changed on disk"
+            : "Failed to save execution config",
+          {
+            description:
+              result.stderr ??
+              (result.conflict
+                ? "Reload the file and re-apply your changes."
+                : "Unknown error"),
+          },
+        );
         return;
       }
 
       await loadSelectedScope(selectedScope);
+      if (!scopeIsStillActive()) {
+        return;
+      }
       await props.onSaved?.();
-      toast.success("Scripts config saved", {
+      toast.success("Execution config saved", {
         description: selectedScope.filePath,
       });
     } finally {
       setSaving(false);
     }
-  }, [currentSaveContent, editorState, fileState.revision, loadSelectedScope, props.onSaved, selectedScope]);
+  }, [
+    currentSaveContent,
+    editorState,
+    fileState.revision,
+    loadSelectedScope,
+    props.onSaved,
+    selectedScope,
+  ]);
 
-  const handleScopeChange = useCallback((value: string) => {
-    if (isDirty) {
-      toast.message("Save or discard changes before switching configs.");
-      return;
-    }
-    if (value === "project" || value === "workspace") {
-      setSelectedScopeId(value);
-    }
-  }, [isDirty]);
+  const handleScopeChange = useCallback(
+    (value: string) => {
+      if (isDirty) {
+        toast.message("Save or discard changes before switching configs.");
+        return;
+      }
+      if (value === "project" || value === "workspace") {
+        setSelectedScopeId(value);
+      }
+    },
+    [isDirty],
+  );
 
   // ---- Run / logs -----------------------------------------------------------
   const runtimeAvailable = Boolean(props.runtime);
-  const runEntryHandler = useCallback((kind: ScriptKind, id: string) => {
-    if (!props.runtime || !id) {
-      return;
-    }
-    void runScriptEntry({ workspaceId: props.runtime.workspaceId, scriptId: id, scriptKind: kind });
-  }, [props.runtime]);
-  const stopEntryHandler = useCallback((kind: ScriptKind, id: string) => {
-    if (!props.runtime || !id) {
-      return;
-    }
-    void stopScriptEntry({ workspaceId: props.runtime.workspaceId, scriptId: id, scriptKind: kind });
-  }, [props.runtime]);
-  const clearLogHandler = useCallback((kind: ScriptKind, id: string) => {
-    if (!props.runtime || !id) {
-      return;
-    }
-    clearScriptLog({ workspaceId: props.runtime.workspaceId, scriptId: id, scriptKind: kind });
-  }, [props.runtime]);
+  const runEntryHandler = useCallback(
+    (kind: ScriptKind, id: string) => {
+      if (!props.runtime || !id || !selectedScope) {
+        return;
+      }
+      const key = scriptEntryKey(kind, id);
+      const disabledReason = getScriptEditorRunDisabledReason({
+        entryId: id,
+        isDirty,
+        selectedScopeId: selectedScope.id,
+        origin: runtime.origins.originByKey[key],
+      });
+      if (disabledReason) {
+        toast.message(disabledReason);
+        return;
+      }
+      void runScriptEntry({
+        workspaceId: props.runtime.workspaceId,
+        scriptId: id,
+        scriptKind: kind,
+      });
+    },
+    [isDirty, props.runtime, runtime.origins.originByKey, selectedScope],
+  );
+  const stopEntryHandler = useCallback(
+    (kind: ScriptKind, id: string) => {
+      if (!props.runtime || !id) {
+        return;
+      }
+      void stopScriptEntry({
+        workspaceId: props.runtime.workspaceId,
+        scriptId: id,
+        scriptKind: kind,
+      });
+    },
+    [props.runtime],
+  );
+  const clearLogHandler = useCallback(
+    (kind: ScriptKind, id: string) => {
+      if (!props.runtime || !id) {
+        return;
+      }
+      clearScriptLog({
+        workspaceId: props.runtime.workspaceId,
+        scriptId: id,
+        scriptKind: kind,
+      });
+    },
+    [props.runtime],
+  );
 
-  const runtimeHint = runtimeAvailable ? undefined : "Open this project to run scripts.";
+  const runtimeHint = runtimeAvailable
+    ? undefined
+    : "Open this project to run commands and processes.";
 
   if (!selectedScope) {
     if (!initialScopeResolved) {
       return (
         <div className="px-1 py-4 text-xs text-muted-foreground">
-          Loading scripts manager…
+          Loading workspace tools…
         </div>
       );
     }
@@ -814,8 +940,10 @@ export function ScriptsManager(props: {
           <EmptyMedia>
             <FilePenLine className="size-4" />
           </EmptyMedia>
-          <EmptyTitle>Scripts manager unavailable</EmptyTitle>
-          <EmptyDescription>Select a workspace to edit its scripts config.</EmptyDescription>
+          <EmptyTitle>Workspace tools unavailable</EmptyTitle>
+          <EmptyDescription>
+            Select a workspace to edit its commands and processes.
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -830,16 +958,23 @@ export function ScriptsManager(props: {
         ) : (
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">Scripts Manager</p>
+              <p className="text-sm font-semibold text-foreground">
+                {WORKSPACE_TOOLS_LABEL}
+              </p>
               <Badge
                 variant={isDirty ? "secondary" : "outline"}
                 className="rounded-full px-2 py-0 text-[10px]"
               >
-                {isDirty ? "Unsaved" : fileState.exists ? "In sync" : "New file"}
+                {isDirty
+                  ? "Unsaved"
+                  : fileState.exists
+                    ? "In sync"
+                    : "New file"}
               </Badge>
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
-              Edit actions, services, hooks, and targets. Per-developer overrides in `scripts.local.json` are preserved.
+              Keep one-shot commands separate from long-running processes, then
+              connect them to lifecycle triggers and execution environments.
             </p>
           </div>
         )}
@@ -848,32 +983,18 @@ export function ScriptsManager(props: {
             type="button"
             size="sm"
             variant="ghost"
-            className="h-7 rounded-md px-2"
+            className="h-9 rounded-md px-3"
             onClick={() => void reloadSelectedScope()}
             disabled={fileState.status === "loading" || saving}
+            title="Reload the saved config"
           >
-            <RefreshCcw className={cn("mr-1 size-3.5", fileState.status === "loading" && "animate-spin")} />
+            <RefreshCcw
+              className={cn(
+                "mr-1 size-3.5",
+                fileState.status === "loading" && "animate-spin",
+              )}
+            />
             Reload
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-7 rounded-md px-2"
-            onClick={() => void discardChanges()}
-            disabled={!isDirty || saving}
-          >
-            Discard
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="h-7 rounded-md px-2"
-            onClick={() => void saveChanges()}
-            disabled={fileState.status !== "ready" || saving}
-          >
-            {saving ? <RefreshCcw className="mr-1 size-3.5 animate-spin" /> : <Save className="mr-1 size-3.5" />}
-            Save
           </Button>
         </div>
       </div>
@@ -881,10 +1002,12 @@ export function ScriptsManager(props: {
       {/* ── Scope selector ── */}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,280px)_1fr]">
         <label className="space-y-1.5">
-          <span className="text-xs font-medium text-foreground">Config Scope</span>
+          <span className="text-xs font-medium text-foreground">
+            Config Scope
+          </span>
           <Select value={selectedScope.id} onValueChange={handleScopeChange}>
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>{selectedScope.label}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {scopes.map((scope) => (
@@ -896,7 +1019,9 @@ export function ScriptsManager(props: {
           </Select>
         </label>
         <div className="rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5">
-          <p className="text-xs font-medium text-foreground">{selectedScope.description}</p>
+          <p className="text-xs font-medium text-foreground">
+            {selectedScope.description}
+          </p>
           <p className="mt-1 break-all text-[11px] leading-5 text-muted-foreground">
             {selectedScope.rootPath}/{selectedScope.filePath}
           </p>
@@ -916,39 +1041,65 @@ export function ScriptsManager(props: {
       ) : null}
 
       {fileState.status === "loading" ? (
-        <div className="px-1 py-4 text-xs text-muted-foreground">
-          Loading…
-        </div>
+        <div className="px-1 py-4 text-xs text-muted-foreground">Loading…</div>
       ) : null}
 
       {fileState.status === "ready" ? (
         <Tabs
+          orientation="vertical"
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as ScriptsTabValue)}
-          className="space-y-3"
+          className="grid items-start gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]"
         >
-          <TabsList>
-            <TabsTrigger value="actions" className="gap-1.5">
-              Actions
-              <Badge variant="outline" className="rounded-full px-1.5 py-0 text-[10px]">
+          <TabsList
+            variant="soft"
+            className="sticky top-20 w-full items-stretch justify-start gap-1 rounded-xl bg-muted/20 p-1"
+          >
+            <TabsTrigger
+              value="actions"
+              className="h-11 w-full justify-start gap-1.5 px-3"
+            >
+              Commands
+              <Badge
+                variant="outline"
+                className="rounded-full px-1.5 py-0 text-[10px]"
+              >
                 {actionsCount}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="services" className="gap-1.5">
-              Services
-              <Badge variant="outline" className="rounded-full px-1.5 py-0 text-[10px]">
+            <TabsTrigger
+              value="services"
+              className="h-11 w-full justify-start gap-1.5 px-3"
+            >
+              Processes
+              <Badge
+                variant="outline"
+                className="rounded-full px-1.5 py-0 text-[10px]"
+              >
                 {servicesCount}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="hooks" className="gap-1.5">
-              Hooks
-              <Badge variant="outline" className="rounded-full px-1.5 py-0 text-[10px]">
+            <TabsTrigger
+              value="hooks"
+              className="h-11 w-full justify-start gap-1.5 px-3"
+            >
+              Triggers
+              <Badge
+                variant="outline"
+                className="rounded-full px-1.5 py-0 text-[10px]"
+              >
                 {hookLinkCount}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="targets" className="gap-1.5">
-              Targets
-              <Badge variant="outline" className="rounded-full px-1.5 py-0 text-[10px]">
+            <TabsTrigger
+              value="targets"
+              className="h-11 w-full justify-start gap-1.5 px-3"
+            >
+              Environments
+              <Badge
+                variant="outline"
+                className="rounded-full px-1.5 py-0 text-[10px]"
+              >
                 {targetsCount}
               </Badge>
             </TabsTrigger>
@@ -962,15 +1113,20 @@ export function ScriptsManager(props: {
               targetOptions={targetOptions}
               expandedEntryKey={expandedEntryKey}
               onExpandedChange={setExpandedEntryKey}
-              onFieldChange={(index, field, value) => updateEntryField("action", index, field, value)}
+              onFieldChange={(index, field, value) =>
+                updateEntryField("action", index, field, value)
+              }
               onAdd={() => addEntry("action")}
               onRemove={(index) => removeEntry("action", index)}
-              onMove={(index, direction) => moveEntry("action", index, direction)}
+              onMove={(index, direction) =>
+                moveEntry("action", index, direction)
+              }
               onDuplicate={(index) => duplicateEntry("action", index)}
               runtimeAvailable={runtimeAvailable}
               runtimeHint={runtimeHint}
               isDirty={isDirty}
-              resolvedIds={resolvedIds}
+              selectedScopeId={selectedScope.id}
+              entryOrigins={runtime.origins.originByKey}
               runStateByKey={runtime.entries}
               onRunEntry={(id) => runEntryHandler("action", id)}
               onStopEntry={(id) => stopEntryHandler("action", id)}
@@ -986,15 +1142,20 @@ export function ScriptsManager(props: {
               targetOptions={targetOptions}
               expandedEntryKey={expandedEntryKey}
               onExpandedChange={setExpandedEntryKey}
-              onFieldChange={(index, field, value) => updateEntryField("service", index, field, value)}
+              onFieldChange={(index, field, value) =>
+                updateEntryField("service", index, field, value)
+              }
               onAdd={() => addEntry("service")}
               onRemove={(index) => removeEntry("service", index)}
-              onMove={(index, direction) => moveEntry("service", index, direction)}
+              onMove={(index, direction) =>
+                moveEntry("service", index, direction)
+              }
               onDuplicate={(index) => duplicateEntry("service", index)}
               runtimeAvailable={runtimeAvailable}
               runtimeHint={runtimeHint}
               isDirty={isDirty}
-              resolvedIds={resolvedIds}
+              selectedScopeId={selectedScope.id}
+              entryOrigins={runtime.origins.originByKey}
               runStateByKey={runtime.entries}
               onRunEntry={(id) => runEntryHandler("service", id)}
               onStopEntry={(id) => stopEntryHandler("service", id)}
@@ -1026,6 +1187,51 @@ export function ScriptsManager(props: {
           </TabsContent>
         </Tabs>
       ) : null}
+
+      <div className="sticky bottom-0 z-20 -mx-2 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background px-2 py-3">
+        <div className="min-w-0" aria-live="polite">
+          <p className="text-xs font-medium text-foreground">
+            {saving
+              ? "Saving changes…"
+              : isDirty
+                ? "Unsaved changes"
+                : fileState.exists
+                  ? "All changes saved"
+                  : "No config file yet"}
+          </p>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {isDirty
+              ? "Edits and deletions are staged until you save this config."
+              : `${selectedScope.label} · ${selectedScope.filePath}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-9 rounded-md px-3"
+            onClick={() => void discardChanges()}
+            disabled={!isDirty || saving}
+          >
+            Discard
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 rounded-md px-3"
+            onClick={() => void saveChanges()}
+            disabled={fileState.status !== "ready" || !isDirty || saving}
+          >
+            {saving ? (
+              <RefreshCcw className="mr-1 size-3.5 animate-spin" />
+            ) : (
+              <Save className="mr-1 size-3.5" />
+            )}
+            {fileState.exists ? "Save changes" : "Create config"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

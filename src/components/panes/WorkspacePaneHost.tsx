@@ -19,11 +19,15 @@ import { PaneHeaderActions } from "@/components/panes/PaneHeaderActions";
 import { PaneTabChip } from "@/components/panes/PaneTabChip";
 import { PaneWatermark } from "@/components/panes/PaneWatermark";
 import { TaskHistoryDrawer } from "@/components/panes/TaskHistoryDrawer";
+import { TaskSessionIdsDialog } from "@/components/panes/TaskSessionIdsDialog";
+import { shouldPreventPaneDropAboveTaskBar } from "@/components/panes/pane-drop-guard";
 import {
   OPEN_TASK_HISTORY_EVENT,
+  OPEN_TASK_SESSION_IDS_EVENT,
   REQUEST_CLOSE_CLI_SESSION_EVENT,
   REQUEST_CLOSE_EDITOR_TABS_EVENT,
   closePaneSurface,
+  dispatchOpenTaskSessionIds,
   dispatchPaneRenameRequest,
   requestEditorBulkClose,
   type EditorTabsCloseRequest,
@@ -482,6 +486,10 @@ function buildTabContextMenuItems(
     }
     items.push(
       {
+        label: "Session IDs",
+        action: () => dispatchOpenTaskSessionIds({ taskId: surface.taskId }),
+      },
+      {
         label: "Archive",
         disabled: isManagedTask,
         action: () =>
@@ -613,6 +621,9 @@ export function WorkspacePaneHost() {
     title: string;
   } | null>(null);
   const [taskHistoryOpen, setTaskHistoryOpen] = useState(false);
+  const [taskSessionIdsTaskId, setTaskSessionIdsTaskId] = useState<
+    string | null
+  >(null);
   const [taskHistoryWorkspaceId, setTaskHistoryWorkspaceId] = useState<
     string | null
   >(null);
@@ -792,6 +803,17 @@ export function WorkspacePaneHost() {
     (event: DockviewReadyEvent) => {
       const api = event.api;
       apiRef.current = api;
+
+      api.onWillShowOverlay((dropEvent) => {
+        if (shouldPreventPaneDropAboveTaskBar(dropEvent)) {
+          dropEvent.preventDefault();
+        }
+      });
+      api.onWillDrop((dropEvent) => {
+        if (shouldPreventPaneDropAboveTaskBar(dropEvent)) {
+          dropEvent.preventDefault();
+        }
+      });
 
       api.onDidActivePanelChange(({ panel }) => {
         if (!panel) {
@@ -1014,6 +1036,12 @@ export function WorkspacePaneHost() {
       setTaskHistoryProjectPath(detail?.projectPath ?? null);
       setTaskHistoryOpen(true);
     }
+    function handleOpenTaskSessionIds(event: Event) {
+      const detail = (event as CustomEvent<{ taskId?: string }>).detail;
+      if (detail?.taskId) {
+        setTaskSessionIdsTaskId(detail.taskId);
+      }
+    }
     function handleRequestCloseEditorTabs(event: Event) {
       const detail = (event as CustomEvent<EditorTabsCloseRequest>).detail;
       if (detail?.tabIds.length) {
@@ -1026,6 +1054,10 @@ export function WorkspacePaneHost() {
     );
     window.addEventListener(OPEN_TASK_HISTORY_EVENT, handleOpenTaskHistory);
     window.addEventListener(
+      OPEN_TASK_SESSION_IDS_EVENT,
+      handleOpenTaskSessionIds,
+    );
+    window.addEventListener(
       REQUEST_CLOSE_EDITOR_TABS_EVENT,
       handleRequestCloseEditorTabs,
     );
@@ -1037,6 +1069,10 @@ export function WorkspacePaneHost() {
       window.removeEventListener(
         OPEN_TASK_HISTORY_EVENT,
         handleOpenTaskHistory,
+      );
+      window.removeEventListener(
+        OPEN_TASK_SESSION_IDS_EVENT,
+        handleOpenTaskSessionIds,
       );
       window.removeEventListener(
         REQUEST_CLOSE_EDITOR_TABS_EVENT,
@@ -1114,6 +1150,14 @@ export function WorkspacePaneHost() {
         }}
         workspaceId={taskHistoryWorkspaceId}
         projectPath={taskHistoryProjectPath}
+      />
+      <TaskSessionIdsDialog
+        taskId={taskSessionIdsTaskId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTaskSessionIdsTaskId(null);
+          }
+        }}
       />
     </div>
   );

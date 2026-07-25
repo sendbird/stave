@@ -18,6 +18,15 @@ import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-ch
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import {
+  CompareRunPrepareDialog,
+  type CompareRunPreparation,
+} from "@/components/compare/CompareRunPrepareDialog";
+import { CompareRunHistoryDialog } from "@/components/compare/CompareRunHistoryDialog";
+import {
+  consumeComparePreparationRequest,
+  subscribeComparePreparationRequest,
+} from "@/components/compare/compare-prepare-request";
+import {
   Badge,
   Button,
   DropdownMenu,
@@ -32,8 +41,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import { History, SplitSquareHorizontal } from "lucide-react";
-import { deriveCompareSeedTitle } from "@/lib/compare-runs";
+import { ChevronDown, History, SplitSquareHorizontal } from "lucide-react";
+import { listCompareRunHistoryEntries } from "@/lib/compare-run-history";
 import {
   buildCommandPaletteItems,
   type CommandPaletteItem,
@@ -84,7 +93,6 @@ import {
   findOptionLabel,
 } from "@/lib/providers/runtime-option-contract";
 import {
-  formatProviderTurnElapsedDuration,
   formatProviderTurnIdleDuration,
   resolveProviderTurnDisplayState,
 } from "@/lib/providers/turn-status";
@@ -107,6 +115,7 @@ import {
   shouldIncludeImageAttachmentAsProviderContext,
 } from "@/lib/lens/lens-annotation-attachment";
 import { buildWorkspaceInformationReferenceOptions } from "@/lib/workspace-information-references";
+import { RenderProfiler } from "@/lib/render-profiler";
 import {
   resolvePromptDraftPlanModeChange,
   resolvePromptDraftModelForProvider,
@@ -125,6 +134,7 @@ import {
   toWorkspaceRelativeFilePath,
 } from "./chat-input.attachments";
 import { useScopedTaskId } from "./task-scope-context";
+import { TurnActivity } from "./TurnActivity";
 import {
   buildApprovalGuidancePrompt,
   getLatestPromptSuggestions,
@@ -328,18 +338,13 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   }
 
   const compareRunsById = useAppStore((state) => state.compareRunsById);
-  const recentCompareRuns = useMemo(
-    () =>
-      Object.values(compareRunsById)
-        .filter((run) => Boolean(run))
-        .sort((a, b) => b!.createdAt.localeCompare(a!.createdAt))
-        .slice(0, 8)
-        .map((run) => ({
-          id: run!.id,
-          title: deriveCompareSeedTitle(run!.seedPrompt) || "Compare run",
-          status: run!.status,
-        })),
+  const compareRunHistoryEntries = useMemo(
+    () => listCompareRunHistoryEntries({ runsById: compareRunsById }),
     [compareRunsById],
+  );
+  const recentCompareRuns = useMemo(
+    () => compareRunHistoryEntries.slice(0, 8),
+    [compareRunHistoryEntries],
   );
   const providerTurnDisplayState = useMemo(
     () =>
@@ -370,32 +375,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         : null,
     [providerTurnActivity, providerTurnDisplayState],
   );
-  // Live elapsed clock for a healthy ("responding") turn. The interval only
-  // runs while responding and is torn down on stall/idle/turn change.
-  const isTurnResponding = providerTurnDisplayState === "responding";
-  const [turnElapsedNow, setTurnElapsedNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!isTurnResponding) {
-      return;
-    }
-    setTurnElapsedNow(Date.now());
-    const handle = window.setInterval(() => {
-      setTurnElapsedNow(Date.now());
-    }, 1000);
-    return () => {
-      window.clearInterval(handle);
-    };
-  }, [isTurnResponding, activeTurnId]);
-  const runningDurationLabel = useMemo(
-    () =>
-      isTurnResponding
-        ? formatProviderTurnElapsedDuration({
-            activity: providerTurnActivity,
-            now: turnElapsedNow,
-          })
-        : null,
-    [isTurnResponding, providerTurnActivity, turnElapsedNow],
-  );
   const promptHistoryEntries = useMemo(
     () => getPromptHistoryEntries(activeTaskMessages),
     [activeTaskMessages],
@@ -412,6 +391,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     [workspaceInformation],
   );
   const [draftText, setDraftText] = useState(promptDraft.text);
+  const [comparePrepareOpen, setComparePrepareOpen] = useState(false);
+  const [compareHistoryOpen, setCompareHistoryOpen] = useState(false);
+  const [compareStarting, setCompareStarting] = useState(false);
   const draftTextRef = useRef(promptDraft.text);
   const syncedDraftRef = useRef({
     taskId: args.providerSelectionTarget,
@@ -473,19 +455,63 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     });
   }
 
-  async function handleStartCompareRun() {
-    // Flush the debounced draft first so the compare seed uses the latest
-    // text the user typed, not the last auto-saved snapshot.
+  function handleOpenComparePreparation() {
     commitCurrentDraftText();
-    const result =
-      await useAppStore.getState().startCompareRunFromActiveDraft();
-    if (!result.ok) {
-      toast.error("Unable to start compare run", {
-        description: result.message,
+    setComparePrepareOpen(true);
+  }
+
+  useEffect(() => {
+    const handlePrepareCompare = () => {
+      const request = consumeComparePreparationRequest(args.activeTaskId);
+      if (!request) {
+        return;
+      }
+      const store = useAppStore.getState();
+      if (store.activeTaskId !== args.activeTaskId) {
+        return;
+      }
+
+      const taskId = args.providerSelectionTarget;
+      const text = draftTextRef.current;
+      if (store.promptDraftByTask[taskId]?.text !== text) {
+        store.updatePromptDraft({
+          taskId,
+          patch: { text },
+        });
+      }
+      syncedDraftRef.current = { taskId, text };
+      setComparePrepareOpen(true);
+    };
+
+    const unsubscribe =
+      subscribeComparePreparationRequest(handlePrepareCompare);
+    handlePrepareCompare();
+    return unsubscribe;
+  }, [args.activeTaskId, args.providerSelectionTarget]);
+
+  async function handleStartCompareRun(preparation: CompareRunPreparation) {
+    setCompareStarting(true);
+    try {
+      const result = await useAppStore.getState().startCompareRun(preparation);
+      if (!result.ok) {
+        toast.error("Unable to start compare run", {
+          description: result.message,
+        });
+        return;
+      }
+      setComparePrepareOpen(false);
+      toast.success("Compare candidates are running separately", {
+        description:
+          "A fresh-context judge will score the results after every candidate finishes.",
       });
-      return;
+    } catch (error) {
+      toast.error("Unable to start compare run", {
+        description:
+          error instanceof Error ? error.message : "Unexpected runtime error.",
+      });
+    } finally {
+      setCompareStarting(false);
     }
-    toast.success("Compare run started");
   }
 
   function clearLensAnnotationsOnMessageSubmit(taskId: string) {
@@ -601,6 +627,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     if (!item) {
       return;
     }
+    useAppStore.getState().requestTaskScrollToLatest({
+      taskId: args.activeTaskId,
+    });
     const result = await sendUserMessage({
       taskId: args.activeTaskId,
       content: item.content,
@@ -860,6 +889,25 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         args.isEmpty && "pb-6",
       )}
     >
+      {comparePrepareOpen ? (
+        <CompareRunPrepareDialog
+          open={comparePrepareOpen}
+          seedPrompt={draftText}
+          submitting={compareStarting}
+          onOpenChange={setComparePrepareOpen}
+          onSubmit={(preparation) => void handleStartCompareRun(preparation)}
+        />
+      ) : null}
+      {compareHistoryOpen ? (
+        <CompareRunHistoryDialog
+          open={compareHistoryOpen}
+          runsById={compareRunsById}
+          onOpenChange={setCompareHistoryOpen}
+          onOpenRun={(compareRunId) =>
+            useAppStore.getState().openCompareRun({ compareRunId })
+          }
+        />
+      ) : null}
       <div className="mx-auto max-w-6xl">
         {pendingApprovals.length > 0 ? (
           <ChatInputApprovalQueue
@@ -914,15 +962,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             }}
           />
         ) : null}
-        {runningDurationLabel ? (
-          <div className="mb-2 flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
-            <span
-              className="size-1.5 rounded-full bg-primary animate-pulse"
-              aria-hidden
-            />
-            <span>Running · {runningDurationLabel}</span>
-          </div>
-        ) : null}
         {isSteerSubmitting ? (
           <div
             className="mb-2 flex items-center gap-1.5 px-1 text-xs text-muted-foreground"
@@ -951,6 +990,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             </div>
           </div>
         ) : null}
+        <RenderProfiler id="TurnActivity">
+          <TurnActivity />
+        </RenderProfiler>
         <PromptInput
           focusToken={`${args.providerSelectionTarget}:${focusNonce}`}
           value={draftText}
@@ -958,69 +1000,126 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           disabled={isInputBlocked || isSteerSubmitting}
           windowShortcutsEnabled={args.windowShortcutsEnabled}
           isTurnActive={args.isTurnActive}
-          leadingToolbarAction={
+          beforeRuntimeAction={
             args.isTurnActive ? null : (
-              <>
+              <div
+                className="inline-flex h-9 items-stretch gap-0.5 rounded-md"
+                data-compare-control="true"
+              >
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-9 text-muted-foreground hover:text-foreground"
-                      disabled={
-                        isInputBlocked || draftText.trim().length === 0
-                      }
-                      aria-label="Compare draft across providers"
-                      onClick={() => void handleStartCompareRun()}
-                    >
-                      <SplitSquareHorizontal className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    Compare draft across providers
-                  </TooltipContent>
-                </Tooltip>
-                {recentCompareRuns.length > 0 ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                  <TooltipTrigger
+                    render={
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        className="size-9 text-muted-foreground hover:text-foreground"
-                        aria-label="Recent compare runs"
-                      >
-                        <History className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-72">
-                      <DropdownMenuLabel>
-                        Recent compare runs
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {recentCompareRuns.map((run) => (
+                        size="sm"
+                        className="h-full gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
+                        disabled={
+                          isInputBlocked || draftText.trim().length === 0
+                        }
+                        aria-label="Prepare a comparison in isolated candidate workspaces"
+                        onClick={handleOpenComparePreparation}
+                      />
+                    }
+                  >
+                    <SplitSquareHorizontal className="size-4" />
+                    Compare
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-72">
+                    Prepare a shared brief and review criteria before running
+                    Two configurable candidates in separate workspaces.
+                  </TooltipContent>
+                </Tooltip>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <button
+                        type="button"
+                        className="inline-flex w-8 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
+                        aria-label="Compare options and recent runs"
+                        disabled={
+                          recentCompareRuns.length === 0 &&
+                          (isInputBlocked || draftText.trim().length === 0)
+                        }
+                      />
+                    }
+                  >
+                    <ChevronDown className="size-3.5" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    sideOffset={6}
+                    className="w-80"
+                  >
+                    <DropdownMenuLabel className="flex items-center gap-2">
+                      <SplitSquareHorizontal className="size-3.5" />
+                      Compare
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem
+                      disabled={isInputBlocked || draftText.trim().length === 0}
+                      onSelect={handleOpenComparePreparation}
+                    >
+                      <SplitSquareHorizontal className="size-4" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm">
+                          Prepare new comparison
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          Configure candidates, criteria, and judge
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+
+                    {recentCompareRuns.length > 0 ? (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                          <History className="size-3.5" />
+                          Recent runs
+                        </DropdownMenuLabel>
+                        {recentCompareRuns.map((run) => (
+                          <DropdownMenuItem
+                            key={run.id}
+                            className="items-start gap-2"
+                            onSelect={() =>
+                              useAppStore
+                                .getState()
+                                .openCompareRun({ compareRunId: run.id })
+                            }
+                          >
+                            <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary/70" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block w-full truncate text-sm">
+                                {run.title}
+                              </span>
+                              <span className="block text-xs capitalize text-muted-foreground">
+                                {run.stateLabel}
+                              </span>
+                            </span>
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          key={run.id}
-                          className="flex flex-col items-start gap-0.5"
-                          onSelect={() =>
-                            useAppStore
-                              .getState()
-                              .openCompareRun({ compareRunId: run.id })
-                          }
+                          className="gap-2"
+                          onSelect={() => setCompareHistoryOpen(true)}
                         >
-                          <span className="w-full truncate text-sm">
-                            {run.title}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {run.status}
+                          <History className="size-4" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm">
+                              View all compare runs…
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                              Search and filter{" "}
+                              {compareRunHistoryEntries.length} saved runs
+                            </span>
                           </span>
                         </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : null}
-              </>
+                      </>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )
           }
           submitMode={
@@ -1081,6 +1180,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           onSendQueuedTurn={({ itemId }) => void sendQueuedTurnNow(itemId)}
           onSuggestionSelect={async (suggestion) => {
             cancelPendingDraftSave();
+            useAppStore.getState().requestTaskScrollToLatest({
+              taskId: args.activeTaskId,
+            });
             clearLensAnnotationsOnMessageSubmit(args.activeTaskId);
             const result = await sendUserMessage({
               taskId: args.activeTaskId,
@@ -1191,6 +1293,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             ) {
               return;
             }
+            useAppStore.getState().requestTaskScrollToLatest({
+              taskId: args.activeTaskId,
+            });
             cancelPendingDraftSave();
             const submittedDraft = {
               taskId: submissionTaskId,
@@ -1953,15 +2058,17 @@ function BaseChatInput() {
   }, [activeProvider, lastAssistantProviderId]);
   const reviewModelOptions = useMemo(
     () =>
-      modelOptions.filter(
-        (option) => option.available && !option.isAuto && option.model.trim(),
-      ).map((option) => {
-        const configuredModel =
-          option.providerId === "claude-code" ? modelClaude : modelCodex;
-        return option.model === configuredModel
-          ? { ...option, isDefault: true }
-          : option;
-      }),
+      modelOptions
+        .filter(
+          (option) => option.available && !option.isAuto && option.model.trim(),
+        )
+        .map((option) => {
+          const configuredModel =
+            option.providerId === "claude-code" ? modelClaude : modelCodex;
+          return option.model === configuredModel
+            ? { ...option, isDefault: true }
+            : option;
+        }),
     [modelClaude, modelCodex, modelOptions],
   );
   const preferredReviewModelKey = useMemo(() => {
@@ -1982,12 +2089,7 @@ function BaseChatInput() {
       ) ??
       reviewModelOptions[0]
     )?.key;
-  }, [
-    modelClaude,
-    modelCodex,
-    reviewModelOptions,
-    suggestedReviewProvider,
-  ]);
+  }, [modelClaude, modelCodex, reviewModelOptions, suggestedReviewProvider]);
   const handleLocalChangeReview = useCallback(
     async (review: LocalChangeReviewRequest) => {
       const result = await sendUserMessage({

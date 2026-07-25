@@ -7,6 +7,8 @@ import {
   formatWorkspacePathLabel,
   isDefaultWorkspaceName,
   normalizeCurrentProjectState,
+  normalizeProjectAppearanceColor,
+  normalizeProjectAppearanceIcon,
   normalizeProjectBasePrompt,
   normalizeProjectKickoffBranchNamingRule,
   normalizeProjectDisplayName,
@@ -23,6 +25,7 @@ import {
   toShellPathArgument,
   toWorkspaceFolderName,
   updateCurrentProjectTextPreference,
+  updateCurrentProjectAppearance,
 } from "@/store/project.utils";
 import {
   filterProjectSidebarProjects,
@@ -248,9 +251,121 @@ describe("project name normalization", () => {
     });
 
     expect(projects[0]?.kickoffBranchNamingRule).toBe("Use feat/<ticket>.");
+    expect(normalizeProjectKickoffBranchNamingRule({ value: undefined })).toBe(
+      "",
+    );
+  });
+
+  test("normalizes and updates persisted project appearance", () => {
+    const state = {
+      recentProjects: normalizeRecentProjectStates({
+        projects: [
+          {
+            projectPath: PROJECT_PATH,
+            projectName: "stave",
+            lastOpenedAt: "2026-03-30T13:35:33.466Z",
+            defaultBranch: "main",
+            workspaces: [],
+            activeWorkspaceId: "",
+            workspaceBranchById: {},
+            workspacePathById: {},
+            workspaceDefaultById: {},
+            appearanceIcon: "code" as const,
+            appearanceColor: "violet" as const,
+          },
+        ],
+      }),
+      projectPath: PROJECT_PATH,
+      projectName: "stave",
+      defaultBranch: "main",
+      workspaces: [],
+      activeWorkspaceId: "",
+      workspaceBranchById: {},
+      workspacePathById: {},
+      workspaceDefaultById: {},
+    };
+
+    expect(state.recentProjects[0]?.appearanceIcon).toBe("code");
+    expect(state.recentProjects[0]?.appearanceColor).toBe("violet");
+    expect(normalizeProjectAppearanceIcon("terminal")).toBe("terminal");
+    expect(normalizeProjectAppearanceIcon("unknown")).toBe("folder");
+    expect(normalizeProjectAppearanceColor("unknown")).toBe("blue");
+
+    const updated = updateCurrentProjectAppearance({
+      state,
+      icon: "database",
+      color: "emerald",
+    });
+    expect(updated?.[0]?.appearanceIcon).toBe("database");
+    expect(updated?.[0]?.appearanceColor).toBe("emerald");
+  });
+
+  test("updates an inactive project appearance and preserves no-op state", () => {
+    const recentProjects = normalizeRecentProjectStates({
+      projects: [
+        {
+          projectPath: PROJECT_PATH,
+          projectName: "stave",
+          lastOpenedAt: "2026-03-30T13:35:33.466Z",
+          defaultBranch: "main",
+          workspaces: [],
+          activeWorkspaceId: "",
+          workspaceBranchById: {},
+          workspacePathById: {},
+          workspaceDefaultById: {},
+        },
+        {
+          projectPath: FOREIGN_PROJECT_PATH,
+          projectName: "sbdashboard",
+          lastOpenedAt: "2026-03-29T13:35:33.466Z",
+          defaultBranch: "main",
+          workspaces: [],
+          activeWorkspaceId: "",
+          workspaceBranchById: {},
+          workspacePathById: {},
+          workspaceDefaultById: {},
+        },
+      ],
+    });
+    const state = {
+      recentProjects,
+      projectPath: PROJECT_PATH,
+      projectName: "stave",
+      defaultBranch: "main",
+      workspaces: [],
+      activeWorkspaceId: "",
+      workspaceBranchById: {},
+      workspacePathById: {},
+      workspaceDefaultById: {},
+    };
+
+    const updated = updateCurrentProjectAppearance({
+      state,
+      projectPath: FOREIGN_PROJECT_PATH,
+      icon: "sparkles",
+      color: "rose",
+    });
     expect(
-      normalizeProjectKickoffBranchNamingRule({ value: undefined }),
-    ).toBe("");
+      updated?.find((project) => project.projectPath === PROJECT_PATH)
+        ?.appearanceIcon,
+    ).toBe("folder");
+    expect(
+      updated?.find((project) => project.projectPath === FOREIGN_PROJECT_PATH)
+        ?.appearanceIcon,
+    ).toBe("sparkles");
+    expect(
+      updated?.find((project) => project.projectPath === FOREIGN_PROJECT_PATH)
+        ?.appearanceColor,
+    ).toBe("rose");
+
+    expect(
+      updateCurrentProjectAppearance({
+        state: { ...state, recentProjects: updated ?? recentProjects },
+        projectPath: FOREIGN_PROJECT_PATH,
+        icon: "sparkles",
+        color: "rose",
+      }),
+    ).toBeNull();
   });
 
   test("updates project kickoff preferences through the shared registry helper", () => {
@@ -553,6 +668,8 @@ describe("project name normalization", () => {
       kickoffBranchNamingRule: "",
       newWorkspaceInitCommand: "",
       newWorkspaceUseRootNodeModulesSymlink: false,
+      appearanceIcon: "folder",
+      appearanceColor: "blue",
     });
   });
 
@@ -890,9 +1007,9 @@ describe("linked worktree helpers", () => {
     expect(symlinkPath.startsWith(`${PROJECT_PATH}/.stave/workspaces/`)).toBe(
       true,
     );
-    expect(symlinkPath.endsWith(`/feature--${symlinkPath.split("--").at(-1)}`)).toBe(
-      true,
-    );
+    expect(
+      symlinkPath.endsWith(`/feature--${symlinkPath.split("--").at(-1)}`),
+    ).toBe(true);
   });
 });
 

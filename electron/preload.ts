@@ -72,7 +72,13 @@ import type {
   WorkspaceScriptStatusEntry,
 } from "../src/lib/workspace-scripts/types";
 import type {
+  BrowserConsoleEntry,
+  BrowserConsoleEntryDetail,
   BrowserConsoleEventPayload,
+  BrowserConsoleObjectProperties,
+  BrowserNetworkBody,
+  BrowserNetworkEntry,
+  BrowserNetworkEntryDetail,
   BrowserNetworkEventPayload,
   LensAnnotation,
   LensAnnotationEventPayload,
@@ -82,6 +88,7 @@ import type {
   LensDownloadEventPayload,
   BrowserNavigationEventPayload,
   LensSecurityConfig,
+  LensDiagnosticsCaptureState,
   LensSessionDescriptor,
   LensSessionPresentationRequestPayload,
   LensSessionProfileArgs,
@@ -1028,7 +1035,11 @@ contextBridge.exposeInMainWorld("api", {
         inserted: boolean;
         notification: AppNotification | null;
       }>,
-    markNotificationRead: (args: { id: string; readAt?: string }) =>
+    markNotificationRead: (args: {
+      id: string;
+      readAt?: string;
+      resolvedAt?: string;
+    }) =>
       ipcRenderer.invoke(
         "persistence:mark-notification-read",
         args,
@@ -1040,6 +1051,22 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke(
         "persistence:mark-all-notifications-read",
         args ?? {},
+      ) as Promise<{
+        ok: boolean;
+        count: number;
+      }>,
+    pruneNotifications: (args?: { now?: string }) =>
+      ipcRenderer.invoke(
+        "persistence:prune-notifications",
+        args ?? {},
+      ) as Promise<{
+        ok: boolean;
+        count: number;
+      }>,
+    clearNotificationHistory: () =>
+      ipcRenderer.invoke(
+        "persistence:clear-notification-history",
+        {},
       ) as Promise<{
         ok: boolean;
         count: number;
@@ -1896,12 +1923,37 @@ contextBridge.exposeInMainWorld("api", {
     }) =>
       ipcRenderer.invoke("lens:get-console-log", args) as Promise<{
         ok: boolean;
-        entries?: Array<{
-          level: string;
-          text: string;
-          timestamp: string;
-          source?: string;
-        }>;
+        entries?: BrowserConsoleEntry[];
+        message?: string;
+      }>,
+    clearConsoleLog: (args: { workspaceId: string; lensSessionId?: string }) =>
+      ipcRenderer.invoke("lens:clear-console-log", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    getConsoleEntryDetail: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      entryId: string;
+    }) =>
+      ipcRenderer.invoke("lens:get-console-entry-detail", args) as Promise<{
+        ok: boolean;
+        detail?: BrowserConsoleEntryDetail;
+        message?: string;
+      }>,
+    getConsoleObjectProperties: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      entryId: string;
+      objectHandle: string;
+      limit?: number;
+    }) =>
+      ipcRenderer.invoke(
+        "lens:get-console-object-properties",
+        args,
+      ) as Promise<{
+        ok: boolean;
+        properties?: BrowserConsoleObjectProperties;
         message?: string;
       }>,
     getNetworkLog: (args: {
@@ -1911,12 +1963,55 @@ contextBridge.exposeInMainWorld("api", {
     }) =>
       ipcRenderer.invoke("lens:get-network-log", args) as Promise<{
         ok: boolean;
-        entries?: Array<{
-          url: string;
-          method: string;
-          status?: number;
-          timestamp: string;
-        }>;
+        entries?: BrowserNetworkEntry[];
+        message?: string;
+      }>,
+    clearNetworkLog: (args: { workspaceId: string; lensSessionId?: string }) =>
+      ipcRenderer.invoke("lens:clear-network-log", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    getNetworkEntryDetail: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      entryId: string;
+    }) =>
+      ipcRenderer.invoke("lens:get-network-entry-detail", args) as Promise<{
+        ok: boolean;
+        detail?: BrowserNetworkEntryDetail;
+        message?: string;
+      }>,
+    getNetworkBody: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      entryId: string;
+      kind: "request" | "response";
+    }) =>
+      ipcRenderer.invoke("lens:get-network-body", args) as Promise<{
+        ok: boolean;
+        body?: BrowserNetworkBody;
+        message?: string;
+      }>,
+    getDiagnosticsCaptureState: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+    }) =>
+      ipcRenderer.invoke(
+        "lens:get-diagnostics-capture-state",
+        args,
+      ) as Promise<{
+        ok: boolean;
+        state?: LensDiagnosticsCaptureState;
+        message?: string;
+      }>,
+    setDiagnosticsCapture: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      enabled: boolean;
+    }) =>
+      ipcRenderer.invoke("lens:set-diagnostics-capture", args) as Promise<{
+        ok: boolean;
+        state?: LensDiagnosticsCaptureState;
         message?: string;
       }>,
     startElementPicker: (args: {

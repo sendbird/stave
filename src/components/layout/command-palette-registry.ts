@@ -13,10 +13,10 @@ import {
   PanelLeft,
   PanelRight,
   RefreshCw,
+  Rocket,
   Save,
   Search,
   Settings,
-  Sparkles,
   SplitSquareHorizontal,
   Terminal,
   type LucideIcon,
@@ -31,6 +31,10 @@ import {
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
+import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
+
+const { icon: WorkspaceToolsIcon, label: WORKSPACE_TOOLS_LABEL } =
+  WORKSPACE_TOOLS_PRESENTATION;
 
 export type CommandPaletteGroup =
   | "navigation"
@@ -42,15 +46,16 @@ export type CommandPaletteGroup =
   | "external";
 
 export const COMMAND_PALETTE_GROUP_LABELS: Record<
-  CommandPaletteGroup | "pinned" | "recent",
+  CommandPaletteGroup | "pinned" | "suggested" | "recent",
   string
 > = {
   pinned: "Pinned",
+  suggested: "Suggested",
   recent: "Recent",
   navigation: "Navigation",
   view: "View",
   task: "Task",
-  scripts: "Scripts",
+  scripts: WORKSPACE_TOOLS_LABEL,
   provider: "Provider",
   settings: "Settings",
   external: "External",
@@ -67,6 +72,7 @@ const COMMAND_PALETTE_GROUP_ORDER: CommandPaletteGroup[] = [
 ];
 
 const MAX_RECENT_COMMAND_IDS = 8;
+const MAX_CONTEXTUAL_COMMAND_IDS = 6;
 
 export interface CommandPalettePreferences {
   hiddenIds: string[];
@@ -175,12 +181,18 @@ export interface CommandPaletteAction {
   source?: "core" | "dynamic" | "contributed";
   subtitle?: string;
   customizable?: boolean;
+  contextLabel?: string;
 }
 
 export interface CommandPaletteGroupSection {
-  key: CommandPaletteGroup | "pinned" | "recent";
+  key: CommandPaletteGroup | "pinned" | "suggested" | "recent";
   title: string;
   items: CommandPaletteAction[];
+}
+
+export interface CommandPaletteContextRelevance {
+  label: string;
+  score: number;
 }
 
 interface CommandPaletteCoreCommandDefinition {
@@ -449,7 +461,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       "variants",
     ],
     build: (args) =>
-      args.projectPath
+      args.activeTaskId
         ? {
             id: "task.compare-providers",
             title: "Compare Current Draft Across Providers",
@@ -582,19 +594,35 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.show-scripts",
-    title: "Show Scripts Panel",
-    description: "Open the workspace scripts overlay on the right rail.",
+    title: `Show ${WORKSPACE_TOOLS_LABEL}`,
+    description:
+      "Open one-shot commands and long-running processes on the right rail.",
     group: "view",
-    icon: Sparkles,
-    keywords: ["scripts", "hooks", "services", "orbit"],
+    icon: WorkspaceToolsIcon,
+    keywords: [
+      "scripts",
+      "commands",
+      "processes",
+      "hooks",
+      "services",
+      "orbit",
+    ],
     shortcut: (modifierLabel) => `${modifierLabel}+K S`,
     build: (args) => ({
       id: "view.show-scripts",
-      title: "Show Scripts Panel",
-      subtitle: "Open workspace scripts runtime, hooks, and services.",
+      title: `Show ${WORKSPACE_TOOLS_LABEL}`,
+      subtitle:
+        "Open workspace commands, long-running processes, and triggers.",
       group: "view",
-      icon: Sparkles,
-      keywords: ["scripts", "hooks", "services", "orbit"],
+      icon: WorkspaceToolsIcon,
+      keywords: [
+        "scripts",
+        "commands",
+        "processes",
+        "hooks",
+        "services",
+        "orbit",
+      ],
       shortcut: `${args.modifierLabel}+K S`,
       run: () => args.commands.showOverlayTab("scripts"),
       source: "core",
@@ -885,7 +913,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     title: "Kick off Workspace",
     description: "Create a workspace from an external source or prompt.",
     group: "task",
-    icon: Sparkles,
+    icon: Rocket,
     keywords: [
       "kickoff",
       "new workspace",
@@ -900,9 +928,10 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
         ? {
             id: "workspace.kickoff",
             title: "Kick off Workspace",
-            subtitle: "Resolve a source, preview details, and create a worktree.",
+            subtitle:
+              "Resolve a source, preview details, and create a worktree.",
             group: "task",
-            icon: Sparkles,
+            icon: Rocket,
             keywords: [
               "kickoff",
               "new workspace",
@@ -1110,6 +1139,146 @@ function buildDynamicActions(
   return actions;
 }
 
+function findActiveCommandPaletteTask(args: CommandPaletteRuntimeContext) {
+  return (
+    args.tasks.find((task) => task.id === args.activeTaskId) ??
+    args.tasks.find((task) => task.isActive)
+  );
+}
+
+export function resolveCommandPaletteContextRelevance(args: {
+  action: CommandPaletteAction;
+  context: CommandPaletteRuntimeContext;
+}): CommandPaletteContextRelevance | null {
+  const { action, context } = args;
+  const activeTask = findActiveCommandPaletteTask(context);
+
+  if (action.id.startsWith("task.select.")) {
+    const taskId = action.id.slice("task.select.".length);
+    const task = context.tasks.find((candidate) => candidate.id === taskId);
+    if (!task || task.isActive) {
+      return null;
+    }
+    return task.isResponding
+      ? { label: "Running task", score: 118 }
+      : { label: "Task switch", score: 72 };
+  }
+
+  if (action.id.startsWith("workspace.select.")) {
+    const workspaceId = action.id.slice("workspace.select.".length);
+    const workspace = context.workspaces.find(
+      (candidate) => candidate.id === workspaceId,
+    );
+    return !workspace || workspace.isActive
+      ? null
+      : { label: "Workspace switch", score: 66 };
+  }
+
+  if (action.id.startsWith("project.open.")) {
+    const projectPath = action.id.slice("project.open.".length);
+    const project = context.projects.find(
+      (candidate) => candidate.projectPath === projectPath,
+    );
+    return !project || project.isCurrent
+      ? null
+      : { label: "Recent project", score: 52 };
+  }
+
+  if (action.id === "task.stop-active-turn" && context.hasActiveTurn) {
+    return { label: "Running now", score: 140 };
+  }
+
+  if (action.id === "task.save-file" && context.activeEditorTabId) {
+    return { label: "Open editor", score: 130 };
+  }
+
+  if (
+    (action.id === "task.create-pr" ||
+      action.id === "task.continue-workspace") &&
+    !context.activeWorkspaceIsDefault
+  ) {
+    return { label: "Current branch", score: 120 };
+  }
+
+  if (
+    action.group === "scripts" &&
+    context.layout.sidebarOverlayVisible &&
+    context.layout.sidebarOverlayTab === "scripts"
+  ) {
+    return { label: "Current panel", score: 112 };
+  }
+
+  if (
+    action.id === "navigation.fleet-view" &&
+    context.tasks.filter((task) => task.isResponding).length > 1
+  ) {
+    return { label: "Parallel work", score: 108 };
+  }
+
+  if (
+    (action.id === "view.split-pane-right" ||
+      action.id === "view.split-pane-down" ||
+      action.id === "view.toggle-editor") &&
+    context.activeEditorTabId
+  ) {
+    return { label: "Open editor", score: 96 };
+  }
+
+  if (
+    action.id === "view.toggle-changes-panel" &&
+    !context.activeWorkspaceIsDefault
+  ) {
+    return { label: "Current branch", score: 94 };
+  }
+
+  if (
+    (action.id === "task.compare-providers" ||
+      action.id === "view.show-information") &&
+    context.activeTaskId
+  ) {
+    return { label: "Active task", score: 90 };
+  }
+
+  if (action.group === "provider" && activeTask) {
+    const providerId = action.id.slice("provider.set.".length);
+    return providerId === activeTask.provider
+      ? null
+      : { label: "Active task", score: 86 };
+  }
+
+  if (action.id === "task.new" && !context.activeTaskId) {
+    return { label: "No task open", score: 84 };
+  }
+
+  if (
+    (action.id === "navigation.quick-open-file" ||
+      action.id === "view.search-in-files") &&
+    context.projectPath
+  ) {
+    return { label: "Current project", score: 80 };
+  }
+
+  if (
+    action.id === "view.show-scripts" &&
+    context.workspacePath &&
+    !(
+      context.layout.sidebarOverlayVisible &&
+      context.layout.sidebarOverlayTab === "scripts"
+    )
+  ) {
+    return { label: "Current workspace", score: 62 };
+  }
+
+  if (
+    action.id === "navigation.latest-completed-turn-task" &&
+    !context.activeTaskId
+  ) {
+    return { label: "Resume work", score: 60 };
+  }
+
+  return null;
+}
+
 function sortActions(left: CommandPaletteAction, right: CommandPaletteAction) {
   const groupDelta =
     COMMAND_PALETTE_GROUP_ORDER.indexOf(left.group) -
@@ -1192,16 +1361,61 @@ export function buildCommandPaletteGroups(
     .filter((action): action is CommandPaletteAction => Boolean(action));
   const pinnedIds = new Set(pinnedItems.map((action) => action.id));
 
+  const recentRankById = new Map(
+    args.preferences.recentIds.map((id, index) => [id, index] as const),
+  );
+  const contextualItems = visibleActions
+    .filter((action) => !pinnedIds.has(action.id))
+    .map((action) => ({
+      action,
+      relevance: resolveCommandPaletteContextRelevance({
+        action,
+        context: args,
+      }),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        action: CommandPaletteAction;
+        relevance: CommandPaletteContextRelevance;
+      } => Boolean(entry.relevance),
+    )
+    .sort((left, right) => {
+      const relevanceDelta = right.relevance.score - left.relevance.score;
+      if (relevanceDelta !== 0) {
+        return relevanceDelta;
+      }
+      const recentDelta =
+        (recentRankById.get(left.action.id) ?? Number.MAX_SAFE_INTEGER) -
+        (recentRankById.get(right.action.id) ?? Number.MAX_SAFE_INTEGER);
+      return recentDelta || sortActions(left.action, right.action);
+    })
+    .slice(0, MAX_CONTEXTUAL_COMMAND_IDS)
+    .map(({ action, relevance }) => ({
+      ...action,
+      contextLabel: relevance.label,
+    }));
+  const contextualIds = new Set(contextualItems.map((action) => action.id));
+
   const recentItems = args.preferences.showRecent
     ? args.preferences.recentIds
         .map((id) => byId.get(id))
         .filter((action): action is CommandPaletteAction => Boolean(action))
-        .filter((action) => !pinnedIds.has(action.id))
+        .filter(
+          (action) =>
+            !pinnedIds.has(action.id) && !contextualIds.has(action.id),
+        )
     : [];
   const recentIds = new Set(recentItems.map((action) => action.id));
 
   const remainingItems = visibleActions
-    .filter((action) => !pinnedIds.has(action.id) && !recentIds.has(action.id))
+    .filter(
+      (action) =>
+        !pinnedIds.has(action.id) &&
+        !contextualIds.has(action.id) &&
+        !recentIds.has(action.id),
+    )
     .sort(sortActions);
 
   const sections: CommandPaletteGroupSection[] = [];
@@ -1211,6 +1425,14 @@ export function buildCommandPaletteGroups(
       key: "pinned",
       title: COMMAND_PALETTE_GROUP_LABELS.pinned,
       items: pinnedItems,
+    });
+  }
+
+  if (contextualItems.length > 0) {
+    sections.push({
+      key: "suggested",
+      title: COMMAND_PALETTE_GROUP_LABELS.suggested,
+      items: contextualItems,
     });
   }
 
@@ -1245,6 +1467,144 @@ export function recordRecentCommandPaletteAction(args: {
     args.commandId,
     ...args.recentIds.filter((id) => id !== args.commandId),
   ].slice(0, MAX_RECENT_COMMAND_IDS);
+}
+
+function normalizeCommandPaletteSearchValue(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreFuzzySubsequence(value: string, query: string) {
+  let queryIndex = 0;
+  let firstMatch = -1;
+  let lastMatch = -1;
+
+  for (
+    let valueIndex = 0;
+    valueIndex < value.length && queryIndex < query.length;
+    valueIndex += 1
+  ) {
+    if (value[valueIndex] !== query[queryIndex]) {
+      continue;
+    }
+    firstMatch = firstMatch === -1 ? valueIndex : firstMatch;
+    lastMatch = valueIndex;
+    queryIndex += 1;
+  }
+
+  if (queryIndex !== query.length || firstMatch === -1) {
+    return 0;
+  }
+
+  const matchSpan = lastMatch - firstMatch + 1;
+  const density = query.length / Math.max(query.length, matchSpan);
+  const prefixBonus = firstMatch === 0 ? 0.08 : 0;
+  return 0.34 + density * 0.26 + prefixBonus;
+}
+
+function scoreCommandPaletteSearchField(value: string, query: string) {
+  if (!value) {
+    return 0;
+  }
+  if (value === query) {
+    return 1;
+  }
+  if (value.startsWith(query)) {
+    return 0.96;
+  }
+  if (value.split(" ").some((word) => word.startsWith(query))) {
+    return 0.9;
+  }
+  if (value.includes(query)) {
+    return 0.82;
+  }
+  return scoreFuzzySubsequence(value, query);
+}
+
+export function scoreCommandPaletteSearch(args: {
+  action: CommandPaletteAction;
+  groupTitle: string;
+  query: string;
+}) {
+  const query = normalizeCommandPaletteSearchValue(args.query);
+  if (!query) {
+    return 1;
+  }
+
+  const fields = [
+    args.action.title,
+    args.action.subtitle ?? "",
+    ...(args.action.keywords ?? []),
+    args.groupTitle,
+  ].map(normalizeCommandPaletteSearchValue);
+  const queryTerms = query.split(" ");
+  const termScores = queryTerms.map((term) =>
+    Math.max(
+      ...fields.map((field) => scoreCommandPaletteSearchField(field, term)),
+    ),
+  );
+  if (termScores.some((score) => score === 0)) {
+    return 0;
+  }
+
+  const phraseScore = Math.max(
+    ...fields.map((field) => scoreCommandPaletteSearchField(field, query)),
+  );
+  const averageTermScore =
+    termScores.reduce((total, score) => total + score, 0) / termScores.length;
+  return Math.min(1, Math.max(phraseScore, averageTermScore * 0.92));
+}
+
+export function searchCommandPaletteGroups(args: {
+  groups: CommandPaletteGroupSection[];
+  query: string;
+}): CommandPaletteGroupSection[] {
+  if (!args.query.trim()) {
+    return args.groups;
+  }
+
+  return args.groups
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .map((action, index) => ({
+          action,
+          index,
+          score: scoreCommandPaletteSearch({
+            action,
+            groupTitle: group.title,
+            query: args.query,
+          }),
+        }))
+        .filter((entry) => entry.score > 0)
+        .sort(
+          (left, right) => right.score - left.score || left.index - right.index,
+        )
+        .map((entry) => entry.action),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+export function toggleCommandPalettePinnedAction(args: {
+  commandId: string;
+  hiddenIds: string[];
+  pinnedIds: string[];
+}) {
+  const wasPinned = args.pinnedIds.includes(args.commandId);
+  return {
+    isPinned: !wasPinned,
+    hiddenIds: args.hiddenIds.filter((id) => id !== args.commandId),
+    pinnedIds: wasPinned
+      ? args.pinnedIds.filter((id) => id !== args.commandId)
+      : [
+          args.commandId,
+          ...args.pinnedIds.filter((id) => id !== args.commandId),
+        ],
+  };
 }
 
 export function getCommandPaletteCoreCommands(args?: {

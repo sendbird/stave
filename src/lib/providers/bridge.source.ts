@@ -1,4 +1,8 @@
-import type { ProviderEventSource, ProviderId, ProviderTurnRequest } from "@/lib/providers/provider.types";
+import type {
+  ProviderEventSource,
+  ProviderId,
+  ProviderTurnRequest,
+} from "@/lib/providers/provider.types";
 import {
   compactProviderTurnRequestForTransport,
   HOST_SERVICE_PROVIDER_REQUEST_RETRY_MAX_BYTES,
@@ -42,11 +46,13 @@ async function* fromArray(args: { items: unknown[] }) {
 async function* emitStartFailure(args: { message?: string }) {
   const detail = args.message?.trim() || "Provider request could not start.";
   yield {
-    type: "system",
-    content: detail,
+    type: "error",
+    message: detail,
+    recoverable: true,
   };
   yield {
     type: "done",
+    stop_reason: "runtime_failure",
   };
 }
 
@@ -62,15 +68,22 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function isHostServiceProtocolOverflowError(error: unknown) {
   const message = getErrorMessage(error, "");
-  return message.includes("protocol message limit")
-    || message.includes("protocol line limit")
-    || message.includes("protocol overflow");
+  return (
+    message.includes("protocol message limit") ||
+    message.includes("protocol line limit") ||
+    message.includes("protocol overflow")
+  );
 }
 
 async function invokeProviderRequestWithTransportFallback<TResult>(args: {
-  method: "provider.stream-turn" | "provider.start-stream-turn" | "provider.start-push-turn";
+  method:
+    | "provider.stream-turn"
+    | "provider.start-stream-turn"
+    | "provider.start-push-turn";
   request: ProviderTurnRequest & { providerId: ProviderId };
-  invoke: (request: ProviderTurnRequest & { providerId: ProviderId }) => TResult | Promise<TResult>;
+  invoke: (
+    request: ProviderTurnRequest & { providerId: ProviderId },
+  ) => TResult | Promise<TResult>;
 }) {
   const primaryRequest = compactProviderTurnRequestForTransport({
     method: args.method,
@@ -117,9 +130,11 @@ function isStaleStreamCursorResult(args: {
   page: StreamReadResult;
   cursor: number;
 }) {
-  return !args.page.ok
-    && args.page.cursor > args.cursor
-    && (args.page.message?.includes(STALE_STREAM_CURSOR_MESSAGE) ?? false);
+  return (
+    !args.page.ok &&
+    args.page.cursor > args.cursor &&
+    (args.page.message?.includes(STALE_STREAM_CURSOR_MESSAGE) ?? false)
+  );
 }
 
 async function readStreamTurnWithCursorRecovery(args: {
@@ -144,10 +159,7 @@ async function readStreamTurnWithCursorRecovery(args: {
 async function* continueFromPolledStream(args: {
   streamId: string;
   cursor: number;
-  readStreamTurn: (args: {
-    streamId: string;
-    cursor: number;
-  }) => Promise<{
+  readStreamTurn: (args: { streamId: string; cursor: number }) => Promise<{
     ok: boolean;
     events: unknown[];
     cursor: number;
@@ -178,7 +190,11 @@ async function* continueFromPolledStream(args: {
     if (page.done) {
       return;
     }
-    await sleep(page.events.length > 0 ? POLLED_STREAM_ACTIVE_DELAY_MS : POLLED_STREAM_IDLE_DELAY_MS);
+    await sleep(
+      page.events.length > 0
+        ? POLLED_STREAM_ACTIVE_DELAY_MS
+        : POLLED_STREAM_IDLE_DELAY_MS,
+    );
   }
 }
 
@@ -584,12 +600,16 @@ export function hasBridgeProviderSource() {
   if (typeof window === "undefined") {
     return false;
   }
-  return typeof window.api?.provider?.startPushTurn === "function"
-    || typeof window.api?.provider?.startStreamTurn === "function"
-    || typeof window.api?.provider?.streamTurn === "function";
+  return (
+    typeof window.api?.provider?.startPushTurn === "function" ||
+    typeof window.api?.provider?.startStreamTurn === "function" ||
+    typeof window.api?.provider?.streamTurn === "function"
+  );
 }
 
-export function createBridgeProviderSource<TRawEvent>(args: { providerId: ProviderId }): ProviderEventSource<TRawEvent> {
+export function createBridgeProviderSource<TRawEvent>(args: {
+  providerId: ProviderId;
+}): ProviderEventSource<TRawEvent> {
   const { providerId } = args;
 
   return {

@@ -5,7 +5,7 @@ import changelogSource from "../../../CHANGELOG.md?raw";
 import { Badge } from "@/components/ui";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
 import { cn } from "@/lib/utils";
-import { SectionHeading, SectionStack, SettingsCard } from "./settings-dialog.shared";
+import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 
 function extractLatestVersion(source: string): string | null {
   const match = source.match(/^##\s*\[([^\]]+)\]/m);
@@ -18,14 +18,14 @@ export function ChangelogSection() {
 
   return (
     <SectionStack>
-      <SectionHeading
-        title="Changelog"
-        description="Browse release notes for every Stave version shipped to this build."
-      />
       <SettingsCard
         title="Release notes"
         description="Sourced from the repository CHANGELOG.md bundled with this build."
-        titleAccessory={latestVersion ? <Badge variant="outline">v{latestVersion}</Badge> : undefined}
+        titleAccessory={
+          latestVersion ? (
+            <Badge variant="outline">v{latestVersion}</Badge>
+          ) : undefined
+        }
       >
         <article className={cn("max-w-none text-sm leading-6 text-foreground")}>
           <ReactMarkdown
