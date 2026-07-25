@@ -17,11 +17,14 @@
     inset 0 0 0 1px color-mix(in oklch, var(--border) 72%, transparent);
 }
 
+/*
+ * The shelf tucks under the prompt input, so it carries no bottom edge
+ * treatment: the drop shadow lifts upward only and the inset ring is the sole
+ * outline (its bottom run sits in the region the composer covers).
+ */
 .turn-activity-surface {
   box-shadow:
-    0 8px 22px -18px oklch(0 0 0 / 0.28),
-    inset 0 -14px 18px -18px
-      color-mix(in oklch, var(--foreground) 32%, transparent),
+    0 -6px 18px -14px oklch(0 0 0 / 0.26),
     inset 0 0 0 1px color-mix(in oklch, var(--border) 74%, transparent);
 }
 

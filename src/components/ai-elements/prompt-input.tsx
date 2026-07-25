@@ -1647,7 +1647,10 @@ export function PromptInput(args: PromptInputProps) {
         theme="auto"
         className={cn(
           "transition-[box-shadow] duration-200 ease-out motion-reduce:transition-none",
-          !minimal && "prompt-input-shell rounded-xl",
+          // `relative z-10` is load-bearing: the turn activity shelf overlaps
+          // the composer from above with a negative bottom margin, and this
+          // keeps the composer painting on top of that tucked-under edge.
+          !minimal && "prompt-input-shell relative z-10 rounded-xl",
         )}
       >
         <form
