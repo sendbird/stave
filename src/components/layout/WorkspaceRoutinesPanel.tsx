@@ -41,11 +41,14 @@ import { WorkspaceInformationReferenceChip } from "@/components/workspace-inform
 import {
   createDefaultRoutineRuntime,
   formatRoutineSchedule,
+  formatRoutineScheduleTime,
   getRoutineInformationReferenceKey,
+  ROUTINE_WEEKDAY_LABELS,
   RoutineUpsertInputSchema,
   type RoutineEnvironmentInput,
   type RoutineRun,
   type RoutineRuntimeConfig,
+  type RoutineSchedule,
   type RoutineSnapshot,
   type RoutineSpec,
   type RoutineUpsertInput,
@@ -130,6 +133,50 @@ function createRoutineDraft(
       },
     runtime: createDefaultRoutineRuntime("codex"),
     informationReferences: [],
+  };
+}
+
+const ROUTINE_ANY_WEEKDAY = "any";
+const DEFAULT_ROUTINE_START_TIME = { hour: 9, minute: 0 } as const;
+
+function parseRoutineScheduleTime(value: string) {
+  const [hourText, minuteText] = value.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+  return { hour, minute };
+}
+
+function applyRoutineScheduleUnit(
+  schedule: RoutineSchedule,
+  unit: RoutineSchedule["unit"],
+): RoutineSchedule {
+  if (unit === "minutes" || unit === "hours") {
+    return { every: schedule.every, unit };
+  }
+  if (unit === "days") {
+    return {
+      every: schedule.every,
+      unit,
+      ...(schedule.at ? { at: schedule.at } : {}),
+    };
+  }
+  return {
+    every: schedule.every,
+    unit,
+    ...(schedule.at ? { at: schedule.at } : {}),
+    ...(schedule.at && schedule.weekday !== undefined
+      ? { weekday: schedule.weekday }
+      : {}),
   };
 }
 
@@ -618,10 +665,10 @@ function RoutineEditor(props: {
                   onValueChange={(unit) =>
                     props.onDraftChange({
                       ...props.draft,
-                      schedule: {
-                        ...props.draft.schedule,
-                        unit: unit as RoutineUpsertInput["schedule"]["unit"],
-                      },
+                      schedule: applyRoutineScheduleUnit(
+                        props.draft.schedule,
+                        unit as RoutineUpsertInput["schedule"]["unit"],
+                      ),
                     })
                   }
                 >
@@ -638,6 +685,74 @@ function RoutineEditor(props: {
                 </Select>
               </FormLabel>
             </div>
+            {props.draft.schedule.unit === "days" ||
+            props.draft.schedule.unit === "weeks" ? (
+              <div className="grid grid-cols-2 gap-2">
+                {props.draft.schedule.unit === "weeks" ? (
+                  <FormLabel label="Start day">
+                    <Select
+                      value={
+                        props.draft.schedule.weekday !== undefined
+                          ? String(props.draft.schedule.weekday)
+                          : ROUTINE_ANY_WEEKDAY
+                      }
+                      onValueChange={(value) => {
+                        const schedule = { ...props.draft.schedule };
+                        if (value === ROUTINE_ANY_WEEKDAY) {
+                          delete schedule.weekday;
+                        } else {
+                          schedule.weekday = Number(value);
+                          schedule.at =
+                            schedule.at ?? DEFAULT_ROUTINE_START_TIME;
+                        }
+                        props.onDraftChange({ ...props.draft, schedule });
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ROUTINE_ANY_WEEKDAY}>
+                          Any day
+                        </SelectItem>
+                        {ROUTINE_WEEKDAY_LABELS.map((label, weekday) => (
+                          <SelectItem key={label} value={String(weekday)}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormLabel>
+                ) : null}
+                <FormLabel
+                  label="Start time"
+                  description="Optional. Runs at this local time."
+                >
+                  <Input
+                    type="time"
+                    value={
+                      props.draft.schedule.at
+                        ? formatRoutineScheduleTime(props.draft.schedule.at)
+                        : ""
+                    }
+                    onChange={(event) => {
+                      const at = parseRoutineScheduleTime(event.target.value);
+                      const schedule = { ...props.draft.schedule };
+                      if (at) {
+                        schedule.at = at;
+                      } else {
+                        // Clearing the time also clears the day anchor —
+                        // a weekday without a time is not a valid schedule.
+                        delete schedule.at;
+                        delete schedule.weekday;
+                      }
+                      props.onDraftChange({ ...props.draft, schedule });
+                    }}
+                    className="h-8 text-xs"
+                  />
+                </FormLabel>
+              </div>
+            ) : null}
           </section>
 
           <section className="grid gap-3">
@@ -1134,6 +1249,16 @@ export function WorkspaceRoutinesPanel(props: {
         projectPath: run.projectPath,
         refreshFromPersistence: true,
       });
+      const opened = useAppStore
+        .getState()
+        .tasks.some((task) => task.id === run.taskId);
+      if (!opened) {
+        // selectTask silently no-ops when the task is gone (for example runs
+        // recorded before the task was persisted). Surface that instead of
+        // leaving the click without any feedback.
+        toast.error("This run's task conversation could not be found.");
+        return;
+      }
       props.onRequestClose?.();
     } catch (openError) {
       toast.error(

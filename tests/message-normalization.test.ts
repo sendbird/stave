@@ -67,6 +67,41 @@ describe("normalizeMessagesForSnapshot", () => {
     });
   });
 
+  test("preserves unknown legacy part types instead of crashing", () => {
+    // Old builds persisted part types the current MessagePart union no longer
+    // includes (for example "stave_processing"). Snapshot normalization runs
+    // inside the host-service persist queue, so a crash here silently drops
+    // the whole workspace persist — including routine-created tasks.
+    const legacyPart = {
+      type: "stave_processing",
+      strategy: "direct",
+      reason: "General task",
+      model: "claude-sonnet-4-6",
+    } as never;
+    const normalized = normalizeMessagesForSnapshot({
+      messagesByTask: {
+        "task-1": [
+          {
+            id: "m-1",
+            role: "assistant",
+            model: "claude-sonnet-4-6",
+            providerId: "claude-code",
+            content: "done",
+            parts: [
+              legacyPart,
+              { type: "text", text: "done" },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(normalized["task-1"]?.[0]?.parts).toEqual([
+      legacyPart,
+      { type: "text", text: "done" },
+    ]);
+  });
+
   test("sanitizes oversized file context parts", () => {
     const oversizedImagePayload = `data:image/png;base64,${"x".repeat(MAX_FILE_CONTEXT_CONTENT_CHARS + 32)}`;
     const normalized = normalizeMessagesForSnapshot({

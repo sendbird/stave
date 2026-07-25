@@ -16,10 +16,51 @@ export const ROUTINE_SCHEDULE_UNITS = [
 export const RoutineScheduleUnitSchema = z.enum(ROUTINE_SCHEDULE_UNITS);
 export type RoutineScheduleUnit = z.infer<typeof RoutineScheduleUnitSchema>;
 
+export const RoutineScheduleTimeSchema = z.object({
+  hour: z.number().int().min(0).max(23),
+  minute: z.number().int().min(0).max(59),
+}).strict();
+export type RoutineScheduleTime = z.infer<typeof RoutineScheduleTimeSchema>;
+
 export const RoutineScheduleSchema = z.object({
   every: z.number().int().min(1).max(999),
   unit: RoutineScheduleUnitSchema,
-}).strict();
+  /**
+   * Optional local start time for day/week schedules. When set, runs snap to
+   * this time of day instead of "interval after the previous run".
+   */
+  at: RoutineScheduleTimeSchema.optional(),
+  /**
+   * Optional local weekday (0 = Sunday … 6 = Saturday) for week schedules.
+   * Requires `at` so an anchored week schedule always has a concrete time.
+   */
+  weekday: z.number().int().min(0).max(6).optional(),
+}).strict().superRefine((schedule, context) => {
+  if (
+    schedule.at &&
+    (schedule.unit === "minutes" || schedule.unit === "hours")
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["at"],
+      message: "Start time applies only to day or week schedules.",
+    });
+  }
+  if (schedule.weekday !== undefined && schedule.unit !== "weeks") {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["weekday"],
+      message: "Start day applies only to week schedules.",
+    });
+  }
+  if (schedule.weekday !== undefined && !schedule.at) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["weekday"],
+      message: "Start day requires a start time.",
+    });
+  }
+});
 export type RoutineSchedule = z.infer<typeof RoutineScheduleSchema>;
 
 export const RoutineEnvironmentInputSchema = z.object({
@@ -309,9 +350,49 @@ export function computeNextRoutineRunAt(args: {
 }) {
   const after =
     args.after instanceof Date ? args.after : new Date(args.after);
-  return new Date(
-    after.getTime() + getRoutineScheduleIntervalMs(args.schedule),
-  ).toISOString();
+  const { schedule } = args;
+  const anchored =
+    schedule.at &&
+    (schedule.unit === "days" || schedule.unit === "weeks");
+  if (!anchored || !schedule.at) {
+    return new Date(
+      after.getTime() + getRoutineScheduleIntervalMs(schedule),
+    ).toISOString();
+  }
+
+  // Anchored schedules run at a local wall-clock time: start from `after`'s
+  // local day, snap to the requested time (and weekday for week schedules),
+  // then step whole periods until the candidate is in the future. Date methods
+  // re-normalize across DST so the wall-clock time is preserved.
+  const candidate = new Date(after);
+  candidate.setHours(schedule.at.hour, schedule.at.minute, 0, 0);
+  if (schedule.unit === "weeks" && schedule.weekday !== undefined) {
+    candidate.setDate(
+      candidate.getDate() +
+        ((schedule.weekday - candidate.getDay() + 7) % 7),
+    );
+  }
+  const stepDays = schedule.unit === "weeks" ? schedule.every * 7 : schedule.every;
+  while (candidate.getTime() <= after.getTime()) {
+    candidate.setDate(candidate.getDate() + stepDays);
+  }
+  return candidate.toISOString();
+}
+
+export const ROUTINE_WEEKDAY_LABELS = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+] as const;
+
+export function formatRoutineScheduleTime(at: RoutineScheduleTime) {
+  const hour = String(at.hour).padStart(2, "0");
+  const minute = String(at.minute).padStart(2, "0");
+  return `${hour}:${minute}`;
 }
 
 export function formatRoutineSchedule(schedule: RoutineSchedule) {
@@ -322,9 +403,18 @@ export function formatRoutineSchedule(schedule: RoutineSchedule) {
     weeks: ["week", "weeks"],
   };
   const [singular, plural] = labels[schedule.unit];
-  return `Every ${schedule.every} ${
+  const base = `Every ${schedule.every} ${
     schedule.every === 1 ? singular : plural
   }`;
+  const weekday =
+    schedule.unit === "weeks" && schedule.weekday !== undefined
+      ? ` on ${ROUTINE_WEEKDAY_LABELS[schedule.weekday]}`
+      : "";
+  const at =
+    schedule.at && (schedule.unit === "days" || schedule.unit === "weeks")
+      ? ` at ${formatRoutineScheduleTime(schedule.at)}`
+      : "";
+  return `${base}${weekday}${at}`;
 }
 
 export function createDefaultRoutineRuntime(
