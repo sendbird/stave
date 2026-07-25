@@ -1,9 +1,17 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
+import type {
+  NormalizedProviderEvent,
+  ProviderId,
+} from "@/lib/providers/provider.types";
+import {
+  applyProviderTurnActivityEvents,
+  startProviderTurnActivity,
+} from "@/lib/providers/turn-status";
 
-const actualClaudeRuntime = await import("../electron/providers/claude-sdk-runtime");
-const actualCodexAppServerRuntime = await import(
-  "../electron/providers/codex-app-server-runtime"
-);
+const actualClaudeRuntime =
+  await import("../electron/providers/claude-sdk-runtime");
+const actualCodexAppServerRuntime =
+  await import("../electron/providers/codex-app-server-runtime");
 
 mock.module("../electron/providers/claude-sdk-runtime", () => ({
   ...actualClaudeRuntime,
@@ -19,7 +27,8 @@ mock.module("../electron/providers/claude-sdk-runtime", () => ({
   prewarmClaudeSdk: async () => ({ ok: true, detail: "" }),
   reloadClaudePlugins: async () => ({ ok: true, detail: "" }),
   resolveClaudeExecutablePath: () => "/tmp/claude",
-  streamClaudeWithSdk: async () => [{ type: "done" }],
+  streamClaudeWithSdk: async (args: { prompt?: string }) =>
+    args.prompt === "runtime-fallback" ? [] : [{ type: "done" }],
   suggestClaudeCommitMessage: async () => "fix: stub",
   suggestClaudePRDescription: async () => ({
     ok: true,
@@ -42,6 +51,9 @@ mock.module("../electron/providers/codex-app-server-runtime", () => ({
     prompt?: string;
     onEvent?: (event: { type: string }) => void;
   }) => {
+    if (args.prompt === "runtime-fallback") {
+      return [];
+    }
     if (args.prompt === "tool-partials") {
       args.onEvent?.({
         type: "tool_result",
@@ -121,6 +133,75 @@ describe("providerRuntime.startTurnStream", () => {
     expect(sawSynchronousEvent).toBe(false);
     expect(events).toContain("done");
   });
+
+  test.each([
+    { providerId: "codex" as const, message: "Codex unavailable/timeout." },
+    {
+      providerId: "claude-code" as const,
+      message: "Claude SDK unavailable/timeout.",
+    },
+  ])(
+    "retains the $providerId unavailable fallback as Turn Activity failure",
+    async ({
+      providerId,
+      message,
+    }: {
+      providerId: ProviderId;
+      message: string;
+    }) => {
+      let resolveDone = () => undefined;
+      const donePromise = new Promise<void>((resolve) => {
+        resolveDone = resolve;
+      });
+      const started = providerRuntime.startTurnStream(
+        {
+          providerId,
+          prompt: "runtime-fallback",
+        },
+        {
+          bufferEvents: true,
+          onDone: () => {
+            resolveDone();
+          },
+        },
+      );
+
+      await donePromise;
+      const page = providerRuntime.readTurnStream({
+        streamId: started.streamId,
+        cursor: 0,
+      });
+      expect(page.events).toEqual([
+        {
+          type: "error",
+          message: expect.stringContaining(message),
+          recoverable: true,
+        },
+        { type: "done", stop_reason: "runtime_failure" },
+      ]);
+
+      const tracked = startProviderTurnActivity({
+        activityByTask: {},
+        taskId: "task-fallback",
+        turnId: "turn-fallback",
+        providerId,
+        now: 1000,
+      });
+      const failed = applyProviderTurnActivityEvents({
+        activityByTask: tracked,
+        taskId: "task-fallback",
+        turnId: "turn-fallback",
+        providerId,
+        events: page.events as NormalizedProviderEvent[],
+        now: 2000,
+      });
+      expect(failed["task-fallback"]).toMatchObject({
+        providerId,
+        turnErrorRecoverable: true,
+        completedAt: 2000,
+      });
+    },
+  );
 
   test("keeps a push stream readable when buffered replay is requested", async () => {
     let resolveDone = () => undefined;

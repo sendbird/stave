@@ -470,6 +470,44 @@ function truncateCodexSnapshot(args: { value: string; maxBytes: number }) {
   });
 }
 
+type CodexMcpToolCallItem = {
+  id?: string;
+  type?: string;
+  server?: string;
+  tool?: string;
+  arguments?: unknown;
+  result?: unknown;
+  error?: { message?: string | null } | null;
+  status?: string;
+};
+
+function serializeCodexMcpToolCallArguments(value: unknown) {
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value ?? {});
+  } catch {
+    return toText(value ?? {});
+  }
+}
+
+function buildCodexMcpToolCallInputEvent(
+  item: CodexMcpToolCallItem,
+): Extract<BridgeEvent, { type: "tool" }> {
+  const itemId = typeof item.id === "string" ? item.id : "";
+  return {
+    type: "tool",
+    ...(itemId ? { toolUseId: itemId } : {}),
+    toolName: `${item.server ?? "mcp"}:${item.tool ?? "tool"}`,
+    input: truncateCodexSnapshot({
+      value: serializeCodexMcpToolCallArguments(item.arguments),
+      maxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
+    }),
+    state: "input-available",
+  };
+}
+
 /**
  * Extracts safe JSON-RPC envelope metadata (method, item type/id) from the
  * leading characters of a dropped oversized stdout line. Never returns
@@ -1819,7 +1857,10 @@ class CodexAppServerClient {
   private process: ChildProcessWithoutNullStreams | null = null;
   private startupPromise: Promise<void> | null = null;
   private nextRequestId = 1;
-  private pendingResponses = new Map<JsonRpcId, PendingCodexAppServerResponse>();
+  private pendingResponses = new Map<
+    JsonRpcId,
+    PendingCodexAppServerResponse
+  >();
   private listeners = new Set<(message: JsonRpcMessage) => void>();
   private exitListeners = new Set<(message: string) => void>();
   private initialized = false;
@@ -3963,9 +4004,7 @@ export async function streamCodexWithAppServer(
         denied?: boolean;
       }) => ProviderResponderResult,
     ) => void;
-    registerSteerResponder?: (
-      responder: ProviderSteerResponder,
-    ) => void;
+    registerSteerResponder?: (responder: ProviderSteerResponder) => void;
   },
 ): Promise<BridgeEvent[] | null> {
   const runtimeCwd =
@@ -4168,6 +4207,7 @@ export async function streamCodexWithAppServer(
   const streamedReasoningIds = new Set<string>();
   const planBuffers = new Map<string, string>();
   const planLastEmitAt = new Map<string, number>();
+  const startedMcpToolCallIds = new Set<string>();
   const pendingApprovalRequests = new Map<string, PendingApprovalRequest>();
   const pendingUserInputRequests = new Map<string, PendingUserInputRequest>();
   let latestUsage: {
@@ -4625,6 +4665,19 @@ export async function streamCodexWithAppServer(
     }
 
     switch (message.method) {
+      case "item/started": {
+        const item = params.item as CodexMcpToolCallItem | undefined;
+        if (item?.type !== "mcpToolCall") {
+          return;
+        }
+        const itemId = typeof item.id === "string" ? item.id : "";
+        if (!itemId || startedMcpToolCallIds.has(itemId)) {
+          return;
+        }
+        startedMcpToolCallIds.add(itemId);
+        emitBridgeEvent(buildCodexMcpToolCallInputEvent(item));
+        return;
+      }
       case "item/agentMessage/delta": {
         const itemId = typeof params.itemId === "string" ? params.itemId : "";
         const delta = typeof params.delta === "string" ? params.delta : "";
@@ -4927,38 +4980,23 @@ export async function streamCodexWithAppServer(
             return;
           }
           case "mcpToolCall": {
-            const mcpItem = item as {
-              server?: string;
-              tool?: string;
-              arguments?: unknown;
-              result?: unknown;
-              error?: { message?: string | null } | null;
-              status?: string;
-            };
-            const toolLabel = `${mcpItem.server ?? "mcp"}:${mcpItem.tool ?? "tool"}`;
-            emitBridgeEvents([
-              {
-                type: "tool",
-                ...(itemId ? { toolUseId: itemId } : {}),
-                toolName: toolLabel,
-                input: truncateCodexSnapshot({
-                  value: toText(mcpItem.arguments ?? {}),
-                  maxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
-                }),
-                state: "input-available",
-              },
-              {
-                type: "tool_result",
-                tool_use_id: itemId,
-                output: mcpItem.error?.message
-                  ? `[error] ${mcpItem.error.message}`
-                  : truncateCodexSnapshot({
-                      value: toText(mcpItem.result ?? ""),
-                      maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
-                    }),
-                ...(mcpItem.status === "failed" ? { isError: true } : {}),
-              },
-            ]);
+            const mcpItem = item as CodexMcpToolCallItem;
+            const completedEvents: BridgeEvent[] = [];
+            if (!itemId || !startedMcpToolCallIds.delete(itemId)) {
+              completedEvents.push(buildCodexMcpToolCallInputEvent(mcpItem));
+            }
+            completedEvents.push({
+              type: "tool_result",
+              tool_use_id: itemId,
+              output: mcpItem.error?.message
+                ? `[error] ${mcpItem.error.message}`
+                : truncateCodexSnapshot({
+                    value: toText(mcpItem.result ?? ""),
+                    maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
+                  }),
+              ...(mcpItem.status === "failed" ? { isError: true } : {}),
+            });
+            emitBridgeEvents(completedEvents);
             return;
           }
           case "webSearch": {

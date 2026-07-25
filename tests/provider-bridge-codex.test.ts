@@ -13,12 +13,20 @@ afterEach(() => {
 
 describe("codex provider bridge normalization", () => {
   test("accepts normalized bridge events from Electron push streams", async () => {
-    let listener: ((payload: { streamId: string; event: unknown; done: boolean }) => void) | null = null;
+    let listener:
+      | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
+      | null = null;
     let receivedArgs: Record<string, unknown> | null = null;
 
     setWindowApi({
       provider: {
-        subscribeStreamEvents: (cb: (payload: { streamId: string; event: unknown; done: boolean }) => void) => {
+        subscribeStreamEvents: (
+          cb: (payload: {
+            streamId: string;
+            event: unknown;
+            done: boolean;
+          }) => void,
+        ) => {
           listener = cb;
           return () => {
             listener = null;
@@ -26,8 +34,16 @@ describe("codex provider bridge normalization", () => {
         },
         startPushTurn: async (args: Record<string, unknown>) => {
           receivedArgs = args;
-          listener?.({ streamId: "codex-stream-1", event: { type: "text", text: "Hello from Codex" }, done: false });
-          listener?.({ streamId: "codex-stream-1", event: { type: "done" }, done: true });
+          listener?.({
+            streamId: "codex-stream-1",
+            event: { type: "text", text: "Hello from Codex" },
+            done: false,
+          });
+          listener?.({
+            streamId: "codex-stream-1",
+            event: { type: "done" },
+            done: true,
+          });
           return { ok: true, streamId: "codex-stream-1", turnId: "turn-1" };
         },
       },
@@ -73,7 +89,7 @@ describe("codex provider bridge normalization", () => {
     ]);
   });
 
-  test("surfaces push-stream start failures as visible system events", async () => {
+  test("surfaces push-stream start failures as terminal provider errors", async () => {
     setWindowApi({
       provider: {
         subscribeStreamEvents: () => () => {},
@@ -81,33 +97,43 @@ describe("codex provider bridge normalization", () => {
           ok: false,
           streamId: "",
           turnId: null,
-          message: "IPC schema rejected provider request. conversation.history.1.parts.0.type: Invalid input",
+          message:
+            "IPC schema rejected provider request. conversation.history.1.parts.0.type: Invalid input",
         }),
       },
     });
 
     const adapter = getProviderAdapter({ providerId: "codex" });
-    const events: Array<{ type: string; content?: string }> = [];
+    const events: Array<{
+      type: string;
+      message?: string;
+      recoverable?: boolean;
+      stop_reason?: string;
+    }> = [];
     for await (const event of adapter.runTurn({ prompt: "hello" })) {
-      events.push(event as { type: string; content?: string });
+      events.push(event);
     }
 
     expect(events).toEqual([
       {
-        type: "system",
-        content: "IPC schema rejected provider request. conversation.history.1.parts.0.type: Invalid input",
+        type: "error",
+        message:
+          "IPC schema rejected provider request. conversation.history.1.parts.0.type: Invalid input",
+        recoverable: true,
       },
-      { type: "done" },
+      { type: "done", stop_reason: "runtime_failure" },
     ]);
   });
 
   test("reorders out-of-order push events by sequence before yielding them", async () => {
-    let listener: ((payload: {
-      streamId: string;
-      event: unknown;
-      sequence: number;
-      done: boolean;
-    }) => void) | null = null;
+    let listener:
+      | ((payload: {
+          streamId: string;
+          event: unknown;
+          sequence: number;
+          done: boolean;
+        }) => void)
+      | null = null;
 
     setWindowApi({
       provider: {
@@ -157,19 +183,25 @@ describe("codex provider bridge normalization", () => {
   });
 
   test("falls back to buffered polling when the push stream goes silent", async () => {
-    let listener: ((payload: {
-      streamId: string;
-      event: unknown;
-      sequence: number;
-      done: boolean;
-    }) => void) | null = null;
+    let listener:
+      | ((payload: {
+          streamId: string;
+          event: unknown;
+          sequence: number;
+          done: boolean;
+        }) => void)
+      | null = null;
     const readCalls: Array<{ streamId: string; cursor: number }> = [];
 
-    (globalThis as {
-      window: unknown;
-    }).window = {
-      setTimeout: (callback: (...args: unknown[]) => void) => globalThis.setTimeout(callback, 0),
-      clearTimeout: (handle: ReturnType<typeof setTimeout>) => globalThis.clearTimeout(handle),
+    (
+      globalThis as {
+        window: unknown;
+      }
+    ).window = {
+      setTimeout: (callback: (...args: unknown[]) => void) =>
+        globalThis.setTimeout(callback, 0),
+      clearTimeout: (handle: ReturnType<typeof setTimeout>) =>
+        globalThis.clearTimeout(handle),
       api: {
         provider: {
           subscribeStreamEvents: (cb: typeof listener) => {
@@ -187,7 +219,10 @@ describe("codex provider bridge normalization", () => {
             });
             return { ok: true, streamId: "codex-stream-3", turnId: "turn-3" };
           },
-          readStreamTurn: async (args: { streamId: string; cursor: number }) => {
+          readStreamTurn: async (args: {
+            streamId: string;
+            cursor: number;
+          }) => {
             readCalls.push(args);
             if (args.cursor === 1) {
               return {
@@ -253,7 +288,8 @@ describe("codex provider bridge normalization", () => {
               events: [],
               cursor: 2,
               done: false,
-              message: "Stream cursor is older than the retained replay window.",
+              message:
+                "Stream cursor is older than the retained replay window.",
             };
           }
           if (args.cursor === 2) {
@@ -293,19 +329,25 @@ describe("codex provider bridge normalization", () => {
   });
 
   test("acknowledges consumed push events so host replay can be trimmed", async () => {
-    let listener: ((payload: {
-      streamId: string;
-      event: unknown;
-      sequence: number;
-      done: boolean;
-    }) => void) | null = null;
+    let listener:
+      | ((payload: {
+          streamId: string;
+          event: unknown;
+          sequence: number;
+          done: boolean;
+        }) => void)
+      | null = null;
     const ackCalls: Array<{ streamId: string; cursor: number }> = [];
 
-    (globalThis as {
-      window: unknown;
-    }).window = {
-      setTimeout: (callback: (...args: unknown[]) => void) => globalThis.setTimeout(callback, 0),
-      clearTimeout: (handle: ReturnType<typeof setTimeout>) => globalThis.clearTimeout(handle),
+    (
+      globalThis as {
+        window: unknown;
+      }
+    ).window = {
+      setTimeout: (callback: (...args: unknown[]) => void) =>
+        globalThis.setTimeout(callback, 0),
+      clearTimeout: (handle: ReturnType<typeof setTimeout>) =>
+        globalThis.clearTimeout(handle),
       api: {
         provider: {
           subscribeStreamEvents: (cb: typeof listener) => {
@@ -335,7 +377,10 @@ describe("codex provider bridge normalization", () => {
             ackCalls.push(args);
             return { ok: true };
           },
-          readStreamTurn: async (args: { streamId: string; cursor: number }) => ({
+          readStreamTurn: async (args: {
+            streamId: string;
+            cursor: number;
+          }) => ({
             ok: true,
             events: [],
             cursor: args.cursor,
@@ -355,6 +400,10 @@ describe("codex provider bridge normalization", () => {
       { type: "text", text: "push event" },
       { type: "done" },
     ]);
-    expect(ackCalls.some((call) => call.streamId === "codex-stream-4" && call.cursor >= 2)).toBe(true);
+    expect(
+      ackCalls.some(
+        (call) => call.streamId === "codex-stream-4" && call.cursor >= 2,
+      ),
+    ).toBe(true);
   });
 });

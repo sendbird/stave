@@ -48,6 +48,10 @@ import { cn } from "@/lib/utils";
 import { resolveUserMessageClipboardPlainText } from "@/lib/user-message-copy";
 import { useAppStore } from "@/store/app.store";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
+import {
+  retainTaskScrollToLatestNonce,
+  taskScrollAnchorCache,
+} from "@/store/task-scroll.utils";
 import type { ChatMessage, MessagePart } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -58,29 +62,6 @@ import { AssistantMessageBody } from "./message/assistant-trace";
 import { SessionLoadingState } from "./SessionLoadingState";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
-const CHAT_SCROLL_ANCHOR_LIMIT = 200;
-
-interface ChatScrollAnchor {
-  messageId: string;
-  offset: number;
-}
-
-const chatScrollAnchors = new Map<string, ChatScrollAnchor>();
-
-function saveChatScrollAnchor(
-  scrollContextKey: string,
-  anchor: ChatScrollAnchor,
-) {
-  chatScrollAnchors.delete(scrollContextKey);
-  chatScrollAnchors.set(scrollContextKey, anchor);
-  if (chatScrollAnchors.size <= CHAT_SCROLL_ANCHOR_LIMIT) {
-    return;
-  }
-  const oldestKey = chatScrollAnchors.keys().next().value;
-  if (oldestKey) {
-    chatScrollAnchors.delete(oldestKey);
-  }
-}
 
 function escapeAttributeSelectorValue(value: string) {
   return value.replace(/["\\]/g, "\\$&");
@@ -289,28 +270,28 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               !showRespondingWave ? (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex cursor-default items-center gap-1.5 pl-1 text-[11px] leading-none text-muted-foreground/40">
-                        <span className="inline-flex items-center gap-0.5">
-                          <ArrowUpRight className="size-2.5" />
-                          {formatTokenCount(message.usage.inputTokens)}
-                        </span>
-                        <span className="inline-flex items-center gap-0.5">
-                          <ArrowDownRight className="size-2.5" />
-                          {formatTokenCount(message.usage.outputTokens)}
-                        </span>
-                        {message.usage.cacheReadTokens ? (
-                          <span className="inline-flex items-center gap-0.5">
-                            <Zap className="size-2.5" />
-                            {formatTokenCount(message.usage.cacheReadTokens)}
-                          </span>
-                        ) : null}
-                        {message.usage.totalCostUsd != null ? (
-                          <span>
-                            {formatCostUsd(message.usage.totalCostUsd)}
-                          </span>
-                        ) : null}
+                    <TooltipTrigger
+                      render={
+                        <span className="flex cursor-default items-center gap-1.5 pl-1 text-[11px] leading-none text-muted-foreground/40" />
+                      }
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        <ArrowUpRight className="size-2.5" />
+                        {formatTokenCount(message.usage.inputTokens)}
                       </span>
+                      <span className="inline-flex items-center gap-0.5">
+                        <ArrowDownRight className="size-2.5" />
+                        {formatTokenCount(message.usage.outputTokens)}
+                      </span>
+                      {message.usage.cacheReadTokens ? (
+                        <span className="inline-flex items-center gap-0.5">
+                          <Zap className="size-2.5" />
+                          {formatTokenCount(message.usage.cacheReadTokens)}
+                        </span>
+                      ) : null}
+                      {message.usage.totalCostUsd != null ? (
+                        <span>{formatCostUsd(message.usage.totalCostUsd)}</span>
+                      ) : null}
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
                       <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
@@ -406,10 +387,23 @@ function ChatPanelMessageList(props: {
   const focusPendingInteractionRequest = useAppStore(
     (state) => state.focusPendingInteractionRequest,
   );
+  const scrollToLatestMessageRequest = useAppStore(
+    (state) => state.scrollToLatestMessageRequest,
+  );
   const taskMessagesLoading = useAppStore(
     (state) => state.taskMessagesLoadingByTask[taskId] === true,
   );
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+  const retainedScrollToLatestMessageNonceRef = useRef(0);
+  retainedScrollToLatestMessageNonceRef.current = retainTaskScrollToLatestNonce(
+    {
+      currentNonce: retainedScrollToLatestMessageNonceRef.current,
+      request: scrollToLatestMessageRequest,
+      taskId,
+    },
+  );
+  const scrollToLatestMessageRequestNonce =
+    retainedScrollToLatestMessageNonceRef.current;
   const [elapsedAnchorMs, setElapsedAnchorMs] = useState(() => Date.now());
   const [turnCompletionScrollTick, setTurnCompletionScrollTick] = useState(0);
   const previousActiveTurnIdRef = useRef<string | undefined>(activeTurnId);
@@ -434,6 +428,7 @@ function ChatPanelMessageList(props: {
   );
   const autoScrollKey = `${visibleMessages.length}:${lastVisibleMessageScrollFingerprint}`;
   const forceScrollKey = [
+    scrollToLatestMessageRequestNonce,
     latestVisibleMessageId ?? "none",
     turnCompletionScrollTick,
   ].join(":");
@@ -445,11 +440,13 @@ function ChatPanelMessageList(props: {
       ),
     [visibleMessages],
   );
-  const restoreAnchor = chatScrollAnchors.get(scrollContextKey);
+  const restoreAnchor = taskScrollAnchorCache.get(scrollContextKey);
   const restoreItemIndex = restoreAnchor
     ? messageIndexById.get(restoreAnchor.messageId)
     : undefined;
-  const traceExpansionMode = getReasoningTraceExpansionMode({ reasoningExpansionMode });
+  const traceExpansionMode = getReasoningTraceExpansionMode({
+    reasoningExpansionMode,
+  });
   const pendingInteraction = useMemo(
     () => findLatestPendingToolInteraction({ messages: visibleMessages }),
     [visibleMessages],
@@ -461,6 +458,15 @@ function ChatPanelMessageList(props: {
     }
     previousActiveTurnIdRef.current = activeTurnId;
   }, [activeTurnId]);
+
+  useEffect(() => {
+    if (restoreAnchor && restoreItemIndex == null && !taskMessagesLoading) {
+      // An anchor whose message is no longer resident cannot be restored
+      // safely. Drop it once loading settles so later activations use the
+      // explicit bottom fallback instead of retrying stale geometry.
+      taskScrollAnchorCache.delete(scrollContextKey);
+    }
+  }, [restoreAnchor, restoreItemIndex, scrollContextKey, taskMessagesLoading]);
 
   useEffect(() => {
     if (!activeTurnId) {
@@ -533,7 +539,7 @@ function ChatPanelMessageList(props: {
       }
       onScrollPositionChange={({ atBottom, container }) => {
         if (atBottom) {
-          chatScrollAnchors.delete(scrollContextKey);
+          taskScrollAnchorCache.delete(scrollContextKey);
           return;
         }
         const containerTop = container.getBoundingClientRect().top;
@@ -544,13 +550,13 @@ function ChatPanelMessageList(props: {
         if (!anchorNode || !messageId) {
           return;
         }
-        saveChatScrollAnchor(scrollContextKey, {
+        taskScrollAnchorCache.save(scrollContextKey, {
           messageId,
-          offset: Math.max(
-            0,
-            Math.round(
-              containerTop - anchorNode.getBoundingClientRect().top,
-            ),
+          // Preserve the signed offset. At the absolute top, the first
+          // message can sit below the container because "Load older" precedes
+          // the list, so clamping this value would lose the true top anchor.
+          offset: Math.round(
+            containerTop - anchorNode.getBoundingClientRect().top,
           ),
         });
       }}
@@ -628,9 +634,7 @@ function ChatPanelMessageList(props: {
 
 const MemoizedChatPanelMessageList = memo(ChatPanelMessageList);
 
-export function ChatPanel(props: {
-  scrollActivationKey?: string | number;
-}) {
+export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   return (
     <Conversation>
       <div className="flex h-full w-full flex-col">

@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Plus,
+  Rocket,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -502,8 +503,9 @@ export function KickoffDialog(props: {
   return (
     <Dialog
       open={props.open}
-      onOpenChange={(open) => {
+      onOpenChange={(open, eventDetails) => {
         if (!canApplyKickoffDialogOpenChange({ open, busy })) {
+          eventDetails.cancel();
           return;
         }
         if (open) {
@@ -517,21 +519,11 @@ export function KickoffDialog(props: {
         className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-4xl"
         showCloseButton={!busy}
         aria-busy={busy}
-        onEscapeKeyDown={(event) => {
-          if (busy) {
-            event.preventDefault();
-          }
-        }}
-        onInteractOutside={(event) => {
-          if (busy) {
-            event.preventDefault();
-          }
-        }}
       >
         <DialogHeader className="border-b border-border/70 px-6 pt-6 pb-5 pr-14">
           <div className="flex items-center gap-3">
             <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-              <Sparkles className="size-4" />
+              <Rocket className="size-4" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-lg leading-6">
@@ -807,7 +799,7 @@ export function KickoffDialog(props: {
                       first task prompt.
                     </p>
                   ) : (
-                    <Accordion type="multiple" className="space-y-2">
+                    <Accordion multiple className="space-y-2">
                       {draft.panelEntries.map((entry, index) => (
                         <AccordionItem
                           key={`${entry.target}-${entry.url}-${index}`}
@@ -1132,7 +1124,7 @@ export function KickoffDialog(props: {
                 }
                 onClick={() => void handleCreate()}
               >
-                <Sparkles className="size-4" />
+                <Rocket className="size-4" />
                 {startFirstTask ? "Create and start" : "Create workspace"}
               </Button>
             </DialogFooter>

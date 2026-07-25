@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { FileCode2, FolderOpen, LoaderCircle, User, Calendar, Hash } from "lucide-react";
+import {
+  FileCode2,
+  FolderOpen,
+  LoaderCircle,
+  User,
+  Calendar,
+  Hash,
+} from "lucide-react";
 import type { GraphCommit } from "@/lib/git-graph/types";
 import { cn } from "@/lib/utils";
 import {
@@ -39,21 +46,31 @@ function formatDate(isoDate: string): string {
 
 function fileStatusLabel(status: string): string {
   switch (status.toUpperCase()) {
-    case "A": return "A";
-    case "M": return "M";
-    case "D": return "D";
-    case "R": return "R";
-    case "C": return "C";
-    default: return status.charAt(0).toUpperCase();
+    case "A":
+      return "A";
+    case "M":
+      return "M";
+    case "D":
+      return "D";
+    case "R":
+      return "R";
+    case "C":
+      return "C";
+    default:
+      return status.charAt(0).toUpperCase();
   }
 }
 
 function fileStatusClass(status: string): string {
   switch (status.toUpperCase()) {
-    case "A": return "text-success";
-    case "D": return "text-destructive";
-    case "M": return "text-warning";
-    default: return "text-muted-foreground";
+    case "A":
+      return "text-success";
+    case "D":
+      return "text-destructive";
+    case "M":
+      return "text-warning";
+    default:
+      return "text-muted-foreground";
   }
 }
 
@@ -64,12 +81,18 @@ export function CommitDetailPanel({
   onOpenFile,
 }: CommitDetailPanelProps) {
   const openFileFromTree = useAppStore((s) => s.openFileFromTree);
-  const [fileMenuAnchor, setFileMenuAnchor] = useState<{ x: number; y: number; filePath: string } | null>(null);
+  const [fileMenuAnchor, setFileMenuAnchor] = useState<{
+    x: number;
+    y: number;
+    filePath: string;
+  } | null>(null);
 
   if (!commit) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <p className="text-xs text-muted-foreground">Select a commit to view details</p>
+        <p className="text-xs text-muted-foreground">
+          Select a commit to view details
+        </p>
       </div>
     );
   }
@@ -80,12 +103,16 @@ export function CommitDetailPanel({
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Header: commit metadata */}
       <div className="space-y-2 border-b border-border/70 px-3 py-3">
-        <p className="text-sm font-medium leading-snug text-foreground">{commit.subject}</p>
+        <p className="text-sm font-medium leading-snug text-foreground">
+          {commit.subject}
+        </p>
         <div className="space-y-1 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Hash className="size-3 shrink-0" />
             <span className="font-mono text-foreground/70">{shortHash}</span>
-            <span className="text-muted-foreground/60">({commit.hash.slice(0, 12)})</span>
+            <span className="text-muted-foreground/60">
+              ({commit.hash.slice(0, 12)})
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <User className="size-3 shrink-0" />
@@ -127,7 +154,9 @@ export function CommitDetailPanel({
           {loading ? (
             <LoaderCircle className="size-3 animate-spin text-muted-foreground" />
           ) : (
-            <span className="text-[11px] text-muted-foreground">{files.length}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {files.length}
+            </span>
           )}
         </div>
 
@@ -147,7 +176,11 @@ export function CommitDetailPanel({
                   onClick={() => onOpenFile(file)}
                   onContextMenu={(e) => {
                     e.preventDefault();
-                    setFileMenuAnchor({ x: e.clientX, y: e.clientY, filePath: file.path });
+                    setFileMenuAnchor({
+                      x: e.clientX,
+                      y: e.clientY,
+                      filePath: file.path,
+                    });
                   }}
                   className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-muted/30"
                   title={
@@ -156,14 +189,21 @@ export function CommitDetailPanel({
                       : `Open diff for ${file.path}`
                   }
                 >
-                  <span className={cn("w-3 shrink-0 font-mono font-medium", fileStatusClass(file.status))}>
+                  <span
+                    className={cn(
+                      "w-3 shrink-0 font-mono font-medium",
+                      fileStatusClass(file.status),
+                    )}
+                  >
                     {fileStatusLabel(file.status)}
                   </span>
                   <FileCode2 className="size-3 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 truncate text-foreground">
                     {file.oldPath ? (
                       <>
-                        <span className="text-muted-foreground/70">{file.oldPath}</span>
+                        <span className="text-muted-foreground/70">
+                          {file.oldPath}
+                        </span>
                         <span className="mx-1 text-muted-foreground/50">→</span>
                         {file.path}
                       </>
@@ -181,25 +221,29 @@ export function CommitDetailPanel({
       {/* File row right-click context menu */}
       <DropdownMenu
         open={fileMenuAnchor !== null}
-        onOpenChange={(open) => { if (!open) setFileMenuAnchor(null); }}
+        onOpenChange={(open) => {
+          if (!open) setFileMenuAnchor(null);
+        }}
       >
-        <DropdownMenuTrigger asChild>
-          <div
-            aria-hidden="true"
-            style={{
-              position: "fixed",
-              top: fileMenuAnchor?.y ?? 0,
-              left: fileMenuAnchor?.x ?? 0,
-              width: 0,
-              height: 0,
-              pointerEvents: "none",
-            }}
-          />
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <div
+              aria-hidden="true"
+              style={{
+                position: "fixed",
+                top: fileMenuAnchor?.y ?? 0,
+                left: fileMenuAnchor?.x ?? 0,
+                width: 0,
+                height: 0,
+                pointerEvents: "none",
+              }}
+            />
+          }
+        ></DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
           collisionPadding={8}
-          onCloseAutoFocus={(e) => e.preventDefault()}
+          finalFocus={false}
         >
           <DropdownMenuItem
             onSelect={() => {

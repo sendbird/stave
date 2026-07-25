@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   CheckCircle2,
@@ -62,7 +69,10 @@ import {
   type RepoMergeSettings,
   shouldShowCreatePrSubmitSpinner,
 } from "@/components/layout/TopBarOpenPR.utils";
-import { TOP_BAR_PR_ACTION_EVENT, type TopBarPrActionDetail } from "@/components/layout/top-bar-pr-events";
+import {
+  TOP_BAR_PR_ACTION_EVENT,
+  type TopBarPrActionDetail,
+} from "@/components/layout/top-bar-pr-events";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -73,7 +83,10 @@ import {
   PR_TONE_BADGE_CLASS,
 } from "@/lib/pr-status";
 import { isTaskArchived } from "@/lib/tasks";
-import { collectIntentContext, type PrePrReviewFinding } from "@/lib/source-control-review";
+import {
+  collectIntentContext,
+  type PrePrReviewFinding,
+} from "@/lib/source-control-review";
 import { buildIntentGuardContextInput } from "@/lib/workspace-information";
 import { deriveTurnVerificationStatus } from "@/lib/workspace-scripts";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
@@ -101,9 +114,16 @@ function looksLikePreCommitHookFailure(stderr: string | undefined): boolean {
   return PRE_COMMIT_HOOK_PATTERNS.some((re) => re.test(stderr));
 }
 
-function describeGitHubAuthFailure(result: { stdout?: string; stderr: string }) {
+function describeGitHubAuthFailure(result: {
+  stdout?: string;
+  stderr: string;
+}) {
   const detail = `${result.stderr}\n${result.stdout ?? ""}`.trim();
-  if (/command not found|not recognized|spawn gh ENOENT|no such file/i.test(detail)) {
+  if (
+    /command not found|not recognized|spawn gh ENOENT|no such file/i.test(
+      detail,
+    )
+  ) {
     return "GitHub CLI is not installed. Install `gh` before creating a pull request.";
   }
   return "GitHub CLI is not authenticated. Run `gh auth login` before creating a pull request.";
@@ -147,7 +167,10 @@ function InlineNoticeBanner(props: { notice: InlineNotice }) {
 
   return (
     <div
-      className={cn("flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm", toneClassName)}
+      className={cn(
+        "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm",
+        toneClassName,
+      )}
       role="status"
       aria-live="polite"
     >
@@ -155,14 +178,19 @@ function InlineNoticeBanner(props: { notice: InlineNotice }) {
       <div className="min-w-0 space-y-1">
         <p className="break-words font-medium">{props.notice.title}</p>
         {props.notice.description ? (
-          <p className="break-words text-xs leading-5 opacity-80">{props.notice.description}</p>
+          <p className="break-words text-xs leading-5 opacity-80">
+            {props.notice.description}
+          </p>
         ) : null}
       </div>
     </div>
   );
 }
 
-function CreatePrLoadingSplash(props: { currentBranch?: string; baseBranch: string }) {
+function CreatePrLoadingSplash(props: {
+  currentBranch?: string;
+  baseBranch: string;
+}) {
   return (
     <div className="space-y-4" role="status" aria-live="polite">
       <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
@@ -173,8 +201,8 @@ function CreatePrLoadingSplash(props: { currentBranch?: string; baseBranch: stri
           <div className="space-y-1.5">
             <p className="text-sm font-medium">Preparing a PR draft</p>
             <p className="text-sm text-muted-foreground">
-              Reviewing {props.currentBranch ?? "HEAD"} against {props.baseBranch}, recent commits, and workspace PR
-              guidance.
+              Reviewing {props.currentBranch ?? "HEAD"} against{" "}
+              {props.baseBranch}, recent commits, and workspace PR guidance.
             </p>
           </div>
         </div>
@@ -217,7 +245,10 @@ function getReviewSeverityClassName(severity: PrePrReviewFinding["severity"]) {
   return "border-border/70 bg-muted text-muted-foreground";
 }
 
-function PrePrReviewFindingsPanel(props: { findings: PrePrReviewFinding[]; truncated?: boolean }) {
+function PrePrReviewFindingsPanel(props: {
+  findings: PrePrReviewFinding[];
+  truncated?: boolean;
+}) {
   if (props.findings.length === 0) {
     return null;
   }
@@ -232,7 +263,8 @@ function PrePrReviewFindingsPanel(props: { findings: PrePrReviewFinding[]; trunc
             {props.findings.length === 1 ? "" : "s"}
           </p>
           <p className="text-xs leading-5 text-muted-foreground">
-            Stop to fix these before opening the PR, or proceed if they are not relevant.
+            Stop to fix these before opening the PR, or proceed if they are not
+            relevant.
             {props.truncated ? " The review used a truncated diff." : ""}
           </p>
         </div>
@@ -260,7 +292,9 @@ function PrePrReviewFindingsPanel(props: { findings: PrePrReviewFinding[]; trunc
                 {formatReviewFindingLocation(finding)}
               </span>
             </div>
-            <p className="mt-1.5 text-xs leading-5 text-foreground">{finding.message}</p>
+            <p className="mt-1.5 text-xs leading-5 text-foreground">
+              {finding.message}
+            </p>
           </div>
         ))}
       </div>
@@ -276,7 +310,9 @@ function PrePrVerificationPanel(props: {
     return null;
   }
 
-  const containerClass = props.blocking ? "border-destructive/40 bg-destructive/5" : "border-warning/40 bg-warning/5";
+  const containerClass = props.blocking
+    ? "border-destructive/40 bg-destructive/5"
+    : "border-warning/40 bg-warning/5";
   const iconClass = props.blocking ? "text-destructive" : "text-warning";
 
   return (
@@ -285,7 +321,8 @@ function PrePrVerificationPanel(props: {
         <TriangleAlert className={cn("mt-0.5 size-4 shrink-0", iconClass)} />
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-medium text-foreground">
-            Verification {props.blocking ? "failed" : "reported warnings"} — {props.failures.length} check
+            Verification {props.blocking ? "failed" : "reported warnings"} —{" "}
+            {props.failures.length} check
             {props.failures.length === 1 ? "" : "s"}
           </p>
           <p className="text-xs leading-5 text-muted-foreground">
@@ -298,7 +335,10 @@ function PrePrVerificationPanel(props: {
 
       <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
         {props.failures.map((failure, index) => (
-          <div key={`${failure.scriptId}:${index}`} className="rounded-md border border-border/70 bg-background/80 p-2">
+          <div
+            key={`${failure.scriptId}:${index}`}
+            className="rounded-md border border-border/70 bg-background/80 p-2"
+          >
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <span className="rounded-sm border border-border/70 bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
                 {failure.scriptId}
@@ -306,13 +346,17 @@ function PrePrVerificationPanel(props: {
               <span
                 className={cn(
                   "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase",
-                  failure.blocking ? "border-destructive/40 text-destructive" : "border-warning/40 text-warning",
+                  failure.blocking
+                    ? "border-destructive/40 text-destructive"
+                    : "border-warning/40 text-warning",
                 )}
               >
                 {failure.blocking ? "blocking" : "non-blocking"}
               </span>
             </div>
-            <p className="mt-1.5 break-words text-xs leading-5 text-foreground">{failure.message}</p>
+            <p className="mt-1.5 break-words text-xs leading-5 text-foreground">
+              {failure.message}
+            </p>
           </div>
         ))}
       </div>
@@ -334,7 +378,9 @@ function PullRequestBranchFields(props: {
   return (
     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
       <div className="min-w-0 space-y-2">
-        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">From Branch</p>
+        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          From Branch
+        </p>
         <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background/80 px-3 text-sm shadow-xs">
           <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate">{headBranch}</span>
@@ -342,7 +388,9 @@ function PullRequestBranchFields(props: {
       </div>
 
       <div className="min-w-0 space-y-2">
-        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Target Branch</p>
+        <p className="pl-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          Target Branch
+        </p>
         <CreateWorkspaceBranchPicker
           value={props.targetBranch}
           defaultBranch={props.defaultBranch}
@@ -363,7 +411,8 @@ function PullRequestBranchFields(props: {
 
 export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [step, setStep] = useState<Step>("idle");
-  const [activeSubmitAction, setActiveSubmitAction] = useState<CreatePrSubmitAction | null>(null);
+  const [activeSubmitAction, setActiveSubmitAction] =
+    useState<CreatePrSubmitAction | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [continueDialogOpen, setContinueDialogOpen] = useState(false);
   const [continuingWorkspace, setContinuingWorkspace] = useState(false);
@@ -375,7 +424,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [prTitle, setPrTitle] = useState("");
   const [prBody, setPrBody] = useState("");
   const [inlineNotice, setInlineNotice] = useState<InlineNotice | null>(null);
-  const [reviewFindings, setReviewFindings] = useState<PrePrReviewFinding[]>([]);
+  const [reviewFindings, setReviewFindings] = useState<PrePrReviewFinding[]>(
+    [],
+  );
   const [reviewDiffTruncated, setReviewDiffTruncated] = useState(false);
   const [verificationFailures, setVerificationFailures] = useState<
     Array<{ scriptId: string; message: string; blocking: boolean }>
@@ -387,8 +438,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState("");
   const [changesExpanded, setChangesExpanded] = useState(true);
-  const [repoMergeSettings, setRepoMergeSettings] = useState<RepoMergeSettings>();
-  const [dialogMergeMethod, setDialogMergeMethod] = useState<ConcretePrMergeMethod>("squash");
+  const [repoMergeSettings, setRepoMergeSettings] =
+    useState<RepoMergeSettings>();
+  const [dialogMergeMethod, setDialogMergeMethod] =
+    useState<ConcretePrMergeMethod>("squash");
   const [dialogAutoMerge, setDialogAutoMerge] = useState(false);
   const suggestionRequestIdRef = useRef(0);
   const submitOperationIdRef = useRef(0);
@@ -448,13 +501,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   );
 
   const isDefaultWorkspace = Boolean(workspaceDefaultById[activeWorkspaceId]);
-  const workspaceCwd = workspacePathById[activeWorkspaceId] ?? projectPath ?? "";
+  const workspaceCwd =
+    workspacePathById[activeWorkspaceId] ?? projectPath ?? "";
   const hasWorkspaceContext = Boolean(activeWorkspaceId && workspaceCwd);
   const currentBranch = workspaceBranchById[activeWorkspaceId];
   const defaultBaseBranch = defaultBranch.trim() || "main";
   const continueBaseBranch = `origin/${defaultBaseBranch}`;
-  const activeTask = tasks.find((task) => task.id === activeTaskId && !isTaskArchived(task)) ?? null;
-  const activeTaskDraft = activeTask?.id ? (promptDraftByTask[activeTask.id] ?? null) : null;
+  const activeTask =
+    tasks.find((task) => task.id === activeTaskId && !isTaskArchived(task)) ??
+    null;
+  const activeTaskDraft = activeTask?.id
+    ? (promptDraftByTask[activeTask.id] ?? null)
+    : null;
 
   const activeWorkspaceIdRef = useRef(activeWorkspaceId);
   const workspaceCwdRef = useRef(workspaceCwd);
@@ -543,7 +601,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   async function buildWorkspaceContextForPrDraft() {
     const readFile = window.api?.fs?.readFile;
-    const attachedContextSnippets: Array<{ label: string; content: string }> = [];
+    const attachedContextSnippets: Array<{ label: string; content: string }> =
+      [];
 
     if (readFile && workspaceCwd && activeTaskDraft?.attachedFilePaths.length) {
       const snippetResults = await Promise.all(
@@ -595,7 +654,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   async function handleCreateClick() {
     const getStatus = window.api?.sourceControl?.getStatus;
     const listBranches = window.api?.sourceControl?.listBranches;
-    const getRepoMergeSettings = window.api?.sourceControl?.getRepoMergeSettings;
+    const getRepoMergeSettings =
+      window.api?.sourceControl?.getRepoMergeSettings;
     const suggestPRDescription = window.api?.provider?.suggestPRDescription;
     if (!getStatus) {
       toast.error("Unable to create PR", {
@@ -610,7 +670,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     // the wrong branch, producing stale or cross-workspace PR drafts.
     if (!workspacePathById[activeWorkspaceId]) {
       toast.error("Unable to create PR", {
-        description: "Workspace path is not available yet. Try switching away and back.",
+        description:
+          "Workspace path is not available yet. Try switching away and back.",
       });
       return;
     }
@@ -643,7 +704,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setInlineNotice({
       tone: "info",
       title: "Preparing PR draft",
-      description: "Reviewing the branch diff, recent commits, and workspace PR guidance.",
+      description:
+        "Reviewing the branch diff, recent commits, and workspace PR guidance.",
     });
 
     const statusPromise = getStatus({ cwd: workspaceCwd });
@@ -653,8 +715,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const mergeSettingsPromise = getRepoMergeSettings
       ? getRepoMergeSettings({ cwd: workspaceCwd }).catch(() => undefined)
       : Promise.resolve(undefined);
-    const promptPrDescription = useAppStore.getState().settings.promptPrDescription.trim();
-    const shouldSuggestPrDescription = Boolean(suggestPRDescription && promptPrDescription);
+    const promptPrDescription = useAppStore
+      .getState()
+      .settings.promptPrDescription.trim();
+    const shouldSuggestPrDescription = Boolean(
+      suggestPRDescription && promptPrDescription,
+    );
     const workspaceContextPromise = shouldSuggestPrDescription
       ? buildWorkspaceContextForPrDraft()
       : Promise.resolve("");
@@ -674,7 +740,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     ? {
                         model: prePrReviewCodexModel,
                         codexApprovalPolicy: "never",
-                        codexBinaryPath: prePrReviewCodexBinaryPath.trim() || undefined,
+                        codexBinaryPath:
+                          prePrReviewCodexBinaryPath.trim() || undefined,
                         codexFileAccess: "read-only",
                         codexNetworkAccess: false,
                         codexReasoningEffort: prePrReviewCodexReasoningEffort,
@@ -686,12 +753,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             .catch(() => undefined)
         : undefined;
 
-    const [status, descResult, branchResult, mergeSettingsResult] = await Promise.all([
-      statusPromise,
-      descPromise ?? Promise.resolve(undefined),
-      branchPromise,
-      mergeSettingsPromise,
-    ]);
+    const [status, descResult, branchResult, mergeSettingsResult] =
+      await Promise.all([
+        statusPromise,
+        descPromise ?? Promise.resolve(undefined),
+        branchPromise,
+        mergeSettingsPromise,
+      ]);
     if (suggestionRequestIdRef.current !== requestId) {
       return;
     }
@@ -740,10 +808,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const fallbackDraft = generateFallbackPullRequestDraft({
       baseBranch: nextTargetBranch,
       headBranch: currentBranch,
-      fileList: status.items.map((file) => `${file.code} ${file.path}`).join("\n"),
+      fileList: status.items
+        .map((file) => `${file.code} ${file.path}`)
+        .join("\n"),
     });
-    const nextTitle = descResult?.ok && descResult.title?.trim() ? descResult.title.trim() : fallbackDraft.title;
-    const nextBody = descResult?.ok && descResult.body?.trim() ? descResult.body.trim() : fallbackDraft.body;
+    const nextTitle =
+      descResult?.ok && descResult.title?.trim()
+        ? descResult.title.trim()
+        : fallbackDraft.title;
+    const nextBody =
+      descResult?.ok && descResult.body?.trim()
+        ? descResult.body.trim()
+        : fallbackDraft.body;
 
     setPrTitle(nextTitle);
     setPrBody(nextBody);
@@ -751,7 +827,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const mergeSettingsAuthFailure =
       mergeSettingsResult &&
       !mergeSettingsResult.ok &&
-      /not authenticated|gh auth login|not installed|spawn gh enoent/i.test(mergeSettingsResult.stderr);
+      /not authenticated|gh auth login|not installed|spawn gh enoent/i.test(
+        mergeSettingsResult.stderr,
+      );
     setInlineNotice(
       mergeSettingsAuthFailure
         ? {
@@ -770,7 +848,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     );
   }
 
-  async function handleSubmit(options: { skipReview?: boolean; skipVerification?: boolean }) {
+  async function handleSubmit(options: {
+    skipReview?: boolean;
+    skipVerification?: boolean;
+  }) {
     const getStatus = window.api?.sourceControl?.getStatus;
     const runCommand = window.api?.terminal?.runCommand;
     const createPR = window.api?.sourceControl?.createPR;
@@ -802,14 +883,17 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setInlineNotice({
         tone: "error",
         title: "Unable to create PR",
-        description: "The source control bridge is unavailable in this workspace.",
+        description:
+          "The source control bridge is unavailable in this workspace.",
       });
       setStep("ready");
       setActiveSubmitAction(null);
       return;
     }
 
-    let pendingFiles = changedFiles.filter((file) => selectedFilePaths.includes(file.path));
+    let pendingFiles = changedFiles.filter((file) =>
+      selectedFilePaths.includes(file.path),
+    );
     if (getStatus) {
       const statusResult = await getStatus({ cwd: submitWorkspaceCwd });
       if (!isCurrentOperation()) return;
@@ -827,7 +911,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         setInlineNotice({
           tone: "error",
           title: "Cannot create PR with unresolved conflicts",
-          description: "Resolve the merge conflicts in this workspace, then refresh and try again.",
+          description:
+            "Resolve the merge conflicts in this workspace, then refresh and try again.",
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -836,7 +921,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       const initialPaths = changedFiles.map((file) => file.path);
       const currentPaths = statusResult.items.map((file) => file.path);
-      if (!haveSameCreatePrFileScope({ left: initialPaths, right: currentPaths })) {
+      if (
+        !haveSameCreatePrFileScope({ left: initialPaths, right: currentPaths })
+      ) {
         setChangedFiles(statusResult.items);
         setSelectedFilePaths(
           buildDriftSelectedFilePaths({
@@ -848,21 +935,25 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         setInlineNotice({
           tone: "warning",
           title: "Workspace changes changed",
-          description: "The file list changed while the dialog was open. Review the scope and submit again.",
+          description:
+            "The file list changed while the dialog was open. Review the scope and submit again.",
         });
         setStep("ready");
         setActiveSubmitAction(null);
         return;
       }
 
-      pendingFiles = statusResult.items.filter((file) => selectedFilePaths.includes(file.path));
+      pendingFiles = statusResult.items.filter((file) =>
+        selectedFilePaths.includes(file.path),
+      );
       setChangedFiles(statusResult.items);
       setChangesExpanded(statusResult.items.length > 0);
       if (statusResult.items.length > 0 && pendingFiles.length === 0) {
         setInlineNotice({
           tone: "warning",
           title: "Select files to commit",
-          description: "Choose at least one current workspace file before creating the PR.",
+          description:
+            "Choose at least one current workspace file before creating the PR.",
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -872,7 +963,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setInlineNotice({
         tone: "error",
         title: "Unable to verify file scope",
-        description: "The source control bridge cannot refresh workspace changes safely.",
+        description:
+          "The source control bridge cannot refresh workspace changes safely.",
       });
       setStep("ready");
       setActiveSubmitAction(null);
@@ -882,14 +974,17 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const fallbackDraft = generateFallbackPullRequestDraft({
       baseBranch: selectedTargetBranch,
       headBranch: currentBranch,
-      fileList: pendingFiles.map((file) => `${file.code} ${file.path}`).join("\n"),
+      fileList: pendingFiles
+        .map((file) => `${file.code} ${file.path}`)
+        .join("\n"),
     });
     const title = prTitle.trim() || fallbackDraft.title;
     if (!isReasonablePullRequestTitle(title)) {
       setInlineNotice({
         tone: "error",
         title: "PR title must use the project convention",
-        description: "Use a lowercase Conventional Commit title such as `fix(topbar): stabilize create pr flow`.",
+        description:
+          "Use a lowercase Conventional Commit title such as `fix(topbar): stabilize create pr flow`.",
       });
       setStep("ready");
       setActiveSubmitAction(null);
@@ -899,14 +994,19 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const suggestCommitMessage = window.api?.provider?.suggestCommitMessage;
     const commitMessageSuggestionPromise =
       pendingFiles.length > 0 && !commitMessage.trim() && suggestCommitMessage
-        ? suggestCommitMessage({ cwd: submitWorkspaceCwd }).catch(() => undefined)
+        ? suggestCommitMessage({ cwd: submitWorkspaceCwd }).catch(
+            () => undefined,
+          )
         : undefined;
 
     if (prePrReviewEnabled && reviewDiff && !options.skipReview) {
       const reviewProviderLabel = getProviderLabel({
         providerId: prePrReviewProvider,
       });
-      const reviewModel = prePrReviewProvider === "codex" ? prePrReviewCodexModel : prePrReviewClaudeModel;
+      const reviewModel =
+        prePrReviewProvider === "codex"
+          ? prePrReviewCodexModel
+          : prePrReviewClaudeModel;
       const reviewRuntimeOptions =
         prePrReviewProvider === "codex"
           ? {
@@ -938,13 +1038,17 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         const reviewResult = await reviewDiff(reviewArgs);
         if (!isCurrentOperation()) return;
 
-        const findings: PrePrReviewFinding[] = reviewResult.ok ? [...reviewResult.findings] : [];
+        const findings: PrePrReviewFinding[] = reviewResult.ok
+          ? [...reviewResult.findings]
+          : [];
         let truncated = Boolean(reviewResult.truncated);
 
         // Intent guard: a second single-turn check that compares the diff
         // against the pinned product intent (PRD / spec / design). Only runs
         // when the workspace has intent pinned, so it is a no-op otherwise.
-        const intentContext = collectIntentContext(buildIntentGuardContextInput(submitWorkspaceInformation));
+        const intentContext = collectIntentContext(
+          buildIntentGuardContextInput(submitWorkspaceInformation),
+        );
         if (intentContext) {
           setInlineNotice({
             tone: "info",
@@ -1001,12 +1105,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
     }
 
-    if (runScriptHook && submitWorkspaceId && projectPath && !options.skipVerification) {
+    if (
+      runScriptHook &&
+      submitWorkspaceId &&
+      projectPath &&
+      !options.skipVerification
+    ) {
       setStep("action");
       setInlineNotice({
         tone: "info",
         title: "Running PR preflight",
-        description: "Executing configured `pr.beforeOpen` verification before any files are staged or committed.",
+        description:
+          "Executing configured `pr.beforeOpen` verification before any files are staged or committed.",
       });
       const hookResult = await runScriptHook({
         workspaceId: submitWorkspaceId,
@@ -1032,12 +1142,15 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       } else if (hookResult.summary.failures.length > 0) {
         // Gate on verification: blocking failures stop hard, non-blocking
         // failures warn and allow an explicit "Proceed anyway".
-        const blocking = deriveTurnVerificationStatus(hookResult.summary) === "fail";
+        const blocking =
+          deriveTurnVerificationStatus(hookResult.summary) === "fail";
         setVerificationFailures(hookResult.summary.failures);
         setVerificationBlocking(blocking);
         setInlineNotice({
           tone: blocking ? "error" : "warning",
-          title: blocking ? "Verification failed" : "Verification reported warnings",
+          title: blocking
+            ? "Verification failed"
+            : "Verification reported warnings",
           description: blocking
             ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
             : "Non-blocking pr.beforeOpen checks failed. Review them, then proceed or fix.",
@@ -1057,7 +1170,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         setInlineNotice({
           tone: "error",
           title: "Automatic commit is unavailable",
-          description: "The source control bridge cannot intentionally stage and commit the selected files.",
+          description:
+            "The source control bridge cannot intentionally stage and commit the selected files.",
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -1068,7 +1182,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setInlineNotice({
         tone: "info",
         title: "Preparing automatic commit",
-        description: "The explicitly selected workspace changes will be staged and committed before the PR is created.",
+        description:
+          "The explicitly selected workspace changes will be staged and committed before the PR is created.",
       });
 
       let message = commitMessage.trim();
@@ -1076,7 +1191,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         setInlineNotice({
           tone: "info",
           title: "Generating commit message",
-          description: "Creating a Conventional Commit message from the selected diff.",
+          description:
+            "Creating a Conventional Commit message from the selected diff.",
         });
         if (commitMessageSuggestionPromise) {
           try {
@@ -1098,7 +1214,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         setInlineNotice({
           tone: "error",
           title: "Commit message must use Conventional Commits",
-          description: "Use a message such as `fix(topbar): stabilize create pr flow`.",
+          description:
+            "Use a message such as `fix(topbar): stabilize create pr flow`.",
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -1151,13 +1268,17 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       // When a pre-commit hook (husky/lint-staged/eslint) fails, try to
       // auto-fix lint errors and retry the commit once before giving up.
-      if (!commitResult.ok && looksLikePreCommitHookFailure(commitResult.stderr)) {
+      if (
+        !commitResult.ok &&
+        looksLikePreCommitHookFailure(commitResult.stderr)
+      ) {
         const tryAutoFixLint = window.api?.sourceControl?.tryAutoFixLint;
         if (tryAutoFixLint) {
           setInlineNotice({
             tone: "info",
             title: "Pre-commit hook failed — attempting auto-fix",
-            description: "Running eslint --fix and prettier --write on the selected files…",
+            description:
+              "Running eslint --fix and prettier --write on the selected files…",
           });
           const fixResult = await tryAutoFixLint({
             cwd: submitWorkspaceCwd,
@@ -1230,7 +1351,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     }
 
     // Step 3: Create PR
-    const mergeMethodLabel = dialogMergeMethod.charAt(0).toUpperCase() + dialogMergeMethod.slice(1);
+    const mergeMethodLabel =
+      dialogMergeMethod.charAt(0).toUpperCase() + dialogMergeMethod.slice(1);
     setStep("creating-pr");
     setInlineNotice({
       tone: "info",
@@ -1253,8 +1375,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!prResult.ok) {
       setInlineNotice({
         tone: "error",
-        title: prResult.prUrl ? "PR created, but auto-merge failed" : "PR creation failed",
-        description: [prResult.stderr || "gh pr create failed.", prResult.prUrl ? `PR URL: ${prResult.prUrl}` : ""]
+        title: prResult.prUrl
+          ? "PR created, but auto-merge failed"
+          : "PR creation failed",
+        description: [
+          prResult.stderr || "gh pr create failed.",
+          prResult.prUrl ? `PR URL: ${prResult.prUrl}` : "",
+        ]
           .filter(Boolean)
           .join(" "),
       });
@@ -1274,7 +1401,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         ? `Ready PR created and ${mergeMethodLabel.toLowerCase()} auto-merge queued.`
         : "Ready PR created.";
     const autoMergeNotConfirmed =
-      dialogAutoMerge && !prResult.merged && !prResult.autoMergeUnsupported && prResult.autoMergeEnabled !== true;
+      dialogAutoMerge &&
+      !prResult.merged &&
+      !prResult.autoMergeUnsupported &&
+      prResult.autoMergeEnabled !== true;
     if (prResult.autoMergeUnsupported) {
       toast.success("PR created", {
         description: [
@@ -1286,13 +1416,19 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       });
     } else if (prResult.stderr || autoMergeNotConfirmed) {
       toast.warning("PR created, but auto-merge is not enabled", {
-        description: [prResult.stderr || "Stave could not confirm that auto-merge was queued.", prResult.prUrl]
+        description: [
+          prResult.stderr ||
+            "Stave could not confirm that auto-merge was queued.",
+          prResult.prUrl,
+        ]
           .filter(Boolean)
           .join(" "),
       });
     } else {
       toast.success("PR created", {
-        description: prResult.prUrl ? `${autoMergeDescription} ${prResult.prUrl}` : autoMergeDescription,
+        description: prResult.prUrl
+          ? `${autoMergeDescription} ${prResult.prUrl}`
+          : autoMergeDescription,
       });
     }
 
@@ -1313,7 +1449,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         toast.warning("Post-PR scripts reported failures", {
           description:
             hookResult.error ??
-            hookResult.summary?.failures.map((failure) => `${failure.scriptId}: ${failure.message}`).join(" ") ??
+            hookResult.summary?.failures
+              .map((failure) => `${failure.scriptId}: ${failure.message}`)
+              .join(" ") ??
             "Configured `pr.afterOpen` scripts failed.",
         });
       }
@@ -1350,7 +1488,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setInlineNotice({
       tone: "warning",
       title: "PR creation paused",
-      description: "Fix the review findings, then create the PR again when ready.",
+      description:
+        "Fix the review findings, then create the PR again when ready.",
     });
   }
 
@@ -1371,7 +1510,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setInlineNotice({
       tone: "warning",
       title: "PR creation paused",
-      description: "Fix the verification failures, then create the PR again when ready.",
+      description:
+        "Fix the verification failures, then create the PR again when ready.",
     });
   }
 
@@ -1407,7 +1547,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
     setStep("action");
     const result = await mergePr({
-      method: createPrMergeMethod === "default" ? undefined : createPrMergeMethod,
+      method:
+        createPrMergeMethod === "default" ? undefined : createPrMergeMethod,
       cwd: workspaceCwd,
     });
     setStep("idle");
@@ -1439,7 +1580,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     fetchStatus();
   }
 
-  async function handleContinueWorkspace(args: { name: string; baseBranch?: string }) {
+  async function handleContinueWorkspace(args: {
+    name: string;
+    baseBranch?: string;
+  }) {
     setContinuingWorkspace(true);
     try {
       const result = await continueWorkspaceFromSummary({
@@ -1448,7 +1592,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       });
       if (!result.ok) {
         toast.error("Unable to continue in a new workspace", {
-          description: result.message ?? "The continuation brief could not be prepared.",
+          description:
+            result.message ?? "The continuation brief could not be prepared.",
         });
         return result;
       }
@@ -1456,11 +1601,14 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (result.noticeLevel === "warning") {
         toast.warning("Workspace continued with warning", {
           description:
-            result.message ?? "The workspace was created, but part of the continuation brief setup needs attention.",
+            result.message ??
+            "The workspace was created, but part of the continuation brief setup needs attention.",
         });
       } else {
         toast.success("Workspace continued", {
-          description: result.message ?? "The new workspace is ready with a continuation brief attached.",
+          description:
+            result.message ??
+            "The new workspace is ready with a continuation brief attached.",
         });
       }
       return result;
@@ -1505,15 +1653,23 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   const isBusy = step !== "idle" && step !== "ready";
   const isDialogBusy =
-    step === "action" || step === "committing" || step === "reviewing" || step === "pushing" || step === "creating-pr";
+    step === "action" ||
+    step === "committing" ||
+    step === "reviewing" ||
+    step === "pushing" ||
+    step === "creating-pr";
   const isCreatePrSubmitting = shouldShowCreatePrSubmitSpinner({
     step,
     activeSubmitAction,
     buttonAction: "pr",
   });
-  const effectiveTitle = prTitle.trim() || generateFallbackPRDraft(changedFiles).title;
-  const isTitleInvalid = prTitle.trim().length > 0 && !isReasonablePullRequestTitle(prTitle);
-  const isCommitMessageInvalid = commitMessage.trim().length > 0 && !isConventionalCommitMessage(commitMessage);
+  const effectiveTitle =
+    prTitle.trim() || generateFallbackPRDraft(changedFiles).title;
+  const isTitleInvalid =
+    prTitle.trim().length > 0 && !isReasonablePullRequestTitle(prTitle);
+  const isCommitMessageInvalid =
+    commitMessage.trim().length > 0 &&
+    !isConventionalCommitMessage(commitMessage);
   const canSubmitPr = canSubmitCreatePr({
     step,
     title: effectiveTitle,
@@ -1535,9 +1691,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               : step === "action"
                 ? "Working..."
                 : null;
-  const hasRespondingTask = tasks.some((task) => Boolean(activeTurnIdsByTask[task.id]));
+  const hasRespondingTask = tasks.some((task) =>
+    Boolean(activeTurnIdsByTask[task.id]),
+  );
   const isCreateDisabled = isBusy || hasRespondingTask;
-  const canContinueWorkspace = prStatus === "merged" || prStatus === "closed_unmerged";
+  const canContinueWorkspace =
+    prStatus === "merged" || prStatus === "closed_unmerged";
   const isContinueDisabled = isBusy || continuingWorkspace || hasRespondingTask;
   const effectiveTargetBranch = targetBranch.trim() || defaultBaseBranch;
   const createPrTooltip = hasRespondingTask
@@ -1582,7 +1741,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     };
 
     window.addEventListener(TOP_BAR_PR_ACTION_EVENT, onTopBarPrAction);
-    return () => window.removeEventListener(TOP_BAR_PR_ACTION_EVENT, onTopBarPrAction);
+    return () =>
+      window.removeEventListener(TOP_BAR_PR_ACTION_EVENT, onTopBarPrAction);
   }, [
     canContinueWorkspace,
     continueTooltip,
@@ -1610,24 +1770,26 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       {prStatus === "no_pr" ? (
         /* No PR – show "Create PR" button */
         <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors disabled:opacity-50",
-                PR_CREATE_BUTTON_CLASS,
-              )}
-              style={props.noDragStyle}
-              onClick={() => void handleCreateClick()}
-              disabled={isCreateDisabled}
-            >
-              {isBusy ? (
-                <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
-              ) : (
-                <GitPullRequest className="size-3.5 shrink-0" />
-              )}
-              {statusLabel ?? "Create PR"}
-            </button>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors disabled:opacity-50",
+                  PR_CREATE_BUTTON_CLASS,
+                )}
+                style={props.noDragStyle}
+                onClick={() => void handleCreateClick()}
+                disabled={isCreateDisabled}
+              />
+            }
+          >
+            {isBusy ? (
+              <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+            ) : (
+              <GitPullRequest className="size-3.5 shrink-0" />
+            )}
+            {statusLabel ?? "Create PR"}
           </TooltipTrigger>
           <TooltipContent side="bottom">{createPrTooltip}</TooltipContent>
         </Tooltip>
@@ -1636,28 +1798,28 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         <div className="flex items-center gap-1.5">
           <DropdownMenu>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex">
-                  <DropdownMenuTrigger asChild>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <DropdownMenuTrigger
+                  render={
                     <button
                       type="button"
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors disabled:opacity-50",
+                        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors disabled:opacity-50",
                         badgeColorClass,
                       )}
                       style={props.noDragStyle}
                       disabled={isBusy || continuingWorkspace}
                       aria-label="open-pr-status-menu"
-                    >
-                      {isBusy ? (
-                        <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
-                      ) : (
-                        <PrStatusIcon status={prStatus} className="size-3.5" />
-                      )}
-                      {statusLabel ?? visual.label}
-                    </button>
-                  </DropdownMenuTrigger>
-                </span>
+                    />
+                  }
+                >
+                  {isBusy ? (
+                    <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+                  ) : (
+                    <PrStatusIcon status={prStatus} className="size-3.5" />
+                  )}
+                  {statusLabel ?? visual.label}
+                </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 PR #{prInfo?.pr?.number ?? "?"}: {visual.label}
@@ -1671,7 +1833,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   #{prInfo?.pr?.number} {prInfo?.pr?.title}
                 </span>
                 <span className="text-[10px] font-normal text-muted-foreground">
-                  {currentBranch} &rarr; {prInfo?.pr?.baseRefName ?? defaultBaseBranch}
+                  {currentBranch} &rarr;{" "}
+                  {prInfo?.pr?.baseRefName ?? defaultBaseBranch}
                 </span>
               </DropdownMenuLabel>
 
@@ -1679,14 +1842,20 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
               {/* Primary action */}
               {actions.primary ? (
-                <DropdownMenuItem className="font-medium" onSelect={() => handleAction(actions.primary!.key)}>
+                <DropdownMenuItem
+                  className="font-medium"
+                  onSelect={() => handleAction(actions.primary!.key)}
+                >
                   {actions.primary.label}
                 </DropdownMenuItem>
               ) : null}
 
               {/* Secondary actions */}
               {actions.secondary.map((action) => (
-                <DropdownMenuItem key={action.key} onSelect={() => handleAction(action.key)}>
+                <DropdownMenuItem
+                  key={action.key}
+                  onSelect={() => handleAction(action.key)}
+                >
                   {action.key === "open_github" || action.key === "refresh" ? (
                     <span className="flex items-center gap-2">
                       {action.key === "open_github" ? (
@@ -1706,21 +1875,23 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
           {canContinueWorkspace ? (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-                  style={props.noDragStyle}
-                  onClick={() => setContinueDialogOpen(true)}
-                  disabled={isContinueDisabled}
-                >
-                  {continuingWorkspace ? (
-                    <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
-                  ) : (
-                    <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-                  )}
-                  Continue
-                </button>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2.5 text-xs text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                    style={props.noDragStyle}
+                    onClick={() => setContinueDialogOpen(true)}
+                    disabled={isContinueDisabled}
+                  />
+                }
+              >
+                {continuingWorkspace ? (
+                  <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+                ) : (
+                  <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+                )}
+                Continue
               </TooltipTrigger>
               <TooltipContent side="bottom">{continueTooltip}</TooltipContent>
             </Tooltip>
@@ -1731,8 +1902,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       {/* --- PR Creation Dialog --- */}
       <Dialog
         open={dialogOpen}
-        onOpenChange={(open) => {
+        onOpenChange={(open, eventDetails) => {
           if (!canApplyCreatePrDialogOpenChange({ open, isDialogBusy })) {
+            eventDetails.cancel();
             return;
           }
           if (open) {
@@ -1745,27 +1917,21 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         <DialogContent
           className="min-w-0 sm:max-w-lg"
           showCloseButton={!isDialogBusy}
-          onEscapeKeyDown={(event) => {
-            if (isDialogBusy) {
-              event.preventDefault();
-            }
-          }}
-          onInteractOutside={(event) => {
-            if (isDialogBusy) {
-              event.preventDefault();
-            }
-          }}
         >
           <DialogHeader>
             <DialogTitle>Create Pull Request</DialogTitle>
             <DialogDescription className="sr-only">
-              Create a pull request from {currentBranch ?? "HEAD"} into {effectiveTargetBranch}
+              Create a pull request from {currentBranch ?? "HEAD"} into{" "}
+              {effectiveTargetBranch}
             </DialogDescription>
           </DialogHeader>
 
           {step === "loading" ? (
             <div className="min-w-0 pr-1">
-              <CreatePrLoadingSplash currentBranch={currentBranch} baseBranch={effectiveTargetBranch} />
+              <CreatePrLoadingSplash
+                currentBranch={currentBranch}
+                baseBranch={effectiveTargetBranch}
+              />
             </div>
           ) : (
             <form className="min-w-0 space-y-4" onSubmit={handleFormSubmit}>
@@ -1792,24 +1958,50 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     </label>
                     <Select
                       value={dialogMergeMethod}
-                      onValueChange={(value) => setDialogMergeMethod(value as ConcretePrMergeMethod)}
+                      onValueChange={(value) =>
+                        setDialogMergeMethod(value as ConcretePrMergeMethod)
+                      }
                       disabled={isDialogBusy}
                     >
-                      <SelectTrigger id="create-pr-merge-method" className="h-9 w-full">
+                      <SelectTrigger
+                        id="create-pr-merge-method"
+                        className="h-9 w-full"
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="squash" disabled={repoMergeSettings?.squashMergeAllowed === false}>
+                        <SelectItem
+                          value="squash"
+                          disabled={
+                            repoMergeSettings?.squashMergeAllowed === false
+                          }
+                        >
                           Squash
-                          {repoMergeSettings?.squashMergeAllowed === false ? " (not allowed)" : ""}
+                          {repoMergeSettings?.squashMergeAllowed === false
+                            ? " (not allowed)"
+                            : ""}
                         </SelectItem>
-                        <SelectItem value="merge" disabled={repoMergeSettings?.mergeCommitAllowed === false}>
+                        <SelectItem
+                          value="merge"
+                          disabled={
+                            repoMergeSettings?.mergeCommitAllowed === false
+                          }
+                        >
                           Merge commit
-                          {repoMergeSettings?.mergeCommitAllowed === false ? " (not allowed)" : ""}
+                          {repoMergeSettings?.mergeCommitAllowed === false
+                            ? " (not allowed)"
+                            : ""}
                         </SelectItem>
-                        <SelectItem value="rebase" disabled={repoMergeSettings?.rebaseMergeAllowed === false}>
+                        <SelectItem
+                          value="rebase"
+                          disabled={
+                            repoMergeSettings?.rebaseMergeAllowed === false
+                          }
+                        >
                           Rebase
-                          {repoMergeSettings?.rebaseMergeAllowed === false ? " (not allowed)" : ""}
+                          {repoMergeSettings?.rebaseMergeAllowed === false
+                            ? " (not allowed)"
+                            : ""}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1817,7 +2009,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
                   <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:min-h-9 sm:w-auto">
                     <div className="min-w-0 sm:text-right">
-                      <label className="block text-sm font-medium" htmlFor="create-pr-auto-merge">
+                      <label
+                        className="block text-sm font-medium"
+                        htmlFor="create-pr-auto-merge"
+                      >
                         Auto-merge
                       </label>
                       <p className="text-xs text-muted-foreground">
@@ -1830,18 +2025,32 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                       id="create-pr-auto-merge"
                       checked={dialogAutoMerge}
                       onCheckedChange={setDialogAutoMerge}
-                      disabled={isDialogBusy || repoMergeSettings?.autoMergeAllowed === false}
+                      disabled={
+                        isDialogBusy ||
+                        repoMergeSettings?.autoMergeAllowed === false
+                      }
                     />
                   </div>
                 </div>
 
-                {inlineNotice ? <InlineNoticeBanner notice={inlineNotice} /> : null}
-                <PrePrReviewFindingsPanel findings={reviewFindings} truncated={reviewDiffTruncated} />
-                <PrePrVerificationPanel failures={verificationFailures} blocking={verificationBlocking} />
+                {inlineNotice ? (
+                  <InlineNoticeBanner notice={inlineNotice} />
+                ) : null}
+                <PrePrReviewFindingsPanel
+                  findings={reviewFindings}
+                  truncated={reviewDiffTruncated}
+                />
+                <PrePrVerificationPanel
+                  failures={verificationFailures}
+                  blocking={verificationBlocking}
+                />
 
                 {/* PR Title */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="pr-title-input">
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="pr-title-input"
+                  >
                     Title
                   </label>
                   <Input
@@ -1866,7 +2075,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
                 {/* PR Description */}
                 <div className="min-w-0 space-y-2">
-                  <label className="text-sm font-medium" htmlFor="pr-body-input">
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="pr-body-input"
+                  >
                     Description
                   </label>
                   <Textarea
@@ -1893,7 +2105,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                       aria-expanded={changesExpanded}
                       aria-controls="create-pr-changed-files"
                     >
-                      {changesExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                      {changesExpanded ? (
+                        <ChevronDown className="size-3.5" />
+                      ) : (
+                        <ChevronRight className="size-3.5" />
+                      )}
                       {changedFiles.length} uncommitted file
                       {changedFiles.length !== 1 ? "s" : ""}
                       <span className="ml-1 text-xs font-normal text-muted-foreground">
@@ -1906,20 +2122,31 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                         <>
                           <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-muted/30 p-2 text-xs">
                             {changedFiles.map((file) => (
-                              <label key={file.path} className="flex items-center gap-2 py-0.5">
+                              <label
+                                key={file.path}
+                                className="flex items-center gap-2 py-0.5"
+                              >
                                 <input
                                   type="checkbox"
-                                  checked={selectedFilePaths.includes(file.path)}
+                                  checked={selectedFilePaths.includes(
+                                    file.path,
+                                  )}
                                   onChange={(event) => {
                                     if (event.target.checked) {
-                                      userDeselectedPathsRef.current.delete(file.path);
+                                      userDeselectedPathsRef.current.delete(
+                                        file.path,
+                                      );
                                     } else {
-                                      userDeselectedPathsRef.current.add(file.path);
+                                      userDeselectedPathsRef.current.add(
+                                        file.path,
+                                      );
                                     }
                                     setSelectedFilePaths((paths) =>
                                       event.target.checked
                                         ? [...new Set([...paths, file.path])]
-                                        : paths.filter((path) => path !== file.path),
+                                        : paths.filter(
+                                            (path) => path !== file.path,
+                                          ),
                                     );
                                   }}
                                   disabled={isDialogBusy}
@@ -1928,15 +2155,17 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                                 <span className="w-5 shrink-0 text-center font-mono font-medium text-muted-foreground">
                                   {file.code}
                                 </span>
-                                <span className="truncate font-mono">{file.path}</span>
+                                <span className="truncate font-mono">
+                                  {file.path}
+                                </span>
                               </label>
                             ))}
                           </div>
 
                           {selectedFilePaths.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
-                              Select at least one file to enable automatic commit. Unselected files will remain
-                              untouched.
+                              Select at least one file to enable automatic
+                              commit. Unselected files will remain untouched.
                             </p>
                           ) : null}
 
@@ -1945,7 +2174,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                             className="h-9 text-sm"
                             placeholder={generateFallbackCommitMessage(
                               selectedFilePaths.length > 0
-                                ? changedFiles.filter((file) => selectedFilePaths.includes(file.path))
+                                ? changedFiles.filter((file) =>
+                                    selectedFilePaths.includes(file.path),
+                                  )
                                 : changedFiles,
                             )}
                             value={commitMessage}
@@ -1956,7 +2187,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                           {isCommitMessageInvalid ? (
                             <p className="text-xs text-destructive">
                               Use a Conventional Commit message such as{" "}
-                              <code>fix(topbar): stabilize create pr flow</code>.
+                              <code>fix(topbar): stabilize create pr flow</code>
+                              .
                             </p>
                           ) : null}
                         </>
@@ -1968,7 +2200,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
               {step === "reviewing" && reviewFindings.length > 0 ? (
                 <DialogFooter className="shrink-0">
-                  <Button type="button" variant="outline" onClick={handleStopAfterReview}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleStopAfterReview}
+                  >
                     Stop and fix
                   </Button>
                   <Button type="button" onClick={handleProceedAfterReview}>
@@ -1977,11 +2213,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 </DialogFooter>
               ) : verificationFailures.length > 0 ? (
                 <DialogFooter className="shrink-0">
-                  <Button type="button" variant="outline" onClick={handleStopAfterVerification}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleStopAfterVerification}
+                  >
                     Stop and fix
                   </Button>
                   {verificationBlocking ? null : (
-                    <Button type="button" onClick={handleProceedAfterVerification}>
+                    <Button
+                      type="button"
+                      onClick={handleProceedAfterVerification}
+                    >
                       Proceed anyway
                     </Button>
                   )}
@@ -1989,7 +2232,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               ) : (
                 <DialogFooter className="shrink-0">
                   <Button type="submit" disabled={!canSubmitPr || isDialogBusy}>
-                    {isCreatePrSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+                    {isCreatePrSubmitting ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : null}
                     Create PR
                   </Button>
                 </DialogFooter>

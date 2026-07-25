@@ -7,12 +7,15 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+  clearBrowserSessionLog,
   clearBrowserSessionData,
   destroyBrowserSession,
   destroyWorkspaceBrowserSessions,
   getBrowserSession,
   getWebContentsForSession,
   listBrowserSessions,
+  pushConsoleEntry,
+  pushNetworkEntry,
   setViewBounds,
   setViewVisible,
 } from "../browser/browser-manager";
@@ -33,11 +36,19 @@ import {
   assertCdpAllowedForWebContentsId,
   captureScreenshot,
   ensureDebuggerAttached,
-  detachDebugger,
   getDocumentHTML,
   evaluateExpression,
   setElementStyle,
 } from "../browser/browser-cdp";
+import {
+  getLensCdpDiagnosticsState,
+  getLensConsoleEntryDetail,
+  getLensConsoleObjectProperties,
+  getLensNetworkBody,
+  getLensNetworkEntryDetail,
+  startLensCdpDiagnostics,
+  stopLensCdpDiagnostics,
+} from "../browser/browser-cdp-diagnostics";
 import { getElementPickerScript } from "../browser/browser-element-picker";
 import {
   assertNavigationAllowed,
@@ -53,6 +64,13 @@ import {
 import {
   LensCredentialDeleteArgsSchema,
   LensCredentialUpsertArgsSchema,
+  LensConsoleEntryDetailArgsSchema,
+  LensConsoleObjectPropertiesArgsSchema,
+  LensDiagnosticsCaptureArgsSchema,
+  LensLogClearArgsSchema,
+  LensLogQueryArgsSchema,
+  LensNetworkBodyArgsSchema,
+  LensNetworkEntryDetailArgsSchema,
 } from "./schemas";
 import type {
   LensAnnotation,
@@ -691,34 +709,237 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Console log ----
-  ipcMain.handle(
-    "lens:get-console-log",
-    async (
-      _event,
-      args: { workspaceId: string; lensSessionId?: string; limit?: number },
-    ) => {
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
+  ipcMain.handle("lens:get-console-log", async (_event, args: unknown) => {
+    const parsed = LensLogQueryArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, entries: [], message: "Invalid log request" };
+    }
+    const session = getBrowserSession(
+      parsed.data.workspaceId,
+      parsed.data.lensSessionId,
+    );
+    if (!session) return { ok: false, message: "No browser session" };
 
-      const entries = session.consoleLog.toArray();
-      const limit = args.limit ?? 50;
-      return { ok: true, entries: entries.slice(-limit) };
+    const entries = session.consoleLog.toArray();
+    const limit = parsed.data.limit ?? 50;
+    return { ok: true, entries: entries.slice(-limit) };
+  });
+
+  ipcMain.handle("lens:clear-console-log", async (_event, args: unknown) => {
+    const parsed = LensLogClearArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid log request" };
+    }
+    const cleared = clearBrowserSessionLog(
+      parsed.data.workspaceId,
+      "console",
+      parsed.data.lensSessionId,
+    );
+    return {
+      ok: cleared,
+      message: cleared ? undefined : "No browser session",
+    };
+  });
+
+  ipcMain.handle(
+    "lens:get-console-entry-detail",
+    async (_event, args: unknown) => {
+      const parsed = LensConsoleEntryDetailArgsSchema.safeParse(args);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid console detail request" };
+      }
+      const session = getBrowserSession(
+        parsed.data.workspaceId,
+        parsed.data.lensSessionId,
+      );
+      if (!session) return { ok: false, message: "No browser session" };
+      const detail = getLensConsoleEntryDetail(
+        session.webContentsId,
+        parsed.data.entryId,
+      );
+      return detail
+        ? { ok: true, detail }
+        : { ok: false, message: "Console detail is no longer available" };
+    },
+  );
+
+  ipcMain.handle(
+    "lens:get-console-object-properties",
+    async (_event, args: unknown) => {
+      const parsed = LensConsoleObjectPropertiesArgsSchema.safeParse(args);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid object inspector request" };
+      }
+      const session = getBrowserSession(
+        parsed.data.workspaceId,
+        parsed.data.lensSessionId,
+      );
+      if (!session) return { ok: false, message: "No browser session" };
+      try {
+        const properties = await getLensConsoleObjectProperties({
+          webContentsId: session.webContentsId,
+          entryId: parsed.data.entryId,
+          objectHandle: parsed.data.objectHandle,
+          limit: parsed.data.limit ?? 100,
+        });
+        return properties
+          ? { ok: true, properties }
+          : { ok: false, message: "Object preview is no longer available" };
+      } catch (error) {
+        return {
+          ok: false,
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
     },
   );
 
   // ---- Network log ----
-  ipcMain.handle(
-    "lens:get-network-log",
-    async (
-      _event,
-      args: { workspaceId: string; lensSessionId?: string; limit?: number },
-    ) => {
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
+  ipcMain.handle("lens:get-network-log", async (_event, args: unknown) => {
+    const parsed = LensLogQueryArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, entries: [], message: "Invalid log request" };
+    }
+    const session = getBrowserSession(
+      parsed.data.workspaceId,
+      parsed.data.lensSessionId,
+    );
+    if (!session) return { ok: false, message: "No browser session" };
 
-      const entries = session.networkLog.toArray();
-      const limit = args.limit ?? 50;
-      return { ok: true, entries: entries.slice(-limit) };
+    const entries = session.networkLog.toArray();
+    const limit = parsed.data.limit ?? 50;
+    return { ok: true, entries: entries.slice(-limit) };
+  });
+
+  ipcMain.handle("lens:clear-network-log", async (_event, args: unknown) => {
+    const parsed = LensLogClearArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid log request" };
+    }
+    const cleared = clearBrowserSessionLog(
+      parsed.data.workspaceId,
+      "network",
+      parsed.data.lensSessionId,
+    );
+    return {
+      ok: cleared,
+      message: cleared ? undefined : "No browser session",
+    };
+  });
+
+  ipcMain.handle(
+    "lens:get-network-entry-detail",
+    async (_event, args: unknown) => {
+      const parsed = LensNetworkEntryDetailArgsSchema.safeParse(args);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid network detail request" };
+      }
+      const session = getBrowserSession(
+        parsed.data.workspaceId,
+        parsed.data.lensSessionId,
+      );
+      if (!session) return { ok: false, message: "No browser session" };
+      const detail = getLensNetworkEntryDetail(
+        session.webContentsId,
+        parsed.data.entryId,
+      );
+      return detail
+        ? { ok: true, detail }
+        : { ok: false, message: "Network detail is no longer available" };
+    },
+  );
+
+  ipcMain.handle("lens:get-network-body", async (_event, args: unknown) => {
+    const parsed = LensNetworkBodyArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid network body request" };
+    }
+    const session = getBrowserSession(
+      parsed.data.workspaceId,
+      parsed.data.lensSessionId,
+    );
+    if (!session) return { ok: false, message: "No browser session" };
+    const body = getLensNetworkBody(
+      session.webContentsId,
+      parsed.data.entryId,
+      parsed.data.kind,
+    );
+    return body
+      ? { ok: true, body }
+      : { ok: false, message: "Network body is no longer available" };
+  });
+
+  ipcMain.handle(
+    "lens:get-diagnostics-capture-state",
+    async (_event, args: unknown) => {
+      const parsed = LensLogClearArgsSchema.safeParse(args);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid diagnostics request" };
+      }
+      const session = getBrowserSession(
+        parsed.data.workspaceId,
+        parsed.data.lensSessionId,
+      );
+      if (!session) return { ok: false, message: "No browser session" };
+      return {
+        ok: true,
+        state: getLensCdpDiagnosticsState(session.webContentsId),
+      };
+    },
+  );
+
+  ipcMain.handle(
+    "lens:set-diagnostics-capture",
+    async (_event, args: unknown) => {
+      const parsed = LensDiagnosticsCaptureArgsSchema.safeParse(args);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid diagnostics request" };
+      }
+      const session = getBrowserSession(
+        parsed.data.workspaceId,
+        parsed.data.lensSessionId,
+      );
+      if (!session) return { ok: false, message: "No browser session" };
+      if (!parsed.data.enabled) {
+        return {
+          ok: true,
+          state: stopLensCdpDiagnostics(session.webContentsId, true, true),
+        };
+      }
+
+      try {
+        await assertCdpAllowedForWebContentsId(
+          session.webContentsId,
+          "capture full Lens diagnostics",
+        );
+        const state = await startLensCdpDiagnostics({
+          webContentsId: session.webContentsId,
+          workspaceId: session.workspaceId,
+          lensSessionId: session.lensSessionId,
+          url: session.view.webContents.getURL(),
+          onConsoleEntry: (entry) =>
+            pushConsoleEntry(session.workspaceId, entry, session.lensSessionId),
+          onNetworkEntry: (entry) =>
+            pushNetworkEntry(session.workspaceId, entry, session.lensSessionId),
+          shouldIgnoreConsoleText: (text) => {
+            const prefix = session.annotationNonce
+              ? `__STAVE_ANN__${session.annotationNonce}`
+              : null;
+            return Boolean(prefix && text.startsWith(prefix));
+          },
+        });
+        return {
+          ok: state.enabled,
+          state,
+          message: state.message,
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          state: { enabled: false },
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
     },
   );
 
@@ -988,7 +1209,6 @@ export function registerBrowserHandlers() {
           "attach CDP debugger",
         );
         ensureDebuggerAttached(session.view.webContents.id);
-        session.debuggerAttached = true;
         return { ok: true };
       } catch (err) {
         return {
@@ -1006,8 +1226,7 @@ export function registerBrowserHandlers() {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
-      detachDebugger(session.view.webContents.id);
-      session.debuggerAttached = false;
+      stopLensCdpDiagnostics(session.view.webContents.id, true);
       return { ok: true };
     },
   );

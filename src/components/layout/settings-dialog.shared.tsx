@@ -1,15 +1,20 @@
 import {
+  createContext,
   memo,
+  useContext,
   useEffect,
+  useId,
   useState,
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
+import { Radio } from "@base-ui/react/radio";
+import { RadioGroup } from "@base-ui/react/radio-group";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { Check, CircleHelp } from "lucide-react";
 import {
   Badge,
   Button,
-  Card,
   Input,
   Popover,
   PopoverContent,
@@ -23,23 +28,21 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import {
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Toggle } from "@/components/ui/toggle";
 import type {
   ToolingStatusState,
   WorkspaceSyncStatus,
 } from "@/lib/tooling-status";
 import { cn } from "@/lib/utils";
+
+const SettingsControlLabelContext = createContext<string | null>(null);
+const TOGGLE_ALL_VALUE = "__stave_toggle_all__";
 
 export function readInt(value: string, fallback: number) {
   const parsed = Number.parseInt(value, 10);
@@ -95,19 +98,8 @@ export function InfoRow(args: {
   );
 }
 
-export function SectionHeading(args: { title: string; description: string }) {
-  return (
-    <div className="mb-4 border-b border-border/70 pb-3">
-      <h3 className="text-xl font-semibold tracking-tight">{args.title}</h3>
-      <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-        {args.description}
-      </p>
-    </div>
-  );
-}
-
 export function SectionStack(args: { children: ReactNode }) {
-  return <section className="flex flex-col gap-4">{args.children}</section>;
+  return <section className="flex flex-col">{args.children}</section>;
 }
 
 export function SettingsCard(args: {
@@ -117,25 +109,35 @@ export function SettingsCard(args: {
   className?: string;
   titleAccessory?: ReactNode;
 }) {
+  const titleId = useId();
+
   return (
-    <Card
-      size="sm"
+    <section
       className={cn(
-        "overflow-hidden rounded-lg border-border/80 bg-card/70 shadow-xs",
+        "border-t border-border/65 py-7 first:border-t-0 first:pt-0 last:border-b",
         args.className,
       )}
     >
-      <CardHeader className="border-b border-border/60 bg-muted/15">
+      <header>
         <div className="flex items-start justify-between gap-3">
-          <CardTitle className="text-[15px]">{args.title}</CardTitle>
+          <h3
+            id={titleId}
+            className="text-base font-semibold tracking-[-0.015em] text-foreground"
+          >
+            {args.title}
+          </h3>
           {args.titleAccessory}
         </div>
         {args.description ? (
-          <CardDescription>{args.description}</CardDescription>
+          <p className="mt-1.5 max-w-4xl text-sm leading-6 text-muted-foreground">
+            {args.description}
+          </p>
         ) : null}
-      </CardHeader>
-      <CardContent className="space-y-3.5">{args.children}</CardContent>
-    </Card>
+      </header>
+      <SettingsControlLabelContext.Provider value={titleId}>
+        <div className="mt-5 space-y-5">{args.children}</div>
+      </SettingsControlLabelContext.Provider>
+    </section>
   );
 }
 
@@ -144,55 +146,47 @@ export function ChoiceButtons<T extends string>(args: {
   onChange: (value: T) => void;
   columns?: 2 | 3;
   options: Array<{ value: T; label: string; description?: string }>;
+  "aria-label"?: string;
 }) {
   const hasDescriptions = args.options.some((option) => option.description);
-  if (!hasDescriptions) {
-    return (
-      <div className="inline-flex max-w-full flex-wrap rounded-md border border-border/80 bg-muted/30 p-0.5">
-        {args.options.map((option) => (
-          <Button
-            key={option.value}
-            className="h-8 rounded-[5px] px-3 text-xs"
-            variant={args.value === option.value ? "default" : "ghost"}
-            onClick={() => args.onChange(option.value)}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
-    );
-  }
+  const labelledBy = useContext(SettingsControlLabelContext);
 
   return (
-    <div
+    <RadioGroup
+      value={args.value}
+      onValueChange={(value: T) => args.onChange(value)}
+      aria-labelledby={labelledBy ?? undefined}
+      aria-label={labelledBy ? undefined : (args["aria-label"] ?? "Setting")}
       className={cn(
-        "grid gap-2",
-        args.columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2",
+        hasDescriptions
+          ? "grid gap-2"
+          : "inline-flex max-w-full flex-wrap rounded-md border border-border/80 bg-muted/30 p-0.5",
+        hasDescriptions &&
+          (args.columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"),
       )}
     >
       {args.options.map((option) => (
-        <Button
+        <Radio.Root
           key={option.value}
+          value={option.value}
           className={cn(
-            "rounded-md",
+            "inline-flex shrink-0 cursor-default items-center justify-center rounded-md border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 outline-none select-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/35 active:translate-y-px data-checked:bg-primary data-checked:text-primary-foreground data-checked:shadow-[inset_0_1px_0_color-mix(in_oklch,var(--primary-foreground)_18%,transparent),0_1px_2px_oklch(0_0_0/0.14)] data-disabled:pointer-events-none data-disabled:opacity-45",
             hasDescriptions
-              ? "h-auto min-h-12 items-start justify-start whitespace-normal px-3 py-2 text-left"
-              : "h-9",
+              ? "h-auto min-h-14 items-start justify-start border-border/85 bg-background/55 px-4 py-3 text-left whitespace-normal data-unchecked:hover:border-primary/35 data-unchecked:hover:bg-accent/45"
+              : "h-9 rounded-[5px] px-3.5 text-[13px] data-unchecked:text-muted-foreground data-unchecked:hover:bg-accent/55 data-unchecked:hover:text-accent-foreground",
           )}
-          variant={args.value === option.value ? "default" : "outline"}
-          onClick={() => args.onChange(option.value)}
         >
           {option.description ? (
             <div className="space-y-1">
-              <p className="text-sm font-medium">{option.label}</p>
-              <p className="text-xs opacity-80">{option.description}</p>
+              <p className="text-[15px] font-medium">{option.label}</p>
+              <p className="text-sm opacity-75">{option.description}</p>
             </div>
           ) : (
             option.label
           )}
-        </Button>
+        </Radio.Root>
       ))}
-    </div>
+    </RadioGroup>
   );
 }
 
@@ -208,34 +202,57 @@ export function ToggleChipGroup<T extends string>(args: {
   onToggle: (value: T) => void;
   allLabel?: string;
   onSelectAll?: () => void;
+  "aria-label"?: string;
 }) {
+  const labelledBy = useContext(SettingsControlLabelContext);
+  const groupValue: string[] =
+    args.allLabel && args.onSelectAll && args.selected.length === 0
+      ? [TOGGLE_ALL_VALUE]
+      : [...args.selected];
+
+  const handleValueChange = (nextValue: string[]) => {
+    const changedValue =
+      nextValue.find((value) => !groupValue.includes(value)) ??
+      groupValue.find((value) => !nextValue.includes(value));
+
+    if (!changedValue) {
+      return;
+    }
+    if (changedValue === TOGGLE_ALL_VALUE) {
+      args.onSelectAll?.();
+      return;
+    }
+    args.onToggle(changedValue as T);
+  };
+
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <ToggleGroup
+      multiple
+      value={groupValue}
+      onValueChange={handleValueChange}
+      aria-labelledby={labelledBy ?? undefined}
+      aria-label={labelledBy ? undefined : (args["aria-label"] ?? "Settings")}
+      className="flex flex-wrap gap-1.5"
+    >
       {args.allLabel && args.onSelectAll ? (
-        <Button
-          type="button"
-          variant={args.selected.length === 0 ? "default" : "outline"}
-          size="sm"
-          className="h-7 rounded-full px-3 text-xs"
-          onClick={args.onSelectAll}
+        <Toggle
+          value={TOGGLE_ALL_VALUE}
+          className="h-8 rounded-full border border-border/85 bg-background/55 px-3.5 text-[13px] text-foreground aria-pressed:border-transparent aria-pressed:bg-primary aria-pressed:text-primary-foreground"
         >
           {args.allLabel}
-        </Button>
+        </Toggle>
       ) : null}
       {args.options.map((option) => {
         const active = args.selected.includes(option.value);
         const chip = (
-          <Button
+          <Toggle
             key={option.value}
-            type="button"
-            variant={active ? "default" : "outline"}
-            size="sm"
-            className="h-7 gap-1 rounded-full px-3 text-xs"
-            onClick={() => args.onToggle(option.value)}
+            value={option.value}
+            className="h-8 gap-1 rounded-full border border-border/85 bg-background/55 px-3.5 text-[13px] text-foreground aria-pressed:border-transparent aria-pressed:bg-primary aria-pressed:text-primary-foreground"
           >
             {active ? <Check className="size-3" /> : null}
             <span className="max-w-40 truncate">{option.label}</span>
-          </Button>
+          </Toggle>
         );
 
         if (!option.description) {
@@ -244,14 +261,14 @@ export function ToggleChipGroup<T extends string>(args: {
 
         return (
           <Tooltip key={option.value}>
-            <TooltipTrigger asChild>{chip}</TooltipTrigger>
+            <TooltipTrigger render={chip}></TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-64 text-xs">
               {option.description}
             </TooltipContent>
           </Tooltip>
         );
       })}
-    </div>
+    </ToggleGroup>
   );
 }
 
@@ -262,25 +279,33 @@ export function LabeledField(args: {
   guide?: ReactNode;
   layout?: "stacked" | "inline";
 }) {
+  const titleId = useId();
+
   return (
     <div
       className={cn(
-        "gap-3",
+        "gap-5",
         args.layout === "stacked"
-          ? "space-y-1.5"
-          : "grid items-start sm:grid-cols-[minmax(12rem,0.9fr)_minmax(0,1.2fr)]",
+          ? "space-y-2"
+          : "grid items-start sm:grid-cols-[minmax(15rem,0.85fr)_minmax(20rem,1.15fr)]",
       )}
     >
       <div className="min-w-0 space-y-1">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium">{args.title}</p>
+          <p id={titleId} className="text-[15px] font-medium">
+            {args.title}
+          </p>
           {args.guide}
         </div>
         {args.description ? (
-          <p className="text-sm text-muted-foreground">{args.description}</p>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {args.description}
+          </p>
         ) : null}
       </div>
-      <div className="min-w-0">{args.children}</div>
+      <SettingsControlLabelContext.Provider value={titleId}>
+        <div className="min-w-0">{args.children}</div>
+      </SettingsControlLabelContext.Provider>
     </div>
   );
 }
@@ -292,21 +317,34 @@ export function SwitchField(args: {
   onCheckedChange: (checked: boolean) => void;
   guide?: ReactNode;
 }) {
+  const titleId = useId();
+  const descriptionId = useId();
+
   return (
-    <div className="flex items-start justify-between gap-3">
+    <div className="grid min-h-10 items-start gap-5 sm:grid-cols-[minmax(15rem,0.85fr)_minmax(20rem,1.15fr)]">
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium">{args.title}</p>
+          <p id={titleId} className="text-[15px] font-medium">
+            {args.title}
+          </p>
           {args.guide}
         </div>
         {args.description ? (
-          <p className="text-sm text-muted-foreground">{args.description}</p>
+          <p
+            id={descriptionId}
+            className="text-sm leading-6 text-muted-foreground"
+          >
+            {args.description}
+          </p>
         ) : null}
       </div>
       <Switch
+        size="lg"
         checked={args.checked}
         onCheckedChange={args.onCheckedChange}
-        className="mt-0.5 shrink-0"
+        aria-labelledby={titleId}
+        aria-describedby={args.description ? descriptionId : undefined}
+        className="mt-0.5 shrink-0 justify-self-start"
       />
     </div>
   );
@@ -333,7 +371,7 @@ export function SelectField<T extends string>(args: {
         disabled={args.disabled}
         onValueChange={(value) => args.onChange(value as T)}
       >
-        <SelectTrigger className="h-9 w-full rounded-md border-border/80 bg-background">
+        <SelectTrigger className="h-10 w-full rounded-md border-border/75 bg-background text-sm">
           <SelectValue placeholder={args.placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -375,20 +413,20 @@ export function SettingsFieldGuide(args: {
   return (
     <Popover>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex">
-            <PopoverTrigger asChild>
+        <TooltipTrigger render={<span className="inline-flex" />}>
+          <PopoverTrigger
+            render={
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-xs"
                 className="text-muted-foreground hover:text-foreground"
                 aria-label={args.tooltip ?? `About ${args.title}`}
-              >
-                <CircleHelp className="size-3.5" />
-              </Button>
-            </PopoverTrigger>
-          </span>
+              />
+            }
+          >
+            <CircleHelp className="size-3.5" />
+          </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side={args.side ?? "top"}>
           {args.tooltip ?? "Show guidance"}

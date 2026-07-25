@@ -165,19 +165,18 @@ describe("PromptInput queue mode", () => {
     const buttonMarkup = getLocalReviewButtonMarkup(html);
 
     expect(html).toContain('aria-label="Review local changes"');
-    expect(html).toContain(">Review changes</span>");
-    expect(html).toContain(">Claude</span>");
+    expect(buttonMarkup).toContain(">Review</span>");
     expect(buttonMarkup).toBeTruthy();
     expect(buttonMarkup).toContain('data-variant="ghost"');
     expect(buttonMarkup).toContain("text-muted-foreground");
     expect(buttonMarkup).toContain("hover:bg-secondary/30");
-    expect(buttonMarkup).toContain("<img");
+    expect(buttonMarkup).not.toContain("<img");
     expect(html.indexOf('aria-label="Review local changes"')).toBeLessThan(
       html.indexOf('aria-label="Attach files"'),
     );
   });
 
-  test("renders a leading toolbar action before the local review CTA", async () => {
+  test("renders review before the action placed ahead of Runtime", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
@@ -194,7 +193,14 @@ describe("PromptInput queue mode", () => {
           attachedFilePaths: [],
           reviewModelOptions: [CLAUDE_MODEL_OPTION, MODEL_OPTION],
           preferredReviewModelKey: CLAUDE_MODEL_OPTION.key,
-          leadingToolbarAction: createElement(
+          runtimeStatusItems: [
+            {
+              id: "sandbox",
+              label: "Sandbox",
+              value: "workspace-write",
+            },
+          ],
+          beforeRuntimeAction: createElement(
             "button",
             { type: "button", "aria-label": "Open Tools" },
             "Tools",
@@ -208,8 +214,11 @@ describe("PromptInput queue mode", () => {
       ),
     );
 
+    expect(html.indexOf('aria-label="Review local changes"')).toBeLessThan(
+      html.indexOf('aria-label="Open Tools"'),
+    );
     expect(html.indexOf('aria-label="Open Tools"')).toBeLessThan(
-      html.indexOf('aria-label="Review local changes"'),
+      html.indexOf('aria-label="Runtime · Safe"'),
     );
   });
 
@@ -461,15 +470,14 @@ describe("PromptInput queue mode", () => {
     );
 
     // The single primary button mirrors Enter, which defaults to queue.
-    // There is no separate floating secondary button anymore — Tab's
-    // opposite action (steer) is only surfaced in the button's tooltip,
-    // which Radix doesn't render into static markup; the placeholder copy
-    // (rendered unconditionally behind the editor) reflects the same intent.
+    // There is no separate floating secondary button anymore. The placeholder
+    // uses the same shortcut label as Settings so both available actions stay
+    // visible without duplicating the key mapping here.
     expect(html).toContain('aria-label="Queue next turn"');
     expect(html).not.toContain('aria-label="Adjust current work"');
     expect(html).not.toContain("Adjust current work");
-    expect(html).not.toContain("Enter to queue, Tab to steer");
-    expect(html).toContain("Queue a follow-up… (↵)");
+    expect(html).toContain("Enter queues, Tab steers");
+    expect(html).not.toContain("Queue a follow-up");
   });
 
   test("respects steerQueueEnterAction=steer during a steerable active turn", async () => {
@@ -501,12 +509,13 @@ describe("PromptInput queue mode", () => {
     );
 
     // The single primary button mirrors Enter (steer) when configured that
-    // way; the old dedicated "Queue next" secondary button is gone.
+    // way; the placeholder follows the same setting and keeps Tab's queue
+    // action visible.
     expect(html).toContain('aria-label="Steer this turn"');
     expect(html).not.toContain('aria-label="Queue next"');
     expect(html).not.toContain(">Queue next</span>");
-    expect(html).not.toContain("Enter to steer, Tab to queue");
-    expect(html).toContain("Steer this turn… (↵)");
+    expect(html).toContain("Enter steers, Tab queues");
+    expect(html).not.toContain("Steer this turn… (↵)");
   });
 
   test("renders comments and lens annotation gadgets outside the textarea", async () => {
@@ -632,7 +641,7 @@ describe("PromptInput queue mode", () => {
     expect(html.match(/alt="Visual comment 1"/g)?.length ?? 0).toBe(1);
   });
 
-  test("renders the runtime drawer trigger as an icon-only button", async () => {
+  test("renders the runtime profile trigger with its effective state", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
@@ -647,7 +656,14 @@ describe("PromptInput queue mode", () => {
           selectedModel: MODEL_OPTION,
           modelOptions: [MODEL_OPTION],
           attachedFilePaths: [],
-          runtimeStatusItems: [{ id: "mode", label: "Mode", value: "Plan" }],
+          runtimeStatusItems: [
+            {
+              id: "plan-mode",
+              label: "Planning",
+              value: "On",
+              tone: "warning",
+            },
+          ],
           onValueChange: () => {},
           onModelSelect: () => {},
           onAttachFilesChange: () => {},
@@ -656,7 +672,8 @@ describe("PromptInput queue mode", () => {
       ),
     );
 
-    expect(html).toContain('aria-label="Current Runtime"');
+    expect(html).toContain('aria-label="Runtime · Custom"');
+    expect(html).toContain("Runtime profile: Custom");
     expect(html).not.toContain(">Runtime</span>");
   });
 

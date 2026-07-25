@@ -68,6 +68,17 @@ import type {
   LensCredentialUpsertInput,
 } from "@/lib/lens/lens-credentials";
 import type {
+  BrowserConsoleEntry as LensConsoleEntry,
+  BrowserConsoleEntryDetail,
+  BrowserConsoleEventPayload as LensConsoleEventPayload,
+  BrowserConsoleObjectProperties,
+  BrowserNetworkBody,
+  BrowserNetworkEntry as LensNetworkEntry,
+  BrowserNetworkEntryDetail,
+  BrowserNetworkEventPayload as LensNetworkEventPayload,
+  LensDiagnosticsCaptureState,
+} from "@/lib/lens/lens.types";
+import type {
   SyncOriginMainResult,
   ToolingStatusRequest,
   ToolingStatusSnapshot,
@@ -1474,11 +1485,23 @@ interface WindowPersistenceApi {
     inserted: boolean;
     notification: AppNotification | null;
   }>;
-  markNotificationRead?: (args: { id: string; readAt?: string }) => Promise<{
+  markNotificationRead?: (args: {
+    id: string;
+    readAt?: string;
+    resolvedAt?: string;
+  }) => Promise<{
     ok: boolean;
     notification: AppNotification | null;
   }>;
   markAllNotificationsRead?: (args?: { readAt?: string }) => Promise<{
+    ok: boolean;
+    count: number;
+  }>;
+  pruneNotifications?: (args?: { now?: string }) => Promise<{
+    ok: boolean;
+    count: number;
+  }>;
+  clearNotificationHistory?: () => Promise<{
     ok: boolean;
     count: number;
   }>;
@@ -1644,36 +1667,6 @@ interface LensSessionDescriptor {
   isLoading: boolean;
   managedByMcp: boolean;
   sessionScope: LensSessionScope;
-}
-
-interface LensConsoleEntry {
-  level: "log" | "warn" | "error" | "info" | "debug";
-  text: string;
-  timestamp: string;
-  source?: string;
-  lineNumber?: number;
-}
-
-interface LensConsoleEventPayload {
-  workspaceId: string;
-  lensSessionId?: string;
-  entry: LensConsoleEntry;
-}
-
-interface LensNetworkEntry {
-  requestId: string;
-  url: string;
-  method: string;
-  status?: number;
-  mimeType?: string;
-  responseSize?: number;
-  timestamp: string;
-}
-
-interface LensNetworkEventPayload {
-  workspaceId: string;
-  lensSessionId?: string;
-  entry: LensNetworkEntry;
 }
 
 interface LensSecurityConfig {
@@ -1948,6 +1941,30 @@ interface WindowLensApi {
     entries?: LensConsoleEntry[];
     message?: string;
   }>;
+  clearConsoleLog?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  getConsoleEntryDetail?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+    entryId: string;
+  }) => Promise<{
+    ok: boolean;
+    detail?: BrowserConsoleEntryDetail;
+    message?: string;
+  }>;
+  getConsoleObjectProperties?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+    entryId: string;
+    objectHandle: string;
+    limit?: number;
+  }) => Promise<{
+    ok: boolean;
+    properties?: BrowserConsoleObjectProperties;
+    message?: string;
+  }>;
   getNetworkLog?: (args: {
     workspaceId: string;
     lensSessionId?: string;
@@ -1955,6 +1972,46 @@ interface WindowLensApi {
   }) => Promise<{
     ok: boolean;
     entries?: LensNetworkEntry[];
+    message?: string;
+  }>;
+  clearNetworkLog?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  getNetworkEntryDetail?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+    entryId: string;
+  }) => Promise<{
+    ok: boolean;
+    detail?: BrowserNetworkEntryDetail;
+    message?: string;
+  }>;
+  getNetworkBody?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+    entryId: string;
+    kind: "request" | "response";
+  }) => Promise<{
+    ok: boolean;
+    body?: BrowserNetworkBody;
+    message?: string;
+  }>;
+  getDiagnosticsCaptureState?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{
+    ok: boolean;
+    state?: LensDiagnosticsCaptureState;
+    message?: string;
+  }>;
+  setDiagnosticsCapture?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+    enabled: boolean;
+  }) => Promise<{
+    ok: boolean;
+    state?: LensDiagnosticsCaptureState;
     message?: string;
   }>;
   startElementPicker?: (args: {

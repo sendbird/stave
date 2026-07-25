@@ -22,7 +22,11 @@ import type { ChatMessage, PromptDraft } from "@/types/chat";
 const COMPLETION_LINGER_MS = 2000;
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
-const EMPTY_PROMPT_DRAFT: PromptDraft = { text: "", attachedFilePaths: [], attachments: [] };
+const EMPTY_PROMPT_DRAFT: PromptDraft = {
+  text: "",
+  attachedFilePaths: [],
+  attachments: [],
+};
 
 export function TodoFloater() {
   const taskId = useScopedTaskId();
@@ -34,7 +38,7 @@ export function TodoFloater() {
     claudePermissionModeBeforePlan,
     codexPlanMode,
     messages,
-    isTurnActive,
+    activeTurnId,
   ] = useAppStore(
     useShallow((state) => {
       return [
@@ -45,10 +49,11 @@ export function TodoFloater() {
         state.settings.claudePermissionModeBeforePlan,
         state.settings.codexPlanMode,
         state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
-        Boolean(state.activeTurnIdsByTask[taskId]),
+        state.activeTurnIdsByTask[taskId] ?? null,
       ] as const;
     }),
   );
+  const isTurnActive = Boolean(activeTurnId);
   const activeProvider = activeTask?.provider ?? draftProvider;
   const taskRuntimeState = resolvePromptDraftRuntimeState({
     promptDraft,
@@ -59,12 +64,20 @@ export function TodoFloater() {
     },
   });
 
-  const todoPart = useMemo(() => findLatestTodoPart(messages), [messages]);
+  const todoPart = useMemo(
+    () => findLatestTodoPart(messages, activeTurnId),
+    [activeTurnId, messages],
+  );
   const lastMessage = messages.at(-1) ?? null;
   const latestPlanMessage = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const message = messages[i];
-      if (message && message.role === "assistant" && message.isPlanResponse && message.planText?.trim()) {
+      if (
+        message &&
+        message.role === "assistant" &&
+        message.isPlanResponse &&
+        message.planText?.trim()
+      ) {
         return message;
       }
     }
@@ -87,7 +100,10 @@ export function TodoFloater() {
 
   const displayTodos = useMemo<TodoItem[]>(() => {
     if (!todoPart) return [];
-    return deriveTodoTraceItems({ input: todoPart.input, state: todoPart.state });
+    return deriveTodoTraceItems({
+      input: todoPart.input,
+      state: todoPart.state,
+    });
   }, [todoPart]);
 
   // ── Visibility logic ──────────────────────────────────────────────
@@ -160,7 +176,9 @@ export function TodoFloater() {
         SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
         // Anchor todo progress in the same session-edge slot the plan viewer uses.
         "transition-opacity duration-300",
-        lingering ? "opacity-50" : "opacity-100 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2",
+        lingering
+          ? "opacity-50"
+          : "opacity-100 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2",
       )}
       style={{
         right: rightOffset,

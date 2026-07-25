@@ -1,5 +1,66 @@
 import { describe, expect, test } from "bun:test";
-import { openOrbitUrlWithLensPriority } from "../src/components/layout/workspace-scripts-panel.utils";
+import {
+  openOrbitUrlWithLensPriority,
+  partitionAutomationRuntimeEntries,
+} from "../src/components/layout/workspace-scripts-panel.utils";
+import type { ResolvedWorkspaceScript } from "../src/lib/workspace-scripts/types";
+
+const actionEntry: ResolvedWorkspaceScript = {
+  id: "lint",
+  kind: "action",
+  label: "Lint",
+  description: "",
+  commands: ["bun run lint"],
+  targetId: "workspace",
+  target: {
+    id: "workspace",
+    label: "Workspace",
+    cwd: "workspace",
+    env: {},
+  },
+  source: "script",
+};
+
+const serviceEntry: ResolvedWorkspaceScript = {
+  ...actionEntry,
+  id: "dev",
+  kind: "service",
+  label: "Dev",
+};
+
+describe("workspace automation runtime views", () => {
+  test("separates live runs from recent activity and orders newest first", () => {
+    const entries = [
+      actionEntry,
+      serviceEntry,
+      { ...actionEntry, id: "test", label: "Test" },
+    ];
+    const result = partitionAutomationRuntimeEntries(entries, {
+      "service:dev": {
+        running: true,
+        log: "ready",
+        startedAt: 300,
+      },
+      "action:lint": {
+        running: true,
+        log: "checking",
+        startedAt: 350,
+      },
+      "action:test": {
+        running: false,
+        log: "",
+        endedAt: 200,
+        exitCode: 1,
+      },
+    });
+
+    expect(result.running.map(({ entry }) => entry.id)).toEqual(["dev"]);
+    expect(result.activity.map(({ entry }) => entry.id)).toEqual([
+      "lint",
+      "test",
+    ]);
+  });
+});
 
 describe("workspace scripts panel Lens/Orbit helpers", () => {
   test("opens Orbit URLs in a lens tab before the external browser", async () => {
@@ -24,7 +85,8 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
         },
       },
       resolveLensSessionId: () => "lens-1",
-      focusLensSurface: (lensSessionId) => focusedLensSessions.push(lensSessionId),
+      focusLensSurface: (lensSessionId) =>
+        focusedLensSessions.push(lensSessionId),
       openExternalUrl: (url) => externalUrls.push(url),
     });
 
@@ -109,7 +171,8 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
       lensSessionScope: "project",
       lensApi: null,
       resolveLensSessionId: () => "lens-1",
-      focusLensSurface: (lensSessionId) => focusedLensSessions.push(lensSessionId),
+      focusLensSurface: (lensSessionId) =>
+        focusedLensSessions.push(lensSessionId),
       openExternalUrl: (url) => externalUrls.push(url),
     });
 

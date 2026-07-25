@@ -71,17 +71,19 @@ export function EditorSurfaceToolbar(args: {
     >
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-              <FileCode2 className={PANEL_HEADER_ICON_CLASS} />
-              <span className="truncate">{args.tab.filePath}</span>
-              {args.tab.isDirty ? (
-                <span
-                  className="size-1.5 shrink-0 rounded-full bg-success"
-                  aria-hidden="true"
-                />
-              ) : null}
-            </p>
+          <TooltipTrigger
+            render={
+              <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground" />
+            }
+          >
+            <FileCode2 className={PANEL_HEADER_ICON_CLASS} />
+            <span className="truncate">{args.tab.filePath}</span>
+            {args.tab.isDirty ? (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-success"
+                aria-hidden="true"
+              />
+            ) : null}
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-sm break-all">
             {args.absolutePath}
@@ -89,38 +91,34 @@ export function EditorSurfaceToolbar(args: {
         </Tooltip>
         <div className="flex items-center gap-1.5">
           <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                  disabled={!args.tab.isDirty || args.tabIsImage}
-                  onClick={args.onSave}
-                >
-                  <Save className="size-4" />
-                </Button>
-              </span>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                disabled={!args.tab.isDirty || args.tabIsImage}
+                onClick={args.onSave}
+              >
+                <Save className="size-4" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Save (Ctrl S)</TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                  disabled={!args.tab.originalContent || args.tabIsImage}
-                  onClick={args.onToggleDiffMode}
-                >
-                  {args.diffMode ? (
-                    <PenLine className="size-4" />
-                  ) : (
-                    <Columns2 className="size-4" />
-                  )}
-                </Button>
-              </span>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                disabled={!args.tab.originalContent || args.tabIsImage}
+                onClick={args.onToggleDiffMode}
+              >
+                {args.diffMode ? (
+                  <PenLine className="size-4" />
+                ) : (
+                  <Columns2 className="size-4" />
+                )}
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               {args.diffMode ? "Back to Edit" : "View Diff"}
@@ -128,33 +126,31 @@ export function EditorSurfaceToolbar(args: {
           </Tooltip>
           {args.tabIsMarkdown ? (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={cn(
-                      "h-7 w-7 rounded-sm p-0 transition-colors",
-                      args.markdownPreviewMode
-                        ? "border-primary/40 bg-primary/10 text-primary ring-1 ring-primary/25 hover:bg-primary/20 hover:text-primary"
-                        : "text-muted-foreground",
-                    )}
-                    disabled={args.tabIsImage}
-                    onClick={args.onToggleMarkdownPreviewMode}
-                    aria-label={
-                      args.markdownPreviewMode
-                        ? "Show Markdown Source"
-                        : "Show Markdown Preview"
-                    }
-                    aria-pressed={args.markdownPreviewMode}
-                    data-testid="editor-markdown-preview-toggle"
-                  >
-                    <Eye
-                      className="size-4"
-                      strokeWidth={args.markdownPreviewMode ? 2.25 : 2}
-                    />
-                  </Button>
-                </span>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={cn(
+                    "h-7 w-7 rounded-sm p-0 transition-colors",
+                    args.markdownPreviewMode
+                      ? "border-primary/40 bg-primary/10 text-primary ring-1 ring-primary/25 hover:bg-primary/20 hover:text-primary"
+                      : "text-muted-foreground",
+                  )}
+                  disabled={args.tabIsImage}
+                  onClick={args.onToggleMarkdownPreviewMode}
+                  aria-label={
+                    args.markdownPreviewMode
+                      ? "Show Markdown Source"
+                      : "Show Markdown Preview"
+                  }
+                  aria-pressed={args.markdownPreviewMode}
+                  data-testid="editor-markdown-preview-toggle"
+                >
+                  <Eye
+                    className="size-4"
+                    strokeWidth={args.markdownPreviewMode ? 2.25 : 2}
+                  />
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 {args.markdownPreviewMode
@@ -166,38 +162,42 @@ export function EditorSurfaceToolbar(args: {
           {args.showDiffDisplayControls ? (
             <div className="flex items-center gap-0.5 rounded-md border border-border/80 bg-background/70 p-0.5">
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={cn(
-                      "h-6 w-6 rounded-sm p-0 text-muted-foreground",
-                      args.diffViewMode === "unified" &&
-                        "bg-secondary text-foreground",
-                    )}
-                    onClick={() => args.onChangeDiffViewMode("unified")}
-                    aria-label="Unified Diff"
-                  >
-                    <AlignJustify className="size-3.5" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={cn(
+                        "h-6 w-6 rounded-sm p-0 text-muted-foreground",
+                        args.diffViewMode === "unified" &&
+                          "bg-secondary text-foreground",
+                      )}
+                      onClick={() => args.onChangeDiffViewMode("unified")}
+                      aria-label="Unified Diff"
+                    />
+                  }
+                >
+                  <AlignJustify className="size-3.5" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Unified Diff</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={cn(
-                      "h-6 w-6 rounded-sm p-0 text-muted-foreground",
-                      args.diffViewMode === "split" &&
-                        "bg-secondary text-foreground",
-                    )}
-                    onClick={() => args.onChangeDiffViewMode("split")}
-                    aria-label="Split Diff"
-                  >
-                    <Columns2 className="size-3.5" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={cn(
+                        "h-6 w-6 rounded-sm p-0 text-muted-foreground",
+                        args.diffViewMode === "split" &&
+                          "bg-secondary text-foreground",
+                      )}
+                      onClick={() => args.onChangeDiffViewMode("split")}
+                      aria-label="Split Diff"
+                    />
+                  }
+                >
+                  <Columns2 className="size-3.5" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Split Diff</TooltipContent>
               </Tooltip>
@@ -206,45 +206,41 @@ export function EditorSurfaceToolbar(args: {
           {args.showDiffDisplayControls ? (
             <>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                      disabled={!args.canAddReviewComment}
-                      onClick={args.onAddReviewComment}
-                      aria-label="Add review comment"
-                    >
-                      <MessageSquarePlus className="size-4" />
-                    </Button>
-                  </span>
+                <TooltipTrigger render={<span className="inline-flex" />}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                    disabled={!args.canAddReviewComment}
+                    onClick={args.onAddReviewComment}
+                    aria-label="Add review comment"
+                  >
+                    <MessageSquarePlus className="size-4" />
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   Add review comment
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="relative h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                      disabled={!args.canSubmitReviewFeedback}
-                      onClick={args.onSubmitReviewFeedback}
-                      aria-label="Send review to agent"
-                    >
-                      <MessagesSquare className="size-4" />
-                      {args.reviewCommentCount > 0 ? (
-                        <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
-                          {args.reviewCommentCount > 9
-                            ? "9+"
-                            : args.reviewCommentCount}
-                        </span>
-                      ) : null}
-                    </Button>
-                  </span>
+                <TooltipTrigger render={<span className="inline-flex" />}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="relative h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                    disabled={!args.canSubmitReviewFeedback}
+                    onClick={args.onSubmitReviewFeedback}
+                    aria-label="Send review to agent"
+                  >
+                    <MessagesSquare className="size-4" />
+                    {args.reviewCommentCount > 0 ? (
+                      <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
+                        {args.reviewCommentCount > 9
+                          ? "9+"
+                          : args.reviewCommentCount}
+                      </span>
+                    ) : null}
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   Send review to agent
@@ -253,31 +249,31 @@ export function EditorSurfaceToolbar(args: {
             </>
           ) : null}
           <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                  disabled={args.sendToAgentDisabled}
-                  onClick={args.onSendToAgent}
-                >
-                  <Send className="size-4" />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Send to Agent</TooltipContent>
-          </Tooltip>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <TooltipTrigger render={<span className="inline-flex" />}>
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                aria-label="More editor tab actions"
+                disabled={args.sendToAgentDisabled}
+                onClick={args.onSendToAgent}
               >
-                <MoreHorizontal className="size-4" />
+                <Send className="size-4" />
               </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Send to Agent</TooltipContent>
+          </Tooltip>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                  aria-label="More editor tab actions"
+                />
+              }
+            >
+              <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => args.onBulkClose("others")}>

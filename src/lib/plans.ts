@@ -28,12 +28,16 @@ export function buildWorkspacePlanFilePath(args: {
   return `${WORKSPACE_PLANS_DIRECTORY}/${shortTaskId}_${timestamp}.md`;
 }
 
-export function parseWorkspacePlanFilePath(filePath: string): WorkspacePlanEntry {
+export function parseWorkspacePlanFilePath(
+  filePath: string,
+): WorkspacePlanEntry {
   const fileName = filePath.split("/").pop() ?? filePath;
   const nameWithoutExt = fileName.replace(/\.md$/, "");
   const [taskIdPrefix = "", ...timestampParts] = nameWithoutExt.split("_");
   const timestamp = timestampParts.join("_");
-  const label = timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, " $1:$2:$3") || nameWithoutExt;
+  const label =
+    timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, " $1:$2:$3") ||
+    nameWithoutExt;
 
   return {
     filePath,
@@ -90,15 +94,30 @@ export function extractPlanTodoItems(
 }
 
 export function isWorkspacePlanFilePath(filePath: string) {
-  return filePath.endsWith(".md")
-    && (
-      filePath.startsWith(`${WORKSPACE_PLANS_DIRECTORY}/`)
-      || filePath.startsWith(`${LEGACY_WORKSPACE_PLANS_DIRECTORY}/`)
-    );
+  const normalizedFilePath = filePath.replaceAll("\\", "/");
+  if (
+    !normalizedFilePath.endsWith(".md") ||
+    normalizedFilePath.split("/").includes("..")
+  ) {
+    return false;
+  }
+
+  const directoryPath = normalizedFilePath.slice(
+    0,
+    normalizedFilePath.lastIndexOf("/"),
+  );
+  return (
+    directoryPath === WORKSPACE_PLANS_DIRECTORY ||
+    directoryPath === LEGACY_WORKSPACE_PLANS_DIRECTORY
+  );
 }
 
-export function sortWorkspacePlansNewestFirst<T extends WorkspacePlanEntry>(entries: T[]) {
-  return [...entries].sort((left, right) => right.timestamp.localeCompare(left.timestamp));
+export function sortWorkspacePlansNewestFirst<T extends WorkspacePlanEntry>(
+  entries: T[],
+) {
+  return [...entries].sort((left, right) =>
+    right.timestamp.localeCompare(left.timestamp),
+  );
 }
 
 export function buildWorkspacePlanListEntries(args: {
@@ -159,18 +178,15 @@ export async function persistWorkspacePlanFile(args: {
     // other `ok: false` is a real failure and must not be silently papered
     // over the way the previous version did.
     if (
-      createResult
-      && createResult.ok === false
-      && !(
-        "alreadyExists" in createResult
-        && createResult.alreadyExists === true
-      )
+      createResult &&
+      createResult.ok === false &&
+      !("alreadyExists" in createResult && createResult.alreadyExists === true)
     ) {
       // eslint-disable-next-line no-console
-      console.warn(
-        "[plans] createDirectory failed while persisting plan",
-        { filePath, stderr: createResult.stderr },
-      );
+      console.warn("[plans] createDirectory failed while persisting plan", {
+        filePath,
+        stderr: createResult.stderr,
+      });
       return null;
     }
     const writeResult = await window.api?.fs?.writeFile?.({
@@ -180,16 +196,48 @@ export async function persistWorkspacePlanFile(args: {
     });
     if (writeResult && writeResult.ok === false) {
       // eslint-disable-next-line no-console
-      console.warn(
-        "[plans] writeFile failed while persisting plan",
-        { filePath, stderr: writeResult.stderr },
-      );
+      console.warn("[plans] writeFile failed while persisting plan", {
+        filePath,
+        stderr: writeResult.stderr,
+      });
       return null;
     }
     return filePath;
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.warn("[plans] IPC threw while persisting plan", { filePath, error });
+    console.warn("[plans] IPC threw while persisting plan", {
+      filePath,
+      error,
+    });
     return null;
+  }
+}
+
+export async function deleteWorkspacePlanFile(args: {
+  rootPath: string;
+  filePath: string;
+}): Promise<boolean> {
+  if (!isWorkspacePlanFilePath(args.filePath)) {
+    return false;
+  }
+
+  const deleteFile = window.api?.fs?.deleteFile;
+  if (!deleteFile) {
+    return false;
+  }
+
+  try {
+    const result = await deleteFile({
+      rootPath: args.rootPath,
+      filePath: args.filePath,
+    });
+    return result.ok;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn("[plans] IPC threw while deleting plan", {
+      filePath: args.filePath,
+      error,
+    });
+    return false;
   }
 }

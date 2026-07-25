@@ -92,12 +92,7 @@ const SYSTEM_PROMPT_DYNAMIC_BOUNDARY = "__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__";
 
 /** SDK-level permission modes accepted by the claude-agent-sdk query() API. */
 type ClaudePermissionMode =
-  | "default"
-  | "acceptEdits"
-  | "bypassPermissions"
-  | "plan"
-  | "dontAsk"
-  | "auto";
+  "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk" | "auto";
 
 const ClaudePermissionResultSchema = z.union([
   z.object({
@@ -777,7 +772,10 @@ export function shouldAutoAllowPlanModeScopedTool(args: {
   // Read-only third-party / lens MCP tools, only at the broadest scope. Stave
   // workspace MCP tools are already auto-allowed earlier, so this targets
   // external servers (github, slack, lens, …).
-  if (args.scope === "bashTaskAndMcp" && normalizedToolName.startsWith("mcp__")) {
+  if (
+    args.scope === "bashTaskAndMcp" &&
+    normalizedToolName.startsWith("mcp__")
+  ) {
     const leafToolName =
       normalizedToolName.split("__").at(-1) ?? normalizedToolName;
     return isReadOnlyMcpLeafToolName(leafToolName);
@@ -847,7 +845,7 @@ function buildClaudePlanModeDenyMessage(args: { toolName: string }) {
  */
 export const STAVE_TURN_BEHAVIOR_DIRECTIVE = [
   "Stave runtime constraints (read carefully):",
-  "- You run inside Stave, which drives you one turn at a time. After a turn ends you CANNOT send an unprompted follow-up message, and there is no channel to autonomously notify the user later. Never promise things like \"I'll let you know when this finishes\" or \"I'll continue automatically once the background task completes.\"",
+  '- You run inside Stave, which drives you one turn at a time. After a turn ends you CANNOT send an unprompted follow-up message, and there is no channel to autonomously notify the user later. Never promise things like "I\'ll let you know when this finishes" or "I\'ll continue automatically once the background task completes."',
   "- Do not end a turn while expecting to resume on your own. If work must continue, either keep doing it within the current turn or finish with a concrete recommendation the user can act on.",
   "- Background completion notifications (from background subagents, background shell tasks, or workflows) can only reach you while the current turn is still running. Never end a turn waiting to be notified about background work. Stave forces Agent tool calls to run in the foreground (run_in_background: false), so a subagent's result is always returned directly by its tool call — do not narrate plans like \"I'll proceed once the subagent notifies me\".",
   "- To ask a question that must block on the user's decision, use the AskUserQuestion tool so Stave can render a real answer control. A plain-text question at the end of a turn cannot receive an inline answer and will strand the user in a waiting state.",
@@ -1019,7 +1017,9 @@ function summarizeClaudePermissionRequest(args: {
     : `Claude requested permission to run ${args.toolName}.`;
 }
 
-export function parseClaudeQuestionList(args: { input: Record<string, unknown> }) {
+export function parseClaudeQuestionList(args: {
+  input: Record<string, unknown>;
+}) {
   const rawQuestions = args.input.questions;
   if (!Array.isArray(rawQuestions)) {
     return [];
@@ -1930,9 +1930,9 @@ function buildClaudeTaskProgressEvents(
 }
 
 // ── Subagent progress tracking ────────────────────────────────────────────────
-// Correlates task_progress SDK messages with their originating Agent tool_use_id
-// using hook metadata (agent_id) when available, falling back to the most recent
-// active Agent tool call.
+// Correlates task_progress SDK messages with their originating subagent
+// tool_use_id using hook metadata (agent_id) when available, falling back to
+// the most recent active built-in Agent or legacy Task tool call.
 
 function extractStringField(
   obj: Record<string, unknown> | null | undefined,
@@ -1951,28 +1951,45 @@ function isAgentToolName(name: string): boolean {
   return name.trim().toLowerCase() === "agent";
 }
 
+function isClaudeSubagentToolName(name: string): boolean {
+  const normalizedToolName = name.trim().toLowerCase();
+  return normalizedToolName === "agent" || normalizedToolName === "task";
+}
+
 export class SubagentProgressTracker {
   /** agent_id (from SDK hooks) → toolUseId (from tool events). */
   private readonly agentIdToToolUseId = new Map<string, string>();
-  /** Ordered list of Agent tool_use_ids that have not yet received a result. */
-  private readonly pendingAgentToolUseIds: string[] = [];
+  /** Ordered list of subagent tool_use_ids that have not received a result. */
+  private readonly pendingSubagentToolUseIds: string[] = [];
 
   /**
    * Call for every BridgeEvent that is about to be emitted so the tracker can
-   * record Agent tool starts and completions.
+   * record built-in Agent and legacy Task tool starts and completions.
    */
   trackEvent(event: BridgeEvent): void {
     if (
       event.type === "tool" &&
-      isAgentToolName(event.toolName) &&
+      isClaudeSubagentToolName(event.toolName) &&
       event.toolUseId
     ) {
-      this.pendingAgentToolUseIds.push(event.toolUseId);
+      if (!this.pendingSubagentToolUseIds.includes(event.toolUseId)) {
+        this.pendingSubagentToolUseIds.push(event.toolUseId);
+      }
     }
     if (event.type === "tool_result") {
-      const idx = this.pendingAgentToolUseIds.indexOf(event.tool_use_id);
-      if (idx !== -1) {
-        this.pendingAgentToolUseIds.splice(idx, 1);
+      for (
+        let index = this.pendingSubagentToolUseIds.length - 1;
+        index >= 0;
+        index -= 1
+      ) {
+        if (this.pendingSubagentToolUseIds[index] === event.tool_use_id) {
+          this.pendingSubagentToolUseIds.splice(index, 1);
+        }
+      }
+      for (const [agentId, toolUseId] of this.agentIdToToolUseId) {
+        if (toolUseId === event.tool_use_id) {
+          this.agentIdToToolUseId.delete(agentId);
+        }
       }
     }
   }
@@ -2008,13 +2025,13 @@ export class SubagentProgressTracker {
   }
 
   /**
-   * Given a raw task_progress SDK message, determine which Agent tool_use_id
+   * Given a raw task_progress SDK message, determine which subagent tool_use_id
    * the progress belongs to.
    *
    * Resolution order:
    *  1. Direct `tool_use_id` field on the progress message
    *  2. `agent_id` field mapped through hook metadata
-   *  3. Most recently started active Agent (positional heuristic)
+   *  3. Most recently started active Agent or Task (positional heuristic)
    */
   resolveToolUseId(
     progressMessage: Record<string, unknown>,
@@ -2022,7 +2039,7 @@ export class SubagentProgressTracker {
     const directToolUseId = extractStringField(progressMessage, "tool_use_id");
     if (
       directToolUseId &&
-      this.pendingAgentToolUseIds.includes(directToolUseId)
+      this.pendingSubagentToolUseIds.includes(directToolUseId)
     ) {
       return directToolUseId;
     }
@@ -2030,13 +2047,14 @@ export class SubagentProgressTracker {
     const agentId = extractStringField(progressMessage, "agent_id");
     if (agentId) {
       const mapped = this.agentIdToToolUseId.get(agentId);
-      if (mapped) {
+      if (mapped && this.pendingSubagentToolUseIds.includes(mapped)) {
         return mapped;
       }
+      this.agentIdToToolUseId.delete(agentId);
     }
 
-    // Fallback: last pending Agent tool_use_id
-    return this.pendingAgentToolUseIds.at(-1);
+    // Fallback: last pending Agent or legacy Task tool_use_id.
+    return this.pendingSubagentToolUseIds.at(-1);
   }
 }
 
@@ -2355,16 +2373,20 @@ export function mapClaudeMessageToEvents(args: {
       if (assistantMsg.error === "authentication_failed") {
         return [
           {
-            type: "text",
-            text: "Claude authentication failed. Run `claude auth login` and retry.",
+            type: "error",
+            message:
+              "Claude authentication failed. Run `claude auth login` and retry.",
+            recoverable: true,
           },
         ];
       }
       if (assistantMsg.error === "billing_error") {
         return [
           {
-            type: "text",
-            text: "Claude billing/subscription issue detected. Check plan/payment status and retry.",
+            type: "error",
+            message:
+              "Claude billing/subscription issue detected. Check plan/payment status and retry.",
+            recoverable: true,
           },
         ];
       }
@@ -2552,9 +2574,14 @@ export function mapClaudeMessageToEvents(args: {
     const events: BridgeEvent[] = [buildClaudeUsageEvent(resultMsg)];
     if (resultMsg.is_error) {
       const errorText = (resultMsg as { result?: string }).result;
-      if (typeof errorText === "string" && errorText.length > 0) {
-        events.unshift({ type: "text", text: errorText });
-      }
+      events.unshift({
+        type: "error",
+        message:
+          typeof errorText === "string" && errorText.trim().length > 0
+            ? errorText
+            : "Claude turn failed.",
+        recoverable: true,
+      });
     }
     return events;
   }
@@ -2684,6 +2711,32 @@ export function mapClaudeMessageToEvents(args: {
   }
 
   return [];
+}
+
+export function resolveClaudeTurnStopReason(args: {
+  message: SDKMessage;
+  currentStopReason?: string;
+}): string | undefined {
+  if (args.message.type === "result") {
+    const result = args.message as SDKResultMessage;
+    return (
+      result.stop_reason ??
+      (result.is_error ? "runtime_failure" : args.currentStopReason)
+    );
+  }
+
+  if (args.message.type === "assistant") {
+    const error = (args.message as SDKAssistantMessage).error;
+    if (error === "authentication_failed" || error === "billing_error") {
+      return "runtime_failure";
+    }
+  }
+
+  if (args.message.type === "error") {
+    return "runtime_failure";
+  }
+
+  return args.currentStopReason;
 }
 
 const sessionIdByTask = new Map<string, string>();
@@ -2980,9 +3033,7 @@ export async function streamClaudeWithSdk(
         denied?: boolean;
       }) => ProviderResponderResult,
     ) => void;
-    registerSteerResponder?: (
-      responder: ProviderSteerResponder,
-    ) => void;
+    registerSteerResponder?: (responder: ProviderSteerResponder) => void;
   },
 ): Promise<BridgeEvent[] | null> {
   const taskKey = args.taskId ?? "default";
@@ -3025,7 +3076,7 @@ export async function streamClaudeWithSdk(
             "Claude runtime failure: query() is unavailable from SDK import.",
           recoverable: false,
         },
-        { type: "done" },
+        { type: "done", stop_reason: "runtime_failure" },
       ];
     }
 
@@ -3153,7 +3204,10 @@ export async function streamClaudeWithSdk(
     inputQueue = new SteerableUserMessageQueue();
     inputQueue.push(buildClaudeSDKUserMessage({ text: providerPrompt }));
     args.registerSteerResponder?.(async ({ text }) => {
-      if (!inputQueue || !inputQueue.push(buildClaudeSDKUserMessage({ text }))) {
+      if (
+        !inputQueue ||
+        !inputQueue.push(buildClaudeSDKUserMessage({ text }))
+      ) {
         return {
           ok: false,
           reason: "turn-not-steerable",
@@ -3634,9 +3688,11 @@ export async function streamClaudeWithSdk(
           hasStreamedThinking = true;
         }
       }
+      finalStopReason = resolveClaudeTurnStopReason({
+        message,
+        currentStopReason: finalStopReason,
+      });
       if (message.type === "result") {
-        finalStopReason =
-          (message as SDKResultMessage).stop_reason ?? undefined;
         // In streaming-input mode the SDK keeps the query open waiting for the
         // next input message; unlike string-prompt mode it will NOT end the
         // stream after emitting `result`. Close the input queue now so the
@@ -3730,7 +3786,7 @@ export async function streamClaudeWithSdk(
         )}`,
         recoverable: true,
       },
-      { type: "done" },
+      { type: "done", stop_reason: "runtime_failure" },
     ];
     failureEvents.forEach((event) => args.onEvent?.(event));
     return failureEvents;
@@ -3991,7 +4047,7 @@ export async function classifyClaudeRoute(args: {
     const classifierPrompt = [
       "Classify the next Stave coding turn for model routing.",
       "Return ONLY valid compact JSON. Do not include markdown.",
-      "Shape: {\"taskType\":\"quick_edit|plan|implementation|debug|review|general|safety\",\"complexity\":\"low|medium|high\",\"recommendedTier\":\"light|standard|heavy|frontier\",\"confidence\":0.0,\"rationale\":\"short\",\"stick\":false}",
+      'Shape: {"taskType":"quick_edit|plan|implementation|debug|review|general|safety","complexity":"low|medium|high","recommendedTier":"light|standard|heavy|frontier","confidence":0.0,"rationale":"short","stick":false}',
       "Use stick=true when confidence is low or the existing provider should not be changed.",
       `Attached file context count: ${Math.max(0, args.fileContextCount ?? 0)}`,
       "",

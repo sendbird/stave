@@ -53,22 +53,22 @@ export function EditorReviewPanel(args: {
               ) : null}
             </p>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
-                    disabled={args.submitDisabled}
-                    onClick={args.onSendReview}
-                    aria-label="Send review to agent"
-                  >
-                    <Send className="size-3.5" />
-                  </Button>
-                </span>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                  disabled={args.submitDisabled}
+                  onClick={args.onSendReview}
+                  aria-label="Send review to agent"
+                >
+                  <Send className="size-3.5" />
+                </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Send review to agent</TooltipContent>
+              <TooltipContent side="bottom">
+                Send review to agent
+              </TooltipContent>
             </Tooltip>
           </div>
 
@@ -76,8 +76,7 @@ export function EditorReviewPanel(args: {
             <div className="rounded-md border border-border/70 bg-background/70 p-2">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-[11px] text-muted-foreground">
-                  {args.draft.filePath} -{" "}
-                  {formatReviewLocation(args.draft)}
+                  {args.draft.filePath} - {formatReviewLocation(args.draft)}
                 </span>
                 <Button
                   type="button"
@@ -126,19 +125,23 @@ export function EditorReviewPanel(args: {
                     </p>
                   </div>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 shrink-0 rounded-sm p-0 text-muted-foreground"
-                        onClick={() => args.onRemoveComment(comment.id)}
-                        aria-label="Remove review comment"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 shrink-0 rounded-sm p-0 text-muted-foreground"
+                          onClick={() => args.onRemoveComment(comment.id)}
+                          aria-label="Remove review comment"
+                        />
+                      }
+                    >
+                      <Trash2 className="size-3.5" />
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Remove comment</TooltipContent>
+                    <TooltipContent side="bottom">
+                      Remove comment
+                    </TooltipContent>
                   </Tooltip>
                 </div>
               ))}

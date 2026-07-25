@@ -19,7 +19,9 @@ function FieldError(props: { message?: string }) {
   if (!props.message) {
     return null;
   }
-  return <span className="block text-[11px] text-destructive">{props.message}</span>;
+  return (
+    <span className="block text-[11px] text-destructive">{props.message}</span>
+  );
 }
 
 export function ScriptEntryFormFields(props: {
@@ -27,7 +29,10 @@ export function ScriptEntryFormFields(props: {
   kind: ScriptKind;
   targetOptions: Array<{ id: string; label: string }>;
   issues?: ScriptEntryFieldIssues;
-  onFieldChange: (field: keyof ScriptEditorEntry, value: string | boolean) => void;
+  onFieldChange: (
+    field: keyof ScriptEditorEntry,
+    value: string | boolean,
+  ) => void;
 }) {
   const issues = props.issues ?? {};
   return (
@@ -48,7 +53,9 @@ export function ScriptEntryFormFields(props: {
           <span className="text-xs font-medium text-foreground">Label</span>
           <Input
             value={props.entry.label}
-            onChange={(event) => props.onFieldChange("label", event.target.value)}
+            onChange={(event) =>
+              props.onFieldChange("label", event.target.value)
+            }
             placeholder="Shown in the GUI"
           />
         </label>
@@ -58,20 +65,26 @@ export function ScriptEntryFormFields(props: {
         <span className="text-xs font-medium text-foreground">Description</span>
         <Input
           value={props.entry.description}
-          onChange={(event) => props.onFieldChange("description", event.target.value)}
-          placeholder="Short summary of what this script does"
+          onChange={(event) =>
+            props.onFieldChange("description", event.target.value)
+          }
+          placeholder="Short summary of what this execution does"
         />
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1.5">
-          <span className="text-xs font-medium text-foreground">Target</span>
+          <span className="text-xs font-medium text-foreground">
+            Environment
+          </span>
           <Select
             value={props.entry.target}
             onValueChange={(value) => props.onFieldChange("target", value)}
           >
-            <SelectTrigger className={cn("w-full", issues.target && "border-destructive")}>
-              <SelectValue placeholder="Select a target" />
+            <SelectTrigger
+              className={cn("w-full", issues.target && "border-destructive")}
+            >
+              <SelectValue placeholder="Select an environment" />
             </SelectTrigger>
             <SelectContent>
               {props.targetOptions.map((target) => (
@@ -84,10 +97,14 @@ export function ScriptEntryFormFields(props: {
           <FieldError message={issues.target} />
         </label>
         <label className="space-y-1.5">
-          <span className="text-xs font-medium text-foreground">Timeout (ms)</span>
+          <span className="text-xs font-medium text-foreground">
+            Timeout (ms)
+          </span>
           <Input
             value={props.entry.timeoutMs}
-            onChange={(event) => props.onFieldChange("timeoutMs", event.target.value)}
+            onChange={(event) =>
+              props.onFieldChange("timeoutMs", event.target.value)
+            }
             inputMode="numeric"
             placeholder="Optional"
             aria-invalid={Boolean(issues.timeoutMs)}
@@ -101,7 +118,9 @@ export function ScriptEntryFormFields(props: {
         <span className="text-xs font-medium text-foreground">Commands</span>
         <Textarea
           value={props.entry.commandsText}
-          onChange={(event) => props.onFieldChange("commandsText", event.target.value)}
+          onChange={(event) =>
+            props.onFieldChange("commandsText", event.target.value)
+          }
           className={cn("min-h-28", issues.commands && "border-destructive")}
           placeholder={"bun install\nbun run dev"}
           aria-invalid={Boolean(issues.commands)}
@@ -119,7 +138,9 @@ export function ScriptEntryFormFields(props: {
         <div className="flex items-center gap-2">
           <Switch
             checked={props.entry.enabled}
-            onCheckedChange={(checked) => props.onFieldChange("enabled", checked)}
+            onCheckedChange={(checked) =>
+              props.onFieldChange("enabled", checked)
+            }
           />
           <span className="text-xs text-foreground">Enabled</span>
         </div>
@@ -128,14 +149,18 @@ export function ScriptEntryFormFields(props: {
             <div className="flex items-center gap-2">
               <Switch
                 checked={props.entry.restartOnRun}
-                onCheckedChange={(checked) => props.onFieldChange("restartOnRun", checked)}
+                onCheckedChange={(checked) =>
+                  props.onFieldChange("restartOnRun", checked)
+                }
               />
               <span className="text-xs text-foreground">Restart on run</span>
             </div>
             <div className="flex items-center gap-2">
               <Switch
                 checked={props.entry.orbitEnabled}
-                onCheckedChange={(checked) => props.onFieldChange("orbitEnabled", checked)}
+                onCheckedChange={(checked) =>
+                  props.onFieldChange("orbitEnabled", checked)
+                }
               />
               <span className="text-xs text-foreground">Use Orbit</span>
             </div>
@@ -143,7 +168,9 @@ export function ScriptEntryFormFields(props: {
               <Switch
                 checked={props.entry.orbitNoTls}
                 disabled={!props.entry.orbitEnabled}
-                onCheckedChange={(checked) => props.onFieldChange("orbitNoTls", checked)}
+                onCheckedChange={(checked) =>
+                  props.onFieldChange("orbitNoTls", checked)
+                }
               />
               <span className="text-xs text-foreground">Plain HTTP</span>
             </div>
@@ -154,21 +181,30 @@ export function ScriptEntryFormFields(props: {
       {props.kind === "service" && props.entry.orbitEnabled ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1.5">
-            <span className="text-xs font-medium text-foreground">Orbit Name</span>
+            <span className="text-xs font-medium text-foreground">
+              Orbit Name
+            </span>
             <Input
               value={props.entry.orbitName}
-              onChange={(event) => props.onFieldChange("orbitName", event.target.value)}
+              onChange={(event) =>
+                props.onFieldChange("orbitName", event.target.value)
+              }
               placeholder="Optional base host name override"
             />
             <span className="block text-[11px] text-muted-foreground">
-              Optional `portless --name` override. Orbit services must target the workspace.
+              Optional `portless --name` override. Orbit processes must use the
+              workspace environment.
             </span>
           </label>
           <label className="space-y-1.5">
-            <span className="text-xs font-medium text-foreground">Orbit Proxy Port</span>
+            <span className="text-xs font-medium text-foreground">
+              Orbit Proxy Port
+            </span>
             <Input
               value={props.entry.orbitProxyPort}
-              onChange={(event) => props.onFieldChange("orbitProxyPort", event.target.value)}
+              onChange={(event) =>
+                props.onFieldChange("orbitProxyPort", event.target.value)
+              }
               inputMode="numeric"
               placeholder="Optional"
               aria-invalid={Boolean(issues.orbitProxyPort)}

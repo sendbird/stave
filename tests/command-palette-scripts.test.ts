@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { buildScriptsCommandPaletteActions } from "../src/components/layout/command-palette-scripts";
-import { EMPTY_SNAPSHOT, type ScriptsRuntimeSnapshot } from "../src/lib/workspace-scripts/runtime-store";
-import type { ResolvedScriptTarget, ResolvedWorkspaceScript } from "../src/lib/workspace-scripts/types";
+import {
+  EMPTY_SNAPSHOT,
+  type ScriptsRuntimeSnapshot,
+} from "../src/lib/workspace-scripts/runtime-store";
+import type {
+  ResolvedScriptTarget,
+  ResolvedWorkspaceScript,
+} from "../src/lib/workspace-scripts/types";
 
 const target: ResolvedScriptTarget = {
   id: "workspace",
@@ -11,7 +17,8 @@ const target: ResolvedScriptTarget = {
 };
 
 function makeEntry(
-  overrides: Partial<ResolvedWorkspaceScript> & Pick<ResolvedWorkspaceScript, "id" | "kind">,
+  overrides: Partial<ResolvedWorkspaceScript> &
+    Pick<ResolvedWorkspaceScript, "id" | "kind">,
 ): ResolvedWorkspaceScript {
   return {
     label: overrides.label ?? overrides.id,
@@ -24,7 +31,9 @@ function makeEntry(
   };
 }
 
-function makeSnapshot(overrides: Partial<ScriptsRuntimeSnapshot>): ScriptsRuntimeSnapshot {
+function makeSnapshot(
+  overrides: Partial<ScriptsRuntimeSnapshot>,
+): ScriptsRuntimeSnapshot {
   return {
     ...EMPTY_SNAPSHOT,
     configStatus: "ready",
@@ -35,10 +44,16 @@ function makeSnapshot(overrides: Partial<ScriptsRuntimeSnapshot>): ScriptsRuntim
 describe("buildScriptsCommandPaletteActions", () => {
   test("returns [] with no workspace or no config", () => {
     expect(
-      buildScriptsCommandPaletteActions({ snapshot: EMPTY_SNAPSHOT, workspaceId: null }),
+      buildScriptsCommandPaletteActions({
+        snapshot: EMPTY_SNAPSHOT,
+        workspaceId: null,
+      }),
     ).toEqual([]);
     expect(
-      buildScriptsCommandPaletteActions({ snapshot: EMPTY_SNAPSHOT, workspaceId: "ws-1" }),
+      buildScriptsCommandPaletteActions({
+        snapshot: EMPTY_SNAPSHOT,
+        workspaceId: "ws-1",
+      }),
     ).toEqual([]);
   });
 
@@ -46,7 +61,9 @@ describe("buildScriptsCommandPaletteActions", () => {
     const snapshot = makeSnapshot({
       config: {
         actions: [makeEntry({ id: "lint", kind: "action", label: "Lint" })],
-        services: [makeEntry({ id: "dev", kind: "service", label: "Dev Server" })],
+        services: [
+          makeEntry({ id: "dev", kind: "service", label: "Dev Server" }),
+        ],
         hooks: {},
         targets: { workspace: target },
         legacyPhases: { setup: [], run: [], teardown: [] },
@@ -64,18 +81,21 @@ describe("buildScriptsCommandPaletteActions", () => {
       },
     });
 
-    const actions = buildScriptsCommandPaletteActions({ snapshot, workspaceId: "ws-1" });
+    const actions = buildScriptsCommandPaletteActions({
+      snapshot,
+      workspaceId: "ws-1",
+    });
     const byId = new Map(actions.map((action) => [action.id, action]));
 
     const service = byId.get("scripts.run.service.dev");
-    expect(service?.title).toBe("Stop Service: Dev Server");
+    expect(service?.title).toBe("Stop Process: Dev Server");
     expect(service?.group).toBe("scripts");
     expect(service?.source).toBe("dynamic");
     expect(service?.customizable).toBe(false);
     expect(service?.subtitle).toContain("Project · Local");
 
     const action = byId.get("scripts.run.action.lint");
-    expect(action?.title).toBe("Run Action: Lint");
+    expect(action?.title).toBe("Run Command: Lint");
     expect(action?.subtitle).toContain("Workspace");
   });
 
@@ -83,14 +103,19 @@ describe("buildScriptsCommandPaletteActions", () => {
     const snapshot = makeSnapshot({
       config: {
         actions: [],
-        services: [makeEntry({ id: "dev", kind: "service", label: "Dev Server" })],
+        services: [
+          makeEntry({ id: "dev", kind: "service", label: "Dev Server" }),
+        ],
         hooks: {},
         targets: {},
         legacyPhases: { setup: [], run: [], teardown: [] },
       },
     });
-    const actions = buildScriptsCommandPaletteActions({ snapshot, workspaceId: "ws-1" });
-    expect(actions[0]?.title).toBe("Start Service: Dev Server");
+    const actions = buildScriptsCommandPaletteActions({
+      snapshot,
+      workspaceId: "ws-1",
+    });
+    expect(actions[0]?.title).toBe("Start Process: Dev Server");
   });
 
   test("emits hook actions only for triggers with refs", () => {
@@ -100,17 +125,25 @@ describe("buildScriptsCommandPaletteActions", () => {
         services: [],
         hooks: {
           "turn.completed": [
-            { trigger: "turn.completed", scriptId: "lint", scriptKind: "action", blocking: true },
+            {
+              trigger: "turn.completed",
+              scriptId: "lint",
+              scriptKind: "action",
+              blocking: true,
+            },
           ],
         },
         targets: {},
         legacyPhases: { setup: [], run: [], teardown: [] },
       },
     });
-    const actions = buildScriptsCommandPaletteActions({ snapshot, workspaceId: "ws-1" });
+    const actions = buildScriptsCommandPaletteActions({
+      snapshot,
+      workspaceId: "ws-1",
+    });
     expect(actions).toHaveLength(1);
     expect(actions[0]?.id).toBe("scripts.hook.turn.completed");
-    expect(actions[0]?.title).toBe("Run Hook: Turn Completed");
-    expect(actions[0]?.subtitle).toContain("1 script");
+    expect(actions[0]?.title).toBe("Run Trigger: Turn Completed");
+    expect(actions[0]?.subtitle).toContain("1 linked execution");
   });
 });

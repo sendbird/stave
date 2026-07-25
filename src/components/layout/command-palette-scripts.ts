@@ -30,7 +30,9 @@ function describeOrigin(origin?: ScriptEntryOrigin): string | null {
   return origin.localOverride ? `${tier} · Local` : tier;
 }
 
-function joinSubtitle(parts: Array<string | null | undefined>): string | undefined {
+function joinSubtitle(
+  parts: Array<string | null | undefined>,
+): string | undefined {
   const filtered = parts
     .map((part) => part?.trim())
     .filter((part): part is string => Boolean(part));
@@ -60,18 +62,28 @@ export function buildScriptsCommandPaletteActions(args: {
     const origin = describeOrigin(snapshot.origins.originByKey[key]);
     actions.push({
       id: `scripts.run.service.${entry.id}`,
-      title: running ? `Stop Service: ${entry.label}` : `Start Service: ${entry.label}`,
+      title: running
+        ? `Stop Process: ${entry.label}`
+        : `Start Process: ${entry.label}`,
       group: "scripts",
       icon: running ? Square : Sparkles,
       subtitle: joinSubtitle([entry.description, origin]),
-      keywords: ["scripts", "service", entry.id, entry.label],
+      keywords: ["scripts", "process", "service", entry.id, entry.label],
       source: "dynamic",
       customizable: false,
       run: () => {
         if (running) {
-          void stopScriptEntry({ workspaceId, scriptId: entry.id, scriptKind: "service" });
+          void stopScriptEntry({
+            workspaceId,
+            scriptId: entry.id,
+            scriptKind: "service",
+          });
         } else {
-          void runScriptEntry({ workspaceId, scriptId: entry.id, scriptKind: "service" });
+          void runScriptEntry({
+            workspaceId,
+            scriptId: entry.id,
+            scriptKind: "service",
+          });
         }
       },
     });
@@ -83,19 +95,23 @@ export function buildScriptsCommandPaletteActions(args: {
     const origin = describeOrigin(snapshot.origins.originByKey[key]);
     actions.push({
       id: `scripts.run.action.${entry.id}`,
-      title: `Run Action: ${entry.label}`,
+      title: `Run Command: ${entry.label}`,
       group: "scripts",
       icon: Sparkles,
       subtitle: joinSubtitle([entry.description, origin]),
-      keywords: ["scripts", "action", entry.id, entry.label],
+      keywords: ["scripts", "command", "action", entry.id, entry.label],
       source: "dynamic",
       customizable: false,
       run: () => {
         if (running) {
-          toast.message("Action already running");
+          toast.message("Command already running");
           return;
         }
-        void runScriptEntry({ workspaceId, scriptId: entry.id, scriptKind: "action" });
+        void runScriptEntry({
+          workspaceId,
+          scriptId: entry.id,
+          scriptKind: "action",
+        });
       },
     });
   }
@@ -108,14 +124,14 @@ export function buildScriptsCommandPaletteActions(args: {
     const meta = SCRIPT_TRIGGER_METADATA[trigger];
     actions.push({
       id: `scripts.hook.${trigger}`,
-      title: `Run Hook: ${meta.label}`,
+      title: `Run Trigger: ${meta.label}`,
       group: "scripts",
       icon: Sparkles,
       subtitle: joinSubtitle([
         meta.description,
-        `${refs.length} script${refs.length === 1 ? "" : "s"}`,
+        `${refs.length} linked execution${refs.length === 1 ? "" : "s"}`,
       ]),
-      keywords: ["scripts", "hook", trigger, meta.label],
+      keywords: ["scripts", "trigger", "hook", trigger, meta.label],
       source: "dynamic",
       customizable: false,
       run: () => {

@@ -30,6 +30,10 @@ import {
   EmptyMedia,
   EmptyTitle,
   Input,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   toast,
   Tooltip,
   TooltipContent,
@@ -43,6 +47,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { EditorMarkdownPreview } from "@/components/layout/editor-markdown-preview";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
@@ -142,6 +147,43 @@ function useInsertSkillToPrompt() {
 
 /* ---------- Instructions dialog ---------- */
 
+export function SkillInstructionsContent(props: {
+  instructions: string;
+  presentation?: "rendered" | "source";
+  className?: string;
+}) {
+  if (props.presentation === "source") {
+    return (
+      <pre
+        data-skill-instructions-source=""
+        className={cn(
+          "min-h-0 rounded-lg bg-muted/25 px-4 py-3 font-mono text-[13px] leading-6 text-foreground whitespace-pre-wrap break-words ring-1 ring-border/60",
+          props.className,
+        )}
+      >
+        <code>{props.instructions}</code>
+      </pre>
+    );
+  }
+
+  return (
+    <div
+      data-skill-instructions-rendered=""
+      className={cn(
+        "flex min-h-0 flex-col rounded-lg bg-surface px-4 py-3 text-foreground ring-1 ring-border/60",
+        props.className,
+      )}
+    >
+      <EditorMarkdownPreview
+        content={props.instructions}
+        fontSize={14}
+        variant="embedded"
+        className="min-h-0 flex-1 overflow-visible bg-transparent [&>div]:min-h-full [&>div]:text-foreground [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h4]:text-sm"
+      />
+    </div>
+  );
+}
+
 function SkillInstructionsDialog(props: {
   skill: SkillCatalogEntry | null;
   open: boolean;
@@ -152,24 +194,60 @@ function SkillInstructionsDialog(props: {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[76vh] flex flex-col gap-4 overflow-hidden p-7 sm:p-8">
-        <DialogHeader>
+      <DialogContent className="flex h-[min(88vh,56rem)] max-h-[88vh] max-w-5xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b border-border/60 px-7 py-5 pr-14">
           <DialogTitle>{skill.name}</DialogTitle>
           <DialogDescription>
             {skill.description || "No description"}
           </DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-auto">
-          {skill.instructions ? (
-            <pre className="overflow-auto rounded-md border border-border/50 bg-neutral-950 px-5 py-4 font-mono text-[15px] leading-7 text-neutral-300 whitespace-pre-wrap dark:border-neutral-800 dark:bg-neutral-950/80">
-              {skill.instructions}
-            </pre>
-          ) : (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              No instructions available.
-            </p>
-          )}
-        </div>
+        {skill.instructions ? (
+          <Tabs defaultValue="rendered" className="h-full min-h-0 flex-1 gap-0">
+            <div className="shrink-0 border-b border-border/60 px-7">
+              <TabsList
+                variant="line"
+                aria-label="Instruction view"
+                className="h-11 gap-5 rounded-none p-0"
+              >
+                <TabsTrigger
+                  value="rendered"
+                  className="h-11 flex-none px-0 text-[13px]"
+                >
+                  Rendered
+                </TabsTrigger>
+                <TabsTrigger
+                  value="source"
+                  className="h-11 flex-none px-0 text-[13px]"
+                >
+                  Source
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent
+              value="rendered"
+              className="flex h-full min-h-0 flex-1 flex-col overflow-auto px-5 py-5 sm:px-7"
+            >
+              <SkillInstructionsContent
+                instructions={skill.instructions}
+                className="h-full min-h-full flex-1"
+              />
+            </TabsContent>
+            <TabsContent
+              value="source"
+              className="flex h-full min-h-0 flex-1 flex-col overflow-auto px-5 py-5 sm:px-7"
+            >
+              <SkillInstructionsContent
+                instructions={skill.instructions}
+                presentation="source"
+                className="h-full min-h-full flex-1"
+              />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <p className="flex min-h-0 flex-1 items-center justify-center px-7 py-8 text-sm text-muted-foreground">
+            No instructions available.
+          </p>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -179,13 +257,13 @@ function SkillInstructionsDialog(props: {
 
 function SectionHeader(props: { title: string; count: number }) {
   return (
-    <div className="flex items-center gap-2 px-2 pt-3 pb-1">
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+    <div className="flex items-center justify-between gap-2 border-b border-border/55 px-1 pt-4 pb-2">
+      <h3 className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
         {props.title}
       </h3>
-      <Badge variant="outline" className="rounded-full px-1.5 py-0 text-[10px]">
+      <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
         {props.count}
-      </Badge>
+      </span>
     </div>
   );
 }
@@ -201,7 +279,7 @@ function SkillRow(props: {
   const sourceType = resolveSourceType(props.skill);
 
   return (
-    <div className="group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5 text-left transition-colors hover:bg-muted/20">
+    <div className="group flex w-full items-center gap-3 border-b border-border/45 px-1 py-3 text-left transition-colors hover:bg-accent/15 focus-within:bg-accent/15">
       <button
         type="button"
         className="flex min-w-0 flex-1 items-center gap-3"
@@ -240,23 +318,26 @@ function SkillRow(props: {
           ) : null}
         </div>
       </button>
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         {props.skill.instructions ? (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="size-6 rounded-md"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    props.onViewInstructions();
-                  }}
-                >
-                  <Expand className="size-3" />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="size-6 rounded-md"
+                    aria-label="View instructions"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      props.onViewInstructions();
+                    }}
+                  />
+                }
+              >
+                <Expand className="size-3" />
               </TooltipTrigger>
               <TooltipContent>View instructions</TooltipContent>
             </Tooltip>
@@ -264,19 +345,22 @@ function SkillRow(props: {
         ) : null}
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="size-6 rounded-md"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  props.onUse();
-                }}
-              >
-                <MessageSquarePlus className="size-3" />
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="size-6 rounded-md"
+                  aria-label="Insert into prompt"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    props.onUse();
+                  }}
+                />
+              }
+            >
+              <MessageSquarePlus className="size-3" />
             </TooltipTrigger>
             <TooltipContent>Insert into prompt</TooltipContent>
           </Tooltip>
@@ -289,7 +373,43 @@ function SkillRow(props: {
 
 /* ---------- Skill detail view ---------- */
 
-function SkillDetail(props: {
+export function SkillMetadataDetails(props: { skill: SkillCatalogEntry }) {
+  const { skill } = props;
+
+  return (
+    <details
+      data-skill-metadata-details=""
+      className="group rounded-lg bg-muted/20 text-xs text-muted-foreground"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-2.5 py-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:bg-muted/35 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45 [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="size-3 shrink-0 transition-transform duration-150 group-open:rotate-90" />
+        Details
+      </summary>
+      <dl className="space-y-1.5 px-2.5 pb-2.5 pt-1">
+        <div className="flex gap-2">
+          <dt className="shrink-0 font-medium text-foreground/70">Slug</dt>
+          <dd className="min-w-0 truncate" title={skill.slug}>
+            {skill.slug}
+          </dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="shrink-0 font-medium text-foreground/70">Path</dt>
+          <dd className="min-w-0 truncate" title={skill.path}>
+            {skill.path}
+          </dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="shrink-0 font-medium text-foreground/70">Root</dt>
+          <dd className="min-w-0 truncate" title={skill.sourceRootPath}>
+            {skill.sourceRootPath}
+          </dd>
+        </div>
+      </dl>
+    </details>
+  );
+}
+
+export function SkillDetail(props: {
   skill: SkillCatalogEntry;
   onBack: () => void;
   onUse: () => void;
@@ -321,6 +441,7 @@ function SkillDetail(props: {
           size="icon"
           variant="ghost"
           className="size-7 rounded-md"
+          aria-label="Back to skills"
           onClick={props.onBack}
         >
           <ArrowLeft className="size-3.5" />
@@ -328,26 +449,18 @@ function SkillDetail(props: {
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {skill.name}
         </span>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
               <Button
                 size="icon"
                 variant="ghost"
                 className="size-7 rounded-md"
-                onClick={props.onUse}
-              >
-                <MessageSquarePlus className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Insert into prompt</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="size-7 rounded-md">
-              <MoreHorizontal className="size-3.5" />
-            </Button>
+                aria-label="More skill actions"
+              />
+            }
+          >
+            <MoreHorizontal className="size-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem onSelect={handleCopyInvocationToken}>
@@ -377,122 +490,131 @@ function SkillDetail(props: {
       </div>
 
       {/* Detail body */}
-      <div className="min-h-0 flex-1 overflow-auto px-3 py-3">
-        <div className="space-y-4">
-          {/* Badges row */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge
-              variant={sourceTypeBadgeVariant(sourceType)}
-              className="rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide"
-            >
-              {sourceTypeLabel(sourceType)}
-            </Badge>
-            <Badge
-              variant="outline"
-              className="rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide"
-            >
-              {providerLabel(skill.provider)}
-            </Badge>
-            <Badge
-              variant="secondary"
-              className="rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide"
-            >
-              {scopeLabel(skill.scope)}
-            </Badge>
-          </div>
+      <div
+        data-skill-detail-body=""
+        className="min-h-0 flex-1 overflow-hidden px-3 py-3"
+      >
+        <div className="flex h-full min-h-0 flex-col gap-4">
+          <div
+            data-skill-detail-overview=""
+            className={cn(
+              "min-h-0 space-y-4 pr-1",
+              skill.instructions
+                ? "max-h-[42%] shrink-0 overflow-y-auto overscroll-contain pb-1"
+                : "flex-1 overflow-y-auto",
+            )}
+          >
+            {/* Badges row */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge
+                variant={sourceTypeBadgeVariant(sourceType)}
+                className="rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide"
+              >
+                {sourceTypeLabel(sourceType)}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide"
+              >
+                {providerLabel(skill.provider)}
+              </Badge>
+              <Badge
+                variant="secondary"
+                className="rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide"
+              >
+                {scopeLabel(skill.scope)}
+              </Badge>
+            </div>
 
-          {/* Description */}
-          {skill.description ? (
+            {/* Description */}
+            {skill.description ? (
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Description
+                </p>
+                <p className="text-sm leading-relaxed text-foreground">
+                  {skill.description}
+                </p>
+              </div>
+            ) : null}
+
+            {/* Token */}
             <div className="space-y-1">
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Description
+                Invocation
               </p>
-              <p className="text-sm leading-relaxed text-foreground">
-                {skill.description}
-              </p>
-            </div>
-          ) : null}
-
-          {/* Token */}
-          <div className="space-y-1">
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Invocation
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="rounded-md border border-border/70 bg-background/60 px-2 py-1 font-mono text-sm">
-                {skill.invocationToken}
-              </code>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-6 rounded-md"
-                      onClick={handleCopyInvocationToken}
+              <div className="flex items-center gap-2">
+                <code className="rounded-md border border-border/70 bg-background/60 px-2 py-1 font-mono text-sm">
+                  {skill.invocationToken}
+                </code>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-6 rounded-md"
+                          aria-label="Copy invocation token"
+                          onClick={handleCopyInvocationToken}
+                        />
+                      }
                     >
                       <Copy className="size-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Copy token</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                    </TooltipTrigger>
+                    <TooltipContent>Copy token</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1.5 rounded-md px-2"
+                  onClick={props.onUse}
+                  aria-label="Insert into prompt"
+                >
+                  <MessageSquarePlus className="size-3.5" />
+                  Insert
+                </Button>
+              </div>
             </div>
-          </div>
 
-          {/* Metadata */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Details
-            </p>
-            <div className="space-y-1.5 text-xs text-muted-foreground">
-              <div className="flex gap-2">
-                <span className="shrink-0 font-medium text-foreground/70">
-                  Slug
-                </span>
-                <span className="truncate">{skill.slug}</span>
-              </div>
-              <div className="flex gap-2">
-                <span className="shrink-0 font-medium text-foreground/70">
-                  Path
-                </span>
-                <span className="truncate">{skill.path}</span>
-              </div>
-              <div className="flex gap-2">
-                <span className="shrink-0 font-medium text-foreground/70">
-                  Root
-                </span>
-                <span className="truncate">{skill.sourceRootPath}</span>
-              </div>
-            </div>
+            <SkillMetadataDetails skill={skill} />
           </div>
 
           {/* Instructions preview */}
           {skill.instructions ? (
-            <div className="space-y-1">
+            <div
+              data-skill-detail-instructions=""
+              className="flex min-h-0 flex-1 flex-col gap-1"
+            >
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   Instructions
                 </p>
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-6 rounded-md"
-                        onClick={props.onViewInstructions}
-                      >
-                        <Expand className="size-3" />
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-6 rounded-md"
+                          aria-label="View full instructions"
+                          onClick={props.onViewInstructions}
+                        />
+                      }
+                    >
+                      <Expand className="size-3" />
                     </TooltipTrigger>
                     <TooltipContent>View full instructions</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <pre className="max-h-60 overflow-auto rounded-md border border-border/50 bg-neutral-950 px-3 py-2 font-mono text-[11px] leading-[1.6] text-neutral-300 whitespace-pre-wrap dark:border-neutral-800 dark:bg-neutral-950/80">
-                {skill.instructions}
-              </pre>
+              <SkillInstructionsContent
+                instructions={skill.instructions}
+                className="min-h-0 flex-1 overflow-auto px-3 py-2.5"
+              />
             </div>
           ) : null}
         </div>
@@ -540,24 +662,31 @@ export function WorkspaceSkillsPanel(props: {
   useEffect(() => {
     if (!skillsEnabled || !workspacePath) return;
 
-    if (
-      skillCatalog.status === "loading" &&
+    const normalizedSharedSkillsHome = sharedSkillsHome.trim() || null;
+    const catalogMatchesRequest =
       skillCatalog.workspacePath === workspacePath &&
-      skillCatalog.sharedSkillsHome === (sharedSkillsHome.trim() || null)
-    ) {
-      return;
-    }
-    if (
-      skillCatalog.status === "ready" &&
-      skillCatalog.workspacePath === workspacePath &&
-      skillCatalog.sharedSkillsHome === (sharedSkillsHome.trim() || null)
-    ) {
+      skillCatalog.sharedSkillsHome === normalizedSharedSkillsHome;
+
+    if (catalogMatchesRequest) {
+      if (
+        skillCatalog.status === "loading" ||
+        skillCatalog.status === "error"
+      ) {
+        return;
+      }
+
+      if (skillCatalog.status !== "ready") {
+        void refreshSkillCatalog({ workspacePath });
+        return;
+      }
+
       const CATALOG_TTL_MS = 5 * 60 * 1000;
       const fetchedAtMs = skillCatalog.fetchedAt
         ? Date.parse(skillCatalog.fetchedAt)
         : 0;
       if (Date.now() - fetchedAtMs < CATALOG_TTL_MS) return;
     }
+
     void refreshSkillCatalog({ workspacePath });
   }, [
     refreshSkillCatalog,
@@ -674,12 +803,15 @@ export function WorkspaceSkillsPanel(props: {
     <>
       <div className="flex h-full flex-col">
         {/* Header bar */}
-        <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-2 pb-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/45 px-3 py-2.5">
+          <div className="min-w-0">
+            <span className="block text-sm font-semibold text-foreground">
               {skillCatalog.status === "loading"
                 ? "Loading..."
                 : `${filteredSkills.length} skill${filteredSkills.length !== 1 ? "s" : ""}`}
+            </span>
+            <span className="block truncate text-[11px] text-muted-foreground">
+              Inspect instructions or insert a skill directly into the prompt.
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -691,6 +823,7 @@ export function WorkspaceSkillsPanel(props: {
                 className="size-7 rounded-md"
                 onClick={openSkillSettings}
                 title="Skills Settings"
+                aria-label="Open skills settings"
               >
                 <Settings2 className="size-3.5" />
               </Button>
@@ -703,6 +836,7 @@ export function WorkspaceSkillsPanel(props: {
               onClick={() => void refreshSkillCatalog({ workspacePath })}
               disabled={skillCatalog.status === "loading"}
               title="Refresh"
+              aria-label="Refresh skills"
             >
               <RefreshCcw
                 className={cn(
@@ -715,20 +849,22 @@ export function WorkspaceSkillsPanel(props: {
         </div>
 
         {/* Search */}
-        <div className="shrink-0 px-3 pb-1.5">
+        <div className="shrink-0 px-3 py-2">
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 rounded-md border-border/80 bg-background pl-7 pr-7 text-sm"
-              placeholder="Search skills..."
+              className="h-8 border-transparent bg-muted/35 pl-7 pr-7 text-sm hover:border-border/70"
+              placeholder="Find a skill by name, provider, or purpose…"
+              aria-label="Search skills"
             />
             {searchQuery ? (
               <button
                 type="button"
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 onClick={() => setSearchQuery("")}
+                aria-label="Clear skill search"
               >
                 <X className="size-3.5" />
               </button>
@@ -750,14 +886,14 @@ export function WorkspaceSkillsPanel(props: {
               </p>
             </div>
           ) : (
-            <div className="space-y-1">
+            <div>
               {groupedSkills.map((group) => (
                 <div key={group.scope}>
                   <SectionHeader
                     title={group.label}
                     count={group.skills.length}
                   />
-                  <div className="space-y-1.5">
+                  <div>
                     {group.skills.map((skill) => (
                       <SkillRow
                         key={skill.id}

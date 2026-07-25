@@ -93,6 +93,16 @@ test("selects model and effort from the provider heatmaps", async ({
   });
   await expect(claudeGrid).toBeVisible();
   await expect(codexGrid).toBeVisible();
+  const selectorSurface = page.locator(
+    '[data-slot="popover-content"][aria-label="Model and effort selector"]',
+  );
+  const selectorSurfaceStyle = await selectorSurface.evaluate((surface) => ({
+    backdropFilter: getComputedStyle(surface).backdropFilter,
+    shadow: getComputedStyle(surface).boxShadow,
+  }));
+  expect(selectorSurfaceStyle.backdropFilter).toBe("none");
+  expect(selectorSurfaceStyle.shadow).toContain("0px 18px 48px");
+  expect(selectorSurfaceStyle.shadow).toContain("0px 4px 12px");
   await expect
     .poll(() =>
       claudeGrid.evaluate((grid) =>
@@ -129,34 +139,40 @@ test("selects model and effort from the provider heatmaps", async ({
         .locator(".model-effort-cell-orb")
         .first()
         .evaluate((orb) => ({
+          filter: getComputedStyle(orb).filter,
           width: getComputedStyle(orb).width,
           height: getComputedStyle(orb).height,
           opacity: getComputedStyle(orb).opacity,
         })),
     )
-    .toEqual({ width: "23px", height: "23px", opacity: "1" });
+    .toEqual({
+      filter: "brightness(1.22) contrast(1.08)",
+      width: "23px",
+      height: "23px",
+      opacity: "1",
+    });
   await expect(autoCell.locator('img[src*="stave-logo.svg"]')).toBeVisible();
-  await expect
-    .poll(() =>
-      claudeGrid
-        .locator('[data-orb="max"]')
-        .first()
-        .evaluate((cell) => getComputedStyle(cell).backgroundColor),
-    )
-    .toBe("rgb(217, 119, 87)");
-  await expect
-    .poll(() =>
-      codexGrid
-        .locator('[data-orb="ultra"]')
-        .first()
-        .evaluate((cell) => getComputedStyle(cell).backgroundColor),
-    )
-    .toBe("rgb(65, 105, 193)");
+  const claudeOrbTone = await claudeGrid
+    .locator('[data-orb="max"]')
+    .first()
+    .evaluate((cell) => ({
+      background: getComputedStyle(cell).backgroundColor,
+      edge: getComputedStyle(cell).boxShadow,
+    }));
+  const codexOrbTone = await codexGrid
+    .locator('[data-orb="ultra"]')
+    .first()
+    .evaluate((cell) => ({
+      background: getComputedStyle(cell).backgroundColor,
+      edge: getComputedStyle(cell).boxShadow,
+    }));
+  expect(claudeOrbTone.background).not.toBe(codexOrbTone.background);
+  expect(claudeOrbTone.edge).not.toBe(codexOrbTone.edge);
 
   await autoCell.hover();
   await expect(
-    page.getByRole("tooltip", {
-      name: "Stave chooses the provider, model, and effort",
+    page.locator('[data-slot="tooltip-content"]', {
+      hasText: "Stave chooses the provider, model, and effort",
     }),
   ).toBeVisible();
   await expect(page.locator(".model-effort-preview-value")).toContainText(

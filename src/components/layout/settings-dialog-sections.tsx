@@ -68,6 +68,7 @@ import {
   getSdkModelOptions,
   normalizeModelSelection,
   resolveClaudeEffortForModelSwitch,
+  toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import {
   APP_SHORTCUT_DEFINITIONS,
@@ -130,12 +131,20 @@ import {
   useAppStore,
 } from "@/store/app.store";
 import {
+  normalizeProjectAppearanceColor,
+  normalizeProjectAppearanceIcon,
   normalizeProjectBasePrompt,
   normalizeProjectKickoffBranchNamingRule,
   normalizeProjectWorkspaceInitCommand,
   normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
   type RecentProjectState,
 } from "@/store/project.utils";
+import {
+  PROJECT_COLOR_OPTIONS,
+  PROJECT_ICON_OPTIONS,
+  ProjectColorSwatch,
+  ProjectIdentityMark,
+} from "@/components/layout/project-appearance";
 import {
   DEFAULT_PROMPT_RESPONSE_STYLE,
   DEFAULT_PROMPT_PR_DESCRIPTION,
@@ -145,6 +154,7 @@ import {
 import type { PrePrReviewProviderId } from "@/lib/source-control-review";
 import type { PrMergeMethod } from "@/lib/pr-status";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
+import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { ChangelogSection } from "./settings-dialog-changelog-section";
 import { DeveloperSection } from "./settings-dialog-developer-section";
 import { PresetsSection } from "./settings-dialog-presets-section";
@@ -162,7 +172,6 @@ import {
   LabeledField,
   readFloat,
   readInt,
-  SectionHeading,
   SectionStack,
   SelectField,
   SettingsCard,
@@ -281,6 +290,9 @@ function ProjectSettingsPanel(args: {
   const setProjectWorkspaceUseRootNodeModulesSymlink = useAppStore(
     (state) => state.setProjectWorkspaceUseRootNodeModulesSymlink,
   );
+  const setProjectAppearance = useAppStore(
+    (state) => state.setProjectAppearance,
+  );
   const [currentProjectPath, activeWorkspaceId, workspacePathById] =
     useAppStore(
       useShallow(
@@ -305,6 +317,12 @@ function ProjectSettingsPanel(args: {
     normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
       value: args.project.newWorkspaceUseRootNodeModulesSymlink,
     });
+  const projectAppearanceIcon = normalizeProjectAppearanceIcon(
+    args.project.appearanceIcon,
+  );
+  const projectAppearanceColor = normalizeProjectAppearanceColor(
+    args.project.appearanceColor,
+  );
   const scriptsWorkspacePath = args.isCurrent
     ? (workspacePathById[activeWorkspaceId] ??
       currentProjectPath ??
@@ -461,6 +479,107 @@ function ProjectSettingsPanel(args: {
           </Button>
         </div>
       </div>
+
+      <SettingsCard
+        title="Project Appearance"
+        description="Give each project a stable visual identity across the sidebar and project switcher."
+      >
+        <div className="grid gap-5 lg:grid-cols-2">
+          <LabeledField
+            title="Icon"
+            description="Choose a shape that makes this repository recognizable at a glance."
+          >
+            <fieldset className="flex flex-wrap gap-2">
+              <legend className="sr-only">Project icon</legend>
+              {PROJECT_ICON_OPTIONS.map((option) => (
+                <label
+                  key={option.id}
+                  title={option.label}
+                  className="cursor-pointer rounded-lg"
+                >
+                  <input
+                    type="radio"
+                    name={`project-icon-${args.project.projectPath}`}
+                    value={option.id}
+                    checked={projectAppearanceIcon === option.id}
+                    aria-label={option.label}
+                    className="peer sr-only"
+                    onChange={() =>
+                      setProjectAppearance({
+                        projectPath: args.project.projectPath,
+                        icon: option.id,
+                        color: projectAppearanceColor,
+                      })
+                    }
+                  />
+                  <span
+                    className={cn(
+                      "inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-[background-color,border-color,color] hover:bg-muted/60 hover:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background",
+                      projectAppearanceIcon === option.id &&
+                        "border-primary/50 bg-primary/8 text-primary",
+                    )}
+                  >
+                    <option.icon className="size-4" />
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          </LabeledField>
+
+          <LabeledField
+            title="Color"
+            description="Color applies to the project icon while the surrounding surface follows the active theme."
+          >
+            <fieldset className="flex flex-wrap gap-2">
+              <legend className="sr-only">Project color</legend>
+              {PROJECT_COLOR_OPTIONS.map((option) => (
+                <label
+                  key={option.id}
+                  title={option.label}
+                  className="cursor-pointer rounded-full"
+                >
+                  <input
+                    type="radio"
+                    name={`project-color-${args.project.projectPath}`}
+                    value={option.id}
+                    checked={projectAppearanceColor === option.id}
+                    aria-label={option.label}
+                    className="peer sr-only"
+                    onChange={() =>
+                      setProjectAppearance({
+                        projectPath: args.project.projectPath,
+                        icon: projectAppearanceIcon,
+                        color: option.id,
+                      })
+                    }
+                  />
+                  <span
+                    className={cn(
+                      "inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent transition-[background-color,border-color] peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background",
+                      projectAppearanceColor === option.id &&
+                        "border-foreground/30 bg-muted/70",
+                    )}
+                  >
+                    <ProjectColorSwatch color={option.id} className="size-5" />
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          </LabeledField>
+        </div>
+        <div className="flex items-center gap-3 rounded-xl bg-muted/45 px-3 py-2.5">
+          <ProjectIdentityMark
+            icon={projectAppearanceIcon}
+            color={projectAppearanceColor}
+          />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">
+              {args.project.projectName}
+            </p>
+            <p className="text-xs text-muted-foreground">Sidebar preview</p>
+          </div>
+        </div>
+      </SettingsCard>
 
       <SettingsCard
         title="Repository Settings"
@@ -633,8 +752,8 @@ function ProjectSettingsPanel(args: {
       </SettingsCard>
 
       <SettingsCard
-        title="Scripts"
-        description="Actions, services, hooks, and targets for this project's shared scripts config."
+        title={WORKSPACE_TOOLS_LABEL}
+        description="One-shot commands, long-running processes, lifecycle triggers, and execution environments for this project."
         titleAccessory={
           <Button
             type="button"
@@ -644,7 +763,7 @@ function ProjectSettingsPanel(args: {
             onClick={() => args.onNavigateSection?.("scripts")}
           >
             <Sparkles className="size-3.5" />
-            Open Scripts settings
+            Manage workspace tools
             <ChevronRight className="size-3.5" />
           </Button>
         }
@@ -652,11 +771,14 @@ function ProjectSettingsPanel(args: {
         <div className="flex flex-wrap gap-2">
           {(
             [
-              ["Actions", resolvedScriptsConfig?.actions.length ?? 0],
-              ["Services", resolvedScriptsConfig?.services.length ?? 0],
-              ["Hooks", Object.keys(resolvedScriptsConfig?.hooks ?? {}).length],
+              ["Commands", resolvedScriptsConfig?.actions.length ?? 0],
+              ["Processes", resolvedScriptsConfig?.services.length ?? 0],
               [
-                "Targets",
+                "Triggers",
+                Object.keys(resolvedScriptsConfig?.hooks ?? {}).length,
+              ],
+              [
+                "Environments",
                 Object.keys(resolvedScriptsConfig?.targets ?? {}).length,
               ],
             ] as const
@@ -671,7 +793,8 @@ function ProjectSettingsPanel(args: {
           ))}
         </div>
         <p className="text-sm text-muted-foreground">
-          Edit and run scripts from the dedicated Scripts settings section.
+          Configure and run them from the dedicated {WORKSPACE_TOOLS_LABEL}{" "}
+          section.
         </p>
       </SettingsCard>
     </div>
@@ -698,10 +821,6 @@ function ProjectsSection(args: {
 
   return (
     <>
-      <SectionHeading
-        title="Projects"
-        description="Review repository-specific workspace defaults, git metadata, scripts config, and removal actions for the selected project."
-      />
       {args.projects.length === 0 ? (
         <SettingsCard
           title="No Projects Yet"
@@ -843,10 +962,6 @@ function GeneralSection() {
 
   return (
     <>
-      <SectionHeading
-        title="General"
-        description="Global preferences for the app window and reserved future defaults."
-      />
       <SectionStack>
         <SettingsCard
           title="Window Behavior"
@@ -978,15 +1093,11 @@ function GeneralSection() {
                   <Slider
                     aria-label="Notification sound volume"
                     className="flex-1"
-                    value={[notificationSoundVolumePercent]}
+                    value={notificationSoundVolumePercent}
                     min={0}
                     max={100}
                     step={1}
-                    onValueChange={(values) => {
-                      const nextValue = values[0];
-                      if (typeof nextValue !== "number") {
-                        return;
-                      }
+                    onValueChange={(nextValue) => {
                       updateSettings({
                         patch: { notificationSoundVolume: nextValue / 100 },
                       });
@@ -1081,10 +1192,6 @@ function ThemeSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Design"
-        description="Control theme mode, theme presets, and design token overrides."
-      />
       <SectionStack>
         <SettingsCard
           title="Appearance"
@@ -1161,15 +1268,11 @@ function ThemeSection() {
                 <Slider
                   aria-label="Active workspace rows"
                   className="flex-1"
-                  value={[sidebarActiveWorkspaceLimit]}
+                  value={sidebarActiveWorkspaceLimit}
                   min={SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN}
                   max={SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX}
                   step={1}
-                  onValueChange={(values) => {
-                    const nextValue = values[0];
-                    if (typeof nextValue !== "number") {
-                      return;
-                    }
+                  onValueChange={(nextValue) => {
                     updateSettings({
                       patch: { sidebarActiveWorkspaceLimit: nextValue },
                     });
@@ -1252,15 +1355,11 @@ function ThemeSection() {
                   <Slider
                     aria-label="Border Beam strength"
                     className="flex-1"
-                    value={[borderBeamStrengthPercent]}
+                    value={borderBeamStrengthPercent}
                     min={0}
                     max={100}
                     step={1}
-                    onValueChange={(values) => {
-                      const nextValue = values[0];
-                      if (typeof nextValue !== "number") {
-                        return;
-                      }
+                    onValueChange={(nextValue) => {
                       updateSettings({
                         patch: { borderBeamStrength: nextValue / 100 },
                       });
@@ -1683,10 +1782,6 @@ function TerminalSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Terminal"
-        description="Configure terminal appearance and behavior."
-      />
       <SectionStack>
         <SettingsCard
           title="Typography"
@@ -1877,10 +1972,6 @@ function ModelsSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Models"
-        description="Set the default model routing used for new turns. Codex options come from the current App Server runtime when available."
-      />
       <SectionStack>
         <SettingsCard
           title="Model Routing"
@@ -1892,6 +1983,9 @@ function ModelsSection() {
                 providerId: "claude-code",
                 model: modelClaude,
               })}
+              triggerAriaLabel={`Claude model: ${toHumanModelName({
+                model: modelClaude,
+              })}`}
               options={modelOptions.filter(
                 (option) => option.providerId === "claude-code",
               )}
@@ -1960,6 +2054,9 @@ function ModelsSection() {
                 providerId: "codex",
                 model: modelCodex,
               })}
+              triggerAriaLabel={`Codex model: ${toHumanModelName({
+                model: modelCodex,
+              })}`}
               options={modelOptions.filter(
                 (option) => option.providerId === "codex",
               )}
@@ -2038,13 +2135,14 @@ function ModelsSection() {
               <div className="flex items-center gap-3">
                 <span className="w-12 text-xs text-muted-foreground">Cost</span>
                 <Slider
+                  aria-label="Auto routing objective"
                   min={0}
                   max={1}
                   step={0.05}
-                  value={[autoRoutingObjective]}
+                  value={autoRoutingObjective}
                   onValueChange={(value) =>
                     updateSettings({
-                      patch: { autoRoutingObjective: value[0] ?? 0.5 },
+                      patch: { autoRoutingObjective: value },
                     })
                   }
                 />
@@ -2159,10 +2257,6 @@ function ChatSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Chat"
-        description="Typography and behavior defaults for the chat message surface."
-      />
       <SectionStack>
         <SettingsCard
           title="Typography"
@@ -2174,11 +2268,12 @@ function ChatSection() {
           >
             <div className="flex items-center gap-3">
               <Slider
+                aria-label="Message font size"
                 min={12}
                 max={24}
                 step={1}
-                value={[messageFontSize]}
-                onValueChange={([value]) =>
+                value={messageFontSize}
+                onValueChange={(value) =>
                   updateSettings({ patch: { messageFontSize: value } })
                 }
                 className="flex-1"
@@ -2194,11 +2289,12 @@ function ChatSection() {
           >
             <div className="flex items-center gap-3">
               <Slider
+                aria-label="Code font size"
                 min={10}
                 max={20}
                 step={1}
-                value={[messageCodeFontSize]}
-                onValueChange={([value]) =>
+                value={messageCodeFontSize}
+                onValueChange={(value) =>
                   updateSettings({ patch: { messageCodeFontSize: value } })
                 }
                 className="flex-1"
@@ -2264,13 +2360,14 @@ function ChatSection() {
           >
             <div className="flex items-center gap-3">
               <Slider
+                aria-label="Information panel scale"
                 min={80}
                 max={130}
                 step={5}
-                value={[Math.round(infoPanelScale * 100)]}
-                onValueChange={([value]) =>
+                value={Math.round(infoPanelScale * 100)}
+                onValueChange={(value) =>
                   updateSettings({
-                    patch: { infoPanelScale: (value ?? 100) / 100 },
+                    patch: { infoPanelScale: value / 100 },
                   })
                 }
                 className="flex-1"
@@ -2436,18 +2533,24 @@ function SkillsSection() {
     if (!skillsEnabled) {
       return;
     }
-    if (
-      skillCatalog.status === "loading" &&
+    const normalizedSharedSkillsHome = sharedSkillsHome.trim() || null;
+    const catalogMatchesRequest =
       skillCatalog.workspacePath === workspacePath &&
-      skillCatalog.sharedSkillsHome === (sharedSkillsHome.trim() || null)
-    ) {
-      return;
-    }
-    if (
-      skillCatalog.status === "ready" &&
-      skillCatalog.workspacePath === workspacePath &&
-      skillCatalog.sharedSkillsHome === (sharedSkillsHome.trim() || null)
-    ) {
+      skillCatalog.sharedSkillsHome === normalizedSharedSkillsHome;
+
+    if (catalogMatchesRequest) {
+      if (
+        skillCatalog.status === "loading" ||
+        skillCatalog.status === "error"
+      ) {
+        return;
+      }
+
+      if (skillCatalog.status !== "ready") {
+        void refreshSkillCatalog({ workspacePath });
+        return;
+      }
+
       const CATALOG_TTL_MS = 5 * 60 * 1000;
       const fetchedAtMs = skillCatalog.fetchedAt
         ? Date.parse(skillCatalog.fetchedAt)
@@ -2456,6 +2559,7 @@ function SkillsSection() {
         return;
       }
     }
+
     void refreshSkillCatalog({ workspacePath });
   }, [
     refreshSkillCatalog,
@@ -2470,10 +2574,6 @@ function SkillsSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Skills"
-        description="Configure skill discovery and automatic prompting."
-      />
       <SectionStack>
         <SettingsCard
           title="Skills"
@@ -2828,10 +2928,6 @@ function CommandPaletteSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Command Palette"
-        description="Configure shell chords, the global command launcher, and prompt-model hotkeys. This is separate from slash commands in the chat input."
-      />
       <SectionStack>
         <SettingsCard
           title="Behavior"
@@ -3426,10 +3522,6 @@ function EditorSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Editor"
-        description="Configure code editor defaults used by tabs and previews."
-      />
       <SectionStack>
         <SettingsCard
           title="Typography"
@@ -3834,11 +3926,6 @@ function PromptsSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Prompts"
-        description="Customise the AI prompts used by Stave for automated features. Each field has a sensible default; leave empty to disable."
-      />
-
       <SectionStack>
         <SettingsCard
           title="Pre-PR Review"
@@ -4148,10 +4235,6 @@ function LensSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Lens"
-        description="Configure the built-in browser for inspecting your running application."
-      />
       <SectionStack>
         <SettingsCard
           title="Session & Sign-in"

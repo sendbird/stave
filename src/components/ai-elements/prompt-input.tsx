@@ -116,6 +116,7 @@ import {
 } from "@/lib/prompt-comment-shortcuts";
 import {
   DEFAULT_STEER_QUEUE_ENTER_ACTION,
+  formatSteerQueueEnterActionLabel,
   tabActionForSteerQueueEnterAction,
   type SteerQueueEnterAction,
 } from "@/lib/steer-queue-shortcuts";
@@ -140,7 +141,9 @@ import {
   type PromptInputGoalStatus,
 } from "./prompt-input-goal-status";
 import {
+  getPromptInputRuntimeProfile,
   PromptInputRuntimeBar,
+  type PromptInputRuntimeProfile,
   type PromptInputRuntimeStatusItem,
 } from "./prompt-input-runtime-bar";
 import { ModelIcon } from "./model-icon";
@@ -161,6 +164,7 @@ import {
   LocalChangeReviewDialog,
   type LocalChangeReviewRequest,
 } from "./local-change-review-dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
   "fontSize",
@@ -242,7 +246,7 @@ interface PromptInputProps {
     answers: Record<string, string>;
   }) => void;
   onUserInputDeny?: (args: { messageId: string }) => void;
-  leadingToolbarAction?: ReactNode;
+  beforeRuntimeAction?: ReactNode;
   workspaceCwd?: string;
   reviewModelOptions?: readonly ModelSelectorOption[];
   preferredReviewModelKey?: string;
@@ -283,21 +287,9 @@ const PROMPT_TOOLBAR_ICON_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} rounde
 
 function tooltipTriggerButtonClassName(args: {
   variant?:
-    | "default"
-    | "outline"
-    | "secondary"
-    | "ghost"
-    | "destructive"
-    | "link";
+    "default" | "outline" | "secondary" | "ghost" | "destructive" | "link";
   size?:
-    | "default"
-    | "xs"
-    | "sm"
-    | "lg"
-    | "icon"
-    | "icon-xs"
-    | "icon-sm"
-    | "icon-lg";
+    "default" | "xs" | "sm" | "lg" | "icon" | "icon-xs" | "icon-sm" | "icon-lg";
   className?: string;
 }) {
   return buttonVariants({
@@ -311,6 +303,38 @@ function getPromptToolbarAccentClass(tone: "plan" | "thinking") {
   if (tone === "thinking")
     return "text-prompt-role-thinking hover:text-prompt-role-thinking";
   return "text-prompt-role-plan hover:text-prompt-role-plan";
+}
+
+function getRuntimeProfileToneClass(tone: PromptInputRuntimeProfile["tone"]) {
+  if (tone === "warning") {
+    return "text-warning";
+  }
+  if (tone === "custom") {
+    return "text-primary";
+  }
+  return "text-success";
+}
+
+function PromptInputRuntimeTriggerIcon(args: {
+  profile: PromptInputRuntimeProfile;
+}) {
+  return (
+    <span className="relative inline-flex size-4 items-center justify-center">
+      <SlidersHorizontal aria-hidden="true" className="size-4" />
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute -right-1 -top-1 size-2 rounded-full border-2 border-card",
+          args.profile.tone === "warning"
+            ? "bg-warning"
+            : args.profile.tone === "custom"
+              ? "bg-primary"
+              : "bg-success",
+        )}
+      />
+      <span className="sr-only">Runtime profile: {args.profile.label}</span>
+    </span>
+  );
 }
 
 function getPaletteItemSelector(index: number) {
@@ -368,16 +392,18 @@ function LensAnnotationStylePopover(args: {
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          disabled={disabled || !annotation.selector}
-          aria-label={`Edit styles for comment ${annotation.pin}`}
-        >
-          <SlidersHorizontal className="size-3" />
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            disabled={disabled || !annotation.selector}
+            aria-label={`Edit styles for comment ${annotation.pin}`}
+          />
+        }
+      >
+        <SlidersHorizontal className="size-3" />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 space-y-3">
         <div>
@@ -389,9 +415,7 @@ function LensAnnotationStylePopover(args: {
         <div className="grid gap-2">
           {LENS_ANNOTATION_STYLE_FIELDS.map((field) => (
             <label key={field} className="grid gap-1 text-xs">
-              <span className="font-medium text-muted-foreground">
-                {field}
-              </span>
+              <span className="font-medium text-muted-foreground">{field}</span>
               <Input
                 value={draft[field] ?? ""}
                 onChange={(event) =>
@@ -476,7 +500,7 @@ export function PromptInput(args: PromptInputProps) {
     pendingUserInput,
     onUserInputSubmit,
     onUserInputDeny,
-    leadingToolbarAction,
+    beforeRuntimeAction,
     workspaceCwd,
     reviewModelOptions,
     preferredReviewModelKey,
@@ -490,6 +514,7 @@ export function PromptInput(args: PromptInputProps) {
     onClearQueuedNextTurn,
     onAbort,
   } = args;
+  const isMobile = useIsMobile();
   const legacyQueuedTurns = useMemo<readonly PromptDraftQueuedTurn[]>(
     () =>
       queuedNextTurn?.content?.trim()
@@ -520,7 +545,10 @@ export function PromptInput(args: PromptInputProps) {
     [imageAttachments],
   );
   const imageAttachmentsById = useMemo(
-    () => new Map(imageAttachments.map((attachment) => [attachment.id, attachment])),
+    () =>
+      new Map(
+        imageAttachments.map((attachment) => [attachment.id, attachment]),
+      ),
     [imageAttachments],
   );
   const lensAnnotationAttachments = useMemo(
@@ -538,8 +566,10 @@ export function PromptInput(args: PromptInputProps) {
       (attachments ?? []).filter(
         (
           attachment,
-        ): attachment is Extract<Attachment, { kind: "workspace-information" }> =>
-          attachment.kind === "workspace-information",
+        ): attachment is Extract<
+          Attachment,
+          { kind: "workspace-information" }
+        > => attachment.kind === "workspace-information",
       ),
     [attachments],
   );
@@ -578,8 +608,10 @@ export function PromptInput(args: PromptInputProps) {
   );
   const [selectedSkillIndex, setSelectedSkillIndex] =
     useState(NO_COMMAND_SELECTION);
-  const [dismissedWorkspaceInformationToken, setDismissedWorkspaceInformationToken] =
-    useState<string | null>(null);
+  const [
+    dismissedWorkspaceInformationToken,
+    setDismissedWorkspaceInformationToken,
+  ] = useState<string | null>(null);
   const [
     selectedWorkspaceInformationIndex,
     setSelectedWorkspaceInformationIndex,
@@ -799,15 +831,16 @@ export function PromptInput(args: PromptInputProps) {
       suppressedAutocompleteValue?.palette === "info" &&
       suppressedAutocompleteValue.value === value
     ) &&
-    dismissedWorkspaceInformationToken !== activeWorkspaceInformationToken.token,
+    dismissedWorkspaceInformationToken !==
+      activeWorkspaceInformationToken.token,
   );
   const activePalette = workspaceInformationPaletteOpen
     ? "info"
     : skillPaletteOpen
-    ? "skill"
-    : commandPaletteOpen
-      ? "command"
-      : null;
+      ? "skill"
+      : commandPaletteOpen
+        ? "command"
+        : null;
   const paletteValue = useMemo(() => {
     if (
       activePalette === "info" &&
@@ -840,8 +873,10 @@ export function PromptInput(args: PromptInputProps) {
     filteredSkillItems,
     filteredCommandItems,
   ]);
-  const hasRuntimeDrawerContent = Boolean(
-    (runtimeStatusItems?.length ?? 0) > 0,
+  const hasRuntimeContent = Boolean((runtimeStatusItems?.length ?? 0) > 0);
+  const runtimeProfile = useMemo(
+    () => getPromptInputRuntimeProfile(runtimeStatusItems ?? []),
+    [runtimeStatusItems],
   );
   const shouldShowFocusHint =
     !minimal &&
@@ -915,8 +950,8 @@ export function PromptInput(args: PromptInputProps) {
       typeof document !== "undefined" &&
         Boolean(
           rootElement &&
-            document.activeElement &&
-            rootElement.contains(document.activeElement),
+          document.activeElement &&
+          rootElement.contains(document.activeElement),
         ),
     );
   }, []);
@@ -1246,7 +1281,8 @@ export function PromptInput(args: PromptInputProps) {
         });
         if (!result?.ok) {
           toast.error("Comment removal failed", {
-            description: result?.message ?? "Lens could not remove that comment.",
+            description:
+              result?.message ?? "Lens could not remove that comment.",
           });
         }
       }
@@ -1357,9 +1393,9 @@ export function PromptInput(args: PromptInputProps) {
   ) {
     return Boolean(
       match &&
-        match.start >= 0 &&
-        match.end <= currentValue.length &&
-        currentValue.slice(match.start, match.end) === match.token,
+      match.start >= 0 &&
+      match.end <= currentValue.length &&
+      currentValue.slice(match.start, match.end) === match.token,
     );
   }
 
@@ -1434,24 +1470,24 @@ export function PromptInput(args: PromptInputProps) {
     const caretPosition = getLiveCaretIndex(currentValue);
     pendingCommandTokenRef.current =
       activePalette === "command"
-        ? getActiveSlashCommandTokenMatch({
+        ? (getActiveSlashCommandTokenMatch({
             value: currentValue,
             caretIndex: caretPosition,
-          }) ?? activeCommandToken
+          }) ?? activeCommandToken)
         : null;
     pendingSkillTokenRef.current =
       activePalette === "skill"
-        ? getActiveSkillTokenMatch({
+        ? (getActiveSkillTokenMatch({
             value: currentValue,
             caretIndex: caretPosition,
-          }) ?? activeSkillToken
+          }) ?? activeSkillToken)
         : null;
     pendingWorkspaceInformationTokenRef.current =
       activePalette === "info"
-        ? getActiveWorkspaceInformationTokenMatch({
+        ? (getActiveWorkspaceInformationTokenMatch({
             text: currentValue,
             caretIndex: caretPosition,
-          }) ?? activeWorkspaceInformationToken
+          }) ?? activeWorkspaceInformationToken)
         : null;
   }
 
@@ -1604,14 +1640,14 @@ export function PromptInput(args: PromptInputProps) {
       */}
       <BorderBeam
         active={showBorderBeam}
+        data-turn-active={!minimal && isTurnActive ? "true" : undefined}
         size={borderBeamSize}
         colorVariant={borderBeamVariant}
         strength={borderBeamStrength}
         theme="auto"
         className={cn(
-          "transition-[box-shadow]",
-          !minimal &&
-            "rounded-xl shadow-lg focus-within:ring-3 focus-within:ring-ring/20",
+          "transition-[box-shadow] duration-200 ease-out motion-reduce:transition-none",
+          !minimal && "prompt-input-shell rounded-xl",
         )}
       >
         <form
@@ -1625,7 +1661,7 @@ export function PromptInput(args: PromptInputProps) {
             "relative space-y-3 transition-[border-color,background-color]",
             minimal
               ? "space-y-2 border-0 border-t border-border/60 bg-transparent p-0 pt-3 focus-within:border-border/60"
-              : "rounded-xl border-0 bg-card/95 p-3",
+              : "rounded-xl border-0 bg-card p-3",
           )}
         >
           {goalStatus ? (
@@ -1646,7 +1682,7 @@ export function PromptInput(args: PromptInputProps) {
             </Suggestions>
           ) : null}
           {visibleQueuedTurns.length > 0 ? (
-            <div className="space-y-2 rounded-xl border border-border/80 bg-card/95 px-3 py-2.5 shadow-lg supports-backdrop-filter:backdrop-blur-md">
+            <div className="space-y-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 shadow-[0_10px_28px_-18px_oklch(0_0_0/0.28),0_2px_7px_-4px_oklch(0_0_0/0.16)]">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   variant="secondary"
@@ -1817,382 +1853,407 @@ export function PromptInput(args: PromptInputProps) {
               </div>
             </div>
           ) : null}
-          <Popover open={activePalette !== null} modal={false}>
-            <PopoverAnchor asChild>
-              <div className={cn("space-y-2", minimal && "space-y-3")}>
+          <Popover
+            open={activePalette !== null}
+            modal={false}
+            onOpenChange={(nextOpen, eventDetails) => {
+              if (nextOpen) {
+                return;
+              }
+              if (eventDetails.reason === "focus-out") {
+                eventDetails.cancel();
+                return;
+              }
+              if (eventDetails.reason !== "outside-press") {
+                return;
+              }
+              if (activePalette === "info") {
+                setDismissedWorkspaceInformationToken(
+                  activeWorkspaceInformationToken?.token ?? null,
+                );
+                return;
+              }
+              if (activePalette === "skill") {
+                setDismissedSkillToken(activeSkillToken?.token ?? null);
+                return;
+              }
+              setDismissedCommandToken(activeCommandToken?.token ?? null);
+            }}
+          >
+            <PopoverAnchor
+              render={
+                <div className={cn("space-y-2", minimal && "space-y-3")} />
+              }
+            >
+              <div
+                className={cn(
+                  minimal
+                    ? "rounded-md border border-border/60 bg-background px-3 py-2.5"
+                    : undefined,
+                )}
+              >
                 <div
                   className={cn(
-                    minimal
-                      ? "rounded-md border border-border/60 bg-background px-3 py-2.5"
-                      : undefined,
+                    minimal ? "flex items-start gap-3" : "space-y-2",
                   )}
                 >
-                  <div
-                    className={cn(
-                      minimal ? "flex items-start gap-3" : "space-y-2",
-                    )}
-                  >
-                    {minimal ? (
-                      <span className="select-none font-mono text-base leading-7 text-primary/90">
-                        &gt;
-                      </span>
-                    ) : null}
-                    <div className="relative min-w-0 flex-1">
-                      {shouldShowFocusHint ? (
-                        <div
+                  {minimal ? (
+                    <span className="select-none font-mono text-base leading-7 text-primary/90">
+                      &gt;
+                    </span>
+                  ) : null}
+                  <div className="relative min-w-0 flex-1">
+                    {shouldShowFocusHint ? (
+                      <div
+                        className={cn(
+                          "pointer-events-none absolute right-0 top-0",
+                          UI_LAYER_CLASS.floatingChrome,
+                        )}
+                      >
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={focusComposer}
                           className={cn(
-                            "pointer-events-none absolute right-0 top-0",
-                            UI_LAYER_CLASS.floatingChrome,
+                            PROMPT_TOOLBAR_BUTTON,
+                            PROMPT_FLOATING_SURFACE,
+                            "pointer-events-auto h-8 gap-2 shadow-sm",
                           )}
                         >
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={focusComposer}
-                            className={cn(
-                              PROMPT_TOOLBAR_BUTTON,
-                              PROMPT_FLOATING_SURFACE,
-                              "pointer-events-auto h-8 gap-2 shadow-sm",
-                            )}
-                          >
-                            <span>Focus</span>
-                            <KbdGroup>
-                              <Kbd>{modifierLabel}</Kbd>
-                              <Kbd>L</Kbd>
-                            </KbdGroup>
-                            <span className="text-xs text-muted-foreground">
-                              or
-                            </span>
-                            <KbdGroup>
-                              <Kbd>{modifierLabel}</Kbd>
-                              <Kbd>J</Kbd>
-                            </KbdGroup>
-                          </Button>
-                        </div>
-                      ) : null}
-                      <PromptLexicalEditor
-                        ref={promptEditorRef}
-                        value={value}
-                        selectionRange={editorSelectionRange}
-                        disabled={interactionsDisabled}
-                        minimal={minimal}
-                        commandPaletteItems={commandPaletteItems}
-                        skillPaletteItems={skillPaletteItems}
-                        workspaceInformationReferenceOptions={
-                          workspaceInformationReferenceOptions
+                          <span>Focus</span>
+                          <KbdGroup>
+                            <Kbd>{modifierLabel}</Kbd>
+                            <Kbd>L</Kbd>
+                          </KbdGroup>
+                          <span className="text-xs text-muted-foreground">
+                            or
+                          </span>
+                          <KbdGroup>
+                            <Kbd>{modifierLabel}</Kbd>
+                            <Kbd>J</Kbd>
+                          </KbdGroup>
+                        </Button>
+                      </div>
+                    ) : null}
+                    <PromptLexicalEditor
+                      ref={promptEditorRef}
+                      value={value}
+                      selectionRange={editorSelectionRange}
+                      disabled={interactionsDisabled}
+                      minimal={minimal}
+                      commandPaletteItems={commandPaletteItems}
+                      skillPaletteItems={skillPaletteItems}
+                      workspaceInformationReferenceOptions={
+                        workspaceInformationReferenceOptions
+                      }
+                      onChange={(nextValue) => {
+                        onValueChange(nextValue);
+                      }}
+                      onSelectionChange={syncCaretPosition}
+                      onFocus={() => {
+                        syncCaretPosition(
+                          promptEditorRef.current?.getSelectionRange(),
+                        );
+                        onFocus?.();
+                      }}
+                      onBlur={() => onBlur?.()}
+                      onPaste={(event) => {
+                        const clipboardData = event.clipboardData;
+                        if (!clipboardData) {
+                          return;
                         }
-                        onChange={(nextValue) => {
-                          onValueChange(nextValue);
-                        }}
-                        onSelectionChange={syncCaretPosition}
-                        onFocus={() => {
-                          syncCaretPosition(
-                            promptEditorRef.current?.getSelectionRange(),
+                        const { imageFiles, nonImageFiles: pastedFiles } =
+                          partitionClipboardFiles(
+                            collectClipboardFiles({
+                              items: clipboardData.items,
+                              files: clipboardData.files,
+                            }),
                           );
-                          onFocus?.();
-                        }}
-                        onBlur={() => onBlur?.()}
-                        onPaste={(event) => {
-                          const clipboardData = event.clipboardData;
-                          if (!clipboardData) {
-                            return;
-                          }
-                          const { imageFiles, nonImageFiles: pastedFiles } =
-                            partitionClipboardFiles(
-                              collectClipboardFiles({
-                                items: clipboardData.items,
-                                files: clipboardData.files,
+                        const shouldHandleImages =
+                          imageFiles.length > 0 && Boolean(onAttachmentsChange);
+                        const shouldHandleFiles =
+                          pastedFiles.length > 0 && Boolean(onPasteFiles);
+                        if (!shouldHandleImages && !shouldHandleFiles) {
+                          return;
+                        }
+                        event.preventDefault();
+                        if (shouldHandleFiles) {
+                          void onPasteFiles?.({ files: pastedFiles });
+                        }
+                        if (shouldHandleImages) {
+                          Promise.all(
+                            imageFiles.map(
+                              (file) =>
+                                new Promise<
+                                  Extract<Attachment, { kind: "image" }>
+                                >((resolve) => {
+                                  const reader = new FileReader();
+                                  reader.onload = () => {
+                                    resolve({
+                                      kind: "image",
+                                      id: crypto.randomUUID(),
+                                      dataUrl: reader.result as string,
+                                      label: file.name || "Pasted image",
+                                      mimeType: file.type || "image/png",
+                                    });
+                                  };
+                                  reader.readAsDataURL(file);
+                                }),
+                            ),
+                          ).then((newImages) => {
+                            const existingImageAttachments = (
+                              attachments ?? []
+                            ).filter(
+                              (
+                                attachment,
+                              ): attachment is Extract<
+                                Attachment,
+                                { kind: "image" }
+                              > => attachment.kind === "image",
+                            );
+                            const retainedAttachments = (
+                              attachments ?? []
+                            ).filter(
+                              (attachment) => attachment.kind !== "image",
+                            );
+                            onAttachmentsChange?.({
+                              attachments: [
+                                ...retainedAttachments,
+                                ...mergeClipboardImageAttachments({
+                                  existing: existingImageAttachments,
+                                  incoming: newImages,
+                                }),
+                              ],
+                            });
+                          });
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          activePalette === "info" &&
+                          filteredWorkspaceInformationItems.length > 0 &&
+                          !event.shiftKey &&
+                          !event.altKey &&
+                          !event.ctrlKey &&
+                          !event.metaKey
+                        ) {
+                          if (event.key === "ArrowDown") {
+                            event.preventDefault();
+                            setSelectedWorkspaceInformationIndex((current) =>
+                              getNextCommandSelectionIndex({
+                                currentIndex: current,
+                                itemCount:
+                                  filteredWorkspaceInformationItems.length,
+                                direction: "next",
                               }),
                             );
-                          const shouldHandleImages =
-                            imageFiles.length > 0 &&
-                            Boolean(onAttachmentsChange);
-                          const shouldHandleFiles =
-                            pastedFiles.length > 0 && Boolean(onPasteFiles);
-                          if (!shouldHandleImages && !shouldHandleFiles) {
                             return;
                           }
-                          event.preventDefault();
-                          if (shouldHandleFiles) {
-                            void onPasteFiles?.({ files: pastedFiles });
+                          if (event.key === "ArrowUp") {
+                            event.preventDefault();
+                            setSelectedWorkspaceInformationIndex((current) =>
+                              getNextCommandSelectionIndex({
+                                currentIndex: current,
+                                itemCount:
+                                  filteredWorkspaceInformationItems.length,
+                                direction: "previous",
+                              }),
+                            );
+                            return;
                           }
-                          if (shouldHandleImages) {
-                            Promise.all(
-                              imageFiles.map(
-                                (file) =>
-                                  new Promise<
-                                    Extract<Attachment, { kind: "image" }>
-                                  >((resolve) => {
-                                    const reader = new FileReader();
-                                    reader.onload = () => {
-                                      resolve({
-                                        kind: "image",
-                                        id: crypto.randomUUID(),
-                                        dataUrl: reader.result as string,
-                                        label: file.name || "Pasted image",
-                                        mimeType: file.type || "image/png",
-                                      });
-                                    };
-                                    reader.readAsDataURL(file);
-                                  }),
-                              ),
-                            ).then((newImages) => {
-                              const existingImageAttachments = (
-                                attachments ?? []
-                              ).filter(
-                                (
-                                  attachment,
-                                ): attachment is Extract<
-                                  Attachment,
-                                  { kind: "image" }
-                                > => attachment.kind === "image",
-                              );
-                              const retainedAttachments = (
-                                attachments ?? []
-                              ).filter(
-                                (attachment) => attachment.kind !== "image",
-                              );
-                              onAttachmentsChange?.({
-                                attachments: [
-                                  ...retainedAttachments,
-                                  ...mergeClipboardImageAttachments({
-                                    existing: existingImageAttachments,
-                                    incoming: newImages,
-                                  }),
-                                ],
-                              });
+                          if (event.key === "Enter" || event.key === "Tab") {
+                            if (event.nativeEvent.isComposing) {
+                              return;
+                            }
+                            const selectedItem = getAcceptedPaletteItem({
+                              items: filteredWorkspaceInformationItems,
+                              selectedIndex: selectedWorkspaceInformationIndex,
+                              triggerKey: event.key,
                             });
-                          }
-                        }}
-                        onKeyDown={(event) => {
-                          if (
-                            activePalette === "info" &&
-                            filteredWorkspaceInformationItems.length > 0 &&
-                            !event.shiftKey &&
-                            !event.altKey &&
-                            !event.ctrlKey &&
-                            !event.metaKey
-                          ) {
-                            if (event.key === "ArrowDown") {
+                            if (selectedItem) {
                               event.preventDefault();
-                              setSelectedWorkspaceInformationIndex((current) =>
-                                getNextCommandSelectionIndex({
-                                  currentIndex: current,
-                                  itemCount:
-                                    filteredWorkspaceInformationItems.length,
-                                  direction: "next",
-                                }),
-                              );
+                              applyWorkspaceInformationSelection(selectedItem);
                               return;
-                            }
-                            if (event.key === "ArrowUp") {
-                              event.preventDefault();
-                              setSelectedWorkspaceInformationIndex((current) =>
-                                getNextCommandSelectionIndex({
-                                  currentIndex: current,
-                                  itemCount:
-                                    filteredWorkspaceInformationItems.length,
-                                  direction: "previous",
-                                }),
-                              );
-                              return;
-                            }
-                            if (event.key === "Enter" || event.key === "Tab") {
-                              if (event.nativeEvent.isComposing) {
-                                return;
-                              }
-                              const selectedItem = getAcceptedPaletteItem({
-                                items: filteredWorkspaceInformationItems,
-                                selectedIndex:
-                                  selectedWorkspaceInformationIndex,
-                                triggerKey: event.key,
-                              });
-                              if (selectedItem) {
-                                event.preventDefault();
-                                applyWorkspaceInformationSelection(
-                                  selectedItem,
-                                );
-                                return;
-                              }
                             }
                           }
-                          if (
-                            activePalette === "skill" &&
-                            filteredSkillItems.length > 0 &&
-                            !event.shiftKey &&
-                            !event.altKey &&
-                            !event.ctrlKey &&
-                            !event.metaKey
-                          ) {
-                            if (event.key === "ArrowDown") {
-                              event.preventDefault();
-                              setSelectedSkillIndex((current) =>
-                                getNextCommandSelectionIndex({
-                                  currentIndex: current,
-                                  itemCount: filteredSkillItems.length,
-                                  direction: "next",
-                                }),
-                              );
-                              return;
-                            }
-                            if (event.key === "ArrowUp") {
-                              event.preventDefault();
-                              setSelectedSkillIndex((current) =>
-                                getNextCommandSelectionIndex({
-                                  currentIndex: current,
-                                  itemCount: filteredSkillItems.length,
-                                  direction: "previous",
-                                }),
-                              );
-                              return;
-                            }
-                            if (event.key === "Enter" || event.key === "Tab") {
-                              if (event.nativeEvent.isComposing) {
-                                return;
-                              }
-                              const selectedItem = getAcceptedPaletteItem({
-                                items: filteredSkillItems,
-                                selectedIndex: selectedSkillIndex,
-                                triggerKey: event.key,
-                              });
-                              if (selectedItem) {
-                                event.preventDefault();
-                                applySkillSelection(selectedItem);
-                                return;
-                              }
-                            }
-                          }
-                          if (
-                            activePalette === "command" &&
-                            filteredCommandItems.length > 0 &&
-                            !event.shiftKey &&
-                            !event.altKey &&
-                            !event.ctrlKey &&
-                            !event.metaKey
-                          ) {
-                            if (event.key === "ArrowDown") {
-                              event.preventDefault();
-                              setSelectedCommandIndex((current) =>
-                                getNextCommandSelectionIndex({
-                                  currentIndex: current,
-                                  itemCount: filteredCommandItems.length,
-                                  direction: "next",
-                                }),
-                              );
-                              return;
-                            }
-                            if (event.key === "ArrowUp") {
-                              event.preventDefault();
-                              setSelectedCommandIndex((current) =>
-                                getNextCommandSelectionIndex({
-                                  currentIndex: current,
-                                  itemCount: filteredCommandItems.length,
-                                  direction: "previous",
-                                }),
-                              );
-                              return;
-                            }
-                            if (event.key === "Enter" || event.key === "Tab") {
-                              if (event.nativeEvent.isComposing) {
-                                return;
-                              }
-                              const selectedItem =
-                                getAcceptedCommandPaletteItem({
-                                  items: filteredCommandItems,
-                                  selectedIndex: selectedCommandIndex,
-                                  triggerKey: event.key,
-                                });
-                              if (selectedItem) {
-                                event.preventDefault();
-                                applyCommandSelection(selectedItem);
-                                return;
-                              }
-                            }
-                          }
-                          if (
-                            activePalette === "info" &&
-                            event.key === "Escape"
-                          ) {
+                        }
+                        if (
+                          activePalette === "skill" &&
+                          filteredSkillItems.length > 0 &&
+                          !event.shiftKey &&
+                          !event.altKey &&
+                          !event.ctrlKey &&
+                          !event.metaKey
+                        ) {
+                          if (event.key === "ArrowDown") {
                             event.preventDefault();
-                            setDismissedWorkspaceInformationToken(
-                              activeWorkspaceInformationToken?.token ?? null,
+                            setSelectedSkillIndex((current) =>
+                              getNextCommandSelectionIndex({
+                                currentIndex: current,
+                                itemCount: filteredSkillItems.length,
+                                direction: "next",
+                              }),
                             );
                             return;
                           }
-                          if (
-                            activePalette === "skill" &&
-                            event.key === "Escape"
-                          ) {
+                          if (event.key === "ArrowUp") {
                             event.preventDefault();
-                            setDismissedSkillToken(
-                              activeSkillToken?.token ?? null,
+                            setSelectedSkillIndex((current) =>
+                              getNextCommandSelectionIndex({
+                                currentIndex: current,
+                                itemCount: filteredSkillItems.length,
+                                direction: "previous",
+                              }),
                             );
                             return;
                           }
-                          if (
-                            activePalette === "command" &&
-                            event.key === "Escape"
-                          ) {
-                            event.preventDefault();
-                            setDismissedCommandToken(
-                              activeCommandToken?.token ?? null,
-                            );
-                            return;
-                          }
-                          if (
-                            activePalette === null &&
-                            isTurnActive &&
-                            event.key === "Escape" &&
-                            !event.nativeEvent.isComposing
-                          ) {
-                            event.preventDefault();
-                            onAbort?.();
-                            return;
-                          }
-                          if (
-                            activePalette === null &&
-                            (event.key === "ArrowUp" ||
-                              event.key === "ArrowDown") &&
-                            !event.shiftKey &&
-                            !event.altKey &&
-                            !event.ctrlKey &&
-                            !event.metaKey &&
-                            !event.nativeEvent.isComposing
-                          ) {
-                            const consumed = applyPromptHistoryNavigation(
-                              event.key === "ArrowUp" ? "previous" : "next",
-                            );
-                            if (consumed) {
+                          if (event.key === "Enter" || event.key === "Tab") {
+                            if (event.nativeEvent.isComposing) {
+                              return;
+                            }
+                            const selectedItem = getAcceptedPaletteItem({
+                              items: filteredSkillItems,
+                              selectedIndex: selectedSkillIndex,
+                              triggerKey: event.key,
+                            });
+                            if (selectedItem) {
                               event.preventDefault();
+                              applySkillSelection(selectedItem);
                               return;
                             }
                           }
-                          if (handleShiftTabShortcut(event)) {
-                            return;
-                          }
-                          if (
-                            isSteerOrQueueMode &&
-                            activePalette === null &&
-                            event.key === "Tab" &&
-                            !event.shiftKey &&
-                            !event.altKey &&
-                            !event.ctrlKey &&
-                            !event.metaKey &&
-                            !event.nativeEvent.isComposing
-                          ) {
+                        }
+                        if (
+                          activePalette === "command" &&
+                          filteredCommandItems.length > 0 &&
+                          !event.shiftKey &&
+                          !event.altKey &&
+                          !event.ctrlKey &&
+                          !event.metaKey
+                        ) {
+                          if (event.key === "ArrowDown") {
                             event.preventDefault();
-                            void submitCurrentMessage(
-                              tabActionForSteerQueueEnterAction(
-                                steerQueueEnterAction,
-                              ),
+                            setSelectedCommandIndex((current) =>
+                              getNextCommandSelectionIndex({
+                                currentIndex: current,
+                                itemCount: filteredCommandItems.length,
+                                direction: "next",
+                              }),
                             );
                             return;
                           }
-                          if (event.key !== "Enter") {
+                          if (event.key === "ArrowUp") {
+                            event.preventDefault();
+                            setSelectedCommandIndex((current) =>
+                              getNextCommandSelectionIndex({
+                                currentIndex: current,
+                                itemCount: filteredCommandItems.length,
+                                direction: "previous",
+                              }),
+                            );
                             return;
                           }
-                          if (isPromptCommentShortcut({
+                          if (event.key === "Enter" || event.key === "Tab") {
+                            if (event.nativeEvent.isComposing) {
+                              return;
+                            }
+                            const selectedItem = getAcceptedCommandPaletteItem({
+                              items: filteredCommandItems,
+                              selectedIndex: selectedCommandIndex,
+                              triggerKey: event.key,
+                            });
+                            if (selectedItem) {
+                              event.preventDefault();
+                              applyCommandSelection(selectedItem);
+                              return;
+                            }
+                          }
+                        }
+                        if (
+                          activePalette === "info" &&
+                          event.key === "Escape"
+                        ) {
+                          event.preventDefault();
+                          setDismissedWorkspaceInformationToken(
+                            activeWorkspaceInformationToken?.token ?? null,
+                          );
+                          return;
+                        }
+                        if (
+                          activePalette === "skill" &&
+                          event.key === "Escape"
+                        ) {
+                          event.preventDefault();
+                          setDismissedSkillToken(
+                            activeSkillToken?.token ?? null,
+                          );
+                          return;
+                        }
+                        if (
+                          activePalette === "command" &&
+                          event.key === "Escape"
+                        ) {
+                          event.preventDefault();
+                          setDismissedCommandToken(
+                            activeCommandToken?.token ?? null,
+                          );
+                          return;
+                        }
+                        if (
+                          activePalette === null &&
+                          isTurnActive &&
+                          event.key === "Escape" &&
+                          !event.nativeEvent.isComposing
+                        ) {
+                          event.preventDefault();
+                          onAbort?.();
+                          return;
+                        }
+                        if (
+                          activePalette === null &&
+                          (event.key === "ArrowUp" ||
+                            event.key === "ArrowDown") &&
+                          !event.shiftKey &&
+                          !event.altKey &&
+                          !event.ctrlKey &&
+                          !event.metaKey &&
+                          !event.nativeEvent.isComposing
+                        ) {
+                          const consumed = applyPromptHistoryNavigation(
+                            event.key === "ArrowUp" ? "previous" : "next",
+                          );
+                          if (consumed) {
+                            event.preventDefault();
+                            return;
+                          }
+                        }
+                        if (handleShiftTabShortcut(event)) {
+                          return;
+                        }
+                        if (
+                          isSteerOrQueueMode &&
+                          activePalette === null &&
+                          event.key === "Tab" &&
+                          !event.shiftKey &&
+                          !event.altKey &&
+                          !event.ctrlKey &&
+                          !event.metaKey &&
+                          !event.nativeEvent.isComposing
+                        ) {
+                          event.preventDefault();
+                          void submitCurrentMessage(
+                            tabActionForSteerQueueEnterAction(
+                              steerQueueEnterAction,
+                            ),
+                          );
+                          return;
+                        }
+                        if (event.key !== "Enter") {
+                          return;
+                        }
+                        if (
+                          isPromptCommentShortcut({
                             shortcut: promptCommentShortcut,
                             key: event.key,
                             shiftKey: event.shiftKey,
@@ -2200,75 +2261,75 @@ export function PromptInput(args: PromptInputProps) {
                             ctrlKey: event.ctrlKey,
                             metaKey: event.metaKey,
                             isComposing: event.nativeEvent.isComposing,
-                          })) {
-                            event.preventDefault();
-                            onStagePromptBatch?.();
-                            return;
-                          }
-                          if (
-                            event.shiftKey ||
-                            event.altKey ||
-                            event.ctrlKey ||
-                            event.metaKey
-                          ) {
-                            return;
-                          }
-                          if (event.nativeEvent.isComposing) {
-                            return;
-                          }
-                          const paletteHasAcceptedItems =
-                            activePalette === "info"
-                              ? filteredWorkspaceInformationItems.length > 0
-                              : activePalette === "skill"
+                          })
+                        ) {
+                          event.preventDefault();
+                          onStagePromptBatch?.();
+                          return;
+                        }
+                        if (
+                          event.shiftKey ||
+                          event.altKey ||
+                          event.ctrlKey ||
+                          event.metaKey
+                        ) {
+                          return;
+                        }
+                        if (event.nativeEvent.isComposing) {
+                          return;
+                        }
+                        const paletteHasAcceptedItems =
+                          activePalette === "info"
+                            ? filteredWorkspaceInformationItems.length > 0
+                            : activePalette === "skill"
                               ? filteredSkillItems.length > 0
                               : activePalette === "command"
                                 ? filteredCommandItems.length > 0
                                 : false;
-                          if (paletteHasAcceptedItems) {
-                            event.preventDefault();
-                            return;
-                          }
+                        if (paletteHasAcceptedItems) {
                           event.preventDefault();
-                          void submitCurrentMessage(
-                            isSteerOrQueueMode
-                              ? steerQueueEnterAction
-                              : undefined,
-                          );
-                        }}
-                        placeholder={
-                          minimal && isPromptInputFocused
-                            ? ""
-                            : minimal
-                              ? isSteerOrQueueMode
-                                ? steerQueueEnterAction === "steer"
-                                  ? "Steer this turn..."
-                                  : "Queue a follow-up..."
-                                : isQueueNextMode
-                                  ? "Type the next turn..."
-                                  : "Type a request..."
-                              : isSteerOrQueueMode
-                                ? steerQueueEnterAction === "steer"
-                                  ? "Steer this turn… (↵)"
-                                  : "Queue a follow-up… (↵)"
-                                : isQueueNextMode
-                                  ? "Queue the next turn… (↵)"
-                                  : "Use / for commands, $ for skills, @ for Information"
+                          return;
                         }
-                        className={cn(
-                          "resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 shadow-none dark:bg-transparent",
-                          minimal
-                            ? "min-h-[32px] max-h-[168px] font-mono text-[15px] leading-7 tracking-[-0.01em] caret-primary md:text-[15px]"
-                            : "min-h-[104px] max-h-[240px] text-lg leading-8 md:text-lg",
-                          PROMPT_SURFACE_FOCUS_VISIBLE_RESET,
-                        )}
+                        event.preventDefault();
+                        void submitCurrentMessage(
+                          isSteerOrQueueMode
+                            ? steerQueueEnterAction
+                            : undefined,
+                        );
+                      }}
+                      placeholder={
+                        minimal && isPromptInputFocused
+                          ? ""
+                          : minimal
+                            ? isSteerOrQueueMode
+                              ? formatSteerQueueEnterActionLabel(
+                                  steerQueueEnterAction,
+                                )
+                              : isQueueNextMode
+                                ? "Type the next turn..."
+                                : "Type a request..."
+                            : isSteerOrQueueMode
+                              ? formatSteerQueueEnterActionLabel(
+                                  steerQueueEnterAction,
+                                )
+                              : isQueueNextMode
+                                ? "Queue the next turn… (↵)"
+                                : "Use / for commands, $ for skills, @ for Information"
+                      }
+                      className={cn(
+                        "resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 shadow-none dark:bg-transparent",
+                        minimal
+                          ? "min-h-[32px] max-h-[168px] font-mono text-[15px] leading-7 tracking-[-0.01em] caret-primary md:text-[15px]"
+                          : "min-h-[104px] max-h-[240px] text-lg leading-8 md:text-lg",
+                        PROMPT_SURFACE_FOCUS_VISIBLE_RESET,
+                      )}
+                    />
+                    {minimal && isPromptInputFocused && value.length === 0 ? (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-0 top-1.5 h-5 w-2 rounded-[1px] bg-foreground/85 motion-safe:animate-terminal-caret"
                       />
-                      {minimal && isPromptInputFocused && value.length === 0 ? (
-                        <span
-                          aria-hidden="true"
-                          className="pointer-events-none absolute left-0 top-1.5 h-5 w-2 rounded-[1px] bg-foreground/85 motion-safe:animate-terminal-caret"
-                        />
-                      ) : null}
-                    </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -2277,28 +2338,8 @@ export function PromptInput(args: PromptInputProps) {
               align="start"
               side="top"
               sideOffset={8}
-              onOpenAutoFocus={(event) => event.preventDefault()}
-              // Focus lives in the composer (outside this content) while the
-              // palette is open, so transient focus churn must not dismiss it.
-              // Dismissal is driven by pointer-down outside only.
-              onFocusOutside={(event) => event.preventDefault()}
-              onInteractOutside={(event) => {
-                if (event.detail.originalEvent.type === "focusin") {
-                  return;
-                }
-                if (activePalette === "info") {
-                  setDismissedWorkspaceInformationToken(
-                    activeWorkspaceInformationToken?.token ?? null,
-                  );
-                  return;
-                }
-                if (activePalette === "skill") {
-                  setDismissedSkillToken(activeSkillToken?.token ?? null);
-                  return;
-                }
-                setDismissedCommandToken(activeCommandToken?.token ?? null);
-              }}
-              className="max-h-[min(40rem,var(--radix-popover-content-available-height))] w-[min(44rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-xl border border-border/80 bg-popover p-1 shadow-lg"
+              initialFocus={false}
+              className="max-h-[min(40rem,var(--available-height))] w-[min(44rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-xl border border-border/80 bg-popover p-1 shadow-lg"
             >
               <Command
                 shouldFilter={false}
@@ -2312,9 +2353,11 @@ export function PromptInput(args: PromptInputProps) {
                 >
                   {activePalette === "info" &&
                   filteredWorkspaceInformationItems.length === 0 ? (
-                    <CommandEmpty>No matching Information reference.</CommandEmpty>
+                    <CommandEmpty>
+                      No matching Information reference.
+                    </CommandEmpty>
                   ) : activePalette === "skill" &&
-                  filteredSkillItems.length === 0 ? (
+                    filteredSkillItems.length === 0 ? (
                     <CommandEmpty>No matching skill.</CommandEmpty>
                   ) : activePalette === "command" &&
                     filteredCommandItems.length === 0 ? (
@@ -2418,7 +2461,7 @@ export function PromptInput(args: PromptInputProps) {
                             <CommandItem
                               key={item.id}
                               value={item.slug}
-                              className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
+                              className="h-[4.5rem] min-h-[4.5rem] cursor-pointer items-start gap-3 overflow-hidden rounded-lg px-3 py-2.5"
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedSkillIndex(index)}
                               onMouseDown={(event) => {
@@ -2431,13 +2474,13 @@ export function PromptInput(args: PromptInputProps) {
                                 {renderSkillScopeIcon(item.scope)}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="truncate font-medium">
                                     {item.name}
                                   </span>
                                   <Badge
                                     variant="secondary"
-                                    className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                    className="h-5 shrink-0 px-1.5 text-[10px] uppercase tracking-wide"
                                   >
                                     {item.provider === "shared"
                                       ? "Shared"
@@ -2446,7 +2489,10 @@ export function PromptInput(args: PromptInputProps) {
                                         : "Codex"}
                                   </Badge>
                                 </div>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                <p
+                                  className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground"
+                                  title={item.description}
+                                >
                                   {item.description}
                                 </p>
                               </div>
@@ -2461,7 +2507,7 @@ export function PromptInput(args: PromptInputProps) {
                             <CommandItem
                               key={item.id}
                               value={item.slug}
-                              className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
+                              className="h-[4.5rem] min-h-[4.5rem] cursor-pointer items-start gap-3 overflow-hidden rounded-lg px-3 py-2.5"
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedSkillIndex(index)}
                               onMouseDown={(event) => {
@@ -2474,13 +2520,13 @@ export function PromptInput(args: PromptInputProps) {
                                 {renderSkillScopeIcon(item.scope)}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="truncate font-medium">
                                     {item.name}
                                   </span>
                                   <Badge
                                     variant="outline"
-                                    className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                    className="h-5 shrink-0 px-1.5 text-[10px] uppercase tracking-wide"
                                   >
                                     {item.provider === "shared"
                                       ? "Shared"
@@ -2489,7 +2535,10 @@ export function PromptInput(args: PromptInputProps) {
                                         : "Codex"}
                                   </Badge>
                                 </div>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                <p
+                                  className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground"
+                                  title={item.description}
+                                >
                                   {item.description}
                                 </p>
                               </div>
@@ -2504,7 +2553,7 @@ export function PromptInput(args: PromptInputProps) {
                             <CommandItem
                               key={item.id}
                               value={item.slug}
-                              className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
+                              className="h-[4.5rem] min-h-[4.5rem] cursor-pointer items-start gap-3 overflow-hidden rounded-lg px-3 py-2.5"
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedSkillIndex(index)}
                               onMouseDown={(event) => {
@@ -2517,13 +2566,13 @@ export function PromptInput(args: PromptInputProps) {
                                 {renderSkillScopeIcon(item.scope)}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="truncate font-medium">
                                     {item.name}
                                   </span>
                                   <Badge
                                     variant="outline"
-                                    className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                    className="h-5 shrink-0 px-1.5 text-[10px] uppercase tracking-wide"
                                   >
                                     {item.provider === "shared"
                                       ? "Shared"
@@ -2532,7 +2581,10 @@ export function PromptInput(args: PromptInputProps) {
                                         : "Codex"}
                                   </Badge>
                                 </div>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                <p
+                                  className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground"
+                                  title={item.description}
+                                >
                                   {item.description}
                                 </p>
                               </div>
@@ -2597,13 +2649,14 @@ export function PromptInput(args: PromptInputProps) {
                   <div className="border-t border-border/70 px-3 py-2.5 text-xs text-muted-foreground">
                     <p className="flex items-center gap-2 font-medium text-foreground">
                       <Info className="size-3.5" />
-                      Enter or Tab inserts the highlighted Information reference.
+                      Enter or Tab inserts the highlighted Information
+                      reference.
                     </p>
                     <p className="mt-2">
                       Type `@` to search Information. Selection inserts
-                      `@info:section` for a full section or
-                      `@info:section/item` for one item. `@lens` references the
-                      current Lens browser page.
+                      `@info:section` for a full section or `@info:section/item`
+                      for one item. `@lens` references the current Lens browser
+                      page.
                     </p>
                   </div>
                 ) : activePalette === "skill" ? (
@@ -2650,8 +2703,7 @@ export function PromptInput(args: PromptInputProps) {
                 </Badge>
                 <span className="text-xs text-muted-foreground">
                   {commentItemCount} item
-                  {commentItemCount === 1 ? "" : "s"}{" "}
-                  will send as one prompt
+                  {commentItemCount === 1 ? "" : "s"} will send as one prompt
                 </span>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -2671,7 +2723,9 @@ export function PromptInput(args: PromptInputProps) {
                       <span className="shrink-0 font-medium text-muted-foreground">
                         {index + 1}
                       </span>
-                      <span className="truncate text-foreground">{summary}</span>
+                      <span className="truncate text-foreground">
+                        {summary}
+                      </span>
                       {attachmentCount > 0 ? (
                         <span
                           className="inline-flex shrink-0 items-center gap-0.5 text-muted-foreground"
@@ -2705,28 +2759,32 @@ export function PromptInput(args: PromptInputProps) {
                       >
                         <Popover modal={false}>
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <PopoverTrigger asChild>
-                                <button
-                                  type="button"
-                                  title={
-                                    attachment.displayContent ??
-                                    attachment.content
+                            <TooltipTrigger
+                              render={
+                                <PopoverTrigger
+                                  render={
+                                    <button
+                                      type="button"
+                                      title={
+                                        attachment.displayContent ??
+                                        attachment.content
+                                      }
+                                      className="flex min-w-0 items-center gap-1.5 px-2 py-1 hover:bg-secondary/70"
+                                    />
                                   }
-                                  className="flex min-w-0 items-center gap-1.5 px-2 py-1 hover:bg-secondary/70"
-                                >
-                                  <FileText className="size-3.5 shrink-0" />
-                                  <span className="truncate">
-                                    {attachment.label}
-                                  </span>
-                                  <Badge
-                                    variant="outline"
-                                    className="h-5 px-1.5 text-[10px]"
-                                  >
-                                    {attachment.count}
-                                  </Badge>
-                                </button>
-                              </PopoverTrigger>
+                                />
+                              }
+                            >
+                              <FileText className="size-3.5 shrink-0" />
+                              <span className="truncate">
+                                {attachment.label}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className="h-5 px-1.5 text-[10px]"
+                              >
+                                {attachment.count}
+                              </Badge>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-80">
                               {attachment.summary}
@@ -2803,23 +2861,27 @@ export function PromptInput(args: PromptInputProps) {
                         ) : null}
                         <Popover modal={false}>
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <PopoverTrigger asChild>
-                                <button
-                                  type="button"
-                                  title={annotation.comment}
-                                  className="min-w-0 flex-1 text-left hover:text-foreground"
-                                >
-                                  <span className="block truncate font-medium">
-                                    {annotation.comment}
-                                  </span>
-                                  <span className="block truncate text-[10px] text-muted-foreground">
-                                    {annotation.kind === "area"
-                                      ? "area"
-                                      : annotation.selector}
-                                  </span>
-                                </button>
-                              </PopoverTrigger>
+                            <TooltipTrigger
+                              render={
+                                <PopoverTrigger
+                                  render={
+                                    <button
+                                      type="button"
+                                      title={annotation.comment}
+                                      className="min-w-0 flex-1 text-left hover:text-foreground"
+                                    />
+                                  }
+                                />
+                              }
+                            >
+                              <span className="block truncate font-medium">
+                                {annotation.comment}
+                              </span>
+                              <span className="block truncate text-[10px] text-muted-foreground">
+                                {annotation.kind === "area"
+                                  ? "area"
+                                  : annotation.selector}
+                              </span>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-80">
                               {annotation.comment}
@@ -2992,15 +3054,6 @@ export function PromptInput(args: PromptInputProps) {
                     window.requestAnimationFrame(() => focusComposer());
                   }}
                 />
-                {providerModeStatus ? (
-                  <PromptInputProviderModePill
-                    status={providerModeStatus}
-                    presets={providerModePresets ?? []}
-                    activePresetId={activeProviderModePresetId ?? null}
-                    onSelect={onProviderModeSelect}
-                    disabled={interactionsDisabled}
-                  />
-                ) : null}
                 {onPlanModeChange ? (
                   <Tooltip>
                     <TooltipTrigger
@@ -3025,6 +3078,15 @@ export function PromptInput(args: PromptInputProps) {
                       {planMode ? "Plan mode ON" : "Plan mode OFF"}
                     </TooltipContent>
                   </Tooltip>
+                ) : null}
+                {providerModeStatus ? (
+                  <PromptInputProviderModePill
+                    status={providerModeStatus}
+                    presets={providerModePresets ?? []}
+                    activePresetId={activeProviderModePresetId ?? null}
+                    onSelect={onProviderModeSelect}
+                    disabled={interactionsDisabled}
+                  />
                 ) : null}
                 {onThinkingModeChange ? (
                   <Tooltip>
@@ -3064,45 +3126,121 @@ export function PromptInput(args: PromptInputProps) {
                     <TooltipContent side="top">{`Thinking: ${thinkingMode ?? "adaptive"}`}</TooltipContent>
                   </Tooltip>
                 ) : null}
-                {hasRuntimeDrawerContent ? (
-                  <Drawer direction="bottom">
-                    <DrawerTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={interactionsDisabled}
-                        className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "h-9 w-9")}
-                        aria-label="Current Runtime"
-                        title="Current runtime status"
+                {reviewModelOptions?.length &&
+                onLocalChangeReview &&
+                !isTurnActive ? (
+                  <LocalChangeReviewDialog
+                    workspaceCwd={workspaceCwd}
+                    reviewerOptions={reviewModelOptions}
+                    preferredReviewerKey={preferredReviewModelKey}
+                    disabled={interactionsDisabled}
+                    onSubmit={onLocalChangeReview}
+                  />
+                ) : null}
+                {beforeRuntimeAction}
+                {hasRuntimeContent ? (
+                  isMobile ? (
+                    <Drawer swipeDirection="down" showSwipeHandle>
+                      <DrawerTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={interactionsDisabled}
+                            className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
+                            aria-label={`Runtime · ${runtimeProfile.label}`}
+                            title="Runtime profile for the next turn"
+                          />
+                        }
                       >
-                        <SlidersHorizontal className="size-3.5" />
-                      </Button>
-                    </DrawerTrigger>
-                    <DrawerContent className="border-border/80 bg-background shadow-2xl data-[vaul-drawer-direction=bottom]:max-h-[78vh]">
-                      <DrawerHeader className="gap-2 border-b border-border/70 px-5 pb-5 pt-5 text-left md:px-6">
-                        <DrawerTitle className="text-lg font-semibold">
-                          Current Runtime
-                        </DrawerTitle>
-                        <DrawerDescription>
-                          Inspect the effective runtime configuration for the
-                          next turn from this composer.
-                        </DrawerDescription>
-                      </DrawerHeader>
-                      <div className="flex-1 overflow-y-auto px-5 py-5 md:px-6">
+                        <PromptInputRuntimeTriggerIcon
+                          profile={runtimeProfile}
+                        />
+                      </DrawerTrigger>
+                      <DrawerContent className="bg-popover shadow-2xl data-[swipe-direction=down]:max-h-[78vh]">
+                        <DrawerHeader className="gap-1.5 px-5 pb-4 pt-4 text-left">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <DrawerTitle className="text-base font-semibold">
+                              Runtime profile
+                            </DrawerTitle>
+                            <span
+                              className={cn(
+                                "text-xs font-semibold",
+                                getRuntimeProfileToneClass(runtimeProfile.tone),
+                              )}
+                            >
+                              {runtimeProfile.label}
+                            </span>
+                          </div>
+                          <DrawerDescription>
+                            {runtimeProfile.description} Effective values for
+                            the next turn are shown below.
+                          </DrawerDescription>
+                        </DrawerHeader>
+                        <div className="min-h-0 flex-1 overflow-y-auto">
+                          <PromptInputRuntimeBar
+                            statusItems={runtimeStatusItems}
+                          />
+                        </div>
+                      </DrawerContent>
+                    </Drawer>
+                  ) : (
+                    <Popover>
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={interactionsDisabled}
+                            className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
+                            aria-label={`Runtime · ${runtimeProfile.label}`}
+                            title="Runtime profile for the next turn"
+                          />
+                        }
+                      >
+                        <PromptInputRuntimeTriggerIcon
+                          profile={runtimeProfile}
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="start"
+                        side="top"
+                        sideOffset={10}
+                        className="w-[min(25rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-0 shadow-xl ring-1 ring-foreground/10"
+                      >
+                        <div className="px-5 pb-3.5 pt-4">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <PopoverTitle className="text-base font-semibold">
+                              Runtime profile
+                            </PopoverTitle>
+                            <span
+                              className={cn(
+                                "text-xs font-semibold",
+                                getRuntimeProfileToneClass(runtimeProfile.tone),
+                              )}
+                            >
+                              {runtimeProfile.label}
+                            </span>
+                          </div>
+                          <PopoverDescription className="mt-1">
+                            {runtimeProfile.description} Effective values for
+                            the next turn are shown below.
+                          </PopoverDescription>
+                        </div>
                         <PromptInputRuntimeBar
                           statusItems={runtimeStatusItems}
-                          withBorder={false}
                         />
-                      </div>
-                    </DrawerContent>
-                  </Drawer>
+                      </PopoverContent>
+                    </Popover>
+                  )
                 ) : null}
               </div>
             ) : null}
             <div className="flex items-center gap-2">
-              {leadingToolbarAction}
-              {reviewModelOptions?.length &&
+              {minimal &&
+              reviewModelOptions?.length &&
               onLocalChangeReview &&
               !isTurnActive ? (
                 <LocalChangeReviewDialog
@@ -3113,6 +3251,7 @@ export function PromptInput(args: PromptInputProps) {
                   onSubmit={onLocalChangeReview}
                 />
               ) : null}
+              {minimal ? beforeRuntimeAction : null}
               <Tooltip>
                 <TooltipTrigger
                   type="button"

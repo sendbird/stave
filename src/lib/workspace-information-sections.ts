@@ -54,6 +54,28 @@ const CORE_SECTION_ID_SET = new Set<WorkspaceInformationSectionId>(
   CORE_WORKSPACE_INFORMATION_SECTIONS,
 );
 
+export function parseWorkspaceInformationOpenSections(
+  raw: string | null,
+): WorkspaceInformationSectionId[] {
+  if (!raw) {
+    return ["overview"];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return ["overview"];
+    }
+
+    return parsed.filter(
+      (value): value is WorkspaceInformationSectionId =>
+        typeof value === "string" && SECTION_ID_SET.has(value),
+    );
+  } catch {
+    return ["overview"];
+  }
+}
+
 export function normalizeWorkspaceInformationSectionVisibility(
   value: unknown,
 ): WorkspaceInformationSectionVisibility {

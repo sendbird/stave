@@ -1,57 +1,53 @@
-import * as React from "react"
-import { Slider as SliderPrimitive } from "radix-ui"
+import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
+
+type SliderProps = SliderPrimitive.Root.Props<number> &
+  Pick<
+    SliderPrimitive.Thumb.Props,
+    "getAriaLabel" | "getAriaValueText" | "aria-valuetext"
+  >;
 
 function Slider({
   className,
-  defaultValue,
-  value,
-  min = 0,
-  max = 100,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-describedby": ariaDescribedBy,
+  "aria-valuetext": ariaValueText,
+  getAriaLabel,
+  getAriaValueText,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
-  const _values = React.useMemo(
-    () =>
-      Array.isArray(value)
-        ? value
-        : Array.isArray(defaultValue)
-          ? defaultValue
-          : [min, max],
-    [value, defaultValue, min, max]
-  )
-
+}: SliderProps) {
   return (
     <SliderPrimitive.Root
+      className={cn("data-horizontal:w-full data-vertical:h-full", className)}
       data-slot="slider"
-      defaultValue={defaultValue}
-      value={value}
-      min={min}
-      max={max}
-      className={cn(
-        "relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col",
-        className
-      )}
+      thumbAlignment="edge"
       {...props}
     >
-      <SliderPrimitive.Track
-        data-slot="slider-track"
-        className="relative grow overflow-hidden rounded-full bg-muted data-horizontal:h-1.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-1.5"
-      >
-        <SliderPrimitive.Range
-          data-slot="slider-range"
-          className="absolute bg-primary select-none data-horizontal:h-full data-vertical:w-full"
-        />
-      </SliderPrimitive.Track>
-      {Array.from({ length: _values.length }, (_, index) => (
-        <SliderPrimitive.Thumb
-          data-slot="slider-thumb"
-          key={index}
-          className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] select-none hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
-        />
-      ))}
+      <SliderPrimitive.Control className="relative flex h-7 w-full touch-none items-center select-none data-disabled:opacity-45 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-7 data-vertical:flex-col">
+        <SliderPrimitive.Track
+          data-slot="slider-track"
+          className="relative grow rounded-full bg-muted shadow-[inset_0_1px_1px_color-mix(in_oklch,var(--foreground)_8%,transparent)] select-none data-horizontal:h-1.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-1.5"
+        >
+          <SliderPrimitive.Indicator
+            data-slot="slider-range"
+            className="rounded-full bg-primary select-none data-horizontal:h-full data-vertical:w-full"
+          />
+          <SliderPrimitive.Thumb
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledBy}
+            aria-describedby={ariaDescribedBy}
+            aria-valuetext={ariaValueText}
+            getAriaLabel={getAriaLabel}
+            getAriaValueText={getAriaValueText}
+            data-slot="slider-thumb"
+            className="block size-[1.125rem] shrink-0 rounded-full bg-foreground shadow-[0_1px_3px_color-mix(in_oklch,var(--background)_25%,transparent),0_0_0_2px_var(--background)] ring-ring/45 transition-[transform,box-shadow] duration-150 select-none hover:scale-110 focus-visible:scale-110 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none"
+          />
+        </SliderPrimitive.Track>
+      </SliderPrimitive.Control>
     </SliderPrimitive.Root>
-  )
+  );
 }
 
-export { Slider }
+export { Slider };

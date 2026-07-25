@@ -1,4 +1,9 @@
 import type { LensSessionScope } from "@/lib/lens/lens.types";
+import {
+  scriptEntryKey,
+  type ScriptUiState,
+} from "@/lib/workspace-scripts/runtime-state";
+import type { ResolvedWorkspaceScript } from "@/lib/workspace-scripts/types";
 
 // Script run-state reducers/helpers moved to
 // `@/lib/workspace-scripts/runtime-state`. This module keeps only the
@@ -32,6 +37,48 @@ export type OpenOrbitUrlWithLensPriorityResult =
       reason: "missing-workspace" | "lens-unavailable";
     }
   | { ok: false; target: "lens"; message: string };
+
+export interface AutomationRuntimeEntry {
+  entry: ResolvedWorkspaceScript;
+  state: ScriptUiState;
+}
+
+export function partitionAutomationRuntimeEntries(
+  entries: ResolvedWorkspaceScript[],
+  stateByKey: Record<string, ScriptUiState>,
+) {
+  const running: AutomationRuntimeEntry[] = [];
+  const activity: AutomationRuntimeEntry[] = [];
+
+  for (const entry of entries) {
+    const state = stateByKey[scriptEntryKey(entry.kind, entry.id)];
+    if (!state) {
+      continue;
+    }
+    if (state.running && entry.kind === "service") {
+      running.push({ entry, state });
+      continue;
+    }
+    if (
+      state.running ||
+      state.endedAt !== undefined ||
+      state.exitCode !== undefined ||
+      Boolean(state.error) ||
+      Boolean(state.log.trim())
+    ) {
+      activity.push({ entry, state });
+    }
+  }
+
+  activity.sort((left, right) => {
+    if (left.state.running !== right.state.running) {
+      return left.state.running ? -1 : 1;
+    }
+    return (right.state.endedAt ?? 0) - (left.state.endedAt ?? 0);
+  });
+
+  return { running, activity };
+}
 
 /**
  * Open an Orbit URL inside a lens tab when the Lens bridge is available,
@@ -104,7 +151,8 @@ export async function openOrbitUrlWithLensPriority(args: {
       return {
         ok: false,
         target: "lens",
-        message: navigateResult.message ?? "Lens could not load that Orbit URL.",
+        message:
+          navigateResult.message ?? "Lens could not load that Orbit URL.",
       };
     }
   } catch (error) {

@@ -4,11 +4,19 @@ const FIGMA_BOARD_URL =
   "https://www.figma.com/board/eCNzNnA1yqbGxQZbRq5UsW/2607_Actionbook---Knowledge-Sort-Filter---Shared-Asset-Search?node-id=2001-179&p=f&t=Xw0hZUa9FtYkgU3e-0";
 const JIRA_ISSUE_URL = "https://company.atlassian.net/browse/DFE-1234";
 
-function seedWorkspace(page: import("@playwright/test").Page) {
-  return page.addInitScript(() => {
+function seedWorkspace(
+  page: import("@playwright/test").Page,
+  messages: Array<Record<string, unknown>> = [],
+) {
+  return page.addInitScript((seedMessages) => {
     // Keep the browser-only dev bridge from replacing this deterministic
     // fixture with host lookups that are unavailable in Playwright.
-    (window as unknown as { api?: Record<string, unknown> }).api = {
+    const testWindow = window as unknown as {
+      api?: Record<string, unknown>;
+      __openedExternalUrls: string[];
+    };
+    testWindow.__openedExternalUrls = [];
+    testWindow.api = {
       provider: { streamTurn: async () => [] },
       terminal: {
         runCommand: async () => ({
@@ -17,6 +25,12 @@ function seedWorkspace(page: import("@playwright/test").Page) {
           stdout: "",
           stderr: "",
         }),
+      },
+      shell: {
+        openExternal: async ({ url }: { url: string }) => {
+          testWindow.__openedExternalUrls.push(url);
+          return { ok: true };
+        },
       },
     };
     window.localStorage.setItem(
@@ -40,7 +54,7 @@ function seedWorkspace(page: import("@playwright/test").Page) {
                 archivedAt: null,
               },
             ],
-            messagesByTask: { "task-1": [] },
+            messagesByTask: { "task-1": seedMessages },
           },
         },
       ]),
@@ -75,12 +89,12 @@ function seedWorkspace(page: import("@playwright/test").Page) {
               archivedAt: null,
             },
           ],
-          messagesByTask: { "task-1": [] },
+          messagesByTask: { "task-1": seedMessages },
         },
         version: 0,
       }),
     );
-  });
+  }, messages);
 }
 
 test("pasted Figma link tokenizes into a badge chip in the prompt input", async ({
@@ -120,4 +134,62 @@ test("typed Jira issue link tokenizes into an issue-key badge chip", async ({
   await expect(chip).toContainText("DFE-1234");
   await expect(editor).toContainText("See");
   await expect(editor).toContainText("today");
+});
+
+test("sent Jira badge supports hover, click, and keyboard navigation", async ({
+  page,
+}) => {
+  await seedWorkspace(page, [
+    {
+      id: "message-user-jira-link",
+      role: "user",
+      model: "user",
+      providerId: "user",
+      content: `See ${JIRA_ISSUE_URL} today`,
+      parts: [],
+    },
+  ]);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const badge = page.locator(
+    `a[data-service-link-badge="jira"][href="${JIRA_ISSUE_URL}"]`,
+  );
+  await expect(badge).toBeVisible();
+  await expect(badge).toContainText("DFE-1234");
+
+  await badge.hover();
+  await expect(page.locator('[data-slot="tooltip-content"]')).toContainText(
+    `Open in Jira — ${JIRA_ISSUE_URL}`,
+  );
+
+  await badge.click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __openedExternalUrls: string[];
+            }
+          ).__openedExternalUrls,
+      ),
+    )
+    .toEqual([JIRA_ISSUE_URL]);
+
+  await badge.focus();
+  await expect(badge).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __openedExternalUrls: string[];
+            }
+          ).__openedExternalUrls,
+      ),
+    )
+    .toEqual([JIRA_ISSUE_URL, JIRA_ISSUE_URL]);
 });

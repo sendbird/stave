@@ -1,23 +1,35 @@
 import { getProviderAdapter } from "@/lib/providers";
-import type { NormalizedProviderEvent, ProviderId, ProviderTurnRequest } from "@/lib/providers/provider.types";
+import type {
+  NormalizedProviderEvent,
+  ProviderAdapter,
+  ProviderId,
+  ProviderTurnRequest,
+} from "@/lib/providers/provider.types";
 
-export function runProviderTurn(args: {
-  turnId?: string;
-  provider: ProviderId;
-  prompt: string;
-  conversation?: ProviderTurnRequest["conversation"];
-  taskId: string;
-  workspaceId?: string;
-  cwd?: string;
-  runtimeOptions?: ProviderTurnRequest["runtimeOptions"];
-  onEvent: (args: { event: NormalizedProviderEvent }) => void;
-}) {
-  const adapter = getProviderAdapter({ providerId: args.provider });
+export function runProviderTurn(
+  args: {
+    turnId?: string;
+    provider: ProviderId;
+    prompt: string;
+    conversation?: ProviderTurnRequest["conversation"];
+    taskId: string;
+    workspaceId?: string;
+    cwd?: string;
+    runtimeOptions?: ProviderTurnRequest["runtimeOptions"];
+    onEvent: (args: { event: NormalizedProviderEvent }) => void;
+  },
+  dependencies?: {
+    runTurn?: ProviderAdapter["runTurn"];
+  },
+) {
+  const runTurn =
+    dependencies?.runTurn ??
+    getProviderAdapter({ providerId: args.provider }).runTurn;
 
   void (async () => {
     let emittedDoneEvent = false;
     try {
-      for await (const event of adapter.runTurn({
+      for await (const event of runTurn({
         turnId: args.turnId,
         prompt: args.prompt,
         conversation: args.conversation,
@@ -34,8 +46,9 @@ export function runProviderTurn(args: {
     } catch (error) {
       args.onEvent({
         event: {
-          type: "system",
-          content: `Provider stream failed: ${String(error)}`,
+          type: "error",
+          message: `Provider stream failed: ${String(error)}`,
+          recoverable: false,
         },
       });
     } finally {
@@ -71,7 +84,10 @@ export function createProviderTurnEventController(args: {
     if (flushHandle === null) {
       return;
     }
-    if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.cancelAnimationFrame === "function"
+    ) {
       window.cancelAnimationFrame(flushHandle);
     } else {
       window.clearTimeout(flushHandle);
@@ -83,7 +99,10 @@ export function createProviderTurnEventController(args: {
     if (flushHandle !== null) {
       return;
     }
-    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.requestAnimationFrame === "function"
+    ) {
       flushHandle = window.requestAnimationFrame(() => {
         flushHandle = null;
         flushNow();

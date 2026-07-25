@@ -9,72 +9,126 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.prompt-input-shell {
+  box-shadow:
+    0 16px 42px -26px oklch(0 0 0 / 0.3),
+    0 3px 10px -7px oklch(0 0 0 / 0.2),
+    0 0 0 3px transparent,
+    inset 0 0 0 1px color-mix(in oklch, var(--border) 72%, transparent);
+}
+
+.turn-activity-surface {
+  box-shadow:
+    0 8px 22px -18px oklch(0 0 0 / 0.28),
+    inset 0 -14px 18px -18px
+      color-mix(in oklch, var(--foreground) 32%, transparent),
+    inset 0 0 0 1px color-mix(in oklch, var(--border) 74%, transparent);
+}
+
+.prompt-input-shell[data-turn-active="true"] {
+  box-shadow:
+    0 -8px 20px -15px oklch(0 0 0 / 0.34),
+    0 18px 42px -24px oklch(0 0 0 / 0.34),
+    0 5px 12px -8px oklch(0 0 0 / 0.24),
+    0 0 0 3px transparent,
+    inset 0 0 0 1px color-mix(in oklch, var(--border) 82%, transparent);
+}
+
+.prompt-input-shell:focus-within {
+  box-shadow:
+    0 16px 42px -26px oklch(0 0 0 / 0.3),
+    0 3px 10px -7px oklch(0 0 0 / 0.2),
+    0 0 0 3px color-mix(in oklch, var(--ring) 11%, transparent),
+    inset 0 0 0 1px color-mix(in oklch, var(--ring) 58%, var(--border));
+}
+
+.prompt-input-shell[data-turn-active="true"]:focus-within {
+  box-shadow:
+    0 -8px 20px -15px oklch(0 0 0 / 0.34),
+    0 18px 42px -24px oklch(0 0 0 / 0.34),
+    0 5px 12px -8px oklch(0 0 0 / 0.24),
+    0 0 0 3px color-mix(in oklch, var(--ring) 11%, transparent),
+    inset 0 0 0 1px color-mix(in oklch, var(--ring) 58%, var(--border));
+}
+
+.stave-project-sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--sidebar-border);
+}
+
+.stave-workspace-rail {
+  background: var(--card);
+  box-shadow:
+    inset 1px 0 0 color-mix(in oklch, var(--border) 78%, transparent),
+    -10px 0 28px -24px color-mix(in oklch, var(--foreground) 34%, transparent);
+}
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.532 0.157 131.589);
-  --primary-foreground: oklch(0.986 0.031 120.757);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --success: oklch(0.74 0.128 156);
-  --success-foreground: oklch(0.29 0 0);
-  --warning: oklch(0.82 0.14 84);
-  --warning-foreground: oklch(0.32 0 0);
-  --info: oklch(0.61 0.19 300);
-  --info-foreground: oklch(0.985 0 0);
-  --muse: oklch(0.67 0.15 62);
-  --prompt-role-plan: oklch(0.56 0.19 258);
-  --prompt-role-thinking: oklch(0.67 0.15 62);
-  --prompt-role-effort: oklch(0.61 0.19 300);
-  --prompt-role-fast: oklch(0.72 0.15 84);
-  --prompt-mode-manual: oklch(0.65 0.14 156);
-  --prompt-mode-guided: oklch(0.56 0.19 258);
-  --prompt-mode-auto: oklch(0.72 0.15 84);
-  --prompt-mode-custom: var(--muted-foreground);
-  --overlay: oklch(0.145 0 0 / 0.66);
-  --surface: oklch(0.975 0 0);
-  --drop-zone: oklch(0.532 0.157 131.589 / 0.12);
-  --drop-zone-border: oklch(0.532 0.157 131.589 / 0.55);
-  --editor: oklch(0.96 0 0);
-  --editor-foreground: oklch(0.205 0 0);
-  --editor-muted: oklch(0.94 0 0);
-  --editor-tab: oklch(0.97 0 0);
-  --editor-tab-active: oklch(1 0 0);
-  --terminal: oklch(0.17 0.012 180);
-  --terminal-foreground: oklch(0.92 0.008 165);
-  --diff-added: oklch(0.92 0.05 154);
-  --diff-added-foreground: oklch(0.35 0.06 154);
-  --diff-removed: oklch(0.93 0.05 25);
-  --diff-removed-foreground: oklch(0.38 0.07 25);
-  --chart-1: oklch(0.897 0.196 126.665);
-  --chart-2: oklch(0.768 0.233 130.85);
-  --chart-3: oklch(0.648 0.2 131.684);
-  --chart-4: oklch(0.532 0.157 131.589);
-  --chart-5: oklch(0.453 0.124 130.933);
-  --provider-codex: #7a9dff;
-  --provider-claude: oklch(0.672 0.131 38.76);
+  --background: oklch(0.985 0.006 75);
+  --foreground: oklch(0.225 0.028 255);
+  --card: oklch(0.998 0.003 75);
+  --card-foreground: oklch(0.225 0.028 255);
+  --popover: oklch(0.998 0.003 75);
+  --popover-foreground: oklch(0.225 0.028 255);
+  --primary: oklch(0.54 0.18 260);
+  --primary-foreground: oklch(0.99 0.003 75);
+  --secondary: oklch(0.955 0.012 255);
+  --secondary-foreground: oklch(0.28 0.035 255);
+  --muted: oklch(0.955 0.012 255);
+  --muted-foreground: oklch(0.51 0.035 255);
+  --accent: oklch(0.91 0.04 255);
+  --accent-foreground: oklch(0.28 0.075 255);
+  --destructive: oklch(0.56 0.2 25);
+  --destructive-foreground: oklch(0.99 0.003 75);
+  --border: oklch(0.86 0.025 255);
+  --input: oklch(0.82 0.03 255);
+  --ring: oklch(0.62 0.17 260);
+  --success: oklch(0.51 0.12 155);
+  --success-foreground: oklch(0.99 0.003 75);
+  --warning: oklch(0.72 0.14 78);
+  --warning-foreground: oklch(0.21 0.028 255);
+  --info: oklch(0.54 0.18 260);
+  --info-foreground: oklch(0.99 0.003 75);
+  --muse: oklch(0.62 0.16 38);
+  --prompt-role-plan: oklch(0.54 0.18 260);
+  --prompt-role-thinking: oklch(0.62 0.16 38);
+  --prompt-role-effort: oklch(0.54 0.18 305);
+  --prompt-role-fast: oklch(0.66 0.13 78);
+  --prompt-mode-manual: oklch(0.53 0.09 185);
+  --prompt-mode-guided: oklch(0.54 0.18 260);
+  --prompt-mode-auto: oklch(0.66 0.13 78);
+  --prompt-mode-custom: oklch(0.51 0.035 255);
+  --overlay: oklch(0.18 0.03 255 / 0.62);
+  --surface: oklch(0.965 0.01 255);
+  --drop-zone: oklch(0.54 0.18 260 / 0.12);
+  --drop-zone-border: oklch(0.54 0.18 260 / 0.55);
+  --editor: oklch(0.992 0.003 75);
+  --editor-foreground: oklch(0.225 0.028 255);
+  --editor-muted: oklch(0.94 0.02 255);
+  --editor-tab: oklch(0.95 0.015 255);
+  --editor-tab-active: oklch(0.992 0.003 75);
+  --terminal: oklch(0.19 0.03 255);
+  --terminal-foreground: oklch(0.92 0.018 250);
+  --diff-added: oklch(0.92 0.045 155);
+  --diff-added-foreground: oklch(0.4 0.11 155);
+  --diff-removed: oklch(0.93 0.03 25);
+  --diff-removed-foreground: oklch(0.43 0.14 25);
+  --chart-1: oklch(0.54 0.18 260);
+  --chart-2: oklch(0.62 0.16 38);
+  --chart-3: oklch(0.66 0.13 78);
+  --chart-4: oklch(0.56 0.16 305);
+  --chart-5: oklch(0.53 0.09 185);
+  --provider-codex: oklch(0.54 0.18 260);
+  --provider-claude: oklch(0.62 0.16 38);
   --radius: 0.45rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.648 0.2 131.684);
-  --sidebar-primary-foreground: oklch(0.986 0.031 120.757);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.955 0.016 255);
+  --sidebar-foreground: oklch(0.225 0.028 255);
+  --sidebar-primary: oklch(0.54 0.18 260);
+  --sidebar-primary-foreground: oklch(0.99 0.003 75);
+  --sidebar-accent: oklch(0.91 0.04 255);
+  --sidebar-accent-foreground: oklch(0.28 0.075 255);
+  --sidebar-border: oklch(0.86 0.025 255);
+  --sidebar-ring: oklch(0.62 0.17 260);
   --task-list-width: 290px;
   --editor-panel-width: 560px;
   --dropdown-open-dur: 250ms;
@@ -98,70 +152,70 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.453 0.124 130.933);
-  --primary-foreground: oklch(0.986 0.031 120.757);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --success: oklch(0.77 0.12 156);
-  --success-foreground: oklch(0.205 0 0);
-  --warning: oklch(0.82 0.14 84);
-  --warning-foreground: oklch(0.205 0 0);
-  --info: oklch(0.74 0.16 305);
-  --info-foreground: oklch(0.205 0 0);
-  --muse: oklch(0.76 0.13 70);
-  --prompt-role-plan: oklch(0.74 0.14 255);
-  --prompt-role-thinking: oklch(0.76 0.13 70);
-  --prompt-role-effort: oklch(0.74 0.16 305);
-  --prompt-role-fast: oklch(0.82 0.14 84);
-  --prompt-mode-manual: oklch(0.77 0.12 156);
-  --prompt-mode-guided: oklch(0.74 0.14 255);
-  --prompt-mode-auto: oklch(0.82 0.14 84);
-  --prompt-mode-custom: var(--muted-foreground);
-  --overlay: oklch(0 0 0 / 0.78);
-  --surface: oklch(0.165 0 0);
-  --drop-zone: oklch(0.768 0.233 130.85 / 0.16);
-  --drop-zone-border: oklch(0.768 0.233 130.85 / 0.6);
-  --editor: oklch(0.18 0 0);
-  --editor-foreground: oklch(0.92 0 0);
-  --editor-muted: oklch(0.24 0 0);
-  --editor-tab: oklch(0.205 0 0);
-  --editor-tab-active: oklch(0.269 0 0);
-  --terminal: oklch(0.145 0 0);
-  --terminal-foreground: oklch(0.92 0 0);
-  --diff-added: oklch(0.34 0.07 154);
-  --diff-added-foreground: oklch(0.86 0.06 154);
-  --diff-removed: oklch(0.33 0.07 25);
-  --diff-removed-foreground: oklch(0.88 0.05 25);
-  --chart-1: oklch(0.897 0.196 126.665);
-  --chart-2: oklch(0.768 0.233 130.85);
-  --chart-3: oklch(0.648 0.2 131.684);
-  --chart-4: oklch(0.532 0.157 131.589);
-  --chart-5: oklch(0.453 0.124 130.933);
-  --provider-codex: #b1a7ff;
-  --provider-claude: oklch(0.672 0.131 38.76);
-  --sidebar: oklch(0.165 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.768 0.233 130.85);
-  --sidebar-primary-foreground: oklch(0.274 0.072 132.109);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.17 0.025 255);
+  --foreground: oklch(0.92 0.018 250);
+  --card: oklch(0.205 0.028 255);
+  --card-foreground: oklch(0.92 0.018 250);
+  --popover: oklch(0.205 0.028 255);
+  --popover-foreground: oklch(0.92 0.018 250);
+  --primary: oklch(0.71 0.15 252);
+  --primary-foreground: oklch(0.16 0.03 255);
+  --secondary: oklch(0.245 0.028 255);
+  --secondary-foreground: oklch(0.9 0.018 250);
+  --muted: oklch(0.245 0.028 255);
+  --muted-foreground: oklch(0.68 0.035 250);
+  --accent: oklch(0.285 0.065 255);
+  --accent-foreground: oklch(0.94 0.015 250);
+  --destructive: oklch(0.68 0.18 25);
+  --destructive-foreground: oklch(0.16 0.03 255);
+  --border: oklch(0.32 0.032 255);
+  --input: oklch(0.28 0.032 255);
+  --ring: oklch(0.71 0.15 252);
+  --success: oklch(0.74 0.12 155);
+  --success-foreground: oklch(0.16 0.03 255);
+  --warning: oklch(0.8 0.13 78);
+  --warning-foreground: oklch(0.16 0.03 255);
+  --info: oklch(0.71 0.15 252);
+  --info-foreground: oklch(0.16 0.03 255);
+  --muse: oklch(0.75 0.14 45);
+  --prompt-role-plan: oklch(0.71 0.15 252);
+  --prompt-role-thinking: oklch(0.75 0.14 45);
+  --prompt-role-effort: oklch(0.74 0.14 305);
+  --prompt-role-fast: oklch(0.8 0.13 78);
+  --prompt-mode-manual: oklch(0.73 0.11 185);
+  --prompt-mode-guided: oklch(0.71 0.15 252);
+  --prompt-mode-auto: oklch(0.8 0.13 78);
+  --prompt-mode-custom: oklch(0.68 0.035 250);
+  --overlay: oklch(0.08 0.018 255 / 0.8);
+  --surface: oklch(0.19 0.026 255);
+  --drop-zone: oklch(0.71 0.15 252 / 0.16);
+  --drop-zone-border: oklch(0.71 0.15 252 / 0.6);
+  --editor: oklch(0.155 0.024 255);
+  --editor-foreground: oklch(0.92 0.018 250);
+  --editor-muted: oklch(0.215 0.03 255);
+  --editor-tab: oklch(0.14 0.023 255);
+  --editor-tab-active: oklch(0.185 0.027 255);
+  --terminal: oklch(0.13 0.025 255);
+  --terminal-foreground: oklch(0.9 0.018 250);
+  --diff-added: oklch(0.29 0.06 155);
+  --diff-added-foreground: oklch(0.82 0.08 155);
+  --diff-removed: oklch(0.28 0.07 25);
+  --diff-removed-foreground: oklch(0.83 0.08 25);
+  --chart-1: oklch(0.71 0.15 252);
+  --chart-2: oklch(0.75 0.14 45);
+  --chart-3: oklch(0.8 0.13 78);
+  --chart-4: oklch(0.74 0.14 305);
+  --chart-5: oklch(0.73 0.11 185);
+  --provider-codex: oklch(0.71 0.15 252);
+  --provider-claude: oklch(0.75 0.14 45);
+  --sidebar: oklch(0.145 0.025 255);
+  --sidebar-foreground: oklch(0.9 0.018 250);
+  --sidebar-primary: oklch(0.71 0.15 252);
+  --sidebar-primary-foreground: oklch(0.16 0.03 255);
+  --sidebar-accent: oklch(0.23 0.045 255);
+  --sidebar-accent-foreground: oklch(0.94 0.015 250);
+  --sidebar-border: oklch(0.29 0.032 255);
+  --sidebar-ring: oklch(0.71 0.15 252);
 }
 
 @theme inline {
@@ -252,8 +306,8 @@
  * themes, user themes, and light/dark modes restyle Dockview automatically.
  *
  * Tab surfaces intentionally mirror the retired task tab bar
- * (`WorkspaceTaskTabs`): a muted strip over `background`, a `background`
- * active tab, `border/70` dividers, and the shared 46px panel bar height
+ * (`WorkspaceTaskTabs`): a muted strip over `background`, an opaque `card`
+ * active surface, `border/70` dividers, and the shared 46px panel bar height
  * (`PANEL_BAR_HEIGHT_CLASS` in `src/components/layout/panel-bar.constants.ts`).
  *
  * Deliberately left at library defaults (documented, not accidental):
@@ -378,17 +432,37 @@
 }
 
 /*
- * The retired task tab bar drew a `border/70` hairline under the strip;
- * dockview does not, so reproduce it for horizontal headers only.
+ * Keep the task rail itself borderless and attach the primary indicator to the
+ * selected tab. The inset line follows the tab bounds without drawing a
+ * separator beneath unrelated rail actions.
  */
-.dockview-theme-stave
-  .dv-tabs-and-actions-container:not(.dv-groupview-header-vertical) {
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+.dockview-theme-stave .dv-tabs-container > .dv-tab.dv-active-tab {
+  z-index: 1;
+  background-color: var(--card);
+  color: var(--foreground);
+  border: 0 !important;
+  box-shadow:
+    inset 0 -2px 0 var(--primary),
+    0 5px 14px -10px color-mix(in oklch, var(--foreground) 46%, transparent);
 }
 
-/* Keep the selected tab legible at a glance, including in split pane groups. */
-.dockview-theme-stave .dv-tabs-container > .dv-tab.dv-active-tab {
-  box-shadow: inset 0 -2px 0 var(--primary);
+.dockview-theme-stave .dv-tabs-container > .dv-tab.dv-inactive-tab {
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out;
+}
+
+/*
+ * Dockview draws a full rectangular `::after` outline for any focus within a
+ * tab, including pointer focus on its close button. Suppress that stock edge;
+ * the keyboard-only focus-visible outline below remains the accessible cue.
+ */
+.dockview-theme-stave .dv-tabs-container > .dv-tab:focus::after,
+.dockview-theme-stave .dv-tabs-container > .dv-tab:focus-within::after {
+  content: none !important;
+  display: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .dockview-theme-stave .dv-tabs-container > .dv-tab:focus-visible {
@@ -431,11 +505,14 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .dockview-theme-stave .dv-tabs-container > .dv-tab.dv-inactive-tab:hover {
-    background-color: var(--accent);
-    color: var(--accent-foreground);
-    box-shadow: inset 0 0 0 1px
-      color-mix(in srgb, var(--border) 80%, transparent);
+  .dockview-theme-stave
+    .dv-groupview
+    > .dv-tabs-and-actions-container
+    .dv-tabs-container
+    > .dv-tab.dv-inactive-tab:hover {
+    background-color: color-mix(in srgb, var(--accent) 52%, var(--background));
+    color: var(--foreground);
+    box-shadow: none;
   }
 
   .dockview-theme-stave .dv-context-menu-item:hover {
@@ -598,78 +675,104 @@
   }
 
   .t-dropdown {
-    transform-origin: var(
-      --radix-dropdown-menu-content-transform-origin,
-      var(
-        --radix-popover-content-transform-origin,
-        var(
-          --radix-select-content-transform-origin,
-          var(--radix-context-menu-content-transform-origin, top left)
-        )
-      )
-    );
+    transform-origin: var(--transform-origin, top left);
+    opacity: 1;
+    transform: scale(1);
+    transition-property: opacity, transform;
+    transition-duration: var(--dropdown-close-dur);
+    transition-timing-function: var(--dropdown-ease);
     will-change: transform, opacity;
   }
 
-  .t-dropdown[data-state="open"] {
-    animation: t-dropdown-open var(--dropdown-open-dur) var(--dropdown-ease)
-      both;
+  .t-dropdown[data-open] {
+    transition-duration: var(--dropdown-open-dur);
   }
 
-  .t-dropdown[data-state="closed"] {
+  .t-dropdown[data-starting-style] {
+    opacity: 0;
+    transform: scale(var(--dropdown-pre-scale));
+  }
+
+  .t-dropdown[data-ending-style] {
     pointer-events: none;
-    animation: t-dropdown-close var(--dropdown-close-dur) var(--dropdown-ease)
-      both;
+    opacity: 0;
+    transform: scale(var(--dropdown-closing-scale));
   }
 
   .t-modal {
     transform-origin: center;
-    will-change: transform, opacity;
+    opacity: 1;
+    scale: 1;
+    transition-property: opacity, scale;
+    transition-duration: var(--modal-close-dur);
+    transition-timing-function: var(--modal-ease);
+    will-change: scale, opacity;
   }
 
-  .t-modal[data-state="open"] {
-    animation: t-modal-open var(--modal-open-dur) var(--modal-ease) both;
+  .t-modal[data-open] {
+    transition-duration: var(--modal-open-dur);
   }
 
-  .t-modal[data-state="closed"] {
+  .t-modal[data-starting-style] {
+    opacity: 0;
+    scale: var(--modal-scale);
+  }
+
+  .t-modal[data-ending-style] {
     pointer-events: none;
-    animation: t-modal-close var(--modal-close-dur) var(--modal-ease) both;
+    opacity: 0;
+    scale: var(--modal-scale-close);
   }
 
   .t-overlay {
+    opacity: 1;
+    transition-property: opacity;
+    transition-duration: var(--modal-close-dur);
+    transition-timing-function: var(--modal-ease);
     will-change: opacity;
   }
 
-  .t-overlay[data-state="open"] {
-    animation: t-overlay-open var(--modal-open-dur) var(--modal-ease) both;
+  .t-overlay[data-open] {
+    transition-duration: var(--modal-open-dur);
   }
 
-  .t-overlay[data-state="closed"] {
+  .t-overlay[data-starting-style],
+  .t-overlay[data-ending-style] {
     pointer-events: none;
-    animation: t-overlay-close var(--modal-close-dur) var(--modal-ease) both;
+    opacity: 0;
   }
 
   .t-tooltip {
-    transform-origin: var(--radix-tooltip-content-transform-origin, center);
+    transform-origin: var(--transform-origin, center);
+    opacity: 1;
+    transform: scale(1);
+    transition-property: opacity, transform;
+    transition-duration: var(--tt-out-dur);
+    transition-timing-function: var(--tt-out-ease);
     will-change: transform, opacity;
   }
 
-  .t-tooltip[data-state="delayed-open"],
-  .t-tooltip[data-state="instant-open"] {
-    animation: t-tooltip-open var(--tt-in-dur) var(--tt-in-ease) var(--tt-delay)
-      both;
+  .t-tooltip[data-open] {
+    transition-duration: var(--tt-in-dur);
+    transition-delay: var(--tt-delay);
+    transition-timing-function: var(--tt-in-ease);
   }
 
-  .t-tooltip[data-state="closed"] {
-    animation: t-tooltip-close var(--tt-out-dur) var(--tt-out-ease) both;
+  .t-tooltip[data-starting-style],
+  .t-tooltip[data-ending-style] {
+    opacity: 0;
+    transform: scale(var(--tt-scale));
+  }
+
+  .t-tooltip[data-ending-style] {
+    transition-delay: 0ms;
   }
 
   .t-skeleton-pulse {
     animation: t-skeleton-pulse var(--pulse-dur) ease-in-out infinite;
   }
 
-  .model-effort-popover[data-state="open"] {
-    animation-fill-mode: none;
+  .model-effort-popover[data-open] {
     will-change: opacity;
   }
 
@@ -714,12 +817,30 @@
         color-mix(in oklch, var(--model-effort-provider) 82%, var(--foreground));
   }
 
+  .model-effort-cell-visual[data-orb] {
+    border-color: color-mix(
+      in oklch,
+      var(--model-effort-provider) 36%,
+      oklch(0.92 0.008 260 / 0.32)
+    );
+    box-shadow: inset 0 -2px 0
+      color-mix(in oklch, var(--model-effort-provider) 58%, transparent);
+  }
+
+  .model-effort-cell-visual[data-selected="true"][data-orb] {
+    box-shadow:
+      inset 0 -2px 0
+        color-mix(in oklch, var(--model-effort-provider) 72%, transparent),
+      0 0 0 1px var(--popover),
+      0 0 0 3px
+        color-mix(in oklch, var(--model-effort-provider) 82%, var(--foreground));
+  }
+
   .model-effort-cell-orb {
     position: relative;
     z-index: 1;
     opacity: 1;
-    filter: drop-shadow(0 0 1px oklch(1 0 0 / 0.42))
-      drop-shadow(0 1px 2px oklch(0 0 0 / 0.42));
+    filter: brightness(1.22) contrast(1.08);
   }
 
   .model-effort-auto-cell-visual {
@@ -774,6 +895,7 @@
     .t-tooltip,
     .t-skeleton-pulse {
       animation: none !important;
+      transition-delay: 0ms !important;
     }
 
     .model-effort-preview-value {
@@ -804,98 +926,6 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes t-dropdown-open {
-  from {
-    opacity: 0;
-    transform: scale(var(--dropdown-pre-scale));
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes t-dropdown-close {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  to {
-    opacity: 0;
-    transform: scale(var(--dropdown-closing-scale));
-  }
-}
-
-@keyframes t-modal-open {
-  from {
-    opacity: 0;
-    transform: scale(var(--modal-scale));
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes t-modal-close {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  to {
-    opacity: 0;
-    transform: scale(var(--modal-scale-close));
-  }
-}
-
-@keyframes t-overlay-open {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes t-overlay-close {
-  from {
-    opacity: 1;
-  }
-
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes t-tooltip-open {
-  from {
-    opacity: 0;
-    transform: scale(var(--tt-scale));
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes t-tooltip-close {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  to {
-    opacity: 0;
-    transform: scale(var(--tt-scale));
   }
 }
 

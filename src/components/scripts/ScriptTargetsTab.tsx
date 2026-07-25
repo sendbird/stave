@@ -31,14 +31,20 @@ const ENV_VAR_REFERENCE = Object.values(SCRIPT_ENV_VARS);
 export function ScriptTargetsTab(props: {
   targets: ScriptEditorTargetEntry[];
   usageCountById: Record<string, number>;
-  onFieldChange: (index: number, field: "id" | "label" | "shell", value: string) => void;
+  onFieldChange: (
+    index: number,
+    field: "id" | "label" | "shell",
+    value: string,
+  ) => void;
   onCwdChange: (index: number, cwd: ScriptTargetScope) => void;
   onEnvChange: (index: number, rows: ScriptEditorEnvRow[]) => void;
   onAdd: () => void;
   onAddOverride: (id: string) => void;
   onRemove: (index: number) => void;
 }) {
-  const definedIds = new Set(props.targets.map((target) => target.id.trim()).filter(Boolean));
+  const definedIds = new Set(
+    props.targets.map((target) => target.id.trim()).filter(Boolean),
+  );
   const overridableBuiltins = [
     { id: DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, label: "Workspace" },
     { id: DEFAULT_SCRIPT_TARGET_IDS.PROJECT, label: "Project" },
@@ -48,15 +54,24 @@ export function ScriptTargetsTab(props: {
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-semibold text-foreground">Targets</p>
+          <p className="text-sm font-semibold text-foreground">
+            Execution environments
+          </p>
           <p className="text-xs text-muted-foreground">
-            Reusable working directory, shell, and environment presets for scripts.
-            The built-in <span className="font-mono">workspace</span> and{" "}
-            <span className="font-mono">project</span> targets run in the corresponding root;
-            define a target with the same id here to override it.
+            Reusable working directory, shell, and environment presets for
+            commands and processes. The built-in{" "}
+            <span className="font-mono">workspace</span> and{" "}
+            <span className="font-mono">project</span> targets run in the
+            corresponding root; define a target with the same id here to
+            override it.
           </p>
         </div>
-        <Button type="button" size="sm" className="gap-1.5" onClick={props.onAdd}>
+        <Button
+          type="button"
+          size="sm"
+          className="gap-1.5"
+          onClick={props.onAdd}
+        >
           <Plus className="size-3.5" />
           Add target
         </Button>
@@ -64,7 +79,9 @@ export function ScriptTargetsTab(props: {
 
       {overridableBuiltins.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] text-muted-foreground">Override built-in:</span>
+          <span className="text-[11px] text-muted-foreground">
+            Override built-in:
+          </span>
           {overridableBuiltins.map((builtin) => (
             <Button
               key={builtin.id}
@@ -87,9 +104,10 @@ export function ScriptTargetsTab(props: {
             <EmptyMedia>
               <Plus className="size-4" />
             </EmptyMedia>
-            <EmptyTitle>No custom targets</EmptyTitle>
+            <EmptyTitle>No custom environments</EmptyTitle>
             <EmptyDescription>
-              Scripts use the built-in workspace and project targets until you add one here.
+              Commands and processes use the built-in workspace and project
+              environments until you add one here.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -97,20 +115,29 @@ export function ScriptTargetsTab(props: {
         <div className="space-y-2.5">
           {props.targets.map((target, index) => {
             const id = target.id.trim();
-            const usage = id ? props.usageCountById[id] ?? 0 : 0;
+            const usage = id ? (props.usageCountById[id] ?? 0) : 0;
             return (
-              <div key={index} className="space-y-3 rounded-lg border border-border/70 bg-card/60 p-3">
+              <div
+                key={index}
+                className="space-y-3 rounded-lg border border-border/70 bg-card/60 p-3"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-foreground">
                       {target.label.trim() || id || `Target ${index + 1}`}
                     </span>
                     {usage > 0 ? (
-                      <Badge variant="secondary" className="rounded-sm px-2 py-0 text-[10px]">
-                        {usage} script{usage === 1 ? "" : "s"}
+                      <Badge
+                        variant="secondary"
+                        className="rounded-sm px-2 py-0 text-[10px]"
+                      >
+                        {usage} entr{usage === 1 ? "y" : "ies"}
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="rounded-sm px-2 py-0 text-[10px]">
+                      <Badge
+                        variant="outline"
+                        className="rounded-sm px-2 py-0 text-[10px]"
+                      >
                         Unused
                       </Badge>
                     )}
@@ -122,7 +149,11 @@ export function ScriptTargetsTab(props: {
                     className="size-8 text-destructive hover:text-destructive"
                     onClick={() => props.onRemove(index)}
                     aria-label="Delete target"
-                    title={usage > 0 ? `Referenced by ${usage} script(s)` : "Delete target"}
+                    title={
+                      usage > 0
+                        ? `Referenced by ${usage} command(s) or process(es)`
+                        : "Delete environment"
+                    }
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
@@ -130,22 +161,31 @@ export function ScriptTargetsTab(props: {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="space-y-1.5">
-                    <span className="text-xs font-medium text-foreground">ID</span>
+                    <span className="text-xs font-medium text-foreground">
+                      ID
+                    </span>
                     <Input
                       value={target.id}
-                      onChange={(event) => props.onFieldChange(index, "id", event.target.value)}
+                      onChange={(event) =>
+                        props.onFieldChange(index, "id", event.target.value)
+                      }
                       placeholder="api"
                       className="font-mono text-xs"
                     />
                     <span className="block text-[11px] text-muted-foreground">
-                      Renaming updates scripts that reference this target.
+                      Renaming updates commands and processes that reference
+                      this environment.
                     </span>
                   </label>
                   <label className="space-y-1.5">
-                    <span className="text-xs font-medium text-foreground">Label</span>
+                    <span className="text-xs font-medium text-foreground">
+                      Label
+                    </span>
                     <Input
                       value={target.label}
-                      onChange={(event) => props.onFieldChange(index, "label", event.target.value)}
+                      onChange={(event) =>
+                        props.onFieldChange(index, "label", event.target.value)
+                      }
                       placeholder="Shown in the Target picker"
                     />
                   </label>
@@ -153,25 +193,35 @@ export function ScriptTargetsTab(props: {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="space-y-1.5">
-                    <span className="text-xs font-medium text-foreground">Working directory</span>
+                    <span className="text-xs font-medium text-foreground">
+                      Working directory
+                    </span>
                     <Select
                       value={target.cwd}
-                      onValueChange={(value) => props.onCwdChange(index, value as ScriptTargetScope)}
+                      onValueChange={(value) =>
+                        props.onCwdChange(index, value as ScriptTargetScope)
+                      }
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="workspace">Workspace root</SelectItem>
+                        <SelectItem value="workspace">
+                          Workspace root
+                        </SelectItem>
                         <SelectItem value="project">Project root</SelectItem>
                       </SelectContent>
                     </Select>
                   </label>
                   <label className="space-y-1.5">
-                    <span className="text-xs font-medium text-foreground">Shell</span>
+                    <span className="text-xs font-medium text-foreground">
+                      Shell
+                    </span>
                     <Input
                       value={target.shell}
-                      onChange={(event) => props.onFieldChange(index, "shell", event.target.value)}
+                      onChange={(event) =>
+                        props.onFieldChange(index, "shell", event.target.value)
+                      }
                       placeholder="Default login shell"
                       className="font-mono text-xs"
                     />
@@ -188,14 +238,25 @@ export function ScriptTargetsTab(props: {
         </div>
       )}
 
-      <div className={cn("rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5")}>
-        <p className="text-[11px] font-medium text-foreground">Injected environment variables</p>
+      <div
+        className={cn(
+          "rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5",
+        )}
+      >
+        <p className="text-[11px] font-medium text-foreground">
+          Injected environment variables
+        </p>
         <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-          Stave sets these automatically for every script; reference them in commands or env values.
+          Stave sets these automatically for every execution; reference them in
+          commands or environment values.
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {ENV_VAR_REFERENCE.map((name) => (
-            <Badge key={name} variant="outline" className="rounded-sm px-1.5 py-0 font-mono text-[10px]">
+            <Badge
+              key={name}
+              variant="outline"
+              className="rounded-sm px-1.5 py-0 font-mono text-[10px]"
+            >
               {name}
             </Badge>
           ))}
@@ -203,8 +264,10 @@ export function ScriptTargetsTab(props: {
       </div>
 
       <p className="text-[11px] leading-5 text-muted-foreground">
-        Per-developer overrides live in <span className="font-mono">.stave/scripts.local.json</span> and are
-        edited as a file; entries sourced from it are marked <span className="font-medium">Local</span> in the panel.
+        Per-developer overrides live in{" "}
+        <span className="font-mono">.stave/scripts.local.json</span> and are
+        edited as a file; entries sourced from it are marked{" "}
+        <span className="font-medium">Local</span> in the panel.
       </p>
     </div>
   );

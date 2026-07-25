@@ -14,7 +14,6 @@ import {
 } from "@/components/ui";
 import { Sparkles } from "lucide-react";
 import { ScriptsManager } from "@/components/scripts";
-import { SectionHeading } from "@/components/layout/settings-dialog.shared";
 import { useAppStore } from "@/store/app.store";
 import type { RecentProjectState } from "@/store/project.utils";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
@@ -24,21 +23,27 @@ export function ScriptsSection(props: {
   currentProjectPath?: string | null;
   selectedProjectPath?: string | null;
 }) {
-  const [activeWorkspaceId, workspaces, workspacePathById, workspaceBranchById, storeProjectPath] =
-    useAppStore(
-      useShallow(
-        (state) =>
-          [
-            state.activeWorkspaceId,
-            state.workspaces,
-            state.workspacePathById,
-            state.workspaceBranchById,
-            state.projectPath,
-          ] as const,
-      ),
-    );
+  const [
+    activeWorkspaceId,
+    workspaces,
+    workspacePathById,
+    workspaceBranchById,
+    storeProjectPath,
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.activeWorkspaceId,
+          state.workspaces,
+          state.workspacePathById,
+          state.workspaceBranchById,
+          state.projectPath,
+        ] as const,
+    ),
+  );
 
-  const currentProjectPath = props.currentProjectPath ?? storeProjectPath ?? null;
+  const currentProjectPath =
+    props.currentProjectPath ?? storeProjectPath ?? null;
   const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(
     () =>
       props.selectedProjectPath ??
@@ -51,7 +56,9 @@ export function ScriptsSection(props: {
   useEffect(() => {
     if (
       selectedProjectPath &&
-      props.projects.some((project) => project.projectPath === selectedProjectPath)
+      props.projects.some(
+        (project) => project.projectPath === selectedProjectPath,
+      )
     ) {
       return;
     }
@@ -60,7 +67,17 @@ export function ScriptsSection(props: {
     );
   }, [currentProjectPath, props.projects, selectedProjectPath]);
 
-  const isCurrent = Boolean(selectedProjectPath) && selectedProjectPath === currentProjectPath;
+  const isCurrent =
+    Boolean(selectedProjectPath) && selectedProjectPath === currentProjectPath;
+  const selectedProjectLabel = useMemo(() => {
+    const project = props.projects.find(
+      (candidate) => candidate.projectPath === selectedProjectPath,
+    );
+    if (!project) {
+      return undefined;
+    }
+    return `${project.projectName}${isCurrent ? " (current)" : ""}`;
+  }, [isCurrent, props.projects, selectedProjectPath]);
   const scriptsWorkspacePath = isCurrent
     ? (workspacePathById[activeWorkspaceId] ?? selectedProjectPath ?? "")
     : (selectedProjectPath ?? "");
@@ -91,7 +108,8 @@ export function ScriptsSection(props: {
     }
     const branch = workspaceBranchById[activeWorkspaceId] ?? "";
     const workspaceName =
-      workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ??
+      workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+        ?.name ??
       branch ??
       "workspace";
     return {
@@ -103,11 +121,6 @@ export function ScriptsSection(props: {
 
   return (
     <div className="flex flex-col gap-4">
-      <SectionHeading
-        title="Scripts"
-        description="Edit actions, services, hooks, and targets for a project's shared scripts config, and run them against the active workspace."
-      />
-
       {props.projects.length === 0 ? (
         <Empty className="border border-dashed border-border/70 bg-muted/15">
           <EmptyHeader>
@@ -116,26 +129,36 @@ export function ScriptsSection(props: {
             </EmptyMedia>
             <EmptyTitle>No projects yet</EmptyTitle>
             <EmptyDescription>
-              Open a project from the sidebar to configure its scripts.
+              Open a project from the sidebar to configure its commands and
+              processes.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
         <>
           <label className="flex max-w-md flex-col gap-1.5">
-            <span className="text-xs font-medium text-foreground">Project</span>
+            <span className="text-sm font-medium text-foreground">
+              Configuration project
+            </span>
             <Select
               value={selectedProjectPath ?? undefined}
               onValueChange={(value) => setSelectedProjectPath(value)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a project" />
+                <SelectValue placeholder="Select a project">
+                  {selectedProjectLabel}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {props.projects.map((project) => (
-                  <SelectItem key={project.projectPath} value={project.projectPath}>
+                  <SelectItem
+                    key={project.projectPath}
+                    value={project.projectPath}
+                  >
                     {project.projectName}
-                    {project.projectPath === currentProjectPath ? " (current)" : ""}
+                    {project.projectPath === currentProjectPath
+                      ? " (current)"
+                      : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

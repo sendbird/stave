@@ -6,6 +6,7 @@ import {
   cycleClaudeEffortValue,
   cycleCodexEffortValue,
 } from "@/components/session/chat-input.runtime";
+import { getPromptInputRuntimeProfile } from "@/components/ai-elements/prompt-input-runtime-bar";
 
 const updateSettings = () => {};
 
@@ -37,6 +38,36 @@ const baseArgs = {
 };
 
 describe("chat-input runtime helpers", () => {
+  test("summarizes protected, overridden, and elevated runtime profiles", () => {
+    expect(
+      getPromptInputRuntimeProfile([
+        { id: "sandbox", label: "Files", value: "Workspace Write" },
+      ]),
+    ).toMatchObject({ label: "Safe", tone: "default" });
+
+    expect(
+      getPromptInputRuntimeProfile([
+        {
+          id: "plan-mode",
+          label: "Planning",
+          value: "On",
+          tone: "warning",
+        },
+      ]),
+    ).toMatchObject({ label: "Custom", tone: "custom" });
+
+    expect(
+      getPromptInputRuntimeProfile([
+        {
+          id: "sandbox",
+          label: "Files",
+          value: "Danger Full Access",
+          tone: "warning",
+        },
+      ]),
+    ).toMatchObject({ label: "Elevated", tone: "warning" });
+  });
+
   test("cycles Claude effort in provider order", () => {
     expect(cycleClaudeEffortValue("low")).toBe("medium");
     expect(cycleClaudeEffortValue("medium")).toBe("high");

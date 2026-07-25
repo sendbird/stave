@@ -398,14 +398,12 @@ describe("routine persistence normalization", () => {
       status: "completed",
       trigger: "scheduled",
       scheduledFor: null,
-      startedAt: new Date(
-        Date.UTC(2026, 6, 23, 0, index),
-      ).toISOString(),
-      completedAt: new Date(
-        Date.UTC(2026, 6, 23, 0, index, 30),
-      ).toISOString(),
+      startedAt: new Date(Date.UTC(2026, 6, 23, 0, index)).toISOString(),
+      completedAt: new Date(Date.UTC(2026, 6, 23, 0, index, 30)).toISOString(),
       resultPreview: null,
       error: null,
+      configHash: null,
+      trustPolicy: "review-required",
     }));
 
     const pruned = pruneRoutineRuns(runs);

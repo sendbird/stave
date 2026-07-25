@@ -8,10 +8,14 @@ import type {
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 import {
+  CLAUDE_PERMISSION_MODE_OPTIONS,
+  CLAUDE_THINKING_OPTIONS,
   CLAUDE_EFFORT_OPTIONS,
+  CODEX_APPROVAL_POLICY_OPTIONS,
   CODEX_EFFORT_OPTIONS,
   CODEX_REASONING_SUMMARY_OPTIONS,
   CODEX_REASONING_SUPPORT_OPTIONS,
+  CODEX_WEB_SEARCH_OPTIONS,
   formatClaudeSettingSources,
   findOptionLabel,
   formatProviderTimeoutLabel,
@@ -186,6 +190,12 @@ function normalizeGoalObjectiveValue(objective: string) {
   return objective.replace(/\s+/g, " ").trim();
 }
 
+function formatRuntimeEnumValue(value: string) {
+  return formatTitleCaseRuntimeValue(
+    value.replace(/([a-z0-9])([A-Z])/g, "$1-$2"),
+  );
+}
+
 export function buildChatInputGoalStatus(
   args: ChatInputGoalStatusArgs,
 ): PromptInputGoalStatus | null {
@@ -217,19 +227,38 @@ export function buildChatInputRuntimeStatusItems(
   if (args.activeProvider === "claude-code") {
     return [
       {
-        id: "timeout",
-        label: "Timeout",
-        value: formatProviderTimeoutLabel(args.providerTimeoutMs),
+        id: "permissions",
+        label: "Permissions",
+        value: formatRuntimeEnumValue(
+          findOptionLabel(
+            CLAUDE_PERMISSION_MODE_OPTIONS,
+            args.claudePermissionMode,
+          ),
+        ),
+        tone:
+          args.claudePermissionMode === "bypassPermissions"
+            ? "warning"
+            : "default",
       },
       {
         id: "sandbox",
         label: "Sandbox",
         value: args.claudeSandboxEnabled ? "Enabled" : "Disabled",
+        tone: args.claudeSandboxEnabled ? "default" : "warning",
       },
       {
         id: "unsandboxed",
         label: "Unsandboxed",
         value: args.claudeAllowUnsandboxedCommands ? "On" : "Off",
+        tone: args.claudeAllowUnsandboxedCommands ? "warning" : "default",
+      },
+      {
+        id: "dangerous-skip",
+        label: "Permission Bypass",
+        value: args.claudeAllowDangerouslySkipPermissions ? "On" : "Off",
+        tone: args.claudeAllowDangerouslySkipPermissions
+          ? "warning"
+          : "default",
       },
       {
         id: "setting-sources",
@@ -237,15 +266,28 @@ export function buildChatInputRuntimeStatusItems(
         value: formatClaudeSettingSources(args.claudeSettingSources),
       },
       {
+        id: "effort",
+        label: "Effort",
+        value: findOptionLabel(CLAUDE_EFFORT_OPTIONS, args.claudeEffort),
+      },
+      {
+        id: "thinking",
+        label: "Thinking",
+        value: findOptionLabel(
+          CLAUDE_THINKING_OPTIONS,
+          args.claudeThinkingMode,
+        ),
+      },
+      {
+        id: "timeout",
+        label: "Timeout",
+        value: formatProviderTimeoutLabel(args.providerTimeoutMs),
+      },
+      {
         id: "task-budget",
         label: "Task Budget",
         value: formatTokenBudget(args.claudeTaskBudgetTokens),
         tone: args.claudeTaskBudgetTokens > 0 ? "warning" : "default",
-      },
-      {
-        id: "dangerous-skip",
-        label: "Dangerous Skip",
-        value: args.claudeAllowDangerouslySkipPermissions ? "On" : "Off",
       },
       {
         id: "progress-summaries",
@@ -272,11 +314,6 @@ export function buildChatInputRuntimeStatusItems(
 
   return [
     {
-      id: "timeout",
-      label: "Timeout",
-      value: formatProviderTimeoutLabel(args.providerTimeoutMs),
-    },
-    {
       id: "sandbox",
       label: "Files",
       value: formatTitleCaseRuntimeValue(effectiveCodexFileAccess),
@@ -289,6 +326,27 @@ export function buildChatInputRuntimeStatusItems(
       id: "network",
       label: "Network",
       value: args.codexNetworkAccess ? "On" : "Off",
+    },
+    {
+      id: "approvals",
+      label: "Approvals",
+      value: formatRuntimeEnumValue(
+        findOptionLabel(
+          CODEX_APPROVAL_POLICY_OPTIONS,
+          args.codexApprovalPolicy,
+        ),
+      ),
+      tone: args.codexApprovalPolicy === "never" ? "warning" : "default",
+    },
+    {
+      id: "web-search",
+      label: "Web Search",
+      value: findOptionLabel(CODEX_WEB_SEARCH_OPTIONS, args.codexWebSearch),
+    },
+    {
+      id: "effort",
+      label: "Effort",
+      value: findOptionLabel(CODEX_EFFORT_OPTIONS, args.codexReasoningEffort),
     },
     {
       id: "raw-reasoning",
@@ -310,6 +368,11 @@ export function buildChatInputRuntimeStatusItems(
         CODEX_REASONING_SUPPORT_OPTIONS,
         args.codexReasoningSummarySupport,
       ),
+    },
+    {
+      id: "timeout",
+      label: "Timeout",
+      value: formatProviderTimeoutLabel(args.providerTimeoutMs),
     },
     {
       id: "plan-mode",

@@ -20,7 +20,30 @@ export interface TopBarBranchGroup {
   options: TopBarBranchOption[];
 }
 
+export interface DefaultBranchDrift {
+  expectedBranch: string;
+  actualBranch: string;
+}
+
 const INVALID_BRANCH_NAME_CHAR_PATTERN = /[~^:?\*\[\\]/;
+
+export function resolveDefaultBranchDrift(args: {
+  isDefaultWorkspace: boolean;
+  expectedBranch?: string | null;
+  actualBranch?: string | null;
+}): DefaultBranchDrift | null {
+  const expectedBranch = args.expectedBranch?.trim();
+  const actualBranch = args.actualBranch?.trim();
+  if (
+    !args.isDefaultWorkspace ||
+    !expectedBranch ||
+    !actualBranch ||
+    expectedBranch === actualBranch
+  ) {
+    return null;
+  }
+  return { expectedBranch, actualBranch };
+}
 
 export function normalizeRemoteBranchName(branch: string) {
   const trimmed = branch.trim();
@@ -31,7 +54,10 @@ export function normalizeRemoteBranchName(branch: string) {
   return trimmed.slice(slashIndex + 1);
 }
 
-function branchMatchesQuery(args: { option: TopBarBranchOption; query: string }) {
+function branchMatchesQuery(args: {
+  option: TopBarBranchOption;
+  query: string;
+}) {
   const query = args.query.trim().toLowerCase();
   if (!query) {
     return true;
@@ -45,7 +71,9 @@ function branchMatchesQuery(args: { option: TopBarBranchOption; query: string })
 function uniqueSortedBranches(branches: readonly string[]) {
   return Array.from(
     new Set(
-      branches.map((branch) => branch.trim()).filter((branch) => branch.length > 0),
+      branches
+        .map((branch) => branch.trim())
+        .filter((branch) => branch.length > 0),
     ),
   ).sort((left, right) => left.localeCompare(right));
 }
@@ -92,17 +120,15 @@ export function buildTopBarBranchGroups(args: {
       localName: normalizeRemoteBranchName(branch),
     }))
     .filter(({ localName }) => localName && !localBranchSet.has(localName))
-    .map(
-      ({ remoteBranch, localName }): TopBarBranchOption => ({
-        key: `remote:${remoteBranch}`,
-        kind: "remote",
-        name: remoteBranch,
-        checkoutName: remoteBranch,
-        displayName: remoteBranch,
-        localName,
-        state: "available",
-      }),
-    )
+    .map(({ remoteBranch, localName }): TopBarBranchOption => ({
+      key: `remote:${remoteBranch}`,
+      kind: "remote",
+      name: remoteBranch,
+      checkoutName: remoteBranch,
+      displayName: remoteBranch,
+      localName,
+      state: "available",
+    }))
     .filter((option) => branchMatchesQuery({ option, query: args.query }));
 
   const current = localOptions.filter((option) => option.state === "current");
@@ -115,7 +141,11 @@ export function buildTopBarBranchGroups(args: {
     { id: "current", label: "Current", options: current },
     { id: "local", label: "Local branches", options: availableLocal },
     { id: "remote", label: "Remote branches", options: remoteOptions },
-    { id: "attached", label: "Checked out in other workspaces", options: attached },
+    {
+      id: "attached",
+      label: "Checked out in other workspaces",
+      options: attached,
+    },
   ];
 
   return groups.filter((group) => group.options.length > 0);

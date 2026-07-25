@@ -21,7 +21,6 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import {
   InfoRow,
-  SectionHeading,
   SectionStack,
   SettingsCard,
   StatusBadge,
@@ -61,10 +60,7 @@ function AuthBadge(args: { tool: ToolingStatusEntry }) {
   return (
     <Badge
       variant="secondary"
-      className={cn(
-        "h-6 border px-2.5 font-medium tracking-normal",
-        className,
-      )}
+      className={cn("h-6 border px-2.5 font-medium tracking-normal", className)}
     >
       {label}
     </Badge>
@@ -85,15 +81,16 @@ function ToolStateLabel(state: ToolingStatusState) {
 }
 
 function ToolIcon(args: { id: ToolingStatusId }) {
-  const Icon = args.id === "shell"
-    ? TerminalSquare
-    : args.id === "git"
-      ? GitBranch
-      : args.id === "gh"
-        ? GitPullRequest
-        : args.id === "claude"
-          ? Bot
-          : Code2;
+  const Icon =
+    args.id === "shell"
+      ? TerminalSquare
+      : args.id === "git"
+        ? GitBranch
+        : args.id === "gh"
+          ? GitPullRequest
+          : args.id === "claude"
+            ? Bot
+            : Code2;
 
   return <Icon className="size-4" />;
 }
@@ -135,7 +132,10 @@ function ToolCard(args: {
   canOpenTerminal: boolean;
   onOpenTerminal: () => Promise<void>;
   onCopyRepairCommand: (command: string, label: string) => Promise<void>;
-  onCopyRepairAndOpenTerminal: (command: string, label: string) => Promise<void>;
+  onCopyRepairAndOpenTerminal: (
+    command: string,
+    label: string,
+  ) => Promise<void>;
 }) {
   const repairCommand = AUTH_COMMAND_BY_ID[args.tool.id] ?? null;
 
@@ -210,7 +210,8 @@ function ToolCard(args: {
                 void args.onCopyRepairAndOpenTerminal(
                   repairCommand,
                   args.tool.label,
-                )}
+                )
+              }
             >
               <TerminalSquare className="size-4" />
               Fix In Terminal
@@ -241,15 +242,19 @@ export function ToolingSection() {
     claudeBinaryPath,
     codexBinaryPath,
   ] = useAppStore(
-    useShallow((state) => [
-      state.activeWorkspaceId,
-      state.projectPath,
-      state.workspacePathById,
-      state.settings.claudeBinaryPath,
-      state.settings.codexBinaryPath,
-    ] as const),
+    useShallow(
+      (state) =>
+        [
+          state.activeWorkspaceId,
+          state.projectPath,
+          state.workspacePathById,
+          state.settings.claudeBinaryPath,
+          state.settings.codexBinaryPath,
+        ] as const,
+    ),
   );
-  const workspaceCwd = workspacePathById[activeWorkspaceId] ?? projectPath ?? null;
+  const workspaceCwd =
+    workspacePathById[activeWorkspaceId] ?? projectPath ?? null;
   const [viewState, setViewState] = useState<{
     status: "loading" | "ready" | "error";
     snapshot: ToolingStatusSnapshot | null;
@@ -301,9 +306,10 @@ export function ToolingSection() {
         setViewState({
           status: "error",
           snapshot: null,
-          detail: error instanceof Error
-            ? error.message
-            : "Failed to load tooling diagnostics.",
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Failed to load tooling diagnostics.",
         });
       }
     })();
@@ -345,7 +351,10 @@ export function ToolingSection() {
     }
   }
 
-  async function handleCopyRepairAndOpenTerminal(command: string, label: string) {
+  async function handleCopyRepairAndOpenTerminal(
+    command: string,
+    label: string,
+  ) {
     await handleCopyRepairCommand(command, label);
     await handleOpenTerminal();
   }
@@ -354,10 +363,6 @@ export function ToolingSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Tooling"
-        description="Inspect the native shell and CLI integrations Stave depends on, then refresh or repair them without leaving Settings."
-      />
       <SectionStack>
         <SettingsCard
           title="Native Tooling Status"

@@ -21,10 +21,7 @@ import { Badge, WaveIndicator } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
-import {
-  getRespondingProviderId,
-  isTaskManaged,
-} from "@/lib/tasks";
+import { getRespondingProviderId, isTaskManaged } from "@/lib/tasks";
 import {
   buildPanePanelId,
   parsePanePanelId,
@@ -108,9 +105,7 @@ function PaneChipIcon(args: {
     case "editor":
       return <FileCode2 className="size-4 text-muted-foreground" />;
     case "compare-run":
-      return (
-        <SplitSquareHorizontal className="size-4 text-muted-foreground" />
-      );
+      return <SplitSquareHorizontal className="size-4 text-muted-foreground" />;
     default:
       return null;
   }
@@ -177,9 +172,8 @@ function usePaneChipTitle(
         );
       case "cli-session":
         return (
-          state.cliSessionTabs.find(
-            (tab) => tab.id === surface.cliSessionTabId,
-          )?.title ?? "CLI Session"
+          state.cliSessionTabs.find((tab) => tab.id === surface.cliSessionTabId)
+            ?.title ?? "CLI Session"
         );
       case "terminal":
         return (
@@ -359,7 +353,7 @@ export const PaneTabChip = memo(function PaneTabChip(
       {isEditing ? (
         <input
           ref={inputRef}
-          className="h-5 w-32 min-w-0 rounded-sm border border-border/80 bg-background px-1 text-xs text-foreground outline-none"
+          className="h-5 w-32 min-w-0 rounded-sm border border-border/80 bg-background px-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           value={editValue}
           onChange={(event) => setEditValue(event.target.value)}
           onBlur={commitRename}
@@ -391,7 +385,7 @@ export const PaneTabChip = memo(function PaneTabChip(
         <button
           type="button"
           className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground",
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
             closeVisibility,
           )}
           aria-label={`close-pane-${panelId}`}

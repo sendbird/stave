@@ -329,67 +329,68 @@ function ModelEffortMatrix(args: {
                 if (autoOption) {
                   return (
                     <Tooltip key="stave:auto">
-                      <TooltipTrigger asChild>
-                        <span
-                          className="flex size-11"
-                          onPointerEnter={() =>
-                            args.onPreview({
-                              modelLabel: "Stave Auto",
-                              effortLabel: "chooses model + effort",
-                            })
-                          }
-                        >
-                          <button
-                            ref={(element) => {
-                              if (element) {
-                                cellRefs.current.set("stave:auto", element);
-                              } else {
-                                cellRefs.current.delete("stave:auto");
-                              }
-                            }}
-                            type="button"
-                            role="gridcell"
-                            aria-selected={args.autoSelected}
-                            aria-label="Stave Auto · Let Stave choose model and effort"
-                            disabled={args.disabled || !autoOption.available}
-                            tabIndex={
-                              args.autoSelected ||
-                              tabStopKey === fallbackTabStop
-                                ? 0
-                                : -1
-                            }
-                            onFocus={() =>
+                      <TooltipTrigger
+                        render={
+                          <span
+                            className="flex size-11"
+                            onPointerEnter={() =>
                               args.onPreview({
                                 modelLabel: "Stave Auto",
                                 effortLabel: "chooses model + effort",
                               })
                             }
-                            onKeyDown={(event) =>
-                              handleCellKeyDown(event, rowIndex, effortIndex)
+                          />
+                        }
+                      >
+                        <button
+                          ref={(element) => {
+                            if (element) {
+                              cellRefs.current.set("stave:auto", element);
+                            } else {
+                              cellRefs.current.delete("stave:auto");
                             }
-                            onClick={() => {
-                              args.onSelect({ selection: autoOption });
-                              args.onClose();
-                            }}
-                            className="model-effort-cell flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-popover disabled:cursor-not-allowed disabled:opacity-45"
+                          }}
+                          type="button"
+                          role="gridcell"
+                          aria-selected={args.autoSelected}
+                          aria-label="Stave Auto · Let Stave choose model and effort"
+                          disabled={args.disabled || !autoOption.available}
+                          tabIndex={
+                            args.autoSelected || tabStopKey === fallbackTabStop
+                              ? 0
+                              : -1
+                          }
+                          onFocus={() =>
+                            args.onPreview({
+                              modelLabel: "Stave Auto",
+                              effortLabel: "chooses model + effort",
+                            })
+                          }
+                          onKeyDown={(event) =>
+                            handleCellKeyDown(event, rowIndex, effortIndex)
+                          }
+                          onClick={() => {
+                            args.onSelect({ selection: autoOption });
+                            args.onClose();
+                          }}
+                          className="model-effort-cell flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-popover disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          <span
+                            className={cn(
+                              "model-effort-auto-cell-visual relative flex size-9 items-center justify-center overflow-hidden rounded-md transition-transform",
+                              args.autoSelected &&
+                                "scale-105 ring-2 ring-offset-1 ring-offset-popover",
+                            )}
                           >
-                            <span
-                              className={cn(
-                                "model-effort-auto-cell-visual relative flex size-9 items-center justify-center overflow-hidden rounded-md transition-transform",
-                                args.autoSelected &&
-                                  "scale-105 ring-2 ring-offset-1 ring-offset-popover",
-                              )}
-                            >
-                              <img
-                                src={STAVE_LOGO_URL}
-                                alt=""
-                                aria-hidden
-                                draggable={false}
-                                className="relative z-10 size-5"
-                              />
-                            </span>
-                          </button>
-                        </span>
+                            <img
+                              src={STAVE_LOGO_URL}
+                              alt=""
+                              aria-hidden
+                              draggable={false}
+                              className="relative z-10 size-5"
+                            />
+                          </span>
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent side="top" sideOffset={6}>
                         Stave chooses the provider, model, and effort
@@ -610,38 +611,40 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <div onPointerEnter={scheduleOpen} onPointerLeave={scheduleClose}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            disabled={args.disabled}
-            aria-label={`Model and effort: ${selectedSummary}`}
-            title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
-            className={cn(
-              "inline-flex h-9 max-w-[300px] items-center gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-foreground transition-colors hover:bg-muted/60 focus-visible:border-border/60 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60",
-              open && "bg-muted/70 focus-visible:border-primary/50",
-            )}
-          >
-            <span className="flex min-w-0 items-center gap-1.5">
-              {args.value.isAuto ? (
-                <Sparkles className="size-3.5 shrink-0 text-primary" />
-              ) : (
-                <ModelIcon
-                  providerId={args.value.providerId}
-                  model={args.value.model}
-                  className="size-3.5"
-                />
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              disabled={args.disabled}
+              aria-label={`Model and effort: ${selectedSummary}`}
+              title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
+              className={cn(
+                "inline-flex h-9 max-w-[300px] items-center gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-foreground transition-colors hover:bg-muted/60 focus-visible:border-border/60 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60",
+                open && "bg-muted/70 focus-visible:border-primary/50",
               )}
-              <span className="truncate">
-                {args.value.label}
-                {!args.value.isAuto && args.effortLabel
-                  ? ` · ${args.effortLabel}`
-                  : ""}
-              </span>
-              {!args.value.isAuto && args.fastMode ? (
-                <Zap className="size-3.5 shrink-0 fill-current text-prompt-role-fast" />
-              ) : null}
+            />
+          }
+        >
+          <span className="flex min-w-0 items-center gap-1.5">
+            {args.value.isAuto ? (
+              <Sparkles className="size-3.5 shrink-0 text-primary" />
+            ) : (
+              <ModelIcon
+                providerId={args.value.providerId}
+                model={args.value.model}
+                className="size-3.5"
+              />
+            )}
+            <span className="truncate">
+              {args.value.label}
+              {!args.value.isAuto && args.effortLabel
+                ? ` · ${args.effortLabel}`
+                : ""}
             </span>
-          </button>
+            {!args.value.isAuto && args.fastMode ? (
+              <Zap className="size-3.5 shrink-0 fill-current text-prompt-role-fast" />
+            ) : null}
+          </span>
         </PopoverTrigger>
       </div>
       <PopoverContent
@@ -653,9 +656,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           clearTimer(closeTimerRef);
         }}
         onPointerLeave={scheduleClose}
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        initialFocus={false}
         aria-label="Model and effort selector"
-        className="model-effort-popover w-[min(47rem,calc(100vw-1rem))] gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0 shadow-lg"
+        className="model-effort-popover w-[min(47rem,calc(100vw-1rem))] gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0"
       >
         <div className="grid grid-cols-1 gap-2 p-2 min-[820px]:grid-cols-2">
           <ModelEffortMatrix

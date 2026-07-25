@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ArrowLeft, Folder, Search, X } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Button, Input } from "@/components/ui";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import {
   Sidebar,
   SidebarContent,
@@ -20,7 +14,6 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
-import { useDismissibleLayer } from "@/lib/dismissible-layer";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
@@ -85,10 +78,6 @@ export function SettingsDialog(args: SettingsDialogProps) {
         ] as const,
     ),
   );
-  const { containerRef, handleKeyDown } = useDismissibleLayer<HTMLDivElement>({
-    enabled: open,
-    onDismiss: () => onOpenChange({ open: false }),
-  });
   const projects = useMemo(
     () =>
       captureCurrentProjectState({
@@ -150,6 +139,31 @@ export function SettingsDialog(args: SettingsDialogProps) {
     setSelectedProjectPath(nextSelectedProjectPath);
   }, [initialProjectPath, open, projectPath, projects, selectedProjectPath]);
 
+  useEffect(() => {
+    if (!open || typeof document === "undefined") {
+      return;
+    }
+
+    const appRoot = document.getElementById("root");
+    if (!appRoot) {
+      return;
+    }
+
+    const wasInert = appRoot.inert;
+    const previousAriaHidden = appRoot.getAttribute("aria-hidden");
+    appRoot.inert = true;
+    appRoot.setAttribute("aria-hidden", "true");
+
+    return () => {
+      appRoot.inert = wasInert;
+      if (previousAriaHidden === null) {
+        appRoot.removeAttribute("aria-hidden");
+      } else {
+        appRoot.setAttribute("aria-hidden", previousAriaHidden);
+      }
+    };
+  }, [open]);
+
   if (!open) {
     return null;
   }
@@ -171,210 +185,232 @@ export function SettingsDialog(args: SettingsDialogProps) {
     .filter((group) => group.ids.length > 0);
 
   return (
-    <div
-      ref={containerRef}
-      className={cn(
-        UI_LAYER_CLASS.dialog,
-        "fixed inset-0 flex h-dvh w-full flex-col bg-background",
-      )}
-      role="region"
-      aria-label="Settings"
-      tabIndex={-1}
-      onKeyDown={handleKeyDown}
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={(nextOpen) => onOpenChange({ open: nextOpen })}
     >
-      <SidebarProvider
-        className="h-full min-h-0 flex-1 items-start overflow-hidden"
-        style={
-          {
-            "--sidebar-width": "220px",
-            height: "100%",
-            minHeight: 0,
-          } as React.CSSProperties
-        }
-      >
-        <Sidebar
-          collapsible="none"
-          className="border-r border-border bg-sidebar"
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Backdrop
+          className={cn(
+            UI_LAYER_CLASS.dialog,
+            "fixed inset-0 bg-background outline-none",
+          )}
+        />
+        <DialogPrimitive.Popup
+          aria-modal="true"
+          className={cn(
+            UI_LAYER_CLASS.dialog,
+            "fixed inset-0 flex h-dvh w-full flex-col bg-background outline-none",
+          )}
         >
-          <SidebarContent
-            className="pt-2"
+          <DialogPrimitive.Title className="sr-only">
+            Settings
+          </DialogPrimitive.Title>
+          <SidebarProvider
+            className="h-full min-h-0 flex-1 items-start overflow-hidden"
             style={
-              IS_MAC ? { paddingTop: MAC_TRAFFIC_LIGHT_CLEARANCE } : undefined
+              {
+                "--sidebar-width": "248px",
+                height: "100%",
+                minHeight: 0,
+              } as React.CSSProperties
             }
           >
-            <div className="px-2 pb-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 text-sidebar-foreground/80"
-                onClick={() => onOpenChange({ open: false })}
-                aria-label="back-to-app"
+            <Sidebar
+              collapsible="none"
+              className="border-r border-sidebar-border/80 bg-sidebar"
+            >
+              <SidebarContent
+                className="pt-2"
+                style={
+                  IS_MAC
+                    ? { paddingTop: MAC_TRAFFIC_LIGHT_CLEARANCE }
+                    : undefined
+                }
               >
-                <ArrowLeft className="size-4" />
-                Back to app
-              </Button>
-            </div>
-            <div className="px-2 pb-2">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-sidebar-foreground/45" />
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search settings"
-                  aria-label="Search settings"
-                  className="h-8 border-sidebar-border bg-sidebar-accent/35 pl-8 pr-8 text-xs text-sidebar-foreground placeholder:text-sidebar-foreground/45 focus-visible:ring-sidebar-ring"
-                />
-                {searchQuery ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-sidebar-foreground/55 hover:text-sidebar-foreground"
-                    aria-label="Clear settings search"
-                    onClick={() => setSearchQuery("")}
+                <div className="px-2 pb-2">
+                  <DialogPrimitive.Close
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start gap-1.5 text-sidebar-foreground/80"
+                        aria-label="back-to-app"
+                      />
+                    }
                   >
-                    <X className="size-3.5" />
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            {visibleGroups.length > 0 ? (
-              visibleGroups.map((group) => (
-                <SidebarGroup key={group.label}>
-                  <SidebarGroupLabel className="text-[11px] font-medium uppercase tracking-[0.18em] text-sidebar-foreground/55">
-                    {group.label}
-                  </SidebarGroupLabel>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {group.ids.map((sectionId) => {
-                        if (sectionId === "projects") {
-                          return projects.length === 0 ? (
-                            <SidebarMenuItem key="projects-empty">
-                              <SidebarMenuButton
-                                size="sm"
-                                isActive={activeSection === "projects"}
-                                onClick={() => setActiveSection("projects")}
-                                className="text-sidebar-foreground/65"
-                              >
-                                <Folder />
-                                <span>No projects yet</span>
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          ) : (
-                            projects.map((project) => {
-                              const current =
-                                project.projectPath === projectPath;
-                              const active =
-                                activeSection === "projects" &&
-                                selectedProjectPath === project.projectPath;
-
-                              return (
-                                <SidebarMenuItem key={project.projectPath}>
+                    <ArrowLeft className="size-4" />
+                    Back to app
+                  </DialogPrimitive.Close>
+                </div>
+                <div className="px-2 pb-2">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-sidebar-foreground/45" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search settings"
+                      aria-label="Search settings"
+                      className="h-9 border-transparent bg-sidebar-accent/35 pl-8 pr-8 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/45 hover:border-sidebar-border focus-visible:border-sidebar-ring focus-visible:ring-sidebar-ring/25"
+                    />
+                    {searchQuery ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-sidebar-foreground/55 hover:text-sidebar-foreground"
+                        aria-label="Clear settings search"
+                        onClick={() => setSearchQuery("")}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+                {visibleGroups.length > 0 ? (
+                  visibleGroups.map((group) => (
+                    <SidebarGroup key={group.label}>
+                      <SidebarGroupLabel className="text-[11px] font-medium uppercase tracking-[0.18em] text-sidebar-foreground/55">
+                        {group.label}
+                      </SidebarGroupLabel>
+                      <SidebarGroupContent>
+                        <SidebarMenu>
+                          {group.ids.map((sectionId) => {
+                            if (sectionId === "projects") {
+                              return projects.length === 0 ? (
+                                <SidebarMenuItem key="projects-empty">
                                   <SidebarMenuButton
                                     size="sm"
-                                    isActive={active}
-                                    title={project.projectPath}
-                                    onClick={() => {
-                                      allowHighlightedOverrideRef.current = false;
-                                      setSelectedProjectPath(
-                                        project.projectPath,
-                                      );
-                                      setActiveSection("projects");
-                                    }}
-                                    className={cn(
-                                      "gap-2",
-                                      active
-                                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
-                                        : "text-sidebar-foreground/78",
-                                    )}
+                                    isActive={activeSection === "projects"}
+                                    onClick={() => setActiveSection("projects")}
+                                    className="text-sidebar-foreground/65"
                                   >
                                     <Folder />
-                                    <span className="min-w-0 flex-1 truncate">
-                                      {project.projectName}
-                                    </span>
-                                    {current ? (
-                                      <span
-                                        className={cn(
-                                          "rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em]",
-                                          active
-                                            ? "border-sidebar-primary-foreground/25 bg-sidebar-primary-foreground/12 text-sidebar-primary-foreground"
-                                            : "border-sidebar-border/80 text-sidebar-foreground/60",
-                                        )}
-                                      >
-                                        current
-                                      </span>
-                                    ) : null}
+                                    <span>No projects yet</span>
                                   </SidebarMenuButton>
                                 </SidebarMenuItem>
+                              ) : (
+                                projects.map((project) => {
+                                  const current =
+                                    project.projectPath === projectPath;
+                                  const active =
+                                    activeSection === "projects" &&
+                                    selectedProjectPath === project.projectPath;
+
+                                  return (
+                                    <SidebarMenuItem key={project.projectPath}>
+                                      <SidebarMenuButton
+                                        size="sm"
+                                        isActive={active}
+                                        title={project.projectPath}
+                                        onClick={() => {
+                                          allowHighlightedOverrideRef.current = false;
+                                          setSelectedProjectPath(
+                                            project.projectPath,
+                                          );
+                                          setActiveSection("projects");
+                                        }}
+                                        className={cn(
+                                          "h-9 gap-2 text-[13px]",
+                                          active
+                                            ? "bg-sidebar-accent/70 text-sidebar-accent-foreground shadow-[inset_2px_0_0_var(--sidebar-primary)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                            : "text-sidebar-foreground/78",
+                                        )}
+                                      >
+                                        <Folder />
+                                        <span className="min-w-0 flex-1 truncate">
+                                          {project.projectName}
+                                        </span>
+                                        {current ? (
+                                          <span
+                                            className={cn(
+                                              "rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em]",
+                                              active
+                                                ? "bg-sidebar-primary/10 text-sidebar-primary"
+                                                : "bg-sidebar-accent/60 text-sidebar-foreground/60",
+                                            )}
+                                          >
+                                            current
+                                          </span>
+                                        ) : null}
+                                      </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                  );
+                                })
                               );
-                            })
-                          );
-                        }
+                            }
 
-                        const section = sectionsById[sectionId];
-                        const Icon = section.icon;
-                        const active = activeSection === section.id;
+                            const section = sectionsById[sectionId];
+                            const Icon = section.icon;
+                            const active = activeSection === section.id;
 
-                        return (
-                          <SidebarMenuItem key={section.id}>
-                            <SidebarMenuButton
-                              onClick={() => setActiveSection(section.id)}
-                              className={cn(
-                                active
-                                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
-                                  : "text-sidebar-foreground/78",
-                              )}
-                            >
-                              <Icon />
-                              <span>{section.label}</span>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        );
-                      })}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              ))
-            ) : (
-              <div className="px-4 py-6 text-xs leading-5 text-sidebar-foreground/60">
-                No settings match "{normalizedSearchQuery}".
+                            return (
+                              <SidebarMenuItem key={section.id}>
+                                <SidebarMenuButton
+                                  onClick={() => setActiveSection(section.id)}
+                                  className={cn(
+                                    "h-9 text-[13px]",
+                                    active
+                                      ? "bg-sidebar-accent/70 text-sidebar-accent-foreground shadow-[inset_2px_0_0_var(--sidebar-primary)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                      : "text-sidebar-foreground/78",
+                                  )}
+                                >
+                                  <Icon />
+                                  <span>{section.label}</span>
+                                </SidebarMenuButton>
+                              </SidebarMenuItem>
+                            );
+                          })}
+                        </SidebarMenu>
+                      </SidebarGroupContent>
+                    </SidebarGroup>
+                  ))
+                ) : (
+                  <div className="px-4 py-6 text-xs leading-5 text-sidebar-foreground/60">
+                    No settings match "{normalizedSearchQuery}".
+                  </div>
+                )}
+              </SidebarContent>
+            </Sidebar>
+
+            <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
+              <header className="flex min-h-20 shrink-0 items-center border-b border-border/65 px-8 py-4">
+                <div className="min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                      Settings
+                    </span>
+                    <span
+                      className="text-muted-foreground/45"
+                      aria-hidden="true"
+                    >
+                      /
+                    </span>
+                    <h1 className="font-heading truncate text-lg font-semibold tracking-[-0.015em] text-foreground">
+                      {activeSectionData.label}
+                    </h1>
+                  </div>
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                    {activeSectionData.description}
+                  </p>
+                </div>
+              </header>
+
+              <div className="min-h-0 flex-1 overflow-auto px-8 py-7">
+                <div className="w-full max-w-[70rem]">
+                  <SettingsDialogSectionContent
+                    sectionId={activeSection}
+                    currentProjectPath={projectPath}
+                    projects={projects}
+                    selectedProjectPath={selectedProjectPath}
+                    onNavigateSection={setActiveSection}
+                  />
+                </div>
               </div>
-            )}
-          </SidebarContent>
-        </Sidebar>
-
-        <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <span className="text-sm text-muted-foreground">
-                    Settings
-                  </span>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="text-sm font-medium">
-                    {activeSectionData.label}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </header>
-
-          <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-            <div className="mx-auto max-w-5xl">
-              <SettingsDialogSectionContent
-                sectionId={activeSection}
-                currentProjectPath={projectPath}
-                projects={projects}
-                selectedProjectPath={selectedProjectPath}
-                onNavigateSection={setActiveSection}
-              />
-            </div>
-          </div>
-        </main>
-      </SidebarProvider>
-    </div>
+            </main>
+          </SidebarProvider>
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

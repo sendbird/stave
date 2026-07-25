@@ -12,6 +12,35 @@ export { resolvePathBaseName } from "@/lib/path-utils";
 
 const MAX_RECENT_PROJECTS = 12;
 
+export const PROJECT_APPEARANCE_ICON_IDS = [
+  "folder",
+  "code",
+  "layers",
+  "package",
+  "database",
+  "sparkles",
+  "bot",
+  "blocks",
+  "braces",
+  "globe",
+  "rocket",
+  "terminal",
+] as const;
+
+export const PROJECT_APPEARANCE_COLOR_IDS = [
+  "blue",
+  "violet",
+  "emerald",
+  "amber",
+  "rose",
+  "slate",
+] as const;
+
+export type ProjectAppearanceIconId =
+  (typeof PROJECT_APPEARANCE_ICON_IDS)[number];
+export type ProjectAppearanceColorId =
+  (typeof PROJECT_APPEARANCE_COLOR_IDS)[number];
+
 export interface RecentProjectState {
   projectPath: string;
   projectName: string;
@@ -26,8 +55,28 @@ export interface RecentProjectState {
   kickoffBranchNamingRule?: string;
   newWorkspaceInitCommand?: string;
   newWorkspaceUseRootNodeModulesSymlink?: boolean;
+  appearanceIcon?: ProjectAppearanceIconId;
+  appearanceColor?: ProjectAppearanceColorId;
   archivedWorkspacePaths?: string[];
   linkedWorkspacePaths?: string[];
+}
+
+export function normalizeProjectAppearanceIcon(
+  value?: string | null,
+): ProjectAppearanceIconId {
+  return PROJECT_APPEARANCE_ICON_IDS.includes(value as ProjectAppearanceIconId)
+    ? (value as ProjectAppearanceIconId)
+    : "folder";
+}
+
+export function normalizeProjectAppearanceColor(
+  value?: string | null,
+): ProjectAppearanceColorId {
+  return PROJECT_APPEARANCE_COLOR_IDS.includes(
+    value as ProjectAppearanceColorId,
+  )
+    ? (value as ProjectAppearanceColorId)
+    : "blue";
 }
 
 export function normalizeWorkspaceInitCommand(args: { value?: string | null }) {
@@ -143,6 +192,8 @@ function normalizeRecentProjectPreferences(args: {
   kickoffBranchNamingRule?: string | null;
   newWorkspaceInitCommand?: string | null;
   newWorkspaceUseRootNodeModulesSymlink?: boolean | null;
+  appearanceIcon?: string | null;
+  appearanceColor?: string | null;
 }) {
   return {
     projectBasePrompt: normalizeProjectBasePrompt({
@@ -158,6 +209,8 @@ function normalizeRecentProjectPreferences(args: {
       normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
         value: args.newWorkspaceUseRootNodeModulesSymlink,
       }),
+    appearanceIcon: normalizeProjectAppearanceIcon(args.appearanceIcon),
+    appearanceColor: normalizeProjectAppearanceColor(args.appearanceColor),
   };
 }
 
@@ -171,7 +224,56 @@ export function resolveRecentProjectPreferences(args: {
     newWorkspaceInitCommand: resolveProjectWorkspaceInitCommand(args),
     newWorkspaceUseRootNodeModulesSymlink:
       resolveProjectWorkspaceRootNodeModulesSymlinkPreference(args),
+    appearanceIcon: normalizeProjectAppearanceIcon(
+      findRecentProjectByPath(args)?.appearanceIcon,
+    ),
+    appearanceColor: normalizeProjectAppearanceColor(
+      findRecentProjectByPath(args)?.appearanceColor,
+    ),
   };
+}
+
+export function updateCurrentProjectAppearance(args: {
+  state: {
+    recentProjects: RecentProjectState[];
+    projectPath: string | null;
+    projectName: string | null;
+    defaultBranch: string;
+    workspaces: WorkspaceSummary[];
+    activeWorkspaceId: string;
+    workspaceBranchById: Record<string, string>;
+    workspacePathById: Record<string, string>;
+    workspaceDefaultById: Record<string, boolean>;
+  };
+  projectPath?: string;
+  icon: ProjectAppearanceIconId;
+  color: ProjectAppearanceColorId;
+}): RecentProjectState[] | null {
+  const projectPath = args.projectPath?.trim() || args.state.projectPath || "";
+  if (!projectPath) {
+    return null;
+  }
+  const projects = captureCurrentProjectState(args.state);
+  const project = projects.find((item) => item.projectPath === projectPath);
+  if (!project) {
+    return null;
+  }
+  const appearanceIcon = normalizeProjectAppearanceIcon(args.icon);
+  const appearanceColor = normalizeProjectAppearanceColor(args.color);
+  if (
+    normalizeProjectAppearanceIcon(project.appearanceIcon) === appearanceIcon &&
+    normalizeProjectAppearanceColor(project.appearanceColor) === appearanceColor
+  ) {
+    return null;
+  }
+  return upsertRecentProjectState({
+    projects,
+    project: {
+      ...cloneRecentProjectState(project),
+      appearanceIcon,
+      appearanceColor,
+    },
+  });
 }
 
 export function resolveProjectWorkspaceInitCommand(args: {
@@ -888,6 +990,8 @@ function normalizeRecentProjectStateEntry(
       newWorkspaceInitCommand: project.newWorkspaceInitCommand,
       newWorkspaceUseRootNodeModulesSymlink:
         project.newWorkspaceUseRootNodeModulesSymlink,
+      appearanceIcon: project.appearanceIcon,
+      appearanceColor: project.appearanceColor,
     }),
   };
 }
@@ -988,6 +1092,8 @@ export function cloneRecentProjectState(
       newWorkspaceInitCommand: project.newWorkspaceInitCommand,
       newWorkspaceUseRootNodeModulesSymlink:
         project.newWorkspaceUseRootNodeModulesSymlink,
+      appearanceIcon: project.appearanceIcon,
+      appearanceColor: project.appearanceColor,
     }),
   };
 }
@@ -1102,9 +1208,7 @@ export function captureCurrentProjectState(args: {
       workspaceBranchById: args.workspaceBranchById,
       workspacePathById: args.workspacePathById,
       workspaceDefaultById: args.workspaceDefaultById,
-      ...(shouldWriteArchivedWorkspacePaths
-        ? { archivedWorkspacePaths }
-        : {}),
+      ...(shouldWriteArchivedWorkspacePaths ? { archivedWorkspacePaths } : {}),
       ...(shouldWriteLinkedWorkspacePaths ? { linkedWorkspacePaths } : {}),
       ...resolveRecentProjectPreferences({
         projectPath: args.projectPath,

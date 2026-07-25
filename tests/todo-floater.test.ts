@@ -5,7 +5,7 @@ import {
 } from "@/components/session/todo-floater.utils";
 import type { ChatMessage } from "@/types/chat";
 
-function makeUserMessage(id: string): ChatMessage {
+function makeUserMessage(id: string, steeredIntoTurnId?: string): ChatMessage {
   return {
     id,
     role: "user",
@@ -13,10 +13,17 @@ function makeUserMessage(id: string): ChatMessage {
     providerId: "user",
     content: "hello",
     parts: [],
+    steeredIntoTurnId,
   };
 }
 
-function makeAssistantWithTodos(id: string, todos: Array<{ content: string; status: "pending" | "in_progress" | "completed" }>): ChatMessage {
+function makeAssistantWithTodos(
+  id: string,
+  todos: Array<{
+    content: string;
+    status: "pending" | "in_progress" | "completed";
+  }>,
+): ChatMessage {
   return {
     id,
     role: "assistant",
@@ -47,23 +54,27 @@ describe("resolveTodoFloaterVisibility", () => {
   };
 
   test("shows the todo floater above the chat input when work is active", () => {
-    expect(resolveTodoFloaterVisibility({
-      progress: baseProgress,
-      todoState: "input-streaming",
-      isTurnActive: true,
-      lingering: false,
-      planViewerVisible: false,
-    })).toBe(true);
+    expect(
+      resolveTodoFloaterVisibility({
+        progress: baseProgress,
+        todoState: "input-streaming",
+        isTurnActive: true,
+        lingering: false,
+        planViewerVisible: false,
+      }),
+    ).toBe(true);
   });
 
   test("hides the todo floater whenever the plan viewer owns that slot", () => {
-    expect(resolveTodoFloaterVisibility({
-      progress: baseProgress,
-      todoState: "input-streaming",
-      isTurnActive: true,
-      lingering: false,
-      planViewerVisible: true,
-    })).toBe(false);
+    expect(
+      resolveTodoFloaterVisibility({
+        progress: baseProgress,
+        todoState: "input-streaming",
+        isTurnActive: true,
+        lingering: false,
+        planViewerVisible: true,
+      }),
+    ).toBe(false);
   });
 });
 
@@ -114,5 +125,55 @@ describe("findLatestTodoPart", () => {
       todos: Array<{ content: string }>;
     };
     expect(parsed.todos[0]?.content).toBe("New task");
+  });
+
+  test("keeps the current turn todos across a steer into that same turn", () => {
+    const messages: ChatMessage[] = [
+      makeUserMessage("user-1"),
+      makeAssistantWithTodos("assistant-1", [
+        { content: "Keep monitoring", status: "in_progress" },
+      ]),
+      makeUserMessage("user-steer", "turn-1"),
+      {
+        id: "assistant-after-steer",
+        role: "assistant",
+        model: "claude-opus",
+        providerId: "claude-code",
+        content: "Continuing",
+        parts: [{ type: "text", text: "Continuing" }],
+      },
+    ];
+
+    const part = findLatestTodoPart(messages, "turn-1");
+
+    expect(part).not.toBeNull();
+    const parsed = JSON.parse(part?.input ?? "{}") as {
+      todos: Array<{ content: string }>;
+    };
+    expect(parsed.todos[0]?.content).toBe("Keep monitoring");
+  });
+
+  test("treats a steer for a different turn as a turn boundary", () => {
+    const messages: ChatMessage[] = [
+      makeUserMessage("user-1"),
+      makeAssistantWithTodos("assistant-1", [
+        { content: "Previous turn task", status: "in_progress" },
+      ]),
+      makeUserMessage("user-steer", "turn-previous"),
+    ];
+
+    expect(findLatestTodoPart(messages, "turn-current")).toBeNull();
+  });
+
+  test("preserves the existing boundary behavior without an active turn id", () => {
+    const messages: ChatMessage[] = [
+      makeUserMessage("user-1"),
+      makeAssistantWithTodos("assistant-1", [
+        { content: "Previous task", status: "in_progress" },
+      ]),
+      makeUserMessage("user-steer", "turn-1"),
+    ];
+
+    expect(findLatestTodoPart(messages)).toBeNull();
   });
 });

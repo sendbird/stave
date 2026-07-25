@@ -258,26 +258,21 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={args.disabled}
-          className="h-8 gap-2 px-3 text-muted-foreground hover:bg-secondary/30 hover:text-foreground"
-          aria-label="Review local changes"
-        >
-          <FileDiff className="size-3.5" />
-          <span>Review changes</span>
-          <span className="inline-flex items-center gap-1.5 text-foreground">
-            <ModelIcon
-              providerId={reviewer.providerId}
-              model={reviewer.model}
-              className="size-3.5"
-            />
-            {providerLabel}
-          </span>
-        </Button>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={args.disabled}
+            className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-secondary/30 hover:text-foreground"
+            aria-label="Review local changes"
+            title={`Review with ${providerLabel}`}
+          />
+        }
+      >
+        <FileDiff className="size-4" />
+        <span>Review</span>
       </DialogTrigger>
       <DialogContent
         className="max-h-[calc(100vh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-2xl"
@@ -301,10 +296,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
         </DialogHeader>
 
         <div className="min-h-0 space-y-6 overflow-y-auto px-6 py-5">
-          <section
-            className="space-y-3"
-            aria-labelledby={`${idPrefix}-scope`}
-          >
+          <section className="space-y-3" aria-labelledby={`${idPrefix}-scope`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 id={`${idPrefix}-scope`} className="text-sm font-medium">
                 Review scope
@@ -440,10 +432,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             />
           </section>
 
-          <section
-            className="space-y-3"
-            aria-labelledby={`${idPrefix}-focus`}
-          >
+          <section className="space-y-3" aria-labelledby={`${idPrefix}-focus`}>
             <div className="space-y-1">
               <h3 id={`${idPrefix}-focus`} className="text-sm font-medium">
                 Focus
@@ -507,15 +496,17 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             Read-only review · no PR lookup
           </p>
           <div className="flex items-center justify-end gap-2">
-            <DialogClose asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
+            <DialogClose
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11"
+                  disabled={isSubmitting}
+                />
+              }
+            >
+              Cancel
             </DialogClose>
             <Button
               type="button"

@@ -1,4 +1,12 @@
-import { Bot, Check, ChevronDown, Compass, type LucideIcon, Shield, SlidersHorizontal } from "lucide-react";
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  Compass,
+  type LucideIcon,
+  Shield,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useState } from "react";
 import {
   Button,
@@ -30,7 +38,9 @@ function modeIconToneClass(status: Pick<PromptInputProviderModeStatus, "id">) {
   return "text-prompt-mode-custom";
 }
 
-function modeOptionActiveClass(status: Pick<PromptInputProviderModeStatus, "id">) {
+function modeOptionActiveClass(
+  status: Pick<PromptInputProviderModeStatus, "id">,
+) {
   if (status.id === "manual") {
     return "border-prompt-mode-manual/25 bg-prompt-mode-manual/10 hover:bg-prompt-mode-manual/14";
   }
@@ -81,31 +91,46 @@ export function PromptInputProviderModePill(args: {
 }) {
   const [open, setOpen] = useState(false);
   const { icon: Icon } = modeVisual(args.status);
-  const isInteractive = args.presets.length > 0 && typeof args.onSelect === "function";
+  const isInteractive =
+    args.presets.length > 0 && typeof args.onSelect === "function";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={args.disabled || !isInteractive}
-          aria-label={`${args.status.providerLabel} ${args.status.label}: ${args.status.description}`}
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={args.disabled || !isInteractive}
+            aria-label={`${args.status.providerLabel} ${args.status.label}: ${args.status.description}`}
+            className={cn(
+              "h-auto min-h-9 max-w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left",
+              args.className,
+            )}
+          />
+        }
+      >
+        <Icon
+          className={cn("size-3.5 shrink-0", modeIconToneClass(args.status))}
+        />
+        <span className="min-w-0 flex-1 truncate text-sm font-medium leading-none">
+          {args.status.label}
+        </span>
+        <ChevronDown
           className={cn(
-            "h-auto min-h-9 max-w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left",
-            args.className,
+            "size-3.5 shrink-0 opacity-70 transition-transform",
+            open && "rotate-180",
           )}
-        >
-          <Icon className={cn("size-3.5 shrink-0", modeIconToneClass(args.status))} />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium leading-none">
-            {args.status.label}
-          </span>
-          <ChevronDown className={cn("size-3.5 shrink-0 opacity-70 transition-transform", open && "rotate-180")} />
-        </Button>
+        />
       </PopoverTrigger>
       {isInteractive ? (
-        <PopoverContent align="start" side="top" sideOffset={8} className="w-[22rem] gap-2 p-2">
+        <PopoverContent
+          align="start"
+          side="top"
+          sideOffset={8}
+          className="w-[22rem] gap-2 p-2"
+        >
           <div className="space-y-1">
             {args.presets.map((preset) => {
               const presetStatus = {
@@ -115,7 +140,8 @@ export function PromptInputProviderModePill(args: {
                 description: preset.description,
                 planNote: undefined,
               } satisfies PromptInputProviderModeStatus;
-              const { icon: PresetIcon, summary: presetSummary } = modeVisual(presetStatus);
+              const { icon: PresetIcon, summary: presetSummary } =
+                modeVisual(presetStatus);
               const isActive = args.activePresetId === preset.id;
 
               return (
@@ -134,13 +160,31 @@ export function PromptInputProviderModePill(args: {
                     setOpen(false);
                   }}
                 >
-                  <PresetIcon className={cn("size-4 shrink-0", modeIconToneClass(presetStatus))} />
+                  <PresetIcon
+                    className={cn(
+                      "size-4 shrink-0",
+                      modeIconToneClass(presetStatus),
+                    )}
+                  />
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-sm font-medium leading-none">{preset.label}</span>
-                    <span className="text-[11px] leading-4 text-muted-foreground">{presetSummary}</span>
-                    <span className="text-xs leading-4 text-muted-foreground">{preset.description}</span>
+                    <span className="text-sm font-medium leading-none">
+                      {preset.label}
+                    </span>
+                    <span className="text-[11px] leading-4 text-muted-foreground">
+                      {presetSummary}
+                    </span>
+                    <span className="text-xs leading-4 text-muted-foreground">
+                      {preset.description}
+                    </span>
                   </span>
-                  {isActive ? <Check className={cn("size-4 shrink-0", modeIconToneClass(presetStatus))} /> : null}
+                  {isActive ? (
+                    <Check
+                      className={cn(
+                        "size-4 shrink-0",
+                        modeIconToneClass(presetStatus),
+                      )}
+                    />
+                  ) : null}
                 </Button>
               );
             })}

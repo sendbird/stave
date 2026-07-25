@@ -2,21 +2,26 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MarkdownMessage } from "@/components/ai-elements/message-markdown";
-import { formatFileLinkLocation, resolveWorkspaceFileLink } from "@/lib/message-file-links";
+import {
+  formatFileLinkLocation,
+  resolveWorkspaceFileLink,
+} from "@/lib/message-file-links";
 
 describe("MarkdownMessage", () => {
   test("renders GFM tables as HTML table markup", () => {
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: [
-        "Key improvements:",
-        "",
-        "| Before | After |",
-        "| --- | --- |",
-        "| Generic | Concrete |",
-      ].join("\n"),
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-    }));
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: [
+          "Key improvements:",
+          "",
+          "| Before | After |",
+          "| --- | --- |",
+          "| Generic | Concrete |",
+        ].join("\n"),
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+      }),
+    );
 
     expect(html).toContain("<table");
     expect(html).toContain("<thead");
@@ -26,55 +31,70 @@ describe("MarkdownMessage", () => {
 
   test("renders workspace file links as inline file chips", () => {
     const knownFilePaths = new Set(["src/components/session/ChatPanel.tsx"]);
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "Open [chat panel](/tmp/stave/src/components/session/ChatPanel.tsx:42)",
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-      resolveFileLink: ({ href }) => resolveWorkspaceFileLink({
-        href,
-        workspaceCwd: "/tmp/stave",
-        knownFilePaths,
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content:
+          "Open [chat panel](/tmp/stave/src/components/session/ChatPanel.tsx:42)",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+        resolveFileLink: ({ href }) =>
+          resolveWorkspaceFileLink({
+            href,
+            workspaceCwd: "/tmp/stave",
+            knownFilePaths,
+          }),
       }),
-    }));
+    );
 
     expect(html).toContain('data-message-file-link="true"');
-    expect(html).toContain('aria-label="Open src/components/session/ChatPanel.tsx (reference L42)"');
+    expect(html).toContain(
+      'aria-label="Open src/components/session/ChatPanel.tsx (reference L42)"',
+    );
     expect(html).toContain("ChatPanel.tsx");
     expect(html).toContain("L42");
   });
 
   test("upgrades inline code workspace file references into file chips", () => {
     const knownFilePaths = new Set(["src/components/session/ChatPanel.tsx"]);
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "Check `src/components/session/ChatPanel.tsx#L42` for the fix.",
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-      resolveFileLink: ({ href }) => resolveWorkspaceFileLink({
-        href,
-        workspaceCwd: "/tmp/stave",
-        knownFilePaths,
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content:
+          "Check `src/components/session/ChatPanel.tsx#L42` for the fix.",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+        resolveFileLink: ({ href }) =>
+          resolveWorkspaceFileLink({
+            href,
+            workspaceCwd: "/tmp/stave",
+            knownFilePaths,
+          }),
       }),
-    }));
+    );
 
     expect(html).toContain('data-message-file-link="true"');
-    expect(html).toContain('aria-label="Open src/components/session/ChatPanel.tsx (reference L42)"');
+    expect(html).toContain(
+      'aria-label="Open src/components/session/ChatPanel.tsx (reference L42)"',
+    );
     expect(html).toContain("ChatPanel.tsx");
     expect(html).toContain("L42");
   });
 
   test("upgrades slash-based inline file references even before project indexing catches up", () => {
     const knownFilePaths = new Set(["src/components/session/ChatPanel.tsx"]);
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "Create `src/components/new/NewPanel.tsx` from this block.",
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-      resolveFileLink: ({ href, allowUnknownPath }) => resolveWorkspaceFileLink({
-        href,
-        workspaceCwd: "/tmp/stave",
-        knownFilePaths,
-        allowUnknownPaths: allowUnknownPath,
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: "Create `src/components/new/NewPanel.tsx` from this block.",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+        resolveFileLink: ({ href, allowUnknownPath }) =>
+          resolveWorkspaceFileLink({
+            href,
+            workspaceCwd: "/tmp/stave",
+            knownFilePaths,
+            allowUnknownPaths: allowUnknownPath,
+          }),
       }),
-    }));
+    );
 
     expect(html).toContain('data-message-file-link="true"');
     expect(html).toContain("NewPanel.tsx");
@@ -82,17 +102,20 @@ describe("MarkdownMessage", () => {
 
   test("keeps slash-delimited non-file inline code as code", () => {
     const knownFilePaths = new Set(["src/components/session/ChatPanel.tsx"]);
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "Track `owner/repo` separately.",
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-      resolveFileLink: ({ href, allowUnknownPath }) => resolveWorkspaceFileLink({
-        href,
-        workspaceCwd: "/tmp/stave",
-        knownFilePaths,
-        allowUnknownPaths: allowUnknownPath,
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: "Track `owner/repo` separately.",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+        resolveFileLink: ({ href, allowUnknownPath }) =>
+          resolveWorkspaceFileLink({
+            href,
+            workspaceCwd: "/tmp/stave",
+            knownFilePaths,
+            allowUnknownPaths: allowUnknownPath,
+          }),
       }),
-    }));
+    );
 
     expect(html).not.toContain('data-message-file-link="true"');
     expect(html).toContain("<code");
@@ -108,30 +131,33 @@ describe("MarkdownMessage", () => {
       resolvedFilePath?: string;
     } | null = null;
 
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: [
-        "```tsx path=src/components/session/ChatPanel.tsx",
-        "export const value = 1;",
-        "```",
-      ].join("\n"),
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-      resolveFileLink: ({ href, allowUnknownPath }) => resolveWorkspaceFileLink({
-        href,
-        workspaceCwd: "/tmp/stave",
-        knownFilePaths,
-        allowUnknownPaths: allowUnknownPath,
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: [
+          "```tsx path=src/components/session/ChatPanel.tsx",
+          "export const value = 1;",
+          "```",
+        ].join("\n"),
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+        resolveFileLink: ({ href, allowUnknownPath }) =>
+          resolveWorkspaceFileLink({
+            href,
+            workspaceCwd: "/tmp/stave",
+            knownFilePaths,
+            allowUnknownPaths: allowUnknownPath,
+          }),
+        renderBlockCode: ({ code, language, fileHref, resolvedFileLink }) => {
+          captured = {
+            code,
+            language,
+            fileHref,
+            resolvedFilePath: resolvedFileLink?.filePath,
+          };
+          return createElement("pre", null, code);
+        },
       }),
-      renderBlockCode: ({ code, language, fileHref, resolvedFileLink }) => {
-        captured = {
-          code,
-          language,
-          fileHref,
-          resolvedFilePath: resolvedFileLink?.filePath,
-        };
-        return createElement("pre", null, code);
-      },
-    }));
+    );
 
     expect(html).toContain("export const value = 1;");
     expect(captured).toEqual({
@@ -151,30 +177,29 @@ describe("MarkdownMessage", () => {
       resolvedFilePath?: string;
     } | null = null;
 
-    renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: [
-        "```txt title=owner/repo",
-        "hello",
-        "```",
-      ].join("\n"),
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-      resolveFileLink: ({ href, allowUnknownPath }) => resolveWorkspaceFileLink({
-        href,
-        workspaceCwd: "/tmp/stave",
-        knownFilePaths,
-        allowUnknownPaths: allowUnknownPath,
+    renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: ["```txt title=owner/repo", "hello", "```"].join("\n"),
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+        resolveFileLink: ({ href, allowUnknownPath }) =>
+          resolveWorkspaceFileLink({
+            href,
+            workspaceCwd: "/tmp/stave",
+            knownFilePaths,
+            allowUnknownPaths: allowUnknownPath,
+          }),
+        renderBlockCode: ({ code, language, fileHref, resolvedFileLink }) => {
+          captured = {
+            code,
+            language,
+            fileHref,
+            resolvedFilePath: resolvedFileLink?.filePath,
+          };
+          return createElement("pre", null, code);
+        },
       }),
-      renderBlockCode: ({ code, language, fileHref, resolvedFileLink }) => {
-        captured = {
-          code,
-          language,
-          fileHref,
-          resolvedFilePath: resolvedFileLink?.filePath,
-        };
-        return createElement("pre", null, code);
-      },
-    }));
+    );
 
     expect(captured).toEqual({
       code: "hello",
@@ -186,60 +211,88 @@ describe("MarkdownMessage", () => {
 
   test("keeps repeated file references distinguishable with line labels", () => {
     const knownFilePaths = new Set(["src/components/session/ChatPanel.tsx"]);
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: [
-        "[first](/tmp/stave/src/components/session/ChatPanel.tsx:10)",
-        "[second](/tmp/stave/src/components/session/ChatPanel.tsx:24)",
-      ].join(" "),
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-      resolveFileLink: ({ href }) => resolveWorkspaceFileLink({
-        href,
-        workspaceCwd: "/tmp/stave",
-        knownFilePaths,
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: [
+          "[first](/tmp/stave/src/components/session/ChatPanel.tsx:10)",
+          "[second](/tmp/stave/src/components/session/ChatPanel.tsx:24)",
+        ].join(" "),
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+        resolveFileLink: ({ href }) =>
+          resolveWorkspaceFileLink({
+            href,
+            workspaceCwd: "/tmp/stave",
+            knownFilePaths,
+          }),
       }),
-    }));
+    );
 
     expect(html).toContain("L10");
     expect(html).toContain("L24");
   });
 
-  test("keeps external links as standard anchors", () => {
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "Visit [OpenAI](https://openai.com/)",
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-    }));
+  test("promotes labeled external links to compact link chips", () => {
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: "Visit [OpenAI](https://openai.com/)",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+      }),
+    );
 
     expect(html).toContain('href="https://openai.com/"');
     expect(html).toContain('target="_blank"');
+    expect(html).toContain('data-message-external-link-chip="true"');
     expect(html).not.toContain('data-message-file-link="true"');
   });
 
-  test("autolinks plain external URLs in markdown text", () => {
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "Visit https://openai.com/ for details.",
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-    }));
+  test("promotes rich markdown labels to compact link chips", () => {
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: "Visit [**OpenAI Docs**](https://platform.openai.com/docs)",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+      }),
+    );
+
+    expect(html).toContain('data-message-external-link-chip="true"');
+    expect(html).toContain("OpenAI Docs");
+    expect(html).toContain(
+      'aria-label="Open OpenAI Docs on platform.openai.com"',
+    );
+  });
+
+  test("keeps autolinked raw URLs as readable standard anchors", () => {
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: "Visit https://openai.com/ for details.",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+      }),
+    );
 
     expect(html).toContain('href="https://openai.com/"');
     expect(html).toContain("https://openai.com/");
+    expect(html).not.toContain('data-message-external-link-chip="true"');
   });
 
   test("keeps slash-delimited non-file markdown links as anchors", () => {
     const knownFilePaths = new Set(["src/components/session/ChatPanel.tsx"]);
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "Track [repo](owner/repo) separately.",
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-      resolveFileLink: ({ href, allowUnknownPath }) => resolveWorkspaceFileLink({
-        href,
-        workspaceCwd: "/tmp/stave",
-        knownFilePaths,
-        allowUnknownPaths: allowUnknownPath,
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: "Track [repo](owner/repo) separately.",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+        resolveFileLink: ({ href, allowUnknownPath }) =>
+          resolveWorkspaceFileLink({
+            href,
+            workspaceCwd: "/tmp/stave",
+            knownFilePaths,
+            allowUnknownPaths: allowUnknownPath,
+          }),
       }),
-    }));
+    );
 
     expect(html).toContain('href="owner/repo"');
     expect(html).toContain('target="_blank"');
@@ -247,22 +300,27 @@ describe("MarkdownMessage", () => {
   });
 
   test("applies numeric message and code font sizes to rendered markup", () => {
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "Use `code` here.",
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-    }));
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: "Use `code` here.",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+      }),
+    );
 
     expect(html).toContain('style="font-size:18px;line-height:1.68"');
     expect(html).toContain('style="font-size:14px"');
   });
 
   test("adds aggressive wrapping classes to rendered markdown paragraphs", () => {
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "averylongtokenthatshouldstillwrapinsideauserbubblewithoutoverflowingthelayout",
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-    }));
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content:
+          "averylongtokenthatshouldstillwrapinsideauserbubblewithoutoverflowingthelayout",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+      }),
+    );
 
     expect(html).toContain("break-words");
     expect(html).toContain("[overflow-wrap:anywhere]");
@@ -271,12 +329,15 @@ describe("MarkdownMessage", () => {
   });
 
   test("adds aggressive wrapping classes to streaming text fallback", () => {
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "averylongstreamingtokenthatshouldstillwrapinsideauserbubblewithoutoverflowingthelayout",
-      isStreaming: true,
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-    }));
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content:
+          "averylongstreamingtokenthatshouldstillwrapinsideauserbubblewithoutoverflowingthelayout",
+        isStreaming: true,
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+      }),
+    );
 
     expect(html).toContain("break-words");
     expect(html).toContain("[overflow-wrap:anywhere]");
@@ -285,12 +346,14 @@ describe("MarkdownMessage", () => {
   });
 
   test("keeps streaming text fallback as plain text for hot-path performance", () => {
-    const html = renderToStaticMarkup(createElement(MarkdownMessage, {
-      content: "Local preview: https://stave.localhost:3000/test.",
-      isStreaming: true,
-      messageFontSize: 18,
-      messageCodeFontSize: 14,
-    }));
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: "Local preview: https://stave.localhost:3000/test.",
+        isStreaming: true,
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+      }),
+    );
 
     expect(html).toContain("https://stave.localhost:3000/test");
     expect(html).not.toContain("<a");

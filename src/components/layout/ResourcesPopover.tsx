@@ -159,19 +159,17 @@ export function MemoryUsagePopover({
   }, [open, fetchMetrics]);
 
   const totalWorkingSetKB =
-    metrics?.processes.reduce(
-      (sum, p) => sum + p.memory.workingSetSizeKB,
-      0,
-    ) ?? 0;
+    metrics?.processes.reduce((sum, p) => sum + p.memory.workingSetSizeKB, 0) ??
+    0;
   const totalCpu =
     metrics?.processes.reduce((sum, p) => sum + p.cpu.percentCPUUsage, 0) ?? 0;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex">
-            <PopoverTrigger asChild>
+        <TooltipTrigger render={<span className="inline-flex" />}>
+          <PopoverTrigger
+            render={
               <Button
                 variant="ghost"
                 size="sm"
@@ -182,12 +180,12 @@ export function MemoryUsagePopover({
                     : cn("rounded-md p-0", collapsed ? "h-10 w-10" : "h-9 w-9"),
                 )}
                 aria-label="memory-usage"
-              >
-                <Activity className="size-4" />
-                {isBar ? <span>Memory</span> : null}
-              </Button>
-            </PopoverTrigger>
-          </span>
+              />
+            }
+          >
+            <Activity className="size-4" />
+            {isBar ? <span>Memory</span> : null}
+          </PopoverTrigger>
         </TooltipTrigger>
         {!open ? (
           <TooltipContent side={collapsed ? "right" : isBar ? "top" : "bottom"}>
@@ -200,8 +198,8 @@ export function MemoryUsagePopover({
         side={isBar ? "top" : "right"}
         align={isBar ? "end" : "start"}
         sideOffset={isBar ? 8 : 12}
-        className="w-80 gap-0 overflow-hidden border border-border/80 bg-card p-0 shadow-2xl"
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="w-80 gap-0 overflow-hidden border border-border/80 bg-card p-0"
+        initialFocus={false}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/70 px-3 py-2.5">
@@ -219,9 +217,7 @@ export function MemoryUsagePopover({
               fetchMetrics();
             }}
           >
-            <RefreshCw
-              className={cn("size-3.5", loading && "animate-spin")}
-            />
+            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
           </Button>
         </div>
 
@@ -335,9 +331,7 @@ export function MemoryUsagePopover({
                   </span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground/70">
-                    ArrayBuffers
-                  </span>
+                  <span className="text-muted-foreground/70">ArrayBuffers</span>
                   <span className="font-mono text-muted-foreground/70">
                     {formatBytes(metrics.mainProcess.arrayBuffers)}
                   </span>

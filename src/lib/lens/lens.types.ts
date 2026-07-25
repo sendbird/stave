@@ -77,12 +77,81 @@ export interface ElementPickerResult {
   componentNameChain?: string[];
 }
 
+export interface BrowserStackFrame {
+  functionName: string;
+  url: string;
+  lineNumber: number;
+  columnNumber: number;
+  scriptId?: string;
+}
+
+export interface BrowserStackTrace {
+  description?: string;
+  callFrames: BrowserStackFrame[];
+  parent?: BrowserStackTrace;
+}
+
+export interface BrowserConsoleObjectProperty {
+  name: string;
+  type: string;
+  subtype?: string;
+  value?: string;
+  preview?: BrowserConsoleObjectPreview;
+  /** Opaque handle for expanding a nested value without exposing CDP ids. */
+  objectHandle?: string;
+}
+
+export interface BrowserConsoleObjectPreview {
+  description?: string;
+  overflow: boolean;
+  properties: BrowserConsoleObjectProperty[];
+}
+
+export interface BrowserConsoleArgument {
+  type: string;
+  subtype?: string;
+  description?: string;
+  value?: string | number | boolean | null;
+  unserializableValue?: string;
+  preview?: BrowserConsoleObjectPreview;
+  /** Opaque, short-lived handle resolved only by Electron main. */
+  objectHandle?: string;
+}
+
 export interface BrowserConsoleEntry {
+  id: string;
   level: "log" | "warn" | "error" | "info" | "debug";
   text: string;
   timestamp: string;
   source?: string;
   lineNumber?: number;
+  columnNumber?: number;
+  executionContextId?: number;
+  argumentCount?: number;
+  hasObjectArguments?: boolean;
+  hasStackTrace?: boolean;
+  captureSource?: "cdp" | "electron";
+}
+
+export interface BrowserConsoleEntryDetail {
+  entryId: string;
+  executionContextId?: number;
+  executionContext?: {
+    id: number;
+    name?: string;
+    origin?: string;
+    frameId?: string;
+    isDefault?: boolean;
+  };
+  arguments: BrowserConsoleArgument[];
+  stackTrace?: BrowserStackTrace;
+}
+
+export interface BrowserConsoleObjectProperties {
+  entryId: string;
+  objectHandle: string;
+  properties: BrowserConsoleObjectProperty[];
+  overflow: boolean;
 }
 
 export interface BrowserConsoleEventPayload {
@@ -92,14 +161,132 @@ export interface BrowserConsoleEventPayload {
   entry: BrowserConsoleEntry;
 }
 
+export type BrowserNetworkHeaders = Record<string, string[]>;
+
+export interface BrowserNetworkBody {
+  kind: "json" | "form" | "text" | "binary" | "unavailable";
+  mimeType?: string;
+  content?: string;
+  size?: number;
+  capturedBytes: number;
+  truncated: boolean;
+  redacted: boolean;
+  unavailableReason?: string;
+}
+
+export interface BrowserNetworkInitiator {
+  type: string;
+  url?: string;
+  lineNumber?: number;
+  columnNumber?: number;
+  stack?: BrowserStackTrace;
+}
+
+/**
+ * Raw CDP monotonic timestamps and request-relative phase offsets. Phase
+ * values use milliseconds and preserve -1 when Chromium reports a phase as
+ * unavailable.
+ */
+export interface BrowserNetworkTiming {
+  requestTimestamp: number;
+  wallTime?: number;
+  responseTimestamp?: number;
+  finishedTimestamp?: number;
+  requestTime?: number;
+  proxyStart?: number;
+  proxyEnd?: number;
+  dnsStart?: number;
+  dnsEnd?: number;
+  connectStart?: number;
+  connectEnd?: number;
+  sslStart?: number;
+  sslEnd?: number;
+  workerStart?: number;
+  workerReady?: number;
+  workerFetchStart?: number;
+  workerRespondWithSettled?: number;
+  sendStart?: number;
+  sendEnd?: number;
+  pushStart?: number;
+  pushEnd?: number;
+  receiveHeadersStart?: number;
+  receiveHeadersEnd?: number;
+}
+
+export interface BrowserNetworkRedirect {
+  url: string;
+  status: number;
+  statusText?: string;
+  timestamp: number;
+  responseHeaders?: BrowserNetworkHeaders;
+}
+
+/**
+ * Memory-only, bounded diagnostic data captured from CDP. Bodies are capped
+ * and sensitive fields are redacted before this contract crosses IPC.
+ * Electron webRequest remains the metadata-only fallback when CDP is absent.
+ */
 export interface BrowserNetworkEntry {
+  entryId: string;
   requestId: string;
+  state: "pending" | "complete" | "failed";
   url: string;
   method: string;
   status?: number;
+  statusText?: string;
+  resourceType?:
+    | "mainFrame"
+    | "subFrame"
+    | "stylesheet"
+    | "script"
+    | "image"
+    | "font"
+    | "object"
+    | "xhr"
+    | "ping"
+    | "cspReport"
+    | "media"
+    | "webSocket"
+    | "other";
   mimeType?: string;
   responseSize?: number;
+  referrer?: string;
+  startedAt?: string;
+  durationMs?: number;
+  fromCache?: boolean;
+  error?: string;
+  requestHeaders?: BrowserNetworkHeaders;
+  responseHeaders?: BrowserNetworkHeaders;
+  hasRequestBody?: boolean;
+  hasResponseBody?: boolean;
+  detailAvailable?: boolean;
+  captureSource?: "cdp" | "webRequest";
+  completedAt?: string;
   timestamp: string;
+}
+
+export interface BrowserNetworkEntryDetail {
+  entryId: string;
+  requestId: string;
+  requestHeaders?: BrowserNetworkHeaders;
+  responseHeaders?: BrowserNetworkHeaders;
+  initiator?: BrowserNetworkInitiator;
+  timing?: BrowserNetworkTiming;
+  redirects?: BrowserNetworkRedirect[];
+  protocol?: string;
+  remoteAddress?: string;
+  connectionId?: number;
+  connectionReused?: boolean;
+  priority?: string;
+  fromServiceWorker?: boolean;
+  requestBody?: Omit<BrowserNetworkBody, "content">;
+  responseBody?: Omit<BrowserNetworkBody, "content">;
+}
+
+export interface LensDiagnosticsCaptureState {
+  enabled: boolean;
+  host?: string;
+  message?: string;
 }
 
 export interface BrowserNetworkEventPayload {

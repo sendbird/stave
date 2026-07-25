@@ -2,6 +2,10 @@ import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { hasFleetTaskAttentionStatus } from "@/lib/fleet/task-status";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import type { Task } from "@/types/chat";
+import type {
+  ProjectAppearanceColorId,
+  ProjectAppearanceIconId,
+} from "@/store/project.utils";
 
 export interface ProjectSidebarWorkspaceView {
   id: string;
@@ -13,6 +17,8 @@ export interface ProjectSidebarWorkspaceView {
 export interface ProjectSidebarCollapsedProjectView {
   projectPath: string;
   projectName: string;
+  appearanceIcon?: ProjectAppearanceIconId;
+  appearanceColor?: ProjectAppearanceColorId;
   workspaces: ProjectSidebarWorkspaceView[];
   /**
    * Per-project map of workspace id -> filesystem path. Scoped to THIS
@@ -85,7 +91,11 @@ export function buildWorkspaceHoverPreview(args: {
   // Legacy branches are ephemeral fan-out children — hide from hover previews.
   const visibleTasks = [...args.tasks]
     .filter((task) => !isLegacyBranchTask(task) && !isTaskArchived(task))
-    .sort((left, right) => parseTaskUpdatedAt(right.updatedAt) - parseTaskUpdatedAt(left.updatedAt));
+    .sort(
+      (left, right) =>
+        parseTaskUpdatedAt(right.updatedAt) -
+        parseTaskUpdatedAt(left.updatedAt),
+    );
   const taskTitles = visibleTasks
     .slice(0, WORKSPACE_HOVER_PREVIEW_TASK_LIMIT)
     .map((task) => getPreviewTaskTitle(task.title));
@@ -97,7 +107,9 @@ export function buildWorkspaceHoverPreview(args: {
       (sum, task) => sum + Math.max(0, args.messageCountByTask?.[task.id] ?? 0),
       0,
     ),
-    runningTaskCount: visibleTasks.filter((task) => Boolean(args.activeTurnIdsByTask?.[task.id])).length,
+    runningTaskCount: visibleTasks.filter((task) =>
+      Boolean(args.activeTurnIdsByTask?.[task.id]),
+    ).length,
     taskTitles,
     moreTaskCount: Math.max(visibleTasks.length - taskTitles.length, 0),
   };
@@ -284,7 +296,9 @@ export function buildSidebarActiveWorkspaceEntries(args: {
     return right.lastOpenedAt.localeCompare(left.lastOpenedAt);
   });
 
-  return entries.slice(0, limit).map(({ lastOpenedAt: _lastOpenedAt, ...entry }) => entry);
+  return entries
+    .slice(0, limit)
+    .map(({ lastOpenedAt: _lastOpenedAt, ...entry }) => entry);
 }
 
 export function buildVisibleWorkspaceShortcutTargets(args: {

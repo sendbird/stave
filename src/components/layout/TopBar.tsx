@@ -3,6 +3,7 @@ import {
   SquareTerminal,
   FolderOpen,
   ChevronDown,
+  Copy,
   PanelLeft,
 } from "lucide-react";
 import { GhosttyIcon, VSCodeIcon } from "@/components/brand-icons";
@@ -13,12 +14,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  toast,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { useAppStore } from "@/store/app.store";
 import { TopBarBranchDropdown } from "@/components/layout/TopBarBranchDropdown";
 import { TopBarFileSearch } from "@/components/layout/TopBarFileSearch";
@@ -114,21 +118,23 @@ export function TopBar() {
         <TooltipProvider>
           {workspaceSidebarCollapsed ? (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 shrink-0 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-                  style={TOP_BAR_NO_DRAG_STYLE}
-                  onClick={() =>
-                    setLayout({
-                      patch: { workspaceSidebarCollapsed: false },
-                    })
-                  }
-                  aria-label="expand-project-list"
-                >
-                  <PanelLeft className="size-4" />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 shrink-0 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                    style={TOP_BAR_NO_DRAG_STYLE}
+                    onClick={() =>
+                      setLayout({
+                        patch: { workspaceSidebarCollapsed: false },
+                      })
+                    }
+                    aria-label="expand-project-list"
+                  />
+                }
+              >
+                <PanelLeft className="size-4" />
               </TooltipTrigger>
               <TooltipContent side="bottom">Expand Project List</TooltipContent>
             </Tooltip>
@@ -139,13 +145,15 @@ export function TopBar() {
               style={TOP_BAR_NO_DRAG_STYLE}
             >
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="inline-flex max-w-[220px] items-center gap-2 rounded-l-md border border-r-0 border-border/60 bg-background/60 px-2.5 py-1 text-xs text-muted-foreground">
-                    <FolderTree className="size-3.5 shrink-0" />
-                    <span className="truncate font-mono">
-                      {workspacePathLabel}
-                    </span>
-                  </div>
+                <TooltipTrigger
+                  render={
+                    <div className="inline-flex h-7 max-w-[220px] items-center gap-2 rounded-l-md border border-r-0 border-border/60 bg-background/60 px-2.5 text-xs text-muted-foreground" />
+                  }
+                >
+                  <FolderTree className="size-3.5 shrink-0" />
+                  <span className="truncate font-mono">
+                    {workspacePathLabel}
+                  </span>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   {activeWorkspacePath}
@@ -156,22 +164,22 @@ export function TopBar() {
                 onOpenChange={setWorkspacePathMenuOpen}
               >
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex">
-                      <DropdownMenuTrigger asChild>
+                  <TooltipTrigger render={<span className="inline-flex" />}>
+                    <DropdownMenuTrigger
+                      render={
                         <button
                           type="button"
-                          className="flex items-center justify-center rounded-r-md border border-border/60 bg-background/60 px-1 py-1 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+                          className="flex h-7 w-7 items-center justify-center rounded-r-md border border-border/60 bg-background/60 p-0 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
                           aria-label="open-workspace-path-actions"
-                        >
-                          <ChevronDown className="size-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                    </span>
+                        />
+                      }
+                    >
+                      <ChevronDown className="size-3.5" />
+                    </DropdownMenuTrigger>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">Open in…</TooltipContent>
                 </Tooltip>
-                <DropdownMenuContent align="start" className="min-w-[160px]">
+                <DropdownMenuContent align="start" className="min-w-[184px]">
                   <DropdownMenuItem
                     onSelect={() => {
                       setWorkspacePathMenuOpen(false);
@@ -216,6 +224,19 @@ export function TopBar() {
                     <SquareTerminal className="size-4" />
                     Open in Terminal
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setWorkspacePathMenuOpen(false);
+                      void copyTextToClipboard(activeWorkspacePath).then(
+                        () => toast.success("Workspace path copied"),
+                        () => toast.error("Could not copy workspace path"),
+                      );
+                    }}
+                  >
+                    <Copy className="size-4" />
+                    Copy workspace path
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -232,7 +253,7 @@ export function TopBar() {
         </TooltipProvider>
       </div>
       <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-        <div className="hidden min-w-0 flex-1 justify-end lg:flex">
+        <div className="hidden min-w-0 flex-1 justify-end lg:flex [&>div]:min-w-0 [&>div]:w-full [&>div]:max-w-[380px]">
           {hasProjectContext ? (
             <TopBarFileSearch noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
           ) : null}

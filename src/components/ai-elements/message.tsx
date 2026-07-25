@@ -1,9 +1,25 @@
-import type { ButtonHTMLAttributes, HTMLAttributes, MouseEvent, ReactNode } from "react";
+import type {
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  MouseEvent,
+  ReactNode,
+} from "react";
 import { createContext, useContext, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getKnownFilePathSet, resolveWorkspaceFileLink, type ResolvedWorkspaceFileLink } from "@/lib/message-file-links";
-import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui";
+import {
+  getKnownFilePathSet,
+  resolveWorkspaceFileLink,
+  type ResolvedWorkspaceFileLink,
+} from "@/lib/message-file-links";
+import {
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui";
+import { ServiceLinkBadge } from "@/components/ui/service-link-badge";
 import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -34,14 +50,17 @@ const globalMessageFilePathCache = globalThis as typeof globalThis & {
   [MESSAGE_FILE_PATH_CACHE_KEY]?: MessageFilePathCache;
 };
 
-const messageFilePathCache = globalMessageFilePathCache[MESSAGE_FILE_PATH_CACHE_KEY]
-  ?? (globalMessageFilePathCache[MESSAGE_FILE_PATH_CACHE_KEY] = {
+const messageFilePathCache =
+  globalMessageFilePathCache[MESSAGE_FILE_PATH_CACHE_KEY] ??
+  (globalMessageFilePathCache[MESSAGE_FILE_PATH_CACHE_KEY] = {
     hasSubscribed: false,
     knownFilePaths: getKnownFilePathSet(EMPTY_PROJECT_FILES),
   });
 
 function syncKnownProjectFilePaths() {
-  messageFilePathCache.knownFilePaths = getKnownFilePathSet(useAppStore.getState().projectFiles);
+  messageFilePathCache.knownFilePaths = getKnownFilePathSet(
+    useAppStore.getState().projectFiles,
+  );
   if (messageFilePathCache.hasSubscribed) {
     return;
   }
@@ -50,7 +69,9 @@ function syncKnownProjectFilePaths() {
     if (state.projectFiles === prevState.projectFiles) {
       return;
     }
-    messageFilePathCache.knownFilePaths = getKnownFilePathSet(state.projectFiles);
+    messageFilePathCache.knownFilePaths = getKnownFilePathSet(
+      state.projectFiles,
+    );
   });
 }
 
@@ -63,23 +84,31 @@ export function Message({ from, className, ...props }: MessageProps) {
         "group min-w-0 flex flex-col gap-2",
         from === "user" ? "is-user" : "is-assistant",
         from === "user" ? "items-end" : "items-start",
-        className
+        className,
       )}
       {...props}
     />
   );
 }
 
-export function MessageContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  const messageFontSize = useAppStore((state) => state.settings.messageFontSize);
+export function MessageContent({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  const messageFontSize = useAppStore(
+    (state) => state.settings.messageFontSize,
+  );
   return (
     <div
       className={cn(
         "flex min-w-0 max-w-full w-full flex-col gap-3 text-foreground",
         "group-[.is-user]:rounded-md group-[.is-user]:bg-primary/12 group-[.is-user]:px-4 group-[.is-user]:py-3",
-        className
+        className,
       )}
-      style={{ fontSize: `${messageFontSize}px`, lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
+      style={{
+        fontSize: `${messageFontSize}px`,
+        lineHeight: MESSAGE_BODY_LINE_HEIGHT,
+      }}
       {...props}
     />
   );
@@ -98,12 +127,20 @@ export function MessageResponse({
   style,
   ...props
 }: MessageResponseProps) {
-  const [openFileFromTree, messageFontSize, messageCodeFontSize, workspaceCwd] = useAppStore(useShallow((state) => [
-    state.openFileFromTree,
-    state.settings.messageFontSize,
-    state.settings.messageCodeFontSize,
-    state.workspacePathById[state.activeWorkspaceId] ?? state.projectPath ?? "",
-  ] as const));
+  const [openFileFromTree, messageFontSize, messageCodeFontSize, workspaceCwd] =
+    useAppStore(
+      useShallow(
+        (state) =>
+          [
+            state.openFileFromTree,
+            state.settings.messageFontSize,
+            state.settings.messageCodeFontSize,
+            state.workspacePathById[state.activeWorkspaceId] ??
+              state.projectPath ??
+              "",
+          ] as const,
+      ),
+    );
   const content = typeof children === "string" ? children : "";
   const tokenSegments = useMemo(
     () =>
@@ -119,7 +156,10 @@ export function MessageResponse({
     (segment) => segment.type === "token",
   );
 
-  function resolveFileLink(args: { href?: string; allowUnknownPath?: boolean }) {
+  function resolveFileLink(args: {
+    href?: string;
+    allowUnknownPath?: boolean;
+  }) {
     return resolveWorkspaceFileLink({
       href: args.href,
       workspaceCwd,
@@ -128,12 +168,17 @@ export function MessageResponse({
     });
   }
 
-  async function openResolvedFileLink(args: { resolved: ResolvedWorkspaceFileLink; fallbackContent?: string }) {
+  async function openResolvedFileLink(args: {
+    resolved: ResolvedWorkspaceFileLink;
+    fallbackContent?: string;
+  }) {
     await openFileFromTree({
       filePath: args.resolved.filePath,
       ...(args.resolved.line ? { line: args.resolved.line } : {}),
       ...(args.resolved.column ? { column: args.resolved.column } : {}),
-      ...(args.fallbackContent ? { fallbackContent: args.fallbackContent } : {}),
+      ...(args.fallbackContent
+        ? { fallbackContent: args.fallbackContent }
+        : {}),
     });
   }
 
@@ -143,7 +188,8 @@ export function MessageResponse({
     resolvedFileLink?: ResolvedWorkspaceFileLink | null;
     code?: string;
   }) {
-    const resolved = args.resolvedFileLink ?? resolveFileLink({ href: args.href });
+    const resolved =
+      args.resolvedFileLink ?? resolveFileLink({ href: args.href });
     if (!resolved) {
       return;
     }
@@ -166,18 +212,36 @@ export function MessageResponse({
         data-streaming={isStreaming ? "true" : undefined}
         {...props}
       >
-        {tokenSegments.map((segment, index) =>
-          segment.type === "text" ? (
-            <span key={`text-${index}`}>{segment.text}</span>
-          ) : (
+        {tokenSegments.map((segment, index) => {
+          if (segment.type === "text") {
+            return <span key={`text-${index}`}>{segment.text}</span>;
+          }
+
+          const { descriptor } = segment;
+          const key = `token-${index}-${descriptor.token}`;
+          if (descriptor.kind === "link" && descriptor.serviceLink) {
+            return (
+              <ServiceLinkBadge
+                key={key}
+                href={descriptor.token}
+                badge={{
+                  kind: descriptor.serviceLink,
+                  label: descriptor.label,
+                }}
+                label={descriptor.label}
+              />
+            );
+          }
+
+          return (
             <PromptTokenChip
-              key={`token-${index}-${segment.descriptor.token}`}
-              descriptor={segment.descriptor}
+              key={key}
+              descriptor={descriptor}
               compact
               className="mx-0.5"
             />
-          ),
-        )}
+          );
+        })}
       </div>
     );
   }
@@ -201,17 +265,17 @@ export function MessageResponse({
                   fileName={resolvedFileLink.fileName}
                   line={resolvedFileLink.line}
                   column={resolvedFileLink.column}
-                  onClick={(event) => void handleFileLinkClick({
-                    event,
-                    href: fileHref ?? resolvedFileLink.filePath,
-                    resolvedFileLink,
-                    code,
-                  })}
+                  onClick={(event) =>
+                    void handleFileLinkClick({
+                      event,
+                      href: fileHref ?? resolvedFileLink.filePath,
+                      resolvedFileLink,
+                      code,
+                    })
+                  }
                 />
               ) : null}
-              <span className="shrink-0">
-                {language ?? "code"}
-              </span>
+              <span className="shrink-0">{language ?? "code"}</span>
             </CodeBlockTitle>
             <CodeBlockActions>
               <CodeBlockCopyButton />
@@ -227,11 +291,21 @@ export function MessageResponse({
 }
 
 export function MessageToolbar(props: HTMLAttributes<HTMLDivElement>) {
-  return <div className="flex items-center gap-1.5 text-sm text-muted-foreground" {...props} />;
+  return (
+    <div
+      className="flex items-center gap-1.5 text-sm text-muted-foreground"
+      {...props}
+    />
+  );
 }
 
 export function MessageActions(props: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("ml-1 mt-1 flex items-center gap-1", props.className)} {...props} />;
+  return (
+    <div
+      className={cn("ml-1 mt-1 flex items-center gap-1", props.className)}
+      {...props}
+    />
+  );
 }
 
 interface MessageActionProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -239,13 +313,21 @@ interface MessageActionProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   tooltip?: string;
 }
 
-export function MessageAction({ label, tooltip, className, ...props }: MessageActionProps) {
+export function MessageAction({
+  label,
+  tooltip,
+  className,
+  ...props
+}: MessageActionProps) {
   const button = (
     <Button
       variant="ghost"
       size="sm"
       type="button"
-      className={cn("h-7 rounded-sm px-2 text-sm text-muted-foreground hover:text-foreground", className)}
+      className={cn(
+        "h-7 rounded-sm px-2 text-sm text-muted-foreground hover:text-foreground",
+        className,
+      )}
       aria-label={label}
       {...props}
     />
@@ -258,7 +340,7 @@ export function MessageAction({ label, tooltip, className, ...props }: MessageAc
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipTrigger render={button}></TooltipTrigger>
         <TooltipContent side="top">{tooltip ?? label}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -271,12 +353,16 @@ interface MessageBranchContextValue {
   total: number;
 }
 
-const MessageBranchContext = createContext<MessageBranchContextValue | null>(null);
+const MessageBranchContext = createContext<MessageBranchContextValue | null>(
+  null,
+);
 
 function useMessageBranchContext() {
   const context = useContext(MessageBranchContext);
   if (!context) {
-    throw new Error("MessageBranch components must be used inside <MessageBranch />.");
+    throw new Error(
+      "MessageBranch components must be used inside <MessageBranch />.",
+    );
   }
   return context;
 }
@@ -286,10 +372,19 @@ interface MessageBranchProps extends HTMLAttributes<HTMLDivElement> {
   onBranchChange?: (branchIndex: number) => void;
 }
 
-export function MessageBranch({ defaultBranch = 0, onBranchChange, children, ...props }: MessageBranchProps) {
-  const childArray = (Array.isArray(children) ? children : [children]).filter(Boolean);
+export function MessageBranch({
+  defaultBranch = 0,
+  onBranchChange,
+  children,
+  ...props
+}: MessageBranchProps) {
+  const childArray = (Array.isArray(children) ? children : [children]).filter(
+    Boolean,
+  );
   const total = childArray.length;
-  const [branch, setBranchState] = useState(Math.min(Math.max(0, defaultBranch), Math.max(0, total - 1)));
+  const [branch, setBranchState] = useState(
+    Math.min(Math.max(0, defaultBranch), Math.max(0, total - 1)),
+  );
   const setBranch = (index: number) => {
     const clamped = Math.min(Math.max(0, index), Math.max(0, total - 1));
     setBranchState(clamped);
@@ -306,24 +401,38 @@ export function MessageBranch({ defaultBranch = 0, onBranchChange, children, ...
 
 export function MessageBranchContent(props: HTMLAttributes<HTMLDivElement>) {
   const { branch } = useMessageBranchContext();
-  const childArray = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean);
-  return <div className={props.className}>{childArray[branch] as ReactNode}</div>;
+  const childArray = (
+    Array.isArray(props.children) ? props.children : [props.children]
+  ).filter(Boolean);
+  return (
+    <div className={props.className}>{childArray[branch] as ReactNode}</div>
+  );
 }
 
 interface MessageBranchSelectorProps extends HTMLAttributes<HTMLDivElement> {
   from?: "user" | "assistant";
 }
 
-export function MessageBranchSelector({ from = "assistant", className, ...props }: MessageBranchSelectorProps) {
+export function MessageBranchSelector({
+  from = "assistant",
+  className,
+  ...props
+}: MessageBranchSelectorProps) {
   return (
     <div
-      className={cn("inline-flex items-center gap-1 rounded-sm border border-border/70 px-1 py-0.5", from === "user" ? "self-end" : "self-start", className)}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-sm border border-border/70 px-1 py-0.5",
+        from === "user" ? "self-end" : "self-start",
+        className,
+      )}
       {...props}
     />
   );
 }
 
-export function MessageBranchPrevious(props: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function MessageBranchPrevious(
+  props: ButtonHTMLAttributes<HTMLButtonElement>,
+) {
   const { branch, setBranch } = useMessageBranchContext();
   const { className, onClick, ...rest } = props;
   return (
@@ -344,7 +453,9 @@ export function MessageBranchPrevious(props: ButtonHTMLAttributes<HTMLButtonElem
   );
 }
 
-export function MessageBranchNext(props: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function MessageBranchNext(
+  props: ButtonHTMLAttributes<HTMLButtonElement>,
+) {
   const { branch, setBranch, total } = useMessageBranchContext();
   const { className, onClick, ...rest } = props;
   return (
@@ -367,7 +478,14 @@ export function MessageBranchNext(props: ButtonHTMLAttributes<HTMLButtonElement>
 
 export function MessageBranchPage(props: HTMLAttributes<HTMLSpanElement>) {
   const { branch, total } = useMessageBranchContext();
-  return <span className={cn("text-[10px] text-muted-foreground", props.className)} {...props}>{branch + 1}/{total}</span>;
+  return (
+    <span
+      className={cn("text-[10px] text-muted-foreground", props.className)}
+      {...props}
+    >
+      {branch + 1}/{total}
+    </span>
+  );
 }
 
 export function MessageAttachments(props: HTMLAttributes<HTMLDivElement>) {
@@ -375,7 +493,12 @@ export function MessageAttachments(props: HTMLAttributes<HTMLDivElement>) {
   if (!hasChildren) {
     return null;
   }
-  return <div className={cn("mb-2 flex flex-wrap items-center gap-2", props.className)} {...props} />;
+  return (
+    <div
+      className={cn("mb-2 flex flex-wrap items-center gap-2", props.className)}
+      {...props}
+    />
+  );
 }
 
 interface MessageAttachmentData {
@@ -389,16 +512,33 @@ interface MessageAttachmentProps extends HTMLAttributes<HTMLDivElement> {
   onRemove?: () => void;
 }
 
-export function MessageAttachment({ data, onRemove, className, ...props }: MessageAttachmentProps) {
+export function MessageAttachment({
+  data,
+  onRemove,
+  className,
+  ...props
+}: MessageAttachmentProps) {
   const isImage = data.mediaType?.startsWith("image/");
   return (
-    <div className={cn("group relative rounded-sm border border-border/70 bg-card/60 p-2", className)} {...props}>
+    <div
+      className={cn(
+        "group relative rounded-sm border border-border/70 bg-card/60 p-2",
+        className,
+      )}
+      {...props}
+    >
       {isImage && data.url ? (
-        <img src={data.url} alt={data.filename ?? "attachment"} className="h-24 w-24 rounded-sm object-cover" />
+        <img
+          src={data.url}
+          alt={data.filename ?? "attachment"}
+          className="h-24 w-24 rounded-sm object-cover"
+        />
       ) : (
         <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
           <Paperclip className="size-3.5" />
-          <span className="max-w-44 truncate">{data.filename ?? "attachment"}</span>
+          <span className="max-w-44 truncate">
+            {data.filename ?? "attachment"}
+          </span>
         </div>
       )}
       {onRemove ? (

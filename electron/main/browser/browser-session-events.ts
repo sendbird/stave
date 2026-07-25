@@ -18,6 +18,11 @@ import { getAnnotationOverlayScript } from "./browser-annotation-overlay";
 import { getBoxInspectScript } from "./browser-box-inspect";
 import { fillLensCredentialForWebContents } from "./lens-credential-service";
 import { getMainWindow } from "../window";
+import {
+  getLensCdpDiagnosticsState,
+  handleLensCdpDiagnosticsNavigation,
+  handleLensCdpDiagnosticsNavigationStart,
+} from "./browser-cdp-diagnostics";
 
 function toIso(): string {
   return new Date().toISOString();
@@ -126,7 +131,16 @@ export function attachBrowserSessionEventListeners(
     sendNavigationEvent({ workspaceId, lensSessionId, state });
   };
 
-  wc.on("did-navigate", () => {
+  wc.on("will-navigate", (_event, url) => {
+    handleLensCdpDiagnosticsNavigationStart(wc.id, url);
+  });
+  wc.on("did-start-navigation", (_event, url, _isInPlace, isMainFrame) => {
+    if (isMainFrame) {
+      handleLensCdpDiagnosticsNavigationStart(wc.id, url);
+    }
+  });
+  wc.on("did-navigate", (_event, url) => {
+    handleLensCdpDiagnosticsNavigation(wc.id, url);
     // New document: drop the previous page's favicon until the new page
     // reports one via page-favicon-updated.
     updateNavigationState(
@@ -294,6 +308,13 @@ export function attachBrowserSessionEventListeners(
           lensSessionId,
         );
       }
+      return;
+    }
+
+    // Runtime/Log events retain object arguments, stack traces, and execution
+    // contexts. Avoid duplicating their summary through Electron's flattened
+    // console-message event while full diagnostics are active.
+    if (getLensCdpDiagnosticsState(wc.id).enabled) {
       return;
     }
 

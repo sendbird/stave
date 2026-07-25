@@ -1,3 +1,5 @@
+import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
+
 export const APP_SHORTCUT_PREFIX_KEY = "k";
 export const APP_SHORTCUT_PREFIX_LABEL = "K";
 
@@ -69,8 +71,9 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
   },
   {
     commandId: "view.show-scripts",
-    title: "Open scripts panel",
-    description: "Open the workspace scripts runtime, hooks, and services.",
+    title: `Open ${WORKSPACE_TOOLS_LABEL}`,
+    description:
+      "Open workspace commands, processes, lifecycle triggers, and recent runs.",
     defaultKey: "s",
   },
   {

@@ -6,11 +6,7 @@ import {
   LocalMcpRequestLogCard,
   LocalMcpServerCard,
 } from "./settings-dialog-developer-section";
-import {
-  SectionHeading,
-  SectionStack,
-  SettingsCard,
-} from "./settings-dialog.shared";
+import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 
 function DiscoveredMcpServersCard() {
   const [state, setState] = useState<McpDiscoveryResponse | null>(null);
@@ -85,10 +81,6 @@ function DiscoveredMcpServersCard() {
 export function McpSection() {
   return (
     <>
-      <SectionHeading
-        title="MCP"
-        description="Local MCP server status, request logs, and provider connection state."
-      />
       <SectionStack>
         <DiscoveredMcpServersCard />
         <LocalMcpServerCard />

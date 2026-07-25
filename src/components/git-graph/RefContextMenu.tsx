@@ -346,26 +346,28 @@ export function RefContextMenu({
           if (!open) onClose();
         }}
       >
-        <DropdownMenuTrigger asChild>
-          <div
-            aria-hidden="true"
-            style={{
-              position: "fixed",
-              top: anchor?.y ?? 0,
-              left: anchor?.x ?? 0,
-              width: 0,
-              height: 0,
-              pointerEvents: "none",
-            }}
-          />
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <div
+              aria-hidden="true"
+              style={{
+                position: "fixed",
+                top: anchor?.y ?? 0,
+                left: anchor?.x ?? 0,
+                width: 0,
+                height: 0,
+                pointerEvents: "none",
+              }}
+            />
+          }
+        ></DropdownMenuTrigger>
 
         <DropdownMenuContent
           className="w-60"
           align="start"
           alignOffset={0}
           collisionPadding={8}
-          onCloseAutoFocus={(e) => e.preventDefault()}
+          finalFocus={false}
         >
           {/* Header label */}
           <DropdownMenuLabel className="font-mono text-xs text-muted-foreground truncate">

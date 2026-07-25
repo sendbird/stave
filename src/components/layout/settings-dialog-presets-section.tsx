@@ -26,7 +26,6 @@ import {
 } from "@/lib/task-presets";
 import { useAppStore } from "@/store/app.store";
 import {
-  SectionHeading,
   SectionStack,
   SettingsCard,
   SwitchField,
@@ -35,9 +34,7 @@ import { TaskPresetEditor } from "./task-preset-editor";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
 
 type PresetEditorTarget =
-  | { kind: "edit"; presetId: string }
-  | { kind: "new" }
-  | null;
+  { kind: "edit"; presetId: string } | { kind: "new" } | null;
 
 function describePreset(preset: TaskPreset) {
   if (preset.kind === "cli-session") {
@@ -124,10 +121,6 @@ export function PresetsSection() {
 
   return (
     <>
-      <SectionHeading
-        title="Presets"
-        description="Manage the quick-launch preset bar, its visibility, and the Ctrl+1..9 shortcut order."
-      />
       <SectionStack>
         <SettingsCard
           title="Preset Bar"
@@ -158,11 +151,9 @@ export function PresetsSection() {
                 setEditorTarget(open ? { kind: "new" } : null)
               }
             >
-              <PopoverTrigger asChild>
-                <Button size="sm" className="gap-1.5">
-                  <Plus className="size-3.5" />
-                  Add preset
-                </Button>
+              <PopoverTrigger render={<Button size="sm" className="gap-1.5" />}>
+                <Plus className="size-3.5" />
+                Add preset
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80">
                 <TaskPresetEditor
@@ -268,19 +259,21 @@ export function PresetsSection() {
                             <ChevronDown className="size-3.5" />
                             Move down
                           </Button>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setEditorTarget({
-                                  kind: "edit",
-                                  presetId: preset.id,
-                                })
-                              }
-                            >
-                              Edit
-                            </Button>
+                          <PopoverTrigger
+                            render={
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setEditorTarget({
+                                    kind: "edit",
+                                    presetId: preset.id,
+                                  })
+                                }
+                              />
+                            }
+                          >
+                            Edit
                           </PopoverTrigger>
                           <Button
                             variant="outline"

@@ -54,9 +54,7 @@ import {
 } from "@/lib/prompt-token-chips";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { cn } from "@/lib/utils";
-import {
-  registerPromptLexicalPreventedEnterCommand,
-} from "./prompt-lexical-editor.commands";
+import { registerPromptLexicalPreventedEnterCommand } from "./prompt-lexical-editor.commands";
 import { PromptTokenChip } from "./prompt-token-chip";
 
 const PROMPT_SYNC_TAG = "stave-prompt-sync";
@@ -113,7 +111,9 @@ class PromptTokenNode extends DecoratorNode<ReactNode> {
     return new PromptTokenNode(node.__descriptor, node.__key);
   }
 
-  static importJSON(serializedNode: SerializedPromptTokenNode): PromptTokenNode {
+  static importJSON(
+    serializedNode: SerializedPromptTokenNode,
+  ): PromptTokenNode {
     return $createPromptTokenNode({
       kind: serializedNode.kind,
       token: serializedNode.token,
@@ -161,9 +161,7 @@ class PromptTokenNode extends DecoratorNode<ReactNode> {
       kind: this.__descriptor.kind,
       token: this.__descriptor.token,
       label: this.__descriptor.label,
-      ...(this.__descriptor.detail
-        ? { detail: this.__descriptor.detail }
-        : {}),
+      ...(this.__descriptor.detail ? { detail: this.__descriptor.detail } : {}),
     };
   }
 
@@ -246,7 +244,9 @@ function getPromptTokenSignatureForText(
   value: string,
   options: PromptTokenParseOptions,
 ) {
-  return getPromptTokenSegmentSignature(parsePromptTokenSegments(value, options));
+  return getPromptTokenSegmentSignature(
+    parsePromptTokenSegments(value, options),
+  );
 }
 
 function collectPromptTokenNodeSignature(node: LexicalNode, output: string[]) {
@@ -582,10 +582,7 @@ function PromptLexicalTokenDeletionPlugin() {
 function PromptLexicalPreventedEnterPlugin() {
   const [editor] = useLexicalComposerContext();
 
-  useEffect(
-    () => registerPromptLexicalPreventedEnterCommand(editor),
-    [editor],
-  );
+  useEffect(() => registerPromptLexicalPreventedEnterCommand(editor), [editor]);
 
   return null;
 }
@@ -605,10 +602,9 @@ function PromptLexicalImperativePlugin(args: {
       getSelectionRange: () =>
         editor.getEditorState().read(() => getSelectionRangeFromEditorState()),
       setSelectionRange: (start: number, end = start) => {
-        editor.update(
-          () => setSelectionFromCharacterRange(start, end),
-          { discrete: true },
-        );
+        editor.update(() => setSelectionFromCharacterRange(start, end), {
+          discrete: true,
+        });
         editor.focus();
       },
     }),
@@ -782,9 +778,12 @@ export const PromptLexicalEditor = forwardRef<
           placeholder={
             placeholder ? (
               <div
+                data-prompt-lexical-placeholder="true"
                 className={cn(
-                  "pointer-events-none absolute left-0 top-0 select-none text-muted-foreground",
-                  props.minimal ? "font-mono text-[15px] leading-7" : "text-lg leading-8",
+                  "pointer-events-none absolute left-0 top-0 select-none",
+                  props.minimal
+                    ? "font-mono text-[15px] leading-7 text-muted-foreground"
+                    : "text-[15px] font-normal leading-6 tracking-normal text-muted-foreground/75",
                 )}
               >
                 {placeholder}
@@ -796,7 +795,9 @@ export const PromptLexicalEditor = forwardRef<
       </div>
       <HistoryPlugin />
       <PromptLexicalEditablePlugin disabled={props.disabled} />
-      <PromptLexicalSelectionPlugin onSelectionChange={props.onSelectionChange} />
+      <PromptLexicalSelectionPlugin
+        onSelectionChange={props.onSelectionChange}
+      />
       <PromptLexicalPreventedEnterPlugin />
       <PromptLexicalTokenDeletionPlugin />
       <PromptLexicalImperativePlugin forwardedRef={ref} />

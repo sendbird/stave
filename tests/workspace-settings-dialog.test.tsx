@@ -6,7 +6,9 @@ async function loadDialog() {
   Object.defineProperty(globalThis, "window", {
     value: {
       api: {
-        tooling: { getStatus: async () => ({ checkedAt: 0, tools: [], workspace: null }) },
+        tooling: {
+          getStatus: async () => ({ checkedAt: 0, tools: [], workspace: null }),
+        },
         shell: { openInTerminal: async () => ({ ok: true }) },
         scripts: { getConfig: async () => ({ ok: true, config: null }) },
       },
@@ -33,6 +35,6 @@ describe("WorkspaceSettingsDialog", () => {
     );
     expect(html).toContain("feature-login");
     expect(html).toContain("Sync");
-    expect(html).toContain("Scripts");
+    expect(html).toContain("Workspace Tools");
   });
 });

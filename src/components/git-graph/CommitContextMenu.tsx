@@ -248,27 +248,29 @@ export function CommitContextMenu({
         }}
       >
         {/* Zero-sized invisible anchor div positioned at mouse coords */}
-        <DropdownMenuTrigger asChild>
-          <div
-            ref={triggerRef}
-            aria-hidden="true"
-            style={{
-              position: "fixed",
-              top: anchor?.y ?? 0,
-              left: anchor?.x ?? 0,
-              width: 0,
-              height: 0,
-              pointerEvents: "none",
-            }}
-          />
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <div
+              ref={triggerRef}
+              aria-hidden="true"
+              style={{
+                position: "fixed",
+                top: anchor?.y ?? 0,
+                left: anchor?.x ?? 0,
+                width: 0,
+                height: 0,
+                pointerEvents: "none",
+              }}
+            />
+          }
+        ></DropdownMenuTrigger>
 
         <DropdownMenuContent
           className="w-56"
           align="start"
           alignOffset={0}
           collisionPadding={8}
-          onCloseAutoFocus={(e) => e.preventDefault()}
+          finalFocus={false}
         >
           <DropdownMenuLabel className="font-mono text-xs text-muted-foreground truncate">
             {shortHash} {subject}

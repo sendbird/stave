@@ -1,4 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { finishCompareRunsForTask } from "../src/lib/compare-runs";
+import {
+  buildCompareJudgePrompt,
+  buildCompareJudgeRuntimeOptions,
+  launchReadyCompareJudges,
+} from "../src/store/compare-run-judge";
 import type { Task } from "../src/types/chat";
 
 type UseAppStore = typeof import("../src/store/app.store").useAppStore;
@@ -99,6 +105,25 @@ afterEach(() => {
 });
 
 describe("compare run store actions", () => {
+  test("keeps the Claude judge fresh and read-only too", () => {
+    const runtimeOptions = buildCompareJudgeRuntimeOptions({
+      provider: "claude-code",
+      model: "claude-sonnet-5",
+      settings: useAppStore.getState().settings,
+    });
+
+    expect(runtimeOptions).toMatchObject({
+      model: "claude-sonnet-5",
+      claudePermissionMode: "plan",
+      claudeSandboxEnabled: true,
+      claudeAllowUnsandboxedCommands: false,
+      claudeAllowedTools: ["Read", "Glob", "Grep", "Bash"],
+      claudeDisallowedTools: ["Write", "Edit", "NotebookEdit"],
+    });
+    expect(runtimeOptions.claudeResumeSessionId).toBeUndefined();
+    expect(runtimeOptions.codexResumeThreadId).toBeUndefined();
+  });
+
   test("starts Claude and Codex variants from the active draft", async () => {
     const createdWorkspaces: CreateWorkspaceArgs[] = [];
     const providerCalls: Array<{ taskId: string; provider: string }> = [];
@@ -239,6 +264,296 @@ describe("compare run store actions", () => {
     ]);
   });
 
+  test("fails each throwing candidate without leaving the run pending", async () => {
+    let createAttempts = 0;
+    useAppStore.setState({
+      createWorkspace: async () => {
+        createAttempts += 1;
+        throw new Error(`workspace failure ${createAttempts}`);
+      },
+    });
+
+    const result = await useAppStore.getState().startCompareRun({
+      seedPrompt: "Exercise failure handling",
+    });
+
+    expect(createAttempts).toBe(2);
+    expect(result.ok).toBe(false);
+    expect(result.compareRunId).toBeTruthy();
+    const run = useAppStore.getState().compareRunsById[result.compareRunId!];
+    expect(run?.status).toBe("failed");
+    expect(run?.variants.map((variant) => variant.status)).toEqual([
+      "failed",
+      "failed",
+    ]);
+    expect(run?.variants.map((variant) => variant.error)).toEqual([
+      "workspace failure 1",
+      "workspace failure 2",
+    ]);
+  });
+
+  test("keeps a fast terminal outcome instead of patching it back to running", async () => {
+    let workspaceIndex = 0;
+    useAppStore.setState({
+      createWorkspace: async (args) => {
+        workspaceIndex += 1;
+        const workspaceId = `fast-workspace-${workspaceIndex}`;
+        const taskId = `fast-task-${workspaceIndex}`;
+        useAppStore.setState((state) => ({
+          workspaces: [
+            ...state.workspaces,
+            {
+              id: workspaceId,
+              name: args.name,
+              updatedAt: "2026-06-18T00:00:00.000Z",
+            },
+          ],
+          activeWorkspaceId: workspaceId,
+          activeTaskId: taskId,
+          activeSurface: { kind: "task", taskId },
+          tasks: [
+            ...state.tasks,
+            buildTask({
+              id: taskId,
+              title: args.initialTaskTitle ?? `Task ${workspaceIndex}`,
+            }),
+          ],
+          workspaceBranchById: {
+            ...state.workspaceBranchById,
+            [workspaceId]: args.name,
+          },
+          workspacePathById: {
+            ...state.workspacePathById,
+            [workspaceId]: `/tmp/stave/.stave/workspaces/${workspaceId}`,
+          },
+          workspaceDefaultById: {
+            ...state.workspaceDefaultById,
+            [workspaceId]: false,
+          },
+          taskWorkspaceIdById: {
+            ...state.taskWorkspaceIdById,
+            [taskId]: workspaceId,
+          },
+          promptDraftByTask: {
+            ...state.promptDraftByTask,
+            [taskId]: {
+              text: "",
+              attachedFilePaths: [],
+              attachments: [],
+            },
+          },
+        }));
+        return { ok: true };
+      },
+      sendUserMessage: async (args) => {
+        useAppStore.setState((state) => ({
+          compareRunsById: finishCompareRunsForTask({
+            runsById: state.compareRunsById,
+            taskId: args.taskId,
+            outcome: "completed",
+            now: "2026-06-18T00:01:00.000Z",
+          }),
+        }));
+        return {
+          status: "started",
+          taskId: args.taskId,
+          workspaceId:
+            useAppStore.getState().taskWorkspaceIdById[args.taskId] ?? "base",
+          turnId: `fast-turn-${workspaceIndex}`,
+        };
+      },
+    });
+
+    const result = await useAppStore.getState().startCompareRun({
+      seedPrompt: "Finish immediately",
+    });
+    const run = useAppStore.getState().compareRunsById[result.compareRunId!];
+
+    expect(result.ok).toBe(true);
+    expect(run?.status).toBe("completed");
+    expect(run?.variants.map((variant) => variant.status)).toEqual([
+      "completed",
+      "completed",
+    ]);
+  });
+
+  test("runs a selected judge in fresh read-only context and stores its recommendation", async () => {
+    let judgeRequest:
+      | {
+          prompt: string;
+          cwd?: string;
+          runtimeOptions?: {
+            model?: string;
+            codexFileAccess?: string;
+            codexResumeThreadId?: string;
+          };
+        }
+      | undefined;
+    useAppStore.setState({
+      compareRunsById: {
+        "run-judge": {
+          id: "run-judge",
+          seedPrompt: "Choose the safest implementation",
+          baseWorkspaceId: "base",
+          baseBranch: "main",
+          createdAt: "2026-06-18T00:00:00.000Z",
+          updatedAt: "2026-06-18T00:00:00.000Z",
+          status: "completed",
+          reviewCriteria: ["Correctness", "Verification"],
+          judge: {
+            provider: "codex",
+            model: "gpt-5.6-sol",
+            status: "pending",
+            attempt: 0,
+          },
+          variants: [
+            {
+              id: "variant-a",
+              provider: "claude-code",
+              model: "claude-sonnet-5",
+              status: "completed",
+              workspacePath: "/tmp/stave/compare-a",
+            },
+            {
+              id: "variant-b",
+              provider: "codex",
+              model: "gpt-5.6-terra",
+              status: "completed",
+              workspacePath: "/tmp/stave/compare-b",
+            },
+          ],
+        },
+      },
+    });
+
+    await launchReadyCompareJudges({
+      getState: () => useAppStore.getState(),
+      updateRuns: (updater) =>
+        useAppStore.setState((state) => ({
+          compareRunsById: updater(state.compareRunsById),
+        })),
+      bridge: {
+        checkAvailability: async () => ({ ok: true, available: true }),
+        streamTurn: (request) => {
+          judgeRequest = request;
+          return Promise.resolve([
+            {
+              type: "text",
+              text: `<stave_compare_judgment>
+                {
+                  "recommendedCandidateId": "B",
+                  "confidence": "high",
+                  "rationale": "Candidate B includes the stronger regression coverage.",
+                  "candidateScores": [
+                    {
+                      "candidateId": "A",
+                      "score": 7,
+                      "summary": "Correct but lightly tested.",
+                      "strengths": ["Small diff"],
+                      "risks": ["Missing edge case"],
+                      "criteria": []
+                    },
+                    {
+                      "candidateId": "B",
+                      "score": 9,
+                      "summary": "Correct with focused coverage.",
+                      "strengths": ["Regression test"],
+                      "risks": [],
+                      "criteria": []
+                    }
+                  ]
+                }
+              </stave_compare_judgment>`,
+            },
+            { type: "done", stop_reason: "end_turn" },
+          ]);
+        },
+      },
+      now: () => "2026-06-18T00:03:00.000Z",
+    });
+
+    expect(judgeRequest?.cwd).toBe("/tmp/stave");
+    expect(judgeRequest?.runtimeOptions).toMatchObject({
+      model: "gpt-5.6-sol",
+      codexFileAccess: "read-only",
+    });
+    expect(judgeRequest?.runtimeOptions?.codexResumeThreadId).toBeUndefined();
+    expect(judgeRequest?.prompt).toContain(
+      "This is a fresh, read-only evaluation.",
+    );
+    expect(judgeRequest?.prompt).toContain("/tmp/stave/compare-a");
+    expect(judgeRequest?.prompt).toContain('"candidateId": "A"');
+    expect(judgeRequest?.prompt).toContain('"candidateId": "B"');
+    expect(judgeRequest?.prompt).not.toContain("variant-a");
+    expect(judgeRequest?.prompt).not.toContain("variant-b");
+    expect(judgeRequest?.prompt).not.toContain("claude-code");
+    expect(judgeRequest?.prompt).not.toContain("claude-sonnet-5");
+    expect(judgeRequest?.prompt).not.toContain("gpt-5.6-terra");
+    expect(judgeRequest?.prompt).not.toContain('"label": "Claude"');
+    expect(judgeRequest?.prompt).not.toContain('"label": "Codex"');
+    const judge = useAppStore.getState().compareRunsById["run-judge"]?.judge;
+    expect(judge?.status).toBe("completed");
+    expect(judge?.judgment?.recommendedVariantId).toBe("variant-b");
+    expect(judge?.judgment?.provenance).toEqual({
+      rubricVersion: "1",
+      judgeProvider: "codex",
+      judgeModel: "gpt-5.6-sol",
+      attempt: 1,
+    });
+    expect(judge?.judgment?.candidateScores[1]?.criteria).toEqual([
+      {
+        criterion: "Correctness",
+        score: 9,
+        rationale: "Correct with focused coverage.",
+      },
+      {
+        criterion: "Verification",
+        score: 9,
+        rationale: "Correct with focused coverage.",
+      },
+    ]);
+  });
+
+  test("keeps provider and model identity out of the anonymous judge prompt", () => {
+    const prompt = buildCompareJudgePrompt({
+      id: "run-anonymous",
+      seedPrompt: "Choose the safer implementation",
+      baseWorkspaceId: "base",
+      baseBranch: "main",
+      createdAt: "2026-06-18T00:00:00.000Z",
+      updatedAt: "2026-06-18T00:00:00.000Z",
+      status: "completed",
+      variants: [
+        {
+          id: "private-variant-1",
+          provider: "claude-code",
+          model: "claude-sonnet-5",
+          label: "Claude",
+          status: "completed",
+          workspacePath: "/tmp/stave/candidate-a",
+        },
+        {
+          id: "private-variant-2",
+          provider: "codex",
+          model: "gpt-5.6-terra",
+          label: "Codex",
+          status: "completed",
+          workspacePath: "/tmp/stave/candidate-b",
+        },
+      ],
+    });
+
+    expect(prompt).toContain('"candidateId": "A"');
+    expect(prompt).toContain('"candidateId": "B"');
+    expect(prompt).toContain('"rubricVersion": "1"');
+    expect(prompt).not.toContain("private-variant");
+    expect(prompt).not.toContain("claude-code");
+    expect(prompt).not.toContain("claude-sonnet-5");
+    expect(prompt).not.toContain("gpt-5.6-terra");
+    expect(prompt).not.toContain('"label": "Claude"');
+    expect(prompt).not.toContain('"label": "Codex"');
+  });
+
   test("keeps one variant and discards sibling workspaces", async () => {
     const closedWorkspaceIds: string[] = [];
     const switchedWorkspaceIds: string[] = [];
@@ -254,19 +569,19 @@ describe("compare run store actions", () => {
           baseBranch: "main",
           createdAt: "2026-06-18T00:00:00.000Z",
           updatedAt: "2026-06-18T00:00:00.000Z",
-          status: "running",
+          status: "completed",
           variants: [
             {
               id: "variant-1",
               provider: "claude-code",
-              status: "running",
+              status: "completed",
               workspaceId: "workspace-1",
               taskId: "task-1",
             },
             {
               id: "variant-2",
               provider: "codex",
-              status: "running",
+              status: "completed",
               workspaceId: "workspace-2",
               taskId: "task-2",
             },
@@ -308,16 +623,13 @@ describe("compare run store actions", () => {
     ]);
   });
 
-  test("cancels a run and closes all live variant workspaces", async () => {
-    const closedWorkspaceIds: string[] = [];
-
+  test("does not keep a candidate before its run finishes", async () => {
     useAppStore.setState({
       compareRunsById: {
         "run-1": {
           id: "run-1",
           seedPrompt: "Compare this",
           baseWorkspaceId: "base",
-          baseBranch: "main",
           createdAt: "2026-06-18T00:00:00.000Z",
           updatedAt: "2026-06-18T00:00:00.000Z",
           status: "running",
@@ -329,10 +641,89 @@ describe("compare run store actions", () => {
               workspaceId: "workspace-1",
               taskId: "task-1",
             },
+          ],
+        },
+      },
+    });
+
+    const result = await useAppStore.getState().keepCompareVariant({
+      compareRunId: "run-1",
+      variantId: "variant-1",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Wait until this candidate finishes before keeping it.",
+    });
+    expect(
+      useAppStore.getState().compareRunsById["run-1"]?.keptVariantId,
+    ).toBeUndefined();
+  });
+
+  test("does not keep a completed candidate while judging is active", async () => {
+    useAppStore.setState({
+      compareRunsById: {
+        "run-judging": {
+          id: "run-judging",
+          seedPrompt: "Compare this",
+          baseWorkspaceId: "base",
+          createdAt: "2026-06-18T00:00:00.000Z",
+          updatedAt: "2026-06-18T00:00:00.000Z",
+          status: "completed",
+          judge: {
+            provider: "codex",
+            status: "running",
+            attempt: 1,
+          },
+          variants: [
+            {
+              id: "variant-1",
+              provider: "codex",
+              status: "completed",
+              workspaceId: "workspace-1",
+              taskId: "task-1",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      await useAppStore.getState().keepCompareVariant({
+        compareRunId: "run-judging",
+        variantId: "variant-1",
+      }),
+    ).toEqual({
+      ok: false,
+      message: "Wait for the independent judge before keeping a result.",
+    });
+  });
+
+  test("discards a completed review and closes every candidate workspace", async () => {
+    const closedWorkspaceIds: string[] = [];
+
+    useAppStore.setState({
+      compareRunsById: {
+        "run-1": {
+          id: "run-1",
+          seedPrompt: "Compare this",
+          baseWorkspaceId: "base",
+          baseBranch: "main",
+          createdAt: "2026-06-18T00:00:00.000Z",
+          updatedAt: "2026-06-18T00:00:00.000Z",
+          status: "completed",
+          variants: [
+            {
+              id: "variant-1",
+              provider: "claude-code",
+              status: "completed",
+              workspaceId: "workspace-1",
+              taskId: "task-1",
+            },
             {
               id: "variant-2",
               provider: "codex",
-              status: "running",
+              status: "completed",
               workspaceId: "workspace-2",
               taskId: "task-2",
             },
