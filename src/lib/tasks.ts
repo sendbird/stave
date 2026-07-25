@@ -36,6 +36,49 @@ export function isTaskArchived(task: Pick<Task, "archivedAt">) {
 }
 
 /**
+ * Reconcile a task list against the archived state that persistence currently
+ * holds as authoritative.
+ *
+ * The host-service MCP runtime keeps a long-lived in-memory copy of each
+ * workspace session (including its `tasks`). When the renderer archives (or
+ * restores) a task, that in-memory copy goes stale, and a later host-side
+ * persist would otherwise write the stale `archivedAt` back over the whole
+ * snapshot — reviving an archived session on the next restart. Task lifecycle
+ * (archive/restore) is owned by the renderer and durably reflected in the
+ * `tasks` table, so before the host re-persists we take each persisted row's
+ * `archivedAt` as the source of truth.
+ *
+ * Tasks that are absent from `persistedTasks` are left untouched: those are
+ * host-created tasks that have not been written to the `tasks` table yet, and
+ * dropping/altering them here would lose a freshly created session.
+ */
+export function reconcileTasksWithPersistedArchival(args: {
+  tasks: Task[];
+  persistedTasks: Array<{ id: string; archivedAt?: string | null }>;
+}): Task[] {
+  if (args.persistedTasks.length === 0) {
+    return args.tasks;
+  }
+  const persistedArchivedById = new Map(
+    args.persistedTasks.map((task) => [task.id, task.archivedAt ?? null] as const),
+  );
+  let changed = false;
+  const reconciled = args.tasks.map((task) => {
+    if (!persistedArchivedById.has(task.id)) {
+      return task;
+    }
+    const persistedArchivedAt = persistedArchivedById.get(task.id) ?? null;
+    const currentArchivedAt = task.archivedAt ?? null;
+    if (persistedArchivedAt === currentArchivedAt) {
+      return task;
+    }
+    changed = true;
+    return { ...task, archivedAt: persistedArchivedAt };
+  });
+  return changed ? reconciled : args.tasks;
+}
+
+/**
  * True when the task is an ephemeral legacy branch. Branch tasks are hidden
  * from every task-tree surface (sidebar, tabs, counts, search, archive fallback,
  * responding-task hover preview) by default. Callers that need to iterate every

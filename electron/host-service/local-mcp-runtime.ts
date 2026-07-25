@@ -87,7 +87,10 @@ import type {
   TaskControlMode,
   TaskControlOwner,
 } from "../../src/types/chat";
-import { findWorkspaceTaskOrThrow } from "../../src/lib/tasks";
+import {
+  findWorkspaceTaskOrThrow,
+  reconcileTasksWithPersistedArchival,
+} from "../../src/lib/tasks";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import { providerRuntime } from "../providers/runtime";
@@ -246,12 +249,21 @@ async function persistWorkspaceSession(args: {
   session: WorkspaceSessionState;
 }) {
   const store = ensureHostServicePersistenceReady();
+  // Task archive/restore lifecycle is owned by the renderer and durably held in
+  // the `tasks` table. The host's cached session copy can be stale, so re-read
+  // the authoritative archived state right before writing — otherwise a stale
+  // host persist would revive a task the renderer just archived (it would come
+  // back to life on the next restart).
+  const reconciledTasks = reconcileTasksWithPersistedArchival({
+    tasks: args.session.tasks,
+    persistedTasks: store.listWorkspaceTasks({ workspaceId: args.workspaceId }),
+  });
   store.upsertWorkspace({
     id: args.workspaceId,
     name: args.workspaceName,
     snapshot: createWorkspaceSnapshot({
       activeTaskId: args.session.activeTaskId,
-      tasks: args.session.tasks,
+      tasks: reconciledTasks,
       messagesByTask: args.session.messagesByTask,
       promptDraftByTask: args.session.promptDraftByTask,
       workspaceInformation: args.session.workspaceInformation,
