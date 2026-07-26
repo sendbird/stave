@@ -6,6 +6,54 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
+/** Binds an ephemeral port and releases it so connections to it are refused. */
+async function findClosedPort() {
+  const { createServer } = await import("node:net");
+  return await new Promise<number>((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      if (!address || typeof address === "string") {
+        probe.close();
+        reject(new Error("Failed to resolve a probe port."));
+        return;
+      }
+      const { port } = address;
+      probe.close(() => resolve(port));
+    });
+  });
+}
+
+async function waitForStderr(args: {
+  reader: ReadableStreamDefaultReader<Uint8Array>;
+  collected: { text: string };
+  marker: string;
+  timeoutMs: number;
+}) {
+  const decoder = new TextDecoder();
+  const startedAt = Date.now();
+  while (!args.collected.text.includes(args.marker)) {
+    if (Date.now() - startedAt > args.timeoutMs) {
+      throw new Error(
+        `Timed out waiting for stderr marker ${JSON.stringify(args.marker)}. Saw: ${args.collected.text}`,
+      );
+    }
+    const { value, done } = await args.reader.read();
+    if (value) {
+      args.collected.text += decoder.decode(value, { stream: true });
+    }
+    if (done) {
+      break;
+    }
+  }
+  if (!args.collected.text.includes(args.marker)) {
+    throw new Error(
+      `Proxy stderr closed without ${JSON.stringify(args.marker)}. Saw: ${args.collected.text}`,
+    );
+  }
+}
+
 async function waitForFile(args: { filePath: string; timeoutMs: number }) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < args.timeoutMs) {
@@ -168,4 +216,114 @@ describe("stave-mcp-stdio-proxy", () => {
     expect(stderr).toContain("connected");
     expect(stderr).toContain("stdin closed, exiting.");
   }, 15_000);
+
+  test("re-resolves the manifest and retries when the server rebinds to a new port", async () => {
+    const tempHome = await mkdtemp(path.join(tmpdir(), "stave-mcp-proxy-"));
+    cleanupPaths.push(tempHome);
+    await mkdir(path.join(tempHome, ".stave"), { recursive: true });
+    const manifestPath = path.join(tempHome, ".stave", "local-mcp.json");
+    const portPath = path.join(tempHome, "server-port.txt");
+
+    const server = Bun.spawn([
+      "node",
+      "-e",
+      `
+        const fs = require("node:fs");
+        const http = require("node:http");
+        const portPath = process.argv[1];
+        const server = http.createServer(async (req, res) => {
+          for await (const chunk of req) {
+            void chunk;
+          }
+          res.statusCode = 200;
+          res.setHeader("content-type", "application/json");
+          res.end(JSON.stringify({ jsonrpc: "2.0", id: 7, result: { ok: true } }));
+        });
+        server.listen(0, "127.0.0.1", () => {
+          fs.writeFileSync(portPath, String(server.address().port));
+        });
+      `,
+      portPath,
+    ], {
+      cwd: REPO_ROOT,
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+    cleanupChildren.push(server);
+
+    const livePort = await waitForFile({ filePath: portPath, timeoutMs: 5_000 });
+
+    // Reserve a port and immediately release it so the first attempt is
+    // guaranteed to be refused, mirroring a Stave restart onto a new port.
+    const deadPort = await findClosedPort();
+
+    await writeFile(
+      manifestPath,
+      `${JSON.stringify({
+        url: `http://127.0.0.1:${deadPort}/mcp`,
+        token: "stale-token",
+      })}\n`,
+    );
+
+    const child = Bun.spawn([
+      process.execPath,
+      "electron/main/stave-mcp-stdio-proxy.ts",
+    ], {
+      cwd: REPO_ROOT,
+      env: { ...process.env, HOME: tempHome },
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    cleanupChildren.push(child);
+
+    if (!child.stderr || !child.stdin) {
+      throw new Error("Failed to open proxy pipes.");
+    }
+    const stderrReader = child.stderr.getReader();
+    const collectedStderr = { text: "" };
+
+    // Only rewrite the manifest once the proxy has cached the stale endpoint,
+    // otherwise the retry path would not be exercised at all.
+    await waitForStderr({
+      reader: stderrReader,
+      collected: collectedStderr,
+      marker: `connected → http://127.0.0.1:${deadPort}/mcp`,
+      timeoutMs: 5_000,
+    });
+
+    await writeFile(
+      manifestPath,
+      `${JSON.stringify({
+        url: `http://127.0.0.1:${livePort}/mcp`,
+        token: "fresh-token",
+      })}\n`,
+    );
+
+    await child.stdin.write(`${JSON.stringify({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: { name: "stave_list_projects", arguments: {} },
+    })}\n`);
+    await child.stdin.end();
+
+    const stdout = child.stdout ? await new Response(child.stdout).text() : "";
+    await waitForStderr({
+      reader: stderrReader,
+      collected: collectedStderr,
+      marker: "endpoint changed, reconnected",
+      timeoutMs: 5_000,
+    });
+
+    expect(await child.exited).toBe(0);
+    expect(JSON.parse(stdout.trim())).toEqual({
+      jsonrpc: "2.0",
+      id: 7,
+      result: { ok: true },
+    });
+    expect(collectedStderr.text).toContain(
+      `reconnected → http://127.0.0.1:${livePort}/mcp`,
+    );
+  }, 20_000);
 });

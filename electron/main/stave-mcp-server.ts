@@ -209,12 +209,35 @@ export async function clearStaveMcpRequestLogs() {
   return store.clearLocalMcpRequestLogs();
 }
 
-async function writeManifest(manifest: StaveLocalMcpManifest) {
-  const userDataPath = app.getPath("userData");
-  const paths = [
-    path.join(userDataPath, "stave-local-mcp.json"),
+function listenOnPort(server: Server, host: string, port: number) {
+  return new Promise<void>((resolve, reject) => {
+    const onError = (error: Error) => {
+      server.off("error", onError);
+      reject(error);
+    };
+    server.once("error", onError);
+    server.listen({ host, port }, () => {
+      server.off("error", onError);
+      resolve();
+    });
+  });
+}
+
+/**
+ * Canonical manifest locations. Cleanup must not depend on the mutable
+ * `manifestPaths`, which starts empty and is only populated by a successful
+ * `writeManifest` — a disabled-at-startup run would otherwise leave a previous
+ * launch's manifest (and its dead port) on disk for consumers to pick up.
+ */
+function getManifestCandidatePaths() {
+  return [
+    path.join(app.getPath("userData"), "stave-local-mcp.json"),
     path.join(homedir(), ".stave", "local-mcp.json"),
   ];
+}
+
+async function writeManifest(manifest: StaveLocalMcpManifest) {
+  const paths = getManifestCandidatePaths();
 
   await Promise.all(
     paths.map(async (manifestPath) => {
@@ -231,8 +254,9 @@ async function writeManifest(manifest: StaveLocalMcpManifest) {
 }
 
 async function removeManifestFiles() {
+  const paths = new Set([...manifestPaths, ...getManifestCandidatePaths()]);
   await Promise.all(
-    manifestPaths.map(async (manifestPath) => {
+    Array.from(paths, async (manifestPath) => {
       try {
         await fs.unlink(manifestPath);
       } catch {
@@ -1292,23 +1316,31 @@ export async function startStaveMcpServer() {
     }
   });
 
+  const normalizedRequestedPort = Number.isFinite(requestedPort)
+    ? requestedPort
+    : 0;
   try {
-    await new Promise<void>((resolve, reject) => {
-      nextServer.once("error", reject);
-      nextServer.listen(
-        {
-          host,
-          port: Number.isFinite(requestedPort) ? requestedPort : 0,
-        },
-        () => {
-          nextServer.off("error", reject);
-          resolve();
-        },
-      );
-    });
+    await listenOnPort(nextServer, host, normalizedRequestedPort);
   } catch (error) {
-    nextServer.close();
-    throw error;
+    if (
+      (error as NodeJS.ErrnoException)?.code === "EADDRINUSE" &&
+      normalizedRequestedPort !== 0
+    ) {
+      // Never fail startup over a busy fixed port: fall back to an ephemeral
+      // one and let the manifest carry the real endpoint.
+      console.warn(
+        `[stave-mcp] port ${normalizedRequestedPort} is in use; falling back to an OS-assigned port`,
+      );
+      try {
+        await listenOnPort(nextServer, host, 0);
+      } catch (fallbackError) {
+        nextServer.close();
+        throw fallbackError;
+      }
+    } else {
+      nextServer.close();
+      throw error;
+    }
   }
 
   httpServer = nextServer;
@@ -1415,6 +1447,11 @@ export async function stopStaveMcpServer() {
       }
       resolve();
     });
+    // `close` only stops accepting new sockets; lingering keep-alive
+    // connections would otherwise hold the restart open for the keep-alive
+    // timeout and stall the caller that is waiting to rebind.
+    currentServer.closeIdleConnections?.();
+    currentServer.closeAllConnections?.();
   });
 }
 

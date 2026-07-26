@@ -2,16 +2,23 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { app } from "electron";
-import type { StaveLocalMcpConfig } from "../../src/lib/local-mcp";
+import {
+  DEFAULT_LOCAL_MCP_PORT,
+  LOCAL_MCP_CONFIG_VERSION,
+  type StaveLocalMcpConfig,
+} from "../../src/lib/local-mcp";
+
+export { DEFAULT_LOCAL_MCP_PORT, LOCAL_MCP_CONFIG_VERSION };
 
 const MAX_PORT = 65_535;
 
 const DEFAULT_LOCAL_MCP_CONFIG: StaveLocalMcpConfig = {
   enabled: true,
-  port: 0,
+  port: DEFAULT_LOCAL_MCP_PORT,
   token: "",
   claudeCodeAutoRegister: false,
   codexAutoRegister: false,
+  configVersion: LOCAL_MCP_CONFIG_VERSION,
 };
 
 function normalizePort(value: unknown) {
@@ -19,9 +26,27 @@ function normalizePort(value: unknown) {
     ? value
     : (typeof value === "string" ? Number.parseInt(value, 10) : Number.NaN);
   if (!Number.isInteger(numeric)) {
-    return 0;
+    return DEFAULT_LOCAL_MCP_PORT;
   }
   return Math.max(0, Math.min(MAX_PORT, numeric));
+}
+
+/**
+ * Configs written before {@link LOCAL_MCP_CONFIG_VERSION} 2 stored the old
+ * `port: 0` default. Move those onto the stable port once; a user who then
+ * re-selects automatic port assignment keeps it, because the version has
+ * already been recorded.
+ */
+export function migrateLocalMcpConfigPort(args: {
+  port: number;
+  configVersion: unknown;
+}) {
+  const storedVersion =
+    typeof args.configVersion === "number" ? args.configVersion : 1;
+  if (storedVersion >= LOCAL_MCP_CONFIG_VERSION) {
+    return args.port;
+  }
+  return args.port === 0 ? DEFAULT_LOCAL_MCP_PORT : args.port;
 }
 
 function normalizeToken(value: unknown) {
@@ -41,7 +66,11 @@ function buildNormalizedConfig(input?: Partial<StaveLocalMcpConfig> | null): Sta
     enabled: typeof candidate.enabled === "boolean"
       ? candidate.enabled
       : DEFAULT_LOCAL_MCP_CONFIG.enabled,
-    port: normalizePort(candidate.port),
+    port: migrateLocalMcpConfigPort({
+      port: normalizePort(candidate.port),
+      configVersion: candidate.configVersion,
+    }),
+    configVersion: LOCAL_MCP_CONFIG_VERSION,
     token: normalizeToken(candidate.token) || randomUUID(),
     claudeCodeAutoRegister: normalizeBoolean(
       candidate.claudeCodeAutoRegister,
@@ -80,6 +109,7 @@ export async function readStaveLocalMcpConfig() {
       || normalized.token !== parsed.token
       || normalized.claudeCodeAutoRegister !== parsed.claudeCodeAutoRegister
       || normalized.codexAutoRegister !== parsed.codexAutoRegister
+      || normalized.configVersion !== parsed.configVersion
     ) {
       await writeConfig(normalized);
     }

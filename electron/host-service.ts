@@ -121,6 +121,8 @@ import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
   HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES,
   HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES,
+  shouldBypassOutboundQueueLimit,
+  truncateHostServiceErrorMessage,
 } from "./shared/host-service-transport";
 import {
   JsonMessageFrameDecoder,
@@ -148,6 +150,7 @@ const HOST_SERVICE_QUEUE_WARN_BYTES = 256 * 1024;
 const HOST_SERVICE_QUEUE_MAX_BYTES = 2 * 1024 * 1024;
 const HOST_SERVICE_QUEUE_SLOW_WRITE_MS = 48;
 const HOST_SERVICE_QUEUE_LOG_INTERVAL_MS = 2_000;
+const HOST_SERVICE_SHUTDOWN_TIMEOUT_MS = 10_000;
 const HOST_PROVIDER_EVENT_STRING_MAX_BYTES = 128 * 1024;
 const HOST_PROVIDER_EVENT_LIST_MAX_ITEMS = 32;
 const HOST_SERVICE_STDIN_BUFFER_MAX_BYTES =
@@ -388,7 +391,10 @@ function writeMessage(message: HostServiceOutboundMessage) {
   if (fatalHostServiceError) {
     return Promise.reject(fatalHostServiceError);
   }
-  if (pendingMessageBytes + messageBytes > HOST_SERVICE_QUEUE_MAX_BYTES) {
+  if (
+    !shouldBypassOutboundQueueLimit(message) &&
+    pendingMessageBytes + messageBytes > HOST_SERVICE_QUEUE_MAX_BYTES
+  ) {
     const error = new Error(
       `protocol overflow: outbound queue exceeded ${HOST_SERVICE_QUEUE_MAX_BYTES} bytes`,
     );
@@ -1040,12 +1046,18 @@ async function respond<TMethod extends HostServiceMethod>(
   } as AnyHostServiceResponseEnvelope);
 }
 
+/**
+ * Truncated so the response stays small enough to safely bypass the outbound
+ * queue cap (see {@link shouldBypassOutboundQueueLimit}).
+ */
 async function respondError(id: number, error: unknown) {
   await writeMessage({
     type: "response",
     id,
     ok: false,
-    error: error instanceof Error ? error.message : String(error),
+    error: truncateHostServiceErrorMessage(
+      error instanceof Error ? error.message : String(error),
+    ),
   });
 }
 
@@ -1053,11 +1065,24 @@ async function shutdown() {
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
   routineRuntime.stop();
-  await Promise.allSettled([
-    terminalRuntime.cleanupAll(),
-    cleanupAllScriptProcesses(),
-    providerRuntime.shutdown(),
-    localMcpRuntime.cleanupLocalMcpRuntime(),
+  // A cleanup step that never settles (a pty that will not die, a provider SDK
+  // that hangs) used to leave the process alive but unable to answer anything.
+  await Promise.race([
+    Promise.allSettled([
+      terminalRuntime.cleanupAll(),
+      cleanupAllScriptProcesses(),
+      providerRuntime.shutdown(),
+      localMcpRuntime.cleanupLocalMcpRuntime(),
+    ]),
+    new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        process.stderr.write(
+          `[host-service] shutdown cleanup exceeded ${HOST_SERVICE_SHUTDOWN_TIMEOUT_MS}ms; continuing\n`,
+        );
+        resolve();
+      }, HOST_SERVICE_SHUTDOWN_TIMEOUT_MS);
+      timer.unref?.();
+    }),
   ]);
   resetHostServicePersistence();
 }
@@ -1508,7 +1533,6 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
 async function main() {
   prewarmClaudeSdk();
   routineRuntime.start();
-  await writeMessage({ type: "ready" });
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,
@@ -1559,7 +1583,13 @@ async function main() {
         try {
           await handleRequest(request);
         } catch (error) {
-          await respondError(request.id, error).catch(() => {});
+          await respondError(request.id, error).catch((respondFailure) => {
+            // The caller is now guaranteed to hang until its own backstop
+            // fires, so make the cause visible instead of silently dropping it.
+            process.stderr.write(
+              `[host-service] failed to deliver error response for request ${request.id} (${request.method}): ${String(respondFailure)}\n`,
+            );
+          });
         }
       })();
     }
@@ -1567,6 +1597,10 @@ async function main() {
 
   process.stdin.on("end", handleStdinClosed);
   process.stdin.on("close", handleStdinClosed);
+
+  // Announce readiness only once stdin is actually being consumed, so the first
+  // request can never land before this process is able to read it.
+  await writeMessage({ type: "ready" });
 }
 
 void main().catch((error) => {

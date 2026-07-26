@@ -10,6 +10,11 @@ import {
   JsonMessageFrameDecoder,
   serializeJsonFramedMessage,
 } from "../shared/json-message-framing";
+import {
+  HOST_SERVICE_READY_TIMEOUT_MS,
+  type HostServiceInvokeOptions,
+  resolveHostServiceRequestTimeoutMs,
+} from "./host-service-request-timeouts";
 import type {
   AnyHostServiceEventEnvelope,
   AnyHostServiceMessage,
@@ -25,6 +30,7 @@ interface PendingRequest {
   method: HostServiceMethod;
   resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
+  timer: ReturnType<typeof setTimeout> | null;
 }
 
 const HOST_SERVICE_STDOUT_BUFFER_MAX_BYTES = HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES;
@@ -63,11 +69,18 @@ export function measureSerializedHostServiceRequestBytes(args: {
 class HostServiceClient {
   private child: ChildProcessWithoutNullStreams | null = null;
 
+  /**
+   * Stays non-null and resolved for the whole lifetime of a healthy child so
+   * that every caller — not just the one that spawned it — awaits the `ready`
+   * handshake before writing to stdin.
+   */
   private startupPromise: Promise<void> | null = null;
 
   private startupResolve: (() => void) | null = null;
 
   private startupReject: ((reason?: unknown) => void) | null = null;
+
+  private startupTimer: ReturnType<typeof setTimeout> | null = null;
 
   private nextRequestId = 1;
 
@@ -82,6 +95,10 @@ class HostServiceClient {
   }
 
   private resetStartupState() {
+    if (this.startupTimer) {
+      clearTimeout(this.startupTimer);
+      this.startupTimer = null;
+    }
     this.startupPromise = null;
     this.startupResolve = null;
     this.startupReject = null;
@@ -100,7 +117,7 @@ class HostServiceClient {
     this.startupReject?.(args.error);
     this.resetStartupState();
     for (const pending of this.pending.values()) {
-      pending.reject(args.error);
+      this.settlePending(pending, () => pending.reject(args.error));
     }
     this.pending.clear();
 
@@ -109,19 +126,29 @@ class HostServiceClient {
     }
   }
 
+  private settlePending(pending: PendingRequest, settle: () => void) {
+    if (pending.timer) {
+      clearTimeout(pending.timer);
+      pending.timer = null;
+    }
+    settle();
+  }
+
   private handleResponse(message: AnyHostServiceResponseEnvelope) {
     const pending = this.pending.get(message.id);
     if (!pending) {
       return;
     }
     this.pending.delete(message.id);
-    if (message.ok) {
-      pending.resolve(message.result);
-      return;
-    }
-    pending.reject(
-      new Error(`[host-service] ${pending.method} failed: ${message.error}`),
-    );
+    this.settlePending(pending, () => {
+      if (message.ok) {
+        pending.resolve(message.result);
+        return;
+      }
+      pending.reject(
+        new Error(`[host-service] ${pending.method} failed: ${message.error}`),
+      );
+    });
   }
 
   private handleEvent(message: AnyHostServiceEventEnvelope) {
@@ -138,8 +165,15 @@ class HostServiceClient {
       return;
     }
     if (message.type === "ready") {
+      // Keep `startupPromise` in place (now resolved) so later callers still
+      // await readiness instead of racing ahead of the handshake.
+      if (this.startupTimer) {
+        clearTimeout(this.startupTimer);
+        this.startupTimer = null;
+      }
       this.startupResolve?.();
-      this.resetStartupState();
+      this.startupResolve = null;
+      this.startupReject = null;
       return;
     }
     if (message.type === "response") {
@@ -187,6 +221,22 @@ class HostServiceClient {
       child.stderr.resume();
     }
 
+    // Without these, a spawn failure (ENOENT/EACCES/EMFILE) or a destroyed
+    // stdin becomes an unhandled 'error' event and takes down the main process.
+    child.on("error", (error) => {
+      this.failChild({
+        child,
+        error: new Error(`[host-service] process error: ${String(error)}`),
+      });
+    });
+
+    child.stdin.on("error", (error) => {
+      this.failChild({
+        child,
+        error: new Error(`[host-service] stdin error: ${String(error)}`),
+      });
+    });
+
     child.on("exit", (code, signal) => {
       this.failChild({
         child,
@@ -198,17 +248,21 @@ class HostServiceClient {
   }
 
   async ensureStarted() {
-    if (this.child && this.child.exitCode === null) {
-      return;
-    }
+    // Always await the handshake. Returning early on a live-but-unready child
+    // let concurrent callers write to stdin before the child installed its
+    // reader, which stalled those requests indefinitely.
     if (this.startupPromise) {
       return this.startupPromise;
     }
 
-    this.startupPromise = new Promise<void>((resolve, reject) => {
+    const startupPromise = new Promise<void>((resolve, reject) => {
       this.startupResolve = resolve;
       this.startupReject = reject;
     });
+    this.startupPromise = startupPromise;
+    // Keep an unawaited rejection from surfacing as an unhandled rejection when
+    // the child dies while no caller happens to be waiting on startup.
+    void startupPromise.catch(() => {});
 
     const child = spawn(process.execPath, [this.getScriptPath()], {
       env: {
@@ -218,14 +272,26 @@ class HostServiceClient {
       stdio: ["pipe", "pipe", "pipe"],
     });
 
+    this.startupTimer = setTimeout(() => {
+      this.startupTimer = null;
+      this.failChild({
+        child,
+        error: new Error(
+          `[host-service] did not become ready within ${HOST_SERVICE_READY_TIMEOUT_MS}ms`,
+        ),
+      });
+    }, HOST_SERVICE_READY_TIMEOUT_MS);
+    this.startupTimer.unref?.();
+
     this.child = child;
     this.attachChild(child);
-    return this.startupPromise;
+    return startupPromise;
   }
 
   async invoke<TMethod extends HostServiceMethod>(
     method: TMethod,
     params: HostServiceRequestMap[TMethod],
+    options?: HostServiceInvokeOptions,
   ): Promise<HostServiceResponseMap[TMethod]> {
     await this.ensureStarted();
     if (
@@ -254,13 +320,32 @@ class HostServiceClient {
       );
     }
 
+    const timeoutMs = resolveHostServiceRequestTimeoutMs({
+      method,
+      override: options?.timeoutMs,
+    });
+
     const resultPromise = new Promise<HostServiceResponseMap[TMethod]>(
       (resolve, reject) => {
-        this.pending.set(requestId, {
+        const pending: PendingRequest = {
           method,
           resolve: resolve as (value: unknown) => void,
           reject,
-        });
+          timer: null,
+        };
+        if (timeoutMs !== null) {
+          pending.timer = setTimeout(() => {
+            pending.timer = null;
+            this.pending.delete(requestId);
+            reject(
+              new Error(
+                `[host-service] ${method} timed out after ${timeoutMs}ms without a response. The host service may be wedged or the response was dropped.`,
+              ),
+            );
+          }, timeoutMs);
+          pending.timer.unref?.();
+        }
+        this.pending.set(requestId, pending);
       },
     );
 
@@ -273,7 +358,7 @@ class HostServiceClient {
         return;
       }
       this.pending.delete(requestId);
-      pending.reject(error);
+      this.settlePending(pending, () => pending.reject(error));
     });
 
     return resultPromise;
@@ -327,8 +412,9 @@ export function stopHostService() {
 export function invokeHostService<TMethod extends HostServiceMethod>(
   method: TMethod,
   params: HostServiceRequestMap[TMethod],
+  options?: HostServiceInvokeOptions,
 ) {
-  return hostServiceClient.invoke(method, params);
+  return hostServiceClient.invoke(method, params, options);
 }
 
 export function onHostServiceEvent<TEvent extends keyof HostServiceEventMap>(

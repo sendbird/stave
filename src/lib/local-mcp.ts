@@ -1,9 +1,27 @@
+/**
+ * Stable loopback port for the local MCP server.
+ *
+ * The previous default of `0` picked a fresh ephemeral port on every launch,
+ * which silently invalidated every endpoint already handed to a running agent
+ * session, stdio proxy, or external CLI. `0` remains a valid explicit choice.
+ */
+export const DEFAULT_LOCAL_MCP_PORT = 39_517;
+
+/**
+ * Bumped when a default changes in a way that must be migrated onto configs
+ * written by an older build.
+ */
+export const LOCAL_MCP_CONFIG_VERSION = 2;
+
 export interface StaveLocalMcpConfig {
   enabled: boolean;
+  /** Fixed loopback port, or `0` to let the OS assign an ephemeral one. */
   port: number;
   token: string;
   claudeCodeAutoRegister: boolean;
   codexAutoRegister: boolean;
+  /** Schema version used to migrate defaults written by older builds. */
+  configVersion: number;
 }
 
 export interface ClaudeCodeMcpRegistrationStatus {

@@ -30,9 +30,10 @@ import type {
   ClaudePluginReloadSnapshot,
   CodexMcpServerStatusSnapshot,
 } from "@/lib/providers/provider.types";
-import type {
-  StaveLocalMcpRequestLog,
-  StaveLocalMcpStatus,
+import {
+  DEFAULT_LOCAL_MCP_PORT,
+  type StaveLocalMcpRequestLog,
+  type StaveLocalMcpStatus,
 } from "@/lib/local-mcp";
 import {
   DEFAULT_PROVIDER_TIMEOUT_MS,
@@ -1010,12 +1011,12 @@ export function LocalMcpServerCard() {
 
           <LabeledField
             title="Port"
-            description="Use `0` to let Stave choose any available localhost port when the server starts."
+            description="A fixed port keeps the endpoint stable across restarts, so clients that cached it keep working. Use `0` to let Stave choose any available localhost port instead."
           >
             <DraftInput
               className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
               inputMode="numeric"
-              placeholder="0"
+              placeholder={String(DEFAULT_LOCAL_MCP_PORT)}
               value={String(config.port)}
               onCommit={(nextValue) =>
                 void applyConfigPatch({
