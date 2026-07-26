@@ -2,7 +2,11 @@ import type { AppNotification } from "@/lib/notifications/notification.types";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
-import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
+import {
+  isLegacyBranchTask,
+  isTaskArchived,
+  isTaskManaged,
+} from "@/lib/tasks";
 import {
   findLatestPendingApproval,
   findLatestPendingUserInput,
@@ -172,6 +176,15 @@ export function collectFleetLiveNeeds(
         continue;
       }
 
+      // A locally driven need belongs to a running turn. Without one the task is
+      // done and any leftover pending part is history, not an open request.
+      // Managed tasks are the exception: their requests are answered through the
+      // host, so they stay actionable without a renderer turn.
+      const activeTurnId = workspace.activeTurnIdsByTask[task.id];
+      if (!activeTurnId && !isTaskManaged(task)) {
+        continue;
+      }
+
       const messages = workspace.messagesByTask[task.id] ?? [];
       const pendingInput = findLatestPendingUserInput({ messages });
       if (pendingInput) {
@@ -189,7 +202,7 @@ export function collectFleetLiveNeeds(
             kind,
             priority: FLEET_NEED_PRIORITY[kind],
             requestId,
-            turnId: workspace.activeTurnIdsByTask[task.id],
+            turnId: activeTurnId,
           });
           continue;
         }
@@ -211,14 +224,13 @@ export function collectFleetLiveNeeds(
             kind,
             priority: FLEET_NEED_PRIORITY[kind],
             requestId,
-            turnId: workspace.activeTurnIdsByTask[task.id],
+            turnId: activeTurnId,
             detail: `${pendingApproval.part.toolName}: ${pendingApproval.part.description}`,
           });
           continue;
         }
       }
 
-      const activeTurnId = workspace.activeTurnIdsByTask[task.id];
       if (
         activeTurnId &&
         classifyTaskStatus({

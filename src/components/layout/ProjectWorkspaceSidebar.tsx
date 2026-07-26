@@ -1193,10 +1193,15 @@ export function ProjectWorkspaceSidebar(args: {
             projects,
             recentProjectLastOpenedAtByPath,
             statusByWorkspaceId: workspaceFleetStatusById,
+            // Only needs that show a leading icon may pull a workspace into
+            // this list. A reviewed-later result must not pin a workspace with
+            // no visible reason for it.
             attentionPriorityByWorkspaceId: Object.fromEntries(
               Object.entries(highestNeedByWorkspaceId).flatMap(
                 ([workspaceId, need]) =>
-                  need ? [[workspaceId, need.priority]] : [],
+                  need && getWorkspaceLeadingNeedKind(need.kind)
+                    ? [[workspaceId, need.priority]]
+                    : [],
               ),
             ),
             activeWorkspaceId,

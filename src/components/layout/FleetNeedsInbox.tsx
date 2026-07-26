@@ -148,7 +148,10 @@ export function FleetNeedsInbox(args: {
             item.kind === "approval" && Boolean(item.notificationId);
           const canMarkRead =
             Boolean(item.notificationId) &&
-            (item.kind === "run-failed" || item.kind === "result-ready");
+            (item.kind === "run-failed" ||
+              item.kind === "result-ready" ||
+              item.kind === "user-input" ||
+              item.kind === "approval");
 
           return (
             <li
@@ -229,7 +232,9 @@ export function FleetNeedsInbox(args: {
                   >
                     {item.kind === "result-ready"
                       ? "Mark reviewed"
-                      : "Mark read"}
+                      : item.kind === "user-input" || item.kind === "approval"
+                        ? "Dismiss"
+                        : "Mark read"}
                   </Button>
                 ) : null}
                 {item.prUrl ? (

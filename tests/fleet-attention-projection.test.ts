@@ -276,6 +276,66 @@ describe("Fleet attention projection", () => {
     }
   });
 
+  test("ignores leftover pending parts once the turn is over", () => {
+    const approvalMessage = buildAssistantMessage({
+      parts: [
+        {
+          type: "approval",
+          requestId: "approval-1",
+          toolName: "Bash",
+          description: "run tests",
+          state: "approval-requested",
+        },
+      ],
+    });
+
+    const projection = buildFleetAttentionProjection({
+      notifications: [],
+      liveWorkspaces: [
+        buildLiveWorkspace({
+          messagesByTask: { "task-1": [approvalMessage] },
+          activeTurnIdsByTask: {},
+        }),
+      ],
+      prWorkspaces: [],
+    });
+
+    expect(projection.items).toEqual([]);
+  });
+
+  test("keeps managed task requests actionable without a renderer turn", () => {
+    const approvalMessage = buildAssistantMessage({
+      parts: [
+        {
+          type: "approval",
+          requestId: "approval-1",
+          toolName: "Bash",
+          description: "run tests",
+          state: "approval-requested",
+        },
+      ],
+    });
+
+    const projection = buildFleetAttentionProjection({
+      notifications: [],
+      liveWorkspaces: [
+        buildLiveWorkspace({
+          tasks: [buildTask({ controlMode: "managed", controlOwner: "host" })],
+          messagesByTask: { "task-1": [approvalMessage] },
+          activeTurnIdsByTask: {},
+        }),
+      ],
+      prWorkspaces: [],
+    });
+
+    expect(projection.items).toHaveLength(1);
+    expect(projection.items[0]).toMatchObject({
+      kind: "approval",
+      source: "live",
+      requestId: "approval-1",
+    });
+  });
+
   test("omits notifications without an exact navigation target", () => {
     expect(
       collectFleetNotificationNeeds([

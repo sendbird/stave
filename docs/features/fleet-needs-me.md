@@ -6,6 +6,11 @@ Fleet is Stave's cross-workspace action inbox. Its default `Needs me` view
 combines pending questions and approvals, unread failed or completed turns, and
 actionable pull request states in one urgency-ordered list.
 
+Fleet is an auxiliary surface. The task window stays the primary place to answer
+a question, resolve an approval, and review a result, and doing the work there
+clears the matching Fleet item. Fleet only adds a cross-workspace overview and
+optional shortcuts on top of that.
+
 ## When To Use It
 
 - Use Fleet when several projects or workspaces are active at once.
@@ -35,8 +40,9 @@ actionable pull request states in one urgency-ordered list.
 ### Entry Points
 
 - Top bar: the Fleet button shows the total number of known actionable items.
-- Workspace sidebar: workspaces with a known need are promoted into the active
-  workspace list and show the highest-priority need icon.
+- Workspace sidebar: workspaces with a need that has a visible icon are promoted
+  into the active workspace list. A result waiting for review never promotes a
+  workspace on its own, because that need carries no visible marker.
 - Fleet view: `Needs me` is the default task filter and the action inbox stays
   above the workspace lifecycle lanes.
 
@@ -47,8 +53,20 @@ actionable pull request states in one urgency-ordered list.
   the task.
 - `Mark reviewed` or `Mark read`: dismisses a completed or failed turn from the
   current queue while keeping notification history.
+- `Dismiss`: drops a question or approval that is no longer answerable, for
+  example because its turn already ended.
 - `Open PR`: opens the pull request for review blockers or merge-ready work.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
+
+### Items That Clear Themselves
+
+- Opening a task in the task window marks its completed and failed turns as
+  reviewed. A turn that finishes while you are already watching that task never
+  enters the queue.
+- Answering a question or resolving an approval in the task window clears the
+  item, including when an agent answers through the managed host.
+- Stopping a turn, archiving a task, or restarting Stave settles the requests
+  that turn can no longer accept.
 
 ## Common Workflows
 
@@ -69,9 +87,11 @@ actionable pull request states in one urgency-ordered list.
 ## Files And Data
 
 - Fleet does not create a separate task ledger or execution database.
-- Live task state is preferred when available.
+- Live task state is preferred when available, and it only reports needs that
+  belong to a running turn.
 - Durable notifications keep pending interactions and unread turn outcomes
-  visible when a workspace runtime is not loaded.
+  visible when a workspace runtime is not loaded. They are settled as soon as the
+  task window shows that the request is no longer waiting.
 - Pull request status contributes only actionable blocker and merge-ready
   states.
 
@@ -95,10 +115,19 @@ actionable pull request states in one urgency-ordered list.
 
 ### A Completed Result Disappeared
 
-- Symptom: a result no longer appears after selecting `Mark reviewed`.
-- Cause: reviewed completion notifications are removed from the current action
-  queue.
+- Symptom: a result no longer appears after selecting `Mark reviewed`, or after
+  opening its task.
+- Cause: reviewing a turn in the task window counts as handling it, so its
+  completion notification leaves the current action queue.
 - Fix: open the notification center's history view to find the original item.
+
+### A Question Or Approval Belongs To A Finished Task
+
+- Symptom: an item points at a task whose turn already ended.
+- Cause: the request was never answered before the turn stopped, and its state
+  had not been reconciled yet.
+- Fix: open the item. Once the task window loads, Stave settles the request
+  automatically. Use `Dismiss` if you do not want to open it.
 
 ## Related Docs
 
