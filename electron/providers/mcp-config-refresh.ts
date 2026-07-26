@@ -13,6 +13,17 @@ function resolveHomeRelativePath(args: { value?: string; fallback: string }) {
   return value && path.isAbsolute(value) ? value : args.fallback;
 }
 
+/**
+ * The stave-local manifest carries the loopback URL and token that both
+ * provider runtimes hand to their native session. It is rewritten whenever the
+ * local MCP server (re)binds, so it must be tracked alongside the CLI config
+ * files — otherwise a restart onto a different port leaves resumed sessions
+ * pinned to a dead endpoint and every stave tool call fails.
+ */
+export function getStaveLocalMcpManifestPath() {
+  return path.join(homedir(), ".stave", "local-mcp.json");
+}
+
 export function getClaudeMcpConfigPaths(args: McpConfigPathOptions) {
   const configDir = resolveHomeRelativePath({
     value: args.claudeConfigDir,
@@ -25,6 +36,7 @@ export function getClaudeMcpConfigPaths(args: McpConfigPathOptions) {
     path.join(args.cwd, ".claude", "settings.json"),
     path.join(args.cwd, ".claude", "settings.local.json"),
     path.join(args.cwd, ".mcp.json"),
+    getStaveLocalMcpManifestPath(),
   ];
 }
 
@@ -33,7 +45,10 @@ export function getCodexMcpConfigPaths(args: McpConfigPathOptions) {
     value: args.codexHome,
     fallback: path.join(homedir(), ".codex"),
   });
-  return [path.join(codexHome, "config.toml")];
+  return [
+    path.join(codexHome, "config.toml"),
+    getStaveLocalMcpManifestPath(),
+  ];
 }
 
 async function getMcpConfigFingerprint(paths: readonly string[]) {

@@ -41,6 +41,37 @@ const MANIFEST_CANDIDATES = [
 ];
 const MCP_PROXY_STDIN_BUFFER_MAX_BYTES = 2 * 1024 * 1024;
 const MCP_PROXY_STDIN_LINE_MAX_BYTES = 1 * 1024 * 1024;
+/**
+ * Without a deadline a wedged server leaves the request outstanding forever and
+ * the MCP host sees an unresponsive server with no error it can report.
+ */
+const MCP_PROXY_REQUEST_TIMEOUT_MS = 120_000;
+
+class McpHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number | null,
+  ) {
+    super(message);
+    this.name = "McpHttpError";
+  }
+}
+
+/**
+ * A refused/reset connection, a timeout, or a 401 all point at a stale endpoint:
+ * Stave rebinds the local MCP server (and may rotate its token) whenever it
+ * restarts or its settings change. Those are worth re-resolving the manifest
+ * for; a genuine server-side status is not.
+ *
+ * `status === null` covers transport-level failures, which is where a dead port
+ * shows up — those must be retried, not forwarded as a JSON-RPC error.
+ */
+function isStaleEndpointError(error: unknown) {
+  if (!(error instanceof McpHttpError)) {
+    return true;
+  }
+  return error.status === null || error.status === 401;
+}
 
 function writeLine(stream: NodeJS.WriteStream, line: string) {
   return new Promise<void>((resolve, reject) => {
@@ -85,15 +116,37 @@ async function postToMcp(
   token: string,
   body: unknown,
 ): Promise<unknown> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "accept": "application/json, text/event-stream",
-      "content-type": "application/json",
-      "authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, MCP_PROXY_REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "accept": "application/json, text/event-stream",
+        "content-type": "application/json",
+        "authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new McpHttpError(
+        `request timed out after ${MCP_PROXY_REQUEST_TIMEOUT_MS}ms`,
+        null,
+      );
+    }
+    throw new McpHttpError(
+      error instanceof Error ? error.message : String(error),
+      null,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 
   // 202 Accepted → notification acknowledged, no body to forward
   if (response.status === 202) {
@@ -102,7 +155,7 @@ async function postToMcp(
 
   if (!response.ok) {
     const text = await response.text().catch(() => `HTTP ${response.status}`);
-    throw new Error(`HTTP ${response.status}: ${text}`);
+    throw new McpHttpError(`HTTP ${response.status}: ${text}`, response.status);
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -140,8 +193,37 @@ async function main() {
     process.exit(1);
   }
 
-  const { url, token } = manifest;
-  process.stderr.write(`[stave-mcp-stdio-proxy] connected → ${url}\n`);
+  process.stderr.write(
+    `[stave-mcp-stdio-proxy] connected → ${manifest.url}\n`,
+  );
+
+  /**
+   * Forward one message, re-resolving the manifest when the cached endpoint
+   * looks stale. The manifest used to be read exactly once per process, so a
+   * Stave restart onto a different port left this proxy failing every single
+   * tool call for the rest of its life.
+   */
+  const forward = async (body: unknown): Promise<unknown> => {
+    try {
+      return await postToMcp(manifest.url, manifest.token, body);
+    } catch (error) {
+      if (!isStaleEndpointError(error)) {
+        throw error;
+      }
+      const refreshed = await readManifest().catch(() => null);
+      if (
+        !refreshed ||
+        (refreshed.url === manifest.url && refreshed.token === manifest.token)
+      ) {
+        throw error;
+      }
+      manifest = refreshed;
+      process.stderr.write(
+        `[stave-mcp-stdio-proxy] endpoint changed, reconnected → ${manifest.url}\n`,
+      );
+      return await postToMcp(manifest.url, manifest.token, body);
+    }
+  };
 
   const stdinLineBuffer = new Utf8LineBuffer({
     label: "stave-mcp-stdio-proxy stdin",
@@ -176,7 +258,7 @@ async function main() {
 
         pendingRequests += 1;
         try {
-          const result = await postToMcp(url, token, body);
+          const result = await forward(body);
           if (result !== null) {
             await writeLine(process.stdout, JSON.stringify(result));
           }

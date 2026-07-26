@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -18,8 +18,12 @@ mock.module("electron", () => ({
 }));
 
 const {
+  DEFAULT_LOCAL_MCP_PORT,
+  LOCAL_MCP_CONFIG_VERSION,
   getStaveLocalMcpConfigPath,
+  migrateLocalMcpConfigPort,
   readStaveLocalMcpConfig,
+  updateStaveLocalMcpConfig,
 } = await import("../electron/main/stave-mcp-config");
 
 function createTempUserDataDirectory() {
@@ -57,5 +61,60 @@ describe("stave local MCP config", () => {
     expect(saved.enabled).toBe(true);
     expect(saved.claudeCodeAutoRegister).toBe(false);
     expect(saved.codexAutoRegister).toBe(false);
+  });
+
+  test("defaults to a stable port so restarts keep the endpoint valid", async () => {
+    createTempUserDataDirectory();
+
+    const config = await readStaveLocalMcpConfig();
+
+    expect(config.port).toBe(DEFAULT_LOCAL_MCP_PORT);
+    expect(config.configVersion).toBe(LOCAL_MCP_CONFIG_VERSION);
+  });
+
+  test("migrates the legacy ephemeral-port default onto the stable port", async () => {
+    createTempUserDataDirectory();
+    writeFileSync(
+      getStaveLocalMcpConfigPath(),
+      JSON.stringify({
+        enabled: true,
+        port: 0,
+        token: "legacy-token",
+        claudeCodeAutoRegister: false,
+        codexAutoRegister: false,
+      }),
+    );
+
+    const config = await readStaveLocalMcpConfig();
+
+    expect(config.port).toBe(DEFAULT_LOCAL_MCP_PORT);
+    expect(config.token).toBe("legacy-token");
+    expect(config.configVersion).toBe(LOCAL_MCP_CONFIG_VERSION);
+  });
+
+  test("keeps automatic port selection once the user chooses it explicitly", async () => {
+    createTempUserDataDirectory();
+    await readStaveLocalMcpConfig();
+
+    const updated = await updateStaveLocalMcpConfig({ port: 0 });
+    expect(updated.port).toBe(0);
+
+    // The migration must not fight the user's choice on the next read.
+    expect((await readStaveLocalMcpConfig()).port).toBe(0);
+  });
+
+  test("only migrates the port for configs written before the current version", () => {
+    expect(migrateLocalMcpConfigPort({ port: 0, configVersion: undefined })).toBe(
+      DEFAULT_LOCAL_MCP_PORT,
+    );
+    expect(
+      migrateLocalMcpConfigPort({
+        port: 0,
+        configVersion: LOCAL_MCP_CONFIG_VERSION,
+      }),
+    ).toBe(0);
+    expect(migrateLocalMcpConfigPort({ port: 8_123, configVersion: 1 })).toBe(
+      8_123,
+    );
   });
 });

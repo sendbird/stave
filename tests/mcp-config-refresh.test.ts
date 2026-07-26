@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   getClaudeMcpConfigPaths,
   getCodexMcpConfigPaths,
+  getStaveLocalMcpManifestPath,
   McpConfigRefreshTracker,
 } from "../electron/providers/mcp-config-refresh";
 
@@ -40,7 +41,26 @@ describe("MCP config refresh tracking", () => {
         cwd: "/tmp/workspace",
         codexHome: "/tmp/codex-home",
       }),
-    ).toEqual(["/tmp/codex-home/config.toml"]);
+    ).toContain("/tmp/codex-home/config.toml");
+  });
+
+  test("tracks the stave-local manifest so a rebound port invalidates sessions", () => {
+    const manifestPath = getStaveLocalMcpManifestPath();
+
+    // Both runtimes hand the manifest's loopback URL to their native session,
+    // so a manifest rewrite must count as an MCP config change for both.
+    expect(
+      getClaudeMcpConfigPaths({
+        cwd: "/tmp/workspace",
+        claudeConfigDir: "/tmp/claude-home",
+      }),
+    ).toContain(manifestPath);
+    expect(
+      getCodexMcpConfigPaths({
+        cwd: "/tmp/workspace",
+        codexHome: "/tmp/codex-home",
+      }),
+    ).toContain(manifestPath);
   });
 
   test("detects a config file created or changed between provider turns", async () => {

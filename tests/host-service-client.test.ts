@@ -3,7 +3,55 @@ import {
   measureSerializedHostServiceRequestBytes,
   resolveHostServiceScriptPath,
 } from "../electron/main/host-service-client";
+import {
+  HOST_SERVICE_DEFAULT_REQUEST_TIMEOUT_MS,
+  resolveHostServiceRequestTimeoutMs,
+} from "../electron/main/host-service-request-timeouts";
 import { HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES } from "../electron/shared/host-service-transport";
+
+describe("resolveHostServiceRequestTimeoutMs", () => {
+  test("applies a backstop so a dropped response cannot hang a caller forever", () => {
+    expect(resolveHostServiceRequestTimeoutMs({ method: "scm.status" })).toBe(
+      HOST_SERVICE_DEFAULT_REQUEST_TIMEOUT_MS,
+    );
+    expect(
+      resolveHostServiceRequestTimeoutMs({ method: "local-mcp.invoke" }),
+    ).toBe(HOST_SERVICE_DEFAULT_REQUEST_TIMEOUT_MS);
+  });
+
+  test("exempts turns and long-lived runs that have no meaningful deadline", () => {
+    expect(
+      resolveHostServiceRequestTimeoutMs({ method: "provider.stream-turn" }),
+    ).toBeNull();
+    expect(
+      resolveHostServiceRequestTimeoutMs({ method: "runs.execute-secondary" }),
+    ).toBeNull();
+    expect(
+      resolveHostServiceRequestTimeoutMs({ method: "workspace-scripts.run-entry" }),
+    ).toBeNull();
+  });
+
+  test("bounds shutdown so a wedged cleanup cannot block quit", () => {
+    expect(
+      resolveHostServiceRequestTimeoutMs({ method: "service.shutdown" }),
+    ).toBe(30_000);
+  });
+
+  test("lets a caller override the backstop per request", () => {
+    expect(
+      resolveHostServiceRequestTimeoutMs({
+        method: "local-mcp.invoke",
+        override: null,
+      }),
+    ).toBeNull();
+    expect(
+      resolveHostServiceRequestTimeoutMs({
+        method: "scm.status",
+        override: 1_500,
+      }),
+    ).toBe(1_500);
+  });
+});
 
 describe("resolveHostServiceScriptPath", () => {
   test("uses the sibling file when the bundled main entry owns the client", () => {

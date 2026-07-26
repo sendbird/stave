@@ -51,7 +51,7 @@ In Stave:
 You can manage:
 
 - `Server`: turn the local MCP server on or off
-- `Port`: use `0` for automatic port selection, or set a fixed localhost port
+- `Port`: defaults to a fixed localhost port so the endpoint survives restarts. Set another fixed port, or `0` for automatic selection. If a fixed port is already taken, Stave falls back to an automatic one and records the real endpoint in the manifest
 - `Claude Code`: automatically add or remove Stave's managed MCP entry in `~/.claude/settings.json`
 - `Codex`: automatically add or remove Stave's managed MCP entry in `~/.codex/config.toml`
 - `Token`: the Bearer token required by local clients
@@ -206,7 +206,22 @@ These responses continue the same Stave turn. They do not create a new task.
 
 ### The port changes between launches
 
-`Port = 0` means Stave chooses any available port. Set a fixed port in Settings if your local tool wants a stable one.
+`Port` defaults to a fixed value, so the endpoint normally stays stable across restarts. It can still move if you set `Port = 0` (automatic selection) or if the configured port is already in use and Stave falls back to an automatic one.
+
+When the endpoint does move, Stave recovers on its own:
+
+- the stdio proxy re-reads the manifest and retries the call against the new endpoint
+- Stave's own Claude and Codex runtimes treat a rewritten manifest as an MCP config change and start a fresh native session on the next turn, because a resumed session keeps the MCP catalog it was created with
+
+An external CLI that snapshotted the old URL at startup still needs a restart.
+
+### A tool call times out or reports `tool call failed`
+
+Use `Local MCP Request Log` to tell the two causes apart:
+
+- **no log entry for the call**: the request never reached the server, so the client is using a stale endpoint. Confirm the client's URL and token match the current manifest, and restart any external CLI that snapshotted them
+- **a log entry with a long duration**: the call reached the server and the work itself was slow or stuck. Stave bounds these internally and surfaces an error rather than waiting forever, except for genuinely open-ended actions such as creating a workspace or running a task
+- **a `401` entry**: see the token section below
 
 ### The bot gets `401 Unauthorized`
 

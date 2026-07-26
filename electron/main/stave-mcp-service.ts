@@ -34,15 +34,30 @@ function ensureLocalMcpEventBridge() {
   });
 }
 
+/**
+ * Actions with no meaningful upper bound: creating a workspace clones, fetches
+ * and runs the project's init command, and running a task hands control to a
+ * provider turn. Everything else keeps the default host-service backstop so a
+ * dropped response surfaces as an error instead of an endless await.
+ */
+const UNBOUNDED_LOCAL_MCP_ACTIONS = new Set<HostLocalMcpAction>([
+  "create-workspace",
+  "run-task",
+]);
+
 async function invokeLocalMcp<TResult>(
   action: HostLocalMcpAction,
   args: unknown,
 ) {
   ensureLocalMcpEventBridge();
-  return invokeHostService("local-mcp.invoke", {
-    action,
-    args,
-  }) as Promise<TResult>;
+  return invokeHostService(
+    "local-mcp.invoke",
+    {
+      action,
+      args,
+    },
+    UNBOUNDED_LOCAL_MCP_ACTIONS.has(action) ? { timeoutMs: null } : undefined,
+  ) as Promise<TResult>;
 }
 
 ensureLocalMcpEventBridge();
