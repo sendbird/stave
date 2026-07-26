@@ -1,9 +1,9 @@
 # Run Core And Secondary Execution
 
-The run core is Stave's smallest durable substrate for bounded background
-execution. Its first consumer is Compare Judge. Future Fleet, Advisor, and
-Crane work can reuse the same seam without turning it into a generic workflow
-engine.
+The run core is Stave's smallest durable substrate for bounded, non-interactive,
+read-only background provider execution. Its first and current consumer is
+Compare Judge. It is not a generic workflow engine or a prerequisite for
+Fleet, Advisor, or Crane.
 
 ## Ownership
 
@@ -138,9 +138,11 @@ Cancel and retry retain the current Compare Run UI behavior. Cancellation
 persists the durable judge transition before candidate workspaces close, and a
 retry uses the same run and step with a new attempt key and execution identity.
 
-## Extension Seam
+## Eligibility And Extension Seam
 
-A later Fleet, Advisor, or Crane consumer should:
+A later consumer is eligible for this substrate only when it has the same
+bounded, non-interactive, read-only execution policy as Compare Judge. An
+eligible consumer should:
 
 1. Choose its existing `RunOrigin` kind and stable source id.
 2. Create deterministic run and step ids plus a per-attempt idempotency key.
@@ -156,6 +158,18 @@ Zustand authoritative. Capabilities beyond local read-only execution,
 including network access, require a separate explicit contract. Arbitrary DAG
 fan-out, workflow UI, cross-device Crane transport, and product-specific
 lifecycle state remain outside this substrate.
+
+The current planned features intentionally use different paths:
+
+- Fleet projects existing live state, durable notifications, and PR state; it
+  does not launch provider work.
+- Advisor is an inline preflight in the same normal turn and contributes
+  context before primary execution.
+- Crane dispatch creates a normal locally approved task that may require
+  filesystem writes, provider approvals, and local user input.
+
+Do not make those features depend on Run Core merely to share lifecycle names
+or receipt terminology.
 
 ## Diagnostics
 
