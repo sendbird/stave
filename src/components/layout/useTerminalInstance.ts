@@ -11,6 +11,10 @@ import { SearchAddon } from "@xterm/addon-search";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal as XTerm } from "@xterm/xterm";
+import {
+  DEFAULT_TERMINAL_FONT_WEIGHT,
+  DEFAULT_TERMINAL_FONT_WEIGHT_BOLD,
+} from "@/lib/terminal/defaults";
 import { TerminalOutputScheduler } from "@/lib/terminal/terminal-output-scheduler";
 import {
   focusTerminalInstanceSurface,
@@ -389,8 +393,8 @@ export function useTerminalInstance(
         cursorStyle: args.cursorStyle ?? "block",
         fontFamily: args.fontFamily,
         fontSize: args.fontSize,
-        fontWeight: 300,
-        fontWeightBold: 500,
+        fontWeight: DEFAULT_TERMINAL_FONT_WEIGHT,
+        fontWeightBold: DEFAULT_TERMINAL_FONT_WEIGHT_BOLD,
         lineHeight: Math.min(3, Math.max(1, args.lineHeight ?? 1)),
         minimumContrastRatio: 4.5,
         scrollback: 10_000,
