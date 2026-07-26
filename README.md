@@ -81,6 +81,7 @@ Recommended next steps:
 - [Install Guide](docs/install-guide.md) for the full macOS install and update flow
 - [Provider Sandbox and Approval Guide](docs/features/provider-sandbox-and-approval.md) for runtime safety and plan settings
 - [Local MCP User Guide](docs/features/local-mcp-user-guide.md) for same-machine automation setup
+- [Crane Connector Guide](docs/features/crane-connector.md) for pairing Crane with this Stave installation and approving issue runs locally
 - [Workspace Kickoff](docs/features/workspace-kickoff.md) for source matching, MCP resolution, and Information panel defaults
 
 ## For Developers And Contributors
