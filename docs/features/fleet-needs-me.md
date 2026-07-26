@@ -103,5 +103,4 @@ actionable pull request states in one urgency-ordered list.
 ## Related Docs
 
 - [Notifications](notifications.md)
-- [Workspace Pull Request Status](workspace-pr-status.md)
 - [Latest Turn Summary](workspace-latest-turn-summary.md)
