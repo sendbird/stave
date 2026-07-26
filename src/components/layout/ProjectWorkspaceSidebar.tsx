@@ -1,7 +1,6 @@
 import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
 import {
   AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   FolderOpen,
@@ -45,6 +44,7 @@ import {
   buildVisibleWorkspaceShortcutTargets,
   getWorkspaceShortcutLabel,
   getWorkspaceHoverActionVisibilityClasses,
+  getWorkspaceLeadingNeedKind,
   getWorkspaceRespondingCountVisibilityClasses,
   WORKSPACE_SHORTCUT_COUNT,
   type ProjectSidebarCollapsedProjectView,
@@ -435,6 +435,7 @@ const WorkspaceLeadingStatusIcon = memo(
   }) {
     const { respondingTaskCount, respondingToneClass, prStatus } =
       useWorkspaceSidebarActivityState(args.workspaceId);
+    const leadingNeedKind = getWorkspaceLeadingNeedKind(args.needKind);
 
     if (args.busy) {
       return (
@@ -442,18 +443,18 @@ const WorkspaceLeadingStatusIcon = memo(
       );
     }
 
-    if (args.needKind === "user-input") {
+    if (leadingNeedKind === "user-input") {
       return <UserRound className="size-4 text-warning" aria-hidden="true" />;
     }
-    if (args.needKind === "approval") {
+    if (leadingNeedKind === "approval") {
       return <ShieldCheck className="size-4 text-warning" aria-hidden="true" />;
     }
     if (
-      args.needKind === "run-failed" ||
-      args.needKind === "pr-changes-requested" ||
-      args.needKind === "pr-checks-failed" ||
-      args.needKind === "pr-merge-conflict" ||
-      args.needKind === "pr-behind-base"
+      leadingNeedKind === "run-failed" ||
+      leadingNeedKind === "pr-changes-requested" ||
+      leadingNeedKind === "pr-checks-failed" ||
+      leadingNeedKind === "pr-merge-conflict" ||
+      leadingNeedKind === "pr-behind-base"
     ) {
       return (
         <AlertTriangle
@@ -462,10 +463,7 @@ const WorkspaceLeadingStatusIcon = memo(
         />
       );
     }
-    if (args.needKind === "result-ready") {
-      return <CheckCircle2 className="size-4 text-info" aria-hidden="true" />;
-    }
-    if (args.needKind === "pr-ready-to-merge") {
+    if (leadingNeedKind === "pr-ready-to-merge") {
       return <GitMerge className="size-4 text-success" aria-hidden="true" />;
     }
 
@@ -1573,7 +1571,7 @@ export function ProjectWorkspaceSidebar(args: {
                           className={cn(
                             "flex h-10 w-10 items-center justify-center rounded-md border transition-colors",
                             entry.isActive
-                              ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+                              ? "border-primary/40 bg-primary/10 text-primary"
                               : "border-transparent bg-transparent text-muted-foreground hover:border-border/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                           )}
                           onClick={() =>

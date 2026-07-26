@@ -1,3 +1,4 @@
+import type { FleetNeedKind } from "@/lib/fleet/attention-projection";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { hasFleetTaskAttentionStatus } from "@/lib/fleet/task-status";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
@@ -36,6 +37,10 @@ const UNTITLED_TASK_FALLBACK = "Untitled task";
 
 const WORKSPACE_ROW_ACTION_REVEAL_CLASSES =
   "group-hover/workspace-row:pointer-events-auto group-hover/workspace-row:opacity-100 group-has-[:focus-visible]/workspace-row:pointer-events-auto group-has-[:focus-visible]/workspace-row:opacity-100";
+
+export function getWorkspaceLeadingNeedKind(needKind?: FleetNeedKind) {
+  return needKind === "result-ready" ? undefined : needKind;
+}
 
 export function getWorkspaceHoverActionVisibilityClasses(args: {
   isClosing: boolean;
