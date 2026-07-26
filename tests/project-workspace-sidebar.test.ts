@@ -5,10 +5,26 @@ import {
   buildWorkspaceHoverPreview,
   buildVisibleWorkspaceShortcutTargets,
   getWorkspaceHoverActionVisibilityClasses,
+  getWorkspaceLeadingNeedKind,
   getWorkspaceShortcutLabel,
   getWorkspaceRespondingCountVisibilityClasses,
   WORKSPACE_SHORTCUT_COUNT,
 } from "../src/components/layout/ProjectWorkspaceSidebar.utils";
+
+describe("getWorkspaceLeadingNeedKind", () => {
+  test("keeps completed results from replacing the workspace identity icon", () => {
+    expect(getWorkspaceLeadingNeedKind("result-ready")).toBeUndefined();
+  });
+
+  test("preserves actionable and failure attention states", () => {
+    expect(getWorkspaceLeadingNeedKind("user-input")).toBe("user-input");
+    expect(getWorkspaceLeadingNeedKind("approval")).toBe("approval");
+    expect(getWorkspaceLeadingNeedKind("run-failed")).toBe("run-failed");
+    expect(getWorkspaceLeadingNeedKind("pr-ready-to-merge")).toBe(
+      "pr-ready-to-merge",
+    );
+  });
+});
 
 describe("buildCollapsedWorkspaceEntries", () => {
   test("marks the first workspace of each later project for collapsed separators", () => {
