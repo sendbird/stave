@@ -27,7 +27,9 @@ import {
   type ReactNode,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { FleetNeedsInbox } from "@/components/layout/FleetNeedsInbox";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
 import {
   Badge,
   Button,
@@ -42,18 +44,15 @@ import {
   loadWorkspaceShellSummary,
   type WorkspaceShellSummary,
 } from "@/lib/db/workspaces.db";
+import type { FleetNeedItem } from "@/lib/fleet/attention-projection";
 import {
   classifyTaskStatus,
-  collectFleetAttentionTasks,
-  compareFleetAttentionTasks,
   compareFleetTaskStatus,
   deriveFleetLifecycleStatus,
   FLEET_LIFECYCLE_LABEL,
   groupFleetWorkspacesByLane,
-  hasFleetTaskAttentionStatus,
   isFleetTaskFilterActive,
   matchesFleetTaskFilter,
-  type FleetAttentionTask,
   type FleetDisplayStatus,
   type FleetLifecycleStatus,
   type FleetTaskFilter,
@@ -91,14 +90,6 @@ type FleetWorkspaceView = {
   branch?: string;
 };
 
-type FleetAttentionTarget = FleetAttentionTask & {
-  projectPath: string;
-  projectName: string;
-  workspaceId: string;
-  workspaceName: string;
-  taskTitle: string;
-};
-
 type FleetTaskRowView = {
   task: Task;
   status: FleetDisplayStatus;
@@ -133,7 +124,7 @@ const FLEET_FILTER_OPTIONS: Array<{
   label: string;
 }> = [
   { value: "all", label: "All" },
-  { value: "attention", label: "Needs attention" },
+  { value: "attention", label: "Needs me" },
   { value: "running", label: "Running" },
   { value: "error", label: "Error" },
   { value: "idle", label: "Idle" },
@@ -517,10 +508,6 @@ function FleetWorkspaceSection(args: {
     workspaceId: string;
     taskId: string;
   }) => void;
-  onAttentionTargetsChange: (
-    workspaceId: string,
-    targets: FleetAttentionTarget[] | null,
-  ) => void;
   onLifecycleChange: (
     workspaceId: string,
     status: FleetLifecycleStatus | null,
@@ -713,50 +700,6 @@ function FleetWorkspaceSection(args: {
       rows,
     ],
   );
-  const attentionTargets = useMemo(() => {
-    if (!taskState.hasRuntimeState) {
-      return [];
-    }
-
-    const attentionByTaskId = new Map(
-      collectFleetAttentionTasks({
-        tasks: taskState.tasks,
-        messagesByTask: taskState.messagesByTask,
-        activeTurnIdsByTask: taskState.activeTurnIdsByTask,
-        providerTurnActivityByTask,
-      }).map((task) => [task.taskId, task] as const),
-    );
-
-    return rows.flatMap((row) => {
-      const attention = attentionByTaskId.get(row.task.id);
-      if (
-        !attention ||
-        row.status === "unknown" ||
-        !hasFleetTaskAttentionStatus(row.status)
-      ) {
-        return [];
-      }
-      return [
-        {
-          ...attention,
-          projectPath: args.projectPath,
-          projectName: args.projectName,
-          workspaceId: args.workspace.id,
-          workspaceName: displayWorkspaceName,
-          taskTitle: formatTaskTitle(row.task),
-        } satisfies FleetAttentionTarget,
-      ];
-    });
-  }, [
-    args.projectName,
-    args.projectPath,
-    args.workspace.id,
-    displayWorkspaceName,
-    providerTurnActivityByTask,
-    rows,
-    taskState,
-  ]);
-
   const todoProgress = useMemo(() => {
     const total = activeTodos.length;
     const completed = activeTodos.filter(
@@ -798,18 +741,6 @@ function FleetWorkspaceSection(args: {
       isVisible,
     ],
   );
-
-  useEffect(() => {
-    args.onAttentionTargetsChange(
-      workspaceKey,
-      taskState.hasRuntimeState ? attentionTargets : null,
-    );
-  }, [
-    args.onAttentionTargetsChange,
-    attentionTargets,
-    taskState.hasRuntimeState,
-    workspaceKey,
-  ]);
 
   useEffect(() => {
     args.onLifecycleChange(workspaceKey, lifecycle);
@@ -993,10 +924,32 @@ function FleetLaneHeader(args: {
 
 export function FleetView() {
   const projects = useFleetProjects();
-  const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
-  const closeFleetView = useAppStore((state) => state.closeFleetView);
-  const [attentionTargetsByWorkspaceId, setAttentionTargetsByWorkspaceId] =
-    useState<Record<string, FleetAttentionTarget[]>>({});
+  const [
+    focusTaskAttention,
+    closeFleetView,
+    openProject,
+    switchWorkspace,
+    openNotificationContext,
+    resolveNotificationApproval,
+    markNotificationRead,
+  ] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.focusTaskAttention,
+          state.closeFleetView,
+          state.openProject,
+          state.switchWorkspace,
+          state.openNotificationContext,
+          state.resolveNotificationApproval,
+          state.markNotificationRead,
+        ] as const,
+    ),
+  );
+  const {
+    items: attentionTargets,
+    coveredWorkspaceIds,
+  } = useFleetAttentionProjection();
   const [lifecycleByWorkspaceId, setLifecycleByWorkspaceId] = useState<
     Record<string, FleetLifecycleStatus>
   >({});
@@ -1012,12 +965,13 @@ export function FleetView() {
   const [collapsedLanes, setCollapsedLanes] = useState<FleetLaneCollapseState>(
     {},
   );
-  const [statusFilter, setStatusFilter] = useState<FleetTaskFilter>("all");
+  const [statusFilter, setStatusFilter] =
+    useState<FleetTaskFilter>("attention");
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedTaskKey, setFocusedTaskKey] = useState<string | null>(null);
-  const [selectedAttentionKey, setSelectedAttentionKey] = useState<
-    string | null
-  >(null);
+  const [selectedAttentionKey, setSelectedAttentionKey] =
+    useState<string | null>(null);
+  const [busyNeedId, setBusyNeedId] = useState<string | null>(null);
   const fleetRootRef = useRef<HTMLDivElement>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
 
@@ -1040,67 +994,14 @@ export function FleetView() {
     [allWorkspaceKeys],
   );
 
-  const attentionTargets = useMemo(() => {
-    const targets = allWorkspaceKeys.flatMap(
-      (workspaceKey) => attentionTargetsByWorkspaceId[workspaceKey] ?? [],
-    );
-    return targets.sort((left, right) => {
-      const statusOrder = compareFleetAttentionTasks(left, right);
-      if (statusOrder !== 0) {
-        return statusOrder;
-      }
-      return `${left.projectName}/${left.workspaceName}/${left.taskTitle}`.localeCompare(
-        `${right.projectName}/${right.workspaceName}/${right.taskTitle}`,
-      );
-    });
-  }, [allWorkspaceKeys, attentionTargetsByWorkspaceId]);
-
   useEffect(() => {
     if (
       selectedAttentionKey &&
-      !attentionTargets.some(
-        (target) =>
-          getFleetTaskKey(
-            target.projectPath,
-            target.workspaceId,
-            target.taskId,
-          ) === selectedAttentionKey,
-      )
+      !attentionTargets.some((target) => target.id === selectedAttentionKey)
     ) {
       setSelectedAttentionKey(null);
     }
   }, [attentionTargets, selectedAttentionKey]);
-
-  const handleAttentionTargetsChange = useCallback(
-    (workspaceId: string, targets: FleetAttentionTarget[] | null) => {
-      setAttentionTargetsByWorkspaceId((current) => {
-        const existing = current[workspaceId];
-        if (targets === null) {
-          if (!existing) {
-            return current;
-          }
-          const next = { ...current };
-          delete next[workspaceId];
-          return next;
-        }
-        const isEqual =
-          existing !== undefined &&
-          existing.length === targets.length &&
-          existing.every(
-            (target, index) =>
-              target.taskId === targets[index]?.taskId &&
-              target.status === targets[index]?.status &&
-              target.updatedAt === targets[index]?.updatedAt,
-          );
-        if (isEqual) {
-          return current;
-        }
-
-        return { ...current, [workspaceId]: targets };
-      });
-    },
-    [],
-  );
 
   const handleLifecycleChange = useCallback(
     (workspaceId: string, status: FleetLifecycleStatus | null) => {
@@ -1226,14 +1127,6 @@ export function FleetView() {
   }, [focusedTaskKey, visibleTaskKeys]);
 
   useEffect(() => {
-    setAttentionTargetsByWorkspaceId((current) => {
-      const next = Object.fromEntries(
-        Object.entries(current).filter(([key]) => allWorkspaceKeySet.has(key)),
-      );
-      return Object.keys(next).length === Object.keys(current).length
-        ? current
-        : next;
-    });
     setLifecycleByWorkspaceId((current) => {
       const next = Object.fromEntries(
         Object.entries(current).filter(([key]) => allWorkspaceKeySet.has(key)),
@@ -1280,30 +1173,87 @@ export function FleetView() {
   );
 
   const openAttentionTarget = useCallback(
-    (target: FleetAttentionTarget) => {
-      setSelectedAttentionKey(
-        getFleetTaskKey(target.projectPath, target.workspaceId, target.taskId),
-      );
-      void focusTaskAttention({
-        projectPath: target.projectPath,
-        workspaceId: target.workspaceId,
-        taskId: target.taskId,
+    (target: FleetNeedItem) => {
+      setSelectedAttentionKey(target.id);
+      setBusyNeedId(target.id);
+      void (async () => {
+        if (target.notificationId) {
+          await openNotificationContext({
+            notificationId: target.notificationId,
+            targetSurface: "task",
+          });
+          return;
+        }
+        if (target.taskId) {
+          await focusTaskAttention({
+            projectPath: target.projectPath,
+            workspaceId: target.workspaceId,
+            taskId: target.taskId,
+          });
+          return;
+        }
+        if (useAppStore.getState().projectPath !== target.projectPath) {
+          await openProject({ projectPath: target.projectPath });
+        }
+        if (useAppStore.getState().activeWorkspaceId !== target.workspaceId) {
+          await switchWorkspace({ workspaceId: target.workspaceId });
+        }
+      })().finally(() => {
+        setBusyNeedId((current) => (current === target.id ? null : current));
       });
     },
-    [focusTaskAttention],
+    [
+      focusTaskAttention,
+      openNotificationContext,
+      openProject,
+      switchWorkspace,
+    ],
   );
+
+  const resolveAttentionApproval = useCallback(
+    (target: FleetNeedItem, approved: boolean) => {
+      if (!target.notificationId) {
+        openAttentionTarget(target);
+        return;
+      }
+      setSelectedAttentionKey(target.id);
+      setBusyNeedId(target.id);
+      void resolveNotificationApproval({
+        notificationId: target.notificationId,
+        approved,
+      }).finally(() => {
+        setBusyNeedId((current) => (current === target.id ? null : current));
+      });
+    },
+    [openAttentionTarget, resolveNotificationApproval],
+  );
+
+  const markAttentionRead = useCallback(
+    (target: FleetNeedItem) => {
+      if (!target.notificationId) {
+        return;
+      }
+      setBusyNeedId(target.id);
+      void markNotificationRead({ id: target.notificationId }).finally(() => {
+        setBusyNeedId((current) => (current === target.id ? null : current));
+      });
+    },
+    [markNotificationRead],
+  );
+
+  const openAttentionPr = useCallback((target: FleetNeedItem) => {
+    if (!target.prUrl) {
+      return;
+    }
+    void window.api?.shell?.openExternal?.({ url: target.prUrl });
+  }, []);
 
   const openNextAttentionTarget = useCallback(() => {
     if (attentionTargets.length === 0) {
       return;
     }
     const selectedIndex = attentionTargets.findIndex(
-      (target) =>
-        getFleetTaskKey(
-          target.projectPath,
-          target.workspaceId,
-          target.taskId,
-        ) === selectedAttentionKey,
+      (target) => target.id === selectedAttentionKey,
     );
     const nextTarget =
       attentionTargets[
@@ -1360,9 +1310,14 @@ export function FleetView() {
     (count, project) => count + project.workspaces.length,
     0,
   );
-  const attentionCoverageCount = allWorkspaceKeys.filter(
-    (workspaceKey) => workspaceKey in attentionTargetsByWorkspaceId,
-  ).length;
+  const attentionCoverageCount = projects.reduce(
+    (count, project) =>
+      count +
+      project.workspaces.filter((workspace) =>
+        coveredWorkspaceIds.has(workspace.id),
+      ).length,
+    0,
+  );
   const uninspectedWorkspaceCount = Math.max(
     0,
     totalWorkspaceCount - attentionCoverageCount,
@@ -1389,7 +1344,10 @@ export function FleetView() {
     totalWorkspaceCount - Object.keys(lifecycleByWorkspaceId).length,
   );
   const isFilterEmpty =
-    isFilterActive && filterStateSettled && matchedTaskCount === 0;
+    isFilterActive &&
+    filterStateSettled &&
+    matchedTaskCount === 0 &&
+    !(statusFilter === "attention" && attentionTargets.length > 0);
 
   return (
     <div
@@ -1405,9 +1363,10 @@ export function FleetView() {
             </h1>
           </div>
           <p className="mt-1 truncate text-xs text-muted-foreground">
-            Action inbox for blockers, active work, and review-ready results.
+            Action inbox for questions, approvals, failed runs, results, and PR
+            blockers.
             {totalWorkspaceCount > 0
-              ? ` ${attentionCoverageCount}/${totalWorkspaceCount} live-inspected.`
+              ? ` ${attentionCoverageCount}/${totalWorkspaceCount} covered by live or durable signals.`
               : ""}
           </p>
         </div>
@@ -1428,7 +1387,7 @@ export function FleetView() {
               <CircleDashed className="size-4" aria-hidden="true" />
             )}
             {attentionTargets.length > 0
-              ? "Open next blocker"
+              ? "Open next item"
               : attentionCoverageComplete
                 ? "All clear"
                 : `${uninspectedWorkspaceCount} not inspected`}
@@ -1470,14 +1429,14 @@ export function FleetView() {
           }
         >
           <span className="block text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-            Needs you
+            Needs me
           </span>
           <span className="mt-1 flex items-baseline gap-1.5">
             <span className="text-xl font-semibold tabular-nums text-warning">
               {attentionTargets.length}
             </span>
             <span className="truncate text-[11px] text-muted-foreground">
-              {attentionCoverageComplete ? "blocker" : "known blocker"}
+              {attentionCoverageComplete ? "item" : "known item"}
               {attentionTargets.length === 1 ? "" : "s"}
             </span>
           </span>
@@ -1485,7 +1444,7 @@ export function FleetView() {
         {(
           [
             ["in-progress", "In motion", "text-primary"],
-            ["in-review", "Ready to review", "text-info"],
+            ["in-review", "In review", "text-info"],
             ["backlog", "Backlog", "text-muted-foreground"],
             ["done", "Done", "text-success"],
           ] as const
@@ -1585,56 +1544,15 @@ export function FleetView() {
         ) : null}
       </div>
 
-      {attentionTargets.length > 0 ? (
-        <section
-          className="border-b border-warning/20 bg-[linear-gradient(90deg,color-mix(in_oklch,var(--warning)_8%,transparent),transparent_70%)] px-4 py-2.5"
-          aria-label="Tasks needing attention"
-          aria-live="polite"
-        >
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-warning">
-              {attentionTargets.length} task
-              {attentionTargets.length === 1 ? "" : "s"} need attention
-            </p>
-            <span className="text-[11px] text-muted-foreground">
-              Ordered by urgency · press N for next
-            </span>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-0.5" role="list">
-            {attentionTargets.map((target) => {
-              const targetKey = getFleetTaskKey(
-                target.projectPath,
-                target.workspaceId,
-                target.taskId,
-              );
-              return (
-                <div key={targetKey} role="listitem">
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex min-w-52 max-w-xs shrink-0 items-center gap-2 border-l-2 border-warning/40 bg-background/35 px-2.5 py-2 text-left transition-[background-color,border-color,transform] duration-150 hover:translate-x-0.5 hover:border-warning hover:bg-warning/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-                      selectedAttentionKey === targetKey &&
-                        "border-warning bg-warning/10",
-                    )}
-                    aria-label={`Open ${target.taskTitle}, ${formatFleetStatusLabel(target.status)}, ${target.workspaceName} in ${target.projectName}`}
-                    onClick={() => openAttentionTarget(target)}
-                  >
-                    <FleetStatusBadge status={target.status} />
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-medium text-foreground">
-                        {target.taskTitle}
-                      </span>
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {target.workspaceName} · {target.projectName}
-                      </span>
-                    </span>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
+      <FleetNeedsInbox
+        items={attentionTargets}
+        selectedNeedId={selectedAttentionKey}
+        busyNeedId={busyNeedId}
+        onOpen={openAttentionTarget}
+        onResolveApproval={resolveAttentionApproval}
+        onMarkRead={markAttentionRead}
+        onOpenPr={openAttentionPr}
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {projects.length === 0 ? (
@@ -1821,9 +1739,6 @@ export function FleetView() {
                                   onMoveFocus={handleMoveFocus}
                                   onToggleWorkspace={toggleWorkspace}
                                   onOpenTask={handleOpenTask}
-                                  onAttentionTargetsChange={
-                                    handleAttentionTargetsChange
-                                  }
                                   onLifecycleChange={handleLifecycleChange}
                                   onVisibilityChange={handleVisibilityChange}
                                 />

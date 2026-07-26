@@ -1,9 +1,12 @@
 import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
 import {
+  AlertTriangle,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   FolderOpen,
   GitBranch,
+  GitMerge,
   LayoutGrid,
   LoaderCircle,
   MoreVertical,
@@ -15,6 +18,8 @@ import {
   Rows3,
   Search,
   Settings,
+  ShieldCheck,
+  UserRound,
   X,
 } from "lucide-react";
 import {
@@ -51,6 +56,7 @@ import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { StaveAppMenuButton } from "@/components/layout/StaveAppMenuButton";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
+import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
 import { ProjectIdentityMark } from "@/components/layout/project-appearance";
@@ -90,6 +96,7 @@ import {
   summarizeFleetRespondingTasks,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
+import type { FleetNeedKind } from "@/lib/fleet/attention-projection";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
@@ -424,6 +431,7 @@ const WorkspaceLeadingStatusIcon = memo(
     workspaceName: string;
     isDefault: boolean;
     busy: boolean;
+    needKind?: FleetNeedKind;
   }) {
     const { respondingTaskCount, respondingToneClass, prStatus } =
       useWorkspaceSidebarActivityState(args.workspaceId);
@@ -432,6 +440,33 @@ const WorkspaceLeadingStatusIcon = memo(
       return (
         <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
       );
+    }
+
+    if (args.needKind === "user-input") {
+      return <UserRound className="size-4 text-warning" aria-hidden="true" />;
+    }
+    if (args.needKind === "approval") {
+      return <ShieldCheck className="size-4 text-warning" aria-hidden="true" />;
+    }
+    if (
+      args.needKind === "run-failed" ||
+      args.needKind === "pr-changes-requested" ||
+      args.needKind === "pr-checks-failed" ||
+      args.needKind === "pr-merge-conflict" ||
+      args.needKind === "pr-behind-base"
+    ) {
+      return (
+        <AlertTriangle
+          className="size-4 text-destructive"
+          aria-hidden="true"
+        />
+      );
+    }
+    if (args.needKind === "result-ready") {
+      return <CheckCircle2 className="size-4 text-info" aria-hidden="true" />;
+    }
+    if (args.needKind === "pr-ready-to-merge") {
+      return <GitMerge className="size-4 text-success" aria-hidden="true" />;
     }
 
     if (respondingTaskCount > 0) {
@@ -1014,6 +1049,7 @@ export function ProjectWorkspaceSidebar(args: {
       ] as const;
     }),
   );
+  const { highestNeedByWorkspaceId } = useFleetAttentionProjection();
 
   const projects = useMemo(() => {
     const rememberedCurrentProject = currentProjectPath
@@ -1159,6 +1195,12 @@ export function ProjectWorkspaceSidebar(args: {
             projects,
             recentProjectLastOpenedAtByPath,
             statusByWorkspaceId: workspaceFleetStatusById,
+            attentionPriorityByWorkspaceId: Object.fromEntries(
+              Object.entries(highestNeedByWorkspaceId).flatMap(
+                ([workspaceId, need]) =>
+                  need ? [[workspaceId, need.priority]] : [],
+              ),
+            ),
             activeWorkspaceId,
             limit: sidebarActiveWorkspaceLimit,
           })
@@ -1169,6 +1211,7 @@ export function ProjectWorkspaceSidebar(args: {
       recentProjectLastOpenedAtByPath,
       sidebarActiveWorkspaceLimit,
       sidebarShowActiveWorkspaces,
+      highestNeedByWorkspaceId,
       workspaceFleetStatusById,
     ],
   );
@@ -1546,6 +1589,9 @@ export function ProjectWorkspaceSidebar(args: {
                             workspaceName={entry.workspaceName}
                             isDefault={entry.isDefault}
                             busy={workspaceBusy}
+                            needKind={
+                              highestNeedByWorkspaceId[entry.workspaceId]?.kind
+                            }
                           />
                         </button>
                       </WorkspaceHoverPreviewTooltip>
@@ -1612,6 +1658,9 @@ export function ProjectWorkspaceSidebar(args: {
                             workspaceName={entry.workspaceName}
                             isDefault={entry.isDefault}
                             busy={false}
+                            needKind={
+                              highestNeedByWorkspaceId[entry.workspaceId]?.kind
+                            }
                           />
                           <span className="min-w-0 flex-1 truncate text-left">
                             {entry.workspaceName}
@@ -2230,6 +2279,11 @@ export function ProjectWorkspaceSidebar(args: {
                                                           workspace.isDefault
                                                         }
                                                         busy={workspaceBusy}
+                                                        needKind={
+                                                          highestNeedByWorkspaceId[
+                                                            workspace.id
+                                                          ]?.kind
+                                                        }
                                                       />
                                                     </span>
                                                     {isExpandedWorkspaceItem ? (

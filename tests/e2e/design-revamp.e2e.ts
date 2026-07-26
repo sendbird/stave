@@ -292,12 +292,12 @@ test("Fleet View exposes its operating model at a glance", async ({
   await expect(page.getByRole("heading", { name: "Fleet View" })).toBeVisible();
   await expect(
     page.getByText(
-      /Action inbox for blockers, active work, and review-ready results\./,
+      /Action inbox for questions, approvals, failed runs, results, and PR blockers\./,
     ),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Fleet summary" }),
-  ).toContainText("Needs you");
+  ).toContainText("Needs me");
   await expect(
     page.getByRole("region", { name: "Fleet summary" }),
   ).toContainText("In motion");

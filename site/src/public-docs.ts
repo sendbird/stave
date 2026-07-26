@@ -117,6 +117,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Track approvals, task completions, and follow-up work across workspaces from the top-bar bell.",
         previewImage: "screenshots/notifications.png",
       },
+      {
+        routePath: "fleet-needs-me",
+        sourcePath: "docs/features/fleet-needs-me.md",
+        title: "Fleet Needs Me",
+        description:
+          "Work through questions, approvals, failed runs, results, and pull request blockers across every workspace.",
+      },
     ],
   },
   {

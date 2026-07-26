@@ -73,7 +73,7 @@ Recommended next steps:
 - scheduled Claude and Codex routines with per-run results, repository selection, and reusable Information context
 - git worktree-aware project and workspace management
 - editable workspace kickoff proposals from external sources and prompts
-- attachments, notifications, skill selection, custom model shortcuts, and theme presets
+- Fleet action inbox, notifications, attachments, skill selection, custom model shortcuts, and theme presets
 - local-only MCP access for same-machine automation and tool-driven workflows
 
 ## Documentation
