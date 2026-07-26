@@ -96,6 +96,10 @@ import {
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import {
+  normalizeAdvisorTarget,
+  normalizePersistedAdvisorTarget,
+} from "@/lib/providers/advisor";
+import {
   applyModelRuntimePreference,
   mergeModelRuntimePreference,
   mergeModelRuntimePreferenceSettings,
@@ -113,35 +117,26 @@ import {
   normalizeModelShortcutEfforts,
   normalizeModelShortcutKeys,
 } from "@/lib/providers/model-shortcuts";
-import {
-  normalizeAppShortcutKeys,
-} from "@/lib/app-shortcuts";
-import {
-  normalizePromptCommentShortcut,
-} from "@/lib/prompt-comment-shortcuts";
+import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
+import { normalizePromptCommentShortcut } from "@/lib/prompt-comment-shortcuts";
 import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
   normalizeVisualCommentShortcut,
 } from "@/lib/visual-comment-shortcuts";
-import {
-  normalizeSteerQueueEnterAction,
-} from "@/lib/steer-queue-shortcuts";
-import {
-  normalizeResponseStylePrompt,
-} from "@/lib/providers/prompt-defaults";
+import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
+import { normalizeResponseStylePrompt } from "@/lib/providers/prompt-defaults";
 import {
   collectIntentContext,
   deriveIntentComplianceStatus,
   normalizePrePrReviewProvider,
   type TurnIntentComplianceResult,
 } from "@/lib/source-control-review";
-import {
-  normalizeTrustedToolEntries,
-} from "@/lib/providers/trusted-tools";
+import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import {
   buildSuggestTaskNamePayload,
   canTakeOverTask,
   getArchiveFallbackTaskId,
+  isExternallyManagedTask,
   isTaskArchived,
   isTaskManaged,
   normalizeSuggestedTaskTitle,
@@ -211,9 +206,7 @@ import {
   detectWorkspaceResourcesInText,
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
-import {
-  normalizeWorkspaceInformationSectionVisibility,
-} from "@/lib/workspace-information-sections";
+import { normalizeWorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import {
   buildWorkspaceTurnSummaryPrompt,
@@ -247,7 +240,7 @@ import {
   type StartCompareRun,
   type StartCompareRunResult,
 } from "@/lib/compare-runs";
-import { launchReadyCompareJudgesFromStore } from "@/store/compare-run-judge";
+import { cancelCompareJudgeSecondaryRun, launchReadyCompareJudgesFromStore } from "@/store/compare-run-judge";
 import { launchCompareRunVariants } from "@/store/compare-run-start";
 import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import {
@@ -449,6 +442,7 @@ import {
   findTrustedApprovalResponses,
   showNotificationToast,
 } from "@/store/app-notification-builders";
+import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import {
   DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
   SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
@@ -1765,10 +1759,7 @@ function moveItemById<T extends { id: string }>(args: {
   return nextItems;
 }
 
-function isManagedTaskReadOnly(args: {
-  state: Pick<AppState, "tasks">;
-  taskId: string;
-}) {
+function isManagedTaskReadOnly(args: { state: Pick<AppState, "tasks">; taskId: string }) {
   return isTaskManaged(findTaskById(args.state, args.taskId));
 }
 
@@ -6579,6 +6570,11 @@ export const useAppStore = create<AppState>()(
               : {
                   trustedTools: normalizeTrustedToolEntries(patch.trustedTools),
                 }),
+            ...(patch.advisorTarget === undefined
+              ? {}
+              : {
+                  advisorTarget: normalizeAdvisorTarget(patch.advisorTarget),
+                }),
             ...(patch.reasoningExpansionMode === undefined
               ? {}
               : {
@@ -6927,6 +6923,7 @@ export const useAppStore = create<AppState>()(
             id: compareRunId,
             seedPrompt: normalizedSeedPrompt,
             baseWorkspaceId,
+            baseTaskId: stateBefore.activeTaskId ?? undefined,
             baseBranch,
             variants: normalizedVariants,
             reviewCriteria: normalizeCompareReviewCriteria(reviewCriteria),
@@ -7130,12 +7127,6 @@ export const useAppStore = create<AppState>()(
             return { ok: true, compareRunId };
           }
 
-          for (const variant of run.variants) {
-            if (variant.workspaceId && variant.status !== "discarded") {
-              await get().closeWorkspace({ workspaceId: variant.workspaceId });
-            }
-          }
-
           set((state) => {
             const currentRun = state.compareRunsById[compareRunId];
             if (!currentRun) {
@@ -7156,6 +7147,14 @@ export const useAppStore = create<AppState>()(
               },
             };
           });
+
+          await cancelCompareJudgeSecondaryRun({ run });
+
+          for (const variant of run.variants) {
+            if (variant.workspaceId && variant.status !== "discarded") {
+              await get().closeWorkspace({ workspaceId: variant.workspaceId });
+            }
+          }
 
           return { ok: true, compareRunId };
         },
@@ -10316,6 +10315,7 @@ export const useAppStore = create<AppState>()(
             const providerRuntimeOptions = buildProviderRuntimeOptions({
               provider,
               model: activeModel,
+              includeAdvisor: true,
               settings: {
                 ...modelRuntimeSettings,
                 ...resolvedPromptDraftRuntimeState,
@@ -10978,9 +10978,10 @@ export const useAppStore = create<AppState>()(
         },
         resolveApproval: ({ taskId, messageId, approved }) => {
           const stateBefore = get();
-          if (isManagedTaskReadOnly({ state: stateBefore, taskId })) {
+          if (isExternallyManagedTask(findTaskById(stateBefore, taskId))) {
             return;
           }
+          const respondThroughManagedHost = isTaskManaged(findTaskById(stateBefore, taskId));
           const runtimeTarget = resolveTaskRuntimeTarget({
             state: stateBefore,
             taskId,
@@ -11146,7 +11147,7 @@ export const useAppStore = create<AppState>()(
             }
           };
 
-          if (activeTurnId && approvalPart) {
+          if (activeTurnId && approvalPart && !respondThroughManagedHost) {
             const respondApproval = window.api?.provider?.respondApproval;
             if (respondApproval) {
               void respondApproval({
@@ -11173,7 +11174,7 @@ export const useAppStore = create<AppState>()(
           }
 
           if (
-            !activeTurnId &&
+            (respondThroughManagedHost || !activeTurnId) &&
             approvalPart &&
             workspaceId &&
             window.api?.localMcp?.respondApproval
@@ -11221,9 +11222,10 @@ export const useAppStore = create<AppState>()(
         },
         resolveUserInput: ({ taskId, messageId, answers, denied }) => {
           const stateBefore = get();
-          if (isManagedTaskReadOnly({ state: stateBefore, taskId })) {
+          if (isExternallyManagedTask(findTaskById(stateBefore, taskId))) {
             return;
           }
+          const respondThroughManagedHost = isTaskManaged(findTaskById(stateBefore, taskId));
           const runtimeTarget = resolveTaskRuntimeTarget({
             state: stateBefore,
             taskId,
@@ -11391,7 +11393,7 @@ export const useAppStore = create<AppState>()(
             }
           };
 
-          if (activeTurnId && userInputPart) {
+          if (activeTurnId && userInputPart && !respondThroughManagedHost) {
             const respondUserInput = window.api?.provider?.respondUserInput;
             if (respondUserInput) {
               void respondUserInput({
@@ -11419,7 +11421,7 @@ export const useAppStore = create<AppState>()(
           }
 
           if (
-            !activeTurnId &&
+            (respondThroughManagedHost || !activeTurnId) &&
             userInputPart &&
             workspaceId &&
             window.api?.localMcp?.respondUserInput
@@ -12252,6 +12254,7 @@ export const useAppStore = create<AppState>()(
         // Migrate legacy fastModeVisible → per-provider fields.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const raw = state.settings as any;
+        state.settings.craneConnector = normalizeCraneConnectorSettings(raw.craneConnector);
         state.compareRunsById = normalizePersistedCompareRuns({
           runsById: state.compareRunsById,
           now: buildRecentTimestamp(),
@@ -12523,9 +12526,9 @@ export const useAppStore = create<AppState>()(
         state.settings.modelClaude = upgradeSettingsScopedClaudeModel({
           model: state.settings.modelClaude,
         });
-        state.settings.claudeAdvisorModel = upgradeSettingsScopedClaudeModel({
-          model: state.settings.claudeAdvisorModel,
-        });
+        state.settings.advisorTarget =
+          normalizePersistedAdvisorTarget(persistedSettings);
+        delete raw.claudeAdvisorModel;
         state.settings.providerTimeoutMs = normalizeProviderTimeoutMs({
           value: state.settings.providerTimeoutMs,
         });

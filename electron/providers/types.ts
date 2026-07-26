@@ -29,6 +29,7 @@ export interface ProviderCommandCatalogResult {
 
 export interface StreamTurnArgs {
   turnId?: string;
+  executionPolicy?: "secondary-read-only";
   providerId: ProviderId;
   prompt: string;
   conversation?: CanonicalConversationRequest;

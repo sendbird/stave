@@ -447,4 +447,24 @@ describe("buildSidebarActiveWorkspaceEntries", () => {
     expect(entries.some((entry) => entry.workspaceId === "ws-idle")).toBe(false);
     expect(entries.length).toBeLessThanOrEqual(2);
   });
+
+  test("surfaces cold workspaces with durable Fleet needs", () => {
+    const entries = buildSidebarActiveWorkspaceEntries({
+      projects: baseProjects,
+      recentProjectLastOpenedAtByPath: {},
+      statusByWorkspaceId: {},
+      attentionPriorityByWorkspaceId: {
+        "ws-idle": 1,
+        "ws-b-recent": 4,
+      },
+      activeWorkspaceId: "ws-active",
+    });
+
+    expect(entries.map((entry) => entry.workspaceId)).toEqual([
+      "ws-active",
+      "ws-idle",
+      "ws-b-recent",
+      "ws-attention",
+    ]);
+  });
 });

@@ -1,11 +1,18 @@
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
+import { CraneDispatchApprovalDialog } from "@/components/layout/CraneDispatchApprovalDialog";
 import { presentLensSession } from "@/components/panes/pane-host-controller";
 import { TooltipProvider } from "@/components/ui";
 import type { LensSecurityConfig } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
 import { toast } from "sonner";
+import {
+  applyCraneDispatchJobUpdate,
+  enqueueCraneDispatchApproval,
+  setCraneConnectorClientStatus,
+} from "@/lib/crane-connector/client-state";
+import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 
 function buildLensSecurityConfig(): LensSecurityConfig {
   const settings = useAppStore.getState().settings;
@@ -22,6 +29,102 @@ function pushLensSecurityConfig(): void {
 }
 
 export default function App() {
+  useEffect(() => {
+    const connectorApi = window.api?.craneConnector;
+    if (!connectorApi) {
+      return;
+    }
+    const unsubscribeStatus = connectorApi.subscribeStatus?.(
+      setCraneConnectorClientStatus,
+    );
+    const unsubscribeApproval =
+      connectorApi.subscribeApprovalRequests?.(
+        enqueueCraneDispatchApproval,
+      );
+    const unsubscribeJobUpdate = connectorApi.subscribeJobUpdates?.(
+      (update) => {
+        applyCraneDispatchJobUpdate(update);
+        if (
+          update.workspaceId &&
+          update.taskId &&
+          ["completed", "failed"].includes(update.state)
+        ) {
+          const state = useAppStore.getState();
+          if (
+            state.activeWorkspaceId === update.workspaceId &&
+            state.activeTaskId === update.taskId
+          ) {
+            void state.refreshActiveManagedTask().catch(() => undefined);
+          }
+        }
+      },
+    );
+
+    const pushConfig = (
+      settings: ReturnType<typeof useAppStore.getState>["settings"],
+    ) => {
+      const connector = normalizeCraneConnectorSettings(
+        settings.craneConnector,
+      );
+      if (!connector.enabled) {
+        return;
+      }
+      void connectorApi
+        .configure?.({
+          enabled: true,
+          baseUrl: connector.baseUrl,
+          pollIntervalSeconds: connector.pollIntervalSeconds,
+        })
+        .then((result) => {
+          if (result) {
+            setCraneConnectorClientStatus(result.status);
+          }
+        })
+        .catch(() => undefined);
+    };
+
+    const initialSettings = useAppStore.getState().settings;
+    pushConfig(initialSettings);
+    const unsubscribeStore = useAppStore.subscribe((state, previous) => {
+      const current = normalizeCraneConnectorSettings(
+        state.settings.craneConnector,
+      );
+      const prior = normalizeCraneConnectorSettings(
+        previous.settings.craneConnector,
+      );
+      if (
+        current.enabled === prior.enabled &&
+        current.baseUrl === prior.baseUrl &&
+        current.pollIntervalSeconds === prior.pollIntervalSeconds
+      ) {
+        return;
+      }
+      if (!current.enabled) {
+        void connectorApi
+          .configure?.({
+            enabled: false,
+            baseUrl: current.baseUrl,
+            pollIntervalSeconds: current.pollIntervalSeconds,
+          })
+          .then((result) => {
+            if (result) {
+              setCraneConnectorClientStatus(result.status);
+            }
+          })
+          .catch(() => undefined);
+        return;
+      }
+      pushConfig(state.settings);
+    });
+
+    return () => {
+      unsubscribeStatus?.();
+      unsubscribeApproval?.();
+      unsubscribeJobUpdate?.();
+      unsubscribeStore();
+    };
+  }, []);
+
   useEffect(() => {
     const unsubscribe = window.api?.lens?.subscribePresentationRequests?.(
       (payload) => {
@@ -205,6 +308,7 @@ export default function App() {
     <TooltipProvider>
       <AppShell />
       <LensCdpApprovalDialog />
+      <CraneDispatchApprovalDialog />
     </TooltipProvider>
   );
 }

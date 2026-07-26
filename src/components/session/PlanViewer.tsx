@@ -16,8 +16,8 @@ import { Button, Textarea } from "@/components/ui";
 import { MessageResponse } from "@/components/ai-elements";
 import {
   getTaskControlOwner,
+  isExternallyManagedTask,
   isTaskArchived,
-  isTaskManaged,
 } from "@/lib/tasks";
 import { APPROVE_PLAN_MESSAGE } from "@/lib/providers/plan-response";
 import { copyTextToClipboard } from "@/lib/clipboard";
@@ -115,7 +115,7 @@ export function PlanViewer() {
     taskRuntimeState.claudePermissionModeBeforePlan;
   const effectiveCodexPlanMode = taskRuntimeState.codexPlanMode;
   const providerLabel = activeProvider === "codex" ? "Codex" : "Claude";
-  const isManagedTask = isTaskManaged(activeTask);
+  const isManagedTask = isExternallyManagedTask(activeTask);
   const managedNotice = isManagedTask
     ? `Plan responses are managed by ${getTaskControlOwner(activeTask) === "external" ? "an external controller" : "Stave"}. Take over to reply here.`
     : null;

@@ -13,9 +13,21 @@ import type {
   BridgeEvent,
   ProviderResponderResult,
 } from "../electron/providers/types";
-import type { ProviderRuntimeOptions } from "../src/lib/providers/provider.types";
+import type {
+  CanonicalConversationRequest,
+  ProviderRuntimeOptions,
+} from "../src/lib/providers/provider.types";
 import { streamClaudeWithSdk } from "../electron/providers/claude-sdk-runtime";
 import { streamCodexWithAppServer } from "../electron/providers/codex-app-server-runtime";
+import {
+  appendAdvisorAdvice,
+  withoutAdvisorTarget,
+} from "../src/lib/providers/advisor";
+import {
+  createAdvisorUsageMerger,
+  formatAdvisorSystemTrace,
+  runAdvisorPreflight,
+} from "../electron/providers/advisor-runtime";
 
 // Browser-only development bridge.
 // This is not the primary desktop runtime; it exists so `bun run dev` / `bun run dev:all`
@@ -37,21 +49,24 @@ interface TerminalSession {
 }
 
 interface ProviderTurnRequest {
+  turnId?: string;
   providerId: ProviderId;
   prompt: string;
+  conversation?: CanonicalConversationRequest;
   taskId?: string;
+  workspaceId?: string;
   cwd?: string;
   runtimeOptions?: ProviderRuntimeOptions;
 }
 
 const terminalSessions = new Map<string, TerminalSession>();
-const activeProviderAborters = new Map<ProviderId, () => void>();
+const activeProviderAborters = new Map<string, () => void>();
 const activeApprovalResponders = new Map<
-  ProviderId,
+  string,
   (args: { requestId: string; approved: boolean }) => ProviderResponderResult
 >();
 const activeUserInputResponders = new Map<
-  ProviderId,
+  string,
   (args: {
     requestId: string;
     answers?: Record<string, string>;
@@ -207,68 +222,168 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/provider/turn" && req.method === "POST") {
       const body = await readJson<ProviderTurnRequest>(req);
+      const turnKey = body.turnId?.trim() || body.providerId;
       const events: BridgeEvent[] = [];
+      let abortRequested = false;
+      let activePhaseAborter: (() => void) | null = null;
+      let registeredApprovalResponder:
+        | ((args: {
+            requestId: string;
+            approved: boolean;
+          }) => ProviderResponderResult)
+        | null = null;
+      let registeredUserInputResponder:
+        | ((args: {
+            requestId: string;
+            answers?: Record<string, string>;
+            denied?: boolean;
+          }) => ProviderResponderResult)
+        | null = null;
+      const abortTurn = () => {
+        if (abortRequested) {
+          return;
+        }
+        abortRequested = true;
+        activePhaseAborter?.();
+      };
+      const registerPhaseAborter = (aborter: () => void) => {
+        activePhaseAborter = aborter;
+        if (abortRequested) {
+          aborter();
+        }
+      };
+      const registerApprovalResponder = (
+        responder: NonNullable<typeof registeredApprovalResponder>,
+      ) => {
+        if (abortRequested) {
+          return;
+        }
+        registeredApprovalResponder = responder;
+        activeApprovalResponders.set(turnKey, responder);
+      };
+      const registerUserInputResponder = (
+        responder: NonNullable<typeof registeredUserInputResponder>,
+      ) => {
+        if (abortRequested) {
+          return;
+        }
+        registeredUserInputResponder = responder;
+        activeUserInputResponders.set(turnKey, responder);
+      };
+      const cleanupTurn = () => {
+        if (activeProviderAborters.get(turnKey) === abortTurn) {
+          activeProviderAborters.delete(turnKey);
+        }
+        if (
+          registeredApprovalResponder &&
+          activeApprovalResponders.get(turnKey) === registeredApprovalResponder
+        ) {
+          activeApprovalResponders.delete(turnKey);
+        }
+        if (
+          registeredUserInputResponder &&
+          activeUserInputResponders.get(turnKey) ===
+            registeredUserInputResponder
+        ) {
+          activeUserInputResponders.delete(turnKey);
+        }
+      };
+      activeProviderAborters.set(turnKey, abortTurn);
+      let effectiveBody: ProviderTurnRequest = {
+        ...body,
+        runtimeOptions: withoutAdvisorTarget(body.runtimeOptions),
+      };
+      let advisorUsage: Extract<BridgeEvent, { type: "usage" }> | undefined;
 
-      // Browser-dev provider bridge: reuse the same SDK-first runtime modules as Electron.
-      if (body.providerId === "claude-code") {
-        const result = await streamClaudeWithSdk({
-          providerId: body.providerId,
-          prompt: body.prompt,
-          taskId: body.taskId,
-          cwd: body.cwd,
-          runtimeOptions: body.runtimeOptions,
-          onEvent: (event) => {
-            events.push(event);
-          },
-          registerAbort: (aborter) => {
-            activeProviderAborters.set(body.providerId, aborter);
-          },
-          registerApprovalResponder: (responder) => {
-            activeApprovalResponders.set(body.providerId, responder);
-          },
-          registerUserInputResponder: (responder) => {
-            activeUserInputResponders.set(body.providerId, responder);
-          },
+      try {
+        if (body.runtimeOptions?.advisorTarget) {
+          const advisorResult = await runAdvisorPreflight({
+            turn: body,
+            registerAbort: registerPhaseAborter,
+          });
+          if (advisorResult.status === "aborted" || abortRequested) {
+            const done: BridgeEvent = {
+              type: "done",
+              stop_reason: "user_abort",
+            };
+            return json({
+              events: createAdvisorUsageMerger(advisorResult.usage)(done),
+            });
+          }
+          if (advisorResult.shouldTrace) {
+            events.push({
+              type: "system",
+              content: formatAdvisorSystemTrace(advisorResult),
+            });
+          }
+          advisorUsage = advisorResult.usage;
+          if (
+            advisorResult.status === "completed" &&
+            effectiveBody.conversation
+          ) {
+            effectiveBody = {
+              ...effectiveBody,
+              conversation: appendAdvisorAdvice({
+                conversation: effectiveBody.conversation,
+                target: advisorResult.target,
+                advice: advisorResult.advice,
+              }),
+            };
+          }
+        }
+        const primaryEvents: BridgeEvent[] = [];
+        const collectEvent = (event: BridgeEvent) => {
+          primaryEvents.push(event);
+        };
+        const respondWithPrimaryEvents = (
+          returnedEvents: BridgeEvent[] | null,
+        ) => {
+          const mapUsage = createAdvisorUsageMerger(advisorUsage);
+          events.push(
+            ...(returnedEvents ?? primaryEvents).flatMap((event) =>
+              mapUsage(event),
+            ),
+          );
+          return json({ events });
+        };
+
+        // Browser-dev provider bridge: reuse the same SDK-first runtime modules as Electron.
+        if (effectiveBody.providerId === "claude-code") {
+          const result = await streamClaudeWithSdk({
+            ...effectiveBody,
+            onEvent: collectEvent,
+            registerAbort: registerPhaseAborter,
+            registerApprovalResponder,
+            registerUserInputResponder,
+          });
+          return respondWithPrimaryEvents(result);
+        }
+
+        const result = await streamCodexWithAppServer({
+          ...effectiveBody,
+          onEvent: collectEvent,
+          registerAbort: registerPhaseAborter,
+          registerApprovalResponder,
+          registerUserInputResponder,
         });
-        activeProviderAborters.delete(body.providerId);
-        activeApprovalResponders.delete(body.providerId);
-        activeUserInputResponders.delete(body.providerId);
-        return json({ events: result ?? events });
+        return respondWithPrimaryEvents(result);
+      } finally {
+        cleanupTurn();
       }
-
-      const result = await streamCodexWithAppServer({
-        providerId: body.providerId,
-        prompt: body.prompt,
-        taskId: body.taskId,
-        cwd: body.cwd,
-        runtimeOptions: body.runtimeOptions,
-        onEvent: (event) => {
-          events.push(event);
-        },
-        registerAbort: (aborter) => {
-          activeProviderAborters.set(body.providerId, aborter);
-        },
-        registerApprovalResponder: (responder) => {
-          activeApprovalResponders.set(body.providerId, responder);
-        },
-        registerUserInputResponder: (responder) => {
-          activeUserInputResponders.set(body.providerId, responder);
-        },
-      });
-      activeProviderAborters.delete(body.providerId);
-      activeApprovalResponders.delete(body.providerId);
-      activeUserInputResponders.delete(body.providerId);
-      return json({ events: result ?? events });
     }
 
     if (url.pathname === "/api/provider/abort" && req.method === "POST") {
-      const body = await readJson<{ providerId: ProviderId }>(req);
-      const aborter = activeProviderAborters.get(body.providerId);
+      const body = await readJson<{
+        turnId?: string;
+        providerId?: ProviderId;
+      }>(req);
+      const turnKey = body.turnId?.trim() || body.providerId;
+      const aborter = turnKey ? activeProviderAborters.get(turnKey) : undefined;
       if (aborter) {
         aborter();
-        activeProviderAborters.delete(body.providerId);
-        activeApprovalResponders.delete(body.providerId);
-        activeUserInputResponders.delete(body.providerId);
+        activeProviderAborters.delete(turnKey!);
+        activeApprovalResponders.delete(turnKey!);
+        activeUserInputResponders.delete(turnKey!);
         return json({ ok: true, message: "Provider turn aborted." });
       }
       return json({ ok: false, message: "No active provider turn." }, 404);
@@ -276,15 +391,19 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/provider/approval" && req.method === "POST") {
       const body = await readJson<{
-        providerId: ProviderId;
+        turnId?: string;
+        providerId?: ProviderId;
         requestId: string;
         approved: boolean;
       }>(req);
-      const responder = activeApprovalResponders.get(body.providerId);
+      const turnKey = body.turnId?.trim() || body.providerId;
+      const responder = turnKey
+        ? activeApprovalResponders.get(turnKey)
+        : undefined;
       if (!responder) {
         return json({
           ok: false,
-          message: `No active approval responder for ${body.providerId}. requestId=${body.requestId}`,
+          message: `No active approval responder for ${turnKey ?? "<unknown-turn>"}. requestId=${body.requestId}`,
         });
       }
       const delivered = isResponderDelivered(
@@ -296,23 +415,27 @@ const server = Bun.serve({
       return json({
         ok: delivered,
         message: delivered
-          ? `Approval response delivered to ${body.providerId}. requestId=${body.requestId}`
-          : `Approval responder rejected request for ${body.providerId}. requestId=${body.requestId}`,
+          ? `Approval response delivered to ${turnKey}. requestId=${body.requestId}`
+          : `Approval responder rejected request for ${turnKey}. requestId=${body.requestId}`,
       });
     }
 
     if (url.pathname === "/api/provider/user-input" && req.method === "POST") {
       const body = await readJson<{
-        providerId: ProviderId;
+        turnId?: string;
+        providerId?: ProviderId;
         requestId: string;
         answers?: Record<string, string>;
         denied?: boolean;
       }>(req);
-      const responder = activeUserInputResponders.get(body.providerId);
+      const turnKey = body.turnId?.trim() || body.providerId;
+      const responder = turnKey
+        ? activeUserInputResponders.get(turnKey)
+        : undefined;
       if (!responder) {
         return json({
           ok: false,
-          message: `No active user-input responder for ${body.providerId}. requestId=${body.requestId}`,
+          message: `No active user-input responder for ${turnKey ?? "<unknown-turn>"}. requestId=${body.requestId}`,
         });
       }
       const delivered = isResponderDelivered(
@@ -325,8 +448,8 @@ const server = Bun.serve({
       return json({
         ok: delivered,
         message: delivered
-          ? `User-input response delivered to ${body.providerId}. requestId=${body.requestId}`
-          : `User-input responder rejected request for ${body.providerId}. requestId=${body.requestId}`,
+          ? `User-input response delivered to ${turnKey}. requestId=${body.requestId}`
+          : `User-input responder rejected request for ${turnKey}. requestId=${body.requestId}`,
       });
     }
 

@@ -4,7 +4,12 @@ import {
   buildCompareJudgePrompt,
   buildCompareJudgeRuntimeOptions,
   launchReadyCompareJudges,
+  retryCompareJudge,
 } from "../src/store/compare-run-judge";
+import type {
+  SecondaryRunAggregate,
+  SecondaryRunClaimArgs,
+} from "../src/lib/runs/secondary-run";
 import type { Task } from "../src/types/chat";
 
 type UseAppStore = typeof import("../src/store/app.store").useAppStore;
@@ -17,6 +22,48 @@ interface StorageLike {
   setItem: (key: string, value: string) => void;
   removeItem: (key: string) => void;
   clear: () => void;
+}
+
+function buildSecondaryAggregate(args: {
+  claim: SecondaryRunClaimArgs;
+  status: SecondaryRunAggregate["step"]["status"];
+  executionId?: string;
+}): SecondaryRunAggregate {
+  const executionId = args.executionId ?? "judge-execution-1";
+  const completed =
+    args.status === "completed" ||
+    args.status === "failed" ||
+    args.status === "cancelled";
+  return {
+    run: {
+      ...args.claim.run,
+      status: args.status,
+      createdAt: "2026-06-18T00:03:00.000Z",
+      updatedAt: "2026-06-18T00:03:00.000Z",
+      completedAt: completed ? "2026-06-18T00:03:00.000Z" : null,
+      error: null,
+    },
+    step: {
+      id: args.claim.step.id,
+      runId: args.claim.run.id,
+      kind: args.claim.step.kind,
+      dependencyIds: args.claim.step.dependencyIds,
+      status: args.status,
+      attempt: 1,
+      executionId,
+      claimIdempotencyKey: args.claim.step.idempotencyKey,
+      inputHash: "a".repeat(64),
+      resultArtifactRef:
+        args.status === "completed"
+          ? `compare-run:${args.claim.run.origin.id}:judge-result`
+          : null,
+      createdAt: "2026-06-18T00:03:00.000Z",
+      updatedAt: "2026-06-18T00:03:00.000Z",
+      startedAt: "2026-06-18T00:03:00.000Z",
+      completedAt: completed ? "2026-06-18T00:03:00.000Z" : null,
+      error: null,
+    },
+  };
 }
 
 const originalWindow = (globalThis as { window?: unknown }).window;
@@ -378,17 +425,32 @@ describe("compare run store actions", () => {
   });
 
   test("runs a selected judge in fresh read-only context and stores its recommendation", async () => {
-    let judgeRequest:
-      | {
-          prompt: string;
-          cwd?: string;
-          runtimeOptions?: {
-            model?: string;
-            codexFileAccess?: string;
-            codexResumeThreadId?: string;
-          };
-        }
-      | undefined;
+    let judgeRequest: SecondaryRunClaimArgs | undefined;
+    const judgmentText = `<stave_compare_judgment>
+      {
+        "recommendedCandidateId": "B",
+        "confidence": "high",
+        "rationale": "Candidate B includes the stronger regression coverage.",
+        "candidateScores": [
+          {
+            "candidateId": "A",
+            "score": 7,
+            "summary": "Correct but lightly tested.",
+            "strengths": ["Small diff"],
+            "risks": ["Missing edge case"],
+            "criteria": []
+          },
+          {
+            "candidateId": "B",
+            "score": 9,
+            "summary": "Correct with focused coverage.",
+            "strengths": ["Regression test"],
+            "risks": [],
+            "criteria": []
+          }
+        ]
+      }
+    </stave_compare_judgment>`;
     useAppStore.setState({
       compareRunsById: {
         "run-judge": {
@@ -434,63 +496,91 @@ describe("compare run store actions", () => {
         })),
       bridge: {
         checkAvailability: async () => ({ ok: true, available: true }),
-        streamTurn: (request) => {
+        claimSecondary: async (request) => {
           judgeRequest = request;
-          return Promise.resolve([
-            {
-              type: "text",
-              text: `<stave_compare_judgment>
-                {
-                  "recommendedCandidateId": "B",
-                  "confidence": "high",
-                  "rationale": "Candidate B includes the stronger regression coverage.",
-                  "candidateScores": [
-                    {
-                      "candidateId": "A",
-                      "score": 7,
-                      "summary": "Correct but lightly tested.",
-                      "strengths": ["Small diff"],
-                      "risks": ["Missing edge case"],
-                      "criteria": []
-                    },
-                    {
-                      "candidateId": "B",
-                      "score": 9,
-                      "summary": "Correct with focused coverage.",
-                      "strengths": ["Regression test"],
-                      "risks": [],
-                      "criteria": []
-                    }
-                  ]
-                }
-              </stave_compare_judgment>`,
-            },
-            { type: "done", stop_reason: "end_turn" },
-          ]);
+          return {
+            accepted: true,
+            started: true,
+            duplicate: false,
+            reason: null,
+            aggregate: buildSecondaryAggregate({
+              claim: request,
+              status: "running",
+            }),
+          };
+        },
+        executeSecondary: async () => ({
+          accepted: true,
+          reason: null,
+          execution: {
+            executionId: "judge-execution-1",
+            providerId: "codex",
+            model: "gpt-5.6-sol",
+            status: "completed",
+            text: judgmentText,
+            eventCount: 2,
+            collectedEventCount: 2,
+            outputBytes: judgmentText.length,
+            truncated: false,
+            stopReason: "end_turn",
+            error: null,
+          },
+          aggregate: buildSecondaryAggregate({
+            claim: judgeRequest!,
+            status: "waiting",
+          }),
+        }),
+        completeSecondary: async () => ({
+          accepted: true,
+          started: false,
+          duplicate: false,
+          reason: null,
+          aggregate: buildSecondaryAggregate({
+            claim: judgeRequest!,
+            status: "completed",
+          }),
+        }),
+        failSecondary: async () => {
+          throw new Error("unexpected judge failure");
+        },
+        cancelSecondary: async () => {
+          throw new Error("unexpected judge cancellation");
         },
       },
       now: () => "2026-06-18T00:03:00.000Z",
     });
 
-    expect(judgeRequest?.cwd).toBe("/tmp/stave");
-    expect(judgeRequest?.runtimeOptions).toMatchObject({
+    expect(judgeRequest?.input.cwd).toBe("/tmp/stave");
+    expect(judgeRequest?.input).toMatchObject({
+      providerId: "codex",
       model: "gpt-5.6-sol",
-      codexFileAccess: "read-only",
+      runtimeHints: {},
     });
-    expect(judgeRequest?.runtimeOptions?.codexResumeThreadId).toBeUndefined();
-    expect(judgeRequest?.prompt).toContain(
+    expect(judgeRequest?.run).toMatchObject({
+      id: "compare:run-judge:judge",
+      origin: { kind: "compare-run", id: "run-judge" },
+      ownership: {
+        projectPath: "/tmp/stave",
+        workspaceId: "base",
+      },
+      policy: {
+        maxAttempts: 10,
+        maxTurns: 16,
+      },
+    });
+    expect(judgeRequest?.input.prompt).toContain(
       "This is a fresh, read-only evaluation.",
     );
-    expect(judgeRequest?.prompt).toContain("/tmp/stave/compare-a");
-    expect(judgeRequest?.prompt).toContain('"candidateId": "A"');
-    expect(judgeRequest?.prompt).toContain('"candidateId": "B"');
-    expect(judgeRequest?.prompt).not.toContain("variant-a");
-    expect(judgeRequest?.prompt).not.toContain("variant-b");
-    expect(judgeRequest?.prompt).not.toContain("claude-code");
-    expect(judgeRequest?.prompt).not.toContain("claude-sonnet-5");
-    expect(judgeRequest?.prompt).not.toContain("gpt-5.6-terra");
-    expect(judgeRequest?.prompt).not.toContain('"label": "Claude"');
-    expect(judgeRequest?.prompt).not.toContain('"label": "Codex"');
+    expect(judgeRequest?.input.prompt).toContain("/tmp/stave/compare-a");
+    expect(judgeRequest?.input.prompt).toContain('"candidateId": "A"');
+    expect(judgeRequest?.input.prompt).toContain('"candidateId": "B"');
+    expect(judgeRequest?.input.prompt).not.toContain("variant-a");
+    expect(judgeRequest?.input.prompt).not.toContain("variant-b");
+    expect(judgeRequest?.input.prompt).not.toContain("claude-code");
+    expect(judgeRequest?.input.prompt).not.toContain("claude-sonnet-5");
+    expect(judgeRequest?.input.prompt).not.toContain("gpt-5.6-terra");
+    expect(judgeRequest?.input.prompt).not.toContain('"label": "Claude"');
+    expect(judgeRequest?.input.prompt).not.toContain('"label": "Codex"');
     const judge = useAppStore.getState().compareRunsById["run-judge"]?.judge;
     expect(judge?.status).toBe("completed");
     expect(judge?.judgment?.recommendedVariantId).toBe("variant-b");
@@ -512,6 +602,132 @@ describe("compare run store actions", () => {
         rationale: "Correct with focused coverage.",
       },
     ]);
+  });
+
+  test("retries the same durable judge step with the next deterministic claim key", async () => {
+    let retryClaim: SecondaryRunClaimArgs | undefined;
+    const judgmentText = `<stave_compare_judgment>
+      {
+        "recommendedCandidateId": "A",
+        "confidence": "medium",
+        "rationale": "Candidate A is safer.",
+        "candidateScores": [
+          {"candidateId":"A","score":8,"summary":"Safer.","strengths":[],"risks":[],"criteria":[]},
+          {"candidateId":"B","score":7,"summary":"Riskier.","strengths":[],"risks":[],"criteria":[]}
+        ]
+      }
+    </stave_compare_judgment>`;
+    useAppStore.setState({
+      compareRunsById: {
+        "run-retry": {
+          id: "run-retry",
+          seedPrompt: "Choose safely",
+          baseWorkspaceId: "base",
+          baseTaskId: "base-task",
+          baseBranch: "main",
+          createdAt: "2026-06-18T00:00:00.000Z",
+          updatedAt: "2026-06-18T00:00:00.000Z",
+          status: "completed",
+          judge: {
+            provider: "codex",
+            model: "gpt-5.6-sol",
+            status: "failed",
+            attempt: 1,
+            error: "Previous attempt failed.",
+          },
+          variants: [
+            {
+              id: "variant-a",
+              provider: "codex",
+              status: "completed",
+              workspacePath: "/tmp/stave/compare-a",
+            },
+            {
+              id: "variant-b",
+              provider: "codex",
+              status: "completed",
+              workspacePath: "/tmp/stave/compare-b",
+            },
+          ],
+        },
+      },
+    });
+
+    await retryCompareJudge({
+      compareRunId: "run-retry",
+      access: {
+        getState: () => useAppStore.getState(),
+        updateRuns: (updater) =>
+          useAppStore.setState((state) => ({
+            compareRunsById: updater(state.compareRunsById),
+          })),
+        bridge: {
+          checkAvailability: async () => ({ ok: true, available: true }),
+          claimSecondary: async (request) => {
+            retryClaim = request;
+            return {
+              accepted: true,
+              started: true,
+              duplicate: false,
+              reason: null,
+              aggregate: buildSecondaryAggregate({
+                claim: request,
+                status: "running",
+              }),
+            };
+          },
+          executeSecondary: async () => ({
+            accepted: true,
+            reason: null,
+            execution: {
+              executionId: "judge-execution-1",
+              providerId: "codex",
+              model: "gpt-5.6-sol",
+              status: "completed",
+              text: judgmentText,
+              eventCount: 2,
+              collectedEventCount: 2,
+              outputBytes: judgmentText.length,
+              truncated: false,
+              stopReason: "end_turn",
+              error: null,
+            },
+            aggregate: buildSecondaryAggregate({
+              claim: retryClaim!,
+              status: "waiting",
+            }),
+          }),
+          completeSecondary: async () => ({
+            accepted: true,
+            started: false,
+            duplicate: false,
+            reason: null,
+            aggregate: buildSecondaryAggregate({
+              claim: retryClaim!,
+              status: "completed",
+            }),
+          }),
+          failSecondary: async () => {
+            throw new Error("unexpected retry failure");
+          },
+          cancelSecondary: async () => {
+            throw new Error("unexpected retry cancellation");
+          },
+        },
+        now: () => "2026-06-18T00:04:00.000Z",
+      },
+    });
+
+    expect(retryClaim?.run.id).toBe("compare:run-retry:judge");
+    expect(retryClaim?.step.id).toBe("compare:run-retry:judge:step");
+    expect(retryClaim?.step.idempotencyKey).toBe(
+      "compare:run-retry:judge:step:attempt:2",
+    );
+    const judge =
+      useAppStore.getState().compareRunsById["run-retry"]?.judge;
+    expect(judge?.status).toBe("completed");
+    expect(judge?.attempt).toBe(2);
+    expect(judge?.judgment?.provenance?.attempt).toBe(2);
   });
 
   test("keeps provider and model identity out of the anonymous judge prompt", () => {
@@ -697,6 +913,89 @@ describe("compare run store actions", () => {
       ok: false,
       message: "Wait for the independent judge before keeping a result.",
     });
+  });
+
+  test("cancels the durable judge before closing candidate workspaces", async () => {
+    const order: string[] = [];
+    let cancellation:
+      | {
+          runId: string;
+          stepId: string;
+          idempotencyKey: string;
+        }
+      | undefined;
+    (globalThis as { window: { api: Record<string, unknown> } }).window.api = {
+      runs: {
+        cancelSecondary: async (args: {
+          runId: string;
+          stepId: string;
+          idempotencyKey: string;
+        }) => {
+          cancellation = args;
+          order.push(
+            `cancel:${useAppStore.getState().compareRunsById["run-cancel"]?.status}`,
+          );
+          return {
+            accepted: true,
+            started: false,
+            duplicate: false,
+            reason: null,
+            aggregate: null,
+          };
+        },
+      },
+    };
+    useAppStore.setState({
+      compareRunsById: {
+        "run-cancel": {
+          id: "run-cancel",
+          seedPrompt: "Compare this",
+          baseWorkspaceId: "base",
+          createdAt: "2026-06-18T00:00:00.000Z",
+          updatedAt: "2026-06-18T00:00:00.000Z",
+          status: "completed",
+          judge: {
+            provider: "codex",
+            status: "running",
+            attempt: 2,
+            requestId: "execution-2",
+          },
+          variants: [
+            {
+              id: "variant-1",
+              provider: "claude-code",
+              status: "completed",
+              workspaceId: "workspace-1",
+            },
+            {
+              id: "variant-2",
+              provider: "codex",
+              status: "completed",
+              workspaceId: "workspace-2",
+            },
+          ],
+        },
+      },
+      closeWorkspace: async ({ workspaceId }) => {
+        order.push(`close:${workspaceId}`);
+      },
+    });
+
+    const result = await useAppStore
+      .getState()
+      .cancelCompareRun({ compareRunId: "run-cancel" });
+
+    expect(result.ok).toBe(true);
+    expect(cancellation).toEqual({
+      runId: "compare:run-cancel:judge",
+      stepId: "compare:run-cancel:judge:step",
+      idempotencyKey: "compare:run-cancel:judge:step:cancel:2",
+    });
+    expect(order).toEqual([
+      "cancel:cancelled",
+      "close:workspace-1",
+      "close:workspace-2",
+    ]);
   });
 
   test("discards a completed review and closes every candidate workspace", async () => {

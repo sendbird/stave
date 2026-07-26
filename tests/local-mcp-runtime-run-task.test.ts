@@ -16,9 +16,12 @@ import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 const WORKSPACE_ID = "ws-runtask-regression";
 const DEFAULT_WORKSPACE_ID = "ws-runtask-default";
 const RECONCILE_WORKSPACE_ID = "ws-runtask-reconcile";
+const RELEASE_WORKSPACE_ID = "ws-runtask-release";
+const RELEASE_TASK_ID = "task-runtask-release";
 const PROJECT_PATH = "/tmp/stave-runtask-regression/project";
 const WORKSPACE_PATH = "/tmp/stave-runtask-regression/worktree";
 const RECONCILE_WORKSPACE_PATH = "/tmp/stave-runtask-regression/reconcile";
+const RELEASE_WORKSPACE_PATH = "/tmp/stave-runtask-regression/release";
 const USER_DATA_PATH = "/tmp/stave-runtask-regression/user-data";
 
 type PersistedTaskRow = {
@@ -61,26 +64,54 @@ const fakeStore = {
           name: "reconcile",
           updatedAt: "2026-01-01T00:00:00.000Z",
         },
+        {
+          id: RELEASE_WORKSPACE_ID,
+          name: "release",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
       ],
       activeWorkspaceId: WORKSPACE_ID,
       workspaceBranchById: {
         [WORKSPACE_ID]: "feature",
         [RECONCILE_WORKSPACE_ID]: "reconcile",
+        [RELEASE_WORKSPACE_ID]: "release",
       },
       workspacePathById: {
         [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
         [WORKSPACE_ID]: WORKSPACE_PATH,
         [RECONCILE_WORKSPACE_ID]: RECONCILE_WORKSPACE_PATH,
+        [RELEASE_WORKSPACE_ID]: RELEASE_WORKSPACE_PATH,
       },
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
     },
   ],
-  loadWorkspaceSnapshot: ({ workspaceId }: { workspaceId: string }) => ({
-    tasks: [],
-    messagesByTask: {},
-    workspaceInformation:
-      persistedWorkspaceInformationById.get(workspaceId),
-  }),
+  loadWorkspaceSnapshot: ({ workspaceId }: { workspaceId: string }) =>
+    workspaceId === RELEASE_WORKSPACE_ID
+      ? {
+          activeTaskId: RELEASE_TASK_ID,
+          tasks: [
+            {
+              id: RELEASE_TASK_ID,
+              title: "Completed Crane task",
+              provider: "codex",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+              unread: false,
+              archivedAt: null,
+              controlMode: "managed",
+              controlOwner: "stave",
+            },
+          ],
+          messagesByTask: { [RELEASE_TASK_ID]: [] },
+          activeTurnIdsByTask: {},
+          workspaceInformation:
+            persistedWorkspaceInformationById.get(workspaceId),
+        }
+      : {
+          tasks: [],
+          messagesByTask: {},
+          workspaceInformation:
+            persistedWorkspaceInformationById.get(workspaceId),
+        },
   // Mirrors the real store's `tasks` table: the authoritative task lifecycle
   // (archived_at) written by the renderer. persistWorkspaceSession re-reads this
   // before writing so a stale host session cannot revive an archived task.
@@ -198,6 +229,67 @@ describe("local MCP runtime runTask", () => {
     expect(informationPart?.content).toContain(
       "Treat the release branch as read-only.",
     );
+  });
+
+  test("preserves locally owned managed control for trusted dispatch", async () => {
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Work on the approved issue",
+      controlMode: "managed",
+      controlOwner: "stave",
+      retrievedContextParts: [
+        {
+          type: "retrieved_context",
+          sourceId: "crane:CRANE-42",
+          title: "Crane CRANE-42",
+          content: "Untrusted remote issue context.",
+        },
+      ],
+    });
+
+    const snapshot = lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID);
+    const task = snapshot?.tasks?.find(
+      (candidate) => candidate.id === result.taskId,
+    ) as
+      | {
+          controlMode?: string;
+          controlOwner?: string;
+        }
+      | undefined;
+    expect(task?.controlMode).toBe("managed");
+    expect(task?.controlOwner).toBe("stave");
+
+    const call = startTurnStreamCalls.at(-1) as {
+      conversation?: {
+        contextParts?: Array<{ sourceId?: string; content?: string }>;
+      };
+    };
+    expect(
+      call.conversation?.contextParts?.find(
+        (part) => part.sourceId === "crane:CRANE-42",
+      )?.content,
+    ).toBe("Untrusted remote issue context.");
+  });
+
+  test("releases completed locally managed task control", async () => {
+    const result = await runtime.releaseLocallyManagedTaskControl({
+      workspaceId: RELEASE_WORKSPACE_ID,
+      taskId: RELEASE_TASK_ID,
+    });
+
+    expect(result.released).toBe(true);
+    const task = lastUpsertSnapshotByWorkspaceId
+      .get(RELEASE_WORKSPACE_ID)
+      ?.tasks?.find((candidate) => candidate.id === RELEASE_TASK_ID) as
+      | {
+          controlMode?: string;
+          controlOwner?: string;
+        }
+      | undefined;
+    expect(task).toMatchObject({
+      controlMode: "interactive",
+      controlOwner: "stave",
+    });
   });
 
   test("refreshes attached Information values persisted by the renderer", async () => {

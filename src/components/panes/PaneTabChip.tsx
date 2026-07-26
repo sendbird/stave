@@ -21,7 +21,10 @@ import { Badge, WaveIndicator } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
-import { getRespondingProviderId, isTaskManaged } from "@/lib/tasks";
+import {
+  getRespondingProviderId,
+  isTaskManaged,
+} from "@/lib/tasks";
 import {
   buildPanePanelId,
   parsePanePanelId,

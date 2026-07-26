@@ -240,13 +240,16 @@ export function buildSidebarActiveWorkspaceEntries(args: {
   projects: ProjectSidebarCollapsedProjectView[];
   recentProjectLastOpenedAtByPath: Record<string, string>;
   statusByWorkspaceId: Record<string, FleetTaskStatus>;
+  attentionPriorityByWorkspaceId?: Record<string, number | undefined>;
   activeWorkspaceId: string;
   limit?: number;
 }): SidebarActiveWorkspaceEntry[] {
   const limit = args.limit ?? 5;
   const seen = new Set<string>();
-  const entries: (SidebarActiveWorkspaceEntry & { lastOpenedAt: string })[] =
-    [];
+  const entries: (SidebarActiveWorkspaceEntry & {
+    attentionPriority?: number;
+    lastOpenedAt: string;
+  })[] = [];
 
   for (const project of args.projects) {
     for (const workspace of project.workspaces) {
@@ -258,7 +261,10 @@ export function buildSidebarActiveWorkspaceEntries(args: {
       const isRepresentativeWorkspace =
         workspace.id === project.activeWorkspaceId;
       const status = args.statusByWorkspaceId[workspace.id] ?? "idle";
+      const attentionPriority =
+        args.attentionPriorityByWorkspaceId?.[workspace.id];
       const isNoteworthy =
+        attentionPriority !== undefined ||
         hasFleetTaskAttentionStatus(status) ||
         status === "error" ||
         status === "running";
@@ -277,6 +283,7 @@ export function buildSidebarActiveWorkspaceEntries(args: {
         isDefault: workspace.isDefault,
         isActive,
         status,
+        attentionPriority,
         lastOpenedAt:
           args.recentProjectLastOpenedAtByPath[project.projectPath] ?? "",
       });
@@ -286,6 +293,12 @@ export function buildSidebarActiveWorkspaceEntries(args: {
   entries.sort((left, right) => {
     if (left.isActive !== right.isActive) {
       return left.isActive ? -1 : 1;
+    }
+    const attentionDelta =
+      (left.attentionPriority ?? Number.POSITIVE_INFINITY) -
+      (right.attentionPriority ?? Number.POSITIVE_INFINITY);
+    if (attentionDelta !== 0) {
+      return attentionDelta;
     }
     const statusDelta =
       SIDEBAR_ACTIVE_WORKSPACE_STATUS_RANK[left.status] -
@@ -298,7 +311,13 @@ export function buildSidebarActiveWorkspaceEntries(args: {
 
   return entries
     .slice(0, limit)
-    .map(({ lastOpenedAt: _lastOpenedAt, ...entry }) => entry);
+    .map(
+      ({
+        attentionPriority: _attentionPriority,
+        lastOpenedAt: _lastOpenedAt,
+        ...entry
+      }) => entry,
+    );
 }
 
 export function buildVisibleWorkspaceShortcutTargets(args: {

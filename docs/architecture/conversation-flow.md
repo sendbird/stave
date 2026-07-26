@@ -6,10 +6,11 @@ Stave keeps a single task chat UI by separating app-owned conversation state fro
 
 1. The renderer builds a `CanonicalConversationRequest` from the task history, current user input, selected file contexts, and any persisted provider-native conversation id. Task turns also attach Stave-owned retrieved context for the current task/workspace plus bounded workspace-information snapshots. Provider runtimes may filter MCP-specific awareness context back out before rendering the final provider prompt when Stave Local MCP is not actually connected, so non-MCP users do not pay unnecessary prompt overhead. Oversized historical payloads such as `file_context` content, tool outputs, and diff bodies are sanitized before the request crosses IPC so broken replay data does not block later turns.
 2. The provider bridge sends that canonical request plus a small fallback prompt across preload into Electron main, which validates the payload and forwards provider execution into the dedicated desktop `host-service` child runtime. The main-process bridge and `host-service` exchange framed JSON messages over stdio so large payloads are not coupled to newline-delimited transport limits.
-3. `electron/providers/runtime.ts` dispatches the request to the selected Claude or Codex runtime.
-4. Provider-specific translators rebuild the exact Claude or Codex prompt from the canonical request inside the runtime.
-5. Claude and Codex both stream back normalized `BridgeEvent` records such as `text`, `thinking`, `tool`, `approval`, `user_input`, `diff`, and `done`.
-6. The renderer replays those normalized events into one shared message model and one shared chat surface.
+3. When the normal user turn carries an `advisorTarget`, `electron/providers/runtime.ts` first runs one isolated read-only Advisor call. Successful bounded advice is appended to the same canonical request as `retrieved_context`; recoverable Advisor failure leaves the request unchanged.
+4. `electron/providers/runtime.ts` clears `advisorTarget` and dispatches the request to the selected primary Claude or Codex runtime, preventing nested Advisor calls.
+5. Provider-specific translators rebuild the exact Claude or Codex prompt from the canonical request inside the runtime.
+6. Claude and Codex both stream back normalized `BridgeEvent` records such as `text`, `thinking`, `tool`, `approval`, `user_input`, `diff`, and `done`.
+7. The renderer replays those normalized events into one shared message model and one shared chat surface.
 
 This keeps the task thread as Stave's source of truth while still letting each provider preserve its own native conversation id when available.
 

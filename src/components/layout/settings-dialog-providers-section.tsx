@@ -40,19 +40,23 @@ import {
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
 import type {
+  AdvisorTarget,
   ClaudeSettingSource,
+  ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 import {
-  DEFAULT_CLAUDE_OPUS_1M_MODEL,
-  DEFAULT_CLAUDE_OPUS_MODEL,
-  DEFAULT_CLAUDE_SONNET_MODEL,
   getDefaultModelForProvider,
+  getProviderLabel,
+  getSdkModelOptions,
   listCodexReasoningEffortsForModel,
+  toHumanModelName,
 } from "@/lib/providers/model-catalog";
+import { ADVISOR_SETTING_FIELD_ID } from "@/lib/providers/advisor";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
+import { resolvePromptDraftModelForProvider } from "@/store/prompt-draft-runtime";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -71,18 +75,6 @@ import {
   ClaudeRuntimeToolsCard,
   CodexBinaryPathCard,
 } from "./settings-dialog-developer-section";
-const CLAUDE_ADVISOR_SOURCE_MODEL_OPTIONS = buildModelSelectorOptions({
-  providerIds: ["claude-code"],
-  modelsByProvider: {
-    "claude-code": [
-      "claude-haiku-4-5",
-      DEFAULT_CLAUDE_SONNET_MODEL,
-      DEFAULT_CLAUDE_OPUS_MODEL,
-      DEFAULT_CLAUDE_OPUS_1M_MODEL,
-    ],
-  },
-});
-
 type ExplainedSelectOption<T extends string> = {
   value: T;
   label: string;
@@ -496,23 +488,6 @@ function buildGuideExamples<T extends string>(
     }));
 }
 
-function resolveClaudeAdvisorSourceModel(args: {
-  model: string;
-  fallback: string;
-}) {
-  const normalized = args.model.trim().toLowerCase();
-  if (normalized.includes("haiku")) {
-    return "claude-haiku-4-5";
-  }
-  if (normalized.includes("sonnet")) {
-    return DEFAULT_CLAUDE_SONNET_MODEL;
-  }
-  if (normalized.includes("opus")) {
-    return DEFAULT_CLAUDE_OPUS_MODEL;
-  }
-  return args.fallback;
-}
-
 function findExplainedOption<T extends string>(
   options: readonly ExplainedSelectOption<T>[],
   value: T,
@@ -601,7 +576,7 @@ export function ProvidersSection() {
     claudeSandboxEnabled,
     claudeAllowUnsandboxedCommands,
     claudeTaskBudgetTokens,
-    claudeAdvisorModel,
+    advisorTarget,
     claudeSettingSources,
     claudeEffort,
     claudeThinkingMode,
@@ -627,6 +602,10 @@ export function ProvidersSection() {
     codexReasoningSummarySupport,
     codexFastMode,
     trustedTools,
+    draftProvider,
+    codexBinaryPath,
+    activeTaskProvider,
+    activeTaskModelOverride,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -638,7 +617,7 @@ export function ProvidersSection() {
           state.settings.claudeSandboxEnabled,
           state.settings.claudeAllowUnsandboxedCommands,
           state.settings.claudeTaskBudgetTokens,
-          state.settings.claudeAdvisorModel,
+          state.settings.advisorTarget,
           state.settings.claudeSettingSources,
           state.settings.claudeEffort,
           state.settings.claudeThinkingMode,
@@ -664,6 +643,12 @@ export function ProvidersSection() {
           state.settings.codexReasoningSummarySupport,
           state.settings.codexFastMode,
           state.settings.trustedTools,
+          state.draftProvider,
+          state.settings.codexBinaryPath,
+          state.tasks.find((task) => task.id === state.activeTaskId)
+            ?.provider ?? null,
+          state.promptDraftByTask[state.activeTaskId]?.runtimeOverrides
+            ?.model ?? null,
         ] as const,
     ),
   );
@@ -694,13 +679,6 @@ export function ProvidersSection() {
         (preset) => preset.id === currentCodexModePresetId,
       )?.label ?? "Custom")
     : "Custom";
-  const defaultClaudeAdvisorModel = getDefaultModelForProvider({
-    providerId: "claude-code",
-  });
-  const defaultClaudeAdvisorSourceModel = resolveClaudeAdvisorSourceModel({
-    model: defaultClaudeAdvisorModel,
-    fallback: DEFAULT_CLAUDE_SONNET_MODEL,
-  });
   // Scoped to the default Codex model so, e.g., GPT-5.6 Luna never offers
   // "Ultra" here — a value only Sol/Terra accept. "Minimal" is always kept
   // available since it's a legacy value Stave still maps to "low" at
@@ -713,11 +691,58 @@ export function ProvidersSection() {
         (supported as readonly string[]).includes(option.value),
     );
   }, [modelCodex]);
-  const claudeAdvisorModelEnabled = claudeAdvisorModel.trim().length > 0;
-  const activeClaudeAdvisorSourceModel = resolveClaudeAdvisorSourceModel({
-    model: claudeAdvisorModel.trim() || modelClaude,
-    fallback: defaultClaudeAdvisorSourceModel,
+  const advisorMode: "off" | ProviderId = advisorTarget?.providerId ?? "off";
+  const codexModelCatalog = useCodexModelCatalog({
+    enabled: advisorTarget?.providerId === "codex",
+    codexBinaryPath,
   });
+  const advisorModelOptions = useMemo(
+    () =>
+      advisorTarget
+        ? buildModelSelectorOptions({
+            providerIds: [advisorTarget.providerId],
+            modelsByProvider: {
+              [advisorTarget.providerId]:
+                advisorTarget.providerId === "codex"
+                  ? codexModelCatalog.models
+                  : getSdkModelOptions({
+                      providerId: advisorTarget.providerId,
+                    }),
+            },
+          })
+        : [],
+    [advisorTarget, codexModelCatalog.models],
+  );
+  const advisorTargetSupported =
+    advisorTarget !== null &&
+    advisorModelOptions.some(
+      (option) =>
+        option.providerId === advisorTarget.providerId &&
+        option.model === advisorTarget.model,
+    );
+  const executorProvider = activeTaskProvider ?? draftProvider;
+  const executorModel = resolvePromptDraftModelForProvider({
+    providerId: executorProvider,
+    runtimeOverrides: activeTaskModelOverride
+      ? { model: activeTaskModelOverride }
+      : undefined,
+    fallbackModel:
+      executorProvider === "claude-code" ? modelClaude : modelCodex,
+  });
+  const updateAdvisorProvider = (providerId: "off" | ProviderId) => {
+    if (providerId === "off") {
+      updateSettings({ patch: { advisorTarget: null } });
+      return;
+    }
+    const nextTarget: AdvisorTarget = {
+      providerId,
+      model:
+        advisorTarget?.providerId === providerId && advisorTargetSupported
+          ? advisorTarget.model
+          : getDefaultModelForProvider({ providerId }),
+    };
+    updateSettings({ patch: { advisorTarget: nextTarget } });
+  };
   const toggleClaudeSettingSource = (source: "user" | "project" | "local") => {
     updateSettings({
       patch: {
@@ -730,6 +755,115 @@ export function ProvidersSection() {
 
   return (
     <>
+      <SettingsCard
+        id={ADVISOR_SETTING_FIELD_ID}
+        tabIndex={-1}
+        title="Advisor"
+        description="Run one isolated, read-only preflight before each normal user chat turn. The Advisor can be Claude or Codex regardless of the primary provider."
+        titleAccessory={
+          <Badge
+            variant={
+              advisorTarget
+                ? advisorTargetSupported
+                  ? "secondary"
+                  : "destructive"
+                : "outline"
+            }
+          >
+            {advisorTarget
+              ? advisorTargetSupported
+                ? "Next turn"
+                : "Invalid model"
+              : "Off"}
+          </Badge>
+        }
+      >
+        <ChoiceButtons
+          columns={3}
+          value={advisorMode}
+          onChange={updateAdvisorProvider}
+          options={[
+            {
+              value: "off",
+              label: "Off",
+              description: "Start the primary provider immediately.",
+            },
+            {
+              value: "claude-code",
+              label: "Claude",
+              description: "Use an isolated Claude SDK turn.",
+            },
+            {
+              value: "codex",
+              label: "Codex",
+              description: "Use an ephemeral Codex App Server thread.",
+            },
+          ]}
+        />
+        {advisorTarget ? (
+          <LabeledField
+            title="Advisor Model"
+            description="Claude runs with tools disabled; Codex uses a read-only sandbox and isolated no-tool instructions. Neither uses network or conversation resume state."
+          >
+            <ModelSelector
+              value={buildModelSelectorValue({
+                providerId: advisorTarget.providerId,
+                model: advisorTarget.model,
+                available: advisorTargetSupported,
+              })}
+              options={advisorModelOptions}
+              className="w-full"
+              triggerAriaLabel={`Advisor model: ${toHumanModelName({
+                model: advisorTarget.model,
+              })}`}
+              triggerClassName="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
+              menuClassName="sm:max-w-lg"
+              onSelect={({ selection }) =>
+                updateSettings({
+                  patch: {
+                    advisorTarget: {
+                      providerId: selection.providerId,
+                      model: selection.model,
+                    },
+                  },
+                })
+              }
+            />
+            {!advisorTargetSupported ? (
+              <p className="text-xs leading-5 text-destructive">
+                This persisted model is not in Stave&apos;s current{" "}
+                {getProviderLabel({
+                  providerId: advisorTarget.providerId,
+                })}{" "}
+                catalog. Advisor will stay skipped until you select a valid
+                model or turn it off.
+              </p>
+            ) : null}
+          </LabeledField>
+        ) : null}
+        <div className="rounded-lg border border-border/70 bg-muted/20 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
+          <p>
+            <span className="font-medium text-foreground">
+              {activeTaskProvider ? "Active pair:" : "Default pair:"}
+            </span>{" "}
+            {getProviderLabel({ providerId: executorProvider })} ·{" "}
+            {toHumanModelName({ model: executorModel })}
+            {" → "}
+            {advisorTarget
+              ? `${getProviderLabel({
+                  providerId: advisorTarget.providerId,
+                })} Advisor · ${toHumanModelName({
+                  model: advisorTarget.model,
+                })}`
+              : "Advisor off"}
+          </p>
+          <p className="mt-1">
+            Adds one model call, latency, and usage. A recoverable Advisor
+            failure is traced and the primary turn still runs; Stave never
+            switches Advisor models automatically.
+          </p>
+        </div>
+      </SettingsCard>
       <SettingsCard
         title="Trusted Approvals"
         description="Approvals marked as always allowed. Bash entries are stored as command prefixes instead of trusting every shell command."
@@ -925,43 +1059,6 @@ export function ProvidersSection() {
                   }
                 />
               </LabeledField>
-              <SwitchField
-                title="Use Advisor"
-                description="Control whether Stave passes `advisorModel` to the Claude SDK."
-                checked={claudeAdvisorModelEnabled}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: {
-                      claudeAdvisorModel: checked
-                        ? activeClaudeAdvisorSourceModel
-                        : "",
-                    },
-                  })
-                }
-              />
-              {claudeAdvisorModelEnabled ? (
-                <LabeledField
-                  title="Claude Model"
-                  description="Select a Claude model family for advisor mapping. Stave maps it as haiku->sonnet, sonnet->opus, opus->opus before sending `advisorModel`."
-                >
-                  <ModelSelector
-                    value={buildModelSelectorValue({
-                      model: activeClaudeAdvisorSourceModel,
-                    })}
-                    options={CLAUDE_ADVISOR_SOURCE_MODEL_OPTIONS}
-                    className="w-full"
-                    triggerClassName="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
-                    menuClassName="sm:max-w-lg"
-                    onSelect={({ selection }) =>
-                      updateSettings({
-                        patch: {
-                          claudeAdvisorModel: selection.model,
-                        },
-                      })
-                    }
-                  />
-                </LabeledField>
-              ) : null}
               <LabeledField
                 title="Thinking Mode"
                 guide={

@@ -56,4 +56,32 @@ describe("resolveHostServiceScriptPath", () => {
       }),
     ).toBeGreaterThan(HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES);
   });
+
+  test("serializes the bounded secondary execution contract", () => {
+    const bytes = measureSerializedHostServiceRequestBytes({
+      method: "runs.execute-secondary",
+      params: {
+        runId: "run-1",
+        stepId: "step-1",
+        executionId: "execution-1",
+        input: {
+          providerId: "codex",
+          model: "gpt-test",
+          prompt: "Inspect locally.",
+          cwd: "/tmp/project",
+          runtimeHints: {},
+        },
+        policy: {
+          maxAttempts: 2,
+          timeoutMs: 30_000,
+          maxTurns: 4,
+          maxOutputBytes: 16_384,
+          maxEvents: 64,
+        },
+      },
+    });
+
+    expect(bytes).toBeGreaterThan(0);
+    expect(bytes).toBeLessThan(HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES);
+  });
 });

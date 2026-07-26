@@ -3,6 +3,22 @@ import {
   RoutineInformationResourceCreateInputSchema,
   RoutineUpsertInputSchema,
 } from "../../../src/lib/routines";
+import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
+export {
+  SecondaryRunCancelArgsSchema,
+  SecondaryRunClaimArgsSchema,
+  SecondaryRunCompleteArgsSchema,
+  SecondaryRunExecuteArgsSchema,
+  SecondaryRunFailArgsSchema,
+  SecondaryRunLookupArgsSchema,
+  SecondaryRunReceiptListArgsSchema,
+} from "../../../src/lib/runs/secondary-run";
+export {
+  CraneConnectorConfigInputSchema as CraneConnectorConfigArgsSchema,
+  CraneConnectorPairInputSchema as CraneConnectorPairArgsSchema,
+  CraneDispatchApprovalResponseSchema as CraneDispatchApproveArgsSchema,
+  CraneDispatchDeclineResponseSchema as CraneDispatchDeclineArgsSchema,
+} from "../../../src/lib/crane-connector/types";
 
 const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 
@@ -72,6 +88,90 @@ export const LensNetworkBodyArgsSchema =
   LensNetworkEntryDetailArgsSchema.extend({
     kind: z.enum(["request", "response"]),
   }).strict();
+
+export const LensSessionTargetArgsSchema = z
+  .object({
+    workspaceId: z.string().min(1).max(200),
+    lensSessionId: z.string().min(1).max(200).optional(),
+  })
+  .strict();
+
+export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend({
+  options: z
+    .object({
+      extractDebugSource: z.boolean().optional(),
+    })
+    .strict()
+    .optional(),
+}).strict();
+
+export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
+  options: z
+    .object({
+      fullPage: z.boolean().optional(),
+      clip: z
+        .object({
+          x: z
+            .number()
+            .min(-LENS_CAPTURE_LIMITS.rectCoordinate)
+            .max(LENS_CAPTURE_LIMITS.rectCoordinate),
+          y: z
+            .number()
+            .min(-LENS_CAPTURE_LIMITS.rectCoordinate)
+            .max(LENS_CAPTURE_LIMITS.rectCoordinate),
+          width: z
+            .number()
+            .positive()
+            .max(LENS_CAPTURE_LIMITS.rectSize),
+          height: z
+            .number()
+            .positive()
+            .max(LENS_CAPTURE_LIMITS.rectSize),
+        })
+        .strict()
+        .optional(),
+      documentId: z
+        .string()
+        .min(1)
+        .max(LENS_CAPTURE_LIMITS.documentIdBytes)
+        .optional(),
+    })
+    .strict()
+    .optional(),
+}).strict();
+
+export const LensAnnotationRemoveArgsSchema =
+  LensSessionTargetArgsSchema.extend({
+    annotationId: z
+      .string()
+      .min(1)
+      .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+    documentId: z
+      .string()
+      .min(1)
+      .max(LENS_CAPTURE_LIMITS.documentIdBytes),
+  }).strict();
+
+export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend({
+  annotationId: z
+    .string()
+    .min(1)
+    .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+  selector: z.string().min(1).max(LENS_CAPTURE_LIMITS.selectorBytes),
+  patch: z
+    .record(
+      z.string().min(1).max(LENS_CAPTURE_LIMITS.stylePropertyBytes),
+      z.string().max(LENS_CAPTURE_LIMITS.styleValueBytes),
+    )
+    .refine(
+      (value) => Object.keys(value).length <= LENS_CAPTURE_LIMITS.styleEditItems,
+      "Too many Lens style properties",
+    ),
+  documentId: z
+    .string()
+    .min(1)
+    .max(LENS_CAPTURE_LIMITS.documentIdBytes),
+}).strict();
 
 export const SuggestTaskNameArgsSchema = z
   .object({
@@ -472,7 +572,6 @@ export const RuntimeOptionsObjectSchema = z
     claudePluginPaths: z.array(z.string().max(4096)).max(50).optional(),
     claudeAgentName: z.string().max(200).optional(),
     claudeFallbackModel: z.string().max(500).optional(),
-    claudeAdvisorModel: z.string().max(200).optional(),
     claudeResumeSessionId: z.string().max(200).optional(),
     claudeResumeSessionAt: z.string().max(200).optional(),
     codexFileAccess: z
@@ -521,6 +620,13 @@ export const RuntimeOptionsObjectSchema = z
     codexFastMode: z.boolean().optional(),
     codexPlanMode: z.boolean().optional(),
     codexResumeThreadId: z.string().max(200).optional(),
+    advisorTarget: z
+      .object({
+        providerId: ProviderIdSchema,
+        model: z.string().trim().min(1).max(200),
+      })
+      .strict()
+      .optional(),
     responseStylePrompt: z.string().max(10_000).optional(),
     promptPrDescription: z.string().max(10_000).optional(),
     promptInlineCompletion: z.string().max(10_000).optional(),

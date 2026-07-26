@@ -9,6 +9,42 @@ Stave supports two task providers directly:
 
 The renderer submits a selected provider and model with each turn. `electron/main/ipc/provider.ts` validates the request, forwards it into the dedicated desktop `host-service` child process, and `electron/providers/runtime.ts` dispatches to the matching provider runtime.
 
+## Advisor preflight
+
+`Settings → Providers → Advisor` can run one isolated read-only preflight
+before a normal user-authored chat turn. The primary provider and Advisor are
+independent: Claude can advise Codex, Codex can advise Claude, and either
+provider can advise another model from its own catalog. Fable is a normal
+Claude model choice, not a special Advisor mode.
+
+The Advisor target is stored as `advisorTarget: { providerId, model } | null`
+and is only attached to the main user-turn request. Summary generation,
+routing classifiers, task naming, PR helpers, native slash-command turns, and
+other internal one-shot calls do not inherit it.
+
+`electron/providers/advisor-runtime.ts` runs the preflight before the primary
+provider dispatch:
+
+- Claude uses a fresh one-turn SDK query with `tools: []`, no setting sources,
+  no skills, no MCP servers, and no resume state.
+- Codex uses an ephemeral App Server thread with read-only sandboxing,
+  approvals disabled, network and web search disabled, plus isolated
+  instructions that prohibit tools, apps, plugins, shells, and subagents.
+- Successful advice is bounded and appended to the canonical request as
+  `retrieved_context` with source id `stave:advisor`.
+- A compact `system` trace records completion, skip, or recoverable failure.
+  Advisor text is not persisted as a separate assistant response.
+- Advisor usage is merged into the visible primary turn usage when reported.
+- An unavailable, invalid, failed, or timed-out Advisor does not trigger a
+  fallback and does not block the primary turn. A user abort during preflight
+  aborts the whole turn.
+
+Bounded secondary turns, such as Compare Judge, use the same provider adapters
+through a separate durable contract. Electron main records the run before the
+host-service starts a fresh read-only turn, and provider-specific restrictions
+are selected by an internal execution policy. See
+[Run Core And Secondary Execution](../architecture/run-core.md).
+
 ## Claude runtime
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.

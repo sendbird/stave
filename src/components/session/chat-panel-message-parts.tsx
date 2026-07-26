@@ -28,7 +28,10 @@ import {
   shouldRenderInlineSystemEvent,
 } from "@/components/session/chat-panel.utils";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { getTaskControlOwner, isTaskManaged } from "@/lib/tasks";
+import {
+  getTaskControlOwner,
+  isExternallyManagedTask,
+} from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
@@ -91,7 +94,7 @@ export function MessagePartRenderer(args: {
   const rollbackToCompactBoundary = useAppStore((state) => state.rollbackToCompactBoundary);
   const task = useAppStore((state) => state.tasks.find((item) => item.id === taskId) ?? null);
   const [isRestoringCompactBoundary, setIsRestoringCompactBoundary] = useState(false);
-  const isManaged = isTaskManaged(task);
+  const isManaged = isExternallyManagedTask(task);
   const managedReason = isManaged
     ? `This request is managed by ${getTaskControlOwner(task) === "external" ? "an external controller" : "Stave"}. Respond from the originating client or take over after the run ends.`
     : undefined;

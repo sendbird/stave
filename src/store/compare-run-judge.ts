@@ -4,16 +4,23 @@ import {
   isCompareJudgeReady,
   normalizeCompareReviewCriteria,
   parseCompareJudgment,
-  resolveCompareTurnOutcome,
   type CompareRun,
 } from "@/lib/compare-runs";
 import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import type {
-  NormalizedProviderEvent,
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
+import type {
+  SecondaryRunClaimArgs,
+  SecondaryRunRuntimeHints,
+} from "@/lib/runs/secondary-run";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
+import {
+  executeSecondaryRun,
+  resolveSecondaryRunBridge,
+  type SecondaryRunBridge,
+} from "@/store/secondary-run-executor";
 import { resolveWorkspacePathForId } from "@/store/workspace-file-cache";
 
 type CompareJudgeRuntimeSettings = Parameters<
@@ -30,7 +37,7 @@ interface CompareJudgeStoreSnapshot {
   workspacePathById: Record<string, string>;
 }
 
-interface CompareJudgeBridge {
+interface CompareJudgeBridge extends Partial<SecondaryRunBridge> {
   checkAvailability?: (args: {
     providerId: ProviderId;
     runtimeOptions?: ProviderRuntimeOptions;
@@ -40,12 +47,6 @@ interface CompareJudgeBridge {
     message?: string;
     detail?: string;
   }>;
-  streamTurn?: (args: {
-    providerId: ProviderId;
-    prompt: string;
-    cwd?: string;
-    runtimeOptions?: ProviderRuntimeOptions;
-  }) => unknown;
 }
 
 export interface CompareJudgeStoreAccess {
@@ -160,46 +161,169 @@ export function buildCompareJudgeRuntimeOptions(args: {
   };
 }
 
-async function collectProviderEvents(value: unknown) {
-  const resolved = await value;
-  if (Array.isArray(resolved)) {
-    return resolved as NormalizedProviderEvent[];
+export function buildCompareJudgeRunIdentity(compareRunId: string) {
+  const runId = `compare:${compareRunId}:judge`;
+  return {
+    runId,
+    stepId: `${runId}:step`,
+  };
+}
+
+function buildCompareJudgeRuntimeHints(args: {
+  provider: ProviderId;
+  runtimeOptions: ProviderRuntimeOptions;
+}): SecondaryRunRuntimeHints {
+  if (args.provider === "claude-code") {
+    return {
+      ...(args.runtimeOptions.claudeBinaryPath
+        ? { claudeBinaryPath: args.runtimeOptions.claudeBinaryPath }
+        : {}),
+      ...(args.runtimeOptions.claudeEffort
+        ? { claudeEffort: args.runtimeOptions.claudeEffort }
+        : {}),
+      ...(args.runtimeOptions.claudeThinkingMode
+        ? { claudeThinkingMode: args.runtimeOptions.claudeThinkingMode }
+        : {}),
+      ...(args.runtimeOptions.claudeMaxBudgetUsd !== undefined
+        ? { claudeMaxBudgetUsd: args.runtimeOptions.claudeMaxBudgetUsd }
+        : {}),
+      ...(args.runtimeOptions.claudeTaskBudgetTokens !== undefined
+        ? {
+            claudeTaskBudgetTokens:
+              args.runtimeOptions.claudeTaskBudgetTokens,
+          }
+        : {}),
+      ...(args.runtimeOptions.claudeFastMode !== undefined
+        ? { claudeFastMode: args.runtimeOptions.claudeFastMode }
+        : {}),
+    };
   }
-  if (
-    !resolved ||
-    typeof resolved !== "object" ||
-    !(Symbol.asyncIterator in resolved)
-  ) {
-    return [];
+  const codexReasoningEffort =
+    args.runtimeOptions.codexReasoningEffort === "minimal"
+      ? "low"
+      : args.runtimeOptions.codexReasoningEffort;
+  return {
+    ...(args.runtimeOptions.codexBinaryPath
+      ? { codexBinaryPath: args.runtimeOptions.codexBinaryPath }
+      : {}),
+    ...(codexReasoningEffort
+      ? { codexReasoningEffort }
+      : {}),
+    ...(args.runtimeOptions.codexReasoningSummary
+      ? { codexReasoningSummary: args.runtimeOptions.codexReasoningSummary }
+      : {}),
+    ...(args.runtimeOptions.codexReasoningSummarySupport
+      ? {
+          codexReasoningSummarySupport:
+            args.runtimeOptions.codexReasoningSummarySupport,
+        }
+      : {}),
+    ...(args.runtimeOptions.codexFastMode !== undefined
+      ? { codexFastMode: args.runtimeOptions.codexFastMode }
+      : {}),
+  };
+}
+
+export function buildCompareJudgeSecondaryClaim(args: {
+  run: CompareRun;
+  model: string;
+  cwd: string;
+  projectPath: string;
+  runtimeOptions: ProviderRuntimeOptions;
+}): SecondaryRunClaimArgs {
+  const judge = args.run.judge;
+  if (!judge) {
+    throw new Error("No judge was configured.");
   }
-  const events: NormalizedProviderEvent[] = [];
-  for await (const event of resolved as AsyncIterable<unknown>) {
-    events.push(event as NormalizedProviderEvent);
-  }
-  return events;
+  const identity = buildCompareJudgeRunIdentity(args.run.id);
+  return {
+    run: {
+      id: identity.runId,
+      kind: "secondary-provider",
+      origin: {
+        kind: "compare-run",
+        id: args.run.id,
+      },
+      ownership: {
+        projectPath: args.projectPath,
+        workspaceId: args.run.baseWorkspaceId,
+        taskId: args.run.baseTaskId ?? null,
+      },
+      policy: {
+        maxAttempts: 10,
+        timeoutMs: 30 * 60 * 1_000,
+        maxTurns: 16,
+        maxOutputBytes: 256 * 1_024,
+        maxEvents: 512,
+      },
+      provenance: {
+        createdBy: "compare-judge",
+        schemaVersion: 1,
+        sourceVersion: `rubric-${COMPARE_JUDGE_RUBRIC_VERSION}`,
+      },
+    },
+    step: {
+      id: identity.stepId,
+      kind: "secondary-provider-turn",
+      dependencyIds: [],
+      idempotencyKey: `${identity.stepId}:attempt:${judge.attempt}`,
+    },
+    input: {
+      providerId: judge.provider,
+      model: args.model,
+      prompt: buildCompareJudgePrompt(args.run),
+      cwd: args.cwd,
+      runtimeHints: buildCompareJudgeRuntimeHints({
+        provider: judge.provider,
+        runtimeOptions: args.runtimeOptions,
+      }),
+    },
+  };
 }
 
 function resolveBridge(
   bridge?: CompareJudgeBridge,
 ): CompareJudgeBridge | undefined {
-  return bridge ?? (window.api?.provider as CompareJudgeBridge | undefined);
+  if (bridge) {
+    return bridge;
+  }
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  return {
+    ...(window.api?.runs ?? {}),
+    ...(window.api?.provider?.checkAvailability
+      ? {
+          checkAvailability: window.api.provider.checkAvailability,
+        }
+      : {}),
+  };
 }
 
 async function executeCompareJudge(args: {
   run: CompareRun;
   settings: CompareJudgeRuntimeSettings;
   cwd?: string;
+  projectPath?: string;
   bridge?: CompareJudgeBridge;
+  onClaimed?: (executionId: string) => void;
+  shouldContinue?: () => boolean;
 }) {
   const judge = args.run.judge;
   if (!judge) {
     return { ok: false as const, error: "No judge was configured." };
   }
   const bridge = resolveBridge(args.bridge);
-  if (!bridge?.streamTurn) {
+  if (!resolveSecondaryRunBridge(bridge)) {
     return {
       ok: false as const,
-      error: "The provider bridge is unavailable for compare judging.",
+      error: "The secondary run bridge is unavailable for compare judging.",
+    };
+  }
+  if (!args.cwd || !args.projectPath) {
+    return {
+      ok: false as const,
+      error: "The compare judge workspace is unavailable.",
     };
   }
   const model =
@@ -212,7 +336,7 @@ async function executeCompareJudge(args: {
     settings: args.settings,
   });
 
-  if (bridge.checkAvailability) {
+  if (bridge?.checkAvailability) {
     try {
       const availability = await bridge.checkAvailability({
         providerId: judge.provider,
@@ -235,54 +359,45 @@ async function executeCompareJudge(args: {
     }
   }
 
-  try {
-    const events = await collectProviderEvents(
-      bridge.streamTurn({
-        providerId: judge.provider,
-        prompt: buildCompareJudgePrompt(args.run),
-        cwd: args.cwd,
-        runtimeOptions,
+  const result = await executeSecondaryRun({
+    bridge,
+    claim: buildCompareJudgeSecondaryClaim({
+      run: args.run,
+      model,
+      cwd: args.cwd,
+      projectPath: args.projectPath,
+      runtimeOptions,
+    }),
+    resultArtifactRef: `compare-run:${args.run.id}:judge-result`,
+    parserError: "The judge finished without a valid comparison result.",
+    parse: (text) =>
+      parseCompareJudgment({
+        text,
+        variants: args.run.variants,
+        reviewCriteria: normalizeCompareReviewCriteria(
+          args.run.reviewCriteria,
+        ),
+        candidateAliases,
+        provenance: {
+          rubricVersion: COMPARE_JUDGE_RUBRIC_VERSION,
+          judgeProvider: judge.provider,
+          judgeModel: model,
+          attempt: judge.attempt,
+        },
       }),
-    );
-    const outcome = resolveCompareTurnOutcome(events);
-    if (outcome.status !== "completed") {
-      return { ok: false as const, error: outcome.error };
-    }
-    const responseText = events
-      .filter(
-        (event): event is Extract<NormalizedProviderEvent, { type: "text" }> =>
-          event.type === "text",
-      )
-      .map((event) => event.text)
-      .join("")
-      .trim();
-    const judgment = parseCompareJudgment({
-      text: responseText,
-      variants: args.run.variants,
-      reviewCriteria: normalizeCompareReviewCriteria(args.run.reviewCriteria),
-      candidateAliases,
-      provenance: {
-        rubricVersion: COMPARE_JUDGE_RUBRIC_VERSION,
-        judgeProvider: judge.provider,
-        judgeModel: model,
-        attempt: judge.attempt,
-      },
-    });
-    return judgment
-      ? { ok: true as const, judgment, model }
-      : {
-          ok: false as const,
-          error: "The judge finished without a valid comparison result.",
-        };
-  } catch (error) {
-    return {
-      ok: false as const,
-      error:
-        error instanceof Error && error.message.trim()
-          ? error.message.trim()
-          : "The fresh-context judge failed unexpectedly.",
-    };
-  }
+    onClaimed: ({ executionId }) => args.onClaimed?.(executionId),
+    shouldContinue: args.shouldContinue,
+  });
+  return result.ok
+    ? {
+        ok: true as const,
+        judgment: result.value,
+        model: result.model,
+      }
+    : {
+        ok: false as const,
+        error: result.error,
+      };
 }
 
 function claimCompareJudge(args: {
@@ -331,6 +446,7 @@ async function launchCompareJudge(args: {
     return;
   }
   const attempt = claimedRun.judge.attempt;
+  const claimRequestId = claimedRun.judge.requestId;
   const state = args.access.getState();
   const cwd = resolveWorkspacePathForId({
     activeWorkspaceId: claimedRun.baseWorkspaceId,
@@ -343,7 +459,44 @@ async function launchCompareJudge(args: {
     run: claimedRun,
     settings: state.settings,
     cwd: cwd ?? undefined,
+    projectPath: state.projectPath ?? undefined,
     bridge: args.access.bridge,
+    onClaimed: (executionId) => {
+      args.access.updateRuns((runsById) => {
+        const run = runsById[args.compareRunId];
+        if (
+          !run?.judge ||
+          run.judge.status !== "running" ||
+          run.judge.attempt !== attempt ||
+          run.judge.requestId !== claimRequestId ||
+          run.status === "cancelled" ||
+          run.keptVariantId
+        ) {
+          return runsById;
+        }
+        return {
+          ...runsById,
+          [run.id]: {
+            ...run,
+            judge: {
+              ...run.judge,
+              requestId: executionId,
+            },
+          },
+        };
+      });
+    },
+    shouldContinue: () => {
+      const run =
+        args.access.getState().compareRunsById[args.compareRunId];
+      return Boolean(
+        run?.judge &&
+          run.judge.status === "running" &&
+          run.judge.attempt === attempt &&
+          run.status !== "cancelled" &&
+          !run.keptVariantId,
+      );
+    },
   });
   const completedAt = now();
 
@@ -445,6 +598,30 @@ export function launchReadyCompareJudgesFromStore<
           }) as Partial<TState>,
       ),
   });
+}
+
+export async function cancelCompareJudgeSecondaryRun(args: {
+  run: CompareRun;
+  bridge?: CompareJudgeBridge;
+}) {
+  if (
+    !args.run.judge ||
+    !["pending", "running"].includes(args.run.judge.status)
+  ) {
+    return;
+  }
+  const bridge = resolveBridge(args.bridge);
+  if (!bridge?.cancelSecondary) {
+    return;
+  }
+  const identity = buildCompareJudgeRunIdentity(args.run.id);
+  await bridge
+    .cancelSecondary({
+      runId: identity.runId,
+      stepId: identity.stepId,
+      idempotencyKey: `${identity.stepId}:cancel:${args.run.judge.attempt}`,
+    })
+    .catch(() => {});
 }
 
 export async function retryCompareJudge(args: {

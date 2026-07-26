@@ -454,15 +454,10 @@ describe("deriveFleetLifecycleStatus", () => {
     ).toBe("done");
   });
 
-  test("any open PR is in-review (wins over running work)", () => {
+  test("review-gated PR states are in-review", () => {
     for (const prStatus of [
-      "draft",
       "review_required",
-      "changes_requested",
       "checks_pending",
-      "checks_failed",
-      "merge_conflict",
-      "behind_base",
       "ready_to_merge",
     ] as const) {
       expect(
@@ -472,6 +467,24 @@ describe("deriveFleetLifecycleStatus", () => {
           hasRecentActivity: true,
         }),
       ).toBe("in-review");
+    }
+  });
+
+  test("draft and blocked PR states remain in-progress", () => {
+    for (const prStatus of [
+      "draft",
+      "changes_requested",
+      "checks_failed",
+      "merge_conflict",
+      "behind_base",
+    ] as const) {
+      expect(
+        deriveFleetLifecycleStatus({
+          prStatus,
+          hasRunningTask: false,
+          hasRecentActivity: false,
+        }),
+      ).toBe("in-progress");
     }
   });
 

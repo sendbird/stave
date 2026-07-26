@@ -302,6 +302,11 @@ const CLAUDE_MUTATING_BASH_PATTERNS = [
   /(^|[;&|]\s*)cat\b[^\n]*\s\d*(?:>>|>(?![&]))/i,
   /\s\d*(?:>>|>(?![&]))/,
 ] as const;
+const CLAUDE_SECONDARY_NETWORK_BASH_PATTERNS = [
+  /(^|[;&|]\s*)(curl|wget|ssh|scp|sftp|ftp|telnet|nc|ncat)\b/i,
+  /(^|[;&|]\s*)git\s+(clone|fetch|pull|push|ls-remote)\b/i,
+  /\bhttps?:\/\//i,
+] as const;
 
 // ---------------------------------------------------------------------------
 // Prewarm: eagerly cache the SDK module import and executable path resolution
@@ -575,6 +580,26 @@ function extractClaudeBashCommand(input: Record<string, unknown>) {
 
 function isMutatingClaudeBashCommand(command: string) {
   return CLAUDE_MUTATING_BASH_PATTERNS.some((pattern) => pattern.test(command));
+}
+
+export function shouldDenyClaudeToolInSecondaryReadOnly(args: {
+  toolName: string;
+  input: Record<string, unknown>;
+}) {
+  const toolName = args.toolName.trim().toLowerCase();
+  if (toolName === "read" || toolName === "glob" || toolName === "grep") {
+    return false;
+  }
+  if (toolName !== "bash") {
+    return true;
+  }
+  const command = extractClaudeBashCommand(args.input);
+  if (!command || isMutatingClaudeBashCommand(command)) {
+    return true;
+  }
+  return CLAUDE_SECONDARY_NETWORK_BASH_PATTERNS.some((pattern) =>
+    pattern.test(command),
+  );
 }
 
 /**
@@ -1707,6 +1732,7 @@ export function buildClaudeQueryOptions(args: {
   mcpServers?: Record<string, McpServerConfig>;
   onElicitation?: OnElicitation;
   onUserDialog?: OnUserDialog;
+  secondaryReadOnly?: boolean;
 }): Options {
   const permissionMode =
     args.permissionMode ??
@@ -1756,6 +1782,40 @@ export function buildClaudeQueryOptions(args: {
     model: args.runtimeOptions?.model,
     fallbackModel: args.runtimeOptions?.claudeFallbackModel,
   });
+  const settings = args.secondaryReadOnly
+    ? {
+        ...(args.runtimeOptions?.claudeFastMode ? { fastMode: true } : {}),
+        permissions: {
+          deny: [
+            "Edit(*)",
+            "Write(*)",
+            "NotebookEdit(*)",
+            "WebFetch(*)",
+            "WebSearch",
+          ],
+        },
+      }
+    : args.runtimeOptions?.claudeFastMode
+      ? { fastMode: true }
+      : undefined;
+  const sandbox = args.secondaryReadOnly
+    ? {
+        enabled: true,
+        failIfUnavailable: true,
+        allowUnsandboxedCommands: false,
+        network: {
+          deniedDomains: ["*"],
+          allowAllUnixSockets: false,
+          allowLocalBinding: false,
+        },
+        filesystem: {
+          denyWrite: [path.parse(args.cwd).root],
+        },
+      }
+    : {
+        enabled: claudeSandboxEnabled,
+        allowUnsandboxedCommands: claudeAllowUnsandboxedCommands,
+      };
 
   return {
     permissionMode,
@@ -1814,9 +1874,6 @@ export function buildClaudeQueryOptions(args: {
       ? { agent: args.runtimeOptions.claudeAgentName }
       : {}),
     ...(settingSources !== undefined ? { settingSources } : {}),
-    ...(args.runtimeOptions?.claudeAdvisorModel
-      ? { advisorModel: args.runtimeOptions.claudeAdvisorModel }
-      : {}),
     ...(args.runtimeOptions?.claudeFastMode
       ? { settings: { fastMode: true } }
       : {}),
@@ -1832,18 +1889,24 @@ export function buildClaudeQueryOptions(args: {
       ],
     },
     ...(args.canUseTool ? { canUseTool: args.canUseTool } : {}),
-    ...(args.onElicitation ? { onElicitation: args.onElicitation } : {}),
-    ...(args.onUserDialog
+    ...(!args.secondaryReadOnly && args.onElicitation
+      ? { onElicitation: args.onElicitation }
+      : {}),
+    ...(!args.secondaryReadOnly && args.onUserDialog
       ? {
           onUserDialog: args.onUserDialog,
           supportedDialogKinds: ["refusal_fallback_prompt"],
         }
       : {}),
     ...(args.mcpServers ? { mcpServers: args.mcpServers } : {}),
-    sandbox: {
-      enabled: claudeSandboxEnabled,
-      allowUnsandboxedCommands: claudeAllowUnsandboxedCommands,
-    },
+    ...(args.secondaryReadOnly
+      ? {
+          persistSession: false,
+          plugins: [],
+        }
+      : {}),
+    ...(settings ? { settings } : {}),
+    sandbox,
     env: buildClaudeEnv({ executablePath: args.claudeExecutablePath }),
     ...(args.claudeExecutablePath.length > 0
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
@@ -2739,6 +2802,136 @@ export function resolveClaudeTurnStopReason(args: {
   return args.currentStopReason;
 }
 
+export function buildClaudeReadOnlyPromptOptions(args: {
+  cwd: string;
+  model: string;
+  effort?: NonNullable<
+    NonNullable<StreamTurnArgs["runtimeOptions"]>["claudeEffort"]
+  >;
+  abortController: AbortController;
+  claudeExecutablePath: string;
+}): Options {
+  return {
+    abortController: args.abortController,
+    cwd: args.cwd,
+    model: args.model,
+    ...(args.effort ? { effort: args.effort } : {}),
+    maxTurns: 1,
+    permissionMode: "dontAsk",
+    tools: [],
+    allowedTools: [],
+    skills: [],
+    settingSources: [],
+    strictMcpConfig: true,
+    mcpServers: {},
+    sandbox: {
+      enabled: true,
+      allowUnsandboxedCommands: false,
+    },
+    env: buildClaudeEnv({ executablePath: args.claudeExecutablePath }),
+    ...(args.claudeExecutablePath
+      ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
+      : {}),
+  };
+}
+
+export async function runClaudeReadOnlyPrompt(args: {
+  cwd?: string;
+  prompt: string;
+  model: string;
+  effort?: NonNullable<
+    NonNullable<StreamTurnArgs["runtimeOptions"]>["claudeEffort"]
+  >;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  text?: string;
+  usage?: Extract<BridgeEvent, { type: "usage" }>;
+  aborted?: boolean;
+  detail?: string;
+}> {
+  const runtimeCwd =
+    args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  const abortController = new AbortController();
+  const abort = () => abortController.abort();
+  if (args.signal?.aborted) {
+    return { ok: false, aborted: true, detail: "Advisor was aborted." };
+  }
+  args.signal?.addEventListener("abort", abort, { once: true });
+
+  let stream: Query | null = null;
+  try {
+    const mod = await getPrewarmedSdkModule();
+    const queryFn = (
+      mod as { query?: typeof import("@anthropic-ai/claude-agent-sdk").query }
+    ).query;
+    if (!queryFn) {
+      return {
+        ok: false,
+        detail: "Claude SDK query() is unavailable.",
+      };
+    }
+
+    const claudeExecutablePath = resolveClaudeRuntimeExecutablePath({
+      runtimeOptions: args.runtimeOptions,
+    });
+    const options = buildClaudeReadOnlyPromptOptions({
+      abortController,
+      cwd: runtimeCwd,
+      model: args.model,
+      effort: args.effort,
+      claudeExecutablePath,
+    });
+    stream = queryFn({ prompt: args.prompt, options }) as Query;
+
+    for await (const message of stream) {
+      if (message.type !== "result") {
+        continue;
+      }
+      const result = message as SDKResultMessage;
+      const usage = buildClaudeUsageEvent(result) as Extract<
+        BridgeEvent,
+        { type: "usage" }
+      >;
+      if (result.subtype !== "success" || result.is_error) {
+        return {
+          ok: false,
+          usage,
+          detail:
+            result.subtype === "success"
+              ? "Claude Advisor returned an error result."
+              : result.errors.join("\n") ||
+                "Claude Advisor failed during execution.",
+        };
+      }
+      return {
+        ok: true,
+        text: result.result,
+        usage,
+      };
+    }
+    return {
+      ok: false,
+      detail: "Claude Advisor ended without a result.",
+    };
+  } catch (error) {
+    if (
+      abortController.signal.aborted ||
+      (error instanceof Error && error.name === "AbortError")
+    ) {
+      return { ok: false, aborted: true, detail: "Advisor was aborted." };
+    }
+    return {
+      ok: false,
+      detail: `Claude Advisor failed: ${toText(error)}`,
+    };
+  } finally {
+    args.signal?.removeEventListener("abort", abort);
+    stream?.close();
+  }
+}
+
 const sessionIdByTask = new Map<string, string>();
 const sessionMcpScopeByTask = new Map<string, string>();
 const activeRunByTask = new Map<string, Promise<void>>();
@@ -3146,21 +3339,26 @@ export async function streamClaudeWithSdk(
       freshClaudeSessionScopes.add(claudeMcpScopeKey);
     }
 
-    const existingSessionId = resolveSessionId({
-      taskId: args.taskId,
-      fallbackSessionId: freshClaudeSessionScopes.has(claudeMcpScopeKey)
-        ? undefined
-        : resolveProviderResumeSessionId({
-            conversation: args.conversation,
-            fallbackResumeId: args.runtimeOptions?.claudeResumeSessionId,
-          }),
-    });
+    const secondaryReadOnly = args.executionPolicy === "secondary-read-only";
+    const existingSessionId = secondaryReadOnly
+      ? undefined
+      : resolveSessionId({
+          taskId: args.taskId,
+          fallbackSessionId: freshClaudeSessionScopes.has(claudeMcpScopeKey)
+            ? undefined
+            : resolveProviderResumeSessionId({
+                conversation: args.conversation,
+                fallbackResumeId: args.runtimeOptions?.claudeResumeSessionId,
+              }),
+        });
     const claudeSystemPrompt = buildClaudeSystemPrompt({
       cwd: runtimeCwd,
       baseSystemPrompt: args.runtimeOptions?.claudeSystemPrompt,
       responseStylePrompt: args.runtimeOptions?.responseStylePrompt,
     });
-    const embeddedMcpServers = await resolveEmbeddedStaveLocalMcpServers();
+    const embeddedMcpServers = secondaryReadOnly
+      ? undefined
+      : await resolveEmbeddedStaveLocalMcpServers();
     const claudePermissionMode = resolveClaudePermissionMode({
       runtimeValue: args.runtimeOptions?.claudePermissionMode,
       envValue: process.env.STAVE_CLAUDE_PERMISSION_MODE?.trim(),
@@ -3228,6 +3426,7 @@ export async function streamClaudeWithSdk(
         includePartialMessages: true,
         promptSuggestions: true,
         mcpServers: embeddedMcpServers,
+        secondaryReadOnly,
         onElicitation: async (request, options) => {
           const requestId =
             createClaudeUserInputRequestId("claude-elicitation");
@@ -3360,6 +3559,20 @@ export async function streamClaudeWithSdk(
             return buildClaudeDenyPermissionResult({
               message: `Skill "${redirectedSkillSlug}" is already activated by Stave. Do not call the Skill tool for it; follow the [Activated Skills] instructions directly.`,
               context: "skill:activated-skill-redirect",
+            });
+          }
+
+          if (
+            args.executionPolicy === "secondary-read-only" &&
+            shouldDenyClaudeToolInSecondaryReadOnly({
+              toolName,
+              input: normalizedInput,
+            })
+          ) {
+            return buildClaudeDenyPermissionResult({
+              message:
+                "Secondary provider runs allow only local read-only inspection.",
+              context: "approval:secondary-read-only",
             });
           }
 
@@ -3609,11 +3822,13 @@ export async function streamClaudeWithSdk(
         message.type === "system" &&
         (message as SDKSystemMessage).subtype === "init"
       ) {
-        rememberSessionId({
-          taskId: args.taskId,
-          sessionId: (message as SDKSystemMessage).session_id,
-          mcpScopeKey: claudeMcpScopeKey,
-        });
+        if (!secondaryReadOnly) {
+          rememberSessionId({
+            taskId: args.taskId,
+            sessionId: (message as SDKSystemMessage).session_id,
+            mcpScopeKey: claudeMcpScopeKey,
+          });
+        }
       }
       if (
         message.type === "system" &&

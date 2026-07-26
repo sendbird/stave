@@ -1,6 +1,7 @@
 import { registerFilesystemHandlers } from "./filesystem";
 import { registerInlineCompletionHandlers } from "./inline-completion";
 import { registerBrowserHandlers } from "./browser";
+import { registerCraneConnectorHandlers } from "./crane-connector";
 import { registerDiagnosticsHandlers } from "./diagnostics";
 import { registerLocalMcpHandlers } from "./local-mcp";
 import { registerEslintHandlers } from "./eslint";
@@ -9,6 +10,7 @@ import { registerMetricsHandlers } from "./metrics";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerProviderHandlers } from "./provider";
+import { registerRunHandlers } from "./runs";
 import { registerRoutineHandlers } from "./routines";
 import { registerScmHandlers } from "./scm";
 import { registerSkillsHandlers } from "./skills";
@@ -21,6 +23,7 @@ export function registerHandlers() {
   registerWindowHandlers();
   registerDiagnosticsHandlers();
   registerProviderHandlers();
+  registerRunHandlers();
   registerRoutineHandlers();
   registerPersistenceHandlers();
   registerTerminalHandlers();
@@ -35,5 +38,6 @@ export function registerHandlers() {
   registerMetricsHandlers();
   registerNotificationHandlers();
   registerLocalMcpHandlers();
+  registerCraneConnectorHandlers();
   registerBrowserHandlers();
 }

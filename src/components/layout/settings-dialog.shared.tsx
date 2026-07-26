@@ -108,13 +108,18 @@ export function SettingsCard(args: {
   children: ReactNode;
   className?: string;
   titleAccessory?: ReactNode;
+  id?: string;
+  tabIndex?: number;
 }) {
   const titleId = useId();
 
   return (
     <section
+      id={args.id}
+      tabIndex={args.tabIndex}
+      aria-labelledby={titleId}
       className={cn(
-        "border-t border-border/65 py-7 first:border-t-0 first:pt-0 last:border-b",
+        "scroll-mt-6 border-t border-border/65 py-7 outline-none first:border-t-0 first:pt-0 last:border-b focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring/35",
         args.className,
       )}
     >

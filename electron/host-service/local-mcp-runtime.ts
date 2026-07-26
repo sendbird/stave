@@ -1850,6 +1850,7 @@ export async function runTask(args: {
   informationReferences?: WorkspaceInformationReference[];
   controlMode?: TaskControlMode;
   controlOwner?: TaskControlOwner;
+  retrievedContextParts?: CanonicalRetrievedContextPart[];
 }) {
   const { projects } = await loadNormalizedProjects();
   const registration = findWorkspaceRegistration({
@@ -1908,6 +1909,9 @@ export async function runTask(args: {
     requestedTaskId: args.taskId,
   });
 
+  const requestedControlMode = args.controlMode ?? "managed";
+  const requestedControlOwner = args.controlOwner ?? "external";
+
   if (!task) {
     const taskId = randomUUID();
     task = {
@@ -1917,8 +1921,8 @@ export async function runTask(args: {
       updatedAt: buildRecentTimestamp(),
       unread: false,
       archivedAt: null,
-      controlMode: args.controlMode ?? "managed",
-      controlOwner: args.controlOwner ?? "external",
+      controlMode: requestedControlMode,
+      controlOwner: requestedControlOwner,
     } satisfies Task;
     session = cacheWorkspaceSession(args.workspaceId, {
       ...session,
@@ -1934,13 +1938,13 @@ export async function runTask(args: {
       },
     });
   } else if (
-    task.controlMode !== "managed" ||
-    task.controlOwner !== "external"
+    task.controlMode !== requestedControlMode ||
+    task.controlOwner !== requestedControlOwner
   ) {
     task = {
       ...task,
-      controlMode: "managed",
-      controlOwner: "external",
+      controlMode: requestedControlMode,
+      controlOwner: requestedControlOwner,
       updatedAt: buildRecentTimestamp(),
     } satisfies Task;
     session = cacheWorkspaceSession(args.workspaceId, {
@@ -2006,6 +2010,7 @@ export async function runTask(args: {
         workspaceInformation: session.workspaceInformation,
       }),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
+      ...(args.retrievedContextParts ?? []),
     ],
   });
   const pendingState = buildPendingProviderTurnState({
@@ -2145,6 +2150,62 @@ export async function getTaskStatus(args: {
     pendingApprovals: findPendingApprovals(messages),
     pendingUserInputs: findPendingUserInputs(messages),
   } satisfies TaskStatusResult;
+}
+
+export async function releaseLocallyManagedTaskControl(args: {
+  workspaceId: string;
+  taskId: string;
+}) {
+  const { projects } = await loadNormalizedProjects();
+  const registration = findWorkspaceRegistration({
+    projects,
+    workspaceId: args.workspaceId,
+  });
+  if (!registration) {
+    throw new Error(`Workspace not found: ${args.workspaceId}`);
+  }
+  let session = await loadWorkspaceSession(args.workspaceId);
+  const task =
+    session.tasks.find((candidate) => candidate.id === args.taskId) ??
+    null;
+  if (!task) {
+    throw new Error(`Task not found: ${args.taskId}`);
+  }
+  if (session.activeTurnIdsByTask[task.id]) {
+    throw new Error(`Task still has an active turn: ${task.id}`);
+  }
+  if (
+    task.controlMode !== "managed" ||
+    task.controlOwner !== "stave"
+  ) {
+    return {
+      workspaceId: args.workspaceId,
+      taskId: task.id,
+      released: false,
+    };
+  }
+  const releasedTask: Task = {
+    ...task,
+    controlMode: "interactive",
+    controlOwner: "stave",
+    updatedAt: buildRecentTimestamp(),
+  };
+  session = cacheWorkspaceSession(args.workspaceId, {
+    ...session,
+    tasks: session.tasks.map((candidate) =>
+      candidate.id === task.id ? releasedTask : candidate,
+    ),
+  });
+  await queueWorkspaceSessionPersist({
+    workspaceId: args.workspaceId,
+    workspaceName: registration.workspace.name,
+    session,
+  });
+  return {
+    workspaceId: args.workspaceId,
+    taskId: task.id,
+    released: true,
+  };
 }
 
 function findApprovalMessage(args: {

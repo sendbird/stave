@@ -279,9 +279,21 @@ export function deriveFleetLifecycleStatus(args: {
   if (args.prStatus === "merged" || args.prStatus === "closed_unmerged") {
     return "done";
   }
-  if (args.prStatus && args.prStatus !== "no_pr") {
-    // An open PR of any state means the work is up for review.
+  if (
+    args.prStatus === "review_required" ||
+    args.prStatus === "checks_pending" ||
+    args.prStatus === "ready_to_merge"
+  ) {
     return "in-review";
+  }
+  if (
+    args.prStatus === "draft" ||
+    args.prStatus === "changes_requested" ||
+    args.prStatus === "checks_failed" ||
+    args.prStatus === "merge_conflict" ||
+    args.prStatus === "behind_base"
+  ) {
+    return "in-progress";
   }
   if (args.hasRunningTask || args.hasRecentActivity) {
     return "in-progress";

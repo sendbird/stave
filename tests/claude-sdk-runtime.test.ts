@@ -3,6 +3,7 @@ import {
   buildClaudeApprovalPermissionResult,
   buildClaudeApprovalTimeoutBridgeEvent,
   buildClaudeQueryOptions,
+  buildClaudeReadOnlyPromptOptions,
   CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
   claudeForegroundSubagentPreToolUseHook,
   ClaudeToolDecisionTimeoutError,
@@ -1191,6 +1192,41 @@ describe("buildClaudeQueryOptions", () => {
       model: "claude-sonnet-4-6",
       fallbackModel: "claude-haiku-4-5",
     });
+  });
+});
+
+describe("buildClaudeReadOnlyPromptOptions", () => {
+  test("uses a fresh one-turn sandbox with no tools or inherited state", () => {
+    const options = buildClaudeReadOnlyPromptOptions({
+      cwd: workspaceRoot,
+      model: "claude-fable-5",
+      effort: "xhigh",
+      abortController: new AbortController(),
+      claudeExecutablePath: "/opt/claude",
+    });
+
+    expect(options).toMatchObject({
+      cwd: workspaceRoot,
+      model: "claude-fable-5",
+      effort: "xhigh",
+      maxTurns: 1,
+      permissionMode: "dontAsk",
+      tools: [],
+      allowedTools: [],
+      skills: [],
+      settingSources: [],
+      strictMcpConfig: true,
+      mcpServers: {},
+      sandbox: {
+        enabled: true,
+        allowUnsandboxedCommands: false,
+      },
+      pathToClaudeCodeExecutable: "/opt/claude",
+    });
+    expect(options).not.toHaveProperty("resume");
+    expect(options).not.toHaveProperty("plugins");
+    expect(options).not.toHaveProperty("agent");
+    expect(options).not.toHaveProperty("fallbackModel");
   });
 });
 

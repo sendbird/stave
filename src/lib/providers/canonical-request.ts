@@ -1,4 +1,9 @@
-import type { ChatMessage, FileContextPart, ImageContextPart, MessagePart } from "@/types/chat";
+import type {
+  ChatMessage,
+  FileContextPart,
+  ImageContextPart,
+  MessagePart,
+} from "@/types/chat";
 import {
   sanitizeChatMessagePayload,
   sanitizeFileContextPayload,
@@ -53,7 +58,9 @@ function cloneMessagePart(part: MessagePart): MessagePart {
         filePath: part.filePath,
         content: part.content,
         language: part.language,
-        ...(part.instruction !== undefined ? { instruction: part.instruction } : {}),
+        ...(part.instruction !== undefined
+          ? { instruction: part.instruction }
+          : {}),
       };
     case "image_context":
       return {
@@ -96,7 +103,13 @@ function cloneMessagePart(part: MessagePart): MessagePart {
   }
 }
 
-function cloneContextPart(part: FileContextPart | CanonicalRetrievedContextPart | ImageContextPart | CanonicalSkillContextPart) {
+function cloneContextPart(
+  part:
+    | FileContextPart
+    | CanonicalRetrievedContextPart
+    | ImageContextPart
+    | CanonicalSkillContextPart,
+) {
   if (part.type === "retrieved_context") {
     return { ...part };
   }
@@ -116,9 +129,13 @@ function deriveCanonicalMessageContent(message: ChatMessage) {
   const responseStartIndex = getAssistantResponseTextStartIndex(message.parts);
 
   const trailingText = message.parts
-    .flatMap((part, index) => (
-      part.type === "text" && responseStartIndex !== -1 && index >= responseStartIndex ? [part.text] : []
-    ))
+    .flatMap((part, index) =>
+      part.type === "text" &&
+      responseStartIndex !== -1 &&
+      index >= responseStartIndex
+        ? [part.text]
+        : [],
+    )
     .join("");
 
   return trailingText.trim().length > 0 ? trailingText : message.content;
@@ -168,13 +185,15 @@ export function buildCanonicalConversationRequest(args: {
   const contextParts: CanonicalConversationRequest["contextParts"] = [];
   if (args.fileContexts) {
     for (const fc of args.fileContexts) {
-      contextParts.push(sanitizeFileContextPayload({
-        type: "file_context",
-        filePath: fc.filePath,
-        content: fc.content,
-        language: fc.language,
-        instruction: fc.instruction,
-      }));
+      contextParts.push(
+        sanitizeFileContextPayload({
+          type: "file_context",
+          filePath: fc.filePath,
+          content: fc.content,
+          language: fc.language,
+          instruction: fc.instruction,
+        }),
+      );
     }
   }
   if (args.imageContexts) {
@@ -206,15 +225,18 @@ export function buildCanonicalConversationRequest(args: {
       model: args.model,
     },
     mode: args.mode ?? "chat",
-    history: args.history.map((message) => toCanonicalConversationMessage({ message })),
+    history: args.history.map((message) =>
+      toCanonicalConversationMessage({ message }),
+    ),
     input: {
       role: "user",
       providerId: "user",
       model: "user",
       content: args.userInput,
-      parts: args.userInput.trim().length > 0
-        ? [{ type: "text", text: args.userInput }]
-        : [],
+      parts:
+        args.userInput.trim().length > 0
+          ? [{ type: "text", text: args.userInput }]
+          : [],
     },
     contextParts,
     resume: args.nativeSessionId?.trim()
@@ -222,8 +244,7 @@ export function buildCanonicalConversationRequest(args: {
           nativeSessionId: args.nativeSessionId.trim(),
           ...(args.syncedThroughMessageId?.trim()
             ? {
-                syncedThroughMessageId:
-                  args.syncedThroughMessageId.trim(),
+                syncedThroughMessageId: args.syncedThroughMessageId.trim(),
               }
             : {}),
         }
@@ -231,7 +252,9 @@ export function buildCanonicalConversationRequest(args: {
   };
 }
 
-function canonicalPartToContextText(part: CanonicalConversationMessage["parts"][number]) {
+function canonicalPartToContextText(
+  part: CanonicalConversationMessage["parts"][number],
+) {
   switch (part.type) {
     case "text":
       return part.text;
@@ -264,7 +287,10 @@ function toHistoryLine(args: { message: CanonicalConversationMessage }) {
   if (args.message.isPlanResponse && args.message.planText?.trim()) {
     return `${args.message.role}: ${args.message.planText.trim()}`;
   }
-  const partText = args.message.parts.map((part) => canonicalPartToContextText(part)).join(" | ").trim();
+  const partText = args.message.parts
+    .map((part) => canonicalPartToContextText(part))
+    .join(" | ")
+    .trim();
   return `${args.message.role}: ${partText}`;
 }
 
@@ -272,25 +298,30 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
   request: CanonicalConversationRequest;
   includeHistory?: boolean;
   includeSkillContext?: boolean;
+  includeImageData?: boolean;
 }) {
   const maxHistoryChars = 12000;
   const hasVisibleSkillContext = args.request.contextParts.some(
     (part) =>
-      part.type === "skill_context"
-      && part.skills.length > 0
-      && args.includeSkillContext !== false,
+      part.type === "skill_context" &&
+      part.skills.length > 0 &&
+      args.includeSkillContext !== false,
   );
   const sections = [
-    ...((args.request.workspaceId || args.request.taskId)
+    ...(args.request.workspaceId || args.request.taskId
       ? [
           "[Stave Workspace Context]",
           [
-            args.request.workspaceId ? `workspaceId: ${args.request.workspaceId}` : null,
+            args.request.workspaceId
+              ? `workspaceId: ${args.request.workspaceId}`
+              : null,
             args.request.taskId ? `taskId: ${args.request.taskId}` : null,
             "workspacePlanDirectory: .stave/context/plans",
             "newWorkspacePlanFiles: .stave/context/plans/<taskIdPrefix>_<timestamp>.md",
             "handoffConvention: write plan files (not workspace notes) when handing off to a new workspace; notes carry only a pointer to the plan file, and the source workspace's plan/notes/todos must not be copied verbatim into the target.",
-          ].filter(Boolean).join("\n"),
+          ]
+            .filter(Boolean)
+            .join("\n"),
         ]
       : []),
     ...(args.includeHistory !== false
@@ -310,7 +341,9 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
         "[Selected File Context]",
         `file: ${part.filePath}`,
         `language: ${part.language}`,
-        part.instruction ? `instruction: ${part.instruction}` : "instruction: (none)",
+        part.instruction
+          ? `instruction: ${part.instruction}`
+          : "instruction: (none)",
         part.content,
       );
       return;
@@ -321,7 +354,9 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
         "[Image Attachment]",
         `label: ${part.label}`,
         `type: ${part.mimeType}`,
-        `dataUrl: ${part.dataUrl}`,
+        ...(args.includeImageData === false
+          ? []
+          : [`dataUrl: ${part.dataUrl}`]),
       );
       return;
     }

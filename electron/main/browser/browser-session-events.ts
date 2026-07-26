@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   DEFAULT_LENS_SESSION_ID,
   type BrowserConsoleEntry,
@@ -23,6 +24,17 @@ import {
   handleLensCdpDiagnosticsNavigation,
   handleLensCdpDiagnosticsNavigationStart,
 } from "./browser-cdp-diagnostics";
+import {
+  LENS_ANNOTATION_BEACON_MARKER,
+  normalizeStoredAnnotationsForSession,
+  readLensAnnotationConsoleMessage,
+  readNormalizedPageAnnotations,
+} from "./browser-annotation-ingestion";
+import {
+  applyLensAnnotationEvent,
+  invalidateLensAnnotationDocument,
+} from "./browser-annotation-state";
+import { executeInLensAnnotationWorld } from "./browser-annotation-world";
 
 function toIso(): string {
   return new Date().toISOString();
@@ -81,17 +93,21 @@ export async function injectAnnotationOverlay(
   }
   let initialAnnotations: LensAnnotation[] = [];
   try {
-    initialAnnotations = await wc.executeJavaScript(
-      "window.__staveGetAnnotations?.() ?? []",
-    );
+    initialAnnotations = await readNormalizedPageAnnotations(session);
   } catch {
     initialAnnotations = [];
   }
   if (initialAnnotations.length === 0) {
-    initialAnnotations = session.annotations;
+    initialAnnotations = normalizeStoredAnnotationsForSession(
+      session,
+      session.annotations,
+    );
   }
-  await wc.executeJavaScript(
+  session.annotations = initialAnnotations;
+  await executeInLensAnnotationWorld(
+    wc,
     getAnnotationOverlayScript({
+      documentId: session.documentId,
       extractDebugSource: session.annotationExtractDebugSource,
       initialAnnotations,
       nonce: session.annotationNonce,
@@ -134,9 +150,26 @@ export function attachBrowserSessionEventListeners(
   wc.on("will-navigate", (_event, url) => {
     handleLensCdpDiagnosticsNavigationStart(wc.id, url);
   });
-  wc.on("did-start-navigation", (_event, url, _isInPlace, isMainFrame) => {
+  wc.on("did-start-navigation", (_event, url, isInPlace, isMainFrame) => {
     if (isMainFrame) {
       handleLensCdpDiagnosticsNavigationStart(wc.id, url);
+      if (!isInPlace) {
+        const session = getBrowserSession(workspaceId, lensSessionId);
+        if (
+          session &&
+          invalidateLensAnnotationDocument(session, {
+            documentId: randomUUID(),
+            annotationNonce: randomUUID(),
+          })
+        ) {
+          sendAnnotationEvent({
+            workspaceId,
+            lensSessionId,
+            documentId: session.documentId,
+            type: "clear",
+          });
+        }
+      }
     }
   });
   wc.on("did-navigate", (_event, url) => {
@@ -150,7 +183,21 @@ export function attachBrowserSessionEventListeners(
     );
     sendNavUpdate();
   });
-  wc.on("did-navigate-in-page", sendNavUpdate);
+  wc.on("did-navigate-in-page", () => {
+    sendNavUpdate();
+    setTimeout(() => {
+      if (wc.isDestroyed()) {
+        return;
+      }
+      void executeInLensAnnotationWorld(
+        wc,
+          "window.__staveReconcileAnnotations?.() ?? []",
+        )
+        .catch(() => {
+          // The overlay may be absent when the session has no annotations.
+        });
+    }, 50);
+  });
   wc.on("did-start-loading", () => {
     updateNavigationState(workspaceId, { isLoading: true }, lensSessionId);
     sendNavUpdate();
@@ -262,39 +309,18 @@ export function attachBrowserSessionEventListeners(
 
   wc.on("console-message", (_event, level, message, lineNumber, sourceId) => {
     const session = getBrowserSession(workspaceId, lensSessionId);
-    const annotationPrefix = session?.annotationNonce
-      ? `__STAVE_ANN__${session.annotationNonce}`
-      : null;
-    if (session && annotationPrefix && message.startsWith(annotationPrefix)) {
+    if (session && message.startsWith(LENS_ANNOTATION_BEACON_MARKER)) {
       try {
-        const payload = JSON.parse(
-          message.slice(annotationPrefix.length),
-        ) as Omit<LensAnnotationEventPayload, "workspaceId"> | null;
-        if (payload?.type) {
-          if (
-            (payload.type === "add" || payload.type === "update") &&
-            payload.annotation
-          ) {
-            session.annotations = [
-              ...session.annotations.filter(
-                (annotation) => annotation.id !== payload.annotation?.id,
-              ),
-              payload.annotation,
-            ].sort((left, right) => left.pin - right.pin);
-          } else if (payload.type === "remove" && payload.annotation) {
-            session.annotations = session.annotations.filter(
-              (annotation) => annotation.id !== payload.annotation?.id,
-            );
-          } else if (payload.type === "submit" && payload.annotations) {
-            session.annotations = payload.annotations;
-          } else if (payload.type === "clear") {
-            session.annotations = [];
-          }
+        const result = readLensAnnotationConsoleMessage(session, message);
+        if (
+          result.event &&
+          applyLensAnnotationEvent(session, result.event)
+        ) {
           sendAnnotationEvent({
             workspaceId,
-            ...payload,
+            ...result.event,
             lensSessionId,
-          } as LensAnnotationEventPayload);
+          } satisfies LensAnnotationEventPayload);
         }
       } catch {
         pushConsoleEntry(

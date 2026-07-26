@@ -8,6 +8,7 @@
 import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import type { LensSessionScope } from "@/lib/lens/lens.types";
 import type {
+  AdvisorTarget,
   ClaudeSettingSource,
   ProviderId,
 } from "@/lib/providers/provider.types";
@@ -42,10 +43,7 @@ import {
   DEFAULT_PRE_PR_REVIEW_PROVIDER,
   type PrePrReviewProviderId,
 } from "@/lib/source-control-review";
-import {
-  cloneDefaultTaskPresets,
-  type TaskPreset,
-} from "@/lib/task-presets";
+import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
   DEFAULT_TERMINAL_FONT_SIZE,
@@ -68,6 +66,10 @@ import type {
   ThemeModeName,
   ThemeOverrideValues,
 } from "@/lib/themes";
+import {
+  DEFAULT_CRANE_CONNECTOR_SETTINGS,
+  type CraneConnectorSettings,
+} from "@/lib/crane-connector/types";
 import {
   DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
   type WorkspaceKickoffSettings,
@@ -223,7 +225,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeSandboxEnabled: boolean;
   claudeAllowUnsandboxedCommands: boolean;
   claudeTaskBudgetTokens: number;
-  claudeAdvisorModel: string;
+  /** Optional isolated read-only preflight used before normal user turns. */
+  advisorTarget: AdvisorTarget | null;
+  /** Optional outbound-only Crane dispatch connector. Secrets stay in Electron main. */
+  craneConnector: CraneConnectorSettings;
   claudeSettingSources: ClaudeSettingSource[];
   claudeEffort: "low" | "medium" | "high" | "xhigh" | "max";
   claudeThinkingMode: "adaptive" | "enabled" | "disabled";
@@ -423,7 +428,11 @@ export const defaultSettings: AppSettings = {
   claudeSandboxEnabled: false,
   claudeAllowUnsandboxedCommands: true,
   claudeTaskBudgetTokens: 0,
-  claudeAdvisorModel: "",
+  advisorTarget: null,
+  craneConnector: {
+    ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
+    projectMappings: [],
+  },
   claudeSettingSources: ["project"],
   claudeEffort: "high",
   claudeThinkingMode: "adaptive",

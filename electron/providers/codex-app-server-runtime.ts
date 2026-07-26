@@ -46,17 +46,8 @@ import {
   type PrePrReviewFinding,
 } from "../../src/lib/source-control-review";
 import { parsePullRequestSuggestionResponse } from "../../src/lib/source-control-pr";
-import {
-  resolveCodexAppServerReasoningEffort,
-  resolveEffectiveCodexApprovalPolicy,
-  resolveEffectiveCodexFileAccessMode,
-} from "../../src/lib/providers/codex-runtime-options";
-import {
-  spawn,
-  type ChildProcessWithoutNullStreams,
-} from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import path from "node:path";
-import { parseBooleanEnv } from "./runtime-shared";
 import {
   appendBoundedText,
   createBoundedBridgeEventCollector,
@@ -71,11 +62,7 @@ import {
 } from "../../src/lib/providers/connected-tool-status";
 import { getCodexMcpRegistrationStatus } from "../main/codex-mcp";
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
-import {
-  buildCodexDeveloperInstructions,
-  buildCodexInstructionProfileKey,
-  buildCodexPluginConfigOverrides,
-} from "./codex-runtime-config";
+import { buildCodexInstructionProfileKey } from "./codex-runtime-config";
 import {
   getCodexMcpConfigPaths,
   McpConfigRefreshTracker,
@@ -95,6 +82,11 @@ import {
   toCodexUserFacingErrorMessage,
   toErrorMessage,
 } from "./codex-app-server-errors";
+import {
+  runCodexReadOnlyPromptWithClient,
+  type CodexReadOnlyPromptArgs,
+  type CodexReadOnlyPromptResult,
+} from "./codex-read-only-prompt";
 import { resolveGitHeadRef } from "./git-head-ref";
 import {
   buildCodexGoalStatusEvent,
@@ -119,6 +111,15 @@ import {
   mapCodexElicitationToUserInput,
   type ElicitationFieldDescriptor,
 } from "./codex-elicitation-mapping";
+import {
+  buildCodexSecondaryServerRequestDenial,
+  buildCodexThreadResumeParams,
+  buildCodexThreadStartParams,
+  buildCodexTurnStartParams,
+  deleteCodexSecondaryThread,
+  resolveCodexSecondaryConfigOverrides,
+  resolveCodexSecondaryRuntimeOptions,
+} from "./codex-app-server-params";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -135,6 +136,15 @@ export {
   type CodexThreadGoalStatus,
 } from "./codex-goal-commands";
 export { toCodexConfigLayerDisplayValue } from "./codex-snapshot-mappers";
+export {
+  buildCodexConfigOverrides,
+  buildCodexMcpDisableConfigOverrides,
+  buildCodexSecondaryServerRequestDenial,
+  buildCodexThreadResumeParams,
+  buildCodexThreadStartParams,
+  buildCodexTurnStartParams,
+  buildSandboxPolicy,
+} from "./codex-app-server-params";
 export {
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
@@ -248,46 +258,6 @@ interface PendingUserInputRequest {
 interface CodexMcpServerStatus {
   name: string;
   authStatus?: string | null;
-}
-
-function resolveFileAccessMode(args: {
-  runtimeValue?: "read-only" | "workspace-write" | "danger-full-access";
-  envValue?: string;
-  planMode?: boolean;
-  fallback: "read-only" | "workspace-write" | "danger-full-access";
-}) {
-  return resolveEffectiveCodexFileAccessMode({
-    fileAccessMode: args.runtimeValue ?? args.envValue,
-    planMode: args.planMode,
-    fallback: args.fallback,
-  });
-}
-
-function resolveApprovalPolicy(args: {
-  runtimeValue?: "never" | "on-request" | "on-failure" | "untrusted";
-  envValue?: string;
-  planMode?: boolean;
-  fallback?: "never" | "on-request" | "on-failure" | "untrusted";
-}): "never" | "on-request" | "on-failure" | "untrusted" | undefined {
-  const candidate = args.runtimeValue ?? args.envValue;
-  if (
-    candidate !== "never" &&
-    candidate !== "on-request" &&
-    candidate !== "on-failure" &&
-    candidate !== "untrusted"
-  ) {
-    return args.fallback == null
-      ? undefined
-      : resolveEffectiveCodexApprovalPolicy({
-          planMode: args.planMode,
-          fallback: args.fallback,
-        });
-  }
-  return resolveEffectiveCodexApprovalPolicy({
-    approvalPolicy: candidate,
-    planMode: args.planMode,
-    fallback: args.fallback,
-  });
 }
 
 function buildCodexEnv(args: { executablePath?: string } = {}) {
@@ -505,141 +475,6 @@ export function describeJsonRpcLinePrefix(linePrefix: string) {
   };
 }
 
-export function buildCodexConfigOverrides(args: {
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}) {
-  const config: Record<string, string | boolean> = {
-    ...buildCodexPluginConfigOverrides(),
-  };
-  const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
-  const reasoningEffort = resolveCodexAppServerReasoningEffort({
-    reasoningEffort: args.runtimeOptions?.codexReasoningEffort,
-  });
-  const developerInstructions = buildCodexDeveloperInstructions({
-    runtimeOptions: args.runtimeOptions,
-  });
-  const summaryMode = args.runtimeOptions?.codexReasoningSummary;
-  const supportsSummaries = args.runtimeOptions?.codexReasoningSummarySupport;
-  const hasExplicitRawReasoningToggle = Object.prototype.hasOwnProperty.call(
-    args.runtimeOptions ?? {},
-    "codexShowRawReasoning",
-  );
-
-  if (developerInstructions) {
-    config.developer_instructions = developerInstructions;
-  }
-  if (hasExplicitRawReasoningToggle) {
-    config.show_raw_agent_reasoning = Boolean(
-      args.runtimeOptions?.codexShowRawReasoning,
-    );
-  }
-  if (summaryMode && summaryMode !== "auto") {
-    config.model_reasoning_summary = summaryMode;
-  }
-  if (supportsSummaries === "enabled") {
-    config.model_supports_reasoning_summaries = true;
-  } else if (supportsSummaries === "disabled") {
-    config.model_supports_reasoning_summaries = false;
-  }
-  if (typeof args.runtimeOptions?.codexNetworkAccess === "boolean") {
-    config.network_access = args.runtimeOptions.codexNetworkAccess;
-  }
-  if (args.runtimeOptions?.codexWebSearch) {
-    config.web_search = args.runtimeOptions.codexWebSearch;
-  }
-  const codexFastMode = args.runtimeOptions?.codexFastMode;
-  if (codexFastMode !== undefined) {
-    config["features.fast_mode"] = codexFastMode;
-  }
-  if (planModeEnabled) {
-    config.collaboration_mode_kind = "plan";
-    if (reasoningEffort) {
-      config.plan_mode_reasoning_effort = reasoningEffort;
-    }
-  }
-
-  return Object.keys(config).length > 0 ? config : undefined;
-}
-
-export function buildCodexTurnStartParams(args: {
-  threadId: string;
-  prompt: string;
-  cwd: string;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  outputSchema?: unknown;
-}) {
-  const reasoningEffort = resolveCodexAppServerReasoningEffort({
-    reasoningEffort: args.runtimeOptions?.codexReasoningEffort,
-  });
-  const approvalPolicy = resolveApprovalPolicy({
-    runtimeValue: args.runtimeOptions?.codexApprovalPolicy,
-    envValue: process.env.STAVE_CODEX_APPROVAL_POLICY?.trim(),
-    planMode: args.runtimeOptions?.codexPlanMode === true,
-    fallback: "untrusted",
-  });
-
-  return {
-    threadId: args.threadId,
-    input: [
-      {
-        type: "text" as const,
-        text: args.prompt,
-        text_elements: [],
-      },
-    ],
-    cwd: args.cwd,
-    ...(approvalPolicy ? { approvalPolicy } : {}),
-    sandboxPolicy: buildSandboxPolicy({
-      cwd: args.cwd,
-      runtimeOptions: args.runtimeOptions,
-    }),
-    ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
-    ...(reasoningEffort ? { effort: reasoningEffort } : {}),
-    ...(args.runtimeOptions?.codexReasoningSummary
-      ? { summary: args.runtimeOptions.codexReasoningSummary }
-      : {}),
-    ...(args.outputSchema ? { outputSchema: args.outputSchema } : {}),
-  };
-}
-
-export function buildCodexThreadStartParams(args: {
-  cwd: string;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  ephemeral?: boolean;
-  sandbox?: "read-only" | "workspace-write" | "danger-full-access";
-  approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
-}) {
-  const config = buildCodexConfigOverrides({
-    runtimeOptions: args.runtimeOptions,
-  });
-
-  return {
-    ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
-    cwd: args.cwd,
-    ...(args.approvalPolicy ? { approvalPolicy: args.approvalPolicy } : {}),
-    ...(args.sandbox ? { sandbox: args.sandbox } : {}),
-    ...(config ? { config } : {}),
-    ...(args.ephemeral !== undefined ? { ephemeral: args.ephemeral } : {}),
-  };
-}
-
-export function buildCodexThreadResumeParams(args: {
-  threadId: string;
-  cwd: string;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}) {
-  const config = buildCodexConfigOverrides({
-    runtimeOptions: args.runtimeOptions,
-  });
-
-  return {
-    threadId: args.threadId,
-    ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
-    cwd: args.cwd,
-    ...(config ? { config } : {}),
-  };
-}
-
 function buildThreadKey(args: {
   taskId?: string;
   cwd: string;
@@ -708,43 +543,6 @@ export function resolveCodexExecutablePath(
   return resolveCodexCliExecutablePath({
     explicitPath: args.explicitPath,
   });
-}
-
-export function buildSandboxPolicy(args: {
-  cwd: string;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}) {
-  const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
-  const networkAccessEnabled =
-    args.runtimeOptions?.codexNetworkAccess ??
-    parseBooleanEnv({
-      value: process.env.STAVE_CODEX_NETWORK_ACCESS,
-      fallback: false,
-    });
-  const fileAccessMode = resolveFileAccessMode({
-    runtimeValue: args.runtimeOptions?.codexFileAccess,
-    envValue: process.env.STAVE_CODEX_SANDBOX_MODE?.trim(),
-    planMode: planModeEnabled,
-    fallback: "workspace-write",
-  });
-  switch (fileAccessMode) {
-    case "danger-full-access":
-      return { type: "dangerFullAccess" as const };
-    case "read-only":
-      return {
-        type: "readOnly" as const,
-        networkAccess: networkAccessEnabled,
-      };
-    case "workspace-write":
-    default:
-      return {
-        type: "workspaceWrite" as const,
-        writableRoots: [args.cwd],
-        networkAccess: networkAccessEnabled,
-        excludeTmpdirEnvVar: false,
-        excludeSlashTmp: false,
-      };
-  }
 }
 
 function buildApprovalDescription(args: {
@@ -1419,22 +1217,26 @@ async function ensureCodexThread(args: {
   cwd: string;
   conversation?: StreamTurnArgs["conversation"];
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  ephemeral?: boolean;
+  configOverrides?: Record<string, string | boolean>;
 }) {
   const threadKey = buildThreadKey({
     taskId: args.taskId,
     cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
   });
-  const resumeThreadId = resolveThreadId({
-    threadKey,
-    executablePath: args.executablePath,
-    fallbackThreadId: freshCodexThreadExecutables.has(args.executablePath)
-      ? undefined
-      : resolveCodexResumeThreadFallback({
-          conversation: args.conversation,
-          runtimeOptions: args.runtimeOptions,
-        }),
-  });
+  const resumeThreadId = args.ephemeral
+    ? undefined
+    : resolveThreadId({
+        threadKey,
+        executablePath: args.executablePath,
+        fallbackThreadId: freshCodexThreadExecutables.has(args.executablePath)
+          ? undefined
+          : resolveCodexResumeThreadFallback({
+              conversation: args.conversation,
+              runtimeOptions: args.runtimeOptions,
+            }),
+      });
 
   const response = resumeThreadId
     ? await args.client.request<{ thread: { id: string } }>("thread/resume", {
@@ -1449,14 +1251,24 @@ async function ensureCodexThread(args: {
         buildCodexThreadStartParams({
           cwd: args.cwd,
           runtimeOptions: args.runtimeOptions,
+          ...(args.ephemeral
+            ? {
+                ephemeral: true,
+                sandbox: "read-only" as const,
+                approvalPolicy: "never" as const,
+              }
+            : {}),
+          configOverrides: args.configOverrides,
         }),
       );
   const threadId = response.thread.id;
-  rememberThreadId({
-    threadKey,
-    threadId,
-    executablePath: args.executablePath,
-  });
+  if (!args.ephemeral) {
+    rememberThreadId({
+      threadKey,
+      threadId,
+      executablePath: args.executablePath,
+    });
+  }
   return {
     threadId,
     threadKey,
@@ -1625,35 +1437,37 @@ export async function getCodexAppServerSnapshot(args: {
           forceReload: false,
         });
         snapshot.skills = Array.isArray(response?.data)
-          ? response.data.map((entry: any): CodexSkillCatalogGroup => ({
-              cwd: String(entry?.cwd ?? cwd),
-              skills: Array.isArray(entry?.skills)
-                ? entry.skills.map((skill: any) => ({
-                    name: String(skill?.name ?? ""),
-                    description: String(skill?.description ?? ""),
-                    shortDescription:
-                      typeof skill?.shortDescription === "string"
-                        ? skill.shortDescription
-                        : typeof skill?.interface?.short_description ===
-                            "string"
-                          ? skill.interface.short_description
-                          : null,
-                    path: String(skill?.path ?? ""),
-                    scope:
-                      typeof skill?.scope === "string"
-                        ? skill.scope
-                        : "unknown",
-                    enabled: Boolean(skill?.enabled),
-                  }))
-                : [],
-              errors: Array.isArray(entry?.errors)
-                ? entry.errors.map((error: any) =>
-                    typeof error?.message === "string"
-                      ? error.message
-                      : JSON.stringify(error ?? {}),
-                  )
-                : [],
-            }))
+          ? response.data.map(
+              (entry: any): CodexSkillCatalogGroup => ({
+                cwd: String(entry?.cwd ?? cwd),
+                skills: Array.isArray(entry?.skills)
+                  ? entry.skills.map((skill: any) => ({
+                      name: String(skill?.name ?? ""),
+                      description: String(skill?.description ?? ""),
+                      shortDescription:
+                        typeof skill?.shortDescription === "string"
+                          ? skill.shortDescription
+                          : typeof skill?.interface?.short_description ===
+                              "string"
+                            ? skill.interface.short_description
+                            : null,
+                      path: String(skill?.path ?? ""),
+                      scope:
+                        typeof skill?.scope === "string"
+                          ? skill.scope
+                          : "unknown",
+                      enabled: Boolean(skill?.enabled),
+                    }))
+                  : [],
+                errors: Array.isArray(entry?.errors)
+                  ? entry.errors.map((error: any) =>
+                      typeof error?.message === "string"
+                        ? error.message
+                        : JSON.stringify(error ?? {}),
+                    )
+                  : [],
+              }),
+            )
           : [];
       }),
       loadSection("plugins", async () => {
@@ -2456,171 +2270,32 @@ export async function getCodexConnectedToolStatus(args: {
   }
 }
 
-function extractLatestAgentMessageTextFromTurn(turn: unknown) {
-  if (!isRecord(turn) || !Array.isArray(turn.items)) {
-    return "";
-  }
-  for (let index = turn.items.length - 1; index >= 0; index -= 1) {
-    const item = turn.items[index];
-    if (
-      isRecord(item) &&
-      item.type === "agentMessage" &&
-      typeof item.text === "string"
-    ) {
-      return item.text;
-    }
-  }
-  return "";
-}
-
-async function runCodexReadOnlyPrompt(args: {
-  cwd?: string;
-  prompt: string;
-  model?: string;
-  outputSchema?: unknown;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}): Promise<{ ok: boolean; text?: string }> {
+export async function runCodexReadOnlyPrompt(
+  args: CodexReadOnlyPromptArgs,
+): Promise<CodexReadOnlyPromptResult> {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  if (args.signal?.aborted) {
+    return { ok: false, aborted: true, detail: "Advisor was aborted." };
+  }
   const codexExecutablePath = resolveCodexExecutablePath({
     explicitPath: args.runtimeOptions?.codexBinaryPath,
   });
   if (!codexExecutablePath) {
-    return { ok: false };
+    return { ok: false, detail: "Codex executable not found." };
   }
-
-  const model = args.model?.trim() || args.runtimeOptions?.model?.trim();
-  const readOnlyRuntimeOptions: StreamTurnArgs["runtimeOptions"] = {
-    ...args.runtimeOptions,
-    ...(model ? { model } : {}),
-    codexFileAccess: "read-only",
-    codexNetworkAccess: false,
-    codexApprovalPolicy: "never",
-    codexPlanMode: false,
-  };
-
   const client = getCodexAppServerClient({
     executablePath: codexExecutablePath,
   });
-  let threadId = "";
-  let unsubscribe: (() => void) | null = null;
-  try {
-    const account = await client.request<{
-      account: unknown | null;
-      requiresOpenaiAuth: boolean;
-    }>("account/read", { refreshToken: true });
-    if (!account.account && account.requiresOpenaiAuth) {
-      return { ok: false };
-    }
-
-    const threadResponse = await client.request<{ thread: { id: string } }>(
-      "thread/start",
-      buildCodexThreadStartParams({
-        cwd: runtimeCwd,
-        runtimeOptions: readOnlyRuntimeOptions,
-        ephemeral: true,
-        sandbox: "read-only",
-        approvalPolicy: "never",
-      }),
-    );
-    threadId = threadResponse.thread.id;
-
-    let latestAgentMessageText = "";
-    let failureMessage: string | null = null;
-    let resolveCompletion: (() => void) | null = null;
-    const waitForCompletion = new Promise<void>((resolve) => {
-      resolveCompletion = resolve;
-    });
-
-    unsubscribe = client.subscribe((message) => {
-      if (!message.method) {
-        return;
-      }
-      const params = isRecord(message.params) ? message.params : null;
-      if (params?.threadId !== threadId) {
-        return;
-      }
-
-      if (message.method === "item/completed") {
-        const item = isRecord(params.item) ? params.item : null;
-        if (item?.type === "agentMessage" && typeof item.text === "string") {
-          latestAgentMessageText = item.text;
-        }
-        return;
-      }
-
-      if (message.method === "turn/completed") {
-        const turn = isRecord(params.turn) ? params.turn : null;
-        const turnText = extractLatestAgentMessageTextFromTurn(turn);
-        if (turnText) {
-          latestAgentMessageText = turnText;
-        }
-        const error = isRecord(turn?.error) ? turn.error : null;
-        if (turn?.status === "failed") {
-          failureMessage =
-            typeof error?.message === "string"
-              ? error.message
-              : "Codex App Server read-only turn failed.";
-        }
-        resolveCompletion?.();
-        return;
-      }
-
-      if (message.method === "error") {
-        failureMessage =
-          extractCodexAppServerErrorMessage(params) ??
-          "Codex App Server read-only turn failed.";
-        resolveCompletion?.();
-      }
-    });
-
-    const turnResponse = await client.request<{
-      turn: {
-        id: string;
-        status?: string;
-        error?: { message?: string | null } | null;
-        items?: unknown[];
-      };
-    }>(
-      "turn/start",
-      buildCodexTurnStartParams({
-        threadId,
-        cwd: runtimeCwd,
-        prompt: args.prompt,
-        runtimeOptions: readOnlyRuntimeOptions,
-        outputSchema: args.outputSchema,
-      }),
-    );
-    const immediateText = extractLatestAgentMessageTextFromTurn(
-      turnResponse.turn,
-    );
-    if (immediateText) {
-      latestAgentMessageText = immediateText;
-    }
-    if (turnResponse.turn.status === "failed") {
-      failureMessage =
-        turnResponse.turn.error?.message ??
-        "Codex App Server read-only turn failed.";
-    }
-    if (
-      turnResponse.turn.status !== "completed" &&
-      turnResponse.turn.status !== "failed"
-    ) {
-      await waitForCompletion;
-    }
-
-    if (failureMessage) {
-      return { ok: false };
-    }
-    return { ok: true, text: latestAgentMessageText };
-  } catch {
-    return { ok: false };
-  } finally {
-    unsubscribe?.();
-    if (threadId) {
-      void client.request("thread/delete", { threadId }).catch(() => {});
-    }
-  }
+  return runCodexReadOnlyPromptWithClient({
+    ...args,
+    runtimeCwd,
+    request: <T>(method: string, params: unknown) =>
+      client.request<T>(method, params),
+    subscribe: (listener) => client.subscribe(listener),
+    buildThreadStartParams: buildCodexThreadStartParams,
+    buildTurnStartParams: buildCodexTurnStartParams,
+  });
 }
 
 export async function suggestCodexPRDescription(args: {
@@ -2695,10 +2370,15 @@ export async function streamCodexWithAppServer(
     registerSteerResponder?: (responder: ProviderSteerResponder) => void;
   },
 ): Promise<BridgeEvent[] | null> {
+  const secondaryReadOnly = args.executionPolicy === "secondary-read-only";
+  const runtimeOptions = resolveCodexSecondaryRuntimeOptions({
+    enabled: secondaryReadOnly,
+    runtimeOptions: args.runtimeOptions,
+  });
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
   const codexExecutablePath = resolveCodexExecutablePath({
-    explicitPath: args.runtimeOptions?.codexBinaryPath,
+    explicitPath: runtimeOptions?.codexBinaryPath,
   });
   if (!codexExecutablePath) {
     const unavailableEvents: BridgeEvent[] = [
@@ -2776,6 +2456,28 @@ export async function streamCodexWithAppServer(
     return events;
   }
 
+  let secondaryConfigOverrides: Record<string, string | boolean> | undefined;
+  if (secondaryReadOnly) {
+    try {
+      secondaryConfigOverrides = await resolveCodexSecondaryConfigOverrides(
+        client.request.bind(client),
+      );
+    } catch {
+      const events: BridgeEvent[] = [
+        {
+          type: "error",
+          message:
+            "Codex secondary execution could not establish MCP isolation.",
+          recoverable: false,
+        },
+        { type: "done", stop_reason: "runtime_failure" },
+      ];
+      events.forEach((event) => args.onEvent?.(event));
+      finishCodexTurn(codexExecutablePath);
+      return events;
+    }
+  }
+
   let threadId: string;
   let resumedThreadId: string | null;
   try {
@@ -2785,7 +2487,9 @@ export async function streamCodexWithAppServer(
       taskId: args.taskId,
       cwd: runtimeCwd,
       conversation: args.conversation,
-      runtimeOptions: args.runtimeOptions,
+      runtimeOptions,
+      ephemeral: secondaryReadOnly,
+      configOverrides: secondaryConfigOverrides,
     }));
   } catch (error) {
     const events: BridgeEvent[] = [
@@ -2803,1152 +2507,1102 @@ export async function streamCodexWithAppServer(
     return events;
   }
 
-  const eventCollector = createBoundedBridgeEventCollector({
-    maxBytes: CODEX_APP_SERVER_COLLECTED_EVENTS_MAX_BYTES,
-    reserveTailBytes: CODEX_APP_SERVER_OVERFLOW_TAIL_BYTES,
-  });
-  const events: BridgeEvent[] = eventCollector.events;
-  let hasEmittedDone = false;
-  const emitBridgeEvent = (event: BridgeEvent) => {
-    if (event.type === "done") {
-      hasEmittedDone = true;
-    }
-    eventCollector.append(event);
-    args.onEvent?.(event);
-  };
-  const emitBridgeEvents = (nextEvents: BridgeEvent[]) => {
-    nextEvents.forEach(emitBridgeEvent);
-  };
-  const finalizeCollectedEvents = () => {
-    if (eventCollector.overflowed) {
-      for (const overflowEvent of CODEX_APP_SERVER_OVERFLOW_TAIL_EVENTS) {
-        eventCollector.appendTail(overflowEvent);
-      }
-      if (!hasEmittedDone) {
-        args.onEvent?.({ type: "done" });
-      }
-    } else if (!hasEmittedDone && events[events.length - 1]?.type !== "done") {
-      const doneEvent: BridgeEvent = { type: "done" };
-      eventCollector.appendTail(doneEvent);
-      args.onEvent?.(doneEvent);
-    }
-    return events;
-  };
-
-  emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
-  const syncedGoalEvent = await readCodexGoalStatusEvent({ client, threadId });
-  if (syncedGoalEvent) {
-    emitBridgeEvent(syncedGoalEvent);
-  }
-  const nativeSlashCommandInput = args.conversation
-    ? getProviderNativeSlashCommandInput(args.conversation)
-    : null;
-  const hasEmbeddedStaveLocalMcp = nativeSlashCommandInput
-    ? false
-    : await hasConnectedStaveLocalMcpForCodex();
-
-  const providerPrompt =
-    nativeSlashCommandInput ??
-    buildProviderTurnPrompt({
-      providerId: args.providerId,
-      prompt: args.prompt,
-      activeResumeSessionId: resumedThreadId,
-      conversation: args.conversation
-        ? filterPromptRetrievedContext({
-            conversation: args.conversation,
-            excludedSourceIds: hasEmbeddedStaveLocalMcp
-              ? []
-              : ["stave:current-task-awareness"],
-          })
-        : args.conversation,
+  try {
+    const eventCollector = createBoundedBridgeEventCollector({
+      maxBytes: CODEX_APP_SERVER_COLLECTED_EVENTS_MAX_BYTES,
+      reserveTailBytes: CODEX_APP_SERVER_OVERFLOW_TAIL_BYTES,
     });
+    const events: BridgeEvent[] = eventCollector.events;
+    let hasEmittedDone = false;
+    const emitBridgeEvent = (event: BridgeEvent) => {
+      if (event.type === "done") {
+        hasEmittedDone = true;
+      }
+      eventCollector.append(event);
+      args.onEvent?.(event);
+    };
+    const emitBridgeEvents = (nextEvents: BridgeEvent[]) => {
+      nextEvents.forEach(emitBridgeEvent);
+    };
+    const finalizeCollectedEvents = () => {
+      if (eventCollector.overflowed) {
+        for (const overflowEvent of CODEX_APP_SERVER_OVERFLOW_TAIL_EVENTS) {
+          eventCollector.appendTail(overflowEvent);
+        }
+        if (!hasEmittedDone) {
+          args.onEvent?.({ type: "done" });
+        }
+      } else if (
+        !hasEmittedDone &&
+        events[events.length - 1]?.type !== "done"
+      ) {
+        const doneEvent: BridgeEvent = { type: "done" };
+        eventCollector.appendTail(doneEvent);
+        args.onEvent?.(doneEvent);
+      }
+      return events;
+    };
 
-  const goalCommandEvents = await runCodexGoalSlashCommand({
-    client,
-    threadId,
-    input: providerPrompt,
-  });
-  if (goalCommandEvents) {
-    emitBridgeEvents(goalCommandEvents);
-    finishCodexTurn(codexExecutablePath);
-    return finalizeCollectedEvents();
-  }
-
-  const compactCommandEvents = await runCodexCompactSlashCommand({
-    client,
-    threadId,
-    input: providerPrompt,
-    cwd: runtimeCwd,
-  });
-  if (compactCommandEvents) {
-    emitBridgeEvents(compactCommandEvents);
-    finishCodexTurn(codexExecutablePath);
-    return finalizeCollectedEvents();
-  }
-
-  const diffTracker = await createTurnDiffTracker({ cwd: runtimeCwd });
-
-  const toolOutputBuffers = new Map<string, string>();
-  const toolOutputLastEmitAt = new Map<string, number>();
-  const agentMessageBuffers = new Map<string, string>();
-  const streamedAgentMessageIds = new Set<string>();
-  const streamedReasoningIds = new Set<string>();
-  const planBuffers = new Map<string, string>();
-  const planLastEmitAt = new Map<string, number>();
-  const startedMcpToolCallIds = new Set<string>();
-  const pendingApprovalRequests = new Map<string, PendingApprovalRequest>();
-  const pendingUserInputRequests = new Map<string, PendingUserInputRequest>();
-  let latestUsage: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadTokens?: number;
-  } | null = null;
-  let appServerTurnId = "";
-  let abortRequested = false;
-  let completed = false;
-  let resolveTurnCompletion: (() => void) | null = null;
-  let interruptFallbackHandle: ReturnType<typeof setTimeout> | null = null;
-  let lastAgentMessageSegmentId = "";
-  let sawNativePlan = false;
-  let shouldInterruptPlanTurn = false;
-  let sentPlanInterrupt = false;
-  const codexDebug =
-    args.runtimeOptions?.debug ?? process.env.STAVE_CODEX_DEBUG === "1";
-  const elicitationPauseController =
-    createCodexAppServerElicitationPauseController({
+    emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
+    const syncedGoalEvent = await readCodexGoalStatusEvent({
       client,
       threadId,
-      debug: codexDebug,
     });
-  const waitForTurnCompletion = new Promise<void>((resolve) => {
-    resolveTurnCompletion = resolve;
-  });
-
-  const clearInterruptFallback = () => {
-    if (interruptFallbackHandle == null) {
-      return;
+    if (syncedGoalEvent) {
+      emitBridgeEvent(syncedGoalEvent);
     }
-    clearTimeout(interruptFallbackHandle);
-    interruptFallbackHandle = null;
-  };
+    const nativeSlashCommandInput = args.conversation
+      ? getProviderNativeSlashCommandInput(args.conversation)
+      : null;
+    const hasEmbeddedStaveLocalMcp = nativeSlashCommandInput
+      ? false
+      : await hasConnectedStaveLocalMcpForCodex();
 
-  const finishTurnWait = () => {
-    if (completed) {
-      return;
-    }
-    completed = true;
-    clearInterruptFallback();
-    const resolve = resolveTurnCompletion;
-    resolveTurnCompletion = null;
-    resolve?.();
-  };
+    const providerPrompt =
+      nativeSlashCommandInput ??
+      buildProviderTurnPrompt({
+        providerId: args.providerId,
+        prompt: args.prompt,
+        activeResumeSessionId: resumedThreadId,
+        conversation: args.conversation
+          ? filterPromptRetrievedContext({
+              conversation: args.conversation,
+              excludedSourceIds: hasEmbeddedStaveLocalMcp
+                ? []
+                : ["stave:current-task-awareness"],
+            })
+          : args.conversation,
+      });
 
-  const requestPlanInterrupt = () => {
-    if (
-      !args.runtimeOptions?.codexPlanMode ||
-      sentPlanInterrupt ||
-      !appServerTurnId ||
-      completed
-    ) {
-      return;
-    }
-    sentPlanInterrupt = true;
-    void client
-      .request("turn/interrupt", {
-        threadId,
-        turnId: appServerTurnId,
-      })
-      .catch(() => {});
-  };
-
-  args.registerApprovalResponder?.(({ requestId, approved }) => {
-    const pending = pendingApprovalRequests.get(requestId);
-    if (!pending) {
-      return {
-        ok: false,
-        reason: "unknown-request",
-        pendingRequestIds: Array.from(pendingApprovalRequests.keys()),
-      };
-    }
-    pendingApprovalRequests.delete(requestId);
-    void client
-      .respond(
-        pending.serverRequestId,
-        (() => {
-          if (pending.responseKind === "commandExecution") {
-            return { decision: approved ? "accept" : "decline" };
-          }
-          if (pending.responseKind === "fileChange") {
-            return { decision: approved ? "accept" : "decline" };
-          }
-          if (pending.responseKind === "permissions") {
-            return approved
-              ? {
-                  permissions: {
-                    ...(pending.permissions?.network
-                      ? { network: pending.permissions.network }
-                      : {}),
-                    ...(pending.permissions?.fileSystem
-                      ? { fileSystem: pending.permissions.fileSystem }
-                      : {}),
-                  },
-                  scope: "turn",
-                }
-              : { permissions: {}, scope: "turn" };
-          }
-          if (pending.responseKind === "elicitation") {
-            return { action: approved ? "accept" : "decline" };
-          }
-          return { decision: approved ? "approved" : "denied" };
-        })(),
-      )
-      .finally(() => elicitationPauseController.end(requestId));
-    return { ok: true };
-  });
-
-  args.registerUserInputResponder?.(({ requestId, answers, denied }) => {
-    const pending = pendingUserInputRequests.get(requestId);
-    if (!pending) {
-      return {
-        ok: false,
-        reason: "unknown-request",
-        pendingRequestIds: Array.from(pendingUserInputRequests.keys()),
-      };
-    }
-    pendingUserInputRequests.delete(requestId);
-    if (pending.responseKind === "elicitation") {
-      if (denied) {
-        void client
-          .respond(pending.serverRequestId, {
-            action: "decline",
-          })
-          .finally(() => elicitationPauseController.end(requestId));
-        return { ok: true };
+    const goalCommandEvents = await runCodexGoalSlashCommand({
+      client,
+      threadId,
+      input: providerPrompt,
+    });
+    if (goalCommandEvents) {
+      emitBridgeEvents(goalCommandEvents);
+      if (!secondaryReadOnly) {
+        finishCodexTurn(codexExecutablePath);
       }
+      return finalizeCollectedEvents();
+    }
 
-      if (pending.elicitationMode === "url") {
+    const compactCommandEvents = await runCodexCompactSlashCommand({
+      client,
+      threadId,
+      input: providerPrompt,
+      cwd: runtimeCwd,
+    });
+    if (compactCommandEvents) {
+      emitBridgeEvents(compactCommandEvents);
+      if (!secondaryReadOnly) {
+        finishCodexTurn(codexExecutablePath);
+      }
+      return finalizeCollectedEvents();
+    }
+
+    const diffTracker = await createTurnDiffTracker({ cwd: runtimeCwd });
+
+    const toolOutputBuffers = new Map<string, string>();
+    const toolOutputLastEmitAt = new Map<string, number>();
+    const agentMessageBuffers = new Map<string, string>();
+    const streamedAgentMessageIds = new Set<string>();
+    const streamedReasoningIds = new Set<string>();
+    const planBuffers = new Map<string, string>();
+    const planLastEmitAt = new Map<string, number>();
+    const startedMcpToolCallIds = new Set<string>();
+    const pendingApprovalRequests = new Map<string, PendingApprovalRequest>();
+    const pendingUserInputRequests = new Map<string, PendingUserInputRequest>();
+    let latestUsage: {
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens?: number;
+    } | null = null;
+    let appServerTurnId = "";
+    let abortRequested = false;
+    let completed = false;
+    let resolveTurnCompletion: (() => void) | null = null;
+    let interruptFallbackHandle: ReturnType<typeof setTimeout> | null = null;
+    let lastAgentMessageSegmentId = "";
+    let sawNativePlan = false;
+    let shouldInterruptPlanTurn = false;
+    let sentPlanInterrupt = false;
+    const codexDebug =
+      runtimeOptions?.debug ?? process.env.STAVE_CODEX_DEBUG === "1";
+    const elicitationPauseController =
+      createCodexAppServerElicitationPauseController({
+        client,
+        threadId,
+        debug: codexDebug,
+      });
+    const waitForTurnCompletion = new Promise<void>((resolve) => {
+      resolveTurnCompletion = resolve;
+    });
+
+    const clearInterruptFallback = () => {
+      if (interruptFallbackHandle == null) {
+        return;
+      }
+      clearTimeout(interruptFallbackHandle);
+      interruptFallbackHandle = null;
+    };
+
+    const finishTurnWait = () => {
+      if (completed) {
+        return;
+      }
+      completed = true;
+      clearInterruptFallback();
+      const resolve = resolveTurnCompletion;
+      resolveTurnCompletion = null;
+      resolve?.();
+    };
+
+    const requestPlanInterrupt = () => {
+      if (
+        !runtimeOptions?.codexPlanMode ||
+        sentPlanInterrupt ||
+        !appServerTurnId ||
+        completed
+      ) {
+        return;
+      }
+      sentPlanInterrupt = true;
+      void client
+        .request("turn/interrupt", {
+          threadId,
+          turnId: appServerTurnId,
+        })
+        .catch(() => {});
+    };
+
+    args.registerApprovalResponder?.(({ requestId, approved }) => {
+      const pending = pendingApprovalRequests.get(requestId);
+      if (!pending) {
+        return {
+          ok: false,
+          reason: "unknown-request",
+          pendingRequestIds: Array.from(pendingApprovalRequests.keys()),
+        };
+      }
+      pendingApprovalRequests.delete(requestId);
+      void client
+        .respond(
+          pending.serverRequestId,
+          (() => {
+            if (pending.responseKind === "commandExecution") {
+              return { decision: approved ? "accept" : "decline" };
+            }
+            if (pending.responseKind === "fileChange") {
+              return { decision: approved ? "accept" : "decline" };
+            }
+            if (pending.responseKind === "permissions") {
+              return approved
+                ? {
+                    permissions: {
+                      ...(pending.permissions?.network
+                        ? { network: pending.permissions.network }
+                        : {}),
+                      ...(pending.permissions?.fileSystem
+                        ? { fileSystem: pending.permissions.fileSystem }
+                        : {}),
+                    },
+                    scope: "turn",
+                  }
+                : { permissions: {}, scope: "turn" };
+            }
+            if (pending.responseKind === "elicitation") {
+              return { action: approved ? "accept" : "decline" };
+            }
+            return { decision: approved ? "approved" : "denied" };
+          })(),
+        )
+        .finally(() => elicitationPauseController.end(requestId));
+      return { ok: true };
+    });
+
+    args.registerUserInputResponder?.(({ requestId, answers, denied }) => {
+      const pending = pendingUserInputRequests.get(requestId);
+      if (!pending) {
+        return {
+          ok: false,
+          reason: "unknown-request",
+          pendingRequestIds: Array.from(pendingUserInputRequests.keys()),
+        };
+      }
+      pendingUserInputRequests.delete(requestId);
+      if (pending.responseKind === "elicitation") {
+        if (denied) {
+          void client
+            .respond(pending.serverRequestId, {
+              action: "decline",
+            })
+            .finally(() => elicitationPauseController.end(requestId));
+          return { ok: true };
+        }
+
+        if (pending.elicitationMode === "url") {
+          void client
+            .respond(pending.serverRequestId, {
+              action: "accept",
+            })
+            .finally(() => elicitationPauseController.end(requestId));
+          return { ok: true };
+        }
+
+        const content = Object.fromEntries(
+          (pending.elicitationFields ?? []).flatMap((field) => {
+            const rawValue = answers?.[field.key];
+            if (typeof rawValue !== "string") {
+              return [];
+            }
+            const coerced = coerceElicitationAnswer({
+              rawValue,
+              field,
+            });
+            return coerced === undefined ? [] : [[field.key, coerced]];
+          }),
+        );
         void client
           .respond(pending.serverRequestId, {
             action: "accept",
+            content,
           })
           .finally(() => elicitationPauseController.end(requestId));
         return { ok: true };
       }
 
-      const content = Object.fromEntries(
-        (pending.elicitationFields ?? []).flatMap((field) => {
-          const rawValue = answers?.[field.key];
-          if (typeof rawValue !== "string") {
-            return [];
-          }
-          const coerced = coerceElicitationAnswer({
-            rawValue,
-            field,
-          });
-          return coerced === undefined ? [] : [[field.key, coerced]];
-        }),
+      const responseAnswers = Object.fromEntries(
+        Object.entries(answers ?? {}).map(([key, value]) => [
+          key,
+          { answers: [value] },
+        ]),
       );
       void client
         .respond(pending.serverRequestId, {
-          action: "accept",
-          content,
+          answers: denied ? {} : responseAnswers,
         })
         .finally(() => elicitationPauseController.end(requestId));
       return { ok: true };
-    }
+    });
 
-    const responseAnswers = Object.fromEntries(
-      Object.entries(answers ?? {}).map(([key, value]) => [
-        key,
-        { answers: [value] },
-      ]),
-    );
-    void client
-      .respond(pending.serverRequestId, {
-        answers: denied ? {} : responseAnswers,
-      })
-      .finally(() => elicitationPauseController.end(requestId));
-    return { ok: true };
-  });
-
-  args.registerSteerResponder?.(async ({ text, clientMessageId }) => {
-    if (!appServerTurnId || completed) {
-      return {
-        ok: false,
-        reason: "turn-not-steerable",
-        pendingRequestIds: [],
-      };
-    }
-    try {
-      const steerResponse = await client.request<{ turnId: string }>(
-        "turn/steer",
-        buildCodexTurnSteerParams({
-          threadId,
-          expectedTurnId: appServerTurnId,
-          text,
-          clientMessageId,
-        }),
-        { timeoutMs: CODEX_STEER_REQUEST_TIMEOUT_MS },
-      );
-      // CRITICAL: the steer response may carry a *new* turnId. The notification
-      // filter (see the `client.subscribe` handler below) drops any message
-      // whose `params.turnId` doesn't match `appServerTurnId`. If we don't
-      // reassign it here, all subsequent streamed output for the rest of the
-      // turn is silently dropped while the turn still visibly "completes".
-      // Reassigning live also fixes abort-after-steer, since every
-      // `turn/interrupt` call site reads `appServerTurnId` by reference.
-      if (
-        typeof steerResponse?.turnId === "string" &&
-        steerResponse.turnId.length > 0
-      ) {
-        appServerTurnId = steerResponse.turnId;
+    args.registerSteerResponder?.(async ({ text, clientMessageId }) => {
+      if (!appServerTurnId || completed) {
+        return {
+          ok: false,
+          reason: "turn-not-steerable",
+          pendingRequestIds: [],
+        };
       }
-      return { ok: true };
-    } catch (error) {
-      console.warn("[codex-app-server-runtime] turn/steer rejected", {
-        threadId,
-        appServerTurnId,
-        error: toErrorMessage(error),
-      });
-      return {
-        ok: false,
-        reason: "turn-not-steerable",
-        pendingRequestIds: [],
-      };
-    }
-  });
+      try {
+        const steerResponse = await client.request<{ turnId: string }>(
+          "turn/steer",
+          buildCodexTurnSteerParams({
+            threadId,
+            expectedTurnId: appServerTurnId,
+            text,
+            clientMessageId,
+          }),
+          { timeoutMs: CODEX_STEER_REQUEST_TIMEOUT_MS },
+        );
+        // CRITICAL: the steer response may carry a *new* turnId. The notification
+        // filter (see the `client.subscribe` handler below) drops any message
+        // whose `params.turnId` doesn't match `appServerTurnId`. If we don't
+        // reassign it here, all subsequent streamed output for the rest of the
+        // turn is silently dropped while the turn still visibly "completes".
+        // Reassigning live also fixes abort-after-steer, since every
+        // `turn/interrupt` call site reads `appServerTurnId` by reference.
+        if (
+          typeof steerResponse?.turnId === "string" &&
+          steerResponse.turnId.length > 0
+        ) {
+          appServerTurnId = steerResponse.turnId;
+        }
+        return { ok: true };
+      } catch (error) {
+        console.warn("[codex-app-server-runtime] turn/steer rejected", {
+          threadId,
+          appServerTurnId,
+          error: toErrorMessage(error),
+        });
+        return {
+          ok: false,
+          reason: "turn-not-steerable",
+          pendingRequestIds: [],
+        };
+      }
+    });
 
-  const unsubscribe = client.subscribe((message) => {
-    if (codexDebug && shouldDebugCodexAppServerMessage(message)) {
-      console.debug("[codex-app-server-runtime] raw lifecycle message", {
-        activeThreadId: threadId,
-        activeTurnId: appServerTurnId || null,
-        message: summarizeCodexAppServerDebugMessage(message),
-      });
-    }
-    if (completed) {
-      return;
-    }
-    if (!message.method) {
-      return;
-    }
+    const unsubscribe = client.subscribe((message) => {
+      if (codexDebug && shouldDebugCodexAppServerMessage(message)) {
+        console.debug("[codex-app-server-runtime] raw lifecycle message", {
+          activeThreadId: threadId,
+          activeTurnId: appServerTurnId || null,
+          message: summarizeCodexAppServerDebugMessage(message),
+        });
+      }
+      if (completed) {
+        return;
+      }
+      if (!message.method) {
+        return;
+      }
 
-    if (Object.prototype.hasOwnProperty.call(message, "id")) {
-      const requestId = String(message.id);
-      switch (message.method as ServerRequestMethod) {
-        case "item/commandExecution/requestApproval": {
-          const params = (message.params ?? {}) as Record<string, unknown>;
-          const approvalInput = buildApprovalInput({ params });
-          pendingApprovalRequests.set(requestId, {
-            serverRequestId: message.id as JsonRpcId,
-            responseKind: "commandExecution",
-          });
-          void elicitationPauseController.begin(requestId);
+      if (Object.prototype.hasOwnProperty.call(message, "id")) {
+        const requestId = String(message.id);
+        const secondaryDenial = secondaryReadOnly
+          ? buildCodexSecondaryServerRequestDenial(message.method)
+          : null;
+        if (secondaryDenial) {
+          void client
+            .respond(message.id as JsonRpcId, secondaryDenial)
+            .catch(() => {});
           emitBridgeEvent({
-            type: "approval",
-            toolName: "bash",
-            requestId,
-            description: buildApprovalDescription({
-              method: "item/commandExecution/requestApproval",
-              params,
-            }),
-            ...(approvalInput ? { input: approvalInput } : {}),
+            type: "error",
+            message:
+              "Codex secondary execution requested an interactive or privileged operation.",
+            recoverable: false,
           });
           return;
         }
-        case "item/fileChange/requestApproval": {
-          const params = (message.params ?? {}) as Record<string, unknown>;
-          pendingApprovalRequests.set(requestId, {
-            serverRequestId: message.id as JsonRpcId,
-            responseKind: "fileChange",
-          });
-          void elicitationPauseController.begin(requestId);
-          emitBridgeEvent({
-            type: "approval",
-            toolName: "apply_patch",
-            requestId,
-            description: buildApprovalDescription({
-              method: "item/fileChange/requestApproval",
-              params,
-            }),
-          });
-          return;
-        }
-        case "item/permissions/requestApproval": {
-          const params = (message.params ?? {}) as Record<string, unknown>;
-          pendingApprovalRequests.set(requestId, {
-            serverRequestId: message.id as JsonRpcId,
-            responseKind: "permissions",
-            permissions:
-              typeof params.permissions === "object" && params.permissions
-                ? (params.permissions as PendingApprovalRequest["permissions"])
-                : null,
-          });
-          void elicitationPauseController.begin(requestId);
-          emitBridgeEvent({
-            type: "approval",
-            toolName: "permissions",
-            requestId,
-            description: buildApprovalDescription({
-              method: "item/permissions/requestApproval",
-              params,
-            }),
-          });
-          return;
-        }
-        case "applyPatchApproval":
-        case "execCommandApproval": {
-          const params = (message.params ?? {}) as Record<string, unknown>;
-          const approvalInput = buildApprovalInput({ params });
-          pendingApprovalRequests.set(requestId, {
-            serverRequestId: message.id as JsonRpcId,
-            responseKind: "review",
-          });
-          void elicitationPauseController.begin(requestId);
-          emitBridgeEvent({
-            type: "approval",
-            toolName: mapApprovalToolName(
-              message.method as ServerRequestMethod,
-            ),
-            requestId,
-            description: buildApprovalDescription({
-              method: message.method as ServerRequestMethod,
-              params,
-            }),
-            ...(approvalInput ? { input: approvalInput } : {}),
-          });
-          return;
-        }
-        case "item/tool/requestUserInput": {
-          const params = (message.params ?? {}) as Record<string, unknown>;
-          const questions = Array.isArray(params.questions)
-            ? mapUserInputQuestions(
-                params.questions as Array<Record<string, unknown>>,
-              )
-            : [];
-          pendingUserInputRequests.set(requestId, {
-            serverRequestId: message.id as JsonRpcId,
-            responseKind: "tool",
-          });
-          void elicitationPauseController.begin(requestId);
-          emitBridgeEvent({
-            type: "user_input",
-            toolName: "request_user_input",
-            requestId,
-            questions,
-          });
-          return;
-        }
-        case "mcpServer/elicitation/request": {
-          const params = (message.params ?? {}) as Record<string, unknown>;
-          const approval = mapCodexElicitationToApproval(params);
-          if (approval) {
+        switch (message.method as ServerRequestMethod) {
+          case "item/commandExecution/requestApproval": {
+            const params = (message.params ?? {}) as Record<string, unknown>;
+            const approvalInput = buildApprovalInput({ params });
             pendingApprovalRequests.set(requestId, {
               serverRequestId: message.id as JsonRpcId,
-              responseKind: "elicitation",
+              responseKind: "commandExecution",
             });
             void elicitationPauseController.begin(requestId);
             emitBridgeEvent({
               type: "approval",
-              toolName: approval.toolName,
+              toolName: "bash",
               requestId,
-              description: approval.description,
+              description: buildApprovalDescription({
+                method: "item/commandExecution/requestApproval",
+                params,
+              }),
+              ...(approvalInput ? { input: approvalInput } : {}),
             });
             return;
           }
-          const elicitation = mapCodexElicitationToUserInput(params);
-          if (!elicitation) {
+          case "item/fileChange/requestApproval": {
+            const params = (message.params ?? {}) as Record<string, unknown>;
+            pendingApprovalRequests.set(requestId, {
+              serverRequestId: message.id as JsonRpcId,
+              responseKind: "fileChange",
+            });
+            void elicitationPauseController.begin(requestId);
             emitBridgeEvent({
-              type: "error",
-              message: "Codex MCP elicitation could not be rendered by Stave.",
-              recoverable: true,
-            });
-            void client.respond(message.id as JsonRpcId, {
-              action: "cancel",
+              type: "approval",
+              toolName: "apply_patch",
+              requestId,
+              description: buildApprovalDescription({
+                method: "item/fileChange/requestApproval",
+                params,
+              }),
             });
             return;
           }
-          pendingUserInputRequests.set(requestId, {
-            serverRequestId: message.id as JsonRpcId,
-            responseKind: "elicitation",
-            elicitationMode: elicitation.mode,
-            elicitationFields: elicitation.fields,
-          });
-          void elicitationPauseController.begin(requestId);
-          emitBridgeEvent({
-            type: "user_input",
-            toolName: "mcp_elicitation",
-            requestId,
-            questions: elicitation.questions,
-          });
-          return;
-        }
-        case "item/tool/call":
-          emitBridgeEvent({
-            type: "error",
-            message: `${message.method} is not supported in Stave yet.`,
-            recoverable: true,
-          });
-          void client.respond(message.id as JsonRpcId, {});
-          return;
-        case "account/chatgptAuthTokens/refresh": {
-          const params = (message.params ??
-            {}) as CodexChatgptAuthTokensRefreshParams;
-          void (async () => {
-            try {
-              const response = await refreshCodexChatgptAuthTokens({
-                executablePath: codexExecutablePath,
-                previousAccountId: params.previousAccountId,
+          case "item/permissions/requestApproval": {
+            const params = (message.params ?? {}) as Record<string, unknown>;
+            pendingApprovalRequests.set(requestId, {
+              serverRequestId: message.id as JsonRpcId,
+              responseKind: "permissions",
+              permissions:
+                typeof params.permissions === "object" && params.permissions
+                  ? (params.permissions as PendingApprovalRequest["permissions"])
+                  : null,
+            });
+            void elicitationPauseController.begin(requestId);
+            emitBridgeEvent({
+              type: "approval",
+              toolName: "permissions",
+              requestId,
+              description: buildApprovalDescription({
+                method: "item/permissions/requestApproval",
+                params,
+              }),
+            });
+            return;
+          }
+          case "applyPatchApproval":
+          case "execCommandApproval": {
+            const params = (message.params ?? {}) as Record<string, unknown>;
+            const approvalInput = buildApprovalInput({ params });
+            pendingApprovalRequests.set(requestId, {
+              serverRequestId: message.id as JsonRpcId,
+              responseKind: "review",
+            });
+            void elicitationPauseController.begin(requestId);
+            emitBridgeEvent({
+              type: "approval",
+              toolName: mapApprovalToolName(
+                message.method as ServerRequestMethod,
+              ),
+              requestId,
+              description: buildApprovalDescription({
+                method: message.method as ServerRequestMethod,
+                params,
+              }),
+              ...(approvalInput ? { input: approvalInput } : {}),
+            });
+            return;
+          }
+          case "item/tool/requestUserInput": {
+            const params = (message.params ?? {}) as Record<string, unknown>;
+            const questions = Array.isArray(params.questions)
+              ? mapUserInputQuestions(
+                  params.questions as Array<Record<string, unknown>>,
+                )
+              : [];
+            pendingUserInputRequests.set(requestId, {
+              serverRequestId: message.id as JsonRpcId,
+              responseKind: "tool",
+            });
+            void elicitationPauseController.begin(requestId);
+            emitBridgeEvent({
+              type: "user_input",
+              toolName: "request_user_input",
+              requestId,
+              questions,
+            });
+            return;
+          }
+          case "mcpServer/elicitation/request": {
+            const params = (message.params ?? {}) as Record<string, unknown>;
+            const approval = mapCodexElicitationToApproval(params);
+            if (approval) {
+              pendingApprovalRequests.set(requestId, {
+                serverRequestId: message.id as JsonRpcId,
+                responseKind: "elicitation",
               });
-              await client.respond(message.id as JsonRpcId, response);
-            } catch (error) {
-              const messageText = toCodexUserFacingErrorMessage({
-                message: error instanceof Error ? error.message : String(error),
+              void elicitationPauseController.begin(requestId);
+              emitBridgeEvent({
+                type: "approval",
+                toolName: approval.toolName,
+                requestId,
+                description: approval.description,
               });
+              return;
+            }
+            const elicitation = mapCodexElicitationToUserInput(params);
+            if (!elicitation) {
               emitBridgeEvent({
                 type: "error",
-                message: messageText,
+                message:
+                  "Codex MCP elicitation could not be rendered by Stave.",
                 recoverable: true,
               });
-              await client.respondError(message.id as JsonRpcId, {
-                code: -32000,
-                message: messageText,
+              void client.respond(message.id as JsonRpcId, {
+                action: "cancel",
               });
+              return;
             }
-          })();
-          return;
-        }
-        default:
-          return;
-      }
-    }
-
-    const params = (message.params ?? {}) as Record<string, unknown>;
-    if (message.method === "thread/goal/updated") {
-      const goal = normalizeCodexThreadGoal(params.goal);
-      const eventThreadId =
-        typeof params.threadId === "string" ? params.threadId : goal?.threadId;
-      if (eventThreadId === threadId && goal) {
-        emitBridgeEvent(buildCodexGoalStatusEvent(goal));
-      }
-      return;
-    }
-    if (message.method === "thread/goal/cleared") {
-      const eventThreadId =
-        typeof params.threadId === "string" ? params.threadId : "";
-      if (eventThreadId === threadId) {
-        emitBridgeEvent(buildCodexGoalStatusEvent(null));
-      }
-      return;
-    }
-    if (
-      typeof params.turnId === "string" &&
-      appServerTurnId &&
-      params.turnId !== appServerTurnId
-    ) {
-      return;
-    }
-    if (typeof params.threadId === "string" && params.threadId !== threadId) {
-      return;
-    }
-
-    switch (message.method) {
-      case "item/started": {
-        const item = params.item as CodexMcpToolCallItem | undefined;
-        if (item?.type !== "mcpToolCall") {
-          return;
-        }
-        const itemId = typeof item.id === "string" ? item.id : "";
-        if (!itemId || startedMcpToolCallIds.has(itemId)) {
-          return;
-        }
-        startedMcpToolCallIds.add(itemId);
-        emitBridgeEvent(buildCodexMcpToolCallInputEvent(item));
-        return;
-      }
-      case "item/agentMessage/delta": {
-        const itemId = typeof params.itemId === "string" ? params.itemId : "";
-        const delta = typeof params.delta === "string" ? params.delta : "";
-        if (!delta) {
-          return;
-        }
-        streamedAgentMessageIds.add(itemId);
-        if (itemId) {
-          agentMessageBuffers.set(
-            itemId,
-            appendBoundedCodexBuffer({
-              current: agentMessageBuffers.get(itemId) ?? "",
-              chunk: delta,
-              keep: "prefix",
-              maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-            }),
-          );
-          lastAgentMessageSegmentId = itemId;
-        }
-        emitBridgeEvent({
-          type: "text",
-          text: delta,
-          ...(itemId ? { segmentId: itemId } : {}),
-        });
-        return;
-      }
-      case "item/reasoning/textDelta": {
-        const itemId = typeof params.itemId === "string" ? params.itemId : "";
-        const delta = typeof params.delta === "string" ? params.delta : "";
-        if (!delta) {
-          return;
-        }
-        streamedReasoningIds.add(itemId);
-        emitBridgeEvent({
-          type: "thinking",
-          text: delta,
-          isStreaming: true,
-        });
-        return;
-      }
-      case "item/reasoning/summaryTextDelta": {
-        const itemId = typeof params.itemId === "string" ? params.itemId : "";
-        const delta = typeof params.delta === "string" ? params.delta : "";
-        if (!delta) {
-          return;
-        }
-        streamedReasoningIds.add(itemId);
-        emitBridgeEvent({
-          type: "thinking",
-          text: delta,
-          isStreaming: true,
-        });
-        return;
-      }
-      case "item/plan/delta": {
-        const itemId = typeof params.itemId === "string" ? params.itemId : "";
-        const delta = typeof params.delta === "string" ? params.delta : "";
-        if (!delta) {
-          return;
-        }
-        sawNativePlan = true;
-        const next = appendBoundedCodexBuffer({
-          current: planBuffers.get(itemId) ?? "",
-          chunk: delta,
-          keep: "prefix",
-          maxBytes: CODEX_APP_SERVER_PLAN_BUFFER_MAX_BYTES,
-        });
-        planBuffers.set(itemId, next);
-        const now = Date.now();
-        const lastEmitAt = planLastEmitAt.get(itemId) ?? 0;
-        if (
-          now - lastEmitAt >=
-          CODEX_APP_SERVER_PARTIAL_PLAN_EMIT_THROTTLE_MS
-        ) {
-          planLastEmitAt.set(itemId, now);
-          emitBridgeEvent({
-            type: "plan_ready",
-            planText: truncateCodexSnapshot({
-              value: next,
-              maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
-            }),
-            ...(itemId ? { sourceSegmentId: itemId } : {}),
-          });
-        }
-        return;
-      }
-      case "item/commandExecution/outputDelta": {
-        const itemId = typeof params.itemId === "string" ? params.itemId : "";
-        const delta = typeof params.delta === "string" ? params.delta : "";
-        if (!itemId || !delta) {
-          return;
-        }
-        const next = appendBoundedCodexBuffer({
-          current: toolOutputBuffers.get(itemId) ?? "",
-          chunk: delta,
-          keep: "suffix",
-          maxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
-        });
-        toolOutputBuffers.set(itemId, next);
-        const now = Date.now();
-        const lastEmitAt = toolOutputLastEmitAt.get(itemId) ?? 0;
-        if (
-          now - lastEmitAt >=
-          CODEX_APP_SERVER_PARTIAL_TOOL_EMIT_THROTTLE_MS
-        ) {
-          toolOutputLastEmitAt.set(itemId, now);
-          emitBridgeEvent({
-            type: "tool_result",
-            tool_use_id: itemId,
-            output: truncateCodexSnapshot({
-              value: next,
-              maxBytes: CODEX_APP_SERVER_PARTIAL_TOOL_OUTPUT_MAX_BYTES,
-            }),
-            isPartial: true,
-          });
-        }
-        return;
-      }
-      case "item/mcpToolCall/progress": {
-        const itemId = typeof params.itemId === "string" ? params.itemId : "";
-        const progressMessage =
-          typeof params.message === "string" ? params.message : "";
-        if (!progressMessage) {
-          return;
-        }
-        emitBridgeEvent({
-          type: "subagent_progress",
-          ...(itemId ? { toolUseId: itemId } : {}),
-          content: progressMessage,
-        });
-        return;
-      }
-      case "thread/tokenUsage/updated": {
-        const tokenUsage = params.tokenUsage as
-          | {
-              last?: {
-                inputTokens?: number;
-                outputTokens?: number;
-                cachedInputTokens?: number;
-              };
-            }
-          | undefined;
-        if (!tokenUsage?.last) {
-          return;
-        }
-        latestUsage = {
-          inputTokens: tokenUsage.last.inputTokens ?? 0,
-          outputTokens: tokenUsage.last.outputTokens ?? 0,
-          ...(typeof tokenUsage.last.cachedInputTokens === "number" &&
-          tokenUsage.last.cachedInputTokens > 0
-            ? { cacheReadTokens: tokenUsage.last.cachedInputTokens }
-            : {}),
-        };
-        return;
-      }
-      case "error": {
-        const errorMessage =
-          extractCodexAppServerErrorMessage(params) ??
-          "Codex App Server error.";
-        emitBridgeEvent({
-          type: "error",
-          message: toCodexUserFacingErrorMessage({ message: errorMessage }),
-          recoverable: true,
-        });
-        return;
-      }
-      case "item/completed": {
-        const item = params.item as { type?: string; id?: string } | undefined;
-        if (!item?.type) {
-          return;
-        }
-        const itemId = typeof item.id === "string" ? item.id : "";
-        switch (item.type) {
-          case "agentMessage": {
-            const text =
-              typeof (item as { text?: unknown }).text === "string"
-                ? String((item as { text?: unknown }).text)
-                : "";
-            if (itemId && text) {
-              agentMessageBuffers.set(
-                itemId,
-                truncateCodexSnapshot({
-                  value: text,
-                  maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-                }),
-              );
-              lastAgentMessageSegmentId = itemId;
-            }
-            if (!streamedAgentMessageIds.has(itemId) && text) {
-              emitBridgeEvent({
-                type: "text",
-                text: truncateCodexSnapshot({
-                  value: text,
-                  maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-                }),
-                ...(itemId ? { segmentId: itemId } : {}),
-              });
-            }
-            return;
-          }
-          case "plan": {
-            const text =
-              typeof (item as { text?: unknown }).text === "string"
-                ? String((item as { text?: unknown }).text)
-                : "";
-            if (itemId) {
-              planLastEmitAt.delete(itemId);
-            }
-            const planText = truncateCodexSnapshot({
-              value: text || planBuffers.get(itemId) || "",
-              maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
+            pendingUserInputRequests.set(requestId, {
+              serverRequestId: message.id as JsonRpcId,
+              responseKind: "elicitation",
+              elicitationMode: elicitation.mode,
+              elicitationFields: elicitation.fields,
             });
-            if (itemId) {
-              planBuffers.delete(itemId);
-            }
-            if (planText.trim().length > 0) {
-              sawNativePlan = true;
-              emitBridgeEvent({
-                type: "plan_ready",
-                planText,
-                ...(itemId ? { sourceSegmentId: itemId } : {}),
-              });
-            }
-            if (args.runtimeOptions?.codexPlanMode) {
-              shouldInterruptPlanTurn = true;
-              requestPlanInterrupt();
-            }
+            void elicitationPauseController.begin(requestId);
+            emitBridgeEvent({
+              type: "user_input",
+              toolName: "mcp_elicitation",
+              requestId,
+              questions: elicitation.questions,
+            });
             return;
           }
-          case "reasoning": {
-            const reasoningItem = item as {
-              content?: string[];
-              summary?: string[];
-            };
-            if (!streamedReasoningIds.has(itemId)) {
-              const text = truncateCodexSnapshot({
-                value: [
-                  ...(reasoningItem.summary ?? []),
-                  ...(reasoningItem.content ?? []),
-                ].join("\n"),
-                maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-              });
-              if (text.trim().length > 0) {
+          case "item/tool/call":
+            emitBridgeEvent({
+              type: "error",
+              message: `${message.method} is not supported in Stave yet.`,
+              recoverable: true,
+            });
+            void client.respond(message.id as JsonRpcId, {});
+            return;
+          case "account/chatgptAuthTokens/refresh": {
+            const params = (message.params ??
+              {}) as CodexChatgptAuthTokensRefreshParams;
+            void (async () => {
+              try {
+                const response = await refreshCodexChatgptAuthTokens({
+                  executablePath: codexExecutablePath,
+                  previousAccountId: params.previousAccountId,
+                });
+                await client.respond(message.id as JsonRpcId, response);
+              } catch (error) {
+                const messageText = toCodexUserFacingErrorMessage({
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                });
                 emitBridgeEvent({
-                  type: "thinking",
-                  text,
-                  isStreaming: false,
+                  type: "error",
+                  message: messageText,
+                  recoverable: true,
                 });
-                return;
+                await client.respondError(message.id as JsonRpcId, {
+                  code: -32000,
+                  message: messageText,
+                });
               }
-              return;
-            }
-            emitBridgeEvent({
-              type: "thinking",
-              text: "",
-              isStreaming: false,
-            });
-            return;
-          }
-          case "commandExecution": {
-            const commandItem = item as {
-              command?: string;
-              aggregatedOutput?: string | null;
-              status?: string;
-            };
-            if (itemId) {
-              toolOutputLastEmitAt.delete(itemId);
-            }
-            const output = truncateCodexSnapshot({
-              value:
-                typeof commandItem.aggregatedOutput === "string"
-                  ? commandItem.aggregatedOutput
-                  : (toolOutputBuffers.get(itemId) ?? ""),
-              maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
-            });
-            if (itemId) {
-              toolOutputBuffers.delete(itemId);
-            }
-            emitBridgeEvents([
-              {
-                type: "tool",
-                ...(itemId ? { toolUseId: itemId } : {}),
-                toolName: "bash",
-                input:
-                  typeof commandItem.command === "string"
-                    ? commandItem.command
-                    : "",
-                state: "input-available",
-              },
-              {
-                type: "tool_result",
-                tool_use_id: itemId,
-                output,
-                ...(commandItem.status === "failed" ||
-                commandItem.status === "declined"
-                  ? { isError: true }
-                  : {}),
-              },
-            ]);
-            return;
-          }
-          case "mcpToolCall": {
-            const mcpItem = item as CodexMcpToolCallItem;
-            const completedEvents: BridgeEvent[] = [];
-            if (!itemId || !startedMcpToolCallIds.delete(itemId)) {
-              completedEvents.push(buildCodexMcpToolCallInputEvent(mcpItem));
-            }
-            completedEvents.push({
-              type: "tool_result",
-              tool_use_id: itemId,
-              output: mcpItem.error?.message
-                ? `[error] ${mcpItem.error.message}`
-                : truncateCodexSnapshot({
-                    value: toText(mcpItem.result ?? ""),
-                    maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
-                  }),
-              ...(mcpItem.status === "failed" ? { isError: true } : {}),
-            });
-            emitBridgeEvents(completedEvents);
-            return;
-          }
-          case "webSearch": {
-            const query =
-              typeof (item as { query?: unknown }).query === "string"
-                ? String((item as { query?: unknown }).query)
-                : "";
-            emitBridgeEvents([
-              {
-                type: "tool",
-                ...(itemId ? { toolUseId: itemId } : {}),
-                toolName: "web_search",
-                input: query,
-                state: "input-available",
-              },
-              {
-                type: "tool_result",
-                tool_use_id: itemId,
-                output: "",
-              },
-            ]);
-            return;
-          }
-          case "fileChange": {
-            const fileChangeItem = item as {
-              changes?: Array<{ path?: string }>;
-              status?: string;
-            };
-            if (fileChangeItem.status === "failed") {
-              emitBridgeEvent({
-                type: "error",
-                message: `File change failed: ${(fileChangeItem.changes ?? [])
-                  .map((change) => change.path ?? "")
-                  .filter(Boolean)
-                  .join(", ")}`,
-                recoverable: false,
-              });
-              return;
-            }
-            const changedPaths = (fileChangeItem.changes ?? [])
-              .map((change) => change.path ?? "")
-              .filter(Boolean);
-            void diffTracker
-              .buildDiffEvents({ changedPaths })
-              .then(({ diffEvents, unresolvedPaths }) => {
-                const fallbackEvents = diffTracker.buildFallbackEvents({
-                  appliedPaths: diffEvents.length === 0 ? changedPaths : [],
-                  skippedPaths: unresolvedPaths,
-                });
-                emitBridgeEvents([...diffEvents, ...fallbackEvents]);
-              })
-              .catch(() => {
-                emitBridgeEvents(
-                  diffTracker.buildFallbackEvents({
-                    appliedPaths: changedPaths,
-                  }),
-                );
-              });
-            return;
-          }
-          case "todo_list": {
-            // Mirror the legacy codex-sdk runtime: surface Codex's todo_list
-            // items as a TodoWrite tool_use bridge event so the TodoFloater
-            // (which scans for toolName === "TodoWrite") can render them.
-            const todoItem = item as {
-              items?: Array<{ text?: string; completed?: boolean }>;
-            };
-            const todos = (todoItem.items ?? []).map((entry) => ({
-              content: entry.text ?? "",
-              status: entry.completed ? "completed" : "pending",
-            }));
-            emitBridgeEvent({
-              type: "tool",
-              ...(itemId ? { toolUseId: itemId } : {}),
-              toolName: "TodoWrite",
-              input: JSON.stringify({ todos }),
-              state: "output-available",
-            });
+            })();
             return;
           }
           default:
             return;
         }
       }
-      case "turn/completed": {
-        const turn = params.turn as
-          | {
-              status?: string;
-              error?: { message?: string | null } | null;
-            }
-          | undefined;
-        if (args.runtimeOptions?.codexPlanMode && !sawNativePlan) {
-          const fallbackSegmentId = lastAgentMessageSegmentId.trim();
-          const fallbackPlanText = truncateCodexSnapshot({
-            value: fallbackSegmentId
-              ? (agentMessageBuffers.get(fallbackSegmentId) ?? "")
-              : "",
-            maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
-          });
-          if (fallbackPlanText.trim().length > 0) {
-            emitBridgeEvent({
-              type: "plan_ready",
-              planText: fallbackPlanText,
-              ...(fallbackSegmentId
-                ? { sourceSegmentId: fallbackSegmentId }
-                : {}),
-            });
-          }
+
+      const params = (message.params ?? {}) as Record<string, unknown>;
+      if (message.method === "thread/goal/updated") {
+        const goal = normalizeCodexThreadGoal(params.goal);
+        const eventThreadId =
+          typeof params.threadId === "string"
+            ? params.threadId
+            : goal?.threadId;
+        if (eventThreadId === threadId && goal) {
+          emitBridgeEvent(buildCodexGoalStatusEvent(goal));
         }
-        if (turn?.status === "failed" && !abortRequested) {
-          emitBridgeEvent({
-            type: "error",
-            message: toCodexUserFacingErrorMessage({
-              message: turn.error?.message ?? "Codex App Server turn failed.",
-            }),
-            recoverable: true,
-          });
-        }
-        if (latestUsage) {
-          emitBridgeEvent({
-            type: "usage",
-            ...latestUsage,
-          });
-        }
-        emitBridgeEvent(
-          abortRequested
-            ? { type: "done", stop_reason: "user_abort" }
-            : { type: "done" },
-        );
-        finishTurnWait();
         return;
       }
-      default:
+      if (message.method === "thread/goal/cleared") {
+        const eventThreadId =
+          typeof params.threadId === "string" ? params.threadId : "";
+        if (eventThreadId === threadId) {
+          emitBridgeEvent(buildCodexGoalStatusEvent(null));
+        }
         return;
-    }
-  });
+      }
+      if (
+        typeof params.turnId === "string" &&
+        appServerTurnId &&
+        params.turnId !== appServerTurnId
+      ) {
+        return;
+      }
+      if (typeof params.threadId === "string" && params.threadId !== threadId) {
+        return;
+      }
 
-  // ── Process-death listener: resolve waitForTurnCompletion if the app
-  // server exits unexpectedly so the turn never hangs forever. ──
-  const unsubscribeProcessExit = client.onProcessExit((exitMessage) => {
-    if (completed) {
-      return;
-    }
-    console.warn(
-      "[provider-runtime] Codex app-server process exited during turn",
-      { threadId, appServerTurnId: appServerTurnId || null, exitMessage },
-    );
-    emitBridgeEvent({
-      type: "error",
-      message: toCodexUserFacingErrorMessage({ message: exitMessage }),
-      recoverable: true,
+      switch (message.method) {
+        case "item/started": {
+          const item = params.item as CodexMcpToolCallItem | undefined;
+          if (item?.type !== "mcpToolCall") {
+            return;
+          }
+          const itemId = typeof item.id === "string" ? item.id : "";
+          if (!itemId || startedMcpToolCallIds.has(itemId)) {
+            return;
+          }
+          startedMcpToolCallIds.add(itemId);
+          emitBridgeEvent(buildCodexMcpToolCallInputEvent(item));
+          return;
+        }
+        case "item/agentMessage/delta": {
+          const itemId = typeof params.itemId === "string" ? params.itemId : "";
+          const delta = typeof params.delta === "string" ? params.delta : "";
+          if (!delta) {
+            return;
+          }
+          streamedAgentMessageIds.add(itemId);
+          if (itemId) {
+            agentMessageBuffers.set(
+              itemId,
+              appendBoundedCodexBuffer({
+                current: agentMessageBuffers.get(itemId) ?? "",
+                chunk: delta,
+                keep: "prefix",
+                maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
+              }),
+            );
+            lastAgentMessageSegmentId = itemId;
+          }
+          emitBridgeEvent({
+            type: "text",
+            text: delta,
+            ...(itemId ? { segmentId: itemId } : {}),
+          });
+          return;
+        }
+        case "item/reasoning/textDelta": {
+          const itemId = typeof params.itemId === "string" ? params.itemId : "";
+          const delta = typeof params.delta === "string" ? params.delta : "";
+          if (!delta) {
+            return;
+          }
+          streamedReasoningIds.add(itemId);
+          emitBridgeEvent({
+            type: "thinking",
+            text: delta,
+            isStreaming: true,
+          });
+          return;
+        }
+        case "item/reasoning/summaryTextDelta": {
+          const itemId = typeof params.itemId === "string" ? params.itemId : "";
+          const delta = typeof params.delta === "string" ? params.delta : "";
+          if (!delta) {
+            return;
+          }
+          streamedReasoningIds.add(itemId);
+          emitBridgeEvent({
+            type: "thinking",
+            text: delta,
+            isStreaming: true,
+          });
+          return;
+        }
+        case "item/plan/delta": {
+          const itemId = typeof params.itemId === "string" ? params.itemId : "";
+          const delta = typeof params.delta === "string" ? params.delta : "";
+          if (!delta) {
+            return;
+          }
+          sawNativePlan = true;
+          const next = appendBoundedCodexBuffer({
+            current: planBuffers.get(itemId) ?? "",
+            chunk: delta,
+            keep: "prefix",
+            maxBytes: CODEX_APP_SERVER_PLAN_BUFFER_MAX_BYTES,
+          });
+          planBuffers.set(itemId, next);
+          const now = Date.now();
+          const lastEmitAt = planLastEmitAt.get(itemId) ?? 0;
+          if (
+            now - lastEmitAt >=
+            CODEX_APP_SERVER_PARTIAL_PLAN_EMIT_THROTTLE_MS
+          ) {
+            planLastEmitAt.set(itemId, now);
+            emitBridgeEvent({
+              type: "plan_ready",
+              planText: truncateCodexSnapshot({
+                value: next,
+                maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
+              }),
+              ...(itemId ? { sourceSegmentId: itemId } : {}),
+            });
+          }
+          return;
+        }
+        case "item/commandExecution/outputDelta": {
+          const itemId = typeof params.itemId === "string" ? params.itemId : "";
+          const delta = typeof params.delta === "string" ? params.delta : "";
+          if (!itemId || !delta) {
+            return;
+          }
+          const next = appendBoundedCodexBuffer({
+            current: toolOutputBuffers.get(itemId) ?? "",
+            chunk: delta,
+            keep: "suffix",
+            maxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
+          });
+          toolOutputBuffers.set(itemId, next);
+          const now = Date.now();
+          const lastEmitAt = toolOutputLastEmitAt.get(itemId) ?? 0;
+          if (
+            now - lastEmitAt >=
+            CODEX_APP_SERVER_PARTIAL_TOOL_EMIT_THROTTLE_MS
+          ) {
+            toolOutputLastEmitAt.set(itemId, now);
+            emitBridgeEvent({
+              type: "tool_result",
+              tool_use_id: itemId,
+              output: truncateCodexSnapshot({
+                value: next,
+                maxBytes: CODEX_APP_SERVER_PARTIAL_TOOL_OUTPUT_MAX_BYTES,
+              }),
+              isPartial: true,
+            });
+          }
+          return;
+        }
+        case "item/mcpToolCall/progress": {
+          const itemId = typeof params.itemId === "string" ? params.itemId : "";
+          const progressMessage =
+            typeof params.message === "string" ? params.message : "";
+          if (!progressMessage) {
+            return;
+          }
+          emitBridgeEvent({
+            type: "subagent_progress",
+            ...(itemId ? { toolUseId: itemId } : {}),
+            content: progressMessage,
+          });
+          return;
+        }
+        case "thread/tokenUsage/updated": {
+          const tokenUsage = params.tokenUsage as
+            | {
+                last?: {
+                  inputTokens?: number;
+                  outputTokens?: number;
+                  cachedInputTokens?: number;
+                };
+              }
+            | undefined;
+          if (!tokenUsage?.last) {
+            return;
+          }
+          latestUsage = {
+            inputTokens: tokenUsage.last.inputTokens ?? 0,
+            outputTokens: tokenUsage.last.outputTokens ?? 0,
+            ...(typeof tokenUsage.last.cachedInputTokens === "number" &&
+            tokenUsage.last.cachedInputTokens > 0
+              ? { cacheReadTokens: tokenUsage.last.cachedInputTokens }
+              : {}),
+          };
+          return;
+        }
+        case "error": {
+          const errorMessage =
+            extractCodexAppServerErrorMessage(params) ??
+            "Codex App Server error.";
+          emitBridgeEvent({
+            type: "error",
+            message: toCodexUserFacingErrorMessage({ message: errorMessage }),
+            recoverable: true,
+          });
+          return;
+        }
+        case "item/completed": {
+          const item = params.item as
+            | { type?: string; id?: string }
+            | undefined;
+          if (!item?.type) {
+            return;
+          }
+          const itemId = typeof item.id === "string" ? item.id : "";
+          switch (item.type) {
+            case "agentMessage": {
+              const text =
+                typeof (item as { text?: unknown }).text === "string"
+                  ? String((item as { text?: unknown }).text)
+                  : "";
+              if (itemId && text) {
+                agentMessageBuffers.set(
+                  itemId,
+                  truncateCodexSnapshot({
+                    value: text,
+                    maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
+                  }),
+                );
+                lastAgentMessageSegmentId = itemId;
+              }
+              if (!streamedAgentMessageIds.has(itemId) && text) {
+                emitBridgeEvent({
+                  type: "text",
+                  text: truncateCodexSnapshot({
+                    value: text,
+                    maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
+                  }),
+                  ...(itemId ? { segmentId: itemId } : {}),
+                });
+              }
+              return;
+            }
+            case "plan": {
+              const text =
+                typeof (item as { text?: unknown }).text === "string"
+                  ? String((item as { text?: unknown }).text)
+                  : "";
+              if (itemId) {
+                planLastEmitAt.delete(itemId);
+              }
+              const planText = truncateCodexSnapshot({
+                value: text || planBuffers.get(itemId) || "",
+                maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
+              });
+              if (itemId) {
+                planBuffers.delete(itemId);
+              }
+              if (planText.trim().length > 0) {
+                sawNativePlan = true;
+                emitBridgeEvent({
+                  type: "plan_ready",
+                  planText,
+                  ...(itemId ? { sourceSegmentId: itemId } : {}),
+                });
+              }
+              if (runtimeOptions?.codexPlanMode) {
+                shouldInterruptPlanTurn = true;
+                requestPlanInterrupt();
+              }
+              return;
+            }
+            case "reasoning": {
+              const reasoningItem = item as {
+                content?: string[];
+                summary?: string[];
+              };
+              if (!streamedReasoningIds.has(itemId)) {
+                const text = truncateCodexSnapshot({
+                  value: [
+                    ...(reasoningItem.summary ?? []),
+                    ...(reasoningItem.content ?? []),
+                  ].join("\n"),
+                  maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
+                });
+                if (text.trim().length > 0) {
+                  emitBridgeEvent({
+                    type: "thinking",
+                    text,
+                    isStreaming: false,
+                  });
+                  return;
+                }
+                return;
+              }
+              emitBridgeEvent({
+                type: "thinking",
+                text: "",
+                isStreaming: false,
+              });
+              return;
+            }
+            case "commandExecution": {
+              const commandItem = item as {
+                command?: string;
+                aggregatedOutput?: string | null;
+                status?: string;
+              };
+              if (itemId) {
+                toolOutputLastEmitAt.delete(itemId);
+              }
+              const output = truncateCodexSnapshot({
+                value:
+                  typeof commandItem.aggregatedOutput === "string"
+                    ? commandItem.aggregatedOutput
+                    : (toolOutputBuffers.get(itemId) ?? ""),
+                maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
+              });
+              if (itemId) {
+                toolOutputBuffers.delete(itemId);
+              }
+              emitBridgeEvents([
+                {
+                  type: "tool",
+                  ...(itemId ? { toolUseId: itemId } : {}),
+                  toolName: "bash",
+                  input:
+                    typeof commandItem.command === "string"
+                      ? commandItem.command
+                      : "",
+                  state: "input-available",
+                },
+                {
+                  type: "tool_result",
+                  tool_use_id: itemId,
+                  output,
+                  ...(commandItem.status === "failed" ||
+                  commandItem.status === "declined"
+                    ? { isError: true }
+                    : {}),
+                },
+              ]);
+              return;
+            }
+            case "mcpToolCall": {
+              const mcpItem = item as CodexMcpToolCallItem;
+              const completedEvents: BridgeEvent[] = [];
+              if (!itemId || !startedMcpToolCallIds.delete(itemId)) {
+                completedEvents.push(buildCodexMcpToolCallInputEvent(mcpItem));
+              }
+              completedEvents.push({
+                type: "tool_result",
+                tool_use_id: itemId,
+                output: mcpItem.error?.message
+                  ? `[error] ${mcpItem.error.message}`
+                  : truncateCodexSnapshot({
+                      value: toText(mcpItem.result ?? ""),
+                      maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
+                    }),
+                ...(mcpItem.status === "failed" ? { isError: true } : {}),
+              });
+              emitBridgeEvents(completedEvents);
+              return;
+            }
+            case "webSearch": {
+              const query =
+                typeof (item as { query?: unknown }).query === "string"
+                  ? String((item as { query?: unknown }).query)
+                  : "";
+              emitBridgeEvents([
+                {
+                  type: "tool",
+                  ...(itemId ? { toolUseId: itemId } : {}),
+                  toolName: "web_search",
+                  input: query,
+                  state: "input-available",
+                },
+                {
+                  type: "tool_result",
+                  tool_use_id: itemId,
+                  output: "",
+                },
+              ]);
+              return;
+            }
+            case "fileChange": {
+              const fileChangeItem = item as {
+                changes?: Array<{ path?: string }>;
+                status?: string;
+              };
+              if (fileChangeItem.status === "failed") {
+                emitBridgeEvent({
+                  type: "error",
+                  message: `File change failed: ${(fileChangeItem.changes ?? [])
+                    .map((change) => change.path ?? "")
+                    .filter(Boolean)
+                    .join(", ")}`,
+                  recoverable: false,
+                });
+                return;
+              }
+              const changedPaths = (fileChangeItem.changes ?? [])
+                .map((change) => change.path ?? "")
+                .filter(Boolean);
+              void diffTracker
+                .buildDiffEvents({ changedPaths })
+                .then(({ diffEvents, unresolvedPaths }) => {
+                  const fallbackEvents = diffTracker.buildFallbackEvents({
+                    appliedPaths: diffEvents.length === 0 ? changedPaths : [],
+                    skippedPaths: unresolvedPaths,
+                  });
+                  emitBridgeEvents([...diffEvents, ...fallbackEvents]);
+                })
+                .catch(() => {
+                  emitBridgeEvents(
+                    diffTracker.buildFallbackEvents({
+                      appliedPaths: changedPaths,
+                    }),
+                  );
+                });
+              return;
+            }
+            case "todo_list": {
+              // Mirror the legacy codex-sdk runtime: surface Codex's todo_list
+              // items as a TodoWrite tool_use bridge event so the TodoFloater
+              // (which scans for toolName === "TodoWrite") can render them.
+              const todoItem = item as {
+                items?: Array<{ text?: string; completed?: boolean }>;
+              };
+              const todos = (todoItem.items ?? []).map((entry) => ({
+                content: entry.text ?? "",
+                status: entry.completed ? "completed" : "pending",
+              }));
+              emitBridgeEvent({
+                type: "tool",
+                ...(itemId ? { toolUseId: itemId } : {}),
+                toolName: "TodoWrite",
+                input: JSON.stringify({ todos }),
+                state: "output-available",
+              });
+              return;
+            }
+            default:
+              return;
+          }
+        }
+        case "turn/completed": {
+          const turn = params.turn as
+            | {
+                status?: string;
+                error?: { message?: string | null } | null;
+              }
+            | undefined;
+          if (runtimeOptions?.codexPlanMode && !sawNativePlan) {
+            const fallbackSegmentId = lastAgentMessageSegmentId.trim();
+            const fallbackPlanText = truncateCodexSnapshot({
+              value: fallbackSegmentId
+                ? (agentMessageBuffers.get(fallbackSegmentId) ?? "")
+                : "",
+              maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
+            });
+            if (fallbackPlanText.trim().length > 0) {
+              emitBridgeEvent({
+                type: "plan_ready",
+                planText: fallbackPlanText,
+                ...(fallbackSegmentId
+                  ? { sourceSegmentId: fallbackSegmentId }
+                  : {}),
+              });
+            }
+          }
+          if (turn?.status === "failed" && !abortRequested) {
+            emitBridgeEvent({
+              type: "error",
+              message: toCodexUserFacingErrorMessage({
+                message: turn.error?.message ?? "Codex App Server turn failed.",
+              }),
+              recoverable: true,
+            });
+          }
+          if (latestUsage) {
+            emitBridgeEvent({
+              type: "usage",
+              ...latestUsage,
+            });
+          }
+          emitBridgeEvent(
+            abortRequested
+              ? { type: "done", stop_reason: "user_abort" }
+              : { type: "done" },
+          );
+          finishTurnWait();
+          return;
+        }
+        default:
+          return;
+      }
     });
-    emitBridgeEvent(
-      abortRequested
-        ? { type: "done", stop_reason: "user_abort" }
-        : { type: "done" },
-    );
-    finishTurnWait();
-  });
 
-  // ── Register abort BEFORE turn/start so the user can cancel at any
-  // point, including while the turn/start request is still in flight. ──
-  args.registerAbort?.(() => {
-    abortRequested = true;
-    if (!appServerTurnId) {
-      // turn/start hasn't resolved yet — no turnId to interrupt.
-      // Resolve the wait so the Promise.race below exits.
-      emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
-      finishTurnWait();
-      return;
-    }
-    // Normal interrupt: we have a turnId.
-    clearInterruptFallback();
-    interruptFallbackHandle = setTimeout(() => {
-      interruptFallbackHandle = null;
+    // ── Process-death listener: resolve waitForTurnCompletion if the app
+    // server exits unexpectedly so the turn never hangs forever. ──
+    const unsubscribeProcessExit = client.onProcessExit((exitMessage) => {
       if (completed) {
         return;
       }
       console.warn(
-        "[provider-runtime] Codex app-server interrupt did not settle after 10 seconds",
-        { threadId, appServerTurnId },
+        "[provider-runtime] Codex app-server process exited during turn",
+        { threadId, appServerTurnId: appServerTurnId || null, exitMessage },
       );
-      emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
-      finishTurnWait();
-    }, APP_SERVER_INTERRUPT_GRACE_MS);
-    void client
-      .request("turn/interrupt", {
-        threadId,
-        turnId: appServerTurnId,
-      })
-      .catch((error) => {
-        console.warn(
-          "[provider-runtime] Codex app-server interrupt request failed",
-          {
-            threadId,
-            appServerTurnId,
-            error: toErrorMessage(error),
-          },
-        );
+      emitBridgeEvent({
+        type: "error",
+        message: toCodexUserFacingErrorMessage({ message: exitMessage }),
+        recoverable: true,
       });
-  });
-
-  try {
-    const gitRef = resolveGitHeadRef({ cwd: runtimeCwd });
-    emitBridgeEvent({
-      type: "system",
-      content: "Checkpoint captured before Codex turn.",
-      compactBoundary: {
-        trigger: "turn_start",
-        ...(gitRef ? { gitRef } : {}),
-      },
+      emitBridgeEvent(
+        abortRequested
+          ? { type: "done", stop_reason: "user_abort" }
+          : { type: "done" },
+      );
+      finishTurnWait();
     });
 
-    // Race turn/start against waitForTurnCompletion so an abort (or
-    // process death) during the request isn't blocked until the outer
-    // 3-hour timeout.
-    const turnStartPromise = client.request<{ turn: { id: string } }>(
-      "turn/start",
-      buildCodexTurnStartParams({
-        threadId,
-        cwd: runtimeCwd,
-        prompt: providerPrompt,
-        runtimeOptions: args.runtimeOptions,
-      }),
-    );
-
-    const turnResponse = await Promise.race([
-      turnStartPromise,
-      waitForTurnCompletion.then(() => null as null),
-    ]);
-
-    // If waitForTurnCompletion won the race (abort or process death during
-    // turn/start), clean up the orphaned turn/start and return.
-    if (turnResponse == null || completed) {
-      void turnStartPromise
-        .then((resolved) => {
-          void client
-            .request("turn/interrupt", {
-              threadId,
-              turnId: resolved.turn.id,
-            })
-            .catch(() => {});
-        })
-        .catch(() => {});
-      return finalizeCollectedEvents();
-    }
-
-    appServerTurnId = turnResponse.turn.id;
-    if (codexDebug) {
-      console.debug("[codex-app-server-runtime] turn/start acknowledged", {
-        threadId,
-        turnId: appServerTurnId,
-      });
-    }
-
-    // If the user pressed stop while turn/start was in flight, we now have
-    // a turnId and can send a proper interrupt.
-    if (abortRequested) {
+    // ── Register abort BEFORE turn/start so the user can cancel at any
+    // point, including while the turn/start request is still in flight. ──
+    args.registerAbort?.(() => {
+      abortRequested = true;
+      if (!appServerTurnId) {
+        // turn/start hasn't resolved yet — no turnId to interrupt.
+        // Resolve the wait so the Promise.race below exits.
+        emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
+        finishTurnWait();
+        return;
+      }
+      // Normal interrupt: we have a turnId.
       clearInterruptFallback();
       interruptFallbackHandle = setTimeout(() => {
         interruptFallbackHandle = null;
         if (completed) {
           return;
         }
+        console.warn(
+          "[provider-runtime] Codex app-server interrupt did not settle after 10 seconds",
+          { threadId, appServerTurnId },
+        );
         emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
         finishTurnWait();
       }, APP_SERVER_INTERRUPT_GRACE_MS);
@@ -3957,69 +3611,163 @@ export async function streamCodexWithAppServer(
           threadId,
           turnId: appServerTurnId,
         })
-        .catch(() => {});
-    }
+        .catch((error) => {
+          console.warn(
+            "[provider-runtime] Codex app-server interrupt request failed",
+            {
+              threadId,
+              appServerTurnId,
+              error: toErrorMessage(error),
+            },
+          );
+        });
+    });
 
-    if (shouldInterruptPlanTurn) {
-      requestPlanInterrupt();
-    }
-
-    await waitForTurnCompletion;
-
-    return finalizeCollectedEvents();
-  } catch (error) {
-    // Distinguish abort from real failures (symmetric with claude-sdk-runtime).
-    const isAbort =
-      (error instanceof Error && error.name === "AbortError") ||
-      (error instanceof Error && /aborted|cancel/i.test(error.message));
-    if (isAbort) {
-      console.info("[provider-runtime] Codex app-server turn aborted", {
-        threadId,
-        appServerTurnId,
+    try {
+      const gitRef = resolveGitHeadRef({ cwd: runtimeCwd });
+      emitBridgeEvent({
+        type: "system",
+        content: "Checkpoint captured before Codex turn.",
+        compactBoundary: {
+          trigger: "turn_start",
+          ...(gitRef ? { gitRef } : {}),
+        },
       });
-      const abortEvents: BridgeEvent[] = [
-        { type: "done", stop_reason: "user_abort" },
-      ];
-      abortEvents.forEach((event) => args.onEvent?.(event));
-      return abortEvents;
+
+      // Race turn/start against waitForTurnCompletion so an abort (or
+      // process death) during the request isn't blocked until the outer
+      // 3-hour timeout.
+      const turnStartPromise = client.request<{ turn: { id: string } }>(
+        "turn/start",
+        buildCodexTurnStartParams({
+          threadId,
+          cwd: runtimeCwd,
+          prompt: providerPrompt,
+          runtimeOptions,
+        }),
+      );
+
+      const turnResponse = await Promise.race([
+        turnStartPromise,
+        waitForTurnCompletion.then(() => null as null),
+      ]);
+
+      // If waitForTurnCompletion won the race (abort or process death during
+      // turn/start), clean up the orphaned turn/start and return.
+      if (turnResponse == null || completed) {
+        void turnStartPromise
+          .then((resolved) => {
+            void client
+              .request("turn/interrupt", {
+                threadId,
+                turnId: resolved.turn.id,
+              })
+              .catch(() => {});
+          })
+          .catch(() => {});
+        return finalizeCollectedEvents();
+      }
+
+      appServerTurnId = turnResponse.turn.id;
+      if (codexDebug) {
+        console.debug("[codex-app-server-runtime] turn/start acknowledged", {
+          threadId,
+          turnId: appServerTurnId,
+        });
+      }
+
+      // If the user pressed stop while turn/start was in flight, we now have
+      // a turnId and can send a proper interrupt.
+      if (abortRequested) {
+        clearInterruptFallback();
+        interruptFallbackHandle = setTimeout(() => {
+          interruptFallbackHandle = null;
+          if (completed) {
+            return;
+          }
+          emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
+          finishTurnWait();
+        }, APP_SERVER_INTERRUPT_GRACE_MS);
+        void client
+          .request("turn/interrupt", {
+            threadId,
+            turnId: appServerTurnId,
+          })
+          .catch(() => {});
+      }
+
+      if (shouldInterruptPlanTurn) {
+        requestPlanInterrupt();
+      }
+
+      await waitForTurnCompletion;
+
+      return finalizeCollectedEvents();
+    } catch (error) {
+      // Distinguish abort from real failures (symmetric with claude-sdk-runtime).
+      const isAbort =
+        (error instanceof Error && error.name === "AbortError") ||
+        (error instanceof Error && /aborted|cancel/i.test(error.message));
+      if (isAbort) {
+        console.info("[provider-runtime] Codex app-server turn aborted", {
+          threadId,
+          appServerTurnId,
+        });
+        const abortEvents: BridgeEvent[] = [
+          { type: "done", stop_reason: "user_abort" },
+        ];
+        abortEvents.forEach((event) => args.onEvent?.(event));
+        return abortEvents;
+      }
+      const errorEvent: BridgeEvent = {
+        type: "error",
+        message: toCodexUserFacingErrorMessage({
+          message: error instanceof Error ? error.message : String(error),
+        }),
+        recoverable: true,
+      };
+      emitBridgeEvent(errorEvent);
+      emitBridgeEvent({ type: "done" });
+      return finalizeCollectedEvents();
+    } finally {
+      clearInterruptFallback();
+      unsubscribeProcessExit();
+      // Reject any pending approval/input requests so the Codex app-server
+      // doesn't hang waiting for a response that will never arrive.
+      for (const [id, pending] of pendingApprovalRequests) {
+        const declinePayload =
+          pending.responseKind === "elicitation"
+            ? { action: "decline" as const }
+            : { decision: "decline" as const };
+        void client
+          .respond(pending.serverRequestId, declinePayload)
+          .catch(() => {});
+        pendingApprovalRequests.delete(id);
+      }
+      for (const [id, pending] of pendingUserInputRequests) {
+        const declinePayload =
+          pending.responseKind === "elicitation"
+            ? { action: "decline" as const }
+            : { answers: {} };
+        void client
+          .respond(pending.serverRequestId, declinePayload)
+          .catch(() => {});
+        pendingUserInputRequests.delete(id);
+      }
+      await elicitationPauseController.endAll();
+      unsubscribe();
+      if (!secondaryReadOnly) {
+        finishCodexTurn(codexExecutablePath);
+      }
     }
-    const errorEvent: BridgeEvent = {
-      type: "error",
-      message: toCodexUserFacingErrorMessage({
-        message: error instanceof Error ? error.message : String(error),
-      }),
-      recoverable: true,
-    };
-    emitBridgeEvent(errorEvent);
-    emitBridgeEvent({ type: "done" });
-    return finalizeCollectedEvents();
   } finally {
-    clearInterruptFallback();
-    unsubscribeProcessExit();
-    // Reject any pending approval/input requests so the Codex app-server
-    // doesn't hang waiting for a response that will never arrive.
-    for (const [id, pending] of pendingApprovalRequests) {
-      const declinePayload =
-        pending.responseKind === "elicitation"
-          ? { action: "decline" as const }
-          : { decision: "decline" as const };
-      void client
-        .respond(pending.serverRequestId, declinePayload)
-        .catch(() => {});
-      pendingApprovalRequests.delete(id);
+    await deleteCodexSecondaryThread({
+      enabled: secondaryReadOnly,
+      threadId,
+      request: client.request.bind(client),
+    });
+    if (secondaryReadOnly) {
+      finishCodexTurn(codexExecutablePath);
     }
-    for (const [id, pending] of pendingUserInputRequests) {
-      const declinePayload =
-        pending.responseKind === "elicitation"
-          ? { action: "decline" as const }
-          : { answers: {} };
-      void client
-        .respond(pending.serverRequestId, declinePayload)
-        .catch(() => {});
-      pendingUserInputRequests.delete(id);
-    }
-    await elicitationPauseController.endAll();
-    unsubscribe();
-    finishCodexTurn(codexExecutablePath);
   }
 }

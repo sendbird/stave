@@ -7,6 +7,7 @@ import {
 import {
   formatAnnotationsDisplayForChat,
   formatAnnotationsForChat,
+  resolveLensAnnotationReview,
 } from "@/lib/lens/lens-element-message";
 
 export const LENS_COMMENT_IMAGE_ID_PREFIX = "lens-comment-image:";
@@ -62,6 +63,27 @@ export function isAnyLensCommentImageAttachment(attachment: Attachment) {
   );
 }
 
+export function removeLensCommentImageAttachments(args: {
+  attachments: readonly Attachment[];
+  workspaceId: string;
+  lensSessionId?: string;
+  annotationIds: readonly string[];
+}): Attachment[] {
+  const imageIds = new Set(
+    args.annotationIds.map((annotationId) =>
+      getLensCommentImageId({
+        workspaceId: args.workspaceId,
+        lensSessionId: args.lensSessionId,
+        annotationId,
+      }),
+    ),
+  );
+  return args.attachments.filter(
+    (attachment) =>
+      attachment.kind !== "image" || !imageIds.has(attachment.id),
+  );
+}
+
 export function shouldIncludeImageAttachmentAsProviderContext(
   attachment: Attachment,
   includeLensCommentImages: boolean,
@@ -90,13 +112,64 @@ export function buildLensAnnotationsAttachment(args: {
     label: "Lens comments",
     count: annotations.length,
     summary: annotations
-      .map((annotation) => `${annotation.pin}. ${annotation.comment.trim()}`)
+      .map((annotation) => {
+        const feedback = resolveLensAnnotationReview(annotation).feedback;
+        return `${annotation.pin}. [${feedback.intent}/${feedback.priority}] ${feedback.comment.trim()}`;
+      })
       .filter(Boolean)
       .join(" · "),
     content: formatAnnotationsForChat(annotations, args.sourceMappingConfig),
     displayContent: formatAnnotationsDisplayForChat(annotations),
     annotations,
   };
+}
+
+function isTargetLensAnnotationsAttachment(
+  attachment: Attachment,
+  args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  },
+): attachment is Extract<Attachment, { kind: "lens-annotations" }> {
+  const targetSessionId = args.lensSessionId ?? DEFAULT_LENS_SESSION_ID;
+  return (
+    attachment.kind === "lens-annotations" &&
+    (attachment.workspaceId === args.workspaceId ||
+      attachment.id === `lens-annotations:${args.workspaceId}`) &&
+    (attachment.lensSessionId ?? DEFAULT_LENS_SESSION_ID) === targetSessionId
+  );
+}
+
+function preserveExistingAnnotationFeedback(args: {
+  existing?: Extract<Attachment, { kind: "lens-annotations" }>;
+  annotations: readonly LensAnnotation[];
+}): LensAnnotation[] {
+  const existingById = new Map(
+    (args.existing?.annotations ?? []).map((annotation) => [
+      annotation.id,
+      annotation,
+    ]),
+  );
+
+  return args.annotations.map((annotation) => {
+    const existing = existingById.get(annotation.id);
+    if (!existing) {
+      return annotation;
+    }
+    const review = resolveLensAnnotationReview(annotation);
+    const existingReview = resolveLensAnnotationReview(existing);
+    if (review.page.documentId !== existingReview.page.documentId) {
+      return annotation;
+    }
+    return {
+      ...annotation,
+      comment: existingReview.feedback.comment,
+      review: {
+        ...review,
+        feedback: existingReview.feedback,
+      },
+    };
+  });
 }
 
 export function upsertLensAnnotationsAttachment(args: {
@@ -106,26 +179,26 @@ export function upsertLensAnnotationsAttachment(args: {
   annotations: readonly LensAnnotation[];
   sourceMappingConfig: LensSourceMappingConfig;
 }) {
-  const targetSessionId = args.lensSessionId ?? DEFAULT_LENS_SESSION_ID;
+  const existingAttachment = args.attachments.find((attachment) =>
+    isTargetLensAnnotationsAttachment(attachment, args),
+  );
   const nextAttachments = args.attachments.filter(
-    (attachment) =>
-      !(
-        attachment.kind === "lens-annotations" &&
-        (attachment.workspaceId === args.workspaceId ||
-          attachment.id === `lens-annotations:${args.workspaceId}`) &&
-        (attachment.lensSessionId ?? DEFAULT_LENS_SESSION_ID) ===
-          targetSessionId
-      ),
+    (attachment) => !isTargetLensAnnotationsAttachment(attachment, args),
   );
   if (args.annotations.length === 0) {
     return nextAttachments;
   }
+  const annotations = preserveExistingAnnotationFeedback({
+    existing: existingAttachment,
+    annotations: args.annotations,
+  });
   return [
     ...nextAttachments,
     buildLensAnnotationsAttachment({
+      id: existingAttachment?.id,
       workspaceId: args.workspaceId,
       lensSessionId: args.lensSessionId,
-      annotations: args.annotations,
+      annotations,
       sourceMappingConfig: args.sourceMappingConfig,
     }),
   ];

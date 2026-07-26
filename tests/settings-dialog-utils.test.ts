@@ -3,6 +3,11 @@ import {
   matchesSettingsSection,
   settingsSections,
 } from "@/components/layout/settings-dialog.schema";
+import {
+  matchesSettingsField,
+  searchSettingsFields,
+  settingDefinitions,
+} from "@/components/layout/settings-dialog.registry";
 import { resolveSettingsProjectSelection } from "@/components/layout/settings-dialog.utils";
 import type { RecentProjectState } from "@/store/project.utils";
 
@@ -120,5 +125,21 @@ describe("matchesSettingsSection", () => {
     expect(matchesSettingsSection(commandPalette!, "keyboard terminal")).toBe(
       false,
     );
+  });
+});
+
+describe("settings field registry", () => {
+  test("finds Advisor by title and provider/model aliases", () => {
+    const advisor = settingDefinitions.find(
+      (definition) => definition.key === "advisorTarget",
+    );
+
+    expect(advisor).toBeDefined();
+    expect(matchesSettingsField(advisor!, "advisor")).toBe(true);
+    expect(matchesSettingsField(advisor!, "consult")).toBe(true);
+    expect(matchesSettingsField(advisor!, "codex model")).toBe(true);
+    expect(searchSettingsFields("read only")).toEqual([advisor!]);
+    expect(searchSettingsFields("sonnet 5")).toEqual([advisor!]);
+    expect(searchSettingsFields("gpt-5.6-sol")).toEqual([advisor!]);
   });
 });

@@ -618,6 +618,41 @@ describe("PromptInput queue mode", () => {
                   createdAt: "2026-04-09T00:00:00.000Z",
                   selector: "#root h1",
                   computedStyles: { fontSize: "16px" },
+                  review: {
+                    version: 1,
+                    page: {
+                      url: "https://example.com/review",
+                      title: "Review",
+                      viewport: {
+                        width: 1280,
+                        height: 720,
+                        devicePixelRatio: 1,
+                      },
+                      scroll: { x: 0, y: 0 },
+                      documentId: "document-1",
+                    },
+                    anchor: {
+                      selector: "#root h1",
+                      bounds: { x: 0, y: 0, width: 100, height: 40 },
+                      attributes: {},
+                      ancestors: [],
+                      nearby: [],
+                      computedStyles: { fontSize: "16px" },
+                    },
+                    evidence: {
+                      screenshot: {
+                        kind: "clipped",
+                        bounds: { x: 0, y: 0, width: 100, height: 40 },
+                      },
+                      styleEdits: [],
+                    },
+                    feedback: {
+                      comment: "Header cramped",
+                      intent: "fix",
+                      priority: "high",
+                    },
+                    trust: "untrusted-page-evidence",
+                  },
                 },
               ],
             },
@@ -636,6 +671,11 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain('alt="Visual comment 1"');
     expect(html).toContain("Header cramped");
     expect(html).toContain("#root h1");
+    expect(html).toContain("Fix");
+    expect(html).toContain("High");
+    expect(html).toContain(
+      'aria-label="Edit intent and priority for comment 1"',
+    );
     expect(html).toContain('aria-label="Edit styles for comment 1"');
     expect(html).toContain('aria-label="Remove comment 1"');
     expect(html.match(/alt="Visual comment 1"/g)?.length ?? 0).toBe(1);

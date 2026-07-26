@@ -127,6 +127,10 @@ import {
   serializeJsonFramedMessage,
 } from "./shared/json-message-framing";
 import { collectUntrackedWorkingTreeDiff } from "./host-service/pr-description-context";
+import {
+  cancelSecondaryProviderRun,
+  executeSecondaryProviderRun,
+} from "./providers/secondary-run-executor";
 
 type HostServiceOutboundMessage =
   | AnyHostServiceResponseEnvelope
@@ -1170,6 +1174,18 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         await providerRuntime.streamTurn(request.params),
       );
       return;
+    case "runs.execute-secondary":
+      await respond(
+        request.id,
+        await executeSecondaryProviderRun(request.params, providerRuntime),
+      );
+      return;
+    case "runs.cancel-secondary":
+      await respond(
+        request.id,
+        cancelSecondaryProviderRun(request.params, providerRuntime),
+      );
+      return;
     case "provider.start-stream-turn":
       await respond(
         request.id,
@@ -1455,6 +1471,24 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(
         request.id,
         await invokeLocalMcpAction(request.params.action, request.params.args),
+      );
+      return;
+    case "crane.run-task":
+      await respond(
+        request.id,
+        await localMcpRuntime.runTask({
+          ...request.params,
+          controlMode: "managed",
+          controlOwner: "stave",
+        }),
+      );
+      return;
+    case "crane.release-task-control":
+      await respond(
+        request.id,
+        await localMcpRuntime.releaseLocallyManagedTaskControl(
+          request.params,
+        ),
       );
       return;
     case "routine.invoke":

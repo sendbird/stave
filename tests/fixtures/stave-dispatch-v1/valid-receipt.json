@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "jobId": "job_01K12CRANESTAVE000000000001",
+  "connectorId": "connector_01K12LOCALSTAVE00000001",
+  "sequence": 2,
+  "state": "awaiting_local_approval",
+  "occurredAt": "2026-07-26T01:06:00.000Z"
+}

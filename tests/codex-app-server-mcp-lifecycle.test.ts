@@ -14,6 +14,11 @@ class FakeChild extends EventEmitter {
   stdout = new FakeStream();
   stderr = new FakeStream();
   killed = false;
+  receivedMessages: Array<{
+    id?: number;
+    method?: string;
+    params?: Record<string, unknown>;
+  }> = [];
 
   constructor(private readonly scenario: FakeScenario) {
     super();
@@ -30,10 +35,12 @@ class FakeChild extends EventEmitter {
             JSON.parse(line) as {
               id?: number;
               method?: string;
+              params?: Record<string, unknown>;
             },
         );
 
       for (const message of messages) {
+        this.receivedMessages.push(message);
         if (message.method === "initialize" && message.id != null) {
           this.emitResponse(message.id, { capabilities: {} });
           continue;
@@ -47,6 +54,19 @@ class FakeChild extends EventEmitter {
         }
         if (message.method === "thread/start" && message.id != null) {
           this.emitResponse(message.id, { thread: { id: "thread-1" } });
+          continue;
+        }
+        if (
+          message.method === "mcpServerStatus/list" &&
+          message.id != null
+        ) {
+          this.emitResponse(message.id, {
+            data: [{ name: "functions" }, { name: "slack" }],
+          });
+          continue;
+        }
+        if (message.method === "thread/delete" && message.id != null) {
+          this.emitResponse(message.id, {});
           continue;
         }
         if (message.method === "thread/goal/get" && message.id != null) {
@@ -141,14 +161,20 @@ class FakeChild extends EventEmitter {
 }
 
 let nextScenario: FakeScenario = "full-lifecycle";
+const fakeChildren: FakeChild[] = [];
 
 mock.module("node:child_process", () => ({
   ...actualChildProcess,
-  spawn: () => new FakeChild(nextScenario),
+  spawn: () => {
+    const child = new FakeChild(nextScenario);
+    fakeChildren.push(child);
+    return child;
+  },
 }));
 
 afterEach(() => {
   nextScenario = "full-lifecycle";
+  fakeChildren.length = 0;
   mock.restore();
 });
 
@@ -224,5 +250,69 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       toolName: "functions:collaboration.spawn_agent",
       state: "input-available",
     });
+  });
+
+  test("uses an ephemeral read-only thread and disables every MCP server for secondary execution", async () => {
+    nextScenario = "completed-only";
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?secondary-policy-test=${Date.now()}-${Math.random()}`
+    );
+
+    await runtime.streamCodexWithAppServer({
+      providerId: "codex",
+      taskId: "secondary:execution-1",
+      executionPolicy: "secondary-read-only",
+      prompt: "Inspect the runtime",
+      cwd: process.cwd(),
+      runtimeOptions: {
+        codexBinaryPath: "/tmp/fake-codex-secondary",
+        codexApprovalPolicy: "on-request",
+        codexFileAccess: "danger-full-access",
+        codexNetworkAccess: true,
+        codexWebSearch: "live",
+      },
+    });
+
+    const child = fakeChildren[0]!;
+    const threadStart = child.receivedMessages.find(
+      (message) => message.method === "thread/start",
+    );
+    const turnStart = child.receivedMessages.find(
+      (message) => message.method === "turn/start",
+    );
+
+    expect(
+      child.receivedMessages.some(
+        (message) => message.method === "mcpServerStatus/list",
+      ),
+    ).toBe(true);
+    expect(
+      child.receivedMessages.some(
+        (message) => message.method === "thread/resume",
+      ),
+    ).toBe(false);
+    expect(threadStart?.params).toMatchObject({
+      ephemeral: true,
+      sandbox: "read-only",
+      approvalPolicy: "never",
+      config: {
+        network_access: false,
+        web_search: "disabled",
+        'mcp_servers."functions".enabled': false,
+        'mcp_servers."slack".enabled': false,
+      },
+    });
+    expect(turnStart?.params).toMatchObject({
+      approvalPolicy: "never",
+      sandboxPolicy: {
+        type: "readOnly",
+        networkAccess: false,
+      },
+    });
+    expect(
+      child.receivedMessages.some(
+        (message) => message.method === "thread/delete",
+      ),
+    ).toBe(true);
   });
 });

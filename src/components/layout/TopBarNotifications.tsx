@@ -33,8 +33,8 @@ import {
 import { buildNotificationDetail } from "@/lib/notifications/notification.utils";
 import {
   formatTaskUpdatedAt,
+  isExternallyManagedTask,
   isTaskArchived,
-  isTaskManaged,
 } from "@/lib/tasks";
 import {
   isNotificationUnread,
@@ -446,7 +446,8 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                     notificationTask ?? { archivedAt: null },
                   );
                   const approvalHandledExternally =
-                    approvalAction && isTaskManaged(notificationTask);
+                    approvalAction &&
+                    isExternallyManagedTask(notificationTask);
                   const createdLabel = formatTaskUpdatedAt({
                     value: notification.createdAt,
                   });

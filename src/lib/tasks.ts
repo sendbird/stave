@@ -126,8 +126,22 @@ export function isTaskManaged(task: Pick<Task, "controlMode"> | null | undefined
   return getTaskControlMode(task) === "managed";
 }
 
+export function isExternallyManagedTask(
+  task:
+    | Pick<Task, "controlMode" | "controlOwner">
+    | null
+    | undefined,
+) {
+  return (
+    isTaskManaged(task) && getTaskControlOwner(task) === "external"
+  );
+}
+
 export function canTakeOverTask(args: {
-  task: Pick<Task, "controlMode"> | null | undefined;
+  task:
+    | Pick<Task, "controlMode" | "controlOwner">
+    | null
+    | undefined;
   activeTurnId?: string | null;
 }) {
   return isTaskManaged(args.task) && !args.activeTurnId;

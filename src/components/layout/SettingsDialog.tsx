@@ -26,6 +26,7 @@ import {
 } from "./settings-dialog.schema";
 import { resolveSettingsProjectSelection } from "./settings-dialog.utils";
 import { SettingsDialogSectionContent } from "./settings-dialog-sections";
+import { searchSettingsFields } from "./settings-dialog.registry";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -50,6 +51,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
     null,
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [pendingFieldId, setPendingFieldId] = useState<string | null>(null);
   const allowHighlightedOverrideRef = useRef(true);
   const lastHighlightedProjectPathRef = useRef<string | null>(null);
   const [
@@ -109,6 +111,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
       allowHighlightedOverrideRef.current = true;
       lastHighlightedProjectPathRef.current = null;
       setSelectedProjectPath(null);
+      setPendingFieldId(null);
       return;
     }
     setActiveSection(initialSection ?? "general");
@@ -164,12 +167,29 @@ export function SettingsDialog(args: SettingsDialogProps) {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !pendingFieldId || typeof document === "undefined") {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const field = document.getElementById(pendingFieldId);
+      if (!field) {
+        return;
+      }
+      field.focus({ preventScroll: true });
+      field.scrollIntoView({ block: "start", behavior: "auto" });
+      setPendingFieldId(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeSection, open, pendingFieldId]);
+
   if (!open) {
     return null;
   }
 
   const activeSectionData = sectionsById[activeSection];
   const normalizedSearchQuery = searchQuery.trim();
+  const matchingFields = searchSettingsFields(normalizedSearchQuery);
   const visibleSectionIds = new Set(
     settingsSections
       .filter((section) =>
@@ -177,6 +197,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
       )
       .map((section) => section.id),
   );
+  matchingFields.forEach((field) => visibleSectionIds.add(field.sectionId));
   const visibleGroups = settingsSectionGroups
     .map((group) => ({
       ...group,
@@ -267,6 +288,37 @@ export function SettingsDialog(args: SettingsDialogProps) {
                     ) : null}
                   </div>
                 </div>
+                {matchingFields.length > 0 ? (
+                  <SidebarGroup>
+                    <SidebarGroupLabel className="text-[11px] font-medium uppercase tracking-[0.18em] text-sidebar-foreground/55">
+                      Search results
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {matchingFields.map((field) => (
+                          <SidebarMenuItem key={field.fieldId}>
+                            <SidebarMenuButton
+                              size="sm"
+                              onClick={() => {
+                                setActiveSection(field.sectionId);
+                                setPendingFieldId(field.fieldId);
+                              }}
+                              className="h-9 text-[13px] text-sidebar-foreground/78"
+                            >
+                              <Search />
+                              <span className="min-w-0 flex-1 truncate">
+                                {field.title}
+                              </span>
+                              <span className="text-[10px] text-sidebar-foreground/50">
+                                {sectionsById[field.sectionId].label}
+                              </span>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        ))}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                ) : null}
                 {visibleGroups.length > 0 ? (
                   visibleGroups.map((group) => (
                     <SidebarGroup key={group.label}>
@@ -365,11 +417,11 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       </SidebarGroupContent>
                     </SidebarGroup>
                   ))
-                ) : (
+                ) : matchingFields.length === 0 ? (
                   <div className="px-4 py-6 text-xs leading-5 text-sidebar-foreground/60">
                     No settings match "{normalizedSearchQuery}".
                   </div>
-                )}
+                ) : null}
               </SidebarContent>
             </Sidebar>
 

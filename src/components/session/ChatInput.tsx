@@ -99,8 +99,8 @@ import {
 import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
 import {
   getTaskControlOwner,
+  isExternallyManagedTask,
   isTaskArchived,
-  isTaskManaged,
 } from "@/lib/tasks";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
@@ -1708,7 +1708,7 @@ function BaseChatInput() {
     () => normalizeModelShortcutEfforts(modelShortcutEfforts),
     [modelShortcutEfforts],
   );
-  const approvalActionsDisabled = isTaskManaged(activeTask);
+  const approvalActionsDisabled = isExternallyManagedTask(activeTask);
   const approvalDisabledReason = approvalActionsDisabled
     ? `This request is managed by ${getTaskControlOwner(activeTask) === "external" ? "an external controller" : "Stave"}. Respond from the originating client or take over after the run ends.`
     : undefined;

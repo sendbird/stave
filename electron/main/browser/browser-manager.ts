@@ -117,6 +117,8 @@ export interface BrowserSessionState {
   annotationOverlayActive: boolean;
   annotationNonce: string | null;
   annotationExtractDebugSource: boolean;
+  /** Rotated for every top-level document navigation. */
+  documentId: string;
   annotations: LensAnnotation[];
   /** True when the box-model inspect overlay is active for this session. */
   boxInspectActive: boolean;
@@ -712,6 +714,7 @@ export function createBrowserSession(
     annotationOverlayActive: false,
     annotationNonce: null,
     annotationExtractDebugSource: false,
+    documentId: randomUUID(),
     annotations: [],
     boxInspectActive: false,
     managedByMcp: false,

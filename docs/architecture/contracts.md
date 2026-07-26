@@ -32,6 +32,43 @@ Any change to `window.api` must be checked across:
 - `electron/main/ipc/*`
 - renderer call sites under `src/`
 
+## Secondary Run Contract
+
+When changing durable secondary execution, inspect the complete chain:
+
+- shared domain and transport schemas:
+  - `src/lib/runs/run-domain.ts`
+  - `src/lib/runs/secondary-run.ts`
+- renderer orchestration and consumers:
+  - `src/store/secondary-run-executor.ts`
+  - focused callers such as `src/store/compare-run-judge.ts`
+- renderer-to-main bridge:
+  - `electron/preload.ts`
+  - `src/types/window-api.d.ts`
+  - `electron/main/ipc/schemas.ts`
+  - `electron/main/ipc/runs.ts`
+- durable ownership:
+  - `electron/main/runs/secondary-run-coordinator.ts`
+  - `electron/persistence/run-ledger-store.ts`
+  - `electron/persistence/sqlite-store.ts`
+  - restart reconciliation in `electron/main/state.ts`
+- host-service and provider execution:
+  - `electron/host-service/protocol.ts`
+  - `electron/host-service.ts`
+  - `electron/providers/secondary-run-executor.ts`
+  - `electron/providers/types.ts`
+  - `electron/providers/codex-app-server-params.ts`
+  - both provider adapters under `electron/providers/`
+
+Keep request and response fields sourced from the shared Zod schemas. The
+internal `executionPolicy: "secondary-read-only"` marker must remain
+host-owned; do not add it to renderer schemas. Main must await provider
+execution and durable transitions, and cancellation must persist before host
+abort. Verify idempotent claims, input hashing, stale execution rejection,
+receipt ordering, restart interruption, and provider symmetry.
+
+See `docs/architecture/run-core.md` for lifecycle and extension guidance.
+
 ## Workspace File Index Contract
 
 The current workspace file list is a path index, not a symbol graph.

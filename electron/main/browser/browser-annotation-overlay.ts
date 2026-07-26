@@ -1,7 +1,9 @@
 import { getLensStyleCaptureScript } from "./browser-style-capture";
 import type { LensAnnotation } from "../../../src/lib/lens/lens.types";
+import { getLensElementContextScript } from "./browser-element-context";
 
 interface AnnotationOverlayOptions {
+  documentId: string;
   extractDebugSource?: boolean;
   initialAnnotations?: LensAnnotation[];
   nonce: string;
@@ -13,10 +15,12 @@ export function getAnnotationOverlayScript(
   const extractDebugSource = options.extractDebugSource ?? false;
   const initialAnnotations = JSON.stringify(options.initialAnnotations ?? []);
   const nonce = JSON.stringify(options.nonce);
+  const documentId = JSON.stringify(options.documentId);
 
   return `
 (function staveAnnotationOverlay() {
   const nonce = ${nonce};
+  const documentId = ${documentId};
   const initialAnnotations = ${initialAnnotations};
   const BEACON_PREFIX = "__STAVE_ANN__" + nonce;
   if (window.__staveTeardownAnnotations) {
@@ -25,6 +29,7 @@ export function getAnnotationOverlayScript(
 
   const root = document.createElement("div");
   root.id = "__stave_annotation_overlay";
+  const shadowRoot = root.attachShadow({ mode: "closed" });
   Object.assign(root.style, {
     position: "fixed",
     inset: "0",
@@ -43,7 +48,7 @@ export function getAnnotationOverlayScript(
     transition: "all 70ms ease",
     display: "none",
   });
-  root.appendChild(hover);
+  shadowRoot.appendChild(hover);
 
   const label = document.createElement("div");
   Object.assign(label.style, {
@@ -58,7 +63,7 @@ export function getAnnotationOverlayScript(
     whiteSpace: "nowrap",
     display: "none",
   });
-  root.appendChild(label);
+  shadowRoot.appendChild(label);
 
   const areaBox = document.createElement("div");
   Object.assign(areaBox.style, {
@@ -68,7 +73,7 @@ export function getAnnotationOverlayScript(
     background: "rgba(245,158,11,0.12)",
     display: "none",
   });
-  root.appendChild(areaBox);
+  shadowRoot.appendChild(areaBox);
 
   const pinLayer = document.createElement("div");
   Object.assign(pinLayer.style, {
@@ -76,7 +81,7 @@ export function getAnnotationOverlayScript(
     inset: "0",
     pointerEvents: "none",
   });
-  root.appendChild(pinLayer);
+  shadowRoot.appendChild(pinLayer);
   (document.body || document.documentElement).appendChild(root);
 
   const annotations = new Map();
@@ -84,104 +89,80 @@ export function getAnnotationOverlayScript(
   let nextPin = 1;
   let hoverElement = null;
   let pendingInput = null;
+  let pendingFocusReturn = null;
   let dragStart = null;
   let captureActive = true;
 
-  function rectToPlain(r) {
-    return {
-      x: Math.round(r.x),
-      y: Math.round(r.y),
-      width: Math.round(r.width),
-      height: Math.round(r.height),
-    };
-  }
+  ${getLensElementContextScript()}
 
   function emit(type, annotation) {
-    const payload = { type };
+    const payload = { type, documentId };
     if (annotation) payload.annotation = annotation;
     if (type === "submit") payload.annotations = Array.from(annotations.values());
     console.debug(BEACON_PREFIX + JSON.stringify(payload));
   }
 
-  function buildSelector(el) {
-    if (el.id) return "#" + CSS.escape(el.id);
-    const stableAttrs = ["data-testid", "data-cy", "data-test", "data-id", "aria-label"];
-    for (const attr of stableAttrs) {
-      const val = el.getAttribute(attr);
-      if (val) return el.tagName.toLowerCase() + "[" + attr + "=" + JSON.stringify(val) + "]";
-    }
-    const parts = [];
-    let cur = el;
-    while (cur && cur !== document.documentElement && parts.length < 8) {
-      if (cur.id) { parts.unshift("#" + CSS.escape(cur.id)); break; }
-      let seg = cur.tagName.toLowerCase();
-      const parent = cur.parentElement;
-      if (parent) {
-        const sameTagSiblings = Array.from(parent.children).filter(
-          (candidate) => candidate.tagName === cur.tagName
-        );
-        if (sameTagSiblings.length > 1) {
-          seg += ":nth-of-type(" + (sameTagSiblings.indexOf(cur) + 1) + ")";
-        }
-      }
-      parts.unshift(seg);
-      cur = parent;
-    }
-    return parts.join(" > ");
+  function isOverlayNode(node) {
+    return node === root || (node instanceof Node && shadowRoot.contains(node));
   }
 
-  function getDebugSource(el) {
-    ${
-      extractDebugSource
-        ? `
-    try {
-      const fiberKey = Object.keys(el).find(function(k) {
-        return k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$");
-      });
-      if (fiberKey) {
-        let fiber = el[fiberKey];
-        for (let i = 0; i < 10 && fiber; i++) {
-          if (fiber._debugSource) {
-            return {
-              fileName: fiber._debugSource.fileName,
-              lineNumber: fiber._debugSource.lineNumber,
-              columnNumber: fiber._debugSource.columnNumber,
-            };
-          }
-          fiber = fiber.return;
-        }
-      }
-    } catch (_) {}
-    `
-        : ""
-    }
-    return null;
+  function isTrustedOverlayEvent(event) {
+    return event.isTrusted && event.composedPath().includes(root);
   }
 
   ${getLensStyleCaptureScript()}
 
-  function makeElementAnnotation(el, comment) {
-    const r = el.getBoundingClientRect();
+  function makeReview(anchor, comment, intent, priority, styleEdits) {
+    return {
+      version: 1,
+      page: stavePageIdentity(documentId),
+      anchor,
+      evidence: {
+        screenshot: {
+          kind: "clipped",
+          bounds: anchor.bounds,
+        },
+        styleEdits,
+      },
+      feedback: {
+        comment,
+        intent,
+        priority,
+      },
+      trust: "untrusted-page-evidence",
+    };
+  }
+
+  function makeElementAnnotation(el, comment, intent, priority) {
+    const anchor = staveElementContext(el, ${String(extractDebugSource)});
+    anchor.computedStyles = staveComputedStylesForElement(el);
+    const styleEdits = [];
     return {
       id: "ann-" + Date.now() + "-" + Math.random().toString(36).slice(2),
       kind: "element",
       pin: nextPin++,
-      rect: rectToPlain(r),
+      rect: anchor.bounds,
       comment,
       createdAt: new Date().toISOString(),
-      selector: buildSelector(el),
-      tagName: el.tagName.toLowerCase(),
-      elementId: el.id || "",
-      classList: Array.from(el.classList),
-      computedStyles: staveComputedStylesForElement(el),
-      outerHTML: el.outerHTML.slice(0, 2000),
-      textContent: (el.textContent || "").trim().slice(0, 500),
-      debugSource: getDebugSource(el),
-      styleEdits: [],
+      selector: anchor.selector,
+      tagName: anchor.element.tagName,
+      elementId: anchor.element.id,
+      classList: anchor.element.classList,
+      computedStyles: anchor.computedStyles,
+      outerHTML: anchor.outerHTML,
+      textContent: anchor.textContent,
+      debugSource: anchor.debugSource,
+      componentNameChain: anchor.componentNameChain,
+      styleEdits,
+      intent,
+      priority,
+      review: makeReview(anchor, comment, intent, priority, styleEdits),
     };
   }
 
-  function makeAreaAnnotation(rect, comment) {
+  function makeAreaAnnotation(rect, comment, intent, priority) {
+    const anchor = staveAreaContext(rect, root);
+    const styleEdits = [];
     return {
       id: "ann-" + Date.now() + "-" + Math.random().toString(36).slice(2),
       kind: "area",
@@ -189,7 +170,10 @@ export function getAnnotationOverlayScript(
       rect,
       comment,
       createdAt: new Date().toISOString(),
-      styleEdits: [],
+      styleEdits,
+      intent,
+      priority,
+      review: makeReview(anchor, comment, intent, priority, styleEdits),
     };
   }
 
@@ -207,11 +191,13 @@ export function getAnnotationOverlayScript(
       transform: "translate(-2px, -18px)",
     });
 
-    const badge = document.createElement("button");
-    badge.type = "button";
+    const badge = document.createElement("span");
     badge.textContent = String(annotation.pin);
     badge.title = annotation.comment;
     Object.assign(badge.style, {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
       minWidth: "20px",
       height: "20px",
       borderRadius: "999px",
@@ -227,6 +213,10 @@ export function getAnnotationOverlayScript(
     del.type = "button";
     del.textContent = "×";
     del.title = "Delete annotation";
+    del.setAttribute(
+      "aria-label",
+      "Delete visual comment " + String(annotation.pin),
+    );
     Object.assign(del.style, {
       width: "18px",
       height: "18px",
@@ -239,6 +229,7 @@ export function getAnnotationOverlayScript(
       cursor: "pointer",
     });
     del.addEventListener("click", (event) => {
+      if (!isTrustedOverlayEvent(event)) return;
       event.preventDefault();
       event.stopPropagation();
       removeAnnotation(annotation.id);
@@ -256,6 +247,14 @@ export function getAnnotationOverlayScript(
     emit("add", annotation);
   }
 
+  function replaceAnnotation(annotation) {
+    annotations.set(annotation.id, annotation);
+    pins.get(annotation.id)?.remove();
+    pins.delete(annotation.id);
+    createPin(annotation);
+    emit("update", annotation);
+  }
+
   function removeAnnotation(id) {
     const annotation = annotations.get(id);
     if (!annotation) return false;
@@ -264,6 +263,105 @@ export function getAnnotationOverlayScript(
     pins.delete(id);
     emit("remove", annotation);
     return true;
+  }
+
+  function reconcileAnnotations() {
+    const page = stavePageIdentity(documentId);
+    for (const annotation of Array.from(annotations.values())) {
+      const feedback = annotation.review?.feedback || {
+        comment: annotation.comment,
+        intent: annotation.intent || "fix",
+        priority: annotation.priority || "medium",
+      };
+      const styleEdits =
+        annotation.review?.evidence?.styleEdits || annotation.styleEdits || [];
+
+      if (annotation.kind === "area") {
+        const previousPage = annotation.review?.page;
+        const sameScroll =
+          previousPage &&
+          previousPage.scroll.x === page.scroll.x &&
+          previousPage.scroll.y === page.scroll.y;
+        const rect = annotation.rect;
+        const intersectsViewport =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.x < page.viewport.width &&
+          rect.y < page.viewport.height &&
+          rect.x + rect.width > 0 &&
+          rect.y + rect.height > 0;
+        if (!sameScroll || !intersectsViewport) {
+          removeAnnotation(annotation.id);
+          continue;
+        }
+        const anchor = staveAreaContext(rect, root);
+        replaceAnnotation({
+          ...annotation,
+          review: {
+            version: 1,
+            page,
+            anchor,
+            evidence: {
+              screenshot: annotation.review?.evidence?.screenshot || {
+                kind: "clipped",
+                bounds: rect,
+              },
+              styleEdits,
+            },
+            feedback,
+            trust: "untrusted-page-evidence",
+          },
+        });
+        continue;
+      }
+
+      let element = null;
+      try {
+        element = annotation.selector
+          ? document.querySelector(annotation.selector)
+          : null;
+      } catch (_) {
+        element = null;
+      }
+      if (!element || isOverlayNode(element)) {
+        removeAnnotation(annotation.id);
+        continue;
+      }
+
+      const anchor = staveElementContext(
+        element,
+        ${String(extractDebugSource)},
+      );
+      anchor.computedStyles = staveComputedStylesForElement(element);
+      replaceAnnotation({
+        ...annotation,
+        rect: anchor.bounds,
+        selector: anchor.selector,
+        tagName: anchor.element.tagName,
+        elementId: anchor.element.id,
+        classList: anchor.element.classList,
+        computedStyles: anchor.computedStyles,
+        outerHTML: anchor.outerHTML,
+        textContent: anchor.textContent,
+        debugSource: anchor.debugSource,
+        componentNameChain: anchor.componentNameChain,
+        review: {
+          version: 1,
+          page,
+          anchor,
+          evidence: {
+            screenshot: annotation.review?.evidence?.screenshot || {
+              kind: "clipped",
+              bounds: anchor.bounds,
+            },
+            styleEdits,
+          },
+          feedback,
+          trust: "untrusted-page-evidence",
+        },
+      });
+    }
+    return Array.from(annotations.values());
   }
 
   function clearAnnotations() {
@@ -283,8 +381,16 @@ export function getAnnotationOverlayScript(
   }
 
   function clearPendingInput() {
+    const focusReturn = pendingFocusReturn;
     pendingInput?.remove();
     pendingInput = null;
+    pendingFocusReturn = null;
+    if (
+      focusReturn instanceof HTMLElement &&
+      focusReturn.isConnected
+    ) {
+      focusReturn.focus({ preventScroll: true });
+    }
   }
 
   function setInlineStyle(selector, patch) {
@@ -310,51 +416,174 @@ export function getAnnotationOverlayScript(
     return edits;
   }
 
-  function showCommentInput(rect, onSubmit) {
+  function showCommentInput(rect, onSubmit, focusReturn) {
     clearPendingInput();
-    const input = document.createElement("input");
-    input.type = "text";
-    input.placeholder = "Comment";
-    Object.assign(input.style, {
+    pendingFocusReturn =
+      focusReturn instanceof HTMLElement ? focusReturn : null;
+    const panel = document.createElement("div");
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Add visual comment");
+    Object.assign(panel.style, {
       position: "fixed",
-      left: Math.min(window.innerWidth - 260, Math.max(8, rect.x)) + "px",
-      top: Math.min(window.innerHeight - 36, Math.max(8, rect.y + rect.height + 6)) + "px",
-      width: "240px",
-      height: "30px",
+      left: Math.min(window.innerWidth - 292, Math.max(8, rect.x)) + "px",
+      top:
+        Math.min(
+          window.innerHeight - 108,
+          Math.max(8, rect.y + rect.height + 6),
+        ) + "px",
+      width: "280px",
       zIndex: "2147483647",
       pointerEvents: "auto",
+      display: "grid",
+      gap: "6px",
+      padding: "8px",
       border: "1px solid #22c55e",
-      borderRadius: "6px",
-      padding: "0 8px",
+      borderRadius: "7px",
       background: "#020617",
       color: "#f8fafc",
-      fontSize: "12px",
-      outline: "none",
       boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
     });
-    pendingInput = input;
-    root.appendChild(input);
-    input.focus();
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.maxLength = 2048;
+    input.placeholder = "Comment";
+    input.setAttribute("aria-label", "Visual comment");
+    Object.assign(input.style, {
+      width: "100%",
+      height: "30px",
+      border: "1px solid #334155",
+      borderRadius: "5px",
+      padding: "0 8px",
+      background: "#0f172a",
+      color: "#f8fafc",
+      fontSize: "12px",
+    });
+
+    const controls = document.createElement("div");
+    Object.assign(controls.style, {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr auto",
+      gap: "6px",
+    });
+
+    function createSelect(label, options, selectedValue) {
+      const select = document.createElement("select");
+      select.setAttribute("aria-label", label);
+      Object.assign(select.style, {
+        minWidth: "0",
+        height: "28px",
+        border: "1px solid #334155",
+        borderRadius: "5px",
+        padding: "0 6px",
+        background: "#0f172a",
+        color: "#e2e8f0",
+        fontSize: "11px",
+      });
+      for (const [value, optionLabel] of options) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = optionLabel;
+        option.selected = value === selectedValue;
+        select.appendChild(option);
+      }
+      return select;
+    }
+
+    const intent = createSelect(
+      "Visual comment intent",
+      [
+        ["fix", "Fix"],
+        ["change", "Change"],
+        ["question", "Question"],
+        ["approve", "Approve"],
+      ],
+      "fix",
+    );
+    const priority = createSelect(
+      "Visual comment priority",
+      [
+        ["low", "Low"],
+        ["medium", "Medium"],
+        ["high", "High"],
+      ],
+      "medium",
+    );
+    const add = document.createElement("button");
+    add.type = "button";
+    add.textContent = "Add";
+    add.setAttribute("aria-label", "Add visual comment");
+    Object.assign(add.style, {
+      height: "28px",
+      border: "1px solid #16a34a",
+      borderRadius: "5px",
+      padding: "0 10px",
+      background: "#22c55e",
+      color: "#052e16",
+      fontSize: "11px",
+      fontWeight: "700",
+      cursor: "pointer",
+    });
+
+    let trustedComment = "";
+    let trustedIntent = "fix";
+    let trustedPriority = "medium";
+
+    input.addEventListener("input", (event) => {
+      if (event.isTrusted) {
+        trustedComment = input.value;
+      }
+    });
+    intent.addEventListener("change", (event) => {
+      if (event.isTrusted) {
+        trustedIntent = intent.value;
+      }
+    });
+    priority.addEventListener("change", (event) => {
+      if (event.isTrusted) {
+        trustedPriority = priority.value;
+      }
+    });
+
+    function submitComment(event) {
+      if (event && !event.isTrusted) return;
+      const comment = trustedComment.trim();
+      if (!comment) {
+        input.focus();
+        return;
+      }
+      clearPendingInput();
+      onSubmit(comment, trustedIntent, trustedPriority);
+    }
 
     input.addEventListener("keydown", (event) => {
+      if (!event.isTrusted) return;
       if (event.key === "Escape") {
         event.preventDefault();
         clearPendingInput();
-      }
-      if (event.key === "Enter") {
+      } else if (event.key === "Enter") {
         event.preventDefault();
-        const comment = input.value.trim();
-        clearPendingInput();
-        if (comment) onSubmit(comment);
+        submitComment(event);
       }
     });
+    add.addEventListener("click", submitComment);
+
+    controls.appendChild(intent);
+    controls.appendChild(priority);
+    controls.appendChild(add);
+    panel.appendChild(input);
+    panel.appendChild(controls);
+    pendingInput = panel;
+    shadowRoot.appendChild(panel);
+    input.focus();
   }
 
   function onMouseMove(event) {
+    if (!event.isTrusted) return;
     if (!captureActive) return;
     if (pendingInput || dragStart) return;
     const el = document.elementFromPoint(event.clientX, event.clientY);
-    if (!el || root.contains(el)) return;
+    if (!el || isOverlayNode(el)) return;
     hoverElement = el;
     const r = el.getBoundingClientRect();
     Object.assign(hover.style, {
@@ -372,8 +601,9 @@ export function getAnnotationOverlayScript(
   }
 
   function onMouseDown(event) {
+    if (!event.isTrusted) return;
     if (!captureActive) return;
-    if (!event.shiftKey || root.contains(event.target)) return;
+    if (!event.shiftKey || isOverlayNode(event.target)) return;
     event.preventDefault();
     event.stopPropagation();
     dragStart = { x: event.clientX, y: event.clientY };
@@ -387,6 +617,7 @@ export function getAnnotationOverlayScript(
   }
 
   function onDragMove(event) {
+    if (!event.isTrusted) return;
     if (!captureActive) return;
     if (!dragStart) return;
     event.preventDefault();
@@ -403,6 +634,7 @@ export function getAnnotationOverlayScript(
   }
 
   function onMouseUp(event) {
+    if (!event.isTrusted) return;
     if (!captureActive) return;
     if (!dragStart) return;
     event.preventDefault();
@@ -416,25 +648,35 @@ export function getAnnotationOverlayScript(
     dragStart = null;
     areaBox.style.display = "none";
     if (rect.width < 8 || rect.height < 8) return;
-    showCommentInput(rect, (comment) => {
-      addAnnotation(makeAreaAnnotation(rect, comment));
-    });
+    showCommentInput(
+      rect,
+      (comment, intent, priority) => {
+        addAnnotation(makeAreaAnnotation(rect, comment, intent, priority));
+      },
+      document.activeElement,
+    );
   }
 
   function onClick(event) {
+    if (!event.isTrusted) return;
     if (!captureActive) return;
-    if (root.contains(event.target) || pendingInput || dragStart) return;
+    if (isOverlayNode(event.target) || pendingInput || dragStart) return;
     event.preventDefault();
     event.stopPropagation();
     const el = hoverElement || document.elementFromPoint(event.clientX, event.clientY);
-    if (!el || root.contains(el)) return;
-    const rect = rectToPlain(el.getBoundingClientRect());
-    showCommentInput(rect, (comment) => {
-      addAnnotation(makeElementAnnotation(el, comment));
-    });
+    if (!el || isOverlayNode(el)) return;
+    const rect = staveRectToPlain(el.getBoundingClientRect());
+    showCommentInput(
+      rect,
+      (comment, intent, priority) => {
+        addAnnotation(makeElementAnnotation(el, comment, intent, priority));
+      },
+      el,
+    );
   }
 
   function onKeyDown(event) {
+    if (!event.isTrusted) return;
     if (!captureActive) return;
     if (event.key === "Escape") {
       clearPendingInput();
@@ -477,6 +719,7 @@ export function getAnnotationOverlayScript(
     delete window.__staveSetStyle;
     delete window.__staveSetAnnotationCaptureActive;
     delete window.__staveSetAnnotationScreenshotCaptureActive;
+    delete window.__staveReconcileAnnotations;
     delete window.__staveTeardownAnnotations;
   }
 
@@ -489,6 +732,7 @@ export function getAnnotationOverlayScript(
   window.__staveSetStyle = setInlineStyle;
   window.__staveSetAnnotationCaptureActive = setCaptureActive;
   window.__staveSetAnnotationScreenshotCaptureActive = setScreenshotCaptureActive;
+  window.__staveReconcileAnnotations = reconcileAnnotations;
   window.__staveTeardownAnnotations = teardown;
 
   for (const annotation of initialAnnotations) {

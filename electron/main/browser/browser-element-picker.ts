@@ -6,10 +6,13 @@
 // ---------------------------------------------------------------------------
 
 import { getLensStyleCaptureScript } from "./browser-style-capture";
+import { getLensElementContextScript } from "./browser-element-context";
 
 interface ElementPickerOptions {
   /** When true, attempt to extract React fiber _debugSource info. */
   extractDebugSource?: boolean;
+  /** Main-issued identity for the current top-level document. */
+  documentId?: string;
 }
 
 /**
@@ -20,12 +23,16 @@ export function getElementPickerScript(
   options: ElementPickerOptions = {},
 ): string {
   const extractDebugSource = options.extractDebugSource ?? false;
+  const documentId = JSON.stringify(options.documentId ?? "");
 
   return `
 (function staveElementPicker() {
   if (typeof window.__staveTeardownElementPicker === "function") {
     try { window.__staveTeardownElementPicker(); } catch (_) { /* ignore */ }
   }
+
+  const documentId = ${documentId};
+  ${getLensElementContextScript()}
 
   return new Promise((resolve) => {
     const PICKER_TIMEOUT_MS = 45000;
@@ -54,42 +61,6 @@ export function getElementPickerScript(
     });
     (document.body || document.documentElement).appendChild(label);
 
-    /** Build a stable CSS selector for the element, preferring attributes that
-     *  survive re-renders over positional nth-child indices. */
-    function buildSelector(el) {
-      // 1. Unique ID — most stable anchor
-      if (el.id) return "#" + CSS.escape(el.id);
-
-      // 2. Stable test/automation attributes
-      const stableAttrs = ["data-testid", "data-cy", "data-test", "data-id", "aria-label"];
-      for (const attr of stableAttrs) {
-        const val = el.getAttribute(attr);
-        if (val) return el.tagName.toLowerCase() + "[" + attr + "=" + JSON.stringify(val) + "]";
-      }
-
-      // 3. Walk up the tree building a path. Use :nth-of-type (stable within
-      //    same-tag siblings) instead of :nth-child (shifts when other tags
-      //    are inserted by dynamic rendering).
-      const parts = [];
-      let cur = el;
-      while (cur && cur !== document.documentElement && parts.length < 8) {
-        if (cur.id) { parts.unshift("#" + CSS.escape(cur.id)); break; }
-        let seg = cur.tagName.toLowerCase();
-        const parent = cur.parentElement;
-        if (parent) {
-          const sameTagSiblings = Array.from(parent.children).filter(
-            (c) => c.tagName === cur.tagName
-          );
-          if (sameTagSiblings.length > 1) {
-            seg += ":nth-of-type(" + (sameTagSiblings.indexOf(cur) + 1) + ")";
-          }
-        }
-        parts.unshift(seg);
-        cur = parent;
-      }
-      return parts.join(" > ");
-    }
-
     function onMouseMove(e) {
       const el = document.elementFromPoint(e.clientX, e.clientY);
       if (!el || el === overlay || el === label) return;
@@ -117,73 +88,23 @@ export function getElementPickerScript(
       const r = el.getBoundingClientRect();
       ${getLensStyleCaptureScript()}
       const computedStyles = staveComputedStylesForElement(el);
-
-      // Attempt React fiber _debugSource extraction
-      let debugSource = null;
-      let componentNameChain = null;
-      ${
-        extractDebugSource
-          ? `
-      try {
-        const fiberKey = Object.keys(el).find(function(k) {
-          return k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$");
-        });
-        if (fiberKey) {
-          let fiber = el[fiberKey];
-          for (let i = 0; i < 10 && fiber; i++) {
-            if (fiber._debugSource) {
-              debugSource = {
-                fileName: fiber._debugSource.fileName,
-                lineNumber: fiber._debugSource.lineNumber,
-                columnNumber: fiber._debugSource.columnNumber,
-              };
-              break;
-            }
-            fiber = fiber.return;
-          }
-
-          componentNameChain = [];
-          fiber = el[fiberKey];
-          for (let i = 0; i < 24 && fiber; i++) {
-            const type = fiber.type;
-            const name =
-              typeof type === "function"
-                ? (type.displayName || type.name)
-                : type && typeof type === "object"
-                  ? (type.displayName || type.name)
-                  : null;
-            if (
-              typeof name === "string" &&
-              name &&
-              !componentNameChain.includes(name)
-            ) {
-              componentNameChain.push(name);
-            }
-            fiber = fiber.return;
-          }
-          componentNameChain.reverse();
-        }
-      } catch (_) {
-        // Silently ignore — _debugSource extraction is best-effort
-      }
-      `
-          : "// _debugSource extraction disabled by settings"
-      }
+      const anchor = staveElementContext(el, ${String(extractDebugSource)});
+      anchor.computedStyles = computedStyles;
 
       finish({
-        selector: buildSelector(el),
-        tagName: el.tagName.toLowerCase(),
-        id: el.id || "",
-        classList: Array.from(el.classList),
-        boundingBox: {
-          x: Math.round(r.x), y: Math.round(r.y),
-          width: Math.round(r.width), height: Math.round(r.height),
-        },
+        selector: anchor.selector,
+        tagName: anchor.element.tagName,
+        id: anchor.element.id,
+        classList: anchor.element.classList,
+        boundingBox: staveRectToPlain(r),
         computedStyles,
-        outerHTML: el.outerHTML.slice(0, 2000),
-        textContent: (el.textContent || "").trim().slice(0, 500),
-        debugSource,
-        componentNameChain,
+        outerHTML: anchor.outerHTML,
+        textContent: anchor.textContent,
+        debugSource: anchor.debugSource,
+        componentNameChain: anchor.componentNameChain,
+        page: stavePageIdentity(documentId),
+        anchor,
+        trust: "untrusted-page-evidence",
       });
     }
 

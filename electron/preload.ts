@@ -31,6 +31,14 @@ import type {
   StaveLocalMcpRequestLogQuery,
   StaveLocalMcpStatus,
 } from "../src/lib/local-mcp";
+import type {
+  CraneConnectorConfigInput,
+  CraneConnectorPairInput,
+  CraneConnectorPublicStatus,
+  CraneDispatchApprovalRequest,
+  CraneDispatchApprovalResponse,
+  CraneDispatchJobUpdate,
+} from "../src/lib/crane-connector/types";
 import type { WorkspaceInformationState } from "../src/lib/workspace-information";
 import type {
   RoutineInformationResourceCreateInput,
@@ -80,6 +88,7 @@ import type {
   BrowserNetworkEntry,
   BrowserNetworkEntryDetail,
   BrowserNetworkEventPayload,
+  ElementPickerResult,
   LensAnnotation,
   LensAnnotationEventPayload,
   LensCdpApprovalRequestPayload,
@@ -101,6 +110,19 @@ import type {
 } from "../src/lib/lens/lens-credentials";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
 import { WORKSPACE_SCRIPTS_IPC } from "../src/lib/workspace-scripts/constants";
+import type {
+  SecondaryRunAggregate,
+  SecondaryRunCancelArgs,
+  SecondaryRunClaimArgs,
+  SecondaryRunCompleteArgs,
+  SecondaryRunExecuteArgs,
+  SecondaryRunExecuteResponse,
+  SecondaryRunFailArgs,
+  SecondaryRunLookupArgs,
+  SecondaryRunReceiptList,
+  SecondaryRunReceiptListArgs,
+  SecondaryRunTransitionResponse,
+} from "../src/lib/runs/secondary-run";
 
 interface ProviderSlashCommand {
   name: string;
@@ -168,6 +190,53 @@ interface WorkspaceInformationUpdatePayload {
   workspaceId: string;
   workspaceInformation: WorkspaceInformationState;
 }
+
+const craneConnectorStatusSubscribers = new Set<
+  (payload: CraneConnectorPublicStatus) => void
+>();
+const craneDispatchApprovalSubscribers = new Set<
+  (payload: CraneDispatchApprovalRequest) => void
+>();
+const craneDispatchJobUpdateSubscribers = new Set<
+  (payload: CraneDispatchJobUpdate) => void
+>();
+const pendingCraneDispatchApprovals = new Map<
+  string,
+  CraneDispatchApprovalRequest
+>();
+
+ipcRenderer.on(
+  "crane-connector:status",
+  (_event, payload: CraneConnectorPublicStatus) => {
+    for (const subscriber of craneConnectorStatusSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "crane-connector:approval-required",
+  (_event, payload: CraneDispatchApprovalRequest) => {
+    pendingCraneDispatchApprovals.set(payload.job.id, payload);
+    for (const subscriber of craneDispatchApprovalSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "crane-connector:job-updated",
+  (_event, payload: CraneDispatchJobUpdate) => {
+    if (
+      ["declined", "running", "completed", "failed", "cancelled"].includes(
+        payload.state,
+      )
+    ) {
+      pendingCraneDispatchApprovals.delete(payload.jobId);
+    }
+    for (const subscriber of craneDispatchJobUpdateSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
 
 const streamEventSubscribers = new Set<(payload: StreamEventPayload) => void>();
 ipcRenderer.on(
@@ -633,6 +702,36 @@ ipcRenderer.on(
 
 contextBridge.exposeInMainWorld("api", {
   platform: process.platform,
+  runs: {
+    claimSecondary: (
+      args: SecondaryRunClaimArgs,
+    ): Promise<SecondaryRunTransitionResponse> =>
+      ipcRenderer.invoke("runs:claim-secondary", args),
+    executeSecondary: (
+      args: SecondaryRunExecuteArgs,
+    ): Promise<SecondaryRunExecuteResponse> =>
+      ipcRenderer.invoke("runs:execute-secondary", args),
+    completeSecondary: (
+      args: SecondaryRunCompleteArgs,
+    ): Promise<SecondaryRunTransitionResponse> =>
+      ipcRenderer.invoke("runs:complete-secondary", args),
+    failSecondary: (
+      args: SecondaryRunFailArgs,
+    ): Promise<SecondaryRunTransitionResponse> =>
+      ipcRenderer.invoke("runs:fail-secondary", args),
+    cancelSecondary: (
+      args: SecondaryRunCancelArgs,
+    ): Promise<SecondaryRunTransitionResponse> =>
+      ipcRenderer.invoke("runs:cancel-secondary", args),
+    getSecondary: (
+      args: SecondaryRunLookupArgs,
+    ): Promise<SecondaryRunAggregate | null> =>
+      ipcRenderer.invoke("runs:get-secondary", args),
+    listReceipts: (
+      args: SecondaryRunReceiptListArgs,
+    ): Promise<SecondaryRunReceiptList> =>
+      ipcRenderer.invoke("runs:list-receipts", args),
+  },
   provider: {
     streamTurn: (args: StreamTurnArgs) =>
       ipcRenderer.invoke("provider:stream-turn", args),
@@ -1225,6 +1324,73 @@ contextBridge.exposeInMainWorld("api", {
       workspaceInformationUpdateSubscribers.add(listener);
       return () => {
         workspaceInformationUpdateSubscribers.delete(listener);
+      };
+    },
+  },
+  craneConnector: {
+    getStatus: () =>
+      ipcRenderer.invoke("crane-connector:get-status") as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    configure: (args: CraneConnectorConfigInput) =>
+      ipcRenderer.invoke("crane-connector:configure", args) as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    pair: (args: CraneConnectorPairInput) =>
+      ipcRenderer.invoke("crane-connector:pair", args) as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    disconnect: () =>
+      ipcRenderer.invoke("crane-connector:disconnect") as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    approve: (args: CraneDispatchApprovalResponse) =>
+      ipcRenderer.invoke("crane-connector:approve", args) as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        workspaceId?: string;
+        taskId?: string;
+        message?: string;
+      }>,
+    decline: (args: { jobId: string }) =>
+      ipcRenderer.invoke("crane-connector:decline", args) as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    subscribeStatus: (
+      listener: (payload: CraneConnectorPublicStatus) => void,
+    ) => {
+      craneConnectorStatusSubscribers.add(listener);
+      return () => {
+        craneConnectorStatusSubscribers.delete(listener);
+      };
+    },
+    subscribeApprovalRequests: (
+      listener: (payload: CraneDispatchApprovalRequest) => void,
+    ) => {
+      craneDispatchApprovalSubscribers.add(listener);
+      for (const request of pendingCraneDispatchApprovals.values()) {
+        listener(request);
+      }
+      return () => {
+        craneDispatchApprovalSubscribers.delete(listener);
+      };
+    },
+    subscribeJobUpdates: (
+      listener: (payload: CraneDispatchJobUpdate) => void,
+    ) => {
+      craneDispatchJobUpdateSubscribers.add(listener);
+      return () => {
+        craneDispatchJobUpdateSubscribers.delete(listener);
       };
     },
   },
@@ -1847,11 +2013,13 @@ contextBridge.exposeInMainWorld("api", {
       options?: {
         fullPage?: boolean;
         clip?: { x: number; y: number; width: number; height: number };
+        documentId?: string;
       };
     }) =>
       ipcRenderer.invoke("lens:screenshot", args) as Promise<{
         ok: boolean;
         dataUrl?: string;
+        documentId?: string;
         message?: string;
       }>,
     saveScreenshot: (args: {
@@ -2021,22 +2189,7 @@ contextBridge.exposeInMainWorld("api", {
     }) =>
       ipcRenderer.invoke("lens:start-element-picker", args) as Promise<{
         ok: boolean;
-        result?: {
-          selector: string;
-          tagName: string;
-          id: string;
-          classList: string[];
-          boundingBox: { x: number; y: number; width: number; height: number };
-          computedStyles: Record<string, string>;
-          outerHTML: string;
-          textContent: string;
-          debugSource?: {
-            fileName: string;
-            lineNumber: number;
-            columnNumber?: number;
-          };
-          componentNameChain?: string[];
-        };
+        result?: ElementPickerResult;
         message?: string;
       }>,
     startAnnotationMode: (args: {
@@ -2076,6 +2229,7 @@ contextBridge.exposeInMainWorld("api", {
       workspaceId: string;
       lensSessionId?: string;
       annotationId: string;
+      documentId: string;
     }) =>
       ipcRenderer.invoke("lens:remove-annotation", args) as Promise<{
         ok: boolean;
@@ -2089,8 +2243,10 @@ contextBridge.exposeInMainWorld("api", {
     setElementStyle: (args: {
       workspaceId: string;
       lensSessionId?: string;
+      annotationId: string;
       selector: string;
       patch: Record<string, string>;
+      documentId: string;
     }) =>
       ipcRenderer.invoke("lens:set-element-style", args) as Promise<{
         ok: boolean;

@@ -3,11 +3,8 @@ import {
   resolveEffectiveCodexApprovalPolicy,
   resolveEffectiveCodexFileAccessMode,
 } from "@/lib/providers/codex-runtime-options";
-import {
-  DEFAULT_CLAUDE_OPUS_MODEL,
-  DEFAULT_CLAUDE_SONNET_MODEL,
-  resolveDefaultClaudeFallbackModel,
-} from "@/lib/providers/model-catalog";
+import { resolveDefaultClaudeFallbackModel } from "@/lib/providers/model-catalog";
+import { normalizeAdvisorTarget } from "@/lib/providers/advisor";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import {
   normalizeTrustedToolEntries,
@@ -22,8 +19,6 @@ import type { AppSettings } from "@/store/app.store";
 
 const DEFAULT_CODEX_APPROVAL_POLICY = "untrusted";
 const MAX_CLAUDE_TASK_BUDGET_TOKENS = 1_000_000;
-const CLAUDE_ADVISOR_SOURCE_SONNET_MODEL = DEFAULT_CLAUDE_SONNET_MODEL;
-const CLAUDE_ADVISOR_SOURCE_OPUS_MODEL = DEFAULT_CLAUDE_OPUS_MODEL;
 const CLAUDE_SETTING_SOURCE_ORDER = [
   "project",
   "local",
@@ -42,7 +37,7 @@ type RuntimeSettings = Pick<
   | "claudeSandboxEnabled"
   | "claudeAllowUnsandboxedCommands"
   | "claudeTaskBudgetTokens"
-  | "claudeAdvisorModel"
+  | "advisorTarget"
   | "claudeSettingSources"
   | "claudeEffort"
   | "claudeThinkingMode"
@@ -89,10 +84,15 @@ function normalizeDelimitedSettingList(value?: string | null) {
   return (value ?? "")
     .split(/[\n,]+/g)
     .map((entry) => entry.trim())
-    .filter((entry, index, entries) => entry.length > 0 && entries.indexOf(entry) === index);
+    .filter(
+      (entry, index, entries) =>
+        entry.length > 0 && entries.indexOf(entry) === index,
+    );
 }
 
-function normalizeClaudeSkillsSetting(value?: string | null): ProviderRuntimeOptions["claudeSkills"] {
+function normalizeClaudeSkillsSetting(
+  value?: string | null,
+): ProviderRuntimeOptions["claudeSkills"] {
   const entries = normalizeDelimitedSettingList(value);
   if (entries.length === 0) {
     return undefined;
@@ -130,37 +130,6 @@ export function normalizeClaudeSettingSources(args: {
   );
 }
 
-function resolveClaudeAdvisorSourceFamily(args: {
-  sourceModel: string;
-}): "haiku" | "sonnet" | "opus" {
-  const normalized = args.sourceModel.trim().toLowerCase();
-  if (normalized.includes("haiku")) {
-    return "haiku";
-  }
-  if (normalized.includes("sonnet")) {
-    return "sonnet";
-  }
-  if (normalized.includes("opus")) {
-    return "opus";
-  }
-  return "sonnet";
-}
-
-function mapClaudeAdvisorModelFromSource(args: {
-  sourceModel: string;
-}): string {
-  const sourceFamily = resolveClaudeAdvisorSourceFamily({
-    sourceModel: args.sourceModel,
-  });
-  if (sourceFamily === "haiku") {
-    return CLAUDE_ADVISOR_SOURCE_SONNET_MODEL;
-  }
-  if (sourceFamily === "sonnet") {
-    return CLAUDE_ADVISOR_SOURCE_OPUS_MODEL;
-  }
-  return CLAUDE_ADVISOR_SOURCE_OPUS_MODEL;
-}
-
 export function applyProjectBasePromptToRuntimeOptions(args: {
   runtimeOptions: ProviderRuntimeOptions;
   projectBasePrompt?: string | null;
@@ -184,17 +153,15 @@ export function buildProviderRuntimeOptions(args: {
   model: string;
   settings: RuntimeSettings;
   providerSession?: TaskProviderSessionState | null;
+  includeAdvisor?: boolean;
 }): ProviderRuntimeOptions {
   const { providerSession, settings } = args;
   const claudeTaskBudgetTokens = normalizeClaudeTaskBudgetTokens({
     value: settings.claudeTaskBudgetTokens,
   });
-  const claudeAdvisorModelSetting = settings.claudeAdvisorModel.trim();
-  const claudeAdvisorModel = claudeAdvisorModelSetting
-    ? mapClaudeAdvisorModelFromSource({
-        sourceModel: claudeAdvisorModelSetting,
-      })
-    : undefined;
+  const advisorTarget = args.includeAdvisor
+    ? normalizeAdvisorTarget(settings.advisorTarget)
+    : null;
   const trustedTools = normalizeTrustedToolEntries(settings.trustedTools);
   const claudeAllowedTools =
     toClaudeAllowedToolsFromTrustedEntries(trustedTools);
@@ -230,7 +197,7 @@ export function buildProviderRuntimeOptions(args: {
           claudeTaskBudgetTokens,
         }
       : {}),
-    ...(claudeAdvisorModel ? { claudeAdvisorModel } : {}),
+    ...(advisorTarget ? { advisorTarget } : {}),
     claudeEffort: settings.claudeEffort,
     claudeThinkingMode: settings.claudeThinkingMode,
     claudeAgentProgressSummaries: settings.claudeAgentProgressSummaries,

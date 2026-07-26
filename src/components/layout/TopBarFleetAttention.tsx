@@ -1,90 +1,30 @@
 import { Bot } from "lucide-react";
 import type { CSSProperties } from "react";
-import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
 import {
   Button,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import { countFleetAttentionTasksAcrossWorkspaces } from "@/lib/fleet/task-status";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
 export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
-  const [
-    projectPath,
-    recentProjects,
-    workspaces,
-    activeWorkspaceId,
-    tasks,
-    messagesByTask,
-    activeTurnIdsByTask,
-    providerTurnActivityByTask,
-    workspaceRuntimeCacheById,
-    toggleFleetView,
-    isFleetViewActive,
-  ] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.projectPath,
-          state.recentProjects,
-          state.workspaces,
-          state.activeWorkspaceId,
-          state.tasks,
-          state.messagesByTask,
-          state.activeTurnIdsByTask,
-          state.providerTurnActivityByTask,
-          state.workspaceRuntimeCacheById,
-          state.toggleFleetView,
-          state.activeAppSurface.kind === "fleet-view",
-        ] as const,
-    ),
-  );
-  const workspaceIds = useMemo(() => {
-    const ids = new Set<string>();
-    if (projectPath) {
-      for (const workspace of workspaces) {
-        ids.add(workspace.id);
-      }
-    }
-    for (const project of recentProjects) {
-      for (const workspace of project.workspaces) {
-        ids.add(workspace.id);
-      }
-    }
-    return Array.from(ids);
-  }, [projectPath, recentProjects, workspaces]);
-  const activeSession = useMemo(
-    () =>
-      projectPath
-        ? {
-            tasks,
-            messagesByTask,
-            activeTurnIdsByTask,
-          }
-        : null,
-    [activeTurnIdsByTask, messagesByTask, projectPath, tasks],
-  );
-  const attentionCount = useMemo(() => {
-    return countFleetAttentionTasksAcrossWorkspaces({
-      workspaceIds,
-      activeWorkspaceId: projectPath ? activeWorkspaceId : null,
-      activeSession,
-      runtimeSessionsByWorkspaceId: workspaceRuntimeCacheById,
-      providerTurnActivityByTask,
-    });
-  }, [
-    activeSession,
-    activeTurnIdsByTask,
-    activeWorkspaceId,
-    projectPath,
-    providerTurnActivityByTask,
-    workspaceRuntimeCacheById,
-    workspaceIds,
-  ]);
+  const [projectPath, recentProjects, toggleFleetView, isFleetViewActive] =
+    useAppStore(
+      useShallow(
+        (state) =>
+          [
+            state.projectPath,
+            state.recentProjects,
+            state.toggleFleetView,
+            state.activeAppSurface.kind === "fleet-view",
+          ] as const,
+      ),
+    );
+  const { count: attentionCount } = useFleetAttentionProjection();
 
   if (!projectPath && recentProjects.length === 0) {
     return null;
@@ -120,7 +60,11 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
         ) : null}
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        {isFleetViewActive ? "Close Fleet View" : "Fleet View"}
+        {isFleetViewActive
+          ? "Close Fleet View"
+          : attentionCount > 0
+            ? `Fleet View · ${attentionCount} need${attentionCount === 1 ? "" : "s"} you`
+            : "Fleet View"}
       </TooltipContent>
     </Tooltip>
   );

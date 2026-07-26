@@ -117,6 +117,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Track approvals, task completions, and follow-up work across workspaces from the top-bar bell.",
         previewImage: "screenshots/notifications.png",
       },
+      {
+        routePath: "fleet-needs-me",
+        sourcePath: "docs/features/fleet-needs-me.md",
+        title: "Fleet Needs Me",
+        description:
+          "Work through questions, approvals, failed runs, results, and pull request blockers across every workspace.",
+      },
     ],
   },
   {
@@ -137,6 +144,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         description:
           "Expose Stave's task and workspace tools to same-machine automation clients over loopback or stdio.",
         previewImage: "screenshots/mcp-settings.png",
+      },
+      {
+        routePath: "crane-connector",
+        sourcePath: "docs/features/crane-connector.md",
+        title: "Crane Connector",
+        description:
+          "Queue a Crane issue for local Claude or Codex execution with explicit per-job approval and status-only reporting.",
       },
       {
         routePath: "language-intelligence",
