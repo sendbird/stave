@@ -17,6 +17,9 @@ local approval before it creates a workspace or starts Claude or Codex.
 ## Before You Start
 
 - Sign in to Crane and open its Stave connector settings.
+- The Crane deployment must have personal Stave dispatch enabled. If
+  `Settings > Stave connector` is missing in Crane, ask the Atelier operator to
+  enable the integration.
 - Register at least one local project in Stave.
 - Make sure OS credential encryption is available. Stave will not persist a
   connector credential without it.
@@ -113,6 +116,14 @@ paths, branch names, provider credentials, or Local MCP metadata.
 - Cause: Stave cannot use OS-backed credential encryption.
 - Fix: enable the operating system credential store and restart Stave. The
   connector fails closed instead of saving plaintext.
+
+### Stave Connector Is Missing In Crane
+
+- Symptom: Crane Settings has no `Stave connector` section and issues have no
+  Stave setup prompt.
+- Cause: personal Stave dispatch is disabled for that Atelier deployment.
+- Fix: ask the Atelier operator to set
+  `CRANE_STAVE_DISPATCH_ENABLED=true` and redeploy Crane.
 
 ### Crane Is Offline
 

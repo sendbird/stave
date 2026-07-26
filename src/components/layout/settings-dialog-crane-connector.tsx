@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  BookOpen,
   Cable,
   ExternalLink,
   Loader2,
@@ -23,6 +24,10 @@ import {
   setCraneConnectorClientStatus,
   useCraneConnectorClientState,
 } from "@/lib/crane-connector/client-state";
+import {
+  buildCraneConnectorSettingsUrl,
+  STAVE_CRANE_CONNECTOR_GUIDE_URL,
+} from "@/lib/crane-connector/links";
 import { DEFAULT_CRANE_CONNECTOR_BASE_URL } from "@/lib/crane-connector/types";
 import { useAppStore } from "@/store/app.store";
 
@@ -195,6 +200,22 @@ export function CraneConnectorSettingsSection() {
               requires a local approval before Stave creates a workspace or
               starts a provider.
             </p>
+            <Button
+              type="button"
+              size="xs"
+              variant="link"
+              className="mt-1 h-auto px-0 text-xs"
+              onClick={() => {
+                void window.api?.shell?.openExternal?.({
+                  url: STAVE_CRANE_CONNECTOR_GUIDE_URL,
+                }).catch(() => {
+                  toast.error("Could not open the Crane connector guide.");
+                });
+              }}
+            >
+              <BookOpen className="size-3" />
+              Read setup guide
+            </Button>
           </div>
           <Button
             type="button"
@@ -262,13 +283,19 @@ export function CraneConnectorSettingsSection() {
                 variant="outline"
                 aria-label="Open Crane connector page"
                 onClick={() => {
-                  const origin =
+                  const url =
                     baseUrl.trim() || DEFAULT_CRANE_CONNECTOR_BASE_URL;
-                  void window.api?.shell?.openExternal?.({
-                    url: `${origin.replace(/\/+$/, "")}/apps/crane/settings?section=stave`,
-                  }).catch(() => {
-                    toast.error("Could not open the Crane connector page.");
-                  });
+                  try {
+                    void window.api?.shell
+                      ?.openExternal?.({
+                        url: buildCraneConnectorSettingsUrl(url),
+                      })
+                      .catch(() => {
+                        toast.error("Could not open the Crane connector page.");
+                      });
+                  } catch {
+                    toast.error("Enter a valid Crane URL before opening Crane.");
+                  }
                 }}
               >
                 <ExternalLink className="size-4" />
