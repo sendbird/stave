@@ -9325,10 +9325,12 @@ export const useAppStore = create<AppState>()(
           await openNotificationContextInternal(notification);
           const latestState = get();
           const taskId = notification.taskId?.trim();
-          // Nothing left to answer: settle the notification instead of leaving
-          // an item nobody can clear from Fleet.
           if (!taskId) {
-            await attentionSync.settleNotification(notification.id);
+            return;
+          }
+
+          const targetTask = findTaskById(latestState, taskId);
+          if (isExternallyManagedTask(targetTask)) {
             return;
           }
 
@@ -9337,13 +9339,7 @@ export const useAppStore = create<AppState>()(
             requestId: notification.action.requestId,
           });
 
-          if (isManagedTaskReadOnly({ state: latestState, taskId })) {
-            await attentionSync.settleNotification(notification.id);
-            return;
-          }
-
           if (!locatedApproval) {
-            await attentionSync.settleNotification(notification.id);
             return;
           }
 

@@ -85,12 +85,12 @@ Pairing codes are exchanged once and are not stored in Stave settings.
    Codex Advisor.
 6. Approve the job.
 
-The issue text is stored locally with the task and attached to the managed
-provider turn as untrusted retrieved context. The attached context remains
-inspectable above the composer and is reattached to later turns after
-`Take Over`; it does not become system policy or grant extra file, network, or
-approval permissions. The run also inherits Stave's configured provider
-timeout instead of using a connector-specific limit.
+The issue text is stored locally with the task and attached to the initial
+kickoff turn as untrusted retrieved context. The attached context remains
+inspectable above the composer and is reattached to later task turns; it does
+not become system policy or grant extra file, network, or approval permissions.
+The run also inherits Stave's configured provider timeout instead of using a
+connector-specific limit.
 
 ## Files And Data
 
@@ -114,16 +114,16 @@ paths, branch names, provider credentials, or Local MCP metadata.
   providers, models, permissions, or Advisor settings.
 - One connector processes one active job at a time and resumes its durable local
   binding after an app restart.
-- While its provider turn is active, a Crane job is a locally controlled
-  managed task. The composer stays monitor-only, while local approval and user
-  input requests remain actionable in the task. Stave releases the task back
-  to normal interactive control after the turn finishes; an inline `Take Over`
-  action above the composer remains available as a fallback once no turn is
-  active, with the task-tab menu as a secondary entry point. Takeover is
-  committed by the host process only after the exact bound Crane turn is
-  terminal. If Crane is offline, local control can still be released and the
-  terminal receipt retries in the background. It does not use Run Core or
-  change ordinary interactive tasks.
+- A newly approved Crane job starts as an ordinary interactive Stave task. The
+  issue is its kickoff source, so approvals, questions, steering, interruption,
+  and follow-up turns remain available in the task from the beginning.
+- Crane tracks only the exact initial kickoff turn. Stave continues publishing
+  `running`, `needs_local_input`, and terminal receipts for that turn, while
+  later user follow-up turns remain local Stave work and do not rewrite the
+  Crane job result.
+- Managed Crane tasks created by older Stave versions remain compatible with
+  the inline and task-tab `Take Over` actions after their managed turn stops.
+  New Crane dispatches do not require takeover.
 - Project choice stays in the local Stave approval dialog. Crane never receives
   the local project catalog, path, or remembered mapping.
 
@@ -158,15 +158,14 @@ paths, branch names, provider credentials, or Local MCP metadata.
   project or workspace is no longer registered.
 - Fix: approve before expiration and select a currently registered local target.
 
-### A Managed Task Ends With No Response
+### A Kickoff Turn Ends With No Response
 
 - Symptom: the prompt is visible, but the assistant area says `No response`.
-- Cause: the bound provider turn ended or was interrupted before it emitted
+- Cause: the initial kickoff turn ended or was interrupted before it emitted
   usable output.
-- Fix: check provider authentication and runtime diagnostics, then use the
-  inline `Take Over` action once the run is inactive. Stave reports this
-  outcome to Crane as a safe provider failure instead of a successful
-  completion.
+- Fix: check provider authentication and runtime diagnostics, then retry or
+  continue directly in the same interactive task. Stave reports the initial
+  turn to Crane as a safe provider failure instead of a successful completion.
 
 ## Related Docs
 

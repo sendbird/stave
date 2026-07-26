@@ -1507,11 +1507,7 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "crane.run-task":
       await respond(
         request.id,
-        await localMcpRuntime.runTask({
-          ...request.params,
-          controlMode: "managed",
-          controlOwner: "stave",
-        }),
+        await localMcpRuntime.runLocallyApprovedCraneKickoff(request.params),
       );
       return;
     case "crane.release-task-control":

@@ -58,6 +58,7 @@ const persistedTurnEventsById = new Map<
     truncated: false;
   }>
 >();
+const persistedNotifications: unknown[] = [];
 const lastUpsertSnapshotByWorkspaceId = new Map<
   string,
   { tasks?: Array<{ id: string; archivedAt?: string | null }> }
@@ -201,10 +202,13 @@ const fakeStore = {
   },
   getStreamEvents: ({ turnId }: { turnId: string }) =>
     persistedTurnEventsById.get(turnId) ?? [],
-  createNotification: ({ notification }: { notification: unknown }) => ({
-    inserted: true,
-    notification,
-  }),
+  createNotification: ({ notification }: { notification: unknown }) => {
+    persistedNotifications.push(notification);
+    return {
+      inserted: true,
+      notification,
+    };
+  },
   upsertWorkspace: ({
     id,
     snapshot,
@@ -322,12 +326,10 @@ describe("local MCP runtime runTask", () => {
     );
   });
 
-  test("preserves locally owned managed control for trusted dispatch", async () => {
-    const result = await runtime.runTask({
+  test("starts locally approved Crane work as an interactive kickoff", async () => {
+    const result = await runtime.runLocallyApprovedCraneKickoff({
       workspaceId: WORKSPACE_ID,
       prompt: "Work on the approved issue",
-      controlMode: "managed",
-      controlOwner: "stave",
       retrievedContextParts: [
         {
           type: "retrieved_context",
@@ -351,7 +353,7 @@ describe("local MCP runtime runTask", () => {
           }>;
         }
       | undefined;
-    expect(task?.controlMode).toBe("managed");
+    expect(task?.controlMode).toBe("interactive");
     expect(task?.controlOwner).toBe("stave");
     expect(task?.sourceContexts).toEqual([
       {
@@ -372,6 +374,123 @@ describe("local MCP runtime runTask", () => {
         (part) => part.sourceId === "crane:CRANE-42",
       )?.content,
     ).toBe("Untrusted remote issue context.");
+  });
+
+  test("publishes Stave-owned managed approval and user-input needs", async () => {
+    const notificationOffset = persistedNotifications.length;
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Start a locally owned managed run",
+      controlMode: "managed",
+      controlOwner: "stave",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({
+      type: "approval",
+      toolName: "Bash",
+      requestId: "approval-local-1",
+      description: "Run focused tests",
+    });
+    handler?.onEvent?.({
+      type: "user_input",
+      toolName: "request_user_input",
+      requestId: "input-local-1",
+      questions: [
+        {
+          key: "scope",
+          question: "Which scope should be used?",
+          header: "Scope",
+          options: [],
+        },
+      ],
+    });
+
+    for (
+      let attempt = 0;
+      attempt < 20 && persistedNotifications.length < notificationOffset + 2;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+    }
+
+    expect(result.taskId).toBeTruthy();
+    expect(persistedNotifications.slice(notificationOffset)).toMatchObject([
+      {
+        kind: "task.approval_requested",
+        payload: {
+          controlMode: "managed",
+          controlOwner: "stave",
+        },
+      },
+      {
+        kind: "task.user_input_requested",
+        payload: {
+          controlMode: "managed",
+          controlOwner: "stave",
+          requestId: "input-local-1",
+        },
+      },
+    ]);
+  });
+
+  test("does not publish Stave actions for externally managed requests", async () => {
+    const notificationOffset = persistedNotifications.length;
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Start an externally owned managed run",
+      controlMode: "managed",
+      controlOwner: "external",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({
+      type: "approval",
+      toolName: "Bash",
+      requestId: "approval-external-1",
+      description: "Run external command",
+    });
+    handler?.onEvent?.({
+      type: "user_input",
+      toolName: "request_user_input",
+      requestId: "input-external-1",
+      questions: [
+        {
+          key: "scope",
+          question: "Which scope should be used?",
+          header: "Scope",
+          options: [],
+        },
+      ],
+    });
+    handler?.onEvent?.({ type: "done" });
+    let status = await runtime.getTaskStatus({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+      turnId: result.turnId,
+    });
+    for (
+      let attempt = 0;
+      attempt < 20 && !status.latestTurnCompletedAt;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+      status = await runtime.getTaskStatus({
+        workspaceId: WORKSPACE_ID,
+        taskId: result.taskId,
+        turnId: result.turnId,
+      });
+    }
+
+    expect(
+      persistedNotifications
+        .slice(notificationOffset)
+        .filter((notification) => {
+          const kind = (notification as { kind?: string }).kind;
+          return (
+            kind === "task.approval_requested" ||
+            kind === "task.user_input_requested"
+          );
+        }),
+    ).toEqual([]);
   });
 
   test("persists terminal events and reports a targeted no-response failure", async () => {

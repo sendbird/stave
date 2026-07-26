@@ -80,6 +80,7 @@ import {
   findLatestPendingApprovalPart,
   findLatestPendingUserInputPart,
   findPendingApprovalMessageByRequestId,
+  findPendingUserInputMessageByRequestId,
 } from "../../src/store/provider-message.utils";
 import type {
   ChatMessage,
@@ -89,6 +90,9 @@ import type {
 } from "../../src/types/chat";
 import {
   findWorkspaceTaskOrThrow,
+  getTaskControlMode,
+  getTaskControlOwner,
+  isExternallyManagedTask,
   reconcileTasksWithPersistedArchival,
 } from "../../src/lib/tasks";
 import { ensureHostServicePersistenceReady } from "./persistence";
@@ -1437,8 +1441,13 @@ async function persistApprovalNotification(args: {
     projects,
     workspaceId: args.workspaceId,
   });
-  const taskTitle =
-    args.session.tasks.find((task) => task.id === args.taskId)?.title ?? "Task";
+  const task =
+    args.session.tasks.find((candidate) => candidate.id === args.taskId) ??
+    null;
+  if (!task || isExternallyManagedTask(task)) {
+    return;
+  }
+  const taskTitle = task.title || "Task";
   const location = findPendingApprovalMessageByRequestId({
     messages: args.session.messagesByTask[args.taskId] ?? [],
     requestId: args.event.requestId,
@@ -1467,8 +1476,71 @@ async function persistApprovalNotification(args: {
     payload: {
       toolName: args.event.toolName,
       description: args.event.description,
+      controlMode: getTaskControlMode(task),
+      controlOwner: getTaskControlOwner(task),
     },
     dedupeKey: `task.approval_requested:${args.turnId}:${args.event.requestId}`,
+  });
+}
+
+async function persistUserInputNotification(args: {
+  workspaceId: string;
+  taskId: string;
+  turnId: string;
+  provider: ProviderId;
+  event: Extract<NormalizedProviderEvent, { type: "user_input" }>;
+  session: WorkspaceSessionState;
+}) {
+  const task =
+    args.session.tasks.find((candidate) => candidate.id === args.taskId) ??
+    null;
+  if (!task || isExternallyManagedTask(task)) {
+    return;
+  }
+  const location = findPendingUserInputMessageByRequestId({
+    messages: args.session.messagesByTask[args.taskId] ?? [],
+    requestId: args.event.requestId,
+  });
+  if (!location) {
+    return;
+  }
+  const { projects } = await loadNormalizedProjects();
+  const registration = findWorkspaceRegistration({
+    projects,
+    workspaceId: args.workspaceId,
+  });
+  const firstQuestion = args.event.questions[0];
+  const question =
+    firstQuestion?.header.trim() ||
+    firstQuestion?.question.trim() ||
+    (args.event.questions.length > 1
+      ? `${args.event.questions.length} questions`
+      : "User input requested");
+
+  await persistNotification({
+    id: randomUUID(),
+    kind: "task.user_input_requested",
+    title: task.title || "Task",
+    body: `${args.event.toolName}: ${question}`,
+    projectPath: registration?.project.projectPath ?? null,
+    projectName: registration?.project.projectName ?? null,
+    workspaceId: args.workspaceId,
+    workspaceName: registration?.workspace.name ?? null,
+    taskId: args.taskId,
+    taskTitle: task.title || "Task",
+    turnId: args.turnId,
+    providerId: args.provider,
+    action: null,
+    payload: {
+      toolName: args.event.toolName,
+      question,
+      questionCount: args.event.questions.length,
+      requestId: args.event.requestId,
+      messageId: location.messageId,
+      controlMode: getTaskControlMode(task),
+      controlOwner: getTaskControlOwner(task),
+    },
+    dedupeKey: `task.user_input_requested:${args.turnId}:${args.event.requestId}`,
   });
 }
 
@@ -1562,6 +1634,16 @@ async function handleProviderEvent(args: {
 
   if (args.event.type === "approval") {
     await persistApprovalNotification({
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      turnId: args.turnId,
+      provider: args.provider,
+      event: args.event,
+      session: applied.session,
+    });
+  }
+  if (args.event.type === "user_input") {
+    await persistUserInputNotification({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
       turnId: args.turnId,
@@ -2152,6 +2234,21 @@ export async function runTask(args: {
     provider,
     model,
   } satisfies TaskRunResult;
+}
+
+/**
+ * Trusted Crane dispatch starts as an ordinary Stave task. The connector keeps
+ * tracking the returned first turn, while the user retains task-level control
+ * for approvals, questions, steering, and follow-up turns from the beginning.
+ */
+export async function runLocallyApprovedCraneKickoff(
+  args: Omit<Parameters<typeof runTask>[0], "controlMode" | "controlOwner">,
+) {
+  return runTask({
+    ...args,
+    controlMode: "interactive",
+    controlOwner: "stave",
+  });
 }
 
 export async function getTaskStatus(args: {

@@ -145,6 +145,9 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await expect(items).toHaveCount(2);
   await expect(items.nth(0)).toContainText("Approve deployment");
   await expect(items.nth(1)).toContainText("Review summary");
+  await expect(
+    items.nth(0).getByRole("button", { name: "Dismiss" }),
+  ).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("fleet-needs-me.png"),
     fullPage: true,

@@ -12,10 +12,10 @@ const CONNECTOR_STATUS = {
 
 function seedCraneConnector(
   page: Page,
-  options?: { managedTask?: boolean },
+  options?: { craneKickoffTask?: boolean; managedTask?: boolean },
 ) {
   return page.addInitScript((payload) => {
-    const { initialStatus, managedTask } = payload;
+    const { craneKickoffTask, initialStatus, managedTask } = payload;
     const workspaceSnapshot = {
       activeTaskId: "task-crane-settings",
       openTaskTabIds: ["task-crane-settings"],
@@ -35,10 +35,16 @@ function seedCraneConnector(
             ? {
                 controlMode: "managed",
                 controlOwner: "stave",
+              }
+            : {}),
+          ...(managedTask || craneKickoffTask
+            ? {
                 sourceContexts: [{
                   type: "retrieved_context",
                   sourceId: "crane:ATL-1",
-                  title: "Crane ATL-1 · Verify takeover",
+                  title: craneKickoffTask
+                    ? "Crane ATL-1 · Interactive kickoff"
+                    : "Crane ATL-1 · Verify takeover",
                   content: "Task-scoped Crane issue material.",
                 }],
               }
@@ -257,6 +263,7 @@ function seedCraneConnector(
       },
     };
   }, {
+    craneKickoffTask: options?.craneKickoffTask === true,
     initialStatus: CONNECTOR_STATUS,
     managedTask: options?.managedTask === true,
   });
@@ -548,5 +555,26 @@ test("inactive managed task offers Take Over above the composer", async ({
         taskId: "task-crane-settings",
       },
     ]);
+  expect(pageErrors.map((error) => error.message)).toEqual([]);
+});
+
+test("Crane kickoff is interactive from the first task turn", async ({
+  page,
+}) => {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error));
+  await seedCraneConnector(page, { craneKickoffTask: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const prompt = page.locator('[data-prompt-lexical-editor="true"]');
+  await expect(prompt).toHaveAttribute("contenteditable", "true");
+  await expect(
+    page.getByText("Crane ATL-1 · Interactive kickoff"),
+  ).toBeVisible();
+  await expect(page.getByText("Managed by Stave")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Take over managed task" }),
+  ).toHaveCount(0);
   expect(pageErrors.map((error) => error.message)).toEqual([]);
 });

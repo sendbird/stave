@@ -89,7 +89,7 @@ describe("local MCP service bridge", () => {
     }]);
   });
 
-  test("routes approved Crane work through the trusted Stave-owned action", async () => {
+  test("routes approved Crane work through the trusted kickoff action", async () => {
     const retrievedContextParts = [{
       type: "retrieved_context" as const,
       sourceId: "crane:CRANE-42",

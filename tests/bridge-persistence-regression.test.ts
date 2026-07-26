@@ -61,6 +61,97 @@ function setWindowContext(args: {
   } as unknown;
 }
 
+function buildManagedApprovalState(controlOwner: "stave" | "external") {
+  const taskId = "task-managed";
+  const messageId = "message-approval";
+  const requestId = "approval-managed";
+  return {
+    hasHydratedWorkspaces: true,
+    projectPath: "/tmp/stave-project",
+    projectName: "stave-project",
+    workspaces: [
+      {
+        id: "ws-main",
+        name: "main",
+        updatedAt: "2026-04-07T00:00:00.000Z",
+      },
+    ],
+    activeWorkspaceId: "ws-main",
+    activeTaskId: taskId,
+    activeSurface: { kind: "task" as const, taskId },
+    workspacePathById: { "ws-main": "/tmp/stave-project" },
+    workspaceBranchById: { "ws-main": "main" },
+    workspaceDefaultById: { "ws-main": true },
+    tasks: [
+      {
+        id: taskId,
+        title: "Managed task",
+        provider: "codex" as const,
+        updatedAt: "2026-04-07T00:00:00.000Z",
+        unread: false,
+        archivedAt: null,
+        controlMode: "managed" as const,
+        controlOwner,
+      },
+    ],
+    messagesByTask: {
+      [taskId]: [
+        {
+          id: messageId,
+          role: "assistant" as const,
+          model: "gpt-5.6",
+          providerId: "codex" as const,
+          content: "",
+          isStreaming: false,
+          parts: [
+            {
+              type: "approval" as const,
+              toolName: "Bash",
+              requestId,
+              description: "Run focused tests",
+              state: "approval-requested" as const,
+            },
+          ],
+        },
+      ],
+    },
+    notifications: [
+      {
+        id: "notification-managed",
+        kind: "task.approval_requested" as const,
+        title: "Managed task",
+        body: "Bash: Run focused tests",
+        projectPath: "/tmp/stave-project",
+        projectName: "stave-project",
+        workspaceId: "ws-main",
+        workspaceName: "main",
+        taskId,
+        taskTitle: "Managed task",
+        turnId: "turn-managed",
+        providerId: "codex" as const,
+        action: {
+          type: "approval" as const,
+          requestId,
+          messageId,
+        },
+        payload: {
+          controlMode: "managed",
+          controlOwner,
+        },
+        createdAt: "2026-04-07T00:00:00.000Z",
+        readAt: null,
+        resolvedAt: null,
+        expiresAt: null,
+      },
+    ],
+    activeTurnIdsByTask: {},
+    promptDraftByTask: {},
+    nativeSessionReadyByTask: {},
+    providerSessionByTask: {},
+    taskWorkspaceIdById: { [taskId]: "ws-main" },
+  };
+}
+
 afterEach(() => {
   (globalThis as { window: unknown }).window = originalWindow;
 });
@@ -901,7 +992,8 @@ describe("workspace persistence fallback", () => {
   test("openProject resolves before background file refresh completes", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      ((value: { ok: boolean; files: string[] }) => void) | null = null;
+      | ((value: { ok: boolean; files: string[] }) => void)
+      | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -2056,7 +2148,8 @@ describe("workspace store hydration ordering", () => {
   test("hydrateWorkspaces does not wait for file refresh on boot", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      ((value: { ok: boolean; files: string[] }) => void) | null = null;
+      | ((value: { ok: boolean; files: string[] }) => void)
+      | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -2880,8 +2973,9 @@ describe("workspace store hydration ordering", () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
       [];
-    const { buildImportedWorktreeWorkspaceId } =
-      await import("../src/store/project.utils");
+    const { buildImportedWorktreeWorkspaceId } = await import(
+      "../src/store/project.utils"
+    );
     const importedWorkspaceId = buildImportedWorktreeWorkspaceId({
       projectPath: "/tmp/stave-project",
       worktreePath: "/tmp/stave-project/.stave/workspaces/feature__perf",
@@ -3844,9 +3938,9 @@ describe("workspace store hydration ordering", () => {
     expect(
       useAppStore
         .getState()
-        .promptDraftByTask["task-main"]?.queuedTurns?.map(
-          (item) => item.content,
-        ),
+        .promptDraftByTask[
+          "task-main"
+        ]?.queuedTurns?.map((item) => item.content),
     ).toEqual(["Third prompt"]);
   });
 
@@ -4231,9 +4325,9 @@ describe("workspace store hydration ordering", () => {
     resolveDelayedSteer?.({ ok: true, delivery: "accepted" });
     const delayedSteerResult = await delayedSteerPromise;
     expect(delayedSteerResult).toMatchObject({ status: "steered" });
-    expect(
-      useAppStore.getState().promptDraftByTask["task-main"]?.text,
-    ).toBe("Newer unsent draft");
+    expect(useAppStore.getState().promptDraftByTask["task-main"]?.text).toBe(
+      "Newer unsent draft",
+    );
     pendingSteerResult = undefined;
 
     // Explicit submitIntent: "steer" that the backend rejects surfaces
@@ -4283,12 +4377,12 @@ describe("workspace store hydration ordering", () => {
     expect(unknownResult).toMatchObject({
       status: "steer-delivery-unknown",
     });
-    expect(
-      useAppStore.getState().promptDraftByTask["task-main"]?.text,
-    ).toBe("Unconfirmed steer");
-    expect(
-      useAppStore.getState().messagesByTask["task-main"]?.length,
-    ).toBe(messageCountBeforeUnknown);
+    expect(useAppStore.getState().promptDraftByTask["task-main"]?.text).toBe(
+      "Unconfirmed steer",
+    );
+    expect(useAppStore.getState().messagesByTask["task-main"]?.length).toBe(
+      messageCountBeforeUnknown,
+    );
   });
 
   test("auto-dispatches Codex /goal objectives after the goal is set", async () => {
@@ -5488,7 +5582,8 @@ describe("workspace store hydration ordering", () => {
   test("switchWorkspace does not wait for file refresh when the target workspace is cached", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      ((value: { ok: boolean; files: string[] }) => void) | null = null;
+      | ((value: { ok: boolean; files: string[] }) => void)
+      | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -7170,6 +7265,91 @@ describe("workspace store hydration ordering", () => {
       role: "assistant",
       content: "Approval delivery failed: no active turn found for this task.",
     });
+  });
+
+  test("notification approval delegates to a Stave-owned managed task", async () => {
+    const approvalCalls: Array<{
+      workspaceId: string;
+      taskId: string;
+      requestId: string;
+      approved: boolean;
+    }> = [];
+    setWindowContext({
+      localStorage: createMemoryStorage(),
+      api: {
+        localMcp: {
+          respondApproval: async (args: {
+            workspaceId: string;
+            taskId: string;
+            requestId: string;
+            approved: boolean;
+          }) => {
+            approvalCalls.push(args);
+            return { ok: true, message: "ok" };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      ...buildManagedApprovalState("stave"),
+    });
+
+    await useAppStore.getState().resolveNotificationApproval({
+      notificationId: "notification-managed",
+      approved: true,
+    });
+    for (
+      let attempt = 0;
+      attempt < 10 && approvalCalls.length === 0;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+    }
+
+    expect(approvalCalls).toEqual([
+      {
+        workspaceId: "ws-main",
+        taskId: "task-managed",
+        requestId: "approval-managed",
+        approved: true,
+      },
+    ]);
+    expect(useAppStore.getState().notifications[0]?.resolvedAt).toBeString();
+  });
+
+  test("notification approval leaves externally managed requests untouched", async () => {
+    const approvalCalls: unknown[] = [];
+    setWindowContext({
+      localStorage: createMemoryStorage(),
+      api: {
+        localMcp: {
+          respondApproval: async (args: unknown) => {
+            approvalCalls.push(args);
+            return { ok: true, message: "ok" };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      ...buildManagedApprovalState("external"),
+    });
+
+    await useAppStore.getState().resolveNotificationApproval({
+      notificationId: "notification-managed",
+      approved: true,
+    });
+    await Bun.sleep(0);
+
+    expect(approvalCalls).toEqual([]);
+    expect(useAppStore.getState().notifications[0]?.resolvedAt).toBeNull();
   });
 
   test("resolveApproval targets the task-owned inactive workspace turn with trimmed notification task ids", async () => {
