@@ -1,3 +1,28 @@
+## [0.12.0](https://github.com/sendbird/stave/compare/v0.11.10...v0.12.0) (2026-07-27)
+
+### Features
+
+* Add Lens, Advisor, read-only Compare Judge runs, Fleet Needs me, and Crane workflows with local approval and bounded execution.
+* Promote Claude Opus 5 and its 1M variant to the current Opus defaults, with Opus 4.8 fallback and persisted preset migration.
+* Add anchored start times and weekdays for daily and weekly routines while preserving legacy routine history records.
+* Migrate shared UI primitives to Base UI and refresh app-shell, compare-run, task-activity, and related surfaces.
+
+### Bug Fixes
+
+* Stabilize Lens hidden and visible sessions and bound mid-turn steering acknowledgement waits.
+* Preserve task-specific chat scroll anchors and stick-to-bottom behavior across session and workspace switches.
+* Prevent archived tasks from being resurrected by stale host-service workspace snapshots.
+* Keep Local MCP endpoints and host-service requests recoverable with manifest refresh, retry, deadlines, and bounded shutdown cleanup.
+* Make Crane dispatch and Fleet approval/result lifecycles task-authoritative and recoverable, including legacy managed-task takeover support.
+* Correct Crane connector setup links and improve workspace icons, Create PR layout, Plans spacing, and Turn Activity layering.
+
+### Refactors / Chores
+
+* Split max-lines ratchet hotspots into cohesive modules and lower their baselines without changing public entry points or behavior.
+
+### References
+
+* [#220](https://github.com/sendbird/stave/pull/220), [#222](https://github.com/sendbird/stave/pull/222), [#223](https://github.com/sendbird/stave/pull/223), [#224](https://github.com/sendbird/stave/pull/224), [#225](https://github.com/sendbird/stave/pull/225), [#226](https://github.com/sendbird/stave/pull/226), [#227](https://github.com/sendbird/stave/pull/227), [#228](https://github.com/sendbird/stave/pull/228), [#229](https://github.com/sendbird/stave/pull/229), [#230](https://github.com/sendbird/stave/pull/230), [#231](https://github.com/sendbird/stave/pull/231), [#232](https://github.com/sendbird/stave/pull/232), [#233](https://github.com/sendbird/stave/pull/233), [#234](https://github.com/sendbird/stave/pull/234), [#235](https://github.com/sendbird/stave/pull/235)
 ## [0.11.10](https://github.com/sendbird/stave/compare/v0.11.9...v0.11.10) (2026-07-24)
 
 ### Features
