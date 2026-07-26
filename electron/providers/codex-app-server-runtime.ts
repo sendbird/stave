@@ -51,10 +51,7 @@ import {
   resolveEffectiveCodexApprovalPolicy,
   resolveEffectiveCodexFileAccessMode,
 } from "../../src/lib/providers/codex-runtime-options";
-import {
-  spawn,
-  type ChildProcessWithoutNullStreams,
-} from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import path from "node:path";
 import { parseBooleanEnv } from "./runtime-shared";
 import {
@@ -95,6 +92,11 @@ import {
   toCodexUserFacingErrorMessage,
   toErrorMessage,
 } from "./codex-app-server-errors";
+import {
+  runCodexReadOnlyPromptWithClient,
+  type CodexReadOnlyPromptArgs,
+  type CodexReadOnlyPromptResult,
+} from "./codex-read-only-prompt";
 import { resolveGitHeadRef } from "./git-head-ref";
 import {
   buildCodexGoalStatusEvent,
@@ -608,10 +610,17 @@ export function buildCodexThreadStartParams(args: {
   ephemeral?: boolean;
   sandbox?: "read-only" | "workspace-write" | "danger-full-access";
   approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
+  isolated?: boolean;
 }) {
-  const config = buildCodexConfigOverrides({
-    runtimeOptions: args.runtimeOptions,
-  });
+  const config = args.isolated
+    ? {
+        ...buildCodexPluginConfigOverrides(),
+        network_access: false,
+        web_search: "disabled",
+      }
+    : buildCodexConfigOverrides({
+        runtimeOptions: args.runtimeOptions,
+      });
 
   return {
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
@@ -620,6 +629,12 @@ export function buildCodexThreadStartParams(args: {
     ...(args.sandbox ? { sandbox: args.sandbox } : {}),
     ...(config ? { config } : {}),
     ...(args.ephemeral !== undefined ? { ephemeral: args.ephemeral } : {}),
+    ...(args.isolated
+      ? {
+          developerInstructions:
+            "This is an isolated read-only analysis turn. Do not call tools, MCP servers, apps, plugins, shells, or subagents. Return only concise advice based on the supplied prompt.",
+        }
+      : {}),
   };
 }
 
@@ -2456,171 +2471,32 @@ export async function getCodexConnectedToolStatus(args: {
   }
 }
 
-function extractLatestAgentMessageTextFromTurn(turn: unknown) {
-  if (!isRecord(turn) || !Array.isArray(turn.items)) {
-    return "";
-  }
-  for (let index = turn.items.length - 1; index >= 0; index -= 1) {
-    const item = turn.items[index];
-    if (
-      isRecord(item) &&
-      item.type === "agentMessage" &&
-      typeof item.text === "string"
-    ) {
-      return item.text;
-    }
-  }
-  return "";
-}
-
-async function runCodexReadOnlyPrompt(args: {
-  cwd?: string;
-  prompt: string;
-  model?: string;
-  outputSchema?: unknown;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}): Promise<{ ok: boolean; text?: string }> {
+export async function runCodexReadOnlyPrompt(
+  args: CodexReadOnlyPromptArgs,
+): Promise<CodexReadOnlyPromptResult> {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  if (args.signal?.aborted) {
+    return { ok: false, aborted: true, detail: "Advisor was aborted." };
+  }
   const codexExecutablePath = resolveCodexExecutablePath({
     explicitPath: args.runtimeOptions?.codexBinaryPath,
   });
   if (!codexExecutablePath) {
-    return { ok: false };
+    return { ok: false, detail: "Codex executable not found." };
   }
-
-  const model = args.model?.trim() || args.runtimeOptions?.model?.trim();
-  const readOnlyRuntimeOptions: StreamTurnArgs["runtimeOptions"] = {
-    ...args.runtimeOptions,
-    ...(model ? { model } : {}),
-    codexFileAccess: "read-only",
-    codexNetworkAccess: false,
-    codexApprovalPolicy: "never",
-    codexPlanMode: false,
-  };
-
   const client = getCodexAppServerClient({
     executablePath: codexExecutablePath,
   });
-  let threadId = "";
-  let unsubscribe: (() => void) | null = null;
-  try {
-    const account = await client.request<{
-      account: unknown | null;
-      requiresOpenaiAuth: boolean;
-    }>("account/read", { refreshToken: true });
-    if (!account.account && account.requiresOpenaiAuth) {
-      return { ok: false };
-    }
-
-    const threadResponse = await client.request<{ thread: { id: string } }>(
-      "thread/start",
-      buildCodexThreadStartParams({
-        cwd: runtimeCwd,
-        runtimeOptions: readOnlyRuntimeOptions,
-        ephemeral: true,
-        sandbox: "read-only",
-        approvalPolicy: "never",
-      }),
-    );
-    threadId = threadResponse.thread.id;
-
-    let latestAgentMessageText = "";
-    let failureMessage: string | null = null;
-    let resolveCompletion: (() => void) | null = null;
-    const waitForCompletion = new Promise<void>((resolve) => {
-      resolveCompletion = resolve;
-    });
-
-    unsubscribe = client.subscribe((message) => {
-      if (!message.method) {
-        return;
-      }
-      const params = isRecord(message.params) ? message.params : null;
-      if (params?.threadId !== threadId) {
-        return;
-      }
-
-      if (message.method === "item/completed") {
-        const item = isRecord(params.item) ? params.item : null;
-        if (item?.type === "agentMessage" && typeof item.text === "string") {
-          latestAgentMessageText = item.text;
-        }
-        return;
-      }
-
-      if (message.method === "turn/completed") {
-        const turn = isRecord(params.turn) ? params.turn : null;
-        const turnText = extractLatestAgentMessageTextFromTurn(turn);
-        if (turnText) {
-          latestAgentMessageText = turnText;
-        }
-        const error = isRecord(turn?.error) ? turn.error : null;
-        if (turn?.status === "failed") {
-          failureMessage =
-            typeof error?.message === "string"
-              ? error.message
-              : "Codex App Server read-only turn failed.";
-        }
-        resolveCompletion?.();
-        return;
-      }
-
-      if (message.method === "error") {
-        failureMessage =
-          extractCodexAppServerErrorMessage(params) ??
-          "Codex App Server read-only turn failed.";
-        resolveCompletion?.();
-      }
-    });
-
-    const turnResponse = await client.request<{
-      turn: {
-        id: string;
-        status?: string;
-        error?: { message?: string | null } | null;
-        items?: unknown[];
-      };
-    }>(
-      "turn/start",
-      buildCodexTurnStartParams({
-        threadId,
-        cwd: runtimeCwd,
-        prompt: args.prompt,
-        runtimeOptions: readOnlyRuntimeOptions,
-        outputSchema: args.outputSchema,
-      }),
-    );
-    const immediateText = extractLatestAgentMessageTextFromTurn(
-      turnResponse.turn,
-    );
-    if (immediateText) {
-      latestAgentMessageText = immediateText;
-    }
-    if (turnResponse.turn.status === "failed") {
-      failureMessage =
-        turnResponse.turn.error?.message ??
-        "Codex App Server read-only turn failed.";
-    }
-    if (
-      turnResponse.turn.status !== "completed" &&
-      turnResponse.turn.status !== "failed"
-    ) {
-      await waitForCompletion;
-    }
-
-    if (failureMessage) {
-      return { ok: false };
-    }
-    return { ok: true, text: latestAgentMessageText };
-  } catch {
-    return { ok: false };
-  } finally {
-    unsubscribe?.();
-    if (threadId) {
-      void client.request("thread/delete", { threadId }).catch(() => {});
-    }
-  }
+  return runCodexReadOnlyPromptWithClient({
+    ...args,
+    runtimeCwd,
+    request: <T>(method: string, params: unknown) =>
+      client.request<T>(method, params),
+    subscribe: (listener) => client.subscribe(listener),
+    buildThreadStartParams: buildCodexThreadStartParams,
+    buildTurnStartParams: buildCodexTurnStartParams,
+  });
 }
 
 export async function suggestCodexPRDescription(args: {

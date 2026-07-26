@@ -33,6 +33,15 @@ import {
   PROVIDER_STEER_ACK_TIMEOUT_MS,
   waitForSteerDelivery,
 } from "../../src/lib/providers/steer-delivery";
+import {
+  appendAdvisorAdvice,
+  withoutAdvisorTarget,
+} from "../../src/lib/providers/advisor";
+import {
+  createAdvisorUsageMerger,
+  formatAdvisorSystemTrace,
+  runAdvisorPreflight,
+} from "./advisor-runtime";
 
 const sdkTurnTimeoutMs = Number(
   process.env.STAVE_PROVIDER_TIMEOUT_MS ?? 300000,
@@ -521,10 +530,42 @@ async function runProviderTurn(
   args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
 ) {
   const turnId = args.turnId ?? randomUUID();
+  let abortRequested = false;
+  let activePhaseAborter: (() => void) | null = null;
+  const abortTurn = () => {
+    if (abortRequested) {
+      return;
+    }
+    abortRequested = true;
+    activePhaseAborter?.();
+  };
+  const registerPhaseAborter = (aborter: () => void) => {
+    activePhaseAborter = aborter;
+    if (abortRequested) {
+      aborter();
+    }
+  };
+  const updateActiveSession = (
+    patch: Pick<
+      ActiveRuntimeSession,
+      "respondApproval" | "respondUserInput" | "steer"
+    >,
+  ) => {
+    if (abortRequested) {
+      return;
+    }
+    upsertActiveSession({
+      turnId,
+      providerId: args.providerId,
+      taskId: args.taskId,
+      ...patch,
+    });
+  };
   upsertActiveSession({
     turnId,
     providerId: args.providerId,
     taskId: args.taskId,
+    abort: abortTurn,
   });
   const turnTimeoutMs =
     args.runtimeOptions?.providerTimeoutMs ?? sdkTurnTimeoutMs;
@@ -571,54 +612,122 @@ async function runProviderTurn(
       downstream?.(event);
     };
 
-  if (args.providerId === "claude-code") {
+  const advisorEvents: BridgeEvent[] = [];
+  let effectiveArgs: typeof args = {
+    ...args,
+    runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
+  };
+  let advisorUsage: Extract<BridgeEvent, { type: "usage" }> | undefined;
+  if (args.runtimeOptions?.advisorTarget) {
+    const advisorResult = await runAdvisorPreflight({
+      turn: args,
+      registerAbort: registerPhaseAborter,
+    });
+    if (advisorResult.status === "aborted" || abortRequested) {
+      const terminalEvents: BridgeEvent[] = timeoutController.timedOut
+        ? [
+            {
+              type: "error",
+              message: `Provider turn timed out during Advisor preflight. timeout=${turnTimeoutMs}ms`,
+              recoverable: true,
+            },
+            {
+              type: "done",
+              stop_reason: "runtime_failure",
+            },
+          ]
+        : [
+            {
+              type: "done",
+              stop_reason: "user_abort",
+            },
+          ];
+      const mapUsage = createAdvisorUsageMerger(advisorResult.usage);
+      const mappedTerminalEvents = terminalEvents.flatMap((event) =>
+        mapUsage(event),
+      );
+      mappedTerminalEvents.forEach((event) => args.onEvent?.(event));
+      timeoutController.dispose();
+      clearActiveTurnState({ turnId });
+      return mappedTerminalEvents;
+    }
+    if (advisorResult.shouldTrace) {
+      const trace: BridgeEvent = {
+        type: "system",
+        content: formatAdvisorSystemTrace(advisorResult),
+      };
+      advisorEvents.push(trace);
+      args.onEvent?.(trace);
+    }
+    advisorUsage = advisorResult.usage;
+    if (advisorResult.status === "completed" && effectiveArgs.conversation) {
+      effectiveArgs = {
+        ...effectiveArgs,
+        conversation: appendAdvisorAdvice({
+          conversation: effectiveArgs.conversation,
+          target: advisorResult.target,
+          advice: advisorResult.advice,
+        }),
+      };
+    }
+  }
+
+  const mapUsageForDownstream = createAdvisorUsageMerger(advisorUsage);
+  const emittedPrimaryEvents: BridgeEvent[] = [];
+  const emitPrimaryEvent = (event: BridgeEvent) => {
+    emittedPrimaryEvents.push(event);
+    for (const mappedEvent of mapUsageForDownstream(event)) {
+      args.onEvent?.(mappedEvent);
+    }
+  };
+  const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
+    const emittedCounts = new Map<string, number>();
+    for (const event of emittedPrimaryEvents) {
+      const key = JSON.stringify(event);
+      emittedCounts.set(key, (emittedCounts.get(key) ?? 0) + 1);
+    }
+    for (const event of events) {
+      const key = JSON.stringify(event);
+      const remaining = emittedCounts.get(key) ?? 0;
+      if (remaining > 0) {
+        emittedCounts.set(key, remaining - 1);
+        continue;
+      }
+      emitPrimaryEvent(event);
+    }
+  };
+  const mapReturnedEvents = (events: BridgeEvent[]) => {
+    const mapUsage = createAdvisorUsageMerger(advisorUsage);
+    return [...advisorEvents, ...events.flatMap((event) => mapUsage(event))];
+  };
+
+  if (effectiveArgs.providerId === "claude-code") {
     try {
       const events = await runStreamWithPausableTimeout(
         streamClaudeWithSdk({
-          ...args,
-          onEvent: wrapStreamOnEvent(args.onEvent),
-          registerAbort: (aborter) => {
-            upsertActiveSession({
-              turnId,
-              providerId: args.providerId,
-              taskId: args.taskId,
-              abort: aborter,
-            });
-          },
+          ...effectiveArgs,
+          onEvent: wrapStreamOnEvent(emitPrimaryEvent),
+          registerAbort: registerPhaseAborter,
           registerApprovalResponder: (responder) => {
-            upsertActiveSession({
-              turnId,
-              providerId: args.providerId,
-              taskId: args.taskId,
-              respondApproval: responder,
-            });
+            updateActiveSession({ respondApproval: responder });
           },
           registerUserInputResponder: (responder) => {
-            upsertActiveSession({
-              turnId,
-              providerId: args.providerId,
-              taskId: args.taskId,
-              respondUserInput: responder,
-            });
+            updateActiveSession({ respondUserInput: responder });
           },
           registerSteerResponder: (responder) => {
-            upsertActiveSession({
-              turnId,
-              providerId: args.providerId,
-              taskId: args.taskId,
-              steer: responder,
-            });
+            updateActiveSession({ steer: responder });
           },
         }),
       );
       if (events && events.length > 0) {
-        return events;
+        emitMissingReturnedEvents(events);
+        return mapReturnedEvents(events);
       }
       const fallback = toClaudeErrorEvents({
         message: `Claude SDK unavailable/timeout. Check claude login and SDK environment. timeout=${turnTimeoutMs}ms`,
       });
-      fallback.forEach((event) => args.onEvent?.(event));
-      return fallback;
+      fallback.forEach((event) => emitPrimaryEvent(event));
+      return mapReturnedEvents(fallback);
     } finally {
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
@@ -628,50 +737,29 @@ async function runProviderTurn(
   try {
     const events = await runStreamWithPausableTimeout(
       streamCodexWithAppServer({
-        ...args,
-        onEvent: wrapStreamOnEvent(args.onEvent),
-        registerAbort: (aborter) => {
-          upsertActiveSession({
-            turnId,
-            providerId: args.providerId,
-            taskId: args.taskId,
-            abort: aborter,
-          });
-        },
+        ...effectiveArgs,
+        onEvent: wrapStreamOnEvent(emitPrimaryEvent),
+        registerAbort: registerPhaseAborter,
         registerApprovalResponder: (responder) => {
-          upsertActiveSession({
-            turnId,
-            providerId: args.providerId,
-            taskId: args.taskId,
-            respondApproval: responder,
-          });
+          updateActiveSession({ respondApproval: responder });
         },
         registerUserInputResponder: (responder) => {
-          upsertActiveSession({
-            turnId,
-            providerId: args.providerId,
-            taskId: args.taskId,
-            respondUserInput: responder,
-          });
+          updateActiveSession({ respondUserInput: responder });
         },
         registerSteerResponder: (responder) => {
-          upsertActiveSession({
-            turnId,
-            providerId: args.providerId,
-            taskId: args.taskId,
-            steer: responder,
-          });
+          updateActiveSession({ steer: responder });
         },
       }),
     );
     if (events && events.length > 0) {
-      return events;
+      emitMissingReturnedEvents(events);
+      return mapReturnedEvents(events);
     }
     const fallback = toCodexErrorEvents({
       message: `Codex unavailable/timeout. Check codex auth and runtime environment. timeout=${turnTimeoutMs}ms`,
     });
-    fallback.forEach((event) => args.onEvent?.(event));
-    return fallback;
+    fallback.forEach((event) => emitPrimaryEvent(event));
+    return mapReturnedEvents(fallback);
   } finally {
     timeoutController.dispose();
     clearActiveTurnState({ turnId });

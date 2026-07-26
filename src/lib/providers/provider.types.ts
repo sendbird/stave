@@ -12,6 +12,11 @@ import type { SkillPromptContext } from "@/lib/skills/types";
 export type ProviderId = "claude-code" | "codex";
 export type ClaudeSettingSource = "user" | "project" | "local";
 
+export interface AdvisorTarget {
+  providerId: ProviderId;
+  model: string;
+}
+
 export interface ProviderSteerTurnRequest {
   turnId: string;
   text: string;
@@ -677,7 +682,6 @@ export interface ProviderRuntimeOptions {
   claudePluginPaths?: string[];
   claudeAgentName?: string;
   claudeFallbackModel?: string;
-  claudeAdvisorModel?: string;
   claudeResumeSessionId?: string;
   claudeResumeSessionAt?: string;
   codexFileAccess?: "read-only" | "workspace-write" | "danger-full-access";
@@ -695,6 +699,12 @@ export interface ProviderRuntimeOptions {
   codexFastMode?: boolean;
   codexPlanMode?: boolean;
   codexResumeThreadId?: string;
+  /**
+   * Optional Stave-managed, isolated read-only preflight for a normal user
+   * turn. Runtimes must clear this before invoking the primary provider so an
+   * Advisor can never recursively launch another Advisor.
+   */
+  advisorTarget?: AdvisorTarget;
   // ---- Customisable AI prompt overrides ----
   /** Response formatting guidance injected into both Claude and Codex. */
   responseStylePrompt?: string;

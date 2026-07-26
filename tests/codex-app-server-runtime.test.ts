@@ -567,6 +567,35 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       },
     });
   });
+
+  test("builds an isolated read-only Advisor thread", () => {
+    const params = buildCodexThreadStartParams({
+      cwd: "/tmp/project",
+      ephemeral: true,
+      sandbox: "read-only",
+      approvalPolicy: "never",
+      isolated: true,
+      runtimeOptions: {
+        model: "gpt-5.6-terra",
+        codexNetworkAccess: false,
+        codexWebSearch: "disabled",
+      },
+    });
+
+    expectGeneratedThreadStartParamKeys(params);
+    expect(params).toMatchObject({
+      model: "gpt-5.6-terra",
+      ephemeral: true,
+      sandbox: "read-only",
+      approvalPolicy: "never",
+      config: {
+        network_access: false,
+        web_search: "disabled",
+      },
+    });
+    expect(params.developerInstructions).toContain("Do not call tools");
+    expect(params.config).not.toHaveProperty("developer_instructions");
+  });
 });
 
 describe("Codex App Server plan-mode payloads", () => {

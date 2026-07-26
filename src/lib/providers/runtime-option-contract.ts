@@ -1,5 +1,9 @@
 import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
-import type { ClaudeSettingSource, NormalizedProviderEvent, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
+import type {
+  ClaudeSettingSource,
+  NormalizedProviderEvent,
+  ProviderRuntimeOptions,
+} from "@/lib/providers/provider.types";
 
 type SelectOption<T extends string> = {
   value: T;
@@ -9,7 +13,9 @@ type SelectOption<T extends string> = {
 type Assert<T extends true> = T;
 type IsNever<T> = [T] extends [never] ? true : false;
 
-export const PROVIDER_TIMEOUT_OPTIONS = [1800000, 3600000, 7200000, 10800000, 43200000, 86400000] as const;
+export const PROVIDER_TIMEOUT_OPTIONS = [
+  1800000, 3600000, 7200000, 10800000, 43200000, 86400000,
+] as const;
 export const DEFAULT_PROVIDER_TIMEOUT_MS = 43200000;
 
 export const BOOLEAN_TOGGLE_OPTIONS = [
@@ -24,20 +30,26 @@ export const CLAUDE_PERMISSION_MODE_OPTIONS = [
   { value: "plan", label: "plan" },
   { value: "dontAsk", label: "dontAsk" },
   { value: "auto", label: "auto" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["claudePermissionMode"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["claudePermissionMode"]>
+>[];
 
 export const CLAUDE_PLAN_MODE_APPROVAL_SCOPE_OPTIONS = [
   { value: "strict", label: "Strict" },
   { value: "bash", label: "Read-only Bash" },
   { value: "bashAndTask", label: "Bash + Subagents" },
   { value: "bashTaskAndMcp", label: "Bash + Subagents + MCP reads" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["claudePlanModeApprovalScope"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["claudePlanModeApprovalScope"]>
+>[];
 
 export const CLAUDE_THINKING_OPTIONS = [
   { value: "adaptive", label: "Adaptive" },
   { value: "enabled", label: "Enabled" },
   { value: "disabled", label: "Disabled" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["claudeThinkingMode"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["claudeThinkingMode"]>
+>[];
 
 export const CLAUDE_EFFORT_OPTIONS = [
   { value: "low", label: "Low" },
@@ -45,7 +57,9 @@ export const CLAUDE_EFFORT_OPTIONS = [
   { value: "high", label: "High" },
   { value: "xhigh", label: "X-High" },
   { value: "max", label: "Max" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["claudeEffort"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["claudeEffort"]>
+>[];
 
 export const CLAUDE_SETTING_SOURCE_OPTIONS = [
   { value: "project", label: "Project" },
@@ -58,13 +72,17 @@ export const CODEX_APPROVAL_POLICY_OPTIONS = [
   { value: "on-request", label: "on-request" },
   { value: "on-failure", label: "on-failure" },
   { value: "never", label: "never" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexApprovalPolicy"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["codexApprovalPolicy"]>
+>[];
 
 export const CODEX_SANDBOX_MODE_OPTIONS = [
   { value: "read-only", label: "read-only" },
   { value: "workspace-write", label: "workspace-write" },
   { value: "danger-full-access", label: "danger-full-access" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexFileAccess"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["codexFileAccess"]>
+>[];
 
 // "minimal" was dropped from the Codex CLI effort scale with GPT-5.6 and is
 // no longer selectable; legacy persisted values still validate and map to
@@ -76,7 +94,9 @@ export const CODEX_EFFORT_OPTIONS = [
   { value: "xhigh", label: "X-High" },
   { value: "max", label: "Max" },
   { value: "ultra", label: "Ultra" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
+>[];
 
 /**
  * `CODEX_EFFORT_OPTIONS` filtered to the values the given Codex model
@@ -86,7 +106,9 @@ export const CODEX_EFFORT_OPTIONS = [
  */
 export function listCodexEffortOptionsForModel(args: {
   model: string;
-}): readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>>[] {
+}): readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
+>[] {
   const supported = listCodexReasoningEffortsForModel({ model: args.model });
   return CODEX_EFFORT_OPTIONS.filter((option) =>
     (supported as readonly string[]).includes(option.value),
@@ -97,20 +119,26 @@ export const CODEX_WEB_SEARCH_OPTIONS = [
   { value: "cached", label: "Cached" },
   { value: "disabled", label: "Disabled" },
   { value: "live", label: "Live" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexWebSearch"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["codexWebSearch"]>
+>[];
 
 export const CODEX_REASONING_SUMMARY_OPTIONS = [
   { value: "auto", label: "Auto" },
   { value: "concise", label: "Concise" },
   { value: "detailed", label: "Detailed" },
   { value: "none", label: "None" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexReasoningSummary"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["codexReasoningSummary"]>
+>[];
 
 export const CODEX_REASONING_SUPPORT_OPTIONS = [
   { value: "auto", label: "Auto" },
   { value: "enabled", label: "Enabled" },
   { value: "disabled", label: "Disabled" },
-] as const satisfies readonly SelectOption<NonNullable<ProviderRuntimeOptions["codexReasoningSummarySupport"]>>[];
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["codexReasoningSummarySupport"]>
+>[];
 
 export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "model",
@@ -144,7 +172,6 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudePluginPaths",
   "claudeAgentName",
   "claudeFallbackModel",
-  "claudeAdvisorModel",
   "claudeResumeSessionId",
   "claudeResumeSessionAt",
   "codexFileAccess",
@@ -159,12 +186,14 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "codexFastMode",
   "codexPlanMode",
   "codexResumeThreadId",
+  "advisorTarget",
   "responseStylePrompt",
   "promptPrDescription",
   "promptInlineCompletion",
 ] as const satisfies readonly (keyof ProviderRuntimeOptions)[];
 
-export type ProviderRuntimeOptionKey = (typeof PROVIDER_RUNTIME_OPTION_KEYS)[number];
+export type ProviderRuntimeOptionKey =
+  (typeof PROVIDER_RUNTIME_OPTION_KEYS)[number];
 export type ProviderRuntimeOptionKeyContractIsExhaustive = Assert<
   IsNever<Exclude<keyof ProviderRuntimeOptions, ProviderRuntimeOptionKey>>
 >;
@@ -193,7 +222,8 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "done",
 ] as const satisfies readonly NormalizedProviderEvent["type"][];
 
-export type NormalizedProviderEventType = (typeof NORMALIZED_PROVIDER_EVENT_TYPES)[number];
+export type NormalizedProviderEventType =
+  (typeof NORMALIZED_PROVIDER_EVENT_TYPES)[number];
 export type NormalizedProviderEventTypeContractIsExhaustive = Assert<
   IsNever<Exclude<NormalizedProviderEvent["type"], NormalizedProviderEventType>>
 >;
@@ -251,9 +281,10 @@ export function formatTokenBudget(value: number) {
     return "Off";
   }
   if (value >= 1000) {
-    const compact = value % 1000 === 0
-      ? String(value / 1000)
-      : (value / 1000).toFixed(1).replace(/\.0$/, "");
+    const compact =
+      value % 1000 === 0
+        ? String(value / 1000)
+        : (value / 1000).toFixed(1).replace(/\.0$/, "");
     return `${compact}k`;
   }
   return String(value);

@@ -96,6 +96,10 @@ import {
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import {
+  normalizeAdvisorTarget,
+  normalizePersistedAdvisorTarget,
+} from "@/lib/providers/advisor";
+import {
   applyModelRuntimePreference,
   mergeModelRuntimePreference,
   mergeModelRuntimePreferenceSettings,
@@ -113,31 +117,21 @@ import {
   normalizeModelShortcutEfforts,
   normalizeModelShortcutKeys,
 } from "@/lib/providers/model-shortcuts";
-import {
-  normalizeAppShortcutKeys,
-} from "@/lib/app-shortcuts";
-import {
-  normalizePromptCommentShortcut,
-} from "@/lib/prompt-comment-shortcuts";
+import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
+import { normalizePromptCommentShortcut } from "@/lib/prompt-comment-shortcuts";
 import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
   normalizeVisualCommentShortcut,
 } from "@/lib/visual-comment-shortcuts";
-import {
-  normalizeSteerQueueEnterAction,
-} from "@/lib/steer-queue-shortcuts";
-import {
-  normalizeResponseStylePrompt,
-} from "@/lib/providers/prompt-defaults";
+import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
+import { normalizeResponseStylePrompt } from "@/lib/providers/prompt-defaults";
 import {
   collectIntentContext,
   deriveIntentComplianceStatus,
   normalizePrePrReviewProvider,
   type TurnIntentComplianceResult,
 } from "@/lib/source-control-review";
-import {
-  normalizeTrustedToolEntries,
-} from "@/lib/providers/trusted-tools";
+import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import {
   buildSuggestTaskNamePayload,
   canTakeOverTask,
@@ -211,9 +205,7 @@ import {
   detectWorkspaceResourcesInText,
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
-import {
-  normalizeWorkspaceInformationSectionVisibility,
-} from "@/lib/workspace-information-sections";
+import { normalizeWorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import {
   buildWorkspaceTurnSummaryPrompt,
@@ -6579,6 +6571,11 @@ export const useAppStore = create<AppState>()(
               : {
                   trustedTools: normalizeTrustedToolEntries(patch.trustedTools),
                 }),
+            ...(patch.advisorTarget === undefined
+              ? {}
+              : {
+                  advisorTarget: normalizeAdvisorTarget(patch.advisorTarget),
+                }),
             ...(patch.reasoningExpansionMode === undefined
               ? {}
               : {
@@ -10316,6 +10313,7 @@ export const useAppStore = create<AppState>()(
             const providerRuntimeOptions = buildProviderRuntimeOptions({
               provider,
               model: activeModel,
+              includeAdvisor: true,
               settings: {
                 ...modelRuntimeSettings,
                 ...resolvedPromptDraftRuntimeState,
@@ -12523,9 +12521,9 @@ export const useAppStore = create<AppState>()(
         state.settings.modelClaude = upgradeSettingsScopedClaudeModel({
           model: state.settings.modelClaude,
         });
-        state.settings.claudeAdvisorModel = upgradeSettingsScopedClaudeModel({
-          model: state.settings.claudeAdvisorModel,
-        });
+        state.settings.advisorTarget =
+          normalizePersistedAdvisorTarget(persistedSettings);
+        delete raw.claudeAdvisorModel;
         state.settings.providerTimeoutMs = normalizeProviderTimeoutMs({
           value: state.settings.providerTimeoutMs,
         });

@@ -71,6 +71,33 @@ describe("provider IPC schemas", () => {
     expect(parsed.success).toBe(true);
   });
 
+  test("validates the provider-neutral Advisor target", () => {
+    expect(
+      StreamTurnArgsSchema.safeParse({
+        providerId: "claude-code",
+        prompt: "continue",
+        runtimeOptions: {
+          advisorTarget: {
+            providerId: "codex",
+            model: "gpt-5.6-terra",
+          },
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      StreamTurnArgsSchema.safeParse({
+        providerId: "codex",
+        prompt: "continue",
+        runtimeOptions: {
+          advisorTarget: {
+            providerId: "claude-code",
+            model: "",
+          },
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   test("accepts Claude xhigh effort in runtime options", () => {
     const parsed = StreamTurnArgsSchema.safeParse({
       providerId: "claude-code",
@@ -234,7 +261,8 @@ describe("provider IPC schemas", () => {
         cwd: "/tmp/project",
         baseBranch: "main",
         providerId: "codex",
-        workspaceContext: "Use the active workspace task to explain the intent.",
+        workspaceContext:
+          "Use the active workspace task to explain the intent.",
         runtimeOptions: {
           model: "gpt-5.6-codex",
           codexFileAccess: "read-only",
@@ -420,8 +448,12 @@ describe("provider IPC schemas", () => {
         unexpected: true,
       }).success,
     ).toBe(false);
-    expect(SetNotificationBadgeArgsSchema.safeParse({ count: 3 }).success).toBe(true);
-    expect(SetNotificationBadgeArgsSchema.safeParse({ count: -1 }).success).toBe(false);
+    expect(SetNotificationBadgeArgsSchema.safeParse({ count: 3 }).success).toBe(
+      true,
+    );
+    expect(
+      SetNotificationBadgeArgsSchema.safeParse({ count: -1 }).success,
+    ).toBe(false);
   });
 
   test("accepts Claude Code auto-registration in local MCP config updates", () => {

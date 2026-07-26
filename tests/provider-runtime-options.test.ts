@@ -19,7 +19,7 @@ const settings = {
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: true,
   claudeAllowUnsandboxedCommands: true,
-  claudeAdvisorModel: "",
+  advisorTarget: null,
   claudeEffort: "medium",
   claudeThinkingMode: "adaptive",
   claudeAgentProgressSummaries: true,
@@ -245,59 +245,45 @@ describe("buildProviderRuntimeOptions", () => {
     });
   });
 
-  test.each([
-    {
-      sourceModel: "claude-haiku-4-5",
-      expectedAdvisorModel: "claude-sonnet-5",
-    },
-    {
-      sourceModel: "claude-sonnet-4-6",
-      expectedAdvisorModel: "claude-opus-5",
-    },
-    {
-      sourceModel: "claude-opus-4-6",
-      expectedAdvisorModel: "claude-opus-5",
-    },
-    {
-      sourceModel: "claude-opus-4-7",
-      expectedAdvisorModel: "claude-opus-5",
-    },
-    {
-      sourceModel: "claude-sonnet-4-6[1m]",
-      expectedAdvisorModel: "claude-opus-5",
-    },
-  ])(
-    "maps advisor source model `$sourceModel` to `$expectedAdvisorModel`",
-    ({ sourceModel, expectedAdvisorModel }) => {
-      expect(
-        buildProviderRuntimeOptions({
-          provider: "claude-code",
-          model: "claude-sonnet-4-6",
-          settings: {
-            ...settings,
-            claudeAdvisorModel: sourceModel,
+  test("forwards an explicit cross-provider Advisor target for normal user turns", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-5",
+        includeAdvisor: true,
+        settings: {
+          ...settings,
+          advisorTarget: {
+            providerId: "codex",
+            model: "gpt-5.6-terra",
           },
-          providerSession: null,
-        }),
-      ).toMatchObject({
-        model: "claude-sonnet-4-6",
-        claudeAdvisorModel: expectedAdvisorModel,
-      });
-    },
-  );
+        },
+        providerSession: null,
+      }),
+    ).toMatchObject({
+      model: "claude-sonnet-5",
+      advisorTarget: {
+        providerId: "codex",
+        model: "gpt-5.6-terra",
+      },
+    });
+  });
 
-  test("omits advisorModel when advisor forwarding is disabled", () => {
+  test("omits Advisor from generic helper calls unless explicitly included", () => {
     const runtimeOptions = buildProviderRuntimeOptions({
       provider: "claude-code",
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
       settings: {
         ...settings,
-        claudeAdvisorModel: "",
+        advisorTarget: {
+          providerId: "claude-code",
+          model: "claude-fable-5",
+        },
       },
       providerSession: null,
     });
 
-    expect(runtimeOptions).not.toHaveProperty("claudeAdvisorModel");
+    expect(runtimeOptions).not.toHaveProperty("advisorTarget");
   });
 
   test("limits resume ids to the active provider in direct turns", () => {

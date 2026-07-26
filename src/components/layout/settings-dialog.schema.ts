@@ -88,7 +88,17 @@ export const settingsSections = [
     label: "Providers",
     icon: Wrench,
     description: "Claude and Codex provider runtime settings.",
-    keywords: ["claude", "codex", "sandbox", "permission", "model", "effort"],
+    keywords: [
+      "claude",
+      "codex",
+      "sandbox",
+      "permission",
+      "model",
+      "effort",
+      "advisor",
+      "preflight",
+      "fable",
+    ],
   },
   {
     id: "models",

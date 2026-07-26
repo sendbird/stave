@@ -557,7 +557,6 @@ export const RuntimeOptionsObjectSchema = z
     claudePluginPaths: z.array(z.string().max(4096)).max(50).optional(),
     claudeAgentName: z.string().max(200).optional(),
     claudeFallbackModel: z.string().max(500).optional(),
-    claudeAdvisorModel: z.string().max(200).optional(),
     claudeResumeSessionId: z.string().max(200).optional(),
     claudeResumeSessionAt: z.string().max(200).optional(),
     codexFileAccess: z
@@ -606,6 +605,13 @@ export const RuntimeOptionsObjectSchema = z
     codexFastMode: z.boolean().optional(),
     codexPlanMode: z.boolean().optional(),
     codexResumeThreadId: z.string().max(200).optional(),
+    advisorTarget: z
+      .object({
+        providerId: ProviderIdSchema,
+        model: z.string().trim().min(1).max(200),
+      })
+      .strict()
+      .optional(),
     responseStylePrompt: z.string().max(10_000).optional(),
     promptPrDescription: z.string().max(10_000).optional(),
     promptInlineCompletion: z.string().max(10_000).optional(),
