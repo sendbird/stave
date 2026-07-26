@@ -5,11 +5,8 @@ import {
   type PersistedTurnSummary,
 } from "@/lib/db/turns.db";
 import {
-  clearNotificationHistory as clearPersistedNotificationHistory,
   createNotification as createPersistedNotification,
   listNotifications as listPersistedNotifications,
-  markAllNotificationsRead as markAllPersistedNotificationsRead,
-  markNotificationRead as markPersistedNotificationRead,
   pruneNotifications as prunePersistedNotifications,
 } from "@/lib/db/notifications.db";
 import { workspaceFsAdapter } from "@/lib/fs";
@@ -60,19 +57,16 @@ import type {
   AppNotificationCreateInput,
 } from "@/lib/notifications/notification.types";
 import {
-  buildNotificationExpiresAt,
   isNotificationAttentionKind,
   isNotificationUnread,
 } from "@/lib/notifications/notification.types";
 import {
-  clearNotificationHistoryInList,
-  findPendingApprovalNotificationIds,
-  findPendingUserInputNotificationIds,
-  getNotificationHistoryClearableIds,
-  markAllNotificationsReadInList,
-  markNotificationReadInList,
-  mergeNotificationIntoList,
-} from "@/lib/notifications/notification-state";
+  clearNotificationHistoryAction,
+  markAllNotificationsReadAction,
+  markNotificationReadAction,
+} from "@/store/notification-actions";
+import { createNotificationAttentionSync } from "@/store/notification-attention-sync";
+import { mergeNotificationIntoList } from "@/lib/notifications/notification-state";
 import {
   normalizeNotificationSoundMode,
   normalizeNotificationSoundPreset,
@@ -2693,6 +2687,26 @@ export const useAppStore = create<AppState>()(
         }
       };
 
+      const attentionSync = createNotificationAttentionSync({
+        getNotifications: () => get().notifications,
+        markRead: (args) => get().markNotificationRead(args),
+        getReviewSurface: () => {
+          const state = get();
+          return {
+            activeWorkspaceId: state.activeWorkspaceId,
+            visibleTaskId:
+              state.activeAppSurface.kind === "workspace" &&
+              state.activeSurface.kind === "task"
+                ? state.activeSurface.taskId
+                : null,
+            windowFocused:
+              typeof document !== "undefined" &&
+              typeof document.hasFocus === "function" &&
+              document.hasFocus(),
+          };
+        },
+      });
+
       const persistNotification = async (
         notification: AppNotificationCreateInput,
       ) => {
@@ -2755,6 +2769,7 @@ export const useAppStore = create<AppState>()(
             });
           }
           showNotificationToast(result.notification);
+          attentionSync.noteTurnOutcome(result.notification);
           return result.notification;
         } catch (error) {
           console.error(
@@ -3185,6 +3200,14 @@ export const useAppStore = create<AppState>()(
               taskMessagesLoadingByTask: nextLoadingState,
             };
           });
+          attentionSync.syncTaskInteractions({
+            taskId: args.taskId,
+            messages:
+              getWorkspaceSessionForState({
+                state: get(),
+                workspaceId: args.workspaceId,
+              })?.messagesByTask[args.taskId] ?? [],
+          });
         } catch (error) {
           console.error("[workspace] failed to load task messages", error);
           set((state) => ({
@@ -3331,6 +3354,19 @@ export const useAppStore = create<AppState>()(
                 taskMessagesLoadingByTask: nextTaskMessagesLoadingByTask,
               };
             });
+            // Turns that died with the previous app session get their pending
+            // requests interrupted during hydration, so their durable needs must
+            // be settled too instead of waiting in Fleet forever.
+            const hydrated = getWorkspaceSessionForState({
+              state: get(),
+              workspaceId: args.workspaceId,
+            });
+            for (const taskId of taskIds) {
+              attentionSync.syncTaskInteractions({
+                taskId,
+                messages: hydrated?.messagesByTask[taskId] ?? [],
+              });
+            }
             logWorkspaceSwitchMetric({
               workspaceId: args.workspaceId,
               token: args.switchMetricToken,
@@ -4558,6 +4594,14 @@ export const useAppStore = create<AppState>()(
               }),
             };
           });
+          // A managed host can answer requests on its own (agent-driven MCP
+          // responses), so re-align the durable needs with the refreshed session.
+          for (const task of refreshedSession.tasks) {
+            attentionSync.syncTaskInteractions({
+              taskId: task.id,
+              messages: refreshedSession.messagesByTask[task.id] ?? [],
+            });
+          }
         },
         createProject: async ({ name }) => {
           const root = await workspaceFsAdapter.pickRoot();
@@ -7260,6 +7304,13 @@ export const useAppStore = create<AppState>()(
             messagesByTask: stateBefore.messagesByTask,
             messageCountByTask: stateBefore.messageCountByTask,
           });
+          // Reviewing a task in the task window is the normal way to clear its
+          // turn outcomes; Fleet only mirrors what has not been looked at yet.
+          attentionSync.markTaskReviewed(taskId);
+          attentionSync.syncTaskInteractions({
+            taskId,
+            messages: stateBefore.messagesByTask[taskId] ?? [],
+          });
           if (
             stateBefore.activeTaskId === taskId &&
             stateBefore.activeAppSurface.kind === "workspace" &&
@@ -8196,6 +8247,14 @@ export const useAppStore = create<AppState>()(
             }
           }
           void window.api?.provider?.cleanupTask?.({ taskId });
+          // An archived task is settled by definition: it must not keep asking
+          // for an answer or a review from Fleet.
+          attentionSync.markTaskReviewed(taskId);
+          attentionSync.syncTaskInteractions({
+            taskId,
+            messages: get().messagesByTask[taskId] ?? [],
+            endedTurnId: activeTurnId,
+          });
           if (workspaceId) {
             runScriptHookInBackground({
               workspaceId,
@@ -9232,88 +9291,12 @@ export const useAppStore = create<AppState>()(
             };
           });
         },
-        markNotificationRead: async ({ id, resolvedAt }) => {
-          const readAt = new Date().toISOString();
-          const expiresAt = buildNotificationExpiresAt({
-            readAt: resolvedAt ?? readAt,
-          });
-          set((state) => ({
-            notifications: markNotificationReadInList({
-              notifications: state.notifications,
-              id,
-              readAt,
-              resolvedAt,
-              expiresAt,
-            }),
-          }));
-          try {
-            const persisted = await markPersistedNotificationRead({
-              id,
-              readAt,
-              resolvedAt,
-            });
-            if (!persisted) {
-              return;
-            }
-            set((state) => ({
-              notifications: mergeNotificationIntoList({
-                notifications: state.notifications,
-                notification: persisted,
-              }),
-            }));
-            void window.api?.notifications?.setBadge?.({
-              count: get().notifications.filter((item) => !item.readAt).length,
-            });
-          } catch (error) {
-            console.error(
-              "[notifications] failed to mark notification as read",
-              error,
-            );
-          }
-        },
-        markAllNotificationsRead: async () => {
-          const readAt = new Date().toISOString();
-          const expiresAt = buildNotificationExpiresAt({ readAt });
-          set((state) => ({
-            notifications: markAllNotificationsReadInList({
-              notifications: state.notifications,
-              readAt,
-              expiresAt,
-            }),
-          }));
-          try {
-            await markAllPersistedNotificationsRead({ readAt });
-            void window.api?.notifications?.setBadge?.({
-              count: get().notifications.filter((item) => !item.readAt).length,
-            });
-          } catch (error) {
-            console.error(
-              "[notifications] failed to mark all notifications as read",
-              error,
-            );
-          }
-        },
-        clearNotificationHistory: async () => {
-          const notificationIds = getNotificationHistoryClearableIds(
-            get().notifications,
-          );
-          try {
-            const count = await clearPersistedNotificationHistory();
-            set((state) => ({
-              notifications: clearNotificationHistoryInList({
-                notifications: state.notifications,
-                notificationIds,
-              }),
-            }));
-            return count;
-          } catch (error) {
-            console.error(
-              "[notifications] failed to clear notification history",
-              error,
-            );
-            throw error;
-          }
-        },
+        markNotificationRead: ({ id, resolvedAt }) =>
+          markNotificationReadAction({ set, get, id, resolvedAt }),
+        markAllNotificationsRead: () =>
+          markAllNotificationsReadAction({ set, get }),
+        clearNotificationHistory: () =>
+          clearNotificationHistoryAction({ set, get }),
         openNotificationContext: async ({ notificationId, targetSurface }) => {
           const notification = get().notifications.find(
             (item) => item.id === notificationId,
@@ -9343,10 +9326,10 @@ export const useAppStore = create<AppState>()(
           await openNotificationContextInternal(notification);
           const latestState = get();
           const taskId = notification.taskId?.trim();
+          // Nothing left to answer: settle the notification instead of leaving
+          // an item nobody can clear from Fleet.
           if (!taskId) {
-            if (isNotificationUnread(notification)) {
-              await latestState.markNotificationRead({ id: notification.id });
-            }
+            await attentionSync.settleNotification(notification.id);
             return;
           }
 
@@ -9356,16 +9339,12 @@ export const useAppStore = create<AppState>()(
           });
 
           if (isManagedTaskReadOnly({ state: latestState, taskId })) {
-            if (isNotificationUnread(notification)) {
-              await latestState.markNotificationRead({ id: notification.id });
-            }
+            await attentionSync.settleNotification(notification.id);
             return;
           }
 
           if (!locatedApproval) {
-            if (isNotificationUnread(notification)) {
-              await latestState.markNotificationRead({ id: notification.id });
-            }
+            await attentionSync.settleNotification(notification.id);
             return;
           }
 
@@ -10680,6 +10659,7 @@ export const useAppStore = create<AppState>()(
                   }
                   const notificationSession =
                     updatedSession as WorkspaceSessionState | null;
+                  let notificationWrites: Promise<unknown> = Promise.resolve();
                   if (notificationSession) {
                     const notificationsToPersist =
                       buildApprovalNotificationInputs({
@@ -10731,7 +10711,9 @@ export const useAppStore = create<AppState>()(
                       }
                     }
                     if (notificationsToPersist.length > 0) {
-                      void persistNotifications(notificationsToPersist);
+                      notificationWrites = persistNotifications(
+                        notificationsToPersist,
+                      );
                     }
                     const trustedApprovalResponses =
                       findTrustedApprovalResponses({
@@ -10748,6 +10730,25 @@ export const useAppStore = create<AppState>()(
                       });
                     }
                   }
+                  // Keep durable interaction needs aligned with the task
+                  // window: requests answered elsewhere (managed host, trusted
+                  // auto-approval) stop being actionable right away, and a turn
+                  // that ended can no longer accept an answer at all.
+                  void notificationWrites.then(() => {
+                    // Read the session again: a trusted auto-approval may have
+                    // answered the request while the notification was still
+                    // being written.
+                    const settled =
+                      getWorkspaceSessionForState({
+                        state: get(),
+                        workspaceId: taskWorkspaceId,
+                      }) ?? notificationSession;
+                    attentionSync.syncTaskInteractions({
+                      taskId: resolvedTaskId,
+                      messages: settled?.messagesByTask[resolvedTaskId] ?? [],
+                      endedTurnId: applied.turnCompleted ? turnId : undefined,
+                    });
+                  });
                   if (applied.turnCompleted) {
                     const compareOutcome =
                       resolveCompareTurnOutcome(pendingEvents);
@@ -10975,6 +10976,13 @@ export const useAppStore = create<AppState>()(
                 incrementWorkspaceSnapshotVersion(state),
             };
           });
+          // Stopping the turn interrupts its pending requests, so their durable
+          // notifications must stop asking for an answer too.
+          attentionSync.syncTaskInteractions({
+            taskId,
+            messages: get().messagesByTask[taskId] ?? [],
+            endedTurnId: activeTurnId,
+          });
         },
         resolveApproval: ({ taskId, messageId, approved }) => {
           const stateBefore = get();
@@ -11127,24 +11135,11 @@ export const useAppStore = create<AppState>()(
                 lastEventAt: resolvedAt,
               });
             }
-            const latestState = get();
-            const pendingNotificationIds = findPendingApprovalNotificationIds({
-              notifications: latestState.notifications,
+            void attentionSync.settleAnsweredApproval({
               taskId,
               messageId,
               requestId,
             });
-            if (pendingNotificationIds.length > 0) {
-              const notificationResolvedAt = new Date(resolvedAt).toISOString();
-              void Promise.all(
-                pendingNotificationIds.map((notificationId) =>
-                  latestState.markNotificationRead({
-                    id: notificationId,
-                    resolvedAt: notificationResolvedAt,
-                  }),
-                ),
-              );
-            }
           };
 
           if (activeTurnId && approvalPart && !respondThroughManagedHost) {
@@ -11373,24 +11368,11 @@ export const useAppStore = create<AppState>()(
                 lastEventAt: resolvedAt,
               });
             }
-            const latestState = get();
-            const pendingNotificationIds = findPendingUserInputNotificationIds({
-              notifications: latestState.notifications,
+            void attentionSync.settleAnsweredUserInput({
               taskId,
               messageId,
               requestId,
             });
-            if (pendingNotificationIds.length > 0) {
-              const notificationResolvedAt = new Date(resolvedAt).toISOString();
-              void Promise.all(
-                pendingNotificationIds.map((notificationId) =>
-                  latestState.markNotificationRead({
-                    id: notificationId,
-                    resolvedAt: notificationResolvedAt,
-                  }),
-                ),
-              );
-            }
           };
 
           if (activeTurnId && userInputPart && !respondThroughManagedHost) {
