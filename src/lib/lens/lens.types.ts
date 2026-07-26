@@ -75,6 +75,12 @@ export interface ElementPickerResult {
   debugSource?: ElementPickerDebugSource;
   /** Parent-to-leaf React component names captured from the fiber chain. */
   componentNameChain?: string[];
+  /** Main-normalized identity for the document that produced this evidence. */
+  page: LensPageIdentity;
+  /** Bounded element and surrounding context. */
+  anchor: LensAnnotationAnchor;
+  /** Page-derived fields are evidence, never provider instructions. */
+  trust: LensPageEvidenceTrust;
 }
 
 export interface BrowserStackFrame {
@@ -349,6 +355,104 @@ export interface LensStyleEdit {
   after: string;
 }
 
+export const LENS_FEEDBACK_INTENTS = [
+  "fix",
+  "change",
+  "question",
+  "approve",
+] as const;
+export type LensFeedbackIntent = (typeof LENS_FEEDBACK_INTENTS)[number];
+export const LENS_FEEDBACK_PRIORITIES = ["low", "medium", "high"] as const;
+export type LensFeedbackPriority = (typeof LENS_FEEDBACK_PRIORITIES)[number];
+export type LensPageEvidenceTrust = "untrusted-page-evidence";
+
+export interface LensViewport {
+  width: number;
+  height: number;
+  devicePixelRatio: number;
+}
+
+export interface LensScrollPosition {
+  x: number;
+  y: number;
+}
+
+export interface LensPageIdentity {
+  /** Main-normalized URL with credentials, query, and hash removed. */
+  url: string;
+  title: string;
+  viewport: LensViewport;
+  scroll: LensScrollPosition;
+  /** Main-issued identity rotated for every top-level document navigation. */
+  documentId: string;
+}
+
+export interface LensElementIdentity {
+  tagName: string;
+  id?: string;
+  classList: string[];
+}
+
+export interface LensElementContextHint {
+  selector?: string;
+  tagName: string;
+  elementId?: string;
+  accessibleName?: string;
+  role?: string;
+  text?: string;
+}
+
+export type LensNearbyElementRelation =
+  | "parent"
+  | "previous"
+  | "next"
+  | "child"
+  | "within";
+
+export interface LensNearbyElementHint extends LensElementContextHint {
+  relation: LensNearbyElementRelation;
+}
+
+export interface LensAnnotationAnchor {
+  selector?: string;
+  bounds: LensRect;
+  element?: LensElementIdentity;
+  accessibleName?: string;
+  role?: string;
+  /** Allowlisted attributes only; secret-like values are redacted in main. */
+  attributes: Record<string, string>;
+  ancestors: LensElementContextHint[];
+  nearby: LensNearbyElementHint[];
+  computedStyles: Record<string, string>;
+  outerHTML?: string;
+  textContent?: string;
+  debugSource?: ElementPickerDebugSource;
+  componentNameChain?: string[];
+}
+
+export interface LensAnnotationEvidence {
+  screenshot: {
+    kind: "clipped";
+    bounds: LensRect;
+  };
+  styleEdits: LensStyleEdit[];
+}
+
+export interface LensAnnotationFeedback {
+  comment: string;
+  intent: LensFeedbackIntent;
+  priority: LensFeedbackPriority;
+}
+
+export interface LensVisualReviewEnvelope {
+  version: 1;
+  page: LensPageIdentity;
+  anchor: LensAnnotationAnchor;
+  evidence: LensAnnotationEvidence;
+  feedback: LensAnnotationFeedback;
+  trust: LensPageEvidenceTrust;
+}
+
 // ---------------------------------------------------------------------------
 // Box model inspection (Figma/DevTools-style padding / border / margin)
 // ---------------------------------------------------------------------------
@@ -413,6 +517,8 @@ export interface LensAnnotation {
   componentNameChain?: string[];
   /** Live style edits applied to this element. */
   styleEdits?: LensStyleEdit[];
+  /** Runtime-validated visual review context normalized in Electron main. */
+  review: LensVisualReviewEnvelope;
 }
 
 export type LensAnnotationEventType =
@@ -422,6 +528,8 @@ export interface LensAnnotationEventPayload {
   workspaceId: string;
   /** Absent only in payloads from pre-multi-session builds; treat as "default". */
   lensSessionId?: string;
+  /** Main-issued identity of the page document that produced this event. */
+  documentId?: string;
   type: LensAnnotationEventType;
   /** Present for add/update/remove. */
   annotation?: LensAnnotation;

@@ -2134,9 +2134,14 @@ function LensSessionSurface(args: {
             width: Math.max(1, Math.round(annotation.rect.width)),
             height: Math.max(1, Math.round(annotation.rect.height)),
           },
+          documentId: annotation.review.page.documentId,
         },
       });
-      if (!result?.ok || !result.dataUrl) {
+      if (
+        !result?.ok ||
+        !result.dataUrl ||
+        result.documentId !== annotation.review.page.documentId
+      ) {
         return;
       }
       const store = useAppStore.getState();
@@ -2177,7 +2182,11 @@ function LensSessionSurface(args: {
           setAnnotations([]);
           return;
         }
-        if (payload.type === "remove" && payload.annotation) {
+        if (
+          payload.type === "remove" &&
+          payload.annotation &&
+          payload.documentId === payload.annotation.review.page.documentId
+        ) {
           setAnnotations((current) =>
             current.filter(
               (annotation) => annotation.id !== payload.annotation?.id,
@@ -2187,10 +2196,17 @@ function LensSessionSurface(args: {
         }
         if (
           (payload.type === "add" || payload.type === "update") &&
-          payload.annotation
+          payload.annotation &&
+          payload.documentId === payload.annotation.review.page.documentId
         ) {
           setAnnotations((current) =>
-            mergeAnnotationEntry(current, payload.annotation!),
+            mergeAnnotationEntry(
+              current.filter(
+                (annotation) =>
+                  annotation.review.page.documentId === payload.documentId,
+              ),
+              payload.annotation!,
+            ),
           );
           if (payload.type === "add") {
             void captureAnnotationScreenshot(payload.annotation);

@@ -1737,6 +1737,78 @@ interface LensStyleEdit {
   after: string;
 }
 
+type LensFeedbackIntent = "fix" | "change" | "question" | "approve";
+type LensFeedbackPriority = "low" | "medium" | "high";
+type LensPageEvidenceTrust = "untrusted-page-evidence";
+
+interface LensPageIdentity {
+  url: string;
+  title: string;
+  viewport: {
+    width: number;
+    height: number;
+    devicePixelRatio: number;
+  };
+  scroll: { x: number; y: number };
+  documentId: string;
+}
+
+interface LensElementContextHint {
+  selector?: string;
+  tagName: string;
+  elementId?: string;
+  accessibleName?: string;
+  role?: string;
+  text?: string;
+}
+
+interface LensNearbyElementHint extends LensElementContextHint {
+  relation: "parent" | "previous" | "next" | "child" | "within";
+}
+
+interface LensAnnotationAnchor {
+  selector?: string;
+  bounds: LensRect;
+  element?: {
+    tagName: string;
+    id?: string;
+    classList: string[];
+  };
+  accessibleName?: string;
+  role?: string;
+  attributes: Record<string, string>;
+  ancestors: LensElementContextHint[];
+  nearby: LensNearbyElementHint[];
+  computedStyles: Record<string, string>;
+  outerHTML?: string;
+  textContent?: string;
+  debugSource?: {
+    fileName: string;
+    lineNumber: number;
+    columnNumber?: number;
+  };
+  componentNameChain?: string[];
+}
+
+interface LensVisualReviewEnvelope {
+  version: 1;
+  page: LensPageIdentity;
+  anchor: LensAnnotationAnchor;
+  evidence: {
+    screenshot: {
+      kind: "clipped";
+      bounds: LensRect;
+    };
+    styleEdits: LensStyleEdit[];
+  };
+  feedback: {
+    comment: string;
+    intent: LensFeedbackIntent;
+    priority: LensFeedbackPriority;
+  };
+  trust: LensPageEvidenceTrust;
+}
+
 interface LensAnnotation {
   id: string;
   kind: "element" | "area";
@@ -1756,7 +1828,9 @@ interface LensAnnotation {
     lineNumber: number;
     columnNumber?: number;
   };
+  componentNameChain?: string[];
   styleEdits?: LensStyleEdit[];
+  review: LensVisualReviewEnvelope;
 }
 
 type LensAnnotationEventType = "add" | "update" | "remove" | "clear" | "submit";
@@ -1764,6 +1838,7 @@ type LensAnnotationEventType = "add" | "update" | "remove" | "clear" | "submit";
 interface LensAnnotationEventPayload {
   workspaceId: string;
   lensSessionId?: string;
+  documentId?: string;
   type: LensAnnotationEventType;
   annotation?: LensAnnotation;
   annotations?: LensAnnotation[];
@@ -1783,6 +1858,10 @@ interface LensElementPickerResult {
     lineNumber: number;
     columnNumber?: number;
   };
+  componentNameChain?: string[];
+  page: LensPageIdentity;
+  anchor: LensAnnotationAnchor;
+  trust: LensPageEvidenceTrust;
 }
 
 interface WindowLensApi {
@@ -1883,8 +1962,14 @@ interface WindowLensApi {
     options?: {
       fullPage?: boolean;
       clip?: { x: number; y: number; width: number; height: number };
+      documentId?: string;
     };
-  }) => Promise<{ ok: boolean; dataUrl?: string; message?: string }>;
+  }) => Promise<{
+    ok: boolean;
+    dataUrl?: string;
+    documentId?: string;
+    message?: string;
+  }>;
   saveScreenshot?: (args: {
     workspaceId: string;
     lensSessionId?: string;
@@ -2052,6 +2137,7 @@ interface WindowLensApi {
     workspaceId: string;
     lensSessionId?: string;
     annotationId: string;
+    documentId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
   clearAnnotations?: (args: {
     workspaceId: string;
@@ -2060,8 +2146,10 @@ interface WindowLensApi {
   setElementStyle?: (args: {
     workspaceId: string;
     lensSessionId?: string;
+    annotationId: string;
     selector: string;
     patch: Record<string, string>;
+    documentId: string;
   }) => Promise<{ ok: boolean; edits?: LensStyleEdit[]; message?: string }>;
   subscribeNavigationEvents?: (
     listener: (payload: LensNavigationEventPayload) => void,

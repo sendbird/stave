@@ -58,6 +58,11 @@ import {
   PopoverDescription,
   PopoverTrigger,
   PopoverTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -121,15 +126,22 @@ import {
   type SteerQueueEnterAction,
 } from "@/lib/steer-queue-shortcuts";
 import type {
+  LensAnnotationFeedback,
   LensAnnotation,
   LensStyleEdit,
   LensSourceMappingConfig,
 } from "@/lib/lens/lens.types";
 import {
+  LENS_FEEDBACK_INTENTS,
+  LENS_FEEDBACK_PRIORITIES,
+} from "@/lib/lens/lens.types";
+import {
   buildLensAnnotationsAttachment,
   getLensCommentImageId,
   isAnyLensCommentImageAttachment,
+  removeLensCommentImageAttachments,
 } from "@/lib/lens/lens-annotation-attachment";
+import { resolveLensAnnotationReview } from "@/lib/lens/lens-element-message";
 import { ModelEffortSelector } from "./model-effort-selector";
 import type { ModelSelectorOption } from "./model-selector";
 import {
@@ -438,6 +450,113 @@ function LensAnnotationStylePopover(args: {
             setSaving(true);
             void onApply(annotation, patch).finally(() => setSaving(false));
           }}
+        >
+          Apply
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function formatLensFeedbackOption(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function LensAnnotationFeedbackPopover(args: {
+  annotation: LensAnnotation;
+  disabled: boolean;
+  onApply: (
+    annotation: LensAnnotation,
+    feedback: LensAnnotationFeedback,
+  ) => void;
+}) {
+  const { annotation, disabled, onApply } = args;
+  const feedback = resolveLensAnnotationReview(annotation).feedback;
+  const [intent, setIntent] = useState(feedback.intent);
+  const [priority, setPriority] = useState(feedback.priority);
+
+  useEffect(() => {
+    setIntent(feedback.intent);
+    setPriority(feedback.priority);
+  }, [feedback.intent, feedback.priority]);
+
+  const changed =
+    intent !== feedback.intent || priority !== feedback.priority;
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            disabled={disabled}
+            aria-label={`Edit intent and priority for comment ${annotation.pin}`}
+          />
+        }
+      >
+        <Pencil className="size-3" />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 space-y-3">
+        <div>
+          <PopoverTitle>Review details</PopoverTitle>
+          <PopoverDescription>
+            Set what this comment asks for and how urgent it is.
+          </PopoverDescription>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="grid gap-1 text-xs">
+            <span className="font-medium text-muted-foreground">Intent</span>
+            <Select value={intent} onValueChange={setIntent}>
+              <SelectTrigger
+                size="sm"
+                className="w-full"
+                aria-label={`Intent for comment ${annotation.pin}`}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="start">
+                {LENS_FEEDBACK_INTENTS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {formatLensFeedbackOption(value)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="grid gap-1 text-xs">
+            <span className="font-medium text-muted-foreground">Priority</span>
+            <Select value={priority} onValueChange={setPriority}>
+              <SelectTrigger
+                size="sm"
+                className="w-full"
+                aria-label={`Priority for comment ${annotation.pin}`}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="start">
+                {LENS_FEEDBACK_PRIORITIES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {formatLensFeedbackOption(value)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+        </div>
+        <Button
+          type="button"
+          size="xs"
+          className="w-full"
+          disabled={!changed}
+          onClick={() =>
+            onApply(annotation, {
+              ...feedback,
+              intent,
+              priority,
+            })
+          }
         >
           Apply
         </Button>
@@ -1238,11 +1357,18 @@ export function PromptInput(args: PromptInputProps) {
     (args: {
       attachment: Extract<Attachment, { kind: "lens-annotations" }>;
       annotations: readonly LensAnnotation[];
+      removeImageAnnotationIds?: readonly string[];
     }) => {
       if (!args.attachment.workspaceId || !onAttachmentsChange) {
         return;
       }
       const currentAttachments = attachments ?? [];
+      const retainedAttachments = removeLensCommentImageAttachments({
+        attachments: currentAttachments,
+        workspaceId: args.attachment.workspaceId,
+        lensSessionId: args.attachment.lensSessionId,
+        annotationIds: args.removeImageAnnotationIds ?? [],
+      });
       const nextAttachment =
         args.annotations.length > 0
           ? buildLensAnnotationsAttachment({
@@ -1254,7 +1380,7 @@ export function PromptInput(args: PromptInputProps) {
             })
           : null;
       onAttachmentsChange({
-        attachments: currentAttachments.flatMap((candidate) => {
+        attachments: retainedAttachments.flatMap((candidate) => {
           if (
             candidate.kind === "lens-annotations" &&
             candidate.id === args.attachment.id
@@ -1268,6 +1394,33 @@ export function PromptInput(args: PromptInputProps) {
     [attachments, lensSourceMappingConfig, onAttachmentsChange],
   );
 
+  const applyLensAnnotationFeedback = useCallback(
+    (
+      attachment: Extract<Attachment, { kind: "lens-annotations" }>,
+      annotation: LensAnnotation,
+      feedback: LensAnnotationFeedback,
+    ) => {
+      updateLensAnnotationAttachment({
+        attachment,
+        annotations: (attachment.annotations ?? []).map((candidate) => {
+          if (candidate.id !== annotation.id) {
+            return candidate;
+          }
+          const review = resolveLensAnnotationReview(candidate);
+          return {
+            ...candidate,
+            comment: feedback.comment,
+            review: {
+              ...review,
+              feedback,
+            },
+          };
+        }),
+      });
+    },
+    [updateLensAnnotationAttachment],
+  );
+
   const removeLensAnnotation = useCallback(
     async (
       attachment: Extract<Attachment, { kind: "lens-annotations" }>,
@@ -1278,6 +1431,7 @@ export function PromptInput(args: PromptInputProps) {
           workspaceId: attachment.workspaceId,
           lensSessionId: attachment.lensSessionId,
           annotationId: annotation.id,
+          documentId: resolveLensAnnotationReview(annotation).page.documentId,
         });
         if (!result?.ok) {
           toast.error("Comment removal failed", {
@@ -1291,6 +1445,7 @@ export function PromptInput(args: PromptInputProps) {
         annotations: (attachment.annotations ?? []).filter(
           (candidate) => candidate.id !== annotation.id,
         ),
+        removeImageAnnotationIds: [annotation.id],
       });
     },
     [updateLensAnnotationAttachment],
@@ -1309,8 +1464,10 @@ export function PromptInput(args: PromptInputProps) {
       const result = await window.api?.lens?.setElementStyle?.({
         workspaceId: attachment.workspaceId,
         lensSessionId: attachment.lensSessionId,
+        annotationId: annotation.id,
         selector: annotation.selector,
         patch,
+        documentId: resolveLensAnnotationReview(annotation).page.documentId,
       });
 
       if (!result?.ok || !result.edits) {
@@ -1327,15 +1484,35 @@ export function PromptInput(args: PromptInputProps) {
           if (candidate.id !== annotation.id) {
             return candidate;
           }
+          const nextComputedStyles = {
+            ...(candidate.computedStyles ?? {}),
+            ...Object.fromEntries(
+              edits.map((edit) => [edit.property, edit.after]),
+            ),
+          };
+          const nextStyleEdits = [
+            ...(candidate.styleEdits ?? []),
+            ...edits,
+          ];
           return {
             ...candidate,
-            computedStyles: {
-              ...(candidate.computedStyles ?? {}),
-              ...Object.fromEntries(
-                edits.map((edit) => [edit.property, edit.after]),
-              ),
-            },
-            styleEdits: [...(candidate.styleEdits ?? []), ...edits],
+            computedStyles: nextComputedStyles,
+            styleEdits: nextStyleEdits,
+            ...(candidate.review
+              ? {
+                  review: {
+                    ...candidate.review,
+                    anchor: {
+                      ...candidate.review.anchor,
+                      computedStyles: nextComputedStyles,
+                    },
+                    evidence: {
+                      ...candidate.review.evidence,
+                      styleEdits: nextStyleEdits,
+                    },
+                  },
+                }
+              : {}),
           };
         }),
       });
@@ -2826,6 +3003,8 @@ export function PromptInput(args: PromptInputProps) {
                     );
                   }
                   return annotationItems.map((annotation) => {
+                    const feedback =
+                      resolveLensAnnotationReview(annotation).feedback;
                     const screenshot = attachment.workspaceId
                       ? imageAttachmentsById.get(
                           getLensCommentImageId({
@@ -2881,6 +3060,9 @@ export function PromptInput(args: PromptInputProps) {
                                 {annotation.comment}
                               </span>
                               <span className="block truncate text-[10px] text-muted-foreground">
+                                {formatLensFeedbackOption(feedback.intent)} ·{" "}
+                                {formatLensFeedbackOption(feedback.priority)}
+                                {" · "}
                                 {annotation.kind === "area"
                                   ? "area"
                                   : annotation.selector}
@@ -2900,6 +3082,17 @@ export function PromptInput(args: PromptInputProps) {
                             </pre>
                           </PopoverContent>
                         </Popover>
+                        <LensAnnotationFeedbackPopover
+                          annotation={annotation}
+                          disabled={interactionsDisabled}
+                          onApply={(targetAnnotation, nextFeedback) =>
+                            applyLensAnnotationFeedback(
+                              attachment,
+                              targetAnnotation,
+                              nextFeedback,
+                            )
+                          }
+                        />
                         <LensAnnotationStylePopover
                           annotation={annotation}
                           disabled={

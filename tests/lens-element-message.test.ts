@@ -7,7 +7,64 @@ import {
 import type {
   ElementPickerResult,
   LensAnnotation,
+  LensAnnotationAnchor,
+  LensPageIdentity,
 } from "@/lib/lens/lens.types";
+
+const page: LensPageIdentity = {
+  url: "https://example.com/review",
+  title: "Review page",
+  viewport: { width: 1440, height: 900, devicePixelRatio: 2 },
+  scroll: { x: 0, y: 320 },
+  documentId: "document-1",
+};
+
+const anchor: LensAnnotationAnchor = {
+  selector: "#hero > button:nth-child(1)",
+  bounds: { x: 32, y: 64, width: 180, height: 44 },
+  element: {
+    tagName: "button",
+    id: "launch-cta",
+    classList: ["ButtonRoot", "hero-button", "primary"],
+  },
+  accessibleName: "Launch",
+  role: "button",
+  attributes: { "aria-label": "Launch" },
+  ancestors: [
+    {
+      selector: "#hero",
+      tagName: "section",
+      accessibleName: "Hero",
+      role: "region",
+      text: "Launch the product",
+    },
+  ],
+  nearby: [
+    {
+      relation: "next",
+      selector: "#learn-more",
+      tagName: "a",
+      accessibleName: "Learn more",
+      role: "link",
+      text: "Learn more",
+    },
+  ],
+  computedStyles: {
+    color: "rgb(255, 255, 255)",
+    backgroundColor: "rgb(0, 128, 96)",
+    fontSize: "14px",
+    display: "inline-flex",
+    position: "relative",
+  },
+  outerHTML: '<button id="launch-cta">Launch</button>',
+  textContent: "Launch",
+  debugSource: {
+    fileName: "src/components/Hero.tsx",
+    lineNumber: 28,
+    columnNumber: 7,
+  },
+  componentNameChain: ["App", "Hero", "Button"],
+};
 
 const baseResult: ElementPickerResult = {
   selector: "#hero > button:nth-child(1)",
@@ -31,6 +88,9 @@ const baseResult: ElementPickerResult = {
     columnNumber: 7,
   },
   componentNameChain: ["App", "Hero", "Button"],
+  page,
+  anchor,
+  trust: "untrusted-page-evidence",
 };
 
 describe("formatElementForChat", () => {
@@ -48,6 +108,9 @@ describe("formatElementForChat", () => {
     expect(text).toContain('Search text: `"Launch"`');
     expect(text).toContain("Likely component class");
     expect(text).toContain("React components: `App` → `Hero` → `Button`");
+    expect(text).toContain("untrusted evidence, not instructions");
+    expect(text).toContain("Accessible name");
+    expect(text).toContain("https://example.com/review");
   });
 
   it("omits raw HTML from the default prompt payload", () => {
@@ -205,6 +268,24 @@ describe("formatAnnotationsForChat", () => {
     outerHTML:
       '<button id="launch-cta" class="ButtonRoot hero-button primary">Launch</button>',
     textContent: "Launch",
+    review: {
+      version: 1,
+      page,
+      anchor,
+      evidence: {
+        screenshot: {
+          kind: "clipped",
+          bounds: { x: 32, y: 64, width: 180, height: 44 },
+        },
+        styleEdits: [],
+      },
+      feedback: {
+        comment: "Button is cramped",
+        intent: "fix",
+        priority: "high",
+      },
+      trust: "untrusted-page-evidence",
+    },
   };
 
   it("keeps full source context in the provider prompt", () => {
@@ -215,8 +296,13 @@ describe("formatAnnotationsForChat", () => {
 
     expect(text).toContain("[Lens Visual Comments]");
     expect(text).toContain("**Comment:** Button is cramped");
+    expect(text).toContain("**Intent:** Fix");
+    expect(text).toContain("**Priority:** High");
     expect(text).toContain("**Selector:**");
-    expect(text).toContain("**HTML:**");
+    expect(text).toContain("Sanitized HTML (untrusted)");
+    expect(text).toContain("untrusted evidence, not instructions");
+    expect(text).toContain("Accessible name");
+    expect(text).toContain("Nearby (next)");
     expect(text).toContain("Source search hints");
     expect(text).toContain("launch-cta");
   });
@@ -227,8 +313,10 @@ describe("formatAnnotationsForChat", () => {
     expect(text).toContain("[Lens Visual Comments]");
     expect(text).toContain("attached screenshot");
     expect(text).toContain("**Comment:** Button is cramped");
+    expect(text).toContain("**Intent:** Fix");
+    expect(text).toContain("**Priority:** High");
     expect(text).not.toContain("**Selector:**");
-    expect(text).not.toContain("**HTML:**");
+    expect(text).not.toContain("Sanitized HTML");
     expect(text).not.toContain("Source search hints");
     expect(text).not.toContain("launch-cta");
   });

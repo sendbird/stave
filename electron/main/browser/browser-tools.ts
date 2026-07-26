@@ -20,6 +20,7 @@ import {
 import { acquireMcpBrowserSession } from "./browser-session-resolver";
 import { requestLensSessionPresentation } from "./browser-session-presentation";
 import { normalizeLensUrl } from "./browser-url";
+import { readNormalizedPageAnnotations } from "./browser-annotation-ingestion";
 
 import {
   captureScreenshot,
@@ -739,10 +740,19 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
-      const annotations = await session.view.webContents.executeJavaScript(
-        "window.__staveGetAnnotations?.() ?? []",
-      );
-      return toStructuredResult({ ok: true, annotations });
+      try {
+        session.annotations = await readNormalizedPageAnnotations(session);
+      } catch {
+        session.annotations = session.annotations.filter(
+          (annotation) =>
+            annotation.review.page.documentId === session.documentId,
+        );
+      }
+      return toStructuredResult({
+        ok: true,
+        documentId: session.documentId,
+        annotations: session.annotations,
+      });
     },
   );
 

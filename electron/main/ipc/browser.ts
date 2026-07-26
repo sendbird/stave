@@ -26,6 +26,14 @@ import {
   sendAnnotationEvent,
 } from "../browser/browser-session-events";
 import {
+  assertLensDocumentIdentity,
+  LENS_ANNOTATION_BEACON_MARKER,
+  normalizeElementPickerResultForSession,
+  normalizeStoredAnnotationsForSession,
+  readNormalizedPageAnnotations,
+} from "../browser/browser-annotation-ingestion";
+import { executeInLensAnnotationWorld } from "../browser/browser-annotation-world";
+import {
   deriveDownloadFilename,
   enumeratePageAssets,
   getDownloadsDir,
@@ -62,6 +70,9 @@ import {
   upsertLensCredential,
 } from "../browser/lens-credential-service";
 import {
+  LensAnnotationRemoveArgsSchema,
+  LensAnnotationStartArgsSchema,
+  LensAnnotationStyleArgsSchema,
   LensCredentialDeleteArgsSchema,
   LensCredentialUpsertArgsSchema,
   LensConsoleEntryDetailArgsSchema,
@@ -71,9 +82,10 @@ import {
   LensLogQueryArgsSchema,
   LensNetworkBodyArgsSchema,
   LensNetworkEntryDetailArgsSchema,
+  LensScreenshotArgsSchema,
+  LensSessionTargetArgsSchema,
 } from "./schemas";
 import type {
-  LensAnnotation,
   LensBounds,
   LensCdpApprovalResponse,
   LensDownloadEntry,
@@ -81,6 +93,8 @@ import type {
   LensSessionDescriptor,
   LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
+import { getMainWindow } from "../window";
+import { isTrustedLensRenderer } from "./lens-ipc-authorization";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -107,19 +121,6 @@ async function existingNames(directory: string): Promise<Set<string>> {
     return new Set(await fs.readdir(directory));
   } catch {
     return new Set();
-  }
-}
-
-async function readPageAnnotations(
-  session: NonNullable<ReturnType<typeof getBrowserSession>>,
-): Promise<LensAnnotation[]> {
-  try {
-    const annotations = await session.view.webContents.executeJavaScript(
-      "window.__staveGetAnnotations?.() ?? []",
-    );
-    return Array.isArray(annotations) ? annotations : [];
-  } catch {
-    return [];
   }
 }
 
@@ -475,42 +476,47 @@ export function registerBrowserHandlers() {
   // ---- Screenshot ----
   ipcMain.handle(
     "lens:screenshot",
-    async (
-      _event,
-      args: {
-        workspaceId: string;
-        lensSessionId?: string;
-        options?: {
-          fullPage?: boolean;
-          clip?: { x: number; y: number; width: number; height: number };
-        };
-      },
-    ) => {
+    async (event, input: unknown) => {
+      if (
+        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
+      ) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      const parsed = LensScreenshotArgsSchema.safeParse(input);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid Lens screenshot request" };
+      }
+      const args = parsed.data;
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        await session.view.webContents
-          .executeJavaScript(
+        assertLensDocumentIdentity(session, args.options?.documentId);
+        const captureDocumentId = session.documentId;
+        await executeInLensAnnotationWorld(
+          session.view.webContents,
             `new Promise((resolve) => {
               window.__staveSetAnnotationScreenshotCaptureActive?.(false);
               requestAnimationFrame(() => requestAnimationFrame(() => resolve(true)));
             })`,
           )
           .catch(() => false);
+        const { documentId: _documentId, ...captureOptions } =
+          args.options ?? {};
         const dataUrl = await captureScreenshot(
           session.view.webContents.id,
-          args.options,
+          captureOptions,
         );
-        return { ok: true, dataUrl };
+        assertLensDocumentIdentity(session, captureDocumentId);
+        return { ok: true, dataUrl, documentId: captureDocumentId };
       } catch (err) {
         return {
           ok: false,
           message: err instanceof Error ? err.message : String(err),
         };
       } finally {
-        await session.view.webContents
-          .executeJavaScript(
+        await executeInLensAnnotationWorld(
+          session.view.webContents,
             "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
           )
           .catch(() => false);
@@ -921,12 +927,8 @@ export function registerBrowserHandlers() {
             pushConsoleEntry(session.workspaceId, entry, session.lensSessionId),
           onNetworkEntry: (entry) =>
             pushNetworkEntry(session.workspaceId, entry, session.lensSessionId),
-          shouldIgnoreConsoleText: (text) => {
-            const prefix = session.annotationNonce
-              ? `__STAVE_ANN__${session.annotationNonce}`
-              : null;
-            return Boolean(prefix && text.startsWith(prefix));
-          },
+          shouldIgnoreConsoleText: (text) =>
+            text.startsWith(LENS_ANNOTATION_BEACON_MARKER),
         });
         return {
           ok: state.enabled,
@@ -946,22 +948,38 @@ export function registerBrowserHandlers() {
   // ---- Element picker ----
   ipcMain.handle(
     "lens:start-element-picker",
-    async (
-      _event,
-      args: {
-        workspaceId: string;
-        lensSessionId?: string;
-        options?: { extractDebugSource?: boolean };
-      },
-    ) => {
-      const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
-      if (!wc) return { ok: false, message: "No browser session" };
+    async (event, input: unknown) => {
+      if (
+        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
+      ) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      const parsed = LensAnnotationStartArgsSchema.safeParse(input);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid Lens element picker request" };
+      }
+      const args = parsed.data;
+      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
+      if (!session) return { ok: false, message: "No browser session" };
 
       try {
+        const documentId = session.documentId;
         const script = getElementPickerScript({
+          documentId,
           extractDebugSource: args.options?.extractDebugSource ?? false,
         });
-        const result = await wc.executeJavaScript(script);
+        const rawResult = await executeInLensAnnotationWorld(
+          session.view.webContents,
+          script,
+        );
+        if (rawResult == null) {
+          return { ok: true };
+        }
+        assertLensDocumentIdentity(session, documentId);
+        const result = normalizeElementPickerResultForSession(
+          session,
+          rawResult,
+        );
         return { ok: true, result };
       } catch (err) {
         return {
@@ -974,14 +992,17 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:start-annotation-mode",
-    async (
-      _event,
-      args: {
-        workspaceId: string;
-        lensSessionId?: string;
-        options?: { extractDebugSource?: boolean };
-      },
-    ) => {
+    async (event, input: unknown) => {
+      if (
+        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
+      ) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      const parsed = LensAnnotationStartArgsSchema.safeParse(input);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid Lens annotation request" };
+      }
+      const args = parsed.data;
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
@@ -989,8 +1010,8 @@ export function registerBrowserHandlers() {
         if (session.annotationOverlayActive) {
           return { ok: true };
         }
-        const revivedExistingOverlay = await session.view.webContents
-          .executeJavaScript(
+        const revivedExistingOverlay = await executeInLensAnnotationWorld(
+          session.view.webContents,
             "window.__staveSetAnnotationCaptureActive?.(true) === true",
           )
           .catch(() => false);
@@ -1023,16 +1044,24 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:stop-annotation-mode",
-    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+    async (event, input: unknown) => {
+      if (
+        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
+      ) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      const parsed = LensSessionTargetArgsSchema.safeParse(input);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid Lens annotation request" };
+      }
+      const args = parsed.data;
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        const annotations = await readPageAnnotations(session);
-        if (annotations.length > 0) {
-          session.annotations = annotations;
-        }
-        await session.view.webContents.executeJavaScript(
+        session.annotations = await readNormalizedPageAnnotations(session);
+        await executeInLensAnnotationWorld(
+          session.view.webContents,
           "window.__staveSetAnnotationCaptureActive?.(false)",
         );
       } catch {
@@ -1089,43 +1118,59 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:get-annotations",
-    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+    async (event, input: unknown) => {
+      if (
+        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
+      ) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      const parsed = LensSessionTargetArgsSchema.safeParse(input);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid Lens annotation request" };
+      }
+      const args = parsed.data;
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        const annotations = await readPageAnnotations(session);
-        if (Array.isArray(annotations) && annotations.length > 0) {
-          session.annotations = annotations;
-        }
+        const annotations = await readNormalizedPageAnnotations(session);
+        session.annotations = annotations;
         return {
           ok: true,
-          annotations:
-            Array.isArray(annotations) && annotations.length > 0
-              ? annotations
-              : session.annotations,
+          annotations,
         };
       } catch (err) {
-        return { ok: true, annotations: session.annotations };
+        return {
+          ok: true,
+          annotations: session.annotations.filter(
+            (annotation) =>
+              annotation.review.page.documentId === session.documentId,
+          ),
+        };
       }
     },
   );
 
   ipcMain.handle(
     "lens:remove-annotation",
-    async (
-      _event,
-      args: {
-        workspaceId: string;
-        lensSessionId?: string;
-        annotationId: string;
-      },
-    ) => {
+    async (event, input: unknown) => {
+      if (
+        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
+      ) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      const parsed = LensAnnotationRemoveArgsSchema.safeParse(input);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid Lens annotation request" };
+      }
+      const args = parsed.data;
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        const removed = await session.view.webContents.executeJavaScript(
+        assertLensDocumentIdentity(session, args.documentId);
+        const removed = await executeInLensAnnotationWorld(
+          session.view.webContents,
           `window.__staveRemoveAnnotation?.(${JSON.stringify(args.annotationId)}) ?? false`,
         );
         if (removed) {
@@ -1145,12 +1190,23 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:clear-annotations",
-    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
+    async (event, input: unknown) => {
+      if (
+        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
+      ) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      const parsed = LensSessionTargetArgsSchema.safeParse(input);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid Lens annotation request" };
+      }
+      const args = parsed.data;
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        await session.view.webContents.executeJavaScript(
+        await executeInLensAnnotationWorld(
+          session.view.webContents,
           "window.__staveClearAnnotations?.()",
         );
       } catch {
@@ -1160,6 +1216,7 @@ export function registerBrowserHandlers() {
       sendAnnotationEvent({
         workspaceId: args.workspaceId,
         lensSessionId: session.lensSessionId,
+        documentId: session.documentId,
         type: "clear",
       });
       return { ok: true };
@@ -1168,24 +1225,70 @@ export function registerBrowserHandlers() {
 
   ipcMain.handle(
     "lens:set-element-style",
-    async (
-      _event,
-      args: {
-        workspaceId: string;
-        lensSessionId?: string;
-        selector: string;
-        patch: Record<string, string>;
-      },
-    ) => {
+    async (event, input: unknown) => {
+      if (
+        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
+      ) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      const parsed = LensAnnotationStyleArgsSchema.safeParse(input);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid Lens style request" };
+      }
+      const args = parsed.data;
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
+        assertLensDocumentIdentity(session, args.documentId);
         const edits = await setElementStyle(
           session.view.webContents.id,
           args.selector,
           args.patch,
         );
+        assertLensDocumentIdentity(session, args.documentId);
+        const target = session.annotations.find(
+          (annotation) => annotation.id === args.annotationId,
+        );
+        if (target?.review.page.documentId === session.documentId) {
+          const computedStyles = {
+            ...(target.computedStyles ?? {}),
+            ...Object.fromEntries(
+              edits.map((edit) => [edit.property, edit.after]),
+            ),
+          };
+          const styleEdits = [...(target.styleEdits ?? []), ...edits];
+          const [annotation] = normalizeStoredAnnotationsForSession(session, [
+            {
+              ...target,
+              computedStyles,
+              styleEdits,
+              review: {
+                ...target.review,
+                anchor: {
+                  ...target.review.anchor,
+                  computedStyles,
+                },
+                evidence: {
+                  ...target.review.evidence,
+                  styleEdits,
+                },
+              },
+            },
+          ]);
+          if (annotation) {
+            session.annotations = session.annotations.map((candidate) =>
+              candidate.id === annotation.id ? annotation : candidate,
+            );
+            sendAnnotationEvent({
+              workspaceId: session.workspaceId,
+              lensSessionId: session.lensSessionId,
+              documentId: session.documentId,
+              type: "update",
+              annotation,
+            });
+          }
+        }
         return { ok: true, edits };
       } catch (err) {
         return {

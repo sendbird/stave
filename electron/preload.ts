@@ -80,6 +80,7 @@ import type {
   BrowserNetworkEntry,
   BrowserNetworkEntryDetail,
   BrowserNetworkEventPayload,
+  ElementPickerResult,
   LensAnnotation,
   LensAnnotationEventPayload,
   LensCdpApprovalRequestPayload,
@@ -1847,11 +1848,13 @@ contextBridge.exposeInMainWorld("api", {
       options?: {
         fullPage?: boolean;
         clip?: { x: number; y: number; width: number; height: number };
+        documentId?: string;
       };
     }) =>
       ipcRenderer.invoke("lens:screenshot", args) as Promise<{
         ok: boolean;
         dataUrl?: string;
+        documentId?: string;
         message?: string;
       }>,
     saveScreenshot: (args: {
@@ -2021,22 +2024,7 @@ contextBridge.exposeInMainWorld("api", {
     }) =>
       ipcRenderer.invoke("lens:start-element-picker", args) as Promise<{
         ok: boolean;
-        result?: {
-          selector: string;
-          tagName: string;
-          id: string;
-          classList: string[];
-          boundingBox: { x: number; y: number; width: number; height: number };
-          computedStyles: Record<string, string>;
-          outerHTML: string;
-          textContent: string;
-          debugSource?: {
-            fileName: string;
-            lineNumber: number;
-            columnNumber?: number;
-          };
-          componentNameChain?: string[];
-        };
+        result?: ElementPickerResult;
         message?: string;
       }>,
     startAnnotationMode: (args: {
@@ -2076,6 +2064,7 @@ contextBridge.exposeInMainWorld("api", {
       workspaceId: string;
       lensSessionId?: string;
       annotationId: string;
+      documentId: string;
     }) =>
       ipcRenderer.invoke("lens:remove-annotation", args) as Promise<{
         ok: boolean;
@@ -2089,8 +2078,10 @@ contextBridge.exposeInMainWorld("api", {
     setElementStyle: (args: {
       workspaceId: string;
       lensSessionId?: string;
+      annotationId: string;
       selector: string;
       patch: Record<string, string>;
+      documentId: string;
     }) =>
       ipcRenderer.invoke("lens:set-element-style", args) as Promise<{
         ok: boolean;

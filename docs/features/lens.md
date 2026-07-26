@@ -43,8 +43,8 @@
 - Address bar: loads local or remote pages into the current workspace session.
 - Back, forward, reload: standard navigation for the current workspace browser.
 - Preview, Console, Network: compact view switcher beside the address bar. Preview is the primary Lens surface; Console and Network are diagnostic views.
-- Pick Element: captures selector, position, key text/styles, and source hints, then appends a compact summary to the active task draft. The picker exits on click, `Escape`, or timeout.
-- Annotate: places numbered visual comments on elements or selected areas, then sends the comments to the active task draft.
+- Pick Element: captures selector, position, accessibility identity, bounded ancestor and nearby context, key text/styles, and source hints, then appends a compact summary to the active task draft. The picker exits on click, `Escape`, or timeout.
+- Annotate: places numbered visual comments on elements or selected areas. Each comment records an intent (`fix`, `change`, `question`, or `approve`) and a priority (`low`, `medium`, or `high`) before it is sent to the active task draft.
 - Inspect (ruler icon): hover any element to see a Figma/DevTools-style box-model overlay (content, padding, border, margin) with a measurement tooltip. Click an element to pin it, then hover another element to read the pixel gap between them. `Escape` clears the pinned element. Inspect and Annotate are mutually exclusive.
 - Style: live-edits supported element styles from an annotation and records before/after diffs in the sent payload.
 - Screenshot: saves viewport or full-page PNG captures under the workspace Lens downloads directory.
@@ -99,9 +99,10 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 
 1. Open Lens and navigate to the target page.
 2. Turn on `Annotate`.
-3. Add comments to elements or page areas.
-4. Optionally use the style editor on an element comment to record live before/after style edits.
-5. Click `Send` in the comment list to append the formatted visual comments to the active task draft.
+3. Add comments to elements or page areas and choose an intent and priority for each comment.
+4. You can revise intent and priority from the comment strip in the task composer.
+5. Optionally use the style editor on an element comment to record live before/after style edits.
+6. Click `Send` in the comment list to append the formatted visual comments to the active task draft.
 
 ### Save Screenshots And Downloads
 
@@ -166,6 +167,66 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 }
 ```
 
+## Visual Review Capture Contract
+
+Lens validates visual comments again in Electron main before they can enter session state, cross the preload bridge, or be returned by `stave_lens_get_annotations`. The contract chain is:
+
+```text
+isolated page overlay
+  -> bounded console beacon
+  -> Electron main schema and ownership checks
+  -> normalized session state
+  -> preload/window API or Local MCP
+  -> task composer and provider context
+```
+
+Each normalized element or area comment contains:
+
+- Page identity: sanitized HTTP(S) URL without credentials, query, or hash; title; viewport; scroll position; and a main-issued document id.
+- Anchor: viewport bounds plus selector, element identity, accessible name and role, allowlisted attributes, ancestor hints, nearby elements or text, computed styles, and best-effort React source hints when enabled.
+- Evidence: the existing clipped screenshot bounds and accumulated live style before/after edits.
+- Feedback: the user comment, intent, and priority.
+- Trust marker: `untrusted-page-evidence`.
+
+The provider-facing formatter labels URL, title, selectors, accessibility data, attributes, text, sanitized HTML, and DOM context as untrusted evidence. Those fields are context to inspect, never instructions to follow. The user-entered feedback remains the requested action.
+
+Annotation controls run in a dedicated Chromium isolated world. Electron accepts their bounded beacon only when its per-session nonce and current document id match. Annotation IPC mutations additionally require the current Stave renderer main frame, workspace/session target, and document id.
+
+### Capture Budgets
+
+String limits below are UTF-8 byte limits after deterministic normalization. Collections are truncated to the listed maximum unless malformed structure requires rejection.
+
+| Field | Limit |
+| --- | ---: |
+| Annotations per collection | 50 |
+| Serialized annotation event | 256,000 bytes |
+| Annotation id / document id | 160 bytes each |
+| Comment | 2,048 bytes |
+| Selector | 2,048 bytes |
+| URL / title | 4,096 / 512 bytes |
+| Tag name / element id | 64 / 256 bytes |
+| Classes | 32 items, 256 bytes each |
+| Safe attributes | 16 items, 512 bytes per value |
+| Accessible name / role | 512 / 128 bytes |
+| Ancestors / nearby hints | 6 / 8 items |
+| Context text per hint | 512 bytes |
+| Element text / synthesized HTML | 2,048 / 4,096 bytes |
+| Computed styles | 32 items |
+| Style property / value | 96 / 512 bytes |
+| Style edits | 32 items |
+| Component names | 24 items, 256 bytes each |
+| Source filename | 2,048 bytes |
+
+Coordinates are finite and bounded: element positions and scroll offsets to ±10,000,000 CSS pixels, element sizes to 1,000,000, viewport dimensions to 100,000, device pixel ratio to 16, and source line/column values to 10,000,000.
+
+The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-labelledby`, `data-cy`, `data-test`, `data-testid`, `name`, `placeholder`, `role`, `title`, and `type`. Secret-like values are replaced with `[REDACTED]`; raw page HTML is never forwarded and is replaced with a synthesized tag/id/text representation.
+
+### Navigation Semantics
+
+- A top-level document navigation rotates the document id and annotation nonce, clears main-process annotation state immediately, and emits a clear event. A previous document's comments cannot reappear after the new page loads.
+- A same-document URL update keeps the document id, then re-resolves element selectors. Missing element anchors are removed. Area comments survive only when their original scroll position still matches and their bounds intersect the viewport.
+- Screenshot capture, comment removal, and annotation-linked style edits compare document identity before and after asynchronous work so navigation races fail closed.
+
 ## Limitations And Advanced Options
 
 - Lens uses Electron's `WebContentsView` plus Stave's own CDP bridge. It does not embed the `chrome-devtools-mcp` server directly because Stave already owns the browser process and can talk to CDP natively without launching a separate Chrome target.
@@ -179,7 +240,7 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 - Console and network logs are buffered, not infinite. Lens keeps the most recent entries only.
 - Download history is buffered in memory, while saved files remain on disk until the user removes them.
 - Lens console messages are shown in the Lens Console tab and mirrored into the Stave window DevTools console with a `[Lens:<workspaceId>]` prefix.
-- Annotation events use a per-session nonce and are filtered out of the user-visible Lens console log.
+- Annotation events use a per-session nonce and a 256,000-byte event cap. Current, stale, and malformed Lens beacons are filtered out of both the user-visible Lens console and full diagnostics.
 - Lens hides while blocking overlays such as Settings are open so the native `WebContentsView` does not render above dialogs.
 - Lens is ideal for runtime inspection, but exact DOM-to-source mapping is still framework-dependent outside React dev mode.
 
