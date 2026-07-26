@@ -6,6 +6,7 @@ import {
   Loader2,
   LockKeyhole,
   RefreshCw,
+  Trash2,
   Unplug,
 } from "lucide-react";
 import {
@@ -57,9 +58,8 @@ export function CraneConnectorSettingsSection() {
     (state) => state.settings.craneConnector,
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const registeredProjectCount = useAppStore(
-    (state) => state.recentProjects.length,
-  );
+  const registeredProjects = useAppStore((state) => state.recentProjects);
+  const registeredProjectCount = registeredProjects.length;
   const { status } = useCraneConnectorClientState();
   const [baseUrl, setBaseUrl] = useState(connector.baseUrl);
   const [pairingCode, setPairingCode] = useState("");
@@ -442,6 +442,64 @@ export function CraneConnectorSettingsSection() {
               : "Register a local Stave project before approving a Crane job."}{" "}
             Local paths are never sent to Crane.
           </div>
+
+          {connector.projectMappings.length > 0 ? (
+            <div className="space-y-3 border-t border-border/70 pt-4">
+              <div>
+                <h4 className="text-sm font-medium">Project mappings</h4>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Incoming issue teams preselect these local Stave projects.
+                  The mapping never leaves this device.
+                </p>
+              </div>
+              <div className="space-y-2">
+                {connector.projectMappings.map((mapping, index) => {
+                  const projectName =
+                    registeredProjects.find(
+                      (project) =>
+                        project.projectPath === mapping.staveProjectPath,
+                    )?.projectName ?? "Unregistered project";
+                  const routeLabel =
+                    mapping.craneTeamKey ??
+                    mapping.craneProjectId ??
+                    "Crane route";
+                  return (
+                    <div
+                      key={`${routeLabel}:${mapping.staveProjectPath}`}
+                      className="flex items-center gap-3 rounded-lg border border-border bg-muted/25 px-3 py-2"
+                    >
+                      <Badge variant="secondary">{routeLabel}</Badge>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {projectName}
+                        </p>
+                        <p className="truncate font-mono text-[11px] text-muted-foreground">
+                          {mapping.staveProjectPath}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Remove ${routeLabel} project mapping`}
+                        onClick={() =>
+                          saveConnector({
+                            projectMappings:
+                              connector.projectMappings.filter(
+                                (_, mappingIndex) =>
+                                  mappingIndex !== index,
+                              ),
+                          })
+                        }
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

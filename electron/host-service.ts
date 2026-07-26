@@ -1065,15 +1065,21 @@ async function shutdown() {
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
   routineRuntime.stop();
+  const infrastructureCleanup = Promise.allSettled([
+    terminalRuntime.cleanupAll(),
+    cleanupAllScriptProcesses(),
+  ]);
+  const cleanup = (async () => {
+    // Provider shutdown can emit final error/done events into the local MCP
+    // queue. Drain that queue only after every provider has settled.
+    await Promise.allSettled([providerRuntime.shutdown()]);
+    await Promise.allSettled([localMcpRuntime.cleanupLocalMcpRuntime()]);
+    await infrastructureCleanup;
+  })();
   // A cleanup step that never settles (a pty that will not die, a provider SDK
   // that hangs) used to leave the process alive but unable to answer anything.
   await Promise.race([
-    Promise.allSettled([
-      terminalRuntime.cleanupAll(),
-      cleanupAllScriptProcesses(),
-      providerRuntime.shutdown(),
-      localMcpRuntime.cleanupLocalMcpRuntime(),
-    ]),
+    cleanup,
     new Promise<void>((resolve) => {
       const timer = setTimeout(() => {
         process.stderr.write(

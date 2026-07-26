@@ -369,6 +369,7 @@ export async function releaseLocallyManagedCraneTask(
 export async function getTaskStatus(args: {
   workspaceId: string;
   taskId: string;
+  turnId?: string;
 }) {
   return invokeLocalMcp<
     import("../host-service/local-mcp-runtime").TaskStatusResult

@@ -33,9 +33,31 @@ type PersistedTaskRow = {
   archivedAt: string | null;
 };
 
+type PersistedTurn = {
+  id: string;
+  workspaceId: string;
+  taskId: string;
+  providerId: "claude-code" | "codex";
+  createdAt: string;
+  completedAt: string | null;
+};
+
 const startTurnStreamCalls: unknown[] = [];
+const startTurnStreamHandlers: Array<{
+  onEvent?: (event: import("../electron/providers/types").BridgeEvent) => void;
+}> = [];
 const persistedWorkspaceInformationById = new Map<string, unknown>();
 const persistedTasksByWorkspaceId = new Map<string, PersistedTaskRow[]>();
+const persistedTurnsById = new Map<string, PersistedTurn>();
+const persistedTurnEventsById = new Map<
+  string,
+  Array<{
+    sequence: number;
+    eventType: string;
+    event: import("../electron/providers/types").BridgeEvent;
+    truncated: false;
+  }>
+>();
 const lastUpsertSnapshotByWorkspaceId = new Map<
   string,
   { tasks?: Array<{ id: string; archivedAt?: string | null }> }
@@ -118,7 +140,71 @@ const fakeStore = {
   listWorkspaceTasks: ({ workspaceId }: { workspaceId: string }) =>
     persistedTasksByWorkspaceId.get(workspaceId) ?? [],
   listActiveTurnsForWorkspace: () => [],
-  beginTurn: () => {},
+  listTurns: ({
+    workspaceId,
+    taskId,
+    limit,
+    turnId,
+  }: {
+    workspaceId: string;
+    taskId: string;
+    limit?: number;
+    turnId?: string;
+  }) =>
+    [...persistedTurnsById.values()]
+      .filter(
+        (turn) =>
+          turn.workspaceId === workspaceId &&
+          turn.taskId === taskId &&
+          (!turnId || turn.id === turnId),
+      )
+      .reverse()
+      .slice(0, limit ?? 5),
+  beginTurn: (turn: Omit<PersistedTurn, "createdAt" | "completedAt">) => {
+    persistedTurnsById.set(turn.id, {
+      ...turn,
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+    });
+  },
+  completeTurn: ({ id }: { id: string }) => {
+    const turn = persistedTurnsById.get(id);
+    if (turn) {
+      persistedTurnsById.set(id, {
+        ...turn,
+        completedAt: new Date().toISOString(),
+      });
+    }
+  },
+  saveStreamEvents: ({
+    turnId,
+    events,
+  }: {
+    turnId: string;
+    events: Array<{
+      sequence: number;
+      event: import("../electron/providers/types").BridgeEvent;
+    }>;
+  }) => {
+    const current = persistedTurnEventsById.get(turnId) ?? [];
+    for (const entry of events) {
+      if (current.some((item) => item.sequence === entry.sequence)) {
+        continue;
+      }
+      current.push({
+        ...entry,
+        eventType: entry.event.type,
+        truncated: false,
+      });
+    }
+    persistedTurnEventsById.set(turnId, current);
+  },
+  getStreamEvents: ({ turnId }: { turnId: string }) =>
+    persistedTurnEventsById.get(turnId) ?? [],
+  createNotification: ({ notification }: { notification: unknown }) => ({
+    inserted: true,
+    notification,
+  }),
   upsertWorkspace: ({
     id,
     snapshot,
@@ -169,9 +255,17 @@ const runtime = await import("../electron/host-service/local-mcp-runtime");
 const originalStartTurnStream = providerRuntime.startTurnStream;
 
 beforeAll(() => {
-  providerRuntime.startTurnStream = ((params: unknown) => {
+  providerRuntime.startTurnStream = ((
+    params: unknown,
+    handlers: {
+      onEvent?: (
+        event: import("../electron/providers/types").BridgeEvent,
+      ) => void;
+    },
+  ) => {
     startTurnStreamCalls.push(params);
-    return { ok: true };
+    startTurnStreamHandlers.push(handlers);
+    return { ok: true, streamId: `stream-${startTurnStreamCalls.length}` };
   }) as typeof providerRuntime.startTurnStream;
 });
 
@@ -269,6 +363,54 @@ describe("local MCP runtime runTask", () => {
         (part) => part.sourceId === "crane:CRANE-42",
       )?.content,
     ).toBe("Untrusted remote issue context.");
+  });
+
+  test("persists terminal events and reports a targeted no-response failure", async () => {
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Start the approved managed run",
+      controlMode: "managed",
+      controlOwner: "stave",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({
+      type: "error",
+      message: "Provider runtime timed out before responding.",
+      recoverable: true,
+    });
+    handler?.onEvent?.({
+      type: "done",
+      stop_reason: "runtime_failure",
+    });
+
+    let status = await runtime.getTaskStatus({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+      turnId: result.turnId,
+    });
+    for (
+      let attempt = 0;
+      attempt < 20 && !status.latestTurnCompletedAt;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+      status = await runtime.getTaskStatus({
+        workspaceId: WORKSPACE_ID,
+        taskId: result.taskId,
+        turnId: result.turnId,
+      });
+    }
+
+    expect(status.latestTurnId).toBe(result.turnId);
+    expect(status.latestTurnCompletedAt).toBeTruthy();
+    expect(status.latestTurnError).toBe(
+      "Provider runtime timed out before responding.",
+    );
+    expect(
+      persistedTurnEventsById
+        .get(result.turnId)
+        ?.map((entry) => entry.eventType),
+    ).toEqual(["error", "done"]);
   });
 
   test("releases completed locally managed task control", async () => {

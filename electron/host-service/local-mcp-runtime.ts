@@ -93,6 +93,10 @@ import {
 } from "../../src/lib/tasks";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
+import {
+  createLocalMcpTurnJournal,
+  resolveTargetedTurnError,
+} from "./local-mcp-turn-journal";
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
 import { runCommand, runCommandArgs } from "../main/utils/command";
@@ -172,6 +176,21 @@ const workspaceProviderEventQueue = createKeyedAsyncQueue<string>();
 const terminalTurnErrorById = new Map<string, string>();
 const WORKSPACE_SESSION_CACHE_LIMIT = 32;
 const TERMINAL_TURN_ERROR_LIMIT = 500;
+const localMcpTurnJournal = createLocalMcpTurnJournal({
+  persistEvents: ({ turnId, events }) => {
+    ensureHostServicePersistenceReady().saveStreamEvents({
+      turnId,
+      events,
+    });
+  },
+  onPersistError: (error, context) => {
+    console.warn(
+      "[stave-mcp] failed to persist provider events",
+      error,
+      context,
+    );
+  },
+});
 let localMcpEventListener:
   | ((event: {
       type: "workspace-information-updated";
@@ -530,6 +549,7 @@ export async function cleanupLocalMcpRuntime() {
   // write to SQLite.  If we close persistence before the queue drains,
   // those writes either crash or silently lose data.
   await workspaceProviderEventQueue.drain();
+  localMcpTurnJournal.flushAll();
   const pendingPersists = [...workspacePersistChainById.values()];
   workspacePersistChainById.clear();
   await Promise.allSettled(pendingPersists);
@@ -1504,9 +1524,15 @@ async function handleProviderEvent(args: {
   provider: ProviderId;
   model: string;
   turnId: string;
+  sequence: number;
   event: BridgeEvent;
 }) {
   const store = ensureHostServicePersistenceReady();
+  localMcpTurnJournal.append({
+    turnId: args.turnId,
+    sequence: args.sequence,
+    event: args.event,
+  });
   if (args.event.type === "error" && !args.event.recoverable) {
     terminalTurnErrorById.delete(args.turnId);
     terminalTurnErrorById.set(args.turnId, args.event.message);
@@ -2066,6 +2092,7 @@ export async function runTask(args: {
     {
       onEvent: (event) => {
         sequence += 1;
+        const eventSequence = sequence;
         void workspaceProviderEventQueue
           .enqueue(args.workspaceId, () =>
             handleProviderEvent({
@@ -2075,6 +2102,7 @@ export async function runTask(args: {
               provider,
               model,
               turnId,
+              sequence: eventSequence,
               event,
             }),
           )
@@ -2119,11 +2147,17 @@ export async function getTaskStatus(args: {
   const recentTurns = store.listTurns({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
-    limit: args.turnId ? 20 : 1,
+    limit: 1,
+    turnId: args.turnId,
   });
-  const latestTurn = args.turnId
-    ? (recentTurns.find((turn) => turn.id === args.turnId) ?? null)
-    : (recentTurns[0] ?? null);
+  const latestTurn = recentTurns[0] ?? null;
+  const targetedTurnError =
+    args.turnId && latestTurn
+      ? resolveTargetedTurnError({
+          completedAt: latestTurn.completedAt,
+          events: store.getStreamEvents({ turnId: latestTurn.id }),
+        })
+      : null;
   const messages = session.messagesByTask[args.taskId] ?? [];
   const latestAssistantText =
     [...messages]
@@ -2143,7 +2177,9 @@ export async function getTaskStatus(args: {
     latestTurnId: latestTurn?.id ?? null,
     latestTurnCompletedAt: latestTurn?.completedAt ?? null,
     latestTurnError: latestTurn
-      ? (terminalTurnErrorById.get(latestTurn.id) ?? null)
+      ? (terminalTurnErrorById.get(latestTurn.id) ??
+        targetedTurnError ??
+        null)
       : null,
     messageCount: messages.length,
     latestAssistantText,

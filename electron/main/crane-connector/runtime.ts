@@ -88,6 +88,7 @@ interface CraneRuntimeDependencies {
   getTaskStatus: (args: {
     workspaceId: string;
     taskId: string;
+    turnId?: string;
   }) => Promise<TaskStatusResult>;
   releaseTaskControl: (args: {
     workspaceId: string;
@@ -784,12 +785,13 @@ export class CraneConnectorRuntime {
     const task = await this.dependencies.getTaskStatus({
       workspaceId: binding.workspaceId,
       taskId: binding.taskId,
+      turnId: binding.turnId,
     });
     const needsInput =
       task.pendingApprovals.length > 0 ||
       task.pendingUserInputs.length > 0;
     let updated = binding;
-    if (task.activeTurnId) {
+    if (task.activeTurnId === binding.turnId) {
       const targetState = needsInput
         ? "needs_local_input"
         : "running";

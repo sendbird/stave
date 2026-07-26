@@ -391,10 +391,18 @@ describe("SqliteStore", () => {
       });
 
       const turns = store.listLatestTurnsForWorkspace({ workspaceId: "ws-1" });
+      const exactOldTurn = store.listTurns({
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        turnId: "turn-task-1-old",
+      });
 
       expect(turns.map((turn) => turn.id)).toEqual([
         "turn-task-1-new",
         "turn-task-2",
+      ]);
+      expect(exactOldTurn.map((turn) => turn.id)).toEqual([
+        "turn-task-1-old",
       ]);
 
       store.close();

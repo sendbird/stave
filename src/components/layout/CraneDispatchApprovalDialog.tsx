@@ -25,6 +25,11 @@ import {
   useCraneConnectorClientState,
 } from "@/lib/crane-connector/client-state";
 import {
+  findMappedStaveProjectPath,
+  getCraneTeamKey,
+  updateCraneTeamProjectMapping,
+} from "@/lib/crane-connector/project-mapping";
+import {
   getDefaultModelForProvider,
   getProviderLabel,
   getSdkModelOptions,
@@ -63,6 +68,9 @@ export function CraneDispatchApprovalDialog() {
   const [submitting, setSubmitting] = useState(false);
   const activeProjectPath = useAppStore((state) => state.projectPath);
   const projects = useAppStore((state) => state.recentProjects);
+  const projectMappings = useAppStore(
+    (state) => state.settings.craneConnector.projectMappings,
+  );
   const draftProvider = useAppStore((state) => state.draftProvider);
   const modelClaude = useAppStore((state) => state.settings.modelClaude);
   const modelCodex = useAppStore((state) => state.settings.modelCodex);
@@ -82,6 +90,8 @@ export function CraneDispatchApprovalDialog() {
     (state) => state.settings.codexApprovalPolicy,
   );
   const [projectPath, setProjectPath] = useState("");
+  const [rememberProjectMapping, setRememberProjectMapping] =
+    useState(false);
   const [workspaceStrategy, setWorkspaceStrategy] =
     useState<WorkspaceStrategy>("new");
   const [workspaceId, setWorkspaceId] = useState("");
@@ -112,6 +122,10 @@ export function CraneDispatchApprovalDialog() {
       null,
     [projectPath, projects],
   );
+  const craneTeamKey = useMemo(
+    () => (approval ? getCraneTeamKey(approval.job.issue.key) : null),
+    [approval],
+  );
   const providerModels = useMemo(
     () => modelsForProvider(provider, model),
     [model, provider],
@@ -128,15 +142,28 @@ export function CraneDispatchApprovalDialog() {
     if (!approval) {
       return;
     }
-    const preferredProjectPath =
-      (activeProjectPath &&
+    const mappedProjectPath = findMappedStaveProjectPath({
+      issueKey: approval.job.issue.key,
+      mappings: projectMappings,
+      registeredProjectPaths: projects.map(
+        (project) => project.projectPath,
+      ),
+    });
+    const activeRegisteredProjectPath =
+      activeProjectPath &&
       projects.some(
         (project) => project.projectPath === activeProjectPath,
       )
         ? activeProjectPath
-        : projects[0]?.projectPath) ?? "";
+        : null;
+    const preferredProjectPath =
+      mappedProjectPath ??
+      activeRegisteredProjectPath ??
+      projects[0]?.projectPath ??
+      "";
     const preferredProvider = draftProvider;
     setProjectPath(preferredProjectPath);
+    setRememberProjectMapping(Boolean(getCraneTeamKey(approval.job.issue.key)));
     setWorkspaceStrategy("new");
     setWorkspaceId("");
     setBranchName(defaultBranchName(approval.job.issue.key));
@@ -167,6 +194,7 @@ export function CraneDispatchApprovalDialog() {
     modelClaude,
     modelCodex,
     projects,
+    projectMappings,
   ]);
 
   const changeProvider = (nextProvider: ProviderId) => {
@@ -277,6 +305,24 @@ export function CraneDispatchApprovalDialog() {
           description: result.message,
         });
         return;
+      }
+      if (craneTeamKey) {
+        const store = useAppStore.getState();
+        const craneConnector = store.settings.craneConnector;
+        store.updateSettings({
+          patch: {
+            craneConnector: {
+              ...craneConnector,
+              projectMappings: updateCraneTeamProjectMapping({
+                mappings: craneConnector.projectMappings,
+                teamKey: craneTeamKey,
+                staveProjectPath: rememberProjectMapping
+                  ? projectPath
+                  : null,
+              }),
+            },
+          },
+        });
       }
       dismissCraneDispatchApproval(approval.job.id);
       toast.success(`Started ${approval.job.issue.key} in Stave`);
@@ -401,7 +447,7 @@ export function CraneDispatchApprovalDialog() {
                 htmlFor="crane-dispatch-project"
                 className="text-xs font-medium text-muted-foreground"
               >
-                Registered project
+                Stave project
               </label>
               <Select value={projectPath} onValueChange={setProjectPath}>
                 <SelectTrigger id="crane-dispatch-project">
@@ -421,6 +467,29 @@ export function CraneDispatchApprovalDialog() {
               <p className="truncate font-mono text-[11px] text-muted-foreground">
                 {projectPath || "No registered project available"}
               </p>
+              {craneTeamKey ? (
+                <div className="mt-1 flex items-start justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
+                  <div className="min-w-0">
+                    <label
+                      htmlFor="crane-dispatch-remember-project"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Remember for {craneTeamKey} issues
+                    </label>
+                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                      Stored only in Stave. Future {craneTeamKey} jobs
+                      preselect this project, and you can still change it
+                      before each run.
+                    </p>
+                  </div>
+                  <Switch
+                    id="crane-dispatch-remember-project"
+                    checked={rememberProjectMapping}
+                    onCheckedChange={setRememberProjectMapping}
+                    aria-label={`Remember Stave project for ${craneTeamKey} issues`}
+                  />
+                </div>
+              ) : null}
             </div>
             <div className="grid gap-2">
               <label
@@ -750,7 +819,9 @@ export function CraneDispatchApprovalDialog() {
 
         <DialogFooter className="shrink-0 border-t border-border/70 bg-muted/20 px-6 py-4">
           <span className="mr-auto text-xs text-muted-foreground">
-            Approval applies to this job only.
+            {rememberProjectMapping && craneTeamKey
+              ? "Run approval is job-scoped; only this local project preference is remembered."
+              : "Approval applies to this job only."}
           </span>
           <Button
             ref={declineButtonRef}

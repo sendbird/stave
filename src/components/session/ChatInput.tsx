@@ -98,9 +98,11 @@ import {
 } from "@/lib/providers/turn-status";
 import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
 import {
+  canTakeOverTask,
   getTaskControlOwner,
   isExternallyManagedTask,
   isTaskArchived,
+  isTaskManaged,
 } from "@/lib/tasks";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
@@ -121,7 +123,12 @@ import {
   resolvePromptDraftModelForProvider,
   resolvePromptDraftRuntimeState,
 } from "@/store/prompt-draft-runtime";
-import type { Attachment, ChatMessage, PromptDraft } from "@/types/chat";
+import type {
+  Attachment,
+  ChatMessage,
+  PromptDraft,
+  TaskControlOwner,
+} from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildChatInputGoalStatus,
@@ -129,6 +136,7 @@ import {
   buildCommandCatalogRuntimeOptions,
 } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
+import { ManagedTaskTakeoverNotice } from "./ManagedTaskTakeoverNotice";
 import {
   resolvePastedFileAbsolutePath,
   toWorkspaceRelativeFilePath,
@@ -199,6 +207,9 @@ interface ChatInputComposerProps {
   workspaceCwd?: string;
   providerSelectionTarget: string;
   isTurnActive: boolean;
+  managedTaskOwner: TaskControlOwner | null;
+  canTakeOverManagedTask: boolean;
+  onTakeOverManagedTask: () => void;
   approvalActionsDisabled?: boolean;
   approvalDisabledReason?: string;
   selectedModelOption: ModelSelectorOption;
@@ -909,6 +920,14 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         />
       ) : null}
       <div className="mx-auto max-w-6xl">
+        {args.managedTaskOwner ? (
+          <ManagedTaskTakeoverNotice
+            owner={args.managedTaskOwner}
+            isTurnActive={args.isTurnActive}
+            canTakeOver={args.canTakeOverManagedTask}
+            onTakeOver={args.onTakeOverManagedTask}
+          />
+        ) : null}
         {pendingApprovals.length > 0 ? (
           <ChatInputApprovalQueue
             approvals={pendingApprovals}
@@ -1476,9 +1495,10 @@ function BaseChatInput() {
       state.messageCountByTask[activeTaskId] ??
       (state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES).length,
   );
-  const isTurnActive = useAppStore((state) =>
-    Boolean(state.activeTurnIdsByTask[activeTaskId]),
+  const activeTurnId = useAppStore(
+    (state) => state.activeTurnIdsByTask[activeTaskId] ?? null,
   );
+  const isTurnActive = Boolean(activeTurnId);
   const latestMessageIsPlanResponse = useAppStore((state) => {
     const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
     const lastMessage = messages[messages.length - 1];
@@ -1709,6 +1729,13 @@ function BaseChatInput() {
     [modelShortcutEfforts],
   );
   const approvalActionsDisabled = isExternallyManagedTask(activeTask);
+  const managedTaskOwner = isTaskManaged(activeTask)
+    ? getTaskControlOwner(activeTask)
+    : null;
+  const canTakeOverManagedTask = canTakeOverTask({
+    task: activeTask,
+    activeTurnId,
+  });
   const approvalDisabledReason = approvalActionsDisabled
     ? `This request is managed by ${getTaskControlOwner(activeTask) === "external" ? "an external controller" : "Stave"}. Respond from the originating client or take over after the run ends.`
     : undefined;
@@ -2161,6 +2188,11 @@ function BaseChatInput() {
       workspaceCwd={workspaceCwd}
       providerSelectionTarget={providerSelectionTarget}
       isTurnActive={isTurnActive}
+      managedTaskOwner={managedTaskOwner}
+      canTakeOverManagedTask={canTakeOverManagedTask}
+      onTakeOverManagedTask={() => {
+        useAppStore.getState().takeOverTask({ taskId: activeTaskId });
+      }}
       approvalActionsDisabled={approvalActionsDisabled}
       approvalDisabledReason={approvalDisabledReason}
       selectedModelOption={selectedModelOption}

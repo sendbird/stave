@@ -10,8 +10,12 @@ const CONNECTOR_STATUS = {
   secureStorageAvailable: true,
 } as const;
 
-function seedCraneConnector(page: Page) {
-  return page.addInitScript((initialStatus) => {
+function seedCraneConnector(
+  page: Page,
+  options?: { managedTask?: boolean },
+) {
+  return page.addInitScript((payload) => {
+    const { initialStatus, managedTask } = payload;
     const workspaceSnapshot = {
       activeTaskId: "task-crane-settings",
       openTaskTabIds: ["task-crane-settings"],
@@ -27,6 +31,12 @@ function seedCraneConnector(page: Page) {
           updatedAt: "2026-07-26T00:00:00.000Z",
           unread: false,
           archivedAt: null,
+          ...(managedTask
+            ? {
+                controlMode: "managed",
+                controlOwner: "stave",
+              }
+            : {}),
         },
       ],
       messagesByTask: { "task-crane-settings": [] },
@@ -226,7 +236,10 @@ function seedCraneConnector(page: Page) {
         openExternal: async () => ({ ok: true }),
       },
     };
-  }, CONNECTOR_STATUS);
+  }, {
+    initialStatus: CONNECTOR_STATUS,
+    managedTask: options?.managedTask === true,
+  });
 }
 
 test("Crane settings pair explicitly and keep the connector off by default", async ({
@@ -385,8 +398,18 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
     dialog.getByRole("combobox", { name: "Provider" }),
   ).toContainText("Codex");
   await expect(
-    dialog.getByText("Approval applies to this job only."),
+    dialog.getByText(
+      "Run approval is job-scoped; only this local project preference is remembered.",
+    ),
   ).toBeVisible();
+  await expect(
+    dialog.getByRole("combobox", { name: "Stave project" }),
+  ).toContainText("stave-project");
+  await expect(
+    dialog.getByRole("switch", {
+      name: "Remember for CRANE issues",
+    }),
+  ).toBeChecked();
 
   await dialog.screenshot({
     path: testInfo.outputPath("crane-dispatch-approval.png"),
@@ -395,6 +418,30 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
     .getByRole("button", { name: "Approve and run locally" })
     .click();
   await expect(dialog).toBeHidden();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const persisted = JSON.parse(
+          window.localStorage.getItem("stave-store") ?? "{}",
+        ) as {
+          state?: {
+            settings?: {
+              craneConnector?: {
+                projectMappings?: unknown[];
+              };
+            };
+          };
+        };
+        return persisted.state?.settings?.craneConnector?.projectMappings;
+      }),
+    )
+    .toEqual([
+      {
+        craneTeamKey: "CRANE",
+        staveProjectPath: "/tmp/stave-project",
+      },
+    ]);
 
   await expect
     .poll(() =>
@@ -425,5 +472,34 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
         },
       },
     ]);
+  expect(pageErrors.map((error) => error.message)).toEqual([]);
+});
+
+test("inactive managed task offers Take Over above the composer", async ({
+  page,
+}, testInfo) => {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error));
+  await seedCraneConnector(page, { managedTask: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const takeOver = page.getByRole("button", {
+    name: "Take over managed task",
+  });
+  await expect(takeOver).toBeVisible();
+  await expect(takeOver).toBeEnabled();
+  await expect(page.getByText("Managed by Stave")).toBeVisible();
+  await expect(
+    page.getByText(
+      "The managed run ended. Take over to continue directly in this task.",
+    ),
+  ).toBeVisible();
+
+  await takeOver.locator("xpath=..").screenshot({
+    path: testInfo.outputPath("managed-task-takeover.png"),
+  });
+  await takeOver.click();
+  await expect(takeOver).toBeHidden();
   expect(pageErrors.map((error) => error.message)).toEqual([]);
 });
