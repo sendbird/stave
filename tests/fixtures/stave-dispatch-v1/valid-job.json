@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "id": "job_01K12CRANESTAVE000000000001",
+  "kind": "run_task",
+  "connectorId": "connector_01K12LOCALSTAVE00000001",
+  "issue": {
+    "id": "task_01K12CRANE000000000000042",
+    "key": "CRANE-42",
+    "title": "Harden the release workflow",
+    "description": "Validate the release checks and document any blocking failure.",
+    "href": "https://atelier.example/crane/issues/CRANE-42",
+    "updatedAt": "2026-07-26T01:00:00.000Z"
+  },
+  "instruction": "Implement the issue using the repository's existing patterns and run focused tests.",
+  "requestedAt": "2026-07-26T01:05:00.000Z",
+  "expiresAt": "2026-07-27T01:05:00.000Z"
+}
