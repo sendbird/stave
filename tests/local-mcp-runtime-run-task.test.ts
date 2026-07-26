@@ -216,10 +216,7 @@ const fakeStore = {
     };
   }) => {
     if (snapshot.workspaceInformation) {
-      persistedWorkspaceInformationById.set(
-        id,
-        snapshot.workspaceInformation,
-      );
+      persistedWorkspaceInformationById.set(id, snapshot.workspaceInformation);
     }
     if (Array.isArray(snapshot.tasks)) {
       persistedTasksByWorkspaceId.set(
@@ -348,10 +345,22 @@ describe("local MCP runtime runTask", () => {
       | {
           controlMode?: string;
           controlOwner?: string;
+          sourceContexts?: Array<{
+            sourceId?: string;
+            content?: string;
+          }>;
         }
       | undefined;
     expect(task?.controlMode).toBe("managed");
     expect(task?.controlOwner).toBe("stave");
+    expect(task?.sourceContexts).toEqual([
+      {
+        type: "retrieved_context",
+        sourceId: "crane:CRANE-42",
+        title: "Crane CRANE-42",
+        content: "Untrusted remote issue context.",
+      },
+    ]);
 
     const call = startTurnStreamCalls.at(-1) as {
       conversation?: {
@@ -417,12 +426,60 @@ describe("local MCP runtime runTask", () => {
     const result = await runtime.releaseLocallyManagedTaskControl({
       workspaceId: RELEASE_WORKSPACE_ID,
       taskId: RELEASE_TASK_ID,
+      sourceContexts: [
+        {
+          type: "retrieved_context",
+          sourceId: "crane:ATL-1",
+          title: "Crane ATL-1",
+          content: "Recovered from the local Crane binding.",
+        },
+      ],
     });
 
     expect(result.released).toBe(true);
     const task = lastUpsertSnapshotByWorkspaceId
       .get(RELEASE_WORKSPACE_ID)
       ?.tasks?.find((candidate) => candidate.id === RELEASE_TASK_ID) as
+      | {
+          controlMode?: string;
+          controlOwner?: string;
+          sourceContexts?: unknown[];
+        }
+      | undefined;
+    expect(task).toMatchObject({
+      controlMode: "interactive",
+      controlOwner: "stave",
+      sourceContexts: [
+        {
+          type: "retrieved_context",
+          sourceId: "crane:ATL-1",
+          title: "Crane ATL-1",
+          content: "Recovered from the local Crane binding.",
+        },
+      ],
+    });
+  });
+
+  test("takes over an inactive externally managed task through host ownership", async () => {
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Run under external management",
+      controlMode: "managed",
+      controlOwner: "external",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({ type: "done" });
+    await Bun.sleep(0);
+
+    const takenOver = await runtime.takeOverManagedTaskControl({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+    });
+
+    expect(takenOver.released).toBe(true);
+    const task = lastUpsertSnapshotByWorkspaceId
+      .get(WORKSPACE_ID)
+      ?.tasks?.find((candidate) => candidate.id === result.taskId) as
       | {
           controlMode?: string;
           controlOwner?: string;

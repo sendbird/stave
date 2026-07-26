@@ -363,6 +363,7 @@ describe("CraneConnectorRuntime", () => {
       runtime: {
         provider: "codex",
         model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
@@ -388,6 +389,7 @@ describe("CraneConnectorRuntime", () => {
       provider: "codex",
       runtimeOptions: {
         model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
@@ -408,12 +410,68 @@ describe("CraneConnectorRuntime", () => {
       {
         workspaceId: "workspace-crane",
         taskId: "task-crane",
+        sourceContexts: [
+          expect.objectContaining({
+            sourceId: "crane:CRANE-42",
+          }),
+        ],
       },
     ]);
     expect(JSON.stringify(harness.receipts)).not.toContain(
       "sensitive output",
     );
     expect(harness.bindings.get(JOB.id)?.state).toBe("completed");
+  });
+
+  test("settles the exact Crane turn before manual takeover", async () => {
+    const harness = createHarness();
+    await harness.runtime.configure({
+      enabled: true,
+      baseUrl: "https://atelier.delight-tools.ai",
+      pollIntervalSeconds: 15,
+    });
+    await harness.runNextTimer();
+    await harness.runtime.approve({
+      jobId: JOB.id,
+      projectPath: "/tmp/project",
+      workspace: {
+        strategy: "new",
+        branchName: "crane/crane-42",
+      },
+      runtime: {
+        provider: "codex",
+        model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
+        codexFileAccess: "workspace-write",
+        codexNetworkAccess: false,
+        codexApprovalPolicy: "on-request",
+        advisorTarget: null,
+      },
+    });
+    harness.setTaskCompleted();
+
+    const result = await harness.runtime.prepareTaskTakeover({
+      workspaceId: "workspace-crane",
+      taskId: "task-crane",
+    });
+
+    expect(result).toEqual({
+      bindingFound: true,
+      receiptPending: false,
+      sourceContexts: [
+        expect.objectContaining({
+          sourceId: "crane:CRANE-42",
+        }),
+      ],
+    });
+    expect(harness.taskStatusCalls.at(-1)).toEqual({
+      workspaceId: "workspace-crane",
+      taskId: "task-crane",
+      turnId: "turn-crane",
+    });
+    expect(harness.receipts.at(-1)).toEqual({ state: "completed" });
+    expect(harness.bindings.get(JOB.id)?.state).toBe("completed");
+    expect(harness.leases.has(JOB.id)).toBe(false);
   });
 
   test("observes the bound turn even when a later turn is active", async () => {
@@ -434,6 +492,7 @@ describe("CraneConnectorRuntime", () => {
       runtime: {
         provider: "codex",
         model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
@@ -471,6 +530,7 @@ describe("CraneConnectorRuntime", () => {
       runtime: {
         provider: "codex",
         model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
@@ -547,6 +607,7 @@ describe("CraneConnectorRuntime", () => {
       runtime: {
         provider: "codex",
         model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
@@ -593,6 +654,7 @@ describe("CraneConnectorRuntime", () => {
         runtime: {
           provider: "codex",
           model: "gpt-5.6",
+          providerTimeoutMs: 43_200_000,
           codexFileAccess: "workspace-write",
           codexNetworkAccess: false,
           codexApprovalPolicy: "on-request",

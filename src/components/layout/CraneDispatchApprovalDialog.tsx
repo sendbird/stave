@@ -89,6 +89,9 @@ export function CraneDispatchApprovalDialog() {
   const defaultCodexApprovalPolicy = useAppStore(
     (state) => state.settings.codexApprovalPolicy,
   );
+  const providerTimeoutMs = useAppStore(
+    (state) => state.settings.providerTimeoutMs,
+  );
   const [projectPath, setProjectPath] = useState("");
   const [rememberProjectMapping, setRememberProjectMapping] =
     useState(false);
@@ -286,6 +289,7 @@ export function CraneDispatchApprovalDialog() {
             ? {
                 provider,
                 model,
+                providerTimeoutMs,
                 claudePermissionMode,
                 claudeSandboxEnabled,
                 advisorTarget,
@@ -293,6 +297,7 @@ export function CraneDispatchApprovalDialog() {
             : {
                 provider,
                 model,
+                providerTimeoutMs,
                 codexFileAccess,
                 codexNetworkAccess,
                 codexApprovalPolicy,

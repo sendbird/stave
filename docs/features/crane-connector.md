@@ -85,8 +85,12 @@ Pairing codes are exchanged once and are not stored in Stave settings.
    Codex Advisor.
 6. Approve the job.
 
-The issue text is attached as untrusted retrieved context. It does not become
-system policy or grant extra file, network, or approval permissions.
+The issue text is stored locally with the task and attached to the managed
+provider turn as untrusted retrieved context. The attached context remains
+inspectable above the composer and is reattached to later turns after
+`Take Over`; it does not become system policy or grant extra file, network, or
+approval permissions. The run also inherits Stave's configured provider
+timeout instead of using a connector-specific limit.
 
 ## Files And Data
 
@@ -111,11 +115,15 @@ paths, branch names, provider credentials, or Local MCP metadata.
 - One connector processes one active job at a time and resumes its durable local
   binding after an app restart.
 - While its provider turn is active, a Crane job is a locally controlled
-  managed task. Stave releases it back to normal interactive control after the
-  turn finishes; an inline `Take Over` action above the composer remains
-  available as a fallback once no turn is active, with the task-tab menu as a
-  secondary entry point. It does not use Run Core or change ordinary
-  interactive tasks.
+  managed task. The composer stays monitor-only, while local approval and user
+  input requests remain actionable in the task. Stave releases the task back
+  to normal interactive control after the turn finishes; an inline `Take Over`
+  action above the composer remains available as a fallback once no turn is
+  active, with the task-tab menu as a secondary entry point. Takeover is
+  committed by the host process only after the exact bound Crane turn is
+  terminal. If Crane is offline, local control can still be released and the
+  terminal receipt retries in the background. It does not use Run Core or
+  change ordinary interactive tasks.
 - Project choice stays in the local Stave approval dialog. Crane never receives
   the local project catalog, path, or remembered mapping.
 

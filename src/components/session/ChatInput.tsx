@@ -128,6 +128,7 @@ import type {
   ChatMessage,
   PromptDraft,
   TaskControlOwner,
+  TaskSourceContext,
 } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -137,6 +138,10 @@ import {
 } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
 import { ManagedTaskTakeoverNotice } from "./ManagedTaskTakeoverNotice";
+import {
+  resolveManagedTaskComposerAccess,
+  TaskSourceContextNotice,
+} from "./TaskSourceContextNotice";
 import {
   resolvePastedFileAbsolutePath,
   toWorkspaceRelativeFilePath,
@@ -208,6 +213,7 @@ interface ChatInputComposerProps {
   providerSelectionTarget: string;
   isTurnActive: boolean;
   managedTaskOwner: TaskControlOwner | null;
+  sourceContexts: readonly TaskSourceContext[];
   canTakeOverManagedTask: boolean;
   onTakeOverManagedTask: () => void;
   approvalActionsDisabled?: boolean;
@@ -379,6 +385,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     providerSupportsMidTurnSteering({ providerId: args.activeProvider }) &&
     (promptDraft.attachments?.length ?? 0) === 0 &&
     (promptDraft.attachedFilePaths?.length ?? 0) === 0;
+  const managedTaskComposerAccess = resolveManagedTaskComposerAccess({
+    managedTaskOwner: args.managedTaskOwner,
+    isTurnActive: args.isTurnActive && providerTurnDisplayState !== "stalled",
+    canSteerActiveTurn,
+  });
   const stalledDurationLabel = useMemo(
     () =>
       providerTurnDisplayState === "stalled"
@@ -920,6 +931,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         />
       ) : null}
       <div className="mx-auto max-w-6xl">
+        <TaskSourceContextNotice sourceContexts={args.sourceContexts} />
         {args.managedTaskOwner ? (
           <ManagedTaskTakeoverNotice
             owner={args.managedTaskOwner}
@@ -1016,7 +1028,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           focusToken={`${args.providerSelectionTarget}:${focusNonce}`}
           value={draftText}
           onBlur={commitCurrentDraftText}
-          disabled={isInputBlocked || isSteerSubmitting}
+          disabled={
+            isInputBlocked ||
+            isSteerSubmitting ||
+            managedTaskComposerAccess.disabled
+          }
           windowShortcutsEnabled={args.windowShortcutsEnabled}
           isTurnActive={args.isTurnActive}
           beforeRuntimeAction={
@@ -1141,13 +1157,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               </div>
             )
           }
-          submitMode={
-            args.isTurnActive && providerTurnDisplayState !== "stalled"
-              ? canSteerActiveTurn
-                ? "steer-or-queue"
-                : "queue-next"
-              : "send"
-          }
+          submitMode={managedTaskComposerAccess.submitMode}
           queuedNextTurn={queuedNextTurn}
           queuedTurns={queuedTurns}
           promptBatch={promptBatch}
@@ -2189,9 +2199,26 @@ function BaseChatInput() {
       providerSelectionTarget={providerSelectionTarget}
       isTurnActive={isTurnActive}
       managedTaskOwner={managedTaskOwner}
+      sourceContexts={activeTask?.sourceContexts ?? []}
       canTakeOverManagedTask={canTakeOverManagedTask}
       onTakeOverManagedTask={() => {
-        useAppStore.getState().takeOverTask({ taskId: activeTaskId });
+        void useAppStore
+          .getState()
+          .takeOverTask({ taskId: activeTaskId })
+          .then((result) => {
+            if (!result.ok) {
+              toast.error("Could not take over this task", {
+                description: result.message,
+              });
+              return;
+            }
+            if (result.craneReceiptPending) {
+              toast.info("Task control is now local", {
+                description:
+                  "Crane is temporarily unreachable; its terminal status will retry in the background.",
+              });
+            }
+          });
       }}
       approvalActionsDisabled={approvalActionsDisabled}
       approvalDisabledReason={approvalDisabledReason}

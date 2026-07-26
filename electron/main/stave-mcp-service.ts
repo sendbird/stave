@@ -1,4 +1,5 @@
 import { webContents } from "electron";
+import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
 import type {
   HostCraneReleaseTaskControlArgs,
   HostCraneReleaseTaskControlResult,
@@ -364,6 +365,18 @@ export async function releaseLocallyManagedCraneTask(
     "crane.release-task-control",
     args,
   ) as Promise<HostCraneReleaseTaskControlResult>;
+}
+
+export async function takeOverManagedTask(args: {
+  workspaceId: string;
+  taskId: string;
+  sourceContexts?: CanonicalRetrievedContextPart[];
+}) {
+  return invokeHostService("task.take-over", args) as Promise<{
+    workspaceId: string;
+    taskId: string;
+    released: boolean;
+  }>;
 }
 
 export async function getTaskStatus(args: {

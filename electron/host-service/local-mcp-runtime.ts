@@ -1937,6 +1937,7 @@ export async function runTask(args: {
 
   const requestedControlMode = args.controlMode ?? "managed";
   const requestedControlOwner = args.controlOwner ?? "external";
+  const requestedSourceContexts = args.retrievedContextParts ?? [];
 
   if (!task) {
     const taskId = randomUUID();
@@ -1949,6 +1950,9 @@ export async function runTask(args: {
       archivedAt: null,
       controlMode: requestedControlMode,
       controlOwner: requestedControlOwner,
+      ...(requestedSourceContexts.length > 0
+        ? { sourceContexts: requestedSourceContexts }
+        : {}),
     } satisfies Task;
     session = cacheWorkspaceSession(args.workspaceId, {
       ...session,
@@ -1963,20 +1967,38 @@ export async function runTask(args: {
         [task.id]: false,
       },
     });
-  } else if (
-    task.controlMode !== requestedControlMode ||
-    task.controlOwner !== requestedControlOwner
-  ) {
-    task = {
-      ...task,
-      controlMode: requestedControlMode,
-      controlOwner: requestedControlOwner,
-      updatedAt: buildRecentTimestamp(),
-    } satisfies Task;
-    session = cacheWorkspaceSession(args.workspaceId, {
-      ...session,
-      tasks: session.tasks.map((item) => (item.id === task!.id ? task! : item)),
-    });
+  } else {
+    const sourceContextsById = new Map(
+      (task.sourceContexts ?? []).map((part) => [part.sourceId, part]),
+    );
+    for (const part of requestedSourceContexts) {
+      sourceContextsById.set(part.sourceId, part);
+    }
+    const sourceContexts = [...sourceContextsById.values()];
+    const sourceContextsChanged =
+      JSON.stringify(sourceContexts) !==
+      JSON.stringify(task.sourceContexts ?? []);
+    if (
+      task.controlMode === requestedControlMode &&
+      task.controlOwner === requestedControlOwner &&
+      !sourceContextsChanged
+    ) {
+      // Keep the current task object when no durable metadata changed.
+    } else {
+      task = {
+        ...task,
+        controlMode: requestedControlMode,
+        controlOwner: requestedControlOwner,
+        ...(sourceContexts.length > 0 ? { sourceContexts } : {}),
+        updatedAt: buildRecentTimestamp(),
+      } satisfies Task;
+      session = cacheWorkspaceSession(args.workspaceId, {
+        ...session,
+        tasks: session.tasks.map((item) =>
+          item.id === task!.id ? task! : item,
+        ),
+      });
+    }
   }
 
   if (session.activeTurnIdsByTask[task.id]) {
@@ -2188,9 +2210,11 @@ export async function getTaskStatus(args: {
   } satisfies TaskStatusResult;
 }
 
-export async function releaseLocallyManagedTaskControl(args: {
+async function releaseManagedTaskControl(args: {
   workspaceId: string;
   taskId: string;
+  requiredOwner?: TaskControlOwner;
+  sourceContexts?: CanonicalRetrievedContextPart[];
 }) {
   const { projects } = await loadNormalizedProjects();
   const registration = findWorkspaceRegistration({
@@ -2210,10 +2234,20 @@ export async function releaseLocallyManagedTaskControl(args: {
   if (session.activeTurnIdsByTask[task.id]) {
     throw new Error(`Task still has an active turn: ${task.id}`);
   }
-  if (
-    task.controlMode !== "managed" ||
-    task.controlOwner !== "stave"
-  ) {
+  const sourceContextsById = new Map(
+    (task.sourceContexts ?? []).map((part) => [part.sourceId, part]),
+  );
+  for (const part of args.sourceContexts ?? []) {
+    sourceContextsById.set(part.sourceId, part);
+  }
+  const sourceContexts = [...sourceContextsById.values()];
+  const sourceContextsChanged =
+    JSON.stringify(sourceContexts) !==
+    JSON.stringify(task.sourceContexts ?? []);
+  const canRelease =
+    task.controlMode === "managed" &&
+    (!args.requiredOwner || task.controlOwner === args.requiredOwner);
+  if (!canRelease && !sourceContextsChanged) {
     return {
       workspaceId: args.workspaceId,
       taskId: task.id,
@@ -2222,8 +2256,13 @@ export async function releaseLocallyManagedTaskControl(args: {
   }
   const releasedTask: Task = {
     ...task,
-    controlMode: "interactive",
-    controlOwner: "stave",
+    ...(canRelease
+      ? {
+          controlMode: "interactive" as const,
+          controlOwner: "stave" as const,
+        }
+      : {}),
+    ...(sourceContexts.length > 0 ? { sourceContexts } : {}),
     updatedAt: buildRecentTimestamp(),
   };
   session = cacheWorkspaceSession(args.workspaceId, {
@@ -2240,8 +2279,27 @@ export async function releaseLocallyManagedTaskControl(args: {
   return {
     workspaceId: args.workspaceId,
     taskId: task.id,
-    released: true,
+    released: canRelease,
   };
+}
+
+export function releaseLocallyManagedTaskControl(args: {
+  workspaceId: string;
+  taskId: string;
+  sourceContexts?: CanonicalRetrievedContextPart[];
+}) {
+  return releaseManagedTaskControl({
+    ...args,
+    requiredOwner: "stave",
+  });
+}
+
+export function takeOverManagedTaskControl(args: {
+  workspaceId: string;
+  taskId: string;
+  sourceContexts?: CanonicalRetrievedContextPart[];
+}) {
+  return releaseManagedTaskControl(args);
 }
 
 function findApprovalMessage(args: {

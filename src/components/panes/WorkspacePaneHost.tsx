@@ -484,8 +484,9 @@ function buildTabContextMenuItems(
           task,
           activeTurnId: store.activeTurnIdsByTask[surface.taskId] ?? null,
         }),
-        action: () =>
-          useAppStore.getState().takeOverTask({ taskId: surface.taskId }),
+        action: () => {
+          void useAppStore.getState().takeOverTask({ taskId: surface.taskId });
+        },
       });
     }
     items.push(

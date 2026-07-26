@@ -679,6 +679,17 @@ interface WindowCraneConnectorApi {
   ) => () => void;
 }
 
+interface WindowTaskControlApi {
+  takeOver?: (args: { workspaceId: string; taskId: string }) => Promise<{
+    ok: boolean;
+    workspaceId?: string;
+    taskId?: string;
+    released?: boolean;
+    craneReceiptPending?: boolean;
+    message?: string;
+  }>;
+}
+
 interface WindowRoutinesApi {
   list?: () => Promise<{
     ok: boolean;
@@ -2301,6 +2312,7 @@ interface WindowApi {
   skills?: WindowSkillsApi;
   localMcp?: WindowLocalMcpApi;
   craneConnector?: WindowCraneConnectorApi;
+  taskControl?: WindowTaskControlApi;
   routines?: WindowRoutinesApi;
   lsp?: WindowLspApi;
   eslint?: WindowEslintApi;

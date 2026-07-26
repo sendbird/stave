@@ -84,6 +84,13 @@ export function approveCraneDispatch(
   return getCraneConnectorRuntime().approve(input);
 }
 
+export function prepareCraneTaskTakeover(input: {
+  workspaceId: string;
+  taskId: string;
+}) {
+  return getCraneConnectorRuntime().prepareTaskTakeover(input);
+}
+
 export function declineCraneDispatch(jobId: string) {
   return getCraneConnectorRuntime().decline(jobId);
 }

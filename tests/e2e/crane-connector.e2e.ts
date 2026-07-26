@@ -35,6 +35,12 @@ function seedCraneConnector(
             ? {
                 controlMode: "managed",
                 controlOwner: "stave",
+                sourceContexts: [{
+                  type: "retrieved_context",
+                  sourceId: "crane:ATL-1",
+                  title: "Crane ATL-1 · Verify takeover",
+                  content: "Task-scoped Crane issue material.",
+                }],
               }
             : {}),
         },
@@ -85,6 +91,7 @@ function seedCraneConnector(
           settings: {
             autoRoutingEnabled: true,
             modelCodex: "gpt-5.6",
+            providerTimeoutMs: 43_200_000,
             codexFileAccess: "workspace-write",
             codexNetworkAccess: false,
             codexApprovalPolicy: "on-request",
@@ -147,6 +154,7 @@ function seedCraneConnector(
       approveCalls: [] as unknown[],
       declineCalls: [] as unknown[],
       disconnectCalls: 0,
+      takeOverCalls: [] as unknown[],
       emitApproval: (request: ApprovalRequest) => {
         approvalListener?.(request);
       },
@@ -231,6 +239,18 @@ function seedCraneConnector(
           };
         },
         subscribeJobUpdates: () => () => {},
+      },
+      taskControl: {
+        takeOver: async (args: unknown) => {
+          testState.takeOverCalls.push(args);
+          return {
+            ok: true,
+            workspaceId: "ws-main",
+            taskId: "task-crane-settings",
+            released: true,
+            craneReceiptPending: false,
+          };
+        },
       },
       shell: {
         openExternal: async () => ({ ok: true }),
@@ -465,6 +485,7 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
         runtime: {
           provider: "codex",
           model: "gpt-5.6",
+          providerTimeoutMs: 43_200_000,
           codexFileAccess: "workspace-write",
           codexNetworkAccess: false,
           codexApprovalPolicy: "on-request",
@@ -495,11 +516,37 @@ test("inactive managed task offers Take Over above the composer", async ({
       "The managed run ended. Take over to continue directly in this task.",
     ),
   ).toBeVisible();
+  const prompt = page.locator('[data-prompt-lexical-editor="true"]');
+  await expect(prompt).toHaveAttribute("contenteditable", "false");
+  await expect(
+    page.getByText("Crane ATL-1 · Verify takeover"),
+  ).toBeVisible();
 
   await takeOver.locator("xpath=..").screenshot({
     path: testInfo.outputPath("managed-task-takeover.png"),
   });
   await takeOver.click();
   await expect(takeOver).toBeHidden();
+  await expect(prompt).toHaveAttribute("contenteditable", "true");
+  await expect(
+    page.getByText("Crane ATL-1 · Verify takeover"),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              craneConnectorTestState: { takeOverCalls: unknown[] };
+            }
+          ).craneConnectorTestState.takeOverCalls,
+      ),
+    )
+    .toEqual([
+      {
+        workspaceId: "ws-main",
+        taskId: "task-crane-settings",
+      },
+    ]);
   expect(pageErrors.map((error) => error.message)).toEqual([]);
 });

@@ -15,6 +15,7 @@ import { registerRoutineHandlers } from "./routines";
 import { registerScmHandlers } from "./scm";
 import { registerSkillsHandlers } from "./skills";
 import { registerTerminalHandlers } from "./terminal";
+import { registerTaskControlHandlers } from "./task-control";
 import { registerToolingHandlers } from "./tooling";
 import { registerWindowHandlers } from "./window";
 import { registerWorkspaceScriptHandlers } from "./workspace-scripts";
@@ -27,6 +28,7 @@ export function registerHandlers() {
   registerRoutineHandlers();
   registerPersistenceHandlers();
   registerTerminalHandlers();
+  registerTaskControlHandlers();
   registerToolingHandlers();
   registerWorkspaceScriptHandlers();
   registerScmHandlers();

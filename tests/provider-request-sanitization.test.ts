@@ -201,6 +201,103 @@ describe("provider request sanitization", () => {
     expect(String(historyParts?.[0]?.output).length).toBeLessThanOrEqual(MAX_FILE_CONTEXT_CONTENT_CHARS);
   });
 
+  test("reattaches task-scoped Crane context after managed takeover", async () => {
+    let startedConversation: Record<string, unknown> | undefined;
+
+    (globalThis as { window?: unknown }).window = {
+      localStorage: {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+        clear: () => {},
+      },
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async (args: Record<string, unknown>) => {
+            startedConversation = args.conversation as Record<string, unknown> | undefined;
+            return {
+              ok: true,
+              streamId: "stream-crane-follow-up",
+              turnId: "turn-crane-follow-up",
+            };
+          },
+          subscribeStreamEvents: () => () => {},
+          abortTurn: async () => ({ ok: true, message: "aborted" }),
+          cleanupTask: async () => ({ ok: true, message: "cleaned" }),
+        },
+      },
+    };
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [{
+        id: "ws-main",
+        name: "Main",
+        updatedAt: "2026-07-26T00:00:00.000Z",
+      }],
+      activeWorkspaceId: "ws-main",
+      projectPath: "/tmp/stave-project",
+      workspacePathById: { "ws-main": "/tmp/stave-project" },
+      workspaceBranchById: { "ws-main": "main" },
+      workspaceDefaultById: { "ws-main": true },
+      tasks: [{
+        id: "task-crane",
+        title: "Crane ATL-1",
+        provider: "codex",
+        updatedAt: "2026-07-26T00:00:00.000Z",
+        unread: false,
+        archivedAt: null,
+        controlMode: "interactive",
+        controlOwner: "stave",
+        sourceContexts: [{
+          type: "retrieved_context",
+          sourceId: "crane:ATL-1",
+          title: "Crane ATL-1",
+          content: "Untrusted issue material.",
+        }],
+      }],
+      activeTaskId: "task-crane",
+      draftProvider: "codex",
+      messagesByTask: {
+        "task-crane": [{
+          id: "task-crane-m-1",
+          role: "assistant",
+          model: "gpt-5.6",
+          providerId: "codex",
+          content: "Initial managed run ended.",
+          parts: [{ type: "text", text: "Initial managed run ended." }],
+        }],
+      },
+      activeTurnIdsByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+    });
+
+    await useAppStore.getState().sendUserMessage({
+      taskId: "task-crane",
+      content: "Continue after takeover.",
+    });
+    await Bun.sleep(0);
+
+    const contextParts = startedConversation?.contextParts as Array<{
+      type?: string;
+      sourceId?: string;
+      content?: string;
+    }> | undefined;
+    expect(contextParts).toContainEqual({
+      type: "retrieved_context",
+      sourceId: "crane:ATL-1",
+      title: "Crane ATL-1",
+      content: "Untrusted issue material.",
+    });
+  });
+
   test("does not start a follow-up turn while an approval remains pending", async () => {
     let startTurnCallCount = 0;
 

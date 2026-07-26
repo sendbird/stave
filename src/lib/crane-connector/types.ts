@@ -114,6 +114,7 @@ const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
     .object({
       provider: z.literal("claude-code"),
       model: z.string().trim().min(1).max(200),
+      providerTimeoutMs: z.number().int().min(1).max(86_400_000),
       claudePermissionMode: z.enum([
         "default",
         "acceptEdits",
@@ -130,6 +131,7 @@ const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
     .object({
       provider: z.literal("codex"),
       model: z.string().trim().min(1).max(200),
+      providerTimeoutMs: z.number().int().min(1).max(86_400_000),
       codexFileAccess: z.enum([
         "read-only",
         "workspace-write",

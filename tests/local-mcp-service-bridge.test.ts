@@ -132,6 +132,21 @@ describe("local MCP service bridge", () => {
     }]);
   });
 
+  test("routes interactive takeover through authoritative host task control", async () => {
+    await localMcpService.takeOverManagedTask({
+      workspaceId: "workspace-1",
+      taskId: "task-1",
+    });
+
+    expect(invokeCalls).toEqual([{
+      method: "task.take-over",
+      params: {
+        workspaceId: "workspace-1",
+        taskId: "task-1",
+      },
+    }]);
+  });
+
   test("forwards workspace information updates back to renderer listeners", () => {
     expect(workspaceInformationListener).not.toBeNull();
     const payload = {

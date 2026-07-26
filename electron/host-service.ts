@@ -1522,6 +1522,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
+    case "task.take-over":
+      await respond(
+        request.id,
+        await localMcpRuntime.takeOverManagedTaskControl(request.params),
+      );
+      return;
     case "routine.invoke":
       await respond(
         request.id,
