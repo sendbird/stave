@@ -1234,13 +1234,8 @@ export function FleetView() {
         return;
       }
       setBusyNeedId(target.id);
-      // Dismissing a question or approval settles the request itself, otherwise
-      // the row would survive its own dismissal.
-      const isInteraction =
-        target.kind === "user-input" || target.kind === "approval";
       void markNotificationRead({
         id: target.notificationId,
-        ...(isInteraction ? { resolvedAt: new Date().toISOString() } : {}),
       }).finally(() => {
         setBusyNeedId((current) => (current === target.id ? null : current));
       });

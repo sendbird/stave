@@ -303,7 +303,7 @@ describe("Fleet attention projection", () => {
     expect(projection.items).toEqual([]);
   });
 
-  test("keeps managed task requests actionable without a renderer turn", () => {
+  test("keeps Stave-owned managed requests actionable without a renderer turn", () => {
     const approvalMessage = buildAssistantMessage({
       parts: [
         {
@@ -320,7 +320,7 @@ describe("Fleet attention projection", () => {
       notifications: [],
       liveWorkspaces: [
         buildLiveWorkspace({
-          tasks: [buildTask({ controlMode: "managed", controlOwner: "host" })],
+          tasks: [buildTask({ controlMode: "managed", controlOwner: "stave" })],
           messagesByTask: { "task-1": [approvalMessage] },
           activeTurnIdsByTask: {},
         }),
@@ -334,6 +334,40 @@ describe("Fleet attention projection", () => {
       source: "live",
       requestId: "approval-1",
     });
+  });
+
+  test("omits externally managed requests from Stave action surfaces", () => {
+    const approvalMessage = buildAssistantMessage({
+      parts: [
+        {
+          type: "approval",
+          requestId: "approval-1",
+          toolName: "Bash",
+          description: "run tests",
+          state: "approval-requested",
+        },
+      ],
+    });
+
+    const projection = buildFleetAttentionProjection({
+      notifications: [
+        buildNotification({
+          payload: {},
+        }),
+      ],
+      liveWorkspaces: [
+        buildLiveWorkspace({
+          tasks: [
+            buildTask({ controlMode: "managed", controlOwner: "external" }),
+          ],
+          messagesByTask: { "task-1": [approvalMessage] },
+          activeTurnIdsByTask: {},
+        }),
+      ],
+      prWorkspaces: [],
+    });
+
+    expect(projection.items).toEqual([]);
   });
 
   test("omits notifications without an exact navigation target", () => {

@@ -1,4 +1,5 @@
 import { webContents } from "electron";
+import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
 import type {
   HostCraneReleaseTaskControlArgs,
   HostCraneReleaseTaskControlResult,
@@ -345,8 +346,8 @@ export async function runTask(args: {
 }
 
 /**
- * Trusted main-process entry point for locally approved Crane dispatch.
- * Public Local MCP callers cannot select Stave ownership.
+ * Trusted main-process entry point for a locally approved Crane kickoff.
+ * Public Local MCP callers cannot select Stave-owned interactive control.
  */
 export async function runLocallyApprovedCraneTask(
   args: HostCraneRunTaskArgs,
@@ -366,9 +367,22 @@ export async function releaseLocallyManagedCraneTask(
   ) as Promise<HostCraneReleaseTaskControlResult>;
 }
 
+export async function takeOverManagedTask(args: {
+  workspaceId: string;
+  taskId: string;
+  sourceContexts?: CanonicalRetrievedContextPart[];
+}) {
+  return invokeHostService("task.take-over", args) as Promise<{
+    workspaceId: string;
+    taskId: string;
+    released: boolean;
+  }>;
+}
+
 export async function getTaskStatus(args: {
   workspaceId: string;
   taskId: string;
+  turnId?: string;
 }) {
   return invokeLocalMcp<
     import("../host-service/local-mcp-runtime").TaskStatusResult

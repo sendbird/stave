@@ -80,6 +80,7 @@ import {
   findLatestPendingApprovalPart,
   findLatestPendingUserInputPart,
   findPendingApprovalMessageByRequestId,
+  findPendingUserInputMessageByRequestId,
 } from "../../src/store/provider-message.utils";
 import type {
   ChatMessage,
@@ -89,10 +90,17 @@ import type {
 } from "../../src/types/chat";
 import {
   findWorkspaceTaskOrThrow,
+  getTaskControlMode,
+  getTaskControlOwner,
+  isExternallyManagedTask,
   reconcileTasksWithPersistedArchival,
 } from "../../src/lib/tasks";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
+import {
+  createLocalMcpTurnJournal,
+  resolveTargetedTurnError,
+} from "./local-mcp-turn-journal";
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
 import { runCommand, runCommandArgs } from "../main/utils/command";
@@ -172,6 +180,21 @@ const workspaceProviderEventQueue = createKeyedAsyncQueue<string>();
 const terminalTurnErrorById = new Map<string, string>();
 const WORKSPACE_SESSION_CACHE_LIMIT = 32;
 const TERMINAL_TURN_ERROR_LIMIT = 500;
+const localMcpTurnJournal = createLocalMcpTurnJournal({
+  persistEvents: ({ turnId, events }) => {
+    ensureHostServicePersistenceReady().saveStreamEvents({
+      turnId,
+      events,
+    });
+  },
+  onPersistError: (error, context) => {
+    console.warn(
+      "[stave-mcp] failed to persist provider events",
+      error,
+      context,
+    );
+  },
+});
 let localMcpEventListener:
   | ((event: {
       type: "workspace-information-updated";
@@ -530,6 +553,7 @@ export async function cleanupLocalMcpRuntime() {
   // write to SQLite.  If we close persistence before the queue drains,
   // those writes either crash or silently lose data.
   await workspaceProviderEventQueue.drain();
+  localMcpTurnJournal.flushAll();
   const pendingPersists = [...workspacePersistChainById.values()];
   workspacePersistChainById.clear();
   await Promise.allSettled(pendingPersists);
@@ -1417,8 +1441,13 @@ async function persistApprovalNotification(args: {
     projects,
     workspaceId: args.workspaceId,
   });
-  const taskTitle =
-    args.session.tasks.find((task) => task.id === args.taskId)?.title ?? "Task";
+  const task =
+    args.session.tasks.find((candidate) => candidate.id === args.taskId) ??
+    null;
+  if (!task || isExternallyManagedTask(task)) {
+    return;
+  }
+  const taskTitle = task.title || "Task";
   const location = findPendingApprovalMessageByRequestId({
     messages: args.session.messagesByTask[args.taskId] ?? [],
     requestId: args.event.requestId,
@@ -1447,8 +1476,71 @@ async function persistApprovalNotification(args: {
     payload: {
       toolName: args.event.toolName,
       description: args.event.description,
+      controlMode: getTaskControlMode(task),
+      controlOwner: getTaskControlOwner(task),
     },
     dedupeKey: `task.approval_requested:${args.turnId}:${args.event.requestId}`,
+  });
+}
+
+async function persistUserInputNotification(args: {
+  workspaceId: string;
+  taskId: string;
+  turnId: string;
+  provider: ProviderId;
+  event: Extract<NormalizedProviderEvent, { type: "user_input" }>;
+  session: WorkspaceSessionState;
+}) {
+  const task =
+    args.session.tasks.find((candidate) => candidate.id === args.taskId) ??
+    null;
+  if (!task || isExternallyManagedTask(task)) {
+    return;
+  }
+  const location = findPendingUserInputMessageByRequestId({
+    messages: args.session.messagesByTask[args.taskId] ?? [],
+    requestId: args.event.requestId,
+  });
+  if (!location) {
+    return;
+  }
+  const { projects } = await loadNormalizedProjects();
+  const registration = findWorkspaceRegistration({
+    projects,
+    workspaceId: args.workspaceId,
+  });
+  const firstQuestion = args.event.questions[0];
+  const question =
+    firstQuestion?.header.trim() ||
+    firstQuestion?.question.trim() ||
+    (args.event.questions.length > 1
+      ? `${args.event.questions.length} questions`
+      : "User input requested");
+
+  await persistNotification({
+    id: randomUUID(),
+    kind: "task.user_input_requested",
+    title: task.title || "Task",
+    body: `${args.event.toolName}: ${question}`,
+    projectPath: registration?.project.projectPath ?? null,
+    projectName: registration?.project.projectName ?? null,
+    workspaceId: args.workspaceId,
+    workspaceName: registration?.workspace.name ?? null,
+    taskId: args.taskId,
+    taskTitle: task.title || "Task",
+    turnId: args.turnId,
+    providerId: args.provider,
+    action: null,
+    payload: {
+      toolName: args.event.toolName,
+      question,
+      questionCount: args.event.questions.length,
+      requestId: args.event.requestId,
+      messageId: location.messageId,
+      controlMode: getTaskControlMode(task),
+      controlOwner: getTaskControlOwner(task),
+    },
+    dedupeKey: `task.user_input_requested:${args.turnId}:${args.event.requestId}`,
   });
 }
 
@@ -1504,9 +1596,15 @@ async function handleProviderEvent(args: {
   provider: ProviderId;
   model: string;
   turnId: string;
+  sequence: number;
   event: BridgeEvent;
 }) {
   const store = ensureHostServicePersistenceReady();
+  localMcpTurnJournal.append({
+    turnId: args.turnId,
+    sequence: args.sequence,
+    event: args.event,
+  });
   if (args.event.type === "error" && !args.event.recoverable) {
     terminalTurnErrorById.delete(args.turnId);
     terminalTurnErrorById.set(args.turnId, args.event.message);
@@ -1536,6 +1634,16 @@ async function handleProviderEvent(args: {
 
   if (args.event.type === "approval") {
     await persistApprovalNotification({
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      turnId: args.turnId,
+      provider: args.provider,
+      event: args.event,
+      session: applied.session,
+    });
+  }
+  if (args.event.type === "user_input") {
+    await persistUserInputNotification({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
       turnId: args.turnId,
@@ -1911,6 +2019,7 @@ export async function runTask(args: {
 
   const requestedControlMode = args.controlMode ?? "managed";
   const requestedControlOwner = args.controlOwner ?? "external";
+  const requestedSourceContexts = args.retrievedContextParts ?? [];
 
   if (!task) {
     const taskId = randomUUID();
@@ -1923,6 +2032,9 @@ export async function runTask(args: {
       archivedAt: null,
       controlMode: requestedControlMode,
       controlOwner: requestedControlOwner,
+      ...(requestedSourceContexts.length > 0
+        ? { sourceContexts: requestedSourceContexts }
+        : {}),
     } satisfies Task;
     session = cacheWorkspaceSession(args.workspaceId, {
       ...session,
@@ -1937,20 +2049,38 @@ export async function runTask(args: {
         [task.id]: false,
       },
     });
-  } else if (
-    task.controlMode !== requestedControlMode ||
-    task.controlOwner !== requestedControlOwner
-  ) {
-    task = {
-      ...task,
-      controlMode: requestedControlMode,
-      controlOwner: requestedControlOwner,
-      updatedAt: buildRecentTimestamp(),
-    } satisfies Task;
-    session = cacheWorkspaceSession(args.workspaceId, {
-      ...session,
-      tasks: session.tasks.map((item) => (item.id === task!.id ? task! : item)),
-    });
+  } else {
+    const sourceContextsById = new Map(
+      (task.sourceContexts ?? []).map((part) => [part.sourceId, part]),
+    );
+    for (const part of requestedSourceContexts) {
+      sourceContextsById.set(part.sourceId, part);
+    }
+    const sourceContexts = [...sourceContextsById.values()];
+    const sourceContextsChanged =
+      JSON.stringify(sourceContexts) !==
+      JSON.stringify(task.sourceContexts ?? []);
+    if (
+      task.controlMode === requestedControlMode &&
+      task.controlOwner === requestedControlOwner &&
+      !sourceContextsChanged
+    ) {
+      // Keep the current task object when no durable metadata changed.
+    } else {
+      task = {
+        ...task,
+        controlMode: requestedControlMode,
+        controlOwner: requestedControlOwner,
+        ...(sourceContexts.length > 0 ? { sourceContexts } : {}),
+        updatedAt: buildRecentTimestamp(),
+      } satisfies Task;
+      session = cacheWorkspaceSession(args.workspaceId, {
+        ...session,
+        tasks: session.tasks.map((item) =>
+          item.id === task!.id ? task! : item,
+        ),
+      });
+    }
   }
 
   if (session.activeTurnIdsByTask[task.id]) {
@@ -2066,6 +2196,7 @@ export async function runTask(args: {
     {
       onEvent: (event) => {
         sequence += 1;
+        const eventSequence = sequence;
         void workspaceProviderEventQueue
           .enqueue(args.workspaceId, () =>
             handleProviderEvent({
@@ -2075,6 +2206,7 @@ export async function runTask(args: {
               provider,
               model,
               turnId,
+              sequence: eventSequence,
               event,
             }),
           )
@@ -2104,6 +2236,21 @@ export async function runTask(args: {
   } satisfies TaskRunResult;
 }
 
+/**
+ * Trusted Crane dispatch starts as an ordinary Stave task. The connector keeps
+ * tracking the returned first turn, while the user retains task-level control
+ * for approvals, questions, steering, and follow-up turns from the beginning.
+ */
+export async function runLocallyApprovedCraneKickoff(
+  args: Omit<Parameters<typeof runTask>[0], "controlMode" | "controlOwner">,
+) {
+  return runTask({
+    ...args,
+    controlMode: "interactive",
+    controlOwner: "stave",
+  });
+}
+
 export async function getTaskStatus(args: {
   workspaceId: string;
   taskId: string;
@@ -2119,11 +2266,17 @@ export async function getTaskStatus(args: {
   const recentTurns = store.listTurns({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
-    limit: args.turnId ? 20 : 1,
+    limit: 1,
+    turnId: args.turnId,
   });
-  const latestTurn = args.turnId
-    ? (recentTurns.find((turn) => turn.id === args.turnId) ?? null)
-    : (recentTurns[0] ?? null);
+  const latestTurn = recentTurns[0] ?? null;
+  const targetedTurnError =
+    args.turnId && latestTurn
+      ? resolveTargetedTurnError({
+          completedAt: latestTurn.completedAt,
+          events: store.getStreamEvents({ turnId: latestTurn.id }),
+        })
+      : null;
   const messages = session.messagesByTask[args.taskId] ?? [];
   const latestAssistantText =
     [...messages]
@@ -2143,7 +2296,9 @@ export async function getTaskStatus(args: {
     latestTurnId: latestTurn?.id ?? null,
     latestTurnCompletedAt: latestTurn?.completedAt ?? null,
     latestTurnError: latestTurn
-      ? (terminalTurnErrorById.get(latestTurn.id) ?? null)
+      ? (terminalTurnErrorById.get(latestTurn.id) ??
+        targetedTurnError ??
+        null)
       : null,
     messageCount: messages.length,
     latestAssistantText,
@@ -2152,9 +2307,11 @@ export async function getTaskStatus(args: {
   } satisfies TaskStatusResult;
 }
 
-export async function releaseLocallyManagedTaskControl(args: {
+async function releaseManagedTaskControl(args: {
   workspaceId: string;
   taskId: string;
+  requiredOwner?: TaskControlOwner;
+  sourceContexts?: CanonicalRetrievedContextPart[];
 }) {
   const { projects } = await loadNormalizedProjects();
   const registration = findWorkspaceRegistration({
@@ -2174,10 +2331,20 @@ export async function releaseLocallyManagedTaskControl(args: {
   if (session.activeTurnIdsByTask[task.id]) {
     throw new Error(`Task still has an active turn: ${task.id}`);
   }
-  if (
-    task.controlMode !== "managed" ||
-    task.controlOwner !== "stave"
-  ) {
+  const sourceContextsById = new Map(
+    (task.sourceContexts ?? []).map((part) => [part.sourceId, part]),
+  );
+  for (const part of args.sourceContexts ?? []) {
+    sourceContextsById.set(part.sourceId, part);
+  }
+  const sourceContexts = [...sourceContextsById.values()];
+  const sourceContextsChanged =
+    JSON.stringify(sourceContexts) !==
+    JSON.stringify(task.sourceContexts ?? []);
+  const canRelease =
+    task.controlMode === "managed" &&
+    (!args.requiredOwner || task.controlOwner === args.requiredOwner);
+  if (!canRelease && !sourceContextsChanged) {
     return {
       workspaceId: args.workspaceId,
       taskId: task.id,
@@ -2186,8 +2353,13 @@ export async function releaseLocallyManagedTaskControl(args: {
   }
   const releasedTask: Task = {
     ...task,
-    controlMode: "interactive",
-    controlOwner: "stave",
+    ...(canRelease
+      ? {
+          controlMode: "interactive" as const,
+          controlOwner: "stave" as const,
+        }
+      : {}),
+    ...(sourceContexts.length > 0 ? { sourceContexts } : {}),
     updatedAt: buildRecentTimestamp(),
   };
   session = cacheWorkspaceSession(args.workspaceId, {
@@ -2204,8 +2376,27 @@ export async function releaseLocallyManagedTaskControl(args: {
   return {
     workspaceId: args.workspaceId,
     taskId: task.id,
-    released: true,
+    released: canRelease,
   };
+}
+
+export function releaseLocallyManagedTaskControl(args: {
+  workspaceId: string;
+  taskId: string;
+  sourceContexts?: CanonicalRetrievedContextPart[];
+}) {
+  return releaseManagedTaskControl({
+    ...args,
+    requiredOwner: "stave",
+  });
+}
+
+export function takeOverManagedTaskControl(args: {
+  workspaceId: string;
+  taskId: string;
+  sourceContexts?: CanonicalRetrievedContextPart[];
+}) {
+  return releaseManagedTaskControl(args);
 }
 
 function findApprovalMessage(args: {

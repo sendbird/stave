@@ -33,9 +33,32 @@ type PersistedTaskRow = {
   archivedAt: string | null;
 };
 
+type PersistedTurn = {
+  id: string;
+  workspaceId: string;
+  taskId: string;
+  providerId: "claude-code" | "codex";
+  createdAt: string;
+  completedAt: string | null;
+};
+
 const startTurnStreamCalls: unknown[] = [];
+const startTurnStreamHandlers: Array<{
+  onEvent?: (event: import("../electron/providers/types").BridgeEvent) => void;
+}> = [];
 const persistedWorkspaceInformationById = new Map<string, unknown>();
 const persistedTasksByWorkspaceId = new Map<string, PersistedTaskRow[]>();
+const persistedTurnsById = new Map<string, PersistedTurn>();
+const persistedTurnEventsById = new Map<
+  string,
+  Array<{
+    sequence: number;
+    eventType: string;
+    event: import("../electron/providers/types").BridgeEvent;
+    truncated: false;
+  }>
+>();
+const persistedNotifications: unknown[] = [];
 const lastUpsertSnapshotByWorkspaceId = new Map<
   string,
   { tasks?: Array<{ id: string; archivedAt?: string | null }> }
@@ -118,7 +141,74 @@ const fakeStore = {
   listWorkspaceTasks: ({ workspaceId }: { workspaceId: string }) =>
     persistedTasksByWorkspaceId.get(workspaceId) ?? [],
   listActiveTurnsForWorkspace: () => [],
-  beginTurn: () => {},
+  listTurns: ({
+    workspaceId,
+    taskId,
+    limit,
+    turnId,
+  }: {
+    workspaceId: string;
+    taskId: string;
+    limit?: number;
+    turnId?: string;
+  }) =>
+    [...persistedTurnsById.values()]
+      .filter(
+        (turn) =>
+          turn.workspaceId === workspaceId &&
+          turn.taskId === taskId &&
+          (!turnId || turn.id === turnId),
+      )
+      .reverse()
+      .slice(0, limit ?? 5),
+  beginTurn: (turn: Omit<PersistedTurn, "createdAt" | "completedAt">) => {
+    persistedTurnsById.set(turn.id, {
+      ...turn,
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+    });
+  },
+  completeTurn: ({ id }: { id: string }) => {
+    const turn = persistedTurnsById.get(id);
+    if (turn) {
+      persistedTurnsById.set(id, {
+        ...turn,
+        completedAt: new Date().toISOString(),
+      });
+    }
+  },
+  saveStreamEvents: ({
+    turnId,
+    events,
+  }: {
+    turnId: string;
+    events: Array<{
+      sequence: number;
+      event: import("../electron/providers/types").BridgeEvent;
+    }>;
+  }) => {
+    const current = persistedTurnEventsById.get(turnId) ?? [];
+    for (const entry of events) {
+      if (current.some((item) => item.sequence === entry.sequence)) {
+        continue;
+      }
+      current.push({
+        ...entry,
+        eventType: entry.event.type,
+        truncated: false,
+      });
+    }
+    persistedTurnEventsById.set(turnId, current);
+  },
+  getStreamEvents: ({ turnId }: { turnId: string }) =>
+    persistedTurnEventsById.get(turnId) ?? [],
+  createNotification: ({ notification }: { notification: unknown }) => {
+    persistedNotifications.push(notification);
+    return {
+      inserted: true,
+      notification,
+    };
+  },
   upsertWorkspace: ({
     id,
     snapshot,
@@ -130,10 +220,7 @@ const fakeStore = {
     };
   }) => {
     if (snapshot.workspaceInformation) {
-      persistedWorkspaceInformationById.set(
-        id,
-        snapshot.workspaceInformation,
-      );
+      persistedWorkspaceInformationById.set(id, snapshot.workspaceInformation);
     }
     if (Array.isArray(snapshot.tasks)) {
       persistedTasksByWorkspaceId.set(
@@ -169,9 +256,17 @@ const runtime = await import("../electron/host-service/local-mcp-runtime");
 const originalStartTurnStream = providerRuntime.startTurnStream;
 
 beforeAll(() => {
-  providerRuntime.startTurnStream = ((params: unknown) => {
+  providerRuntime.startTurnStream = ((
+    params: unknown,
+    handlers: {
+      onEvent?: (
+        event: import("../electron/providers/types").BridgeEvent,
+      ) => void;
+    },
+  ) => {
     startTurnStreamCalls.push(params);
-    return { ok: true };
+    startTurnStreamHandlers.push(handlers);
+    return { ok: true, streamId: `stream-${startTurnStreamCalls.length}` };
   }) as typeof providerRuntime.startTurnStream;
 });
 
@@ -231,12 +326,10 @@ describe("local MCP runtime runTask", () => {
     );
   });
 
-  test("preserves locally owned managed control for trusted dispatch", async () => {
-    const result = await runtime.runTask({
+  test("starts locally approved Crane work as an interactive kickoff", async () => {
+    const result = await runtime.runLocallyApprovedCraneKickoff({
       workspaceId: WORKSPACE_ID,
       prompt: "Work on the approved issue",
-      controlMode: "managed",
-      controlOwner: "stave",
       retrievedContextParts: [
         {
           type: "retrieved_context",
@@ -254,10 +347,22 @@ describe("local MCP runtime runTask", () => {
       | {
           controlMode?: string;
           controlOwner?: string;
+          sourceContexts?: Array<{
+            sourceId?: string;
+            content?: string;
+          }>;
         }
       | undefined;
-    expect(task?.controlMode).toBe("managed");
+    expect(task?.controlMode).toBe("interactive");
     expect(task?.controlOwner).toBe("stave");
+    expect(task?.sourceContexts).toEqual([
+      {
+        type: "retrieved_context",
+        sourceId: "crane:CRANE-42",
+        title: "Crane CRANE-42",
+        content: "Untrusted remote issue context.",
+      },
+    ]);
 
     const call = startTurnStreamCalls.at(-1) as {
       conversation?: {
@@ -271,16 +376,229 @@ describe("local MCP runtime runTask", () => {
     ).toBe("Untrusted remote issue context.");
   });
 
+  test("publishes Stave-owned managed approval and user-input needs", async () => {
+    const notificationOffset = persistedNotifications.length;
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Start a locally owned managed run",
+      controlMode: "managed",
+      controlOwner: "stave",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({
+      type: "approval",
+      toolName: "Bash",
+      requestId: "approval-local-1",
+      description: "Run focused tests",
+    });
+    handler?.onEvent?.({
+      type: "user_input",
+      toolName: "request_user_input",
+      requestId: "input-local-1",
+      questions: [
+        {
+          key: "scope",
+          question: "Which scope should be used?",
+          header: "Scope",
+          options: [],
+        },
+      ],
+    });
+
+    for (
+      let attempt = 0;
+      attempt < 20 && persistedNotifications.length < notificationOffset + 2;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+    }
+
+    expect(result.taskId).toBeTruthy();
+    expect(persistedNotifications.slice(notificationOffset)).toMatchObject([
+      {
+        kind: "task.approval_requested",
+        payload: {
+          controlMode: "managed",
+          controlOwner: "stave",
+        },
+      },
+      {
+        kind: "task.user_input_requested",
+        payload: {
+          controlMode: "managed",
+          controlOwner: "stave",
+          requestId: "input-local-1",
+        },
+      },
+    ]);
+  });
+
+  test("does not publish Stave actions for externally managed requests", async () => {
+    const notificationOffset = persistedNotifications.length;
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Start an externally owned managed run",
+      controlMode: "managed",
+      controlOwner: "external",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({
+      type: "approval",
+      toolName: "Bash",
+      requestId: "approval-external-1",
+      description: "Run external command",
+    });
+    handler?.onEvent?.({
+      type: "user_input",
+      toolName: "request_user_input",
+      requestId: "input-external-1",
+      questions: [
+        {
+          key: "scope",
+          question: "Which scope should be used?",
+          header: "Scope",
+          options: [],
+        },
+      ],
+    });
+    handler?.onEvent?.({ type: "done" });
+    let status = await runtime.getTaskStatus({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+      turnId: result.turnId,
+    });
+    for (
+      let attempt = 0;
+      attempt < 20 && !status.latestTurnCompletedAt;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+      status = await runtime.getTaskStatus({
+        workspaceId: WORKSPACE_ID,
+        taskId: result.taskId,
+        turnId: result.turnId,
+      });
+    }
+
+    expect(
+      persistedNotifications
+        .slice(notificationOffset)
+        .filter((notification) => {
+          const kind = (notification as { kind?: string }).kind;
+          return (
+            kind === "task.approval_requested" ||
+            kind === "task.user_input_requested"
+          );
+        }),
+    ).toEqual([]);
+  });
+
+  test("persists terminal events and reports a targeted no-response failure", async () => {
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Start the approved managed run",
+      controlMode: "managed",
+      controlOwner: "stave",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({
+      type: "error",
+      message: "Provider runtime timed out before responding.",
+      recoverable: true,
+    });
+    handler?.onEvent?.({
+      type: "done",
+      stop_reason: "runtime_failure",
+    });
+
+    let status = await runtime.getTaskStatus({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+      turnId: result.turnId,
+    });
+    for (
+      let attempt = 0;
+      attempt < 20 && !status.latestTurnCompletedAt;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+      status = await runtime.getTaskStatus({
+        workspaceId: WORKSPACE_ID,
+        taskId: result.taskId,
+        turnId: result.turnId,
+      });
+    }
+
+    expect(status.latestTurnId).toBe(result.turnId);
+    expect(status.latestTurnCompletedAt).toBeTruthy();
+    expect(status.latestTurnError).toBe(
+      "Provider runtime timed out before responding.",
+    );
+    expect(
+      persistedTurnEventsById
+        .get(result.turnId)
+        ?.map((entry) => entry.eventType),
+    ).toEqual(["error", "done"]);
+  });
+
   test("releases completed locally managed task control", async () => {
     const result = await runtime.releaseLocallyManagedTaskControl({
       workspaceId: RELEASE_WORKSPACE_ID,
       taskId: RELEASE_TASK_ID,
+      sourceContexts: [
+        {
+          type: "retrieved_context",
+          sourceId: "crane:ATL-1",
+          title: "Crane ATL-1",
+          content: "Recovered from the local Crane binding.",
+        },
+      ],
     });
 
     expect(result.released).toBe(true);
     const task = lastUpsertSnapshotByWorkspaceId
       .get(RELEASE_WORKSPACE_ID)
       ?.tasks?.find((candidate) => candidate.id === RELEASE_TASK_ID) as
+      | {
+          controlMode?: string;
+          controlOwner?: string;
+          sourceContexts?: unknown[];
+        }
+      | undefined;
+    expect(task).toMatchObject({
+      controlMode: "interactive",
+      controlOwner: "stave",
+      sourceContexts: [
+        {
+          type: "retrieved_context",
+          sourceId: "crane:ATL-1",
+          title: "Crane ATL-1",
+          content: "Recovered from the local Crane binding.",
+        },
+      ],
+    });
+  });
+
+  test("takes over an inactive externally managed task through host ownership", async () => {
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Run under external management",
+      controlMode: "managed",
+      controlOwner: "external",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({ type: "done" });
+    await Bun.sleep(0);
+
+    const takenOver = await runtime.takeOverManagedTaskControl({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+    });
+
+    expect(takenOver.released).toBe(true);
+    const task = lastUpsertSnapshotByWorkspaceId
+      .get(WORKSPACE_ID)
+      ?.tasks?.find((candidate) => candidate.id === result.taskId) as
       | {
           controlMode?: string;
           controlOwner?: string;

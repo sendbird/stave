@@ -128,7 +128,6 @@ import {
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import {
   buildSuggestTaskNamePayload,
-  canTakeOverTask,
   getArchiveFallbackTaskId,
   isExternallyManagedTask,
   isTaskArchived,
@@ -236,6 +235,7 @@ import {
 } from "@/lib/compare-runs";
 import { cancelCompareJudgeSecondaryRun, launchReadyCompareJudgesFromStore } from "@/store/compare-run-judge";
 import { launchCompareRunVariants } from "@/store/compare-run-start";
+import { applyManagedTaskTakeover, requestManagedTaskTakeover } from "@/store/managed-task-takeover";
 import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import {
   applyProjectBasePromptToRuntimeOptions,
@@ -274,6 +274,7 @@ import type {
   PromptDraftRuntimeOverrides,
   PromptDraftQueuedTurn,
   Task,
+  TaskTakeoverResult,
 } from "@/types/chat";
 import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-annotation-attachment";
 import {
@@ -1372,7 +1373,7 @@ interface AppState
   refreshSkillCatalog: (args?: {
     workspacePath?: string | null;
   }) => Promise<void>;
-  takeOverTask: (args: { taskId: string }) => void;
+  takeOverTask: (args: { taskId: string }) => Promise<TaskTakeoverResult>;
   markNotificationRead: (args: {
     id: string;
     resolvedAt?: string;
@@ -9263,33 +9264,31 @@ export const useAppStore = create<AppState>()(
             }));
           }
         },
-        takeOverTask: ({ taskId }) => {
-          set((state) => {
-            const task = findTaskById(state, taskId);
-            if (
-              !task ||
-              !canTakeOverTask({
-                task,
-                activeTurnId: state.activeTurnIdsByTask[taskId],
-              })
-            ) {
-              return state;
-            }
-            return {
-              tasks: state.tasks.map((item) =>
-                item.id === taskId
-                  ? {
-                      ...item,
-                      controlMode: "interactive",
-                      controlOwner: "stave",
-                      updatedAt: buildRecentTimestamp(),
-                    }
-                  : item,
-              ),
-              workspaceSnapshotVersion:
-                incrementWorkspaceSnapshotVersion(state),
-            };
+        takeOverTask: async ({ taskId }) => {
+          const result = await requestManagedTaskTakeover({ taskId, state: get() });
+          if (!result.ok) {
+            return result;
+          }
+          set((state) => ({
+            tasks: applyManagedTaskTakeover({
+              tasks: state.tasks,
+              taskId,
+              sourceContexts: result.sourceContexts,
+              updatedAt: buildRecentTimestamp(),
+            }),
+            workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+          }));
+          const session = getWorkspaceSessionForState({
+            state: get(),
+            workspaceId: result.workspaceId,
           });
+          if (session) {
+            persistWorkspaceSessionInBackground({
+              workspaceId: result.workspaceId,
+              session,
+            });
+          }
+          return result.craneReceiptPending ? { ok: true, craneReceiptPending: true } : { ok: true };
         },
         markNotificationRead: ({ id, resolvedAt }) =>
           markNotificationReadAction({ set, get, id, resolvedAt }),
@@ -9326,10 +9325,12 @@ export const useAppStore = create<AppState>()(
           await openNotificationContextInternal(notification);
           const latestState = get();
           const taskId = notification.taskId?.trim();
-          // Nothing left to answer: settle the notification instead of leaving
-          // an item nobody can clear from Fleet.
           if (!taskId) {
-            await attentionSync.settleNotification(notification.id);
+            return;
+          }
+
+          const targetTask = findTaskById(latestState, taskId);
+          if (isExternallyManagedTask(targetTask)) {
             return;
           }
 
@@ -9338,13 +9339,7 @@ export const useAppStore = create<AppState>()(
             requestId: notification.action.requestId,
           });
 
-          if (isManagedTaskReadOnly({ state: latestState, taskId })) {
-            await attentionSync.settleNotification(notification.id);
-            return;
-          }
-
           if (!locatedApproval) {
-            await attentionSync.settleNotification(notification.id);
             return;
           }
 
@@ -10225,6 +10220,7 @@ export const useAppStore = create<AppState>()(
                 // afterwards to keep the recurring prompt small.
                 includeStaticGuidance: existingHistory.length === 0,
               }),
+              ...(task.sourceContexts ?? []),
             ];
             // `@lens` references resolve against the live Lens browser state.
             let lensReferenceState: LensReferenceState | null = null;

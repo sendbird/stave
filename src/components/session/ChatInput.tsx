@@ -98,9 +98,11 @@ import {
 } from "@/lib/providers/turn-status";
 import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
 import {
+  canTakeOverTask,
   getTaskControlOwner,
   isExternallyManagedTask,
   isTaskArchived,
+  isTaskManaged,
 } from "@/lib/tasks";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
@@ -121,7 +123,13 @@ import {
   resolvePromptDraftModelForProvider,
   resolvePromptDraftRuntimeState,
 } from "@/store/prompt-draft-runtime";
-import type { Attachment, ChatMessage, PromptDraft } from "@/types/chat";
+import type {
+  Attachment,
+  ChatMessage,
+  PromptDraft,
+  TaskControlOwner,
+  TaskSourceContext,
+} from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildChatInputGoalStatus,
@@ -129,6 +137,11 @@ import {
   buildCommandCatalogRuntimeOptions,
 } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
+import { ManagedTaskTakeoverNotice } from "./ManagedTaskTakeoverNotice";
+import {
+  resolveManagedTaskComposerAccess,
+  TaskSourceContextNotice,
+} from "./TaskSourceContextNotice";
 import {
   resolvePastedFileAbsolutePath,
   toWorkspaceRelativeFilePath,
@@ -199,6 +212,10 @@ interface ChatInputComposerProps {
   workspaceCwd?: string;
   providerSelectionTarget: string;
   isTurnActive: boolean;
+  managedTaskOwner: TaskControlOwner | null;
+  sourceContexts: readonly TaskSourceContext[];
+  canTakeOverManagedTask: boolean;
+  onTakeOverManagedTask: () => void;
   approvalActionsDisabled?: boolean;
   approvalDisabledReason?: string;
   selectedModelOption: ModelSelectorOption;
@@ -368,6 +385,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     providerSupportsMidTurnSteering({ providerId: args.activeProvider }) &&
     (promptDraft.attachments?.length ?? 0) === 0 &&
     (promptDraft.attachedFilePaths?.length ?? 0) === 0;
+  const managedTaskComposerAccess = resolveManagedTaskComposerAccess({
+    managedTaskOwner: args.managedTaskOwner,
+    isTurnActive: args.isTurnActive && providerTurnDisplayState !== "stalled",
+    canSteerActiveTurn,
+  });
   const stalledDurationLabel = useMemo(
     () =>
       providerTurnDisplayState === "stalled"
@@ -909,6 +931,15 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         />
       ) : null}
       <div className="mx-auto max-w-6xl">
+        <TaskSourceContextNotice sourceContexts={args.sourceContexts} />
+        {args.managedTaskOwner ? (
+          <ManagedTaskTakeoverNotice
+            owner={args.managedTaskOwner}
+            isTurnActive={args.isTurnActive}
+            canTakeOver={args.canTakeOverManagedTask}
+            onTakeOver={args.onTakeOverManagedTask}
+          />
+        ) : null}
         {pendingApprovals.length > 0 ? (
           <ChatInputApprovalQueue
             approvals={pendingApprovals}
@@ -997,7 +1028,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           focusToken={`${args.providerSelectionTarget}:${focusNonce}`}
           value={draftText}
           onBlur={commitCurrentDraftText}
-          disabled={isInputBlocked || isSteerSubmitting}
+          disabled={
+            isInputBlocked ||
+            isSteerSubmitting ||
+            managedTaskComposerAccess.disabled
+          }
           windowShortcutsEnabled={args.windowShortcutsEnabled}
           isTurnActive={args.isTurnActive}
           beforeRuntimeAction={
@@ -1122,13 +1157,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               </div>
             )
           }
-          submitMode={
-            args.isTurnActive && providerTurnDisplayState !== "stalled"
-              ? canSteerActiveTurn
-                ? "steer-or-queue"
-                : "queue-next"
-              : "send"
-          }
+          submitMode={managedTaskComposerAccess.submitMode}
           queuedNextTurn={queuedNextTurn}
           queuedTurns={queuedTurns}
           promptBatch={promptBatch}
@@ -1476,9 +1505,10 @@ function BaseChatInput() {
       state.messageCountByTask[activeTaskId] ??
       (state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES).length,
   );
-  const isTurnActive = useAppStore((state) =>
-    Boolean(state.activeTurnIdsByTask[activeTaskId]),
+  const activeTurnId = useAppStore(
+    (state) => state.activeTurnIdsByTask[activeTaskId] ?? null,
   );
+  const isTurnActive = Boolean(activeTurnId);
   const latestMessageIsPlanResponse = useAppStore((state) => {
     const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
     const lastMessage = messages[messages.length - 1];
@@ -1709,6 +1739,13 @@ function BaseChatInput() {
     [modelShortcutEfforts],
   );
   const approvalActionsDisabled = isExternallyManagedTask(activeTask);
+  const managedTaskOwner = isTaskManaged(activeTask)
+    ? getTaskControlOwner(activeTask)
+    : null;
+  const canTakeOverManagedTask = canTakeOverTask({
+    task: activeTask,
+    activeTurnId,
+  });
   const approvalDisabledReason = approvalActionsDisabled
     ? `This request is managed by ${getTaskControlOwner(activeTask) === "external" ? "an external controller" : "Stave"}. Respond from the originating client or take over after the run ends.`
     : undefined;
@@ -2161,6 +2198,28 @@ function BaseChatInput() {
       workspaceCwd={workspaceCwd}
       providerSelectionTarget={providerSelectionTarget}
       isTurnActive={isTurnActive}
+      managedTaskOwner={managedTaskOwner}
+      sourceContexts={activeTask?.sourceContexts ?? []}
+      canTakeOverManagedTask={canTakeOverManagedTask}
+      onTakeOverManagedTask={() => {
+        void useAppStore
+          .getState()
+          .takeOverTask({ taskId: activeTaskId })
+          .then((result) => {
+            if (!result.ok) {
+              toast.error("Could not take over this task", {
+                description: result.message,
+              });
+              return;
+            }
+            if (result.craneReceiptPending) {
+              toast.info("Task control is now local", {
+                description:
+                  "Crane is temporarily unreachable; its terminal status will retry in the background.",
+              });
+            }
+          });
+      }}
       approvalActionsDisabled={approvalActionsDisabled}
       approvalDisabledReason={approvalDisabledReason}
       selectedModelOption={selectedModelOption}

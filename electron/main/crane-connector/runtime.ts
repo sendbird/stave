@@ -88,10 +88,14 @@ interface CraneRuntimeDependencies {
   getTaskStatus: (args: {
     workspaceId: string;
     taskId: string;
+    turnId?: string;
   }) => Promise<TaskStatusResult>;
   releaseTaskControl: (args: {
     workspaceId: string;
     taskId: string;
+    sourceContexts?: ReturnType<
+      typeof buildCraneDispatchRetrievedContext
+    >[];
   }) => Promise<unknown>;
   emitStatus: (status: CraneConnectorPublicStatus) => void;
   emitApproval: (request: CraneDispatchApprovalRequest) => void;
@@ -109,6 +113,7 @@ function runtimeOptionsForApproval(
   if (approval.runtime.provider === "claude-code") {
     return {
       model: approval.runtime.model,
+      providerTimeoutMs: approval.runtime.providerTimeoutMs,
       claudePermissionMode: approval.runtime.claudePermissionMode,
       claudeSandboxEnabled: approval.runtime.claudeSandboxEnabled,
       ...(advisorTarget ? { advisorTarget } : {}),
@@ -116,6 +121,7 @@ function runtimeOptionsForApproval(
   }
   return {
     model: approval.runtime.model,
+    providerTimeoutMs: approval.runtime.providerTimeoutMs,
     codexFileAccess: approval.runtime.codexFileAccess,
     codexNetworkAccess: approval.runtime.codexNetworkAccess,
     codexApprovalPolicy: approval.runtime.codexApprovalPolicy,
@@ -299,6 +305,115 @@ export class CraneConnectorRuntime {
         lastErrorCode: null,
       });
       return this.getStatus();
+    });
+  }
+
+  async prepareTaskTakeover(args: {
+    workspaceId: string;
+    taskId: string;
+  }) {
+    return this.enqueue(async () => {
+      const credential = await this.dependencies.vault
+        .getCredential()
+        .catch(() => null);
+      if (!credential) {
+        return {
+          bindingFound: false,
+          receiptPending: false,
+          sourceContexts: [],
+        };
+      }
+      const binding =
+        this.dependencies.persistence
+          .listActiveCraneJobBindings(credential.connector.id)
+          .find(
+            (candidate) =>
+              candidate.workspaceId === args.workspaceId &&
+              candidate.taskId === args.taskId,
+          ) ?? null;
+      if (!binding) {
+        return {
+          bindingFound: false,
+          receiptPending: false,
+          sourceContexts: [],
+        };
+      }
+      if (!binding.turnId) {
+        throw new Error("local_state_inconsistent");
+      }
+      const task = await this.dependencies.getTaskStatus({
+        workspaceId: args.workspaceId,
+        taskId: args.taskId,
+        turnId: binding.turnId,
+      });
+      if (task.activeTurnId === binding.turnId) {
+        throw new Error(
+          "The managed Crane run is still active.",
+        );
+      }
+      if (
+        task.latestTurnId !== binding.turnId ||
+        !task.latestTurnCompletedAt
+      ) {
+        throw new Error(
+          "The managed Crane run has not reached a terminal state yet.",
+        );
+      }
+
+      const targetState = task.latestTurnError
+        ? "failed"
+        : "completed";
+      const sourceContexts = [
+        buildCraneDispatchRetrievedContext(binding.job),
+      ];
+      try {
+        let updated: LocalCraneJobBinding;
+        if (
+          binding.pendingReceipt &&
+          LOCAL_TERMINAL_RECEIPT_STATES.has(
+            binding.pendingReceipt.state,
+          )
+        ) {
+          updated = await this.flushPendingReceipt(binding);
+        } else if (
+          LOCAL_TERMINAL_RECEIPT_STATES.has(binding.state)
+        ) {
+          updated = binding;
+        } else {
+          updated = await this.publishReceipt(
+            binding,
+            targetState,
+            task.latestTurnError ? "provider_failed" : undefined,
+          );
+        }
+        await this.dependencies.vault.deleteLease(binding.jobId);
+        this.setStatus({
+          runtimeState: "connected",
+          activeJobId: null,
+          lastErrorCode: null,
+        });
+        this.emitJobUpdate(updated);
+        return {
+          bindingFound: true,
+          receiptPending: false,
+          sourceContexts,
+        };
+      } catch (error) {
+        if (await this.finishRemoteTerminalError(binding, error)) {
+          return {
+            bindingFound: true,
+            receiptPending: false,
+            sourceContexts,
+          };
+        }
+        await this.handleRuntimeError(error);
+        this.schedule(0);
+        return {
+          bindingFound: true,
+          receiptPending: true,
+          sourceContexts,
+        };
+      }
     });
   }
 
@@ -784,12 +899,13 @@ export class CraneConnectorRuntime {
     const task = await this.dependencies.getTaskStatus({
       workspaceId: binding.workspaceId,
       taskId: binding.taskId,
+      turnId: binding.turnId,
     });
     const needsInput =
       task.pendingApprovals.length > 0 ||
       task.pendingUserInputs.length > 0;
     let updated = binding;
-    if (task.activeTurnId) {
+    if (task.activeTurnId === binding.turnId) {
       const targetState = needsInput
         ? "needs_local_input"
         : "running";
@@ -811,6 +927,9 @@ export class CraneConnectorRuntime {
       await this.dependencies.releaseTaskControl({
         workspaceId: binding.workspaceId,
         taskId: binding.taskId,
+        sourceContexts: [
+          buildCraneDispatchRetrievedContext(binding.job),
+        ],
       });
       const targetState = task.latestTurnError
         ? "failed"

@@ -300,6 +300,19 @@ export type EditorTabContentState =
 export type TaskControlMode = "interactive" | "managed";
 export type TaskControlOwner = "stave" | "external";
 
+export interface TaskSourceContext {
+  type: "retrieved_context";
+  sourceId: string;
+  title?: string;
+  content: string;
+}
+
+export interface TaskTakeoverResult {
+  ok: boolean;
+  message?: string;
+  craneReceiptPending?: boolean;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -309,6 +322,11 @@ export interface Task {
   archivedAt?: string | null;
   controlMode: TaskControlMode;
   controlOwner: TaskControlOwner;
+  /**
+   * Locally persisted source material attached to this task. It remains
+   * inspectable in the task UI and is reattached to every later provider turn.
+   */
+  sourceContexts?: TaskSourceContext[];
   /**
    * Set when the user renames the task by hand. Once set, the automatic
    * task-name suggestion loop stops overwriting the title so a deliberate

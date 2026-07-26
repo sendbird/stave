@@ -89,7 +89,7 @@ describe("local MCP service bridge", () => {
     }]);
   });
 
-  test("routes approved Crane work through the trusted Stave-owned action", async () => {
+  test("routes approved Crane work through the trusted kickoff action", async () => {
     const retrievedContextParts = [{
       type: "retrieved_context" as const,
       sourceId: "crane:CRANE-42",
@@ -125,6 +125,21 @@ describe("local MCP service bridge", () => {
 
     expect(invokeCalls).toEqual([{
       method: "crane.release-task-control",
+      params: {
+        workspaceId: "workspace-1",
+        taskId: "task-1",
+      },
+    }]);
+  });
+
+  test("routes interactive takeover through authoritative host task control", async () => {
+    await localMcpService.takeOverManagedTask({
+      workspaceId: "workspace-1",
+      taskId: "task-1",
+    });
+
+    expect(invokeCalls).toEqual([{
+      method: "task.take-over",
       params: {
         workspaceId: "workspace-1",
         taskId: "task-1",

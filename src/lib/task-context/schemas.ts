@@ -324,6 +324,15 @@ const ChatMessageSchema = z.object({
     .optional(),
 });
 
+const TaskSourceContextSchema = z
+  .object({
+    type: z.literal("retrieved_context"),
+    sourceId: z.string().min(1).max(512),
+    title: z.string().max(1_024).optional(),
+    content: z.string().max(512_000),
+  })
+  .strict();
+
 const TaskSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -344,6 +353,11 @@ const TaskSchema = z.object({
     .union([z.literal("stave"), z.literal("external")])
     .optional()
     .default("stave"),
+  sourceContexts: z
+    .array(TaskSourceContextSchema)
+    .max(20)
+    .optional()
+    .default([]),
   planFilePaths: z.array(z.string()).optional().default([]),
 });
 

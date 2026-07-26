@@ -53,8 +53,6 @@ optional shortcuts on top of that.
   the task.
 - `Mark reviewed` or `Mark read`: dismisses a completed or failed turn from the
   current queue while keeping notification history.
-- `Dismiss`: drops a question or approval that is no longer answerable, for
-  example because its turn already ended.
 - `Open PR`: opens the pull request for review blockers or merge-ready work.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
 
@@ -67,6 +65,8 @@ optional shortcuts on top of that.
   item, including when an agent answers through the managed host.
 - Stopping a turn, archiving a task, or restarting Stave settles the requests
   that turn can no longer accept.
+- Fleet cannot independently dismiss a pending question or approval. The task's
+  provider response or terminal state is authoritative for that request.
 
 ## Common Workflows
 
@@ -92,6 +92,9 @@ optional shortcuts on top of that.
 - Durable notifications keep pending interactions and unread turn outcomes
   visible when a workspace runtime is not loaded. They are settled as soon as the
   task window shows that the request is no longer waiting.
+- Stave-owned managed requests can still be answered from the task,
+  notification, or Fleet shortcut. Externally owned managed requests are not
+  exposed as Stave actions.
 - Pull request status contributes only actionable blocker and merge-ready
   states.
 
@@ -127,7 +130,7 @@ optional shortcuts on top of that.
 - Cause: the request was never answered before the turn stopped, and its state
   had not been reconciled yet.
 - Fix: open the item. Once the task window loads, Stave settles the request
-  automatically. Use `Dismiss` if you do not want to open it.
+  automatically from the task's terminal state.
 
 ## Related Docs
 

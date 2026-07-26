@@ -2291,8 +2291,12 @@ export class SqliteStore {
     workspaceId: string;
     taskId: string;
     limit?: number;
+    turnId?: string;
   }): PersistenceTurnSummary[] {
-    const limit = Math.max(1, Math.min(20, args.limit ?? 5));
+    const turnId = args.turnId?.trim() || null;
+    const limit = turnId
+      ? 1
+      : Math.max(1, Math.min(20, args.limit ?? 5));
     const rows = this.db
       .prepare(
         `
@@ -2305,11 +2309,16 @@ export class SqliteStore {
         turns.completed_at
       FROM turns
       WHERE turns.workspace_id = ? AND turns.task_id = ?
+        ${turnId ? "AND turns.id = ?" : ""}
       ORDER BY turns.created_at DESC
       LIMIT ?
     `,
       )
-      .all(args.workspaceId, args.taskId, limit) as TurnSummaryRow[];
+      .all(
+        ...(turnId
+          ? [args.workspaceId, args.taskId, turnId, limit]
+          : [args.workspaceId, args.taskId, limit]),
+      ) as TurnSummaryRow[];
 
     return rows.map((row) => ({
       id: row.id,

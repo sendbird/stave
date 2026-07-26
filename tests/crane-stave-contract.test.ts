@@ -125,6 +125,7 @@ describe("Crane Stave dispatch V1 contract", () => {
         runtime: {
           provider: "codex",
           model: "gpt-5.6",
+          providerTimeoutMs: 43_200_000,
           codexFileAccess: "workspace-write",
           codexNetworkAccess: false,
           codexApprovalPolicy: "on-request",
@@ -175,5 +176,15 @@ describe("Crane Stave dispatch V1 contract", () => {
       expect(rendererTypes).toContain(`${bridgeMethod}?:`);
       expect(mainIpc).toContain(`"${channel}"`);
     }
+
+    const taskControlIpc = readFileSync(
+      path.join(repoRoot, "electron", "main", "ipc", "task-control.ts"),
+      "utf8",
+    );
+    expect(preload).toContain("taskControl:");
+    expect(preload).toContain('"task-control:take-over"');
+    expect(rendererTypes).toContain("taskControl?:");
+    expect(rendererTypes).toContain("takeOver?:");
+    expect(taskControlIpc).toContain('"task-control:take-over"');
   });
 });

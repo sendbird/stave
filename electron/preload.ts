@@ -1394,6 +1394,17 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
+  taskControl: {
+    takeOver: (args: { workspaceId: string; taskId: string }) =>
+      ipcRenderer.invoke("task-control:take-over", args) as Promise<{
+        ok: boolean;
+        workspaceId?: string;
+        taskId?: string;
+        released?: boolean;
+        craneReceiptPending?: boolean;
+        message?: string;
+      }>,
+  },
   routines: {
     list: () =>
       ipcRenderer.invoke("routines:list") as Promise<{

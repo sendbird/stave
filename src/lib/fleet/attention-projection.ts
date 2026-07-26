@@ -3,6 +3,7 @@ import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import {
+  isExternallyManagedTask,
   isLegacyBranchTask,
   isTaskArchived,
   isTaskManaged,
@@ -172,7 +173,11 @@ export function collectFleetLiveNeeds(
 
   for (const workspace of workspaces) {
     for (const task of workspace.tasks) {
-      if (isTaskArchived(task) || isLegacyBranchTask(task)) {
+      if (
+        isTaskArchived(task) ||
+        isLegacyBranchTask(task) ||
+        isExternallyManagedTask(task)
+      ) {
         continue;
       }
 
@@ -311,6 +316,12 @@ export function collectFleetNotificationNeeds(
       notification.kind === "task.approval_requested" ||
       notification.kind === "task.user_input_requested"
     ) {
+      if (
+        notification.payload.controlMode === "managed" &&
+        notification.payload.controlOwner === "external"
+      ) {
+        continue;
+      }
       if (notification.resolvedAt) {
         continue;
       }
@@ -452,8 +463,20 @@ export function buildFleetAttentionProjection(args: {
   prWorkspaces: readonly FleetPrWorkspaceInput[];
 }): FleetAttentionProjection {
   const byId = new Map<string, FleetNeedItem>();
+  const externalTaskKeys = new Set(
+    args.liveWorkspaces.flatMap((workspace) =>
+      workspace.tasks
+        .filter(isExternallyManagedTask)
+        .map((task) => JSON.stringify([workspace.workspaceId, task.id])),
+    ),
+  );
   const candidates = [
-    ...collectFleetNotificationNeeds(args.notifications),
+    ...collectFleetNotificationNeeds(args.notifications).filter(
+      (item) =>
+        (item.kind !== "approval" && item.kind !== "user-input") ||
+        !item.taskId ||
+        !externalTaskKeys.has(JSON.stringify([item.workspaceId, item.taskId])),
+    ),
     ...collectFleetPrNeeds(args.prWorkspaces),
     ...collectFleetLiveNeeds(args.liveWorkspaces),
   ];

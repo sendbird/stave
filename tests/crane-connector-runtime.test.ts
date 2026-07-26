@@ -46,11 +46,14 @@ function createHarness(options?: {
   const timers: Array<() => void> = [];
   const runCalls: unknown[] = [];
   const releasedTasks: unknown[] = [];
+  const taskStatusCalls: unknown[] = [];
   const receiptFailures = { ...options?.receiptFailures };
   let nextDelivered = false;
   let cleared = false;
   let exchangeCalls = 0;
   let taskCompleted = false;
+  let laterActiveTurnId: string | null = null;
+  let taskCompletionError: string | null = null;
   let credential:
     | {
         baseUrl: string;
@@ -227,21 +230,36 @@ function createHarness(options?: {
         model: "gpt-5.6",
       };
     },
-    getTaskStatus: async () => ({
-      workspaceId: "workspace-crane",
-      taskId: "task-crane",
-      title: "Crane CRANE-42",
-      provider: "codex",
-      updatedAt: NOW.toISOString(),
-      activeTurnId: taskCompleted ? null : "turn-crane",
-      latestTurnId: "turn-crane",
-      latestTurnCompletedAt: taskCompleted ? NOW.toISOString() : null,
-      latestTurnError: null,
-      messageCount: 2,
-      latestAssistantText: "sensitive output that must stay local",
-      pendingApprovals: [],
-      pendingUserInputs: [],
-    }),
+    getTaskStatus: async (args: {
+      workspaceId: string;
+      taskId: string;
+      turnId?: string;
+    }) => {
+      taskStatusCalls.push(args);
+      const observedTurnId =
+        args.turnId ?? laterActiveTurnId ?? "turn-crane";
+      return {
+        workspaceId: "workspace-crane",
+        taskId: "task-crane",
+        title: "Crane CRANE-42",
+        provider: "codex",
+        updatedAt: NOW.toISOString(),
+        activeTurnId: taskCompleted
+          ? laterActiveTurnId
+          : "turn-crane",
+        latestTurnId: observedTurnId,
+        latestTurnCompletedAt:
+          taskCompleted && observedTurnId === "turn-crane"
+            ? NOW.toISOString()
+            : null,
+        latestTurnError:
+          observedTurnId === "turn-crane" ? taskCompletionError : null,
+        messageCount: 2,
+        latestAssistantText: "sensitive output that must stay local",
+        pendingApprovals: [],
+        pendingUserInputs: [],
+      };
+    },
     releaseTaskControl: async (args: unknown) => {
       releasedTasks.push(args);
       return { released: true };
@@ -291,9 +309,15 @@ function createHarness(options?: {
     runtime,
     runNextTimer,
     statuses,
+    taskStatusCalls,
     timers,
-    setTaskCompleted: () => {
+    setTaskCompleted: (args?: {
+      error?: string;
+      laterActiveTurnId?: string;
+    }) => {
       taskCompleted = true;
+      laterActiveTurnId = args?.laterActiveTurnId ?? null;
+      taskCompletionError = args?.error ?? null;
     },
   };
 }
@@ -339,6 +363,7 @@ describe("CraneConnectorRuntime", () => {
       runtime: {
         provider: "codex",
         model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
@@ -364,6 +389,7 @@ describe("CraneConnectorRuntime", () => {
       provider: "codex",
       runtimeOptions: {
         model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
@@ -384,12 +410,144 @@ describe("CraneConnectorRuntime", () => {
       {
         workspaceId: "workspace-crane",
         taskId: "task-crane",
+        sourceContexts: [
+          expect.objectContaining({
+            sourceId: "crane:CRANE-42",
+          }),
+        ],
       },
     ]);
     expect(JSON.stringify(harness.receipts)).not.toContain(
       "sensitive output",
     );
     expect(harness.bindings.get(JOB.id)?.state).toBe("completed");
+  });
+
+  test("settles the exact Crane turn before manual takeover", async () => {
+    const harness = createHarness();
+    await harness.runtime.configure({
+      enabled: true,
+      baseUrl: "https://atelier.delight-tools.ai",
+      pollIntervalSeconds: 15,
+    });
+    await harness.runNextTimer();
+    await harness.runtime.approve({
+      jobId: JOB.id,
+      projectPath: "/tmp/project",
+      workspace: {
+        strategy: "new",
+        branchName: "crane/crane-42",
+      },
+      runtime: {
+        provider: "codex",
+        model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
+        codexFileAccess: "workspace-write",
+        codexNetworkAccess: false,
+        codexApprovalPolicy: "on-request",
+        advisorTarget: null,
+      },
+    });
+    harness.setTaskCompleted();
+
+    const result = await harness.runtime.prepareTaskTakeover({
+      workspaceId: "workspace-crane",
+      taskId: "task-crane",
+    });
+
+    expect(result).toEqual({
+      bindingFound: true,
+      receiptPending: false,
+      sourceContexts: [
+        expect.objectContaining({
+          sourceId: "crane:CRANE-42",
+        }),
+      ],
+    });
+    expect(harness.taskStatusCalls.at(-1)).toEqual({
+      workspaceId: "workspace-crane",
+      taskId: "task-crane",
+      turnId: "turn-crane",
+    });
+    expect(harness.receipts.at(-1)).toEqual({ state: "completed" });
+    expect(harness.bindings.get(JOB.id)?.state).toBe("completed");
+    expect(harness.leases.has(JOB.id)).toBe(false);
+  });
+
+  test("observes the bound turn even when a later turn is active", async () => {
+    const harness = createHarness();
+    await harness.runtime.configure({
+      enabled: true,
+      baseUrl: "https://atelier.delight-tools.ai",
+      pollIntervalSeconds: 15,
+    });
+    await harness.runNextTimer();
+    await harness.runtime.approve({
+      jobId: JOB.id,
+      projectPath: "/tmp/project",
+      workspace: {
+        strategy: "new",
+        branchName: "crane/crane-42",
+      },
+      runtime: {
+        provider: "codex",
+        model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
+        codexFileAccess: "workspace-write",
+        codexNetworkAccess: false,
+        codexApprovalPolicy: "on-request",
+        advisorTarget: null,
+      },
+    });
+
+    harness.setTaskCompleted({ laterActiveTurnId: "turn-manual" });
+    await harness.runNextTimer();
+
+    expect(harness.taskStatusCalls.at(-1)).toEqual({
+      workspaceId: "workspace-crane",
+      taskId: "task-crane",
+      turnId: "turn-crane",
+    });
+    expect(harness.receipts.at(-1)).toEqual({ state: "completed" });
+    expect(harness.bindings.get(JOB.id)?.state).toBe("completed");
+  });
+
+  test("reports a bound provider failure instead of a false completion", async () => {
+    const harness = createHarness();
+    await harness.runtime.configure({
+      enabled: true,
+      baseUrl: "https://atelier.delight-tools.ai",
+      pollIntervalSeconds: 15,
+    });
+    await harness.runNextTimer();
+    await harness.runtime.approve({
+      jobId: JOB.id,
+      projectPath: "/tmp/project",
+      workspace: {
+        strategy: "new",
+        branchName: "crane/crane-42",
+      },
+      runtime: {
+        provider: "codex",
+        model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
+        codexFileAccess: "workspace-write",
+        codexNetworkAccess: false,
+        codexApprovalPolicy: "on-request",
+        advisorTarget: null,
+      },
+    });
+
+    harness.setTaskCompleted({
+      error: "Provider turn ended without a response.",
+    });
+    await harness.runNextTimer();
+
+    expect(harness.receipts.at(-1)).toEqual({
+      state: "failed",
+      errorCode: "provider_failed",
+    });
+    expect(harness.bindings.get(JOB.id)?.state).toBe("failed");
   });
 
   test("recovers the received receipt before requesting approval", async () => {
@@ -449,6 +607,7 @@ describe("CraneConnectorRuntime", () => {
       runtime: {
         provider: "codex",
         model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
@@ -495,6 +654,7 @@ describe("CraneConnectorRuntime", () => {
         runtime: {
           provider: "codex",
           model: "gpt-5.6",
+          providerTimeoutMs: 43_200_000,
           codexFileAccess: "workspace-write",
           codexNetworkAccess: false,
           codexApprovalPolicy: "on-request",

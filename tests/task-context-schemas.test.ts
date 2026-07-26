@@ -97,6 +97,38 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.tasks[0]?.titleManuallySet).toBe(true);
   });
 
+  test("preserves task-scoped retrieved context across workspace parsing", () => {
+    const parsed = parseWorkspaceShell({
+      payload: {
+        ...createWorkspaceBase(),
+        activeTaskId: "task-crane",
+        tasks: [{
+          id: "task-crane",
+          title: "Crane ATL-1",
+          provider: "codex",
+          updatedAt: "2026-07-26T00:00:00.000Z",
+          unread: false,
+          sourceContexts: [{
+            type: "retrieved_context",
+            sourceId: "crane:ATL-1",
+            title: "Crane ATL-1",
+            content: "Untrusted issue material.",
+          }],
+        }],
+        messageCountByTask: { "task-crane": 1 },
+      },
+    });
+
+    expect(parsed?.tasks[0]?.sourceContexts).toEqual([
+      {
+        type: "retrieved_context",
+        sourceId: "crane:ATL-1",
+        title: "Crane ATL-1",
+        content: "Untrusted issue material.",
+      },
+    ]);
+  });
+
   test("normalizes legacy ghostty terminal tabs to xterm in workspace shell payloads", () => {
     const parsed = parseWorkspaceShell({
       payload: {

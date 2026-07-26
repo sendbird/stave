@@ -178,9 +178,22 @@ export interface HostCraneRunTaskResult {
 export interface HostCraneReleaseTaskControlArgs {
   workspaceId: string;
   taskId: string;
+  sourceContexts?: CanonicalRetrievedContextPart[];
 }
 
 export interface HostCraneReleaseTaskControlResult {
+  workspaceId: string;
+  taskId: string;
+  released: boolean;
+}
+
+export interface HostTaskTakeOverArgs {
+  workspaceId: string;
+  taskId: string;
+  sourceContexts?: CanonicalRetrievedContextPart[];
+}
+
+export interface HostTaskTakeOverResult {
   workspaceId: string;
   taskId: string;
   released: boolean;
@@ -795,6 +808,7 @@ export interface HostServiceRequestMap {
   };
   "crane.run-task": HostCraneRunTaskArgs;
   "crane.release-task-control": HostCraneReleaseTaskControlArgs;
+  "task.take-over": HostTaskTakeOverArgs;
   "routine.invoke": {
     action: HostRoutineAction;
     args: unknown;
@@ -952,6 +966,7 @@ export interface HostServiceResponseMap {
   "local-mcp.invoke": unknown;
   "crane.run-task": HostCraneRunTaskResult;
   "crane.release-task-control": HostCraneReleaseTaskControlResult;
+  "task.take-over": HostTaskTakeOverResult;
   "routine.invoke": unknown;
 }
 
