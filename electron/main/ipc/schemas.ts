@@ -13,6 +13,12 @@ export {
   SecondaryRunLookupArgsSchema,
   SecondaryRunReceiptListArgsSchema,
 } from "../../../src/lib/runs/secondary-run";
+export {
+  CraneConnectorConfigInputSchema as CraneConnectorConfigArgsSchema,
+  CraneConnectorPairInputSchema as CraneConnectorPairArgsSchema,
+  CraneDispatchApprovalResponseSchema as CraneDispatchApproveArgsSchema,
+  CraneDispatchDeclineResponseSchema as CraneDispatchDeclineArgsSchema,
+} from "../../../src/lib/crane-connector/types";
 
 const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 

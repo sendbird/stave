@@ -31,6 +31,14 @@ import type {
   StaveLocalMcpRequestLogQuery,
   StaveLocalMcpStatus,
 } from "../src/lib/local-mcp";
+import type {
+  CraneConnectorConfigInput,
+  CraneConnectorPairInput,
+  CraneConnectorPublicStatus,
+  CraneDispatchApprovalRequest,
+  CraneDispatchApprovalResponse,
+  CraneDispatchJobUpdate,
+} from "../src/lib/crane-connector/types";
 import type { WorkspaceInformationState } from "../src/lib/workspace-information";
 import type {
   RoutineInformationResourceCreateInput,
@@ -182,6 +190,53 @@ interface WorkspaceInformationUpdatePayload {
   workspaceId: string;
   workspaceInformation: WorkspaceInformationState;
 }
+
+const craneConnectorStatusSubscribers = new Set<
+  (payload: CraneConnectorPublicStatus) => void
+>();
+const craneDispatchApprovalSubscribers = new Set<
+  (payload: CraneDispatchApprovalRequest) => void
+>();
+const craneDispatchJobUpdateSubscribers = new Set<
+  (payload: CraneDispatchJobUpdate) => void
+>();
+const pendingCraneDispatchApprovals = new Map<
+  string,
+  CraneDispatchApprovalRequest
+>();
+
+ipcRenderer.on(
+  "crane-connector:status",
+  (_event, payload: CraneConnectorPublicStatus) => {
+    for (const subscriber of craneConnectorStatusSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "crane-connector:approval-required",
+  (_event, payload: CraneDispatchApprovalRequest) => {
+    pendingCraneDispatchApprovals.set(payload.job.id, payload);
+    for (const subscriber of craneDispatchApprovalSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "crane-connector:job-updated",
+  (_event, payload: CraneDispatchJobUpdate) => {
+    if (
+      ["declined", "running", "completed", "failed", "cancelled"].includes(
+        payload.state,
+      )
+    ) {
+      pendingCraneDispatchApprovals.delete(payload.jobId);
+    }
+    for (const subscriber of craneDispatchJobUpdateSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
 
 const streamEventSubscribers = new Set<(payload: StreamEventPayload) => void>();
 ipcRenderer.on(
@@ -1269,6 +1324,73 @@ contextBridge.exposeInMainWorld("api", {
       workspaceInformationUpdateSubscribers.add(listener);
       return () => {
         workspaceInformationUpdateSubscribers.delete(listener);
+      };
+    },
+  },
+  craneConnector: {
+    getStatus: () =>
+      ipcRenderer.invoke("crane-connector:get-status") as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    configure: (args: CraneConnectorConfigInput) =>
+      ipcRenderer.invoke("crane-connector:configure", args) as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    pair: (args: CraneConnectorPairInput) =>
+      ipcRenderer.invoke("crane-connector:pair", args) as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    disconnect: () =>
+      ipcRenderer.invoke("crane-connector:disconnect") as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    approve: (args: CraneDispatchApprovalResponse) =>
+      ipcRenderer.invoke("crane-connector:approve", args) as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        workspaceId?: string;
+        taskId?: string;
+        message?: string;
+      }>,
+    decline: (args: { jobId: string }) =>
+      ipcRenderer.invoke("crane-connector:decline", args) as Promise<{
+        ok: boolean;
+        status: CraneConnectorPublicStatus;
+        message?: string;
+      }>,
+    subscribeStatus: (
+      listener: (payload: CraneConnectorPublicStatus) => void,
+    ) => {
+      craneConnectorStatusSubscribers.add(listener);
+      return () => {
+        craneConnectorStatusSubscribers.delete(listener);
+      };
+    },
+    subscribeApprovalRequests: (
+      listener: (payload: CraneDispatchApprovalRequest) => void,
+    ) => {
+      craneDispatchApprovalSubscribers.add(listener);
+      for (const request of pendingCraneDispatchApprovals.values()) {
+        listener(request);
+      }
+      return () => {
+        craneDispatchApprovalSubscribers.delete(listener);
+      };
+    },
+    subscribeJobUpdates: (
+      listener: (payload: CraneDispatchJobUpdate) => void,
+    ) => {
+      craneDispatchJobUpdateSubscribers.add(listener);
+      return () => {
+        craneDispatchJobUpdateSubscribers.delete(listener);
       };
     },
   },

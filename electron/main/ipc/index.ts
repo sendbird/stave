@@ -1,6 +1,7 @@
 import { registerFilesystemHandlers } from "./filesystem";
 import { registerInlineCompletionHandlers } from "./inline-completion";
 import { registerBrowserHandlers } from "./browser";
+import { registerCraneConnectorHandlers } from "./crane-connector";
 import { registerDiagnosticsHandlers } from "./diagnostics";
 import { registerLocalMcpHandlers } from "./local-mcp";
 import { registerEslintHandlers } from "./eslint";
@@ -37,5 +38,6 @@ export function registerHandlers() {
   registerMetricsHandlers();
   registerNotificationHandlers();
   registerLocalMcpHandlers();
+  registerCraneConnectorHandlers();
   registerBrowserHandlers();
 }

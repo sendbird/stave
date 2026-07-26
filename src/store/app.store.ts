@@ -136,6 +136,7 @@ import {
   buildSuggestTaskNamePayload,
   canTakeOverTask,
   getArchiveFallbackTaskId,
+  isExternallyManagedTask,
   isTaskArchived,
   isTaskManaged,
   normalizeSuggestedTaskTitle,
@@ -441,6 +442,7 @@ import {
   findTrustedApprovalResponses,
   showNotificationToast,
 } from "@/store/app-notification-builders";
+import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import {
   DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
   SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
@@ -1757,10 +1759,7 @@ function moveItemById<T extends { id: string }>(args: {
   return nextItems;
 }
 
-function isManagedTaskReadOnly(args: {
-  state: Pick<AppState, "tasks">;
-  taskId: string;
-}) {
+function isManagedTaskReadOnly(args: { state: Pick<AppState, "tasks">; taskId: string }) {
   return isTaskManaged(findTaskById(args.state, args.taskId));
 }
 
@@ -10979,9 +10978,10 @@ export const useAppStore = create<AppState>()(
         },
         resolveApproval: ({ taskId, messageId, approved }) => {
           const stateBefore = get();
-          if (isManagedTaskReadOnly({ state: stateBefore, taskId })) {
+          if (isExternallyManagedTask(findTaskById(stateBefore, taskId))) {
             return;
           }
+          const respondThroughManagedHost = isTaskManaged(findTaskById(stateBefore, taskId));
           const runtimeTarget = resolveTaskRuntimeTarget({
             state: stateBefore,
             taskId,
@@ -11147,7 +11147,7 @@ export const useAppStore = create<AppState>()(
             }
           };
 
-          if (activeTurnId && approvalPart) {
+          if (activeTurnId && approvalPart && !respondThroughManagedHost) {
             const respondApproval = window.api?.provider?.respondApproval;
             if (respondApproval) {
               void respondApproval({
@@ -11174,7 +11174,7 @@ export const useAppStore = create<AppState>()(
           }
 
           if (
-            !activeTurnId &&
+            (respondThroughManagedHost || !activeTurnId) &&
             approvalPart &&
             workspaceId &&
             window.api?.localMcp?.respondApproval
@@ -11222,9 +11222,10 @@ export const useAppStore = create<AppState>()(
         },
         resolveUserInput: ({ taskId, messageId, answers, denied }) => {
           const stateBefore = get();
-          if (isManagedTaskReadOnly({ state: stateBefore, taskId })) {
+          if (isExternallyManagedTask(findTaskById(stateBefore, taskId))) {
             return;
           }
+          const respondThroughManagedHost = isTaskManaged(findTaskById(stateBefore, taskId));
           const runtimeTarget = resolveTaskRuntimeTarget({
             state: stateBefore,
             taskId,
@@ -11392,7 +11393,7 @@ export const useAppStore = create<AppState>()(
             }
           };
 
-          if (activeTurnId && userInputPart) {
+          if (activeTurnId && userInputPart && !respondThroughManagedHost) {
             const respondUserInput = window.api?.provider?.respondUserInput;
             if (respondUserInput) {
               void respondUserInput({
@@ -11420,7 +11421,7 @@ export const useAppStore = create<AppState>()(
           }
 
           if (
-            !activeTurnId &&
+            (respondThroughManagedHost || !activeTurnId) &&
             userInputPart &&
             workspaceId &&
             window.api?.localMcp?.respondUserInput
@@ -12253,6 +12254,7 @@ export const useAppStore = create<AppState>()(
         // Migrate legacy fastModeVisible → per-provider fields.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const raw = state.settings as any;
+        state.settings.craneConnector = normalizeCraneConnectorSettings(raw.craneConnector);
         state.compareRunsById = normalizePersistedCompareRuns({
           runsById: state.compareRunsById,
           now: buildRecentTimestamp(),

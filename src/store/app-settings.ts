@@ -67,6 +67,10 @@ import type {
   ThemeOverrideValues,
 } from "@/lib/themes";
 import {
+  DEFAULT_CRANE_CONNECTOR_SETTINGS,
+  type CraneConnectorSettings,
+} from "@/lib/crane-connector/types";
+import {
   DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
   type WorkspaceKickoffSettings,
 } from "@/store/workspace-kickoff-actions";
@@ -223,6 +227,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeTaskBudgetTokens: number;
   /** Optional isolated read-only preflight used before normal user turns. */
   advisorTarget: AdvisorTarget | null;
+  /** Optional outbound-only Crane dispatch connector. Secrets stay in Electron main. */
+  craneConnector: CraneConnectorSettings;
   claudeSettingSources: ClaudeSettingSource[];
   claudeEffort: "low" | "medium" | "high" | "xhigh" | "max";
   claudeThinkingMode: "adaptive" | "enabled" | "disabled";
@@ -423,6 +429,10 @@ export const defaultSettings: AppSettings = {
   claudeAllowUnsandboxedCommands: true,
   claudeTaskBudgetTokens: 0,
   advisorTarget: null,
+  craneConnector: {
+    ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
+    projectMappings: [],
+  },
   claudeSettingSources: ["project"],
   claudeEffort: "high",
   claudeThinkingMode: "adaptive",

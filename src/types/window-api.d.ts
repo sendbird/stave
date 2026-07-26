@@ -29,6 +29,14 @@ import type {
   StaveLocalMcpRequestLogQuery,
   StaveLocalMcpStatus,
 } from "@/lib/local-mcp";
+import type {
+  CraneConnectorConfigInput,
+  CraneConnectorPairInput,
+  CraneConnectorPublicStatus,
+  CraneDispatchApprovalRequest,
+  CraneDispatchApprovalResponse,
+  CraneDispatchJobUpdate,
+} from "@/lib/crane-connector/types";
 import type { RepoMapResponse } from "@/lib/fs/repo-map.types";
 import type {
   AppNotification,
@@ -624,6 +632,50 @@ interface WindowLocalMcpApi {
       workspaceId: string;
       workspaceInformation: WorkspaceInformationState;
     }) => void,
+  ) => () => void;
+}
+
+interface WindowCraneConnectorApi {
+  getStatus?: () => Promise<{
+    ok: boolean;
+    status: CraneConnectorPublicStatus;
+    message?: string;
+  }>;
+  configure?: (args: CraneConnectorConfigInput) => Promise<{
+    ok: boolean;
+    status: CraneConnectorPublicStatus;
+    message?: string;
+  }>;
+  pair?: (args: CraneConnectorPairInput) => Promise<{
+    ok: boolean;
+    status: CraneConnectorPublicStatus;
+    message?: string;
+  }>;
+  disconnect?: () => Promise<{
+    ok: boolean;
+    status: CraneConnectorPublicStatus;
+    message?: string;
+  }>;
+  approve?: (args: CraneDispatchApprovalResponse) => Promise<{
+    ok: boolean;
+    status: CraneConnectorPublicStatus;
+    workspaceId?: string;
+    taskId?: string;
+    message?: string;
+  }>;
+  decline?: (args: { jobId: string }) => Promise<{
+    ok: boolean;
+    status: CraneConnectorPublicStatus;
+    message?: string;
+  }>;
+  subscribeStatus?: (
+    listener: (payload: CraneConnectorPublicStatus) => void,
+  ) => () => void;
+  subscribeApprovalRequests?: (
+    listener: (payload: CraneDispatchApprovalRequest) => void,
+  ) => () => void;
+  subscribeJobUpdates?: (
+    listener: (payload: CraneDispatchJobUpdate) => void,
   ) => () => void;
 }
 
@@ -2248,6 +2300,7 @@ interface WindowApi {
   fs?: WindowFsApi;
   skills?: WindowSkillsApi;
   localMcp?: WindowLocalMcpApi;
+  craneConnector?: WindowCraneConnectorApi;
   routines?: WindowRoutinesApi;
   lsp?: WindowLspApi;
   eslint?: WindowEslintApi;

@@ -130,6 +130,13 @@ export const settingsSections = [
     keywords: ["servers", "tools", "context"],
   },
   {
+    id: "integrations",
+    label: "Integrations",
+    icon: Cable,
+    description: "Personal outbound connectors and external task sources.",
+    keywords: ["crane", "atelier", "connector", "dispatch", "pair"],
+  },
+  {
     id: "kickoff",
     label: "Kickoff",
     icon: Rocket,
@@ -224,6 +231,7 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
         "presets",
         "models",
         "mcp",
+        "integrations",
         "kickoff",
         "prompts",
         "skills",

@@ -50,7 +50,11 @@ import {
   type PaneSurfaceDescriptor,
   type PaneSurfaceKind,
 } from "@/lib/panes/types";
-import { canTakeOverTask, isTaskArchived, isTaskManaged } from "@/lib/tasks";
+import {
+  canTakeOverTask,
+  isTaskArchived,
+  isTaskManaged,
+} from "@/lib/tasks";
 import { closeTerminalSessionForTab } from "@/lib/terminal/terminal-session-cleanup";
 import { useAppStore } from "@/store/app.store";
 import {

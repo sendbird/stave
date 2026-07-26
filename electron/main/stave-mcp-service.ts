@@ -1,5 +1,11 @@
 import { webContents } from "electron";
-import type { HostLocalMcpAction } from "../host-service/protocol";
+import type {
+  HostCraneReleaseTaskControlArgs,
+  HostCraneReleaseTaskControlResult,
+  HostCraneRunTaskArgs,
+  HostCraneRunTaskResult,
+  HostLocalMcpAction,
+} from "../host-service/protocol";
 import { invokeHostService, onHostServiceEvent } from "./host-service-client";
 
 export type {
@@ -321,6 +327,28 @@ export async function runTask(args: {
   return invokeLocalMcp<
     import("../host-service/local-mcp-runtime").TaskRunResult
   >("run-task", args);
+}
+
+/**
+ * Trusted main-process entry point for locally approved Crane dispatch.
+ * Public Local MCP callers cannot select Stave ownership.
+ */
+export async function runLocallyApprovedCraneTask(
+  args: HostCraneRunTaskArgs,
+) {
+  return invokeHostService(
+    "crane.run-task",
+    args,
+  ) as Promise<HostCraneRunTaskResult>;
+}
+
+export async function releaseLocallyManagedCraneTask(
+  args: HostCraneReleaseTaskControlArgs,
+) {
+  return invokeHostService(
+    "crane.release-task-control",
+    args,
+  ) as Promise<HostCraneReleaseTaskControlResult>;
 }
 
 export async function getTaskStatus(args: {

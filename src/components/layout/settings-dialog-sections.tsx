@@ -32,6 +32,7 @@ import {
   ModelSelector,
 } from "@/components/ai-elements/model-selector";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
+import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
 import {
   COMMAND_PALETTE_GROUP_LABELS,
   getCommandPaletteCoreCommands,
@@ -3727,6 +3728,8 @@ export function SettingsDialogSectionContent(args: {
       return <CodexSection />;
     case "mcp":
       return <McpSection />;
+    case "integrations":
+      return <CraneConnectorSettingsSection />;
     case "kickoff":
       return <KickoffSection />;
     case "prompts":

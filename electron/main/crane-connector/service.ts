@@ -1,0 +1,98 @@
+import { app } from "electron";
+import type {
+  CraneConnectorConfigInput,
+  CraneConnectorPairInput,
+  CraneDispatchApprovalResponse,
+} from "../../../src/lib/crane-connector/types";
+import {
+  createWorkspace,
+  getTaskStatus,
+  listKnownProjects,
+  releaseLocallyManagedCraneTask,
+  runLocallyApprovedCraneTask,
+} from "../stave-mcp-service";
+import { ensurePersistenceReadySync } from "../state";
+import { getMainWindow } from "../window";
+import { getCraneConnectorCredentialVault } from "./credential-service";
+import { CraneConnectorHttpClient } from "./http-client";
+import { CraneConnectorRuntime } from "./runtime";
+
+const STATUS_EVENT = "crane-connector:status";
+const APPROVAL_EVENT = "crane-connector:approval-required";
+const JOB_UPDATE_EVENT = "crane-connector:job-updated";
+
+let runtime: CraneConnectorRuntime | null = null;
+
+function sendToRenderer(channel: string, payload: unknown) {
+  const renderer = getMainWindow()?.webContents;
+  if (!renderer || renderer.isDestroyed()) {
+    return;
+  }
+  renderer.send(channel, payload);
+}
+
+export function getCraneConnectorRuntime() {
+  if (runtime) {
+    return runtime;
+  }
+  const allowInsecureLocalhost =
+    process.env.STAVE_DEV === "1" && !app.isPackaged;
+  runtime = new CraneConnectorRuntime({
+    vault: getCraneConnectorCredentialVault(),
+    persistence: ensurePersistenceReadySync(),
+    appVersion: app.getVersion(),
+    createHttpClient: (baseUrl) =>
+      new CraneConnectorHttpClient({
+        baseUrl,
+        allowInsecureLocalhost,
+      }),
+    listKnownProjects,
+    createWorkspace: (args) => createWorkspace(args),
+    runTask: (args) => runLocallyApprovedCraneTask(args),
+    getTaskStatus,
+    releaseTaskControl: releaseLocallyManagedCraneTask,
+    emitStatus: (status) => sendToRenderer(STATUS_EVENT, status),
+    emitApproval: (request) =>
+      sendToRenderer(APPROVAL_EVENT, request),
+    emitJobUpdate: (update) =>
+      sendToRenderer(JOB_UPDATE_EVENT, update),
+  });
+  return runtime;
+}
+
+export function getCraneConnectorStatus() {
+  return getCraneConnectorRuntime().getStatus();
+}
+
+export function configureCraneConnector(
+  input: CraneConnectorConfigInput,
+) {
+  return getCraneConnectorRuntime().configure(input);
+}
+
+export function pairCraneConnector(input: CraneConnectorPairInput) {
+  return getCraneConnectorRuntime().pair(input);
+}
+
+export function disconnectCraneConnector() {
+  return getCraneConnectorRuntime().disconnect();
+}
+
+export function approveCraneDispatch(
+  input: CraneDispatchApprovalResponse,
+) {
+  return getCraneConnectorRuntime().approve(input);
+}
+
+export function declineCraneDispatch(jobId: string) {
+  return getCraneConnectorRuntime().decline(jobId);
+}
+
+export function stopCraneConnectorRuntime() {
+  runtime?.shutdown();
+}
+
+export function resetCraneConnectorRuntimeForTests() {
+  runtime?.shutdown();
+  runtime = null;
+}

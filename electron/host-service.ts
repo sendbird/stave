@@ -1473,6 +1473,24 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         await invokeLocalMcpAction(request.params.action, request.params.args),
       );
       return;
+    case "crane.run-task":
+      await respond(
+        request.id,
+        await localMcpRuntime.runTask({
+          ...request.params,
+          controlMode: "managed",
+          controlOwner: "stave",
+        }),
+      );
+      return;
+    case "crane.release-task-control":
+      await respond(
+        request.id,
+        await localMcpRuntime.releaseLocallyManagedTaskControl(
+          request.params,
+        ),
+      );
+      return;
     case "routine.invoke":
       await respond(
         request.id,

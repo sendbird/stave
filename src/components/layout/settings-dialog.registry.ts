@@ -5,6 +5,7 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { AppSettings } from "@/store/app-settings";
+import { CraneConnectorSettingsSchema } from "@/lib/crane-connector/types";
 import type { SectionId } from "./settings-dialog.schema";
 
 export interface SettingDefinition<
@@ -19,9 +20,9 @@ export interface SettingDefinition<
   schema: z.ZodType<AppSettings[Key]>;
   defaultValue: AppSettings[Key];
   scope: "app";
-  sensitivity: "plain";
-  applyMode: "next-turn";
-  importExport: "include";
+  sensitivity: "plain" | "sensitive";
+  applyMode: "next-turn" | "immediate";
+  importExport: "include" | "exclude";
 }
 
 const AdvisorTargetSchema = z
@@ -70,6 +71,36 @@ export const settingDefinitions = [
     applyMode: "next-turn",
     importExport: "include",
   } satisfies SettingDefinition<"advisorTarget">,
+  {
+    key: "craneConnector",
+    sectionId: "integrations",
+    fieldId: "settings-field-crane-connector",
+    title: "Crane connector",
+    description:
+      "Pair this Stave installation with your Crane account for locally approved, outbound-only task dispatch.",
+    keywords: [
+      "crane",
+      "atelier",
+      "connector",
+      "pair",
+      "dispatch",
+      "remote",
+      "integration",
+      "outbound",
+      "project mapping",
+    ],
+    schema: CraneConnectorSettingsSchema,
+    defaultValue: {
+      enabled: false,
+      baseUrl: "https://atelier.delight-tools.ai",
+      pollIntervalSeconds: 15,
+      projectMappings: [],
+    },
+    scope: "app",
+    sensitivity: "sensitive",
+    applyMode: "immediate",
+    importExport: "exclude",
+  } satisfies SettingDefinition<"craneConnector">,
 ] as const;
 
 export function getSettingsFieldSearchText<Key extends keyof AppSettings>(

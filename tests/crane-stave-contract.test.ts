@@ -1,4 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import {
+  CraneConnectorConfigArgsSchema,
+  CraneConnectorPairArgsSchema,
+  CraneDispatchApproveArgsSchema,
+  CraneDispatchDeclineArgsSchema,
+} from "../electron/main/ipc/schemas";
 import {
   CRANE_STAVE_DISPATCH_LIMITS,
   CraneStaveJobV1Schema,
@@ -88,5 +96,84 @@ describe("Crane Stave dispatch V1 contract", () => {
         localPath: "/private/project",
       }).success,
     ).toBe(false);
+  });
+
+  test("keeps connector IPC payloads strict and local choices local", () => {
+    expect(
+      CraneConnectorConfigArgsSchema.safeParse({
+        enabled: true,
+        baseUrl: "https://atelier.delight-tools.ai",
+        pollIntervalSeconds: 15,
+        connectorSecret: "stc_forbidden",
+      }).success,
+    ).toBe(false);
+    expect(
+      CraneConnectorPairArgsSchema.safeParse({
+        baseUrl: "https://atelier.delight-tools.ai",
+        code: "stp_test-only-code",
+        name: "Stave Desktop",
+      }).success,
+    ).toBe(true);
+    expect(
+      CraneDispatchApproveArgsSchema.safeParse({
+        jobId: "job-1",
+        projectPath: "/tmp/project",
+        workspace: {
+          strategy: "existing",
+          workspaceId: "workspace-1",
+        },
+        runtime: {
+          provider: "codex",
+          model: "gpt-5.6",
+          codexFileAccess: "workspace-write",
+          codexNetworkAccess: false,
+          codexApprovalPolicy: "on-request",
+          advisorTarget: null,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      CraneDispatchDeclineArgsSchema.safeParse({
+        jobId: "job-1",
+        reason: "remote-controlled",
+      }).success,
+    ).toBe(false);
+  });
+
+  test("keeps preload, renderer types, and main channels symmetric", () => {
+    const repoRoot = path.join(import.meta.dir, "..");
+    const preload = readFileSync(
+      path.join(repoRoot, "electron", "preload.ts"),
+      "utf8",
+    );
+    const rendererTypes = readFileSync(
+      path.join(repoRoot, "src", "types", "window-api.d.ts"),
+      "utf8",
+    );
+    const mainIpc = readFileSync(
+      path.join(
+        repoRoot,
+        "electron",
+        "main",
+        "ipc",
+        "crane-connector.ts",
+      ),
+      "utf8",
+    );
+    const endpoints = [
+      ["getStatus", "crane-connector:get-status"],
+      ["configure", "crane-connector:configure"],
+      ["pair", "crane-connector:pair"],
+      ["disconnect", "crane-connector:disconnect"],
+      ["approve", "crane-connector:approve"],
+      ["decline", "crane-connector:decline"],
+    ] as const;
+
+    for (const [bridgeMethod, channel] of endpoints) {
+      expect(preload).toContain(`${bridgeMethod}:`);
+      expect(preload).toContain(`"${channel}"`);
+      expect(rendererTypes).toContain(`${bridgeMethod}?:`);
+      expect(mainIpc).toContain(`"${channel}"`);
+    }
   });
 });

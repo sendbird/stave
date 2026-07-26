@@ -89,6 +89,49 @@ describe("local MCP service bridge", () => {
     }]);
   });
 
+  test("routes approved Crane work through the trusted Stave-owned action", async () => {
+    const retrievedContextParts = [{
+      type: "retrieved_context" as const,
+      sourceId: "crane:CRANE-42",
+      title: "Crane CRANE-42",
+      content: "Untrusted remote issue context.",
+    }];
+
+    await localMcpService.runLocallyApprovedCraneTask({
+      workspaceId: "workspace-1",
+      prompt: "Work on the approved issue",
+      provider: "codex",
+      runtimeOptions: { model: "gpt-5.6" },
+      retrievedContextParts,
+    });
+
+    expect(invokeCalls).toEqual([{
+      method: "crane.run-task",
+      params: {
+        workspaceId: "workspace-1",
+        prompt: "Work on the approved issue",
+        provider: "codex",
+        runtimeOptions: { model: "gpt-5.6" },
+        retrievedContextParts,
+      },
+    }]);
+  });
+
+  test("releases completed Crane task control through the trusted action", async () => {
+    await localMcpService.releaseLocallyManagedCraneTask({
+      workspaceId: "workspace-1",
+      taskId: "task-1",
+    });
+
+    expect(invokeCalls).toEqual([{
+      method: "crane.release-task-control",
+      params: {
+        workspaceId: "workspace-1",
+        taskId: "task-1",
+      },
+    }]);
+  });
+
   test("forwards workspace information updates back to renderer listeners", () => {
     expect(workspaceInformationListener).not.toBeNull();
     const payload = {

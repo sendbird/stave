@@ -146,6 +146,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         previewImage: "screenshots/mcp-settings.png",
       },
       {
+        routePath: "crane-connector",
+        sourcePath: "docs/features/crane-connector.md",
+        title: "Crane Connector",
+        description:
+          "Queue a Crane issue for local Claude or Codex execution with explicit per-job approval and status-only reporting.",
+      },
+      {
         routePath: "language-intelligence",
         sourcePath: "docs/features/language-intelligence.md",
         title: "Language Intelligence",

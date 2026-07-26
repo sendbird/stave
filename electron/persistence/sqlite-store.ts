@@ -44,6 +44,10 @@ import {
   type PersistedTurnStreamEvent,
 } from "./turn-event-payload";
 import { RunLedgerStore } from "./run-ledger-store";
+import {
+  CraneJobBindingStore,
+  type LocalCraneJobBinding,
+} from "./crane-job-binding-store";
 
 interface WorkspaceMetaRow {
   id: string;
@@ -161,6 +165,7 @@ export class SqliteStore {
   private db: Database.Database;
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
+  private craneJobBindings: CraneJobBindingStore;
   private _closed = false;
   private onBootstrapStatusChange?: (
     status: PersistenceBootstrapStatus,
@@ -183,6 +188,7 @@ export class SqliteStore {
     this.db.pragma("synchronous = NORMAL");
     this.bootstrap();
     this.runLedger = new RunLedgerStore(this.db);
+    this.craneJobBindings = new CraneJobBindingStore(this.db);
   }
 
   private emitBootstrapStatus(status: PersistenceBootstrapStatus) {
@@ -2395,6 +2401,22 @@ export class SqliteStore {
       createdAt: row.created_at,
       completedAt: row.completed_at,
     }));
+  }
+
+  getCraneJobBinding(jobId: string) {
+    return this.craneJobBindings.get(jobId);
+  }
+
+  listActiveCraneJobBindings(connectorId: string) {
+    return this.craneJobBindings.listActive(connectorId);
+  }
+
+  upsertCraneJobBinding(binding: LocalCraneJobBinding) {
+    return this.craneJobBindings.upsert(binding);
+  }
+
+  pruneCraneJobBindings(cutoff: string) {
+    return this.craneJobBindings.pruneTerminalBefore(cutoff);
   }
 
   close() {

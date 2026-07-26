@@ -3,6 +3,7 @@ import type {
   TerminalCreateSessionArgs,
 } from "../../src/lib/terminal/types";
 import type {
+  CanonicalRetrievedContextPart,
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
   CodexMcpOauthLoginResponse,
@@ -16,6 +17,7 @@ import type {
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
   CodexReviewStartResponse,
+  ProviderRuntimeOptions,
   ProviderSteerTurnResponse,
   RateLimitsSnapshotResponse,
 } from "../../src/lib/providers/provider.types";
@@ -152,6 +154,36 @@ export interface HostProviderStartStreamResult {
 
 export interface HostProviderStartPushTurnResult extends HostProviderStartStreamResult {
   turnId: string | null;
+}
+
+export interface HostCraneRunTaskArgs {
+  workspaceId: string;
+  prompt: string;
+  taskId?: string;
+  title?: string;
+  provider?: "claude-code" | "codex";
+  runtimeOptions?: ProviderRuntimeOptions;
+  retrievedContextParts: CanonicalRetrievedContextPart[];
+}
+
+export interface HostCraneRunTaskResult {
+  workspaceId: string;
+  taskId: string;
+  taskTitle: string;
+  turnId: string;
+  provider: "claude-code" | "codex";
+  model: string;
+}
+
+export interface HostCraneReleaseTaskControlArgs {
+  workspaceId: string;
+  taskId: string;
+}
+
+export interface HostCraneReleaseTaskControlResult {
+  workspaceId: string;
+  taskId: string;
+  released: boolean;
 }
 
 export interface HostProviderReadStreamResult {
@@ -761,6 +793,8 @@ export interface HostServiceRequestMap {
     action: HostLocalMcpAction;
     args: unknown;
   };
+  "crane.run-task": HostCraneRunTaskArgs;
+  "crane.release-task-control": HostCraneReleaseTaskControlArgs;
   "routine.invoke": {
     action: HostRoutineAction;
     args: unknown;
@@ -916,6 +950,8 @@ export interface HostServiceResponseMap {
   "scm.update-pr-branch": CommandResult;
   "scm.create-pr": HostScmCreatePrResult;
   "local-mcp.invoke": unknown;
+  "crane.run-task": HostCraneRunTaskResult;
+  "crane.release-task-control": HostCraneReleaseTaskControlResult;
   "routine.invoke": unknown;
 }
 
