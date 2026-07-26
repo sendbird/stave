@@ -239,7 +239,7 @@ import {
   type StartCompareRun,
   type StartCompareRunResult,
 } from "@/lib/compare-runs";
-import { launchReadyCompareJudgesFromStore } from "@/store/compare-run-judge";
+import { cancelCompareJudgeSecondaryRun, launchReadyCompareJudgesFromStore } from "@/store/compare-run-judge";
 import { launchCompareRunVariants } from "@/store/compare-run-start";
 import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import {
@@ -6924,6 +6924,7 @@ export const useAppStore = create<AppState>()(
             id: compareRunId,
             seedPrompt: normalizedSeedPrompt,
             baseWorkspaceId,
+            baseTaskId: stateBefore.activeTaskId ?? undefined,
             baseBranch,
             variants: normalizedVariants,
             reviewCriteria: normalizeCompareReviewCriteria(reviewCriteria),
@@ -7127,12 +7128,6 @@ export const useAppStore = create<AppState>()(
             return { ok: true, compareRunId };
           }
 
-          for (const variant of run.variants) {
-            if (variant.workspaceId && variant.status !== "discarded") {
-              await get().closeWorkspace({ workspaceId: variant.workspaceId });
-            }
-          }
-
           set((state) => {
             const currentRun = state.compareRunsById[compareRunId];
             if (!currentRun) {
@@ -7153,6 +7148,14 @@ export const useAppStore = create<AppState>()(
               },
             };
           });
+
+          await cancelCompareJudgeSecondaryRun({ run });
+
+          for (const variant of run.variants) {
+            if (variant.workspaceId && variant.status !== "discarded") {
+              await get().closeWorkspace({ workspaceId: variant.workspaceId });
+            }
+          }
 
           return { ok: true, compareRunId };
         },

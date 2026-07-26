@@ -94,6 +94,43 @@ import type {
 import type { PersistenceBootstrapStatus } from "@/lib/persistence/bootstrap-status";
 import type { GraphCommit } from "@/lib/git-graph/types";
 import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.types";
+import type {
+  SecondaryRunAggregate,
+  SecondaryRunCancelArgs,
+  SecondaryRunClaimArgs,
+  SecondaryRunCompleteArgs,
+  SecondaryRunExecuteArgs,
+  SecondaryRunExecuteResponse,
+  SecondaryRunFailArgs,
+  SecondaryRunLookupArgs,
+  SecondaryRunReceiptList,
+  SecondaryRunReceiptListArgs,
+  SecondaryRunTransitionResponse,
+} from "@/lib/runs/secondary-run";
+
+interface WindowRunsApi {
+  claimSecondary?: (
+    args: SecondaryRunClaimArgs,
+  ) => Promise<SecondaryRunTransitionResponse>;
+  executeSecondary?: (
+    args: SecondaryRunExecuteArgs,
+  ) => Promise<SecondaryRunExecuteResponse>;
+  completeSecondary?: (
+    args: SecondaryRunCompleteArgs,
+  ) => Promise<SecondaryRunTransitionResponse>;
+  failSecondary?: (
+    args: SecondaryRunFailArgs,
+  ) => Promise<SecondaryRunTransitionResponse>;
+  cancelSecondary?: (
+    args: SecondaryRunCancelArgs,
+  ) => Promise<SecondaryRunTransitionResponse>;
+  getSecondary?: (
+    args: SecondaryRunLookupArgs,
+  ) => Promise<SecondaryRunAggregate | null>;
+  listReceipts?: (
+    args: SecondaryRunReceiptListArgs,
+  ) => Promise<SecondaryRunReceiptList>;
+}
 
 interface ProviderStreamTurnArgs {
   turnId?: string;
@@ -2205,6 +2242,7 @@ interface WindowInlineCompletionApi {
 
 interface WindowApi {
   platform?: NodeJS.Platform;
+  runs?: WindowRunsApi;
   provider?: WindowProviderApi;
   persistence?: WindowPersistenceApi;
   fs?: WindowFsApi;

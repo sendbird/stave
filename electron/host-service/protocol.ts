@@ -50,6 +50,11 @@ import type {
 } from "../../src/lib/source-control-review";
 import type { CommandResult, SourceControlStatusItem } from "../main/types";
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
+import type {
+  SecondaryProviderCancelRequest,
+  SecondaryProviderExecutionRequest,
+  SecondaryProviderExecutionResult,
+} from "../../src/lib/runs/secondary-run";
 
 export interface HostWorkspaceScriptRunEntryArgs {
   workspaceId: string;
@@ -447,6 +452,8 @@ export interface HostServiceRequestMap {
   };
   "workspace-scripts.cleanup-all": undefined;
   "provider.stream-turn": StreamTurnArgs;
+  "runs.execute-secondary": SecondaryProviderExecutionRequest;
+  "runs.cancel-secondary": SecondaryProviderCancelRequest;
   "provider.start-stream-turn": StreamTurnArgs;
   "provider.start-push-turn": StreamTurnArgs;
   "provider.read-stream-turn": {
@@ -800,6 +807,8 @@ export interface HostServiceResponseMap {
     ok: true;
   };
   "provider.stream-turn": BridgeEvent[];
+  "runs.execute-secondary": SecondaryProviderExecutionResult;
+  "runs.cancel-secondary": HostProviderMutationResult;
   "provider.start-stream-turn": HostProviderStartStreamResult;
   "provider.start-push-turn": HostProviderStartPushTurnResult;
   "provider.read-stream-turn": HostProviderReadStreamResult;

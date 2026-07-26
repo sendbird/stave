@@ -127,6 +127,10 @@ import {
   serializeJsonFramedMessage,
 } from "./shared/json-message-framing";
 import { collectUntrackedWorkingTreeDiff } from "./host-service/pr-description-context";
+import {
+  cancelSecondaryProviderRun,
+  executeSecondaryProviderRun,
+} from "./providers/secondary-run-executor";
 
 type HostServiceOutboundMessage =
   | AnyHostServiceResponseEnvelope
@@ -1168,6 +1172,18 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(
         request.id,
         await providerRuntime.streamTurn(request.params),
+      );
+      return;
+    case "runs.execute-secondary":
+      await respond(
+        request.id,
+        await executeSecondaryProviderRun(request.params, providerRuntime),
+      );
+      return;
+    case "runs.cancel-secondary":
+      await respond(
+        request.id,
+        cancelSecondaryProviderRun(request.params, providerRuntime),
       );
       return;
     case "provider.start-stream-turn":

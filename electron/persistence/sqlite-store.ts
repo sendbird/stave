@@ -43,6 +43,7 @@ import {
   prepareTurnEventPayload,
   type PersistedTurnStreamEvent,
 } from "./turn-event-payload";
+import { RunLedgerStore } from "./run-ledger-store";
 
 interface WorkspaceMetaRow {
   id: string;
@@ -159,6 +160,7 @@ function normalizePersistedProviderId(
 export class SqliteStore {
   private db: Database.Database;
   private artifactRootDir: string;
+  private runLedger: RunLedgerStore;
   private _closed = false;
   private onBootstrapStatusChange?: (
     status: PersistenceBootstrapStatus,
@@ -180,6 +182,7 @@ export class SqliteStore {
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("synchronous = NORMAL");
     this.bootstrap();
+    this.runLedger = new RunLedgerStore(this.db);
   }
 
   private emitBootstrapStatus(status: PersistenceBootstrapStatus) {
@@ -1693,6 +1696,50 @@ export class SqliteStore {
     `,
       )
       .run(ROUTINE_STATE_KEY, JSON.stringify(state), now);
+  }
+
+  getRunAggregate(
+    args: Parameters<RunLedgerStore["getAggregate"]>[0],
+  ) {
+    return this.runLedger.getAggregate(args);
+  }
+
+  claimRunStep(args: Parameters<RunLedgerStore["claimStep"]>[0]) {
+    return this.runLedger.claimStep(args);
+  }
+
+  markRunStepWaiting(
+    args: Parameters<RunLedgerStore["markStepWaiting"]>[0],
+  ) {
+    return this.runLedger.markStepWaiting(args);
+  }
+
+  completeRunStep(
+    args: Parameters<RunLedgerStore["completeStep"]>[0],
+  ) {
+    return this.runLedger.completeStep(args);
+  }
+
+  failRunStep(args: Parameters<RunLedgerStore["failStep"]>[0]) {
+    return this.runLedger.failStep(args);
+  }
+
+  cancelRunStep(
+    args: Parameters<RunLedgerStore["cancelStep"]>[0],
+  ) {
+    return this.runLedger.cancelStep(args);
+  }
+
+  listRunReceipts(
+    args: Parameters<RunLedgerStore["listReceipts"]>[0],
+  ) {
+    return this.runLedger.listReceipts(args);
+  }
+
+  reconcileInterruptedRuns(
+    args: Parameters<RunLedgerStore["reconcileInterruptedRuns"]>[0],
+  ) {
+    return this.runLedger.reconcileInterruptedRuns(args);
   }
 
   saveTerminalSnapshot(args: { slotKey: string; screenState: string }) {

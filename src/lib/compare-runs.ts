@@ -86,6 +86,7 @@ export interface CompareRun {
   id: string;
   seedPrompt: string;
   baseWorkspaceId: string;
+  baseTaskId?: string;
   baseBranch?: string;
   createdAt: string;
   updatedAt: string;
@@ -731,6 +732,7 @@ export function buildInitialCompareRun(args: {
   id: string;
   seedPrompt: string;
   baseWorkspaceId: string;
+  baseTaskId?: string;
   baseBranch?: string;
   variants: CompareRunVariantConfig[];
   reviewCriteria?: readonly string[];
@@ -742,6 +744,7 @@ export function buildInitialCompareRun(args: {
     id: args.id,
     seedPrompt: args.seedPrompt,
     baseWorkspaceId: args.baseWorkspaceId,
+    ...(args.baseTaskId ? { baseTaskId: args.baseTaskId } : {}),
     baseBranch: args.baseBranch,
     createdAt: args.now,
     updatedAt: args.now,

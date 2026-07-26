@@ -302,6 +302,11 @@ const CLAUDE_MUTATING_BASH_PATTERNS = [
   /(^|[;&|]\s*)cat\b[^\n]*\s\d*(?:>>|>(?![&]))/i,
   /\s\d*(?:>>|>(?![&]))/,
 ] as const;
+const CLAUDE_SECONDARY_NETWORK_BASH_PATTERNS = [
+  /(^|[;&|]\s*)(curl|wget|ssh|scp|sftp|ftp|telnet|nc|ncat)\b/i,
+  /(^|[;&|]\s*)git\s+(clone|fetch|pull|push|ls-remote)\b/i,
+  /\bhttps?:\/\//i,
+] as const;
 
 // ---------------------------------------------------------------------------
 // Prewarm: eagerly cache the SDK module import and executable path resolution
@@ -575,6 +580,26 @@ function extractClaudeBashCommand(input: Record<string, unknown>) {
 
 function isMutatingClaudeBashCommand(command: string) {
   return CLAUDE_MUTATING_BASH_PATTERNS.some((pattern) => pattern.test(command));
+}
+
+export function shouldDenyClaudeToolInSecondaryReadOnly(args: {
+  toolName: string;
+  input: Record<string, unknown>;
+}) {
+  const toolName = args.toolName.trim().toLowerCase();
+  if (toolName === "read" || toolName === "glob" || toolName === "grep") {
+    return false;
+  }
+  if (toolName !== "bash") {
+    return true;
+  }
+  const command = extractClaudeBashCommand(args.input);
+  if (!command || isMutatingClaudeBashCommand(command)) {
+    return true;
+  }
+  return CLAUDE_SECONDARY_NETWORK_BASH_PATTERNS.some((pattern) =>
+    pattern.test(command),
+  );
 }
 
 /**
@@ -1707,6 +1732,7 @@ export function buildClaudeQueryOptions(args: {
   mcpServers?: Record<string, McpServerConfig>;
   onElicitation?: OnElicitation;
   onUserDialog?: OnUserDialog;
+  secondaryReadOnly?: boolean;
 }): Options {
   const permissionMode =
     args.permissionMode ??
@@ -1756,6 +1782,40 @@ export function buildClaudeQueryOptions(args: {
     model: args.runtimeOptions?.model,
     fallbackModel: args.runtimeOptions?.claudeFallbackModel,
   });
+  const settings = args.secondaryReadOnly
+    ? {
+        ...(args.runtimeOptions?.claudeFastMode ? { fastMode: true } : {}),
+        permissions: {
+          deny: [
+            "Edit(*)",
+            "Write(*)",
+            "NotebookEdit(*)",
+            "WebFetch(*)",
+            "WebSearch",
+          ],
+        },
+      }
+    : args.runtimeOptions?.claudeFastMode
+      ? { fastMode: true }
+      : undefined;
+  const sandbox = args.secondaryReadOnly
+    ? {
+        enabled: true,
+        failIfUnavailable: true,
+        allowUnsandboxedCommands: false,
+        network: {
+          deniedDomains: ["*"],
+          allowAllUnixSockets: false,
+          allowLocalBinding: false,
+        },
+        filesystem: {
+          denyWrite: [path.parse(args.cwd).root],
+        },
+      }
+    : {
+        enabled: claudeSandboxEnabled,
+        allowUnsandboxedCommands: claudeAllowUnsandboxedCommands,
+      };
 
   return {
     permissionMode,
@@ -1829,18 +1889,24 @@ export function buildClaudeQueryOptions(args: {
       ],
     },
     ...(args.canUseTool ? { canUseTool: args.canUseTool } : {}),
-    ...(args.onElicitation ? { onElicitation: args.onElicitation } : {}),
-    ...(args.onUserDialog
+    ...(!args.secondaryReadOnly && args.onElicitation
+      ? { onElicitation: args.onElicitation }
+      : {}),
+    ...(!args.secondaryReadOnly && args.onUserDialog
       ? {
           onUserDialog: args.onUserDialog,
           supportedDialogKinds: ["refusal_fallback_prompt"],
         }
       : {}),
     ...(args.mcpServers ? { mcpServers: args.mcpServers } : {}),
-    sandbox: {
-      enabled: claudeSandboxEnabled,
-      allowUnsandboxedCommands: claudeAllowUnsandboxedCommands,
-    },
+    ...(args.secondaryReadOnly
+      ? {
+          persistSession: false,
+          plugins: [],
+        }
+      : {}),
+    ...(settings ? { settings } : {}),
+    sandbox,
     env: buildClaudeEnv({ executablePath: args.claudeExecutablePath }),
     ...(args.claudeExecutablePath.length > 0
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
@@ -3273,21 +3339,26 @@ export async function streamClaudeWithSdk(
       freshClaudeSessionScopes.add(claudeMcpScopeKey);
     }
 
-    const existingSessionId = resolveSessionId({
-      taskId: args.taskId,
-      fallbackSessionId: freshClaudeSessionScopes.has(claudeMcpScopeKey)
-        ? undefined
-        : resolveProviderResumeSessionId({
-            conversation: args.conversation,
-            fallbackResumeId: args.runtimeOptions?.claudeResumeSessionId,
-          }),
-    });
+    const secondaryReadOnly = args.executionPolicy === "secondary-read-only";
+    const existingSessionId = secondaryReadOnly
+      ? undefined
+      : resolveSessionId({
+          taskId: args.taskId,
+          fallbackSessionId: freshClaudeSessionScopes.has(claudeMcpScopeKey)
+            ? undefined
+            : resolveProviderResumeSessionId({
+                conversation: args.conversation,
+                fallbackResumeId: args.runtimeOptions?.claudeResumeSessionId,
+              }),
+        });
     const claudeSystemPrompt = buildClaudeSystemPrompt({
       cwd: runtimeCwd,
       baseSystemPrompt: args.runtimeOptions?.claudeSystemPrompt,
       responseStylePrompt: args.runtimeOptions?.responseStylePrompt,
     });
-    const embeddedMcpServers = await resolveEmbeddedStaveLocalMcpServers();
+    const embeddedMcpServers = secondaryReadOnly
+      ? undefined
+      : await resolveEmbeddedStaveLocalMcpServers();
     const claudePermissionMode = resolveClaudePermissionMode({
       runtimeValue: args.runtimeOptions?.claudePermissionMode,
       envValue: process.env.STAVE_CLAUDE_PERMISSION_MODE?.trim(),
@@ -3355,6 +3426,7 @@ export async function streamClaudeWithSdk(
         includePartialMessages: true,
         promptSuggestions: true,
         mcpServers: embeddedMcpServers,
+        secondaryReadOnly,
         onElicitation: async (request, options) => {
           const requestId =
             createClaudeUserInputRequestId("claude-elicitation");
@@ -3487,6 +3559,20 @@ export async function streamClaudeWithSdk(
             return buildClaudeDenyPermissionResult({
               message: `Skill "${redirectedSkillSlug}" is already activated by Stave. Do not call the Skill tool for it; follow the [Activated Skills] instructions directly.`,
               context: "skill:activated-skill-redirect",
+            });
+          }
+
+          if (
+            args.executionPolicy === "secondary-read-only" &&
+            shouldDenyClaudeToolInSecondaryReadOnly({
+              toolName,
+              input: normalizedInput,
+            })
+          ) {
+            return buildClaudeDenyPermissionResult({
+              message:
+                "Secondary provider runs allow only local read-only inspection.",
+              context: "approval:secondary-read-only",
             });
           }
 
@@ -3736,11 +3822,13 @@ export async function streamClaudeWithSdk(
         message.type === "system" &&
         (message as SDKSystemMessage).subtype === "init"
       ) {
-        rememberSessionId({
-          taskId: args.taskId,
-          sessionId: (message as SDKSystemMessage).session_id,
-          mcpScopeKey: claudeMcpScopeKey,
-        });
+        if (!secondaryReadOnly) {
+          rememberSessionId({
+            taskId: args.taskId,
+            sessionId: (message as SDKSystemMessage).session_id,
+            mcpScopeKey: claudeMcpScopeKey,
+          });
+        }
       }
       if (
         message.type === "system" &&

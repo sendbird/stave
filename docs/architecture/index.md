@@ -10,9 +10,10 @@ This file is the fast entrypoint for codebase orientation.
 4. `docs/providers/provider-runtimes.md` for provider-specific paths
 5. `docs/architecture/entrypoints.md` for task-to-file routing
 6. `docs/architecture/contracts.md` for multi-file contract checklists
-7. `docs/architecture/workspace-integrity.md` before changing project/workspace/task ownership or hydration logic
-8. `docs/architecture/chat-message-rendering.md` before changing assistant message UI semantics
-9. `docs/architecture/session-cursor.md` for provider switch-back delta history and safe fresh-session fallback
+7. `docs/architecture/run-core.md` before adding durable secondary execution consumers
+8. `docs/architecture/workspace-integrity.md` before changing project/workspace/task ownership or hydration logic
+9. `docs/architecture/chat-message-rendering.md` before changing assistant message UI semantics
+10. `docs/architecture/session-cursor.md` for provider switch-back delta history and safe fresh-session fallback
 
 ## Top-Level Layout
 
@@ -49,6 +50,7 @@ This file is the fast entrypoint for codebase orientation.
 
 - Renderer must not import Node-only modules directly
 - Provider option changes are never local-only; treat them as contract changes
+- Secondary execution must cross the main-owned durable run ledger; consumers must not dispatch directly to the host-service
 - `NormalizedProviderEvent` and the matching Zod schema must stay in sync
 - Project/workspace/task ownership is a hard invariant; never trust default flags or workspace ids without path ownership checks
 - Quick orientation work should prefer docs and targeted entrypoints over broad file dumps
@@ -57,4 +59,5 @@ This file is the fast entrypoint for codebase orientation.
 
 - `docs/architecture/entrypoints.md` when you need the first files to inspect
 - `docs/architecture/contracts.md` when a change crosses renderer, preload, IPC, and provider runtime
+- `docs/architecture/run-core.md` when adding a bounded secondary provider consumer
 - `docs/architecture/workspace-integrity.md` when a change touches project shells, worktrees, notifications, or task-owned git actions

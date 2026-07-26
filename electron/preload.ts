@@ -102,6 +102,19 @@ import type {
 } from "../src/lib/lens/lens-credentials";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
 import { WORKSPACE_SCRIPTS_IPC } from "../src/lib/workspace-scripts/constants";
+import type {
+  SecondaryRunAggregate,
+  SecondaryRunCancelArgs,
+  SecondaryRunClaimArgs,
+  SecondaryRunCompleteArgs,
+  SecondaryRunExecuteArgs,
+  SecondaryRunExecuteResponse,
+  SecondaryRunFailArgs,
+  SecondaryRunLookupArgs,
+  SecondaryRunReceiptList,
+  SecondaryRunReceiptListArgs,
+  SecondaryRunTransitionResponse,
+} from "../src/lib/runs/secondary-run";
 
 interface ProviderSlashCommand {
   name: string;
@@ -634,6 +647,36 @@ ipcRenderer.on(
 
 contextBridge.exposeInMainWorld("api", {
   platform: process.platform,
+  runs: {
+    claimSecondary: (
+      args: SecondaryRunClaimArgs,
+    ): Promise<SecondaryRunTransitionResponse> =>
+      ipcRenderer.invoke("runs:claim-secondary", args),
+    executeSecondary: (
+      args: SecondaryRunExecuteArgs,
+    ): Promise<SecondaryRunExecuteResponse> =>
+      ipcRenderer.invoke("runs:execute-secondary", args),
+    completeSecondary: (
+      args: SecondaryRunCompleteArgs,
+    ): Promise<SecondaryRunTransitionResponse> =>
+      ipcRenderer.invoke("runs:complete-secondary", args),
+    failSecondary: (
+      args: SecondaryRunFailArgs,
+    ): Promise<SecondaryRunTransitionResponse> =>
+      ipcRenderer.invoke("runs:fail-secondary", args),
+    cancelSecondary: (
+      args: SecondaryRunCancelArgs,
+    ): Promise<SecondaryRunTransitionResponse> =>
+      ipcRenderer.invoke("runs:cancel-secondary", args),
+    getSecondary: (
+      args: SecondaryRunLookupArgs,
+    ): Promise<SecondaryRunAggregate | null> =>
+      ipcRenderer.invoke("runs:get-secondary", args),
+    listReceipts: (
+      args: SecondaryRunReceiptListArgs,
+    ): Promise<SecondaryRunReceiptList> =>
+      ipcRenderer.invoke("runs:list-receipts", args),
+  },
   provider: {
     streamTurn: (args: StreamTurnArgs) =>
       ipcRenderer.invoke("provider:stream-turn", args),

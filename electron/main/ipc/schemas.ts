@@ -4,6 +4,15 @@ import {
   RoutineUpsertInputSchema,
 } from "../../../src/lib/routines";
 import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
+export {
+  SecondaryRunCancelArgsSchema,
+  SecondaryRunClaimArgsSchema,
+  SecondaryRunCompleteArgsSchema,
+  SecondaryRunExecuteArgsSchema,
+  SecondaryRunFailArgsSchema,
+  SecondaryRunLookupArgsSchema,
+  SecondaryRunReceiptListArgsSchema,
+} from "../../../src/lib/runs/secondary-run";
 
 const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 

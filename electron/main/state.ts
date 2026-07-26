@@ -97,10 +97,12 @@ export async function ensurePersistenceReady() {
     return sqliteStore;
   }
   const dbPath = path.join(app.getPath("userData"), "stave.sqlite");
-  sqliteStore = new SqliteStore({
+  const store = new SqliteStore({
     dbPath,
     onBootstrapStatusChange: setPersistenceBootstrapStatus,
   });
+  store.reconcileInterruptedRuns({ now: new Date().toISOString() });
+  sqliteStore = store;
   return sqliteStore;
 }
 
@@ -109,10 +111,12 @@ export function ensurePersistenceReadySync() {
     return sqliteStore;
   }
   const dbPath = path.join(app.getPath("userData"), "stave.sqlite");
-  sqliteStore = new SqliteStore({
+  const store = new SqliteStore({
     dbPath,
     onBootstrapStatusChange: setPersistenceBootstrapStatus,
   });
+  store.reconcileInterruptedRuns({ now: new Date().toISOString() });
+  sqliteStore = store;
   return sqliteStore;
 }
 

@@ -39,6 +39,12 @@ provider dispatch:
   fallback and does not block the primary turn. A user abort during preflight
   aborts the whole turn.
 
+Bounded secondary turns, such as Compare Judge, use the same provider adapters
+through a separate durable contract. Electron main records the run before the
+host-service starts a fresh read-only turn, and provider-specific restrictions
+are selected by an internal execution policy. See
+[Run Core And Secondary Execution](../architecture/run-core.md).
+
 ## Claude runtime
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.

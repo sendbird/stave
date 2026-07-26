@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildCodexConfigOverrides,
+  buildCodexMcpDisableConfigOverrides,
+  buildCodexSecondaryServerRequestDenial,
   buildSandboxPolicy,
   buildCodexThreadResumeParams,
   buildCodexThreadStartParams,
@@ -595,6 +597,69 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     });
     expect(params.developerInstructions).toContain("Do not call tools");
     expect(params.config).not.toHaveProperty("developer_instructions");
+  });
+
+  test("disables every discovered MCP server through quoted config keys", () => {
+    const config = buildCodexMcpDisableConfigOverrides([
+      { name: "slack" },
+      { name: 'quoted"name' },
+      { name: "" },
+    ]);
+
+    expect(config).toEqual({
+      'mcp_servers."slack".enabled': false,
+      'mcp_servers."quoted\\"name".enabled': false,
+    });
+  });
+
+  test("merges fail-closed MCP overrides into an ephemeral thread", () => {
+    const params = buildCodexThreadStartParams({
+      cwd: "/tmp/project",
+      ephemeral: true,
+      sandbox: "read-only",
+      approvalPolicy: "never",
+      configOverrides: {
+        'mcp_servers."slack".enabled': false,
+      },
+    });
+
+    expectGeneratedThreadStartParamKeys(params);
+    expect(params).toMatchObject({
+      ephemeral: true,
+      sandbox: "read-only",
+      approvalPolicy: "never",
+      config: {
+        'mcp_servers."slack".enabled': false,
+      },
+    });
+  });
+});
+
+describe("Codex secondary request denial", () => {
+  test("declines every interactive server request without waiting for renderer input", () => {
+    expect(
+      buildCodexSecondaryServerRequestDenial(
+        "item/commandExecution/requestApproval",
+      ),
+    ).toEqual({ decision: "decline" });
+    expect(
+      buildCodexSecondaryServerRequestDenial(
+        "item/permissions/requestApproval",
+      ),
+    ).toEqual({ permissions: {}, scope: "turn" });
+    expect(
+      buildCodexSecondaryServerRequestDenial("item/tool/requestUserInput"),
+    ).toEqual({ answers: {} });
+    expect(
+      buildCodexSecondaryServerRequestDenial(
+        "mcpServer/elicitation/request",
+      ),
+    ).toEqual({ action: "decline" });
+    expect(
+      buildCodexSecondaryServerRequestDenial(
+        "account/chatgptAuthTokens/refresh",
+      ),
+    ).toBeNull();
   });
 });
 
