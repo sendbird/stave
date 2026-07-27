@@ -193,6 +193,7 @@ function ensureActiveTaskTabOpen(args: {
 function resolveActiveSurface(args: {
   tasks: Task[];
   activeTaskId: string;
+  openTaskTabIds: string[];
   cliSessionTabs: WorkspaceCliSessionTab[];
   activeCliSessionTabId: string | null;
   activeSurface: WorkspaceActiveSurface;
@@ -200,7 +201,13 @@ function resolveActiveSurface(args: {
   terminalTabs?: WorkspaceTerminalTab[];
   editorTabs?: EditorTab[];
 }) {
-  const hasTask = (taskId: string) => args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
+  // A task surface can only be active while its tab is open. Closing every task
+  // tab is a state the user can reach at runtime (`reduceCloseTaskTab` clears
+  // `activeTaskId`), so an explicitly empty tab set must not be repaired by
+  // reopening an arbitrary task on the next load.
+  const hasTask = (taskId: string) =>
+    args.openTaskTabIds.includes(taskId)
+    && args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
   const hasCliSession = (cliSessionTabId: string) =>
     args.cliSessionTabs.some((tab) => tab.id === cliSessionTabId);
 
@@ -240,7 +247,7 @@ function resolveActiveSurface(args: {
     return { kind: "cli-session", cliSessionTabId: args.activeCliSessionTabId } satisfies WorkspaceActiveSurface;
   }
 
-  const fallbackTaskId = args.tasks.find((task) => !isTaskArchived(task))?.id ?? "";
+  const fallbackTaskId = args.openTaskTabIds.find((taskId) => hasTask(taskId)) ?? "";
   if (fallbackTaskId) {
     return { kind: "task", taskId: fallbackTaskId } satisfies WorkspaceActiveSurface;
   }
@@ -256,13 +263,18 @@ function resolveActiveSurface(args: {
 function resolveActiveTaskId(args: {
   tasks: Task[];
   activeTaskId: string;
+  openTaskTabIds: string[];
 }) {
-  const selectedTask = args.tasks.find((task) => task.id === args.activeTaskId && !isTaskArchived(task)) ?? null;
-  if (selectedTask) {
-    return selectedTask.id;
+  const isOpenLiveTask = (taskId: string) =>
+    args.openTaskTabIds.includes(taskId)
+    && args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
+  if (isOpenLiveTask(args.activeTaskId)) {
+    return args.activeTaskId;
   }
 
-  return args.tasks.find((task) => !isTaskArchived(task))?.id ?? "";
+  // No open task tab means the workspace was left with nothing open; keep it
+  // that way instead of selecting a task the user already closed.
+  return args.openTaskTabIds.find((taskId) => isOpenLiveTask(taskId)) ?? "";
 }
 
 export function buildNativeSessionReadyByTask(args: {
@@ -520,10 +532,6 @@ export function buildWorkspaceSessionState(args: {
       .filter((turn) => !turn.completedAt)
       .map((turn) => [turn.taskId, turn.id] as const)
   ) as Record<string, string | undefined>;
-  const activeTaskId = resolveActiveTaskId({
-    tasks,
-    activeTaskId: args.snapshot?.activeTaskId ?? empty.activeTaskId,
-  });
   const paneState = normalizePaneState({
     tasks,
     rawOpenTaskTabIds: args.snapshot?.openTaskTabIds,
@@ -531,9 +539,15 @@ export function buildWorkspaceSessionState(args: {
     rawPaneTabMeta: args.snapshot?.paneTabMeta,
     rawDockLayout: args.snapshot?.dockLayout,
   });
+  const activeTaskId = resolveActiveTaskId({
+    tasks,
+    activeTaskId: args.snapshot?.activeTaskId ?? empty.activeTaskId,
+    openTaskTabIds: paneState.openTaskTabIds,
+  });
   const activeSurface = resolveActiveSurface({
     tasks,
     activeTaskId,
+    openTaskTabIds: paneState.openTaskTabIds,
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
     activeSurface: args.snapshot?.activeSurface ?? { kind: "task", taskId: activeTaskId },
@@ -638,10 +652,6 @@ export function buildWorkspaceSessionStateFromShell(args: {
       .filter((turn) => !turn.completedAt)
       .map((turn) => [turn.taskId, turn.id] as const)
   ) as Record<string, string | undefined>;
-  const activeTaskId = resolveActiveTaskId({
-    tasks,
-    activeTaskId: args.shell?.activeTaskId ?? empty.activeTaskId,
-  });
   const paneState = normalizePaneState({
     tasks,
     rawOpenTaskTabIds: args.shell?.openTaskTabIds,
@@ -649,9 +659,15 @@ export function buildWorkspaceSessionStateFromShell(args: {
     rawPaneTabMeta: args.shell?.paneTabMeta,
     rawDockLayout: args.shell?.dockLayout,
   });
+  const activeTaskId = resolveActiveTaskId({
+    tasks,
+    activeTaskId: args.shell?.activeTaskId ?? empty.activeTaskId,
+    openTaskTabIds: paneState.openTaskTabIds,
+  });
   const activeSurface = resolveActiveSurface({
     tasks,
     activeTaskId,
+    openTaskTabIds: paneState.openTaskTabIds,
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
     activeSurface: args.shell?.activeSurface ?? { kind: "task", taskId: activeTaskId },

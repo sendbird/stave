@@ -6039,6 +6039,15 @@ export const useAppStore = create<AppState>()(
             return;
           }
           const workspaceIdentityRequestToken = beginWorkspaceIdentityRequest();
+          // Persist the outgoing workspace before its state is swapped out.
+          // Snapshot writes are otherwise driven by a single app-level trailing
+          // debounce that always targets whichever workspace is active when it
+          // fires, so switching re-targets that timer and silently drops the
+          // pending write. The in-memory runtime cache keeps the UI looking
+          // correct for the rest of the session, which is why the loss only
+          // surfaces after a restart (e.g. an archived task coming back alive).
+          // `activateProject` already flushes for the same reason.
+          await get().flushActiveWorkspaceSnapshot();
           const cachedFiles = getCachedWorkspaceFiles({
             workspacePath,
             workspaceFileCacheByPath: current.workspaceFileCacheByPath,

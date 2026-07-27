@@ -3650,7 +3650,9 @@ describe("workspace store hydration ordering", () => {
     const switchedState = useAppStore.getState();
     expect(abortCalls).toEqual([]);
     expect(cleanupCalls).toEqual([]);
-    expect(upsertCalls).toHaveLength(0);
+    // Switching flushes the outgoing workspace so pending snapshot changes
+    // (an archived task, a closed tab) survive a restart.
+    expect(upsertCalls).toHaveLength(1);
     expect(switchedState.activeWorkspaceId).toBe("ws-alt");
     expect(switchedState.activeTaskId).toBe("task-alt");
     expect(switchedState.activeTurnIdsByTask["task-main"]).toBeUndefined();
@@ -3695,8 +3697,10 @@ describe("workspace store hydration ordering", () => {
     );
     expect(inactiveWorkspaceAssistant?.isStreaming).toBe(false);
     await flushPendingSnapshotPersists();
-    expect(upsertCalls).toHaveLength(1);
-    expect(upsertCalls[0]).toMatchObject({
+    // 1: the switch-time flush of the outgoing workspace, 2: the stream
+    // completion write that carries the finished assistant message.
+    expect(upsertCalls).toHaveLength(2);
+    expect(upsertCalls.at(-1)).toMatchObject({
       id: "ws-main",
       name: "Main",
       snapshot: {
@@ -3704,7 +3708,7 @@ describe("workspace store hydration ordering", () => {
       },
     });
     const persistedSnapshot = (
-      upsertCalls[0] as {
+      upsertCalls.at(-1) as {
         snapshot: {
           tasks: Array<{ id: string }>;
           messagesByTask: Record<string, Array<{ content: string }>>;
@@ -5364,7 +5368,9 @@ describe("workspace store hydration ordering", () => {
     expect(inactiveWorkspaceAssistant?.content).toBe("No response returned.");
     expect(inactiveWorkspaceAssistant?.isStreaming).toBe(false);
     await flushPendingSnapshotPersists();
-    expect(upsertCalls).toHaveLength(1);
+    // 1: the switch-time flush of the outgoing workspace, 2: the turn
+    // completion write. The dropped late events add no further writes.
+    expect(upsertCalls).toHaveLength(2);
   });
 
   test("switchWorkspace restores per-workspace editor tabs", async () => {
