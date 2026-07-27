@@ -15,11 +15,40 @@ const BaseUrlSchema = z
   .url()
   .transform((value) => value.replace(/\/+$/, ""));
 
+export const CRANE_DISPATCH_EFFORTS = [
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+] as const;
+
+/**
+ * Reasoning setup Stave remembers per Crane team so a repeat dispatch does not
+ * force the same model/effort choice every time.
+ *
+ * Access-level fields (permission mode, sandbox, file access, approval policy,
+ * network) are deliberately excluded: those must always re-derive from the
+ * user's current Stave settings so a one-off "Auto" approval can never be
+ * silently replayed on a later job.
+ */
+export const CraneTeamRuntimeMemorySchema = z
+  .object({
+    provider: z.enum(["claude-code", "codex"]),
+    model: z.string().trim().min(1).max(200),
+    effort: z.enum(CRANE_DISPATCH_EFFORTS),
+    fastMode: z.boolean().optional(),
+  })
+  .strict();
+
 export const CraneProjectMappingSchema = z
   .object({
     craneTeamKey: z.string().trim().min(1).max(64).optional(),
     craneProjectId: z.string().trim().min(1).max(128).optional(),
     staveProjectPath: z.string().trim().min(1).max(4_096),
+    runtime: CraneTeamRuntimeMemorySchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -124,6 +153,15 @@ const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
         "auto",
       ]),
       claudeSandboxEnabled: z.boolean(),
+      // Both flags are required so an autonomy preset means the same thing here
+      // as it does in the composer. Omitting them lets the Claude runtime fall
+      // back to its own defaults - notably `allowUnsandboxedCommands: true`,
+      // which would quietly undo the sandbox that "Manual" promises.
+      claudeAllowUnsandboxedCommands: z.boolean(),
+      claudeAllowDangerouslySkipPermissions: z.boolean(),
+      // Required: an absent effort silently falls back to the Claude Agent SDK
+      // default instead of the reasoning level the approver actually picked.
+      claudeEffort: z.enum(["low", "medium", "high", "xhigh", "max"]),
       advisorTarget: AdvisorTargetSchema,
     })
     .strict(),
@@ -144,6 +182,21 @@ const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
         "on-failure",
         "untrusted",
       ]),
+      // Part of the autonomy preset for the same reason as the Claude flags
+      // above: without it "Manual" would not actually disable web search.
+      codexWebSearch: z.enum(["disabled", "cached", "live"]),
+      // Required for the same reason as `claudeEffort`. "minimal" is legacy
+      // input only; resolveCodexAppServerReasoningEffort maps it to "low".
+      codexReasoningEffort: z.enum([
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+      ]),
+      codexFastMode: z.boolean(),
       advisorTarget: AdvisorTargetSchema,
     })
     .strict(),
@@ -211,6 +264,10 @@ export type CraneConnectorSettings = z.infer<
 export type CraneProjectMapping = z.infer<
   typeof CraneProjectMappingSchema
 >;
+export type CraneTeamRuntimeMemory = z.infer<
+  typeof CraneTeamRuntimeMemorySchema
+>;
+export type CraneDispatchEffort = (typeof CRANE_DISPATCH_EFFORTS)[number];
 export type CraneConnectorMetadata = z.infer<
   typeof CraneConnectorMetadataSchema
 >;
@@ -240,8 +297,24 @@ export function normalizeCraneConnectorSettings(
   value: unknown,
 ): CraneConnectorSettings {
   const parsed = CraneConnectorSettingsSchema.safeParse(value);
-  return parsed.success
-    ? parsed.data
+  if (parsed.success) {
+    return parsed.data;
+  }
+  // A single unreadable mapping - e.g. one written by a newer build that knows
+  // a field this one does not - must not take the connector's enabled flag and
+  // base URL down with it. Salvage per element and drop only what fails.
+  const salvaged = CraneConnectorSettingsSchema.safeParse({
+    ...(value && typeof value === "object" ? value : {}),
+    projectMappings: Array.isArray(
+      (value as { projectMappings?: unknown })?.projectMappings,
+    )
+      ? (value as { projectMappings: unknown[] }).projectMappings.filter(
+          (mapping) => CraneProjectMappingSchema.safeParse(mapping).success,
+        )
+      : [],
+  });
+  return salvaged.success
+    ? salvaged.data
     : {
         ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
         projectMappings: [],

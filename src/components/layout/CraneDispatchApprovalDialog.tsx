@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cable, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   Button,
   Input,
   Select,
@@ -19,12 +23,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ModelEffortSelector } from "@/components/ai-elements/model-effort-selector";
+import {
+  buildModelSelectorOptions,
+  buildModelSelectorValue,
+  type ModelSelectorOption,
+} from "@/components/ai-elements/model-selector.utils";
+import { ChoiceButtons } from "@/components/layout/settings-dialog.shared";
 import {
   dismissCraneDispatchApproval,
   setCraneConnectorClientStatus,
   useCraneConnectorClientState,
 } from "@/lib/crane-connector/client-state";
 import {
+  applyCraneAutonomyPreset,
+  buildCraneDispatchRuntimeChoice,
+  buildCraneTeamRuntimeMemory,
+  clampCraneDispatchEffort,
+  describeCraneAccess,
+  detectCraneAutonomyPreset,
+  listCraneAutonomyOptions,
+  listCraneEffortOptions,
+  reseedCraneAccessForProvider,
+  resolveCraneDispatchAccessDefaults,
+  resolveCraneDispatchModelDefaults,
+  type CraneDispatchAccessState,
+  type CraneDispatchModelState,
+} from "@/lib/crane-connector/dispatch-runtime";
+import {
+  findMappedCraneTeamRuntime,
   findMappedStaveProjectPath,
   getCraneTeamKey,
   updateCraneTeamProjectMapping,
@@ -33,16 +60,27 @@ import {
   getDefaultModelForProvider,
   getProviderLabel,
   getSdkModelOptions,
+  listProviderIds,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type {
   AdvisorTarget,
   ProviderId,
 } from "@/lib/providers/provider.types";
+import {
+  CLAUDE_PERMISSION_MODE_OPTIONS,
+  CODEX_APPROVAL_POLICY_OPTIONS,
+  CODEX_SANDBOX_MODE_OPTIONS,
+  CODEX_WEB_SEARCH_OPTIONS,
+  formatProviderTimeoutLabel,
+} from "@/lib/providers/runtime-option-contract";
+import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { useAppStore } from "@/store/app.store";
 
 type WorkspaceStrategy = "new" | "existing";
 type AdvisorProvider = ProviderId | "off";
+
+const CRANE_DISPATCH_PROVIDER_IDS = listProviderIds();
 
 function defaultBranchName(issueKey: string) {
   const normalized = issueKey
@@ -53,12 +91,9 @@ function defaultBranchName(issueKey: string) {
   return `crane/${normalized || "issue"}`;
 }
 
-function modelsForProvider(providerId: ProviderId, selected: string) {
+function advisorModelsForProvider(providerId: ProviderId, selected: string) {
   return Array.from(
-    new Set([
-      selected,
-      ...getSdkModelOptions({ providerId }),
-    ]),
+    new Set([selected, ...getSdkModelOptions({ providerId })]),
   ).filter(Boolean);
 }
 
@@ -66,54 +101,29 @@ export function CraneDispatchApprovalDialog() {
   const { approval } = useCraneConnectorClientState();
   const declineButtonRef = useRef<HTMLButtonElement>(null);
   const [submitting, setSubmitting] = useState(false);
-  const activeProjectPath = useAppStore((state) => state.projectPath);
   const projects = useAppStore((state) => state.recentProjects);
-  const projectMappings = useAppStore(
-    (state) => state.settings.craneConnector.projectMappings,
-  );
-  const draftProvider = useAppStore((state) => state.draftProvider);
-  const modelClaude = useAppStore((state) => state.settings.modelClaude);
-  const modelCodex = useAppStore((state) => state.settings.modelCodex);
-  const defaultClaudePermissionMode = useAppStore(
-    (state) => state.settings.claudePermissionMode,
-  );
-  const defaultClaudeSandboxEnabled = useAppStore(
-    (state) => state.settings.claudeSandboxEnabled,
-  );
-  const defaultCodexFileAccess = useAppStore(
-    (state) => state.settings.codexFileAccess,
-  );
-  const defaultCodexNetworkAccess = useAppStore(
-    (state) => state.settings.codexNetworkAccess,
-  );
-  const defaultCodexApprovalPolicy = useAppStore(
-    (state) => state.settings.codexApprovalPolicy,
-  );
-  const providerTimeoutMs = useAppStore(
-    (state) => state.settings.providerTimeoutMs,
+  const settings = useAppStore((state) => state.settings);
+  const providerAvailability = useAppStore(
+    (state) => state.providerAvailability,
   );
   const [projectPath, setProjectPath] = useState("");
-  const [rememberProjectMapping, setRememberProjectMapping] =
-    useState(false);
+  const [rememberTeamDefaults, setRememberTeamDefaults] = useState(false);
   const [workspaceStrategy, setWorkspaceStrategy] =
     useState<WorkspaceStrategy>("new");
   const [workspaceId, setWorkspaceId] = useState("");
   const [branchName, setBranchName] = useState("");
-  const [provider, setProvider] = useState<ProviderId>("claude-code");
-  const [model, setModel] = useState("");
-  const [claudePermissionMode, setClaudePermissionMode] =
-    useState(defaultClaudePermissionMode);
-  const [claudeSandboxEnabled, setClaudeSandboxEnabled] = useState(
-    defaultClaudeSandboxEnabled,
-  );
-  const [codexFileAccess, setCodexFileAccess] = useState(
-    defaultCodexFileAccess,
-  );
-  const [codexNetworkAccess, setCodexNetworkAccess] = useState(
-    defaultCodexNetworkAccess,
-  );
-  const [codexApprovalPolicy, setCodexApprovalPolicy] = useState(
-    defaultCodexApprovalPolicy,
+  const [runtimeModel, setRuntimeModel] = useState<CraneDispatchModelState>({
+    providerId: "claude-code",
+    model: "",
+    effort: "high",
+    codexFastMode: false,
+  });
+  const [access, setAccess] = useState<CraneDispatchAccessState>(() =>
+    resolveCraneDispatchAccessDefaults({
+      settings,
+      providerId: "claude-code",
+      model: settings.modelClaude,
+    }),
   );
   const [advisorProvider, setAdvisorProvider] =
     useState<AdvisorProvider>("off");
@@ -121,100 +131,192 @@ export function CraneDispatchApprovalDialog() {
 
   const selectedProject = useMemo(
     () =>
-      projects.find((project) => project.projectPath === projectPath) ??
-      null,
+      projects.find((project) => project.projectPath === projectPath) ?? null,
     [projectPath, projects],
   );
   const craneTeamKey = useMemo(
     () => (approval ? getCraneTeamKey(approval.job.issue.key) : null),
     [approval],
   );
-  const providerModels = useMemo(
-    () => modelsForProvider(provider, model),
-    [model, provider],
+  const codexModelCatalog = useCodexModelCatalog({
+    enabled: approval !== null,
+    codexBinaryPath: settings.codexBinaryPath,
+  });
+  const modelOptions = useMemo<ModelSelectorOption[]>(
+    () =>
+      buildModelSelectorOptions({
+        providerIds: CRANE_DISPATCH_PROVIDER_IDS,
+        availabilityByProvider: providerAvailability,
+        modelsByProvider: { codex: codexModelCatalog.models },
+      }),
+    [codexModelCatalog.models, providerAvailability],
   );
+  // Read by the seed effect, which intentionally depends only on `approval` so
+  // a catalog refresh cannot reset choices already made in the open dialog.
+  const modelOptionsRef = useRef<string[]>([]);
+  modelOptionsRef.current = useMemo(
+    () => modelOptions.map((option) => option.model).filter(Boolean),
+    [modelOptions],
+  );
+  const selectedModelOption = useMemo(
+    () =>
+      buildModelSelectorValue({
+        providerId: runtimeModel.providerId,
+        model: runtimeModel.model,
+        available: providerAvailability[runtimeModel.providerId],
+      }),
+    [providerAvailability, runtimeModel.model, runtimeModel.providerId],
+  );
+  const effortOptions = listCraneEffortOptions({
+    providerId: runtimeModel.providerId,
+    model: runtimeModel.model,
+  });
+  const effortLabel = effortOptions.find(
+    (option) => option.value === runtimeModel.effort,
+  )?.label;
+  const autonomyPreset = detectCraneAutonomyPreset({
+    providerId: runtimeModel.providerId,
+    access,
+  });
+  const autonomyOptions = useMemo(() => {
+    const presets = listCraneAutonomyOptions({
+      providerId: runtimeModel.providerId,
+    }).map((preset) => ({ value: preset.value as string, label: preset.label }));
+    return autonomyPreset
+      ? presets
+      : [...presets, { value: "custom", label: "Custom" }];
+  }, [autonomyPreset, runtimeModel.providerId]);
+  const autonomyDescription = autonomyPreset
+    ? listCraneAutonomyOptions({ providerId: runtimeModel.providerId }).find(
+        (preset) => preset.value === autonomyPreset,
+      )?.description
+    : "These access settings no longer match a built-in preset.";
   const advisorModels = useMemo(
     () =>
       advisorProvider === "off"
         ? []
-        : modelsForProvider(advisorProvider, advisorModel),
+        : advisorModelsForProvider(advisorProvider, advisorModel),
     [advisorModel, advisorProvider],
   );
+  const providerAvailable =
+    providerAvailability[runtimeModel.providerId] !== false;
 
+  // Seeded once per approval from a fresh store read so that changing a Stave
+  // setting in another window cannot reset choices already made in this dialog.
   useEffect(() => {
     if (!approval) {
       return;
     }
+    const store = useAppStore.getState();
+    const currentSettings = store.settings;
+    const registeredProjects = store.recentProjects;
+    const mappings = currentSettings.craneConnector.projectMappings;
     const mappedProjectPath = findMappedStaveProjectPath({
       issueKey: approval.job.issue.key,
-      mappings: projectMappings,
-      registeredProjectPaths: projects.map(
+      mappings,
+      registeredProjectPaths: registeredProjects.map(
         (project) => project.projectPath,
       ),
     });
     const activeRegisteredProjectPath =
-      activeProjectPath &&
-      projects.some(
-        (project) => project.projectPath === activeProjectPath,
+      store.projectPath &&
+      registeredProjects.some(
+        (project) => project.projectPath === store.projectPath,
       )
-        ? activeProjectPath
+        ? store.projectPath
         : null;
-    const preferredProjectPath =
+    const rememberedRuntime = findMappedCraneTeamRuntime({
+      issueKey: approval.job.issue.key,
+      mappings,
+    });
+
+    setProjectPath(
       mappedProjectPath ??
-      activeRegisteredProjectPath ??
-      projects[0]?.projectPath ??
-      "";
-    const preferredProvider = draftProvider;
-    setProjectPath(preferredProjectPath);
-    setRememberProjectMapping(Boolean(getCraneTeamKey(approval.job.issue.key)));
+        activeRegisteredProjectPath ??
+        registeredProjects[0]?.projectPath ??
+        "",
+    );
+    setRememberTeamDefaults(
+      Boolean(getCraneTeamKey(approval.job.issue.key)),
+    );
     setWorkspaceStrategy("new");
     setWorkspaceId("");
     setBranchName(defaultBranchName(approval.job.issue.key));
-    setProvider(preferredProvider);
-    setModel(
-      preferredProvider === "claude-code" ? modelClaude : modelCodex,
+    const seededModel = resolveCraneDispatchModelDefaults({
+      settings: currentSettings,
+      draftProvider: store.draftProvider,
+      memory: rememberedRuntime,
+      availableModels: modelOptionsRef.current,
+    });
+    setRuntimeModel(seededModel);
+    setAccess(
+      resolveCraneDispatchAccessDefaults({
+        settings: currentSettings,
+        providerId: seededModel.providerId,
+        model: seededModel.model,
+      }),
     );
-    setClaudePermissionMode(defaultClaudePermissionMode);
-    setClaudeSandboxEnabled(defaultClaudeSandboxEnabled);
-    setCodexFileAccess(defaultCodexFileAccess);
-    setCodexNetworkAccess(defaultCodexNetworkAccess);
-    setCodexApprovalPolicy(defaultCodexApprovalPolicy);
     setAdvisorProvider("off");
     setAdvisorModel("");
-    const frame = window.requestAnimationFrame(() => {
-      declineButtonRef.current?.focus();
-    });
+    // Decline holds focus so a stray Enter cannot approve a remote-originated
+    // job. A single frame is not enough: surfaces behind the dialog (notably
+    // the composer) can autofocus a frame or two after it opens and win the
+    // race under load. Re-assert only while focus has actually escaped the
+    // dialog, so moving between the dialog's own controls is never disturbed.
+    let frame = 0;
+    const holdInitialFocus = (remainingFrames: number) => {
+      const button = declineButtonRef.current;
+      if (!button) {
+        return;
+      }
+      const content = button.closest('[role="dialog"]');
+      if (content && !content.contains(button.ownerDocument.activeElement)) {
+        button.focus();
+      }
+      if (remainingFrames > 0) {
+        frame = window.requestAnimationFrame(() =>
+          holdInitialFocus(remainingFrames - 1),
+        );
+      }
+    };
+    frame = window.requestAnimationFrame(() => holdInitialFocus(3));
     return () => window.cancelAnimationFrame(frame);
-  }, [
-    activeProjectPath,
-    approval,
-    defaultClaudePermissionMode,
-    defaultClaudeSandboxEnabled,
-    defaultCodexApprovalPolicy,
-    defaultCodexFileAccess,
-    defaultCodexNetworkAccess,
-    draftProvider,
-    modelClaude,
-    modelCodex,
-    projects,
-    projectMappings,
-  ]);
+  }, [approval]);
 
-  const changeProvider = (nextProvider: ProviderId) => {
-    setProvider(nextProvider);
-    setModel(
-      nextProvider === "claude-code"
-        ? modelClaude
-        : modelCodex,
-    );
-  };
-
-  const changeAdvisorProvider = (nextProvider: AdvisorProvider) => {
-    setAdvisorProvider(nextProvider);
-    setAdvisorModel(
-      nextProvider === "off"
-        ? ""
-        : getDefaultModelForProvider({ providerId: nextProvider }),
+  const changeRuntimeModel = (args: {
+    selection: ModelSelectorOption;
+    effort?: CraneDispatchModelState["effort"];
+    fastMode?: boolean;
+  }) => {
+    if (args.selection.isAuto) {
+      return;
+    }
+    const providerId = args.selection.providerId;
+    const model = args.selection.model;
+    setRuntimeModel((current) => ({
+      providerId,
+      model,
+      effort: clampCraneDispatchEffort({
+        settings,
+        providerId,
+        model,
+        effort: args.effort ?? current.effort,
+      }),
+      // The picker resets its internal Fast toggle to `false` whenever it is
+      // opened with a non-Codex model selected, so a Claude -> Codex switch
+      // reports `fastMode: false` that the user never asked for. An explicit
+      // toggle still arrives through `onFastModeChange`.
+      codexFastMode:
+        current.providerId === "codex" && args.fastMode !== undefined
+          ? args.fastMode
+          : current.codexFastMode,
+    }));
+    setAccess((current) =>
+      reseedCraneAccessForProvider({
+        settings,
+        previous: { providerId: runtimeModel.providerId, access: current },
+        next: { providerId, model },
+      }),
     );
   };
 
@@ -284,25 +386,12 @@ export function CraneDispatchApprovalDialog() {
           workspaceStrategy === "new"
             ? { strategy: "new", branchName: branchName.trim() }
             : { strategy: "existing", workspaceId },
-        runtime:
-          provider === "claude-code"
-            ? {
-                provider,
-                model,
-                providerTimeoutMs,
-                claudePermissionMode,
-                claudeSandboxEnabled,
-                advisorTarget,
-              }
-            : {
-                provider,
-                model,
-                providerTimeoutMs,
-                codexFileAccess,
-                codexNetworkAccess,
-                codexApprovalPolicy,
-                advisorTarget,
-              },
+        runtime: buildCraneDispatchRuntimeChoice({
+          model: runtimeModel,
+          access,
+          providerTimeoutMs: settings.providerTimeoutMs,
+          advisorTarget,
+        }),
       });
       setCraneConnectorClientStatus(result.status);
       if (!result.ok || !result.workspaceId || !result.taskId) {
@@ -321,8 +410,9 @@ export function CraneDispatchApprovalDialog() {
               projectMappings: updateCraneTeamProjectMapping({
                 mappings: craneConnector.projectMappings,
                 teamKey: craneTeamKey,
-                staveProjectPath: rememberProjectMapping
-                  ? projectPath
+                staveProjectPath: rememberTeamDefaults ? projectPath : null,
+                runtime: rememberTeamDefaults
+                  ? buildCraneTeamRuntimeMemory({ model: runtimeModel })
                   : null,
               }),
             },
@@ -331,14 +421,17 @@ export function CraneDispatchApprovalDialog() {
       }
       dismissCraneDispatchApproval(approval.job.id);
       toast.success(`Started ${approval.job.issue.key} in Stave`);
-      void useAppStore.getState().focusTaskAttention({
-        projectPath,
-        workspaceId: result.workspaceId,
-        taskId: result.taskId,
-        refreshFromPersistence: true,
-      }).catch(() => {
-        toast.error("The Crane task started, but Stave could not focus it.");
-      });
+      void useAppStore
+        .getState()
+        .focusTaskAttention({
+          projectPath,
+          workspaceId: result.workspaceId,
+          taskId: result.taskId,
+          refreshFromPersistence: true,
+        })
+        .catch(() => {
+          toast.error("The Crane task started, but Stave could not focus it.");
+        });
     } catch {
       toast.error("Could not start the Crane job.");
     } finally {
@@ -405,11 +498,11 @@ export function CraneDispatchApprovalDialog() {
                 onClick={() => {
                   const href = approval?.job.issue.href;
                   if (href) {
-                    void window.api?.shell?.openExternal?.({ url: href }).catch(
-                      () => {
+                    void window.api?.shell
+                      ?.openExternal?.({ url: href })
+                      .catch(() => {
                         toast.error("Could not open the Crane issue.");
-                      },
-                    );
+                      });
                   }
                 }}
               >
@@ -426,14 +519,18 @@ export function CraneDispatchApprovalDialog() {
               </p>
             </div>
             {approval?.job.issue.description ? (
-              <details className="text-xs">
-                <summary className="cursor-pointer font-medium text-muted-foreground">
-                  Issue description
-                </summary>
-                <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap leading-5 text-foreground">
-                  {approval.job.issue.description}
-                </p>
-              </details>
+              <Accordion className="border-t border-border/60">
+                <AccordionItem value="issue-description" className="border-b-0">
+                  <AccordionTrigger className="py-2 text-xs font-medium text-muted-foreground hover:no-underline">
+                    Issue description
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-5 text-foreground">
+                      {approval.job.issue.description}
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             ) : null}
           </section>
 
@@ -445,7 +542,7 @@ export function CraneDispatchApprovalDialog() {
               id="crane-dispatch-target-heading"
               className="text-sm font-semibold"
             >
-              Local target
+              Where it runs
             </h3>
             <div className="grid gap-2">
               <label
@@ -472,29 +569,6 @@ export function CraneDispatchApprovalDialog() {
               <p className="truncate font-mono text-[11px] text-muted-foreground">
                 {projectPath || "No registered project available"}
               </p>
-              {craneTeamKey ? (
-                <div className="mt-1 flex items-start justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
-                  <div className="min-w-0">
-                    <label
-                      htmlFor="crane-dispatch-remember-project"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Remember for {craneTeamKey} issues
-                    </label>
-                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      Stored only in Stave. Future {craneTeamKey} jobs
-                      preselect this project, and you can still change it
-                      before each run.
-                    </p>
-                  </div>
-                  <Switch
-                    id="crane-dispatch-remember-project"
-                    checked={rememberProjectMapping}
-                    onCheckedChange={setRememberProjectMapping}
-                    aria-label={`Remember Stave project for ${craneTeamKey} issues`}
-                  />
-                </div>
-              ) : null}
             </div>
             <div className="grid gap-2">
               <label
@@ -513,9 +587,7 @@ export function CraneDispatchApprovalDialog() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="new">
-                    Create a new workspace
-                  </SelectItem>
+                  <SelectItem value="new">Create a new workspace</SelectItem>
                   <SelectItem value="existing">
                     Use an existing workspace
                   </SelectItem>
@@ -572,239 +644,370 @@ export function CraneDispatchApprovalDialog() {
               id="crane-dispatch-runtime-heading"
               className="text-sm font-semibold"
             >
-              Local runtime
+              How it runs
             </h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <label
-                  htmlFor="crane-dispatch-provider"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Provider
-                </label>
-                <Select
-                  value={provider}
-                  onValueChange={(value) =>
-                    changeProvider(value as ProviderId)
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Model and effort
+                </p>
+                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                  Same picker as the composer, including reasoning effort.
+                </p>
+              </div>
+              <ModelEffortSelector
+                value={selectedModelOption}
+                options={modelOptions}
+                effortValue={runtimeModel.effort}
+                effortLabel={effortLabel}
+                fastMode={
+                  runtimeModel.providerId === "codex"
+                    ? runtimeModel.codexFastMode
+                    : undefined
+                }
+                disabled={submitting}
+                onFastModeChange={(enabled) =>
+                  setRuntimeModel((current) => ({
+                    ...current,
+                    codexFastMode: enabled,
+                  }))
+                }
+                onSelect={changeRuntimeModel}
+              />
+            </div>
+            {!providerAvailable ? (
+              <p className="text-xs leading-5 text-destructive" role="alert">
+                This provider is unavailable. Choose another model before
+                approving.
+              </p>
+            ) : null}
+
+            <div className="grid gap-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Autonomy
+              </p>
+              <ChoiceButtons
+                aria-label="Autonomy"
+                value={autonomyPreset ?? "custom"}
+                options={autonomyOptions}
+                onChange={(value) => {
+                  if (value === "custom") {
+                    return;
                   }
-                >
-                  <SelectTrigger id="crane-dispatch-provider">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="claude-code">Claude</SelectItem>
-                    <SelectItem value="codex">Codex</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <label
-                  htmlFor="crane-dispatch-model"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Model
-                </label>
-                <Select value={model} onValueChange={setModel}>
-                  <SelectTrigger id="crane-dispatch-model">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providerModels.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {toHumanModelName({ model: value })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  setAccess((current) =>
+                    applyCraneAutonomyPreset({
+                      providerId: runtimeModel.providerId,
+                      presetId: value as "manual" | "guided" | "auto",
+                      access: current,
+                    }),
+                  );
+                }}
+              />
+              <p className="text-xs leading-5 text-muted-foreground">
+                {autonomyDescription}
+              </p>
+              <p className="font-mono text-[11px] text-muted-foreground">
+                {describeCraneAccess({
+                  providerId: runtimeModel.providerId,
+                  access,
+                })}
+              </p>
             </div>
 
-            {provider === "claude-code" ? (
-              <div className="grid gap-3 rounded-lg border border-border p-3">
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="crane-dispatch-claude-permissions"
-                    className="text-xs font-medium text-muted-foreground"
-                  >
-                    Claude permission mode
-                  </label>
-                  <Select
-                    value={claudePermissionMode}
-                    onValueChange={(value) =>
-                      setClaudePermissionMode(
-                        value as typeof claudePermissionMode,
-                      )
-                    }
-                  >
-                    <SelectTrigger id="crane-dispatch-claude-permissions">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[
-                        "default",
-                        "acceptEdits",
-                        "auto",
-                        "dontAsk",
-                        "plan",
-                        "bypassPermissions",
-                      ].map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {value}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <label
-                    htmlFor="crane-dispatch-claude-sandbox"
-                    className="text-sm"
-                  >
-                    Claude sandbox
-                  </label>
-                  <Switch
-                    id="crane-dispatch-claude-sandbox"
-                    checked={claudeSandboxEnabled}
-                    onCheckedChange={setClaudeSandboxEnabled}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-3 rounded-lg border border-border p-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <label
-                      htmlFor="crane-dispatch-codex-files"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      File access
-                    </label>
-                    <Select
-                      value={codexFileAccess}
-                      onValueChange={(value) =>
-                        setCodexFileAccess(value as typeof codexFileAccess)
-                      }
-                    >
-                      <SelectTrigger id="crane-dispatch-codex-files">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="read-only">Read only</SelectItem>
-                        <SelectItem value="workspace-write">
-                          Workspace write
-                        </SelectItem>
-                        <SelectItem value="danger-full-access">
-                          Full access
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <label
-                      htmlFor="crane-dispatch-codex-approval"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Approval policy
-                    </label>
-                    <Select
-                      value={codexApprovalPolicy}
-                      onValueChange={(value) =>
-                        setCodexApprovalPolicy(
-                          value as typeof codexApprovalPolicy,
-                        )
-                      }
-                    >
-                      <SelectTrigger id="crane-dispatch-codex-approval">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="on-request">
-                          On request
-                        </SelectItem>
-                        <SelectItem value="untrusted">Untrusted</SelectItem>
-                        <SelectItem value="on-failure">
-                          On failure
-                        </SelectItem>
-                        <SelectItem value="never">Never</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <label
-                    htmlFor="crane-dispatch-codex-network"
-                    className="text-sm"
-                  >
-                    Network access
-                  </label>
-                  <Switch
-                    id="crane-dispatch-codex-network"
-                    checked={codexNetworkAccess}
-                    onCheckedChange={setCodexNetworkAccess}
-                  />
-                </div>
-              </div>
-            )}
+            <Accordion className="rounded-lg border border-border px-3">
+              <AccordionItem value="advanced" className="border-b-0">
+                <AccordionTrigger className="py-3 text-sm hover:no-underline">
+                  Advanced
+                </AccordionTrigger>
+                <AccordionContent className="grid gap-3 pb-3">
+                  {runtimeModel.providerId === "claude-code" ? (
+                    <>
+                      <div className="grid gap-2">
+                        <label
+                          htmlFor="crane-dispatch-claude-permissions"
+                          className="text-xs font-medium text-muted-foreground"
+                        >
+                          Claude permission mode
+                        </label>
+                        <Select
+                          value={access.claudePermissionMode}
+                          onValueChange={(value) =>
+                            setAccess((current) => ({
+                              ...current,
+                              claudePermissionMode:
+                                value as CraneDispatchAccessState["claudePermissionMode"],
+                            }))
+                          }
+                        >
+                          <SelectTrigger id="crane-dispatch-claude-permissions">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CLAUDE_PERMISSION_MODE_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <label
+                          htmlFor="crane-dispatch-claude-sandbox"
+                          className="text-sm"
+                        >
+                          Claude sandbox
+                        </label>
+                        <Switch
+                          id="crane-dispatch-claude-sandbox"
+                          checked={access.claudeSandboxEnabled}
+                          onCheckedChange={(checked) =>
+                            setAccess((current) => ({
+                              ...current,
+                              claudeSandboxEnabled: checked,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <label
+                          htmlFor="crane-dispatch-claude-unsandboxed"
+                          className="text-sm"
+                        >
+                          Allow unsandboxed commands
+                        </label>
+                        <Switch
+                          id="crane-dispatch-claude-unsandboxed"
+                          checked={access.claudeAllowUnsandboxedCommands}
+                          onCheckedChange={(checked) =>
+                            setAccess((current) => ({
+                              ...current,
+                              claudeAllowUnsandboxedCommands: checked,
+                            }))
+                          }
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                          <label
+                            htmlFor="crane-dispatch-codex-files"
+                            className="text-xs font-medium text-muted-foreground"
+                          >
+                            File access
+                          </label>
+                          <Select
+                            value={access.codexFileAccess}
+                            onValueChange={(value) =>
+                              setAccess((current) => ({
+                                ...current,
+                                codexFileAccess:
+                                  value as CraneDispatchAccessState["codexFileAccess"],
+                              }))
+                            }
+                          >
+                            <SelectTrigger id="crane-dispatch-codex-files">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CODEX_SANDBOX_MODE_OPTIONS.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2">
+                          <label
+                            htmlFor="crane-dispatch-codex-approval"
+                            className="text-xs font-medium text-muted-foreground"
+                          >
+                            Approval policy
+                          </label>
+                          <Select
+                            value={access.codexApprovalPolicy}
+                            onValueChange={(value) =>
+                              setAccess((current) => ({
+                                ...current,
+                                codexApprovalPolicy:
+                                  value as CraneDispatchAccessState["codexApprovalPolicy"],
+                              }))
+                            }
+                          >
+                            <SelectTrigger id="crane-dispatch-codex-approval">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CODEX_APPROVAL_POLICY_OPTIONS.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <label
+                          htmlFor="crane-dispatch-codex-web-search"
+                          className="text-xs font-medium text-muted-foreground"
+                        >
+                          Web search
+                        </label>
+                        <Select
+                          value={access.codexWebSearch}
+                          onValueChange={(value) =>
+                            setAccess((current) => ({
+                              ...current,
+                              codexWebSearch:
+                                value as CraneDispatchAccessState["codexWebSearch"],
+                            }))
+                          }
+                        >
+                          <SelectTrigger id="crane-dispatch-codex-web-search">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CODEX_WEB_SEARCH_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <label
+                          htmlFor="crane-dispatch-codex-network"
+                          className="text-sm"
+                        >
+                          Network access
+                        </label>
+                        <Switch
+                          id="crane-dispatch-codex-network"
+                          checked={access.codexNetworkAccess}
+                          onCheckedChange={(checked) =>
+                            setAccess((current) => ({
+                              ...current,
+                              codexNetworkAccess: checked,
+                            }))
+                          }
+                        />
+                      </div>
+                    </>
+                  )}
 
-            <div className="grid gap-3 rounded-lg border border-border p-3">
-              <div className="grid gap-2">
-                <label
-                  htmlFor="crane-dispatch-advisor"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Advisor
-                </label>
-                <Select
-                  value={advisorProvider}
-                  onValueChange={(value) =>
-                    changeAdvisorProvider(value as AdvisorProvider)
-                  }
-                >
-                  <SelectTrigger id="crane-dispatch-advisor">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="off">Off</SelectItem>
-                    <SelectItem value="claude-code">
-                      Claude Advisor
-                    </SelectItem>
-                    <SelectItem value="codex">Codex Advisor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {advisorProvider !== "off" ? (
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="crane-dispatch-advisor-model"
-                    className="text-xs font-medium text-muted-foreground"
-                  >
-                    {getProviderLabel({
-                      providerId: advisorProvider,
-                    })}{" "}
-                    Advisor model
-                  </label>
-                  <Select
-                    value={advisorModel}
-                    onValueChange={setAdvisorModel}
-                  >
-                    <SelectTrigger id="crane-dispatch-advisor-model">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {advisorModels.map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {toHumanModelName({ model: value })}
+                  <div className="grid gap-2">
+                    <label
+                      htmlFor="crane-dispatch-advisor"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Advisor
+                    </label>
+                    <Select
+                      value={advisorProvider}
+                      onValueChange={(value) => {
+                        const nextProvider = value as AdvisorProvider;
+                        setAdvisorProvider(nextProvider);
+                        setAdvisorModel(
+                          nextProvider === "off"
+                            ? ""
+                            : getDefaultModelForProvider({
+                                providerId: nextProvider,
+                              }),
+                        );
+                      }}
+                    >
+                      <SelectTrigger id="crane-dispatch-advisor">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="off">Off</SelectItem>
+                        <SelectItem value="claude-code">
+                          Claude Advisor
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        <SelectItem value="codex">Codex Advisor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {advisorProvider !== "off" ? (
+                    <div className="grid gap-2">
+                      <label
+                        htmlFor="crane-dispatch-advisor-model"
+                        className="text-xs font-medium text-muted-foreground"
+                      >
+                        {getProviderLabel({ providerId: advisorProvider })}{" "}
+                        Advisor model
+                      </label>
+                      <Select
+                        value={advisorModel}
+                        onValueChange={setAdvisorModel}
+                      >
+                        <SelectTrigger id="crane-dispatch-advisor-model">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {advisorModels.map((value) => (
+                            <SelectItem key={value} value={value}>
+                              {toHumanModelName({ model: value })}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        Adds one isolated read-only preflight and extra latency
+                        before the primary run.
+                      </p>
+                    </div>
+                  ) : null}
+
                   <p className="text-xs leading-5 text-muted-foreground">
-                    Adds one isolated read-only preflight and extra latency
-                    before the primary run.
+                    Provider timeout{" "}
+                    {formatProviderTimeoutLabel(settings.providerTimeoutMs)},
+                    from your Stave provider settings.
+                  </p>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+
+            {craneTeamKey ? (
+              <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                <div className="min-w-0">
+                  <label
+                    htmlFor="crane-dispatch-remember-project"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Remember for {craneTeamKey} issues
+                  </label>
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                    Stored only in Stave. Future {craneTeamKey} jobs preselect
+                    this project, model, and effort. Access settings always
+                    re-derive from your current Stave settings.
                   </p>
                 </div>
-              ) : null}
-            </div>
+                <Switch
+                  id="crane-dispatch-remember-project"
+                  checked={rememberTeamDefaults}
+                  onCheckedChange={setRememberTeamDefaults}
+                  aria-label={`Remember for ${craneTeamKey} issues`}
+                />
+              </div>
+            ) : null}
           </section>
 
           <section className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-4">
@@ -814,9 +1017,9 @@ export function CraneDispatchApprovalDialog() {
                 Status-only reporting
               </p>
               <p className="text-muted-foreground">
-                Crane receives lifecycle state, sequence, timestamps, and
-                safe error codes only. Prompts, responses, reasoning, files,
-                paths, diffs, and credentials stay local.
+                Crane receives lifecycle state, sequence, timestamps, and safe
+                error codes only. Prompts, responses, reasoning, files, paths,
+                diffs, and credentials stay local.
               </p>
             </div>
           </section>
@@ -824,8 +1027,8 @@ export function CraneDispatchApprovalDialog() {
 
         <DialogFooter className="shrink-0 border-t border-border/70 bg-muted/20 px-6 py-4">
           <span className="mr-auto text-xs text-muted-foreground">
-            {rememberProjectMapping && craneTeamKey
-              ? "Run approval is job-scoped; only this local project preference is remembered."
+            {rememberTeamDefaults && craneTeamKey
+              ? "Run approval is job-scoped; only these local team defaults are remembered."
               : "Approval applies to this job only."}
           </span>
           <Button
@@ -839,7 +1042,14 @@ export function CraneDispatchApprovalDialog() {
           </Button>
           <Button
             type="button"
-            disabled={submitting || !projectPath || !model}
+            disabled={
+              submitting ||
+              !projectPath ||
+              !runtimeModel.model ||
+              // Approving with an unavailable provider fails inside the host
+              // runtime, and that failure is terminal for the Crane job.
+              !providerAvailable
+            }
             onClick={() => void approve()}
           >
             {submitting ? <Loader2 className="size-4 animate-spin" /> : null}

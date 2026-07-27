@@ -421,17 +421,25 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
     dialog.getByText("Run the focused connector checks."),
   ).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Decline" })).toBeFocused();
+  // The runtime picker is the same model x effort control as the composer, and
+  // it must surface the effort the approval will actually run at.
   await expect(
-    dialog.getByRole("combobox", { name: "Provider" }),
-  ).toContainText("Codex");
+    dialog.getByRole("button", { name: /^Model and effort:/ }),
+  ).toContainText("X-High");
   await expect(
     dialog.getByText(
-      "Run approval is job-scoped; only this local project preference is remembered.",
+      "Run approval is job-scoped; only these local team defaults are remembered.",
     ),
   ).toBeVisible();
   await expect(
     dialog.getByRole("combobox", { name: "Stave project" }),
   ).toContainText("stave-project");
+  // The seeded access levels (workspace-write + on-request) are not one of the
+  // built-in presets, so the dialog must say so instead of mislabelling them.
+  await expect(dialog.getByRole("radio", { name: "Custom" })).toBeChecked();
+  await expect(
+    dialog.getByText("Files workspace-write / Approvals on-request"),
+  ).toBeVisible();
   await expect(
     dialog.getByRole("switch", {
       name: "Remember for CRANE issues",
@@ -467,6 +475,12 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
       {
         craneTeamKey: "CRANE",
         staveProjectPath: "/tmp/stave-project",
+        runtime: {
+          provider: "codex",
+          model: "gpt-5.6",
+          effort: "xhigh",
+          fastMode: false,
+        },
       },
     ]);
 
@@ -496,7 +510,102 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
           codexFileAccess: "workspace-write",
           codexNetworkAccess: false,
           codexApprovalPolicy: "on-request",
+          codexWebSearch: "live",
+          codexReasoningEffort: "xhigh",
+          codexFastMode: false,
           advisorTarget: null,
+        },
+      },
+    ]);
+  expect(pageErrors.map((error) => error.message)).toEqual([]);
+});
+
+test("Crane approval can pick a different model and reasoning effort", async ({
+  page,
+}) => {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error));
+  await seedCraneConnector(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+
+  await page.evaluate(() => {
+    (
+      window as unknown as {
+        craneConnectorTestState: {
+          emitApproval: (request: unknown) => void;
+        };
+      }
+    ).craneConnectorTestState.emitApproval({
+      job: {
+        version: 1,
+        id: "job-effort",
+        kind: "run_task",
+        connectorId: "connector-e2e",
+        issue: {
+          id: "issue-effort",
+          key: "CRANE-43",
+          title: "Pick an effort",
+          description: "Remote issue text stays untrusted.",
+          href: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-43",
+          updatedAt: "2026-07-26T00:00:00.000Z",
+        },
+        instruction: "Run the focused connector checks.",
+        requestedAt: "2026-07-26T00:01:00.000Z",
+        expiresAt: "2027-07-27T00:01:00.000Z",
+      },
+      leaseExpiresAt: "2027-07-26T00:16:00.000Z",
+    });
+  });
+
+  const dialog = page.getByRole("dialog", {
+    name: "Run CRANE-43 in Stave?",
+  });
+  await expect(dialog).toBeVisible();
+
+  const runtimePill = dialog.getByRole("button", {
+    name: /^Model and effort:/,
+  });
+  await expect(runtimePill).toContainText("X-High");
+  await runtimePill.click();
+
+  // The picker is portalled out of the dialog, so scope from the page.
+  const claudeMatrix = page.getByRole("grid", {
+    name: /Claude.*model effort matrix/,
+  });
+  await expect(claudeMatrix).toBeVisible();
+  await claudeMatrix
+    .getByRole("gridcell", { name: /, Max effort$/ })
+    .first()
+    .click();
+
+  await expect(runtimePill).toContainText("Max");
+  // Switching provider must also swap the access controls Crane can send.
+  await dialog.getByRole("button", { name: "Advanced" }).click();
+  await expect(
+    dialog.getByRole("combobox", { name: "Claude permission mode" }),
+  ).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Approve and run locally" }).click();
+  await expect(dialog).toBeHidden();
+
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              craneConnectorTestState: { approveCalls: unknown[] };
+            }
+          ).craneConnectorTestState.approveCalls,
+      ),
+    )
+    .toMatchObject([
+      {
+        jobId: "job-effort",
+        runtime: {
+          provider: "claude-code",
+          claudeEffort: "max",
         },
       },
     ]);

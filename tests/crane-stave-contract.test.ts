@@ -129,6 +129,9 @@ describe("Crane Stave dispatch V1 contract", () => {
           codexFileAccess: "workspace-write",
           codexNetworkAccess: false,
           codexApprovalPolicy: "on-request",
+          codexWebSearch: "live",
+          codexReasoningEffort: "xhigh",
+          codexFastMode: false,
           advisorTarget: null,
         },
       }).success,
@@ -139,6 +142,71 @@ describe("Crane Stave dispatch V1 contract", () => {
         reason: "remote-controlled",
       }).success,
     ).toBe(false);
+  });
+
+  test("requires an explicit reasoning effort on every dispatch runtime", () => {
+    // Effort used to be absent from this contract, so an approved Crane job
+    // ran at the provider SDK default instead of the approver's choice. Keep
+    // the field required so the same omission fails loudly at the IPC edge.
+    const claudeBase = {
+      jobId: "job-1",
+      projectPath: "/tmp/project",
+      workspace: { strategy: "existing", workspaceId: "workspace-1" },
+      runtime: {
+        provider: "claude-code",
+        model: "claude-opus-4-5",
+        providerTimeoutMs: 43_200_000,
+        claudePermissionMode: "acceptEdits",
+        claudeSandboxEnabled: false,
+        claudeAllowUnsandboxedCommands: true,
+        claudeAllowDangerouslySkipPermissions: false,
+        advisorTarget: null,
+      },
+    };
+    expect(CraneDispatchApproveArgsSchema.safeParse(claudeBase).success).toBe(
+      false,
+    );
+    expect(
+      CraneDispatchApproveArgsSchema.safeParse({
+        ...claudeBase,
+        runtime: { ...claudeBase.runtime, claudeEffort: "high" },
+      }).success,
+    ).toBe(true);
+    // Claude has no Codex-only tier, so a Codex-scale effort must be rejected
+    // rather than silently coerced.
+    expect(
+      CraneDispatchApproveArgsSchema.safeParse({
+        ...claudeBase,
+        runtime: { ...claudeBase.runtime, claudeEffort: "ultra" },
+      }).success,
+    ).toBe(false);
+
+    const codexRuntime = {
+      provider: "codex",
+      model: "gpt-5.6",
+      providerTimeoutMs: 43_200_000,
+      codexFileAccess: "workspace-write",
+      codexNetworkAccess: false,
+      codexApprovalPolicy: "on-request",
+      codexWebSearch: "cached",
+      advisorTarget: null,
+    };
+    expect(
+      CraneDispatchApproveArgsSchema.safeParse({
+        ...claudeBase,
+        runtime: codexRuntime,
+      }).success,
+    ).toBe(false);
+    expect(
+      CraneDispatchApproveArgsSchema.safeParse({
+        ...claudeBase,
+        runtime: {
+          ...codexRuntime,
+          codexReasoningEffort: "ultra",
+          codexFastMode: true,
+        },
+      }).success,
+    ).toBe(true);
   });
 
   test("keeps preload, renderer types, and main channels symmetric", () => {
