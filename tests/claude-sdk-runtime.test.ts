@@ -5,6 +5,7 @@ import {
   buildClaudeQueryOptions,
   buildClaudeReadOnlyPromptOptions,
   CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
+  claudeAskUserQuestionPreToolUseHook,
   claudeForegroundSubagentPreToolUseHook,
   ClaudeToolDecisionTimeoutError,
   resolveClaudeForegroundSubagentInput,
@@ -646,6 +647,17 @@ describe("Claude permission mode decisions", () => {
     ).toBe("allow");
   });
 
+  test("keeps AskUserQuestion interactive in non-prompting modes", () => {
+    for (const permissionMode of ["bypassPermissions", "dontAsk"] as const) {
+      expect(
+        resolveClaudePermissionModeDecision({
+          permissionMode,
+          toolName: "AskUserQuestion",
+        }),
+      ).toBe("prompt");
+    }
+  });
+
   test("auto-allows Claude Code read-only built-in tools in plan mode", () => {
     for (const toolName of [
       "Read",
@@ -1092,6 +1104,32 @@ describe("claudeForegroundSubagentPreToolUseHook", () => {
   });
 });
 
+describe("claudeAskUserQuestionPreToolUseHook", () => {
+  test("forces AskUserQuestion through the host interaction callback", async () => {
+    const output = await claudeAskUserQuestionPreToolUseHook(
+      {
+        hook_event_name: "PreToolUse",
+        tool_name: "AskUserQuestion",
+        tool_input: { questions: [] },
+        tool_use_id: "ask-1",
+        session_id: "session-1",
+        transcript_path: "/tmp/transcript.jsonl",
+        cwd: workspaceRoot,
+        permission_mode: "bypassPermissions",
+      },
+      "ask-1",
+      { signal: new AbortController().signal },
+    );
+
+    expect(output).toMatchObject({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "ask",
+      },
+    });
+  });
+});
+
 describe("resolveClaudeAgentProgressSummaries", () => {
   test("preserves explicit false so the SDK can be forced off", () => {
     expect(resolveClaudeAgentProgressSummaries(false)).toBe(false);
@@ -1103,6 +1141,25 @@ describe("resolveClaudeAgentProgressSummaries", () => {
 });
 
 describe("buildClaudeQueryOptions", () => {
+  test("forces AskUserQuestion through Stave while preserving SDK bypass mode", () => {
+    const canUseTool = async () =>
+      ({ behavior: "allow", updatedInput: {} }) as const;
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      permissionMode: "bypassPermissions",
+      canUseTool,
+    });
+
+    expect(options.permissionMode).toBe("bypassPermissions");
+    expect(options.canUseTool).toBe(canUseTool);
+    expect(options.allowDangerouslySkipPermissions).toBe(true);
+    expect(options.hooks?.PreToolUse).toContainEqual({
+      matcher: "^AskUserQuestion$",
+      hooks: [claudeAskUserQuestionPreToolUseHook],
+    });
+  });
+
   test("omits resumeSessionAt when no Claude session is being resumed", () => {
     const options = buildClaudeQueryOptions({
       cwd: workspaceRoot,
@@ -1154,6 +1211,10 @@ describe("buildClaudeQueryOptions", () => {
     });
 
     expect(options.hooks?.PreToolUse).toEqual([
+      {
+        matcher: "^AskUserQuestion$",
+        hooks: [claudeAskUserQuestionPreToolUseHook],
+      },
       {
         matcher: "^Agent$",
         hooks: [claudeForegroundSubagentPreToolUseHook],
@@ -1578,6 +1639,10 @@ describe("SubagentProgressTracker", () => {
 });
 
 describe("resolveClaudeApprovalDecisionTimeoutMs", () => {
+  test("waits 45 minutes for interactive decisions by default", () => {
+    expect(CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS).toBe(45 * 60 * 1000);
+  });
+
   test("returns default when env var is unset", () => {
     expect(
       resolveClaudeApprovalDecisionTimeoutMs({ envValue: undefined }),

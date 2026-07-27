@@ -64,8 +64,12 @@ export function resolveTurnActivityVisibility(args: {
   isTurnActive: boolean;
   isPlanPending: boolean;
   hasRetainedFailure?: boolean;
+  hasPendingInteractionCard?: boolean;
 }) {
-  return args.hasRetainedFailure || (args.isTurnActive && !args.isPlanPending);
+  return (
+    !args.hasPendingInteractionCard &&
+    (args.hasRetainedFailure || (args.isTurnActive && !args.isPlanPending))
+  );
 }
 
 export function promoteFirstPendingTodoForActiveTurn(

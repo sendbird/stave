@@ -2482,54 +2482,56 @@ export async function respondApproval(args: {
     throw new Error(`Workspace not found: ${args.workspaceId}`);
   }
 
-  const session = await loadWorkspaceSession(args.workspaceId);
-  const activeTurnId = session.activeTurnIdsByTask[args.taskId];
-  if (!activeTurnId) {
-    throw new Error(`No active turn found for task ${args.taskId}.`);
-  }
+  return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
+    const session = await loadWorkspaceSession(args.workspaceId);
+    const activeTurnId = session.activeTurnIdsByTask[args.taskId];
+    if (!activeTurnId) {
+      throw new Error(`No active turn found for task ${args.taskId}.`);
+    }
 
-  const messages = session.messagesByTask[args.taskId] ?? [];
-  const approval = findApprovalMessage({
-    messages,
-    requestId: args.requestId,
-  });
-  if (!approval) {
-    throw new Error(`Pending approval not found: ${args.requestId}`);
-  }
+    const messages = session.messagesByTask[args.taskId] ?? [];
+    const approval = findApprovalMessage({
+      messages,
+      requestId: args.requestId,
+    });
+    if (!approval) {
+      throw new Error(`Pending approval not found: ${args.requestId}`);
+    }
 
-  const result = await providerRuntime.respondApproval({
-    turnId: activeTurnId,
-    requestId: args.requestId,
-    approved: args.approved,
-  });
-  if (!result.ok) {
-    throw new Error(result.message);
-  }
+    const result = await providerRuntime.respondApproval({
+      turnId: activeTurnId,
+      requestId: args.requestId,
+      approved: args.approved,
+    });
+    if (!result.ok) {
+      throw new Error(result.message);
+    }
 
-  const nextMessagesState = applyApprovalState({
-    messagesByTask: session.messagesByTask,
-    workspaceSnapshotVersion: 0,
-    taskId: args.taskId,
-    messageId: approval.messageId,
-    requestId: args.requestId,
-    approved: args.approved,
+    const nextMessagesState = applyApprovalState({
+      messagesByTask: session.messagesByTask,
+      workspaceSnapshotVersion: 0,
+      taskId: args.taskId,
+      messageId: approval.messageId,
+      requestId: args.requestId,
+      approved: args.approved,
+    });
+    const nextSession = cacheWorkspaceSession(args.workspaceId, {
+      ...session,
+      messagesByTask: nextMessagesState.messagesByTask,
+    });
+    await queueWorkspaceSessionPersist({
+      workspaceId: args.workspaceId,
+      workspaceName: registration.workspace.name,
+      session: nextSession,
+    });
+    return {
+      ok: true,
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      requestId: args.requestId,
+      approved: args.approved,
+    };
   });
-  const nextSession = cacheWorkspaceSession(args.workspaceId, {
-    ...session,
-    messagesByTask: nextMessagesState.messagesByTask,
-  });
-  await queueWorkspaceSessionPersist({
-    workspaceId: args.workspaceId,
-    workspaceName: registration.workspace.name,
-    session: nextSession,
-  });
-  return {
-    ok: true,
-    workspaceId: args.workspaceId,
-    taskId: args.taskId,
-    requestId: args.requestId,
-    approved: args.approved,
-  };
 }
 
 export async function respondUserInput(args: {
@@ -2548,56 +2550,58 @@ export async function respondUserInput(args: {
     throw new Error(`Workspace not found: ${args.workspaceId}`);
   }
 
-  const session = await loadWorkspaceSession(args.workspaceId);
-  const activeTurnId = session.activeTurnIdsByTask[args.taskId];
-  if (!activeTurnId) {
-    throw new Error(`No active turn found for task ${args.taskId}.`);
-  }
+  return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
+    const session = await loadWorkspaceSession(args.workspaceId);
+    const activeTurnId = session.activeTurnIdsByTask[args.taskId];
+    if (!activeTurnId) {
+      throw new Error(`No active turn found for task ${args.taskId}.`);
+    }
 
-  const messages = session.messagesByTask[args.taskId] ?? [];
-  const userInput = findUserInputMessage({
-    messages,
-    requestId: args.requestId,
-  });
-  if (!userInput) {
-    throw new Error(`Pending user input not found: ${args.requestId}`);
-  }
+    const messages = session.messagesByTask[args.taskId] ?? [];
+    const userInput = findUserInputMessage({
+      messages,
+      requestId: args.requestId,
+    });
+    if (!userInput) {
+      throw new Error(`Pending user input not found: ${args.requestId}`);
+    }
 
-  const result = await providerRuntime.respondUserInput({
-    turnId: activeTurnId,
-    requestId: args.requestId,
-    answers: args.answers,
-    denied: args.denied,
-  });
-  if (!result.ok) {
-    throw new Error(result.message);
-  }
+    const result = await providerRuntime.respondUserInput({
+      turnId: activeTurnId,
+      requestId: args.requestId,
+      answers: args.answers,
+      denied: args.denied,
+    });
+    if (!result.ok) {
+      throw new Error(result.message);
+    }
 
-  const nextMessagesState = applyUserInputState({
-    messagesByTask: session.messagesByTask,
-    workspaceSnapshotVersion: 0,
-    taskId: args.taskId,
-    messageId: userInput.messageId,
-    requestId: args.requestId,
-    answers: args.answers,
-    denied: args.denied,
+    const nextMessagesState = applyUserInputState({
+      messagesByTask: session.messagesByTask,
+      workspaceSnapshotVersion: 0,
+      taskId: args.taskId,
+      messageId: userInput.messageId,
+      requestId: args.requestId,
+      answers: args.answers,
+      denied: args.denied,
+    });
+    const nextSession = cacheWorkspaceSession(args.workspaceId, {
+      ...session,
+      messagesByTask: nextMessagesState.messagesByTask,
+    });
+    await queueWorkspaceSessionPersist({
+      workspaceId: args.workspaceId,
+      workspaceName: registration.workspace.name,
+      session: nextSession,
+    });
+    return {
+      ok: true,
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      requestId: args.requestId,
+      denied: args.denied === true,
+    };
   });
-  const nextSession = cacheWorkspaceSession(args.workspaceId, {
-    ...session,
-    messagesByTask: nextMessagesState.messagesByTask,
-  });
-  await queueWorkspaceSessionPersist({
-    workspaceId: args.workspaceId,
-    workspaceName: registration.workspace.name,
-    session: nextSession,
-  });
-  return {
-    ok: true,
-    workspaceId: args.workspaceId,
-    taskId: args.taskId,
-    requestId: args.requestId,
-    denied: args.denied === true,
-  };
 }
 
 export async function listKnownProjects() {

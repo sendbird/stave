@@ -54,6 +54,16 @@ describe("turn activity presentation", () => {
     ).toBe(true);
   });
 
+  test("yields the composer surface to pending approval and user-input cards", () => {
+    expect(
+      resolveTurnActivityVisibility({
+        isTurnActive: true,
+        isPlanPending: false,
+        hasPendingInteractionCard: true,
+      }),
+    ).toBe(false);
+  });
+
   test("promotes the first queued todo while preserving provider progress", () => {
     expect(
       promoteFirstPendingTodoForActiveTurn([

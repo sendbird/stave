@@ -74,6 +74,7 @@ export function startProviderTurnActivity(args: {
   taskId: string;
   turnId: string;
   providerId: ProviderId;
+  pendingInteraction?: ProviderTurnPendingInteraction;
   now?: number;
 }) {
   const now = args.now ?? Date.now();
@@ -88,7 +89,9 @@ export function startProviderTurnActivity(args: {
       startedAt,
       lastEventAt: now,
       stalledAt: null,
-      pendingInteraction: null,
+      pendingInteraction:
+        args.pendingInteraction ??
+        (isSameTurn ? current.pendingInteraction : null),
       workItemsById: isSameTurn ? current.workItemsById : {},
       orderedWorkItemIds: isSameTurn ? current.orderedWorkItemIds : [],
       ...(isSameTurn && current.turnError

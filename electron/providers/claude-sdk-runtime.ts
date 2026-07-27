@@ -679,6 +679,11 @@ export function resolveClaudePermissionModeDecision(args: {
   toolName: string;
 }) {
   const normalizedToolName = args.toolName.trim().toLowerCase();
+  // AskUserQuestion requests information, not permission to perform an action.
+  // Keep it interactive even when action approvals are bypassed or denied.
+  if (normalizedToolName === "askuserquestion") {
+    return "prompt" as const;
+  }
   if (CLAUDE_AUTO_ALLOWED_TOOL_NAMES.has(normalizedToolName)) {
     return "allow" as const;
   }
@@ -945,6 +950,30 @@ export const claudeForegroundSubagentPreToolUseHook: HookCallback = async (
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
       updatedInput,
+    },
+  };
+};
+
+/**
+ * AskUserQuestion is a blocking user interaction, not an action approval.
+ * Force it through the host permission callback even when Claude's ordinary
+ * action approvals are bypassed.
+ */
+export const claudeAskUserQuestionPreToolUseHook: HookCallback = async (
+  input,
+) => {
+  if (
+    input.hook_event_name !== "PreToolUse" ||
+    input.tool_name.trim().toLowerCase() !== "askuserquestion"
+  ) {
+    return {};
+  }
+  return {
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "ask",
+      permissionDecisionReason:
+        "Stave must collect the requested user input before Claude continues.",
     },
   };
 };
@@ -1491,7 +1520,7 @@ export class ClaudeToolDecisionTimeoutError extends Error {
   }
 }
 
-export const CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS = 30 * 60 * 1000;
+export const CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS = 45 * 60 * 1000;
 
 export function resolveClaudeApprovalDecisionTimeoutMs(args: {
   envValue?: string;
@@ -1882,6 +1911,10 @@ export function buildClaudeQueryOptions(args: {
     // that Stave's one-turn-at-a-time loop cannot deliver.
     hooks: {
       PreToolUse: [
+        {
+          matcher: "^AskUserQuestion$",
+          hooks: [claudeAskUserQuestionPreToolUseHook],
+        },
         {
           matcher: "^Agent$",
           hooks: [claudeForegroundSubagentPreToolUseHook],
