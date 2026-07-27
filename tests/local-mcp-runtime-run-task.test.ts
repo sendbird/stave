@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 
 // Regression: the host-service local MCP `runTask` builds a pending provider
 // turn via `buildPendingProviderTurnState`, which requires `messageCountByTask`
@@ -254,6 +262,8 @@ const { providerRuntime } = await import("../electron/providers/runtime");
 const runtime = await import("../electron/host-service/local-mcp-runtime");
 
 const originalStartTurnStream = providerRuntime.startTurnStream;
+const originalRespondApproval = providerRuntime.respondApproval;
+const originalRespondUserInput = providerRuntime.respondUserInput;
 
 beforeAll(() => {
   providerRuntime.startTurnStream = ((
@@ -272,6 +282,13 @@ beforeAll(() => {
 
 afterAll(() => {
   providerRuntime.startTurnStream = originalStartTurnStream;
+  providerRuntime.respondApproval = originalRespondApproval;
+  providerRuntime.respondUserInput = originalRespondUserInput;
+});
+
+afterEach(() => {
+  providerRuntime.respondApproval = originalRespondApproval;
+  providerRuntime.respondUserInput = originalRespondUserInput;
 });
 
 describe("local MCP runtime runTask", () => {
@@ -431,6 +448,110 @@ describe("local MCP runtime runTask", () => {
         (part) => part.sourceId === "crane:CRANE-42",
       )?.content,
     ).toBe("Untrusted remote issue context.");
+  });
+
+  test("persists interactive host responses before provider continuation events", async () => {
+    const result = await runtime.runLocallyApprovedCraneKickoff({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Ask before continuing",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({
+      type: "user_input",
+      toolName: "request_user_input",
+      requestId: "interactive-input-1",
+      questions: [
+        {
+          key: "scope",
+          question: "Which scope should be used?",
+          header: "Scope",
+          options: [],
+        },
+      ],
+    });
+
+    let status = await runtime.getTaskStatus({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+      turnId: result.turnId,
+    });
+    for (
+      let attempt = 0;
+      attempt < 20 && status.pendingUserInputs.length === 0;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+      status = await runtime.getTaskStatus({
+        workspaceId: WORKSPACE_ID,
+        taskId: result.taskId,
+        turnId: result.turnId,
+      });
+    }
+    expect(status.pendingUserInputs).toHaveLength(1);
+
+    providerRuntime.respondUserInput = (async () => {
+      handler?.onEvent?.({
+        type: "approval",
+        toolName: "Bash",
+        requestId: "interactive-approval-1",
+        description: "Run focused tests",
+      });
+      return { ok: true, message: "ok" };
+    }) as typeof providerRuntime.respondUserInput;
+
+    await runtime.respondUserInput({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+      requestId: "interactive-input-1",
+      answers: { scope: "focused" },
+    });
+
+    for (
+      let attempt = 0;
+      attempt < 20 && status.pendingApprovals.length === 0;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+      status = await runtime.getTaskStatus({
+        workspaceId: WORKSPACE_ID,
+        taskId: result.taskId,
+        turnId: result.turnId,
+      });
+    }
+    expect(status.pendingUserInputs).toEqual([]);
+    expect(status.pendingApprovals).toHaveLength(1);
+
+    providerRuntime.respondApproval = (async () => {
+      handler?.onEvent?.({
+        type: "text",
+        text: "Continued after approval.",
+      });
+      return { ok: true, message: "ok" };
+    }) as typeof providerRuntime.respondApproval;
+
+    await runtime.respondApproval({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+      requestId: "interactive-approval-1",
+      approved: true,
+    });
+
+    for (
+      let attempt = 0;
+      attempt < 20 &&
+      status.latestAssistantText !== "Continued after approval.";
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+      status = await runtime.getTaskStatus({
+        workspaceId: WORKSPACE_ID,
+        taskId: result.taskId,
+        turnId: result.turnId,
+      });
+    }
+    expect(status.pendingUserInputs).toEqual([]);
+    expect(status.pendingApprovals).toEqual([]);
+    expect(status.latestAssistantText).toBe("Continued after approval.");
   });
 
   test("publishes Stave-owned managed approval and user-input needs", async () => {

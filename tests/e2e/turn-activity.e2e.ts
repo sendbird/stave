@@ -290,4 +290,59 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await activity.screenshot({
     path: testInfo.outputPath("turn-activity.png"),
   });
+
+  await page.evaluate(async () => {
+    const appStorePath = "/src/store/app.store.ts";
+    const storeModule = await import(appStorePath);
+    const store = storeModule.useAppStore;
+    const state = store.getState();
+    const taskId = "task-turn-activity";
+    const messages = state.messagesByTask[taskId] ?? [];
+    store.setState({
+      messagesByTask: {
+        ...state.messagesByTask,
+        [taskId]: messages.map((message) =>
+          message.id === "turn-activity-assistant"
+            ? {
+                ...message,
+                parts: [
+                  ...message.parts,
+                  {
+                    type: "user_input",
+                    toolName: "request_user_input",
+                    requestId: "turn-activity-input",
+                    questions: [
+                      {
+                        key: "scope",
+                        header: "Scope",
+                        question: "Which scope should be used?",
+                        options: [
+                          {
+                            label: "Focused",
+                            description: "Keep the change focused.",
+                          },
+                        ],
+                      },
+                    ],
+                    state: "input-requested",
+                  },
+                ],
+              }
+            : message,
+        ),
+      },
+      providerTurnActivityByTask: {
+        ...state.providerTurnActivityByTask,
+        [taskId]: {
+          ...state.providerTurnActivityByTask[taskId]!,
+          pendingInteraction: "user_input",
+        },
+      },
+    });
+  });
+
+  await expect(activity).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Submit answers" }).last(),
+  ).toBeVisible();
 });

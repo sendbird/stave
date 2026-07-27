@@ -34,6 +34,7 @@ import {
 } from "@/lib/providers/turn-status";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
 import { resolvePromptDraftRuntimeState } from "@/store/prompt-draft-runtime";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
@@ -166,12 +167,17 @@ export function TurnActivity() {
   const hasRetainedFailure = Boolean(
     !activeTurnId && activity?.turnError && activity.completedAt,
   );
+  const hasPendingInteractionCard = useMemo(
+    () => findLatestPendingToolInteraction({ messages }) != null,
+    [messages],
+  );
   const currentActivity =
     activity?.turnId === activeTurnId || hasRetainedFailure ? activity : null;
   const shouldShow = resolveTurnActivityVisibility({
     isTurnActive: Boolean(activeTurnId),
     isPlanPending,
     hasRetainedFailure,
+    hasPendingInteractionCard,
   });
 
   useEffect(() => {

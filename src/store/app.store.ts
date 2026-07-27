@@ -953,6 +953,7 @@ interface AppState
   compareRunsById: Record<string, CompareRun | undefined>;
   activeCompareRunId: string | null;
   activeTurnIdsByTask: Record<string, string | undefined>;
+  hostOwnedTurnIdsByTask: Record<string, string | undefined>;
   providerTurnActivityByTask: Record<
     string,
     ProviderTurnActivitySnapshot | undefined
@@ -3380,6 +3381,7 @@ export const useAppStore = create<AppState>()(
         compareRunsById: {},
         activeCompareRunId: null,
         activeTurnIdsByTask: {},
+        hostOwnedTurnIdsByTask: {},
         providerTurnActivityByTask: {},
         nativeSessionReadyByTask: {},
         providerSessionByTask: {},
@@ -10837,10 +10839,10 @@ export const useAppStore = create<AppState>()(
         },
         resolveApproval: ({ taskId, messageId, approved }) => {
           const stateBefore = get();
-          if (isExternallyManagedTask(findTaskById(stateBefore, taskId))) {
+          const task = findTaskById(stateBefore, taskId);
+          if (isExternallyManagedTask(task)) {
             return;
           }
-          const respondThroughManagedHost = isTaskManaged(findTaskById(stateBefore, taskId));
           const runtimeTarget = resolveTaskRuntimeTarget({
             state: stateBefore,
             taskId,
@@ -10855,6 +10857,8 @@ export const useAppStore = create<AppState>()(
               ? getWorkspaceSessionForState({ state: stateBefore, workspaceId })
               : null);
           const activeTurnId = targetSession?.activeTurnIdsByTask[taskId];
+          // prettier-ignore
+          const respondThroughHost = isTaskManaged(task) || (activeTurnId != null && stateBefore.hostOwnedTurnIdsByTask[taskId] === activeTurnId);
           const message = (targetSession?.messagesByTask[taskId] ?? []).find(
             (item) => item.id === messageId,
           );
@@ -10993,7 +10997,7 @@ export const useAppStore = create<AppState>()(
             });
           };
 
-          if (activeTurnId && approvalPart && !respondThroughManagedHost) {
+          if (activeTurnId && approvalPart && !respondThroughHost) {
             const respondApproval = window.api?.provider?.respondApproval;
             if (respondApproval) {
               void respondApproval({
@@ -11020,7 +11024,7 @@ export const useAppStore = create<AppState>()(
           }
 
           if (
-            (respondThroughManagedHost || !activeTurnId) &&
+            (respondThroughHost || !activeTurnId) &&
             approvalPart &&
             workspaceId &&
             window.api?.localMcp?.respondApproval
@@ -11068,10 +11072,10 @@ export const useAppStore = create<AppState>()(
         },
         resolveUserInput: ({ taskId, messageId, answers, denied }) => {
           const stateBefore = get();
-          if (isExternallyManagedTask(findTaskById(stateBefore, taskId))) {
+          const task = findTaskById(stateBefore, taskId);
+          if (isExternallyManagedTask(task)) {
             return;
           }
-          const respondThroughManagedHost = isTaskManaged(findTaskById(stateBefore, taskId));
           const runtimeTarget = resolveTaskRuntimeTarget({
             state: stateBefore,
             taskId,
@@ -11086,6 +11090,8 @@ export const useAppStore = create<AppState>()(
               ? getWorkspaceSessionForState({ state: stateBefore, workspaceId })
               : null);
           const activeTurnId = targetSession?.activeTurnIdsByTask[taskId];
+          // prettier-ignore
+          const respondThroughHost = isTaskManaged(task) || (activeTurnId != null && stateBefore.hostOwnedTurnIdsByTask[taskId] === activeTurnId);
           const message = (targetSession?.messagesByTask[taskId] ?? []).find(
             (item) => item.id === messageId,
           );
@@ -11226,7 +11232,7 @@ export const useAppStore = create<AppState>()(
             });
           };
 
-          if (activeTurnId && userInputPart && !respondThroughManagedHost) {
+          if (activeTurnId && userInputPart && !respondThroughHost) {
             const respondUserInput = window.api?.provider?.respondUserInput;
             if (respondUserInput) {
               void respondUserInput({
@@ -11254,7 +11260,7 @@ export const useAppStore = create<AppState>()(
           }
 
           if (
-            (respondThroughManagedHost || !activeTurnId) &&
+            (respondThroughHost || !activeTurnId) &&
             userInputPart &&
             workspaceId &&
             window.api?.localMcp?.respondUserInput

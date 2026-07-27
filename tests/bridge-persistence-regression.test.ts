@@ -24,6 +24,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/lib/db/notifications.db";
+import type { ChatMessage } from "@/types/chat";
 
 const originalWindow = globalThis.window;
 
@@ -206,7 +207,7 @@ describe("host task turn synchronization", () => {
     const taskId = "task-host-turn";
     const turnId = "turn-host-turn";
     let turnActive = true;
-    let persistedMessages = [
+    let persistedMessages: ChatMessage[] = [
       {
         id: "host-user",
         role: "user" as const,
@@ -226,6 +227,10 @@ describe("host task turn synchronization", () => {
       },
     ];
     const steerCalls: Array<{ turnId: string; text: string }> = [];
+    const directUserInputCalls: Array<{ requestId: string }> = [];
+    const hostUserInputCalls: Array<{ requestId: string }> = [];
+    const directApprovalCalls: Array<{ requestId: string }> = [];
+    const hostApprovalCalls: Array<{ requestId: string }> = [];
     const task = {
       id: taskId,
       title: "Crane ATL-2: fix peek",
@@ -245,6 +250,44 @@ describe("host task turn synchronization", () => {
           steerTurn: async (args: { turnId: string; text: string }) => {
             steerCalls.push(args);
             return { ok: true, delivery: "delivered" };
+          },
+          respondUserInput: async (args: { requestId: string }) => {
+            directUserInputCalls.push(args);
+            return { ok: true, message: "ok" };
+          },
+          respondApproval: async (args: { requestId: string }) => {
+            directApprovalCalls.push(args);
+            return { ok: true, message: "ok" };
+          },
+        },
+        localMcp: {
+          respondUserInput: async (args: { requestId: string }) => {
+            hostUserInputCalls.push(args);
+            persistedMessages = persistedMessages.map((message) => ({
+              ...message,
+              parts: message.parts.map((part) =>
+                part.type === "user_input" && part.requestId === args.requestId
+                  ? { ...part, state: "input-responded" as const }
+                  : part,
+              ),
+            }));
+            return { ok: true };
+          },
+          respondApproval: async (args: { requestId: string }) => {
+            hostApprovalCalls.push(args);
+            persistedMessages = persistedMessages.map((message) => ({
+              ...message,
+              parts: message.parts.map((part) =>
+                part.type === "approval" && part.requestId === args.requestId
+                  ? {
+                      ...part,
+                      state: "approval-responded" as const,
+                      approved: true,
+                    }
+                  : part,
+              ),
+            }));
+            return { ok: true };
           },
         },
         persistence: {
@@ -370,9 +413,10 @@ describe("host task turn synchronization", () => {
     });
 
     expect(useAppStore.getState().activeTurnIdsByTask[taskId]).toBe(turnId);
-    expect(
-      useAppStore.getState().messagesByTask[taskId]?.at(-1)?.content,
-    ).toBe("Inspecting the issue");
+    expect(useAppStore.getState().hostOwnedTurnIdsByTask[taskId]).toBe(turnId);
+    expect(useAppStore.getState().messagesByTask[taskId]?.at(-1)?.content).toBe(
+      "Inspecting the issue",
+    );
 
     const steerResult = await useAppStore.getState().sendUserMessage({
       taskId,
@@ -388,6 +432,129 @@ describe("host task turn synchronization", () => {
         clientMessageId: expect.any(String),
       },
     ]);
+
+    persistedMessages = [
+      persistedMessages[0]!,
+      {
+        ...persistedMessages[1]!,
+        parts: [
+          ...persistedMessages[1]!.parts,
+          {
+            type: "user_input",
+            toolName: "request_user_input",
+            requestId: "host-input-1",
+            questions: [
+              {
+                id: "scope",
+                header: "Scope",
+                question: "Which scope should be used?",
+                options: [{ label: "Focused", description: "Keep it scoped." }],
+              },
+            ],
+            state: "input-requested",
+          },
+        ],
+      },
+    ];
+    await useAppStore.getState().syncHostTaskTurn({
+      workspaceId,
+      taskId,
+      turnId,
+      providerId: "codex",
+      model: "gpt-5.6",
+      sequence: 1,
+      eventType: "user_input",
+      done: false,
+    });
+    expect(
+      useAppStore.getState().providerTurnActivityByTask[taskId]
+        ?.pendingInteraction,
+    ).toBe("user_input");
+    useAppStore.getState().resolveUserInput({
+      taskId,
+      messageId: "host-assistant",
+      answers: { scope: "Focused" },
+    });
+    await Bun.sleep(0);
+
+    expect(
+      useAppStore.getState().providerTurnActivityByTask[taskId]
+        ?.pendingInteraction,
+    ).toBeNull();
+    expect(hostUserInputCalls).toEqual([
+      expect.objectContaining({ requestId: "host-input-1" }),
+    ]);
+    expect(directUserInputCalls).toEqual([]);
+
+    await useAppStore.getState().syncHostTaskTurn({
+      workspaceId,
+      taskId,
+      turnId,
+      providerId: "codex",
+      model: "gpt-5.6",
+      sequence: 2,
+      eventType: "text",
+      done: false,
+    });
+    expect(
+      useAppStore.getState().providerTurnActivityByTask[taskId]
+        ?.pendingInteraction,
+    ).toBeNull();
+    expect(
+      useAppStore
+        .getState()
+        .messagesByTask[taskId]?.at(-1)
+        ?.parts.find((part) => part.type === "user_input"),
+    ).toMatchObject({
+      requestId: "host-input-1",
+      state: "input-responded",
+    });
+
+    persistedMessages = [
+      persistedMessages[0]!,
+      {
+        ...persistedMessages[1]!,
+        parts: [
+          ...persistedMessages[1]!.parts,
+          {
+            type: "approval",
+            toolName: "Bash",
+            requestId: "host-approval-1",
+            description: "Run focused tests",
+            state: "approval-requested",
+          },
+        ],
+      },
+    ];
+    await useAppStore.getState().syncHostTaskTurn({
+      workspaceId,
+      taskId,
+      turnId,
+      providerId: "codex",
+      model: "gpt-5.6",
+      sequence: 3,
+      eventType: "approval",
+      done: false,
+    });
+    expect(
+      useAppStore.getState().providerTurnActivityByTask[taskId]
+        ?.pendingInteraction,
+    ).toBe("approval");
+    useAppStore.getState().resolveApproval({
+      taskId,
+      messageId: "host-assistant",
+      approved: true,
+    });
+    await Bun.sleep(0);
+
+    expect(
+      useAppStore.getState().providerTurnActivityByTask[taskId]
+        ?.pendingInteraction,
+    ).toBeNull();
+    expect(hostApprovalCalls).toEqual([
+      expect.objectContaining({ requestId: "host-approval-1" }),
+    ]);
+    expect(directApprovalCalls).toEqual([]);
 
     turnActive = false;
     persistedMessages = [
@@ -418,8 +585,11 @@ describe("host task turn synchronization", () => {
 
     expect(useAppStore.getState().activeTurnIdsByTask[taskId]).toBeUndefined();
     expect(
-      useAppStore.getState().messagesByTask[taskId]?.at(-1)?.content,
-    ).toBe("Updated TaskPeek and verified the build.");
+      useAppStore.getState().hostOwnedTurnIdsByTask[taskId],
+    ).toBeUndefined();
+    expect(useAppStore.getState().messagesByTask[taskId]?.at(-1)?.content).toBe(
+      "Updated TaskPeek and verified the build.",
+    );
   });
 });
 

@@ -26,6 +26,7 @@ type HostTaskTurnStoreState = Parameters<
   typeof createWorkspaceSessionStateFromAppState
 >[0] & {
   activeWorkspaceId: string;
+  hostOwnedTurnIdsByTask: Record<string, string | undefined>;
   workspaceRuntimeCacheById: Record<string, WorkspaceSessionState>;
   taskWorkspaceIdById: Record<string, string>;
   providerTurnActivityByTask: Record<
@@ -164,12 +165,22 @@ export function applyHostTaskTurnSync(args: {
           taskId: args.update.taskId,
           turnId: args.update.turnId,
           providerId: args.update.providerId,
+          pendingInteraction:
+            args.update.eventType === "approval"
+              ? "approval"
+              : args.update.eventType === "user_input"
+                ? "user_input"
+                : undefined,
         })
       : clearProviderTurnActivity({
           activityByTask: args.state.providerTurnActivityByTask,
           taskId: args.update.taskId,
         });
   const sharedPatch = {
+    hostOwnedTurnIdsByTask: {
+      ...args.state.hostOwnedTurnIdsByTask,
+      [args.update.taskId]: args.loaded.persistedActiveTurnId,
+    },
     providerTurnActivityByTask,
     taskWorkspaceIdById: {
       ...args.state.taskWorkspaceIdById,
@@ -197,6 +208,7 @@ export function applyHostTaskTurnSync(args: {
 
   return {
     statePatch: statePatch satisfies WorkspaceRuntimeStatePatch & {
+      hostOwnedTurnIdsByTask: Record<string, string | undefined>;
       taskWorkspaceIdById: Record<string, string>;
       providerTurnActivityByTask: Record<
         string,

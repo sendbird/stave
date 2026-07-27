@@ -33,6 +33,26 @@ describe("provider turn status helpers", () => {
     });
   });
 
+  test("preserves a pending interaction when the same turn is refreshed", () => {
+    const pending = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      pendingInteraction: "user_input",
+      now: 1000,
+    });
+    const refreshed = startProviderTurnActivity({
+      activityByTask: pending,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2000,
+    });
+
+    expect(refreshed["task-1"]?.pendingInteraction).toBe("user_input");
+  });
+
   test("tracks pending approval without marking the turn stalled", () => {
     const started = startProviderTurnActivity({
       activityByTask: {},
