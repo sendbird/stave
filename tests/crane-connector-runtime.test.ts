@@ -367,6 +367,9 @@ describe("CraneConnectorRuntime", () => {
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
+        codexWebSearch: "live",
+        codexReasoningEffort: "xhigh",
+        codexFastMode: false,
         advisorTarget: {
           providerId: "claude-code",
           model: "claude-fable-5",
@@ -393,6 +396,10 @@ describe("CraneConnectorRuntime", () => {
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
+        // Regression: the approver's reasoning effort used to be dropped here,
+        // so every Crane kickoff silently ran at the provider SDK default.
+        codexReasoningEffort: "xhigh",
+        codexFastMode: false,
         advisorTarget: {
           providerId: "claude-code",
           model: "claude-fable-5",
@@ -445,6 +452,9 @@ describe("CraneConnectorRuntime", () => {
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
+        codexWebSearch: "live",
+        codexReasoningEffort: "xhigh",
+        codexFastMode: false,
         advisorTarget: null,
       },
     });
@@ -496,6 +506,9 @@ describe("CraneConnectorRuntime", () => {
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
+        codexWebSearch: "live",
+        codexReasoningEffort: "xhigh",
+        codexFastMode: false,
         advisorTarget: null,
       },
     });
@@ -534,6 +547,9 @@ describe("CraneConnectorRuntime", () => {
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
+        codexWebSearch: "live",
+        codexReasoningEffort: "xhigh",
+        codexFastMode: false,
         advisorTarget: null,
       },
     });
@@ -611,6 +627,9 @@ describe("CraneConnectorRuntime", () => {
         codexFileAccess: "workspace-write",
         codexNetworkAccess: false,
         codexApprovalPolicy: "on-request",
+        codexWebSearch: "live",
+        codexReasoningEffort: "xhigh",
+        codexFastMode: false,
         advisorTarget: null,
       },
     });
@@ -658,6 +677,9 @@ describe("CraneConnectorRuntime", () => {
           codexFileAccess: "workspace-write",
           codexNetworkAccess: false,
           codexApprovalPolicy: "on-request",
+          codexWebSearch: "live",
+          codexReasoningEffort: "xhigh",
+          codexFastMode: false,
           advisorTarget: null,
         },
       }),

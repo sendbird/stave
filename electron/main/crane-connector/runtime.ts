@@ -116,6 +116,14 @@ function runtimeOptionsForApproval(
       providerTimeoutMs: approval.runtime.providerTimeoutMs,
       claudePermissionMode: approval.runtime.claudePermissionMode,
       claudeSandboxEnabled: approval.runtime.claudeSandboxEnabled,
+      // Forwarded explicitly: the Claude runtime defaults
+      // `allowUnsandboxedCommands` to true, which would undo the sandbox the
+      // approver selected.
+      claudeAllowUnsandboxedCommands:
+        approval.runtime.claudeAllowUnsandboxedCommands,
+      claudeAllowDangerouslySkipPermissions:
+        approval.runtime.claudeAllowDangerouslySkipPermissions,
+      claudeEffort: approval.runtime.claudeEffort,
       ...(advisorTarget ? { advisorTarget } : {}),
     };
   }
@@ -125,6 +133,9 @@ function runtimeOptionsForApproval(
     codexFileAccess: approval.runtime.codexFileAccess,
     codexNetworkAccess: approval.runtime.codexNetworkAccess,
     codexApprovalPolicy: approval.runtime.codexApprovalPolicy,
+    codexWebSearch: approval.runtime.codexWebSearch,
+    codexReasoningEffort: approval.runtime.codexReasoningEffort,
+    codexFastMode: approval.runtime.codexFastMode,
     ...(advisorTarget ? { advisorTarget } : {}),
   };
 }
