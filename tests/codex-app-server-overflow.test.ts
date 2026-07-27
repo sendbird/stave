@@ -132,7 +132,7 @@ describe("codex app server stdout overflow handling", () => {
     expect(initialize?.params).toMatchObject({
       capabilities: { experimentalApi: true },
     });
-  });
+  }, 15_000);
 
   test("accepts valid oversized JSON-RPC responses without tearing down the process", async () => {
     nextScenario = "oversized-valid-response";

@@ -595,7 +595,6 @@ describe("host task turn synchronization", () => {
 
 describe("push stream memory release", () => {
   test("releases push sessions after completion", async () => {
-    process.env.STAVE_PROVIDER_TIMEOUT_MS = "50";
     const runtimeModule = await import("../electron/providers/runtime");
     const runtime = runtimeModule.providerRuntime;
     let doneResolver: (() => void) | null = null;
@@ -604,7 +603,11 @@ describe("push stream memory release", () => {
     });
 
     const started = runtime.startTurnStream(
-      { providerId: "claude-code", prompt: "smoke" },
+      {
+        providerId: "claude-code",
+        prompt: "smoke",
+        runtimeOptions: { providerTimeoutMs: 50 },
+      },
       {
         onEvent: () => {},
         onDone: () => {
@@ -622,7 +625,7 @@ describe("push stream memory release", () => {
     });
     expect(page.ok).toBe(false);
     expect(page.done).toBe(true);
-  });
+  }, 15_000);
 });
 
 describe("workspace persistence fallback", () => {

@@ -14,10 +14,11 @@
 ### Refactors / Chores
 
 * Add shared model-effort and project Node environment helpers with focused regression coverage across Compare, Review, Turn Activity, provider launch, shell execution, and Fleet approval paths.
+* Stabilize project-NVM validation by keeping the terminal runtime within the existing max-lines ratchet, making provider timeouts explicit in tests, and isolating executable discovery from login-shell state.
 
 ### References
 
-* [#250](https://github.com/sendbird/stave/pull/250), [#251](https://github.com/sendbird/stave/pull/251), [#252](https://github.com/sendbird/stave/pull/252), [#253](https://github.com/sendbird/stave/pull/253)
+* [#250](https://github.com/sendbird/stave/pull/250), [#251](https://github.com/sendbird/stave/pull/251), [#252](https://github.com/sendbird/stave/pull/252), [#253](https://github.com/sendbird/stave/pull/253), [#255](https://github.com/sendbird/stave/pull/255)
 ## [0.12.1](https://github.com/sendbird/stave/compare/v0.12.0...v0.12.1) (2026-07-27)
 
 ### Features
