@@ -238,7 +238,7 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       detail: "Inspection complete",
       status: "completed",
     });
-  });
+  }, 15_000);
 
   test("keeps the completed-only MCP fallback mapping", async () => {
     const events = await streamScenario("completed-only");

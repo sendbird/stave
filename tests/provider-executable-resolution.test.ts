@@ -286,9 +286,13 @@ describe("provider executable resolution", () => {
 
     withTemporaryEnv(
       {
+        CODEX_HOME: path.join(fakeNvmRoot, "codex-home"),
         NVM_DIR: fakeNvmRoot,
+        SHELL: "/bin/sh",
+        SLACK_OAUTH_TOKEN: "test-slack-token",
         STAVE_CODEX_CLI_PATH: undefined,
         STAVE_CODEX_CMD: undefined,
+        STAVE_LOCAL_MCP_TOKEN: "test-local-mcp-token",
       },
       () => {
         __resetExecutablePathCachesForTests();

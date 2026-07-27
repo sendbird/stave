@@ -772,10 +772,7 @@ export function createTerminalRuntime(args: {
           ? ["--resume", nativeSessionId]
           : ["--session-id", nativeSessionId]),
       ];
-      const env = buildClaudeCliEnv({
-        executablePath,
-        cwd: sessionCwd,
-      });
+      const env = buildClaudeCliEnv({ executablePath, cwd: sessionCwd });
       return {
         ok: true,
         sessionId: createPtySession({
@@ -808,10 +805,7 @@ export function createTerminalRuntime(args: {
           "Codex executable not found. Check Codex CLI installation or the configured binary path.",
       };
     }
-    const env = buildCodexCliEnv({
-      executablePath,
-      cwd: sessionCwd,
-    });
+    const env = buildCodexCliEnv({ executablePath, cwd: sessionCwd });
     const startedAtMs = Date.now();
     const sessionId = createPtySession({
       command: executablePath,
