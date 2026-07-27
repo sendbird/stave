@@ -171,6 +171,87 @@ describe("TurnActivity", () => {
     expect(html).not.toContain("session/TurnActivity.tsx");
   });
 
+  test("stays mounted behind a pending interaction card without repeating it", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-interaction",
+        activity: {
+          turnId: "turn-interaction",
+          providerId: "claude-code",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: "user_input",
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [],
+        todos: [{ content: "Verify the shelf", status: "in_progress" }],
+        expandedByDefault: true,
+        hasPendingInteractionCard: true,
+      }),
+    );
+
+    // The shelf used to unmount here, replaying its enter animation once the
+    // card resolved. It now keeps rendering the surrounding work instead.
+    expect(html).toContain('data-testid="turn-activity"');
+    expect(html).toContain("Verify the shelf");
+    // The chat card already asks the question, so the shelf drops its own row.
+    expect(html).not.toContain("Input needed");
+    // The header still names the attention state.
+    expect(html).toContain("Waiting for your input");
+  });
+
+  test("names the state instead of parking on a completed count", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-finished-rows",
+        activity: {
+          turnId: "turn-finished-rows",
+          providerId: "claude-code",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [
+          {
+            id: "tool-1",
+            kind: "tool",
+            status: "completed",
+            title: "Read",
+            progressMessages: [],
+            startedAt: 1_000,
+            updatedAt: 2_000,
+          },
+          {
+            id: "tool-2",
+            kind: "tool",
+            status: "completed",
+            title: "Edit",
+            progressMessages: [],
+            startedAt: 1_000,
+            updatedAt: 2_000,
+          },
+        ],
+        todos: [],
+        expandedByDefault: true,
+      }),
+    );
+
+    // Every tracked row has finished while the model streams its answer, so the
+    // header says what is happening rather than `2 done`.
+    expect(html).toContain("Working on your request");
+    expect(html).not.toContain("2 done");
+    // The ratio still carries the numbers.
+    expect(html).toContain("2/2");
+    expect(html).toContain("Completed (2)");
+  });
+
   test("renders a completed provider failure without a second loading indicator", () => {
     const html = renderToStaticMarkup(
       createElement(TurnActivitySurface, {

@@ -60,15 +60,19 @@ const TURN_ACTIVITY_STATUS_ORDER: Record<TurnActivityRowStatus, number> = {
   completed: 4,
 };
 
+/**
+ * The shelf stays mounted for the whole turn. It deliberately does not react to
+ * pending approval/user-input cards: unmounting there replayed the shelf's
+ * enter/exit animation on every interaction, which read as a flicker. The
+ * duplicate row is suppressed in `buildTurnActivityItems` instead.
+ */
 export function resolveTurnActivityVisibility(args: {
   isTurnActive: boolean;
   isPlanPending: boolean;
   hasRetainedFailure?: boolean;
-  hasPendingInteractionCard?: boolean;
 }) {
-  return (
-    !args.hasPendingInteractionCard &&
-    (args.hasRetainedFailure || (args.isTurnActive && !args.isPlanPending))
+  return Boolean(
+    args.hasRetainedFailure || (args.isTurnActive && !args.isPlanPending),
   );
 }
 
@@ -105,10 +109,14 @@ function resolveTodoStatus(todo: TurnActivityTodo): TurnActivityRowStatus {
 }
 
 /**
- * Flatten every tracked signal into one ranked row list. Rows are sorted by
- * status severity (failures, then blocked work, then live work, then queued
- * and finished ones); insertion order breaks ties, so a todo list keeps its
- * authored order within each bucket.
+ * Flatten every tracked signal into one row list, in a stable order: turn-level
+ * signals first, then provider work in the order it started, then todos in
+ * their authored order.
+ *
+ * Rows are deliberately NOT sorted by status. Re-ranking on every status change
+ * made rows swap places while work landed — and provider events flush once per
+ * animation frame, so that churned continuously. Severity now only decides the
+ * collapsed header's featured row (`resolveTurnActivityFeaturedItem`).
  */
 export function buildTurnActivityItems(args: {
   activity: Pick<
@@ -120,6 +128,11 @@ export function buildTurnActivityItems(args: {
   isStalled: boolean;
   todos: TurnActivityTodo[];
   workItems: ProviderTurnWorkItem[];
+  /**
+   * A chat-level approval/user-input card is already on screen, so the shelf
+   * skips its own row rather than saying the same thing twice.
+   */
+  hasPendingInteractionCard?: boolean;
 }): TurnActivityItem[] {
   const items: TurnActivityItem[] = [];
   if (args.activity?.turnError) {
@@ -136,14 +149,16 @@ export function buildTurnActivityItems(args: {
     });
   }
   if (args.activity?.pendingInteraction) {
-    const needsApproval = args.activity.pendingInteraction === "approval";
-    items.push({
-      id: `interaction:${args.activity.pendingInteraction}`,
-      status: "waiting",
-      title: needsApproval ? "Approval needed" : "Input needed",
-      detail: needsApproval ? "Review to continue" : "Reply to continue",
-      iconKey: "pause",
-    });
+    if (!args.hasPendingInteractionCard) {
+      const needsApproval = args.activity.pendingInteraction === "approval";
+      items.push({
+        id: `interaction:${args.activity.pendingInteraction}`,
+        status: "waiting",
+        title: needsApproval ? "Approval needed" : "Input needed",
+        detail: needsApproval ? "Review to continue" : "Reply to continue",
+        iconKey: "pause",
+      });
+    }
   } else if (args.isStalled) {
     items.push({
       id: "stalled",
@@ -186,11 +201,29 @@ export function buildTurnActivityItems(args: {
     });
   });
 
-  return items.sort(
-    (left, right) =>
-      TURN_ACTIVITY_STATUS_ORDER[left.status] -
-      TURN_ACTIVITY_STATUS_ORDER[right.status],
-  );
+  return items;
+}
+
+/**
+ * Pick the row the collapsed header should name: the most urgent one, with
+ * insertion order breaking ties. This is the only place status severity is
+ * allowed to reorder anything — the list itself stays in insertion order so
+ * rows never swap places mid-turn.
+ */
+export function resolveTurnActivityFeaturedItem(
+  items: TurnActivityItem[],
+): TurnActivityItem | null {
+  let featured: TurnActivityItem | null = null;
+  for (const item of items) {
+    if (
+      featured == null ||
+      TURN_ACTIVITY_STATUS_ORDER[item.status] <
+        TURN_ACTIVITY_STATUS_ORDER[featured.status]
+    ) {
+      featured = item;
+    }
+  }
+  return featured;
 }
 
 /** Split finished rows out so they can be tucked behind a disclosure. */
@@ -244,6 +277,51 @@ export function formatTurnActivityCountsLabel(counts: TurnActivityCounts) {
     counts.completedCount > 0 ? `${counts.completedCount} done` : null,
   ].filter((segment): segment is string => segment !== null);
   return segments.length > 0 ? segments.join(" · ") : null;
+}
+
+/** Whether any row still represents outstanding work rather than a result. */
+export function hasOutstandingTurnActivity(counts: TurnActivityCounts) {
+  return (
+    counts.failedCount +
+      counts.waitingCount +
+      counts.runningCount +
+      counts.pendingCount >
+    0
+  );
+}
+
+/**
+ * The shelf headline.
+ *
+ * Attention states own the header in both the collapsed and expanded state —
+ * they name themselves better than a row title or a count can, and the shelf now
+ * stays mounted behind interaction cards, so a collapsed header must not bury
+ * "waiting for you" under whichever tool happens to be running.
+ *
+ * Counts only earn the slot while something is still outstanding: once every
+ * tracked row has finished, `formatTurnActivityCountsLabel` degrades to a bare
+ * `5 done`, which sat there reading like a finished turn for the whole
+ * final-response stream. The completed ratio is rendered separately in the
+ * header, so the label falls back to naming the state instead.
+ */
+export function resolveTurnActivityHeadline(args: {
+  expanded: boolean;
+  needsAttention: boolean;
+  counts: TurnActivityCounts;
+  countsLabel: string | null;
+  featuredItem: TurnActivityItem | null;
+  summaryLabel: string;
+}) {
+  if (args.needsAttention) {
+    return args.summaryLabel;
+  }
+  if (!args.expanded) {
+    return args.featuredItem?.title ?? args.summaryLabel;
+  }
+  if (!hasOutstandingTurnActivity(args.counts)) {
+    return args.summaryLabel;
+  }
+  return args.countsLabel ?? args.summaryLabel;
 }
 
 /** Worst status among rows the collapsed header hides, for the `+N` badge. */
