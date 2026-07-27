@@ -30,6 +30,89 @@ function pushLensSecurityConfig(): void {
 
 export default function App() {
   useEffect(() => {
+    const subscribeTaskTurnUpdates =
+      window.api?.localMcp?.subscribeTaskTurnUpdates;
+    if (!subscribeTaskTurnUpdates) {
+      return;
+    }
+
+    const pendingByTaskTurn = new Map<
+      string,
+      Parameters<
+        ReturnType<typeof useAppStore.getState>["syncHostTaskTurn"]
+      >[0]
+    >();
+    const timerByTaskTurn = new Map<string, number>();
+    const runningTaskTurns = new Set<string>();
+    let disposed = false;
+
+    const flush = async (key: string) => {
+      if (disposed || runningTaskTurns.has(key)) {
+        return;
+      }
+      const update = pendingByTaskTurn.get(key);
+      if (!update) {
+        return;
+      }
+      pendingByTaskTurn.delete(key);
+      runningTaskTurns.add(key);
+      try {
+        await useAppStore.getState().syncHostTaskTurn(update);
+      } catch (error) {
+        console.error("[local-mcp] Failed to sync host task turn", error, {
+          workspaceId: update.workspaceId,
+          taskId: update.taskId,
+          turnId: update.turnId,
+        });
+      } finally {
+        runningTaskTurns.delete(key);
+        if (!disposed && pendingByTaskTurn.has(key)) {
+          const latest = pendingByTaskTurn.get(key);
+          const delay = latest?.done ? 0 : 50;
+          const timer = window.setTimeout(() => {
+            timerByTaskTurn.delete(key);
+            void flush(key);
+          }, delay);
+          timerByTaskTurn.set(key, timer);
+        }
+      }
+    };
+
+    const unsubscribe = subscribeTaskTurnUpdates((update) => {
+      const key = `${update.workspaceId}:${update.taskId}:${update.turnId}`;
+      pendingByTaskTurn.set(key, update);
+      const existingTimer = timerByTaskTurn.get(key);
+      if (existingTimer !== undefined) {
+        if (!update.done && update.eventType !== "started") {
+          return;
+        }
+        window.clearTimeout(existingTimer);
+        timerByTaskTurn.delete(key);
+      }
+      if (runningTaskTurns.has(key)) {
+        return;
+      }
+      const delay =
+        update.done || update.eventType === "started" ? 0 : 50;
+      const timer = window.setTimeout(() => {
+        timerByTaskTurn.delete(key);
+        void flush(key);
+      }, delay);
+      timerByTaskTurn.set(key, timer);
+    });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+      for (const timer of timerByTaskTurn.values()) {
+        window.clearTimeout(timer);
+      }
+      timerByTaskTurn.clear();
+      pendingByTaskTurn.clear();
+    };
+  }, []);
+
+  useEffect(() => {
     const connectorApi = window.api?.craneConnector;
     if (!connectorApi) {
       return;

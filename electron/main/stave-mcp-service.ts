@@ -33,6 +33,14 @@ function ensureLocalMcpEventBridge() {
       contents.send("local-mcp:workspace-information-updated", payload);
     }
   });
+  onHostServiceEvent("local-mcp.task-turn-updated", (payload) => {
+    for (const contents of webContents.getAllWebContents()) {
+      if (contents.isDestroyed()) {
+        continue;
+      }
+      contents.send("local-mcp:task-turn-updated", payload);
+    }
+  });
 }
 
 /**
