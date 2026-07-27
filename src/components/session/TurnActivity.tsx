@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   Bot,
   CheckCircle2,
@@ -23,6 +23,8 @@ import {
   formatTurnActivityCountsLabel,
   partitionTurnActivityItems,
   promoteFirstPendingTodoForActiveTurn,
+  resolveTurnActivityFeaturedItem,
+  resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
@@ -32,6 +34,7 @@ import {
   type TurnActivityTodo,
 } from "@/components/session/turn-activity.utils";
 import { Button } from "@/components/ui";
+import { useThrottledValue } from "@/hooks/use-throttled-value";
 import {
   formatProviderTurnElapsedDuration,
   formatProviderTurnIdleDuration,
@@ -55,6 +58,12 @@ const EMPTY_PROMPT_DRAFT: PromptDraft = {
 const TURN_ACTIVITY_FAILURE_LINGER_MS = 5_000;
 /** Matches the exit animation below so the shelf collapses instead of popping. */
 const TURN_ACTIVITY_EXIT_MS = 180;
+/**
+ * Provider events flush once per animation frame, so row content would rebuild
+ * ~60x/second. Rows are prose a human has to read — coalescing them to ~8
+ * updates/second loses nothing and stops the list from repainting every frame.
+ */
+const TURN_ACTIVITY_CONTENT_THROTTLE_MS = 120;
 
 const TURN_ACTIVITY_ICONS: Record<TurnActivityIconKey, LucideIcon> = {
   alert: CircleAlert,
@@ -197,7 +206,6 @@ export function TurnActivity() {
     isTurnActive: Boolean(activeTurnId),
     isPlanPending,
     hasRetainedFailure,
-    hasPendingInteractionCard,
   });
 
   useEffect(() => {
@@ -237,6 +245,18 @@ export function TurnActivity() {
     taskId,
   ]);
 
+  // Row content is throttled but turn-level state (visibility, elapsed time,
+  // pending interaction) stays live — delaying those would make the shelf lag
+  // behind the composer it sits under.
+  const throttledWorkItems = useThrottledValue(
+    workItems,
+    TURN_ACTIVITY_CONTENT_THROTTLE_MS,
+  );
+  const throttledTodos = useThrottledValue(
+    todos,
+    TURN_ACTIVITY_CONTENT_THROTTLE_MS,
+  );
+
   const surfaceProps = useMemo<TurnActivitySurfaceProps | null>(() => {
     if (!shouldShow) {
       return null;
@@ -245,18 +265,20 @@ export function TurnActivity() {
       activeTurnId: activeTurnId ?? currentActivity?.turnId ?? "",
       activity: currentActivity,
       isPlanPreparing,
-      workItems,
-      todos,
+      workItems: throttledWorkItems,
+      todos: throttledTodos,
       expandedByDefault,
+      hasPendingInteractionCard,
     };
   }, [
     activeTurnId,
     currentActivity,
     expandedByDefault,
+    hasPendingInteractionCard,
     isPlanPreparing,
     shouldShow,
-    todos,
-    workItems,
+    throttledTodos,
+    throttledWorkItems,
   ]);
   // Keep the last visible snapshot around for one exit animation so the shelf
   // shrinks away instead of yanking the composer down when a turn ends.
@@ -308,9 +330,17 @@ interface TurnActivitySurfaceProps {
   expandedByDefault?: boolean;
   /** Renders the exit animation while the shelf is being torn down. */
   isLeaving?: boolean;
+  /**
+   * A chat-level approval/user-input card is on screen. The shelf stays put
+   * (unmounting it replayed the enter animation on every interaction) and drops
+   * its own duplicate row instead.
+   */
+  hasPendingInteractionCard?: boolean;
 }
 
-export function TurnActivitySurface(props: TurnActivitySurfaceProps) {
+export const TurnActivitySurface = memo(function TurnActivitySurface(
+  props: TurnActivitySurfaceProps,
+) {
   const expandedByDefault = props.expandedByDefault ?? true;
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(
     null,
@@ -324,13 +354,23 @@ export function TurnActivitySurface(props: TurnActivitySurfaceProps) {
     props.activity?.stalledAt != null &&
     props.activity.completedAt == null &&
     props.activity.pendingInteraction == null;
-  const summary = resolveTurnActivitySummary({
-    pendingInteraction: props.activity?.pendingInteraction ?? null,
-    isStalled,
-    isPlanPreparing: props.isPlanPreparing,
-    workItems: props.workItems,
-    todos: props.todos,
-  });
+  const summary = useMemo(
+    () =>
+      resolveTurnActivitySummary({
+        pendingInteraction: props.activity?.pendingInteraction ?? null,
+        isStalled,
+        isPlanPreparing: props.isPlanPreparing,
+        workItems: props.workItems,
+        todos: props.todos,
+      }),
+    [
+      isStalled,
+      props.activity?.pendingInteraction,
+      props.isPlanPreparing,
+      props.todos,
+      props.workItems,
+    ],
+  );
   const elapsedLabel = formatProviderTurnElapsedDuration({
     activity: props.activity,
     now: props.activity?.completedAt ?? now,
@@ -339,19 +379,64 @@ export function TurnActivitySurface(props: TurnActivitySurfaceProps) {
     activity: props.activity,
     now,
   });
-  const activityItems = buildTurnActivityItems({
-    activity: props.activity,
-    idleLabel,
-    isPlanPreparing: props.isPlanPreparing,
-    isStalled,
-    todos: props.todos,
-    workItems: props.workItems,
-  });
-  const counts = countTurnActivityItems(activityItems);
-  const { active: activeItems, completed: completedItems } =
-    partitionTurnActivityItems(activityItems);
-  const featuredItem = activityItems[0] ?? null;
-  const hiddenItems = activityItems.slice(1);
+  // Rebuilt from primitives rather than the snapshot object: the snapshot gets a
+  // fresh identity on every provider flush, so depending on it would defeat the
+  // memo and hand the list new row objects ~60x/second.
+  const activityCompletedAt = props.activity?.completedAt ?? null;
+  const activityPendingInteraction = props.activity?.pendingInteraction ?? null;
+  const activityTurnError = props.activity?.turnError ?? null;
+  const activityTurnErrorRecoverable =
+    props.activity?.turnErrorRecoverable ?? false;
+  const hasActivity = props.activity != null;
+  const stalledIdleLabel = isStalled ? idleLabel : null;
+  const activityItems = useMemo(
+    () =>
+      buildTurnActivityItems({
+        activity: hasActivity
+          ? {
+              completedAt: activityCompletedAt ?? undefined,
+              pendingInteraction: activityPendingInteraction,
+              turnError: activityTurnError ?? undefined,
+              turnErrorRecoverable: activityTurnErrorRecoverable,
+            }
+          : null,
+        idleLabel: stalledIdleLabel,
+        isPlanPreparing: props.isPlanPreparing,
+        isStalled,
+        todos: props.todos,
+        workItems: props.workItems,
+        hasPendingInteractionCard: props.hasPendingInteractionCard,
+      }),
+    [
+      activityCompletedAt,
+      activityPendingInteraction,
+      activityTurnError,
+      activityTurnErrorRecoverable,
+      hasActivity,
+      isStalled,
+      props.hasPendingInteractionCard,
+      props.isPlanPreparing,
+      props.todos,
+      props.workItems,
+      stalledIdleLabel,
+    ],
+  );
+  const counts = useMemo(
+    () => countTurnActivityItems(activityItems),
+    [activityItems],
+  );
+  const { active: activeItems, completed: completedItems } = useMemo(
+    () => partitionTurnActivityItems(activityItems),
+    [activityItems],
+  );
+  const featuredItem = useMemo(
+    () => resolveTurnActivityFeaturedItem(activityItems),
+    [activityItems],
+  );
+  const hiddenItems = useMemo(
+    () => activityItems.filter((item) => item !== featuredItem),
+    [activityItems, featuredItem],
+  );
   const hiddenSeverity = resolveTurnActivityHiddenSeverity(hiddenItems);
   const orbState = resolveTurnActivityOrbState({
     activity: props.activity,
@@ -365,18 +450,53 @@ export function TurnActivitySurface(props: TurnActivitySurfaceProps) {
     isStalled ||
     props.activity?.turnError != null;
   const countsLabel = formatTurnActivityCountsLabel(counts);
-  const headline = expanded
-    ? needsAttention
-      ? summary.label
-      : (countsLabel ?? summary.label)
-    : (featuredItem?.title ?? summary.label);
+  const headline = resolveTurnActivityHeadline({
+    expanded,
+    needsAttention,
+    counts,
+    countsLabel,
+    featuredItem,
+    summaryLabel: summary.label,
+  });
+  // An attention headline owns the whole line: pairing "Waiting for your input"
+  // with a running tool's progress detail reads as one confused sentence.
   const headlineDetail =
-    !expanded && featuredItem?.detail && featuredItem.detail !== headline
+    !expanded &&
+    !needsAttention &&
+    featuredItem?.detail &&
+    featuredItem.detail !== headline
       ? featuredItem.detail
       : null;
   const canExpand = activityItems.length > 0;
   // `0/4` says nothing, so the ratio only appears once work has landed.
   const showProgress = counts.totalCount > 1 && counts.completedCount > 0;
+  const isListOpen = expanded && canExpand;
+
+  // The row set shrinks as well as grows during a turn: finished rows move into
+  // the collapsed "Completed" group, and the store prunes completed tool calls
+  // once more than `PROVIDER_TURN_GENERAL_TOOL_LIMIT` have run. The shelf sits
+  // in normal flow directly above the composer, so tracking content height
+  // exactly made the composer — and the conversation above it — jump on every
+  // provider event. Grow to the tallest content this turn needed and hold
+  // there; the surface is keyed per turn, so the floor resets with the turn.
+  const listContentRef = useRef<HTMLDivElement | null>(null);
+  const [listPeakHeight, setListPeakHeight] = useState<number | null>(null);
+  useEffect(() => {
+    const content = listContentRef.current;
+    if (!content || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(() => {
+      const nextHeight = content.getBoundingClientRect().height;
+      setListPeakHeight((current) =>
+        current == null || nextHeight > current ? nextHeight : current,
+      );
+    });
+    observer.observe(content);
+    return () => {
+      observer.disconnect();
+    };
+  }, [isListOpen]);
 
   return (
     <div
@@ -494,44 +614,57 @@ export function TurnActivitySurface(props: TurnActivitySurfaceProps) {
           ) : null}
         </div>
 
-        {expanded && canExpand ? (
-          <div className="max-h-[min(12rem,28vh)] min-h-0 overflow-y-auto overscroll-contain bg-muted/10 px-1.5 py-1.5">
-            {activeItems.map((item) => (
-              <TurnActivityRow key={item.id} item={item} />
-            ))}
-            {completedItems.length > 0 ? (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-expanded={showCompleted}
-                  className="h-7 w-full justify-start gap-2 px-2 text-[11px] font-normal text-muted-foreground"
-                  onClick={() => setShowCompleted((value) => !value)}
-                >
-                  <CheckCircle2 className="size-3.5 text-success" aria-hidden />
-                  <span>Completed ({completedItems.length})</span>
-                  <ChevronDown
-                    className={cn(
-                      "ml-auto size-3.5 transition-transform motion-reduce:transition-none",
-                      showCompleted && "rotate-180",
-                    )}
-                    aria-hidden
-                  />
-                </Button>
-                {showCompleted
-                  ? completedItems.map((item) => (
-                      <TurnActivityRow key={item.id} item={item} />
-                    ))
-                  : null}
-              </>
-            ) : null}
+        {isListOpen ? (
+          <div
+            className={cn(
+              "max-h-[min(12rem,28vh)] min-h-0 overflow-y-auto overscroll-contain bg-muted/10",
+              "transition-[height] duration-200 ease-out motion-reduce:transition-none",
+            )}
+            style={
+              listPeakHeight == null ? undefined : { height: listPeakHeight }
+            }
+          >
+            <div ref={listContentRef} className="px-1.5 py-1.5">
+              {activeItems.map((item) => (
+                <TurnActivityRow key={item.id} item={item} />
+              ))}
+              {completedItems.length > 0 ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-expanded={showCompleted}
+                    className="h-7 w-full justify-start gap-2 px-2 text-[11px] font-normal text-muted-foreground"
+                    onClick={() => setShowCompleted((value) => !value)}
+                  >
+                    <CheckCircle2
+                      className="size-3.5 text-success"
+                      aria-hidden
+                    />
+                    <span>Completed ({completedItems.length})</span>
+                    <ChevronDown
+                      className={cn(
+                        "ml-auto size-3.5 transition-transform motion-reduce:transition-none",
+                        showCompleted && "rotate-180",
+                      )}
+                      aria-hidden
+                    />
+                  </Button>
+                  {showCompleted
+                    ? completedItems.map((item) => (
+                        <TurnActivityRow key={item.id} item={item} />
+                      ))
+                    : null}
+                </>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </section>
     </div>
   );
-}
+});
 
 function resolveTurnActivityOrbState(args: {
   activity: ProviderTurnActivitySnapshot | null;
@@ -554,13 +687,25 @@ function resolveTurnActivityOrbState(args: {
   return "working";
 }
 
-function TurnActivityRow({ item }: { item: TurnActivityItem }) {
+// Memoized so the shelf's per-second clock tick and the surrounding 60fps store
+// churn do not re-render every row. Row objects are rebuilt only when their
+// throttled source data actually changes.
+const TurnActivityRow = memo(function TurnActivityRow({
+  item,
+}: {
+  item: TurnActivityItem;
+}) {
   const detail =
     item.detail && item.detail !== item.title ? item.detail : undefined;
   const isCompleted = item.status === "completed";
   return (
     <div
-      className="flex min-w-0 items-start gap-2.5 rounded-lg px-2 py-1.5"
+      className={cn(
+        "flex min-w-0 items-start gap-2.5 rounded-lg px-2 py-1.5",
+        // Rows mount once and keep their slot, so this plays exactly when a new
+        // activity appears instead of on every update.
+        "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
+      )}
       title={detail ? `${item.title} · ${detail}` : item.title}
     >
       <span className="flex h-5 shrink-0 items-center">
@@ -599,7 +744,7 @@ function TurnActivityRow({ item }: { item: TurnActivityItem }) {
       ) : null}
     </div>
   );
-}
+});
 
 function TurnActivityStatusIcon({
   status,

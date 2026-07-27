@@ -356,8 +356,171 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
     });
   });
 
-  await expect(activity).toHaveCount(0);
+  // The shelf used to unmount here, which replayed its enter/exit animation
+  // every time an interaction opened or resolved. It now stays mounted and only
+  // drops the row that would duplicate the card.
+  await expect(activity).toBeVisible();
+  await expect(activity).toContainText("Waiting for your input");
+  await expect(activity.getByText("Input needed")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Submit answers" }).last(),
   ).toBeVisible();
+});
+
+test("holds the shelf height steady while work lands and rows are pruned", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const taskId = "task-turn-activity-height";
+    const workspaceId = "ws-main";
+    const workspaceSnapshot = {
+      activeTaskId: taskId,
+      openTaskTabIds: [taskId],
+      activeSurface: { kind: "task", taskId },
+      tasks: [
+        {
+          id: taskId,
+          title: "Turn activity height",
+          provider: "codex",
+          updatedAt: "2026-07-25T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { [taskId]: [] },
+    };
+
+    (window as unknown as { api?: Record<string, unknown> }).api = {
+      provider: {
+        streamTurn: async () => [],
+        getCodexModelCatalog: async () => ({ ok: true, models: [], detail: "" }),
+      },
+    };
+
+    window.localStorage.setItem(
+      "stave:workspace-fallback:v1",
+      JSON.stringify([
+        {
+          id: workspaceId,
+          name: "main",
+          updatedAt: "2026-07-25T00:00:00.000Z",
+          snapshot: workspaceSnapshot,
+        },
+      ]),
+    );
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          projectPath: "/tmp/stave-project",
+          projectName: "stave-project",
+          workspaces: [
+            {
+              id: workspaceId,
+              name: "main",
+              updatedAt: "2026-07-25T00:00:00.000Z",
+            },
+          ],
+          activeWorkspaceId: workspaceId,
+          workspaceBranchById: { [workspaceId]: "main" },
+          workspacePathById: { [workspaceId]: "/tmp/stave-project" },
+          workspaceDefaultById: { [workspaceId]: true },
+          settings: { codexPlanMode: false },
+          ...workspaceSnapshot,
+        },
+        version: 0,
+      }),
+    );
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(
+    page.getByRole("tab", { name: "Turn activity height" }),
+  ).toBeVisible();
+
+  // Each round is one realistic provider flush: a tool starts, finishes, and is
+  // eventually pruned once `PROVIDER_TURN_GENERAL_TOOL_LIMIT` completed calls
+  // pile up. Every one of those transitions used to change the row count, and
+  // the shelf tracked it exactly — so the composer bounced on each flush.
+  const applyRound = async (
+    round: Array<{ id: string; status: "running" | "completed" }>,
+  ) => {
+    await page.evaluate(async (workItems) => {
+      const storeModule = await import("/src/store/app.store.ts");
+      const store = storeModule.useAppStore;
+      const taskId = "task-turn-activity-height";
+      const turnId = "turn-height";
+      const now = Date.now();
+      store.setState({
+        activeTurnIdsByTask: {
+          ...store.getState().activeTurnIdsByTask,
+          [taskId]: turnId,
+        },
+        providerTurnActivityByTask: {
+          ...store.getState().providerTurnActivityByTask,
+          [taskId]: {
+            turnId,
+            providerId: "codex",
+            startedAt: now - 5_000,
+            lastEventAt: now,
+            stalledAt: null,
+            pendingInteraction: null,
+            workItemsById: Object.fromEntries(
+              workItems.map((item) => [
+                item.id,
+                {
+                  id: item.id,
+                  kind: "tool",
+                  status: item.status,
+                  title: `Tool ${item.id}`,
+                  detail: `working on ${item.id}`,
+                  progressMessages: [],
+                  startedAt: now - 1_000,
+                  updatedAt: now,
+                },
+              ]),
+            ),
+            orderedWorkItemIds: workItems.map((item) => item.id),
+          },
+        },
+      });
+    }, round);
+    // Outlast the row-content throttle and the height transition.
+    await page.waitForTimeout(400);
+    const box = await page.getByTestId("turn-activity").boundingBox();
+    return box?.height ?? 0;
+  };
+
+  const heights: number[] = [];
+  heights.push(await applyRound([{ id: "a", status: "running" }]));
+  await expect(page.getByTestId("turn-activity")).toBeVisible();
+  // `a` finishes: its row leaves the active list for the collapsed group.
+  heights.push(await applyRound([{ id: "a", status: "completed" }]));
+  heights.push(
+    await applyRound([
+      { id: "a", status: "completed" },
+      { id: "b", status: "running" },
+    ]),
+  );
+  heights.push(
+    await applyRound([
+      { id: "a", status: "completed" },
+      { id: "b", status: "completed" },
+    ]),
+  );
+  // `a` is pruned away entirely, the way the store drops completed tool calls
+  // beyond its cap.
+  heights.push(
+    await applyRound([
+      { id: "b", status: "completed" },
+      { id: "c", status: "running" },
+    ]),
+  );
+
+  expect(heights[0]).toBeGreaterThan(0);
+  for (let index = 1; index < heights.length; index += 1) {
+    // Growth is fine and animates; shrinking mid-turn is the flicker.
+    expect(heights[index]).toBeGreaterThanOrEqual(heights[index - 1]!);
+  }
 });

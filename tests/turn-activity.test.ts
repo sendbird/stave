@@ -3,11 +3,15 @@ import {
   buildTurnActivityItems,
   countTurnActivityItems,
   formatTurnActivityCountsLabel,
+  hasOutstandingTurnActivity,
   partitionTurnActivityItems,
   promoteFirstPendingTodoForActiveTurn,
+  resolveTurnActivityFeaturedItem,
+  resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
+  type TurnActivityRowStatus,
 } from "@/components/session/turn-activity.utils";
 import type { ProviderTurnWorkItem } from "@/lib/providers/turn-status";
 
@@ -54,14 +58,43 @@ describe("turn activity presentation", () => {
     ).toBe(true);
   });
 
-  test("yields the composer surface to pending approval and user-input cards", () => {
+  test("keeps the shelf mounted behind pending approval and user-input cards", () => {
+    // Hiding the shelf here replayed its enter/exit animation on every
+    // interaction, which read as a flicker. The shelf stays; only its duplicate
+    // interaction row drops out (see the suppression test below).
     expect(
       resolveTurnActivityVisibility({
         isTurnActive: true,
         isPlanPending: false,
-        hasPendingInteractionCard: true,
       }),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  test("drops the interaction row when a chat card already asks the question", () => {
+    const args = {
+      activity: {
+        completedAt: undefined,
+        pendingInteraction: "approval" as const,
+        turnError: undefined,
+        turnErrorRecoverable: undefined,
+      },
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [{ content: "Keep working", status: "in_progress" as const }],
+      workItems: [],
+    };
+
+    expect(buildTurnActivityItems(args).map((item) => item.title)).toEqual([
+      "Approval needed",
+      "Keep working",
+    ]);
+    expect(
+      buildTurnActivityItems({
+        ...args,
+        hasPendingInteractionCard: true,
+      }).map((item) => item.title),
+    ).toEqual(["Keep working"]);
   });
 
   test("promotes the first queued todo while preserving provider progress", () => {
@@ -147,7 +180,7 @@ describe("turn activity presentation", () => {
     });
   });
 
-  test("ranks rows by severity and keeps authored order inside a bucket", () => {
+  test("keeps rows in insertion order and ranks only the featured row", () => {
     const items = buildTurnActivityItems({
       activity: {
         turnError: "Provider stream failed",
@@ -174,15 +207,43 @@ describe("turn activity presentation", () => {
       ],
     });
 
+    // Turn-level signals first, then provider work in start order, then todos
+    // in authored order. Status never reorders the list: rows that swap places
+    // as work lands make the shelf jump on every provider event.
     expect(items.map((item) => item.title)).toEqual([
       "Turn failed",
+      "Done work",
       "Live work",
       "First todo",
       "Second todo",
-      "Done work",
       "Finished todo",
     ]);
-    expect(items[1]?.badge).toBe("Explore");
+    expect(items[2]?.badge).toBe("Explore");
+    // The collapsed header still leads with the most urgent row.
+    expect(resolveTurnActivityFeaturedItem(items)?.title).toBe("Turn failed");
+  });
+
+  test("features the most urgent row and breaks ties by insertion order", () => {
+    const build = (statuses: TurnActivityRowStatus[]) =>
+      statuses.map((status, index) => ({
+        id: `${index}`,
+        status,
+        title: `${status}-${index}`,
+        iconKey: "tool" as const,
+      }));
+
+    expect(
+      resolveTurnActivityFeaturedItem(build(["completed", "running", "failed"]))
+        ?.title,
+    ).toBe("failed-2");
+    expect(
+      resolveTurnActivityFeaturedItem(build(["completed", "waiting", "running"]))
+        ?.title,
+    ).toBe("waiting-1");
+    expect(
+      resolveTurnActivityFeaturedItem(build(["running", "running"]))?.title,
+    ).toBe("running-0");
+    expect(resolveTurnActivityFeaturedItem([])).toBeNull();
   });
 
   test("labels a promoted todo instead of reporting it as provider progress", () => {
@@ -232,6 +293,83 @@ describe("turn activity presentation", () => {
     );
     expect(partitionTurnActivityItems(items).completed.map((i) => i.title)).toEqual(["C"]);
     expect(formatTurnActivityCountsLabel(countTurnActivityItems([]))).toBeNull();
+  });
+
+  test("stops the headline from parking on a bare completed count", () => {
+    const finishedCounts = countTurnActivityItems([
+      { id: "a", status: "completed", title: "A", iconKey: "tool" },
+      { id: "b", status: "completed", title: "B", iconKey: "tool" },
+    ]);
+    expect(hasOutstandingTurnActivity(finishedCounts)).toBe(false);
+    // `formatTurnActivityCountsLabel` degrades to `2 done` here, which sat in
+    // the header reading like a finished turn for the whole final-response
+    // stream. The state name is the honest label; `2/2` covers the numbers.
+    expect(formatTurnActivityCountsLabel(finishedCounts)).toBe("2 done");
+    expect(
+      resolveTurnActivityHeadline({
+        expanded: true,
+        needsAttention: false,
+        counts: finishedCounts,
+        countsLabel: formatTurnActivityCountsLabel(finishedCounts),
+        featuredItem: null,
+        summaryLabel: "Working on your request",
+      }),
+    ).toBe("Working on your request");
+
+    const workingCounts = countTurnActivityItems([
+      { id: "a", status: "completed", title: "A", iconKey: "tool" },
+      { id: "b", status: "running", title: "B", iconKey: "tool" },
+    ]);
+    expect(hasOutstandingTurnActivity(workingCounts)).toBe(true);
+    expect(
+      resolveTurnActivityHeadline({
+        expanded: true,
+        needsAttention: false,
+        counts: workingCounts,
+        countsLabel: formatTurnActivityCountsLabel(workingCounts),
+        featuredItem: null,
+        summaryLabel: "Working on your request",
+      }),
+    ).toBe("1 running · 1 done");
+    // Attention states and the collapsed header keep their existing behaviour.
+    expect(
+      resolveTurnActivityHeadline({
+        expanded: true,
+        needsAttention: true,
+        counts: workingCounts,
+        countsLabel: formatTurnActivityCountsLabel(workingCounts),
+        featuredItem: null,
+        summaryLabel: "Waiting for approval",
+      }),
+    ).toBe("Waiting for approval");
+    const featuredRow = {
+      id: "b",
+      status: "running" as const,
+      title: "Featured row",
+      iconKey: "tool" as const,
+    };
+    expect(
+      resolveTurnActivityHeadline({
+        expanded: false,
+        needsAttention: false,
+        counts: workingCounts,
+        countsLabel: formatTurnActivityCountsLabel(workingCounts),
+        featuredItem: featuredRow,
+        summaryLabel: "Working on your request",
+      }),
+    ).toBe("Featured row");
+    // Collapsed attention states must not bury "waiting for you" under whichever
+    // tool happens to be running — the shelf now stays mounted behind the card.
+    expect(
+      resolveTurnActivityHeadline({
+        expanded: false,
+        needsAttention: true,
+        counts: workingCounts,
+        countsLabel: formatTurnActivityCountsLabel(workingCounts),
+        featuredItem: featuredRow,
+        summaryLabel: "Waiting for your input",
+      }),
+    ).toBe("Waiting for your input");
   });
 
   test("escalates the collapsed overflow badge to the worst hidden row", () => {
