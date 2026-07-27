@@ -956,6 +956,7 @@ export function ProjectWorkspaceSidebar(args: {
   const [closingWorkspaceId, setClosingWorkspaceId] = useState<string | null>(
     null,
   );
+  const [archiveDeletesBranch, setArchiveDeletesBranch] = useState(true);
   const [
     currentProjectPath,
     currentProjectName,
@@ -2566,25 +2567,49 @@ export function ProjectWorkspaceSidebar(args: {
         title="Archive Workspace"
         description={
           workspaceToClose
-            ? `Archive workspace "${workspaceToClose.name}"? Stave will remove the associated git worktree only when it is clean and will preserve local changes or unpushed branch commits.`
+            ? `Archive workspace "${workspaceToClose.name}"? Stave will remove the associated git worktree only when it is clean and will preserve local changes.`
             : ""
         }
         confirmLabel="Archive"
         loading={closingWorkspaceId !== null}
-        onCancel={() => setWorkspaceToClose(null)}
+        onCancel={() => {
+          setWorkspaceToClose(null);
+          setArchiveDeletesBranch(true);
+        }}
         onConfirm={() => {
           if (!workspaceToClose) {
             return;
           }
           setClosingWorkspaceId(workspaceToClose.id);
-          void closeWorkspace({ workspaceId: workspaceToClose.id }).finally(
-            () => {
-              setClosingWorkspaceId(null);
-              setWorkspaceToClose(null);
-            },
-          );
+          void closeWorkspace({
+            workspaceId: workspaceToClose.id,
+            deleteBranch: archiveDeletesBranch,
+          }).finally(() => {
+            setClosingWorkspaceId(null);
+            setWorkspaceToClose(null);
+            setArchiveDeletesBranch(true);
+          });
         }}
-      />
+      >
+        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm hover:bg-muted/30">
+          <input
+            type="checkbox"
+            className="accent-destructive"
+            checked={archiveDeletesBranch}
+            disabled={closingWorkspaceId !== null}
+            onChange={(event) => setArchiveDeletesBranch(event.target.checked)}
+          />
+          <span
+            className={
+              archiveDeletesBranch
+                ? "text-destructive"
+                : "text-muted-foreground"
+            }
+          >
+            Delete the git branch too
+          </span>
+        </label>
+      </ConfirmDialog>
       <CreateWorkspaceDialog
         open={createWorkspaceOpen}
         activeBranch={activeWorkspaceBranch}

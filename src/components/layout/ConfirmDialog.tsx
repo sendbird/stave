@@ -5,6 +5,7 @@ import {
   useRef,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { Card, Button } from "@/components/ui";
@@ -18,6 +19,8 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   loading?: boolean;
+  /** Optional extra controls rendered between the description and the buttons. */
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -30,6 +33,7 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
     confirmLabel = "Confirm",
     cancelLabel = "Cancel",
     loading = false,
+    children,
     onConfirm,
     onCancel,
   } = args;
@@ -91,6 +95,7 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
               {description}
             </p>
           ) : null}
+          {children ? <div className="mt-3">{children}</div> : null}
           <div className="mt-4 flex justify-end gap-2">
             <Button
               type="button"

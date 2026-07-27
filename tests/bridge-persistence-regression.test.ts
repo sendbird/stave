@@ -5788,7 +5788,7 @@ describe("workspace store hydration ordering", () => {
     expect(closedWorkspaceIds).toEqual(["ws-feature-close"]);
   });
 
-  test("closeWorkspace cleanup removes clean worktrees without force", async () => {
+  test("closeWorkspace cleanup removes clean worktrees and deletes the branch by default", async () => {
     const localStorage = createMemoryStorage();
     const runCalls: Array<{ cwd?: string; command: string }> = [];
     const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
@@ -5838,13 +5838,7 @@ describe("workspace store hydration ordering", () => {
             }
             if (
               call.cwd === "/tmp/stave-project-close" &&
-              call.command === 'git rev-list --count "feature" --not --remotes'
-            ) {
-              return { ok: true, code: 0, stdout: "0\n", stderr: "" };
-            }
-            if (
-              call.cwd === "/tmp/stave-project-close" &&
-              call.command === 'git branch -d "feature"'
+              call.command === 'git branch -D "feature"'
             ) {
               return { ok: true, code: 0, stdout: "", stderr: "" };
             }
@@ -5903,8 +5897,7 @@ describe("workspace store hydration ordering", () => {
       `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
       `git worktree remove ${JSON.stringify(workspacePath)}`,
       "git worktree prune",
-      'git rev-list --count "feature" --not --remotes',
-      'git branch -d "feature"',
+      'git branch -D "feature"',
     ]);
     expect(runCalls.some((call) => call.command.includes("--force"))).toBe(
       false,
@@ -5912,7 +5905,10 @@ describe("workspace store hydration ordering", () => {
     expect(runCalls.some((call) => call.command.includes("rm -rf"))).toBe(
       false,
     );
-    expect(runCalls.some((call) => call.command.includes("branch -D"))).toBe(
+    // `git branch -d` refuses squash-merged branches, which is why archive used
+    // to leave them behind. Deletion is opt-in via the archive dialog, so the
+    // forced form is the only one that actually honors that choice.
+    expect(runCalls.some((call) => call.command.includes("rev-list"))).toBe(
       false,
     );
   });
@@ -6123,7 +6119,7 @@ describe("workspace store hydration ordering", () => {
     expect(savedProject?.archivedWorkspacePaths).toEqual([workspacePath]);
   });
 
-  test("closeWorkspace cleanup preserves unpushed branches after worktree removal", async () => {
+  test("closeWorkspace cleanup keeps the branch when deleteBranch is opted out", async () => {
     const localStorage = createMemoryStorage();
     const runCalls: Array<{ cwd?: string; command: string }> = [];
     const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
@@ -6173,13 +6169,6 @@ describe("workspace store hydration ordering", () => {
               ) {
                 return { ok: true, code: 0, stdout: "", stderr: "" };
               }
-              if (
-                call.cwd === "/tmp/stave-project-close" &&
-                call.command ===
-                  'git rev-list --count "feature" --not --remotes'
-              ) {
-                return { ok: true, code: 0, stdout: "2\n", stderr: "" };
-              }
               return {
                 ok: false,
                 code: 1,
@@ -6227,7 +6216,7 @@ describe("workspace store hydration ordering", () => {
 
       await useAppStore
         .getState()
-        .closeWorkspace({ workspaceId: "ws-feature-close" });
+        .closeWorkspace({ workspaceId: "ws-feature-close", deleteBranch: false });
       await waitForPendingWorkspaceArchiveCleanups();
     } finally {
       console.warn = originalWarn;
@@ -6238,7 +6227,6 @@ describe("workspace store hydration ordering", () => {
       `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
       `git worktree remove ${JSON.stringify(workspacePath)}`,
       "git worktree prune",
-      'git rev-list --count "feature" --not --remotes',
     ]);
   });
 

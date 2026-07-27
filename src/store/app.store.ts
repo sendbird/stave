@@ -1201,7 +1201,11 @@ interface AppState
     message?: string;
     noticeLevel?: "success" | "warning";
   }>;
-  closeWorkspace: (args: { workspaceId: string }) => Promise<void>;
+  closeWorkspace: (args: {
+    workspaceId: string;
+    /** Defaults to true; the archive dialog lets the user opt out. */
+    deleteBranch?: boolean;
+  }) => Promise<void>;
   switchWorkspace: (args: { workspaceId: string }) => Promise<void>;
   renameWorkspace: (args: {
     projectPath?: string;
@@ -5788,7 +5792,7 @@ export const useAppStore = create<AppState>()(
             message: resultMessages.join(" "),
           };
         },
-        closeWorkspace: async ({ workspaceId }) => {
+        closeWorkspace: async ({ workspaceId, deleteBranch = true }) => {
           const state = get();
           const workspace = state.workspaces.find(
             (item) => item.id === workspaceId,
@@ -5876,10 +5880,12 @@ export const useAppStore = create<AppState>()(
             });
             startWorkspaceArchiveCleanup({
               workspaceId,
+              workspaceName: workspace?.name,
               workspacePath,
               workspaceBranch,
               projectPath,
               isLinkedWorktree,
+              deleteBranch,
             });
             try {
               await get().flushProjectRegistry();
@@ -5940,10 +5946,12 @@ export const useAppStore = create<AppState>()(
           });
           startWorkspaceArchiveCleanup({
             workspaceId,
+            workspaceName: workspace?.name,
             workspacePath,
             workspaceBranch,
             projectPath,
             isLinkedWorktree,
+            deleteBranch,
           });
           try {
             await get().flushProjectRegistry();
