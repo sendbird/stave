@@ -253,7 +253,7 @@ function addSurfacePanel(
   },
 ) {
   const panelId = buildPanePanelId(surface);
-  return api.addPanel({
+  const panel = api.addPanel({
     id: panelId,
     component: surface.kind,
     title: panelId,
@@ -279,6 +279,18 @@ function addSurfacePanel(
         }
       : {}),
   });
+  const opensInactiveSplit =
+    options?.inactive === true &&
+    options.position?.direction !== undefined &&
+    options.position.direction !== "within";
+  if (opensInactiveSplit && panel.group.activePanel !== panel) {
+    // `inactive` preserves the current group globally, but Dockview also
+    // leaves a brand-new split with no selected panel. Select within the new
+    // group without activating that group so both panes render while the task
+    // remains the active workspace surface.
+    panel.group.model.openPanel(panel, { skipSetGroupActive: true });
+  }
+  return panel;
 }
 
 /**

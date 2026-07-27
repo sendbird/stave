@@ -471,8 +471,24 @@ test("settings modal and workspace modal open", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "open-settings" }).click();
-  await expect(page.getByLabel("Settings", { exact: true })).toBeVisible();
+  const settingsDialog = page.getByLabel("Settings", { exact: true });
+  await expect(settingsDialog).toBeVisible();
   await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
+  await settingsDialog
+    .getByRole("button", { name: "Lens", exact: true })
+    .click();
+  await expect(
+    settingsDialog.getByRole("heading", { name: "Agent Activity" }),
+  ).toBeVisible();
+  const showBesideTask = settingsDialog.getByRole("radio", {
+    name: /Show beside task/,
+  });
+  const backgroundTab = settingsDialog.getByRole("radio", {
+    name: /Background tab/,
+  });
+  await expect(showBesideTask).toBeChecked();
+  await backgroundTab.click();
+  await expect(backgroundTab).toBeChecked();
   const backToApp = page.getByRole("button", { name: "back-to-app" });
   const backToAppRow = backToApp.locator("..");
   await expect

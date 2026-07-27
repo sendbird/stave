@@ -1,11 +1,30 @@
 import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.types";
 
+export type LensSessionPresentationPlacement =
+  | "focus"
+  | "split-right"
+  | "background-tab";
+
+export interface LensSessionPresentationOptions {
+  placement?: LensSessionPresentationPlacement;
+  allowWorkspaceSwitch?: boolean;
+}
+
 export interface LensSessionPresentationHost {
   hasWorkspace: (workspaceId: string) => boolean;
   getActiveWorkspaceId: () => string | null;
   switchWorkspace: (workspaceId: string) => Promise<void>;
-  openLensTab: (lensSessionId: string) => string | null;
-  focusLensSurface: (lensSessionId: string) => void;
+  openLensTab: (
+    lensSessionId: string,
+    options: { activate: boolean },
+  ) => string | null;
+  openLensSurface: (
+    lensSessionId: string,
+    options: {
+      activate: boolean;
+      splitRight: boolean;
+    },
+  ) => void;
 }
 
 /**
@@ -15,22 +34,33 @@ export interface LensSessionPresentationHost {
 export async function presentLensSessionInWorkspace(
   payload: LensSessionPresentationRequestPayload,
   host: LensSessionPresentationHost,
+  options: LensSessionPresentationOptions = {},
 ): Promise<boolean> {
   if (!host.hasWorkspace(payload.workspaceId)) {
     return false;
   }
 
   if (host.getActiveWorkspaceId() !== payload.workspaceId) {
+    if (options.allowWorkspaceSwitch === false) {
+      return false;
+    }
     await host.switchWorkspace(payload.workspaceId);
   }
   if (host.getActiveWorkspaceId() !== payload.workspaceId) {
     return false;
   }
 
-  const lensSessionId = host.openLensTab(payload.lensSessionId);
+  const placement = options.placement ?? "focus";
+  const activate = placement === "focus";
+  const lensSessionId = host.openLensTab(payload.lensSessionId, {
+    activate,
+  });
   if (!lensSessionId) {
     return false;
   }
-  host.focusLensSurface(lensSessionId);
+  host.openLensSurface(lensSessionId, {
+    activate,
+    splitRight: placement === "split-right",
+  });
   return true;
 }

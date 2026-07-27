@@ -53,13 +53,28 @@ export interface LensSessionDescriptor {
 }
 
 /**
+ * How hidden MCP-owned Lens sessions should enter the workspace UI when an
+ * agent starts visual inspection or page interaction.
+ */
+export type LensAgentPresentationMode =
+  | "split-right"
+  | "background-tab"
+  | "agent-decides";
+
+export type LensAgentActivityKind = "visual" | "interaction";
+
+/**
  * Main-to-renderer request to reveal the same session an agent was using
- * hidden. Routine inspection should not emit this request.
+ * hidden. An absent requestKind is treated as an explicit request for
+ * compatibility with payloads from older builds.
  */
 export interface LensSessionPresentationRequestPayload {
   workspaceId: string;
   lensSessionId: string;
   reason?: string;
+  requestKind?: "explicit" | "agent-activity";
+  activityKind?: LensAgentActivityKind;
+  toolName?: string;
 }
 
 export interface ElementPickerResult {

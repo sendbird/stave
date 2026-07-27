@@ -18,7 +18,10 @@ import {
   resolvePreferredBrowserSession,
 } from "./browser-manager";
 import { acquireMcpBrowserSession } from "./browser-session-resolver";
-import { requestLensSessionPresentation } from "./browser-session-presentation";
+import {
+  requestLensAgentActivityPresentation,
+  requestLensSessionPresentation,
+} from "./browser-session-presentation";
 import { normalizeLensUrl } from "./browser-url";
 import { readNormalizedPageAnnotations } from "./browser-annotation-ingestion";
 
@@ -214,7 +217,7 @@ export function registerBrowserTools(server: McpServer): void {
     "stave_lens_present_session",
     {
       description:
-        "Reveal the same Lens session in Stave for user interaction, login, or visual confirmation. Keep routine agent inspection hidden.",
+        "Immediately reveal and focus the same Lens session in Stave for user interaction, login, or explicit visual confirmation. Stave handles configured automatic presentation separately.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         lensSessionId: z
@@ -239,6 +242,7 @@ export function registerBrowserTools(server: McpServer): void {
         workspaceId,
         lensSessionId: session.lensSessionId,
         reason,
+        requestKind: "explicit",
       });
       return toStructuredResult({
         ok: requested,
@@ -396,6 +400,10 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, username, submit }) => {
       const session = await acquireSession(workspaceId);
+      requestLensAgentActivityPresentation(
+        session,
+        "stave_lens_fill_saved_account",
+      );
       const result = await fillLensCredentialForWebContents(
         session.view.webContents,
         { submit: submit === true, username },
@@ -440,6 +448,10 @@ export function registerBrowserTools(server: McpServer): void {
       }
 
       const session = await acquireSession(workspaceId, lensSessionId);
+      requestLensAgentActivityPresentation(
+        session,
+        "stave_lens_screenshot",
+      );
 
       let clip:
         { x: number; y: number; width: number; height: number } | undefined;
@@ -780,6 +792,7 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId, selector, style }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
+      requestLensAgentActivityPresentation(session, "stave_lens_set_style");
       const edits = await setElementStyle(
         session.view.webContents.id,
         selector,
@@ -808,6 +821,7 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId, selector }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
+      requestLensAgentActivityPresentation(session, "stave_lens_inspect");
       const box = await getElementBoxModel(
         session.view.webContents.id,
         selector,
@@ -836,6 +850,7 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId, selectorA, selectorB }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
+      requestLensAgentActivityPresentation(session, "stave_lens_measure");
       const result = await measureElements(
         session.view.webContents.id,
         selectorA,
@@ -864,6 +879,7 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId, selector }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
+      requestLensAgentActivityPresentation(session, "stave_lens_click");
       await clickElement(session.view.webContents.id, selector);
       return toStructuredResult({ ok: true });
     },
@@ -892,6 +908,7 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId, text, selector }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
+      requestLensAgentActivityPresentation(session, "stave_lens_type");
       await typeText(session.view.webContents.id, text, selector);
       return toStructuredResult({ ok: true });
     },

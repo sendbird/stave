@@ -458,6 +458,8 @@ import {
   normalizeBorderBeamSize,
   normalizeBorderBeamStrength,
   normalizeBorderBeamVariant,
+  normalizeLensAgentPresentationMode,
+  normalizePersistedLensSettings,
   normalizeLensSessionScope,
   normalizeReasoningExpansionMode,
   normalizeSidebarActiveWorkspaceLimit,
@@ -6598,6 +6600,14 @@ export const useAppStore = create<AppState>()(
                     patch.lensSessionScope,
                   ),
                 }),
+            ...(patch.lensAgentPresentationMode === undefined
+              ? {}
+              : {
+                  lensAgentPresentationMode:
+                    normalizeLensAgentPresentationMode(
+                      patch.lensAgentPresentationMode,
+                    ),
+                }),
             ...(patch.lensAllowedHosts === undefined
               ? {}
               : {
@@ -8691,7 +8701,7 @@ export const useAppStore = create<AppState>()(
             ),
           });
         },
-        openLensTab: ({ lensSessionId }) => {
+        openLensTab: ({ lensSessionId, activate }) => {
           const normalizedLensSessionId = lensSessionId.trim();
           if (!get().activeWorkspaceId || !normalizedLensSessionId) {
             return null;
@@ -8700,6 +8710,7 @@ export const useAppStore = create<AppState>()(
             reduceOpenLensTab({
               state,
               lensSessionId: normalizedLensSessionId,
+              activate,
               createdAt: Date.now(),
               nextSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
             }),
@@ -12180,25 +12191,7 @@ export const useAppStore = create<AppState>()(
               (value: unknown): value is string => typeof value === "string",
             )
           : defaultSettings.commandPaletteRecentCommandIds;
-        state.settings.lensAllowedHosts = normalizeLensHostList(
-          raw.lensAllowedHosts,
-          defaultSettings.lensAllowedHosts,
-        );
-        state.settings.lensBlockedHosts = normalizeLensHostList(
-          raw.lensBlockedHosts,
-          defaultSettings.lensBlockedHosts,
-        );
-        state.settings.lensCdpApprovedHosts = normalizeLensHostList(
-          raw.lensCdpApprovedHosts,
-          defaultSettings.lensCdpApprovedHosts,
-        );
-        state.settings.lensSessionScope = normalizeLensSessionScope(
-          raw.lensSessionScope,
-        );
-        state.settings.lensDeveloperModeCdp =
-          typeof raw.lensDeveloperModeCdp === "boolean"
-            ? raw.lensDeveloperModeCdp
-            : defaultSettings.lensDeveloperModeCdp;
+        Object.assign(state.settings, normalizePersistedLensSettings(raw));
         state.settings.appShortcutKeys = normalizeAppShortcutKeys(
           raw.appShortcutKeys,
         );

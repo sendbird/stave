@@ -105,6 +105,7 @@ import type {
   LensStateChangedPayload,
   LensStyleEdit,
 } from "../src/lib/lens/lens.types";
+import { selectPendingLensPresentationRequest } from "../src/lib/lens/lens-agent-presentation";
 import type {
   LensCredentialMetadata,
   LensCredentialUpsertInput,
@@ -391,9 +392,13 @@ ipcRenderer.on(
   "lens:present-session",
   (_event, payload: LensSessionPresentationRequestPayload) => {
     if (lensSessionPresentationSubscribers.size === 0) {
+      const key = `${payload.workspaceId}\u0000${payload.lensSessionId}`;
       pendingLensSessionPresentationRequests.set(
-        `${payload.workspaceId}\u0000${payload.lensSessionId}`,
-        payload,
+        key,
+        selectPendingLensPresentationRequest(
+          pendingLensSessionPresentationRequests.get(key),
+          payload,
+        ),
       );
       return;
     }

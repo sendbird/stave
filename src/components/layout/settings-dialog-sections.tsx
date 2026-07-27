@@ -41,7 +41,10 @@ import { type SectionId } from "@/components/layout/settings-dialog.schema";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Button, Input, Slider, Textarea, toast } from "@/components/ui";
-import type { LensSessionScope } from "@/lib/lens/lens.types";
+import type {
+  LensAgentPresentationMode,
+  LensSessionScope,
+} from "@/lib/lens/lens.types";
 import { normalizeLensHostEntry } from "@/lib/lens/lens-security";
 import {
   CUSTOM_AUDIO_ACCEPTED_TYPES,
@@ -4144,6 +4147,7 @@ function LensSection() {
     heuristic,
     reactDebugSource,
     sessionScope,
+    agentPresentationMode,
     developerModeCdp,
     visualCommentScreenshotsAsImageContext,
     cdpApprovedHosts,
@@ -4158,6 +4162,7 @@ function LensSection() {
           state.settings.lensSourceMappingHeuristic,
           state.settings.lensSourceMappingReactDebugSource,
           state.settings.lensSessionScope,
+          state.settings.lensAgentPresentationMode,
           state.settings.lensDeveloperModeCdp,
           state.settings.lensVisualCommentScreenshotsAsImageContext,
           state.settings.lensCdpApprovedHosts,
@@ -4314,6 +4319,40 @@ function LensSection() {
               Clear workspace data
             </Button>
           </div>
+        </SettingsCard>
+        <SettingsCard
+          title="Agent Activity"
+          description="Choose how a hidden Lens session appears when an agent starts visual inspection or page interaction. Navigation, DOM reads, and diagnostics alone stay hidden."
+        >
+          <ChoiceButtons<LensAgentPresentationMode>
+            value={agentPresentationMode}
+            columns={3}
+            options={[
+              {
+                value: "split-right",
+                label: "Show beside task",
+                description:
+                  "Open Lens in a right split without taking focus from the task.",
+              },
+              {
+                value: "background-tab",
+                label: "Background tab",
+                description:
+                  "Add a Lens tab without changing the visible task surface.",
+              },
+              {
+                value: "agent-decides",
+                label: "Agent decides",
+                description:
+                  "Keep agent sessions hidden until the agent explicitly presents one.",
+              },
+            ]}
+            onChange={(value) =>
+              updateSettings({
+                patch: { lensAgentPresentationMode: value },
+              })
+            }
+          />
         </SettingsCard>
         <LensCredentialsSettingsCard />
         <SettingsCard
