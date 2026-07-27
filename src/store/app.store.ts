@@ -2554,6 +2554,7 @@ export const useAppStore = create<AppState>()(
           if (!result.notification) {
             return null;
           }
+          const notificationId = result.notification.id;
           set((state) => ({
             notifications: mergeNotificationIntoList({
               notifications: state.notifications,
@@ -2607,7 +2608,13 @@ export const useAppStore = create<AppState>()(
               suppress: isFocused && sameWorkspace,
             });
           }
-          showNotificationToast(result.notification);
+          showNotificationToast(result.notification, {
+            onOpen: () =>
+              void get().openNotificationContext({
+                notificationId,
+                targetSurface: "task",
+              }),
+          });
           attentionSync.noteTurnOutcome(result.notification);
           return result.notification;
         } catch (error) {
