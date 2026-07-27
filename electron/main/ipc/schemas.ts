@@ -1270,6 +1270,12 @@ export const PruneNotificationsArgsSchema = z
   .strict()
   .optional();
 
+export const DeleteWorkspaceNotificationsArgsSchema = z
+  .object({
+    workspaceIds: z.array(z.string().min(1).max(200)).max(5000),
+  })
+  .strict();
+
 export const ClearNotificationHistoryArgsSchema = z
   .object({})
   .strict()

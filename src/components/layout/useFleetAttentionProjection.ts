@@ -118,6 +118,7 @@ export function useFleetAttentionProjection() {
       notifications,
       liveWorkspaces,
       prWorkspaces,
+      knownWorkspaceIds: new Set(identityByWorkspaceId.keys()),
     });
 
     for (const item of projection.items) {

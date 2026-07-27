@@ -106,6 +106,7 @@ export function FleetNeedsInbox(args: {
   onOpen: (item: FleetNeedItem) => void;
   onResolveApproval: (item: FleetNeedItem, approved: boolean) => void;
   onMarkRead: (item: FleetNeedItem) => void;
+  onDismiss: (item: FleetNeedItem) => void;
   onOpenPr: (item: FleetNeedItem) => void;
 }) {
   if (args.items.length === 0) {
@@ -149,6 +150,16 @@ export function FleetNeedsInbox(args: {
           const canMarkRead =
             Boolean(item.notificationId) &&
             (item.kind === "run-failed" || item.kind === "result-ready");
+          // A question can outlive the turn that asked it. Without an explicit
+          // dismiss there is no way to clear it from the attention count.
+          // Live-sourced needs are excluded: dismissing resolves the
+          // notification, but the pending request behind a live need would
+          // rebuild the same item on the next projection, leaving the count
+          // unchanged and the button gone.
+          const canDismiss =
+            item.source === "notification" &&
+            Boolean(item.notificationId) &&
+            item.kind === "user-input";
 
           return (
             <li
@@ -230,6 +241,19 @@ export function FleetNeedsInbox(args: {
                     {item.kind === "result-ready"
                       ? "Mark reviewed"
                       : "Mark read"}
+                  </Button>
+                ) : null}
+                {canDismiss ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="min-h-11"
+                    disabled={busy}
+                    aria-label={`Dismiss question for ${title} in ${item.workspaceName}`}
+                    onClick={() => args.onDismiss(item)}
+                  >
+                    Dismiss
                   </Button>
                 ) : null}
                 {item.prUrl ? (

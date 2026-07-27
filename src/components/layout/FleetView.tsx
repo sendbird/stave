@@ -1243,6 +1243,24 @@ export function FleetView() {
     [markNotificationRead],
   );
 
+  const dismissAttentionNeed = useCallback(
+    (target: FleetNeedItem) => {
+      if (!target.notificationId) {
+        return;
+      }
+      setBusyNeedId(target.id);
+      // Resolving (not just reading) is what makes the notification eligible for
+      // expiry-based pruning and removes it from the attention projection.
+      void markNotificationRead({
+        id: target.notificationId,
+        resolvedAt: new Date().toISOString(),
+      }).finally(() => {
+        setBusyNeedId((current) => (current === target.id ? null : current));
+      });
+    },
+    [markNotificationRead],
+  );
+
   const openAttentionPr = useCallback((target: FleetNeedItem) => {
     if (!target.prUrl) {
       return;
@@ -1553,6 +1571,7 @@ export function FleetView() {
         onOpen={openAttentionTarget}
         onResolveApproval={resolveAttentionApproval}
         onMarkRead={markAttentionRead}
+        onDismiss={dismissAttentionNeed}
         onOpenPr={openAttentionPr}
       />
 

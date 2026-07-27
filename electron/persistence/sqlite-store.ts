@@ -28,6 +28,7 @@ import type {
   PersistenceWorkspaceSnapshot,
   PersistenceWorkspaceSummary,
 } from "./types";
+import { selectOrphanedNotificationWorkspaceIds } from "./notification-orphans";
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
@@ -152,6 +153,15 @@ interface LocalMcpRequestLogRow {
 
 const MAX_LOCAL_MCP_REQUEST_LOGS = 500;
 const LEGACY_TURN_JOURNAL_PURGE_KEY = "legacy_turn_journal_purged_v1";
+const ORPHAN_NOTIFICATION_DELETE_CHUNK_SIZE = 400;
+
+function normalizeNotificationWorkspaceIds(workspaceIds: string[]) {
+  return Array.from(
+    new Set(
+      workspaceIds.map((workspaceId) => workspaceId.trim()).filter(Boolean),
+    ),
+  );
+}
 const LEGACY_TURN_EVENT_ARTIFACT_KIND = "turn_event_payload";
 const ROUTINE_STATE_KEY = "routine_state_v1";
 
@@ -1309,6 +1319,69 @@ export class SqliteStore {
       )
       .run(now);
     return result.changes;
+  }
+
+  deleteNotificationsForWorkspaces(args: { workspaceIds: string[] }): number {
+    const workspaceIds = normalizeNotificationWorkspaceIds(args.workspaceIds);
+    if (workspaceIds.length === 0) {
+      return 0;
+    }
+    const placeholders = workspaceIds.map(() => "?").join(", ");
+    const result = this.db
+      .prepare(
+        `DELETE FROM notifications WHERE workspace_id IN (${placeholders})`,
+      )
+      .run(...workspaceIds);
+    return result.changes;
+  }
+
+  /**
+   * Drops notification rows whose workspace is gone. The main process owns the
+   * authoritative inventory, so the verdict is reached here instead of being
+   * handed down by the renderer; see `selectOrphanedNotificationWorkspaceIds`.
+   * The purged workspace ids come back so the renderer can prune its in-memory
+   * list without repeating the judgement.
+   */
+  deleteOrphanedNotifications(): { count: number; workspaceIds: string[] } {
+    const notificationWorkspaceIds = (
+      this.db
+        .prepare(
+          "SELECT DISTINCT workspace_id FROM notifications WHERE workspace_id IS NOT NULL",
+        )
+        .all() as { workspace_id: string }[]
+    ).map((row) => row.workspace_id);
+    const workspaceRowIds = (
+      this.db.prepare("SELECT id FROM workspaces").all() as { id: string }[]
+    ).map((row) => row.id);
+    const registryWorkspaceIds = this.loadProjectRegistry().flatMap((project) =>
+      (project.workspaces ?? []).map((workspace) => workspace.id),
+    );
+
+    const workspaceIds = selectOrphanedNotificationWorkspaceIds({
+      notificationWorkspaceIds,
+      workspaceRowIds,
+      registryWorkspaceIds,
+    });
+    if (workspaceIds.length === 0) {
+      return { count: 0, workspaceIds: [] };
+    }
+
+    // Chunked so a long-lived database cannot blow past SQLite's bound
+    // parameter limit.
+    let count = 0;
+    for (
+      let index = 0;
+      index < workspaceIds.length;
+      index += ORPHAN_NOTIFICATION_DELETE_CHUNK_SIZE
+    ) {
+      count += this.deleteNotificationsForWorkspaces({
+        workspaceIds: workspaceIds.slice(
+          index,
+          index + ORPHAN_NOTIFICATION_DELETE_CHUNK_SIZE,
+        ),
+      });
+    }
+    return { count, workspaceIds };
   }
 
   clearNotificationHistory(): number {

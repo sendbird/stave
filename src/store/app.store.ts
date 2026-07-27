@@ -4,11 +4,7 @@ import {
   listActiveWorkspaceTurns,
   type PersistedTurnSummary,
 } from "@/lib/db/turns.db";
-import {
-  createNotification as createPersistedNotification,
-  listNotifications as listPersistedNotifications,
-  pruneNotifications as prunePersistedNotifications,
-} from "@/lib/db/notifications.db";
+import { createNotification as createPersistedNotification } from "@/lib/db/notifications.db";
 import { workspaceFsAdapter } from "@/lib/fs";
 import type { WorkspaceFileData, WorkspaceImageData } from "@/lib/fs/fs.types";
 import { formatWithEslint } from "@/components/layout/editor-language-intelligence";
@@ -62,8 +58,11 @@ import {
 } from "@/lib/notifications/notification.types";
 import {
   clearNotificationHistoryAction,
+  hydrateNotificationsAction,
   markAllNotificationsReadAction,
   markNotificationReadAction,
+  purgeWorkspaceNotificationsAction,
+  reconcileOrphanedNotificationsAction,
 } from "@/store/notification-actions";
 import { createNotificationAttentionSync } from "@/store/notification-attention-sync";
 import { mergeNotificationIntoList } from "@/lib/notifications/notification-state";
@@ -983,6 +982,9 @@ interface AppState
   /** Lightweight refresh: discover new/removed git worktrees without full rehydration. */
   refreshWorkspaces: () => Promise<void>;
   hydrateNotifications: () => Promise<void>;
+  /** Drops notifications owned by workspaces that no longer exist. */
+  reconcileOrphanedNotifications: () => Promise<void>;
+  purgeWorkspaceNotifications: (args: { workspaceIds: string[] }) => Promise<void>;
   flushActiveWorkspaceSnapshot: (args?: { sync?: boolean }) => Promise<void>;
   refreshActiveManagedTask: () => Promise<void>;
   syncHostTaskTurn: (update: LocalMcpTaskTurnUpdate) => Promise<void>;
@@ -4264,31 +4266,12 @@ export const useAppStore = create<AppState>()(
             };
           });
         },
-        hydrateNotifications: async () => {
-          try {
-            await prunePersistedNotifications();
-          } catch (error) {
-            console.error(
-              "[notifications] failed to prune expired notifications",
-              error,
-            );
-          }
-          try {
-            const notifications = await listPersistedNotifications({
-              limit: 500,
-            });
-            set(() => ({
-              notifications,
-            }));
-          } catch (error) {
-            console.error(
-              "[notifications] failed to hydrate notifications",
-              error,
-            );
-            set(() => ({
-              notifications: [],
-            }));
-          }
+        hydrateNotifications: () => hydrateNotificationsAction({ set, get }),
+        reconcileOrphanedNotifications: async () => {
+          await reconcileOrphanedNotificationsAction({ set, get });
+        },
+        purgeWorkspaceNotifications: async ({ workspaceIds }) => {
+          await purgeWorkspaceNotificationsAction({ set, get, workspaceIds });
         },
         flushActiveWorkspaceSnapshot: async ({ sync } = {}) => {
           const state = get();
@@ -4651,6 +4634,7 @@ export const useAppStore = create<AppState>()(
               : []),
           ];
           await closeTerminalSessionsForWorkspaces(workspaceIdsForCleanup);
+          await get().purgeWorkspaceNotifications({ workspaceIds: workspaceIdsForCleanup });
 
           set((state) => {
             const matchingProject = state.recentProjects.find(
@@ -5681,6 +5665,8 @@ export const useAppStore = create<AppState>()(
           if (isProtectedDefault) {
             return;
           }
+          // Unresolved approvals/questions never expire on their own.
+          await get().purgeWorkspaceNotifications({ workspaceIds: [workspaceId] });
           const workspacePath = state.workspacePathById[workspaceId];
           const workspaceBranch = state.workspaceBranchById[workspaceId];
           const projectPath = state.projectPath;

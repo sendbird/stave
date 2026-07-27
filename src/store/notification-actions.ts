@@ -1,7 +1,11 @@
 import {
   clearNotificationHistory as clearPersistedNotificationHistory,
+  deleteNotificationsForWorkspaces as deletePersistedWorkspaceNotifications,
+  deleteOrphanedNotifications as deletePersistedOrphanedNotifications,
+  listNotifications as listPersistedNotifications,
   markAllNotificationsRead as markAllPersistedNotificationsRead,
   markNotificationRead as markPersistedNotificationRead,
+  pruneNotifications as prunePersistedNotifications,
 } from "@/lib/db/notifications.db";
 import {
   clearNotificationHistoryInList,
@@ -9,6 +13,8 @@ import {
   markAllNotificationsReadInList,
   markNotificationReadInList,
   mergeNotificationIntoList,
+  removeNotificationsFromList,
+  selectNotificationIdsForWorkspaces,
 } from "@/lib/notifications/notification-state";
 import type { AppNotification } from "@/lib/notifications/notification.types";
 import { buildNotificationExpiresAt } from "@/lib/notifications/notification.types";
@@ -94,6 +100,116 @@ export async function markAllNotificationsReadAction(
       "[notifications] failed to mark all notifications as read",
       error,
     );
+  }
+}
+
+function dropNotificationsFromSlice(
+  deps: NotificationActionDeps,
+  notificationIds: string[],
+) {
+  if (notificationIds.length === 0) {
+    return;
+  }
+  const removable = new Set(notificationIds);
+  deps.set((state) => ({
+    notifications: removeNotificationsFromList({
+      notifications: state.notifications,
+      notificationIds: removable,
+    }),
+  }));
+}
+
+/**
+ * An archived workspace can never answer its pending approvals or questions
+ * again, and unresolved attention notifications are exempt from expiry-based
+ * pruning. Without this they pile up forever in the Fleet attention count.
+ */
+export async function purgeWorkspaceNotificationsAction(
+  deps: NotificationActionDeps & { workspaceIds: readonly string[] },
+) {
+  const workspaceIds = [...deps.workspaceIds]
+    .map((workspaceId) => workspaceId.trim())
+    .filter(Boolean);
+  if (workspaceIds.length === 0) {
+    return 0;
+  }
+
+  dropNotificationsFromSlice(
+    deps,
+    selectNotificationIdsForWorkspaces({
+      notifications: deps.get().notifications,
+      workspaceIds,
+    }),
+  );
+
+  try {
+    const count = await deletePersistedWorkspaceNotifications({ workspaceIds });
+    syncUnreadBadge(deps.get);
+    return count;
+  } catch (error) {
+    console.error(
+      "[notifications] failed to delete notifications for archived workspaces",
+      { workspaceIds },
+      error,
+    );
+    return 0;
+  }
+}
+
+/**
+ * Cleans up rows written before workspace-scoped cleanup existed. The persisted
+ * sweep is workspace-scoped rather than id-scoped so it also reaches rows beyond
+ * the hydration limit.
+ *
+ * The renderer deliberately does not decide what counts as an orphan. Its
+ * inventory is a capped, per-project snapshot that a host-created workspace is
+ * missing from, and acting on it deleted live requests. The main process owns
+ * the verdict; this only mirrors it into the in-memory list.
+ */
+export async function reconcileOrphanedNotificationsAction(
+  deps: NotificationActionDeps,
+) {
+  try {
+    const { count, workspaceIds } = await deletePersistedOrphanedNotifications();
+    if (workspaceIds.length === 0) {
+      return count;
+    }
+    dropNotificationsFromSlice(
+      deps,
+      selectNotificationIdsForWorkspaces({
+        notifications: deps.get().notifications,
+        workspaceIds,
+      }),
+    );
+    syncUnreadBadge(deps.get);
+    return count;
+  } catch (error) {
+    console.error(
+      "[notifications] failed to reconcile orphaned notifications",
+      error,
+    );
+    return 0;
+  }
+}
+
+export async function hydrateNotificationsAction(
+  deps: NotificationActionDeps,
+) {
+  try {
+    await prunePersistedNotifications();
+  } catch (error) {
+    console.error(
+      "[notifications] failed to prune expired notifications",
+      error,
+    );
+  }
+  try {
+    const notifications = await listPersistedNotifications({ limit: 500 });
+    deps.set(() => ({ notifications }));
+    await reconcileOrphanedNotificationsAction(deps);
+  } catch (error) {
+    console.error("[notifications] failed to hydrate notifications", error);
+    deps.set(() => ({ notifications: [] }));
   }
 }
 
