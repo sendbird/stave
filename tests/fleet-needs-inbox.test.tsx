@@ -43,6 +43,17 @@ describe("FleetNeedsInbox", () => {
     expect(renderInbox([buildNeed()])).toContain("Dismiss");
   });
 
+  test("offers a dismiss action for notification-backed approvals", () => {
+    expect(
+      renderInbox([
+        buildNeed({
+          id: "interaction:approval:workspace-1:task-1:request-1",
+          kind: "approval",
+        }),
+      ]),
+    ).toContain("Dismiss");
+  });
+
   test("omits the dismiss action when the need has no notification", () => {
     expect(
       renderInbox([buildNeed({ notificationId: undefined, source: "live" })]),
