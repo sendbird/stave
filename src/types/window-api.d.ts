@@ -29,6 +29,7 @@ import type {
   StaveLocalMcpRequestLogQuery,
   StaveLocalMcpStatus,
 } from "@/lib/local-mcp";
+import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import type {
   CraneConnectorConfigInput,
   CraneConnectorPairInput,
@@ -632,6 +633,9 @@ interface WindowLocalMcpApi {
       workspaceId: string;
       workspaceInformation: WorkspaceInformationState;
     }) => void,
+  ) => () => void;
+  subscribeTaskTurnUpdates?: (
+    listener: (payload: LocalMcpTaskTurnUpdate) => void,
   ) => () => void;
 }
 

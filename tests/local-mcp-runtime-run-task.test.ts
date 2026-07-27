@@ -287,6 +287,63 @@ describe("local MCP runtime runTask", () => {
     expect(startTurnStreamCalls).toHaveLength(1);
   });
 
+  test("signals renderer sync only after host task state is persisted", async () => {
+    const updates: Array<{
+      workspaceId: string;
+      taskId: string;
+      turnId: string;
+      sequence: number;
+      eventType: string;
+      done: boolean;
+    }> = [];
+    runtime.setLocalMcpEventListener((event) => {
+      if (event.type === "task-turn-updated") {
+        updates.push(event.payload);
+      }
+    });
+
+    try {
+      const result = await runtime.runTask({
+        workspaceId: WORKSPACE_ID,
+        prompt: "Stream this task into its Stave window",
+      });
+      expect(updates).toMatchObject([
+        {
+          workspaceId: WORKSPACE_ID,
+          taskId: result.taskId,
+          turnId: result.turnId,
+          sequence: 0,
+          eventType: "started",
+          done: false,
+        },
+      ]);
+
+      startTurnStreamHandlers.at(-1)?.onEvent?.({
+        type: "text",
+        text: "Persisted provider response",
+      });
+      for (let attempt = 0; attempt < 20 && updates.length < 2; attempt += 1) {
+        await Bun.sleep(0);
+      }
+
+      expect(updates.at(-1)).toMatchObject({
+        workspaceId: WORKSPACE_ID,
+        taskId: result.taskId,
+        turnId: result.turnId,
+        sequence: 1,
+        eventType: "text",
+        done: false,
+      });
+      expect(
+        lastUpsertSnapshotByWorkspaceId
+          .get(WORKSPACE_ID)
+          ?.tasks?.some((task) => task.id === result.taskId),
+      ).toBe(true);
+    } finally {
+      runtime.setLocalMcpEventListener(null);
+    }
+  });
+
   test("injects explicitly attached Information references into routine turns", async () => {
     await runtime.replaceWorkspaceNotes({
       workspaceId: WORKSPACE_ID,

@@ -199,6 +199,230 @@ describe("push stream race handling", () => {
   });
 });
 
+describe("host task turn synchronization", () => {
+  test("restores a host-run turn into the task window, enables steer, and settles from persistence", async () => {
+    const localStorage = createMemoryStorage();
+    const workspaceId = "ws-host-turn";
+    const taskId = "task-host-turn";
+    const turnId = "turn-host-turn";
+    let turnActive = true;
+    let persistedMessages = [
+      {
+        id: "host-user",
+        role: "user" as const,
+        model: "user",
+        providerId: "user" as const,
+        content: "Work on ATL-2",
+        parts: [{ type: "text" as const, text: "Work on ATL-2" }],
+      },
+      {
+        id: "host-assistant",
+        role: "assistant" as const,
+        model: "gpt-5.6",
+        providerId: "codex" as const,
+        content: "Inspecting the issue",
+        isStreaming: true,
+        parts: [{ type: "text" as const, text: "Inspecting the issue" }],
+      },
+    ];
+    const steerCalls: Array<{ turnId: string; text: string }> = [];
+    const task = {
+      id: taskId,
+      title: "Crane ATL-2: fix peek",
+      provider: "codex" as const,
+      updatedAt: "2026-07-27T00:00:00.000Z",
+      unread: false,
+      archivedAt: null,
+      controlMode: "interactive" as const,
+      controlOwner: "stave" as const,
+    };
+    const workspaceInformation = createEmptyWorkspaceInformation();
+
+    setWindowContext({
+      localStorage,
+      api: {
+        provider: {
+          steerTurn: async (args: { turnId: string; text: string }) => {
+            steerCalls.push(args);
+            return { ok: true, delivery: "delivered" };
+          },
+        },
+        persistence: {
+          listWorkspaces: async () => ({
+            ok: true,
+            rows: [
+              {
+                id: workspaceId,
+                name: "crane/atl-2",
+                updatedAt: "2026-07-27T00:00:00.000Z",
+              },
+            ],
+          }),
+          loadWorkspace: async () => ({
+            ok: true,
+            snapshot: null,
+          }),
+          upsertWorkspace: async () => ({ ok: true }),
+          loadProjectRegistry: async () => ({ ok: true, projects: [] }),
+          saveProjectRegistry: async () => ({ ok: true }),
+          closeWorkspace: async () => ({ ok: true }),
+          loadWorkspaceShell: async () => ({
+            ok: true,
+            shell: {
+              activeTaskId: taskId,
+              tasks: [task],
+              promptDraftByTask: {},
+              providerSessionByTask: {},
+              messageCountByTask: {
+                [taskId]: persistedMessages.length,
+              },
+              workspaceInformation,
+              editorTabs: [],
+              activeEditorTabId: null,
+            },
+          }),
+          loadTaskMessages: async () => ({
+            ok: true,
+            page: {
+              messages: persistedMessages,
+              totalCount: persistedMessages.length,
+              limit: 120,
+              offset: 0,
+              hasMoreOlder: false,
+            },
+          }),
+          listActiveWorkspaceTurns: async () => ({
+            ok: true,
+            turns: turnActive
+              ? [
+                  {
+                    id: turnId,
+                    workspaceId,
+                    taskId,
+                    providerId: "codex",
+                    createdAt: "2026-07-27T00:00:00.000Z",
+                    completedAt: null,
+                  },
+                ]
+              : [],
+          }),
+          listNotifications: async () => ({
+            ok: true,
+            notifications: [],
+          }),
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      projectPath: "/tmp/stave-host-turn",
+      projectName: "stave-host-turn",
+      workspaces: [
+        {
+          id: workspaceId,
+          name: "crane/atl-2",
+          updatedAt: "2026-07-27T00:00:00.000Z",
+        },
+      ],
+      activeWorkspaceId: workspaceId,
+      activeTaskId: taskId,
+      activeSurface: { kind: "task", taskId },
+      workspacePathById: {
+        [workspaceId]: "/tmp/stave-host-turn",
+      },
+      workspaceBranchById: { [workspaceId]: "crane/atl-2" },
+      workspaceDefaultById: { [workspaceId]: false },
+      tasks: [task],
+      messagesByTask: {
+        [taskId]: [
+          {
+            id: "false-no-response",
+            role: "assistant",
+            model: "system",
+            providerId: "user",
+            content: "No response",
+            parts: [{ type: "system_event", content: "No response" }],
+          },
+        ],
+      },
+      messageCountByTask: { [taskId]: 1 },
+      activeTurnIdsByTask: {},
+      taskWorkspaceIdById: { [taskId]: workspaceId },
+      settings: {
+        ...initialState.settings,
+        midTurnSteeringEnabled: true,
+      },
+    });
+
+    await useAppStore.getState().syncHostTaskTurn({
+      workspaceId,
+      taskId,
+      turnId,
+      providerId: "codex",
+      model: "gpt-5.6",
+      sequence: 0,
+      eventType: "started",
+      done: false,
+    });
+
+    expect(useAppStore.getState().activeTurnIdsByTask[taskId]).toBe(turnId);
+    expect(
+      useAppStore.getState().messagesByTask[taskId]?.at(-1)?.content,
+    ).toBe("Inspecting the issue");
+
+    const steerResult = await useAppStore.getState().sendUserMessage({
+      taskId,
+      content: "Keep the change scoped to TaskPeek.",
+      submitIntent: "steer",
+    });
+    expect(steerResult.status).toBe("steered");
+    expect(steerCalls).toEqual([
+      {
+        turnId,
+        text: "Keep the change scoped to TaskPeek.",
+        enabled: true,
+        clientMessageId: expect.any(String),
+      },
+    ]);
+
+    turnActive = false;
+    persistedMessages = [
+      persistedMessages[0]!,
+      {
+        ...persistedMessages[1]!,
+        content: "Updated TaskPeek and verified the build.",
+        isStreaming: false,
+        completedAt: "2026-07-27T00:02:00.000Z",
+        parts: [
+          {
+            type: "text",
+            text: "Updated TaskPeek and verified the build.",
+          },
+        ],
+      },
+    ];
+    await useAppStore.getState().syncHostTaskTurn({
+      workspaceId,
+      taskId,
+      turnId,
+      providerId: "codex",
+      model: "gpt-5.6",
+      sequence: 8,
+      eventType: "done",
+      done: true,
+    });
+
+    expect(useAppStore.getState().activeTurnIdsByTask[taskId]).toBeUndefined();
+    expect(
+      useAppStore.getState().messagesByTask[taskId]?.at(-1)?.content,
+    ).toBe("Updated TaskPeek and verified the build.");
+  });
+});
+
 describe("push stream memory release", () => {
   test("releases push sessions after completion", async () => {
     process.env.STAVE_PROVIDER_TIMEOUT_MS = "50";
@@ -3426,7 +3650,9 @@ describe("workspace store hydration ordering", () => {
     const switchedState = useAppStore.getState();
     expect(abortCalls).toEqual([]);
     expect(cleanupCalls).toEqual([]);
-    expect(upsertCalls).toHaveLength(0);
+    // Switching flushes the outgoing workspace so pending snapshot changes
+    // (an archived task, a closed tab) survive a restart.
+    expect(upsertCalls).toHaveLength(1);
     expect(switchedState.activeWorkspaceId).toBe("ws-alt");
     expect(switchedState.activeTaskId).toBe("task-alt");
     expect(switchedState.activeTurnIdsByTask["task-main"]).toBeUndefined();
@@ -3471,8 +3697,10 @@ describe("workspace store hydration ordering", () => {
     );
     expect(inactiveWorkspaceAssistant?.isStreaming).toBe(false);
     await flushPendingSnapshotPersists();
-    expect(upsertCalls).toHaveLength(1);
-    expect(upsertCalls[0]).toMatchObject({
+    // 1: the switch-time flush of the outgoing workspace, 2: the stream
+    // completion write that carries the finished assistant message.
+    expect(upsertCalls).toHaveLength(2);
+    expect(upsertCalls.at(-1)).toMatchObject({
       id: "ws-main",
       name: "Main",
       snapshot: {
@@ -3480,7 +3708,7 @@ describe("workspace store hydration ordering", () => {
       },
     });
     const persistedSnapshot = (
-      upsertCalls[0] as {
+      upsertCalls.at(-1) as {
         snapshot: {
           tasks: Array<{ id: string }>;
           messagesByTask: Record<string, Array<{ content: string }>>;
@@ -5140,7 +5368,9 @@ describe("workspace store hydration ordering", () => {
     expect(inactiveWorkspaceAssistant?.content).toBe("No response returned.");
     expect(inactiveWorkspaceAssistant?.isStreaming).toBe(false);
     await flushPendingSnapshotPersists();
-    expect(upsertCalls).toHaveLength(1);
+    // 1: the switch-time flush of the outgoing workspace, 2: the turn
+    // completion write. The dropped late events add no further writes.
+    expect(upsertCalls).toHaveLength(2);
   });
 
   test("switchWorkspace restores per-workspace editor tabs", async () => {

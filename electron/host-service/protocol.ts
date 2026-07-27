@@ -57,6 +57,7 @@ import type {
   SecondaryProviderExecutionRequest,
   SecondaryProviderExecutionResult,
 } from "../../src/lib/runs/secondary-run";
+import type { LocalMcpTaskTurnUpdate } from "../../src/lib/local-mcp/task-turn-update";
 
 export interface HostWorkspaceScriptRunEntryArgs {
   workspaceId: string;
@@ -989,6 +990,7 @@ export interface HostServiceEventMap {
     workspaceId: string;
     workspaceInformation: WorkspaceInformationState;
   };
+  "local-mcp.task-turn-updated": LocalMcpTaskTurnUpdate;
 }
 
 export type HostServiceMethod = keyof HostServiceRequestMap;

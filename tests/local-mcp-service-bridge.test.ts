@@ -5,6 +5,14 @@ const invokeCalls: Array<{ method: string; params: unknown }> = [];
 let workspaceInformationListener:
   | ((payload: { workspaceId: string; workspaceInformation: unknown }) => void)
   | null = null;
+let taskTurnUpdateListener:
+  | ((payload: {
+      workspaceId: string;
+      taskId: string;
+      turnId: string;
+      eventType: string;
+    }) => void)
+  | null = null;
 
 mock.module("electron", () => ({
   app: {
@@ -50,13 +58,21 @@ mock.module("../electron/main/host-service-client", () => ({
   }) => Buffer.byteLength(JSON.stringify(args), "utf8"),
   onHostServiceEvent: (
     event: string,
-    listener: (payload: { workspaceId: string; workspaceInformation: unknown }) => void,
+    listener: (payload: never) => void,
   ) => {
     if (event === "local-mcp.workspace-information-updated") {
-      workspaceInformationListener = listener;
+      workspaceInformationListener = listener as typeof workspaceInformationListener;
+    }
+    if (event === "local-mcp.task-turn-updated") {
+      taskTurnUpdateListener = listener as typeof taskTurnUpdateListener;
     }
     return () => {
-      workspaceInformationListener = null;
+      if (event === "local-mcp.workspace-information-updated") {
+        workspaceInformationListener = null;
+      }
+      if (event === "local-mcp.task-turn-updated") {
+        taskTurnUpdateListener = null;
+      }
     };
   },
 }));
@@ -160,6 +176,27 @@ describe("local MCP service bridge", () => {
 
     expect(sentMessages).toEqual([{
       channel: "local-mcp:workspace-information-updated",
+      payload,
+    }]);
+  });
+
+  test("forwards persisted task turn updates back to renderer listeners", () => {
+    expect(taskTurnUpdateListener).not.toBeNull();
+    const payload = {
+      workspaceId: "workspace-1",
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      model: "gpt-5.6",
+      sequence: 4,
+      eventType: "text",
+      done: false,
+    };
+
+    taskTurnUpdateListener?.(payload);
+
+    expect(sentMessages).toEqual([{
+      channel: "local-mcp:task-turn-updated",
       payload,
     }]);
   });
