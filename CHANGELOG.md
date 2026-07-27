@@ -1,3 +1,24 @@
+## [0.12.2](https://github.com/sendbird/stave/compare/v0.12.1...v0.12.2) (2026-07-27)
+
+### Features
+
+* Let Compare Runs and Local Change Review choose a model-specific reasoning effort, carry it into candidate, judge, and review turns, and show the selected effort in results.
+* Expand Local Change Review guidance with UI and accessibility plus error-handling focus areas and descriptions for each review focus.
+
+### Bug Fixes
+
+* Stabilize the Turn Activity shelf while streamed content, completed work, and interaction cards update, preserving row order, height, and state-aware headlines.
+* Use the nearest project's `.nvmrc` for integrated terminals, workspace scripts, Claude and Codex sessions, and browser development commands, including the resolved Node path and NVM variables.
+* Let users dismiss notification-backed approval items in Fleet View so stale approvals no longer remain actionable after a session completes or is archived.
+
+### Refactors / Chores
+
+* Add shared model-effort and project Node environment helpers with focused regression coverage across Compare, Review, Turn Activity, provider launch, shell execution, and Fleet approval paths.
+* Stabilize project-NVM validation by keeping the terminal runtime within the existing max-lines ratchet, making provider timeouts explicit in tests, and isolating executable discovery from login-shell state.
+
+### References
+
+* [#250](https://github.com/sendbird/stave/pull/250), [#251](https://github.com/sendbird/stave/pull/251), [#252](https://github.com/sendbird/stave/pull/252), [#253](https://github.com/sendbird/stave/pull/253), [#255](https://github.com/sendbird/stave/pull/255)
 ## [0.12.1](https://github.com/sendbird/stave/compare/v0.12.0...v0.12.1) (2026-07-27)
 
 ### Features
