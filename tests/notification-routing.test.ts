@@ -72,10 +72,21 @@ beforeEach(async () => {
         controlMode: "interactive",
         controlOwner: "stave",
       },
+      {
+        id: "task-completed",
+        title: "Completed Task",
+        provider: "codex",
+        updatedAt: "2026-06-18T01:02:00.000Z",
+        unread: true,
+        archivedAt: null,
+        controlMode: "interactive",
+        controlOwner: "stave",
+      },
     ],
     taskWorkspaceIdById: {
       "task-current": "workspace-1",
       "task-blocked": "workspace-1",
+      "task-completed": "workspace-1",
     },
     notifications: [
       {
@@ -97,6 +108,26 @@ beforeEach(async () => {
           question: "Pick one",
         },
         createdAt: "2026-06-18T01:02:00.000Z",
+        readAt: null,
+      },
+      {
+        id: "notification-completed",
+        kind: "task.turn_completed",
+        title: "Completed Task",
+        body: "Latest run finished in Default Workspace.",
+        projectPath: "/tmp/project-a",
+        projectName: "project-a",
+        workspaceId: "workspace-1",
+        workspaceName: "Default Workspace",
+        taskId: "task-completed",
+        taskTitle: "Completed Task",
+        turnId: "turn-2",
+        providerId: "codex",
+        action: null,
+        payload: {
+          stopReason: "end_turn",
+        },
+        createdAt: "2026-06-18T01:03:00.000Z",
         readAt: null,
       },
     ],
@@ -138,5 +169,29 @@ describe("notification routing", () => {
       "task-blocked",
     );
     expect(useAppStore.getState().notifications[0]?.readAt).toBeNull();
+  });
+
+  test("routes a completed notification to its exact task", async () => {
+    const result = await useAppStore.getState().openNotificationContext({
+      notificationId: "notification-completed",
+      targetSurface: "task",
+    });
+
+    expect(result).toEqual({ status: "opened" });
+    expect(useAppStore.getState().activeAppSurface).toEqual({
+      kind: "workspace",
+    });
+    expect(useAppStore.getState().activeSurface).toEqual({
+      kind: "task",
+      taskId: "task-completed",
+    });
+    expect(useAppStore.getState().activeTaskId).toBe("task-completed");
+    expect(
+      useAppStore
+        .getState()
+        .notifications.find(
+          (notification) => notification.id === "notification-completed",
+        )?.readAt,
+    ).toBeString();
   });
 });

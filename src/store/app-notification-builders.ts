@@ -7,7 +7,8 @@
  * existing call site (which passes the full store state) still type-checks and
  * behaves the same.
  */
-import { toast } from "sonner";
+import { createElement } from "react";
+import { toast, type ExternalToast } from "sonner";
 import type { WorkspaceSummary } from "@/lib/db/workspaces.db";
 import type {
   AppNotification,
@@ -41,6 +42,16 @@ export interface NotificationProjectScopeState {
   workspaces: WorkspaceSummary[];
   recentProjects: RecentProjectState[];
 }
+
+const OPEN_NOTIFICATION_ACTION_BUTTON_STYLE = {
+  position: "absolute",
+  inset: 0,
+  height: "auto",
+  margin: 0,
+  padding: 0,
+  borderRadius: "inherit",
+  background: "transparent",
+} satisfies NonNullable<ExternalToast["actionButtonStyle"]>;
 
 function resolveTaskTitleFromSession(args: {
   session: WorkspaceSessionState;
@@ -393,14 +404,34 @@ export function buildUserInputNotificationInputs(args: {
   });
 }
 
-export function showNotificationToast(notification: AppNotification) {
+export function showNotificationToast(
+  notification: AppNotification,
+  options: { onOpen?: () => void } = {},
+) {
   const { tone, title, ...toastOptions } =
     buildNotificationToastOptions(notification);
+  const openAction =
+    options.onOpen && notification.taskId?.trim()
+      ? {
+          action: {
+            label: createElement(
+              "span",
+              { className: "sr-only" },
+              `Open task: ${notification.taskTitle?.trim() || title}`,
+            ),
+            onClick: options.onOpen,
+          },
+          actionButtonStyle: OPEN_NOTIFICATION_ACTION_BUTTON_STYLE,
+        }
+      : {};
+  const resolvedToastOptions = {
+    ...toastOptions,
+    ...openAction,
+  };
 
   if (tone === "success") {
-    toast.success(title, toastOptions);
-    return;
+    return toast.success(title, resolvedToastOptions);
   }
 
-  toast.warning(title, toastOptions);
+  return toast.warning(title, resolvedToastOptions);
 }
