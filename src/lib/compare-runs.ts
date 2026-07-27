@@ -1,3 +1,9 @@
+import {
+  clampModelEffort,
+  isClaudeModelEffort,
+  isCodexModelEffort,
+  type ModelEffort,
+} from "@/lib/providers/model-effort";
 import type {
   NormalizedProviderEvent,
   ProviderId,
@@ -6,12 +12,16 @@ import type {
 export interface CompareRunVariantConfig {
   provider: ProviderId;
   model?: string;
+  /** Reasoning effort for this candidate. Missing on pre-effort runs. */
+  effort?: ModelEffort;
   label?: string;
 }
 
 export interface CompareRunJudgeConfig {
   provider: ProviderId;
   model?: string;
+  /** Reasoning effort for the judge turn. Missing on pre-effort runs. */
+  effort?: ModelEffort;
 }
 
 export type CompareRunJudgeStatus =
@@ -183,6 +193,34 @@ export function buildDefaultCompareVariants(args: {
   ];
 }
 
+/**
+ * Repairs an effort the target model cannot run. A Codex tier steps down to
+ * the nearest supported one; a value the provider has no ladder for at all
+ * (e.g. Codex "ultra" on a Claude candidate) is dropped so the run falls back
+ * to that provider's configured effort instead of a guessed tier.
+ */
+function normalizeCompareEffort(args: {
+  provider: ProviderId;
+  model: string | undefined;
+  effort: ModelEffort | undefined;
+}): ModelEffort | undefined {
+  if (!args.effort || !args.model) {
+    return undefined;
+  }
+  if (args.provider === "claude-code") {
+    return isClaudeModelEffort(args.effort) ? args.effort : undefined;
+  }
+  if (!isCodexModelEffort(args.effort)) {
+    return undefined;
+  }
+  return clampModelEffort({
+    providerId: args.provider,
+    model: args.model,
+    effort: args.effort,
+    fallback: args.effort,
+  });
+}
+
 export function normalizeCompareVariants(
   variants: CompareRunVariantConfig[] | undefined,
 ): CompareRunVariantConfig[] {
@@ -190,10 +228,16 @@ export function normalizeCompareVariants(
     if (variant.provider !== "claude-code" && variant.provider !== "codex") {
       return [];
     }
+    const model = variant.model?.trim() || undefined;
     return [
       {
         provider: variant.provider,
-        model: variant.model?.trim() || undefined,
+        model,
+        effort: normalizeCompareEffort({
+          provider: variant.provider,
+          model,
+          effort: variant.effort,
+        }),
         label: variant.label?.trim() || undefined,
       },
     ];
@@ -209,9 +253,11 @@ export function normalizeCompareJudgeConfig(
     judge?.provider === "claude-code" || judge?.provider === "codex"
       ? judge.provider
       : "codex";
+  const model = judge?.model?.trim() || undefined;
   return {
     provider,
-    model: judge?.model?.trim() || undefined,
+    model,
+    effort: normalizeCompareEffort({ provider, model, effort: judge?.effort }),
   };
 }
 
@@ -759,6 +805,7 @@ export function buildInitialCompareRun(args: {
       id: buildCompareRunVariantId({ compareRunId: args.id, index }),
       provider: variant.provider,
       model: variant.model,
+      effort: variant.effort,
       label: variant.label,
       status: "pending",
     })),

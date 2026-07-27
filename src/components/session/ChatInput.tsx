@@ -59,6 +59,7 @@ import {
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
+import { buildModelEffortRuntimeOverrides } from "@/lib/providers/model-effort";
 import type { ClaudeSettingSource } from "@/lib/providers/provider.types";
 import {
   getCachedProviderCommandCatalog,
@@ -2140,6 +2141,11 @@ function BaseChatInput() {
         runtimeOverrides: {
           autoRouting: false,
           model: review.reviewer.model,
+          ...buildModelEffortRuntimeOverrides({
+            providerId: review.reviewer.providerId,
+            model: review.reviewer.model,
+            effort: review.effort,
+          }),
         },
         preservePromptDraft: true,
       });

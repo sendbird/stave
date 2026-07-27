@@ -1,5 +1,5 @@
 import { ChevronDown, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Command,
   CommandEmpty,
@@ -17,6 +17,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  clampModelEffort,
+  getModelEffortLabel,
+  listModelEffortOptions,
+  type ModelEffort,
+} from "@/lib/providers/model-effort";
 import {
   getProviderLabel,
   listProviderIds,
@@ -46,7 +52,16 @@ interface ModelSelectorProps {
   triggerAriaLabel?: string;
   menuClassName?: string;
   openToken?: string | number;
-  onSelect: (args: { selection: ModelSelectorOption }) => void;
+  /**
+   * Opt-in effort axis. When provided, the trigger shows `model · effort` and
+   * the dialog gains an effort row; picking a model re-clamps the effort to a
+   * value that model accepts before it reaches `onSelect`.
+   */
+  effort?: ModelEffort;
+  onSelect: (args: {
+    selection: ModelSelectorOption;
+    effort?: ModelEffort;
+  }) => void;
 }
 
 export function ModelSelector(args: ModelSelectorProps) {
@@ -60,9 +75,11 @@ export function ModelSelector(args: ModelSelectorProps) {
     triggerAriaLabel,
     menuClassName,
     openToken,
+    effort,
     onSelect,
   } = args;
   const [open, setOpen] = useState(false);
+  const effortGroupId = useId();
   // Seed the handled token with the value present at mount time. `openToken` is
   // a one-shot "open now" trigger owned by the parent, but the parent keeps the
   // latched value across the selector's mount/unmount cycles (e.g. when an
@@ -95,16 +112,51 @@ export function ModelSelector(args: ModelSelectorProps) {
       .filter(([, providerOptions]) => providerOptions.length > 0);
   }, [options, recommendedOptionKeys]);
 
+  const effortEnabled = effort !== undefined && !value.isAuto;
+  const effortOptions = useMemo(
+    () =>
+      effortEnabled
+        ? listModelEffortOptions({
+            providerId: value.providerId,
+            model: value.model,
+          })
+        : [],
+    [effortEnabled, value.model, value.providerId],
+  );
+  const effortLabel = effortEnabled
+    ? getModelEffortLabel({
+        providerId: value.providerId,
+        model: value.model,
+        effort,
+      })
+    : undefined;
+
+  const selectOption = (option: ModelSelectorOption) => {
+    onSelect({
+      selection: option,
+      ...(effort !== undefined
+        ? {
+            effort: option.isAuto
+              ? effort
+              : clampModelEffort({
+                  providerId: option.providerId,
+                  model: option.model,
+                  effort,
+                  fallback: effort,
+                }),
+          }
+        : {}),
+    });
+    setOpen(false);
+  };
+
   const renderOption = (option: ModelSelectorOption) => (
     <CommandItem
       key={option.key}
       value={`${option.label} ${option.model} ${getProviderLabel({ providerId: option.providerId, variant: "full" })}${option.description ? ` ${option.description}` : ""}`}
       disabled={!option.available}
       data-checked={option.key === value.key ? "true" : undefined}
-      onSelect={() => {
-        onSelect({ selection: option });
-        setOpen(false);
-      }}
+      onSelect={() => selectOption(option)}
       className="gap-3 rounded-lg px-3 py-2.5"
     >
       {option.isAuto ? (
@@ -176,7 +228,10 @@ export function ModelSelector(args: ModelSelectorProps) {
                 className="size-3.5"
               />
             )}
-            <span className="truncate">{value.label}</span>
+            <span className="truncate">
+              {value.label}
+              {effortLabel ? ` · ${effortLabel}` : ""}
+            </span>
           </span>
           <ChevronDown className="size-3.5 text-muted-foreground" />
         </DialogTrigger>
@@ -230,6 +285,45 @@ export function ModelSelector(args: ModelSelectorProps) {
             ))}
           </CommandList>
         </Command>
+        {effortEnabled && effortOptions.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/70 bg-muted/20 px-3 py-2.5">
+            <span
+              id={effortGroupId}
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Effort
+            </span>
+            <div
+              role="radiogroup"
+              aria-labelledby={effortGroupId}
+              className="flex flex-wrap items-center gap-1"
+            >
+              {effortOptions.map((option) => {
+                const selected = option.value === effort;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={disabled}
+                    onClick={() =>
+                      onSelect({ selection: value, effort: option.value })
+                    }
+                    className={cn(
+                      "h-8 rounded-md px-2.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
+                      selected
+                        ? "bg-primary/10 text-primary ring-1 ring-primary/40"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

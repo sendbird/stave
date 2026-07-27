@@ -6922,11 +6922,8 @@ export const useAppStore = create<AppState>()(
                 : null;
             },
             setTaskProvider: (input) => get().setTaskProvider(input),
-            setTaskModel: ({ taskId, model }) =>
-              get().updatePromptDraft({
-                taskId,
-                patch: { runtimeOverrides: { model } },
-              }),
+            setTaskRuntimeOverrides: ({ taskId, runtimeOverrides }) =>
+              get().updatePromptDraft({ taskId, patch: { runtimeOverrides } }),
             sendUserMessage: (input) => get().sendUserMessage(input),
           });
 

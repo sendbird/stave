@@ -613,6 +613,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                 {displayedJudgeModel
                   ? ` · ${toHumanModelName({ model: displayedJudgeModel })}`
                   : ""}
+                {judge.effort ? ` · ${judge.effort}` : ""}
                 {" · Fresh context · Read only"}
                 {judge.status === "completed" && judgeProvenance
                   ? ` · Rubric v${judgeProvenance.rubricVersion} · Attempt ${judgeProvenance.attempt}`
@@ -727,6 +728,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                           {variant.model
                             ? ` / ${toHumanModelName({ model: variant.model })}`
                             : ""}
+                          {variant.effort ? ` · ${variant.effort}` : ""}
                         </p>
                         {candidateScore ? (
                           <span className="shrink-0 font-mono text-xs font-semibold text-foreground">

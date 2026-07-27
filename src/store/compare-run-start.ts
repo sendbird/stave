@@ -3,7 +3,9 @@ import {
   type CompareRun,
   type CompareRunVariant,
 } from "@/lib/compare-runs";
+import { buildModelEffortRuntimeOverrides } from "@/lib/providers/model-effort";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
 type VariantStatus = CompareRunVariant["status"];
 
@@ -39,7 +41,10 @@ export async function launchCompareRunVariants(args: {
     fallbackWorkspaceName: string,
   ) => CandidateWorkspaceSnapshot | null;
   setTaskProvider: (input: { taskId: string; provider: ProviderId }) => void;
-  setTaskModel: (input: { taskId: string; model: string }) => void;
+  setTaskRuntimeOverrides: (input: {
+    taskId: string;
+    runtimeOverrides: PromptDraftRuntimeOverrides;
+  }) => void;
   sendUserMessage: (input: {
     taskId: string;
     content: string;
@@ -105,7 +110,17 @@ export async function launchCompareRunVariants(args: {
       });
       const model = variant.model?.trim();
       if (model) {
-        args.setTaskModel({ taskId: candidate.taskId, model });
+        args.setTaskRuntimeOverrides({
+          taskId: candidate.taskId,
+          runtimeOverrides: {
+            model,
+            ...buildModelEffortRuntimeOverrides({
+              providerId: variant.provider,
+              model,
+              effort: variant.effort,
+            }),
+          },
+        });
       }
 
       const launchResult = await args.sendUserMessage({
