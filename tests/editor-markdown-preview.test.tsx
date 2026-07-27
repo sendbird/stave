@@ -32,6 +32,45 @@ describe("EditorMarkdownPreview", () => {
     expect(html).toContain(">ts<");
   });
 
+  test("renders frontmatter as a metadata card instead of a heading", () => {
+    const html = renderToStaticMarkup(
+      createElement(EditorMarkdownPreview, {
+        content: [
+          "---",
+          "name: the-high-signal-review",
+          "compatible-tools: [claude, codex]",
+          "---",
+          "",
+          "# Skill Body",
+        ].join("\n"),
+        fontSize: 15,
+      }),
+    );
+
+    expect(html).toContain("Frontmatter");
+    expect(html).toContain("<dt");
+    expect(html).toContain("the-high-signal-review");
+    expect(html).toContain("claude");
+    expect(html).toContain("codex");
+    // The frontmatter must not leak into the body as a break + setext heading.
+    expect(html).not.toContain("<hr");
+    expect(html).not.toContain("<h2");
+    expect(html).toContain("<h1");
+    expect(html).toContain("Skill Body");
+  });
+
+  test("leaves thematic breaks alone when there is no frontmatter", () => {
+    const html = renderToStaticMarkup(
+      createElement(EditorMarkdownPreview, {
+        content: "Intro\n\n---\n\nOutro",
+        fontSize: 15,
+      }),
+    );
+
+    expect(html).not.toContain("Frontmatter");
+    expect(html).toContain("<hr");
+  });
+
   test("keeps relative links inert while preserving external links", () => {
     const html = renderToStaticMarkup(
       createElement(EditorMarkdownPreview, {
