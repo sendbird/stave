@@ -360,6 +360,33 @@ export function getWorkspaceShortcutLabel(index: number): string | null {
   return String(index + 1);
 }
 
+/**
+ * Copy for the archive confirmation, and whether it may offer branch deletion.
+ *
+ * Linked worktrees were imported from outside this checkout and stay owned by
+ * whatever created them: archive only drops the symlink Stave placed under
+ * `.stave/workspaces/`, never the worktree or its branch. Offering a
+ * "delete the branch" checkbox there would ask the user to confirm a
+ * destructive action that silently never happens, so the option is withheld
+ * and the reason stated instead.
+ */
+export function buildWorkspaceArchiveDialogCopy(args: {
+  workspaceName: string;
+  isLinkedWorktree: boolean;
+}): { description: string; canDeleteBranch: boolean } {
+  if (args.isLinkedWorktree) {
+    return {
+      canDeleteBranch: false,
+      description: `Archive workspace "${args.workspaceName}"? It is a linked worktree owned outside this project, so Stave only removes its shortcut — the worktree and its git branch stay untouched.`,
+    };
+  }
+
+  return {
+    canDeleteBranch: true,
+    description: `Archive workspace "${args.workspaceName}"? Stave will remove the associated git worktree only when it is clean and will preserve local changes.`,
+  };
+}
+
 export function getWorkspaceRespondingCountVisibilityClasses(args: {
   hasHoverActions: boolean;
   isClosing: boolean;

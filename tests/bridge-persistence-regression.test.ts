@@ -6018,7 +6018,7 @@ describe("workspace store hydration ordering", () => {
     expect(closedWorkspaceIds).toEqual(["ws-feature-close"]);
   });
 
-  test("closeWorkspace cleanup removes clean worktrees without force", async () => {
+  test("closeWorkspace cleanup removes clean worktrees and deletes the branch by default", async () => {
     const localStorage = createMemoryStorage();
     const runCalls: Array<{ cwd?: string; command: string }> = [];
     const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
@@ -6047,6 +6047,12 @@ describe("workspace store hydration ordering", () => {
               return { ok: true, code: 0, stdout: "", stderr: "" };
             }
             if (
+              call.cwd === workspacePath &&
+              call.command === "git symbolic-ref --quiet --short HEAD"
+            ) {
+              return { ok: true, code: 0, stdout: "feature\n", stderr: "" };
+            }
+            if (
               call.cwd === "/tmp/stave-project-close" &&
               call.command ===
                 `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`
@@ -6068,13 +6074,7 @@ describe("workspace store hydration ordering", () => {
             }
             if (
               call.cwd === "/tmp/stave-project-close" &&
-              call.command === 'git rev-list --count "feature" --not --remotes'
-            ) {
-              return { ok: true, code: 0, stdout: "0\n", stderr: "" };
-            }
-            if (
-              call.cwd === "/tmp/stave-project-close" &&
-              call.command === 'git branch -d "feature"'
+              call.command === 'git branch -D "feature"'
             ) {
               return { ok: true, code: 0, stdout: "", stderr: "" };
             }
@@ -6130,11 +6130,14 @@ describe("workspace store hydration ordering", () => {
 
     expect(runCalls.map((call) => call.command)).toEqual([
       "git status --porcelain --untracked-files=all",
+      // Resolved from the worktree itself, before removal makes the path
+      // unreadable: `workspaceBranchById` is a cache that an out-of-band
+      // `git checkout` can leave pointing at an unrelated branch.
+      "git symbolic-ref --quiet --short HEAD",
       `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
       `git worktree remove ${JSON.stringify(workspacePath)}`,
       "git worktree prune",
-      'git rev-list --count "feature" --not --remotes',
-      'git branch -d "feature"',
+      'git branch -D "feature"',
     ]);
     expect(runCalls.some((call) => call.command.includes("--force"))).toBe(
       false,
@@ -6142,7 +6145,10 @@ describe("workspace store hydration ordering", () => {
     expect(runCalls.some((call) => call.command.includes("rm -rf"))).toBe(
       false,
     );
-    expect(runCalls.some((call) => call.command.includes("branch -D"))).toBe(
+    // `git branch -d` refuses squash-merged branches, which is why archive used
+    // to leave them behind. Deletion is opt-in via the archive dialog, so the
+    // forced form is the only one that actually honors that choice.
+    expect(runCalls.some((call) => call.command.includes("rev-list"))).toBe(
       false,
     );
   });
@@ -6353,7 +6359,7 @@ describe("workspace store hydration ordering", () => {
     expect(savedProject?.archivedWorkspacePaths).toEqual([workspacePath]);
   });
 
-  test("closeWorkspace cleanup preserves unpushed branches after worktree removal", async () => {
+  test("closeWorkspace cleanup keeps the branch when deleteBranch is opted out", async () => {
     const localStorage = createMemoryStorage();
     const runCalls: Array<{ cwd?: string; command: string }> = [];
     const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
@@ -6403,13 +6409,6 @@ describe("workspace store hydration ordering", () => {
               ) {
                 return { ok: true, code: 0, stdout: "", stderr: "" };
               }
-              if (
-                call.cwd === "/tmp/stave-project-close" &&
-                call.command ===
-                  'git rev-list --count "feature" --not --remotes'
-              ) {
-                return { ok: true, code: 0, stdout: "2\n", stderr: "" };
-              }
               return {
                 ok: false,
                 code: 1,
@@ -6457,7 +6456,7 @@ describe("workspace store hydration ordering", () => {
 
       await useAppStore
         .getState()
-        .closeWorkspace({ workspaceId: "ws-feature-close" });
+        .closeWorkspace({ workspaceId: "ws-feature-close", deleteBranch: false });
       await waitForPendingWorkspaceArchiveCleanups();
     } finally {
       console.warn = originalWarn;
@@ -6468,8 +6467,193 @@ describe("workspace store hydration ordering", () => {
       `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
       `git worktree remove ${JSON.stringify(workspacePath)}`,
       "git worktree prune",
-      'git rev-list --count "feature" --not --remotes',
     ]);
+  });
+
+  test("closeWorkspace cleanup deletes the worktree HEAD branch, not a stale cached name", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
+      setWindowContext({
+        localStorage,
+        api: {
+          persistence: {
+            listWorkspaces: async () => ({ ok: true, rows: [] }),
+            loadWorkspace: async () => ({ ok: true, snapshot: null }),
+            upsertWorkspace: async () => ({ ok: true }),
+            closeWorkspace: async () => ({ ok: true }),
+          },
+          fs: {
+            listFiles: async () => ({ ok: true, files: [] }),
+            readFile: async () => ({ ok: false }),
+            writeFile: async () => ({ ok: false }),
+          },
+          terminal: {
+            runCommand: async (call: { cwd?: string; command: string }) => {
+              runCalls.push(call);
+              if (
+                call.cwd === workspacePath &&
+                call.command === "git status --porcelain --untracked-files=all"
+              ) {
+                return { ok: true, code: 0, stdout: "", stderr: "" };
+              }
+              if (
+                call.cwd === workspacePath &&
+                call.command === "git symbolic-ref --quiet --short HEAD"
+              ) {
+                // The workspace terminal switched this worktree to another
+                // branch, so the store's cached "feature" is stale.
+                return {
+                  ok: true,
+                  code: 0,
+                  stdout: "feature-v2\n",
+                  stderr: "",
+                };
+              }
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            },
+          },
+        },
+      });
+
+      const { useAppStore, waitForPendingWorkspaceArchiveCleanups } =
+        await import("../src/store/app.store");
+      const initialState = useAppStore.getInitialState();
+      useAppStore.setState({
+        ...initialState,
+        hasHydratedWorkspaces: true,
+        workspaces: [
+          {
+            id: "ws-main-close",
+            name: "Main",
+            updatedAt: "2026-03-10T00:00:00.000Z",
+          },
+          {
+            id: "ws-feature-close",
+            name: "feature",
+            updatedAt: "2026-03-10T00:01:00.000Z",
+          },
+        ],
+        activeWorkspaceId: "ws-main-close",
+        projectPath: "/tmp/stave-project-close",
+        workspacePathById: {
+          "ws-main-close": "/tmp/stave-project-close",
+          "ws-feature-close": workspacePath,
+        },
+        workspaceBranchById: {
+          "ws-main-close": "main",
+          "ws-feature-close": "feature",
+        },
+        workspaceDefaultById: {
+          "ws-main-close": true,
+          "ws-feature-close": false,
+        },
+      });
+
+      await useAppStore
+        .getState()
+        .closeWorkspace({ workspaceId: "ws-feature-close" });
+      await waitForPendingWorkspaceArchiveCleanups();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    const branchCommands = runCalls
+      .map((call) => call.command)
+      .filter((command) => command.startsWith("git branch"));
+    expect(branchCommands).toEqual(['git branch -D "feature-v2"']);
+    // Force-deleting the stale name would destroy a branch this worktree no
+    // longer owns, potentially with unpushed commits behind it.
+    expect(
+      runCalls.some((call) => call.command === 'git branch -D "feature"'),
+    ).toBe(false);
+  });
+
+  test("closeWorkspace cleanup deletes nothing when the worktree HEAD is detached", async () => {
+    const localStorage = createMemoryStorage();
+    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const workspacePath = "/tmp/stave-project-close/.stave/workspaces/feature";
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
+      setWindowContext({
+        localStorage,
+        api: {
+          persistence: {
+            listWorkspaces: async () => ({ ok: true, rows: [] }),
+            loadWorkspace: async () => ({ ok: true, snapshot: null }),
+            upsertWorkspace: async () => ({ ok: true }),
+            closeWorkspace: async () => ({ ok: true }),
+          },
+          fs: {
+            listFiles: async () => ({ ok: true, files: [] }),
+            readFile: async () => ({ ok: false }),
+            writeFile: async () => ({ ok: false }),
+          },
+          terminal: {
+            runCommand: async (call: { cwd?: string; command: string }) => {
+              runCalls.push(call);
+              if (
+                call.cwd === workspacePath &&
+                call.command === "git symbolic-ref --quiet --short HEAD"
+              ) {
+                // `git symbolic-ref` exits non-zero on a detached HEAD.
+                return { ok: false, code: 1, stdout: "", stderr: "" };
+              }
+              return { ok: true, code: 0, stdout: "", stderr: "" };
+            },
+          },
+        },
+      });
+
+      const { useAppStore, waitForPendingWorkspaceArchiveCleanups } =
+        await import("../src/store/app.store");
+      const initialState = useAppStore.getInitialState();
+      useAppStore.setState({
+        ...initialState,
+        hasHydratedWorkspaces: true,
+        workspaces: [
+          {
+            id: "ws-main-close",
+            name: "Main",
+            updatedAt: "2026-03-10T00:00:00.000Z",
+          },
+          {
+            id: "ws-feature-close",
+            name: "feature",
+            updatedAt: "2026-03-10T00:01:00.000Z",
+          },
+        ],
+        activeWorkspaceId: "ws-main-close",
+        projectPath: "/tmp/stave-project-close",
+        workspacePathById: {
+          "ws-main-close": "/tmp/stave-project-close",
+          "ws-feature-close": workspacePath,
+        },
+        workspaceBranchById: {
+          "ws-main-close": "main",
+          "ws-feature-close": "feature",
+        },
+        workspaceDefaultById: {
+          "ws-main-close": true,
+          "ws-feature-close": false,
+        },
+      });
+
+      await useAppStore
+        .getState()
+        .closeWorkspace({ workspaceId: "ws-feature-close" });
+      await waitForPendingWorkspaceArchiveCleanups();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    expect(runCalls.some((call) => call.command.startsWith("git branch"))).toBe(
+      false,
+    );
   });
 
   test("switchWorkspace resolves after shell hydrate and backfills messages asynchronously for uncached workspaces", async () => {

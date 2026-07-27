@@ -278,16 +278,21 @@ import type {
   EditorTab,
   PromptDraft,
   PromptDraftRuntimeOverrides,
-  PromptDraftQueuedTurn,
   Task,
   TaskTakeoverResult,
 } from "@/types/chat";
-import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-annotation-attachment";
+import {
+  buildQueuedTurnFromDraft,
+  getDraftFileContexts,
+  getDraftImageContexts,
+  getPromptDraftAttachedFilePaths,
+  getPromptDraftAttachments,
+  promptDraftReferencesLens,
+} from "@/store/prompt-draft-context";
 import {
   buildPromptDraftContentForSend,
   buildPromptDraftDisplayContentForSend,
   buildPromptDraftDisplayPartsForSend,
-  getImageAttachmentMimeType,
 } from "@/store/prompt-draft-message-content";
 import {
   arePromptDraftRuntimeOverridesEqual,
@@ -632,60 +637,6 @@ function buildWorkspaceInformationReferencesRetrievedContext(args: {
   };
 }
 
-function promptDraftReferencesLens(draft: PromptDraft) {
-  const attachmentHasLens = getPromptDraftAttachments(draft).some(
-    (attachment) =>
-      attachment.kind === "workspace-information" &&
-      attachment.reference.section === "lens",
-  );
-  if (attachmentHasLens) {
-    return true;
-  }
-  return [
-    draft.text,
-    ...(draft.promptBatch ?? []).map((item) => item.content),
-    ...(draft.queuedTurns ?? []).map((item) => item.content),
-  ].some((text) =>
-    extractWorkspaceInformationReferencesFromText(text).some(
-      (reference) => reference.section === "lens",
-    ),
-  );
-}
-
-function getPromptDraftAttachedFilePaths(draft: PromptDraft) {
-  return [
-    ...draft.attachedFilePaths,
-    ...(draft.promptBatch ?? []).flatMap(
-      (item) => item.attachedFilePaths ?? [],
-    ),
-  ];
-}
-
-function getPromptDraftAttachments(draft: PromptDraft) {
-  return [
-    ...draft.attachments,
-    ...(draft.promptBatch ?? []).flatMap((item) => item.attachments ?? []),
-  ];
-}
-
-function buildQueuedTurnFromDraft(args: {
-  draft: PromptDraft;
-  sourceTurnId?: string;
-  content?: string;
-}): PromptDraftQueuedTurn {
-  return {
-    id:
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `queued-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    queuedAt: buildRecentTimestamp(),
-    sourceTurnId: args.sourceTurnId,
-    content: args.content ?? buildPromptDraftContentForSend(args.draft),
-    attachedFilePaths: getPromptDraftAttachedFilePaths(args.draft),
-    attachments: getPromptDraftAttachments(args.draft),
-  };
-}
-
 function parseCodexGoalSetObjective(content: string): string | null {
   const match = content.trim().match(/^\/goal(?:\s+([\s\S]*))?$/i);
   if (!match) {
@@ -841,141 +792,6 @@ function cleanupRestoredTaskProviderRuntime(args: { taskId: string }) {
       error,
     });
   });
-}
-
-function getDraftImageContexts(args: {
-  promptDraft: PromptDraft;
-  imageContexts?: Array<{
-    dataUrl: string;
-    label: string;
-    mimeType: string;
-  }>;
-  includeLensCommentImages?: boolean;
-}): Array<{
-  dataUrl: string;
-  label: string;
-  mimeType: string;
-}> {
-  const contexts: Array<{
-    dataUrl: string;
-    label: string;
-    mimeType: string;
-  }> = [];
-  const seen = new Set<string>();
-  const addContext = (context: {
-    dataUrl: string;
-    label: string;
-    mimeType: string;
-  }) => {
-    const key = `${context.mimeType}\n${context.label}\n${context.dataUrl}`;
-    if (seen.has(key)) {
-      return;
-    }
-    seen.add(key);
-    contexts.push(context);
-  };
-
-  for (const context of args.imageContexts ?? []) {
-    addContext(context);
-  }
-
-  const includeLensCommentImages = args.includeLensCommentImages === true;
-  const imageAttachments = getPromptDraftAttachments(args.promptDraft).filter(
-    (attachment): attachment is Extract<Attachment, { kind: "image" }> =>
-      shouldIncludeImageAttachmentAsProviderContext(
-        attachment,
-        includeLensCommentImages,
-      ),
-  );
-
-  for (const attachment of imageAttachments) {
-    addContext({
-      dataUrl: attachment.dataUrl,
-      label: attachment.label,
-      mimeType: getImageAttachmentMimeType(attachment),
-    });
-  }
-
-  return contexts;
-}
-
-async function getDraftFileContexts(args: {
-  promptDraft: PromptDraft;
-  session: Pick<WorkspaceSessionState, "editorTabs">;
-  workspaceRootPath?: string | null;
-  fileContexts?: Array<{
-    filePath: string;
-    content: string;
-    language: string;
-    instruction?: string;
-  }>;
-}): Promise<
-  Array<{
-    filePath: string;
-    content: string;
-    language: string;
-    instruction?: string;
-  }>
-> {
-  const nextFileContexts: Array<{
-    filePath: string;
-    content: string;
-    language: string;
-    instruction?: string;
-  }> = [];
-  const seenFilePaths = new Set<string>();
-  const readFile = window.api?.fs?.readFile;
-  for (const context of args.fileContexts ?? []) {
-    if (!context.filePath || seenFilePaths.has(context.filePath)) {
-      continue;
-    }
-    seenFilePaths.add(context.filePath);
-    nextFileContexts.push(context);
-  }
-
-  const attachedFilePaths = getPromptDraftAttachedFilePaths(args.promptDraft);
-
-  for (const filePath of attachedFilePaths) {
-    if (!filePath || seenFilePaths.has(filePath)) {
-      continue;
-    }
-    seenFilePaths.add(filePath);
-
-    const openTab = args.session.editorTabs.find(
-      (tab) =>
-        tab.filePath === filePath &&
-        tab.kind !== "image" &&
-        (!tab.contentState || tab.contentState === "ready"),
-    );
-    if (openTab) {
-      nextFileContexts.push({
-        filePath: openTab.filePath,
-        content: openTab.content,
-        language: openTab.language,
-      });
-      continue;
-    }
-
-    if (!args.workspaceRootPath || !readFile) {
-      continue;
-    }
-
-    const result = await readFile({
-      rootPath: args.workspaceRootPath,
-      filePath,
-    });
-    if (!result.ok) {
-      continue;
-    }
-
-    nextFileContexts.push({
-      filePath,
-      content: result.content,
-      language: resolveLanguage({ filePath }),
-    });
-  }
-
-  return nextFileContexts;
 }
 
 function isWorkspaceSwitchMetricLoggingEnabled() {
@@ -1208,7 +1024,11 @@ interface AppState
     message?: string;
     noticeLevel?: "success" | "warning";
   }>;
-  closeWorkspace: (args: { workspaceId: string }) => Promise<void>;
+  closeWorkspace: (args: {
+    workspaceId: string;
+    /** Defaults to true; the archive dialog lets the user opt out. */
+    deleteBranch?: boolean;
+  }) => Promise<void>;
   switchWorkspace: (args: { workspaceId: string }) => Promise<void>;
   renameWorkspace: (args: {
     projectPath?: string;
@@ -5845,7 +5665,7 @@ export const useAppStore = create<AppState>()(
             message: resultMessages.join(" "),
           };
         },
-        closeWorkspace: async ({ workspaceId }) => {
+        closeWorkspace: async ({ workspaceId, deleteBranch = true }) => {
           const state = get();
           const workspace = state.workspaces.find(
             (item) => item.id === workspaceId,
@@ -5933,10 +5753,12 @@ export const useAppStore = create<AppState>()(
             });
             startWorkspaceArchiveCleanup({
               workspaceId,
+              workspaceName: workspace?.name,
               workspacePath,
               workspaceBranch,
               projectPath,
               isLinkedWorktree,
+              deleteBranch,
             });
             try {
               await get().flushProjectRegistry();
@@ -5997,10 +5819,12 @@ export const useAppStore = create<AppState>()(
           });
           startWorkspaceArchiveCleanup({
             workspaceId,
+            workspaceName: workspace?.name,
             workspacePath,
             workspaceBranch,
             projectPath,
             isLinkedWorktree,
+            deleteBranch,
           });
           try {
             await get().flushProjectRegistry();
