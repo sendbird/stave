@@ -75,6 +75,7 @@ import {
   playNotificationSound,
 } from "@/lib/notifications/notification-sound";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
+import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-request";
 import {
   getProviderSessionCursor,
@@ -254,6 +255,11 @@ import {
   createProviderTurnEventController,
   runProviderTurn,
 } from "@/store/provider-turn-runtime";
+import {
+  applyHostTaskTurnSync,
+  loadHostTaskTurn,
+} from "@/store/host-task-turn-sync";
+import { createQueuedTaskTurnDispatcher } from "@/store/queued-task-turn-dispatch";
 import { submitSteerWithDeadline } from "@/store/steer-submit";
 import {
   applyPendingProviderEventsToStoreState,
@@ -1160,6 +1166,7 @@ interface AppState
   hydrateNotifications: () => Promise<void>;
   flushActiveWorkspaceSnapshot: (args?: { sync?: boolean }) => Promise<void>;
   refreshActiveManagedTask: () => Promise<void>;
+  syncHostTaskTurn: (update: LocalMcpTaskTurnUpdate) => Promise<void>;
   createProject: (args: { name?: string }) => Promise<void>;
   openProjectFromPath: (args: {
     inputPath: string;
@@ -2057,6 +2064,12 @@ export const useAppStore = create<AppState>()(
         }, delayMs);
         providerTurnStallTimerByTask.set(args.taskId, handle);
       };
+
+      const dispatchNextQueuedTaskTurn = createQueuedTaskTurnDispatcher({
+        getSession: (workspaceId) =>
+          getWorkspaceSessionForState({ state: get(), workspaceId }),
+        getActions: get,
+      });
 
       const hasAsyncIterable = (
         value: unknown,
@@ -4601,6 +4614,50 @@ export const useAppStore = create<AppState>()(
             attentionSync.syncTaskInteractions({
               taskId: task.id,
               messages: refreshedSession.messagesByTask[task.id] ?? [],
+            });
+          }
+        },
+        syncHostTaskTurn: async (update) => {
+          const loaded = await loadHostTaskTurn(update);
+          if (!loaded) {
+            return;
+          }
+          const syncResult = applyHostTaskTurnSync({
+            state: get(),
+            loaded,
+            update,
+          });
+          set(syncResult.statePatch);
+          if (syncResult.active) {
+            scheduleProviderTurnStallTimer({
+              taskId: update.taskId,
+              turnId: update.turnId,
+              lastEventAt: Date.now(),
+            });
+          } else {
+            clearProviderTurnStallTimer(update.taskId);
+          }
+          attentionSync.syncTaskInteractions({
+            taskId: update.taskId,
+            messages:
+              syncResult.syncedSession.messagesByTask[update.taskId] ?? [],
+            endedTurnId: syncResult.turnSettled
+              ? update.turnId
+              : undefined,
+          });
+
+          if (
+            update.eventType === "approval" ||
+            update.eventType === "user_input" ||
+            update.eventType === "error" ||
+            update.done
+          ) {
+            void get().hydrateNotifications();
+          }
+          if (syncResult.turnSettled) {
+            dispatchNextQueuedTaskTurn({
+              workspaceId: update.workspaceId,
+              taskId: update.taskId,
             });
           }
         },
@@ -10768,45 +10825,10 @@ export const useAppStore = create<AppState>()(
                       state: latestState,
                       workspaceId: taskWorkspaceId,
                     });
-                    const queuedPromptDraft =
-                      latestWorkspaceSession?.promptDraftByTask[resolvedTaskId];
-                    const [nextQueuedTurn, ...remainingQueuedTurns] =
-                      queuedPromptDraft?.queuedTurns ?? [];
-                    if (nextQueuedTurn) {
-                      const autoDispatchDraft = normalizePromptDraftForStorage({
-                        ...queuedPromptDraft,
-                        text: nextQueuedTurn.content,
-                        attachedFilePaths: nextQueuedTurn.attachedFilePaths,
-                        attachments: nextQueuedTurn.attachments,
-                        promptBatch: undefined,
-                        queuedTurns: remainingQueuedTurns,
-                      });
-                      // Restore the queued payload as a normal draft before
-                      // dispatch so attachment-only follow-ups and blocked
-                      // auto-sends do not lose the staged content.
-                      get().updatePromptDraft({
-                        taskId: resolvedTaskId,
-                        patch: {
-                          text: autoDispatchDraft.text,
-                          attachedFilePaths:
-                            autoDispatchDraft.attachedFilePaths,
-                          attachments: autoDispatchDraft.attachments,
-                          promptBatch: undefined,
-                          queuedTurns:
-                            remainingQueuedTurns.length > 0
-                              ? remainingQueuedTurns
-                              : undefined,
-                        },
-                      });
-                      if (hasPromptDraftPayload(autoDispatchDraft)) {
-                        void get().sendUserMessage({
-                          taskId: resolvedTaskId,
-                          content: autoDispatchDraft.text,
-                        });
-                      } else {
-                        get().clearPromptDraft({ taskId: resolvedTaskId });
-                      }
-                    }
+                    dispatchNextQueuedTaskTurn({
+                      workspaceId: taskWorkspaceId,
+                      taskId: resolvedTaskId,
+                    });
                     const completedTask =
                       latestWorkspaceSession?.tasks.find(
                         (task) => task.id === resolvedTaskId,

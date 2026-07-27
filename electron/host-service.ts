@@ -477,7 +477,9 @@ setWorkspaceScriptEventListener((envelope) => {
 localMcpRuntime.setLocalMcpEventListener((event) => {
   if (event.type === "workspace-information-updated") {
     emitEvent("local-mcp.workspace-information-updated", event.payload);
+    return;
   }
+  emitEvent("local-mcp.task-turn-updated", event.payload);
 });
 
 async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {

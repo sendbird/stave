@@ -31,6 +31,7 @@ import type {
   StaveLocalMcpRequestLogQuery,
   StaveLocalMcpStatus,
 } from "../src/lib/local-mcp";
+import type { LocalMcpTaskTurnUpdate } from "../src/lib/local-mcp/task-turn-update";
 import type {
   CraneConnectorConfigInput,
   CraneConnectorPairInput,
@@ -469,6 +470,18 @@ ipcRenderer.on(
   "local-mcp:workspace-information-updated",
   (_event, payload: WorkspaceInformationUpdatePayload) => {
     for (const subscriber of workspaceInformationUpdateSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const localMcpTaskTurnUpdateSubscribers = new Set<
+  (payload: LocalMcpTaskTurnUpdate) => void
+>();
+ipcRenderer.on(
+  "local-mcp:task-turn-updated",
+  (_event, payload: LocalMcpTaskTurnUpdate) => {
+    for (const subscriber of localMcpTaskTurnUpdateSubscribers) {
       subscriber(payload);
     }
   },
@@ -1324,6 +1337,14 @@ contextBridge.exposeInMainWorld("api", {
       workspaceInformationUpdateSubscribers.add(listener);
       return () => {
         workspaceInformationUpdateSubscribers.delete(listener);
+      };
+    },
+    subscribeTaskTurnUpdates: (
+      listener: (payload: LocalMcpTaskTurnUpdate) => void,
+    ) => {
+      localMcpTaskTurnUpdateSubscribers.add(listener);
+      return () => {
+        localMcpTaskTurnUpdateSubscribers.delete(listener);
       };
     },
   },

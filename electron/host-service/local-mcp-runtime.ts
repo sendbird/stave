@@ -12,6 +12,7 @@ import type {
 } from "../../src/lib/providers/provider.types";
 import { buildCurrentTaskAwarenessRetrievedContext } from "../../src/lib/task-context/current-task-awareness";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
+import type { LocalMcpTaskTurnUpdate } from "../../src/lib/local-mcp/task-turn-update";
 import { workspaceHasActiveTurns } from "../../src/lib/notifications/notification.types";
 import {
   applyDetectedWorkspaceResources,
@@ -196,10 +197,17 @@ const localMcpTurnJournal = createLocalMcpTurnJournal({
   },
 });
 let localMcpEventListener:
-  | ((event: {
-      type: "workspace-information-updated";
-      payload: WorkspaceInformationMutationResult;
-    }) => void)
+  | ((
+      event:
+        | {
+            type: "workspace-information-updated";
+            payload: WorkspaceInformationMutationResult;
+          }
+        | {
+            type: "task-turn-updated";
+            payload: LocalMcpTaskTurnUpdate;
+          },
+    ) => void)
   | null = null;
 
 type WorkspaceInformationResourceKind =
@@ -566,6 +574,13 @@ function emitWorkspaceInformationUpdate(
 ) {
   localMcpEventListener?.({
     type: "workspace-information-updated",
+    payload,
+  });
+}
+
+function emitTaskTurnUpdate(payload: LocalMcpTaskTurnUpdate) {
+  localMcpEventListener?.({
+    type: "task-turn-updated",
     payload,
   });
 }
@@ -2198,8 +2213,8 @@ export async function runTask(args: {
         sequence += 1;
         const eventSequence = sequence;
         void workspaceProviderEventQueue
-          .enqueue(args.workspaceId, () =>
-            handleProviderEvent({
+          .enqueue(args.workspaceId, async () => {
+            await handleProviderEvent({
               workspaceId: args.workspaceId,
               workspaceName,
               taskId: task.id,
@@ -2208,8 +2223,18 @@ export async function runTask(args: {
               turnId,
               sequence: eventSequence,
               event,
-            }),
-          )
+            });
+            emitTaskTurnUpdate({
+              workspaceId: args.workspaceId,
+              taskId: task.id,
+              turnId,
+              providerId: provider,
+              model,
+              sequence: eventSequence,
+              eventType: event.type,
+              done: event.type === "done",
+            });
+          })
           .catch((error) => {
             console.error("[stave-mcp] failed to apply provider event", error, {
               workspaceId: args.workspaceId,
@@ -2225,6 +2250,17 @@ export async function runTask(args: {
   if (!started.ok) {
     throw new Error("Failed to start provider turn.");
   }
+
+  emitTaskTurnUpdate({
+    workspaceId: args.workspaceId,
+    taskId: task.id,
+    turnId,
+    providerId: provider,
+    model,
+    sequence: 0,
+    eventType: "started",
+    done: false,
+  });
 
   return {
     workspaceId: args.workspaceId,
