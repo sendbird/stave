@@ -17,7 +17,10 @@ Lens is a per-workspace embedded browser backed by Electron's `WebContentsView`.
 
 - MCP tools reuse the visible or most recently used Lens tab for the workspace.
 - If no session exists, any operational tool creates a hidden `default` session automatically. Calling `stave_lens_open_session` first is optional.
-- Keep routine inspection hidden. Use `stave_lens_present_session` only when the user must interact with the page, sign in, or visually confirm a result.
+- Stave applies the user's **Agent Activity** setting when visual inspection or page interaction starts: show beside the task, add a background tab, or let the agent decide.
+- Automatic presentation is limited to screenshot, inspect/measure, click/type, live style edit, and saved-account fill. Navigation, redirects, snapshots, DOM/log reads, and generic evaluation do not reveal a hidden session by themselves.
+- If a click navigates, the click is the presentation boundary. Continue in the same session; do not explicitly present it again just because the URL changed.
+- Use `stave_lens_present_session` only when the user must immediately interact with the page, sign in, or explicitly asks to see the result.
 - Revealing a hidden session preserves its URL, history, cookies, and page state.
 - Users can also open Lens with the **Globe** icon or the Command Palette action **Show Lens**.
 

@@ -90,6 +90,9 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       workspaceId: string;
       lensSessionId: string;
       reason?: string;
+      requestKind?: "explicit" | "agent-activity";
+      activityKind?: "visual" | "interaction";
+      toolName?: string;
     };
     const lensVisibilityCalls: LensVisibilityCall[] = [];
     const lensBoundsCalls: LensBoundsCall[] = [];
@@ -237,13 +240,54 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       __presentLensSession: (payload: {
         workspaceId: string;
         lensSessionId: string;
+        requestKind: "agent-activity";
+        activityKind: "visual";
+        toolName: string;
+      }) => void;
+    };
+    target.__presentLensSession({
+      workspaceId: "ws-alpha",
+      lensSessionId: "automatic-lens",
+      requestKind: "agent-activity",
+      activityKind: "visual",
+      toolName: "stave_lens_screenshot",
+    });
+  });
+  const automaticLensSurface = page.getByTestId("lens-surface-panel");
+  await expect(automaticLensSurface).toBeVisible();
+  await expect(sessionArea).toBeVisible();
+  const [taskBounds, lensBounds, taskGroupIsActive] = await Promise.all([
+    sessionArea.boundingBox(),
+    automaticLensSurface.boundingBox(),
+    alphaTaskChip.evaluate((element) =>
+      Boolean(element.closest(".dv-active-group")),
+    ),
+  ]);
+  expect(taskBounds).not.toBeNull();
+  expect(lensBounds).not.toBeNull();
+  expect(taskGroupIsActive).toBe(true);
+  expect(lensBounds!.x).toBeGreaterThanOrEqual(
+    taskBounds!.x + taskBounds!.width,
+  );
+  await page
+    .getByRole("button", { name: "close-pane-lens:automatic-lens" })
+    .click();
+  await expect(automaticLensSurface).toHaveCount(0);
+
+  await page.evaluate(() => {
+    const target = window as unknown as {
+      __presentLensSession: (payload: {
+        workspaceId: string;
+        lensSessionId: string;
         reason?: string;
+        requestKind?: "explicit" | "agent-activity";
       }) => void;
     };
     target.__presentLensSession({
       workspaceId: "ws-alpha",
       lensSessionId: "agent-lens",
       reason: "Verify the page",
+      requestKind: "explicit",
     });
   });
   await expect(page.getByTestId("lens-surface-panel")).toBeVisible();

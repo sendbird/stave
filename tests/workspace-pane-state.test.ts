@@ -95,6 +95,41 @@ describe("workspace pane state reducers", () => {
     });
   });
 
+  test("adds an agent Lens tab without replacing the active task surface", () => {
+    const state = createState();
+    const next = reduceOpenLensTab({
+      state,
+      lensSessionId: "agent-lens",
+      activate: false,
+      createdAt: 10,
+      nextSnapshotVersion: 5,
+    });
+
+    expect({ ...state, ...next }).toMatchObject({
+      activeAppSurface: state.activeAppSurface,
+      activeSurface: state.activeSurface,
+      lensTabs: [
+        ...state.lensTabs,
+        { id: "agent-lens", createdAt: 10 },
+      ],
+      workspaceSnapshotVersion: 5,
+    });
+  });
+
+  test("does not reactivate an existing background Lens tab", () => {
+    const state = createState();
+
+    expect(
+      reduceOpenLensTab({
+        state,
+        lensSessionId: "lens-a",
+        activate: false,
+        createdAt: 10,
+        nextSnapshotVersion: 5,
+      }),
+    ).toBe(state);
+  });
+
   test("keeps identity for an already-active pane", () => {
     const state = createState();
 

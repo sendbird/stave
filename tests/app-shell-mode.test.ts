@@ -115,4 +115,28 @@ describe("lens session scope settings", () => {
 
     expect(useAppStore.getState().settings.lensSessionScope).toBe("project");
   });
+
+  test("defaults agent activity to a visible split and normalizes updates", () => {
+    expect(
+      useAppStore.getInitialState().settings.lensAgentPresentationMode,
+    ).toBe("split-right");
+
+    useAppStore.getState().updateSettings({
+      patch: {
+        lensAgentPresentationMode: "background-tab",
+      },
+    });
+    expect(
+      useAppStore.getState().settings.lensAgentPresentationMode,
+    ).toBe("background-tab");
+
+    useAppStore.getState().updateSettings({
+      patch: {
+        lensAgentPresentationMode: "invalid" as never,
+      },
+    });
+    expect(
+      useAppStore.getState().settings.lensAgentPresentationMode,
+    ).toBe("split-right");
+  });
 });

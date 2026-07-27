@@ -1,6 +1,9 @@
 import type { PaneSurfaceDescriptor } from "@/lib/panes/types";
 import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.types";
-import { presentLensSessionInWorkspace } from "@/lib/lens/lens-session-presentation";
+import {
+  presentLensSessionInWorkspace,
+  type LensSessionPresentationOptions,
+} from "@/lib/lens/lens-session-presentation";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -105,19 +108,35 @@ export function focusOrCreateLensSurface(): string | null {
 
 export async function presentLensSession(
   payload: LensSessionPresentationRequestPayload,
+  options?: LensSessionPresentationOptions,
 ): Promise<boolean> {
-  return presentLensSessionInWorkspace(payload, {
-    hasWorkspace: (workspaceId) =>
-      useAppStore
-        .getState()
-        .workspaces.some((workspace) => workspace.id === workspaceId),
-    getActiveWorkspaceId: () => useAppStore.getState().activeWorkspaceId,
-    switchWorkspace: (workspaceId) =>
-      useAppStore.getState().switchWorkspace({ workspaceId }),
-    openLensTab: (lensSessionId) =>
-      useAppStore.getState().openLensTab({ lensSessionId }),
-    focusLensSurface: (lensSessionId) => {
-      paneHost.openSurface({ kind: "lens", lensSessionId });
+  return presentLensSessionInWorkspace(
+    payload,
+    {
+      hasWorkspace: (workspaceId) =>
+        useAppStore
+          .getState()
+          .workspaces.some((workspace) => workspace.id === workspaceId),
+      getActiveWorkspaceId: () => useAppStore.getState().activeWorkspaceId,
+      switchWorkspace: (workspaceId) =>
+        useAppStore.getState().switchWorkspace({ workspaceId }),
+      openLensTab: (lensSessionId, openOptions) =>
+        useAppStore.getState().openLensTab({
+          lensSessionId,
+          activate: openOptions.activate,
+        }),
+      openLensSurface: (lensSessionId, openOptions) => {
+        paneHost.openSurface(
+          { kind: "lens", lensSessionId },
+          {
+            activate: openOptions.activate,
+            ...(openOptions.splitRight
+              ? { position: { direction: "right" as const } }
+              : {}),
+          },
+        );
+      },
     },
-  });
+    options,
+  );
 }

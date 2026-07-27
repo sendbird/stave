@@ -272,7 +272,7 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
     "- Treat this injected context as current. Do not call `stave_get_workspace_information` just to re-read fields already shown here.",
     "- Keep Information panel notes and todos compact. Put long handoff or execution details in `.stave/context/plans/` and reference the plan path instead.",
     "- For Lens inspection, prefer `stave_lens_snapshot`, scoped `stave_lens_get_text`, or screenshots before raw HTML, console, or network dumps.",
-    "- Lens tools reuse the visible/recent workspace session or create a hidden default automatically. Keep routine inspection hidden; use `stave_lens_present_session` only for user interaction, sign-in, or visual confirmation.",
+    "- Lens tools reuse the visible/recent workspace session or create a hidden default automatically. Stave applies the user's presentation setting when visual inspection or page interaction starts; use `stave_lens_present_session` only when immediate user interaction, sign-in, or explicit visual confirmation is required.",
     "- When using Lens log or HTML tools, pass the narrowest selector or smallest useful limit/maxChars.",
   ];
   const handoffProcedureLines = [

@@ -2,11 +2,10 @@ import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
 import { CraneDispatchApprovalDialog } from "@/components/layout/CraneDispatchApprovalDialog";
-import { presentLensSession } from "@/components/panes/pane-host-controller";
+import { useLensSessionPresentationRequests } from "@/components/panes/useLensSessionPresentationRequests";
 import { TooltipProvider } from "@/components/ui";
 import type { LensSecurityConfig } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
-import { toast } from "sonner";
 import {
   applyCraneDispatchJobUpdate,
   enqueueCraneDispatchApproval,
@@ -29,6 +28,8 @@ function pushLensSecurityConfig(): void {
 }
 
 export default function App() {
+  useLensSessionPresentationRequests();
+
   useEffect(() => {
     const subscribeTaskTurnUpdates =
       window.api?.localMcp?.subscribeTaskTurnUpdates;
@@ -205,26 +206,6 @@ export default function App() {
       unsubscribeApproval?.();
       unsubscribeJobUpdate?.();
       unsubscribeStore();
-    };
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = window.api?.lens?.subscribePresentationRequests?.(
-      (payload) => {
-        void presentLensSession(payload)
-          .then((presented) => {
-            const reason = payload.reason?.trim();
-            if (presented && reason) {
-              toast.info("Lens opened for agent", { description: reason });
-            }
-          })
-          .catch((error) => {
-            console.error("[lens] Failed to present session", error);
-          });
-      },
-    );
-    return () => {
-      unsubscribe?.();
     };
   }, []);
 

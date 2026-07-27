@@ -1,12 +1,15 @@
 /**
  * Application settings contract and defaults.
  *
- * Extracted verbatim from `@/store/app.store` to keep the store file within the
- * max-lines ratchet. `app.store` re-exports the public names, so this split is
- * source-only: no behavior, ordering, or default value changed.
+ * Extracted from `@/store/app.store` to keep the store file within the
+ * max-lines ratchet. `app.store` re-exports the public names.
  */
 import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
-import type { LensSessionScope } from "@/lib/lens/lens.types";
+import type {
+  LensAgentPresentationMode,
+  LensSessionScope,
+} from "@/lib/lens/lens.types";
+import { normalizeLensHostList } from "@/lib/lens/lens-security";
 import type {
   AdvisorTarget,
   ClaudeSettingSource,
@@ -286,6 +289,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   lensSourceMappingReactDebugSource: boolean;
   /** Browser session storage scope for Lens sign-in cookies and site storage. */
   lensSessionScope: LensSessionScope;
+  /** How agent visual activity promotes hidden Lens sessions into the UI. */
+  lensAgentPresentationMode: LensAgentPresentationMode;
   /** Hosts always allowed for Lens navigation. Empty = no allowlist restriction. */
   lensAllowedHosts: string[];
   /** Hosts always blocked for Lens navigation (wins over the allowlist). */
@@ -481,6 +486,7 @@ export const defaultSettings: AppSettings = {
   lensSourceMappingHeuristic: true,
   lensSourceMappingReactDebugSource: false,
   lensSessionScope: "project",
+  lensAgentPresentationMode: "split-right",
   lensAllowedHosts: [],
   lensBlockedHosts: [],
   lensDeveloperModeCdp: true,
@@ -489,6 +495,49 @@ export const defaultSettings: AppSettings = {
 
 export function normalizeLensSessionScope(value: unknown): LensSessionScope {
   return value === "workspace" ? "workspace" : "project";
+}
+
+export function normalizeLensAgentPresentationMode(
+  value: unknown,
+): LensAgentPresentationMode {
+  return value === "background-tab" || value === "agent-decides"
+    ? value
+    : "split-right";
+}
+
+export function normalizePersistedLensSettings(
+  value: Record<string, unknown>,
+): Pick<
+  AppSettings,
+  | "lensAllowedHosts"
+  | "lensBlockedHosts"
+  | "lensCdpApprovedHosts"
+  | "lensSessionScope"
+  | "lensAgentPresentationMode"
+  | "lensDeveloperModeCdp"
+> {
+  return {
+    lensAllowedHosts: normalizeLensHostList(
+      value.lensAllowedHosts,
+      defaultSettings.lensAllowedHosts,
+    ),
+    lensBlockedHosts: normalizeLensHostList(
+      value.lensBlockedHosts,
+      defaultSettings.lensBlockedHosts,
+    ),
+    lensCdpApprovedHosts: normalizeLensHostList(
+      value.lensCdpApprovedHosts,
+      defaultSettings.lensCdpApprovedHosts,
+    ),
+    lensSessionScope: normalizeLensSessionScope(value.lensSessionScope),
+    lensAgentPresentationMode: normalizeLensAgentPresentationMode(
+      value.lensAgentPresentationMode,
+    ),
+    lensDeveloperModeCdp:
+      typeof value.lensDeveloperModeCdp === "boolean"
+        ? value.lensDeveloperModeCdp
+        : defaultSettings.lensDeveloperModeCdp,
+  };
 }
 
 export function createDefaultProviderAvailability() {

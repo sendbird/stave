@@ -22,7 +22,10 @@ export interface WorkspacePaneStoreActions {
   closeTaskTab: (args: { taskId: string }) => void;
   closeCompareRun: (args: { compareRunId: string }) => void;
   createLensTab: () => string | null;
-  openLensTab: (args: { lensSessionId: string }) => string | null;
+  openLensTab: (args: {
+    lensSessionId: string;
+    activate?: boolean;
+  }) => string | null;
   closeLensTab: (args: { lensSessionId: string }) => void;
   setPaneTabMeta: (args: { panelId: string; meta: PaneTabMeta }) => void;
   renamePaneTab: (args: { panelId: string; title: string }) => void;
@@ -41,6 +44,7 @@ export function reduceOpenLensTab<
 >(args: {
   state: State;
   lensSessionId: string;
+  activate?: boolean;
   createdAt: number;
   nextSnapshotVersion: number;
 }): State | WorkspacePaneReducerPatch {
@@ -51,7 +55,8 @@ export function reduceOpenLensTab<
     args.state.activeAppSurface.kind === "workspace" &&
     args.state.activeSurface.kind === "lens" &&
     args.state.activeSurface.lensSessionId === args.lensSessionId;
-  if (existing && alreadyActive) {
+  const activate = args.activate !== false;
+  if (existing && (!activate || alreadyActive)) {
     return args.state;
   }
 
@@ -62,11 +67,15 @@ export function reduceOpenLensTab<
           ...args.state.lensTabs,
           { id: args.lensSessionId, createdAt: args.createdAt },
         ],
-    activeAppSurface: { kind: "workspace" },
-    activeSurface: {
-      kind: "lens",
-      lensSessionId: args.lensSessionId,
-    },
+    ...(activate
+      ? {
+          activeAppSurface: { kind: "workspace" as const },
+          activeSurface: {
+            kind: "lens" as const,
+            lensSessionId: args.lensSessionId,
+          },
+        }
+      : {}),
     workspaceSnapshotVersion: args.nextSnapshotVersion,
   };
 }

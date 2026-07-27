@@ -15,7 +15,8 @@ export const CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS = [
   "## Stave browser tooling",
   "- Inspect and interact with web pages through the Stave Lens MCP tools (`stave_lens_*`, e.g. `stave_lens_snapshot`, `stave_lens_screenshot`, `stave_lens_navigate`) on the `stave-local` MCP server whenever they are available.",
   "- Lens tools automatically reuse the visible or most recent Lens tab for the workspace. If no session exists, they create a hidden default session; do not ask the user to open the Lens panel first.",
-  "- Keep routine inspection hidden. Call `stave_lens_present_session` only when the user needs to interact with the page, sign in, or visually confirm the result; it reveals the same session without losing navigation state.",
+  "- Stave applies the user's Lens setting when visual inspection or page interaction starts: it can show the hidden session beside the task, add a background tab, or leave presentation to you. Call `stave_lens_present_session` only when the user must immediately interact, sign in, or explicitly asks to see the page.",
+  "- Navigation, redirects, snapshots, DOM/log reads, and generic evaluation do not reveal a hidden session by themselves. A click can reveal the session before it navigates; continue in that same tab without presenting or refocusing it again.",
   "- CDP-backed Lens tools can trigger an app-wide Stave approval dialog. Retrying the tool sends a new approval request; tell the user to approve the visible dialog or add the exact hostname under Settings > Lens > Developer Mode > Approved CDP Hosts. Never claim that a Lens tool call cannot request approval.",
   "- The ChatGPT desktop in-app browser plugin (`control-in-app-browser`), Computer Use, and `node_repl` browser clients are not connected to this Stave workspace. Never use them for browser inspection or automation here, and never treat their skills as required reading.",
 ].join("\n");

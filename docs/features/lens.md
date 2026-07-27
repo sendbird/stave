@@ -21,6 +21,7 @@
 - CDP-backed actions such as screenshots, JavaScript evaluation, element clicks, and live style edits require `Settings > Lens > Developer Mode` plus per-host approval. Approved hosts are currently global across workspaces.
 - The first CDP action for an unapproved host opens an app-wide approval dialog, even when its Lens tab is hidden or closed. `Allow once` grants a short-lived workspace approval; `Always allow` saves the hostname.
 - External agents reach Lens through Stave Local MCP, not through the renderer UI directly. Lens tools reuse a visible/recent workspace tab or create a hidden session automatically.
+- Agent visual inspection and page interaction use the `Settings > Lens > Agent Activity` presentation preference. The default shows the same session beside the task without taking task focus.
 
 ## Quick Start
 
@@ -79,6 +80,17 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 2. Leave `Heuristic Search` on unless you have a reason to suppress grep-friendly hints.
 3. Turn on `React _debugSource` when your app runs in a React dev build and you want exact file and line output.
 
+### Configure Agent Activity
+
+1. Open `Settings > Lens`.
+2. Choose `Show beside task` to reveal visual inspection or page interaction in a right split without taking focus from the task.
+3. Choose `Background tab` to attach the session as an inactive Lens tab.
+4. Choose `Agent decides` to keep MCP-created sessions hidden until the agent explicitly calls `stave_lens_present_session`.
+
+Navigation, redirects, DOM reads, console/network diagnostics, and page-driven loading do not reveal a hidden session by themselves. Once a session is attached to a Lens tab, later navigation stays in that tab without reopening or refocusing it.
+
+Automatic presentation is limited to actions that are inherently visual or interactive: screenshot, element inspect/measure, click, type, live style edit, and saved-account fill. A click may navigate, but the click presents the session before the action; the resulting route change does not create another presentation request. Generic JavaScript evaluation stays classified as diagnostics because its intent is ambiguous.
+
 ### Configure Site Access And CDP
 
 1. Open `Settings > Lens`.
@@ -114,7 +126,7 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
 
 1. Enable `Settings > Providers > Stave > Local MCP Server`.
 2. Call `stave_lens_navigate` or another `stave_lens_*` tool for the target workspace. Lens reuses a visible/recent tab or creates a hidden `default` session; `stave_lens_open_session` is optional.
-3. Keep routine inspection hidden. Call `stave_lens_present_session` only when the user needs to interact, sign in, or visually verify the page.
+3. Visual inspection and page interaction follow the user's `Agent Activity` preference. Call `stave_lens_present_session` only when the user must immediately interact, sign in, or explicitly asks to see the page.
 4. The first CDP-backed call for an unapproved host pauses while Stave shows its app-wide approval dialog.
 5. Approve the visible dialog within 60 seconds, or add the hostname under `Settings > Lens > Developer Mode > Approved CDP Hosts` and retry the tool.
 6. If the page requires a saved account, call `stave_lens_fill_saved_account`; the secret is injected inside Electron and is not returned to the agent.
@@ -130,6 +142,7 @@ Usernames and passwords are encrypted through Electron `safeStorage`, backed by 
   "lensSourceMappingHeuristic": true,
   "lensSourceMappingReactDebugSource": false,
   "lensSessionScope": "project",
+  "lensAgentPresentationMode": "split-right",
   "lensAllowedHosts": [],
   "lensBlockedHosts": [],
   "lensDeveloperModeCdp": true,
@@ -235,6 +248,7 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 - Automatic account use fills visible username and password fields but does not submit. JavaScript-heavy pages that render the form later can use `stave_lens_fill_saved_account` on demand.
 - Operational MCP tools acquire a session automatically. With no explicit id they prefer the visible/recent UI tab, then the hidden `default`; if none exists they create `default` hidden.
 - The first user-created Lens tab also uses `default`, so a hidden MCP session can be adopted without losing its page. Additional tabs keep distinct ids.
+- Hidden MCP sessions are attached automatically only for inherently visual or interactive operations. Navigation events do not decide presentation, so click-driven navigation, redirects, and SPA route changes stay in the already selected session without reopening or refocusing Lens.
 - `stave_lens_present_session` asks the renderer to open the same session for user interaction instead of creating another browser.
 - `React _debugSource` only works in React dev builds. Production builds fall back to heuristic source hints.
 - Console and network logs are buffered, not infinite. Lens keeps the most recent entries only.

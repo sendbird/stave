@@ -12,19 +12,21 @@ describe("Lens session presentation", () => {
         hasWorkspace: () => true,
         getActiveWorkspaceId: () => "ws-a",
         switchWorkspace: async () => {},
-        openLensTab: (lensSessionId) => {
-          opened.push(lensSessionId);
+        openLensTab: (lensSessionId, options) => {
+          opened.push(`${lensSessionId}:${options.activate}`);
           return lensSessionId;
         },
-        focusLensSurface: (lensSessionId) => {
-          focused.push(lensSessionId);
+        openLensSurface: (lensSessionId, options) => {
+          focused.push(
+            `${lensSessionId}:${options.activate}:${options.splitRight}`,
+          );
         },
       },
     );
 
     expect(presented).toBe(true);
-    expect(opened).toEqual(["lens-a"]);
-    expect(focused).toEqual(["lens-a"]);
+    expect(opened).toEqual(["lens-a:true"]);
+    expect(focused).toEqual(["lens-a:true:false"]);
   });
 
   test("switches workspace before presenting the same session", async () => {
@@ -40,18 +42,134 @@ describe("Lens session presentation", () => {
           steps.push(`switch:${workspaceId}`);
           activeWorkspaceId = workspaceId;
         },
-        openLensTab: (lensSessionId) => {
-          steps.push(`open:${lensSessionId}`);
+        openLensTab: (lensSessionId, options) => {
+          steps.push(`open:${lensSessionId}:${options.activate}`);
           return lensSessionId;
         },
-        focusLensSurface: (lensSessionId) => {
-          steps.push(`focus:${lensSessionId}`);
+        openLensSurface: (lensSessionId, options) => {
+          steps.push(
+            `surface:${lensSessionId}:${options.activate}:${options.splitRight}`,
+          );
         },
       },
     );
 
     expect(presented).toBe(true);
-    expect(steps).toEqual(["switch:ws-b", "open:lens-b", "focus:lens-b"]);
+    expect(steps).toEqual([
+      "switch:ws-b",
+      "open:lens-b:true",
+      "surface:lens-b:true:false",
+    ]);
+  });
+
+  test("opens automatic visual activity in a right split without stealing focus", async () => {
+    const steps: string[] = [];
+
+    const presented = await presentLensSessionInWorkspace(
+      {
+        workspaceId: "ws-a",
+        lensSessionId: "lens-a",
+        requestKind: "agent-activity",
+        activityKind: "visual",
+      },
+      {
+        hasWorkspace: () => true,
+        getActiveWorkspaceId: () => "ws-a",
+        switchWorkspace: async () => {
+          steps.push("switch");
+        },
+        openLensTab: (lensSessionId, options) => {
+          steps.push(`open:${lensSessionId}:${options.activate}`);
+          return lensSessionId;
+        },
+        openLensSurface: (lensSessionId, options) => {
+          steps.push(
+            `surface:${lensSessionId}:${options.activate}:${options.splitRight}`,
+          );
+        },
+      },
+      {
+        placement: "split-right",
+        allowWorkspaceSwitch: false,
+      },
+    );
+
+    expect(presented).toBe(true);
+    expect(steps).toEqual([
+      "open:lens-a:false",
+      "surface:lens-a:false:true",
+    ]);
+  });
+
+  test("adds automatic activity as a background tab when configured", async () => {
+    const steps: string[] = [];
+
+    const presented = await presentLensSessionInWorkspace(
+      {
+        workspaceId: "ws-a",
+        lensSessionId: "lens-a",
+        requestKind: "agent-activity",
+        activityKind: "interaction",
+      },
+      {
+        hasWorkspace: () => true,
+        getActiveWorkspaceId: () => "ws-a",
+        switchWorkspace: async () => {},
+        openLensTab: (lensSessionId, options) => {
+          steps.push(`open:${lensSessionId}:${options.activate}`);
+          return lensSessionId;
+        },
+        openLensSurface: (lensSessionId, options) => {
+          steps.push(
+            `surface:${lensSessionId}:${options.activate}:${options.splitRight}`,
+          );
+        },
+      },
+      {
+        placement: "background-tab",
+        allowWorkspaceSwitch: false,
+      },
+    );
+
+    expect(presented).toBe(true);
+    expect(steps).toEqual([
+      "open:lens-a:false",
+      "surface:lens-a:false:false",
+    ]);
+  });
+
+  test("defers automatic presentation instead of switching workspaces", async () => {
+    let mutated = false;
+
+    const presented = await presentLensSessionInWorkspace(
+      {
+        workspaceId: "ws-b",
+        lensSessionId: "lens-b",
+        requestKind: "agent-activity",
+        activityKind: "interaction",
+      },
+      {
+        hasWorkspace: () => true,
+        getActiveWorkspaceId: () => "ws-a",
+        switchWorkspace: async () => {
+          mutated = true;
+        },
+        openLensTab: () => {
+          mutated = true;
+          return "lens-b";
+        },
+        openLensSurface: () => {
+          mutated = true;
+        },
+      },
+      {
+        placement: "background-tab",
+        allowWorkspaceSwitch: false,
+      },
+    );
+
+    expect(presented).toBe(false);
+    expect(mutated).toBe(false);
   });
 
   test("does not present a session for an unknown workspace", async () => {
@@ -69,7 +187,7 @@ describe("Lens session presentation", () => {
           mutated = true;
           return null;
         },
-        focusLensSurface: () => {
+        openLensSurface: () => {
           mutated = true;
         },
       },
