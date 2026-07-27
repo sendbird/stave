@@ -5,6 +5,7 @@ import {
   parseSourceControlStatusLines,
 } from "../../../src/lib/source-control-status";
 import { buildExecutableLookupEnv } from "../../providers/executable-path";
+import { buildProjectShellEnv } from "../../shared/project-node-env";
 import type { CommandResult, SourceControlStatusItem } from "../types";
 
 const COMMAND_OUTPUT_LIMIT = 128_000;
@@ -30,12 +31,16 @@ export function runCommand(args: {
   env?: NodeJS.ProcessEnv;
 }): Promise<CommandResult> {
   return new Promise<CommandResult>((resolve) => {
-    const env = buildExecutableLookupEnv({
-      baseEnv: args.env,
+    const cwd = resolveCommandCwd({ cwd: args.cwd });
+    const env = buildProjectShellEnv({
+      cwd,
+      baseEnv: buildExecutableLookupEnv({
+        baseEnv: args.env,
+      }),
     });
     const child = spawn(args.command, {
       shell: true,
-      cwd: resolveCommandCwd({ cwd: args.cwd }),
+      cwd,
       env,
     });
 
@@ -73,12 +78,16 @@ export function runCommandArgs(args: {
   env?: NodeJS.ProcessEnv;
 }): Promise<CommandResult> {
   return new Promise<CommandResult>((resolve) => {
-    const env = buildExecutableLookupEnv({
-      baseEnv: args.env,
+    const cwd = resolveCommandCwd({ cwd: args.cwd });
+    const env = buildProjectShellEnv({
+      cwd,
+      baseEnv: buildExecutableLookupEnv({
+        baseEnv: args.env,
+      }),
     });
     const child = spawn(args.command, args.commandArgs ?? [], {
       shell: false,
-      cwd: resolveCommandCwd({ cwd: args.cwd }),
+      cwd,
       env,
     });
 

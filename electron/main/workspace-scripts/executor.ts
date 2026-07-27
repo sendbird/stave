@@ -24,6 +24,7 @@ import type {
   WorkspaceScriptStatusEntry,
 } from "../../../src/lib/workspace-scripts/types";
 import { buildExecutableLookupEnv } from "../../providers/executable-path";
+import { buildProjectShellEnv } from "../../shared/project-node-env";
 import {
   deleteWorkspaceScriptProcess,
   getWorkspaceScriptStatusesForWorkspace,
@@ -82,8 +83,12 @@ function buildScriptEnv(args: {
   source: WorkspaceScriptRunSource;
   hookContext?: ScriptHookContext;
 }): NodeJS.ProcessEnv {
+  const cwd = resolveScriptCwd(args);
   return {
-    ...buildExecutableLookupEnv(),
+    ...buildProjectShellEnv({
+      cwd,
+      baseEnv: buildExecutableLookupEnv(),
+    }),
     [SCRIPT_ENV_VARS.ROOT_PATH]: args.projectPath,
     [SCRIPT_ENV_VARS.WORKSPACE_NAME]: args.workspaceName,
     [SCRIPT_ENV_VARS.WORKSPACE_PATH]: args.workspacePath,

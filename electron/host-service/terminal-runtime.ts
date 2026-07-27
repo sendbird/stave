@@ -28,6 +28,7 @@ import {
 import { resolveCommandCwd } from "../main/utils/command";
 import { byteLengthUtf8 } from "../shared/bounded-text";
 import { ensureUtf8Locale } from "../shared/utf8-locale";
+import { buildProjectShellEnv } from "../shared/project-node-env";
 import { Osc133Parser } from "../../src/lib/terminal/osc133";
 import { appendAbsoluteCursorPosition } from "../../src/lib/terminal/snapshot";
 import type {
@@ -696,17 +697,21 @@ export function createTerminalRuntime(args: {
     }
 
     const shellExe = args.shell?.trim() || process.env.SHELL || "/bin/bash";
+    const sessionCwd = args.cwd || args.workspacePath;
     return {
       ok: true,
       sessionId: createPtySession({
         command: shellExe,
-        cwd: args.cwd || args.workspacePath,
+        cwd: sessionCwd,
         cols: args.cols,
         rows: args.rows,
         deliveryMode: args.deliveryMode,
         slotKey,
         env: {
-          ...(process.env as Record<string, string>),
+          ...buildProjectShellEnv({
+            cwd: sessionCwd,
+            baseEnv: process.env,
+          }),
           STAVE_WORKSPACE_PATH: args.workspacePath,
           STAVE_TASK_ID: args.taskId ?? "",
         },
@@ -767,7 +772,10 @@ export function createTerminalRuntime(args: {
           ? ["--resume", nativeSessionId]
           : ["--session-id", nativeSessionId]),
       ];
-      const env = buildClaudeCliEnv({ executablePath });
+      const env = buildClaudeCliEnv({
+        executablePath,
+        cwd: sessionCwd,
+      });
       return {
         ok: true,
         sessionId: createPtySession({
@@ -800,7 +808,10 @@ export function createTerminalRuntime(args: {
           "Codex executable not found. Check Codex CLI installation or the configured binary path.",
       };
     }
-    const env = buildCodexCliEnv({ executablePath });
+    const env = buildCodexCliEnv({
+      executablePath,
+      cwd: sessionCwd,
+    });
     const startedAtMs = Date.now();
     const sessionId = createPtySession({
       command: executablePath,

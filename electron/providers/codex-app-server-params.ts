@@ -8,7 +8,9 @@ import {
   buildCodexDeveloperInstructions,
   buildCodexPluginConfigOverrides,
 } from "./codex-runtime-config";
+import { buildExecutableLookupEnv } from "./executable-path";
 import { parseBooleanEnv } from "./runtime-shared";
+import { buildProjectNvmShellConfigOverrides } from "../shared/project-node-env";
 
 type CodexRequest = (
   method: string,
@@ -57,11 +59,18 @@ function resolveApprovalPolicy(args: {
 }
 
 export function buildCodexConfigOverrides(args: {
+  cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   configOverrides?: Record<string, string | boolean>;
 }) {
   const config: Record<string, string | boolean> = {
     ...buildCodexPluginConfigOverrides(),
+    ...(args.cwd
+      ? buildProjectNvmShellConfigOverrides({
+          cwd: args.cwd,
+          baseEnv: buildExecutableLookupEnv(),
+        })
+      : {}),
   };
   const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
   const reasoningEffort = resolveCodexAppServerReasoningEffort({
@@ -209,6 +218,7 @@ export function buildCodexThreadStartParams(args: {
         ...args.configOverrides,
       }
     : buildCodexConfigOverrides({
+        cwd: args.cwd,
         runtimeOptions: args.runtimeOptions,
         configOverrides: args.configOverrides,
       });
@@ -235,6 +245,7 @@ export function buildCodexThreadResumeParams(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
   const config = buildCodexConfigOverrides({
+    cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
   });
 

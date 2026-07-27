@@ -17,6 +17,7 @@ import {
 import { isClaudeCliAutoModeSupportedVersion } from "./claude-cli-compat";
 import { readPrimaryStaveLocalMcpManifestSync } from "../main/stave-local-mcp-manifest";
 import { CODEX_STAVE_MCP_TOKEN_ENV_VAR } from "../main/codex-mcp";
+import { buildProjectShellEnv } from "../shared/project-node-env";
 
 const CLAUDE_LOOKUP_PATHS = [
   `${homedir()}/.claude/local`,
@@ -214,9 +215,10 @@ export function resolveClaudeCliExecutablePath(
 
 export function buildClaudeCliEnv(args: {
   executablePath: string;
+  cwd?: string;
   resolver?: (args: { key: string }) => string | null;
 }) {
-  const env = buildRuntimeProcessEnv({
+  let env = buildRuntimeProcessEnv({
     executablePath: args.executablePath,
     extraPaths: CLAUDE_LOOKUP_PATHS,
     unsetEnvKeys: ["CLAUDECODE"],
@@ -228,11 +230,16 @@ export function buildClaudeCliEnv(args: {
     resolver: args.resolver,
   });
 
+  if (args.cwd) {
+    env = buildProjectShellEnv({ cwd: args.cwd, baseEnv: env });
+  }
   return env;
 }
 
-export function buildCodexCliEnv(args: { executablePath?: string } = {}) {
-  const env = buildRuntimeProcessEnv({
+export function buildCodexCliEnv(
+  args: { executablePath?: string; cwd?: string } = {},
+) {
+  let env = buildRuntimeProcessEnv({
     executablePath: args.executablePath,
     extraPaths: CODEX_LOOKUP_PATHS,
   });
@@ -245,6 +252,9 @@ export function buildCodexCliEnv(args: { executablePath?: string } = {}) {
     preferredKeys: CODEX_LOGIN_SHELL_ENV_PREFERRED_KEYS,
     fallbackKeys: CODEX_LOGIN_SHELL_ENV_FALLBACK_KEYS,
   });
+  if (args.cwd) {
+    env = buildProjectShellEnv({ cwd: args.cwd, baseEnv: env });
+  }
   return Object.fromEntries(
     Object.entries(env).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",
