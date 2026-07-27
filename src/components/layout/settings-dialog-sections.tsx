@@ -2229,6 +2229,7 @@ function ChatSection() {
     infoPanelScale,
     reasoningExpansionMode,
     showInterimMessages,
+    turnActivityExpandedByDefault,
     codexFastModeVisible,
     steerQueueEnterAction,
     midTurnSteeringEnabled,
@@ -2245,6 +2246,7 @@ function ChatSection() {
           state.settings.infoPanelScale,
           state.settings.reasoningExpansionMode,
           state.settings.showInterimMessages,
+          state.settings.turnActivityExpandedByDefault,
           state.settings.codexFastModeVisible,
           state.settings.steerQueueEnterAction,
           state.settings.midTurnSteeringEnabled,
@@ -2411,6 +2413,16 @@ function ChatSection() {
             checked={showInterimMessages}
             onCheckedChange={(checked) =>
               updateSettings({ patch: { showInterimMessages: checked } })
+            }
+          />
+          <SwitchField
+            title="Expand Turn Activity"
+            description="Keep the turn activity shelf above the prompt input expanded while a turn runs, so agents, tools, and todos stay visible. Turn this off to show only the headline row."
+            checked={turnActivityExpandedByDefault}
+            onCheckedChange={(checked) =>
+              updateSettings({
+                patch: { turnActivityExpandedByDefault: checked },
+              })
             }
           />
           <SwitchField

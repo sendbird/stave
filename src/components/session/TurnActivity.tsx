@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   Bot,
   CheckCircle2,
@@ -9,19 +9,27 @@ import {
   CirclePause,
   ClipboardList,
   ListChecks,
-  Workflow,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import { ThinkingOrb, type OrbState } from "thinking-orbs";
-import { type TodoItem } from "@/components/ai-elements/todo";
 import { deriveTodoTraceItems } from "@/components/session/message/assistant-trace.utils";
 import { resolvePlanViewerState } from "@/components/session/plan-viewer.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import { findLatestTodoPart } from "@/components/session/todo-floater.utils";
 import {
+  buildTurnActivityItems,
+  countTurnActivityItems,
+  formatTurnActivityCountsLabel,
+  partitionTurnActivityItems,
   promoteFirstPendingTodoForActiveTurn,
+  resolveTurnActivityHiddenSeverity,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
+  type TurnActivityIconKey,
+  type TurnActivityItem,
   type TurnActivityRowStatus,
+  type TurnActivityTodo,
 } from "@/components/session/turn-activity.utils";
 import { Button } from "@/components/ui";
 import {
@@ -30,7 +38,6 @@ import {
   clearProviderTurnActivity,
   type ProviderTurnActivitySnapshot,
   type ProviderTurnWorkItem,
-  type ProviderTurnWorkStatus,
 } from "@/lib/providers/turn-status";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
@@ -45,6 +52,17 @@ const EMPTY_PROMPT_DRAFT: PromptDraft = {
   attachments: [],
 };
 const TURN_ACTIVITY_FAILURE_LINGER_MS = 5_000;
+/** Matches the exit animation below so the shelf collapses instead of popping. */
+const TURN_ACTIVITY_EXIT_MS = 180;
+
+const TURN_ACTIVITY_ICONS: Record<TurnActivityIconKey, LucideIcon> = {
+  alert: CircleAlert,
+  pause: CirclePause,
+  plan: ListChecks,
+  subagent: Bot,
+  todo: ClipboardList,
+  tool: Wrench,
+};
 
 function useTurnClock(activeTurnId: string | null) {
   const [now, setNow] = useState(() => Date.now());
@@ -106,6 +124,7 @@ export function TurnActivity() {
     messages,
     activeTurnId,
     activity,
+    expandedByDefault,
   ] = useAppStore(
     useShallow((state) => [
       state.tasks.find((task) => task.id === taskId) ?? null,
@@ -117,6 +136,7 @@ export function TurnActivity() {
       state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
       state.activeTurnIdsByTask[taskId] ?? null,
       state.providerTurnActivityByTask[taskId] ?? null,
+      state.settings.turnActivityExpandedByDefault,
     ]),
   );
   const activeProvider = activeTask?.provider ?? draftProvider;
@@ -144,7 +164,7 @@ export function TurnActivity() {
     () => findLatestTodoPart(messages, activeTurnId),
     [activeTurnId, messages],
   );
-  const todos = useMemo<TodoItem[]>(() => {
+  const todos = useMemo<TurnActivityTodo[]>(() => {
     const derivedTodos = todoPart
       ? deriveTodoTraceItems({
           input: todoPart.input,
@@ -211,30 +231,86 @@ export function TurnActivity() {
     taskId,
   ]);
 
-  if (!shouldShow) {
+  const surfaceProps = useMemo<TurnActivitySurfaceProps | null>(() => {
+    if (!shouldShow) {
+      return null;
+    }
+    return {
+      activeTurnId: activeTurnId ?? currentActivity?.turnId ?? "",
+      activity: currentActivity,
+      isPlanPreparing,
+      workItems,
+      todos,
+      expandedByDefault,
+    };
+  }, [
+    activeTurnId,
+    currentActivity,
+    expandedByDefault,
+    isPlanPreparing,
+    shouldShow,
+    todos,
+    workItems,
+  ]);
+  // Keep the last visible snapshot around for one exit animation so the shelf
+  // shrinks away instead of yanking the composer down when a turn ends.
+  const lastVisiblePropsRef = useRef<TurnActivitySurfaceProps | null>(null);
+  const [, forceExitRender] = useReducer((value: number) => value + 1, 0);
+  if (surfaceProps) {
+    lastVisiblePropsRef.current = surfaceProps;
+  }
+  const leavingProps = surfaceProps ? null : lastVisiblePropsRef.current;
+
+  useEffect(() => {
+    if (surfaceProps || !lastVisiblePropsRef.current) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      lastVisiblePropsRef.current = null;
+      forceExitRender();
+    }, TURN_ACTIVITY_EXIT_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [surfaceProps]);
+
+  const visibleProps = surfaceProps ?? leavingProps;
+  if (!visibleProps) {
     return null;
   }
 
   return (
     <TurnActivitySurface
-      key={`${taskId}:${activeTurnId}`}
-      activeTurnId={activeTurnId ?? currentActivity?.turnId ?? ""}
-      activity={currentActivity}
-      isPlanPreparing={isPlanPreparing}
-      workItems={workItems}
-      todos={todos}
+      key={`${taskId}:${visibleProps.activeTurnId}`}
+      {...visibleProps}
+      isLeaving={leavingProps != null}
     />
   );
 }
 
-export function TurnActivitySurface(props: {
+interface TurnActivitySurfaceProps {
   activeTurnId: string;
   activity: ProviderTurnActivitySnapshot | null;
   isPlanPreparing: boolean;
   workItems: ProviderTurnWorkItem[];
-  todos: TodoItem[];
-}) {
-  const [expanded, setExpanded] = useState(false);
+  todos: TurnActivityTodo[];
+  /**
+   * Setting-backed default for the expanded list. A manual toggle overrides it
+   * for the rest of the turn; the surface is keyed per turn, so the next turn
+   * falls back to the setting again.
+   */
+  expandedByDefault?: boolean;
+  /** Renders the exit animation while the shelf is being torn down. */
+  isLeaving?: boolean;
+}
+
+export function TurnActivitySurface(props: TurnActivitySurfaceProps) {
+  const expandedByDefault = props.expandedByDefault ?? true;
+  const [expandedOverride, setExpandedOverride] = useState<boolean | null>(
+    null,
+  );
+  const [showCompleted, setShowCompleted] = useState(false);
+  const expanded = expandedOverride ?? expandedByDefault;
   const now = useTurnClock(
     props.activity?.completedAt == null ? props.activeTurnId : null,
   );
@@ -265,30 +341,36 @@ export function TurnActivitySurface(props: {
     todos: props.todos,
     workItems: props.workItems,
   });
-  const featuredItem =
-    activityItems.find((item) =>
-      ["waiting", "failed", "running"].includes(item.status),
-    ) ??
-    activityItems[0] ??
-    null;
-  const remainingItems = featuredItem
-    ? activityItems.filter((item) => item.id !== featuredItem.id)
-    : [];
+  const counts = countTurnActivityItems(activityItems);
+  const { active: activeItems, completed: completedItems } =
+    partitionTurnActivityItems(activityItems);
+  const featuredItem = activityItems[0] ?? null;
+  const hiddenItems = activityItems.slice(1);
+  const hiddenSeverity = resolveTurnActivityHiddenSeverity(hiddenItems);
   const orbState = resolveTurnActivityOrbState({
     activity: props.activity,
     isPlanPreparing: props.isPlanPreparing,
     workItems: props.workItems,
   });
-  const headline = featuredItem?.title ?? summary.label;
+  // Attention states name themselves better than any count can, so they keep
+  // the summary label even while the list is open.
+  const needsAttention =
+    props.activity?.pendingInteraction != null ||
+    isStalled ||
+    props.activity?.turnError != null;
+  const countsLabel = formatTurnActivityCountsLabel(counts);
+  const headline = expanded
+    ? needsAttention
+      ? summary.label
+      : (countsLabel ?? summary.label)
+    : (featuredItem?.title ?? summary.label);
   const headlineDetail =
-    featuredItem?.detail && featuredItem.detail !== featuredItem.title
+    !expanded && featuredItem?.detail && featuredItem.detail !== headline
       ? featuredItem.detail
       : null;
-  const headlineElapsed =
-    featuredItem?.elapsedSeconds != null
-      ? formatElapsedSeconds(featuredItem.elapsedSeconds)
-      : elapsedLabel;
-  const canExpand = remainingItems.length > 0;
+  const canExpand = activityItems.length > 0;
+  // `0/4` says nothing, so the ratio only appears once work has landed.
+  const showProgress = counts.totalCount > 1 && counts.completedCount > 0;
 
   return (
     <div
@@ -298,7 +380,9 @@ export function TurnActivitySurface(props: {
         // up over the surface's extra `pb-3`, so the squared bottom edge reads
         // as tucked behind the composer instead of floating above it.
         "relative z-0 mx-3 -mb-3",
-        "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2",
+        props.isLeaving
+          ? "pointer-events-none motion-safe:animate-out motion-safe:fade-out motion-safe:slide-out-to-bottom-2 motion-safe:fill-mode-forwards"
+          : "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2",
         "motion-reduce:transition-none",
       )}
     >
@@ -343,22 +427,45 @@ export function TurnActivitySurface(props: {
             }
           >
             <span className="font-medium text-foreground">{headline}</span>
+            {headlineDetail ? (
+              <span className="text-muted-foreground"> · {headlineDetail}</span>
+            ) : null}
           </p>
-          {remainingItems.length > 0 ? (
+          {showProgress ? (
             <span
               className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
-              aria-label={`${remainingItems.length} more activities`}
+              data-testid="turn-activity-progress"
             >
-              +{remainingItems.length}
+              <span className="sr-only">
+                {counts.completedCount} of {counts.totalCount} activities done
+              </span>
+              <span aria-hidden="true">
+                {counts.completedCount}/{counts.totalCount}
+              </span>
             </span>
           ) : null}
-          {headlineElapsed ? (
+          {!expanded && hiddenItems.length > 0 ? (
             <span
-              aria-hidden="true"
-              className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
-              title={`Elapsed time: ${headlineElapsed}`}
+              className={cn(
+                "shrink-0 text-[11px] font-medium tabular-nums",
+                hiddenSeverity === "failed"
+                  ? "text-destructive"
+                  : hiddenSeverity === "waiting"
+                    ? "text-warning"
+                    : "text-muted-foreground",
+              )}
+              aria-label={`${hiddenItems.length} more activities`}
             >
-              {headlineElapsed}
+              +{hiddenItems.length}
+            </span>
+          ) : null}
+          {elapsedLabel ? (
+            <span
+              className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
+              title={`Elapsed time: ${elapsedLabel}`}
+            >
+              <span className="sr-only">Turn elapsed </span>
+              {elapsedLabel}
             </span>
           ) : null}
           {canExpand ? (
@@ -370,7 +477,7 @@ export function TurnActivitySurface(props: {
               aria-label={
                 expanded ? "Minimize turn activity" : "Expand turn activity"
               }
-              onClick={() => setExpanded((value) => !value)}
+              onClick={() => setExpandedOverride(!expanded)}
             >
               {expanded ? (
                 <ChevronDown className="size-3.5" />
@@ -382,107 +489,42 @@ export function TurnActivitySurface(props: {
         </div>
 
         {expanded && canExpand ? (
-          <div className="max-h-[min(18rem,42vh)] min-h-0 overflow-y-auto overscroll-contain bg-muted/10 px-1.5 py-1.5">
-            {remainingItems.map((item) => (
+          <div className="max-h-[min(12rem,28vh)] min-h-0 overflow-y-auto overscroll-contain bg-muted/10 px-1.5 py-1.5">
+            {activeItems.map((item) => (
               <TurnActivityRow key={item.id} item={item} />
             ))}
+            {completedItems.length > 0 ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-expanded={showCompleted}
+                  className="h-7 w-full justify-start gap-2 px-2 text-[11px] font-normal text-muted-foreground"
+                  onClick={() => setShowCompleted((value) => !value)}
+                >
+                  <CheckCircle2 className="size-3.5 text-success" aria-hidden />
+                  <span>Completed ({completedItems.length})</span>
+                  <ChevronDown
+                    className={cn(
+                      "ml-auto size-3.5 transition-transform motion-reduce:transition-none",
+                      showCompleted && "rotate-180",
+                    )}
+                    aria-hidden
+                  />
+                </Button>
+                {showCompleted
+                  ? completedItems.map((item) => (
+                      <TurnActivityRow key={item.id} item={item} />
+                    ))
+                  : null}
+              </>
+            ) : null}
           </div>
         ) : null}
       </section>
     </div>
   );
-}
-
-interface TurnActivityListItem {
-  id: string;
-  status: TurnActivityRowStatus | ProviderTurnWorkStatus;
-  title: string;
-  detail?: string;
-  elapsedSeconds?: number;
-  completed?: boolean;
-  icon: typeof Bot;
-}
-
-function resolveTodoStatus(todo: TodoItem): TurnActivityRowStatus {
-  if (todo.status === "completed") {
-    return "completed";
-  }
-  if (todo.status === "in_progress") {
-    return "running";
-  }
-  return "pending";
-}
-
-function buildTurnActivityItems(args: {
-  activity: ProviderTurnActivitySnapshot | null;
-  idleLabel: string | null;
-  isPlanPreparing: boolean;
-  isStalled: boolean;
-  todos: TodoItem[];
-  workItems: ProviderTurnWorkItem[];
-}): TurnActivityListItem[] {
-  const items: TurnActivityListItem[] = [];
-  if (args.activity?.turnError) {
-    const isRecovering =
-      args.activity.turnErrorRecoverable === true &&
-      args.activity.completedAt == null;
-    items.push({
-      id: "turn-error",
-      status: isRecovering ? "waiting" : "failed",
-      title: isRecovering ? "Provider issue" : "Turn failed",
-      detail: args.activity.turnError,
-      icon: CircleAlert,
-    });
-  }
-  if (args.activity?.pendingInteraction) {
-    const needsApproval = args.activity.pendingInteraction === "approval";
-    items.push({
-      id: `interaction:${args.activity.pendingInteraction}`,
-      status: "waiting",
-      title: needsApproval ? "Approval needed" : "Input needed",
-      detail: needsApproval ? "Review to continue" : "Reply to continue",
-      icon: CirclePause,
-    });
-  } else if (args.isStalled) {
-    items.push({
-      id: "stalled",
-      status: "waiting",
-      title: "Activity paused",
-      detail: args.idleLabel
-        ? `No updates for ${args.idleLabel}`
-        : "Waiting for the provider",
-      icon: CirclePause,
-    });
-  }
-  if (args.isPlanPreparing) {
-    items.push({
-      id: "plan",
-      status: "running",
-      title: "Preparing the plan",
-      icon: ListChecks,
-    });
-  }
-  for (const item of args.workItems) {
-    items.push({
-      id: `work:${item.id}`,
-      status: item.status,
-      title: item.title,
-      detail: item.progressMessages.at(-1) ?? item.detail,
-      elapsedSeconds: item.elapsedSeconds,
-      completed: item.status === "completed",
-      icon: item.kind === "subagent" ? Bot : Workflow,
-    });
-  }
-  args.todos.forEach((todo, index) => {
-    items.push({
-      id: `todo:${todo.content}:${index}`,
-      status: resolveTodoStatus(todo),
-      title: todo.content,
-      completed: todo.status === "completed",
-      icon: ClipboardList,
-    });
-  });
-  return items;
 }
 
 function resolveTurnActivityOrbState(args: {
@@ -506,27 +548,40 @@ function resolveTurnActivityOrbState(args: {
   return "working";
 }
 
-function TurnActivityRow({ item }: { item: TurnActivityListItem }) {
+function TurnActivityRow({ item }: { item: TurnActivityItem }) {
   const detail =
     item.detail && item.detail !== item.title ? item.detail : undefined;
-  const title = detail ? `${item.title} · ${detail}` : item.title;
+  const isCompleted = item.status === "completed";
   return (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5">
-      <TurnActivityStatusIcon status={item.status} icon={item.icon} />
-      <p
-        className={cn(
-          "min-w-0 flex-1 truncate text-[0.8125rem] leading-5",
-          item.completed && "text-muted-foreground",
-        )}
-        title={title}
-      >
-        <span className="font-medium">{item.title}</span>
+    <div
+      className="flex min-w-0 items-start gap-2.5 rounded-lg px-2 py-1.5"
+      title={detail ? `${item.title} · ${detail}` : item.title}
+    >
+      <span className="flex h-5 shrink-0 items-center">
+        <TurnActivityStatusIcon status={item.status} iconKey={item.iconKey} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-5",
+            isCompleted && "text-muted-foreground",
+          )}
+        >
+          <span className="truncate font-medium">{item.title}</span>
+          {item.badge ? (
+            <span className="shrink-0 rounded border border-border/60 px-1 text-[10px] leading-4 font-medium tracking-wide text-muted-foreground">
+              {item.badge}
+            </span>
+          ) : null}
+        </p>
         {detail ? (
-          <span className="text-muted-foreground"> · {detail}</span>
+          <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+            {detail}
+          </p>
         ) : null}
-      </p>
+      </div>
       {item.elapsedSeconds != null ? (
-        <span className="shrink-0 text-[11px] leading-4 tabular-nums text-muted-foreground">
+        <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground">
           <span className="sr-only">
             {getStatusLabel(item.status)},{" "}
             {formatElapsedSeconds(item.elapsedSeconds)} elapsed
@@ -542,10 +597,10 @@ function TurnActivityRow({ item }: { item: TurnActivityListItem }) {
 
 function TurnActivityStatusIcon({
   status,
-  icon: Icon,
+  iconKey,
 }: {
-  status: TurnActivityRowStatus | ProviderTurnWorkStatus;
-  icon: typeof Bot;
+  status: TurnActivityRowStatus;
+  iconKey: TurnActivityIconKey;
 }) {
   if (status === "completed") {
     return (
@@ -579,6 +634,7 @@ function TurnActivityStatusIcon({
       </span>
     );
   }
+  const Icon = TURN_ACTIVITY_ICONS[iconKey];
   return (
     <span className="flex size-4 shrink-0 items-center justify-center">
       <Icon className="size-3.5 text-muted-foreground" aria-hidden />
@@ -587,9 +643,7 @@ function TurnActivityStatusIcon({
   );
 }
 
-function getStatusLabel(
-  status: TurnActivityRowStatus | ProviderTurnWorkStatus,
-) {
+function getStatusLabel(status: TurnActivityRowStatus) {
   if (status === "completed") {
     return "Done";
   }

@@ -29,6 +29,8 @@ export interface ProviderTurnWorkItem {
   status: ProviderTurnWorkStatus;
   title: string;
   detail?: string;
+  /** Short qualifier shown next to the title (e.g. a subagent type). */
+  badge?: string;
   toolUseId?: string;
   progressMessages: string[];
   startedAt: number;
@@ -37,6 +39,12 @@ export interface ProviderTurnWorkItem {
 }
 
 export const PROVIDER_TURN_WORK_ITEM_LIMIT = 12;
+/**
+ * Plain tool calls (reads, edits, commands) are tracked so the activity shelf
+ * still says something useful during turns without subagents, but they are
+ * capped tightly so they never crowd out subagent work.
+ */
+export const PROVIDER_TURN_GENERAL_TOOL_LIMIT = 3;
 const PROVIDER_TURN_WORK_PROGRESS_LIMIT = 6;
 const PROVIDER_TURN_WORK_TEXT_LIMIT = 240;
 
@@ -318,6 +326,13 @@ function isSubagentToolName(toolName: string) {
   );
 }
 
+/** `mcp__server__do_thing` / `collaboration.spawn_agent` → `do thing`. */
+function formatToolDisplayName(toolName: string) {
+  const segments = toolName.trim().split(/__|\./).filter(Boolean);
+  const lastSegment = segments.at(-1) ?? toolName;
+  return truncateWorkText(lastSegment.replace(/_/g, " "));
+}
+
 function resolveToolTitle(
   toolName: string,
   input: string,
@@ -329,8 +344,25 @@ function resolveToolTitle(
     truncateWorkText(parsed?.task_name) ??
     truncateWorkText(parsed?.name);
   return (
-    title ?? currentTitle ?? truncateWorkText(toolName) ?? "Background work"
+    title ?? currentTitle ?? formatToolDisplayName(toolName) ?? "Background work"
   );
+}
+
+/** Subagent flavor (`Explore`, `Plan`, …) surfaced as a row badge. */
+function resolveSubagentBadge(input: string) {
+  const parsed = parseToolInput(input);
+  return (
+    truncateWorkText(parsed?.subagent_type) ??
+    truncateWorkText(parsed?.subagentType) ??
+    truncateWorkText(parsed?.agentType) ??
+    truncateWorkText(parsed?.agent_type)
+  );
+}
+
+/** Keep the tail of a path so the row shows `session/ChatInput.tsx`. */
+function formatPathPreview(value: string) {
+  const segments = value.split("/").filter(Boolean);
+  return segments.length > 2 ? segments.slice(-2).join("/") : value;
 }
 
 function resolveToolDetail(input: string) {
@@ -339,6 +371,33 @@ function resolveToolDetail(input: string) {
     truncateWorkText(parsed?.prompt) ??
     truncateWorkText(parsed?.message) ??
     (parsed ? undefined : truncateWorkText(input))
+  );
+}
+
+/**
+ * What a plain tool call is acting on: the command, the file, or the query.
+ * Keeps the shelf informative for edit/run turns that never spawn a subagent.
+ */
+function resolveGeneralToolDetail(input: string) {
+  const parsed = parseToolInput(input);
+  if (!parsed) {
+    return truncateWorkText(input);
+  }
+  const path =
+    typeof parsed.file_path === "string"
+      ? parsed.file_path
+      : typeof parsed.path === "string"
+        ? parsed.path
+        : typeof parsed.notebook_path === "string"
+          ? parsed.notebook_path
+          : null;
+  return (
+    truncateWorkText(parsed.command) ??
+    (path ? truncateWorkText(formatPathPreview(path)) : undefined) ??
+    truncateWorkText(parsed.pattern) ??
+    truncateWorkText(parsed.query) ??
+    truncateWorkText(parsed.url) ??
+    truncateWorkText(parsed.description)
   );
 }
 
@@ -381,30 +440,46 @@ function resolveToolStatus(
   return "running";
 }
 
-function pruneWorkItems(args: {
+type WorkItemCollection = {
   workItemsById: Record<string, ProviderTurnWorkItem>;
   orderedWorkItemIds: string[];
-}) {
-  if (args.orderedWorkItemIds.length <= PROVIDER_TURN_WORK_ITEM_LIMIT) {
-    return args;
-  }
+};
 
-  const removableIds = args.orderedWorkItemIds.filter((id) => {
-    const status = args.workItemsById[id]?.status;
-    return status === "completed" || status === "failed";
-  });
-  const overflowCount =
-    args.orderedWorkItemIds.length - PROVIDER_TURN_WORK_ITEM_LIMIT;
-  const removedIds = new Set(removableIds.slice(0, overflowCount));
-  if (removedIds.size < overflowCount) {
-    for (const id of args.orderedWorkItemIds) {
-      if (removedIds.size >= overflowCount) {
-        break;
+/**
+ * Drop the least interesting ids first: finished work before failures, and
+ * live work only as a last resort. Insertion order breaks ties, so the oldest
+ * entry in each bucket goes first.
+ */
+function collectRemovableWorkItemIds(args: {
+  candidateIds: string[];
+  workItemsById: Record<string, ProviderTurnWorkItem>;
+  overflowCount: number;
+}) {
+  const removedIds = new Set<string>();
+  const buckets = [
+    args.candidateIds.filter(
+      (id) => args.workItemsById[id]?.status === "completed",
+    ),
+    args.candidateIds.filter(
+      (id) => args.workItemsById[id]?.status === "failed",
+    ),
+    args.candidateIds,
+  ];
+  for (const bucket of buckets) {
+    for (const id of bucket) {
+      if (removedIds.size >= args.overflowCount) {
+        return removedIds;
       }
       removedIds.add(id);
     }
   }
+  return removedIds;
+}
 
+function removeWorkItems(args: WorkItemCollection, removedIds: Set<string>) {
+  if (removedIds.size === 0) {
+    return args;
+  }
   const orderedWorkItemIds = args.orderedWorkItemIds.filter(
     (id) => !removedIds.has(id),
   );
@@ -415,6 +490,43 @@ function pruneWorkItems(args: {
     }),
   );
   return { workItemsById, orderedWorkItemIds };
+}
+
+/** Keep plain tool calls to a short "recent activity" tail. */
+function pruneGeneralToolItems(args: WorkItemCollection) {
+  const generalToolIds = args.orderedWorkItemIds.filter(
+    (id) => args.workItemsById[id]?.kind === "tool",
+  );
+  const overflowCount = generalToolIds.length - PROVIDER_TURN_GENERAL_TOOL_LIMIT;
+  if (overflowCount <= 0) {
+    return args;
+  }
+  return removeWorkItems(
+    args,
+    collectRemovableWorkItemIds({
+      candidateIds: generalToolIds,
+      workItemsById: args.workItemsById,
+      overflowCount,
+    }),
+  );
+}
+
+function pruneWorkItems(args: WorkItemCollection) {
+  const trimmed = pruneGeneralToolItems(args);
+  const overflowCount =
+    trimmed.orderedWorkItemIds.length - PROVIDER_TURN_WORK_ITEM_LIMIT;
+  if (overflowCount <= 0) {
+    return trimmed;
+  }
+
+  return removeWorkItems(
+    trimmed,
+    collectRemovableWorkItemIds({
+      candidateIds: trimmed.orderedWorkItemIds,
+      workItemsById: trimmed.workItemsById,
+      overflowCount,
+    }),
+  );
 }
 
 function applyTurnWorkEvents(args: {
@@ -467,14 +579,16 @@ function applyTurnWorkEvents(args: {
     if (event.type === "tool" && event.toolUseId) {
       const currentItem = workItemsById[event.toolUseId];
       const isSubagent = isSubagentToolName(event.toolName);
-      if (!isSubagent && !currentItem) {
-        continue;
-      }
+      const kind = isSubagent ? "subagent" : (currentItem?.kind ?? "tool");
       const eventDetail =
-        resolveToolDetail(event.input) ?? truncateWorkText(event.output);
+        (kind === "subagent"
+          ? resolveToolDetail(event.input)
+          : resolveGeneralToolDetail(event.input)) ??
+        truncateWorkText(event.output);
+      const badge = resolveSubagentBadge(event.input) ?? currentItem?.badge;
       upsertItem({
         id: event.toolUseId,
-        kind: isSubagent ? "subagent" : (currentItem?.kind ?? "tool"),
+        kind,
         status: resolveToolStatus(event.state),
         title: resolveToolTitle(
           event.toolName,
@@ -482,6 +596,7 @@ function applyTurnWorkEvents(args: {
           currentItem?.title,
         ),
         detail: eventDetail ?? currentItem?.detail,
+        ...(badge ? { badge } : {}),
         toolUseId: event.toolUseId,
         progressMessages: currentItem?.progressMessages ?? [],
         startedAt: currentItem?.startedAt ?? args.now,
@@ -494,18 +609,16 @@ function applyTurnWorkEvents(args: {
     if (event.type === "tool_progress") {
       const currentItem = workItemsById[event.toolUseId];
       const isSubagent = isSubagentToolName(event.toolName);
-      if (!isSubagent && !currentItem) {
-        continue;
-      }
       upsertItem({
         id: event.toolUseId,
         kind: isSubagent ? "subagent" : (currentItem?.kind ?? "tool"),
         status: "running",
         title:
           currentItem?.title ??
-          truncateWorkText(event.toolName) ??
+          formatToolDisplayName(event.toolName) ??
           "Background work",
         detail: currentItem?.detail,
+        ...(currentItem?.badge ? { badge: currentItem.badge } : {}),
         toolUseId: event.toolUseId,
         progressMessages: currentItem?.progressMessages ?? [],
         startedAt: currentItem?.startedAt ?? args.now,
@@ -520,6 +633,11 @@ function applyTurnWorkEvents(args: {
       if (!currentItem) {
         continue;
       }
+      // Subagent results summarize the whole run, so they read better than the
+      // spawn prompt. A plain tool's output is usually file/command noise —
+      // keep the input-derived detail there unless the call actually failed.
+      const shouldUseResultDetail =
+        currentItem.kind === "subagent" || event.isError;
       upsertItem({
         ...currentItem,
         status: event.isPartial
@@ -527,7 +645,9 @@ function applyTurnWorkEvents(args: {
           : event.isError
             ? "failed"
             : "completed",
-        detail: resolveToolResultDetail(event.output) ?? currentItem.detail,
+        detail: shouldUseResultDetail
+          ? (resolveToolResultDetail(event.output) ?? currentItem.detail)
+          : currentItem.detail,
         updatedAt: args.now,
       });
     }

@@ -127,6 +127,13 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   infoPanelSectionVisibility: WorkspaceInformationSectionVisibility;
   reasoningExpansionMode: "auto" | "manual";
   showInterimMessages: boolean;
+  /**
+   * Open the turn activity shelf (above the prompt input) expanded by default
+   * so every tracked activity is visible without a click. Users can still
+   * collapse it manually for the current turn; the next turn re-applies this
+   * default.
+   */
+  turnActivityExpandedByDefault: boolean;
   codexFastModeVisible: boolean;
   modelClaude: string;
   modelCodex: string;
@@ -359,6 +366,7 @@ export const defaultSettings: AppSettings = {
   infoPanelSectionVisibility: {},
   reasoningExpansionMode: "manual",
   showInterimMessages: false,
+  turnActivityExpandedByDefault: true,
   codexFastModeVisible: true,
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),

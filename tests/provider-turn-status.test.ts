@@ -734,6 +734,178 @@ describe("provider turn status helpers", () => {
     expect(tracked["task-1"]?.orderedWorkItemIds).toContain("agent-14");
   });
 
+  test("tracks plain tool calls with input-derived detail and a bounded tail", () => {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 1000,
+    });
+    const tracked = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2000,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "tool-read",
+          toolName: "Read",
+          input: JSON.stringify({
+            file_path: "/repo/src/components/session/TurnActivity.tsx",
+          }),
+          state: "output-available",
+        },
+        {
+          type: "tool",
+          toolUseId: "tool-bash",
+          toolName: "Bash",
+          input: JSON.stringify({
+            description: "Run focused tests",
+            command: "bun test tests/turn-activity.test.ts",
+          }),
+          state: "input-available",
+        },
+      ],
+    });
+
+    expect(tracked["task-1"]?.workItemsById["tool-read"]).toMatchObject({
+      kind: "tool",
+      status: "completed",
+      title: "Read",
+      detail: "session/TurnActivity.tsx",
+    });
+    expect(tracked["task-1"]?.workItemsById["tool-bash"]).toMatchObject({
+      kind: "tool",
+      status: "running",
+      title: "Run focused tests",
+      detail: "bun test tests/turn-activity.test.ts",
+    });
+
+    const withOverflow = applyProviderTurnActivityEvents({
+      activityByTask: tracked,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 3000,
+      events: Array.from({ length: 3 }, (_, index) => ({
+        type: "tool" as const,
+        toolUseId: `tool-extra-${index}`,
+        toolName: "Grep",
+        input: JSON.stringify({ pattern: `pattern-${index}` }),
+        state: "output-available" as const,
+      })),
+    });
+
+    // The finished Read drops out first; the still-running Bash survives.
+    expect(
+      withOverflow["task-1"]?.orderedWorkItemIds.filter((id) =>
+        id.startsWith("tool-"),
+      ),
+    ).toEqual(["tool-bash", "tool-extra-1", "tool-extra-2"]);
+  });
+
+  test("keeps a plain tool's input detail but shows its failure output", () => {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 1000,
+    });
+    const running = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 2000,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "tool-1",
+          toolName: "Bash",
+          input: JSON.stringify({ command: "bun run typecheck" }),
+          state: "input-available",
+        },
+      ],
+    });
+    const succeeded = applyProviderTurnActivityEvents({
+      activityByTask: running,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 3000,
+      events: [
+        {
+          type: "tool_result",
+          tool_use_id: "tool-1",
+          output: "a very long stdout dump nobody wants in the shelf",
+        },
+      ],
+    });
+    const failed = applyProviderTurnActivityEvents({
+      activityByTask: running,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 3000,
+      events: [
+        {
+          type: "tool_result",
+          tool_use_id: "tool-1",
+          output: "error TS2345: argument mismatch",
+          isError: true,
+        },
+      ],
+    });
+
+    expect(succeeded["task-1"]?.workItemsById["tool-1"]).toMatchObject({
+      status: "completed",
+      detail: "bun run typecheck",
+    });
+    expect(failed["task-1"]?.workItemsById["tool-1"]).toMatchObject({
+      status: "failed",
+      detail: "error TS2345: argument mismatch",
+    });
+  });
+
+  test("carries the subagent type through as a row badge", () => {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 1000,
+    });
+    const running = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2000,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "agent-1",
+          toolName: "Task",
+          input: JSON.stringify({
+            description: "Map the renderer",
+            subagent_type: "Explore",
+          }),
+          state: "input-available",
+        },
+      ],
+    });
+
+    expect(running["task-1"]?.workItemsById["agent-1"]).toMatchObject({
+      kind: "subagent",
+      title: "Map the renderer",
+      badge: "Explore",
+    });
+  });
+
   test("uses the same UI stall threshold across provider ids", () => {
     expect(
       resolveProviderTurnStallThresholdMs({ providerId: "claude-code" }),
