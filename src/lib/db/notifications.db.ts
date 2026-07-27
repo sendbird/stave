@@ -128,11 +128,10 @@ interface RequiredPersistenceApi {
     ok: boolean;
     count: number;
   }>;
-  deleteNotificationsOutsideWorkspaces?: (args: {
-    workspaceIds: string[];
-  }) => Promise<{
+  deleteOrphanedNotifications?: () => Promise<{
     ok: boolean;
     count: number;
+    workspaceIds: string[];
   }>;
   clearNotificationHistory?: () => Promise<{
     ok: boolean;
@@ -549,29 +548,30 @@ export async function deleteNotificationsForWorkspaces(args: {
  * Reconciles leftovers from before workspace-scoped cleanup existed: drops every
  * workspace-scoped notification whose workspace is no longer known. Notifications
  * without a workspace are app-wide and always kept.
+ *
+ * The main process decides which workspaces are gone, because only it holds the
+ * full inventory. The purged workspace ids come back so the caller can prune its
+ * in-memory list against the same verdict.
  */
-export async function deleteNotificationsOutsideWorkspaces(args: {
-  workspaceIds: readonly string[];
-}): Promise<number> {
-  const workspaceIds = normalizeWorkspaceIds(args.workspaceIds);
+export async function deleteOrphanedNotifications(): Promise<{
+  count: number;
+  workspaceIds: string[];
+}> {
   const persistence = getPersistenceApi();
-  if (!persistence?.deleteNotificationsOutsideWorkspaces) {
-    const rows = loadFallbackRows();
-    const known = new Set(workspaceIds);
-    const nextRows = rows.filter(
-      (row) => !row.workspaceId || known.has(row.workspaceId),
-    );
-    saveFallbackRows(nextRows);
-    return rows.length - nextRows.length;
+  if (!persistence?.deleteOrphanedNotifications) {
+    // The localStorage fallback has no workspace inventory to compare against,
+    // so it cannot tell an orphan from a workspace it simply never saw.
+    return { count: 0, workspaceIds: [] };
   }
 
-  const response = await persistence.deleteNotificationsOutsideWorkspaces({
-    workspaceIds,
-  });
+  const response = await persistence.deleteOrphanedNotifications();
   if (!response.ok) {
     throw new Error("Failed to delete orphaned notifications.");
   }
-  return response.count;
+  return {
+    count: response.count,
+    workspaceIds: normalizeWorkspaceIds(response.workspaceIds ?? []),
+  };
 }
 
 export async function clearNotificationHistory(): Promise<number> {

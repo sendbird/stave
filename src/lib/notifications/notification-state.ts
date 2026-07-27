@@ -152,19 +152,6 @@ export function selectNotificationIdsForWorkspaces(args: {
     .map((notification) => notification.id);
 }
 
-export function selectOrphanedNotificationIds(args: {
-  notifications: readonly AppNotification[];
-  knownWorkspaceIds: ReadonlySet<string>;
-}) {
-  return args.notifications
-    .filter((notification) => {
-      const workspaceId = notification.workspaceId?.trim();
-      // Workspace-less notifications are app-wide and never orphaned.
-      return Boolean(workspaceId) && !args.knownWorkspaceIds.has(workspaceId as string);
-    })
-    .map((notification) => notification.id);
-}
-
 export function removeNotificationsFromList(args: {
   notifications: AppNotification[];
   notificationIds: ReadonlySet<string>;

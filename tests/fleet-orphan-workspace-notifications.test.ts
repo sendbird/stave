@@ -3,13 +3,12 @@ import { buildFleetAttentionProjection } from "@/lib/fleet/attention-projection"
 import {
   createNotification,
   deleteNotificationsForWorkspaces,
-  deleteNotificationsOutsideWorkspaces,
+  deleteOrphanedNotifications,
   listNotifications,
 } from "@/lib/db/notifications.db";
 import {
   removeNotificationsFromList,
   selectNotificationIdsForWorkspaces,
-  selectOrphanedNotificationIds,
 } from "@/lib/notifications/notification-state";
 import {
   purgeWorkspaceNotificationsAction,
@@ -103,19 +102,6 @@ describe("fleet attention projection ignores archived workspaces", () => {
 });
 
 describe("orphaned notification selection", () => {
-  test("selects notifications whose workspace is not known", () => {
-    const ids = selectOrphanedNotificationIds({
-      notifications: [
-        buildNotification({ id: "live", workspaceId: "workspace-live" }),
-        buildNotification({ id: "orphan", workspaceId: "workspace-archived" }),
-        buildNotification({ id: "global", workspaceId: null }),
-      ],
-      knownWorkspaceIds: new Set(["workspace-live"]),
-    });
-
-    expect(ids).toEqual(["orphan"]);
-  });
-
   test("selects notifications belonging to the given workspaces", () => {
     const ids = selectNotificationIdsForWorkspaces({
       notifications: [
@@ -207,31 +193,21 @@ describe("notification deletion persistence", () => {
     expect(remaining.map((item) => item.id).sort()).toEqual(["global", "live"]);
   });
 
-  test("deletes notifications outside the known workspaces but keeps workspace-less ones", async () => {
+  test("keeps everything when no persistence bridge can judge orphans", async () => {
     await seedNotifications();
 
-    const deleted = await deleteNotificationsOutsideWorkspaces({
-      workspaceIds: ["workspace-live"],
-    });
+    // The localStorage fallback has no workspace inventory, so it must not
+    // guess which rows are orphaned.
+    const result = await deleteOrphanedNotifications();
 
-    expect(deleted).toBe(1);
-    const remaining = await listNotifications();
-    expect(remaining.map((item) => item.id).sort()).toEqual(["global", "live"]);
+    expect(result).toEqual({ count: 0, workspaceIds: [] });
+    expect(await listNotifications()).toHaveLength(3);
   });
 
   function createNotificationSlice(args: {
     notifications: AppNotification[];
-    workspaceIds?: string[];
-    hasHydratedWorkspaces?: boolean;
   }) {
-    let state = {
-      notifications: args.notifications,
-      hasHydratedWorkspaces: args.hasHydratedWorkspaces ?? true,
-      recentProjects: [
-        { workspaces: (args.workspaceIds ?? []).map((id) => ({ id })) },
-      ],
-      workspaces: [] as { id: string }[],
-    };
+    let state = { notifications: args.notifications };
     return {
       set: (updater: (current: typeof state) => Partial<typeof state>) => {
         state = { ...state, ...updater(state) };
@@ -245,7 +221,6 @@ describe("notification deletion persistence", () => {
     await seedNotifications();
     const slice = createNotificationSlice({
       notifications: await listNotifications(),
-      workspaceIds: ["workspace-live"],
     });
 
     await purgeWorkspaceNotificationsAction({
@@ -262,31 +237,10 @@ describe("notification deletion persistence", () => {
     expect(remaining.map((item) => item.id).sort()).toEqual(["global", "live"]);
   });
 
-  test("startup reconcile drops notifications left behind by removed workspaces", async () => {
+  test("reconcile leaves the list alone when no bridge can judge orphans", async () => {
     await seedNotifications();
     const slice = createNotificationSlice({
       notifications: await listNotifications(),
-      workspaceIds: ["workspace-live"],
-    });
-
-    await reconcileOrphanedNotificationsAction({
-      set: slice.set,
-      get: slice.get,
-    });
-
-    expect(slice.current().map((item) => item.id).sort()).toEqual([
-      "global",
-      "live",
-    ]);
-    const remaining = await listNotifications();
-    expect(remaining.map((item) => item.id).sort()).toEqual(["global", "live"]);
-  });
-
-  test("startup reconcile keeps everything when the workspace inventory is empty", async () => {
-    await seedNotifications();
-    const slice = createNotificationSlice({
-      notifications: await listNotifications(),
-      workspaceIds: [],
     });
 
     await reconcileOrphanedNotificationsAction({
@@ -297,26 +251,92 @@ describe("notification deletion persistence", () => {
     expect(slice.current()).toHaveLength(3);
     expect(await listNotifications()).toHaveLength(3);
   });
+});
 
-  test("startup reconcile keeps everything until the workspace inventory is hydrated", async () => {
-    await seedNotifications();
-    const slice = createNotificationSlice({
-      notifications: await listNotifications(),
-      workspaceIds: [],
-      hasHydratedWorkspaces: false,
+describe("reconcile applies the main process verdict", () => {
+  function installPersistenceStub(args: { orphanWorkspaceIds: string[] }) {
+    const calls: number[] = [];
+    (globalThis as { window?: unknown }).window = {
+      localStorage: createMemoryStorage(),
+      api: {
+        persistence: {
+          // getPersistenceApi() only hands back an api that can serve the whole
+          // notification surface, so the stub has to cover the core four.
+          listNotifications: async () => ({ ok: true, notifications: [] }),
+          createNotification: async () => ({
+            ok: true,
+            inserted: false,
+            notification: null,
+          }),
+          markNotificationRead: async () => ({ ok: true, notification: null }),
+          markAllNotificationsRead: async () => ({ ok: true, count: 0 }),
+          deleteOrphanedNotifications: async () => {
+            calls.push(1);
+            return {
+              ok: true,
+              count: args.orphanWorkspaceIds.length,
+              workspaceIds: args.orphanWorkspaceIds,
+            };
+          },
+        },
+      },
+    };
+    return calls;
+  }
+
+  afterEach(() => {
+    (globalThis as { window?: unknown }).window = originalWindow;
+  });
+
+  function createSlice(notifications: AppNotification[]) {
+    let state = { notifications };
+    return {
+      set: (updater: (current: typeof state) => Partial<typeof state>) => {
+        state = { ...state, ...updater(state) };
+      },
+      get: () => state,
+      current: () => state.notifications,
+    };
+  }
+
+  test("drops exactly the workspaces the main process purged", async () => {
+    const calls = installPersistenceStub({
+      orphanWorkspaceIds: ["workspace-archived"],
     });
+    const slice = createSlice([
+      buildNotification({ id: "live", workspaceId: "workspace-live" }),
+      buildNotification({ id: "orphan", workspaceId: "workspace-archived" }),
+      buildNotification({ id: "global", workspaceId: null }),
+    ]);
 
-    await reconcileOrphanedNotificationsAction({
+    const deleted = await reconcileOrphanedNotificationsAction({
       set: slice.set,
       get: slice.get,
     });
 
+    expect(calls).toHaveLength(1);
+    expect(deleted).toBe(1);
     expect(slice.current().map((item) => item.id).sort()).toEqual([
       "global",
       "live",
-      "orphan",
     ]);
-    const remaining = await listNotifications();
-    expect(remaining).toHaveLength(3);
+  });
+
+  test("keeps a workspace the renderer has never seen but the host owns", async () => {
+    // The renderer inventory is a capped, per-project snapshot, so a
+    // host-created workspace is unknown to it. The main process knows better
+    // and reports no orphan, and the notification must survive.
+    installPersistenceStub({ orphanWorkspaceIds: [] });
+    const slice = createSlice([
+      buildNotification({ id: "host", workspaceId: "workspace-host-created" }),
+    ]);
+
+    const deleted = await reconcileOrphanedNotificationsAction({
+      set: slice.set,
+      get: slice.get,
+    });
+
+    expect(deleted).toBe(0);
+    expect(slice.current().map((item) => item.id)).toEqual(["host"]);
   });
 });

@@ -136,6 +136,56 @@ describe("Fleet attention projection", () => {
     });
   });
 
+  test("keeps a managed question alive after its notification is resolved", () => {
+    // Managed tasks answer through the host, so their live need survives
+    // without an active turn. Resolving only the notification therefore cannot
+    // clear the item, which is why Dismiss must stay off live-sourced needs.
+    const questionMessage = buildAssistantMessage({
+      parts: [
+        {
+          type: "user_input",
+          requestId: "input-1",
+          toolName: "AskUserQuestion",
+          questions: [],
+          state: "input-requested",
+        },
+      ],
+    });
+    const liveWorkspaces = [
+      buildLiveWorkspace({
+        tasks: [buildTask({ controlMode: "managed", controlOwner: "stave" })],
+        messagesByTask: { "task-1": [questionMessage] },
+      }),
+    ];
+    const question = buildNotification({
+      kind: "task.user_input_requested",
+      action: null,
+      payload: { requestId: "input-1" },
+    });
+
+    const before = buildFleetAttentionProjection({
+      notifications: [question],
+      liveWorkspaces,
+      prWorkspaces: [],
+    });
+    expect(before.items).toHaveLength(1);
+    expect(before.items[0]).toMatchObject({
+      source: "live",
+      notificationId: "notification-1",
+    });
+
+    const after = buildFleetAttentionProjection({
+      notifications: [
+        { ...question, resolvedAt: "2026-07-26T02:00:00.000Z" },
+      ],
+      liveWorkspaces,
+      prWorkspaces: [],
+    });
+    expect(after.count).toBe(1);
+    expect(after.items[0]).toMatchObject({ source: "live" });
+    expect(after.items[0]?.notificationId).toBeUndefined();
+  });
+
   test("drops resolved interactions and read terminal notifications", () => {
     const needs = collectFleetNotificationNeeds([
       buildNotification({

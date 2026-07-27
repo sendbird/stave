@@ -1,13 +1,12 @@
 import {
   clearNotificationHistory as clearPersistedNotificationHistory,
   deleteNotificationsForWorkspaces as deletePersistedWorkspaceNotifications,
-  deleteNotificationsOutsideWorkspaces as deletePersistedOrphanedNotifications,
+  deleteOrphanedNotifications as deletePersistedOrphanedNotifications,
   listNotifications as listPersistedNotifications,
   markAllNotificationsRead as markAllPersistedNotificationsRead,
   markNotificationRead as markPersistedNotificationRead,
   pruneNotifications as prunePersistedNotifications,
 } from "@/lib/db/notifications.db";
-import { collectKnownWorkspaceIds } from "@/store/project.utils";
 import {
   clearNotificationHistoryInList,
   getNotificationHistoryClearableIds,
@@ -16,7 +15,6 @@ import {
   mergeNotificationIntoList,
   removeNotificationsFromList,
   selectNotificationIdsForWorkspaces,
-  selectOrphanedNotificationIds,
 } from "@/lib/notifications/notification-state";
 import type { AppNotification } from "@/lib/notifications/notification.types";
 import { buildNotificationExpiresAt } from "@/lib/notifications/notification.types";
@@ -34,18 +32,6 @@ export interface NotificationActionDeps {
     updater: (state: NotificationSliceState) => Partial<NotificationSliceState>,
   ) => void;
   get: () => NotificationSliceState;
-}
-
-/** The workspace inventory needed to tell live notifications from orphaned ones. */
-interface NotificationWorkspaceInventory {
-  hasHydratedWorkspaces: boolean;
-  recentProjects: readonly { workspaces: readonly { id: string }[] }[];
-  workspaces: readonly { id: string }[];
-}
-
-export interface NotificationHydrationDeps
-  extends Omit<NotificationActionDeps, "get"> {
-  get: () => NotificationSliceState & NotificationWorkspaceInventory;
 }
 
 function syncUnreadBadge(get: NotificationActionDeps["get"]) {
@@ -174,39 +160,27 @@ export async function purgeWorkspaceNotificationsAction(
  * Cleans up rows written before workspace-scoped cleanup existed. The persisted
  * sweep is workspace-scoped rather than id-scoped so it also reaches rows beyond
  * the hydration limit.
+ *
+ * The renderer deliberately does not decide what counts as an orphan. Its
+ * inventory is a capped, per-project snapshot that a host-created workspace is
+ * missing from, and acting on it deleted live requests. The main process owns
+ * the verdict; this only mirrors it into the in-memory list.
  */
 export async function reconcileOrphanedNotificationsAction(
-  deps: NotificationHydrationDeps,
+  deps: NotificationActionDeps,
 ) {
-  const state = deps.get();
-  // Judging orphans needs a hydrated inventory. Bailing out is the safe default:
-  // an empty registry mid-hydration would look like "every workspace is gone".
-  if (!state.hasHydratedWorkspaces) {
-    return 0;
-  }
-  const knownWorkspaceIds = collectKnownWorkspaceIds({
-    recentProjects: state.recentProjects,
-    workspaces: state.workspaces,
-  });
-  // An empty inventory cannot be told apart from a failed load, and the cost of
-  // guessing wrong is deleting live requests. Nothing is reachable in that state
-  // anyway, so waiting for the next startup is free.
-  if (knownWorkspaceIds.size === 0) {
-    return 0;
-  }
-
-  dropNotificationsFromSlice(
-    deps,
-    selectOrphanedNotificationIds({
-      notifications: state.notifications,
-      knownWorkspaceIds,
-    }),
-  );
-
   try {
-    const count = await deletePersistedOrphanedNotifications({
-      workspaceIds: [...knownWorkspaceIds],
-    });
+    const { count, workspaceIds } = await deletePersistedOrphanedNotifications();
+    if (workspaceIds.length === 0) {
+      return count;
+    }
+    dropNotificationsFromSlice(
+      deps,
+      selectNotificationIdsForWorkspaces({
+        notifications: deps.get().notifications,
+        workspaceIds,
+      }),
+    );
     syncUnreadBadge(deps.get);
     return count;
   } catch (error) {
@@ -219,7 +193,7 @@ export async function reconcileOrphanedNotificationsAction(
 }
 
 export async function hydrateNotificationsAction(
-  deps: NotificationHydrationDeps,
+  deps: NotificationActionDeps,
 ) {
   try {
     await prunePersistedNotifications();

@@ -294,19 +294,12 @@ export function registerPersistenceHandlers() {
     },
   );
 
-  ipcMain.handle(
-    "persistence:delete-notifications-outside-workspaces",
-    async (_event, args: unknown) => {
-      const parsedArgs =
-        DeleteWorkspaceNotificationsArgsSchema.safeParse(args);
-      if (!parsedArgs.success) {
-        return { ok: false, count: 0 };
-      }
-      const store = await ensurePersistenceReady();
-      const count = store.deleteNotificationsOutsideWorkspaces(parsedArgs.data);
-      return { ok: true, count };
-    },
-  );
+  ipcMain.handle("persistence:delete-orphaned-notifications", async () => {
+    // No arguments on purpose: the store decides which workspaces are gone.
+    const store = await ensurePersistenceReady();
+    const { count, workspaceIds } = store.deleteOrphanedNotifications();
+    return { ok: true, count, workspaceIds };
+  });
 
   ipcMain.handle(
     "persistence:clear-notification-history",

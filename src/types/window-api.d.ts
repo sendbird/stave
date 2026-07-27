@@ -1611,11 +1611,10 @@ interface WindowPersistenceApi {
     ok: boolean;
     count: number;
   }>;
-  deleteNotificationsOutsideWorkspaces?: (args: {
-    workspaceIds: string[];
-  }) => Promise<{
+  deleteOrphanedNotifications?: () => Promise<{
     ok: boolean;
     count: number;
+    workspaceIds: string[];
   }>;
   clearNotificationHistory?: () => Promise<{
     ok: boolean;

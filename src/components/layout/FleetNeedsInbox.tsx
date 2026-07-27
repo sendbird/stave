@@ -152,8 +152,14 @@ export function FleetNeedsInbox(args: {
             (item.kind === "run-failed" || item.kind === "result-ready");
           // A question can outlive the turn that asked it. Without an explicit
           // dismiss there is no way to clear it from the attention count.
+          // Live-sourced needs are excluded: dismissing resolves the
+          // notification, but the pending request behind a live need would
+          // rebuild the same item on the next projection, leaving the count
+          // unchanged and the button gone.
           const canDismiss =
-            Boolean(item.notificationId) && item.kind === "user-input";
+            item.source === "notification" &&
+            Boolean(item.notificationId) &&
+            item.kind === "user-input";
 
           return (
             <li

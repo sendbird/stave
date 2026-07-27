@@ -48,4 +48,13 @@ describe("FleetNeedsInbox", () => {
       renderInbox([buildNeed({ notificationId: undefined, source: "live" })]),
     ).not.toContain("Dismiss");
   });
+
+  test("omits the dismiss action when the question still has a live request", () => {
+    // A live need merged with its notification keeps the live source and the
+    // notification id. Resolving the notification does not retract the live
+    // request, so the item would come straight back with the count unchanged.
+    expect(
+      renderInbox([buildNeed({ source: "live" })]),
+    ).not.toContain("Dismiss");
+  });
 });

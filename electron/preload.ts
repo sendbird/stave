@@ -1183,13 +1183,14 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         count: number;
       }>,
-    deleteNotificationsOutsideWorkspaces: (args: { workspaceIds: string[] }) =>
+    deleteOrphanedNotifications: () =>
       ipcRenderer.invoke(
-        "persistence:delete-notifications-outside-workspaces",
-        args,
+        "persistence:delete-orphaned-notifications",
+        {},
       ) as Promise<{
         ok: boolean;
         count: number;
+        workspaceIds: string[];
       }>,
     clearNotificationHistory: () =>
       ipcRenderer.invoke(
