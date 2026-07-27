@@ -80,7 +80,8 @@ export function getLinkedWorktreePathSetForProject(args: {
 export type WorkspaceArchivePreservationReason =
   | "dirty-worktree"
   | "worktree-remove-failed"
-  | "branch-delete-failed";
+  | "branch-delete-failed"
+  | "branch-unresolved";
 
 export function buildWorkspaceArchivePreservationToast(args: {
   reason: WorkspaceArchivePreservationReason;
@@ -109,7 +110,41 @@ export function buildWorkspaceArchivePreservationToast(args: {
         title: "Branch deletion failed",
         description: `${subject}, but could not delete ${branch}.`,
       };
+    case "branch-unresolved":
+      return {
+        title: "Branch kept",
+        description: `${subject}, but could not confirm which branch its git worktree had checked out, so no branch was deleted.`,
+      };
   }
+}
+
+/**
+ * Decide which branch archive is allowed to delete.
+ *
+ * `workspaceBranchById` is only a cache: `refreshWorkspaces` skips worktree
+ * paths it already knows instead of re-reading their branch, and only the
+ * in-app branch dropdown writes back to it. A `git checkout` run from the
+ * workspace terminal — or by an agent working in that worktree — therefore
+ * leaves the cached name stale. Force-deleting the stale name would destroy an
+ * unrelated branch while orphaning the branch the worktree actually held, so
+ * the worktree's own HEAD is the only value worth trusting. Git refuses to
+ * check a branch out in two worktrees at once, so the resolved branch is by
+ * definition owned by the worktree being removed.
+ *
+ * Returns `branch: null` when HEAD is detached or cannot be read; archive then
+ * deletes nothing and says so instead of guessing.
+ */
+export function resolveWorkspaceBranchToDelete(args: {
+  headOk: boolean;
+  headStdout?: string;
+  cachedBranch?: string;
+}): { branch: string | null; staleCachedBranch: string | null } {
+  const branch = args.headOk ? (args.headStdout ?? "").trim() || null : null;
+  const staleCachedBranch =
+    args.cachedBranch && args.cachedBranch !== branch
+      ? args.cachedBranch
+      : null;
+  return { branch, staleCachedBranch };
 }
 
 export type WorkspaceArchiveCommandRunner = (args: {
@@ -208,11 +243,14 @@ async function performWorkspaceArchiveCleanup(args: {
     projectPath,
   } = args;
   const deleteBranch = args.deleteBranch ?? true;
-  const warnPreserved = (reason: WorkspaceArchivePreservationReason) => {
+  const warnPreserved = (
+    reason: WorkspaceArchivePreservationReason,
+    branchOverride?: string,
+  ) => {
     const { title, description } = buildWorkspaceArchivePreservationToast({
       reason,
       workspaceName,
-      workspaceBranch,
+      workspaceBranch: branchOverride ?? workspaceBranch,
     });
     toast.warning(title, { description });
   };
@@ -266,6 +304,32 @@ async function performWorkspaceArchiveCleanup(args: {
         workspaceId,
       });
       let didRemoveWorktree = false;
+      // Resolve the branch before the worktree is gone — afterwards there is no
+      // path left to ask.
+      let branchToDelete: string | null = null;
+      if (deleteBranch && !hasLocalChanges) {
+        const headResult = await runner({
+          cwd: workspacePath,
+          command: "git symbolic-ref --quiet --short HEAD",
+        });
+        const resolved = resolveWorkspaceBranchToDelete({
+          headOk: headResult.ok,
+          headStdout: headResult.stdout,
+          cachedBranch: workspaceBranch,
+        });
+        branchToDelete = resolved.branch;
+        if (resolved.staleCachedBranch) {
+          console.warn(
+            "[workspace-archive] cached workspace branch is stale; using the worktree HEAD",
+            {
+              workspaceId,
+              workspacePath,
+              cachedBranch: resolved.staleCachedBranch,
+              headBranch: resolved.branch,
+            },
+          );
+        }
+      }
       if (hasLocalChanges) {
         console.warn("[workspace-archive] preserving dirty worktree", {
           workspaceId,
@@ -299,7 +363,10 @@ async function performWorkspaceArchiveCleanup(args: {
             },
           );
           if (deleteBranch) {
-            warnPreserved("worktree-remove-failed");
+            warnPreserved(
+              "worktree-remove-failed",
+              branchToDelete ?? workspaceBranch,
+            );
           }
         }
         await runner({
@@ -308,23 +375,32 @@ async function performWorkspaceArchiveCleanup(args: {
         });
       }
 
-      if (workspaceBranch && deleteBranch && didRemoveWorktree) {
-        // Forced delete is deliberate. `git branch -d` refuses any branch that
-        // is not an ancestor of its upstream, which is every squash-merged
-        // branch — and Stave points worktree branches at the base branch, so
-        // `-d` also refuses branches that are merely pushed. Deletion is an
-        // explicit opt-in from the archive dialog, so honor it.
-        const deleteResult = await runner({
-          cwd: projectPath,
-          command: `git branch -D ${JSON.stringify(workspaceBranch)}`,
-        });
-        if (!deleteResult.ok) {
-          console.warn("[workspace-archive] git branch -D failed", {
-            workspaceId,
-            workspaceBranch,
-            stderr: deleteResult.stderr,
+      if (deleteBranch && didRemoveWorktree) {
+        if (!branchToDelete) {
+          console.warn(
+            "[workspace-archive] could not resolve the worktree branch; skipping deletion",
+            { workspaceId, workspacePath, cachedBranch: workspaceBranch },
+          );
+          warnPreserved("branch-unresolved");
+        } else {
+          // Forced delete is deliberate. `git branch -d` refuses any branch
+          // that is not an ancestor of its upstream, which is every
+          // squash-merged branch — and Stave points worktree branches at the
+          // base branch, so `-d` also refuses branches that are merely pushed.
+          // Deletion is an explicit opt-in from the archive dialog, so honor
+          // it — but only for the branch the worktree actually held.
+          const deleteResult = await runner({
+            cwd: projectPath,
+            command: `git branch -D ${JSON.stringify(branchToDelete)}`,
           });
-          warnPreserved("branch-delete-failed");
+          if (!deleteResult.ok) {
+            console.warn("[workspace-archive] git branch -D failed", {
+              workspaceId,
+              branch: branchToDelete,
+              stderr: deleteResult.stderr,
+            });
+            warnPreserved("branch-delete-failed", branchToDelete);
+          }
         }
       }
     } catch (error) {

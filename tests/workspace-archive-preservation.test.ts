@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildWorkspaceArchivePreservationToast } from "@/store/workspace-archive-cleanup";
+import {
+  buildWorkspaceArchivePreservationToast,
+  resolveWorkspaceBranchToDelete,
+} from "@/store/workspace-archive-cleanup";
 
 describe("buildWorkspaceArchivePreservationToast", () => {
   test("explains that a dirty worktree kept both the worktree and the branch", () => {
@@ -62,5 +65,72 @@ describe("buildWorkspaceArchivePreservationToast", () => {
       buildWorkspaceArchivePreservationToast({ reason: "branch-delete-failed" })
         .description,
     ).toBe("Archived the workspace, but could not delete its branch.");
+  });
+
+  test("explains that the worktree branch could not be identified", () => {
+    expect(
+      buildWorkspaceArchivePreservationToast({
+        reason: "branch-unresolved",
+        workspaceName: "feature",
+      }),
+    ).toEqual({
+      title: "Branch kept",
+      description:
+        'Archived "feature", but could not confirm which branch its git worktree had checked out, so no branch was deleted.',
+    });
+  });
+});
+
+describe("resolveWorkspaceBranchToDelete", () => {
+  test("uses the worktree HEAD instead of the cached branch name", () => {
+    expect(
+      resolveWorkspaceBranchToDelete({
+        headOk: true,
+        headStdout: "feature/renamed\n",
+        cachedBranch: "feature/stale",
+      }),
+    ).toEqual({
+      branch: "feature/renamed",
+      staleCachedBranch: "feature/stale",
+    });
+  });
+
+  test("reports no staleness when the cache already matches HEAD", () => {
+    expect(
+      resolveWorkspaceBranchToDelete({
+        headOk: true,
+        headStdout: "fix/archive\n",
+        cachedBranch: "fix/archive",
+      }),
+    ).toEqual({ branch: "fix/archive", staleCachedBranch: null });
+  });
+
+  test("refuses to fall back to the cached branch on a detached HEAD", () => {
+    expect(
+      resolveWorkspaceBranchToDelete({
+        headOk: false,
+        headStdout: "",
+        cachedBranch: "fix/archive",
+      }),
+    ).toEqual({ branch: null, staleCachedBranch: "fix/archive" });
+  });
+
+  test("treats blank HEAD output as unresolved", () => {
+    expect(
+      resolveWorkspaceBranchToDelete({
+        headOk: true,
+        headStdout: "  \n",
+        cachedBranch: "fix/archive",
+      }).branch,
+    ).toBeNull();
+  });
+
+  test("deletes the resolved branch even when no branch was cached", () => {
+    expect(
+      resolveWorkspaceBranchToDelete({
+        headOk: true,
+        headStdout: "feature/imported",
+      }),
+    ).toEqual({ branch: "feature/imported", staleCachedBranch: null });
   });
 });

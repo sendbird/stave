@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildCollapsedWorkspaceEntries,
   buildSidebarActiveWorkspaceEntries,
+  buildWorkspaceArchiveDialogCopy,
   buildWorkspaceHoverPreview,
   buildVisibleWorkspaceShortcutTargets,
   getWorkspaceHoverActionVisibilityClasses,
@@ -482,5 +483,31 @@ describe("buildSidebarActiveWorkspaceEntries", () => {
       "ws-b-recent",
       "ws-attention",
     ]);
+  });
+});
+
+describe("buildWorkspaceArchiveDialogCopy", () => {
+  test("offers branch deletion for a Stave-managed worktree", () => {
+    const copy = buildWorkspaceArchiveDialogCopy({
+      workspaceName: "fix/archive",
+      isLinkedWorktree: false,
+    });
+
+    expect(copy.canDeleteBranch).toBe(true);
+    expect(copy.description).toBe(
+      'Archive workspace "fix/archive"? Stave will remove the associated git worktree only when it is clean and will preserve local changes.',
+    );
+  });
+
+  test("withholds branch deletion for an imported linked worktree", () => {
+    const copy = buildWorkspaceArchiveDialogCopy({
+      workspaceName: "imported",
+      isLinkedWorktree: true,
+    });
+
+    expect(copy.canDeleteBranch).toBe(false);
+    expect(copy.description).toBe(
+      'Archive workspace "imported"? It is a linked worktree owned outside this project, so Stave only removes its shortcut — the worktree and its git branch stay untouched.',
+    );
   });
 });

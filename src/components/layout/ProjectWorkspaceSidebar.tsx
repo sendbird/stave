@@ -38,6 +38,7 @@ import { PANEL_BAR_HEIGHT_CLASS } from "@/components/layout/panel-bar.constants"
 import {
   buildCollapsedWorkspaceEntries,
   buildSidebarActiveWorkspaceEntries,
+  buildWorkspaceArchiveDialogCopy,
   filterProjectSidebarProjects,
   formatWorkspaceDisplayName,
   buildWorkspaceHoverPreview,
@@ -99,11 +100,13 @@ import {
 import type { FleetNeedKind } from "@/lib/fleet/attention-projection";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
 import { isDefaultWorkspaceName } from "@/store/project.utils";
+import { getLinkedWorktreePathSetForProject } from "@/store/workspace-archive-cleanup";
 import type { ChatMessage, Task } from "@/types/chat";
 
 type ProjectSidebarView = ProjectSidebarCollapsedProjectView;
@@ -1125,6 +1128,26 @@ export function ProjectWorkspaceSidebar(args: {
       }),
     [projects, workspaceSearchQuery],
   );
+  // Archive treats linked worktrees as externally owned, so the confirmation
+  // must not promise a branch deletion that `performWorkspaceArchiveCleanup`
+  // will never perform.
+  const archiveDialogCopy = useMemo(() => {
+    if (!workspaceToClose) {
+      return null;
+    }
+    const workspacePath = workspacePathById[workspaceToClose.id];
+    const isLinkedWorktree = Boolean(
+      workspacePath &&
+        getLinkedWorktreePathSetForProject({
+          projectPath: currentProjectPath,
+          recentProjects,
+        }).has(normalizeComparablePath(workspacePath)),
+    );
+    return buildWorkspaceArchiveDialogCopy({
+      workspaceName: workspaceToClose.name,
+      isLinkedWorktree,
+    });
+  }, [currentProjectPath, recentProjects, workspacePathById, workspaceToClose]);
   const collapsedWorkspaceEntries = useMemo(
     () =>
       buildCollapsedWorkspaceEntries({
@@ -2565,11 +2588,7 @@ export function ProjectWorkspaceSidebar(args: {
       <ConfirmDialog
         open={Boolean(workspaceToClose)}
         title="Archive Workspace"
-        description={
-          workspaceToClose
-            ? `Archive workspace "${workspaceToClose.name}"? Stave will remove the associated git worktree only when it is clean and will preserve local changes.`
-            : ""
-        }
+        description={archiveDialogCopy?.description ?? ""}
         confirmLabel="Archive"
         loading={closingWorkspaceId !== null}
         onCancel={() => {
@@ -2583,7 +2602,9 @@ export function ProjectWorkspaceSidebar(args: {
           setClosingWorkspaceId(workspaceToClose.id);
           void closeWorkspace({
             workspaceId: workspaceToClose.id,
-            deleteBranch: archiveDeletesBranch,
+            deleteBranch:
+              archiveDeletesBranch &&
+              archiveDialogCopy?.canDeleteBranch !== false,
           }).finally(() => {
             setClosingWorkspaceId(null);
             setWorkspaceToClose(null);
@@ -2591,24 +2612,28 @@ export function ProjectWorkspaceSidebar(args: {
           });
         }}
       >
-        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm hover:bg-muted/30">
-          <input
-            type="checkbox"
-            className="accent-destructive"
-            checked={archiveDeletesBranch}
-            disabled={closingWorkspaceId !== null}
-            onChange={(event) => setArchiveDeletesBranch(event.target.checked)}
-          />
-          <span
-            className={
-              archiveDeletesBranch
-                ? "text-destructive"
-                : "text-muted-foreground"
-            }
-          >
-            Delete the git branch too
-          </span>
-        </label>
+        {archiveDialogCopy?.canDeleteBranch ? (
+          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm hover:bg-muted/30">
+            <input
+              type="checkbox"
+              className="accent-destructive"
+              checked={archiveDeletesBranch}
+              disabled={closingWorkspaceId !== null}
+              onChange={(event) =>
+                setArchiveDeletesBranch(event.target.checked)
+              }
+            />
+            <span
+              className={
+                archiveDeletesBranch
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              }
+            >
+              Delete the git branch too
+            </span>
+          </label>
+        ) : null}
       </ConfirmDialog>
       <CreateWorkspaceDialog
         open={createWorkspaceOpen}
