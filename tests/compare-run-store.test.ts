@@ -311,6 +311,113 @@ describe("compare run store actions", () => {
     ]);
   });
 
+  test("carries each candidate effort into its task runtime overrides", async () => {
+    const runtimeOverridePatches: Array<{
+      taskId: string;
+      runtimeOverrides: unknown;
+    }> = [];
+    let workspaceIndex = 0;
+
+    useAppStore.setState({
+      createWorkspace: async (args) => {
+        workspaceIndex += 1;
+        const workspaceId = `workspace-${workspaceIndex}`;
+        const taskId = `task-${workspaceIndex}`;
+        useAppStore.setState((state) => ({
+          workspaces: [
+            ...state.workspaces,
+            {
+              id: workspaceId,
+              name: args.name,
+              updatedAt: "2026-06-18T00:00:00.000Z",
+            },
+          ],
+          activeWorkspaceId: workspaceId,
+          activeTaskId: taskId,
+          activeSurface: { kind: "task", taskId },
+          tasks: [buildTask({ id: taskId, title: `Task ${workspaceIndex}` })],
+          taskWorkspaceIdById: {
+            ...state.taskWorkspaceIdById,
+            [taskId]: workspaceId,
+          },
+        }));
+        return { ok: true };
+      },
+      setTaskProvider: () => {},
+      updatePromptDraft: ({ taskId, patch }) => {
+        runtimeOverridePatches.push({
+          taskId,
+          runtimeOverrides: patch.runtimeOverrides,
+        });
+      },
+      sendUserMessage: async (args) => ({
+        status: "started",
+        taskId: args.taskId,
+        workspaceId: "workspace-1",
+        turnId: "turn-1",
+      }),
+    });
+
+    const result = await useAppStore.getState().startCompareRun({
+      seedPrompt: "Compare with explicit effort",
+      variants: [
+        {
+          provider: "claude-code",
+          model: "claude-sonnet-5",
+          effort: "max",
+          label: "A",
+        },
+        {
+          provider: "codex",
+          model: "gpt-5.6-luna",
+          // Luna rejects "ultra"; the run must step it down, not send it.
+          effort: "ultra",
+          label: "B",
+        },
+      ],
+      judge: { provider: "codex", model: "gpt-5.6-luna", effort: "ultra" },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(runtimeOverridePatches).toEqual([
+      {
+        taskId: "task-1",
+        runtimeOverrides: { model: "claude-sonnet-5", claudeEffort: "max" },
+      },
+      {
+        taskId: "task-2",
+        runtimeOverrides: {
+          model: "gpt-5.6-luna",
+          codexReasoningEffort: "max",
+        },
+      },
+    ]);
+    expect(
+      useAppStore.getState().compareRunsById[result.compareRunId ?? ""]?.judge
+        ?.effort,
+    ).toBe("max");
+  });
+
+  test("applies the judge effort to its runtime options", () => {
+    expect(
+      buildCompareJudgeRuntimeOptions({
+        provider: "codex",
+        model: "gpt-5.6-sol",
+        effort: "ultra",
+        settings: useAppStore.getState().settings,
+      }).codexReasoningEffort,
+    ).toBe("ultra");
+
+    expect(
+      buildCompareJudgeRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-5",
+        effort: "max",
+        settings: useAppStore.getState().settings,
+      }).claudeEffort,
+    ).toBe("max");
+  });
+
   test("fails each throwing candidate without leaving the run pending", async () => {
     let createAttempts = 0;
     useAppStore.setState({

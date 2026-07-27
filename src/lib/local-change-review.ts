@@ -5,7 +5,9 @@ export type LocalChangeReviewFocus =
   | "tests"
   | "security"
   | "performance"
-  | "architecture";
+  | "architecture"
+  | "ui-accessibility"
+  | "error-handling";
 
 const REVIEW_FOCUS_INSTRUCTIONS: Record<LocalChangeReviewFocus, string> = {
   correctness:
@@ -18,7 +20,58 @@ const REVIEW_FOCUS_INSTRUCTIONS: Record<LocalChangeReviewFocus, string> = {
     "Performance: meaningful hot-path, memory, I/O, or rendering regressions.",
   architecture:
     "Architecture: contract drift, misplaced responsibilities, and changes that violate repository guidance.",
+  "ui-accessibility":
+    "UI and accessibility: hardcoded colors instead of theme tokens, contrast or dark-mode breakage, keyboard and screen-reader gaps, and layout regressions.",
+  "error-handling":
+    "Error handling: unhandled failure paths, swallowed errors, missing cancellation or timeout handling, and states that cannot recover from a partial failure.",
 };
+
+/**
+ * Single source of truth for the focus chips. The description tells the user
+ * what the reviewer is actually instructed to do, so it stays a plain-language
+ * restatement of `REVIEW_FOCUS_INSTRUCTIONS`.
+ */
+export const LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS: ReadonlyArray<{
+  value: LocalChangeReviewFocus;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "correctness",
+    label: "Correctness",
+    description: "Logic errors, regressions, races, and data loss.",
+  },
+  {
+    value: "tests",
+    label: "Test gaps",
+    description: "Missing coverage that could hide a real regression.",
+  },
+  {
+    value: "security",
+    label: "Security",
+    description: "Unsafe input, secret exposure, permission bypasses.",
+  },
+  {
+    value: "performance",
+    label: "Performance",
+    description: "Hot-path, memory, I/O, and rendering regressions.",
+  },
+  {
+    value: "architecture",
+    label: "Architecture",
+    description: "Contract drift and repository-guideline violations.",
+  },
+  {
+    value: "ui-accessibility",
+    label: "UI & accessibility",
+    description: "Theme tokens, keyboard/screen-reader, layout breakage.",
+  },
+  {
+    value: "error-handling",
+    label: "Error handling",
+    description: "Failure paths, cancellation, timeouts, recovery.",
+  },
+];
 
 function buildScopeInstructions(scope: LocalChangeReviewScope) {
   if (scope === "branch") {

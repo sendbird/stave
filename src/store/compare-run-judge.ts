@@ -7,6 +7,10 @@ import {
   type CompareRun,
 } from "@/lib/compare-runs";
 import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
+import {
+  buildModelEffortRuntimeOverrides,
+  type ModelEffort,
+} from "@/lib/providers/model-effort";
 import type {
   ProviderId,
   ProviderRuntimeOptions,
@@ -121,6 +125,7 @@ export function buildCompareJudgePrompt(run: CompareRun) {
 export function buildCompareJudgeRuntimeOptions(args: {
   provider: ProviderId;
   model: string;
+  effort?: ModelEffort;
   settings: CompareJudgeRuntimeSettings;
 }): ProviderRuntimeOptions {
   const base = buildProviderRuntimeOptions({
@@ -131,6 +136,11 @@ export function buildCompareJudgeRuntimeOptions(args: {
   return {
     ...base,
     model: args.model,
+    ...buildModelEffortRuntimeOverrides({
+      providerId: args.provider,
+      model: args.model,
+      effort: args.effort,
+    }),
     chatStreamingEnabled: false,
     responseStylePrompt: undefined,
     promptPrDescription: undefined,
@@ -333,6 +343,7 @@ async function executeCompareJudge(args: {
   const runtimeOptions = buildCompareJudgeRuntimeOptions({
     provider: judge.provider,
     model,
+    effort: judge.effort,
     settings: args.settings,
   });
 

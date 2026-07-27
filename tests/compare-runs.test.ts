@@ -7,6 +7,7 @@ import {
   finalizeCompareRunLaunch,
   finishCompareVariantForTask,
   isCompareJudgeReady,
+  normalizeCompareJudgeConfig,
   normalizeCompareReviewCriteria,
   normalizePersistedCompareRuns,
   normalizeCompareVariants,
@@ -62,6 +63,32 @@ describe("compare run helpers", () => {
         label: undefined,
       },
     ]);
+  });
+
+  test("keeps a supported effort and repairs one the model rejects", () => {
+    expect(
+      normalizeCompareVariants([
+        { provider: "codex", model: "gpt-5.6-sol", effort: "ultra" },
+        { provider: "codex", model: "gpt-5.6-luna", effort: "ultra" },
+        {
+          provider: "claude-code",
+          model: "claude-sonnet-5",
+          effort: "ultra",
+        },
+      ]).map((variant) => variant.effort),
+    ).toEqual(["ultra", "max", undefined]);
+
+    expect(
+      normalizeCompareJudgeConfig({
+        provider: "codex",
+        model: "gpt-5.6-luna",
+        effort: "ultra",
+      }),
+    ).toEqual({
+      provider: "codex",
+      model: "gpt-5.6-luna",
+      effort: "max",
+    });
   });
 
   test("derives stable run titles and workspace names", () => {

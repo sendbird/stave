@@ -25,29 +25,25 @@ import {
   isSourceControlUntracked,
   type SourceControlStatusItem,
 } from "@/lib/source-control-status";
-import type {
-  LocalChangeReviewFocus,
-  LocalChangeReviewScope,
+import {
+  LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS,
+  type LocalChangeReviewFocus,
+  type LocalChangeReviewScope,
 } from "@/lib/local-change-review";
+import {
+  clampModelEffort,
+  resolveModelEffortFromSettings,
+  type ModelEffort,
+} from "@/lib/providers/model-effort";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/store/app.store";
 import { ModelIcon } from "./model-icon";
 import { ModelSelector, type ModelSelectorOption } from "./model-selector";
 
 const DEFAULT_REVIEW_FOCUSES: readonly LocalChangeReviewFocus[] = [
   "correctness",
   "tests",
-];
-
-const REVIEW_FOCUS_OPTIONS: ReadonlyArray<{
-  value: LocalChangeReviewFocus;
-  label: string;
-}> = [
-  { value: "correctness", label: "Correctness" },
-  { value: "tests", label: "Test gaps" },
-  { value: "security", label: "Security" },
-  { value: "performance", label: "Performance" },
-  { value: "architecture", label: "Architecture" },
 ];
 
 const REVIEW_SCOPE_OPTIONS: ReadonlyArray<{
@@ -77,6 +73,7 @@ type ReviewChangeStatus =
 
 export interface LocalChangeReviewRequest {
   reviewer: ModelSelectorOption;
+  effort: ModelEffort;
   scope: LocalChangeReviewScope;
   focuses: readonly LocalChangeReviewFocus[];
   instructions?: string;
@@ -121,6 +118,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
   const idPrefix = useId();
   const [open, setOpen] = useState(false);
   const [reviewerKey, setReviewerKey] = useState<string>();
+  const [selectedEffort, setSelectedEffort] = useState<ModelEffort>();
   const [scope, setScope] = useState<LocalChangeReviewScope>("working-tree");
   const [focuses, setFocuses] = useState<readonly LocalChangeReviewFocus[]>(
     DEFAULT_REVIEW_FOCUSES,
@@ -132,10 +130,25 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
   });
   const statusRequestIdRef = useRef(0);
 
+  const settings = useAppStore((state) => state.settings);
   const preferredReviewer = getPreferredReviewer(args);
   const reviewer =
     args.reviewerOptions.find((option) => option.key === reviewerKey) ??
     preferredReviewer;
+  // The reviewer's own model preference is the default; an explicit pick is
+  // kept across provider switches and clamped to what the new model accepts.
+  const effort = reviewer
+    ? clampModelEffort({
+        providerId: reviewer.providerId,
+        model: reviewer.model,
+        effort: selectedEffort,
+        fallback: resolveModelEffortFromSettings({
+          settings,
+          providerId: reviewer.providerId,
+          model: reviewer.model,
+        }),
+      })
+    : undefined;
   const providerIds = useMemo(
     () => [...new Set(args.reviewerOptions.map((option) => option.providerId))],
     [args.reviewerOptions],
@@ -227,13 +240,14 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
   }
 
   async function handleSubmit() {
-    if (!reviewer || isSubmitting) {
+    if (!reviewer || !effort || isSubmitting) {
       return;
     }
     setIsSubmitting(true);
     try {
       const submitted = await args.onSubmit({
         reviewer,
+        effort,
         scope,
         focuses,
         instructions: instructions.trim() || undefined,
@@ -247,7 +261,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
     }
   }
 
-  if (!reviewer) {
+  if (!reviewer || !effort) {
     return null;
   }
 
@@ -387,8 +401,8 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 Review by
               </h3>
               <p className="text-sm leading-5 text-muted-foreground">
-                Choose any available provider and model. This does not change
-                the task&apos;s active provider.
+                Choose any available provider, model, and reasoning effort. This
+                does not change the task&apos;s active provider.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -425,7 +439,11 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             <ModelSelector
               value={reviewer}
               options={providerModelOptions}
-              onSelect={({ selection }) => setReviewerKey(selection.key)}
+              effort={effort}
+              onSelect={({ selection, effort: nextEffort }) => {
+                setReviewerKey(selection.key);
+                setSelectedEffort(nextEffort);
+              }}
               className="w-full"
               triggerClassName="h-11 w-full max-w-none border-border/80 bg-background px-3"
               menuClassName="sm:max-w-lg"
@@ -438,24 +456,46 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 Focus
               </h3>
               <p className="text-sm leading-5 text-muted-foreground">
-                Select the signals that should receive extra scrutiny.
+                Each selected focus adds an explicit instruction to the review
+                prompt. Unselected areas are still read for context.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {REVIEW_FOCUS_OPTIONS.map((option) => {
+            <div className="grid gap-2 sm:grid-cols-2">
+              {LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS.map((option) => {
                 const selected = focuses.includes(option.value);
                 return (
-                  <Button
+                  <button
                     key={option.value}
                     type="button"
-                    variant={selected ? "secondary" : "outline"}
-                    className="h-11 rounded-full px-4"
                     aria-pressed={selected}
                     onClick={() => toggleFocus(option.value)}
+                    className={cn(
+                      "flex min-h-16 items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                      selected
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border/80 bg-background hover:bg-muted/40",
+                    )}
                   >
-                    {selected ? <Check className="size-3.5" /> : null}
-                    {option.label}
-                  </Button>
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                        selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border",
+                      )}
+                    >
+                      {selected ? <Check className="size-3" /> : null}
+                    </span>
+                    <span className="min-w-0 space-y-0.5">
+                      <span className="block text-sm font-medium text-foreground">
+                        {option.label}
+                      </span>
+                      <span className="block text-sm leading-5 text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </span>
+                  </button>
                 );
               })}
             </div>

@@ -5,12 +5,12 @@ import {
   ShieldCheck,
   SplitSquareHorizontal,
 } from "lucide-react";
-import { useState } from "react";
-import { useShallow } from "zustand/react/shallow";
+import { useMemo, useState } from "react";
 import {
-  pickDefaultModelForProvider,
-  ProviderModelPicker,
-} from "@/components/session/ProviderModelPicker";
+  buildModelSelectorOptions,
+  buildModelSelectorValue,
+  ModelSelector,
+} from "@/components/ai-elements/model-selector";
 import { Button, Textarea } from "@/components/ui";
 import {
   Dialog,
@@ -27,8 +27,12 @@ import {
   type CompareRunJudgeConfig,
   type CompareRunVariantConfig,
 } from "@/lib/compare-runs";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import { listProviderIds } from "@/lib/providers/model-catalog";
+import { resolveModelEffortFromSettings } from "@/lib/providers/model-effort";
+import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { useAppStore } from "@/store/app.store";
+
+const COMPARE_PROVIDER_IDS = listProviderIds();
 
 export interface CompareRunPreparation {
   seedPrompt: string;
@@ -50,38 +54,61 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
   const [criteriaDraft, setCriteriaDraft] = useState(
     DEFAULT_COMPARE_REVIEW_CRITERIA.join("\n"),
   );
-  const [
-    activeWorkspaceId,
-    workspaces,
-    workspaceBranchById,
-    modelClaude,
-    modelCodex,
-  ] = useAppStore(
-    useShallow((state) => [
-      state.activeWorkspaceId,
-      state.workspaces,
-      state.workspaceBranchById,
-      state.settings.modelClaude,
-      state.settings.modelCodex,
-    ]),
+  const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
+  const workspaces = useAppStore((state) => state.workspaces);
+  const workspaceBranchById = useAppStore((state) => state.workspaceBranchById);
+  const providerAvailability = useAppStore(
+    (state) => state.providerAvailability,
   );
+  const settings = useAppStore((state) => state.settings);
+  const { modelClaude, modelCodex } = settings;
   const workspace = workspaces.find((entry) => entry.id === activeWorkspaceId);
-  const [candidates, setCandidates] = useState<CompareRunVariantConfig[]>([
-    {
-      provider: "claude-code",
-      model: modelClaude,
-      label: "Candidate A",
-    },
-    {
-      provider: "codex",
-      model: modelCodex,
-      label: "Candidate B",
-    },
-  ]);
-  const [judge, setJudge] = useState<CompareRunJudgeConfig>({
+  const codexModelCatalog = useCodexModelCatalog({
+    enabled: props.open,
+    codexBinaryPath: settings.codexBinaryPath,
+  });
+  const modelOptions = useMemo(
+    () =>
+      buildModelSelectorOptions({
+        providerIds: COMPARE_PROVIDER_IDS,
+        availabilityByProvider: providerAvailability,
+        modelsByProvider: { codex: codexModelCatalog.models },
+      }),
+    [codexModelCatalog.models, providerAvailability],
+  );
+  const [candidates, setCandidates] = useState<CompareRunVariantConfig[]>(
+    () => [
+      {
+        provider: "claude-code",
+        model: modelClaude,
+        effort: resolveModelEffortFromSettings({
+          settings,
+          providerId: "claude-code",
+          model: modelClaude,
+        }),
+        label: "Candidate A",
+      },
+      {
+        provider: "codex",
+        model: modelCodex,
+        effort: resolveModelEffortFromSettings({
+          settings,
+          providerId: "codex",
+          model: modelCodex,
+        }),
+        label: "Candidate B",
+      },
+    ],
+  );
+  const [judge, setJudge] = useState<CompareRunJudgeConfig>(() => ({
     provider: "codex",
     model: modelCodex,
-  });
+    effort: resolveModelEffortFromSettings({
+      settings,
+      providerId: "codex",
+      model: modelCodex,
+    }),
+  }));
   const baseBranch =
     workspaceBranchById[activeWorkspaceId] ||
     workspace?.name ||
@@ -106,17 +133,14 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
     );
   }
 
-  function selectCandidateProvider(index: number, provider: ProviderId) {
-    updateCandidate(index, {
-      provider,
-      model: pickDefaultModelForProvider(provider),
-    });
-  }
-
-  function selectJudgeProvider(provider: ProviderId) {
-    setJudge({
-      provider,
-      model: pickDefaultModelForProvider(provider),
+  function buildSelectorValue(config: {
+    provider: CompareRunVariantConfig["provider"];
+    model?: string;
+  }) {
+    return buildModelSelectorValue({
+      providerId: config.provider,
+      model: config.model ?? "",
+      available: providerAvailability[config.provider],
     });
   }
 
@@ -166,7 +190,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
               aria-label="Compare shared brief"
               value={preparedPrompt}
               onChange={(event) => setPreparedPrompt(event.target.value)}
-              className="min-h-28 resize-y bg-surface px-3 py-2.5 leading-6"
+              className="min-h-28 resize-y px-3 py-2.5 leading-6"
             />
           </section>
 
@@ -181,7 +205,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                 </h3>
                 <p className="text-sm leading-5 text-muted-foreground">
                   Both start from the same branch with independent files and
-                  provider sessions.
+                  provider sessions. Pick a model and reasoning effort for each.
                 </p>
               </div>
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -190,36 +214,46 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
               </span>
             </div>
             <div className="divide-y divide-border/55 border-y border-border/65">
-              {candidates.map((candidate, index) => (
-                <div
-                  key={candidate.label}
-                  className="grid min-h-20 grid-cols-[2rem_minmax(8rem,0.55fr)_minmax(18rem,1fr)] items-center gap-3 py-3 max-sm:grid-cols-[2rem_minmax(0,1fr)]"
-                >
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      {candidate.label}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Isolated worktree
-                    </p>
+              {candidates.map((candidate, index) => {
+                const candidateName =
+                  candidate.label ?? `Candidate ${index + 1}`;
+                const candidateModel = buildSelectorValue(candidate);
+                return (
+                  <div
+                    key={candidate.label}
+                    className="grid min-h-20 grid-cols-[2rem_minmax(8rem,0.55fr)_minmax(18rem,1fr)] items-center gap-3 py-3 max-sm:grid-cols-[2rem_minmax(0,1fr)]"
+                  >
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {candidate.label}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Isolated worktree
+                      </p>
+                    </div>
+                    <ModelSelector
+                      value={candidateModel}
+                      options={modelOptions}
+                      effort={candidate.effort}
+                      disabled={props.submitting}
+                      onSelect={({ selection, effort }) =>
+                        updateCandidate(index, {
+                          provider: selection.providerId,
+                          model: selection.model,
+                          effort,
+                        })
+                      }
+                      className="w-full"
+                      triggerAriaLabel={`${candidateName} model and effort: ${candidateModel.label}${candidate.effort ? ` · ${candidate.effort}` : ""}`}
+                      triggerClassName="h-9 w-full max-w-none border-input bg-background px-3"
+                      menuClassName="sm:max-w-lg"
+                    />
                   </div>
-                  <ProviderModelPicker
-                    ariaLabel={candidate.label}
-                    selectedProvider={candidate.provider}
-                    selectedModel={candidate.model ?? ""}
-                    onProviderChange={(provider) =>
-                      selectCandidateProvider(index, provider)
-                    }
-                    onModelChange={(model) => updateCandidate(index, { model })}
-                    disabled={props.submitting}
-                    providerSelectClassName="h-9 w-[9.5rem] shrink-0"
-                    modelSelectClassName="h-9"
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
@@ -242,17 +276,22 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                   </p>
                 </div>
               </div>
-              <ProviderModelPicker
-                ariaLabel="Independent judge"
-                selectedProvider={judge.provider}
-                selectedModel={judge.model ?? ""}
-                onProviderChange={selectJudgeProvider}
-                onModelChange={(model) =>
-                  setJudge((current) => ({ ...current, model }))
-                }
+              <ModelSelector
+                value={buildSelectorValue(judge)}
+                options={modelOptions}
+                effort={judge.effort}
                 disabled={props.submitting}
-                providerSelectClassName="h-9 w-[9.5rem] shrink-0"
-                modelSelectClassName="h-9"
+                onSelect={({ selection, effort }) =>
+                  setJudge({
+                    provider: selection.providerId,
+                    model: selection.model,
+                    effort,
+                  })
+                }
+                className="w-full"
+                triggerAriaLabel={`Independent judge model and effort: ${buildSelectorValue(judge).label}${judge.effort ? ` · ${judge.effort}` : ""}`}
+                triggerClassName="h-9 w-full max-w-none border-input bg-background px-3"
+                menuClassName="sm:max-w-lg"
               />
             </div>
           </section>
@@ -277,7 +316,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
               aria-label="Compare review criteria"
               value={criteriaDraft}
               onChange={(event) => setCriteriaDraft(event.target.value)}
-              className="min-h-24 resize-y bg-surface px-3 py-2.5 leading-6"
+              className="min-h-24 resize-y px-3 py-2.5 leading-6"
             />
           </section>
 
@@ -314,6 +353,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                   judge: {
                     provider: judge.provider,
                     model: judge.model?.trim(),
+                    effort: judge.effort,
                   },
                   reviewCriteria,
                 })
