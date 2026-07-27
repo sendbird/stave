@@ -28,6 +28,7 @@ import {
   formatAdvisorSystemTrace,
   runAdvisorPreflight,
 } from "../electron/providers/advisor-runtime";
+import { buildProjectShellEnv } from "../electron/shared/project-node-env";
 
 // Browser-only development bridge.
 // This is not the primary desktop runtime; it exists so `bun run dev` / `bun run dev:all`
@@ -102,10 +103,12 @@ async function runCommand(args: {
   cwd?: string;
 }): Promise<CommandResult> {
   try {
+    const cwd = args.cwd || process.cwd();
     const proc = Bun.spawn(["/usr/bin/env", "bash", "-lc", args.cmd], {
-      cwd: args.cwd,
+      cwd,
       stderr: "pipe",
       stdout: "pipe",
+      env: buildProjectShellEnv({ cwd, baseEnv: process.env }),
     });
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
@@ -790,11 +793,13 @@ const server = Bun.serve({
         shell?: string;
       }>(req);
       const shell = body.shell?.trim() || process.env.SHELL || "/usr/bin/zsh";
+      const cwd = body.cwd || body.workspacePath;
       const proc = Bun.spawn([shell], {
-        cwd: body.cwd || body.workspacePath,
+        cwd,
         stderr: "pipe",
         stdout: "pipe",
         stdin: "pipe",
+        env: buildProjectShellEnv({ cwd, baseEnv: process.env }),
       });
       const sessionId = randomUUID();
       const session: TerminalSession = { process: proc, output: "" };
@@ -860,13 +865,14 @@ const server = Bun.serve({
       let proc: Bun.Subprocess;
 
       try {
+        const cwd = body.cwd || body.workspacePath;
         proc = Bun.spawn([command], {
-          cwd: body.cwd || body.workspacePath,
+          cwd,
           stderr: "pipe",
           stdout: "pipe",
           stdin: "pipe",
           env: {
-            ...process.env,
+            ...buildProjectShellEnv({ cwd, baseEnv: process.env }),
             STAVE_WORKSPACE_PATH: body.workspacePath,
             STAVE_TASK_ID: body.taskId ?? "",
             STAVE_TASK_TITLE: body.taskTitle ?? "",

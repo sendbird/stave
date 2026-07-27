@@ -386,8 +386,11 @@ export function resolveClaudeExecutablePath(
   });
 }
 
-export function buildClaudeEnv(args: { executablePath: string }) {
-  return buildClaudeCliEnv({ executablePath: args.executablePath });
+export function buildClaudeEnv(args: { executablePath: string; cwd?: string }) {
+  return buildClaudeCliEnv({
+    executablePath: args.executablePath,
+    cwd: args.cwd,
+  });
 }
 
 function buildClaudeDiagnostics(args: {
@@ -1940,7 +1943,10 @@ export function buildClaudeQueryOptions(args: {
       : {}),
     ...(settings ? { settings } : {}),
     sandbox,
-    env: buildClaudeEnv({ executablePath: args.claudeExecutablePath }),
+    env: buildClaudeEnv({
+      executablePath: args.claudeExecutablePath,
+      cwd: args.cwd,
+    }),
     ...(args.claudeExecutablePath.length > 0
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
       : {}),
@@ -2861,7 +2867,10 @@ export function buildClaudeReadOnlyPromptOptions(args: {
       enabled: true,
       allowUnsandboxedCommands: false,
     },
-    env: buildClaudeEnv({ executablePath: args.claudeExecutablePath }),
+    env: buildClaudeEnv({
+      executablePath: args.claudeExecutablePath,
+      cwd: args.cwd,
+    }),
     ...(args.claudeExecutablePath
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
       : {}),
@@ -3350,6 +3359,7 @@ export async function streamClaudeWithSdk(
 
     const claudeRuntimeEnv = buildClaudeEnv({
       executablePath: claudeExecutablePath,
+      cwd: runtimeCwd,
     });
     const claudeMcpConfigPaths = getClaudeMcpConfigPaths({
       cwd: runtimeCwd,
@@ -4131,7 +4141,10 @@ export async function suggestClaudeTaskName(args: {
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),
-        env: buildClaudeEnv({ executablePath: claudeExecutablePath }),
+        env: buildClaudeEnv({
+          executablePath: claudeExecutablePath,
+          cwd: args.cwd || process.cwd(),
+        }),
       },
     }) as Query;
 
@@ -4313,7 +4326,10 @@ export async function classifyClaudeRoute(args: {
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),
-        env: buildClaudeEnv({ executablePath: claudeExecutablePath }),
+        env: buildClaudeEnv({
+          executablePath: claudeExecutablePath,
+          cwd: args.cwd || process.cwd(),
+        }),
       },
     }) as Query;
 
