@@ -174,10 +174,14 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await expect(activity).toHaveAccessibleName("Turn activity");
   await expect(activity.getByTestId("turn-activity-orb")).toBeVisible();
   await expect(activity).toContainText("Inspect Lens diagnostics");
-  await expect(activity).toContainText("+2");
+  await expect(activity).toContainText("2 running · 1 done");
   await expect(
     activity.getByText("Verify the stacked activity shelf"),
-  ).toBeHidden();
+  ).toBeVisible();
+  await expect(
+    activity.getByRole("button", { name: "Completed (1)" }),
+  ).toBeVisible();
+  await expect(activity.getByText("Review Lens diagnostics")).toBeHidden();
   await expect(activity.locator(".animate-spin")).toHaveCount(0);
   await expect(page.getByText(/^Running ·/)).toHaveCount(0);
 
@@ -268,19 +272,30 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await expect(promptInput).toBeVisible();
   await expect(conversation).toBeVisible();
 
+  const collapse = activity.getByRole("button", {
+    name: "Minimize turn activity",
+  });
+  await expect(collapse).toHaveAttribute("aria-expanded", "true");
+  await collapse.click();
   const expand = activity.getByRole("button", {
     name: "Expand turn activity",
   });
   await expect(expand).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    activity.getByText("Verify the stacked activity shelf"),
+  ).toBeHidden();
   await expand.click();
   await expect(
     activity.getByText("Verify the stacked activity shelf"),
   ).toBeVisible();
-  await expect(activity.getByText("Review Lens diagnostics")).toBeVisible();
-
-  const collapse = activity.getByRole("button", {
-    name: "Minimize turn activity",
+  await expect(activity.getByText("Review Lens diagnostics")).toBeHidden();
+  const completed = activity.getByRole("button", {
+    name: "Completed (1)",
   });
+  await completed.click();
+  await expect(activity.getByText("Review Lens diagnostics")).toBeVisible();
+  await completed.click();
+  await expect(activity.getByText("Review Lens diagnostics")).toBeHidden();
   await expect(collapse).toHaveAttribute("aria-expanded", "true");
   await collapse.click();
   await expect(

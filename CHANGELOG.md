@@ -1,3 +1,25 @@
+## [0.12.1](https://github.com/sendbird/stave/compare/v0.12.0...v0.12.1) (2026-07-27)
+
+### Features
+
+* Make Task Activity expanded and easier to scan by default, with richer tool, agent, progress, and severity details plus a Chat setting to opt out.
+* Present classified Lens agent activity beside the active task without unexpectedly stealing navigation focus.
+
+### Bug Fixes
+
+* Render terminal cells at native and bold font weights so CJK text is legible and Latin bold output is visible.
+* Persist outgoing workspace changes, keep empty task panes empty after restart, and explicitly delete archived workspace branches with verified failure feedback.
+* Synchronize Crane host task turns with the renderer and carry approved model, reasoning effort, autonomy, and fast-mode settings into dispatches.
+* Keep host-owned questions and approvals visible and answerable, clear orphaned Fleet attention counts, and let completed-task toasts open their originating task.
+* Render Markdown frontmatter as structured editor preview content instead of treating it as ordinary document text.
+
+### Refactors / Chores
+
+* Normalize the Node 22 pin in `.nvmrc` to the workspace-standard `v22` notation.
+
+### References
+
+* [#237](https://github.com/sendbird/stave/pull/237), [#238](https://github.com/sendbird/stave/pull/238), [#239](https://github.com/sendbird/stave/pull/239), [#240](https://github.com/sendbird/stave/pull/240), [#241](https://github.com/sendbird/stave/pull/241), [#242](https://github.com/sendbird/stave/pull/242), [#243](https://github.com/sendbird/stave/pull/243), [#244](https://github.com/sendbird/stave/pull/244), [#245](https://github.com/sendbird/stave/pull/245), [#246](https://github.com/sendbird/stave/pull/246), [#247](https://github.com/sendbird/stave/pull/247), [#248](https://github.com/sendbird/stave/pull/248)
 ## [0.12.0](https://github.com/sendbird/stave/compare/v0.11.10...v0.12.0) (2026-07-27)
 
 ### Features
