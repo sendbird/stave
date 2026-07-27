@@ -152,6 +152,14 @@ interface LocalMcpRequestLogRow {
 
 const MAX_LOCAL_MCP_REQUEST_LOGS = 500;
 const LEGACY_TURN_JOURNAL_PURGE_KEY = "legacy_turn_journal_purged_v1";
+
+function normalizeNotificationWorkspaceIds(workspaceIds: string[]) {
+  return Array.from(
+    new Set(
+      workspaceIds.map((workspaceId) => workspaceId.trim()).filter(Boolean),
+    ),
+  );
+}
 const LEGACY_TURN_EVENT_ARTIFACT_KIND = "turn_event_payload";
 const ROUTINE_STATE_KEY = "routine_state_v1";
 
@@ -1308,6 +1316,40 @@ export class SqliteStore {
     `,
       )
       .run(now);
+    return result.changes;
+  }
+
+  deleteNotificationsForWorkspaces(args: { workspaceIds: string[] }): number {
+    const workspaceIds = normalizeNotificationWorkspaceIds(args.workspaceIds);
+    if (workspaceIds.length === 0) {
+      return 0;
+    }
+    const placeholders = workspaceIds.map(() => "?").join(", ");
+    const result = this.db
+      .prepare(
+        `DELETE FROM notifications WHERE workspace_id IN (${placeholders})`,
+      )
+      .run(...workspaceIds);
+    return result.changes;
+  }
+
+  deleteNotificationsOutsideWorkspaces(args: {
+    workspaceIds: string[];
+  }): number {
+    const workspaceIds = normalizeNotificationWorkspaceIds(args.workspaceIds);
+    if (workspaceIds.length === 0) {
+      return this.db
+        .prepare("DELETE FROM notifications WHERE workspace_id IS NOT NULL")
+        .run().changes;
+    }
+    const placeholders = workspaceIds.map(() => "?").join(", ");
+    const result = this.db
+      .prepare(
+        `DELETE FROM notifications
+         WHERE workspace_id IS NOT NULL
+           AND workspace_id NOT IN (${placeholders})`,
+      )
+      .run(...workspaceIds);
     return result.changes;
   }
 

@@ -132,6 +132,52 @@ export function clearNotificationHistoryInList(args: {
   );
 }
 
+/**
+ * Notifications are scoped to a workspace. Once that workspace is archived the
+ * request behind the notification can never be answered again, so the row is
+ * dead weight that keeps inflating the Fleet attention count.
+ */
+export function selectNotificationIdsForWorkspaces(args: {
+  notifications: readonly AppNotification[];
+  workspaceIds: Iterable<string>;
+}) {
+  const workspaceIds = new Set(
+    [...args.workspaceIds].map((workspaceId) => workspaceId.trim()),
+  );
+  return args.notifications
+    .filter((notification) => {
+      const workspaceId = notification.workspaceId?.trim();
+      return Boolean(workspaceId) && workspaceIds.has(workspaceId as string);
+    })
+    .map((notification) => notification.id);
+}
+
+export function selectOrphanedNotificationIds(args: {
+  notifications: readonly AppNotification[];
+  knownWorkspaceIds: ReadonlySet<string>;
+}) {
+  return args.notifications
+    .filter((notification) => {
+      const workspaceId = notification.workspaceId?.trim();
+      // Workspace-less notifications are app-wide and never orphaned.
+      return Boolean(workspaceId) && !args.knownWorkspaceIds.has(workspaceId as string);
+    })
+    .map((notification) => notification.id);
+}
+
+export function removeNotificationsFromList(args: {
+  notifications: AppNotification[];
+  notificationIds: ReadonlySet<string>;
+}) {
+  if (args.notificationIds.size === 0) {
+    return args.notifications;
+  }
+  const next = args.notifications.filter(
+    (notification) => !args.notificationIds.has(notification.id),
+  );
+  return next.length === args.notifications.length ? args.notifications : next;
+}
+
 export function getNotificationHistoryClearableIds(
   notifications: AppNotification[],
 ) {

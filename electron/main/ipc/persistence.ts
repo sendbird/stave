@@ -3,6 +3,7 @@ import type { PersistenceWorkspaceSnapshot } from "../../persistence/types";
 import {
   ClearNotificationHistoryArgsSchema,
   CreateNotificationArgsSchema,
+  DeleteWorkspaceNotificationsArgsSchema,
   LoadWorkspaceEditorTabBodiesArgsSchema,
   ListActiveWorkspaceTurnsArgsSchema,
   LoadTaskMessagesArgsSchema,
@@ -275,6 +276,34 @@ export function registerPersistenceHandlers() {
       }
       const store = await ensurePersistenceReady();
       const count = store.pruneNotifications(parsedArgs.data);
+      return { ok: true, count };
+    },
+  );
+
+  ipcMain.handle(
+    "persistence:delete-notifications-for-workspaces",
+    async (_event, args: unknown) => {
+      const parsedArgs =
+        DeleteWorkspaceNotificationsArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return { ok: false, count: 0 };
+      }
+      const store = await ensurePersistenceReady();
+      const count = store.deleteNotificationsForWorkspaces(parsedArgs.data);
+      return { ok: true, count };
+    },
+  );
+
+  ipcMain.handle(
+    "persistence:delete-notifications-outside-workspaces",
+    async (_event, args: unknown) => {
+      const parsedArgs =
+        DeleteWorkspaceNotificationsArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return { ok: false, count: 0 };
+      }
+      const store = await ensurePersistenceReady();
+      const count = store.deleteNotificationsOutsideWorkspaces(parsedArgs.data);
       return { ok: true, count };
     },
   );

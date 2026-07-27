@@ -551,6 +551,27 @@ export function removeWorkspaceRuntimeCacheEntries(args: {
   );
 }
 
+/**
+ * Every workspace the app still knows about, across the registry and the open
+ * project. Anything scoped to an id outside this set is a leftover from an
+ * archived workspace or a removed project.
+ */
+export function collectKnownWorkspaceIds(args: {
+  recentProjects: readonly { workspaces: readonly { id: string }[] }[];
+  workspaces: readonly { id: string }[];
+}) {
+  const workspaceIds = new Set<string>();
+  for (const project of args.recentProjects) {
+    for (const workspace of project.workspaces) {
+      workspaceIds.add(workspace.id);
+    }
+  }
+  for (const workspace of args.workspaces) {
+    workspaceIds.add(workspace.id);
+  }
+  return workspaceIds;
+}
+
 export function areStringArraysEqual(left: string[], right: string[]) {
   if (left === right) {
     return true;

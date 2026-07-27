@@ -461,6 +461,13 @@ export function buildFleetAttentionProjection(args: {
   notifications: readonly AppNotification[];
   liveWorkspaces: readonly FleetLiveWorkspaceInput[];
   prWorkspaces: readonly FleetPrWorkspaceInput[];
+  /**
+   * Every workspace the app currently knows about. Notification rows outlive the
+   * workspace they belong to, so without this guard an archived workspace keeps
+   * contributing needs that nobody can ever open or answer. Omit it when the
+   * caller has no workspace inventory to compare against.
+   */
+  knownWorkspaceIds?: ReadonlySet<string>;
 }): FleetAttentionProjection {
   const byId = new Map<string, FleetNeedItem>();
   const externalTaskKeys = new Set(
@@ -470,13 +477,18 @@ export function buildFleetAttentionProjection(args: {
         .map((task) => JSON.stringify([workspace.workspaceId, task.id])),
     ),
   );
+  const knownWorkspaceIds = args.knownWorkspaceIds;
   const candidates = [
-    ...collectFleetNotificationNeeds(args.notifications).filter(
-      (item) =>
-        (item.kind !== "approval" && item.kind !== "user-input") ||
-        !item.taskId ||
-        !externalTaskKeys.has(JSON.stringify([item.workspaceId, item.taskId])),
-    ),
+    ...collectFleetNotificationNeeds(args.notifications)
+      .filter(
+        (item) => !knownWorkspaceIds || knownWorkspaceIds.has(item.workspaceId),
+      )
+      .filter(
+        (item) =>
+          (item.kind !== "approval" && item.kind !== "user-input") ||
+          !item.taskId ||
+          !externalTaskKeys.has(JSON.stringify([item.workspaceId, item.taskId])),
+      ),
     ...collectFleetPrNeeds(args.prWorkspaces),
     ...collectFleetLiveNeeds(args.liveWorkspaces),
   ];

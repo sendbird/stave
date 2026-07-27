@@ -1605,6 +1605,18 @@ interface WindowPersistenceApi {
     ok: boolean;
     count: number;
   }>;
+  deleteNotificationsForWorkspaces?: (args: {
+    workspaceIds: string[];
+  }) => Promise<{
+    ok: boolean;
+    count: number;
+  }>;
+  deleteNotificationsOutsideWorkspaces?: (args: {
+    workspaceIds: string[];
+  }) => Promise<{
+    ok: boolean;
+    count: number;
+  }>;
   clearNotificationHistory?: () => Promise<{
     ok: boolean;
     count: number;

@@ -122,6 +122,18 @@ interface RequiredPersistenceApi {
     ok: boolean;
     count: number;
   }>;
+  deleteNotificationsForWorkspaces?: (args: {
+    workspaceIds: string[];
+  }) => Promise<{
+    ok: boolean;
+    count: number;
+  }>;
+  deleteNotificationsOutsideWorkspaces?: (args: {
+    workspaceIds: string[];
+  }) => Promise<{
+    ok: boolean;
+    count: number;
+  }>;
   clearNotificationHistory?: () => Promise<{
     ok: boolean;
     count: number;
@@ -489,6 +501,75 @@ export async function pruneNotifications(args?: {
   const response = await persistence.pruneNotifications({ now });
   if (!response.ok) {
     throw new Error("Failed to prune expired notifications.");
+  }
+  return response.count;
+}
+
+function normalizeWorkspaceIds(workspaceIds: readonly string[]) {
+  return Array.from(
+    new Set(workspaceIds.map((workspaceId) => workspaceId.trim()).filter(Boolean)),
+  );
+}
+
+/**
+ * Drops every notification owned by the given workspaces. Called when a
+ * workspace is archived or its project is removed: the request behind an
+ * unresolved attention notification can no longer be answered, and those rows
+ * never expire on their own.
+ */
+export async function deleteNotificationsForWorkspaces(args: {
+  workspaceIds: readonly string[];
+}): Promise<number> {
+  const workspaceIds = normalizeWorkspaceIds(args.workspaceIds);
+  if (workspaceIds.length === 0) {
+    return 0;
+  }
+
+  const persistence = getPersistenceApi();
+  if (!persistence?.deleteNotificationsForWorkspaces) {
+    const rows = loadFallbackRows();
+    const removable = new Set(workspaceIds);
+    const nextRows = rows.filter(
+      (row) => !row.workspaceId || !removable.has(row.workspaceId),
+    );
+    saveFallbackRows(nextRows);
+    return rows.length - nextRows.length;
+  }
+
+  const response = await persistence.deleteNotificationsForWorkspaces({
+    workspaceIds,
+  });
+  if (!response.ok) {
+    throw new Error("Failed to delete workspace notifications.");
+  }
+  return response.count;
+}
+
+/**
+ * Reconciles leftovers from before workspace-scoped cleanup existed: drops every
+ * workspace-scoped notification whose workspace is no longer known. Notifications
+ * without a workspace are app-wide and always kept.
+ */
+export async function deleteNotificationsOutsideWorkspaces(args: {
+  workspaceIds: readonly string[];
+}): Promise<number> {
+  const workspaceIds = normalizeWorkspaceIds(args.workspaceIds);
+  const persistence = getPersistenceApi();
+  if (!persistence?.deleteNotificationsOutsideWorkspaces) {
+    const rows = loadFallbackRows();
+    const known = new Set(workspaceIds);
+    const nextRows = rows.filter(
+      (row) => !row.workspaceId || known.has(row.workspaceId),
+    );
+    saveFallbackRows(nextRows);
+    return rows.length - nextRows.length;
+  }
+
+  const response = await persistence.deleteNotificationsOutsideWorkspaces({
+    workspaceIds,
+  });
+  if (!response.ok) {
+    throw new Error("Failed to delete orphaned notifications.");
   }
   return response.count;
 }
