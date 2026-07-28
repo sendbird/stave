@@ -173,6 +173,23 @@ export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend(
     .max(LENS_CAPTURE_LIMITS.documentIdBytes),
 }).strict();
 
+export const SecretUpsertArgsSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    name: z.string().trim().min(1).max(200),
+    description: z.string().max(2048).optional(),
+    value: z.string().min(1).max(8192).optional(),
+  })
+  .strict();
+
+export const SecretDeleteArgsSchema = z
+  .object({ id: z.string().uuid() })
+  .strict();
+
+export const SecretRevealArgsSchema = z
+  .object({ id: z.string().uuid() })
+  .strict();
+
 export const SuggestTaskNameArgsSchema = z
   .object({
     prompt: z.string().max(2000),

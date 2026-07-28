@@ -76,6 +76,7 @@ import type {
   LensCredentialMetadata,
   LensCredentialUpsertInput,
 } from "@/lib/lens/lens-credentials";
+import type { SecretMetadata, SecretUpsertInput } from "@/lib/secrets/secrets";
 import type {
   BrowserConsoleEntry as LensConsoleEntry,
   BrowserConsoleEntryDetail,
@@ -1987,6 +1988,25 @@ interface LensElementPickerResult {
   trust: LensPageEvidenceTrust;
 }
 
+interface WindowSecretsApi {
+  list?: () => Promise<{
+    ok: boolean;
+    secrets: SecretMetadata[];
+    message?: string;
+  }>;
+  upsert?: (args: SecretUpsertInput) => Promise<{
+    ok: boolean;
+    secret?: SecretMetadata;
+    message?: string;
+  }>;
+  delete?: (args: {
+    id: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  reveal?: (args: {
+    id: string;
+  }) => Promise<{ ok: boolean; value?: string; message?: string }>;
+}
+
 interface WindowLensApi {
   listCredentials?: () => Promise<{
     ok: boolean;
@@ -2359,6 +2379,7 @@ interface WindowApi {
   metrics?: WindowMetricsApi;
   inlineCompletion?: WindowInlineCompletionApi;
   lens?: WindowLensApi;
+  secrets?: WindowSecretsApi;
   window?: {
     minimize?: () => Promise<void>;
     toggleMaximize?: () => Promise<{ isMaximized: boolean }>;

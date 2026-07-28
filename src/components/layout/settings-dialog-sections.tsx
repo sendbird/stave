@@ -167,6 +167,7 @@ import { McpSection } from "./settings-dialog-mcp-section";
 import { KickoffSection } from "./settings-dialog-kickoff-section";
 import { ProvidersSection } from "./settings-dialog-providers-section";
 import { LensCredentialsSettingsCard } from "./settings-dialog-lens-credentials";
+import { SecretsSettingsCard } from "./settings-dialog-secrets";
 import { ToolingSection } from "./settings-dialog-tooling-section";
 import { ScriptsSection } from "./settings-dialog-scripts-section";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
@@ -3753,6 +3754,8 @@ export function SettingsDialogSectionContent(args: {
       return <DeveloperSection />;
     case "lens":
       return <LensSection />;
+    case "secrets":
+      return <SecretsSection />;
     case "changelog":
       return <ChangelogSection />;
     default:
@@ -4521,5 +4524,13 @@ function LensSection() {
         </SettingsCard>
       </SectionStack>
     </>
+  );
+}
+
+function SecretsSection() {
+  return (
+    <SectionStack>
+      <SecretsSettingsCard />
+    </SectionStack>
   );
 }

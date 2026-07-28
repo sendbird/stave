@@ -6,6 +6,7 @@ import {
   Plus,
   ShieldCheck,
   Trash2,
+  X,
 } from "lucide-react";
 import { Badge, Button, Input, Switch, toast } from "@/components/ui";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -15,11 +16,12 @@ import {
   type LensCredentialMetadata,
 } from "@/lib/lens/lens-credentials";
 
-function splitHostsInput(value: string): string[] {
-  return value
-    .split(/[,\s]+/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
+/** A single empty editable host row so the editor always shows one field. */
+const EMPTY_HOST_ROWS = [""];
+
+/** Split a saved host list into editable rows, keeping at least one row. */
+function hostsToRows(hosts: string[]): string[] {
+  return hosts.length > 0 ? [...hosts] : [...EMPTY_HOST_ROWS];
 }
 
 export function LensCredentialsSettingsCard() {
@@ -29,7 +31,7 @@ export function LensCredentialsSettingsCard() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [hostsInput, setHostsInput] = useState("");
+  const [hostRows, setHostRows] = useState<string[]>([...EMPTY_HOST_ROWS]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [autoFill, setAutoFill] = useState(true);
@@ -70,7 +72,7 @@ export function LensCredentialsSettingsCard() {
   const closeEditor = useCallback(() => {
     setEditorOpen(false);
     setEditingId(null);
-    setHostsInput("");
+    setHostRows([...EMPTY_HOST_ROWS]);
     setUsername("");
     setPassword("");
     setAutoFill(true);
@@ -83,20 +85,35 @@ export function LensCredentialsSettingsCard() {
 
   const openEditEditor = useCallback((credential: LensCredentialMetadata) => {
     setEditingId(credential.id);
-    setHostsInput(credential.hosts.join(", "));
+    setHostRows(hostsToRows(credential.hosts));
     setUsername(credential.username);
     setPassword("");
     setAutoFill(credential.autoFill);
     setEditorOpen(true);
   }, []);
 
+  const updateHostRow = useCallback((index: number, value: string) => {
+    setHostRows((rows) => rows.map((row, i) => (i === index ? value : row)));
+  }, []);
+
+  const addHostRow = useCallback(() => {
+    setHostRows((rows) => [...rows, ""]);
+  }, []);
+
+  const removeHostRow = useCallback((index: number) => {
+    setHostRows((rows) => {
+      if (rows.length <= 1) {
+        return [""];
+      }
+      return rows.filter((_, i) => i !== index);
+    });
+  }, []);
+
   const saveCredential = useCallback(async () => {
-    const normalizedHosts = normalizeLensCredentialHosts(
-      splitHostsInput(hostsInput),
-    );
+    const normalizedHosts = normalizeLensCredentialHosts(hostRows);
     if (!normalizedHosts) {
       toast.error(
-        "Enter at least one valid hostname or http(s) URL. Separate multiple hosts with commas.",
+        "Enter at least one valid hostname or http(s) URL. Add a row for each host.",
       );
       return;
     }
@@ -144,7 +161,7 @@ export function LensCredentialsSettingsCard() {
     autoFill,
     closeEditor,
     editingId,
-    hostsInput,
+    hostRows,
     loadCredentials,
     password,
     username,
@@ -219,20 +236,56 @@ export function LensCredentialsSettingsCard() {
             }}
           >
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1.5 text-xs font-medium">
-                Hosts
-                <Input
-                  value={hostsInput}
-                  placeholder="dashboard-dev.sendbird.com, dashboard-staging.sendbird.com"
-                  aria-label="Saved account hosts"
-                  autoComplete="url"
-                  className="h-8 font-mono text-xs"
-                  onChange={(event) => setHostsInput(event.target.value)}
-                />
+              <div className="space-y-1.5 text-xs font-medium">
+                <span className="block">Hosts</span>
+                <div className="space-y-1.5">
+                  {hostRows.map((host, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-1.5"
+                    >
+                      <Input
+                        value={host}
+                        placeholder={
+                          index === 0
+                            ? "dashboard-dev.sendbird.com"
+                            : "another-host.example.com"
+                        }
+                        aria-label={`Saved account host ${index + 1}`}
+                        autoComplete="url"
+                        className="h-8 font-mono text-xs"
+                        onChange={(event) =>
+                          updateHostRow(index, event.target.value)
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="shrink-0"
+                        aria-label={`Remove host ${index + 1}`}
+                        disabled={hostRows.length <= 1 && host.length === 0}
+                        onClick={() => removeHostRow(index)}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5"
+                  onClick={addHostRow}
+                >
+                  <Plus className="size-3.5" />
+                  Add host
+                </Button>
                 <span className="block font-normal text-muted-foreground">
-                  Separate multiple exact hostnames with commas.
+                  Add one exact hostname per row.
                 </span>
-              </label>
+              </div>
               <label className="space-y-1.5 text-xs font-medium">
                 Username or email
                 <Input

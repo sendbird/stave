@@ -24,6 +24,8 @@ out/
 release/
 site/src/generated/
 *.tsbuildinfo
+# electron-vite emits the bundled host-service entry at the repo root
+/host-service.js
 
 # test artifacts
 playwright-report/
