@@ -262,6 +262,8 @@ const { providerRuntime } = await import("../electron/providers/runtime");
 const runtime = await import("../electron/host-service/local-mcp-runtime");
 
 const originalStartTurnStream = providerRuntime.startTurnStream;
+const originalAbortTurn = providerRuntime.abortTurn;
+const originalCleanupTask = providerRuntime.cleanupTask;
 const originalRespondApproval = providerRuntime.respondApproval;
 const originalRespondUserInput = providerRuntime.respondUserInput;
 
@@ -282,11 +284,15 @@ beforeAll(() => {
 
 afterAll(() => {
   providerRuntime.startTurnStream = originalStartTurnStream;
+  providerRuntime.abortTurn = originalAbortTurn;
+  providerRuntime.cleanupTask = originalCleanupTask;
   providerRuntime.respondApproval = originalRespondApproval;
   providerRuntime.respondUserInput = originalRespondUserInput;
 });
 
 afterEach(() => {
+  providerRuntime.abortTurn = originalAbortTurn;
+  providerRuntime.cleanupTask = originalCleanupTask;
   providerRuntime.respondApproval = originalRespondApproval;
   providerRuntime.respondUserInput = originalRespondUserInput;
 });
@@ -774,6 +780,83 @@ describe("local MCP runtime runTask", () => {
     });
 
     expect(takenOver.released).toBe(true);
+    const task = lastUpsertSnapshotByWorkspaceId
+      .get(WORKSPACE_ID)
+      ?.tasks?.find((candidate) => candidate.id === result.taskId) as
+      | {
+          controlMode?: string;
+          controlOwner?: string;
+        }
+      | undefined;
+    expect(task).toMatchObject({
+      controlMode: "interactive",
+      controlOwner: "stave",
+    });
+  });
+
+  test("stops an active approval turn before taking over host ownership", async () => {
+    const abortedTurnIds: string[] = [];
+    const cleanedTaskIds: string[] = [];
+    providerRuntime.abortTurn = (({ turnId }) => {
+      abortedTurnIds.push(turnId);
+      return { ok: true, message: "aborted" };
+    }) as typeof providerRuntime.abortTurn;
+    providerRuntime.cleanupTask = (({ taskId }) => {
+      cleanedTaskIds.push(taskId);
+      return { ok: true, message: "cleaned" };
+    }) as typeof providerRuntime.cleanupTask;
+
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Wait for approval under external management",
+      controlMode: "managed",
+      controlOwner: "external",
+    });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({
+      type: "approval",
+      toolName: "Bash",
+      requestId: "approval-takeover-1",
+      description: "Run focused tests",
+    });
+
+    let status = await runtime.getTaskStatus({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+      turnId: result.turnId,
+    });
+    for (
+      let attempt = 0;
+      attempt < 20 && status.pendingApprovals.length === 0;
+      attempt += 1
+    ) {
+      await Bun.sleep(0);
+      status = await runtime.getTaskStatus({
+        workspaceId: WORKSPACE_ID,
+        taskId: result.taskId,
+        turnId: result.turnId,
+      });
+    }
+
+    const takenOver = await runtime.takeOverManagedTaskControl({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+    });
+    status = await runtime.getTaskStatus({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+      turnId: result.turnId,
+    });
+
+    expect(takenOver.released).toBe(true);
+    expect(abortedTurnIds).toEqual([result.turnId]);
+    expect(cleanedTaskIds).toEqual([result.taskId]);
+    expect(status.activeTurnId).toBeNull();
+    expect(status.latestTurnCompletedAt).toBeTruthy();
+    expect(status.latestTurnError).toBe(
+      "Managed run stopped from Stave before completion.",
+    );
+    expect(status.pendingApprovals).toEqual([]);
     const task = lastUpsertSnapshotByWorkspaceId
       .get(WORKSPACE_ID)
       ?.tasks?.find((candidate) => candidate.id === result.taskId) as

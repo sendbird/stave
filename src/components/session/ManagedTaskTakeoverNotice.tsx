@@ -11,7 +11,7 @@ export function ManagedTaskTakeoverNotice(props: {
   const ownerLabel =
     props.owner === "external" ? "Managed externally" : "Managed by Stave";
   const detail = props.isTurnActive
-    ? "The current run is still active. Take Over unlocks when it stops."
+    ? "Take over to stop the current managed run and continue directly."
     : "The managed run ended. Take over to continue directly in this task.";
 
   return (

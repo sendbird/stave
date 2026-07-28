@@ -251,8 +251,11 @@ describe("Crane Stave dispatch V1 contract", () => {
     );
     expect(preload).toContain("taskControl:");
     expect(preload).toContain('"task-control:take-over"');
+    expect(preload).toContain('"task-control:stop"');
     expect(rendererTypes).toContain("taskControl?:");
     expect(rendererTypes).toContain("takeOver?:");
+    expect(rendererTypes).toContain("stop?:");
     expect(taskControlIpc).toContain('"task-control:take-over"');
+    expect(taskControlIpc).toContain('"task-control:stop"');
   });
 });

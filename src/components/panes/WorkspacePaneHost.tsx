@@ -50,11 +50,7 @@ import {
   type PaneSurfaceDescriptor,
   type PaneSurfaceKind,
 } from "@/lib/panes/types";
-import {
-  canTakeOverTask,
-  isTaskArchived,
-  isTaskManaged,
-} from "@/lib/tasks";
+import { canTakeOverTask, isTaskArchived, isTaskManaged } from "@/lib/tasks";
 import { closeTerminalSessionForTab } from "@/lib/terminal/terminal-session-cleanup";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -494,7 +490,6 @@ function buildTabContextMenuItems(
         label: "Take Over",
         disabled: !canTakeOverTask({
           task,
-          activeTurnId: store.activeTurnIdsByTask[surface.taskId] ?? null,
         }),
         action: () => {
           void useAppStore.getState().takeOverTask({ taskId: surface.taskId });

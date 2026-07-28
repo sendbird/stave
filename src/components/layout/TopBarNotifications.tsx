@@ -31,11 +31,7 @@ import {
   shouldShowNotificationApprovalActions,
 } from "@/components/layout/top-bar-notifications.utils";
 import { buildNotificationDetail } from "@/lib/notifications/notification.utils";
-import {
-  formatTaskUpdatedAt,
-  isExternallyManagedTask,
-  isTaskArchived,
-} from "@/lib/tasks";
+import { formatTaskUpdatedAt, isTaskArchived } from "@/lib/tasks";
 import {
   isNotificationUnread,
   type AppNotification,
@@ -436,8 +432,6 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                       unread,
                       action: notification.action,
                     });
-                  const approvalAction =
-                    notification.action?.type === "approval";
                   const notificationTask = notification.taskId
                     ? (tasks.find((task) => task.id === notification.taskId) ??
                       null)
@@ -445,9 +439,6 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                   const taskIsArchived = isTaskArchived(
                     notificationTask ?? { archivedAt: null },
                   );
-                  const approvalHandledExternally =
-                    approvalAction &&
-                    isExternallyManagedTask(notificationTask);
                   const createdLabel = formatTaskUpdatedAt({
                     value: notification.createdAt,
                   });
@@ -541,45 +532,35 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                         </div>
                         {showApprovalActions ? (
                           <div className="mt-3 flex items-center justify-end gap-2">
-                            {approvalHandledExternally ? (
-                              <p className="text-xs text-muted-foreground">
-                                This approval is managed externally. Open the
-                                task to monitor it or answer from the
-                                originating client.
-                              </p>
-                            ) : (
-                              <>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8"
-                                  disabled={notificationBusy}
-                                  onClick={() =>
-                                    void handleResolveApproval(
-                                      notification.id,
-                                      false,
-                                    )
-                                  }
-                                >
-                                  Deny
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="h-8"
-                                  disabled={notificationBusy}
-                                  onClick={() =>
-                                    void handleResolveApproval(
-                                      notification.id,
-                                      true,
-                                    )
-                                  }
-                                >
-                                  Approve
-                                </Button>
-                              </>
-                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8"
+                              disabled={notificationBusy}
+                              onClick={() =>
+                                void handleResolveApproval(
+                                  notification.id,
+                                  false,
+                                )
+                              }
+                            >
+                              Deny
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-8"
+                              disabled={notificationBusy}
+                              onClick={() =>
+                                void handleResolveApproval(
+                                  notification.id,
+                                  true,
+                                )
+                              }
+                            >
+                              Approve
+                            </Button>
                           </div>
                         ) : null}
                         {showArchivedPrompt ? (

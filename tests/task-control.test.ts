@@ -6,7 +6,7 @@ import {
 } from "../src/lib/tasks";
 
 describe("task control ownership", () => {
-  test("keeps public externally managed tasks monitor-only", () => {
+  test("allows public externally managed tasks to be taken over while active", () => {
     const task = {
       controlMode: "managed" as const,
       controlOwner: "external" as const,
@@ -14,13 +14,10 @@ describe("task control ownership", () => {
 
     expect(isTaskManaged(task)).toBe(true);
     expect(isExternallyManagedTask(task)).toBe(true);
-    expect(canTakeOverTask({ task, activeTurnId: null })).toBe(true);
-    expect(canTakeOverTask({ task, activeTurnId: "turn-1" })).toBe(
-      false,
-    );
+    expect(canTakeOverTask({ task })).toBe(true);
   });
 
-  test("allows inactive locally managed tasks to fall back to manual takeover", () => {
+  test("allows locally managed tasks to fall back to manual takeover", () => {
     const task = {
       controlMode: "managed" as const,
       controlOwner: "stave" as const,
@@ -28,10 +25,7 @@ describe("task control ownership", () => {
 
     expect(isTaskManaged(task)).toBe(true);
     expect(isExternallyManagedTask(task)).toBe(false);
-    expect(canTakeOverTask({ task, activeTurnId: null })).toBe(true);
-    expect(canTakeOverTask({ task, activeTurnId: "turn-1" })).toBe(
-      false,
-    );
+    expect(canTakeOverTask({ task })).toBe(true);
   });
 
   test("preserves legacy interactive defaults", () => {

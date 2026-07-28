@@ -74,6 +74,7 @@ import {
   createEmptyWorkspaceState,
   createWorkspaceSnapshot,
   defaultWorkspaceName,
+  interruptActiveTaskTurns,
   type WorkspaceSessionState,
 } from "../../src/store/workspace-session-state";
 import { applyProviderEventsToWorkspaceSession } from "../../src/store/workspace-turn-replay";
@@ -94,6 +95,8 @@ import {
   getTaskControlMode,
   getTaskControlOwner,
   isExternallyManagedTask,
+  isTaskManaged,
+  MANAGED_TASK_STOP_NOTICE,
   reconcileTasksWithPersistedArchival,
 } from "../../src/lib/tasks";
 import { ensureHostServicePersistenceReady } from "./persistence";
@@ -1615,6 +1618,13 @@ async function handleProviderEvent(args: {
   event: BridgeEvent;
 }) {
   const store = ensureHostServicePersistenceReady();
+  const session = await loadWorkspaceSession(args.workspaceId);
+  if (session.activeTurnIdsByTask[args.taskId] !== args.turnId) {
+    if (args.event.type === "done") {
+      store.completeTurn({ id: args.turnId });
+    }
+    return;
+  }
   localMcpTurnJournal.append({
     turnId: args.turnId,
     sequence: args.sequence,
@@ -1631,7 +1641,6 @@ async function handleProviderEvent(args: {
       terminalTurnErrorById.delete(oldestTurnId);
     }
   }
-  const session = await loadWorkspaceSession(args.workspaceId);
   const applied = applyProviderEventsToWorkspaceSession({
     session,
     taskId: args.taskId,
@@ -2127,8 +2136,8 @@ export async function runTask(args: {
             "Treat section references as the full current section and item references as the specific current item.",
             "",
             informationReferencesContext,
-        ].join("\n"),
-      }
+          ].join("\n"),
+        }
       : null;
   const conversation = buildCanonicalConversationRequest({
     turnId,
@@ -2332,9 +2341,7 @@ export async function getTaskStatus(args: {
     latestTurnId: latestTurn?.id ?? null,
     latestTurnCompletedAt: latestTurn?.completedAt ?? null,
     latestTurnError: latestTurn
-      ? (terminalTurnErrorById.get(latestTurn.id) ??
-        targetedTurnError ??
-        null)
+      ? (terminalTurnErrorById.get(latestTurn.id) ?? targetedTurnError ?? null)
       : null,
     messageCount: messages.length,
     latestAssistantText,
@@ -2359,8 +2366,7 @@ async function releaseManagedTaskControl(args: {
   }
   let session = await loadWorkspaceSession(args.workspaceId);
   const task =
-    session.tasks.find((candidate) => candidate.id === args.taskId) ??
-    null;
+    session.tasks.find((candidate) => candidate.id === args.taskId) ?? null;
   if (!task) {
     throw new Error(`Task not found: ${args.taskId}`);
   }
@@ -2427,11 +2433,91 @@ export function releaseLocallyManagedTaskControl(args: {
   });
 }
 
-export function takeOverManagedTaskControl(args: {
+export async function stopManagedTaskTurn(args: {
+  workspaceId: string;
+  taskId: string;
+}) {
+  const { projects } = await loadNormalizedProjects();
+  const registration = findWorkspaceRegistration({
+    projects,
+    workspaceId: args.workspaceId,
+  });
+  if (!registration) {
+    throw new Error(`Workspace not found: ${args.workspaceId}`);
+  }
+
+  return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
+    let session = await loadWorkspaceSession(args.workspaceId);
+    const task =
+      session.tasks.find((candidate) => candidate.id === args.taskId) ?? null;
+    if (!task) {
+      throw new Error(`Task not found: ${args.taskId}`);
+    }
+    if (!isTaskManaged(task)) {
+      return {
+        workspaceId: args.workspaceId,
+        taskId: task.id,
+        stopped: false,
+      };
+    }
+
+    const activeTurnId = session.activeTurnIdsByTask[task.id];
+    if (!activeTurnId) {
+      return {
+        workspaceId: args.workspaceId,
+        taskId: task.id,
+        stopped: false,
+      };
+    }
+
+    providerRuntime.abortTurn({ turnId: activeTurnId });
+    providerRuntime.cleanupTask({ taskId: task.id });
+
+    const interrupted = interruptActiveTaskTurns({
+      tasks: [task],
+      messagesByTask: session.messagesByTask,
+      messageCountByTask: session.messageCountByTask,
+      activeTurnIdsByTask: session.activeTurnIdsByTask,
+      notice: MANAGED_TASK_STOP_NOTICE,
+    });
+    const providerSessionByTask = { ...session.providerSessionByTask };
+    const providerGoalByTask = { ...session.providerGoalByTask };
+    delete providerSessionByTask[task.id];
+    delete providerGoalByTask[task.id];
+    session = cacheWorkspaceSession(args.workspaceId, {
+      ...session,
+      messagesByTask: interrupted.messagesByTask,
+      activeTurnIdsByTask: interrupted.activeTurnIdsByTask,
+      providerSessionByTask,
+      providerGoalByTask,
+      nativeSessionReadyByTask: {
+        ...session.nativeSessionReadyByTask,
+        [task.id]: false,
+      },
+    });
+    terminalTurnErrorById.set(activeTurnId, MANAGED_TASK_STOP_NOTICE);
+    ensureHostServicePersistenceReady().completeTurn({ id: activeTurnId });
+    await queueWorkspaceSessionPersist({
+      workspaceId: args.workspaceId,
+      workspaceName: registration.workspace.name,
+      session,
+    });
+
+    return {
+      workspaceId: args.workspaceId,
+      taskId: task.id,
+      stopped: true,
+      turnId: activeTurnId,
+    };
+  });
+}
+
+export async function takeOverManagedTaskControl(args: {
   workspaceId: string;
   taskId: string;
   sourceContexts?: CanonicalRetrievedContextPart[];
 }) {
+  await stopManagedTaskTurn(args);
   return releaseManagedTaskControl(args);
 }
 

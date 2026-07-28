@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 const originalWindow = (globalThis as { window?: unknown }).window;
 const takeOverCalls: unknown[] = [];
+const stopCalls: unknown[] = [];
 let takeOverResult: {
   ok: boolean;
   released?: boolean;
@@ -13,6 +14,7 @@ let takeOverResult: {
 
 beforeEach(() => {
   takeOverCalls.length = 0;
+  stopCalls.length = 0;
   takeOverResult = { ok: true, released: true };
   (globalThis as { window?: unknown }).window = {
     localStorage: {
@@ -28,6 +30,16 @@ beforeEach(() => {
         takeOver: async (args: unknown) => {
           takeOverCalls.push(args);
           return takeOverResult;
+        },
+        stop: async (args: unknown) => {
+          stopCalls.push(args);
+          return {
+            ok: true,
+            workspaceId: "workspace-1",
+            taskId: "task-1",
+            stopped: true,
+            turnId: "turn-1",
+          };
         },
       },
       persistence: {
@@ -69,7 +81,7 @@ afterEach(async () => {
   (globalThis as { window?: unknown }).window = originalWindow;
 });
 
-async function seedManagedTask() {
+async function seedManagedTask(args?: { active?: boolean }) {
   const { useAppStore } = await import("../src/store/app.store");
   useAppStore.setState({
     ...useAppStore.getInitialState(),
@@ -87,8 +99,31 @@ async function seedManagedTask() {
         controlOwner: "stave",
       },
     ],
-    messagesByTask: { "task-1": [] },
-    activeTurnIdsByTask: {},
+    messagesByTask: {
+      "task-1": args?.active
+        ? [
+            {
+              id: "assistant-1",
+              role: "assistant",
+              model: "gpt-5.6",
+              providerId: "codex",
+              content: "",
+              isStreaming: true,
+              parts: [
+                {
+                  type: "approval",
+                  toolName: "Bash",
+                  requestId: "approval-1",
+                  description: "Run focused tests",
+                  state: "approval-requested",
+                },
+              ],
+            },
+          ]
+        : [],
+    },
+    activeTurnIdsByTask: args?.active ? { "task-1": "turn-1" } : {},
+    hostOwnedTurnIdsByTask: args?.active ? { "task-1": "turn-1" } : {},
   });
   return useAppStore;
 }
@@ -137,5 +172,58 @@ describe("managed task takeover store boundary", () => {
       controlMode: "managed",
       controlOwner: "stave",
     });
+  });
+
+  test("takes over an active managed approval after the host stops it", async () => {
+    const useAppStore = await seedManagedTask({ active: true });
+
+    const result = await useAppStore
+      .getState()
+      .takeOverTask({ taskId: "task-1" });
+
+    expect(result.ok).toBe(true);
+    expect(takeOverCalls).toEqual([
+      {
+        workspaceId: "workspace-1",
+        taskId: "task-1",
+      },
+    ]);
+    expect(useAppStore.getState().activeTurnIdsByTask["task-1"]).toBeUndefined();
+    expect(
+      useAppStore.getState().messagesByTask["task-1"]?.[0]?.parts[0],
+    ).toMatchObject({
+      type: "approval",
+      state: "approval-interrupted",
+    });
+    expect(useAppStore.getState().tasks[0]).toMatchObject({
+      controlMode: "interactive",
+      controlOwner: "stave",
+    });
+  });
+
+  test("stops a managed approval through the host without releasing ownership", async () => {
+    const useAppStore = await seedManagedTask({ active: true });
+
+    useAppStore.getState().abortTaskTurn({ taskId: "task-1" });
+    await Bun.sleep(0);
+
+    expect(stopCalls).toEqual([
+      {
+        workspaceId: "workspace-1",
+        taskId: "task-1",
+      },
+    ]);
+    expect(useAppStore.getState().activeTurnIdsByTask["task-1"]).toBeUndefined();
+    expect(
+      useAppStore.getState().messagesByTask["task-1"]?.[0]?.parts[0],
+    ).toMatchObject({
+      type: "approval",
+      state: "approval-interrupted",
+    });
+    expect(useAppStore.getState().tasks[0]).toMatchObject({
+      controlMode: "managed",
+      controlOwner: "stave",
+    });
+    expect(useAppStore.getState().workspaceSnapshotVersion).toBe(1);
   });
 });
