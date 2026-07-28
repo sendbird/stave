@@ -192,6 +192,7 @@ import {
   clearProviderTurnActivity,
   markProviderTurnInteractionResolved,
   markProviderTurnStalled,
+  PROVIDER_TURN_AUTO_ABORT_GRACE_MS,
   resolveProviderTurnDisplayState,
   resolveProviderTurnStallThresholdMs,
   startProviderTurnActivity,
@@ -1319,6 +1320,8 @@ interface AppState
 
 const ARCHIVED_TASK_TURN_NOTICE =
   "Generation stopped because the task was archived before this turn completed.";
+const PROVIDER_TURN_AUTO_ABORT_NOTICE =
+  "Generation was stopped automatically because the provider went silent for too long.";
 export const STAVE_OPEN_SETTINGS_EVENT = "stave:open-settings";
 const WORKSPACE_PR_STATUS_FRESH_MS = 4 * 60 * 1000;
 const WORKSPACE_PR_STATUS_POLL_CONCURRENCY = 3;
@@ -1839,6 +1842,7 @@ export const useAppStore = create<AppState>()(
         );
         const handle = globalThis.setTimeout(() => {
           providerTurnStallTimerByTask.delete(args.taskId);
+          let markedStalled = false;
           set((state) => {
             // `state.activeTurnIdsByTask` only covers the active workspace;
             // resolve the owning workspace session so turns running in a
@@ -1864,12 +1868,157 @@ export const useAppStore = create<AppState>()(
             if (nextActivityByTask === state.providerTurnActivityByTask) {
               return state;
             }
+            markedStalled = true;
             return {
               providerTurnActivityByTask: nextActivityByTask,
             };
           });
+
+          if (!markedStalled) {
+            // Turn already ended, moved on, or is waiting on an approval /
+            // user-input prompt (`markProviderTurnStalled` excludes those) —
+            // no follow-up needed.
+            return;
+          }
+
+          // The turn is now visibly "stalled." Give it one more grace window
+          // in case the provider is merely slow, then force-abort so a turn
+          // that never resumes (dead subprocess, hung stream, dropped event)
+          // cannot keep its task — and therefore its workspace — marked
+          // "active" forever. Reuses the same map/clear function: a fresh
+          // event before this fires reschedules through
+          // `scheduleProviderTurnStallTimer`, which clears this handle first.
+          const autoAbortHandle = globalThis.setTimeout(() => {
+            providerTurnStallTimerByTask.delete(args.taskId);
+            autoAbortStalledTaskTurn({
+              taskId: args.taskId,
+              turnId: args.turnId,
+            });
+          }, PROVIDER_TURN_AUTO_ABORT_GRACE_MS);
+          providerTurnStallTimerByTask.set(args.taskId, autoAbortHandle);
         }, delayMs);
         providerTurnStallTimerByTask.set(args.taskId, handle);
+      };
+
+      // Force-terminate a turn that has been silently stalled (no events,
+      // no pending approval/user-input) for
+      // `PROVIDER_TURN_STALL_THRESHOLD_MS + PROVIDER_TURN_AUTO_ABORT_GRACE_MS`.
+      // This is the safety net for turns that never resume and never emit
+      // `done` — the underlying cause (dead subprocess, hung network stream,
+      // a dropped bridge event) does not matter; silence past the grace
+      // window is treated as dead. Works for tasks in the active workspace
+      // *and* backgrounded workspaces (mirrors the pattern already used by
+      // `interruptWorkspaceTurnsBeforeTransition` / `archiveTask`), since a
+      // stalled turn in a workspace the user isn't currently viewing is
+      // exactly the "workspace stuck showing active in the sidebar" symptom.
+      const autoAbortStalledTaskTurn = (args: {
+        taskId: string;
+        turnId: string;
+      }) => {
+        clearProviderTurnStallTimer(args.taskId);
+        const state = get();
+        const owningWorkspaceId =
+          state.taskWorkspaceIdById[args.taskId] ?? state.activeWorkspaceId;
+        const owningSession = owningWorkspaceId
+          ? getWorkspaceSessionForState({
+              state,
+              workspaceId: owningWorkspaceId,
+            })
+          : null;
+        if (
+          !owningWorkspaceId ||
+          !owningSession ||
+          owningSession.activeTurnIdsByTask[args.taskId] !== args.turnId
+        ) {
+          // Turn already ended or was replaced by a newer one.
+          return;
+        }
+        const task = owningSession.tasks.find(
+          (item) => item.id === args.taskId,
+        );
+        if (!task) {
+          return;
+        }
+        const activity = state.providerTurnActivityByTask[args.taskId];
+        if (
+          activity?.turnId !== args.turnId ||
+          activity.stalledAt == null ||
+          activity.pendingInteraction != null
+        ) {
+          // Resumed in the meantime, or now waiting on an approval /
+          // user-input prompt — those have their own resolution paths and
+          // must never be force-aborted here.
+          return;
+        }
+
+        const interrupted = interruptActiveTaskTurns({
+          tasks: [task],
+          messagesByTask: owningSession.messagesByTask,
+          activeTurnIdsByTask: owningSession.activeTurnIdsByTask,
+          notice: PROVIDER_TURN_AUTO_ABORT_NOTICE,
+          messageCountByTask: owningSession.messageCountByTask,
+        });
+        if (interrupted.interruptedTaskIds.length === 0) {
+          return;
+        }
+
+        const isActiveWorkspace = owningWorkspaceId === state.activeWorkspaceId;
+        set((nextState) => {
+          const nextActivityByTask = clearProviderTurnActivity({
+            activityByTask: nextState.providerTurnActivityByTask,
+            taskId: args.taskId,
+          });
+          if (isActiveWorkspace) {
+            return {
+              messagesByTask: interrupted.messagesByTask,
+              activeTurnIdsByTask: interrupted.activeTurnIdsByTask,
+              providerTurnActivityByTask: nextActivityByTask,
+              workspaceSnapshotVersion:
+                incrementWorkspaceSnapshotVersion(nextState),
+            };
+          }
+          const cachedSession =
+            nextState.workspaceRuntimeCacheById[owningWorkspaceId];
+          if (!cachedSession) {
+            return { providerTurnActivityByTask: nextActivityByTask };
+          }
+          return {
+            providerTurnActivityByTask: nextActivityByTask,
+            workspaceRuntimeCacheById: {
+              ...nextState.workspaceRuntimeCacheById,
+              [owningWorkspaceId]: {
+                ...cachedSession,
+                messagesByTask: interrupted.messagesByTask,
+                activeTurnIdsByTask: interrupted.activeTurnIdsByTask,
+              },
+            },
+            workspaceSnapshotVersion:
+              incrementWorkspaceSnapshotVersion(nextState),
+          };
+        });
+
+        console.warn(
+          "[app.store] Auto-aborted a provider turn stalled past the grace window",
+          {
+            taskId: args.taskId,
+            turnId: args.turnId,
+            workspaceId: owningWorkspaceId,
+          },
+        );
+
+        const abortTurn = window.api?.provider?.abortTurn;
+        if (abortTurn) {
+          void abortTurn({ turnId: args.turnId });
+        }
+        const cleanupTask = window.api?.provider?.cleanupTask;
+        if (cleanupTask) {
+          void cleanupTask({ taskId: args.taskId });
+        }
+        attentionSync.syncTaskInteractions({
+          taskId: args.taskId,
+          messages: interrupted.messagesByTask[args.taskId] ?? [],
+          endedTurnId: args.turnId,
+        });
       };
 
       const dispatchNextQueuedTaskTurn = createQueuedTaskTurnDispatcher({

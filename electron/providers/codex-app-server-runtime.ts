@@ -120,6 +120,7 @@ import {
   resolveCodexSecondaryConfigOverrides,
   resolveCodexSecondaryRuntimeOptions,
 } from "./codex-app-server-params";
+import { parsePositiveIntEnv } from "./runtime-shared";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -161,6 +162,33 @@ const pendingMcpRefreshExecutables = new Set<string>();
 
 const APP_SERVER_INTERRUPT_GRACE_MS = 10_000;
 const CODEX_CONFIG_READ_TIMEOUT_MS = 5_000;
+
+/**
+ * How long a Codex approval / user-input request can sit unanswered before
+ * Stave auto-declines it. Mirrors Claude's
+ * `CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS` (claude-sdk-runtime.ts):
+ * without an equivalent fallback here, a dropped or never-delivered Codex
+ * approval/user-input prompt (renderer never rendered it, IPC glitch, user
+ * simply never responds) leaves the per-turn timeout controller paused
+ * indefinitely (see `createTurnTimeoutController` in `runtime.ts`, which only
+ * resumes on a responder delivery or a `tool_result`/`error` bridge event) —
+ * the turn, and its task/workspace, would then show "active" forever.
+ */
+export const CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS = 45 * 60 * 1000;
+
+export function resolveCodexApprovalDecisionTimeoutMs(args: {
+  envValue?: string;
+  override?: number;
+}) {
+  if (typeof args.override === "number" && Number.isFinite(args.override)) {
+    return Math.max(0, Math.floor(args.override));
+  }
+  return parsePositiveIntEnv({
+    value: args.envValue,
+    fallback: CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
+  });
+}
+
 const CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES = 64 * 1024 * 1024;
 const CODEX_APP_SERVER_STDOUT_SOFT_LINE_MAX_BYTES = 1 * 1024 * 1024;
 const CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES = 32 * 1024 * 1024;
@@ -2680,6 +2708,114 @@ export async function streamCodexWithAppServer(
       resolveTurnCompletion = resolve;
     });
 
+    // ── Approval / user-input auto-decline: symmetric with Claude's
+    // `waitForClaudeToolDecision` timeout fallback. See
+    // `CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS` for the rationale. ──
+    const codexApprovalDecisionTimeoutMs = resolveCodexApprovalDecisionTimeoutMs({
+      envValue: process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS,
+    });
+    const pendingApprovalAutoDeclineHandles = new Map<
+      string,
+      ReturnType<typeof setTimeout>
+    >();
+    const clearApprovalAutoDecline = (requestId: string) => {
+      const handle = pendingApprovalAutoDeclineHandles.get(requestId);
+      if (handle == null) {
+        return;
+      }
+      clearTimeout(handle);
+      pendingApprovalAutoDeclineHandles.delete(requestId);
+    };
+    const buildApprovalAutoDeclineTimeoutEvent = (args: {
+      kind: "approval" | "user_input";
+      toolName: string;
+      requestId: string;
+    }): BridgeEvent => {
+      const seconds = Math.round(codexApprovalDecisionTimeoutMs / 1000);
+      const label = args.kind === "user_input" ? "answer" : "approval";
+      return {
+        type: "error",
+        message: `Stave did not receive an ${label} decision for ${args.toolName} (request ${args.requestId}) within ${seconds}s. The request was denied automatically so the turn could continue. If this happened while you were reviewing the request, the approval responder may have been lost — please report this with the devtools console logs.`,
+        recoverable: true,
+      };
+    };
+    const scheduleApprovalAutoDecline = (args: {
+      requestId: string;
+      toolName: string;
+    }) => {
+      const handle = setTimeout(() => {
+        pendingApprovalAutoDeclineHandles.delete(args.requestId);
+        const pending = pendingApprovalRequests.get(args.requestId);
+        if (!pending || completed) {
+          return;
+        }
+        pendingApprovalRequests.delete(args.requestId);
+        console.warn(
+          "[provider-runtime] Codex approval request auto-declined after timeout",
+          {
+            threadId,
+            requestId: args.requestId,
+            timeoutMs: codexApprovalDecisionTimeoutMs,
+          },
+        );
+        emitBridgeEvent(
+          buildApprovalAutoDeclineTimeoutEvent({
+            kind: "approval",
+            toolName: args.toolName,
+            requestId: args.requestId,
+          }),
+        );
+        void client
+          .respond(
+            pending.serverRequestId,
+            pending.responseKind === "elicitation"
+              ? { action: "decline" as const }
+              : { decision: "decline" as const },
+          )
+          .catch(() => {})
+          .finally(() => elicitationPauseController.end(args.requestId));
+      }, codexApprovalDecisionTimeoutMs);
+      pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
+    };
+    const scheduleUserInputAutoDecline = (args: {
+      requestId: string;
+      toolName: string;
+    }) => {
+      const handle = setTimeout(() => {
+        pendingApprovalAutoDeclineHandles.delete(args.requestId);
+        const pending = pendingUserInputRequests.get(args.requestId);
+        if (!pending || completed) {
+          return;
+        }
+        pendingUserInputRequests.delete(args.requestId);
+        console.warn(
+          "[provider-runtime] Codex user-input request auto-declined after timeout",
+          {
+            threadId,
+            requestId: args.requestId,
+            timeoutMs: codexApprovalDecisionTimeoutMs,
+          },
+        );
+        emitBridgeEvent(
+          buildApprovalAutoDeclineTimeoutEvent({
+            kind: "user_input",
+            toolName: args.toolName,
+            requestId: args.requestId,
+          }),
+        );
+        void client
+          .respond(
+            pending.serverRequestId,
+            pending.responseKind === "elicitation"
+              ? { action: "decline" as const }
+              : { answers: {} },
+          )
+          .catch(() => {})
+          .finally(() => elicitationPauseController.end(args.requestId));
+      }, codexApprovalDecisionTimeoutMs);
+      pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
+    };
+
     const clearInterruptFallback = () => {
       if (interruptFallbackHandle == null) {
         return;
@@ -2727,6 +2863,7 @@ export async function streamCodexWithAppServer(
         };
       }
       pendingApprovalRequests.delete(requestId);
+      clearApprovalAutoDecline(requestId);
       void client
         .respond(
           pending.serverRequestId,
@@ -2772,6 +2909,7 @@ export async function streamCodexWithAppServer(
         };
       }
       pendingUserInputRequests.delete(requestId);
+      clearApprovalAutoDecline(requestId);
       if (pending.responseKind === "elicitation") {
         if (denied) {
           void client
@@ -2915,6 +3053,7 @@ export async function streamCodexWithAppServer(
               responseKind: "commandExecution",
             });
             void elicitationPauseController.begin(requestId);
+            scheduleApprovalAutoDecline({ requestId, toolName: "bash" });
             emitBridgeEvent({
               type: "approval",
               toolName: "bash",
@@ -2934,6 +3073,7 @@ export async function streamCodexWithAppServer(
               responseKind: "fileChange",
             });
             void elicitationPauseController.begin(requestId);
+            scheduleApprovalAutoDecline({ requestId, toolName: "apply_patch" });
             emitBridgeEvent({
               type: "approval",
               toolName: "apply_patch",
@@ -2956,6 +3096,7 @@ export async function streamCodexWithAppServer(
                   : null,
             });
             void elicitationPauseController.begin(requestId);
+            scheduleApprovalAutoDecline({ requestId, toolName: "permissions" });
             emitBridgeEvent({
               type: "approval",
               toolName: "permissions",
@@ -2976,6 +3117,12 @@ export async function streamCodexWithAppServer(
               responseKind: "review",
             });
             void elicitationPauseController.begin(requestId);
+            scheduleApprovalAutoDecline({
+              requestId,
+              toolName: mapApprovalToolName(
+                message.method as ServerRequestMethod,
+              ),
+            });
             emitBridgeEvent({
               type: "approval",
               toolName: mapApprovalToolName(
@@ -3002,6 +3149,10 @@ export async function streamCodexWithAppServer(
               responseKind: "tool",
             });
             void elicitationPauseController.begin(requestId);
+            scheduleUserInputAutoDecline({
+              requestId,
+              toolName: "request_user_input",
+            });
             emitBridgeEvent({
               type: "user_input",
               toolName: "request_user_input",
@@ -3019,6 +3170,10 @@ export async function streamCodexWithAppServer(
                 responseKind: "elicitation",
               });
               void elicitationPauseController.begin(requestId);
+              scheduleApprovalAutoDecline({
+                requestId,
+                toolName: approval.toolName,
+              });
               emitBridgeEvent({
                 type: "approval",
                 toolName: approval.toolName,
@@ -3047,6 +3202,10 @@ export async function streamCodexWithAppServer(
               elicitationFields: elicitation.fields,
             });
             void elicitationPauseController.begin(requestId);
+            scheduleUserInputAutoDecline({
+              requestId,
+              toolName: "mcp_elicitation",
+            });
             emitBridgeEvent({
               type: "user_input",
               toolName: "mcp_elicitation",
@@ -3776,6 +3935,7 @@ export async function streamCodexWithAppServer(
       // Reject any pending approval/input requests so the Codex app-server
       // doesn't hang waiting for a response that will never arrive.
       for (const [id, pending] of pendingApprovalRequests) {
+        clearApprovalAutoDecline(id);
         const declinePayload =
           pending.responseKind === "elicitation"
             ? { action: "decline" as const }
@@ -3786,6 +3946,7 @@ export async function streamCodexWithAppServer(
         pendingApprovalRequests.delete(id);
       }
       for (const [id, pending] of pendingUserInputRequests) {
+        clearApprovalAutoDecline(id);
         const declinePayload =
           pending.responseKind === "elicitation"
             ? { action: "decline" as const }
