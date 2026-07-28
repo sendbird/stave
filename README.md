@@ -69,19 +69,25 @@ Recommended next steps:
 
 - task-based Claude and Codex chats with approvals, diffs, plans, and queued follow-ups
 - Monaco editor, docked terminal, quick open, command palette, and source control actions
+- Lens browser panel for inspecting a live page and pulling DOM, console, or element context into a task draft
+- Compare Runs and Local Change Review with candidate, judge, and review turns and per-model reasoning effort
+- Crane connector for queuing repository issues into approval-gated local Claude or Codex runs
 - workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
 - scheduled Claude and Codex routines with per-run results, repository selection, and reusable Information context
 - git worktree-aware project and workspace management
 - editable workspace kickoff proposals from external sources and prompts
-- Fleet action inbox, notifications, attachments, skill selection, custom model shortcuts, and theme presets
+- Fleet Needs Me action inbox for questions, approvals, failed runs, results, and PR blockers across every workspace
+- notifications, attachments, skill selection, custom model shortcuts, and theme presets
 - local-only MCP access for same-machine automation and tool-driven workflows
 
 ## Documentation
 
 - [Install Guide](docs/install-guide.md) for the full macOS install and update flow
-- [Provider Sandbox and Approval Guide](docs/features/provider-sandbox-and-approval.md) for runtime safety and plan settings
+- [Lens Browser Guide](docs/features/lens.md) for inspecting a live page and sending its context into a task draft
+- [Provider Sandbox and Approval Guide](docs/features/provider-sandbox-and-approval.md) for runtime safety, Advisor, and plan settings
 - [Local MCP User Guide](docs/features/local-mcp-user-guide.md) for same-machine automation setup
 - [Crane Connector Guide](docs/features/crane-connector.md) for pairing Crane with this Stave installation and approving issue runs locally
+- [Fleet Needs Me Guide](docs/features/fleet-needs-me.md) for working through approvals, questions, and blockers across every workspace
 - [Workspace Kickoff](docs/features/workspace-kickoff.md) for source matching, MCP resolution, and Information panel defaults
 
 ## For Developers And Contributors

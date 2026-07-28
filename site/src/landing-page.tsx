@@ -1,8 +1,9 @@
 import * as React from "react";
 import {
   ArrowRight,
-  BookText,
   Command as CommandIcon,
+  Inbox,
+  ScanEye,
   ShieldCheck,
   Sparkles,
   TerminalSquare,
@@ -61,10 +62,16 @@ const FEATURES = [
     icon: CommandIcon,
   },
   {
-    title: "Docs written for end users",
+    title: "Lens browser panel",
     description:
-      "Install, core workflow, workspace, and advanced — no internal architecture or historical roadmap in the way.",
-    icon: BookText,
+      "Inspect a live page in the right rail and send DOM, console, network, or element context straight into a task draft.",
+    icon: ScanEye,
+  },
+  {
+    title: "One inbox for every workspace",
+    description:
+      "Fleet's Needs me view lists pending questions, approvals, failed runs, and PR blockers across all your workspaces.",
+    icon: Inbox,
   },
 ];
 
