@@ -2,12 +2,31 @@ import {
   DEFAULT_PROVIDER_TIMEOUT_MS,
   PROVIDER_TIMEOUT_OPTIONS,
 } from "@/lib/providers/runtime-option-contract";
+import type { WorkspaceFileData, WorkspaceImageData } from "@/lib/fs/fs.types";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import {
   updateApprovalPartsByRequestId,
   updateUserInputPartsByRequestId,
 } from "@/store/provider-message.utils";
 import type { ChatMessage, EditorTab } from "@/types/chat";
+
+export function getTooLargeEditorTabMetadata(
+  data: WorkspaceFileData | WorkspaceImageData | null | undefined,
+): Pick<
+  EditorTab,
+  "contentState" | "baseRevision" | "fileSizeBytes" | "fileSizeLimitBytes"
+> | null {
+  if (!data?.tooLarge) {
+    return null;
+  }
+
+  return {
+    contentState: "too-large",
+    baseRevision: data.revision || null,
+    fileSizeBytes: data.sizeBytes,
+    fileSizeLimitBytes: data.maxSizeBytes,
+  };
+}
 
 export function resolveLanguage(args: { filePath: string }) {
   if (isImageFilePath({ filePath: args.filePath })) {
@@ -83,23 +102,29 @@ export function resolveLanguage(args: { filePath: string }) {
   return "plaintext";
 }
 
-export function normalizeProviderTimeoutMs(args: { value: number | null | undefined }) {
-  return PROVIDER_TIMEOUT_OPTIONS.includes(args.value as (typeof PROVIDER_TIMEOUT_OPTIONS)[number])
+export function normalizeProviderTimeoutMs(args: {
+  value: number | null | undefined;
+}) {
+  return PROVIDER_TIMEOUT_OPTIONS.includes(
+    args.value as (typeof PROVIDER_TIMEOUT_OPTIONS)[number],
+  )
     ? args.value!
     : DEFAULT_PROVIDER_TIMEOUT_MS;
 }
 
 export function isImageFilePath(args: { filePath: string }) {
   const value = args.filePath.toLowerCase();
-  return value.endsWith(".png")
-    || value.endsWith(".jpg")
-    || value.endsWith(".jpeg")
-    || value.endsWith(".gif")
-    || value.endsWith(".webp")
-    || value.endsWith(".svg")
-    || value.endsWith(".bmp")
-    || value.endsWith(".ico")
-    || value.endsWith(".avif");
+  return (
+    value.endsWith(".png") ||
+    value.endsWith(".jpg") ||
+    value.endsWith(".jpeg") ||
+    value.endsWith(".gif") ||
+    value.endsWith(".webp") ||
+    value.endsWith(".svg") ||
+    value.endsWith(".bmp") ||
+    value.endsWith(".ico") ||
+    value.endsWith(".avif")
+  );
 }
 
 export function isMarkdownEditorTab(
@@ -126,9 +151,7 @@ export function canSendWorkspaceFileToTask(args: {
   isTaskResponding: boolean;
 }) {
   return Boolean(
-    args.filePath?.trim()
-    && args.taskId
-    && !args.isTaskResponding,
+    args.filePath?.trim() && args.taskId && !args.isTaskResponding,
   );
 }
 
@@ -138,7 +161,7 @@ export function updateMessageById(args: {
   update: (message: ChatMessage) => ChatMessage;
 }) {
   return args.messages.map((message) =>
-    message.id === args.messageId ? args.update(message) : message
+    message.id === args.messageId ? args.update(message) : message,
   );
 }
 
@@ -149,7 +172,10 @@ export function applyApprovalState(args: {
   messageId: string;
   requestId: string;
   approved: boolean;
-}): { messagesByTask: Record<string, ChatMessage[]>; workspaceSnapshotVersion: number } {
+}): {
+  messagesByTask: Record<string, ChatMessage[]>;
+  workspaceSnapshotVersion: number;
+} {
   const current = args.messagesByTask[args.taskId] ?? [];
   return {
     messagesByTask: {
@@ -179,7 +205,10 @@ export function applyUserInputState(args: {
   requestId: string;
   answers?: Record<string, string>;
   denied?: boolean;
-}): { messagesByTask: Record<string, ChatMessage[]>; workspaceSnapshotVersion: number } {
+}): {
+  messagesByTask: Record<string, ChatMessage[]>;
+  workspaceSnapshotVersion: number;
+} {
   const current = args.messagesByTask[args.taskId] ?? [];
   return {
     messagesByTask: {
