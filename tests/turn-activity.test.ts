@@ -4,7 +4,6 @@ import {
   countTurnActivityItems,
   formatTurnActivityCountsLabel,
   hasOutstandingTurnActivity,
-  partitionTurnActivityItems,
   promoteFirstPendingTodoForActiveTurn,
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
@@ -291,7 +290,6 @@ describe("turn activity presentation", () => {
     expect(formatTurnActivityCountsLabel(counts)).toBe(
       "1 failed · 2 running · 1 queued · 1 done",
     );
-    expect(partitionTurnActivityItems(items).completed.map((i) => i.title)).toEqual(["C"]);
     expect(formatTurnActivityCountsLabel(countTurnActivityItems([]))).toBeNull();
   });
 

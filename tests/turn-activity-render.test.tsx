@@ -117,7 +117,7 @@ describe("TurnActivity", () => {
     expect(collapsedHtml).toContain('aria-expanded="false"');
   });
 
-  test("ranks blocked work first and tucks finished rows behind a disclosure", () => {
+  test("ranks blocked work first and keeps finished rows in place", () => {
     const html = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
         activeTurnId: "turn-3",
@@ -162,13 +162,14 @@ describe("TurnActivity", () => {
     // The attention state names itself instead of showing raw counts.
     expect(html).toContain("Waiting for approval");
     expect(html).toContain("Explore");
-    expect(html).toContain("Completed (1)");
+    expect(html).not.toContain("Completed (1)");
     expect(html).toContain("1/3");
     expect(html.indexOf("Approval needed")).toBeLessThan(
       html.indexOf("Audit the shelf"),
     );
-    // Finished rows stay hidden until the disclosure is opened.
-    expect(html).not.toContain("session/TurnActivity.tsx");
+    // Finished work keeps its original keyed row instead of moving behind a
+    // nested disclosure when its status changes.
+    expect(html).toContain("session/TurnActivity.tsx");
   });
 
   test("stays mounted behind a pending interaction card without repeating it", () => {
@@ -249,7 +250,9 @@ describe("TurnActivity", () => {
     expect(html).not.toContain("2 done");
     // The ratio still carries the numbers.
     expect(html).toContain("2/2");
-    expect(html).toContain("Completed (2)");
+    expect(html).toContain("Read");
+    expect(html).toContain("Edit");
+    expect(html).not.toContain("Completed (2)");
   });
 
   test("renders a completed provider failure without a second loading indicator", () => {
