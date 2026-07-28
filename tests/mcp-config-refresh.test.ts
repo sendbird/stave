@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   getClaudeMcpConfigPaths,
+  getCodexMcpConfigPathGroups,
   getCodexMcpConfigPaths,
   getStaveLocalMcpManifestPath,
   McpConfigRefreshTracker,
@@ -37,6 +38,12 @@ describe("MCP config refresh tracking", () => {
       }),
     ).toContain("/tmp/claude-home/settings.json");
     expect(
+      getClaudeMcpConfigPaths({
+        cwd: "/tmp/workspace",
+        claudeConfigDir: "/tmp/claude-home",
+      }),
+    ).toContain("/tmp/claude-home/.claude.json");
+    expect(
       getCodexMcpConfigPaths({
         cwd: "/tmp/workspace",
         codexHome: "/tmp/codex-home",
@@ -61,6 +68,84 @@ describe("MCP config refresh tracking", () => {
         codexHome: "/tmp/codex-home",
       }),
     ).toContain(manifestPath);
+  });
+
+  test("tracks Codex global and project config layers independently", () => {
+    const cwd = path.join("/tmp", "workspace", "packages", "app");
+    const codexHome = path.join("/tmp", "codex-home");
+    const projectRoot = path.join("/tmp", "workspace");
+    const groups = getCodexMcpConfigPathGroups({
+      cwd,
+      codexHome,
+      configLayers: [
+        {
+          name: {
+            type: "project",
+            dotCodexFolder: path.join(projectRoot, ".codex"),
+          },
+        },
+        {
+          name: {
+            type: "user",
+            file: path.join(codexHome, "team.config.toml"),
+            profile: "team",
+          },
+        },
+        {
+          name: {
+            type: "system",
+            file: path.join("/etc", "codex", "config.toml"),
+          },
+        },
+      ],
+    });
+
+    expect(groups.globalPaths).toContain(path.join(codexHome, "config.toml"));
+    expect(groups.globalPaths).toContain(
+      path.join(codexHome, "team.config.toml"),
+    );
+    expect(groups.globalPaths).toContain(
+      path.join("/etc", "codex", "config.toml"),
+    );
+    expect(groups.projectPaths).toEqual(
+      expect.arrayContaining([
+        path.join(projectRoot, ".codex", "config.toml"),
+        path.join(projectRoot, "packages", ".codex", "config.toml"),
+        path.join(cwd, ".codex", "config.toml"),
+      ]),
+    );
+  });
+
+  test("detects a Codex project config created between turns", async () => {
+    const directory = await makeTempDirectory();
+    const cwd = path.join(directory, "workspace");
+    const dotCodexFolder = path.join(cwd, ".codex");
+    await mkdir(cwd, { recursive: true });
+    const projectPaths = getCodexMcpConfigPathGroups({
+      cwd,
+      codexHome: path.join(directory, "codex-home"),
+      configLayers: [
+        {
+          name: {
+            type: "project",
+            dotCodexFolder,
+          },
+        },
+      ],
+    }).projectPaths;
+    const tracker = new McpConfigRefreshTracker();
+    const args = {
+      scopeKey: `codex:project:${cwd}`,
+      paths: projectPaths,
+    };
+
+    expect((await tracker.check(args)).changed).toBe(false);
+    await mkdir(dotCodexFolder, { recursive: true });
+    await writeFile(
+      path.join(dotCodexFolder, "config.toml"),
+      "[mcp_servers.crane]\nurl = 'http://one'\n",
+    );
+    expect((await tracker.check(args)).changed).toBe(true);
   });
 
   test("detects a config file created or changed between provider turns", async () => {

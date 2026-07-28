@@ -8,9 +8,57 @@ type McpConfigPathOptions = {
   codexHome?: string;
 };
 
+type CodexMcpConfigPathOptions = McpConfigPathOptions & {
+  configLayers?: readonly unknown[];
+};
+
 function resolveHomeRelativePath(args: { value?: string; fallback: string }) {
   const value = args.value?.trim();
   return value && path.isAbsolute(value) ? value : args.fallback;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function addAbsolutePath(target: Set<string>, value: unknown) {
+  if (typeof value === "string" && path.isAbsolute(value)) {
+    target.add(path.normalize(value));
+  }
+}
+
+function addCodexProjectConfigCandidates(args: {
+  target: Set<string>;
+  cwd: string;
+  dotCodexFolder: string;
+}) {
+  const cwd = path.resolve(args.cwd);
+  const projectRoot = path.dirname(path.resolve(args.dotCodexFolder));
+  const relativeCwd = path.relative(projectRoot, cwd);
+  if (
+    relativeCwd === "" ||
+    (!relativeCwd.startsWith(`..${path.sep}`) &&
+      relativeCwd !== ".." &&
+      !path.isAbsolute(relativeCwd))
+  ) {
+    let directory = projectRoot;
+    args.target.add(path.join(directory, ".codex", "config.toml"));
+    for (const segment of relativeCwd.split(path.sep).filter(Boolean)) {
+      directory = path.join(directory, segment);
+      args.target.add(path.join(directory, ".codex", "config.toml"));
+    }
+    return;
+  }
+  args.target.add(path.join(args.dotCodexFolder, "config.toml"));
+}
+
+export function getClaudeStateFilePath(args: { claudeConfigDir?: string }) {
+  const configuredDir = args.claudeConfigDir?.trim();
+  return configuredDir && path.isAbsolute(configuredDir)
+    ? path.join(configuredDir, ".claude.json")
+    : path.join(homedir(), ".claude.json");
 }
 
 /**
@@ -32,7 +80,9 @@ export function getClaudeMcpConfigPaths(args: McpConfigPathOptions) {
   return [
     path.join(configDir, "settings.json"),
     path.join(configDir, "settings.local.json"),
-    path.join(homedir(), ".claude.json"),
+    getClaudeStateFilePath({
+      claudeConfigDir: args.claudeConfigDir,
+    }),
     path.join(args.cwd, ".claude", "settings.json"),
     path.join(args.cwd, ".claude", "settings.local.json"),
     path.join(args.cwd, ".mcp.json"),
@@ -40,15 +90,60 @@ export function getClaudeMcpConfigPaths(args: McpConfigPathOptions) {
   ];
 }
 
-export function getCodexMcpConfigPaths(args: McpConfigPathOptions) {
+/**
+ * Codex resolves config per thread from user, profile, system, managed, and
+ * project layers. App Server exposes those exact sources through
+ * `config/read(includeLayers: true)`, so use that metadata instead of
+ * duplicating Codex's project-root and trust rules.
+ *
+ * Global and project paths stay separate because the App Server process is
+ * shared: a user config edit should invalidate it once, while project edits
+ * should be fingerprinted independently for each workspace.
+ */
+export function getCodexMcpConfigPathGroups(args: CodexMcpConfigPathOptions) {
   const codexHome = resolveHomeRelativePath({
     value: args.codexHome,
     fallback: path.join(homedir(), ".codex"),
   });
-  return [
+  const globalPaths = new Set([
     path.join(codexHome, "config.toml"),
     getStaveLocalMcpManifestPath(),
-  ];
+  ]);
+  const projectPaths = new Set([path.join(args.cwd, ".codex", "config.toml")]);
+
+  for (const layer of args.configLayers ?? []) {
+    const source = asRecord(asRecord(layer)?.name);
+    if (!source) {
+      continue;
+    }
+    const sourceType =
+      typeof source.type === "string" ? source.type.toLowerCase() : "";
+    if (sourceType === "project") {
+      addAbsolutePath(projectPaths, source.file);
+      if (
+        typeof source.dotCodexFolder === "string" &&
+        path.isAbsolute(source.dotCodexFolder)
+      ) {
+        addCodexProjectConfigCandidates({
+          target: projectPaths,
+          cwd: args.cwd,
+          dotCodexFolder: source.dotCodexFolder,
+        });
+      }
+      continue;
+    }
+    addAbsolutePath(globalPaths, source.file);
+  }
+
+  return {
+    globalPaths: [...globalPaths],
+    projectPaths: [...projectPaths],
+  };
+}
+
+export function getCodexMcpConfigPaths(args: CodexMcpConfigPathOptions) {
+  const groups = getCodexMcpConfigPathGroups(args);
+  return [...groups.globalPaths, ...groups.projectPaths];
 }
 
 async function getMcpConfigFingerprint(paths: readonly string[]) {

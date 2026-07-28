@@ -151,6 +151,16 @@ Stave maps Claude Agent SDK MCP elicitation requests and the `refusal_fallback_p
 
 Stave now forwards Claude `settingSources` explicitly. The default Stave setting enables `project`, which allows `CLAUDE.md`, project settings, and project-native slash commands to participate in turns; `local` and `user` can be toggled from Settings.
 
+When Stave passes its local MCP server through the SDK, it also merges Claude's
+file-backed MCP servers into the same programmatic config so they are not
+replaced. The merge includes user servers from Claude's `.claude.json`,
+project servers from `.mcp.json`, and the matching workspace-local entry under
+`projects`; precedence is local > project > user, with Stave's authenticated
+loopback server winning any final name collision. Collision logs contain only
+the server name and source, never headers or environment values. Enabling
+`Strict MCP Config` keeps the existing isolated behavior and skips file-backed
+servers.
+
 Stave also forwards Claude `taskBudget` when configured, and the `Settings → Providers → Claude` tab now exposes two Claude SDK control helpers directly:
 
 - `getContextUsage()` for inspecting current workspace/session context pressure
@@ -269,6 +279,14 @@ Codex-specific runtime controls come from the UI and runtime options:
 - binary path override
 - provider timeout
 - debug stream logging
+
+Before a normal Codex turn, Stave reads App Server's resolved config-layer
+metadata for the active workspace and fingerprints the MCP-bearing sources.
+Global sources such as system, user, selected-profile, and managed config files
+are tracked once per Codex executable and `CODEX_HOME`; project
+`.codex/config.toml` candidates are tracked per workspace. When a source changes,
+Stave restarts the App Server when safe and begins fresh native threads so the
+next turn receives the updated MCP catalog.
 
 Codex slash-command behavior:
 
