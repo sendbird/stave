@@ -14,7 +14,8 @@ export const PROVIDER_TURN_STALL_THRESHOLD_MS = 5 * 60 * 1000; // 5 min
 
 /**
  * Extra silence allowed *after* a turn is marked "stalled" before it is
- * force-aborted (see `autoAbortStalledTaskTurn` in `src/store/app.store.ts`).
+ * force-aborted (see `createStalledProviderTurnAborter` in
+ * `src/store/provider-turn-stall-abort.ts`).
  * A turn that is still silent 20 minutes (5 min stall + 15 min grace) after
  * its last event is treated as dead — a hung provider stream, a crashed
  * subprocess the runtime never detected, or a dropped event — rather than a
