@@ -64,7 +64,7 @@ import { getCodexMcpRegistrationStatus } from "../main/codex-mcp";
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import { buildCodexInstructionProfileKey } from "./codex-runtime-config";
 import {
-  getCodexMcpConfigPaths,
+  getCodexMcpConfigPathGroups,
   McpConfigRefreshTracker,
 } from "./mcp-config-refresh";
 import {
@@ -153,12 +153,14 @@ export {
 const threadIdByTask = new Map<string, string>();
 const threadExecutableByTask = new Map<string, string>();
 const clientByExecutablePath = new Map<string, CodexAppServerClient>();
-const codexMcpConfigRefreshTracker = new McpConfigRefreshTracker();
+const codexGlobalMcpConfigRefreshTracker = new McpConfigRefreshTracker();
+const codexProjectMcpConfigRefreshTracker = new McpConfigRefreshTracker();
 const freshCodexThreadExecutables = new Set<string>();
 const activeCodexTurnsByExecutable = new Map<string, number>();
 const pendingMcpRefreshExecutables = new Set<string>();
 
 const APP_SERVER_INTERRUPT_GRACE_MS = 10_000;
+const CODEX_CONFIG_READ_TIMEOUT_MS = 5_000;
 const CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES = 64 * 1024 * 1024;
 const CODEX_APP_SERVER_STDOUT_SOFT_LINE_MAX_BYTES = 1 * 1024 * 1024;
 const CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES = 32 * 1024 * 1024;
@@ -1195,6 +1197,33 @@ function restartCodexAppServerForMcpConfigChange(executablePath: string) {
     }
   }
   freshCodexThreadExecutables.add(executablePath);
+}
+
+async function resolveCodexMcpConfigPathGroups(args: {
+  client: CodexAppServerClient;
+  cwd: string;
+  codexHome?: string;
+}) {
+  let configLayers: unknown[] = [];
+  try {
+    const response = await args.client.request<{ layers?: unknown[] }>(
+      "config/read",
+      {
+        includeLayers: true,
+        cwd: args.cwd,
+      },
+      { timeoutMs: CODEX_CONFIG_READ_TIMEOUT_MS },
+    );
+    configLayers = Array.isArray(response.layers) ? response.layers : [];
+  } catch {
+    // Older or temporarily unhealthy App Servers can still run a turn. Keep
+    // the static user/workspace fallbacks instead of failing preflight.
+  }
+  return getCodexMcpConfigPathGroups({
+    cwd: args.cwd,
+    codexHome: args.codexHome,
+    configLayers,
+  });
 }
 
 function finishCodexTurn(executablePath: string) {
@@ -2397,14 +2426,26 @@ export async function streamCodexWithAppServer(
   const codexRuntimeEnv = buildCodexCliEnv({
     executablePath: codexExecutablePath,
   });
-  const codexMcpRefresh = await codexMcpConfigRefreshTracker.check({
-    scopeKey: `codex:${codexRuntimeEnv.CODEX_HOME ?? "default"}`,
-    paths: getCodexMcpConfigPaths({
-      cwd: runtimeCwd,
-      codexHome: codexRuntimeEnv.CODEX_HOME,
-    }),
+  let client = getCodexAppServerClient({
+    executablePath: codexExecutablePath,
   });
-  if (codexMcpRefresh.changed) {
+  const codexMcpConfigPaths = await resolveCodexMcpConfigPathGroups({
+    client,
+    cwd: runtimeCwd,
+    codexHome: codexRuntimeEnv.CODEX_HOME,
+  });
+  const codexMcpScope = `codex:${codexExecutablePath}:${codexRuntimeEnv.CODEX_HOME ?? "default"}`;
+  const [globalMcpRefresh, projectMcpRefresh] = await Promise.all([
+    codexGlobalMcpConfigRefreshTracker.check({
+      scopeKey: codexMcpScope,
+      paths: codexMcpConfigPaths.globalPaths,
+    }),
+    codexProjectMcpConfigRefreshTracker.check({
+      scopeKey: `${codexMcpScope}:${runtimeCwd}`,
+      paths: codexMcpConfigPaths.projectPaths,
+    }),
+  ]);
+  if (globalMcpRefresh.changed || projectMcpRefresh.changed) {
     // App Server reads config.toml only when its process starts, while resumed
     // threads retain their MCP catalog. Restart and start fresh native threads
     // so servers added after the Stave conversation began are usable.
@@ -2415,7 +2456,7 @@ export async function streamCodexWithAppServer(
     }
   }
 
-  const client = getCodexAppServerClient({
+  client = getCodexAppServerClient({
     executablePath: codexExecutablePath,
   });
   activeCodexTurnsByExecutable.set(

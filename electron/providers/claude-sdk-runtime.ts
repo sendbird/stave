@@ -82,6 +82,10 @@ import {
   getClaudeMcpConfigPaths,
   McpConfigRefreshTracker,
 } from "./mcp-config-refresh";
+import {
+  resolveClaudeMcpServers,
+  type ClaudeMcpConfigDiagnostic,
+} from "./claude-mcp-config";
 
 /**
  * Cache boundary marker for the claude-agent-sdk systemPrompt string[] API.
@@ -853,6 +857,49 @@ async function resolveEmbeddedStaveLocalMcpServers(): Promise<
   }
   return {
     [STAVE_LOCAL_MCP_SERVER_NAME]: toClaudeSdkMcpServerConfig(manifest),
+  };
+}
+
+function logClaudeMcpConfigDiagnostic(diagnostic: ClaudeMcpConfigDiagnostic) {
+  console.warn("[claude-sdk-runtime] skipped Claude MCP configuration", {
+    kind: diagnostic.kind,
+    source: diagnostic.source,
+    ...(diagnostic.serverName ? { serverName: diagnostic.serverName } : {}),
+  });
+}
+
+async function resolveClaudeMcpServersForQuery(args: {
+  cwd: string;
+  claudeExecutablePath: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  claudeConfigDir?: string;
+}) {
+  const staveServers = await resolveEmbeddedStaveLocalMcpServers();
+  const claudeConfigDir =
+    args.claudeConfigDir ??
+    buildClaudeEnv({
+      executablePath: args.claudeExecutablePath,
+      cwd: args.cwd,
+    }).CLAUDE_CONFIG_DIR;
+  const mcpServers = await resolveClaudeMcpServers({
+    cwd: args.cwd,
+    claudeConfigDir,
+    staveServers,
+    strict: args.runtimeOptions?.claudeStrictMcpConfig === true,
+    onDiagnostic: logClaudeMcpConfigDiagnostic,
+    onStaveOverride: ({ serverName, replacedSource }) => {
+      console.warn(
+        "[claude-sdk-runtime] Stave MCP server overrides configured server",
+        {
+          serverName,
+          replacedSource,
+        },
+      );
+    },
+  });
+  return {
+    mcpServers,
+    hasStaveLocalMcp: Boolean(staveServers),
   };
 }
 
@@ -3006,7 +3053,11 @@ export async function getClaudeCommandCatalog(args: {
     const claudeExecutablePath = resolveClaudeRuntimeExecutablePath({
       runtimeOptions: args.runtimeOptions,
     });
-    const embeddedMcpServers = await resolveEmbeddedStaveLocalMcpServers();
+    const { mcpServers } = await resolveClaudeMcpServersForQuery({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+    });
 
     stream = queryFn({
       prompt: "",
@@ -3016,7 +3067,7 @@ export async function getClaudeCommandCatalog(args: {
         runtimeOptions: args.runtimeOptions,
         systemPrompt: args.runtimeOptions?.claudeSystemPrompt,
         promptSuggestions: false,
-        mcpServers: embeddedMcpServers,
+        mcpServers,
       }),
     }) as Query;
 
@@ -3066,7 +3117,11 @@ export async function getClaudeContextUsage(args: {
     const claudeExecutablePath = resolveClaudeRuntimeExecutablePath({
       runtimeOptions: args.runtimeOptions,
     });
-    const embeddedMcpServers = await resolveEmbeddedStaveLocalMcpServers();
+    const { mcpServers } = await resolveClaudeMcpServersForQuery({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+    });
     stream = queryFn({
       prompt: "",
       options: buildClaudeQueryOptions({
@@ -3075,7 +3130,7 @@ export async function getClaudeContextUsage(args: {
         runtimeOptions: args.runtimeOptions,
         systemPrompt: args.runtimeOptions?.claudeSystemPrompt,
         promptSuggestions: false,
-        mcpServers: embeddedMcpServers,
+        mcpServers,
       }),
     }) as Query;
 
@@ -3119,7 +3174,11 @@ export async function reloadClaudePlugins(args: {
     const claudeExecutablePath = resolveClaudeRuntimeExecutablePath({
       runtimeOptions: args.runtimeOptions,
     });
-    const embeddedMcpServers = await resolveEmbeddedStaveLocalMcpServers();
+    const { mcpServers } = await resolveClaudeMcpServersForQuery({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+    });
     stream = queryFn({
       prompt: "",
       options: buildClaudeQueryOptions({
@@ -3128,7 +3187,7 @@ export async function reloadClaudePlugins(args: {
         runtimeOptions: args.runtimeOptions,
         systemPrompt: args.runtimeOptions?.claudeSystemPrompt,
         promptSuggestions: false,
-        mcpServers: embeddedMcpServers,
+        mcpServers,
       }),
     }) as Query;
 
@@ -3399,9 +3458,14 @@ export async function streamClaudeWithSdk(
       baseSystemPrompt: args.runtimeOptions?.claudeSystemPrompt,
       responseStylePrompt: args.runtimeOptions?.responseStylePrompt,
     });
-    const embeddedMcpServers = secondaryReadOnly
-      ? undefined
-      : await resolveEmbeddedStaveLocalMcpServers();
+    const resolvedMcpServers = secondaryReadOnly
+      ? { mcpServers: undefined, hasStaveLocalMcp: false }
+      : await resolveClaudeMcpServersForQuery({
+          cwd: runtimeCwd,
+          claudeExecutablePath,
+          runtimeOptions: args.runtimeOptions,
+          claudeConfigDir: claudeRuntimeEnv.CLAUDE_CONFIG_DIR,
+        });
     const claudePermissionMode = resolveClaudePermissionMode({
       runtimeValue: args.runtimeOptions?.claudePermissionMode,
       envValue: process.env.STAVE_CLAUDE_PERMISSION_MODE?.trim(),
@@ -3425,7 +3489,7 @@ export async function streamClaudeWithSdk(
     const promptConversation = args.conversation
       ? filterPromptRetrievedContext({
           conversation: args.conversation,
-          excludedSourceIds: embeddedMcpServers
+          excludedSourceIds: resolvedMcpServers.hasStaveLocalMcp
             ? []
             : ["stave:current-task-awareness"],
         })
@@ -3468,7 +3532,7 @@ export async function streamClaudeWithSdk(
         systemPrompt: claudeSystemPrompt,
         includePartialMessages: true,
         promptSuggestions: true,
-        mcpServers: embeddedMcpServers,
+        mcpServers: resolvedMcpServers.mcpServers,
         secondaryReadOnly,
         onElicitation: async (request, options) => {
           const requestId =

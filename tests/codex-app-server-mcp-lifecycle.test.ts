@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { EventEmitter } from "node:events";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { applyProviderTurnActivityEvents } from "@/lib/providers/turn-status";
 
 const actualChildProcess = await import("node:child_process");
@@ -49,6 +52,23 @@ class FakeChild extends EventEmitter {
           this.emitResponse(message.id, {
             account: { type: "chatgpt" },
             requiresOpenaiAuth: true,
+          });
+          continue;
+        }
+        if (message.method === "config/read" && message.id != null) {
+          const cwd = String(message.params?.cwd ?? process.cwd());
+          this.emitResponse(message.id, {
+            config: {},
+            origins: {},
+            layers: [
+              {
+                name: {
+                  type: "project",
+                  dotCodexFolder: `${cwd}/.codex`,
+                },
+                config: {},
+              },
+            ],
           });
           continue;
         }
@@ -162,6 +182,7 @@ class FakeChild extends EventEmitter {
 
 let nextScenario: FakeScenario = "full-lifecycle";
 const fakeChildren: FakeChild[] = [];
+const tempDirectories: string[] = [];
 
 mock.module("node:child_process", () => ({
   ...actualChildProcess,
@@ -172,10 +193,18 @@ mock.module("node:child_process", () => ({
   },
 }));
 
-afterEach(() => {
+afterEach(async () => {
   nextScenario = "full-lifecycle";
   fakeChildren.length = 0;
   mock.restore();
+  await Promise.all(
+    tempDirectories.splice(0).map((directory) =>
+      rm(directory, {
+        recursive: true,
+        force: true,
+      }),
+    ),
+  );
 });
 
 async function streamScenario(scenario: FakeScenario) {
@@ -274,6 +303,11 @@ describe("Codex App Server MCP lifecycle mapping", () => {
     });
 
     const child = fakeChildren[0]!;
+    expect(
+      child.receivedMessages.some(
+        (message) => message.method === "config/read",
+      ),
+    ).toBe(true);
     const threadStart = child.receivedMessages.find(
       (message) => message.method === "thread/start",
     );
@@ -314,5 +348,50 @@ describe("Codex App Server MCP lifecycle mapping", () => {
         (message) => message.method === "thread/delete",
       ),
     ).toBe(true);
+  });
+
+  test("restarts App Server when project MCP config appears between turns", async () => {
+    const cwd = await mkdtemp(
+      path.join(tmpdir(), "stave-codex-project-refresh-"),
+    );
+    tempDirectories.push(cwd);
+    const binaryPath = "/tmp/fake-codex-project-refresh";
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?project-refresh-test=${Date.now()}-${Math.random()}`
+    );
+    const stream = () =>
+      runtime.streamCodexWithAppServer({
+        providerId: "codex",
+        taskId: "task-project-refresh",
+        prompt: "Inspect the runtime",
+        cwd,
+        runtimeOptions: {
+          codexBinaryPath: binaryPath,
+        },
+      });
+
+    await stream();
+    expect(fakeChildren).toHaveLength(1);
+
+    const dotCodexFolder = path.join(cwd, ".codex");
+    await mkdir(dotCodexFolder, { recursive: true });
+    await writeFile(
+      path.join(dotCodexFolder, "config.toml"),
+      "[mcp_servers.crane]\nurl = 'http://one'\n",
+    );
+    await stream();
+
+    expect(fakeChildren).toHaveLength(2);
+    expect(fakeChildren[0]?.killed).toBe(true);
+    expect(
+      fakeChildren[1]?.receivedMessages.some(
+        (message) => message.method === "thread/start",
+      ),
+    ).toBe(true);
+    expect(
+      fakeChildren[1]?.receivedMessages.some(
+        (message) => message.method === "thread/resume",
+      ),
+    ).toBe(false);
   });
 });
