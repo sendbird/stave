@@ -1,3 +1,23 @@
+## [0.12.3](https://github.com/sendbird/stave/compare/v0.12.2...v0.12.3) (2026-07-28)
+
+### Features
+
+* Replace the stacked Routines panel with a full-window Automation Center for managing automations and inspecting run history, including cadence presets, multi-day schedules, provider-aware permission modes, and model effort controls.
+* Add an OS-encrypted global Secrets manager with explicit reveal and copy actions, plus per-row host editing for Lens saved accounts.
+
+### Bug Fixes
+
+* Preserve provider-native MCP servers by merging Claude and Codex global, project, and workspace configuration layers, refreshing sessions when resolved configuration changes while keeping Stave's authenticated server authoritative on collisions.
+* Route managed-task approvals and user-input responses through the host runtime, add authoritative Stop and Take Over handling, and ignore late provider events after interruption.
+
+### Refactors / Chores
+
+* Refresh the README and landing page with the current Lens, Compare Runs, Local Change Review, Crane, and Fleet feature set, along with an updated hero screenshot.
+
+### References
+
+* [#256](https://github.com/sendbird/stave/pull/256), [#257](https://github.com/sendbird/stave/pull/257), [#258](https://github.com/sendbird/stave/pull/258), [#259](https://github.com/sendbird/stave/pull/259), [#261](https://github.com/sendbird/stave/pull/261), [#262](https://github.com/sendbird/stave/pull/262)
+
 ## [0.12.2](https://github.com/sendbird/stave/compare/v0.12.1...v0.12.2) (2026-07-27)
 
 ### Features
