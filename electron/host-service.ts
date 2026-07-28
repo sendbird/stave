@@ -1515,9 +1515,7 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "crane.release-task-control":
       await respond(
         request.id,
-        await localMcpRuntime.releaseLocallyManagedTaskControl(
-          request.params,
-        ),
+        await localMcpRuntime.releaseLocallyManagedTaskControl(request.params),
       );
       return;
     case "task.take-over":
@@ -1526,13 +1524,16 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         await localMcpRuntime.takeOverManagedTaskControl(request.params),
       );
       return;
+    case "task.stop":
+      await respond(
+        request.id,
+        await localMcpRuntime.stopManagedTaskTurn(request.params),
+      );
+      return;
     case "routine.invoke":
       await respond(
         request.id,
-        await invokeRoutineAction(
-          request.params.action,
-          request.params.args,
-        ),
+        await invokeRoutineAction(request.params.action, request.params.args),
       );
       return;
     default:

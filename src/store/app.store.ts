@@ -129,7 +129,6 @@ import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import {
   buildSuggestTaskNamePayload,
   getArchiveFallbackTaskId,
-  isExternallyManagedTask,
   isTaskArchived,
   isTaskManaged,
   normalizeSuggestedTaskTitle,
@@ -235,7 +234,7 @@ import {
 } from "@/lib/compare-runs";
 import { cancelCompareJudgeSecondaryRun, launchReadyCompareJudgesFromStore } from "@/store/compare-run-judge";
 import { launchCompareRunVariants } from "@/store/compare-run-start";
-import { applyManagedTaskTakeover, requestManagedTaskTakeover } from "@/store/managed-task-takeover";
+import { buildManagedTaskTakeoverStatePatch, buildManagedTaskTurnInterruptionPatch, requestManagedTaskStop, requestManagedTaskTakeover } from "@/store/managed-task-takeover";
 import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import {
   applyProjectBasePromptToRuntimeOptions,
@@ -1584,10 +1583,6 @@ function moveItemById<T extends { id: string }>(args: {
   }
   nextItems.splice(toIndex, 0, moved);
   return nextItems;
-}
-
-function isManagedTaskReadOnly(args: { state: Pick<AppState, "tasks">; taskId: string }) {
-  return isTaskManaged(findTaskById(args.state, args.taskId));
 }
 
 function mergeRecentProjectsByPath(args: {
@@ -7577,7 +7572,7 @@ export const useAppStore = create<AppState>()(
             return;
           }
           set((state) => {
-            if (isManagedTaskReadOnly({ state, taskId })) {
+            if (isTaskManaged(findTaskById(state, taskId))) {
               return state;
             }
             const target = state.tasks.find((task) => task.id === taskId);
@@ -8052,7 +8047,7 @@ export const useAppStore = create<AppState>()(
           if (
             !targetTask ||
             isTaskArchived(targetTask) ||
-            isManagedTaskReadOnly({ state: stateBefore, taskId })
+            isTaskManaged(findTaskById(stateBefore, taskId))
           ) {
             return;
           }
@@ -8163,7 +8158,7 @@ export const useAppStore = create<AppState>()(
             if (!hasTask) {
               return { draftProvider: provider };
             }
-            if (isManagedTaskReadOnly({ state, taskId })) {
+            if (isTaskManaged(findTaskById(state, taskId))) {
               return { draftProvider: provider };
             }
             return {
@@ -9162,15 +9157,17 @@ export const useAppStore = create<AppState>()(
           if (!result.ok) {
             return result;
           }
-          set((state) => ({
-            tasks: applyManagedTaskTakeover({
-              tasks: state.tasks,
-              taskId,
-              sourceContexts: result.sourceContexts,
-              updatedAt: buildRecentTimestamp(),
-            }),
-            workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+          const activeTurnId = get().activeTurnIdsByTask[taskId];
+          set((state) => buildManagedTaskTakeoverStatePatch({
+            state, taskId, sourceContexts: result.sourceContexts,
+            updatedAt: buildRecentTimestamp(),
           }));
+          clearProviderTurnStallTimer(taskId);
+          attentionSync.syncTaskInteractions({
+            taskId,
+            messages: get().messagesByTask[taskId] ?? [],
+            endedTurnId: activeTurnId,
+          });
           const session = getWorkspaceSessionForState({
             state: get(),
             workspaceId: result.workspaceId,
@@ -9219,11 +9216,6 @@ export const useAppStore = create<AppState>()(
           const latestState = get();
           const taskId = notification.taskId?.trim();
           if (!taskId) {
-            return;
-          }
-
-          const targetTask = findTaskById(latestState, taskId);
-          if (isExternallyManagedTask(targetTask)) {
             return;
           }
 
@@ -9447,7 +9439,7 @@ export const useAppStore = create<AppState>()(
           if (!task || !runtimeTarget) {
             return { status: "blocked" } satisfies SendUserMessageResult;
           }
-          if (isManagedTaskReadOnly({ state, taskId: resolvedTaskId })) {
+          if (isTaskManaged(findTaskById(state, resolvedTaskId))) {
             return { status: "blocked" } satisfies SendUserMessageResult;
           }
           let provider =
@@ -10739,7 +10731,24 @@ export const useAppStore = create<AppState>()(
         },
         abortTaskTurn: ({ taskId }) => {
           const stateBefore = get();
-          if (isManagedTaskReadOnly({ state: stateBefore, taskId })) {
+          if (isTaskManaged(findTaskById(stateBefore, taskId))) {
+            const activeTurnId = stateBefore.activeTurnIdsByTask[taskId];
+            void requestManagedTaskStop({ taskId, state: stateBefore }).then(
+              (stopped) => {
+                if (!stopped) {
+                  return;
+                }
+                clearProviderTurnStallTimer(taskId);
+                set((state) =>
+                  buildManagedTaskTurnInterruptionPatch(state, taskId),
+                );
+                attentionSync.syncTaskInteractions({
+                  taskId,
+                  messages: get().messagesByTask[taskId] ?? [],
+                  endedTurnId: activeTurnId,
+                });
+              },
+            );
             return;
           }
           const activeTurnId = stateBefore.activeTurnIdsByTask[taskId];
@@ -10841,9 +10850,6 @@ export const useAppStore = create<AppState>()(
         resolveApproval: ({ taskId, messageId, approved }) => {
           const stateBefore = get();
           const task = findTaskById(stateBefore, taskId);
-          if (isExternallyManagedTask(task)) {
-            return;
-          }
           const runtimeTarget = resolveTaskRuntimeTarget({
             state: stateBefore,
             taskId,
@@ -11074,9 +11080,6 @@ export const useAppStore = create<AppState>()(
         resolveUserInput: ({ taskId, messageId, answers, denied }) => {
           const stateBefore = get();
           const task = findTaskById(stateBefore, taskId);
-          if (isExternallyManagedTask(task)) {
-            return;
-          }
           const runtimeTarget = resolveTaskRuntimeTarget({
             state: stateBefore,
             taskId,

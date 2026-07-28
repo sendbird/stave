@@ -1,12 +1,21 @@
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { resolveProviderDisplayId } from "@/lib/providers/model-catalog";
-import type { ChatMessage, Task, TaskControlMode, TaskControlOwner } from "@/types/chat";
+import type {
+  ChatMessage,
+  Task,
+  TaskControlMode,
+  TaskControlOwner,
+} from "@/types/chat";
 
 export type TaskFilter = "active" | "archived" | "all";
 
-const relativeTimeFormatter = typeof Intl !== "undefined"
-  ? new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
-  : null;
+export const MANAGED_TASK_STOP_NOTICE =
+  "Managed run stopped from Stave before completion.";
+
+const relativeTimeFormatter =
+  typeof Intl !== "undefined"
+    ? new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
+    : null;
 const AUTO_TASK_TITLE_MAX_LENGTH = 80;
 const AUTO_TASK_TITLE_MAX_WORDS = 12;
 
@@ -60,7 +69,9 @@ export function reconcileTasksWithPersistedArchival(args: {
     return args.tasks;
   }
   const persistedArchivedById = new Map(
-    args.persistedTasks.map((task) => [task.id, task.archivedAt ?? null] as const),
+    args.persistedTasks.map(
+      (task) => [task.id, task.archivedAt ?? null] as const,
+    ),
   );
   let changed = false;
   const reconciled = args.tasks.map((task) => {
@@ -89,11 +100,15 @@ export function isLegacyBranchTask(task: Pick<Task, "coliseumParentTaskId">) {
   return Boolean(task.coliseumParentTaskId);
 }
 
-export function getTaskControlMode(task: Pick<Task, "controlMode"> | null | undefined): TaskControlMode {
+export function getTaskControlMode(
+  task: Pick<Task, "controlMode"> | null | undefined,
+): TaskControlMode {
   return task?.controlMode ?? "interactive";
 }
 
-export function getTaskControlOwner(task: Pick<Task, "controlOwner"> | null | undefined): TaskControlOwner {
+export function getTaskControlOwner(
+  task: Pick<Task, "controlOwner"> | null | undefined,
+): TaskControlOwner {
   return task?.controlOwner ?? "stave";
 }
 
@@ -106,7 +121,8 @@ export function findWorkspaceTaskOrThrow(args: {
     return null;
   }
 
-  const task = args.tasks.find((candidate) => candidate.id === requestedTaskId) ?? null;
+  const task =
+    args.tasks.find((candidate) => candidate.id === requestedTaskId) ?? null;
   if (!task) {
     throw new Error(`Task not found in this workspace: ${requestedTaskId}`);
   }
@@ -122,36 +138,34 @@ export function normalizeTaskControl(task: Task): Task {
   };
 }
 
-export function isTaskManaged(task: Pick<Task, "controlMode"> | null | undefined) {
+export function isTaskManaged(
+  task: Pick<Task, "controlMode"> | null | undefined,
+) {
   return getTaskControlMode(task) === "managed";
 }
 
 export function isExternallyManagedTask(
-  task:
-    | Pick<Task, "controlMode" | "controlOwner">
-    | null
-    | undefined,
+  task: Pick<Task, "controlMode" | "controlOwner"> | null | undefined,
 ) {
-  return (
-    isTaskManaged(task) && getTaskControlOwner(task) === "external"
-  );
+  return isTaskManaged(task) && getTaskControlOwner(task) === "external";
 }
 
 export function canTakeOverTask(args: {
-  task:
-    | Pick<Task, "controlMode" | "controlOwner">
-    | null
-    | undefined;
-  activeTurnId?: string | null;
+  task: Pick<Task, "controlMode" | "controlOwner"> | null | undefined;
 }) {
-  return isTaskManaged(args.task) && !args.activeTurnId;
+  return isTaskManaged(args.task);
 }
 
-function matchesTaskFilter(args: { task: Pick<Task, "archivedAt">; filter: TaskFilter }) {
+function matchesTaskFilter(args: {
+  task: Pick<Task, "archivedAt">;
+  filter: TaskFilter;
+}) {
   if (args.filter === "all") {
     return true;
   }
-  return args.filter === "archived" ? isTaskArchived(args.task) : !isTaskArchived(args.task);
+  return args.filter === "archived"
+    ? isTaskArchived(args.task)
+    : !isTaskArchived(args.task);
 }
 
 export function getVisibleTasks(args: {
@@ -196,8 +210,13 @@ export function reorderTasksWithinFilter(args: {
     return args.tasks;
   }
 
-  const visibleTasks = getVisibleTasks({ tasks: args.tasks, filter: args.filter });
-  const fromIndex = visibleTasks.findIndex((task) => task.id === args.activeTaskId);
+  const visibleTasks = getVisibleTasks({
+    tasks: args.tasks,
+    filter: args.filter,
+  });
+  const fromIndex = visibleTasks.findIndex(
+    (task) => task.id === args.activeTaskId,
+  );
   const toIndex = visibleTasks.findIndex((task) => task.id === args.overTaskId);
   if (fromIndex < 0 || toIndex < 0) {
     return args.tasks;
@@ -220,7 +239,9 @@ export function reorderTasksWithinFilter(args: {
   });
 }
 
-export function getTaskCounts(args: { tasks: Array<Pick<Task, "archivedAt" | "coliseumParentTaskId">> }) {
+export function getTaskCounts(args: {
+  tasks: Array<Pick<Task, "archivedAt" | "coliseumParentTaskId">>;
+}) {
   const visible = args.tasks.filter((task) => !isLegacyBranchTask(task));
   const archived = visible.filter((task) => isTaskArchived(task)).length;
   return {
@@ -237,7 +258,9 @@ export function filterTasksByName(args: { tasks: Task[]; query: string }) {
     return visibleTasks;
   }
   const lower = trimmed.toLowerCase();
-  return visibleTasks.filter((task) => task.title.toLowerCase().includes(lower));
+  return visibleTasks.filter((task) =>
+    task.title.toLowerCase().includes(lower),
+  );
 }
 
 export function normalizeSuggestedTaskTitle(args: { title: string }) {
@@ -265,7 +288,11 @@ export function normalizeSuggestedTaskTitle(args: { title: string }) {
   if (normalized.split(/\s+/).length > AUTO_TASK_TITLE_MAX_WORDS) {
     return null;
   }
-  if (AUTO_TASK_TITLE_DISALLOWED_PATTERNS.some((pattern) => pattern.test(normalized))) {
+  if (
+    AUTO_TASK_TITLE_DISALLOWED_PATTERNS.some((pattern) =>
+      pattern.test(normalized),
+    )
+  ) {
     return null;
   }
   if (/[.!?]/.test(normalized) && normalized.length > 40) {
@@ -312,21 +339,30 @@ export function buildSuggestTaskNamePayload(args: {
   };
 }
 
-export function getArchiveFallbackTaskId(args: { tasks: Task[]; archivedTaskId: string }) {
+export function getArchiveFallbackTaskId(args: {
+  tasks: Task[];
+  archivedTaskId: string;
+}) {
   const activeFallback = args.tasks.find(
     (task) =>
-      task.id !== args.archivedTaskId && !isTaskArchived(task) && !isLegacyBranchTask(task),
+      task.id !== args.archivedTaskId &&
+      !isTaskArchived(task) &&
+      !isLegacyBranchTask(task),
   );
   return activeFallback?.id ?? "";
 }
 
-export function getRespondingTasks<T extends Pick<Task, "id" | "archivedAt" | "coliseumParentTaskId">>(args: {
+export function getRespondingTasks<
+  T extends Pick<Task, "id" | "archivedAt" | "coliseumParentTaskId">,
+>(args: {
   tasks: T[];
   activeTurnIdsByTask: Record<string, string | undefined>;
 }) {
   return args.tasks.filter(
     (task) =>
-      !isTaskArchived(task) && !isLegacyBranchTask(task) && Boolean(args.activeTurnIdsByTask[task.id]),
+      !isTaskArchived(task) &&
+      !isLegacyBranchTask(task) &&
+      Boolean(args.activeTurnIdsByTask[task.id]),
   );
 }
 
@@ -356,16 +392,23 @@ export function getRespondingProviderId(args: {
     }
   }
 
-  return latestResolvedAssistantProviderId ?? resolveProviderDisplayId({ providerId: args.fallbackProviderId });
+  return (
+    latestResolvedAssistantProviderId ??
+    resolveProviderDisplayId({ providerId: args.fallbackProviderId })
+  );
 }
 
-export function formatTaskUpdatedAt(args: { value: string; now?: number | Date }) {
+export function formatTaskUpdatedAt(args: {
+  value: string;
+  now?: number | Date;
+}) {
   const parsed = Date.parse(args.value);
   if (Number.isNaN(parsed)) {
     return args.value;
   }
 
-  const now = args.now instanceof Date ? args.now.getTime() : (args.now ?? Date.now());
+  const now =
+    args.now instanceof Date ? args.now.getTime() : (args.now ?? Date.now());
   const diffMs = parsed - now;
   const diffSeconds = Math.round(diffMs / 1000);
   const absSeconds = Math.abs(diffSeconds);
@@ -375,18 +418,28 @@ export function formatTaskUpdatedAt(args: { value: string; now?: number | Date }
   }
 
   if (absSeconds < 60 * 60) {
-    return relativeTimeFormatter?.format(Math.round(diffSeconds / 60), "minute")
-      ?? `${Math.round(absSeconds / 60)} min ago`;
+    return (
+      relativeTimeFormatter?.format(Math.round(diffSeconds / 60), "minute") ??
+      `${Math.round(absSeconds / 60)} min ago`
+    );
   }
 
   if (absSeconds < 60 * 60 * 24) {
-    return relativeTimeFormatter?.format(Math.round(diffSeconds / (60 * 60)), "hour")
-      ?? `${Math.round(absSeconds / (60 * 60))} hr ago`;
+    return (
+      relativeTimeFormatter?.format(
+        Math.round(diffSeconds / (60 * 60)),
+        "hour",
+      ) ?? `${Math.round(absSeconds / (60 * 60))} hr ago`
+    );
   }
 
   if (absSeconds < 60 * 60 * 24 * 7) {
-    return relativeTimeFormatter?.format(Math.round(diffSeconds / (60 * 60 * 24)), "day")
-      ?? `${Math.round(absSeconds / (60 * 60 * 24))} days ago`;
+    return (
+      relativeTimeFormatter?.format(
+        Math.round(diffSeconds / (60 * 60 * 24)),
+        "day",
+      ) ?? `${Math.round(absSeconds / (60 * 60 * 24))} days ago`
+    );
   }
 
   const date = new Date(parsed);

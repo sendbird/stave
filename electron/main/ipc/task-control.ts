@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import { z } from "zod";
 import { prepareCraneTaskTakeover } from "../crane-connector/service";
-import { takeOverManagedTask } from "../stave-mcp-service";
+import { stopManagedTask, takeOverManagedTask } from "../stave-mcp-service";
 
 const TaskTakeOverArgsSchema = z
   .object({
@@ -20,14 +20,19 @@ export function registerTaskControlHandlers() {
       };
     }
     try {
+      const initialResult = await takeOverManagedTask(parsed.data);
       const crane = await prepareCraneTaskTakeover(parsed.data);
-      const result = await takeOverManagedTask({
-        ...parsed.data,
-        sourceContexts: crane.sourceContexts,
-      });
+      const result =
+        crane.sourceContexts.length > 0
+          ? await takeOverManagedTask({
+              ...parsed.data,
+              sourceContexts: crane.sourceContexts,
+            })
+          : initialResult;
       return {
         ok: true,
         ...result,
+        released: initialResult.released || result.released,
         craneReceiptPending: crane.receiptPending,
       };
     } catch (error) {
@@ -37,6 +42,30 @@ export function registerTaskControlHandlers() {
           error instanceof Error
             ? error.message
             : "Could not take over the managed task.",
+      };
+    }
+  });
+
+  ipcMain.handle("task-control:stop", async (_event, args: unknown) => {
+    const parsed = TaskTakeOverArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        message: "Invalid managed task stop request.",
+      };
+    }
+    try {
+      return {
+        ok: true,
+        ...(await stopManagedTask(parsed.data)),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not stop the managed task.",
       };
     }
   });

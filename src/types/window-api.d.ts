@@ -692,6 +692,14 @@ interface WindowTaskControlApi {
     craneReceiptPending?: boolean;
     message?: string;
   }>;
+  stop?: (args: { workspaceId: string; taskId: string }) => Promise<{
+    ok: boolean;
+    workspaceId?: string;
+    taskId?: string;
+    stopped?: boolean;
+    turnId?: string;
+    message?: string;
+  }>;
 }
 
 interface WindowRoutinesApi {

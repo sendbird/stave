@@ -1389,8 +1389,7 @@ describe("workspace persistence fallback", () => {
   test("openProject resolves before background file refresh completes", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      | ((value: { ok: boolean; files: string[] }) => void)
-      | null = null;
+      ((value: { ok: boolean; files: string[] }) => void) | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -2545,8 +2544,7 @@ describe("workspace store hydration ordering", () => {
   test("hydrateWorkspaces does not wait for file refresh on boot", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      | ((value: { ok: boolean; files: string[] }) => void)
-      | null = null;
+      ((value: { ok: boolean; files: string[] }) => void) | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -3370,9 +3368,8 @@ describe("workspace store hydration ordering", () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
       [];
-    const { buildImportedWorktreeWorkspaceId } = await import(
-      "../src/store/project.utils"
-    );
+    const { buildImportedWorktreeWorkspaceId } =
+      await import("../src/store/project.utils");
     const importedWorkspaceId = buildImportedWorktreeWorkspaceId({
       projectPath: "/tmp/stave-project",
       worktreePath: "/tmp/stave-project/.stave/workspaces/feature__perf",
@@ -4339,9 +4336,9 @@ describe("workspace store hydration ordering", () => {
     expect(
       useAppStore
         .getState()
-        .promptDraftByTask[
-          "task-main"
-        ]?.queuedTurns?.map((item) => item.content),
+        .promptDraftByTask["task-main"]?.queuedTurns?.map(
+          (item) => item.content,
+        ),
     ).toEqual(["Third prompt"]);
   });
 
@@ -4705,8 +4702,7 @@ describe("workspace store hydration ordering", () => {
     // while the request was in flight (task switches and external store
     // updates can still race even though the active composer is disabled).
     let resolveDelayedSteer:
-      | ((result: ProviderSteerTurnResponse) => void)
-      | undefined;
+      ((result: ProviderSteerTurnResponse) => void) | undefined;
     pendingSteerResult = new Promise((resolve) => {
       resolveDelayedSteer = resolve;
     });
@@ -5985,8 +5981,7 @@ describe("workspace store hydration ordering", () => {
   test("switchWorkspace does not wait for file refresh when the target workspace is cached", async () => {
     const localStorage = createMemoryStorage();
     let resolveListFiles:
-      | ((value: { ok: boolean; files: string[] }) => void)
-      | null = null;
+      ((value: { ok: boolean; files: string[] }) => void) | null = null;
     const listFilesPromise = new Promise<{ ok: boolean; files: string[] }>(
       (resolve) => {
         resolveListFiles = resolve;
@@ -6629,7 +6624,10 @@ describe("workspace store hydration ordering", () => {
 
       await useAppStore
         .getState()
-        .closeWorkspace({ workspaceId: "ws-feature-close", deleteBranch: false });
+        .closeWorkspace({
+          workspaceId: "ws-feature-close",
+          deleteBranch: false,
+        });
       await waitForPendingWorkspaceArchiveCleanups();
     } finally {
       console.warn = originalWarn;
@@ -7908,7 +7906,7 @@ describe("workspace store hydration ordering", () => {
     expect(useAppStore.getState().notifications[0]?.resolvedAt).toBeString();
   });
 
-  test("notification approval leaves externally managed requests untouched", async () => {
+  test("notification approval delegates to an externally managed task through the host", async () => {
     const approvalCalls: unknown[] = [];
     setWindowContext({
       localStorage: createMemoryStorage(),
@@ -7935,8 +7933,15 @@ describe("workspace store hydration ordering", () => {
     });
     await Bun.sleep(0);
 
-    expect(approvalCalls).toEqual([]);
-    expect(useAppStore.getState().notifications[0]?.resolvedAt).toBeNull();
+    expect(approvalCalls).toEqual([
+      {
+        workspaceId: "ws-main",
+        taskId: "task-managed",
+        requestId: "approval-managed",
+        approved: true,
+      },
+    ]);
+    expect(useAppStore.getState().notifications[0]?.resolvedAt).toBeString();
   });
 
   test("resolveApproval targets the task-owned inactive workspace turn with trimmed notification task ids", async () => {

@@ -163,6 +163,21 @@ describe("local MCP service bridge", () => {
     }]);
   });
 
+  test("routes managed task stop through authoritative host task control", async () => {
+    await localMcpService.stopManagedTask({
+      workspaceId: "workspace-1",
+      taskId: "task-1",
+    });
+
+    expect(invokeCalls).toEqual([{
+      method: "task.stop",
+      params: {
+        workspaceId: "workspace-1",
+        taskId: "task-1",
+      },
+    }]);
+  });
+
   test("forwards workspace information updates back to renderer listeners", () => {
     expect(workspaceInformationListener).not.toBeNull();
     const payload = {

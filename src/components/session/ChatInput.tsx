@@ -101,7 +101,6 @@ import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
 import {
   canTakeOverTask,
   getTaskControlOwner,
-  isExternallyManagedTask,
   isTaskArchived,
   isTaskManaged,
 } from "@/lib/tasks";
@@ -217,8 +216,6 @@ interface ChatInputComposerProps {
   sourceContexts: readonly TaskSourceContext[];
   canTakeOverManagedTask: boolean;
   onTakeOverManagedTask: () => void;
-  approvalActionsDisabled?: boolean;
-  approvalDisabledReason?: string;
   selectedModelOption: ModelSelectorOption;
   modelOptions: ModelSelectorOption[];
   modelShortcutKeys: readonly string[];
@@ -839,7 +836,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   }, []);
 
   useEffect(() => {
-    if (!pendingApproval || args.approvalActionsDisabled) {
+    if (!pendingApproval) {
       return;
     }
 
@@ -900,7 +897,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     return () => window.removeEventListener("keydown", handleApprovalShortcut);
   }, [
     args.activeTaskId,
-    args.approvalActionsDisabled,
     pendingApproval,
     resolveApproval,
   ]);
@@ -944,8 +940,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         {pendingApprovals.length > 0 ? (
           <ChatInputApprovalQueue
             approvals={pendingApprovals}
-            disabled={args.approvalActionsDisabled}
-            disabledReason={args.approvalDisabledReason}
             guidanceFocusNonce={guidanceFocusNonce}
             onResolveApproval={({ messageId, approved }) => {
               resolveApproval({
@@ -1739,17 +1733,12 @@ function BaseChatInput() {
     () => normalizeModelShortcutEfforts(modelShortcutEfforts),
     [modelShortcutEfforts],
   );
-  const approvalActionsDisabled = isExternallyManagedTask(activeTask);
   const managedTaskOwner = isTaskManaged(activeTask)
     ? getTaskControlOwner(activeTask)
     : null;
   const canTakeOverManagedTask = canTakeOverTask({
     task: activeTask,
-    activeTurnId,
   });
-  const approvalDisabledReason = approvalActionsDisabled
-    ? `This request is managed by ${getTaskControlOwner(activeTask) === "external" ? "an external controller" : "Stave"}. Respond from the originating client or take over after the run ends.`
-    : undefined;
   const effortLabel = useMemo(() => {
     if (activeProvider === "claude-code") {
       return findOptionLabel(CLAUDE_EFFORT_OPTIONS, claudeEffort);
@@ -2226,8 +2215,6 @@ function BaseChatInput() {
             }
           });
       }}
-      approvalActionsDisabled={approvalActionsDisabled}
-      approvalDisabledReason={approvalDisabledReason}
       selectedModelOption={selectedModelOption}
       modelOptions={modelOptions}
       modelShortcutKeys={normalizedModelShortcutKeys}

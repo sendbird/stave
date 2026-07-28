@@ -1447,6 +1447,15 @@ contextBridge.exposeInMainWorld("api", {
         craneReceiptPending?: boolean;
         message?: string;
       }>,
+    stop: (args: { workspaceId: string; taskId: string }) =>
+      ipcRenderer.invoke("task-control:stop", args) as Promise<{
+        ok: boolean;
+        workspaceId?: string;
+        taskId?: string;
+        stopped?: boolean;
+        turnId?: string;
+        message?: string;
+      }>,
   },
   routines: {
     list: () =>

@@ -200,6 +200,18 @@ export interface HostTaskTakeOverResult {
   released: boolean;
 }
 
+export interface HostTaskStopArgs {
+  workspaceId: string;
+  taskId: string;
+}
+
+export interface HostTaskStopResult {
+  workspaceId: string;
+  taskId: string;
+  stopped: boolean;
+  turnId?: string;
+}
+
 export interface HostProviderReadStreamResult {
   ok: boolean;
   events: BridgeEvent[];
@@ -810,6 +822,7 @@ export interface HostServiceRequestMap {
   "crane.run-task": HostCraneRunTaskArgs;
   "crane.release-task-control": HostCraneReleaseTaskControlArgs;
   "task.take-over": HostTaskTakeOverArgs;
+  "task.stop": HostTaskStopArgs;
   "routine.invoke": {
     action: HostRoutineAction;
     args: unknown;
@@ -968,6 +981,7 @@ export interface HostServiceResponseMap {
   "crane.run-task": HostCraneRunTaskResult;
   "crane.release-task-control": HostCraneReleaseTaskControlResult;
   "task.take-over": HostTaskTakeOverResult;
+  "task.stop": HostTaskStopResult;
   "routine.invoke": unknown;
 }
 

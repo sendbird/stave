@@ -24,19 +24,19 @@ describe("ManagedTaskTakeoverNotice", () => {
     expect(html).not.toContain(' disabled=""');
   });
 
-  test("keeps takeover visible but disabled while the run is active", () => {
+  test("allows takeover to stop an active managed run", () => {
     const html = renderToStaticMarkup(
       createElement(ManagedTaskTakeoverNotice, {
         owner: "external",
         isTurnActive: true,
-        canTakeOver: false,
+        canTakeOver: true,
         onTakeOver: () => {},
       }),
     );
 
     expect(html).toContain("Managed externally");
-    expect(html).toContain("unlocks when it stops");
-    expect(html).toContain(' disabled=""');
+    expect(html).toContain("stop the current managed run");
+    expect(html).not.toContain(' disabled=""');
   });
 
   test("keeps the composer monitor-only until host ownership is released", () => {

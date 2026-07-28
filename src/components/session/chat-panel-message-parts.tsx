@@ -28,29 +28,38 @@ import {
   shouldRenderInlineSystemEvent,
 } from "@/components/session/chat-panel.utils";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import {
-  getTaskControlOwner,
-  isExternallyManagedTask,
-} from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
 import type { MessagePart } from "@/types/chat";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
-import { ChangedFilesBlock, FileChangeToolBlock, ReferencedFilesBlock, ImageAttachmentBlock } from "./chat-panel-file-blocks";
+import {
+  ChangedFilesBlock,
+  FileChangeToolBlock,
+  ReferencedFilesBlock,
+  ImageAttachmentBlock,
+} from "./chat-panel-file-blocks";
 
-export function toProviderStartCase(args: { providerId: "claude-code" | "codex" }) {
+export function toProviderStartCase(args: {
+  providerId: "claude-code" | "codex";
+}) {
   return args.providerId
     .split("-")
     .map((chunk) => `${chunk.slice(0, 1).toUpperCase()}${chunk.slice(1)}`)
     .join(" ");
 }
 
-export function toProviderWaveToneClass(args: { providerId: "claude-code" | "codex" | "user"; model?: string }) {
+export function toProviderWaveToneClass(args: {
+  providerId: "claude-code" | "codex" | "user";
+  model?: string;
+}) {
   if (args.providerId === "user") {
     return "text-primary";
   }
-  return getProviderWaveToneClass({ providerId: args.providerId, model: args.model });
+  return getProviderWaveToneClass({
+    providerId: args.providerId,
+    model: args.model,
+  });
 }
 
 export function CopyButton({ text }: { text: string }) {
@@ -68,17 +77,22 @@ export function CopyButton({ text }: { text: string }) {
           .catch(() => {});
       }}
     >
-      {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
+      {copied ? (
+        <Check className="size-3.5 text-primary" />
+      ) : (
+        <Copy className="size-3.5" />
+      )}
     </MessageAction>
   );
 }
 
 export function toToolDisplayName(toolName: string) {
-  return toolName
-    .trim()
-    .replace(/^tool[-_:]?/i, "")
-    .replaceAll(/[_-]+/g, " ")
-    || "Tool";
+  return (
+    toolName
+      .trim()
+      .replace(/^tool[-_:]?/i, "")
+      .replaceAll(/[_-]+/g, " ") || "Tool"
+  );
 }
 
 export function MessagePartRenderer(args: {
@@ -91,13 +105,11 @@ export function MessagePartRenderer(args: {
   const { part, taskId, messageId, isStreaming, isLastTextPart } = args;
   const resolveApproval = useAppStore((state) => state.resolveApproval);
   const resolveUserInput = useAppStore((state) => state.resolveUserInput);
-  const rollbackToCompactBoundary = useAppStore((state) => state.rollbackToCompactBoundary);
-  const task = useAppStore((state) => state.tasks.find((item) => item.id === taskId) ?? null);
-  const [isRestoringCompactBoundary, setIsRestoringCompactBoundary] = useState(false);
-  const isManaged = isExternallyManagedTask(task);
-  const managedReason = isManaged
-    ? `This request is managed by ${getTaskControlOwner(task) === "external" ? "an external controller" : "Stave"}. Respond from the originating client or take over after the run ends.`
-    : undefined;
+  const rollbackToCompactBoundary = useAppStore(
+    (state) => state.rollbackToCompactBoundary,
+  );
+  const [isRestoringCompactBoundary, setIsRestoringCompactBoundary] =
+    useState(false);
 
   switch (part.type) {
     case "tool_use":
@@ -130,22 +142,39 @@ export function MessagePartRenderer(args: {
           defaultOpen={shouldAutoOpenToolPart(part.state)}
           openWhen={shouldAutoOpenToolPart(part.state)}
         >
-          <ToolHeader type={part.toolName} state={part.state} elapsedSeconds={part.elapsedSeconds} />
+          <ToolHeader
+            type={part.toolName}
+            state={part.state}
+            elapsedSeconds={part.elapsedSeconds}
+          />
           <ToolContent>
             <ToolInput input={part.input} />
             {(part.state !== "input-streaming" || part.output?.trim()) && (
-            <ToolOutput
-              label={part.state === "input-streaming" ? "Live output" : undefined}
-              outputText={part.output}
-              errorText={part.state === "output-error" ? (part.output ?? "Tool failed.") : undefined}
-              linkifyOutputText={part.state !== "input-streaming"}
-            />
-          )}
-        </ToolContent>
+              <ToolOutput
+                label={
+                  part.state === "input-streaming" ? "Live output" : undefined
+                }
+                outputText={part.output}
+                errorText={
+                  part.state === "output-error"
+                    ? (part.output ?? "Tool failed.")
+                    : undefined
+                }
+                linkifyOutputText={part.state !== "input-streaming"}
+              />
+            )}
+          </ToolContent>
         </Tool>
       );
     case "code_diff":
-      return <ChangedFilesBlock parts={[part]} taskId={taskId} messageId={messageId} startIndex={0} />;
+      return (
+        <ChangedFilesBlock
+          parts={[part]}
+          taskId={taskId}
+          messageId={messageId}
+          startIndex={0}
+        />
+      );
     case "file_context":
       return <ReferencedFilesBlock parts={[part]} />;
     case "image_context":
@@ -158,10 +187,12 @@ export function MessagePartRenderer(args: {
           toolName={part.toolName}
           description={part.description}
           state={part.state}
-          disabled={isManaged}
-          disabledReason={managedReason}
-          onApprove={() => resolveApproval({ taskId, messageId, approved: true })}
-          onReject={() => resolveApproval({ taskId, messageId, approved: false })}
+          onApprove={() =>
+            resolveApproval({ taskId, messageId, approved: true })
+          }
+          onReject={() =>
+            resolveApproval({ taskId, messageId, approved: false })
+          }
         />
       );
     case "user_input":
@@ -171,9 +202,9 @@ export function MessagePartRenderer(args: {
           questions={part.questions}
           answers={part.answers}
           state={part.state}
-          disabled={isManaged}
-          disabledReason={managedReason}
-          onSubmit={(answers) => resolveUserInput({ taskId, messageId, answers })}
+          onSubmit={(answers) =>
+            resolveUserInput({ taskId, messageId, answers })
+          }
           onDeny={() => resolveUserInput({ taskId, messageId, denied: true })}
         />
       );
@@ -187,8 +218,11 @@ export function MessagePartRenderer(args: {
         return <CompactingIndicator />;
       }
       // "Context compacted (auto)." / "Context compacted (manual)." — checkpoint divider
-      const compactedMatch = part.content.trim().match(/^Context compacted\s*\(([^)]+)\)\./i);
-      const compactBoundaryTrigger = part.compactBoundary?.trigger ?? compactedMatch?.[1];
+      const compactedMatch = part.content
+        .trim()
+        .match(/^Context compacted\s*\(([^)]+)\)\./i);
+      const compactBoundaryTrigger =
+        part.compactBoundary?.trigger ?? compactedMatch?.[1];
       const compactBoundaryGitRef = part.compactBoundary?.gitRef;
       const handleRestoreCompactBoundary = () => {
         if (!compactBoundaryGitRef || isRestoringCompactBoundary) {
@@ -198,7 +232,9 @@ export function MessagePartRenderer(args: {
         void rollbackToCompactBoundary({
           taskId,
           gitRef: compactBoundaryGitRef,
-          ...(compactBoundaryTrigger ? { trigger: compactBoundaryTrigger } : {}),
+          ...(compactBoundaryTrigger
+            ? { trigger: compactBoundaryTrigger }
+            : {}),
         }).finally(() => {
           setIsRestoringCompactBoundary(false);
         });
@@ -244,13 +280,19 @@ export function MessagePartRenderer(args: {
     }
     case "text":
       if (!part.text?.trim()) return null;
-      return <MessageResponse isStreaming={isStreaming && isLastTextPart}>{part.text}</MessageResponse>;
+      return (
+        <MessageResponse isStreaming={isStreaming && isLastTextPart}>
+          {part.text}
+        </MessageResponse>
+      );
     case "thinking":
       return null;
   }
 }
 
-export function buildChainOfThoughtSteps(parts: MessagePart[]): ChainOfThoughtStep[] {
+export function buildChainOfThoughtSteps(
+  parts: MessagePart[],
+): ChainOfThoughtStep[] {
   const steps: ChainOfThoughtStep[] = [];
   parts.forEach((part, index) => {
     if (part.type === "tool_use") {
@@ -258,23 +300,29 @@ export function buildChainOfThoughtSteps(parts: MessagePart[]): ChainOfThoughtSt
       if (!isSubagent) {
         return;
       }
-      const subagentInput = isSubagent ? parseSubagentToolInput({ input: part.input }) : null;
+      const subagentInput = isSubagent
+        ? parseSubagentToolInput({ input: part.input })
+        : null;
       // Use the latest progress message as the CoT detail when the agent is active.
       const latestProgress = part.progressMessages?.at(-1);
       steps.push({
         id: `tool-${index}`,
         label: isSubagent
-          ? subagentInput?.description ?? subagentInput?.subagentType ?? "Subagent"
+          ? (subagentInput?.description ??
+            subagentInput?.subagentType ??
+            "Subagent")
           : part.toolName,
-        detail: latestProgress
-          ?? (isSubagent
+        detail:
+          latestProgress ??
+          (isSubagent
             ? (subagentInput?.prompt ?? part.input ?? part.output)
             : part.input || part.output),
-        status: part.state === "input-streaming"
-          ? "active"
-          : part.state === "output-available"
-          ? "done"
-          : "pending",
+        status:
+          part.state === "input-streaming"
+            ? "active"
+            : part.state === "output-available"
+              ? "done"
+              : "pending",
         kind: isSubagent ? "agent" : "tool",
       });
       return;

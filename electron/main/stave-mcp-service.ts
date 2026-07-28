@@ -357,9 +357,7 @@ export async function runTask(args: {
  * Trusted main-process entry point for a locally approved Crane kickoff.
  * Public Local MCP callers cannot select Stave-owned interactive control.
  */
-export async function runLocallyApprovedCraneTask(
-  args: HostCraneRunTaskArgs,
-) {
+export async function runLocallyApprovedCraneTask(args: HostCraneRunTaskArgs) {
   return invokeHostService(
     "crane.run-task",
     args,
@@ -384,6 +382,18 @@ export async function takeOverManagedTask(args: {
     workspaceId: string;
     taskId: string;
     released: boolean;
+  }>;
+}
+
+export async function stopManagedTask(args: {
+  workspaceId: string;
+  taskId: string;
+}) {
+  return invokeHostService("task.stop", args) as Promise<{
+    workspaceId: string;
+    taskId: string;
+    stopped: boolean;
+    turnId?: string;
   }>;
 }
 
