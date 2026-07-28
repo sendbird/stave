@@ -7,6 +7,7 @@ import {
   Folder,
   Globe,
   KeyRound,
+  Lock,
   Palette,
   Package2,
   Rocket,
@@ -202,6 +203,13 @@ export const settingsSections = [
     keywords: ["browser", "snapshot", "visual comment", "preview"],
   },
   {
+    id: "secrets",
+    label: "Secrets",
+    icon: Lock,
+    description: "Encrypted API tokens and other secret values.",
+    keywords: ["api", "token", "key", "credential", "password", "vault"],
+  },
+  {
     id: "developer",
     label: "Developer",
     icon: Wrench,
@@ -237,7 +245,7 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
         "skills",
       ],
     },
-    { label: "Interface", ids: ["commandPalette", "lens"] },
+    { label: "Interface", ids: ["commandPalette", "lens", "secrets"] },
     {
       label: "System & Advanced",
       ids: ["tooling", "codex", "developer", "changelog"],

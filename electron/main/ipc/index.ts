@@ -13,6 +13,7 @@ import { registerProviderHandlers } from "./provider";
 import { registerRunHandlers } from "./runs";
 import { registerRoutineHandlers } from "./routines";
 import { registerScmHandlers } from "./scm";
+import { registerSecretHandlers } from "./secrets";
 import { registerSkillsHandlers } from "./skills";
 import { registerTerminalHandlers } from "./terminal";
 import { registerTaskControlHandlers } from "./task-control";
@@ -42,4 +43,5 @@ export function registerHandlers() {
   registerLocalMcpHandlers();
   registerCraneConnectorHandlers();
   registerBrowserHandlers();
+  registerSecretHandlers();
 }

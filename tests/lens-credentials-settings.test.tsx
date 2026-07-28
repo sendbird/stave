@@ -17,4 +17,14 @@ describe("LensCredentialsSettingsCard", () => {
     expect(html).toContain("never submits the form");
     expect(html).not.toContain("plain-secret-value");
   });
+
+  test("no longer advertises comma-separated host entry", () => {
+    const html = renderToStaticMarkup(
+      createElement(LensCredentialsSettingsCard),
+    );
+
+    // The editor form (with "Add host") is collapsed until the user opens it,
+    // so only assert the removed comma-separated helper text is gone.
+    expect(html).not.toContain("Separate multiple exact hostnames with commas");
+  });
 });

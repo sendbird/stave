@@ -110,6 +110,10 @@ import type {
   LensCredentialMetadata,
   LensCredentialUpsertInput,
 } from "../src/lib/lens/lens-credentials";
+import type {
+  SecretMetadata,
+  SecretUpsertInput,
+} from "../src/lib/secrets/secrets";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
 import { WORKSPACE_SCRIPTS_IPC } from "../src/lib/workspace-scripts/constants";
 import type {
@@ -2398,5 +2402,30 @@ contextBridge.exposeInMainWorld("api", {
         lensNetworkEventSubscribers.delete(listener);
       };
     },
+  },
+  secrets: {
+    list: () =>
+      ipcRenderer.invoke("secrets:list") as Promise<{
+        ok: boolean;
+        secrets: SecretMetadata[];
+        message?: string;
+      }>,
+    upsert: (args: SecretUpsertInput) =>
+      ipcRenderer.invoke("secrets:upsert", args) as Promise<{
+        ok: boolean;
+        secret?: SecretMetadata;
+        message?: string;
+      }>,
+    delete: (args: { id: string }) =>
+      ipcRenderer.invoke("secrets:delete", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    reveal: (args: { id: string }) =>
+      ipcRenderer.invoke("secrets:reveal", args) as Promise<{
+        ok: boolean;
+        value?: string;
+        message?: string;
+      }>,
   },
 });
