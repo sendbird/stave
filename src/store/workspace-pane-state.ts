@@ -8,6 +8,7 @@ import {
 } from "@/lib/panes/types";
 import { DEFAULT_LENS_SESSION_ID } from "@/lib/lens/lens.types";
 import type { WorkspaceActiveSurface } from "@/lib/terminal/types";
+import type { AppActiveSurface } from "@/store/app-surface";
 
 export interface WorkspacePaneStoreState {
   /** Tasks whose center tab is currently open (close does not archive). */
@@ -81,7 +82,7 @@ export function reduceOpenLensTab<
 }
 
 interface WorkspacePaneReducerState extends WorkspacePaneStoreState {
-  activeAppSurface: { kind: "workspace" } | { kind: "fleet-view" };
+  activeAppSurface: AppActiveSurface;
   activeSurface: WorkspaceActiveSurface;
   activeTaskId: string;
   activeCliSessionTabId: string | null;

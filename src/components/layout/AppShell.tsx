@@ -11,6 +11,7 @@ import { useShallow } from "zustand/react/shallow";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
+import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
 import {
   COLLAPSED_PROJECT_SIDEBAR_WIDTH,
   ProjectWorkspaceSidebar,
@@ -125,6 +126,7 @@ export function AppShell() {
     refreshProjectFiles,
     refreshWorkspaces,
     openFleetView,
+    openAutomationCenter,
     openProject,
     switchWorkspace,
     abortTaskTurn,
@@ -166,6 +168,7 @@ export function AppShell() {
           state.refreshProjectFiles,
           state.refreshWorkspaces,
           state.openFleetView,
+          state.openAutomationCenter,
           state.openProject,
           state.switchWorkspace,
           state.abortTaskTurn,
@@ -552,6 +555,9 @@ export function AppShell() {
           return;
         case "navigation.fleet-view":
           store.toggleFleetView();
+          return;
+        case "navigation.automation-center":
+          store.toggleAutomationCenter();
           return;
         case "view.toggle-workspace-sidebar":
           store.setLayout({
@@ -1066,6 +1072,7 @@ export function AppShell() {
           await window.api?.shell?.openInVSCode?.({ path });
         },
         openFleetView: () => openFleetView(),
+        openAutomationCenter: () => openAutomationCenter(),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
         openProject: (nextProjectPath: string) =>
           openProject({ projectPath: nextProjectPath }),
@@ -1155,6 +1162,7 @@ export function AppShell() {
       handleOpenSettings,
       modifierLabel,
       openFleetView,
+      openAutomationCenter,
       handleStartCompareRun,
       openProject,
       projectPath,
@@ -1184,6 +1192,9 @@ export function AppShell() {
     ],
   );
   const showFleetView = activeAppSurface.kind === "fleet-view";
+  const showAutomationCenter =
+    activeAppSurface.kind === "automation-center";
+  const showWorkspaceSurface = !showFleetView && !showAutomationCenter;
 
   return (
     <div className="relative flex h-full w-full flex-col bg-background text-foreground">
@@ -1334,12 +1345,14 @@ export function AppShell() {
               className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
             >
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                {hasProject && !showFleetView && showPresetBar ? (
+                {hasProject && showWorkspaceSurface && showPresetBar ? (
                   <PresetBar />
                 ) : null}
                 <div className="min-h-0 min-w-0 flex-1 overflow-hidden sm:min-w-[420px]">
                   {showFleetView ? (
                     <FleetView />
+                  ) : showAutomationCenter ? (
+                    <AutomationCenterView />
                   ) : (
                     <RenderProfiler id="WorkspacePaneHost" thresholdMs={10}>
                       <WorkspacePaneHost />
