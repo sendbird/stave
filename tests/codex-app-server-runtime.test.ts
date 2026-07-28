@@ -7,6 +7,7 @@ import {
   buildCodexThreadResumeParams,
   buildCodexThreadStartParams,
   buildCodexTurnStartParams,
+  CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
   createCodexAppServerElicitationPauseController,
   describeJsonRpcLinePrefix,
   formatCodexAppServerErrorMessage,
@@ -15,6 +16,7 @@ import {
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
   parseCodexGoalSlashCommand,
+  resolveCodexApprovalDecisionTimeoutMs,
   resolveCodexChatgptAuthTokensRefreshResponse,
   runCodexCompactSlashCommand,
   runCodexGoalSlashCommand,
@@ -1182,5 +1184,44 @@ describe("describeJsonRpcLinePrefix", () => {
       itemId: null,
       responseId: null,
     });
+  });
+});
+
+describe("resolveCodexApprovalDecisionTimeoutMs", () => {
+  test("waits 45 minutes for interactive decisions by default", () => {
+    expect(CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS).toBe(45 * 60 * 1000);
+  });
+
+  test("returns default when env var is unset", () => {
+    expect(
+      resolveCodexApprovalDecisionTimeoutMs({ envValue: undefined }),
+    ).toBe(CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS);
+  });
+
+  test("respects a positive integer env value", () => {
+    expect(resolveCodexApprovalDecisionTimeoutMs({ envValue: "60000" })).toBe(
+      60000,
+    );
+  });
+
+  test("falls back for non-numeric or non-positive env values", () => {
+    expect(resolveCodexApprovalDecisionTimeoutMs({ envValue: "abc" })).toBe(
+      CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
+    );
+    expect(resolveCodexApprovalDecisionTimeoutMs({ envValue: "0" })).toBe(
+      CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
+    );
+    expect(resolveCodexApprovalDecisionTimeoutMs({ envValue: "-5" })).toBe(
+      CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
+    );
+  });
+
+  test("respects an explicit override regardless of env value", () => {
+    expect(
+      resolveCodexApprovalDecisionTimeoutMs({
+        envValue: "60000",
+        override: 5000,
+      }),
+    ).toBe(5000);
   });
 });

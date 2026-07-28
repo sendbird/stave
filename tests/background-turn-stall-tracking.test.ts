@@ -161,6 +161,72 @@ async function setupBackgroundTurn() {
 }
 
 describe("background workspace turn activity tracking", () => {
+  test("auto-aborts a background task turn that never resumes after the stall grace window", async () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    const abortTurnCalls: Array<{ turnId: string }> = [];
+    const cleanupTaskCalls: Array<{ taskId: string }> = [];
+
+    // Compress the multi-minute stall-mark / auto-abort-grace timers
+    // (`PROVIDER_TURN_STALL_THRESHOLD_MS`, `PROVIDER_TURN_AUTO_ABORT_GRACE_MS`
+    // in src/lib/providers/turn-status.ts) down to near-instant so this test
+    // does not need to wait 20 real minutes. Anything scheduled with a much
+    // shorter delay (debounces, etc.) is left untouched.
+    (globalThis as { setTimeout: typeof setTimeout }).setTimeout = ((
+      fn: (...callbackArgs: unknown[]) => void,
+      delay?: number,
+      ...rest: unknown[]
+    ) => {
+      const compressed =
+        typeof delay === "number" && delay >= 60_000 ? 30 : delay;
+      return originalSetTimeout(fn as never, compressed, ...rest);
+    }) as typeof setTimeout;
+
+    try {
+      const { useAppStore, emit } = await setupBackgroundTurn();
+      const api = (
+        globalThis as {
+          window: { api: { provider: Record<string, unknown> } };
+        }
+      ).window.api;
+      api.provider.abortTurn = async (args: { turnId: string }) => {
+        abortTurnCalls.push(args);
+        return { ok: true, message: "aborted" };
+      };
+      api.provider.cleanupTask = async (args: { taskId: string }) => {
+        cleanupTaskCalls.push(args);
+        return { ok: true, message: "cleaned" };
+      };
+
+      await useAppStore.getState().switchWorkspace({ workspaceId: "ws-b" });
+      // One more event to anchor `lastEventAt`, then go silent — the
+      // compressed stall + auto-abort timers should fire on their own.
+      emit({ type: "text", text: "still going" }, { sequence: 1, done: false });
+      await Bun.sleep(20);
+      const activeTurnIdBeforeSilence =
+        useAppStore.getState().workspaceRuntimeCacheById["ws-a"]
+          ?.activeTurnIdsByTask["task-a"];
+      expect(activeTurnIdBeforeSilence).toBeString();
+
+      // Stay silent through the compressed stall-mark (~30ms) and auto-abort
+      // grace (~30ms) timers.
+      await Bun.sleep(200);
+
+      expect(abortTurnCalls).toEqual([{ turnId: activeTurnIdBeforeSilence }]);
+      expect(cleanupTaskCalls).toEqual([{ taskId: "task-a" }]);
+      const cached = useAppStore.getState().workspaceRuntimeCacheById["ws-a"];
+      expect(cached?.activeTurnIdsByTask["task-a"]).toBeUndefined();
+      expect(
+        useAppStore.getState().providerTurnActivityByTask["task-a"],
+      ).toBeUndefined();
+      const notice = cached?.messagesByTask["task-a"]?.at(-1);
+      expect(notice?.parts.some((part) => part.type === "system_event")).toBe(
+        true,
+      );
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
+
   test("keeps provider turn activity updating after the workspace is backgrounded", async () => {
     const { useAppStore, emit } = await setupBackgroundTurn();
 

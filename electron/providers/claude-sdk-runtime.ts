@@ -3915,6 +3915,19 @@ export async function streamClaudeWithSdk(
       stream?.close();
     });
 
+    // Intentional provider asymmetry (see `the-provider-runtime-symmetry`):
+    // unlike the Codex adapter, which spawns and owns its app-server
+    // `ChildProcess` directly (`codex-app-server-runtime.ts`'s
+    // `onProcessExit`/`teardownProcess`), this loop consumes the
+    // `@anthropic-ai/claude-agent-sdk` `Query` async iterator, whose public
+    // type does not expose the underlying CLI subprocess. There is no
+    // supported way to attach an "exit" listener here, so a genuinely dead
+    // subprocess that the SDK fails to surface as a thrown/ended iteration
+    // cannot be detected at this layer. The safety net for that case is
+    // provider-agnostic instead: `autoAbortStalledTaskTurn` in
+    // `src/store/app.store.ts` force-ends any turn (Claude or Codex) that
+    // goes silent for `PROVIDER_TURN_STALL_THRESHOLD_MS +
+    // PROVIDER_TURN_AUTO_ABORT_GRACE_MS`, regardless of the underlying cause.
     let hasStreamedText = false;
     let hasStreamedThinking = false;
     const emittedToolUseIds = new Set<string>();

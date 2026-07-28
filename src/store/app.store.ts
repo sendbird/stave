@@ -265,6 +265,10 @@ import {
   loadHostTaskTurn,
 } from "@/store/host-task-turn-sync";
 import { createQueuedTaskTurnDispatcher } from "@/store/queued-task-turn-dispatch";
+import {
+  createStalledProviderTurnAborter,
+  scheduleStalledTurnAutoAbort,
+} from "@/store/provider-turn-stall-abort";
 import { submitSteerWithDeadline } from "@/store/steer-submit";
 import {
   applyPendingProviderEventsToStoreState,
@@ -1839,6 +1843,7 @@ export const useAppStore = create<AppState>()(
         );
         const handle = globalThis.setTimeout(() => {
           providerTurnStallTimerByTask.delete(args.taskId);
+          let markedStalled = false;
           set((state) => {
             // `state.activeTurnIdsByTask` only covers the active workspace;
             // resolve the owning workspace session so turns running in a
@@ -1864,13 +1869,44 @@ export const useAppStore = create<AppState>()(
             if (nextActivityByTask === state.providerTurnActivityByTask) {
               return state;
             }
+            markedStalled = true;
             return {
               providerTurnActivityByTask: nextActivityByTask,
             };
           });
+
+          if (!markedStalled) {
+            // Turn already ended, moved on, or is waiting on an approval /
+            // user-input prompt (`markProviderTurnStalled` excludes those) —
+            // no follow-up needed.
+            return;
+          }
+
+          scheduleStalledTurnAutoAbort({
+            taskId: args.taskId,
+            turnId: args.turnId,
+            timerByTask: providerTurnStallTimerByTask,
+            autoAbort: autoAbortStalledTaskTurn,
+          });
         }, delayMs);
         providerTurnStallTimerByTask.set(args.taskId, handle);
       };
+
+      const autoAbortStalledTaskTurn = createStalledProviderTurnAborter({
+        getState: get,
+        applyPatch: (updater) => set(updater),
+        getWorkspaceSession: getWorkspaceSessionForState,
+        clearStallTimer: clearProviderTurnStallTimer,
+        abortTurn: (target) => void window.api?.provider?.abortTurn?.(target),
+        cleanupTask: (target) =>
+          void window.api?.provider?.cleanupTask?.(target),
+        onTurnAborted: (aborted) =>
+          attentionSync.syncTaskInteractions({
+            taskId: aborted.taskId,
+            messages: aborted.messages,
+            endedTurnId: aborted.turnId,
+          }),
+      });
 
       const dispatchNextQueuedTaskTurn = createQueuedTaskTurnDispatcher({
         getSession: (workspaceId) =>

@@ -5,12 +5,28 @@ import type {
 
 /**
  * How long a turn can be silent (no events) before it is marked stalled in the
- * UI. Stalled turns are not auto-aborted; this is only a visibility signal.
- * 5 minutes covers typical long-running Claude and Codex operations (deep
- * reasoning, multi-file edits, large tool calls) without prematurely
- * interrupting legitimate work.
+ * UI. Stalled turns are not auto-aborted at this point; this is only a
+ * visibility signal. 5 minutes covers typical long-running Claude and Codex
+ * operations (deep reasoning, multi-file edits, large tool calls) without
+ * prematurely interrupting legitimate work.
  */
 export const PROVIDER_TURN_STALL_THRESHOLD_MS = 5 * 60 * 1000; // 5 min
+
+/**
+ * Extra silence allowed *after* a turn is marked "stalled" before it is
+ * force-aborted (see `createStalledProviderTurnAborter` in
+ * `src/store/provider-turn-stall-abort.ts`).
+ * A turn that is still silent 20 minutes (5 min stall + 15 min grace) after
+ * its last event is treated as dead — a hung provider stream, a crashed
+ * subprocess the runtime never detected, or a dropped event — rather than a
+ * legitimately slow operation. Without this, a turn that never emits `done`
+ * leaves its task (and workspace) marked "active" forever, since the stall
+ * marker alone only changes the display state and never clears the active
+ * turn id. Turns waiting on an approval / user-input prompt are exempt (see
+ * `markProviderTurnStalled`'s `pendingInteraction` guard below) — those have
+ * their own dedicated timeout paths per provider.
+ */
+export const PROVIDER_TURN_AUTO_ABORT_GRACE_MS = 15 * 60 * 1000; // 15 min
 
 export function resolveProviderTurnStallThresholdMs(_args?: {
   providerId?: ProviderId | null;
