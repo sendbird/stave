@@ -14,6 +14,7 @@ export type AppShortcutAllowedKey = (typeof APP_SHORTCUT_ALLOWED_KEYS)[number];
 export type AppShortcutCommandId =
   | "navigation.home"
   | "navigation.fleet-view"
+  | "navigation.automation-center"
   | "view.toggle-workspace-sidebar"
   | "view.toggle-changes-panel"
   | "view.show-explorer"
@@ -44,6 +45,12 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     title: "Open Fleet View",
     description: "Open the cross-workspace agent status view.",
     defaultKey: "f",
+  },
+  {
+    commandId: "navigation.automation-center",
+    title: "Open Automation Center",
+    description: "Open scheduled agent automations and their run history.",
+    defaultKey: "a",
   },
   {
     commandId: "view.toggle-workspace-sidebar",

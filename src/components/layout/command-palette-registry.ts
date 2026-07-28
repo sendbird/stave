@@ -19,6 +19,7 @@ import {
   Settings,
   SplitSquareHorizontal,
   Terminal,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
@@ -124,6 +125,7 @@ export interface CommandPaletteCommandHandlers {
   openInGhostty: (path: string) => Promise<void> | void;
   openInVSCode: (path: string) => Promise<void> | void;
   openFleetView: () => void;
+  openAutomationCenter: () => void;
   openKeyboardShortcuts: () => void;
   openProject: (projectPath: string) => Promise<void> | void;
   openSettings: (options?: {
@@ -354,6 +356,44 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
             source: "core",
           }
         : null,
+  },
+  {
+    id: "navigation.automation-center",
+    title: "Open Automation Center",
+    description: "Open scheduled agent automations and their run history.",
+    group: "navigation",
+    icon: Workflow,
+    keywords: [
+      "automation",
+      "automations",
+      "routine",
+      "schedule",
+      "scheduled",
+      "cron",
+      "cadence",
+      "run history",
+    ],
+    shortcut: (modifierLabel) => `${modifierLabel}+K A`,
+    build: (args) => ({
+      id: "navigation.automation-center",
+      title: "Open Automation Center",
+      subtitle: "Manage scheduled automations and review run history.",
+      group: "navigation",
+      icon: Workflow,
+      keywords: [
+        "automation",
+        "automations",
+        "routine",
+        "schedule",
+        "scheduled",
+        "cron",
+        "cadence",
+        "run history",
+      ],
+      shortcut: `${args.modifierLabel}+K A`,
+      run: args.commands.openAutomationCenter,
+      source: "core",
+    }),
   },
   {
     id: "task.new",

@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
+  applyAutomationTrustPolicyToRuntime,
+  applyRoutineCadencePreset,
+  automationPermissionModeToTrustPolicy,
+  automationTrustPolicyToPermissionMode,
+  detectRoutineCadencePreset,
+  AUTOMATION_PERMISSION_MODES,
   MAX_ROUTINE_RUNS_PER_ROUTINE,
+  ROUTINE_CADENCE_PRESETS,
   computeNextRoutineRunAt,
   createDefaultRoutineRuntime,
   formatRoutineSchedule,
@@ -98,6 +105,247 @@ describe("routine schedule", () => {
         weekday: 1,
       }),
     ).toBe("Every 2 weeks on Mon at 14:30");
+  });
+});
+
+describe("routine multi-weekday schedules", () => {
+  const at = { hour: 9, minute: 0 };
+
+  test("fires on whichever targeted weekday comes first", () => {
+    // 2026-01-13 is a Tuesday (local), 10:00 — past today's 09:00 anchor.
+    const tuesday = new Date(2026, 0, 13, 10, 0);
+    expect(
+      computeNextRoutineRunAt({
+        schedule: {
+          every: 1,
+          unit: "weeks",
+          at,
+          weekdays: [1, 2, 3, 4, 5],
+        },
+        after: tuesday,
+      }),
+      // Wednesday is the next weekday ahead.
+    ).toBe(new Date(2026, 0, 14, 9, 0).toISOString());
+    expect(
+      computeNextRoutineRunAt({
+        schedule: { every: 1, unit: "weeks", at, weekdays: [0, 6] },
+        after: tuesday,
+      }),
+      // Saturday comes before Sunday.
+    ).toBe(new Date(2026, 0, 17, 9, 0).toISOString());
+  });
+
+  test("matches the single-weekday result for a one-day set", () => {
+    const tuesday = new Date(2026, 0, 13, 10, 0);
+    expect(
+      computeNextRoutineRunAt({
+        schedule: { every: 1, unit: "weeks", at, weekdays: [5] },
+        after: tuesday,
+      }),
+    ).toBe(
+      computeNextRoutineRunAt({
+        schedule: { every: 1, unit: "weeks", at, weekday: 5 },
+        after: tuesday,
+      }),
+    );
+  });
+
+  test("formats common weekday sets as plain language", () => {
+    expect(
+      formatRoutineSchedule({
+        every: 1,
+        unit: "weeks",
+        at,
+        weekdays: [1, 2, 3, 4, 5],
+      }),
+    ).toBe("Every weekday at 09:00");
+    expect(
+      formatRoutineSchedule({ every: 1, unit: "weeks", at, weekdays: [0, 6] }),
+    ).toBe("Every weekend day at 09:00");
+    expect(
+      formatRoutineSchedule({ every: 1, unit: "weeks", at, weekdays: [1, 3] }),
+    ).toBe("Every week on Mon, Wed at 09:00");
+    expect(
+      formatRoutineSchedule({ every: 2, unit: "weeks", at, weekdays: [1, 3] }),
+    ).toBe("Every 2 weeks on Mon, Wed at 09:00");
+  });
+
+  test("rejects weekday sets that cannot be scheduled", () => {
+    const base = {
+      name: "Weekday review",
+      prompt: "Review changes.",
+      enabled: true,
+      environment: {
+        kind: "repository" as const,
+        workspaceId: "ws-1",
+        path: "/tmp/project",
+        projectPath: "/tmp/project",
+        label: "Project",
+      },
+      runtime: createDefaultRoutineRuntime("codex"),
+    };
+    // Missing start time.
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...base,
+        schedule: { every: 1, unit: "weeks", weekdays: [1, 2] },
+      }).success,
+    ).toBe(false);
+    // Wrong unit.
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...base,
+        schedule: { every: 1, unit: "days", at, weekdays: [1, 2] },
+      }).success,
+    ).toBe(false);
+    // Duplicate days.
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...base,
+        schedule: { every: 1, unit: "weeks", at, weekdays: [1, 1] },
+      }).success,
+    ).toBe(false);
+    // Both day sources at once.
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...base,
+        schedule: { every: 1, unit: "weeks", at, weekday: 1, weekdays: [2] },
+      }).success,
+    ).toBe(false);
+    expect(
+      RoutineUpsertInputSchema.safeParse({
+        ...base,
+        schedule: { every: 1, unit: "weeks", at, weekdays: [1, 2] },
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe("routine cadence presets", () => {
+  const dailySchedule = {
+    every: 1,
+    unit: "days" as const,
+    at: { hour: 9, minute: 0 },
+  };
+
+  test("round-trips every preset it can express", () => {
+    for (const preset of ROUTINE_CADENCE_PRESETS) {
+      if (preset === "custom") {
+        continue;
+      }
+      const applied = applyRoutineCadencePreset({
+        preset,
+        schedule: dailySchedule,
+        enabled: true,
+      });
+      expect(
+        detectRoutineCadencePreset({
+          schedule: applied.schedule,
+          enabled: applied.enabled,
+        }),
+      ).toBe(preset);
+    }
+  });
+
+  test("produces schedules the spec schema accepts", () => {
+    for (const preset of ROUTINE_CADENCE_PRESETS) {
+      const applied = applyRoutineCadencePreset({
+        preset,
+        schedule: dailySchedule,
+        enabled: true,
+      });
+      expect(
+        RoutineUpsertInputSchema.safeParse({
+          name: "Preset",
+          prompt: "Do the thing.",
+          enabled: applied.enabled,
+          schedule: applied.schedule,
+          environment: {
+            kind: "repository" as const,
+            workspaceId: "ws-1",
+            path: "/tmp/project",
+            projectPath: "/tmp/project",
+            label: "Project",
+          },
+          runtime: createDefaultRoutineRuntime("codex"),
+        }).success,
+      ).toBe(true);
+    }
+  });
+
+  test("manual keeps the schedule so re-enabling restores the cadence", () => {
+    const applied = applyRoutineCadencePreset({
+      preset: "manual",
+      schedule: dailySchedule,
+      enabled: true,
+    });
+    expect(applied.enabled).toBe(false);
+    expect(applied.schedule).toEqual(dailySchedule);
+    expect(
+      detectRoutineCadencePreset({ schedule: dailySchedule, enabled: false }),
+    ).toBe("manual");
+  });
+
+  test("falls back to custom for hand-tuned intervals", () => {
+    expect(
+      detectRoutineCadencePreset({
+        schedule: { every: 3, unit: "hours" },
+        enabled: true,
+      }),
+    ).toBe("custom");
+  });
+});
+
+describe("automation permission modes", () => {
+  test("maps every mode onto a distinct trust policy", () => {
+    for (const mode of AUTOMATION_PERMISSION_MODES) {
+      expect(
+        automationTrustPolicyToPermissionMode(
+          automationPermissionModeToTrustPolicy(mode),
+        ),
+      ).toBe(mode);
+    }
+  });
+
+  test("normalizes the runtime to what the host runtime enforces", () => {
+    const codex = createDefaultRoutineRuntime("codex");
+    expect(
+      applyAutomationTrustPolicyToRuntime(codex, "unattended"),
+    ).toMatchObject({ approvalPolicy: "never" });
+    expect(
+      applyAutomationTrustPolicyToRuntime(codex, "review-required"),
+    ).toMatchObject({ approvalPolicy: "untrusted" });
+
+    const claude = {
+      ...createDefaultRoutineRuntime("claude-code"),
+      permissionMode: "bypassPermissions" as const,
+      allowDangerouslySkipPermissions: true,
+      allowUnsandboxedCommands: true,
+    };
+    expect(
+      applyAutomationTrustPolicyToRuntime(claude, "unattended"),
+    ).toMatchObject({
+      permissionMode: "dontAsk",
+      allowUnsandboxedCommands: true,
+      allowDangerouslySkipPermissions: false,
+    });
+    expect(
+      applyAutomationTrustPolicyToRuntime(claude, "review-required"),
+    ).toMatchObject({
+      permissionMode: "default",
+      allowUnsandboxedCommands: false,
+      allowDangerouslySkipPermissions: false,
+    });
+  });
+
+  test("leaves hand-configured runtimes untouched", () => {
+    const claude = {
+      ...createDefaultRoutineRuntime("claude-code"),
+      permissionMode: "bypassPermissions" as const,
+    };
+    expect(
+      applyAutomationTrustPolicyToRuntime(claude, "workspace-trusted"),
+    ).toBe(claude);
   });
 });
 

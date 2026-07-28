@@ -65,6 +65,13 @@ import {
   reconcileOrphanedNotificationsAction,
 } from "@/store/notification-actions";
 import { createNotificationAttentionSync } from "@/store/notification-attention-sync";
+import {
+  createAppSurfaceActions,
+  normalizeAppActiveSurface,
+  WORKSPACE_APP_SURFACE,
+  type AppActiveSurface,
+  type AppSurfaceActions,
+} from "@/store/app-surface";
 import { mergeNotificationIntoList } from "@/lib/notifications/notification-state";
 import {
   normalizeNotificationSoundMode,
@@ -539,18 +546,12 @@ type SendUserMessageResult =
     }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string };
 
-type AppActiveSurface = { kind: "workspace" } | { kind: "fleet-view" };
-
 const APP_STORE_KEY = "stave-store";
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
   text: "",
   attachedFilePaths: [],
   attachments: [],
 };
-const WORKSPACE_APP_SURFACE = { kind: "workspace" } satisfies AppActiveSurface;
-const FLEET_VIEW_APP_SURFACE = {
-  kind: "fleet-view",
-} satisfies AppActiveSurface;
 const workspaceSwitchMetricsByWorkspaceId = new Map<
   string,
   WorkspaceSwitchMetric
@@ -562,18 +563,6 @@ export {
   DEFAULT_PROVIDER_TIMEOUT_MS,
   PROVIDER_TIMEOUT_OPTIONS,
 } from "@/lib/providers/runtime-option-contract";
-
-function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
-  if (
-    value &&
-    typeof value === "object" &&
-    "kind" in value &&
-    value.kind === "fleet-view"
-  ) {
-    return FLEET_VIEW_APP_SURFACE;
-  }
-  return WORKSPACE_APP_SURFACE;
-}
 
 function buildWorkspaceInformationReferencesRetrievedContext(args: {
   promptDraft: PromptDraft;
@@ -890,6 +879,7 @@ function logWorkspaceSwitchMetric(args: {
 
 interface AppState
   extends
+    AppSurfaceActions,
     WorkspaceKickoffActions,
     WorkspacePaneStoreState,
     WorkspacePaneStoreActions {
@@ -1082,9 +1072,6 @@ interface AppState
   }) => void;
   refreshProviderCommandCatalog: () => void;
   notifyWorkspacePlansChanged: () => void;
-  openFleetView: () => void;
-  closeFleetView: () => void;
-  toggleFleetView: () => void;
   openCompareRun: (args: { compareRunId: string }) => void;
   startCompareRun: StartCompareRun;
   startCompareRunFromActiveDraft: () => ReturnType<StartCompareRun>;
@@ -6752,34 +6739,7 @@ export const useAppStore = create<AppState>()(
             workspacePlansRefreshNonce: state.workspacePlansRefreshNonce + 1,
           }));
         },
-        openFleetView: () => {
-          set((state) => {
-            if (state.activeAppSurface.kind === "fleet-view") {
-              return state;
-            }
-            return {
-              activeAppSurface: FLEET_VIEW_APP_SURFACE,
-            };
-          });
-        },
-        closeFleetView: () => {
-          set((state) => {
-            if (state.activeAppSurface.kind === "workspace") {
-              return state;
-            }
-            return {
-              activeAppSurface: WORKSPACE_APP_SURFACE,
-            };
-          });
-        },
-        toggleFleetView: () => {
-          set((state) => ({
-            activeAppSurface:
-              state.activeAppSurface.kind === "fleet-view"
-                ? WORKSPACE_APP_SURFACE
-                : FLEET_VIEW_APP_SURFACE,
-          }));
-        },
+        ...createAppSurfaceActions<AppState>(set),
         openCompareRun: ({ compareRunId }) => {
           const normalizedCompareRunId = compareRunId.trim();
           if (!normalizedCompareRunId) {
