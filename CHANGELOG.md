@@ -1,3 +1,17 @@
+## [0.13.0](https://github.com/sendbird/stave/compare/v0.12.3...v0.13.0) (2026-07-28)
+
+### Bug Fixes
+
+* Automatically abort Claude and Codex turns that remain silent past the stall grace window, including backgrounded workspaces, and auto-decline unanswered Codex approvals and user-input requests.
+* Keep completed Turn Activity rows in their keyed chronological positions and return the shelf to its natural height, removing completion-group flicker and blank reserved space.
+
+### Refactors / Chores
+
+* Split non-core App Store responsibilities and shared contracts into focused modules while preserving the existing orchestration and lowering the app-store max-lines ratchet.
+
+### References
+
+* [#260](https://github.com/sendbird/stave/pull/260), [#264](https://github.com/sendbird/stave/pull/264), [#265](https://github.com/sendbird/stave/pull/265)
 ## [0.12.3](https://github.com/sendbird/stave/compare/v0.12.2...v0.12.3) (2026-07-28)
 
 ### Features
