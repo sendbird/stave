@@ -21,7 +21,6 @@ import {
   buildTurnActivityItems,
   countTurnActivityItems,
   formatTurnActivityCountsLabel,
-  partitionTurnActivityItems,
   promoteFirstPendingTodoForActiveTurn,
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
@@ -345,7 +344,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(
     null,
   );
-  const [showCompleted, setShowCompleted] = useState(false);
   const expanded = expandedOverride ?? expandedByDefault;
   const now = useTurnClock(
     props.activity?.completedAt == null ? props.activeTurnId : null,
@@ -425,10 +423,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     () => countTurnActivityItems(activityItems),
     [activityItems],
   );
-  const { active: activeItems, completed: completedItems } = useMemo(
-    () => partitionTurnActivityItems(activityItems),
-    [activityItems],
-  );
   const featuredItem = useMemo(
     () => resolveTurnActivityFeaturedItem(activityItems),
     [activityItems],
@@ -471,32 +465,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   // `0/4` says nothing, so the ratio only appears once work has landed.
   const showProgress = counts.totalCount > 1 && counts.completedCount > 0;
   const isListOpen = expanded && canExpand;
-
-  // The row set shrinks as well as grows during a turn: finished rows move into
-  // the collapsed "Completed" group, and the store prunes completed tool calls
-  // once more than `PROVIDER_TURN_GENERAL_TOOL_LIMIT` have run. The shelf sits
-  // in normal flow directly above the composer, so tracking content height
-  // exactly made the composer — and the conversation above it — jump on every
-  // provider event. Grow to the tallest content this turn needed and hold
-  // there; the surface is keyed per turn, so the floor resets with the turn.
-  const listContentRef = useRef<HTMLDivElement | null>(null);
-  const [listPeakHeight, setListPeakHeight] = useState<number | null>(null);
-  useEffect(() => {
-    const content = listContentRef.current;
-    if (!content || typeof ResizeObserver === "undefined") {
-      return;
-    }
-    const observer = new ResizeObserver(() => {
-      const nextHeight = content.getBoundingClientRect().height;
-      setListPeakHeight((current) =>
-        current == null || nextHeight > current ? nextHeight : current,
-      );
-    });
-    observer.observe(content);
-    return () => {
-      observer.disconnect();
-    };
-  }, [isListOpen]);
 
   return (
     <div
@@ -616,48 +584,13 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
 
         {isListOpen ? (
           <div
-            className={cn(
-              "max-h-[min(12rem,28vh)] min-h-0 overflow-y-auto overscroll-contain bg-muted/10",
-              "transition-[height] duration-200 ease-out motion-reduce:transition-none",
-            )}
-            style={
-              listPeakHeight == null ? undefined : { height: listPeakHeight }
-            }
+            data-testid="turn-activity-list"
+            className="max-h-[min(12rem,28vh)] min-h-0 overflow-y-auto overscroll-contain bg-muted/10"
           >
-            <div ref={listContentRef} className="px-1.5 py-1.5">
-              {activeItems.map((item) => (
+            <div className="px-1.5 py-1.5">
+              {activityItems.map((item) => (
                 <TurnActivityRow key={item.id} item={item} />
               ))}
-              {completedItems.length > 0 ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-expanded={showCompleted}
-                    className="h-7 w-full justify-start gap-2 px-2 text-[11px] font-normal text-muted-foreground"
-                    onClick={() => setShowCompleted((value) => !value)}
-                  >
-                    <CheckCircle2
-                      className="size-3.5 text-success"
-                      aria-hidden
-                    />
-                    <span>Completed ({completedItems.length})</span>
-                    <ChevronDown
-                      className={cn(
-                        "ml-auto size-3.5 transition-transform motion-reduce:transition-none",
-                        showCompleted && "rotate-180",
-                      )}
-                      aria-hidden
-                    />
-                  </Button>
-                  {showCompleted
-                    ? completedItems.map((item) => (
-                        <TurnActivityRow key={item.id} item={item} />
-                      ))
-                    : null}
-                </>
-              ) : null}
             </div>
           </div>
         ) : null}
@@ -700,6 +633,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
   const isCompleted = item.status === "completed";
   return (
     <div
+      data-turn-activity-item-id={item.id}
       className={cn(
         "flex min-w-0 items-start gap-2.5 rounded-lg px-2 py-1.5",
         // Rows mount once and keep their slot, so this plays exactly when a new

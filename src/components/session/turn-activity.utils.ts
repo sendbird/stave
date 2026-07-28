@@ -226,20 +226,6 @@ export function resolveTurnActivityFeaturedItem(
   return featured;
 }
 
-/** Split finished rows out so they can be tucked behind a disclosure. */
-export function partitionTurnActivityItems(items: TurnActivityItem[]) {
-  const active: TurnActivityItem[] = [];
-  const completed: TurnActivityItem[] = [];
-  for (const item of items) {
-    if (item.status === "completed") {
-      completed.push(item);
-    } else {
-      active.push(item);
-    }
-  }
-  return { active, completed };
-}
-
 export function countTurnActivityItems(
   items: TurnActivityItem[],
 ): TurnActivityCounts {

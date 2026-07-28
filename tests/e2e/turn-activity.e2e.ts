@@ -178,10 +178,10 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await expect(
     activity.getByText("Verify the stacked activity shelf"),
   ).toBeVisible();
+  await expect(activity.getByText("Review Lens diagnostics")).toBeVisible();
   await expect(
     activity.getByRole("button", { name: "Completed (1)" }),
-  ).toBeVisible();
-  await expect(activity.getByText("Review Lens diagnostics")).toBeHidden();
+  ).toHaveCount(0);
   await expect(activity.locator(".animate-spin")).toHaveCount(0);
   await expect(page.getByText(/^Running ·/)).toHaveCount(0);
 
@@ -288,19 +288,13 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await expect(
     activity.getByText("Verify the stacked activity shelf"),
   ).toBeVisible();
-  await expect(activity.getByText("Review Lens diagnostics")).toBeHidden();
-  const completed = activity.getByRole("button", {
-    name: "Completed (1)",
-  });
-  await completed.click();
   await expect(activity.getByText("Review Lens diagnostics")).toBeVisible();
-  await completed.click();
-  await expect(activity.getByText("Review Lens diagnostics")).toBeHidden();
   await expect(collapse).toHaveAttribute("aria-expanded", "true");
   await collapse.click();
   await expect(
     activity.getByText("Verify the stacked activity shelf"),
   ).toBeHidden();
+  await expect(activity.getByText("Review Lens diagnostics")).toBeHidden();
 
   await activity.screenshot({
     path: testInfo.outputPath("turn-activity.png"),
@@ -367,7 +361,7 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   ).toBeVisible();
 });
 
-test("holds the shelf height steady while work lands and rows are pruned", async ({
+test("keeps activity rows mounted while their status changes", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -439,10 +433,9 @@ test("holds the shelf height steady while work lands and rows are pruned", async
     page.getByRole("tab", { name: "Turn activity height" }),
   ).toBeVisible();
 
-  // Each round is one realistic provider flush: a tool starts, finishes, and is
-  // eventually pruned once `PROVIDER_TURN_GENERAL_TOOL_LIMIT` completed calls
-  // pile up. Every one of those transitions used to change the row count, and
-  // the shelf tracked it exactly — so the composer bounced on each flush.
+  // Each round is one realistic provider flush. A tool changing status should
+  // keep the same DOM row and natural list height; only a genuinely new or
+  // removed activity should change the shelf's footprint.
   const applyRound = async (
     round: Array<{ id: string; status: "running" | "completed" }>,
   ) => {
@@ -486,41 +479,48 @@ test("holds the shelf height steady while work lands and rows are pruned", async
         },
       });
     }, round);
-    // Outlast the row-content throttle and the height transition.
-    await page.waitForTimeout(400);
+    // Outlast the row-content throttle.
+    await page.waitForTimeout(200);
     const box = await page.getByTestId("turn-activity").boundingBox();
     return box?.height ?? 0;
   };
 
-  const heights: number[] = [];
-  heights.push(await applyRound([{ id: "a", status: "running" }]));
-  await expect(page.getByTestId("turn-activity")).toBeVisible();
-  // `a` finishes: its row leaves the active list for the collapsed group.
-  heights.push(await applyRound([{ id: "a", status: "completed" }]));
-  heights.push(
-    await applyRound([
-      { id: "a", status: "completed" },
-      { id: "b", status: "running" },
-    ]),
-  );
-  heights.push(
-    await applyRound([
-      { id: "a", status: "completed" },
-      { id: "b", status: "completed" },
-    ]),
-  );
-  // `a` is pruned away entirely, the way the store drops completed tool calls
-  // beyond its cap.
-  heights.push(
-    await applyRound([
-      { id: "b", status: "completed" },
-      { id: "c", status: "running" },
-    ]),
-  );
+  const activity = page.getByTestId("turn-activity");
+  const list = page.getByTestId("turn-activity-list");
+  const rowA = activity.locator('[data-turn-activity-item-id="work:a"]');
+  const runningHeight = await applyRound([{ id: "a", status: "running" }]);
+  await expect(activity).toBeVisible();
+  await expect(rowA).toBeVisible();
+  await rowA.evaluate((element) => {
+    element.setAttribute("data-instance-marker", "row-a");
+  });
 
-  expect(heights[0]).toBeGreaterThan(0);
-  for (let index = 1; index < heights.length; index += 1) {
-    // Growth is fine and animates; shrinking mid-turn is the flicker.
-    expect(heights[index]).toBeGreaterThanOrEqual(heights[index - 1]!);
-  }
+  const completedHeight = await applyRound([
+    { id: "a", status: "completed" },
+  ]);
+  await expect(rowA).toHaveAttribute("data-instance-marker", "row-a");
+  expect(Math.abs(completedHeight - runningHeight)).toBeLessThanOrEqual(1);
+  await expect(
+    activity.getByRole("button", { name: "Completed (1)" }),
+  ).toHaveCount(0);
+  await expect(list).not.toHaveAttribute("style", /height/);
+
+  const twoRowHeight = await applyRound([
+    { id: "a", status: "completed" },
+    { id: "b", status: "running" },
+  ]);
+  expect(twoRowHeight).toBeGreaterThan(runningHeight);
+  const twoCompletedHeight = await applyRound([
+    { id: "a", status: "completed" },
+    { id: "b", status: "completed" },
+  ]);
+  expect(Math.abs(twoCompletedHeight - twoRowHeight)).toBeLessThanOrEqual(1);
+
+  // When the producer really removes an item, the list returns to its natural
+  // height instead of retaining a blank peak-height floor.
+  const prunedHeight = await applyRound([
+    { id: "b", status: "completed" },
+  ]);
+  expect(prunedHeight).toBeLessThan(twoCompletedHeight);
+  expect(Math.abs(prunedHeight - completedHeight)).toBeLessThanOrEqual(1);
 });
