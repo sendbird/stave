@@ -111,12 +111,21 @@ export function createSupportActions(args: {
       await get().openProject({ projectPath });
     }
 
-    const afterProjectOpen = get();
+    let afterProjectOpen = get();
     const workspaceId = notification.workspaceId?.trim();
     if (workspaceId) {
-      const workspaceExists = afterProjectOpen.workspaces.some(
+      let workspaceExists = afterProjectOpen.workspaces.some(
         (workspace) => workspace.id === workspaceId,
       );
+      if (!workspaceExists) {
+        // Another Stave window can create the notifying worktree before this
+        // renderer's workspace list sees it.
+        await afterProjectOpen.refreshWorkspaces();
+        afterProjectOpen = get();
+        workspaceExists = afterProjectOpen.workspaces.some(
+          (workspace) => workspace.id === workspaceId,
+        );
+      }
       if (!workspaceExists) {
         return { status: "opened" };
       }
