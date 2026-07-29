@@ -194,4 +194,82 @@ describe("notification routing", () => {
         )?.readAt,
     ).toBeString();
   });
+
+  test("refreshes stale workspaces before routing to a task in a newly discovered workspace", async () => {
+    let refreshCount = 0;
+    let switchedWorkspaceId: string | null = null;
+    const state = useAppStore.getState();
+    const completedNotification = state.notifications.find(
+      (notification) => notification.id === "notification-completed",
+    );
+    const completedTask = state.tasks.find(
+      (task) => task.id === "task-completed",
+    );
+    const currentWorkspace = state.workspaces[0];
+    if (!completedNotification || !completedTask || !currentWorkspace) {
+      throw new Error("Notification routing fixture is incomplete.");
+    }
+
+    useAppStore.setState((current) => ({
+      hasHydratedWorkspaces: true,
+      notifications: [
+        ...current.notifications,
+        {
+          ...completedNotification,
+          id: "notification-new-workspace",
+          title: "New Workspace Task",
+          body: "Latest run finished in New Workspace.",
+          workspaceId: "workspace-2",
+          workspaceName: "New Workspace",
+          taskId: "task-new-workspace",
+          taskTitle: "New Workspace Task",
+          turnId: "turn-3",
+          createdAt: "2026-06-18T01:04:00.000Z",
+        },
+      ],
+      refreshWorkspaces: async () => {
+        refreshCount += 1;
+        useAppStore.setState((current) => ({
+          workspaces: [
+            ...current.workspaces,
+            {
+              ...currentWorkspace,
+              id: "workspace-2",
+              name: "New Workspace",
+              updatedAt: "2026-06-18T01:04:00.000Z",
+            },
+          ],
+        }));
+      },
+      switchWorkspace: async ({ workspaceId }) => {
+        switchedWorkspaceId = workspaceId;
+        useAppStore.setState({
+          activeWorkspaceId: workspaceId,
+          tasks: [
+            {
+              ...completedTask,
+              id: "task-new-workspace",
+              title: "New Workspace Task",
+              updatedAt: "2026-06-18T01:04:00.000Z",
+            },
+          ],
+        });
+      },
+    }));
+
+    const result = await useAppStore.getState().openNotificationContext({
+      notificationId: "notification-new-workspace",
+      targetSurface: "task",
+    });
+
+    expect(result).toEqual({ status: "opened" });
+    expect(refreshCount).toBe(1);
+    expect(switchedWorkspaceId).toBe("workspace-2");
+    expect(useAppStore.getState().activeWorkspaceId).toBe("workspace-2");
+    expect(useAppStore.getState().activeTaskId).toBe("task-new-workspace");
+    expect(useAppStore.getState().activeSurface).toEqual({
+      kind: "task",
+      taskId: "task-new-workspace",
+    });
+  });
 });
