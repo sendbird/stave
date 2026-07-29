@@ -154,8 +154,17 @@ export function buildProviderRuntimeOptions(args: {
   settings: RuntimeSettings;
   providerSession?: TaskProviderSessionState | null;
   includeAdvisor?: boolean;
+  /**
+   * Ids of vault secrets the user bound to this task. Carried through to the
+   * runtime so the main process can resolve them to env vars. Ids only.
+   */
+  boundSecretIds?: string[];
 }): ProviderRuntimeOptions {
   const { providerSession, settings } = args;
+  const boundSecretIds =
+    args.boundSecretIds && args.boundSecretIds.length > 0
+      ? args.boundSecretIds
+      : undefined;
   const claudeTaskBudgetTokens = normalizeClaudeTaskBudgetTokens({
     value: settings.claudeTaskBudgetTokens,
   });
@@ -263,5 +272,6 @@ export function buildProviderRuntimeOptions(args: {
     responseStylePrompt: settings.promptResponseStyle || undefined,
     promptPrDescription: settings.promptPrDescription || undefined,
     promptInlineCompletion: settings.promptInlineCompletion || undefined,
+    ...(boundSecretIds ? { boundSecretIds } : {}),
   };
 }

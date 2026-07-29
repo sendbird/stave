@@ -1,4 +1,3 @@
-import { app, safeStorage } from "electron";
 import path from "node:path";
 import type { SecretUpsertInput } from "../../../src/lib/secrets/secrets";
 import { SecretVault } from "./secret-vault";
@@ -7,10 +6,17 @@ const VAULT_FILENAME = "secrets.v1.json";
 
 let vault: SecretVault | null = null;
 
+// `electron` is loaded lazily inside the getter (not at module top-level) so
+// that importing the main-process-only secret resolver into provider runtimes
+// does not eagerly pull `electron` into their import graph. That keeps the
+// runtimes importable under the bun test runner, which cannot resolve the
+// `electron` module's `app`/`safeStorage` exports.
 function getVault(): SecretVault {
   if (vault) {
     return vault;
   }
+  const { app, safeStorage } =
+    require("electron") as typeof import("electron");
   vault = new SecretVault({
     filePath: path.join(app.getPath("userData"), VAULT_FILENAME),
     crypto: {
@@ -39,4 +45,54 @@ export async function deleteSecret(id: string) {
 
 export async function revealSecret(id: string) {
   return getVault().reveal(id);
+}
+
+/**
+ * Resolve a task's bound secret ids to an environment map, for injection into a
+ * provider's agent shell. MAIN-PROCESS ONLY: this returns plaintext values, so
+ * it must never be exposed through preload or forwarded to the renderer.
+ *
+ * Returns an empty map on any resolution failure rather than throwing, so a
+ * misconfigured or unavailable vault degrades to "no injected secrets" instead
+ * of blocking the turn. Only counts, env-var names, and skip reasons are
+ * logged — never values.
+ */
+export async function resolveBoundSecretEnv(args: {
+  ids: readonly string[];
+}): Promise<Record<string, string>> {
+  const ids = args.ids.filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+  if (ids.length === 0) {
+    return {};
+  }
+  try {
+    const { env, skipped } = await getVault().resolveEnvForIds(ids);
+    const injectedNames = Object.keys(env);
+    if (skipped.length > 0 || injectedNames.length > 0) {
+      console.info(
+        `[secrets] resolved ${injectedNames.length}/${ids.length} bound secret(s) for injection` +
+          (injectedNames.length > 0
+            ? ` (${injectedNames.join(", ")})`
+            : "") +
+          (skipped.length > 0
+            ? `; skipped ${skipped
+                .map((entry) =>
+                  entry.envVarName
+                    ? `${entry.envVarName}:${entry.reason}`
+                    : entry.reason,
+                )
+                .join(", ")}`
+            : ""),
+      );
+    }
+    return env;
+  } catch (error) {
+    console.warn(
+      `[secrets] failed to resolve bound secrets for injection: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return {};
+  }
 }

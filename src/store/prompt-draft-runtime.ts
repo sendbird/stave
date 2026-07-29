@@ -12,6 +12,7 @@ export interface ResolvedPromptDraftRuntimeState {
   claudeEffort?: PromptDraftRuntimeOverrides["claudeEffort"];
   codexPlanMode: boolean;
   codexReasoningEffort?: PromptDraftRuntimeOverrides["codexReasoningEffort"];
+  boundSecretIds?: string[];
 }
 
 export function resolvePromptDraftRuntimeState(args: {
@@ -32,6 +33,8 @@ export function resolvePromptDraftRuntimeState(args: {
     codexReasoningEffort:
       runtimeOverrides?.codexReasoningEffort ??
       args.fallback.codexReasoningEffort,
+    boundSecretIds:
+      runtimeOverrides?.boundSecretIds ?? args.fallback.boundSecretIds,
   };
 }
 
@@ -136,6 +139,16 @@ export function resolvePromptDraftPlanModeChange(args: {
   };
 }
 
+function areStringArraysEqual(left?: string[], right?: string[]) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right || left.length !== right.length) {
+    return (left?.length ?? 0) === 0 && (right?.length ?? 0) === 0;
+  }
+  return left.every((value, index) => value === right[index]);
+}
+
 export function arePromptDraftRuntimeOverridesEqual(
   left?: PromptDraftRuntimeOverrides,
   right?: PromptDraftRuntimeOverrides,
@@ -148,6 +161,7 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.claudeEffort === right?.claudeEffort &&
     left?.codexPlanMode === right?.codexPlanMode &&
     left?.codexReasoningEffort === right?.codexReasoningEffort &&
-    left?.autoRouting === right?.autoRouting
+    left?.autoRouting === right?.autoRouting &&
+    areStringArraysEqual(left?.boundSecretIds, right?.boundSecretIds)
   );
 }

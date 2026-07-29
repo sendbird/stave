@@ -4,6 +4,10 @@ import path from "node:path";
 import { z } from "zod";
 import {
   buildSecretPreview,
+  ENV_VAR_NAME_MAX_LENGTH,
+  ENV_VAR_NAME_PATTERN,
+  isReservedEnvVarName,
+  normalizeEnvVarName,
   normalizeSecretName,
   type SecretMetadata,
   type SecretRevealResult,
@@ -19,6 +23,14 @@ const StoredSecretSchema = z
     description: z.string(),
     valuePreview: z.string(),
     valueCiphertext: z.string().min(1),
+    // Optional POSIX env-var name. Absent in vault files written before this
+    // field existed; `.strict()` rejects only unknown keys, not missing
+    // optional ones, so no VAULT_VERSION bump is required for back-compat.
+    envVarName: z
+      .string()
+      .max(ENV_VAR_NAME_MAX_LENGTH)
+      .regex(ENV_VAR_NAME_PATTERN)
+      .optional(),
     createdAt: z.string().min(1),
     updatedAt: z.string().min(1),
   })
@@ -46,6 +58,7 @@ function toMetadata(entry: StoredSecret): SecretMetadata {
     name: entry.name,
     description: entry.description,
     valuePreview: entry.valuePreview,
+    ...(entry.envVarName ? { envVarName: entry.envVarName } : {}),
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
   };
@@ -83,6 +96,9 @@ export class SecretVault {
         throw new Error("A name is required for the secret.");
       }
       const description = (input.description ?? "").trim();
+      // Throws a user-facing error for an invalid/reserved name; `undefined`
+      // means the secret keeps no env-var name and is not injectable.
+      const envVarName = normalizeEnvVarName(input.envVarName);
 
       const document = await this.readDocument();
       const existingIndex = input.id
@@ -111,6 +127,25 @@ export class SecretVault {
         throw new Error(`A secret named "${name}" already exists.`);
       }
 
+      // Env-var names must be globally unique so a bound set never collides on
+      // a single variable (case-sensitive, matching shell semantics).
+      if (envVarName) {
+        if (isReservedEnvVarName(envVarName)) {
+          throw new Error(
+            `"${envVarName}" is reserved and cannot be used as a secret environment variable name.`,
+          );
+        }
+        const duplicateEnvVarName = document.secrets.some(
+          (entry) =>
+            entry.id !== existing?.id && entry.envVarName === envVarName,
+        );
+        if (duplicateEnvVarName) {
+          throw new Error(
+            `Another secret already uses the environment variable "${envVarName}".`,
+          );
+        }
+      }
+
       const timestamp = (this.args.now ?? (() => new Date().toISOString()))();
       let valueCiphertext = existing?.valueCiphertext;
       let valuePreview = existing?.valuePreview ?? "";
@@ -130,6 +165,7 @@ export class SecretVault {
         description,
         valuePreview,
         valueCiphertext,
+        ...(envVarName ? { envVarName } : {}),
         createdAt: existing?.createdAt ?? timestamp,
         updatedAt: timestamp,
       };
@@ -167,6 +203,57 @@ export class SecretVault {
       return null;
     }
     return { id: entry.id, value: this.decryptValue(entry) };
+  }
+
+  /**
+   * Resolve bound secret ids to an environment map for injection into an agent
+   * shell. Main-process only — the plaintext values returned here must never be
+   * forwarded to the renderer or serialized into model-visible text.
+   *
+   * A bound id is silently skipped (with the reason recorded in the returned
+   * `skipped` list) when it has no id match, defines no `envVarName`, collides
+   * with a reserved variable, or duplicates an already-resolved variable. The
+   * reason strings and env-var names are safe to log; values are never logged.
+   */
+  async resolveEnvForIds(ids: readonly string[]): Promise<{
+    env: Record<string, string>;
+    skipped: Array<{ id: string; reason: string; envVarName?: string }>;
+  }> {
+    const env: Record<string, string> = {};
+    const skipped: Array<{ id: string; reason: string; envVarName?: string }> =
+      [];
+    if (ids.length === 0) {
+      return { env, skipped };
+    }
+    this.assertSecureEncryption();
+    const document = await this.readDocument();
+    const byId = new Map(document.secrets.map((entry) => [entry.id, entry]));
+    const seenNames = new Set<string>();
+    // De-duplicate ids while preserving first-seen order.
+    const uniqueIds = [...new Set(ids)];
+    for (const id of uniqueIds) {
+      const entry = byId.get(id);
+      if (!entry) {
+        skipped.push({ id, reason: "not-found" });
+        continue;
+      }
+      const envVarName = entry.envVarName;
+      if (!envVarName) {
+        skipped.push({ id, reason: "no-env-var-name" });
+        continue;
+      }
+      if (isReservedEnvVarName(envVarName)) {
+        skipped.push({ id, reason: "reserved-name", envVarName });
+        continue;
+      }
+      if (seenNames.has(envVarName)) {
+        skipped.push({ id, reason: "duplicate-name", envVarName });
+        continue;
+      }
+      seenNames.add(envVarName);
+      env[envVarName] = this.decryptValue(entry);
+    }
+    return { env, skipped };
   }
 
   private decryptValue(entry: StoredSecret): string {

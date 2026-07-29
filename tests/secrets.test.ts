@@ -10,6 +10,8 @@ import {
 } from "../electron/main/ipc/schemas";
 import {
   buildSecretPreview,
+  isReservedEnvVarName,
+  normalizeEnvVarName,
   normalizeSecretName,
 } from "../src/lib/secrets/secrets";
 
@@ -190,5 +192,147 @@ describe("SecretVault", () => {
     const { filePath, vault } = createHarness();
     writeFileSync(filePath, "{not-json", "utf8");
     await expect(vault.list()).rejects.toThrow("not valid JSON");
+  });
+});
+
+describe("normalizeEnvVarName", () => {
+  test("returns undefined for blank input (not injectable)", () => {
+    expect(normalizeEnvVarName(undefined)).toBeUndefined();
+    expect(normalizeEnvVarName("")).toBeUndefined();
+    expect(normalizeEnvVarName("   ")).toBeUndefined();
+  });
+
+  test("accepts and trims a valid POSIX name", () => {
+    expect(normalizeEnvVarName("  OPENAI_API_KEY  ")).toBe("OPENAI_API_KEY");
+    expect(normalizeEnvVarName("_private1")).toBe("_private1");
+  });
+
+  test("rejects invalid identifiers", () => {
+    expect(() => normalizeEnvVarName("1LEADING")).toThrow();
+    expect(() => normalizeEnvVarName("has-dash")).toThrow();
+    expect(() => normalizeEnvVarName("has space")).toThrow();
+  });
+
+  test("rejects reserved names", () => {
+    expect(isReservedEnvVarName("PATH")).toBe(true);
+    expect(isReservedEnvVarName("STAVE_LOCAL_MCP_TOKEN")).toBe(true);
+    expect(() => normalizeEnvVarName("PATH")).toThrow("reserved");
+    expect(() => normalizeEnvVarName("CLAUDE_CONFIG_DIR")).toThrow("reserved");
+  });
+});
+
+describe("Secret IPC schema envVarName", () => {
+  test("accepts a valid name or empty string (clear)", () => {
+    expect(
+      SecretUpsertArgsSchema.safeParse({
+        name: "OpenAI",
+        value: "sk-secret",
+        envVarName: "OPENAI_API_KEY",
+      }).success,
+    ).toBe(true);
+    expect(
+      SecretUpsertArgsSchema.safeParse({
+        name: "OpenAI",
+        envVarName: "",
+      }).success,
+    ).toBe(true);
+  });
+
+  test("rejects a malformed env var name at the schema layer", () => {
+    expect(
+      SecretUpsertArgsSchema.safeParse({
+        name: "OpenAI",
+        value: "sk-secret",
+        envVarName: "bad-name",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("SecretVault envVarName", () => {
+  test("persists an env var name and returns it in metadata", async () => {
+    const { vault } = createHarness();
+    const saved = await vault.upsert({
+      name: "OpenAI",
+      value: "sk-secret",
+      envVarName: "OPENAI_API_KEY",
+    });
+    expect(saved.envVarName).toBe("OPENAI_API_KEY");
+    expect((await vault.list())[0]?.envVarName).toBe("OPENAI_API_KEY");
+  });
+
+  test("loads a legacy vault file that lacks envVarName", async () => {
+    const { filePath, vault } = createHarness();
+    writeFileSync(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        secrets: [
+          {
+            id: "22222222-2222-4222-8222-222222222222",
+            name: "Legacy",
+            description: "",
+            valuePreview: "••••2345",
+            valueCiphertext: "sealed:bGVnYWN5",
+            createdAt: "2026-07-01T00:00:00.000Z",
+            updatedAt: "2026-07-01T00:00:00.000Z",
+          },
+        ],
+      }),
+      "utf8",
+    );
+    const list = await vault.list();
+    expect(list).toHaveLength(1);
+    expect(list[0]?.envVarName).toBeUndefined();
+  });
+
+  test("rejects a duplicate env var name", async () => {
+    const { vault } = createHarness();
+    await vault.upsert({ name: "One", value: "a", envVarName: "SHARED_KEY" });
+    await expect(
+      vault.upsert({ name: "Two", value: "b", envVarName: "SHARED_KEY" }),
+    ).rejects.toThrow("already uses the environment variable");
+  });
+
+  test("rejects a reserved env var name in the vault", async () => {
+    const { vault } = createHarness();
+    await expect(
+      vault.upsert({ name: "Bad", value: "a", envVarName: "PATH" }),
+    ).rejects.toThrow("reserved");
+  });
+});
+
+describe("SecretVault.resolveEnvForIds", () => {
+  test("resolves bound ids to an env map and skips uninjectable ids", async () => {
+    const { vault } = createHarness();
+    const withVar = await vault.upsert({
+      name: "OpenAI",
+      value: "sk-openai",
+      envVarName: "OPENAI_API_KEY",
+    });
+    const withoutVar = await vault.upsert({
+      name: "No env var",
+      value: "sk-noenv",
+    });
+
+    const result = await vault.resolveEnvForIds([
+      withVar.id,
+      withoutVar.id,
+      withVar.id, // duplicate id → resolved once
+      "00000000-0000-4000-8000-999999999999", // not found
+    ]);
+
+    expect(result.env).toEqual({ OPENAI_API_KEY: "sk-openai" });
+    const reasons = result.skipped.map((entry) => entry.reason).sort();
+    expect(reasons).toEqual(["no-env-var-name", "not-found"]);
+  });
+
+  test("returns an empty map for no ids without touching encryption", async () => {
+    const insecure = createHarness({ insecureBackend: true }).vault;
+    // No ids → must not assert encryption (would throw for insecure backend).
+    expect(await insecure.resolveEnvForIds([])).toEqual({
+      env: {},
+      skipped: [],
+    });
   });
 });

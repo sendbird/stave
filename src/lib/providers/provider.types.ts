@@ -717,6 +717,12 @@ export interface ProviderRuntimeOptions {
   promptPrDescription?: string;
   /** Custom system prompt for inline code completion. */
   promptInlineCompletion?: string;
+  /**
+   * Ids of vault secrets the user bound to this task. Only ids travel here; the
+   * main process resolves them to environment variables at spawn/thread-start
+   * so the plaintext never enters the renderer or the model's text channel.
+   */
+  boundSecretIds?: string[];
 }
 
 export interface ProviderAdapter {

@@ -67,6 +67,7 @@ import {
   STAVE_LOCAL_MCP_SERVER_NAME,
   toClaudeSdkMcpServerConfig,
 } from "../main/stave-local-mcp-manifest";
+import { resolveBoundSecretEnv } from "../main/browser/secret-service";
 import {
   parseBooleanEnv,
   parsePositiveIntEnv,
@@ -1819,6 +1820,13 @@ export function buildClaudeQueryOptions(args: {
   onElicitation?: OnElicitation;
   onUserDialog?: OnUserDialog;
   secondaryReadOnly?: boolean;
+  /**
+   * Env vars for bound vault secrets, resolved in the main process. Spread into
+   * the SDK subprocess env so the agent's Bash tool can read them. Passed only
+   * for the primary user turn — never for introspection or aux queries — which
+   * keeps secrets out of diagnostics and analysis subprocesses by construction.
+   */
+  secretEnv?: Record<string, string>;
 }): Options {
   const permissionMode =
     args.permissionMode ??
@@ -1997,10 +2005,16 @@ export function buildClaudeQueryOptions(args: {
       : {}),
     ...(settings ? { settings } : {}),
     sandbox,
-    env: buildClaudeEnv({
-      executablePath: args.claudeExecutablePath,
-      cwd: args.cwd,
-    }),
+    // Bound-secret env is spread LAST so a secret can never override a Stave
+    // runtime var; the resolver's reserved-key denylist already blocks those
+    // names, so this is defence in depth, not the primary guard.
+    env: {
+      ...buildClaudeEnv({
+        executablePath: args.claudeExecutablePath,
+        cwd: args.cwd,
+      }),
+      ...(args.secretEnv ?? {}),
+    },
     ...(args.claudeExecutablePath.length > 0
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
       : {}),
@@ -3449,6 +3463,16 @@ export async function streamClaudeWithSdk(
     }
 
     const secondaryReadOnly = args.executionPolicy === "secondary-read-only";
+    // Resolve bound-secret env for the primary user turn only. Secondary
+    // read-only analysis turns never receive injected secrets.
+    const boundSecretEnv =
+      secondaryReadOnly ||
+      !args.runtimeOptions?.boundSecretIds ||
+      args.runtimeOptions.boundSecretIds.length === 0
+        ? {}
+        : await resolveBoundSecretEnv({
+            ids: args.runtimeOptions.boundSecretIds,
+          });
     const existingSessionId = secondaryReadOnly
       ? undefined
       : resolveSessionId({
@@ -3541,6 +3565,7 @@ export async function streamClaudeWithSdk(
         promptSuggestions: true,
         mcpServers: resolvedMcpServers.mcpServers,
         secondaryReadOnly,
+        secretEnv: boundSecretEnv,
         onElicitation: async (request, options) => {
           const requestId =
             createClaudeUserInputRequestId("claude-elicitation");

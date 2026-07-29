@@ -25,6 +25,7 @@ export function SecretsSettingsCard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [envVarName, setEnvVarName] = useState("");
   const [value, setValue] = useState("");
   const [showValue, setShowValue] = useState(false);
   const [revealedId, setRevealedId] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export function SecretsSettingsCard() {
     setEditingId(null);
     setName("");
     setDescription("");
+    setEnvVarName("");
     setValue("");
     setShowValue(false);
   }, []);
@@ -80,6 +82,7 @@ export function SecretsSettingsCard() {
     setEditingId(secret.id);
     setName(secret.name);
     setDescription(secret.description);
+    setEnvVarName(secret.envVarName ?? "");
     setValue("");
     setShowValue(false);
     setEditorOpen(true);
@@ -107,6 +110,7 @@ export function SecretsSettingsCard() {
         ...(editingId ? { id: editingId } : {}),
         name: name.trim(),
         description: description.trim(),
+        envVarName: envVarName.trim(),
         ...(value ? { value } : {}),
       });
       if (!result.ok) {
@@ -123,7 +127,7 @@ export function SecretsSettingsCard() {
     } finally {
       setSaving(false);
     }
-  }, [closeEditor, description, editingId, loadSecrets, name, value]);
+  }, [closeEditor, description, editingId, envVarName, loadSecrets, name, value]);
 
   const deleteSecret = useCallback(async () => {
     if (!deletingId) {
@@ -219,7 +223,7 @@ export function SecretsSettingsCard() {
     <>
       <SettingsCard
         title="Secrets"
-        description="Store API tokens and other secret values. Values are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses. They are revealed only when you explicitly ask."
+        description="Store API tokens and other secret values. Values are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses. They are revealed only when you explicitly ask, or injected into a task's shell as an environment variable when you bind them."
         titleAccessory={
           <Button
             type="button"
@@ -236,8 +240,12 @@ export function SecretsSettingsCard() {
         <div className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/20 p-3">
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
           <p className="text-xs leading-5 text-muted-foreground">
-            Secrets are never sent to an agent automatically. Reveal or copy a
-            value yourself when you need it.
+            A secret's value is never shown to an agent. Give a secret an
+            environment variable name to bind it to a task from the composer —
+            its value is then injected into that session's shell, so commands
+            can use it (e.g. <code>$OPENAI_API_KEY</code>) without the value
+            entering the model's context. A command that echoes the variable
+            can still surface it.
           </p>
         </div>
 
@@ -292,6 +300,31 @@ export function SecretsSettingsCard() {
               </div>
             </label>
             <label className="block space-y-1.5 text-xs font-medium">
+              Environment variable name
+              <span className="ml-1 font-normal text-muted-foreground">
+                (optional)
+              </span>
+              <Input
+                value={envVarName}
+                placeholder="OPENAI_API_KEY"
+                aria-label="Secret environment variable name"
+                autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                className="h-8 font-mono text-xs"
+                onChange={(event) => setEnvVarName(event.target.value)}
+              />
+              <span className="block font-normal leading-4 text-muted-foreground">
+                Set this to let a task inject the value into the agent's shell as
+                <code className="mx-1 rounded bg-muted px-1 py-0.5">
+                  ${envVarName.trim() || "NAME"}
+                </code>
+                . The value is never shown to the agent, but the running shell
+                can read it.
+              </span>
+            </label>
+            <label className="block space-y-1.5 text-xs font-medium">
               Description
               <span className="ml-1 font-normal text-muted-foreground">
                 (optional)
@@ -341,9 +374,19 @@ export function SecretsSettingsCard() {
                     <Lock className="size-4 text-muted-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium">
-                      {secret.name}
-                    </p>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <p className="truncate text-xs font-medium">
+                        {secret.name}
+                      </p>
+                      {secret.envVarName ? (
+                        <code
+                          className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] leading-4 text-muted-foreground"
+                          title={`Injectable as $${secret.envVarName} when bound to a task`}
+                        >
+                          ${secret.envVarName}
+                        </code>
+                      ) : null}
+                    </div>
                     <p className="truncate font-mono text-xs text-muted-foreground">
                       {revealed
                         ? revealedValue

@@ -87,6 +87,28 @@ Rules:
 - If a change is provider-specific, say so explicitly. Otherwise, check the sibling provider adapter for symmetry.
 - For Codex runtime upgrades, review `docs/providers/codex-upgrade-checklist.md`.
 
+## Secret Injection Guardrails
+
+Vault secrets may be bound to a task and injected into the agent shell as environment variables. The value must reach the shell **without ever entering the model's text channel, the renderer, or logs.**
+
+Required check files:
+
+- `src/lib/secrets/secrets.ts` (shared types, `normalizeEnvVarName`, `RESERVED_ENV_VAR_NAMES`, `MAX_BOUND_SECRETS`)
+- `electron/main/browser/secret-vault.ts` (storage + `resolveEnvForIds`)
+- `electron/main/browser/secret-service.ts` (main-process `resolveBoundSecretEnv`)
+- `electron/providers/claude-sdk-runtime.ts` (`buildClaudeQueryOptions` `secretEnv`)
+- `electron/providers/codex-app-server-runtime.ts` + `codex-app-server-params.ts` (`shell_environment_policy.set.*`)
+- `tests/secrets.test.ts`, `tests/codex-app-server-secret-env.test.ts`
+
+Rules:
+
+- Only secret **ids** travel in `runtimeOptions.boundSecretIds`; values are resolved to env **only in the main process** at spawn/thread-start. Never expose the resolver via `preload.ts`.
+- Enforce the reserved-key denylist at resolve time so a bound secret can never override `PATH`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, the Stave MCP token, or `ELECTRON_*`.
+- Inject secrets for the **primary user turn only** — never for introspection, aux, or secondary read-only analysis queries.
+- Claude injects at the `options.env` layer (kept out of `buildClaudeDiagnostics`); Codex injects via per-thread `shell_environment_policy.set.<KEY>` overrides, forwarded on **both** `thread/start` and `thread/resume`.
+- Never write a secret value to `console.*`, a `BridgeEvent`, a transcript, or the thread key. Log only counts, env-var names, and skip reasons.
+- This is an *automatic-leak* guarantee, not a sandbox: a deliberate `echo $NAME` can still surface a bound value. Keep the Settings > Secrets copy honest about this.
+
 ## Terminal Surface Guardrails
 
 Terminal work includes docked terminals, CLI session panels, PTY lifecycle, restore behavior, and terminal shell layout.

@@ -2604,6 +2604,7 @@ export const useAppStore = create<AppState>()(
                   }
                 : {}),
             },
+            boundSecretIds: resolvedPromptDraftRuntimeState.boundSecretIds,
             providerSession,
           });
           const modelInfo = resolveTurnModelInfo({

@@ -237,6 +237,7 @@ const PromptDraftRuntimeOverridesSchema = z
       ])
       .optional(),
     autoRouting: z.boolean().optional(),
+    boundSecretIds: z.array(z.string().uuid()).optional(),
   })
   .strict();
 

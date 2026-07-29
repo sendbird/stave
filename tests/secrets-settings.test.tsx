@@ -11,7 +11,7 @@ describe("SecretsSettingsCard", () => {
     expect(html).toContain("Add secret");
     expect(html).toContain("Store API tokens and other secret values");
     expect(html).toContain("Loading secrets");
-    expect(html).toContain("never sent to an agent automatically");
+    expect(html).toContain("value is never shown to an agent");
     expect(html).not.toContain("plain-secret-value");
   });
 });
