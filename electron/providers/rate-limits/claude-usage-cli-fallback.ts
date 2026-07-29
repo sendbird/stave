@@ -134,11 +134,47 @@ function toPtyEnv(
   return result;
 }
 
-function captureClaudeUsagePanelText(executablePath: string): Promise<string> {
+/**
+ * Spawns the hidden usage CLI PTY. Injectable so the capture lifecycle
+ * (subscription disposal + PTY teardown) can be unit-tested with a fake PTY,
+ * without a real node-pty spawn (which needs the Electron ABI to succeed).
+ */
+export type UsagePtySpawner = (
+  executablePath: string,
+  options: pty.IPtyForkOptions,
+) => pty.IPty;
+
+const defaultUsagePtySpawner: UsagePtySpawner = (executablePath, options) =>
+  pty.spawn(executablePath, [], options);
+
+/**
+ * PTY-capture timing knobs. Overridable so lifecycle tests can drive the
+ * settle/timeout state machine with zero-delay timers instead of racing the
+ * real multi-second waits. Production always uses the module defaults.
+ */
+export interface UsageCaptureTiming {
+  promptSettleDelayMs: number;
+  maxStartupWaitMs: number;
+  outputSettleDelayMs: number;
+  captureTimeoutMs: number;
+}
+
+const DEFAULT_USAGE_CAPTURE_TIMING: UsageCaptureTiming = {
+  promptSettleDelayMs: PROMPT_SETTLE_DELAY_MS,
+  maxStartupWaitMs: MAX_STARTUP_WAIT_MS,
+  outputSettleDelayMs: OUTPUT_SETTLE_DELAY_MS,
+  captureTimeoutMs: CAPTURE_TIMEOUT_MS,
+};
+
+export function captureClaudeUsagePanelText(
+  executablePath: string,
+  spawnPty: UsagePtySpawner = defaultUsagePtySpawner,
+  timing: UsageCaptureTiming = DEFAULT_USAGE_CAPTURE_TIMING,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     let ptyProcess: pty.IPty;
     try {
-      ptyProcess = pty.spawn(executablePath, [], {
+      ptyProcess = spawnPty(executablePath, {
         name: "xterm-256color",
         cols: 120,
         rows: 40,
@@ -157,6 +193,30 @@ function captureClaudeUsagePanelText(executablePath: string): Promise<string> {
     let settled = false;
     let commandSent = false;
     let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    let dataSubscription: pty.IDisposable | null = null;
+    let exitSubscription: pty.IDisposable | null = null;
+
+    // On macOS node-pty only releases the PTY master fd on destroy() (or a
+    // socket 'close'), never on kill() alone. This fallback spawns a hidden
+    // CLI PTY on every poll where the OAuth usage endpoint is unavailable, so
+    // terminating with kill() here orphaned one master fd per call. Always
+    // destroy() the process and dispose its subscriptions so nothing leaks.
+    const teardownPty = () => {
+      dataSubscription?.dispose();
+      exitSubscription?.dispose();
+      dataSubscription = null;
+      exitSubscription = null;
+      const closablePty = ptyProcess as pty.IPty & { destroy?: () => void };
+      try {
+        if (typeof closablePty.destroy === "function") {
+          closablePty.destroy();
+        } else {
+          ptyProcess.kill();
+        }
+      } catch {
+        // already exited
+      }
+    };
 
     const finish = () => {
       if (settled) {
@@ -168,11 +228,7 @@ function captureClaudeUsagePanelText(executablePath: string): Promise<string> {
       if (settleTimer) {
         clearTimeout(settleTimer);
       }
-      try {
-        ptyProcess.kill();
-      } catch {
-        // already exited
-      }
+      teardownPty();
       resolve(buffer);
     };
 
@@ -190,11 +246,7 @@ function captureClaudeUsagePanelText(executablePath: string): Promise<string> {
         if (settleTimer) {
           clearTimeout(settleTimer);
         }
-        try {
-          ptyProcess.kill();
-        } catch {
-          // already exited
-        }
+        teardownPty();
         reject(error);
       }
     };
@@ -215,23 +267,23 @@ function captureClaudeUsagePanelText(executablePath: string): Promise<string> {
       }
     };
 
-    const hardTimer = setTimeout(finish, CAPTURE_TIMEOUT_MS);
+    const hardTimer = setTimeout(finish, timing.captureTimeoutMs);
     // If startup output never goes quiet (spinners), send the command
     // anyway after a grace period.
-    const forceSendTimer = setTimeout(sendCommand, MAX_STARTUP_WAIT_MS);
+    const forceSendTimer = setTimeout(sendCommand, timing.maxStartupWaitMs);
 
-    ptyProcess.onData((chunk) => {
+    dataSubscription = ptyProcess.onData((chunk) => {
       buffer += chunk;
       if (settleTimer) {
         clearTimeout(settleTimer);
       }
       settleTimer = setTimeout(
         onOutputSettled,
-        commandSent ? OUTPUT_SETTLE_DELAY_MS : PROMPT_SETTLE_DELAY_MS,
+        commandSent ? timing.outputSettleDelayMs : timing.promptSettleDelayMs,
       );
     });
 
-    ptyProcess.onExit(() => finish());
+    exitSubscription = ptyProcess.onExit(() => finish());
   });
 }
 

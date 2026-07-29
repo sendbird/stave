@@ -660,9 +660,9 @@ export function createTerminalRuntime(args: {
     session.exitSubscription = ptyProcess.onExit(({ exitCode, signal }) => {
       session.exitCode = exitCode ?? -1;
       session.exitSignal = signal;
-      session.disposePtyListeners();
-      session.disposeHeadlessMirror();
-      session.markClosed();
+      // Route through close() (idempotent) so a flow-paused child's exit still
+      // releases the PTY master fd via destroy() instead of orphaning it.
+      session.close();
       deleteSession(sessionId);
       void (async () => {
         await flushPushOutputNow({ session, sessionId });
