@@ -660,9 +660,13 @@ export function createTerminalRuntime(args: {
     session.exitSubscription = ptyProcess.onExit(({ exitCode, signal }) => {
       session.exitCode = exitCode ?? -1;
       session.exitSignal = signal;
-      session.disposePtyListeners();
-      session.disposeHeadlessMirror();
-      session.markClosed();
+      // Route through close() so the PTY master fd is released via destroy().
+      // A flow-paused session (pty.pause() under renderer backpressure) whose
+      // child then exits never lets node-pty's socket read EOF, so 'close'
+      // never fires and disposing listeners alone orphans the master fd.
+      // close() is idempotent and also disposes listeners + the headless
+      // mirror, so it is safe to call from the exit path.
+      session.close();
       deleteSession(sessionId);
       void (async () => {
         await flushPushOutputNow({ session, sessionId });

@@ -171,6 +171,74 @@ describe("terminal runtime PTY cleanup", () => {
     fake.fireExit({ exitCode: 0 });
     expect(emitted).toEqual([]);
   });
+
+  test("destroys the PTY when the child exits on its own", async () => {
+    const emitted: Array<{ event: string; payload: unknown }> = [];
+    const runtime = createTerminalRuntime({
+      emitEvent: async (event, payload) => {
+        emitted.push({ event, payload });
+      },
+    });
+
+    const created = runtime.createSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      taskId: null,
+      taskTitle: null,
+      terminalTabId: "tab-1",
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    expect(created.ok).toBe(true);
+
+    const fake = fakePtys[0];
+    expect(fake).toBeTruthy();
+
+    // The child process exits by itself (no closeSession() call). The exit
+    // handler must release the PTY master fd via destroy(); disposing the
+    // listeners alone would orphan it — the fd leak this guards against.
+    fake.fireExit({ exitCode: 0 });
+    await Promise.resolve();
+
+    expect(fake.destroyed).toBe(true);
+    expect(fake.dataListeners.every((entry) => entry.disposable.disposed)).toBe(
+      true,
+    );
+    expect(fake.exitListeners.every((entry) => entry.disposable.disposed)).toBe(
+      true,
+    );
+  });
+
+  test("destroys the PTY when a flow-paused session's child exits", async () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+
+    const created = runtime.createSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      taskId: null,
+      taskTitle: null,
+      terminalTabId: "tab-1",
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    expect(created.ok).toBe(true);
+
+    const fake = fakePtys[0];
+    expect(fake).toBeTruthy();
+
+    // Simulate the leak's corner case: the PTY is flow-paused (renderer
+    // backpressure) and the child then exits. node-pty's socket never reads
+    // EOF while paused, so only an explicit destroy() reclaims the master fd.
+    fake.pause();
+    expect(fake.paused).toBe(true);
+
+    fake.fireExit({ exitCode: 143, signal: 15 });
+    await Promise.resolve();
+
+    expect(fake.destroyed).toBe(true);
+  });
 });
 
 describe("terminal runtime slot lifecycle", () => {
