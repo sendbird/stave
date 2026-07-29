@@ -85,6 +85,11 @@ export interface PromptDraftRuntimeOverrides {
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
   autoRouting?: boolean;
   model?: string;
+  /**
+   * Ids of vault secrets bound to this task for env injection. Persists in the
+   * workspace snapshot so a binding survives restart. Ids only — never values.
+   */
+  boundSecretIds?: string[];
 }
 
 export type TurnModelEffort = NonNullable<

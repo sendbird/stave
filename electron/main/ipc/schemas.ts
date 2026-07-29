@@ -4,6 +4,11 @@ import {
   RoutineUpsertInputSchema,
 } from "../../../src/lib/routines";
 import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
+import {
+  ENV_VAR_NAME_MAX_LENGTH,
+  ENV_VAR_NAME_PATTERN,
+  MAX_BOUND_SECRETS,
+} from "../../../src/lib/secrets/secrets";
 export {
   SecondaryRunCancelArgsSchema,
   SecondaryRunClaimArgsSchema,
@@ -184,6 +189,18 @@ export const SecretUpsertArgsSchema = z
     id: z.string().uuid().optional(),
     name: z.string().trim().min(1).max(200),
     description: z.string().max(2048).optional(),
+    // Optional POSIX env-var name; empty string clears a previously set name.
+    // The vault performs the reserved-name check and precise normalization.
+    envVarName: z
+      .union([
+        z.literal(""),
+        z
+          .string()
+          .trim()
+          .max(ENV_VAR_NAME_MAX_LENGTH)
+          .regex(ENV_VAR_NAME_PATTERN),
+      ])
+      .optional(),
     value: z.string().min(1).max(8192).optional(),
   })
   .strict();
@@ -654,6 +671,12 @@ export const RuntimeOptionsObjectSchema = z
     responseStylePrompt: z.string().max(10_000).optional(),
     promptPrDescription: z.string().max(10_000).optional(),
     promptInlineCompletion: z.string().max(10_000).optional(),
+    // Ids of vault secrets the user bound to this task. Values are NEVER carried
+    // here — the main process resolves ids to an env map at spawn/thread-start.
+    boundSecretIds: z
+      .array(z.string().uuid())
+      .max(MAX_BOUND_SECRETS)
+      .optional(),
   })
   .strict();
 

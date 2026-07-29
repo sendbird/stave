@@ -91,6 +91,58 @@ describe("prompt-draft runtime state", () => {
     ).toBe(true);
   });
 
+  test("carries bound secret ids from draft overrides then fallback", () => {
+    const resolvedFromDraft = resolvePromptDraftRuntimeState({
+      promptDraft: {
+        text: "",
+        attachedFilePaths: [],
+        attachments: [],
+        runtimeOverrides: {
+          boundSecretIds: ["11111111-1111-4111-8111-111111111111"],
+        },
+      },
+      fallback: {
+        claudePermissionMode: "default",
+        claudePermissionModeBeforePlan: null,
+        codexPlanMode: false,
+      },
+    });
+    expect(resolvedFromDraft.boundSecretIds).toEqual([
+      "11111111-1111-4111-8111-111111111111",
+    ]);
+
+    const resolvedFromFallback = resolvePromptDraftRuntimeState({
+      promptDraft: { text: "", attachedFilePaths: [], attachments: [] },
+      fallback: {
+        claudePermissionMode: "default",
+        claudePermissionModeBeforePlan: null,
+        codexPlanMode: false,
+        boundSecretIds: ["22222222-2222-4222-8222-222222222222"],
+      },
+    });
+    expect(resolvedFromFallback.boundSecretIds).toEqual([
+      "22222222-2222-4222-8222-222222222222",
+    ]);
+  });
+
+  test("treats bound secret id changes as a runtime-override difference", () => {
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { boundSecretIds: ["a"] },
+        { boundSecretIds: ["a"] },
+      ),
+    ).toBe(true);
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { boundSecretIds: ["a"] },
+        { boundSecretIds: ["a", "b"] },
+      ),
+    ).toBe(false);
+    expect(
+      arePromptDraftRuntimeOverridesEqual({ boundSecretIds: [] }, {}),
+    ).toBe(true);
+  });
+
   test("restores the prior Claude mode without clearing Codex sessions when plan mode is disabled", () => {
     expect(
       resolvePromptDraftPlanModeChange({

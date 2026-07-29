@@ -62,6 +62,7 @@ import {
 } from "../../src/lib/providers/connected-tool-status";
 import { getCodexMcpRegistrationStatus } from "../main/codex-mcp";
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
+import { resolveBoundSecretEnv } from "../main/browser/secret-service";
 import { buildCodexInstructionProfileKey } from "./codex-runtime-config";
 import {
   getCodexMcpConfigPathGroups,
@@ -113,10 +114,12 @@ import {
   type ElicitationFieldDescriptor,
 } from "./codex-elicitation-mapping";
 import {
+  buildBoundSecretFingerprint,
   buildCodexSecondaryServerRequestDenial,
   buildCodexThreadResumeParams,
   buildCodexThreadStartParams,
   buildCodexTurnStartParams,
+  buildSecretShellOverrides,
   deleteCodexSecondaryThread,
   resolveCodexSecondaryConfigOverrides,
   resolveCodexSecondaryRuntimeOptions,
@@ -511,13 +514,15 @@ function buildThreadKey(args: {
   taskId?: string;
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  boundSecretFingerprint?: string;
 }) {
   const model = args.runtimeOptions?.model?.trim() || "default";
   const mode = args.runtimeOptions?.codexPlanMode ? "plan" : "chat";
   const instructionProfile = buildCodexInstructionProfileKey({
     runtimeOptions: args.runtimeOptions,
   });
-  return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${instructionProfile}`;
+  const secretFingerprint = args.boundSecretFingerprint ?? "none";
+  return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${instructionProfile}:${secretFingerprint}`;
 }
 
 function resolveThreadId(args: {
@@ -1278,11 +1283,13 @@ async function ensureCodexThread(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   ephemeral?: boolean;
   configOverrides?: Record<string, string | boolean>;
+  boundSecretFingerprint?: string;
 }) {
   const threadKey = buildThreadKey({
     taskId: args.taskId,
     cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
+    boundSecretFingerprint: args.boundSecretFingerprint,
   });
   const resumeThreadId = args.ephemeral
     ? undefined
@@ -1303,6 +1310,10 @@ async function ensureCodexThread(args: {
           threadId: resumeThreadId,
           cwd: args.cwd,
           runtimeOptions: args.runtimeOptions,
+          // Forward caller config overrides on resume too. Previously dropped
+          // here, which silently discarded MCP-isolation and injected-secret
+          // shell env whenever a thread resumed instead of starting fresh.
+          configOverrides: args.configOverrides,
         }),
       })
     : await args.client.request<{ thread: { id: string } }>(
@@ -2549,6 +2560,21 @@ export async function streamCodexWithAppServer(
     }
   }
 
+  // Resolve bound-secret env for the primary user turn only. Secondary
+  // read-only analysis turns never receive injected secrets, mirroring Claude.
+  const boundSecretEnv =
+    secondaryReadOnly ||
+    !runtimeOptions?.boundSecretIds ||
+    runtimeOptions.boundSecretIds.length === 0
+      ? {}
+      : await resolveBoundSecretEnv({ ids: runtimeOptions.boundSecretIds });
+  const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
+  const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
+  const mergedConfigOverrides =
+    Object.keys(secretShellOverrides).length > 0
+      ? { ...(secondaryConfigOverrides ?? {}), ...secretShellOverrides }
+      : secondaryConfigOverrides;
+
   let threadId: string;
   let resumedThreadId: string | null;
   try {
@@ -2560,7 +2586,8 @@ export async function streamCodexWithAppServer(
       conversation: args.conversation,
       runtimeOptions,
       ephemeral: secondaryReadOnly,
-      configOverrides: secondaryConfigOverrides,
+      configOverrides: mergedConfigOverrides,
+      boundSecretFingerprint,
     }));
   } catch (error) {
     const events: BridgeEvent[] = [

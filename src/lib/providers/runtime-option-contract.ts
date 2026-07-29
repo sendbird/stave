@@ -191,6 +191,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "responseStylePrompt",
   "promptPrDescription",
   "promptInlineCompletion",
+  "boundSecretIds",
 ] as const satisfies readonly (keyof ProviderRuntimeOptions)[];
 
 export type ProviderRuntimeOptionKey =

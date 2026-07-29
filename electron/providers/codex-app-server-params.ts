@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { StreamTurnArgs } from "./types";
 import {
   resolveCodexAppServerReasoningEffort,
@@ -239,14 +240,48 @@ export function buildCodexThreadStartParams(args: {
   };
 }
 
+/**
+ * Convert a resolved secret env map into Codex `shell_environment_policy.set.*`
+ * config overrides. This is the same per-thread channel the NVM PATH shim uses,
+ * so the values reach Codex's shell tool env without respawning the shared
+ * app-server — and they travel over the JSON-RPC control channel, never as
+ * model-visible text.
+ */
+export function buildSecretShellOverrides(
+  secretEnv: Record<string, string>,
+): Record<string, string> {
+  const overrides: Record<string, string> = {};
+  for (const [name, value] of Object.entries(secretEnv)) {
+    overrides[`shell_environment_policy.set.${name}`] = value;
+  }
+  return overrides;
+}
+
+/**
+ * Stable, non-reversible fingerprint of the bound-secret variable NAMES (never
+ * values). Folded into the Codex thread key so that changing which secrets are
+ * bound forces a fresh `thread/start` instead of resuming a thread provisioned
+ * with the previous set. Rotating a value does not change names, so the resume
+ * config-override forwarding covers that case; this backstops add/remove.
+ */
+export function buildBoundSecretFingerprint(secretEnv: Record<string, string>) {
+  const names = Object.keys(secretEnv).sort();
+  if (names.length === 0) {
+    return "none";
+  }
+  return createHash("sha1").update(names.join("\n")).digest("hex").slice(0, 12);
+}
+
 export function buildCodexThreadResumeParams(args: {
   threadId: string;
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  configOverrides?: Record<string, string | boolean>;
 }) {
   const config = buildCodexConfigOverrides({
     cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
+    configOverrides: args.configOverrides,
   });
 
   return {

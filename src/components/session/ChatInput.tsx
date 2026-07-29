@@ -22,6 +22,7 @@ import {
   type CompareRunPreparation,
 } from "@/components/compare/CompareRunPrepareDialog";
 import { CompareRunHistoryDialog } from "@/components/compare/CompareRunHistoryDialog";
+import { SecretBindingControl } from "@/components/session/SecretBindingControl";
 import {
   consumeComparePreparationRequest,
   subscribeComparePreparationRequest,
@@ -1032,6 +1033,31 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           isTurnActive={args.isTurnActive}
           beforeRuntimeAction={
             args.isTurnActive ? null : (
+              <>
+              <div
+                className="inline-flex h-9 items-stretch"
+                data-secret-binding-control="true"
+              >
+                <SecretBindingControl
+                  boundSecretIds={promptDraft.runtimeOverrides?.boundSecretIds}
+                  disabled={isInputBlocked}
+                  onChange={(nextBoundSecretIds) => {
+                    cancelPendingDraftSave();
+                    updatePromptDraft({
+                      taskId: args.providerSelectionTarget,
+                      patch: {
+                        runtimeOverrides: {
+                          ...(promptDraft.runtimeOverrides ?? {}),
+                          boundSecretIds:
+                            nextBoundSecretIds.length > 0
+                              ? nextBoundSecretIds
+                              : undefined,
+                        },
+                      },
+                    });
+                  }}
+                />
+              </div>
               <div
                 className="inline-flex h-9 items-stretch gap-0.5 rounded-md"
                 data-compare-control="true"
@@ -1150,6 +1176,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+              </>
             )
           }
           submitMode={managedTaskComposerAccess.submitMode}
