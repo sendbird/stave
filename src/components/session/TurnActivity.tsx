@@ -344,7 +344,13 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(
     null,
   );
-  const expanded = expandedOverride ?? expandedByDefault;
+  const interactionCardOwnsFocus = Boolean(
+    props.hasPendingInteractionCard &&
+    props.activity?.pendingInteraction != null,
+  );
+  const expanded = interactionCardOwnsFocus
+    ? false
+    : (expandedOverride ?? expandedByDefault);
   const now = useTurnClock(
     props.activity?.completedAt == null ? props.activeTurnId : null,
   );
@@ -461,9 +467,12 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     featuredItem.detail !== headline
       ? featuredItem.detail
       : null;
-  const canExpand = activityItems.length > 0;
+  const canExpand = activityItems.length > 0 && !interactionCardOwnsFocus;
   // `0/4` says nothing, so the ratio only appears once work has landed.
-  const showProgress = counts.totalCount > 1 && counts.completedCount > 0;
+  const showProgress =
+    !interactionCardOwnsFocus &&
+    counts.totalCount > 1 &&
+    counts.completedCount > 0;
   const isListOpen = expanded && canExpand;
 
   return (
@@ -538,7 +547,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               </span>
             </span>
           ) : null}
-          {!expanded && hiddenItems.length > 0 ? (
+          {!expanded && !interactionCardOwnsFocus && hiddenItems.length > 0 ? (
             <span
               className={cn(
                 "shrink-0 text-[11px] font-medium tabular-nums",

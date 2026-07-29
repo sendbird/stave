@@ -1786,11 +1786,19 @@ export function PromptInput(args: PromptInputProps) {
 
   if (pendingUserInput && onUserInputSubmit && onUserInputDeny) {
     return (
-      <div className="space-y-3 rounded-xl border border-primary/40 bg-background/95 p-3">
+      <div
+        className="prompt-input-shell relative z-10 rounded-xl bg-card outline-none"
+        data-testid="user-input-composer"
+        data-turn-active={isTurnActive ? "true" : undefined}
+        data-pending-interaction="true"
+        data-pending-interaction-request-id={pendingUserInput.part.requestId}
+        tabIndex={-1}
+      >
         <UserInputCard
           toolName={pendingUserInput.part.toolName}
           questions={pendingUserInput.part.questions}
           state={pendingUserInput.part.state}
+          presentation="composer"
           onSubmit={(answers) =>
             onUserInputSubmit({
               messageId: pendingUserInput.messageId,

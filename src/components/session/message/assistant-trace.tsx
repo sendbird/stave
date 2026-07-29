@@ -578,17 +578,13 @@ function AssistantTraceEntryView(args: {
           status={status}
           icon={icon}
           defaultOpen
-          data-pending-interaction={
-            entry.part.state === "input-requested" ? "true" : undefined
-          }
-          data-pending-interaction-request-id={
-            entry.part.state === "input-requested"
-              ? entry.part.requestId
-              : undefined
-          }
-          tabIndex={entry.part.state === "input-requested" ? -1 : undefined}
         >
-          <MessagePartRenderer part={entry.part} taskId={taskId} messageId={messageId} />
+          <MessagePartRenderer
+            part={entry.part}
+            taskId={taskId}
+            messageId={messageId}
+            userInputPresentation="summary"
+          />
         </ChainOfThoughtStep>
       );
 

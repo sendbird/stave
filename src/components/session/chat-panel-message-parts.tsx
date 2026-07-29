@@ -15,6 +15,7 @@ import {
   ToolInput,
   ToolOutput,
   UserInputCard,
+  type UserInputCardPresentation,
   parseSubagentToolInput,
   TruncationWarningBanner,
 } from "@/components/ai-elements";
@@ -101,8 +102,16 @@ export function MessagePartRenderer(args: {
   messageId: string;
   isStreaming?: boolean;
   isLastTextPart?: boolean;
+  userInputPresentation?: UserInputCardPresentation;
 }) {
-  const { part, taskId, messageId, isStreaming, isLastTextPart } = args;
+  const {
+    part,
+    taskId,
+    messageId,
+    isStreaming,
+    isLastTextPart,
+    userInputPresentation,
+  } = args;
   const resolveApproval = useAppStore((state) => state.resolveApproval);
   const resolveUserInput = useAppStore((state) => state.resolveUserInput);
   const rollbackToCompactBoundary = useAppStore(
@@ -202,6 +211,7 @@ export function MessagePartRenderer(args: {
           questions={part.questions}
           answers={part.answers}
           state={part.state}
+          presentation={userInputPresentation}
           onSubmit={(answers) =>
             resolveUserInput({ taskId, messageId, answers })
           }
