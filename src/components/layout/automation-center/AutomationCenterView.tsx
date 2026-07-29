@@ -49,10 +49,8 @@ import { useAppStore } from "@/store/app.store";
 import { cn } from "@/lib/utils";
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { AutomationEditor } from "./AutomationEditor";
-import {
-  AutomationRunDetail,
-  AutomationRunRow,
-} from "./AutomationRunDetail";
+import { AutomationLatestRun } from "./AutomationLatestRun";
+import { AutomationRunDetail, AutomationRunRow } from "./AutomationRunDetail";
 import {
   AUTOMATION_RUN_FILTERS,
   buildEnvironmentOptions,
@@ -124,7 +122,8 @@ export function AutomationCenterView() {
     routines: [],
     runs: [],
   });
-  const [activeTab, setActiveTab] = useState<AutomationCenterTab>("automations");
+  const [activeTab, setActiveTab] =
+    useState<AutomationCenterTab>("automations");
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(
     null,
   );
@@ -1009,56 +1008,16 @@ export function AutomationCenterView() {
                     </Button>
                   </div>
 
-                  <div className="rounded-md border border-border/70 p-3">
-                    <div className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
-                      Latest run
-                    </div>
-                    {(() => {
-                      const latestRun = latestRunByRoutineId.get(
-                        selectedRoutine.id,
-                      );
-                      if (!latestRun) {
-                        return (
-                          <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            No runs yet. Use Run now, or wait for the next
-                            scheduled occurrence.
-                          </p>
-                        );
-                      }
-                      const presentation = getRunStatusPresentation(
-                        latestRun.status,
-                      );
-                      return (
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "h-5 px-1.5 text-[9px]",
-                              presentation.className,
-                            )}
-                          >
-                            {presentation.label}
-                          </Badge>
-                          <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
-                            {formatDateTime(latestRun.startedAt)}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-[11px]"
-                            onClick={() => {
-                              setRunAutomationFilter(selectedRoutine.id);
-                              setRunFilter("all");
-                              setSelectedRunId(latestRun.id);
-                              setActiveTab("runs");
-                            }}
-                          >
-                            Open run detail
-                          </Button>
-                        </div>
-                      );
-                    })()}
-                  </div>
+                  <AutomationLatestRun
+                    run={latestRunByRoutineId.get(selectedRoutine.id) ?? null}
+                    onOpenTask={(run) => void openRunResult(run)}
+                    onOpenDetail={(run) => {
+                      setRunAutomationFilter(selectedRoutine.id);
+                      setRunFilter("all");
+                      setSelectedRunId(run.id);
+                      setActiveTab("runs");
+                    }}
+                  />
                 </div>
               ) : (
                 <div className="p-6 text-xs text-muted-foreground">
