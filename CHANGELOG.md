@@ -1,3 +1,17 @@
+## [0.14.0](https://github.com/sendbird/stave/compare/v0.13.0...v0.14.0) (2026-07-29)
+
+### Features
+
+* Add a latest-run summary to Automations with status, trigger, timing, result or error details, and actions to open the run or its task.
+
+### Bug Fixes
+
+* Refresh workspace state before notification deep links so tasks in newly discovered workspaces open correctly.
+* Guide Codex to use runtime web search for general research and Stave Lens for current-project UI validation or explicit live-page inspection.
+
+### References
+
+* [#267](https://github.com/sendbird/stave/pull/267), [#268](https://github.com/sendbird/stave/pull/268), [#270](https://github.com/sendbird/stave/pull/270)
 ## [0.13.0](https://github.com/sendbird/stave/compare/v0.12.3...v0.13.0) (2026-07-28)
 
 ### Bug Fixes
