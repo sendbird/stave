@@ -1,3 +1,12 @@
+## [0.13.2](https://github.com/sendbird/stave/compare/v0.13.1...v0.13.2) (2026-07-29)
+
+### Bug Fixes
+
+* Stop the Stave host-service from leaking orphaned /dev/ptmx master file descriptors by releasing the pty master on teardown: the usage rate-limit CLI fallback now disposes its onData/onExit subscriptions and calls destroy() across every exit path, and the terminal runtime closes the session (running pty.destroy()) when a flow-paused child exits.
+
+### References
+
+* [#273](https://github.com/sendbird/stave/pull/273)
 ## [0.13.1](https://github.com/sendbird/stave/compare/v0.13.0...v0.13.1) (2026-07-29)
 
 ### Features
