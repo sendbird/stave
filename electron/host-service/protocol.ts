@@ -438,6 +438,7 @@ export type HostRoutineAction =
   | "update"
   | "remove"
   | "set-enabled"
+  | "set-provider-timeout"
   | "run-now"
   | "list-information-references";
 

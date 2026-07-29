@@ -164,6 +164,7 @@ function normalizeNotificationWorkspaceIds(workspaceIds: string[]) {
 }
 const LEGACY_TURN_EVENT_ARTIFACT_KIND = "turn_event_payload";
 const ROUTINE_STATE_KEY = "routine_state_v1";
+const ROUTINE_PROVIDER_TIMEOUT_KEY = "routine_provider_timeout_ms_v1";
 
 function normalizePersistedProviderId(
   providerId: ProviderId | "stave",
@@ -1775,6 +1776,42 @@ export class SqliteStore {
     `,
       )
       .run(ROUTINE_STATE_KEY, JSON.stringify(state), now);
+  }
+
+  loadRoutineProviderTimeoutMs() {
+    const row = this.db
+      .prepare("SELECT value_json FROM app_state WHERE key = ?")
+      .get(ROUTINE_PROVIDER_TIMEOUT_KEY) as JsonValueRow | undefined;
+    if (!row) {
+      return null;
+    }
+    try {
+      const value = JSON.parse(row.value_json);
+      return typeof value === "number" && Number.isInteger(value)
+        ? value
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  saveRoutineProviderTimeoutMs(args: { providerTimeoutMs: number }) {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `
+      INSERT INTO app_state (key, value_json, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value_json = excluded.value_json,
+        updated_at = excluded.updated_at
+    `,
+      )
+      .run(
+        ROUTINE_PROVIDER_TIMEOUT_KEY,
+        JSON.stringify(args.providerTimeoutMs),
+        now,
+      );
   }
 
   getRunAggregate(

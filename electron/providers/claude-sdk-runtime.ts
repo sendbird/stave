@@ -174,6 +174,7 @@ const CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES = new Set([
   "stave_list_routine_information_references",
   "stave_create_routine_information_resource",
 ]);
+const STAVE_LOCAL_MCP_TOOL_PREFIX = "mcp__stave-local-mcp__";
 /**
  * Tokens that mark a (non-Stave) MCP tool as read-only vs. mutating, used to
  * decide whether plan mode can auto-allow third-party / lens MCP calls when the
@@ -697,6 +698,12 @@ export function resolveClaudePermissionModeDecision(args: {
   const leafToolName =
     normalizedToolName.split("__").at(-1) ?? normalizedToolName;
   if (CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES.has(leafToolName)) {
+    return "allow" as const;
+  }
+  if (
+    (args.permissionMode === "auto" || args.permissionMode === "dontAsk") &&
+    normalizedToolName.startsWith(STAVE_LOCAL_MCP_TOOL_PREFIX)
+  ) {
     return "allow" as const;
   }
   if (args.permissionMode === "bypassPermissions") {

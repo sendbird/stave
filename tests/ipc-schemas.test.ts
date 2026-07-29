@@ -6,6 +6,7 @@ import {
   LocalMcpConfigUpdateArgsSchema,
   ReviewDiffArgsSchema,
   RoutineInformationResourceCreateArgsSchema,
+  RoutineProviderTimeoutArgsSchema,
   SetNotificationBadgeArgsSchema,
   ShowNativeNotificationArgsSchema,
   StageFilesArgsSchema,
@@ -49,11 +50,25 @@ describe("provider IPC schemas", () => {
     ).toBe(true);
   });
 
+  test("accepts an automation provider timeout up to 24 hours", () => {
+    expect(
+      RoutineProviderTimeoutArgsSchema.safeParse({
+        providerTimeoutMs: 86_400_000,
+      }).success,
+    ).toBe(true);
+    expect(
+      RoutineProviderTimeoutArgsSchema.safeParse({
+        providerTimeoutMs: 86_400_001,
+      }).success,
+    ).toBe(false);
+  });
+
   test("accepts latest Codex and Claude runtime options", () => {
     const parsed = StreamTurnArgsSchema.safeParse({
       providerId: "codex",
       prompt: "continue",
       runtimeOptions: {
+        codexAutoApproveStaveLocalMcpTools: true,
         codexApprovalPolicy: "on-failure",
         claudePromptSuggestions: false,
         claudeForwardSubagentText: true,

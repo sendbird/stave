@@ -176,6 +176,18 @@ export function buildProviderRuntimeOptions(args: {
   const claudeFallbackModel =
     settings.claudeFallbackModel.trim() ||
     resolveDefaultClaudeFallbackModel({ model: args.model });
+  const codexFileAccess = resolveEffectiveCodexFileAccessMode({
+    fileAccessMode: settings.codexFileAccess,
+    planMode: settings.codexPlanMode,
+    fallback: "workspace-write",
+  });
+  const codexApprovalPolicy = resolveEffectiveCodexApprovalPolicy({
+    approvalPolicy: normalizeCodexApprovalPolicy({
+      value: settings.codexApprovalPolicy,
+    }),
+    planMode: settings.codexPlanMode,
+    fallback: DEFAULT_CODEX_APPROVAL_POLICY,
+  });
 
   return {
     model: args.model,
@@ -229,19 +241,14 @@ export function buildProviderRuntimeOptions(args: {
     ...(settings.claudeResumeSessionAt.trim()
       ? { claudeResumeSessionAt: settings.claudeResumeSessionAt.trim() }
       : {}),
-    codexFileAccess: resolveEffectiveCodexFileAccessMode({
-      fileAccessMode: settings.codexFileAccess,
-      planMode: settings.codexPlanMode,
-      fallback: "workspace-write",
-    }),
+    codexFileAccess,
     codexNetworkAccess: settings.codexNetworkAccess,
-    codexApprovalPolicy: resolveEffectiveCodexApprovalPolicy({
-      approvalPolicy: normalizeCodexApprovalPolicy({
-        value: settings.codexApprovalPolicy,
-      }),
-      planMode: settings.codexPlanMode,
-      fallback: DEFAULT_CODEX_APPROVAL_POLICY,
-    }),
+    codexApprovalPolicy,
+    ...(args.provider === "codex" &&
+    codexFileAccess === "danger-full-access" &&
+    codexApprovalPolicy === "never"
+      ? { codexAutoApproveStaveLocalMcpTools: true }
+      : {}),
     codexBinaryPath: settings.codexBinaryPath || undefined,
     codexReasoningEffort: settings.codexReasoningEffort,
     codexWebSearch: settings.codexWebSearch,

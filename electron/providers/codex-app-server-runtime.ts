@@ -109,6 +109,7 @@ import {
   coerceElicitationAnswer,
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
+  shouldAutoApproveStaveLocalMcpElicitation,
   type ElicitationFieldDescriptor,
 } from "./codex-elicitation-mapping";
 import {
@@ -149,6 +150,7 @@ export {
 export {
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
+  shouldAutoApproveStaveLocalMcpElicitation,
 } from "./codex-elicitation-mapping";
 
 const threadIdByTask = new Map<string, string>();
@@ -3164,6 +3166,27 @@ export async function streamCodexWithAppServer(
           case "mcpServer/elicitation/request": {
             const params = (message.params ?? {}) as Record<string, unknown>;
             const approval = mapCodexElicitationToApproval(params);
+            if (
+              approval &&
+              shouldAutoApproveStaveLocalMcpElicitation({
+                enabled:
+                  runtimeOptions?.codexAutoApproveStaveLocalMcpTools === true,
+                params,
+              })
+            ) {
+              void client
+                .respond(message.id as JsonRpcId, { action: "accept" })
+                .catch((error) => {
+                  emitBridgeEvent({
+                    type: "error",
+                    message: `Codex could not auto-approve ${approval.toolName}: ${
+                      error instanceof Error ? error.message : String(error)
+                    }`,
+                    recoverable: true,
+                  });
+                });
+              return;
+            }
             if (approval) {
               pendingApprovalRequests.set(requestId, {
                 serverRequestId: message.id as JsonRpcId,

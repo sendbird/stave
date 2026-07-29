@@ -2,10 +2,11 @@
  * Maps Codex app-server MCP elicitation requests onto Stave's user-input and
  * approval contracts, and coerces the user's answers back into MCP values.
  *
- * Extracted verbatim from `codex-app-server-runtime.ts` to keep that file within
- * the max-lines ratchet; no behavior changed.
+ * Kept outside `codex-app-server-runtime.ts` so elicitation policy and mapping
+ * stay testable without growing the provider's main event loop.
  */
 import type { UserInputQuestion } from "../../src/types/chat";
+import { CODEX_STAVE_MCP_SERVER_NAME } from "../main/codex-mcp";
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
 
 export interface ElicitationFieldDescriptor {
@@ -389,6 +390,21 @@ export function mapCodexElicitationToApproval(params: Record<string, unknown>) {
     toolName: inferCodexMcpToolName({ message, meta }),
     description: toolDescription || message,
   };
+}
+
+export function shouldAutoApproveStaveLocalMcpElicitation(args: {
+  enabled?: boolean;
+  params: Record<string, unknown>;
+}) {
+  if (!args.enabled) {
+    return false;
+  }
+
+  const serverName = toTrimmedString(args.params.serverName);
+  return (
+    serverName === CODEX_STAVE_MCP_SERVER_NAME &&
+    mapCodexElicitationToApproval(args.params) !== null
+  );
 }
 
 export function coerceElicitationAnswer(args: {

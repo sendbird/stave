@@ -527,6 +527,16 @@ export function createSettingsActions(args: {
         };
       });
 
+      if (normalizedPatch.providerTimeoutMs !== undefined) {
+        const providerTimeoutMs = get().settings.providerTimeoutMs;
+        const setProviderTimeout = window.api?.routines?.setProviderTimeout;
+        if (setProviderTimeout) {
+          void setProviderTimeout({ providerTimeoutMs }).catch((error) => {
+            console.warn("[routines] failed to sync provider timeout", error);
+          });
+        }
+      }
+
       // ── apply custom theme ────────────────────────────────────────
       if (customThemeIdChanged) {
         const s = get().settings;

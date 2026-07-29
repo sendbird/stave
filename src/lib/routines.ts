@@ -700,9 +700,9 @@ export const AUTOMATION_PERMISSION_MODE_PRESENTATION: Record<
 > = {
   auto: {
     label: "Auto",
-    summary: "Never asks",
+    summary: "Skips routine approvals",
     description:
-      "Runs end to end with no approval prompts. Use it for reports, triage, and chores you already trust unattended.",
+      "Runs provider actions and Stave Local MCP tools without approval prompts. Independent security gates, such as Lens Developer Mode host access, still apply.",
   },
   guided: {
     label: "Guided",

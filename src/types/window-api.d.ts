@@ -704,6 +704,10 @@ interface WindowTaskControlApi {
 }
 
 interface WindowRoutinesApi {
+  setProviderTimeout?: (args: { providerTimeoutMs: number }) => Promise<{
+    ok: boolean;
+    message?: string;
+  }>;
   list?: () => Promise<{
     ok: boolean;
     snapshot: RoutineSnapshot;

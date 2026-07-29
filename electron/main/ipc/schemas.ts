@@ -22,6 +22,12 @@ export {
 
 const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 
+export const RoutineProviderTimeoutArgsSchema = z
+  .object({
+    providerTimeoutMs: z.number().int().min(1).max(MAX_PROVIDER_TIMEOUT_MS),
+  })
+  .strict();
+
 export const ProviderIdSchema = z.union([
   z.literal("claude-code"),
   z.literal("codex"),
@@ -607,6 +613,7 @@ export const RuntimeOptionsObjectSchema = z
         z.literal("untrusted"),
       ])
       .optional(),
+    codexAutoApproveStaveLocalMcpTools: z.boolean().optional(),
     codexBinaryPath: z.string().max(4096).optional(),
     codexReasoningEffort: z
       .union([

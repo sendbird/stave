@@ -59,6 +59,8 @@ function createHarness(args?: {
       saveRoutineState: ({ state: nextState }) => {
         state = structuredClone(nextState);
       },
+      loadRoutineProviderTimeoutMs: () => null,
+      saveRoutineProviderTimeoutMs: () => {},
       completeTurn: ({ id }) => {
         completedTurnIds.push(id);
       },
@@ -357,9 +359,46 @@ describe("routine host runtime", () => {
     expect(firstRun.configHash).toMatch(/^[a-f0-9]{16}$/);
     expect(harness.getRunTaskCalls()[0]).toMatchObject({
       runtimeOptions: {
+        codexAutoApproveStaveLocalMcpTools: true,
         codexApprovalPolicy: "never",
+        codexFileAccess: "workspace-write",
       },
     });
+  });
+
+  test("applies the configured provider timeout to automation runs", async () => {
+    const harness = createHarness();
+    harness.runtime.setProviderTimeoutMs({ providerTimeoutMs: 43_200_000 });
+    const automation = await harness.runtime.create(createInput());
+
+    await harness.runtime.runNow({ id: automation.id });
+
+    expect(harness.getRunTaskCalls()[0]).toMatchObject({
+      runtimeOptions: { providerTimeoutMs: 43_200_000 },
+    });
+  });
+
+  test("keeps Stave Local MCP approval interactive outside unattended runs", async () => {
+    const harness = createHarness();
+    const automation = await harness.runtime.create(
+      createInput({
+        trustPolicy: "review-required",
+        runtime: createDefaultRoutineRuntime("codex"),
+      }),
+    );
+
+    await harness.runtime.runNow({ id: automation.id });
+
+    const runTaskCall = harness.getRunTaskCalls()[0] as {
+      runtimeOptions: Record<string, unknown>;
+    };
+    expect(runTaskCall.runtimeOptions).toMatchObject({
+      codexApprovalPolicy: "untrusted",
+      codexFileAccess: "workspace-write",
+    });
+    expect(runTaskCall.runtimeOptions).not.toHaveProperty(
+      "codexAutoApproveStaveLocalMcpTools",
+    );
   });
 
   test("lists Information references but excludes live Lens state", async () => {

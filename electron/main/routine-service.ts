@@ -56,6 +56,12 @@ export function setRoutineEnabled(args: {
   return invokeRoutine<RoutineSpec>("set-enabled", args);
 }
 
+export function setRoutineProviderTimeoutMs(args: {
+  providerTimeoutMs: number;
+}) {
+  return invokeRoutine<void>("set-provider-timeout", args);
+}
+
 export function runRoutineNow(args: { id: string }) {
   return invokeRoutine<RoutineRun>("run-now", args);
 }

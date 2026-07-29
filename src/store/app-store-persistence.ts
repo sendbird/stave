@@ -387,6 +387,15 @@ export function createAppStorePersistenceOptions() {
       state.settings.providerTimeoutMs = normalizeProviderTimeoutMs({
         value: state.settings.providerTimeoutMs,
       });
+      const setRoutineProviderTimeout =
+        window.api?.routines?.setProviderTimeout;
+      if (setRoutineProviderTimeout) {
+        void setRoutineProviderTimeout({
+          providerTimeoutMs: state.settings.providerTimeoutMs,
+        }).catch((error) => {
+          console.warn("[routines] failed to restore provider timeout", error);
+        });
+      }
       state.settings.codexPlanMode ??= false;
       state.promptDraftByTask = Object.fromEntries(
         Object.entries(state.promptDraftByTask).map(([taskId, draft]) => {
