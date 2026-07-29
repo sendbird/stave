@@ -197,7 +197,8 @@ describe("TurnActivity", () => {
     // The shelf used to unmount here, replaying its enter animation once the
     // card resolved. It now keeps rendering the surrounding work instead.
     expect(html).toContain('data-testid="turn-activity"');
-    expect(html).toContain("Verify the shelf");
+    expect(html).not.toContain('data-testid="turn-activity-list"');
+    expect(html).not.toContain("Verify the shelf");
     // The chat card already asks the question, so the shelf drops its own row.
     expect(html).not.toContain("Input needed");
     // The header still names the attention state.

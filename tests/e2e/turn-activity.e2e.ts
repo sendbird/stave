@@ -330,7 +330,20 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
                             label: "Focused",
                             description: "Keep the change focused.",
                           },
+                          {
+                            label: "Broader cleanup",
+                            description: "Update adjacent surfaces too.",
+                          },
                         ],
+                      },
+                      {
+                        key: "context",
+                        header: "Additional context",
+                        question: "Anything else the agent should know?",
+                        inputType: "text",
+                        options: [],
+                        required: false,
+                        placeholder: "Add optional context",
                       },
                     ],
                     state: "input-requested",
@@ -356,9 +369,126 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await expect(activity).toBeVisible();
   await expect(activity).toContainText("Waiting for your input");
   await expect(activity.getByText("Input needed")).toHaveCount(0);
+  await expect(page.getByTestId("turn-activity-list")).toHaveCount(0);
+  const userInputComposer = page.getByTestId("user-input-composer");
+  await expect(userInputComposer).toBeVisible();
+  await expect(page.getByText("Keep the change focused.").last()).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Submit answers" }).last(),
+    page.getByRole("button", { name: "Continue" }).last(),
   ).toBeVisible();
+
+  const focusedOption = userInputComposer.getByRole("radio", {
+    name: /Focused/,
+  });
+  const broaderOption = userInputComposer.getByRole("radio", {
+    name: /Broader cleanup/,
+  });
+  await focusedOption.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(broaderOption).toBeChecked();
+
+  const questionLayout = await page.evaluate(() => {
+    const activityElement = document.querySelector<HTMLElement>(
+      '[data-testid="turn-activity"]',
+    );
+    const composerElement = document.querySelector<HTMLElement>(
+      '[data-testid="user-input-composer"]',
+    );
+    const optionElements = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="user-input-composer"] label:has(input[type="radio"])',
+      ),
+    );
+    const questionFieldsets = Array.from(
+      composerElement?.querySelectorAll<HTMLElement>("fieldset") ?? [],
+    );
+    if (!activityElement || !composerElement) {
+      return null;
+    }
+    const activityBox = activityElement.getBoundingClientRect();
+    const composerBox = composerElement.getBoundingClientRect();
+    const firstQuestionBox = questionFieldsets[0]?.getBoundingClientRect();
+    const contextSection = questionFieldsets[1]?.parentElement;
+    const contextSectionBox = contextSection?.getBoundingClientRect();
+    const contextLegendBox =
+      questionFieldsets[1]?.querySelector("legend")?.getBoundingClientRect() ??
+      null;
+    const contextBorderWidth = contextSection
+      ? Number.parseFloat(
+          window.getComputedStyle(contextSection).borderTopWidth,
+        )
+      : 0;
+    return {
+      overlap: Math.round(activityBox.bottom - composerBox.top),
+      composerWidth: composerBox.width,
+      composerClientWidth: composerElement.clientWidth,
+      composerScrollWidth: composerElement.scrollWidth,
+      contextDividerGapBefore:
+        firstQuestionBox && contextSectionBox
+          ? Math.round(contextSectionBox.top - firstQuestionBox.bottom)
+          : null,
+      contextDividerGapAfter:
+        contextSectionBox && contextLegendBox
+          ? Math.round(
+              contextLegendBox.top - contextSectionBox.top - contextBorderWidth,
+            )
+          : null,
+      optionHeights: optionElements.map(
+        (element) => element.getBoundingClientRect().height,
+      ),
+      shadow: window.getComputedStyle(composerElement).boxShadow,
+    };
+  });
+  expect(questionLayout).not.toBeNull();
+  expect(questionLayout?.overlap).toBe(12);
+  expect(questionLayout?.composerScrollWidth).toBeLessThanOrEqual(
+    questionLayout?.composerClientWidth ?? 0,
+  );
+  expect(questionLayout?.optionHeights.every((height) => height >= 44)).toBe(
+    true,
+  );
+  expect(questionLayout?.contextDividerGapBefore).toBe(16);
+  expect(questionLayout?.contextDividerGapAfter).toBe(16);
+  expect(questionLayout?.shadow).not.toBe("none");
+
+  await page.evaluate(() => {
+    document.documentElement.classList.remove("dark");
+  });
+  const lightBackground = await userInputComposer.evaluate(
+    (element) => window.getComputedStyle(element).backgroundColor,
+  );
+  await userInputComposer.screenshot({
+    path: testInfo.outputPath("ask-user-question-light-desktop.png"),
+  });
+  await stack.locator("xpath=..").screenshot({
+    path: testInfo.outputPath("ask-user-question-stack-light-desktop.png"),
+  });
+
+  await page.setViewportSize({ width: 375, height: 800 });
+  await expect(userInputComposer).toBeVisible();
+  const narrowLayout = await userInputComposer.evaluate((element) => ({
+    width: element.getBoundingClientRect().width,
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(narrowLayout.width).toBeLessThanOrEqual(375);
+  expect(narrowLayout.scrollWidth).toBeLessThanOrEqual(
+    narrowLayout.clientWidth,
+  );
+  await userInputComposer.screenshot({
+    path: testInfo.outputPath("ask-user-question-light-375.png"),
+  });
+
+  await page.evaluate(() => {
+    document.documentElement.classList.add("dark");
+  });
+  const darkBackground = await userInputComposer.evaluate(
+    (element) => window.getComputedStyle(element).backgroundColor,
+  );
+  expect(darkBackground).not.toBe(lightBackground);
+  await userInputComposer.screenshot({
+    path: testInfo.outputPath("ask-user-question-dark-375.png"),
+  });
 });
 
 test("keeps activity rows mounted while their status changes", async ({
@@ -387,7 +517,11 @@ test("keeps activity rows mounted while their status changes", async ({
     (window as unknown as { api?: Record<string, unknown> }).api = {
       provider: {
         streamTurn: async () => [],
-        getCodexModelCatalog: async () => ({ ok: true, models: [], detail: "" }),
+        getCodexModelCatalog: async () => ({
+          ok: true,
+          models: [],
+          detail: "",
+        }),
       },
     };
 
@@ -495,9 +629,7 @@ test("keeps activity rows mounted while their status changes", async ({
     element.setAttribute("data-instance-marker", "row-a");
   });
 
-  const completedHeight = await applyRound([
-    { id: "a", status: "completed" },
-  ]);
+  const completedHeight = await applyRound([{ id: "a", status: "completed" }]);
   await expect(rowA).toHaveAttribute("data-instance-marker", "row-a");
   expect(Math.abs(completedHeight - runningHeight)).toBeLessThanOrEqual(1);
   await expect(
@@ -518,9 +650,7 @@ test("keeps activity rows mounted while their status changes", async ({
 
   // When the producer really removes an item, the list returns to its natural
   // height instead of retaining a blank peak-height floor.
-  const prunedHeight = await applyRound([
-    { id: "b", status: "completed" },
-  ]);
+  const prunedHeight = await applyRound([{ id: "b", status: "completed" }]);
   expect(prunedHeight).toBeLessThan(twoCompletedHeight);
   expect(Math.abs(prunedHeight - completedHeight)).toBeLessThanOrEqual(1);
 });
