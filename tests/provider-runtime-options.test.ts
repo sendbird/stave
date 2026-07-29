@@ -245,6 +245,34 @@ describe("buildProviderRuntimeOptions", () => {
     });
   });
 
+  test("marks regular Codex Auto turns for Stave Local MCP auto-approval", () => {
+    const autoOptions = buildProviderRuntimeOptions({
+      provider: "codex",
+      model: "gpt-5.6-terra",
+      settings: {
+        ...settings,
+        codexApprovalPolicy: "never",
+        codexFileAccess: "danger-full-access",
+      },
+      providerSession: null,
+    });
+    const guidedOptions = buildProviderRuntimeOptions({
+      provider: "codex",
+      model: "gpt-5.6-terra",
+      settings,
+      providerSession: null,
+    });
+
+    expect(autoOptions).toMatchObject({
+      codexAutoApproveStaveLocalMcpTools: true,
+      codexApprovalPolicy: "never",
+      codexFileAccess: "danger-full-access",
+    });
+    expect(guidedOptions).not.toHaveProperty(
+      "codexAutoApproveStaveLocalMcpTools",
+    );
+  });
+
   test("forwards an explicit cross-provider Advisor target for normal user turns", () => {
     expect(
       buildProviderRuntimeOptions({

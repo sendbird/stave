@@ -585,6 +585,18 @@ describe("Claude internal tool auto-allow", () => {
     ).toBe(true);
   });
 
+  test("auto-allows Stave Local MCP tools only in auto and unattended modes", () => {
+    const toolName = "mcp__stave-local-mcp__stave_lens_navigate";
+    for (const permissionMode of ["auto", "dontAsk"] as const) {
+      expect(shouldAutoAllowClaudeTool({ toolName, permissionMode })).toBe(
+        true,
+      );
+    }
+    expect(
+      shouldAutoAllowClaudeTool({ toolName, permissionMode: "default" }),
+    ).toBe(false);
+  });
+
   test("auto-allows mutating file tools in Claude acceptEdits mode", () => {
     expect(
       shouldAutoAllowClaudeTool({
@@ -612,7 +624,7 @@ describe("Claude internal tool auto-allow", () => {
     ).toBe(false);
   });
 
-  test("keeps saved-account mutations behind approval", () => {
+  test("keeps saved-account mutations behind approval outside auto modes", () => {
     for (const toolName of [
       "mcp__stave-local-mcp__stave_lens_create_saved_account",
       "mcp__stave-local-mcp__stave_lens_update_saved_account",

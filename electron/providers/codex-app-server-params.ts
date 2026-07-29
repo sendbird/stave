@@ -298,6 +298,7 @@ export function resolveCodexSecondaryRuntimeOptions(args: {
     ? {
         ...args.runtimeOptions,
         codexResumeThreadId: undefined,
+        codexAutoApproveStaveLocalMcpTools: undefined,
         codexApprovalPolicy: "never",
         codexFileAccess: "read-only",
         codexNetworkAccess: false,

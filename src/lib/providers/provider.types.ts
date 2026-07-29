@@ -687,6 +687,11 @@ export interface ProviderRuntimeOptions {
   codexFileAccess?: "read-only" | "workspace-write" | "danger-full-access";
   codexNetworkAccess?: boolean;
   codexApprovalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
+  /**
+   * Stave-hosted unattended runs may approve only the managed `stave-local`
+   * MCP server without widening Codex's filesystem sandbox.
+   */
+  codexAutoApproveStaveLocalMcpTools?: boolean;
   codexBinaryPath?: string;
   // "minimal" is a legacy value kept for persisted settings; the runtime maps
   // it to "low". "max" and "ultra" arrived with the GPT-5.6 Codex CLI scale.

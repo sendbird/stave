@@ -26,6 +26,8 @@ const ROUTINE_INTERRUPTED_MESSAGE =
 interface RoutinePersistence {
   loadRoutineState: () => RoutineState;
   saveRoutineState: (args: { state: RoutineState }) => void;
+  loadRoutineProviderTimeoutMs: () => number | null;
+  saveRoutineProviderTimeoutMs: (args: { providerTimeoutMs: number }) => void;
   completeTurn: (args: { id: string }) => void;
 }
 
@@ -87,6 +89,7 @@ export interface RoutineRuntime {
   }) => Promise<RoutineSpec>;
   remove: (args: { id: string }) => Promise<{ ok: true; id: string }>;
   setEnabled: (args: { id: string; enabled: boolean }) => Promise<RoutineSpec>;
+  setProviderTimeoutMs: (args: { providerTimeoutMs: number }) => void;
   runNow: (args: { id: string }) => Promise<RoutineRun>;
   listInformationReferences: (args: {
     workspaceId: string;
@@ -161,6 +164,9 @@ function automationRuntimeToProviderOptions(routine: RoutineSpec) {
   if (routine.runtime.provider === "codex") {
     return {
       ...options,
+      ...(routine.trustPolicy === "unattended"
+        ? { codexAutoApproveStaveLocalMcpTools: true }
+        : {}),
       codexApprovalPolicy:
         routine.trustPolicy === "unattended" ? "never" : "untrusted",
     } as const;
@@ -175,6 +181,15 @@ function automationRuntimeToProviderOptions(routine: RoutineSpec) {
         : false,
     claudeAllowDangerouslySkipPermissions: false,
   } as const;
+}
+
+function normalizeProviderTimeoutMs(value: unknown) {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= 86_400_000
+    ? value
+    : null;
 }
 
 function buildRoutineTaskTitle(args: { routine: RoutineSpec; now: Date }) {
@@ -198,6 +213,9 @@ export function createRoutineRuntime(
     dependencies.clearInterval ?? globalThis.clearInterval;
   let intervalHandle: ReturnType<typeof globalThis.setInterval> | null = null;
   let operationChain = Promise.resolve();
+  let providerTimeoutMs = normalizeProviderTimeoutMs(
+    dependencies.persistence.loadRoutineProviderTimeoutMs(),
+  );
 
   function enqueue<T>(operation: () => Promise<T> | T): Promise<T> {
     const next = operationChain.then(operation, operation);
@@ -279,7 +297,10 @@ export function createRoutineRuntime(
           now: startedAtDate,
         }),
         provider: args.routine.runtime.provider,
-        runtimeOptions: automationRuntimeToProviderOptions(args.routine),
+        runtimeOptions: {
+          ...automationRuntimeToProviderOptions(args.routine),
+          ...(providerTimeoutMs ? { providerTimeoutMs } : {}),
+        },
         informationReferences: args.routine.informationReferences,
         controlMode: "interactive",
         controlOwner: "stave",
@@ -618,6 +639,16 @@ export function createRoutineRuntime(
         });
         return routine;
       }),
+    setProviderTimeoutMs: ({ providerTimeoutMs: nextProviderTimeoutMs }) => {
+      const normalized = normalizeProviderTimeoutMs(nextProviderTimeoutMs);
+      if (!normalized) {
+        throw new Error("Invalid provider timeout.");
+      }
+      providerTimeoutMs = normalized;
+      dependencies.persistence.saveRoutineProviderTimeoutMs({
+        providerTimeoutMs,
+      });
+    },
     runNow: ({ id }) =>
       enqueue(async () => {
         const state = loadState();

@@ -620,6 +620,10 @@ async function invokeRoutineAction(action: HostRoutineAction, args: unknown) {
       return routineRuntime.setEnabled(
         args as Parameters<typeof routineRuntime.setEnabled>[0],
       );
+    case "set-provider-timeout":
+      return routineRuntime.setProviderTimeoutMs(
+        args as Parameters<typeof routineRuntime.setProviderTimeoutMs>[0],
+      );
     case "run-now":
       return routineRuntime.runNow(
         args as Parameters<typeof routineRuntime.runNow>[0],

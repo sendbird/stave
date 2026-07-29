@@ -1462,6 +1462,11 @@ contextBridge.exposeInMainWorld("api", {
       }>,
   },
   routines: {
+    setProviderTimeout: (args: { providerTimeoutMs: number }) =>
+      ipcRenderer.invoke("routines:set-provider-timeout", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
     list: () =>
       ipcRenderer.invoke("routines:list") as Promise<{
         ok: boolean;

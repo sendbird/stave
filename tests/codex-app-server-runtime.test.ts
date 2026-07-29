@@ -20,6 +20,7 @@ import {
   resolveCodexChatgptAuthTokensRefreshResponse,
   runCodexCompactSlashCommand,
   runCodexGoalSlashCommand,
+  shouldAutoApproveStaveLocalMcpElicitation,
   summarizeCodexAppServerDebugMessage,
   toCodexConfigLayerDisplayValue,
 } from "../electron/providers/codex-app-server-runtime";
@@ -445,6 +446,53 @@ describe("mapCodexElicitationToUserInput", () => {
       description:
         "List projects already registered in the local Stave desktop app.",
     });
+  });
+
+  test("auto-approves only Stave Local MCP tool calls when explicitly enabled", () => {
+    const approvalParams = {
+      mode: "form",
+      serverName: "stave-local",
+      message:
+        'Allow the stave-local MCP server to run tool "stave_lens_navigate"?',
+      requestedSchema: {
+        type: "object",
+        properties: {},
+      },
+      _meta: {
+        codex_approval_kind: "mcp_tool_call",
+      },
+    };
+
+    expect(
+      shouldAutoApproveStaveLocalMcpElicitation({
+        enabled: true,
+        params: approvalParams,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoApproveStaveLocalMcpElicitation({
+        enabled: false,
+        params: approvalParams,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoApproveStaveLocalMcpElicitation({
+        enabled: true,
+        params: {
+          ...approvalParams,
+          serverName: "external-tools",
+        },
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoApproveStaveLocalMcpElicitation({
+        enabled: true,
+        params: {
+          ...approvalParams,
+          _meta: {},
+        },
+      }),
+    ).toBe(false);
   });
 
   test("keeps generic empty-form elicitation as submit-or-decline user input", () => {

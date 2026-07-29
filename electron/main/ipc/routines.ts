@@ -7,6 +7,7 @@ import {
   removeRoutine,
   runRoutineNow,
   setRoutineEnabled,
+  setRoutineProviderTimeoutMs,
   updateRoutine,
 } from "../routine-service";
 import {
@@ -15,6 +16,7 @@ import {
   RoutineInformationResourceCreateArgsSchema,
   RoutineInformationReferencesArgsSchema,
   RoutineSetEnabledArgsSchema,
+  RoutineProviderTimeoutArgsSchema,
   RoutineUpdateArgsSchema,
 } from "./schemas";
 
@@ -23,6 +25,25 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export function registerRoutineHandlers() {
+  ipcMain.handle(
+    "routines:set-provider-timeout",
+    async (_event, args: unknown) => {
+      const parsed = RoutineProviderTimeoutArgsSchema.safeParse(args);
+      if (!parsed.success) {
+        return { ok: false, message: "Invalid provider timeout." };
+      }
+      try {
+        await setRoutineProviderTimeoutMs(parsed.data);
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          message: errorMessage(error, "Failed to update provider timeout."),
+        };
+      }
+    },
+  );
+
   ipcMain.handle("routines:list", async () => {
     try {
       return { ok: true, snapshot: await listRoutines() };
