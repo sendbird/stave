@@ -1,3 +1,18 @@
+## [0.13.1](https://github.com/sendbird/stave/compare/v0.13.0...v0.13.1) (2026-07-29)
+
+### Features
+
+* Show the latest automation run's status, trigger, timing, result or error summary, and task or run-detail actions, hiding task navigation when no task was created.
+
+### Bug Fixes
+
+* Refresh stale workspace state before resolving notification deep links so tasks created in another Stave window open in the correct workspace.
+* Route general web research through runtime web search and reserve Stave Lens for current-project UI validation or explicitly requested live page inspection, while keeping the unrelated bundled browser plugin disabled.
+* Align unattended Automation provider behavior by auto-approving only Stave Local MCP tools, persisting the global provider timeout, and keeping isolated Codex Advisor threads gated.
+
+### References
+
+* [#267](https://github.com/sendbird/stave/pull/267), [#268](https://github.com/sendbird/stave/pull/268), [#269](https://github.com/sendbird/stave/pull/269), [#270](https://github.com/sendbird/stave/pull/270)
 ## [0.13.0](https://github.com/sendbird/stave/compare/v0.12.3...v0.13.0) (2026-07-28)
 
 ### Bug Fixes
