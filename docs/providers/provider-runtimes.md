@@ -202,7 +202,7 @@ Codex prompt injection note:
 
 - Stave now forwards response-style and project/system prompt overrides through Codex `developer_instructions` config instead of prepending visible `<system>` blocks to each user turn.
 - Task history, selected file context, image attachments, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config.
-- Stave always appends browser-tooling guidance to `developer_instructions` that steers Codex to the Stave Lens MCP tools (`stave_lens_*`) for page inspection, and it disables the ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. That bundled plugin's `control-in-app-browser` skill declares itself mandatory for browser work and forbids external MCP browser tools, which would otherwise pull Codex threads away from Lens and toward the unrelated ChatGPT in-app browser. See `electron/providers/codex-runtime-config.ts`.
+- Stave always appends browser-tooling guidance to `developer_instructions`. It directs Codex to use ordinary web search for general research and to prioritize the Stave Lens MCP tools (`stave_lens_*`) only when the current project's rendered UI needs visual inspection or validation, or when the user explicitly requests live page inspection or interaction. Stave also disables the ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. That browser is not connected to the Stave workspace. See `electron/providers/codex-runtime-config.ts`.
 
 Codex event mapping:
 

@@ -548,6 +548,13 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     expect(withBasePrompt).toBe(
       `Base system prompt.\n\n${CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS}`,
     );
+    expect(withBasePrompt).toContain(
+      "Use the runtime's web-search tool for general web research",
+    );
+    expect(withBasePrompt).toContain("Do not use Lens for those tasks");
+    expect(withBasePrompt).toContain(
+      "only when a change to the current project requires visual inspection",
+    );
     expect(withBasePrompt).toContain("stave_lens_snapshot");
     expect(withBasePrompt).toContain("stave_lens_present_session");
     expect(withBasePrompt).toContain("hidden");
