@@ -1006,6 +1006,12 @@ export interface HostServiceEventMap {
     workspaceInformation: WorkspaceInformationState;
   };
   "local-mcp.task-turn-updated": LocalMcpTaskTurnUpdate;
+  "routine.unattended-automations-changed": {
+    authorizations: Array<{
+      workspaceId: string;
+      authorizationToken: string;
+    }>;
+  };
 }
 
 export type HostServiceMethod = keyof HostServiceRequestMap;

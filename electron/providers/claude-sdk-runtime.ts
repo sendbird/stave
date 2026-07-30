@@ -856,15 +856,18 @@ function resolveTrustedApprovalInput(args: {
   return undefined;
 }
 
-async function resolveEmbeddedStaveLocalMcpServers(): Promise<
-  Record<string, McpServerConfig> | undefined
-> {
+async function resolveEmbeddedStaveLocalMcpServers(options?: {
+  unattendedAutomationAuthorizationToken?: string;
+}): Promise<Record<string, McpServerConfig> | undefined> {
   const manifest = await readPrimaryStaveLocalMcpManifest();
   if (!manifest) {
     return undefined;
   }
   return {
-    [STAVE_LOCAL_MCP_SERVER_NAME]: toClaudeSdkMcpServerConfig(manifest),
+    [STAVE_LOCAL_MCP_SERVER_NAME]: toClaudeSdkMcpServerConfig(manifest, {
+      unattendedAutomationAuthorizationToken:
+        options?.unattendedAutomationAuthorizationToken,
+    }),
   };
 }
 
@@ -881,8 +884,12 @@ async function resolveClaudeMcpServersForQuery(args: {
   claudeExecutablePath: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   claudeConfigDir?: string;
+  unattendedAutomationAuthorizationToken?: string;
 }) {
-  const staveServers = await resolveEmbeddedStaveLocalMcpServers();
+  const staveServers = await resolveEmbeddedStaveLocalMcpServers({
+    unattendedAutomationAuthorizationToken:
+      args.unattendedAutomationAuthorizationToken,
+  });
   const claudeConfigDir =
     args.claudeConfigDir ??
     buildClaudeEnv({
@@ -1413,6 +1420,22 @@ function buildClaudeElicitationQuestionFromProperty(args: {
   }
 
   return null;
+}
+
+/**
+ * Permission modes are user-selectable for ordinary chat turns, so only an
+ * explicit host-owned unattended automation may auto-accept an elicitation.
+ */
+export function shouldAutoAcceptClaudeElicitation(args: {
+  unattendedAutomation: boolean;
+  elicitation: { mode: "url" | "form"; fields: readonly unknown[] };
+}): boolean {
+  if (!args.unattendedAutomation) {
+    return false;
+  }
+  return (
+    args.elicitation.mode === "url" || args.elicitation.fields.length === 0
+  );
 }
 
 function mapClaudeElicitationToUserInput(
@@ -3496,6 +3519,8 @@ export async function streamClaudeWithSdk(
           claudeExecutablePath,
           runtimeOptions: args.runtimeOptions,
           claudeConfigDir: claudeRuntimeEnv.CLAUDE_CONFIG_DIR,
+          unattendedAutomationAuthorizationToken:
+            args.unattendedAutomation?.authorizationToken,
         });
     const claudePermissionMode = resolveClaudePermissionMode({
       runtimeValue: args.runtimeOptions?.claudePermissionMode,
@@ -3572,6 +3597,17 @@ export async function streamClaudeWithSdk(
           const elicitation = mapClaudeElicitationToUserInput(request);
           if (!elicitation) {
             return { action: "decline" };
+          }
+
+          if (
+            shouldAutoAcceptClaudeElicitation({
+              unattendedAutomation: Boolean(args.unattendedAutomation),
+              elicitation,
+            })
+          ) {
+            return elicitation.mode === "url"
+              ? { action: "accept" }
+              : { action: "accept", content: {} };
           }
 
           const userInputEvent: BridgeEvent = {

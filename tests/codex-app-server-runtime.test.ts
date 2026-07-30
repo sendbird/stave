@@ -7,6 +7,7 @@ import {
   buildCodexThreadResumeParams,
   buildCodexThreadStartParams,
   buildCodexTurnStartParams,
+  buildCodexUnattendedAutomationMcpOverrides,
   CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
   createCodexAppServerElicitationPauseController,
   describeJsonRpcLinePrefix,
@@ -669,6 +670,18 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     });
   });
 
+  test("scopes the Stave MCP URL to one unattended automation", () => {
+    expect(
+      buildCodexUnattendedAutomationMcpOverrides({
+        mcpUrl: "http://127.0.0.1:39517/mcp",
+        authorizationToken: "authorization-placeholder",
+      }),
+    ).toEqual({
+      'mcp_servers."stave-local".url':
+        "http://127.0.0.1:39517/mcp?staveUnattendedAutomation=authorization-placeholder",
+    });
+  });
+
   test("merges fail-closed MCP overrides into an ephemeral thread", () => {
     const params = buildCodexThreadStartParams({
       cwd: "/tmp/project",
@@ -708,9 +721,7 @@ describe("Codex secondary request denial", () => {
       buildCodexSecondaryServerRequestDenial("item/tool/requestUserInput"),
     ).toEqual({ answers: {} });
     expect(
-      buildCodexSecondaryServerRequestDenial(
-        "mcpServer/elicitation/request",
-      ),
+      buildCodexSecondaryServerRequestDenial("mcpServer/elicitation/request"),
     ).toEqual({ action: "decline" });
     expect(
       buildCodexSecondaryServerRequestDenial(
@@ -1248,9 +1259,9 @@ describe("resolveCodexApprovalDecisionTimeoutMs", () => {
   });
 
   test("returns default when env var is unset", () => {
-    expect(
-      resolveCodexApprovalDecisionTimeoutMs({ envValue: undefined }),
-    ).toBe(CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS);
+    expect(resolveCodexApprovalDecisionTimeoutMs({ envValue: undefined })).toBe(
+      CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
+    );
   });
 
   test("respects a positive integer env value", () => {

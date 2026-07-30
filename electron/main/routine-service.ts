@@ -12,7 +12,12 @@ import {
   type WorkspaceInformationReferenceSection,
 } from "../../src/lib/workspace-information-references";
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
-import { invokeHostService } from "./host-service-client";
+import { setUnattendedAutomationAuthorizations } from "./browser/browser-security";
+import {
+  invokeHostService,
+  onHostServiceDisconnect,
+  onHostServiceEvent,
+} from "./host-service-client";
 import {
   addWorkspaceCustomField,
   addWorkspaceResource,
@@ -20,10 +25,37 @@ import {
   appendWorkspaceNotes,
 } from "./stave-mcp-service";
 
+let routineEventBridgeRegistered = false;
+
+/**
+ * Keeps the main process aware of in-flight unattended runs. Security gates that
+ * would otherwise prompt the renderer (Lens CDP host access) need this because
+ * the MCP tool call itself carries no automation identity.
+ */
+function ensureRoutineEventBridge() {
+  if (routineEventBridgeRegistered) {
+    return;
+  }
+  routineEventBridgeRegistered = true;
+  setUnattendedAutomationAuthorizations([]);
+  onHostServiceEvent(
+    "routine.unattended-automations-changed",
+    ({ authorizations }) => {
+      setUnattendedAutomationAuthorizations(authorizations);
+    },
+  );
+  onHostServiceDisconnect(() => {
+    setUnattendedAutomationAuthorizations([]);
+  });
+}
+
+ensureRoutineEventBridge();
+
 async function invokeRoutine<TResult>(
   action: HostRoutineAction,
   args: unknown,
 ) {
+  ensureRoutineEventBridge();
   return invokeHostService("routine.invoke", {
     action,
     args,
@@ -38,10 +70,7 @@ export function createRoutine(input: RoutineUpsertInput) {
   return invokeRoutine<RoutineSpec>("create", input);
 }
 
-export function updateRoutine(args: {
-  id: string;
-  input: RoutineUpsertInput;
-}) {
+export function updateRoutine(args: { id: string; input: RoutineUpsertInput }) {
   return invokeRoutine<RoutineSpec>("update", args);
 }
 
@@ -49,10 +78,7 @@ export function removeRoutine(args: { id: string }) {
   return invokeRoutine<{ ok: true; id: string }>("remove", args);
 }
 
-export function setRoutineEnabled(args: {
-  id: string;
-  enabled: boolean;
-}) {
+export function setRoutineEnabled(args: { id: string; enabled: boolean }) {
   return invokeRoutine<RoutineSpec>("set-enabled", args);
 }
 

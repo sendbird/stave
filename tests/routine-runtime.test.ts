@@ -41,6 +41,9 @@ function createHarness(args?: {
   const completedTurnIds: string[] = [];
   const runTaskCalls: unknown[] = [];
   const taskStatusCalls: unknown[] = [];
+  const unattendedAutomationUpdates: Array<
+    Array<{ workspaceId: string; authorizationToken: string }>
+  > = [];
   let taskStatus = {
     workspaceId: "ws-1",
     taskId: "task-1",
@@ -87,6 +90,9 @@ function createHarness(args?: {
         notes: "Keep the run read-only.",
       },
     }),
+    emitUnattendedAutomationsChanged: ({ authorizations }) => {
+      unattendedAutomationUpdates.push(authorizations);
+    },
     now: () => new Date(currentNow),
     setInterval: ((callback: () => void) => {
       intervalCallback = callback;
@@ -103,6 +109,7 @@ function createHarness(args?: {
     getRunTaskCalls: () => runTaskCalls,
     getTaskStatusCalls: () => taskStatusCalls,
     getCompletedTurnIds: () => completedTurnIds,
+    getUnattendedAutomationUpdates: () => unattendedAutomationUpdates,
     setNow: (value: string) => {
       currentNow = new Date(value);
     },
@@ -358,12 +365,106 @@ describe("routine host runtime", () => {
     expect(firstRun.trustPolicy).toBe("unattended");
     expect(firstRun.configHash).toMatch(/^[a-f0-9]{16}$/);
     expect(harness.getRunTaskCalls()[0]).toMatchObject({
+      unattendedAutomation: {
+        authorizationToken: expect.any(String),
+      },
       runtimeOptions: {
         codexAutoApproveStaveLocalMcpTools: true,
         codexApprovalPolicy: "never",
         codexFileAccess: "workspace-write",
       },
     });
+  });
+
+  test("bypasses Claude approvals for unattended runs instead of denying tools", async () => {
+    const harness = createHarness();
+    const automation = await harness.runtime.create(
+      createInput({
+        trustPolicy: "unattended",
+        runtime: {
+          ...createDefaultRoutineRuntime("claude-code"),
+          permissionMode: "acceptEdits",
+          allowUnsandboxedCommands: true,
+        },
+      }),
+    );
+
+    await harness.runtime.runNow({ id: automation.id });
+
+    expect(harness.getRunTaskCalls()[0]).toMatchObject({
+      runtimeOptions: {
+        claudePermissionMode: "bypassPermissions",
+        claudeAllowDangerouslySkipPermissions: true,
+        claudeAllowUnsandboxedCommands: true,
+      },
+    });
+  });
+
+  test("keeps Claude approvals strict for review-required runs", async () => {
+    const harness = createHarness();
+    const automation = await harness.runtime.create(
+      createInput({
+        trustPolicy: "review-required",
+        runtime: {
+          ...createDefaultRoutineRuntime("claude-code"),
+          permissionMode: "bypassPermissions",
+          allowDangerouslySkipPermissions: true,
+          allowUnsandboxedCommands: true,
+        },
+      }),
+    );
+
+    await harness.runtime.runNow({ id: automation.id });
+
+    expect(harness.getRunTaskCalls()[0]).toMatchObject({
+      runtimeOptions: {
+        claudePermissionMode: "default",
+        claudeAllowDangerouslySkipPermissions: false,
+        claudeAllowUnsandboxedCommands: false,
+      },
+    });
+  });
+
+  test("announces scoped authorizations for unattended runs", async () => {
+    const harness = createHarness();
+    harness.runtime.start();
+    const automation = await harness.runtime.create(
+      createInput({ trustPolicy: "unattended" }),
+    );
+
+    await harness.runtime.runNow({ id: automation.id });
+    const authorization = harness.getUnattendedAutomationUpdates().at(-1)?.[0];
+    expect(authorization).toEqual({
+      workspaceId: "ws-1",
+      authorizationToken: expect.any(String),
+    });
+    expect(harness.getRunTaskCalls()[0]).toMatchObject({
+      unattendedAutomation: {
+        authorizationToken: authorization?.authorizationToken,
+      },
+    });
+
+    harness.setTaskStatus({
+      activeTurnId: null,
+      latestTurnCompletedAt: "2026-07-23T00:05:00.000Z",
+      latestAssistantText: "Done.",
+    });
+    await harness.tick();
+
+    expect(harness.getUnattendedAutomationUpdates().at(-1)).toEqual([]);
+  });
+
+  test("does not announce authorizations for attended runs", async () => {
+    const harness = createHarness();
+    const automation = await harness.runtime.create(
+      createInput({ trustPolicy: "review-required" }),
+    );
+
+    await harness.runtime.runNow({ id: automation.id });
+
+    for (const update of harness.getUnattendedAutomationUpdates()) {
+      expect(update).toEqual([]);
+    }
   });
 
   test("applies the configured provider timeout to automation runs", async () => {

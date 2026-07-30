@@ -316,18 +316,20 @@ describe("automation permission modes", () => {
       applyAutomationTrustPolicyToRuntime(codex, "review-required"),
     ).toMatchObject({ approvalPolicy: "untrusted" });
 
+    // Unattended runs bypass rather than deny: `dontAsk` used to be wired here
+    // and silently blocked Bash, file edits, and third-party MCP servers.
     const claude = {
       ...createDefaultRoutineRuntime("claude-code"),
-      permissionMode: "bypassPermissions" as const,
-      allowDangerouslySkipPermissions: true,
+      permissionMode: "acceptEdits" as const,
+      allowDangerouslySkipPermissions: false,
       allowUnsandboxedCommands: true,
     };
     expect(
       applyAutomationTrustPolicyToRuntime(claude, "unattended"),
     ).toMatchObject({
-      permissionMode: "dontAsk",
+      permissionMode: "bypassPermissions",
       allowUnsandboxedCommands: true,
-      allowDangerouslySkipPermissions: false,
+      allowDangerouslySkipPermissions: true,
     });
     expect(
       applyAutomationTrustPolicyToRuntime(claude, "review-required"),
