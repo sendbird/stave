@@ -85,6 +85,7 @@ import {
   LensScreenshotArgsSchema,
   LensSessionTargetArgsSchema,
 } from "./schemas";
+import { scaleLensBoundsWithinContainer } from "../../../src/lib/lens/lens-bounds";
 import type {
   LensBounds,
   LensCdpApprovalResponse,
@@ -373,12 +374,10 @@ export function registerBrowserHandlers() {
           );
         }
         const zoomFactor = win?.webContents.getZoomFactor() ?? 1;
-        const scaled: LensBounds = {
-          x: Math.round(args.bounds.x * zoomFactor),
-          y: Math.round(args.bounds.y * zoomFactor),
-          width: Math.round(args.bounds.width * zoomFactor),
-          height: Math.round(args.bounds.height * zoomFactor),
-        };
+        const scaled = scaleLensBoundsWithinContainer({
+          bounds: args.bounds,
+          zoomFactor,
+        });
 
         setViewBounds(args.workspaceId, scaled, args.lensSessionId);
         return { ok: true };
