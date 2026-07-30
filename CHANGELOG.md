@@ -1,4 +1,4 @@
-## [0.13.3](https://github.com/sendbird/stave/compare/v0.13.2...v0.13.3) (2026-07-29)
+## [0.13.3](https://github.com/sendbird/stave/compare/v0.13.2...v0.13.3) (2026-07-30)
 
 ### Features
 
@@ -8,10 +8,11 @@
 
 * Redesign the pending Ask User Question experience with accessible radio and checkbox controls, custom answers, explicit Continue and Decline actions, responsive spacing, and compact settled-state summaries.
 * Preserve bound secret environment overrides across Claude and Codex launches and Codex thread resumes while validating reserved and duplicate environment-variable names.
+* Scope unattended automation approvals to each run, isolating provider, Stave Local MCP, and Lens access and revoking the run's authorization when it ends.
 
 ### References
 
-* [#275](https://github.com/sendbird/stave/pull/275), [#276](https://github.com/sendbird/stave/pull/276)
+* [#275](https://github.com/sendbird/stave/pull/275), [#276](https://github.com/sendbird/stave/pull/276), [#278](https://github.com/sendbird/stave/pull/278)
 ## [0.13.2](https://github.com/sendbird/stave/compare/v0.13.1...v0.13.2) (2026-07-29)
 
 ### Bug Fixes
