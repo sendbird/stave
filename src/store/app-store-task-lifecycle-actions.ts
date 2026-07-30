@@ -485,23 +485,29 @@ export function createTaskLifecycleActions(args: {
       }
     },
     setTaskProvider: ({ taskId, provider }) => {
+      let shouldCleanupProviderRuntime = false;
       set((state) => {
-        const hasTask = state.tasks.some((task) => task.id === taskId);
-        if (!hasTask) {
+        const targetTask = findTaskById(state, taskId);
+        if (!targetTask) {
           return { draftProvider: provider };
         }
-        if (isTaskManaged(findTaskById(state, taskId))) {
+        if (isTaskManaged(targetTask)) {
           return { draftProvider: provider };
         }
+        const providerChanged = targetTask.provider !== provider;
+        shouldCleanupProviderRuntime =
+          providerChanged && !state.activeTurnIdsByTask[taskId];
         return {
-          tasks: state.tasks.map((task) =>
-            task.id === taskId
-              ? {
-                  ...task,
-                  provider,
-                }
-              : task,
-          ),
+          tasks: providerChanged
+            ? state.tasks.map((task) =>
+                task.id === taskId
+                  ? {
+                      ...task,
+                      provider,
+                    }
+                  : task,
+              )
+            : state.tasks,
           draftProvider: provider,
           nativeSessionReadyByTask: {
             ...state.nativeSessionReadyByTask,
@@ -515,7 +521,12 @@ export function createTaskLifecycleActions(args: {
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });
-      void window.api?.provider?.cleanupTask?.({ taskId });
+      // Model and effort changes reuse this action with the current provider.
+      // A provider switch also configures the next turn, so never let its
+      // task-wide cleanup abort a turn that is still streaming.
+      if (shouldCleanupProviderRuntime) {
+        void window.api?.provider?.cleanupTask?.({ taskId });
+      }
     },
     applyTaskPreset: ({ presetId }) => {
       const stateBefore = get();
