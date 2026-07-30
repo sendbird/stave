@@ -21,6 +21,7 @@ import {
   resolveClaudeTurnStopReason,
   resolveClaudeDisallowedTools,
   resolveClaudePlanModeApprovalScope,
+  shouldAutoAcceptClaudeElicitation,
   shouldAutoAllowClaudeTool,
   shouldAutoAllowPlanModeScopedTool,
   shouldDenyClaudePostPlanTool,
@@ -637,6 +638,47 @@ describe("Claude internal tool auto-allow", () => {
         }),
       ).toBe(false);
     }
+  });
+});
+
+describe("shouldAutoAcceptClaudeElicitation", () => {
+  const approvalShaped = { mode: "form" as const, fields: [] as unknown[] };
+  const formShaped = {
+    mode: "form" as const,
+    fields: [{ key: "token", kind: "text" }],
+  };
+
+  test("accepts approval-shaped elicitations for unattended automations", () => {
+    expect(
+      shouldAutoAcceptClaudeElicitation({
+        unattendedAutomation: true,
+        elicitation: approvalShaped,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoAcceptClaudeElicitation({
+        unattendedAutomation: true,
+        elicitation: { mode: "url", fields: [] },
+      }),
+    ).toBe(true);
+  });
+
+  test("never fabricates answers for a form elicitation", () => {
+    expect(
+      shouldAutoAcceptClaudeElicitation({
+        unattendedAutomation: true,
+        elicitation: formShaped,
+      }),
+    ).toBe(false);
+  });
+
+  test("keeps elicitations interactive for ordinary chat modes", () => {
+    expect(
+      shouldAutoAcceptClaudeElicitation({
+        unattendedAutomation: false,
+        elicitation: approvalShaped,
+      }),
+    ).toBe(false);
   });
 });
 

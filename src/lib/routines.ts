@@ -672,7 +672,11 @@ export function detectRoutineCadencePreset(args: {
  * `manual | guided | auto` vocabulary and map one-to-one onto the persisted
  * trust policy that the host runtime enforces.
  */
-export const AUTOMATION_PERMISSION_MODES = ["auto", "guided", "manual"] as const;
+export const AUTOMATION_PERMISSION_MODES = [
+  "auto",
+  "guided",
+  "manual",
+] as const;
 export type AutomationPermissionMode =
   (typeof AUTOMATION_PERMISSION_MODES)[number];
 
@@ -700,9 +704,9 @@ export const AUTOMATION_PERMISSION_MODE_PRESENTATION: Record<
 > = {
   auto: {
     label: "Auto",
-    summary: "Skips routine approvals",
+    summary: "Runs fully unattended",
     description:
-      "Runs provider actions and Stave Local MCP tools without approval prompts. Independent security gates, such as Lens Developer Mode host access, still apply.",
+      "Runs every provider action, MCP tool, and Lens action without approval prompts, because nobody is watching a scheduled run. Lens Developer Mode must still be enabled in Settings > Lens.",
   },
   guided: {
     label: "Guided",
@@ -754,11 +758,21 @@ export function applyAutomationTrustPolicyToRuntime(
       approvalPolicy: policy === "unattended" ? "never" : "untrusted",
     };
   }
+  // Unattended runs have no human to answer a prompt, so anything short of a
+  // full bypass turns an approval into a stalled run (`dontAsk` was worse still:
+  // it silently *denied* every tool outside the Stave Local MCP allowlist).
+  if (policy === "unattended") {
+    return {
+      ...runtime,
+      permissionMode: "bypassPermissions",
+      allowUnsandboxedCommands: runtime.allowUnsandboxedCommands,
+      allowDangerouslySkipPermissions: true,
+    };
+  }
   return {
     ...runtime,
-    permissionMode: policy === "unattended" ? "dontAsk" : "default",
-    allowUnsandboxedCommands:
-      policy === "unattended" ? runtime.allowUnsandboxedCommands : false,
+    permissionMode: "default",
+    allowUnsandboxedCommands: false,
     allowDangerouslySkipPermissions: false,
   };
 }

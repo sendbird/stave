@@ -30,7 +30,9 @@ const {
   assertCdpAllowed,
   getLensSecurityConfig,
   respondCdpApproval,
+  runWithUnattendedAutomationAuthorization,
   setLensSecurityConfig,
+  setUnattendedAutomationAuthorizations,
 } = await import("../electron/main/browser/browser-security");
 const { subscribeLensCdpPolicy } =
   await import("../electron/main/browser/browser-cdp-policy");
@@ -38,6 +40,7 @@ const { subscribeLensCdpPolicy } =
 describe("Lens CDP approval coordination", () => {
   afterEach(() => {
     sentApprovalRequests.length = 0;
+    setUnattendedAutomationAuthorizations([]);
     setLensSecurityConfig({
       allowedHosts: [],
       blockedHosts: [],
@@ -190,6 +193,142 @@ describe("Lens CDP approval coordination", () => {
     await pending;
 
     expect(getLensSecurityConfig().cdpApprovedHosts).toContain(host);
+  });
+
+  test("skips prompts only for requests carrying an active unattended authorization", async () => {
+    const workspaceId = `workspace-${Date.now()}-unattended`;
+    const host = `${Date.now()}.unattended.test`;
+    const authorizationToken = `authorization-${Date.now()}`;
+    setUnattendedAutomationAuthorizations([
+      { workspaceId, authorizationToken },
+    ]);
+
+    await expect(
+      runWithUnattendedAutomationAuthorization(authorizationToken, () =>
+        assertCdpAllowed({
+          workspaceId,
+          url: `https://${host}/dashboard`,
+          reason: "Capture a screenshot",
+        }),
+      ),
+    ).resolves.toBeUndefined();
+    expect(sentApprovalRequests).toHaveLength(0);
+
+    // An attended request in the same workspace still needs approval.
+    const attended = assertCdpAllowed({
+      workspaceId,
+      url: `https://${host}/dashboard`,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(sentApprovalRequests).toHaveLength(1);
+    respondCdpApproval({
+      requestId: sentApprovalRequests[0].payload.requestId,
+      approved: true,
+    });
+    await attended;
+  });
+
+  test("releases only the matching pending automation request", async () => {
+    const workspaceId = `workspace-${Date.now()}-late`;
+    const host = `${Date.now()}.late.test`;
+    const authorizationToken = `authorization-${Date.now()}-late`;
+    const automationPending = runWithUnattendedAutomationAuthorization(
+      authorizationToken,
+      () =>
+        assertCdpAllowed({
+          workspaceId,
+          url: `https://${host}`,
+          reason: "Automation request",
+        }),
+    );
+    const attendedPending = assertCdpAllowed({
+      workspaceId,
+      url: `https://${host}`,
+      reason: "Attended request",
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(sentApprovalRequests).toHaveLength(2);
+
+    setUnattendedAutomationAuthorizations([
+      { workspaceId, authorizationToken },
+    ]);
+
+    await expect(automationPending).resolves.toBeUndefined();
+    const attendedOutcome = await Promise.race([
+      attendedPending.then(() => "approved" as const),
+      new Promise<"pending">((resolve) => {
+        setTimeout(() => resolve("pending"), 10);
+      }),
+    ]);
+    expect(attendedOutcome).toBe("pending");
+
+    const attendedRequest = sentApprovalRequests.find(
+      (request) => request.payload.reason === "Attended request",
+    );
+    expect(attendedRequest).toBeDefined();
+    respondCdpApproval({
+      requestId: attendedRequest!.payload.requestId,
+      approved: true,
+    });
+    await attendedPending;
+  });
+
+  test("still refuses CDP for unattended runs when Developer Mode is off", async () => {
+    const workspaceId = `workspace-${Date.now()}-devmode`;
+    const authorizationToken = `authorization-${Date.now()}-devmode`;
+    setUnattendedAutomationAuthorizations([
+      { workspaceId, authorizationToken },
+    ]);
+    setLensSecurityConfig({
+      allowedHosts: [],
+      blockedHosts: [],
+      developerModeCdp: false,
+      cdpApprovedHosts: [],
+    });
+
+    await expect(
+      runWithUnattendedAutomationAuthorization(authorizationToken, () =>
+        assertCdpAllowed({
+          workspaceId,
+          url: "https://devmode-off.test",
+        }),
+      ),
+    ).rejects.toThrow("Lens Developer Mode CDP is disabled");
+    expect(sentApprovalRequests).toHaveLength(0);
+  });
+
+  test("revokes automation approvals immediately when the run ends", async () => {
+    const workspaceId = `workspace-${Date.now()}-revoked`;
+    const host = `${Date.now()}.revoked.test`;
+    const authorizationToken = `authorization-${Date.now()}-revoked`;
+    setUnattendedAutomationAuthorizations([
+      { workspaceId, authorizationToken },
+    ]);
+
+    await runWithUnattendedAutomationAuthorization(authorizationToken, () =>
+      assertCdpAllowed({
+        workspaceId,
+        url: `https://${host}`,
+      }),
+    );
+    setUnattendedAutomationAuthorizations([]);
+
+    const afterRun = runWithUnattendedAutomationAuthorization(
+      authorizationToken,
+      () =>
+        assertCdpAllowed({
+          workspaceId,
+          url: `https://${host}`,
+        }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(sentApprovalRequests).toHaveLength(1);
+    respondCdpApproval({
+      requestId: sentApprovalRequests[0].payload.requestId,
+      approved: true,
+    });
+    await afterRun;
   });
 
   test("keeps allow-once approval active when persisted policy is republished", async () => {

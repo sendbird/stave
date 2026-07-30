@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   DEFAULT_LENS_SESSION_ID,
   type LensCdpApprovalRequestPayload,
@@ -34,6 +35,7 @@ const pendingCdpApprovals = new Map<
     key: string;
     host: string;
     workspaceId: string;
+    unattendedAutomationAuthorizationToken: string | null;
     promise: Promise<CdpApprovalOutcome>;
     resolve: (outcome: CdpApprovalOutcome) => void;
     timeout: ReturnType<typeof setTimeout>;
@@ -41,8 +43,86 @@ const pendingCdpApprovals = new Map<
 >();
 const pendingCdpApprovalKeys = new Map<string, string>();
 const transientCdpApprovals = new Map<string, LensTransientCdpApproval>();
+const unattendedAutomationWorkspaceByToken = new Map<string, string>();
+const unattendedAutomationCdpApprovals = new Map<
+  string,
+  {
+    authorizationToken: string;
+    approval: LensTransientCdpApproval;
+  }
+>();
+const unattendedAutomationContext = new AsyncLocalStorage<{
+  authorizationToken: string;
+}>();
 
 type CdpApprovalOutcome = "approved" | "denied" | "timed-out";
+
+export function runWithUnattendedAutomationAuthorization<T>(
+  authorizationToken: string | undefined,
+  operation: () => T,
+): T {
+  const normalized = authorizationToken?.trim();
+  return normalized
+    ? unattendedAutomationContext.run(
+        { authorizationToken: normalized },
+        operation,
+      )
+    : operation();
+}
+
+export function setUnattendedAutomationAuthorizations(
+  authorizations: Array<{
+    workspaceId: string;
+    authorizationToken: string;
+  }>,
+): void {
+  unattendedAutomationWorkspaceByToken.clear();
+  for (const authorization of authorizations) {
+    const workspaceId = authorization.workspaceId.trim();
+    const authorizationToken = authorization.authorizationToken.trim();
+    if (workspaceId && authorizationToken) {
+      unattendedAutomationWorkspaceByToken.set(authorizationToken, workspaceId);
+    }
+  }
+
+  for (const [key, stored] of unattendedAutomationCdpApprovals) {
+    if (
+      unattendedAutomationWorkspaceByToken.get(stored.authorizationToken) !==
+      stored.approval.workspaceId
+    ) {
+      unattendedAutomationCdpApprovals.delete(key);
+    }
+  }
+  publishCurrentCdpPolicy();
+
+  for (const [requestId, pending] of pendingCdpApprovals) {
+    if (
+      isAuthorizedUnattendedAutomation({
+        workspaceId: pending.workspaceId,
+        authorizationToken: pending.unattendedAutomationAuthorizationToken,
+      })
+    ) {
+      rememberUnattendedAutomationCdpApproval({
+        workspaceId: pending.workspaceId,
+        host: pending.host,
+        authorizationToken: pending.unattendedAutomationAuthorizationToken!,
+      });
+      settlePendingCdpApproval(requestId, "approved");
+    }
+  }
+}
+
+function isAuthorizedUnattendedAutomation(args: {
+  workspaceId: string;
+  authorizationToken: string | null | undefined;
+}): boolean {
+  const authorizationToken = args.authorizationToken?.trim();
+  return Boolean(
+    authorizationToken &&
+    unattendedAutomationWorkspaceByToken.get(authorizationToken) ===
+      args.workspaceId.trim(),
+  );
+}
 
 function parseHttpUrl(targetUrl: string): URL {
   let parsed: URL;
@@ -88,6 +168,27 @@ function cdpApprovalKey(workspaceId: string, host: string): string {
   return `${workspaceId}\n${host}`;
 }
 
+function cdpRequestKey(
+  workspaceId: string,
+  host: string,
+  unattendedAutomationAuthorizationToken: string | null,
+): string {
+  return `${cdpApprovalKey(workspaceId, host)}\n${
+    unattendedAutomationAuthorizationToken ?? "interactive"
+  }`;
+}
+
+function unattendedAutomationCdpApprovalKey(args: {
+  workspaceId: string;
+  host: string;
+  authorizationToken: string;
+}) {
+  return `${args.authorizationToken}\n${cdpApprovalKey(
+    args.workspaceId,
+    args.host,
+  )}`;
+}
+
 function hasTransientCdpApproval(workspaceId: string, host: string): boolean {
   const key = cdpApprovalKey(workspaceId, host);
   const approval = transientCdpApprovals.get(key);
@@ -114,10 +215,28 @@ function getActiveTransientCdpApprovals(): LensTransientCdpApproval[] {
   return active;
 }
 
+function getActiveUnattendedAutomationCdpApprovals(): LensTransientCdpApproval[] {
+  const approvals: LensTransientCdpApproval[] = [];
+  for (const [key, stored] of unattendedAutomationCdpApprovals) {
+    if (
+      unattendedAutomationWorkspaceByToken.get(stored.authorizationToken) !==
+      stored.approval.workspaceId
+    ) {
+      unattendedAutomationCdpApprovals.delete(key);
+      continue;
+    }
+    approvals.push({ ...stored.approval });
+  }
+  return approvals;
+}
+
 function publishCurrentCdpPolicy(): void {
   publishLensCdpPolicy({
     ...currentSecurityConfig,
-    transientCdpApprovals: getActiveTransientCdpApprovals(),
+    transientCdpApprovals: [
+      ...getActiveTransientCdpApprovals(),
+      ...getActiveUnattendedAutomationCdpApprovals(),
+    ],
   });
 }
 
@@ -127,6 +246,25 @@ function rememberTransientCdpApproval(workspaceId: string, host: string): void {
     host,
     expiresAt: Date.now() + TRANSIENT_CDP_APPROVAL_MS,
   });
+  publishCurrentCdpPolicy();
+}
+
+function rememberUnattendedAutomationCdpApproval(args: {
+  workspaceId: string;
+  host: string;
+  authorizationToken: string;
+}): void {
+  unattendedAutomationCdpApprovals.set(
+    unattendedAutomationCdpApprovalKey(args),
+    {
+      authorizationToken: args.authorizationToken,
+      approval: {
+        workspaceId: args.workspaceId,
+        host: args.host,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+      },
+    },
+  );
   publishCurrentCdpPolicy();
 }
 
@@ -173,6 +311,7 @@ export function setLensSecurityConfig(
   };
   if (!currentSecurityConfig.developerModeCdp) {
     transientCdpApprovals.clear();
+    unattendedAutomationCdpApprovals.clear();
   }
   publishCurrentCdpPolicy();
 
@@ -229,6 +368,8 @@ export async function assertCdpAllowed(args: {
   reason?: string;
 }): Promise<void> {
   const config = currentSecurityConfig;
+  const unattendedAutomationAuthorizationToken =
+    unattendedAutomationContext.getStore()?.authorizationToken ?? null;
   const parsed = parseHttpUrl(args.url);
   const host = normalizeLensHostEntry(normalizeParsedHost(parsed));
   if (!host) {
@@ -248,6 +389,20 @@ export async function assertCdpAllowed(args: {
     return;
   }
 
+  if (
+    isAuthorizedUnattendedAutomation({
+      workspaceId: args.workspaceId,
+      authorizationToken: unattendedAutomationAuthorizationToken,
+    })
+  ) {
+    rememberUnattendedAutomationCdpApproval({
+      workspaceId: args.workspaceId,
+      host,
+      authorizationToken: unattendedAutomationAuthorizationToken!,
+    });
+    return;
+  }
+
   const { getMainWindow } = await import("../window");
   // Persisted renderer settings can arrive over IPC while the main-window
   // module is loading. Re-check before creating a prompt from stale defaults.
@@ -262,6 +417,19 @@ export async function assertCdpAllowed(args: {
   ) {
     return;
   }
+  if (
+    isAuthorizedUnattendedAutomation({
+      workspaceId: args.workspaceId,
+      authorizationToken: unattendedAutomationAuthorizationToken,
+    })
+  ) {
+    rememberUnattendedAutomationCdpApproval({
+      workspaceId: args.workspaceId,
+      host,
+      authorizationToken: unattendedAutomationAuthorizationToken!,
+    });
+    return;
+  }
 
   const renderer = getMainWindow()?.webContents;
   if (!renderer || renderer.isDestroyed()) {
@@ -270,7 +438,11 @@ export async function assertCdpAllowed(args: {
     );
   }
 
-  const key = cdpApprovalKey(args.workspaceId, host);
+  const key = cdpRequestKey(
+    args.workspaceId,
+    host,
+    unattendedAutomationAuthorizationToken,
+  );
   const existingRequestId = pendingCdpApprovalKeys.get(key);
   const existingRequest = existingRequestId
     ? pendingCdpApprovals.get(existingRequestId)
@@ -294,6 +466,7 @@ export async function assertCdpAllowed(args: {
       key,
       host,
       workspaceId: args.workspaceId,
+      unattendedAutomationAuthorizationToken,
       promise,
       resolve: resolveApproval,
       timeout,

@@ -30,6 +30,13 @@ export interface ProviderCommandCatalogResult {
 export interface StreamTurnArgs {
   turnId?: string;
   executionPolicy?: "secondary-read-only";
+  /**
+   * Host-owned capability for one unattended routine turn. This is never part
+   * of the renderer IPC schema or persisted runtime options.
+   */
+  unattendedAutomation?: {
+    authorizationToken: string;
+  };
   providerId: ProviderId;
   prompt: string;
   conversation?: CanonicalConversationRequest;
@@ -63,46 +70,86 @@ export type ProviderSteerResponder = (args: {
 export type BridgeEvent =
   | { type: "thinking"; text: string; isStreaming?: boolean }
   | { type: "text"; text: string; segmentId?: string }
-  | { type: "provider_session"; providerId: ProviderId; nativeSessionId: string }
-  | { type: "goal_status"; providerId: "codex"; goal: ProviderGoalSnapshot | null }
   | {
-    type: "usage";
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadTokens?: number;
-    cacheCreationTokens?: number;
-    totalCostUsd?: number;
-    ttftMs?: number;
-  }
+      type: "provider_session";
+      providerId: ProviderId;
+      nativeSessionId: string;
+    }
+  | {
+      type: "goal_status";
+      providerId: "codex";
+      goal: ProviderGoalSnapshot | null;
+    }
+  | {
+      type: "usage";
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
+      totalCostUsd?: number;
+      ttftMs?: number;
+    }
   | { type: "prompt_suggestions"; suggestions: string[] }
-  | { type: "tool"; toolUseId?: string; toolName: string; input: string; output?: string; state: "input-streaming" | "input-available" | "output-available" | "output-error" }
-  | { type: "tool_result"; tool_use_id: string; output: string; isError?: boolean; isPartial?: boolean }
-  | { type: "diff"; filePath: string; oldContent: string; newContent: string; status?: "pending" | "accepted" | "rejected" }
   | {
-    type: "approval";
-    toolName: string;
-    requestId: string;
-    description: string;
-    input?: string;
-  }
+      type: "tool";
+      toolUseId?: string;
+      toolName: string;
+      input: string;
+      output?: string;
+      state:
+        | "input-streaming"
+        | "input-available"
+        | "output-available"
+        | "output-error";
+    }
   | {
-    type: "user_input";
-    toolName: string;
-    requestId: string;
-    questions: UserInputQuestion[];
-  }
-  | { type: "tool_progress"; toolUseId: string; toolName: string; elapsedSeconds: number }
+      type: "tool_result";
+      tool_use_id: string;
+      output: string;
+      isError?: boolean;
+      isPartial?: boolean;
+    }
+  | {
+      type: "diff";
+      filePath: string;
+      oldContent: string;
+      newContent: string;
+      status?: "pending" | "accepted" | "rejected";
+    }
+  | {
+      type: "approval";
+      toolName: string;
+      requestId: string;
+      description: string;
+      input?: string;
+    }
+  | {
+      type: "user_input";
+      toolName: string;
+      requestId: string;
+      questions: UserInputQuestion[];
+    }
+  | {
+      type: "tool_progress";
+      toolUseId: string;
+      toolName: string;
+      elapsedSeconds: number;
+    }
   | { type: "plan_ready"; planText: string; sourceSegmentId?: string }
   | {
-    type: "system";
-    content: string;
-    compactBoundary?: {
-      trigger?: string;
-      gitRef?: string;
-    };
-  }
+      type: "system";
+      content: string;
+      compactBoundary?: {
+        trigger?: string;
+        gitRef?: string;
+      };
+    }
   | { type: "subagent_progress"; toolUseId?: string; content: string }
-  | { type: "model_resolved"; resolvedProviderId: "claude-code" | "codex"; resolvedModel: string }
+  | {
+      type: "model_resolved";
+      resolvedProviderId: "claude-code" | "codex";
+      resolvedModel: string;
+    }
   | { type: "error"; message: string; recoverable: boolean }
   | { type: "done"; stop_reason?: string };
 
@@ -114,7 +161,7 @@ export interface ProviderRuntime {
       onEvent?: (event: BridgeEvent) => void;
       onDone?: () => void;
       bufferEvents?: boolean;
-    }
+    },
   ) => { ok: boolean; streamId: string };
   readTurnStream: (args: { streamId: string; cursor: number }) => {
     ok: boolean;
@@ -129,7 +176,11 @@ export interface ProviderRuntime {
   };
   abortTurn: (args: { turnId: string }) => { ok: boolean; message: string };
   cleanupTask: (args: { taskId: string }) => { ok: boolean; message: string };
-  respondApproval: (args: { turnId: string; requestId: string; approved: boolean }) => Promise<{ ok: boolean; message: string }>;
+  respondApproval: (args: {
+    turnId: string;
+    requestId: string;
+    approved: boolean;
+  }) => Promise<{ ok: boolean; message: string }>;
   respondUserInput: (args: {
     turnId: string;
     requestId: string;
@@ -139,7 +190,10 @@ export interface ProviderRuntime {
   steerTurn: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;
-  checkAvailability: (args: { providerId: ProviderId; runtimeOptions?: StreamTurnArgs["runtimeOptions"] }) => Promise<{
+  checkAvailability: (args: {
+    providerId: ProviderId;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  }) => Promise<{
     ok: boolean;
     available: boolean;
     detail: string;
@@ -149,6 +203,8 @@ export interface ProviderRuntime {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   }) => Promise<ProviderCommandCatalogResult>;
-  getConnectedToolStatus: (args: ConnectedToolStatusRequest) => Promise<ConnectedToolStatusResponse>;
+  getConnectedToolStatus: (
+    args: ConnectedToolStatusRequest,
+  ) => Promise<ConnectedToolStatusResponse>;
   shutdown: () => Promise<void>;
 }

@@ -60,6 +60,9 @@ interface RoutineRuntimeDependencies {
     title: string;
     provider: ProviderId;
     runtimeOptions: ReturnType<typeof routineRuntimeToProviderOptions>;
+    unattendedAutomation?: {
+      authorizationToken: string;
+    };
     informationReferences: RoutineUpsertInput["informationReferences"];
     controlMode: "interactive";
     controlOwner: "stave";
@@ -73,6 +76,12 @@ interface RoutineRuntimeDependencies {
     workspaceId: string;
     workspaceInformation: WorkspaceInformationState;
   }>;
+  emitUnattendedAutomationsChanged?: (args: {
+    authorizations: Array<{
+      workspaceId: string;
+      authorizationToken: string;
+    }>;
+  }) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
   clearInterval?: typeof globalThis.clearInterval;
@@ -171,14 +180,22 @@ function automationRuntimeToProviderOptions(routine: RoutineSpec) {
         routine.trustPolicy === "unattended" ? "never" : "untrusted",
     } as const;
   }
+  // A scheduled run has nobody to answer an approval prompt, so an unattended
+  // Claude run gets a real bypass. `dontAsk` used to be wired here, but that
+  // mode *denies* every tool outside the Stave Local MCP allowlist, which broke
+  // Bash, file edits, and third-party MCP servers without ever surfacing why.
+  if (routine.trustPolicy === "unattended") {
+    return {
+      ...options,
+      claudePermissionMode: "bypassPermissions",
+      claudeAllowUnsandboxedCommands: options.claudeAllowUnsandboxedCommands,
+      claudeAllowDangerouslySkipPermissions: true,
+    } as const;
+  }
   return {
     ...options,
-    claudePermissionMode:
-      routine.trustPolicy === "unattended" ? "dontAsk" : "default",
-    claudeAllowUnsandboxedCommands:
-      routine.trustPolicy === "unattended"
-        ? options.claudeAllowUnsandboxedCommands
-        : false,
+    claudePermissionMode: "default",
+    claudeAllowUnsandboxedCommands: false,
     claudeAllowDangerouslySkipPermissions: false,
   } as const;
 }
@@ -212,6 +229,11 @@ export function createRoutineRuntime(
   const clearIntervalImpl =
     dependencies.clearInterval ?? globalThis.clearInterval;
   let intervalHandle: ReturnType<typeof globalThis.setInterval> | null = null;
+  let lastUnattendedAuthorizationKey: string | null = null;
+  const unattendedAuthorizationByRunId = new Map<
+    string,
+    { workspaceId: string; authorizationToken: string }
+  >();
   let operationChain = Promise.resolve();
   let providerTimeoutMs = normalizeProviderTimeoutMs(
     dependencies.persistence.loadRoutineProviderTimeoutMs(),
@@ -236,7 +258,46 @@ export function createRoutineRuntime(
       runs: pruneRoutineRuns(state.runs),
     });
     dependencies.persistence.saveRoutineState({ state: normalized });
+    const activeRunIds = new Set(
+      normalized.runs
+        .filter((run) => run.status === "running" || run.status === "waiting")
+        .map((run) => run.id),
+    );
+    for (const runId of unattendedAuthorizationByRunId.keys()) {
+      if (!activeRunIds.has(runId)) {
+        unattendedAuthorizationByRunId.delete(runId);
+      }
+    }
+    publishUnattendedAutomations(normalized);
     return normalized;
+  }
+
+  function publishUnattendedAutomations(state: RoutineState) {
+    const emit = dependencies.emitUnattendedAutomationsChanged;
+    if (!emit) {
+      return;
+    }
+    const authorizations = state.runs
+      .filter(
+        (run) =>
+          run.trustPolicy === "unattended" &&
+          (run.status === "running" || run.status === "waiting"),
+      )
+      .flatMap((run) => {
+        const authorization = unattendedAuthorizationByRunId.get(run.id);
+        return authorization ? [authorization] : [];
+      })
+      .sort(
+        (left, right) =>
+          left.workspaceId.localeCompare(right.workspaceId) ||
+          left.authorizationToken.localeCompare(right.authorizationToken),
+      );
+    const serialized = JSON.stringify(authorizations);
+    if (serialized === lastUnattendedAuthorizationKey) {
+      return;
+    }
+    lastUnattendedAuthorizationKey = serialized;
+    emit({ authorizations });
   }
 
   async function startRoutineRun(args: {
@@ -274,6 +335,16 @@ export function createRoutineRuntime(
       configHash: createAutomationConfigHash(args.routine),
       trustPolicy: args.routine.trustPolicy,
     };
+    const unattendedAutomation =
+      args.routine.trustPolicy === "unattended"
+        ? { authorizationToken: randomUUID() }
+        : undefined;
+    if (unattendedAutomation) {
+      unattendedAuthorizationByRunId.set(run.id, {
+        workspaceId: run.workspaceId,
+        authorizationToken: unattendedAutomation.authorizationToken,
+      });
+    }
     let state = saveState({
       ...args.state,
       routines: args.state.routines.map((routine) =>
@@ -301,6 +372,7 @@ export function createRoutineRuntime(
           ...automationRuntimeToProviderOptions(args.routine),
           ...(providerTimeoutMs ? { providerTimeoutMs } : {}),
         },
+        ...(unattendedAutomation ? { unattendedAutomation } : {}),
         informationReferences: args.routine.informationReferences,
         controlMode: "interactive",
         controlOwner: "stave",
@@ -518,6 +590,10 @@ export function createRoutineRuntime(
             : run,
         ),
       });
+    } else {
+      // Nothing was interrupted, so no save happened. Still announce the empty
+      // set so main starts from a known state instead of a stale one.
+      publishUnattendedAutomations(state);
     }
     const enqueueTick = () => {
       void enqueue(tick).catch((error) => {
@@ -529,11 +605,12 @@ export function createRoutineRuntime(
   }
 
   function stop() {
-    if (!intervalHandle) {
-      return;
+    if (intervalHandle) {
+      clearIntervalImpl(intervalHandle);
+      intervalHandle = null;
     }
-    clearIntervalImpl(intervalHandle);
-    intervalHandle = null;
+    unattendedAuthorizationByRunId.clear();
+    publishUnattendedAutomations(loadState());
   }
 
   return {
