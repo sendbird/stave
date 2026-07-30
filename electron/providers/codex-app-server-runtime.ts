@@ -119,12 +119,12 @@ import {
   buildCodexThreadResumeParams,
   buildCodexThreadStartParams,
   buildCodexTurnStartParams,
-  buildCodexUnattendedAutomationMcpOverrides,
   buildSecretShellOverrides,
   deleteCodexSecondaryThread,
   resolveCodexSecondaryConfigOverrides,
   resolveCodexSecondaryRuntimeOptions,
 } from "./codex-app-server-params";
+import { mergeCodexTurnConfigOverrides } from "./codex-app-server-config-overrides";
 import { parsePositiveIntEnv } from "./runtime-shared";
 
 // This module stays the public entry point for the Codex App Server runtime, so
@@ -149,9 +149,9 @@ export {
   buildCodexThreadResumeParams,
   buildCodexThreadStartParams,
   buildCodexTurnStartParams,
-  buildCodexUnattendedAutomationMcpOverrides,
   buildSandboxPolicy,
 } from "./codex-app-server-params";
+export { buildCodexUnattendedAutomationMcpOverrides } from "./codex-app-server-config-overrides";
 export {
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
@@ -2570,25 +2570,12 @@ export async function streamCodexWithAppServer(
       : await resolveBoundSecretEnv({ ids: runtimeOptions.boundSecretIds });
   const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
   const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
-  const unattendedAutomationManifest = args.unattendedAutomation
-    ? await readPrimaryStaveLocalMcpManifest()
-    : null;
-  const unattendedAutomationMcpOverrides =
-    args.unattendedAutomation && unattendedAutomationManifest
-      ? buildCodexUnattendedAutomationMcpOverrides({
-          mcpUrl: unattendedAutomationManifest.url,
-          authorizationToken: args.unattendedAutomation.authorizationToken,
-        })
-      : {};
-  const combinedConfigOverrides = {
-    ...(secondaryConfigOverrides ?? {}),
-    ...unattendedAutomationMcpOverrides,
-    ...secretShellOverrides,
-  };
-  const mergedConfigOverrides =
-    Object.keys(combinedConfigOverrides).length > 0
-      ? combinedConfigOverrides
-      : undefined;
+  const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
+    base: secondaryConfigOverrides,
+    secretShellOverrides,
+    unattendedAutomationAuthorizationToken:
+      args.unattendedAutomation?.authorizationToken,
+  });
 
   let threadId: string;
   let resumedThreadId: string | null;

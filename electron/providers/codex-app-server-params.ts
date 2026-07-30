@@ -12,8 +12,6 @@ import {
 import { buildExecutableLookupEnv } from "./executable-path";
 import { parseBooleanEnv } from "./runtime-shared";
 import { buildProjectNvmShellConfigOverrides } from "../shared/project-node-env";
-import { CODEX_STAVE_MCP_SERVER_NAME } from "../main/codex-mcp";
-import { withUnattendedAutomationAuthorization } from "../main/stave-local-mcp-manifest";
 
 type CodexRequest = (
   method: string,
@@ -257,19 +255,6 @@ export function buildSecretShellOverrides(
     overrides[`shell_environment_policy.set.${name}`] = value;
   }
   return overrides;
-}
-
-export function buildCodexUnattendedAutomationMcpOverrides(args: {
-  mcpUrl: string;
-  authorizationToken: string;
-}): Record<string, string> {
-  return {
-    [`mcp_servers.${JSON.stringify(CODEX_STAVE_MCP_SERVER_NAME)}.url`]:
-      withUnattendedAutomationAuthorization({
-        url: args.mcpUrl,
-        authorizationToken: args.authorizationToken,
-      }),
-  };
 }
 
 /**
