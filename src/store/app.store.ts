@@ -72,6 +72,7 @@ import {
 } from "@/lib/source-control-review";
 import {
   buildSuggestTaskNamePayload,
+  getRespondingProviderId,
   isTaskManaged,
   normalizeSuggestedTaskTitle,
   shouldSuggestTaskName,
@@ -1978,6 +1979,17 @@ export const useAppStore = create<AppState>()(
           return { status: "blocked" } satisfies SendUserMessageResult;
         }
         if (activeTurnId && !activeTurnStalled && submitIntent === "steer") {
+          // The task provider may already be configured for the next turn.
+          // Keep this steer bound to the runtime that owns the active turn.
+          const activeTurnActivity =
+            state.providerTurnActivityByTask[resolvedTaskId];
+          const activeTurnProvider =
+            activeTurnActivity?.turnId === activeTurnId
+              ? activeTurnActivity.providerId
+              : getRespondingProviderId({
+                  fallbackProviderId: provider,
+                  messages: existingHistory,
+                });
           // Mid-turn steering: an explicit user choice (Enter, mirroring
           // Codex CLI), not a priority/fallback pair with queueing (Tab).
           // Every eligibility gate below is a hard requirement — if any
@@ -2005,12 +2017,16 @@ export const useAppStore = create<AppState>()(
                 "Attachments can't be steered into a live turn — press Tab to queue instead.",
             } satisfies SendUserMessageResult;
           }
-          if (!providerSupportsMidTurnSteering({ providerId: provider })) {
+          if (
+            !providerSupportsMidTurnSteering({
+              providerId: activeTurnProvider,
+            })
+          ) {
             return {
               status: "steer-unavailable",
               taskId: resolvedTaskId,
               workspaceId: taskWorkspaceId,
-              message: `${provider} does not support mid-turn steering.`,
+              message: `${activeTurnProvider} does not support mid-turn steering.`,
             } satisfies SendUserMessageResult;
           }
           if (taskWorkspaceId !== get().activeWorkspaceId) {
@@ -2056,7 +2072,7 @@ export const useAppStore = create<AppState>()(
             const turnStillActive =
               nextState.activeTurnIdsByTask[resolvedTaskId] === activeTurnId;
             const activeModel =
-              provider === "claude-code"
+              activeTurnProvider === "claude-code"
                 ? nextState.settings.modelClaude
                 : nextState.settings.modelCodex;
             const steeredState = buildSteeredUserMessageState({
@@ -2066,7 +2082,7 @@ export const useAppStore = create<AppState>()(
               content: promptContent,
               steeredIntoTurnId: activeTurnId,
               clientMessageId,
-              provider,
+              provider: activeTurnProvider,
               activeModel,
               turnStillActive,
             });
@@ -2092,7 +2108,7 @@ export const useAppStore = create<AppState>()(
                     activityByTask: nextState.providerTurnActivityByTask,
                     taskId: resolvedTaskId,
                     turnId: activeTurnId,
-                    providerId: provider,
+                    providerId: activeTurnProvider,
                   })
                 : nextState.providerTurnActivityByTask,
               workspaceSnapshotVersion:
