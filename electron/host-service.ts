@@ -470,6 +470,9 @@ const routineRuntime = createRoutineRuntime({
   runTask: localMcpRuntime.runTask,
   getTaskStatus: localMcpRuntime.getTaskStatus,
   getWorkspaceInformation: localMcpRuntime.getWorkspaceInformation,
+  emitUnattendedAutomationsChanged: (payload) => {
+    emitEvent("routine.unattended-automations-changed", payload);
+  },
 });
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);

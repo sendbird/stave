@@ -124,6 +124,7 @@ import {
   resolveCodexSecondaryConfigOverrides,
   resolveCodexSecondaryRuntimeOptions,
 } from "./codex-app-server-params";
+import { mergeCodexTurnConfigOverrides } from "./codex-app-server-config-overrides";
 import { parsePositiveIntEnv } from "./runtime-shared";
 
 // This module stays the public entry point for the Codex App Server runtime, so
@@ -150,6 +151,7 @@ export {
   buildCodexTurnStartParams,
   buildSandboxPolicy,
 } from "./codex-app-server-params";
+export { buildCodexUnattendedAutomationMcpOverrides } from "./codex-app-server-config-overrides";
 export {
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
@@ -1507,37 +1509,35 @@ export async function getCodexAppServerSnapshot(args: {
           forceReload: false,
         });
         snapshot.skills = Array.isArray(response?.data)
-          ? response.data.map(
-              (entry: any): CodexSkillCatalogGroup => ({
-                cwd: String(entry?.cwd ?? cwd),
-                skills: Array.isArray(entry?.skills)
-                  ? entry.skills.map((skill: any) => ({
-                      name: String(skill?.name ?? ""),
-                      description: String(skill?.description ?? ""),
-                      shortDescription:
-                        typeof skill?.shortDescription === "string"
-                          ? skill.shortDescription
-                          : typeof skill?.interface?.short_description ===
-                              "string"
-                            ? skill.interface.short_description
-                            : null,
-                      path: String(skill?.path ?? ""),
-                      scope:
-                        typeof skill?.scope === "string"
-                          ? skill.scope
-                          : "unknown",
-                      enabled: Boolean(skill?.enabled),
-                    }))
-                  : [],
-                errors: Array.isArray(entry?.errors)
-                  ? entry.errors.map((error: any) =>
-                      typeof error?.message === "string"
-                        ? error.message
-                        : JSON.stringify(error ?? {}),
-                    )
-                  : [],
-              }),
-            )
+          ? response.data.map((entry: any): CodexSkillCatalogGroup => ({
+              cwd: String(entry?.cwd ?? cwd),
+              skills: Array.isArray(entry?.skills)
+                ? entry.skills.map((skill: any) => ({
+                    name: String(skill?.name ?? ""),
+                    description: String(skill?.description ?? ""),
+                    shortDescription:
+                      typeof skill?.shortDescription === "string"
+                        ? skill.shortDescription
+                        : typeof skill?.interface?.short_description ===
+                            "string"
+                          ? skill.interface.short_description
+                          : null,
+                    path: String(skill?.path ?? ""),
+                    scope:
+                      typeof skill?.scope === "string"
+                        ? skill.scope
+                        : "unknown",
+                    enabled: Boolean(skill?.enabled),
+                  }))
+                : [],
+              errors: Array.isArray(entry?.errors)
+                ? entry.errors.map((error: any) =>
+                    typeof error?.message === "string"
+                      ? error.message
+                      : JSON.stringify(error ?? {}),
+                  )
+                : [],
+            }))
           : [];
       }),
       loadSection("plugins", async () => {
@@ -2570,10 +2570,12 @@ export async function streamCodexWithAppServer(
       : await resolveBoundSecretEnv({ ids: runtimeOptions.boundSecretIds });
   const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
   const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
-  const mergedConfigOverrides =
-    Object.keys(secretShellOverrides).length > 0
-      ? { ...(secondaryConfigOverrides ?? {}), ...secretShellOverrides }
-      : secondaryConfigOverrides;
+  const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
+    base: secondaryConfigOverrides,
+    secretShellOverrides,
+    unattendedAutomationAuthorizationToken:
+      args.unattendedAutomation?.authorizationToken,
+  });
 
   let threadId: string;
   let resumedThreadId: string | null;
@@ -2740,9 +2742,10 @@ export async function streamCodexWithAppServer(
     // ── Approval / user-input auto-decline: symmetric with Claude's
     // `waitForClaudeToolDecision` timeout fallback. See
     // `CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS` for the rationale. ──
-    const codexApprovalDecisionTimeoutMs = resolveCodexApprovalDecisionTimeoutMs({
-      envValue: process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS,
-    });
+    const codexApprovalDecisionTimeoutMs =
+      resolveCodexApprovalDecisionTimeoutMs({
+        envValue: process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS,
+      });
     const pendingApprovalAutoDeclineHandles = new Map<
       string,
       ReturnType<typeof setTimeout>
@@ -3518,8 +3521,7 @@ export async function streamCodexWithAppServer(
         }
         case "item/completed": {
           const item = params.item as
-            | { type?: string; id?: string }
-            | undefined;
+            { type?: string; id?: string } | undefined;
           if (!item?.type) {
             return;
           }

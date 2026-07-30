@@ -73,6 +73,8 @@ import {
   getClaudeCodeMcpRegistrationStatus,
   syncClaudeCodeMcpRegistration,
 } from "./claude-code-mcp";
+import { STAVE_UNATTENDED_AUTOMATION_QUERY_PARAM } from "./stave-local-mcp-manifest";
+import { runWithUnattendedAutomationAuthorization } from "./browser/browser-security";
 import {
   getCodexMcpRegistrationStatus,
   syncCodexMcpRegistration,
@@ -1284,7 +1286,13 @@ export async function startStaveMcpServer() {
         void transport.close();
         void server.close();
       });
-      await transport.handleRequest(req, res, body);
+      const unattendedAutomationAuthorizationToken = url.searchParams
+        .get(STAVE_UNATTENDED_AUTOMATION_QUERY_PARAM)
+        ?.trim();
+      await runWithUnattendedAutomationAuthorization(
+        unattendedAutomationAuthorizationToken,
+        () => transport.handleRequest(req, res, body),
+      );
       await persistLocalMcpRequestLog({
         httpMethod: req.method ?? "GET",
         path: url.pathname,

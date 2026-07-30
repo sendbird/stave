@@ -4,6 +4,24 @@ import path from "node:path";
 import type { StaveLocalMcpManifest } from "../../src/lib/local-mcp";
 
 export const STAVE_LOCAL_MCP_SERVER_NAME = "stave-local-mcp";
+export const STAVE_UNATTENDED_AUTOMATION_QUERY_PARAM =
+  "staveUnattendedAutomation";
+
+export function withUnattendedAutomationAuthorization(args: {
+  url: string;
+  authorizationToken?: string;
+}) {
+  const authorizationToken = args.authorizationToken?.trim();
+  if (!authorizationToken) {
+    return args.url;
+  }
+  const url = new URL(args.url);
+  url.searchParams.set(
+    STAVE_UNATTENDED_AUTOMATION_QUERY_PARAM,
+    authorizationToken,
+  );
+  return url.toString();
+}
 
 export function getPrimaryStaveLocalMcpManifestPath() {
   return path.join(homedir(), ".stave", "local-mcp.json");
@@ -11,7 +29,10 @@ export function getPrimaryStaveLocalMcpManifestPath() {
 
 export async function readPrimaryStaveLocalMcpManifest() {
   try {
-    const raw = await fs.readFile(getPrimaryStaveLocalMcpManifestPath(), "utf8");
+    const raw = await fs.readFile(
+      getPrimaryStaveLocalMcpManifestPath(),
+      "utf8",
+    );
     return JSON.parse(raw) as StaveLocalMcpManifest;
   } catch {
     return null;
@@ -27,17 +48,25 @@ export function readPrimaryStaveLocalMcpManifestSync() {
   }
 }
 
-export function toClaudeSdkMcpServerConfig(manifest: StaveLocalMcpManifest) {
+export function toClaudeSdkMcpServerConfig(
+  manifest: StaveLocalMcpManifest,
+  options?: { unattendedAutomationAuthorizationToken?: string },
+) {
   return {
     type: "http" as const,
-    url: manifest.url,
+    url: withUnattendedAutomationAuthorization({
+      url: manifest.url,
+      authorizationToken: options?.unattendedAutomationAuthorizationToken,
+    }),
     headers: {
       Authorization: `Bearer ${manifest.token}`,
     },
   };
 }
 
-export function toClaudeCodeSettingsMcpServerEntry(manifest: StaveLocalMcpManifest) {
+export function toClaudeCodeSettingsMcpServerEntry(
+  manifest: StaveLocalMcpManifest,
+) {
   return {
     transport: toClaudeSdkMcpServerConfig(manifest),
   };

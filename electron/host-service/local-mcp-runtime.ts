@@ -1979,6 +1979,9 @@ export async function runTask(args: {
   title?: string;
   provider?: ProviderId;
   runtimeOptions?: ProviderRuntimeOptions;
+  unattendedAutomation?: {
+    authorizationToken: string;
+  };
   informationReferences?: WorkspaceInformationReference[];
   controlMode?: TaskControlMode;
   controlOwner?: TaskControlOwner;
@@ -2212,6 +2215,9 @@ export async function runTask(args: {
       taskId: task.id,
       workspaceId: args.workspaceId,
       cwd: workspacePath,
+      ...(args.unattendedAutomation
+        ? { unattendedAutomation: args.unattendedAutomation }
+        : {}),
       runtimeOptions: {
         ...args.runtimeOptions,
         model,

@@ -33,8 +33,10 @@ interface PendingRequest {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
-const HOST_SERVICE_STDOUT_BUFFER_MAX_BYTES = HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES;
-const HOST_SERVICE_STDOUT_MESSAGE_MAX_BYTES = HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES;
+const HOST_SERVICE_STDOUT_BUFFER_MAX_BYTES =
+  HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES;
+const HOST_SERVICE_STDOUT_MESSAGE_MAX_BYTES =
+  HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES;
 
 export function resolveHostServiceScriptPath(args: {
   moduleUrl: string;
@@ -90,6 +92,8 @@ class HostServiceClient {
     (event: AnyHostServiceEventEnvelope) => void
   >();
 
+  private disconnectListeners = new Set<() => void>();
+
   private getScriptPath() {
     return resolveHostServiceScriptPath({ moduleUrl: import.meta.url });
   }
@@ -120,6 +124,9 @@ class HostServiceClient {
       this.settlePending(pending, () => pending.reject(args.error));
     }
     this.pending.clear();
+    for (const listener of this.disconnectListeners) {
+      listener();
+    }
 
     if (activeChild && activeChild.exitCode === null) {
       activeChild.kill();
@@ -371,6 +378,13 @@ class HostServiceClient {
     };
   }
 
+  onDisconnect(listener: () => void) {
+    this.disconnectListeners.add(listener);
+    return () => {
+      this.disconnectListeners.delete(listener);
+    };
+  }
+
   async stop() {
     const child = this.child;
     if (!child || child.exitCode !== null) {
@@ -426,4 +440,8 @@ export function onHostServiceEvent<TEvent extends keyof HostServiceEventMap>(
       listener(event.payload as HostServiceEventMap[TEvent]);
     }
   });
+}
+
+export function onHostServiceDisconnect(listener: () => void) {
+  return hostServiceClient.onDisconnect(listener);
 }
