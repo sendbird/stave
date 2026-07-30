@@ -56,7 +56,6 @@ import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
 import {
   inferProviderIdFromModel,
   normalizeModelSelection,
-  providerSupportsMidTurnSteering,
 } from "@/lib/providers/model-catalog";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
@@ -72,7 +71,6 @@ import {
 } from "@/lib/source-control-review";
 import {
   buildSuggestTaskNamePayload,
-  getRespondingProviderId,
   isTaskManaged,
   normalizeSuggestedTaskTitle,
   shouldSuggestTaskName,
@@ -115,6 +113,7 @@ import {
   buildPendingProviderTurnState,
   buildSteeredUserMessageState,
   buildRecentTimestamp,
+  resolveMidTurnSteeringContext,
 } from "@/store/chat-state-helpers";
 import {
   createProviderTurnEventController,
@@ -1979,26 +1978,12 @@ export const useAppStore = create<AppState>()(
           return { status: "blocked" } satisfies SendUserMessageResult;
         }
         if (activeTurnId && !activeTurnStalled && submitIntent === "steer") {
-          // The task provider may already be configured for the next turn.
-          // Keep this steer bound to the runtime that owns the active turn.
-          const activeTurnActivity =
-            state.providerTurnActivityByTask[resolvedTaskId];
-          const activeTurnProvider =
-            activeTurnActivity?.turnId === activeTurnId
-              ? activeTurnActivity.providerId
-              : getRespondingProviderId({
-                  fallbackProviderId: provider,
-                  messages: existingHistory,
-                });
           // Mid-turn steering: an explicit user choice (Enter, mirroring
           // Codex CLI), not a priority/fallback pair with queueing (Tab).
           // Every eligibility gate below is a hard requirement — if any
           // fails, this returns `steer-unavailable` immediately and does
           // NOT fall through to the queue path. The caller decides what to
           // do with that (e.g. tell the user to press Tab to queue).
-          const noAttachments =
-            (promptDraft.attachments?.length ?? 0) === 0 &&
-            (promptDraft.attachedFilePaths?.length ?? 0) === 0;
           const steerTurn = window.api?.provider?.steerTurn;
           if (!steerTurn) {
             return {
@@ -2008,36 +1993,25 @@ export const useAppStore = create<AppState>()(
               message: "Mid-turn steering is not available in this build.",
             } satisfies SendUserMessageResult;
           }
-          if (!noAttachments) {
+          const steeringContext = resolveMidTurnSteeringContext({
+            activeTurnId,
+            activity: state.providerTurnActivityByTask[resolvedTaskId],
+            fallbackProviderId: provider,
+            messages: existingHistory,
+            hasAttachments:
+              (promptDraft.attachments?.length ?? 0) > 0 ||
+              (promptDraft.attachedFilePaths?.length ?? 0) > 0,
+            isActiveWorkspace: taskWorkspaceId === get().activeWorkspaceId,
+          });
+          if (steeringContext.unavailableMessage) {
             return {
               status: "steer-unavailable",
               taskId: resolvedTaskId,
               workspaceId: taskWorkspaceId,
-              message:
-                "Attachments can't be steered into a live turn — press Tab to queue instead.",
+              message: steeringContext.unavailableMessage,
             } satisfies SendUserMessageResult;
           }
-          if (
-            !providerSupportsMidTurnSteering({
-              providerId: activeTurnProvider,
-            })
-          ) {
-            return {
-              status: "steer-unavailable",
-              taskId: resolvedTaskId,
-              workspaceId: taskWorkspaceId,
-              message: `${activeTurnProvider} does not support mid-turn steering.`,
-            } satisfies SendUserMessageResult;
-          }
-          if (taskWorkspaceId !== get().activeWorkspaceId) {
-            return {
-              status: "steer-unavailable",
-              taskId: resolvedTaskId,
-              workspaceId: taskWorkspaceId,
-              message:
-                "Switch to this task's workspace to steer its active turn.",
-            } satisfies SendUserMessageResult;
-          }
+          const activeTurnProvider = steeringContext.providerId;
           const clientMessageId = crypto.randomUUID();
           const steerResult = await submitSteerWithDeadline({
             send: steerTurn,
