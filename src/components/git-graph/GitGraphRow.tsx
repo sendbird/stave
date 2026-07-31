@@ -56,7 +56,7 @@ export const GitGraphRow = React.memo(function GitGraphRow({
       role="row"
       aria-selected={isSelected}
       className={cn(
-        "flex items-center gap-1.5 px-2 text-xs cursor-pointer select-none",
+        "flex items-center gap-1.5 px-2 text-xs cursor-pointer select-none overflow-hidden",
         "hover:bg-accent/50 transition-colors",
         isSelected && "bg-accent text-accent-foreground",
       )}
@@ -67,22 +67,22 @@ export const GitGraphRow = React.memo(function GitGraphRow({
       {/* Left spacer to clear the SVG lane column */}
       <div style={{ width: spacerWidth, flexShrink: 0 }} aria-hidden="true" />
 
-      {/* Subject — grows to fill space */}
+      {/* Subject — grows to fill leftover space, yields to ref badges first */}
       <span
-        className="flex-1 truncate font-medium text-foreground min-w-0"
+        className="flex-1 truncate font-medium text-foreground min-w-[6rem]"
         title={commit.subject}
       >
         {commit.subject}
       </span>
 
-      {/* Ref badges */}
+      {/* Ref badges — sized to their full name; only shrink when the row runs out of room */}
       {commit.refs.length > 0 && (
-        <div className="flex items-center gap-1 shrink-0 max-w-[40%] overflow-hidden">
+        <div className="flex items-center gap-1 min-w-0 overflow-hidden">
           {commit.refs.map((ref) => (
             <Badge
               key={`${ref.type}:${ref.name}`}
               variant={REF_VARIANT_MAP[ref.type] ?? "outline"}
-              className="cursor-pointer text-[10px] h-4 px-1.5 max-w-[120px] truncate"
+              className="cursor-pointer text-[10px] h-4 px-1.5 min-w-0 shrink"
               title={ref.name}
               onClick={(e) => e.stopPropagation()}
               onContextMenu={(e) => {
@@ -90,7 +90,9 @@ export const GitGraphRow = React.memo(function GitGraphRow({
                 onRefContextMenu(e, commit.hash, ref);
               }}
             >
-              {ref.name}
+              {/* Inner span keeps text-overflow working — the badge itself is a
+                  flex container, where `text-ellipsis` has no effect. */}
+              <span className="min-w-0 truncate">{ref.name}</span>
             </Badge>
           ))}
         </div>
