@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import { parseGraphLog } from "../../src/lib/git-graph/graph-log";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
 import type { PrMergeMethod } from "../../src/lib/pr-status";
+import type { DetachedCheckoutResult } from "../main/types";
 import { buildSourceControlDiffPreview, resolveSourceControlDiffPaths } from "../../src/lib/source-control-diff";
 import { hasConflictItems, parseStatusLines, resolveCommandCwd, runCommandArgs } from "../main/utils/command";
 import { resolveRootFilePath } from "../main/utils/filesystem";
@@ -710,6 +711,135 @@ export async function pullScmBranch(args: { cwd?: string; branch?: string }) {
     commandArgs: ["pull", "--ff-only"],
     cwd: args.cwd,
   });
+}
+
+export type ScmCommandRunner = typeof runCommandArgs;
+
+const ORIGIN_DEFAULT_BRANCH_CANDIDATES = ["main", "master"] as const;
+
+/**
+ * Resolve the remote default branch ref, preferring `origin/main` and falling back to `origin/master`.
+ * Assumes `git fetch` already ran, so it only inspects local remote-tracking refs.
+ */
+export async function resolveOriginDefaultRef(args: { cwd?: string; runCommand?: ScmCommandRunner }) {
+  const runCommand = args.runCommand ?? runCommandArgs;
+  const failures: string[] = [];
+
+  for (const candidate of ORIGIN_DEFAULT_BRANCH_CANDIDATES) {
+    const result = await runCommand({
+      command: "git",
+      commandArgs: ["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${candidate}`],
+      cwd: args.cwd,
+    });
+    if (result.ok) {
+      return { ok: true, ref: `origin/${candidate}`, stderr: "" };
+    }
+    if (result.stderr) {
+      failures.push(result.stderr);
+    }
+  }
+
+  return {
+    ok: false,
+    ref: "",
+    stderr: [`Neither "origin/main" nor "origin/master" is available.`, ...failures].join("\n").trim(),
+  };
+}
+
+/**
+ * Fetch `origin` and detach HEAD onto its default branch without creating or moving a local branch.
+ * Refuses to run while the working tree is dirty so uncommitted work is never carried onto a detached HEAD.
+ */
+export async function checkoutDefaultBranchDetached(args: {
+  cwd?: string;
+  runCommand?: ScmCommandRunner;
+}): Promise<DetachedCheckoutResult> {
+  const runCommand = args.runCommand ?? runCommandArgs;
+
+  const fetchResult = await runCommand({
+    command: "git",
+    commandArgs: ["fetch", "origin", "--prune"],
+    cwd: args.cwd,
+  });
+  if (!fetchResult.ok) {
+    return {
+      ok: false,
+      code: fetchResult.code,
+      stdout: fetchResult.stdout,
+      stderr: fetchResult.stderr || "git fetch origin --prune failed.",
+      ref: "",
+      head: "",
+    };
+  }
+
+  const refResult = await resolveOriginDefaultRef({ cwd: args.cwd, runCommand });
+  if (!refResult.ok) {
+    return {
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: refResult.stderr,
+      ref: "",
+      head: "",
+    };
+  }
+
+  const statusResult = await runCommand({
+    command: "git",
+    commandArgs: GIT_STATUS_PORCELAIN_ALL_UNTRACKED_ARGS,
+    cwd: args.cwd,
+  });
+  if (!statusResult.ok) {
+    return {
+      ok: false,
+      code: statusResult.code,
+      stdout: statusResult.stdout,
+      stderr: statusResult.stderr || "Failed to inspect the working tree.",
+      ref: refResult.ref,
+      head: "",
+    };
+  }
+  if (statusResult.stdout.trim()) {
+    return {
+      ok: false,
+      code: -1,
+      stdout: statusResult.stdout,
+      stderr: `Cannot detach onto ${refResult.ref} while the working tree has uncommitted changes.`,
+      ref: refResult.ref,
+      head: "",
+    };
+  }
+
+  const checkoutResult = await runCommand({
+    command: "git",
+    commandArgs: ["checkout", "--detach", refResult.ref],
+    cwd: args.cwd,
+  });
+  if (!checkoutResult.ok) {
+    return {
+      ok: false,
+      code: checkoutResult.code,
+      stdout: checkoutResult.stdout,
+      stderr: checkoutResult.stderr || `git checkout --detach ${refResult.ref} failed.`,
+      ref: refResult.ref,
+      head: "",
+    };
+  }
+
+  const headResult = await runCommand({
+    command: "git",
+    commandArgs: ["rev-parse", "--short", "HEAD"],
+    cwd: args.cwd,
+  });
+
+  return {
+    ok: true,
+    code: 0,
+    stdout: checkoutResult.stdout,
+    stderr: checkoutResult.stderr,
+    ref: refResult.ref,
+    head: headResult.ok ? headResult.stdout.trim() : "",
+  };
 }
 
 function runScmBranchCommand(args: {

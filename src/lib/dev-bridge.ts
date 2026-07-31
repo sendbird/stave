@@ -184,6 +184,11 @@ export function installDevApiBridge() {
         postJson({ path: "/api/scm/branch-create", body: args }),
       checkoutBranch: (args: { name: string; cwd?: string }) =>
         postJson({ path: "/api/scm/branch-checkout", body: args }),
+      checkoutDefaultBranchDetached: (args: { cwd?: string }) =>
+        postJson({
+          path: "/api/scm/branch-checkout-default-detached",
+          body: args,
+        }),
       mergeBranch: (args: { branch: string; cwd?: string }) =>
         postJson({ path: "/api/scm/branch-merge", body: args }),
       rebaseBranch: (args: { branch: string; cwd?: string }) =>

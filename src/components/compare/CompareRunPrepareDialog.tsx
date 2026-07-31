@@ -30,6 +30,7 @@ import {
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import { resolveModelEffortFromSettings } from "@/lib/providers/model-effort";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
+import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { useAppStore } from "@/store/app.store";
 
 const COMPARE_PROVIDER_IDS = listProviderIds();
@@ -110,7 +111,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
     }),
   }));
   const baseBranch =
-    workspaceBranchById[activeWorkspaceId] ||
+    formatBranchLabel(workspaceBranchById[activeWorkspaceId]) ||
     workspace?.name ||
     "Current branch";
   const reviewCriteria = normalizeCompareReviewCriteria(

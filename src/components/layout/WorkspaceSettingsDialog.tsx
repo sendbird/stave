@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { ScriptsManager } from "@/components/scripts";
@@ -103,7 +104,7 @@ export function WorkspaceSettingsContent(props: {
             {props.workspaceName}
           </span>
           {props.branch ? (
-            <Badge variant="secondary">{props.branch}</Badge>
+            <Badge variant="secondary">{formatBranchLabel(props.branch)}</Badge>
           ) : null}
         </div>
         <p className="break-all pt-1 text-xs text-muted-foreground">
