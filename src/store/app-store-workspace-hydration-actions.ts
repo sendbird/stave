@@ -73,8 +73,9 @@ import type { ChatMessage } from "@/types/chat";
 function getRetainedLoadedMessageTaskIds(args: {
   activeTaskId: string;
   activeTurnIdsByTask: Record<string, string | undefined>;
+  openTaskTabIds: string[];
 }) {
-  const retained = new Set<string>();
+  const retained = new Set(args.openTaskTabIds);
   if (args.activeTaskId) {
     retained.add(args.activeTaskId);
   }
@@ -90,10 +91,12 @@ function compactLoadedMessagesByTask(args: {
   messagesByTask: Record<string, ChatMessage[]>;
   activeTaskId: string;
   activeTurnIdsByTask: Record<string, string | undefined>;
+  openTaskTabIds: string[];
 }) {
   const retained = getRetainedLoadedMessageTaskIds({
     activeTaskId: args.activeTaskId,
     activeTurnIdsByTask: args.activeTurnIdsByTask,
+    openTaskTabIds: args.openTaskTabIds,
   });
   let changed = false;
   const nextEntries = Object.entries(args.messagesByTask).filter(([taskId]) => {
@@ -1202,6 +1205,7 @@ export function createWorkspaceHydrationActions(args: {
           messagesByTask: current.messagesByTask,
           activeTaskId: current.activeTaskId,
           activeTurnIdsByTask: current.activeTurnIdsByTask,
+          openTaskTabIds: current.openTaskTabIds,
         });
         if (compactedMessagesByTask === current.messagesByTask) {
           return current;

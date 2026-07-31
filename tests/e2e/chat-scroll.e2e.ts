@@ -458,6 +458,41 @@ test("inactive tabs use a borderless tint hover and compact top-bar controls sta
   ).toBeLessThanOrEqual(0.5);
 });
 
+test("split task panes keep both conversations visible across focus changes", async ({
+  page,
+}) => {
+  await installChatScrollHarness(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const betaTaskTab = page
+    .locator('[data-pane-tab-chip="task:task-beta"]')
+    .filter({ hasText: "Beta Task" });
+  await betaTaskTab.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Split Right" }).click();
+
+  const alphaScrollContainer = page.getByTestId(
+    "conversation-scroll-task-alpha",
+  );
+  const betaScrollContainer = page.getByTestId(
+    "conversation-scroll-task-beta",
+  );
+  await expect(alphaScrollContainer).toBeVisible();
+  await expect(betaScrollContainer).toBeVisible();
+  await expectLatestMessageAtBottom(page, "task-alpha", 36);
+  await expectLatestMessageAtBottom(page, "task-beta", 44);
+
+  await betaScrollContainer.click({ position: { x: 12, y: 12 } });
+  await page.waitForTimeout(1_500);
+  await expectLatestMessageAtBottom(page, "task-alpha", 36);
+  await expectLatestMessageAtBottom(page, "task-beta", 44);
+
+  await alphaScrollContainer.click({ position: { x: 12, y: 12 } });
+  await page.waitForTimeout(1_500);
+  await expectLatestMessageAtBottom(page, "task-alpha", 36);
+  await expectLatestMessageAtBottom(page, "task-beta", 44);
+});
+
 test("task, workspace, and panel changes preserve reading position while explicit latest intent restores bottom", async ({
   page,
 }) => {
