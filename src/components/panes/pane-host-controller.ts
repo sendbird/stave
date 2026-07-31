@@ -4,6 +4,7 @@ import {
   presentLensSessionInWorkspace,
   type LensSessionPresentationOptions,
 } from "@/lib/lens/lens-session-presentation";
+import { gitGraphTabId } from "@/store/app-store-editor-actions";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -104,6 +105,22 @@ export function focusOrCreateLensSurface(): string | null {
   }
   paneHost.openSurface({ kind: "lens", lensSessionId });
   return lensSessionId;
+}
+
+/**
+ * Focus the per-workspace Git Graph pane, creating its editor tab when none
+ * exists yet. Mirrors `focusOrCreateLensSurface`: the store action alone only
+ * updates `activeEditorTabId`, which does not reveal the Dockview panel when
+ * another surface (task/terminal/lens) is currently active, so this always
+ * follows up with an explicit `paneHost.openSurface` call.
+ */
+export function focusOrCreateGitGraphSurface(): void {
+  const store = useAppStore.getState();
+  store.openGitGraph();
+  paneHost.openSurface({
+    kind: "editor",
+    editorTabId: gitGraphTabId(store.activeWorkspaceId),
+  });
 }
 
 export async function presentLensSession(

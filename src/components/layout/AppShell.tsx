@@ -19,6 +19,7 @@ import {
 import { PresetBar } from "@/components/layout/PresetBar";
 import { WorkspacePaneHost } from "@/components/panes/WorkspacePaneHost";
 import {
+  focusOrCreateGitGraphSurface,
   focusOrCreateLensSurface,
   paneHost,
 } from "@/components/panes/pane-host-controller";
@@ -1072,7 +1073,7 @@ export function AppShell() {
           await window.api?.shell?.openInVSCode?.({ path });
         },
         openFleetView: () => openFleetView(),
-        openGitGraph: () => useAppStore.getState().openGitGraph(),
+        openGitGraph: focusOrCreateGitGraphSurface,
         openAutomationCenter: () => openAutomationCenter(),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
         openProject: (nextProjectPath: string) =>

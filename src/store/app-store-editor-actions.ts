@@ -22,6 +22,11 @@ const EMPTY_PROMPT_DRAFT: PromptDraft = {
   attachments: [],
 };
 
+/** Deterministic editor-tab id for the per-workspace Git Graph panel. */
+export function gitGraphTabId(workspaceId: string): string {
+  return `git-graph:${workspaceId}`;
+}
+
 type EditorActionName =
   | "resolveDiff"
   | "openDiffInEditor"
@@ -291,7 +296,7 @@ export function createEditorActions(args: {
     openGitGraph: () => {
       set((state) => {
         const workspaceId = state.activeWorkspaceId;
-        const tabId = `git-graph:${workspaceId}`;
+        const tabId = gitGraphTabId(workspaceId);
         const existing = state.editorTabs.find((tab) => tab.id === tabId);
         if (existing) {
           return {

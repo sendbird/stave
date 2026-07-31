@@ -66,7 +66,6 @@ function SvgLayer({
   // Group path strings by color for batched <path> elements.
   const pathsByColor = React.useMemo(() => {
     const map = new Map<string, string[]>();
-    const bottomY = totalRows * ROW_HEIGHT;
 
     for (const edge of edges) {
       const parentNode = nodeByHash.get(edge.toHash);
@@ -84,7 +83,7 @@ function SvgLayer({
             fromLane: edge.fromLane,
             fromRow: edge.fromRow,
             travelLane: edge.toLane,
-            bottomY,
+            bottomY: svgHeight,
             laneWidth: LANE_WIDTH,
             rowHeight: ROW_HEIGHT,
           });
@@ -98,7 +97,7 @@ function SvgLayer({
     }
 
     return map;
-  }, [edges, nodeByHash, totalRows]);
+  }, [edges, nodeByHash, svgHeight]);
 
   const NODE_RADIUS = 4;
 
@@ -215,7 +214,7 @@ export function GitGraphCanvas({
         nodes={layout.nodes}
         nodeByHash={nodeByHash}
         commitByHash={commitByHash}
-        laneCount={Math.max(layout.laneCount, 1)}
+        laneCount={layout.laneCount}
         totalRows={totalRows}
       />
 
