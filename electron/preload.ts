@@ -686,30 +686,11 @@ ipcRenderer.on(
 ipcRenderer.on(
   "lens:console-entry",
   (_event, payload: BrowserConsoleEventPayload) => {
+    if (lensConsoleEventSubscribers.size === 0) {
+      return;
+    }
     for (const subscriber of lensConsoleEventSubscribers) {
       subscriber(payload);
-    }
-
-    const prefix = `[Lens:${payload.workspaceId}]`;
-    const message = payload.entry.source
-      ? `${prefix} ${payload.entry.text} (${payload.entry.source})`
-      : `${prefix} ${payload.entry.text}`;
-    switch (payload.entry.level) {
-      case "debug":
-        console.debug(message);
-        break;
-      case "info":
-        console.info(message);
-        break;
-      case "warn":
-        console.warn(message);
-        break;
-      case "error":
-        console.error(message);
-        break;
-      default:
-        console.log(message);
-        break;
     }
   },
 );

@@ -43,10 +43,19 @@ import {
   sanitizeLensNetworkUrl,
 } from "../../../src/lib/lens/lens-network";
 import {
+  LensConsoleRateLimiter,
+  truncateLensConsoleEntry,
+} from "../../../src/lib/lens/lens-console";
+import {
   clearLensCdpDiagnostics,
+  disposeLensCdpDiagnostics,
   getLensCdpDiagnosticsState,
-  stopLensCdpDiagnostics,
 } from "./browser-cdp-diagnostics";
+import {
+  closeRetainedBrowserView,
+  retainBrowserViewUntilDestroyed,
+} from "./browser-closing-view";
+import { isLiveBrowserSessionForWebContents } from "./browser-session-identity";
 
 export { DEFAULT_LENS_SESSION_ID };
 
@@ -112,6 +121,7 @@ export interface BrowserSessionState {
   webContentsId: number;
   authPopups: Set<BrowserWindow>;
   consoleLog: RingBuffer<BrowserConsoleEntry>;
+  consoleRateLimiter: LensConsoleRateLimiter;
   networkLog: RingBuffer<BrowserNetworkEntry>;
   downloadLog: RingBuffer<LensDownloadEntry>;
   annotationOverlayActive: boolean;
@@ -126,6 +136,10 @@ export interface BrowserSessionState {
   managedByMcp: boolean;
   /** Whether the native view is currently presented in a renderer Lens tab. */
   visible: boolean;
+  /** Prevents new work from entering while native teardown is in progress. */
+  closing: boolean;
+  /** Stops guest events before closing the WebContents. */
+  detachEventListeners: (() => void) | null;
   /** Monotonic activation order used to prefer the most recently shown tab. */
   lastVisibleAt: number;
   navigationState: BrowserNavigationState;
@@ -138,6 +152,7 @@ export interface BrowserSessionState {
 const CONSOLE_BUFFER_SIZE = 200;
 const NETWORK_BUFFER_SIZE = 200;
 const DOWNLOAD_BUFFER_SIZE = 200;
+const MAX_LENS_AUTH_POPUPS = 3;
 let lensVisibilitySequence = 0;
 
 /** Registry keyed by sessionKey(workspaceId, lensSessionId). */
@@ -171,6 +186,14 @@ function normalizeLensSessionId(lensSessionId?: string | null): string {
   return trimmed ? trimmed : DEFAULT_LENS_SESSION_ID;
 }
 
+function isCurrentBrowserSession(session: BrowserSessionState): boolean {
+  return (
+    sessions.get(sessionKey(session.workspaceId, session.lensSessionId)) ===
+      session &&
+    isLiveBrowserSessionForWebContents(session, session.webContentsId)
+  );
+}
+
 function getSessionForWebContentsId(
   webContentsId: number,
 ): BrowserSessionState | undefined {
@@ -190,9 +213,9 @@ function findFirstSessionForPartition(
 
 /**
  * Resolve the session that should receive partition-scoped traffic for the
- * given webContents id, falling back to the first live session on the
- * partition (matches the legacy single-session behavior for traffic that
- * carries no webContents attribution, e.g. service workers).
+ * given webContents id. Only unattributed traffic may fall back to the first
+ * live session on the partition (for example, service workers); attributed
+ * traffic from a destroyed view must never be reassigned to a replacement.
  */
 function resolvePartitionTrafficTarget(
   partition: string,
@@ -200,9 +223,7 @@ function resolvePartitionTrafficTarget(
 ): BrowserSessionState | undefined {
   if (webContentsId !== undefined && webContentsId >= 0) {
     const owner = getSessionForWebContentsId(webContentsId);
-    if (owner) {
-      return owner;
-    }
+    return owner && isCurrentBrowserSession(owner) ? owner : undefined;
   }
   return findFirstSessionForPartition(partition);
 }
@@ -308,7 +329,32 @@ function openLensAuthPopup(args: {
   url: string;
   workspaceId: string;
   lensSessionId: string;
+  ownerWebContentsId: number;
 }): void {
+  const ownerSession = sessions.get(
+    sessionKey(args.workspaceId, args.lensSessionId),
+  );
+  if (
+    !ownerSession ||
+    ownerSession.webContentsId !== args.ownerWebContentsId ||
+    !isCurrentBrowserSession(ownerSession)
+  ) {
+    return;
+  }
+  if (ownerSession.authPopups.size >= MAX_LENS_AUTH_POPUPS) {
+    pushGuestConsoleEntry(
+      args.workspaceId,
+      {
+        level: "warn",
+        text: "Lens blocked an excessive page popup request.",
+        timestamp: new Date().toISOString(),
+        source: args.url,
+      },
+      args.lensSessionId,
+    );
+    return;
+  }
+
   if (!isHttpOrHttpsUrl(args.url)) {
     void openExternalWithFallback({ url: args.url });
     return;
@@ -317,7 +363,7 @@ function openLensAuthPopup(args: {
   try {
     assertNavigationAllowed(args.url);
   } catch (err) {
-    pushConsoleEntry(
+    pushGuestConsoleEntry(
       args.workspaceId,
       {
         level: "warn",
@@ -347,22 +393,26 @@ function openLensAuthPopup(args: {
     },
   });
 
-  const session = sessions.get(
-    sessionKey(args.workspaceId, args.lensSessionId),
-  );
-  const popupWebContentsId = popup.webContents.id;
-  if (session) {
-    session.authPopups.add(popup);
-    webContentsSessionIndex.set(popupWebContentsId, session);
+  const session = ownerSession;
+  if (!isCurrentBrowserSession(session)) {
+    popup.destroy();
+    return;
   }
+  const popupWebContentsId = popup.webContents.id;
+  session.authPopups.add(popup);
+  webContentsSessionIndex.set(popupWebContentsId, session);
   popup.on("closed", () => {
-    session?.authPopups.delete(popup);
+    session.authPopups.delete(popup);
     if (webContentsSessionIndex.get(popupWebContentsId) === session) {
       webContentsSessionIndex.delete(popupWebContentsId);
     }
   });
 
   popup.webContents.on("will-navigate", (event, targetUrl) => {
+    if (!isCurrentBrowserSession(session)) {
+      event.preventDefault();
+      return;
+    }
     if (!isHttpOrHttpsUrl(targetUrl)) {
       event.preventDefault();
       void openExternalWithFallback({ url: targetUrl });
@@ -373,7 +423,7 @@ function openLensAuthPopup(args: {
       assertNavigationAllowed(targetUrl);
     } catch (err) {
       event.preventDefault();
-      pushConsoleEntry(
+      pushGuestConsoleEntry(
         args.workspaceId,
         {
           level: "warn",
@@ -390,25 +440,35 @@ function openLensAuthPopup(args: {
 
   popup.webContents.on("did-stop-loading", () => {
     setTimeout(() => {
-      if (popup.isDestroyed()) {
+      if (popup.isDestroyed() || !isCurrentBrowserSession(session)) {
         return;
       }
       void fillLensCredentialForWebContents(popup.webContents, {
         autoFillOnly: true,
       }).catch((error) => {
-        pushConsoleEntry(args.workspaceId, {
-          level: "warn",
-          text: `Saved Lens account fill failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-          timestamp: new Date().toISOString(),
-          source: popup.webContents.getURL(),
-        });
+        if (popup.isDestroyed() || !isCurrentBrowserSession(session)) {
+          return;
+        }
+        pushConsoleEntry(
+          args.workspaceId,
+          {
+            level: "warn",
+            text: `Saved Lens account fill failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            timestamp: new Date().toISOString(),
+            source: popup.webContents.getURL(),
+          },
+          args.lensSessionId,
+        );
       });
     }, 300);
   });
 
   popup.webContents.setWindowOpenHandler(({ url }) => {
+    if (!isCurrentBrowserSession(session)) {
+      return { action: "deny" };
+    }
     if (!isHttpOrHttpsUrl(url)) {
       void openExternalWithFallback({ url });
       return { action: "deny" };
@@ -417,7 +477,7 @@ function openLensAuthPopup(args: {
     try {
       assertNavigationAllowed(url);
     } catch (err) {
-      pushConsoleEntry(
+      pushGuestConsoleEntry(
         args.workspaceId,
         {
           level: "warn",
@@ -430,21 +490,23 @@ function openLensAuthPopup(args: {
       return { action: "deny" };
     }
 
-    void popup.webContents.loadURL(url);
+    void popup.webContents.loadURL(url).catch(() => undefined);
     return { action: "deny" };
   });
 
   void popup.webContents.loadURL(args.url).catch((err) => {
-    pushConsoleEntry(
-      args.workspaceId,
-      {
-        level: "error",
-        text: `Lens popup failed: ${err instanceof Error ? err.message : String(err)}`,
-        timestamp: new Date().toISOString(),
-        source: args.url,
-      },
-      args.lensSessionId,
-    );
+    if (isCurrentBrowserSession(session)) {
+      pushGuestConsoleEntry(
+        args.workspaceId,
+        {
+          level: "error",
+          text: `Lens popup failed: ${err instanceof Error ? err.message : String(err)}`,
+          timestamp: new Date().toISOString(),
+          source: args.url,
+        },
+        args.lensSessionId,
+      );
+    }
     if (!popup.isDestroyed()) {
       popup.close();
     }
@@ -487,6 +549,7 @@ function registerPartitionNetworkDispatch(
   );
 
   ses.webRequest.onCompleted({ urls: ["<all_urls>"] }, (details) => {
+    const requestMetadata = takeNetworkRequest(partition, details.id);
     const target = resolvePartitionTrafficTarget(
       partition,
       details.webContentsId,
@@ -494,7 +557,6 @@ function registerPartitionNetworkDispatch(
     if (!target) {
       return;
     }
-    const requestMetadata = takeNetworkRequest(partition, details.id);
     if (getLensCdpDiagnosticsState(target.webContentsId).enabled) {
       return;
     }
@@ -529,6 +591,7 @@ function registerPartitionNetworkDispatch(
   });
 
   ses.webRequest.onErrorOccurred({ urls: ["<all_urls>"] }, (details) => {
+    const requestMetadata = takeNetworkRequest(partition, details.id);
     const target = resolvePartitionTrafficTarget(
       partition,
       details.webContentsId,
@@ -536,7 +599,6 @@ function registerPartitionNetworkDispatch(
     if (!target) {
       return;
     }
-    const requestMetadata = takeNetworkRequest(partition, details.id);
     if (getLensCdpDiagnosticsState(target.webContentsId).enabled) {
       return;
     }
@@ -580,7 +642,9 @@ function ensurePartitionDownloadDispatch(
       workspaceId: target.workspaceId,
       lensSessionId: target.lensSessionId,
       onEntry: (entry) => {
-        target.downloadLog.push(entry);
+        if (isCurrentBrowserSession(target)) {
+          target.downloadLog.push(entry);
+        }
       },
     };
   });
@@ -645,6 +709,10 @@ export function createBrowserSession(
 
   // Keep app DevTools shortcuts working while the native browser view holds focus.
   view.webContents.on("before-input-event", (event, input) => {
+    const owner = getSessionForWebContentsId(view.webContents.id);
+    if (!owner || !isCurrentBrowserSession(owner)) {
+      return;
+    }
     if (isVisualCommentShortcutCandidate(input)) {
       const renderer = getMainWindow()?.webContents;
       if (renderer && !renderer.isDestroyed()) {
@@ -697,6 +765,7 @@ export function createBrowserSession(
       url,
       workspaceId,
       lensSessionId,
+      ownerWebContentsId: view.webContents.id,
     });
     return { action: "deny" as const };
   });
@@ -709,6 +778,7 @@ export function createBrowserSession(
     webContentsId: view.webContents.id,
     authPopups: new Set(),
     consoleLog: new RingBuffer<BrowserConsoleEntry>(CONSOLE_BUFFER_SIZE),
+    consoleRateLimiter: new LensConsoleRateLimiter(),
     networkLog: new RingBuffer<BrowserNetworkEntry>(NETWORK_BUFFER_SIZE),
     downloadLog: new RingBuffer<LensDownloadEntry>(DOWNLOAD_BUFFER_SIZE),
     annotationOverlayActive: false,
@@ -719,6 +789,8 @@ export function createBrowserSession(
     boxInspectActive: false,
     managedByMcp: false,
     visible: false,
+    closing: false,
+    detachEventListeners: null,
     lastVisibleAt: 0,
     navigationState: {
       url: "about:blank",
@@ -893,51 +965,65 @@ export function destroyBrowserSession(
   lensSessionId?: string,
 ): void {
   const session = getBrowserSession(workspaceId, lensSessionId);
-  if (!session) return;
+  if (!session || session.closing) return;
 
-  // The controller owns debugger attachment state. Always clear its capture
-  // and detach before closing the underlying WebContentsView.
-  stopLensCdpDiagnostics(session.webContentsId, true);
+  session.closing = true;
 
-  for (const popup of [...session.authPopups]) {
-    try {
-      if (!popup.isDestroyed()) {
-        webContentsSessionIndex.delete(popup.webContents.id);
-        popup.close();
+  // Keep the JS wrapper alive until native destruction has completed. Some
+  // Electron versions can otherwise collect WebContents from a V8 second-pass
+  // weak callback while its observer notification is still on the stack.
+  try {
+    retainBrowserViewUntilDestroyed(session.view);
+  } catch {
+    // The helper retains before observing destruction, so continuing is safer
+    // than abandoning the rest of teardown if WebContents is already invalid.
+  }
+
+  // Tombstone routing before any teardown work so late console/network events
+  // cannot enqueue more renderer IPC while the view is closing.
+  sessions.delete(sessionKey(session.workspaceId, session.lensSessionId));
+  if (webContentsSessionIndex.get(session.webContentsId) === session) {
+    webContentsSessionIndex.delete(session.webContentsId);
+  }
+  session.detachEventListeners?.();
+  session.detachEventListeners = null;
+
+  session.visible = false;
+  session.lastAppliedBounds = { x: 0, y: 0, width: 0, height: 0 };
+  closeRetainedBrowserView({
+    view: session.view,
+    removeFromParent: () => {
+      const win = getMainWindow();
+      if (win) {
+        win.contentView.removeChildView(session.view);
       }
-    } catch {
-      // Popup may already be closing.
-    }
-  }
-  session.authPopups.clear();
+    },
+    beforeClose: () => {
+      // The target owns its remote objects, so dispose local CDP state without
+      // issuing cleanup commands that would race with WebContents.close().
+      try {
+        disposeLensCdpDiagnostics(session.webContentsId);
+      } catch {
+        // Continue with popup teardown even if debugger state is already stale.
+      }
 
-  // Remove view from window
-  try {
-    const win = getMainWindow();
-    if (win) {
-      win.contentView.removeChildView(session.view);
-    }
-  } catch {
-    // Window may already be destroyed
-  }
-
-  // Close the webContents
-  try {
-    const wc = session.view.webContents;
-    if (wc && !wc.isDestroyed()) {
-      wc.close();
-    }
-  } catch {
-    // Already destroyed
-  }
+      for (const popup of [...session.authPopups]) {
+        try {
+          if (!popup.isDestroyed()) {
+            webContentsSessionIndex.delete(popup.webContents.id);
+            popup.destroy();
+          }
+        } catch {
+          // Popup may already be closing.
+        }
+      }
+      session.authPopups.clear();
+    },
+  });
 
   session.consoleLog.clear();
   session.networkLog.clear();
   session.downloadLog.clear();
-  if (webContentsSessionIndex.get(session.webContentsId) === session) {
-    webContentsSessionIndex.delete(session.webContentsId);
-  }
-  sessions.delete(sessionKey(session.workspaceId, session.lensSessionId));
   releasePartitionHandlersIfUnused(session.sessionProfile.partition);
 }
 
@@ -1025,11 +1111,11 @@ export function pushConsoleEntry(
     return;
   }
 
-  const normalizedEntry: BrowserConsoleEntry = {
+  const normalizedEntry = truncateLensConsoleEntry({
     ...entry,
     id: entry.id ?? randomUUID(),
     captureSource: entry.captureSource ?? "electron",
-  };
+  });
   session.consoleLog.push(normalizedEntry);
 
   const renderer = getMainWindow()?.webContents;
@@ -1042,6 +1128,42 @@ export function pushConsoleEntry(
     lensSessionId: session.lensSessionId,
     entry: normalizedEntry,
   } satisfies BrowserConsoleEventPayload);
+}
+
+/**
+ * Route untrusted guest-page logs through per-session backpressure before
+ * retaining or cloning them across IPC. Internal Lens diagnostics use
+ * pushConsoleEntry directly so a noisy page cannot suppress lifecycle errors.
+ */
+export function pushGuestConsoleEntry(
+  workspaceId: string,
+  entry: Omit<BrowserConsoleEntry, "id"> & { id?: string },
+  lensSessionId?: string,
+): void {
+  const session = getBrowserSession(workspaceId, lensSessionId);
+  if (!session || session.closing) {
+    return;
+  }
+
+  const decision = session.consoleRateLimiter.accept();
+  if (!decision.accepted) {
+    return;
+  }
+
+  if (decision.droppedCount > 0) {
+    pushConsoleEntry(
+      workspaceId,
+      {
+        level: "warn",
+        text: `Lens console dropped ${decision.droppedCount} excessive page log entries.`,
+        timestamp: new Date().toISOString(),
+        source: "lens",
+      },
+      session.lensSessionId,
+    );
+  }
+
+  pushConsoleEntry(workspaceId, entry, session.lensSessionId);
 }
 
 export function pushNetworkEntry(

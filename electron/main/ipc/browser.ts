@@ -905,6 +905,18 @@ export function registerBrowserHandlers() {
         parsed.data.lensSessionId,
       );
       if (!session) return { ok: false, message: "No browser session" };
+      const isCurrentSession = () => {
+        try {
+          return (
+            !session.closing &&
+            !session.view.webContents.isDestroyed() &&
+            getBrowserSession(session.workspaceId, session.lensSessionId) ===
+              session
+          );
+        } catch {
+          return false;
+        }
+      };
       if (!parsed.data.enabled) {
         return {
           ok: true,
@@ -917,15 +929,38 @@ export function registerBrowserHandlers() {
           session.webContentsId,
           "capture full Lens diagnostics",
         );
+        if (!isCurrentSession()) {
+          throw new Error(
+            "Lens browser session closed while CDP access was pending.",
+          );
+        }
         const state = await startLensCdpDiagnostics({
           webContentsId: session.webContentsId,
           workspaceId: session.workspaceId,
           lensSessionId: session.lensSessionId,
           url: session.view.webContents.getURL(),
-          onConsoleEntry: (entry) =>
-            pushConsoleEntry(session.workspaceId, entry, session.lensSessionId),
-          onNetworkEntry: (entry) =>
-            pushNetworkEntry(session.workspaceId, entry, session.lensSessionId),
+          acceptConsoleEntry: () =>
+            isCurrentSession()
+              ? session.consoleRateLimiter.accept()
+              : { accepted: false, droppedCount: 0 },
+          onConsoleEntry: (entry) => {
+            if (isCurrentSession()) {
+              pushConsoleEntry(
+                session.workspaceId,
+                entry,
+                session.lensSessionId,
+              );
+            }
+          },
+          onNetworkEntry: (entry) => {
+            if (isCurrentSession()) {
+              pushNetworkEntry(
+                session.workspaceId,
+                entry,
+                session.lensSessionId,
+              );
+            }
+          },
           shouldIgnoreConsoleText: (text) =>
             text.startsWith(LENS_ANNOTATION_BEACON_MARKER),
         });
