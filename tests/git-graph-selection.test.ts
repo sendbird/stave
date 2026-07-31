@@ -3,6 +3,7 @@ import {
   claimGitGraphRequest,
   reconcileGitGraphSelection,
   releaseGitGraphRequest,
+  resolveGitGraphReloadEffects,
   WORKING_TREE_SELECTION,
   type GitGraphRequestOwner,
   type GitGraphSelection,
@@ -95,6 +96,71 @@ describe("Git Graph selection reconciliation", () => {
         dirtyGraph,
       ),
     ).toBeNull();
+  });
+});
+
+describe("Git Graph reload effects", () => {
+  test("refetches working-tree files whenever that selection survives a reload", () => {
+    const workingTree: GitGraphSelection = { kind: WORKING_TREE_SELECTION };
+
+    expect(
+      resolveGitGraphReloadEffects({
+        previousSelection: workingTree,
+        nextSelection: workingTree,
+      }),
+    ).toEqual({
+      invalidateDetails: false,
+      clearSelectionState: false,
+      refetchWorkingTree: true,
+    });
+    expect(
+      resolveGitGraphReloadEffects({
+        previousSelection: null,
+        nextSelection: workingTree,
+      }),
+    ).toEqual({
+      invalidateDetails: false,
+      clearSelectionState: false,
+      refetchWorkingTree: true,
+    });
+  });
+
+  test("leaves a surviving commit selection untouched", () => {
+    const commit: GitGraphSelection = { kind: "commit", hash: "a".repeat(40) };
+
+    expect(
+      resolveGitGraphReloadEffects({
+        previousSelection: commit,
+        nextSelection: commit,
+      }),
+    ).toEqual({
+      invalidateDetails: false,
+      clearSelectionState: false,
+      refetchWorkingTree: false,
+    });
+  });
+
+  test("clears selection state and invalidates details only when a selection is dropped", () => {
+    expect(
+      resolveGitGraphReloadEffects({
+        previousSelection: { kind: WORKING_TREE_SELECTION },
+        nextSelection: null,
+      }),
+    ).toEqual({
+      invalidateDetails: true,
+      clearSelectionState: true,
+      refetchWorkingTree: false,
+    });
+    expect(
+      resolveGitGraphReloadEffects({
+        previousSelection: null,
+        nextSelection: null,
+      }),
+    ).toEqual({
+      invalidateDetails: false,
+      clearSelectionState: true,
+      refetchWorkingTree: false,
+    });
   });
 });
 

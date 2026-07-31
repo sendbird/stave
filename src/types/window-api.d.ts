@@ -1070,6 +1070,7 @@ interface WindowScriptsApi {
 interface SourceControlStatusItem {
   code: string;
   path: string;
+  oldPath?: string;
   indexStatus?: string;
   workingTreeStatus?: string;
 }

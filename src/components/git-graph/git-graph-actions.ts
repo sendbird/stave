@@ -69,6 +69,7 @@ export async function loadWorkingTree(cwd: string) {
       items: [] as Array<{
         code: string;
         path: string;
+        oldPath?: string;
         indexStatus?: string;
         workingTreeStatus?: string;
       }>,

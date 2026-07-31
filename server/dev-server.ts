@@ -502,7 +502,7 @@ const server = Bun.serve({
     if (url.pathname === "/api/scm/status" && req.method === "POST") {
       const body = await readJson<{ cwd?: string }>(req);
       const [statusResult, branchResult] = await Promise.all([
-        runCommand({ cmd: "git status --porcelain", cwd: body.cwd }),
+        runCommand({ cmd: "git status --porcelain -z", cwd: body.cwd }),
         runCommand({ cmd: "git rev-parse --abbrev-ref HEAD", cwd: body.cwd }),
       ]);
       const items = statusResult.ok

@@ -10,6 +10,7 @@ import {
 import { AlertCircle, GitGraph, LoaderCircle, X } from "lucide-react";
 import { Button, toast } from "@/components/ui";
 import { findGraphCommitMatches } from "@/lib/git-graph/search";
+import { formatSourceControlDiffPath } from "@/lib/source-control-diff";
 import type { GraphFileChange, GraphRef } from "@/lib/git-graph/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
@@ -370,7 +371,13 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
       try {
         const result =
           selection.kind === WORKING_TREE_SELECTION
-            ? await loadWorkingTreeDiff(workspaceCwd, file.path)
+            ? await loadWorkingTreeDiff(
+                workspaceCwd,
+                formatSourceControlDiffPath({
+                  path: file.path,
+                  oldPath: file.oldPath,
+                }),
+              )
             : await loadCommitDiff(
                 workspaceCwd,
                 selection.hash,

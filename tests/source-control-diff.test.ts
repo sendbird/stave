@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildSourceControlDiffPreview,
+  formatSourceControlDiffPath,
   parseUnifiedDiffToBuffers,
   resolveSourceControlDiffPaths,
 } from "../src/lib/source-control-diff";
@@ -22,6 +23,44 @@ describe("resolveSourceControlDiffPaths", () => {
       pathspecs: ["src/app.ts"],
       workingTreePath: "src/app.ts",
     });
+  });
+
+  test("prefers an explicit rename source over delimiter parsing", () => {
+    expect(resolveSourceControlDiffPaths({
+      rawPath: "docs/new name.md",
+      oldPath: "docs/old name.md",
+    })).toEqual({
+      displayPath: "docs/old name.md -> docs/new name.md",
+      headPath: "docs/old name.md",
+      pathspecs: ["docs/old name.md", "docs/new name.md"],
+      workingTreePath: "docs/new name.md",
+    });
+  });
+
+  test("keeps a path containing the rename delimiter intact when a source is explicit", () => {
+    expect(resolveSourceControlDiffPaths({
+      rawPath: "docs/a -> b.md",
+      oldPath: "docs/a -> b.md",
+    })).toEqual({
+      displayPath: "docs/a -> b.md",
+      headPath: "docs/a -> b.md",
+      pathspecs: ["docs/a -> b.md"],
+      workingTreePath: "docs/a -> b.md",
+    });
+  });
+});
+
+describe("formatSourceControlDiffPath", () => {
+  test("composes rename pairs and leaves single paths untouched", () => {
+    expect(formatSourceControlDiffPath({
+      path: "docs/new name.md",
+      oldPath: "docs/old name.md",
+    })).toBe("docs/old name.md -> docs/new name.md");
+    expect(formatSourceControlDiffPath({ path: "src/app.ts" })).toBe("src/app.ts");
+    expect(formatSourceControlDiffPath({
+      path: "src/app.ts",
+      oldPath: "src/app.ts",
+    })).toBe("src/app.ts");
   });
 });
 

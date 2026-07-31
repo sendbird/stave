@@ -147,6 +147,38 @@ export function reconcileGitGraphSelection(
   return null;
 }
 
+export interface GitGraphReloadEffects {
+  /** Abandon any in-flight details request tied to the dropped selection. */
+  invalidateDetails: boolean;
+  /** Clear details, working-tree files, and the details spinner. */
+  clearSelectionState: boolean;
+  /** Refetch the working-tree file list for a selection that survived. */
+  refetchWorkingTree: boolean;
+}
+
+/**
+ * Working-tree files live outside `detailsCache`, so a working-tree selection
+ * that survives a reload (or a remount restoring it from `graphCache`) must
+ * refetch its file list or the details panel renders an empty change set.
+ */
+export function resolveGitGraphReloadEffects(args: {
+  previousSelection: GitGraphSelection;
+  nextSelection: GitGraphSelection;
+}): GitGraphReloadEffects {
+  if (!args.nextSelection) {
+    return {
+      invalidateDetails: Boolean(args.previousSelection),
+      clearSelectionState: true,
+      refetchWorkingTree: false,
+    };
+  }
+  return {
+    invalidateDetails: false,
+    clearSelectionState: false,
+    refetchWorkingTree: args.nextSelection.kind === WORKING_TREE_SELECTION,
+  };
+}
+
 export function useGitGraphData(workspaceCwd: string | undefined) {
   const cached = workspaceCwd ? graphCache.get(workspaceCwd) : undefined;
   const [selectedRefs, setSelectedRefsState] = useState<string[]>(() =>
@@ -197,6 +229,45 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
     [selectedRefKey, workspaceCwd],
   );
 
+  const refreshWorkingTreeFiles = useCallback(async () => {
+    if (!workspaceCwd) {
+      return;
+    }
+    const requestId = ++detailsRequestRef.current;
+    setDetailsLoading(true);
+    try {
+      const result = await loadWorkingTree(workspaceCwd);
+      if (requestId !== detailsRequestRef.current) {
+        return;
+      }
+      if (!result.ok) {
+        setError(result.stderr || "Failed to load working tree changes.");
+        setWorkingTreeFiles([]);
+        return;
+      }
+      setWorkingTreeFiles(
+        result.items.map((item) => ({
+          path: item.path,
+          oldPath: item.oldPath,
+          status: resolveWorkingTreeStatus(item),
+          additions: null,
+          deletions: null,
+        })),
+      );
+    } catch (requestFailure) {
+      if (requestId === detailsRequestRef.current) {
+        setError(
+          requestError(requestFailure, "Failed to load working tree changes."),
+        );
+        setWorkingTreeFiles([]);
+      }
+    } finally {
+      if (requestId === detailsRequestRef.current) {
+        setDetailsLoading(false);
+      }
+    }
+  }, [workspaceCwd]);
+
   const reload = useCallback(async () => {
     const requestId = ++graphRequestRef.current;
     const requestOwner = claimGitGraphRequest(graphRequestOwnerRef, {
@@ -238,13 +309,20 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
       selectionRef.current = nextSelection;
       setSelection(nextSelection);
       cacheCurrent(result, nextSelection);
-      if (!nextSelection) {
-        if (currentSelection) {
-          detailsRequestRef.current += 1;
-        }
+      const effects = resolveGitGraphReloadEffects({
+        previousSelection: currentSelection,
+        nextSelection,
+      });
+      if (effects.invalidateDetails) {
+        detailsRequestRef.current += 1;
+      }
+      if (effects.clearSelectionState) {
         setDetails(null);
         setWorkingTreeFiles([]);
         setDetailsLoading(false);
+      }
+      if (effects.refetchWorkingTree) {
+        void refreshWorkingTreeFiles();
       }
     } catch (requestFailure) {
       if (
@@ -260,7 +338,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
         setLoading(false);
       }
     }
-  }, [cacheCurrent, selectedRefs, workspaceCwd]);
+  }, [cacheCurrent, refreshWorkingTreeFiles, selectedRefs, workspaceCwd]);
 
   useEffect(() => {
     graphRequestRef.current += 1;
@@ -336,7 +414,10 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
               ? result.availableRefs
               : current.availableRefs,
         };
-        cacheCurrent(next, selection);
+        // Read the live selection: the user may have selected another row
+        // while this page was in flight, and caching the captured value would
+        // restore a stale selection on the next mount.
+        cacheCurrent(next, selectionRef.current);
         return next;
       });
     } catch (requestFailure) {
@@ -359,7 +440,6 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
     loading,
     loadingMore,
     selectedRefs,
-    selection,
     workspaceCwd,
   ]);
 
@@ -422,39 +502,8 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
     setSelection(nextSelection);
     setDetails(null);
     cacheCurrent(graph, nextSelection);
-    const requestId = ++detailsRequestRef.current;
-    setDetailsLoading(true);
-    try {
-      const result = await loadWorkingTree(workspaceCwd);
-      if (requestId !== detailsRequestRef.current) {
-        return;
-      }
-      if (!result.ok) {
-        setError(result.stderr || "Failed to load working tree changes.");
-        setWorkingTreeFiles([]);
-        return;
-      }
-      setWorkingTreeFiles(
-        result.items.map((item) => ({
-          path: item.path,
-          status: resolveWorkingTreeStatus(item),
-          additions: null,
-          deletions: null,
-        })),
-      );
-    } catch (requestFailure) {
-      if (requestId === detailsRequestRef.current) {
-        setError(
-          requestError(requestFailure, "Failed to load working tree changes."),
-        );
-        setWorkingTreeFiles([]);
-      }
-    } finally {
-      if (requestId === detailsRequestRef.current) {
-        setDetailsLoading(false);
-      }
-    }
-  }, [cacheCurrent, graph, workspaceCwd]);
+    await refreshWorkingTreeFiles();
+  }, [cacheCurrent, graph, refreshWorkingTreeFiles, workspaceCwd]);
 
   const clearSelection = useCallback(() => {
     detailsRequestRef.current += 1;

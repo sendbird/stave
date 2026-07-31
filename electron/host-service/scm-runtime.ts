@@ -36,6 +36,9 @@ const GIT_STATUS_PORCELAIN_ALL_UNTRACKED_ARGS = [
   "status",
   "--porcelain",
   "--untracked-files=all",
+  // NUL-delimited so paths with spaces or non-ASCII bytes arrive verbatim
+  // instead of the quoted/escaped display form.
+  "-z",
 ];
 
 const GITHUB_PR_JSON_FIELDS = [

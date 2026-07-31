@@ -248,7 +248,10 @@ export function buildExplorerIndex(args: { files: string[]; filter?: string }): 
 }
 
 export function buildSourceControlItemViewModel(args: { item: SourceControlStatusItem; verificationStatus?: FileVerificationStatus }): SourceControlItemViewModel {
-  const displayPath = resolveSourceControlDiffPaths({ rawPath: args.item.path });
+  const displayPath = resolveSourceControlDiffPaths({
+    rawPath: args.item.path,
+    oldPath: args.item.oldPath,
+  });
   const workingTreeSegments = displayPath.workingTreePath.split("/").filter(Boolean);
   const fileName = workingTreeSegments.at(-1) ?? displayPath.workingTreePath ?? displayPath.displayPath;
   const directoryLabel = workingTreeSegments.length > 1
