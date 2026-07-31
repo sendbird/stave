@@ -1,6 +1,7 @@
 import type { FleetNeedKind } from "@/lib/fleet/attention-projection";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { hasFleetTaskAttentionStatus } from "@/lib/fleet/task-status";
+import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import type { Task } from "@/types/chat";
 import type {
@@ -130,7 +131,7 @@ export function formatWorkspaceDisplayName(args: {
   }
 
   const name = args.name.trim();
-  const branch = args.branch?.trim() ?? "";
+  const branch = formatBranchLabel(args.branch);
   if (!name) {
     return branch || "worktree";
   }

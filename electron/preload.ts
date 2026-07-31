@@ -1737,6 +1737,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("scm:create-branch", args),
     checkoutBranch: (args: { name: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:checkout-branch", args),
+    checkoutDefaultBranchDetached: (args: { cwd?: string }) =>
+      ipcRenderer.invoke("scm:checkout-default-branch-detached", args),
     pullBranch: (args: { cwd?: string; branch?: string }) =>
       ipcRenderer.invoke("scm:pull-branch", args),
     mergeBranch: (args: { branch: string; cwd?: string }) =>

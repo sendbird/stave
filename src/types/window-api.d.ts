@@ -1179,6 +1179,14 @@ interface WindowSourceControlApi {
     name: string;
     cwd?: string;
   }) => Promise<SourceControlCommandResult>;
+  checkoutDefaultBranchDetached?: (args: { cwd?: string }) => Promise<
+    SourceControlCommandResult & {
+      /** Resolved remote ref such as `origin/main`, empty when resolution failed. */
+      ref: string;
+      /** Short commit hash of the detached HEAD, empty when the checkout failed. */
+      head: string;
+    }
+  >;
   pullBranch?: (args: {
     cwd?: string;
     branch?: string;

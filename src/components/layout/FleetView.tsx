@@ -62,6 +62,7 @@ import {
   PR_TONE_BADGE_CLASS,
   type WorkspacePrStatus,
 } from "@/lib/pr-status";
+import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import {
   formatTaskUpdatedAt,
   isLegacyBranchTask,
@@ -132,7 +133,8 @@ const FLEET_FILTER_OPTIONS: Array<{
 
 function formatWorkspaceName(name: string, branch?: string) {
   if (isDefaultWorkspaceName(name)) {
-    return branch ? `Default · ${branch}` : "Default";
+    const branchLabel = formatBranchLabel(branch);
+    return branchLabel ? `Default · ${branchLabel}` : "Default";
   }
   return name;
 }

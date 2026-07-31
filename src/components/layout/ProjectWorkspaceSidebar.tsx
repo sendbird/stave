@@ -100,6 +100,7 @@ import {
 import type { FleetNeedKind } from "@/lib/fleet/attention-projection";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { cn } from "@/lib/utils";
@@ -159,7 +160,7 @@ function formatWorkspaceName(name: string, branch?: string) {
         Default
         {branch ? (
           <span className="ml-1 inline-flex max-w-20 truncate rounded border border-border/60 bg-muted/60 px-1 py-px text-[10px] font-medium leading-tight text-muted-foreground">
-            {branch}
+            {formatBranchLabel(branch)}
           </span>
         ) : null}
       </>
@@ -184,8 +185,9 @@ function formatWorkspaceBranchLabel(args: {
   branch?: string;
   isDefault: boolean;
 }) {
-  if (args.branch?.trim()) {
-    return args.branch;
+  const label = formatBranchLabel(args.branch);
+  if (label) {
+    return label;
   }
   return args.isDefault ? "default" : "worktree";
 }
