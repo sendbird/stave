@@ -1,3 +1,13 @@
+## [0.13.4](https://github.com/sendbird/stave/compare/v0.13.3...v0.13.4) (2026-07-31)
+
+### Features
+
+* Move the Git Graph entry point out of the Source Control panel into a dedicated right-rail button and command palette command.
+* Rework git graph lane layout and edge rendering to vscode-git-graph-style geometry, confining bends to a single row near fork/merge points instead of long shallow curves spanning the whole edge.
+
+### References
+
+* [#282](https://github.com/sendbird/stave/pull/282)
 ## [0.13.3](https://github.com/sendbird/stave/compare/v0.13.2...v0.13.3) (2026-07-31)
 
 ### Features
