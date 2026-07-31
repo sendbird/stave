@@ -23,7 +23,10 @@ class FakeChild extends EventEmitter {
     params?: Record<string, unknown>;
   }> = [];
 
-  constructor(private readonly scenario: FakeScenario) {
+  constructor(
+    private readonly scenario: FakeScenario,
+    readonly spawnEnv: NodeJS.ProcessEnv,
+  ) {
     super();
   }
 
@@ -181,13 +184,26 @@ class FakeChild extends EventEmitter {
 }
 
 let nextScenario: FakeScenario = "full-lifecycle";
+let nextBoundSecretEnv: Record<string, string> = {};
+let resolvedSecretRequestCount = 0;
 const fakeChildren: FakeChild[] = [];
 const tempDirectories: string[] = [];
 
+mock.module("../electron/main/browser/secret-service", () => ({
+  resolveBoundSecretEnv: async () => {
+    resolvedSecretRequestCount += 1;
+    return { ...nextBoundSecretEnv };
+  },
+}));
+
 mock.module("node:child_process", () => ({
   ...actualChildProcess,
-  spawn: () => {
-    const child = new FakeChild(nextScenario);
+  spawn: (
+    _command: string,
+    _args: string[],
+    options?: { env?: NodeJS.ProcessEnv },
+  ) => {
+    const child = new FakeChild(nextScenario, options?.env ?? {});
     fakeChildren.push(child);
     return child;
   },
@@ -195,6 +211,8 @@ mock.module("node:child_process", () => ({
 
 afterEach(async () => {
   nextScenario = "full-lifecycle";
+  nextBoundSecretEnv = {};
+  resolvedSecretRequestCount = 0;
   fakeChildren.length = 0;
   mock.restore();
   await Promise.all(
@@ -283,6 +301,9 @@ describe("Codex App Server MCP lifecycle mapping", () => {
 
   test("uses an ephemeral read-only thread and disables every MCP server for secondary execution", async () => {
     nextScenario = "completed-only";
+    nextBoundSecretEnv = {
+      STAVE_TEST_BOUND_MCP_TOKEN: "must-not-reach-secondary",
+    };
     const runtime = await import(
       `../electron/providers/codex-app-server-runtime?secondary-policy-test=${Date.now()}-${Math.random()}`
     );
@@ -299,10 +320,15 @@ describe("Codex App Server MCP lifecycle mapping", () => {
         codexFileAccess: "danger-full-access",
         codexNetworkAccess: true,
         codexWebSearch: "live",
+        boundSecretIds: ["00000000-0000-4000-8000-000000000001"],
       },
     });
 
     const child = fakeChildren[0]!;
+    expect(resolvedSecretRequestCount).toBe(0);
+    expect(child.spawnEnv.STAVE_TEST_BOUND_MCP_TOKEN).toBe(
+      process.env.STAVE_TEST_BOUND_MCP_TOKEN,
+    );
     expect(
       child.receivedMessages.some(
         (message) => message.method === "config/read",
@@ -348,6 +374,50 @@ describe("Codex App Server MCP lifecycle mapping", () => {
         (message) => message.method === "thread/delete",
       ),
     ).toBe(true);
+  });
+
+  test("scopes bound secrets to a disposable App Server process for MCP auth", async () => {
+    const envName = "STAVE_TEST_BOUND_MCP_TOKEN";
+    const secretValue = "test-only-mcp-token";
+    nextScenario = "completed-only";
+    nextBoundSecretEnv = { [envName]: secretValue };
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?secret-mcp-env-test=${Date.now()}-${Math.random()}`
+    );
+
+    const secretEvents = await runtime.streamCodexWithAppServer({
+      providerId: "codex",
+      taskId: "task-secret-mcp-env",
+      prompt: "Use the authenticated MCP server",
+      cwd: process.cwd(),
+      runtimeOptions: {
+        codexBinaryPath: "/tmp/fake-codex-secret-mcp-env",
+        boundSecretIds: ["00000000-0000-4000-8000-000000000001"],
+      },
+    });
+
+    expect(resolvedSecretRequestCount).toBe(1);
+    expect(fakeChildren).toHaveLength(2);
+    expect(fakeChildren[0]?.spawnEnv[envName]).toBe(process.env[envName]);
+    expect(fakeChildren[0]?.killed).toBe(false);
+    expect(fakeChildren[1]?.spawnEnv[envName]).toBe(secretValue);
+    expect(fakeChildren[1]?.killed).toBe(true);
+    expect(JSON.stringify(secretEvents)).not.toContain(secretValue);
+
+    nextBoundSecretEnv = {};
+    await runtime.streamCodexWithAppServer({
+      providerId: "codex",
+      taskId: "task-without-secret",
+      prompt: "Continue without the secret",
+      cwd: process.cwd(),
+      runtimeOptions: {
+        codexBinaryPath: "/tmp/fake-codex-secret-mcp-env",
+      },
+    });
+
+    expect(fakeChildren).toHaveLength(2);
+    expect(fakeChildren[0]?.spawnEnv[envName]).toBe(process.env[envName]);
+    expect(fakeChildren[0]?.killed).toBe(false);
   });
 
   test("restarts App Server when project MCP config appears between turns", async () => {
