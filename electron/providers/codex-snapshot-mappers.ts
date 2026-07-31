@@ -17,6 +17,10 @@ import type {
   CodexThreadSnapshot,
 } from "../../src/lib/providers/provider.types";
 import { toText } from "./utils";
+import {
+  sanitizeMcpDiagnosticText,
+  sanitizeMcpUrl,
+} from "./mcp-config-management-shared";
 
 function toCodexStatusLabel(status: unknown) {
   if (!status || typeof status !== "object") {
@@ -205,7 +209,10 @@ export function mapCodexModelCatalogEntry(model: any): CodexModelCatalogEntry {
   };
 }
 
-export function mapCodexMcpStatusSnapshot(server: any): CodexMcpServerStatusSnapshot {
+export function mapCodexMcpStatusSnapshot(
+  server: any,
+): CodexMcpServerStatusSnapshot {
+  const sanitizedUrl = sanitizeMcpUrl(server?.url).value ?? null;
   const tools =
     server?.tools && typeof server.tools === "object"
       ? Object.values(server.tools).map((tool: any) => ({
@@ -248,14 +255,58 @@ export function mapCodexMcpStatusSnapshot(server: any): CodexMcpServerStatusSnap
           : {}),
       }))
     : [];
+  const failureReason =
+    typeof server?.failureReason === "string"
+      ? server.failureReason
+      : undefined;
+  const rawConnectionStatus =
+    typeof server?.connectionStatus === "string"
+      ? server.connectionStatus.toLowerCase()
+      : typeof server?.status === "string"
+        ? server.status.toLowerCase()
+        : "";
+  const connectionStatus =
+    failureReason?.toLowerCase() === "reauthenticationrequired"
+      ? "needs-auth"
+      : rawConnectionStatus === "ready" || rawConnectionStatus === "connected"
+        ? "connected"
+        : rawConnectionStatus === "starting"
+          ? "starting"
+          : rawConnectionStatus === "failed"
+            ? "failed"
+            : rawConnectionStatus === "cancelled"
+              ? "cancelled"
+              : rawConnectionStatus === "disabled"
+                ? "disabled"
+                : rawConnectionStatus === "needs-auth"
+                  ? "needs-auth"
+                  : undefined;
+  const rawLastError =
+    typeof server?.error === "string"
+      ? server.error
+      : typeof server?.error?.message === "string"
+        ? server.error.message
+        : undefined;
+  const lastError = rawLastError
+    ? sanitizeMcpDiagnosticText(rawLastError)
+    : undefined;
 
   return {
     name: String(server?.name ?? ""),
     enabled: true,
     disabledReason: null,
+    ...(connectionStatus ? { connectionStatus } : {}),
+    ...(lastError ? { lastError } : {}),
+    ...(typeof server?.lastErrorAt === "number"
+      ? { lastErrorAt: server.lastErrorAt }
+      : {}),
+    ...(typeof server?.statusUpdatedAt === "number"
+      ? { statusUpdatedAt: server.statusUpdatedAt }
+      : {}),
+    ...(failureReason ? { failureReason } : {}),
     transportType:
       typeof server?.transportType === "string" ? server.transportType : "mcp",
-    url: typeof server?.url === "string" ? server.url : null,
+    url: sanitizedUrl,
     bearerTokenEnvVar:
       typeof server?.bearerTokenEnvVar === "string"
         ? server.bearerTokenEnvVar
@@ -452,7 +503,9 @@ function mapCodexIndividualLimit(raw: any) {
   };
 }
 
-export function mapCodexRateLimitBuckets(response: any): CodexRateLimitSnapshot[] {
+export function mapCodexRateLimitBuckets(
+  response: any,
+): CodexRateLimitSnapshot[] {
   const buckets =
     response?.rateLimitsByLimitId &&
     typeof response.rateLimitsByLimitId === "object"

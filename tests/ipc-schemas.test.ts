@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   CliSessionCreateSessionArgsSchema,
+  ClaudeMcpOauthLoginArgsSchema,
   CreatePRArgsSchema,
   FilesystemRepoMapArgsSchema,
   LocalMcpConfigUpdateArgsSchema,
+  McpServerConfigMutationApplyArgsSchema,
+  McpServerConfigMutationArgsSchema,
   ReviewDiffArgsSchema,
   RoutineInformationResourceCreateArgsSchema,
   RoutineProviderTimeoutArgsSchema,
@@ -19,6 +22,72 @@ import {
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 
 describe("provider IPC schemas", () => {
+  test("validates Claude MCP OAuth login requests", () => {
+    expect(
+      ClaudeMcpOauthLoginArgsSchema.safeParse({
+        name: "github",
+        cwd: "/tmp/workspace",
+        timeoutSecs: 600,
+        runtimeOptions: {
+          claudeBinaryPath: "/tmp/claude",
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      ClaudeMcpOauthLoginArgsSchema.safeParse({
+        name: "",
+        timeoutSecs: 0,
+      }).success,
+    ).toBe(false);
+  });
+
+  test("validates secret-safe MCP configuration mutations", () => {
+    const create = {
+      operation: "create",
+      cwd: "/tmp/workspace",
+      draft: {
+        provider: "claude-code",
+        scope: "project",
+        name: "docs-server",
+        transport: "http",
+        url: "https://mcp.example.test/api",
+        envVars: [],
+        bearerTokenEnvVar: "DOCS_TOKEN",
+        headerEnvBindings: [{ name: "X-Workspace", envVar: "WORKSPACE_ID" }],
+        enabled: true,
+      },
+    };
+
+    expect(McpServerConfigMutationArgsSchema.safeParse(create).success).toBe(
+      true,
+    );
+    expect(
+      McpServerConfigMutationApplyArgsSchema.safeParse({
+        ...create,
+        expectedRevision: "revision-1",
+      }).success,
+    ).toBe(true);
+    expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        ...create,
+        draft: {
+          ...create.draft,
+          provider: "codex",
+          scope: "project",
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        ...create,
+        draft: {
+          ...create.draft,
+          bearerTokenEnvVar: "literal secret",
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   test("accepts the full steer request contract", () => {
     const parsed = SteerTurnArgsSchema.safeParse({
       turnId: "turn-1",

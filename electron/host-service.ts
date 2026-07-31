@@ -79,6 +79,7 @@ import {
   compactCodexThread,
   forkCodexThread,
   getCodexAppServerSnapshot,
+  getCodexMcpRuntimeStatus,
   getCodexModelCatalog,
   getCodexPluginDetail,
   importCodexExternalConfig,
@@ -99,11 +100,13 @@ import { getRateLimitsSnapshot } from "./providers/rate-limits/rate-limits-snaps
 import {
   forkClaudeSession,
   getClaudeContextUsage,
+  getClaudeMcpStatus,
   prewarmClaudeSdk,
   renameClaudeSession,
   reloadClaudePlugins,
   reviewClaudeWorktreeDiff,
   suggestClaudePRDescription,
+  startClaudeMcpOauthLogin,
 } from "./providers/claude-sdk-runtime";
 import {
   classifyUtilityRoute,
@@ -139,6 +142,11 @@ import {
   cancelSecondaryProviderRun,
   executeSecondaryProviderRun,
 } from "./providers/secondary-run-executor";
+import {
+  applyMcpServerConfigMutation,
+  listMcpServerConfigs,
+  previewMcpServerConfigMutation,
+} from "./providers/mcp-config-management";
 
 type HostServiceOutboundMessage =
   | AnyHostServiceResponseEnvelope
@@ -1110,6 +1118,59 @@ async function shutdown() {
   resetHostServicePersistence();
 }
 
+async function loadMergedCodexMcpStatus(args: {
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}) {
+  const checkedAt = Date.now();
+  const [configured, runtime] = await Promise.all([
+    getCodexMcpStatus({
+      codexBinaryPath: args.runtimeOptions?.codexBinaryPath,
+    }),
+    getCodexMcpRuntimeStatus(args),
+  ]);
+  const runtimeByName = new Map(
+    runtime.servers.map((server) => [server.name, server]),
+  );
+  const servers = configured.servers.map((server) => {
+    const live = runtimeByName.get(server.name);
+    runtimeByName.delete(server.name);
+    if (!live) {
+      return {
+        ...server,
+        connectionStatus: server.enabled ? "unknown" : "disabled",
+        statusUpdatedAt: server.statusUpdatedAt ?? checkedAt,
+      } as const;
+    }
+    return {
+      ...server,
+      ...live,
+      enabled: server.enabled,
+      disabledReason: server.disabledReason,
+      connectionStatus: server.enabled
+        ? live.connectionStatus
+        : ("disabled" as const),
+      statusUpdatedAt:
+        live.statusUpdatedAt ?? server.statusUpdatedAt ?? checkedAt,
+      transportType:
+        server.transportType !== "unknown"
+          ? server.transportType
+          : live.transportType,
+      url: server.url ?? live.url,
+      bearerTokenEnvVar: server.bearerTokenEnvVar ?? live.bearerTokenEnvVar,
+      authStatus: live.authStatus ?? server.authStatus,
+      startupTimeoutSec: server.startupTimeoutSec ?? live.startupTimeoutSec,
+      toolTimeoutSec: server.toolTimeoutSec ?? live.toolTimeoutSec,
+    };
+  });
+  servers.push(...runtimeByName.values());
+
+  return {
+    ok: configured.ok || runtime.ok,
+    detail: [configured.detail, runtime.detail].filter(Boolean).join(" "),
+    servers,
+  };
+}
+
 async function handleRequest(request: AnyHostServiceRequestEnvelope) {
   switch (request.method) {
     case "service.shutdown":
@@ -1303,12 +1364,25 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "provider.reload-claude-plugins":
       await respond(request.id, await reloadClaudePlugins(request.params));
       return;
+    case "provider.get-claude-mcp-status":
+      await respond(request.id, await getClaudeMcpStatus(request.params));
+      return;
     case "provider.get-codex-mcp-status":
+      await respond(request.id, await loadMergedCodexMcpStatus(request.params));
+      return;
+    case "provider.list-mcp-server-configs":
+      await respond(request.id, await listMcpServerConfigs(request.params));
+      return;
+    case "provider.preview-mcp-server-config-mutation":
       await respond(
         request.id,
-        await getCodexMcpStatus({
-          codexBinaryPath: request.params.runtimeOptions?.codexBinaryPath,
-        }),
+        await previewMcpServerConfigMutation(request.params),
+      );
+      return;
+    case "provider.apply-mcp-server-config-mutation":
+      await respond(
+        request.id,
+        await applyMcpServerConfigMutation(request.params),
       );
       return;
     case "provider.get-codex-model-catalog":
@@ -1340,6 +1414,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.start-codex-mcp-oauth-login":
       await respond(request.id, await startCodexMcpOauthLogin(request.params));
+      return;
+    case "provider.start-claude-mcp-oauth-login":
+      await respond(request.id, await startClaudeMcpOauthLogin(request.params));
       return;
     case "provider.read-codex-mcp-resource":
       await respond(request.id, await readCodexMcpResource(request.params));

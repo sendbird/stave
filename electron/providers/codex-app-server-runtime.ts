@@ -14,8 +14,6 @@ import type {
   CodexAppServerSnapshotResponse,
   CodexExternalAgentConfigMigrationItem,
   CodexModelCatalogResponse,
-  CodexMcpOauthLoginResponse,
-  CodexMcpResourceReadResponse,
   CodexMutationResponse,
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
@@ -127,6 +125,7 @@ import {
 } from "./codex-app-server-params";
 import { mergeCodexTurnConfigOverrides } from "./codex-app-server-config-overrides";
 import { parsePositiveIntEnv } from "./runtime-shared";
+import { createCodexMcpManagement } from "./codex-mcp-management";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -1153,6 +1152,7 @@ class CodexAppServerClient {
   }
 
   private dispatchMessage(message: JsonRpcMessage) {
+    codexMcpManagement.captureNotification(this.executablePath, message);
     const hasResponseId =
       Object.prototype.hasOwnProperty.call(message, "id") &&
       (Object.prototype.hasOwnProperty.call(message, "result") ||
@@ -1371,6 +1371,21 @@ function getCodexAppServerClientFromRuntimeOptions(args: {
     executablePath,
   });
 }
+
+const codexMcpManagement = createCodexMcpManagement({
+  resolveExecutablePath: resolveCodexExecutablePath,
+  getClient: getCodexAppServerClient,
+  formatError: toCodexUserFacingErrorMessage,
+});
+
+export const getCodexMcpRuntimeStatus = codexMcpManagement.getRuntimeStatus;
+export const startCodexMcpOauthLogin = codexMcpManagement.startOauthLogin;
+export const readCodexMcpResource = codexMcpManagement.readResource;
+export const listCodexMcpServerConfigs = codexMcpManagement.listConfigs;
+export const previewCodexMcpServerConfigMutation =
+  codexMcpManagement.previewConfigMutation;
+export const applyCodexMcpServerConfigMutation =
+  codexMcpManagement.applyConfigMutation;
 
 async function listPaginatedCodexData<T>(args: {
   client: CodexAppServerClient;
@@ -1887,81 +1902,6 @@ export async function setCodexExperimentalFeatureEnablement(args: {
       detail: toCodexUserFacingErrorMessage({
         message: error instanceof Error ? error.message : String(error),
       }),
-    };
-  }
-}
-
-export async function startCodexMcpOauthLogin(args: {
-  name: string;
-  scopes?: string[];
-  timeoutSecs?: number;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}): Promise<CodexMcpOauthLoginResponse> {
-  try {
-    const client = getCodexAppServerClientFromRuntimeOptions(args);
-    const response = await client.request<any>("mcpServer/oauth/login", {
-      name: args.name,
-      ...(args.scopes?.length ? { scopes: args.scopes } : {}),
-      ...(typeof args.timeoutSecs === "number"
-        ? { timeoutSecs: args.timeoutSecs }
-        : {}),
-    });
-    return {
-      ok: true,
-      detail: `Started MCP OAuth login for ${args.name}.`,
-      authorizationUrl:
-        typeof response?.authorizationUrl === "string"
-          ? response.authorizationUrl
-          : undefined,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      detail: toCodexUserFacingErrorMessage({
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    };
-  }
-}
-
-export async function readCodexMcpResource(args: {
-  threadId: string;
-  server: string;
-  uri: string;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}): Promise<CodexMcpResourceReadResponse> {
-  try {
-    const client = getCodexAppServerClientFromRuntimeOptions(args);
-    const response = await client.request<any>("mcpServer/resource/read", {
-      threadId: args.threadId,
-      server: args.server,
-      uri: args.uri,
-    });
-    return {
-      ok: true,
-      detail: `Read MCP resource ${args.uri}.`,
-      contents: Array.isArray(response?.contents)
-        ? response.contents.map((content: any) => ({
-            uri: String(content?.uri ?? args.uri),
-            ...(typeof content?.mimeType === "string"
-              ? { mimeType: content.mimeType }
-              : {}),
-            ...(typeof content?.text === "string"
-              ? { text: content.text }
-              : {}),
-            ...(typeof content?.blob === "string"
-              ? { blob: content.blob }
-              : {}),
-          }))
-        : [],
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      detail: toCodexUserFacingErrorMessage({
-        message: error instanceof Error ? error.message : String(error),
-      }),
-      contents: [],
     };
   }
 }

@@ -4,6 +4,7 @@ import {
   AbortTurnArgsSchema,
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
+  ClaudeMcpOauthLoginArgsSchema,
   ClaudeRuntimeActionArgsSchema,
   ClaudeSessionForkArgsSchema,
   ClaudeSessionRenameArgsSchema,
@@ -16,6 +17,9 @@ import {
   CodexMcpOauthLoginArgsSchema,
   CodexMcpResourceReadArgsSchema,
   McpDiscoveryArgsSchema,
+  McpServerConfigListArgsSchema,
+  McpServerConfigMutationApplyArgsSchema,
+  McpServerConfigMutationArgsSchema,
   CodexPluginDetailArgsSchema,
   CodexPluginInstallArgsSchema,
   CodexPluginUninstallArgsSchema,
@@ -391,6 +395,19 @@ export function registerProviderHandlers() {
     return invokeHostService("provider.reload-claude-plugins", parsedArgs.data);
   });
 
+  ipcMain.handle("provider:get-claude-mcp-status", (_event, args: unknown) => {
+    const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        ok: false,
+        detail: "Invalid Claude MCP status request.",
+        servers: [],
+        checkedAt: Date.now(),
+      };
+    }
+    return invokeHostService("provider.get-claude-mcp-status", parsedArgs.data);
+  });
+
   ipcMain.handle("provider:get-codex-mcp-status", (_event, args: unknown) => {
     const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);
     if (!parsedArgs.success) {
@@ -416,6 +433,74 @@ export function registerProviderHandlers() {
         };
       }
       return discoverMcpServers(parsedArgs.data);
+    },
+  );
+
+  ipcMain.handle(
+    "provider:list-mcp-server-configs",
+    (_event, args: unknown) => {
+      const parsedArgs = McpServerConfigListArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid MCP configuration list request.",
+          servers: [],
+          errors: ["The renderer sent an invalid MCP configuration request."],
+          loadedAt: Date.now(),
+        };
+      }
+      return invokeHostService(
+        "provider.list-mcp-server-configs",
+        parsedArgs.data,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "provider:preview-mcp-server-config-mutation",
+    (_event, args: unknown) => {
+      const parsedArgs = McpServerConfigMutationArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: formatSchemaFailureMessage({
+            issues: parsedArgs.error.issues,
+            fallback: "Invalid MCP configuration preview request.",
+          }),
+        };
+      }
+      return invokeHostService(
+        "provider.preview-mcp-server-config-mutation",
+        parsedArgs.data,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "provider:apply-mcp-server-config-mutation",
+    (_event, args: unknown) => {
+      const parsedArgs = McpServerConfigMutationApplyArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        const operation =
+          args &&
+          typeof args === "object" &&
+          "operation" in args &&
+          ["create", "update", "delete"].includes(String(args.operation))
+            ? (args.operation as "create" | "update" | "delete")
+            : "update";
+        return {
+          ok: false,
+          detail: formatSchemaFailureMessage({
+            issues: parsedArgs.error.issues,
+            fallback: "Invalid MCP configuration apply request.",
+          }),
+          operation,
+        };
+      }
+      return invokeHostService(
+        "provider.apply-mcp-server-config-mutation",
+        parsedArgs.data,
+      );
     },
   );
 
@@ -539,6 +624,23 @@ export function registerProviderHandlers() {
       }
       return invokeHostService(
         "provider.set-codex-experimental-feature-enablement",
+        parsedArgs.data,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "provider:start-claude-mcp-oauth-login",
+    (_event, args: unknown) => {
+      const parsedArgs = ClaudeMcpOauthLoginArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Claude MCP OAuth login request.",
+        };
+      }
+      return invokeHostService(
+        "provider.start-claude-mcp-oauth-login",
         parsedArgs.data,
       );
     },

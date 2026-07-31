@@ -11,6 +11,8 @@ import type {
   CodexThreadForkResponse,
   CodexThreadReadResponse,
   ClaudeContextUsageResponse,
+  ClaudeMcpOauthLoginResponse,
+  ClaudeMcpStatusResponse,
   ClaudeSessionForkResponse,
   ProviderMutationResponse,
   ClaudePluginReloadResponse,
@@ -74,6 +76,14 @@ import type {
   GraphFileChange,
   GraphResult,
 } from "../../src/lib/git-graph/types";
+import type {
+  McpServerConfigListRequest,
+  McpServerConfigListResponse,
+  McpServerConfigMutationApplyRequest,
+  McpServerConfigMutationPreviewResponse,
+  McpServerConfigMutationRequest,
+  McpServerConfigMutationResponse,
+} from "../../src/lib/providers/mcp-config.types";
 
 export interface HostWorkspaceScriptRunEntryArgs {
   workspaceId: string;
@@ -573,10 +583,17 @@ export interface HostServiceRequestMap {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.get-claude-mcp-status": {
+    cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
   "provider.get-codex-mcp-status": {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.list-mcp-server-configs": McpServerConfigListRequest;
+  "provider.preview-mcp-server-config-mutation": McpServerConfigMutationRequest;
+  "provider.apply-mcp-server-config-mutation": McpServerConfigMutationApplyRequest;
   "provider.get-codex-model-catalog": {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -610,6 +627,12 @@ export interface HostServiceRequestMap {
   "provider.start-codex-mcp-oauth-login": {
     name: string;
     scopes?: string[];
+    timeoutSecs?: number;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
+  "provider.start-claude-mcp-oauth-login": {
+    name: string;
+    cwd?: string;
     timeoutSecs?: number;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
@@ -911,7 +934,11 @@ export interface HostServiceResponseMap {
   "provider.fork-claude-session": ClaudeSessionForkResponse;
   "provider.rename-claude-session": ProviderMutationResponse;
   "provider.reload-claude-plugins": ClaudePluginReloadResponse;
+  "provider.get-claude-mcp-status": ClaudeMcpStatusResponse;
   "provider.get-codex-mcp-status": CodexMcpStatusResponse;
+  "provider.list-mcp-server-configs": McpServerConfigListResponse;
+  "provider.preview-mcp-server-config-mutation": McpServerConfigMutationPreviewResponse;
+  "provider.apply-mcp-server-config-mutation": McpServerConfigMutationResponse;
   "provider.get-codex-model-catalog": CodexModelCatalogResponse;
   "provider.get-codex-app-server-snapshot": CodexAppServerSnapshotResponse;
   "provider.get-rate-limits-snapshot": RateLimitsSnapshotResponse;
@@ -920,6 +947,7 @@ export interface HostServiceResponseMap {
   "provider.uninstall-codex-plugin": CodexMutationResponse;
   "provider.set-codex-experimental-feature-enablement": CodexMutationResponse;
   "provider.start-codex-mcp-oauth-login": CodexMcpOauthLoginResponse;
+  "provider.start-claude-mcp-oauth-login": ClaudeMcpOauthLoginResponse;
   "provider.read-codex-mcp-resource": CodexMcpResourceReadResponse;
   "provider.rename-codex-thread": CodexMutationResponse;
   "provider.read-codex-thread": CodexThreadReadResponse;
