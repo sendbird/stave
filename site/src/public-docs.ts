@@ -72,6 +72,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         description:
           "Add files and images to the chat composer so the model can work from exact local context.",
       },
+      {
+        routePath: "conversation-history-actions",
+        sourcePath: "docs/features/conversation-history-actions.md",
+        title: "Conversation History Actions",
+        description:
+          "Fork or roll back provider conversations from an earlier response without reverting workspace files.",
+      },
     ],
   },
   {

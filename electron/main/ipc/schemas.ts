@@ -107,14 +107,16 @@ export const LensSessionTargetArgsSchema = z
   })
   .strict();
 
-export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend({
-  options: z
-    .object({
-      extractDebugSource: z.boolean().optional(),
-    })
-    .strict()
-    .optional(),
-}).strict();
+export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend(
+  {
+    options: z
+      .object({
+        extractDebugSource: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
+  },
+).strict();
 
 export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
   options: z
@@ -130,14 +132,8 @@ export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
             .number()
             .min(-LENS_CAPTURE_LIMITS.rectCoordinate)
             .max(LENS_CAPTURE_LIMITS.rectCoordinate),
-          width: z
-            .number()
-            .positive()
-            .max(LENS_CAPTURE_LIMITS.rectSize),
-          height: z
-            .number()
-            .positive()
-            .max(LENS_CAPTURE_LIMITS.rectSize),
+          width: z.number().positive().max(LENS_CAPTURE_LIMITS.rectSize),
+          height: z.number().positive().max(LENS_CAPTURE_LIMITS.rectSize),
         })
         .strict()
         .optional(),
@@ -153,36 +149,27 @@ export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
 
 export const LensAnnotationRemoveArgsSchema =
   LensSessionTargetArgsSchema.extend({
-    annotationId: z
-      .string()
-      .min(1)
-      .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
-    documentId: z
-      .string()
-      .min(1)
-      .max(LENS_CAPTURE_LIMITS.documentIdBytes),
+    annotationId: z.string().min(1).max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+    documentId: z.string().min(1).max(LENS_CAPTURE_LIMITS.documentIdBytes),
   }).strict();
 
-export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend({
-  annotationId: z
-    .string()
-    .min(1)
-    .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
-  selector: z.string().min(1).max(LENS_CAPTURE_LIMITS.selectorBytes),
-  patch: z
-    .record(
-      z.string().min(1).max(LENS_CAPTURE_LIMITS.stylePropertyBytes),
-      z.string().max(LENS_CAPTURE_LIMITS.styleValueBytes),
-    )
-    .refine(
-      (value) => Object.keys(value).length <= LENS_CAPTURE_LIMITS.styleEditItems,
-      "Too many Lens style properties",
-    ),
-  documentId: z
-    .string()
-    .min(1)
-    .max(LENS_CAPTURE_LIMITS.documentIdBytes),
-}).strict();
+export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend(
+  {
+    annotationId: z.string().min(1).max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+    selector: z.string().min(1).max(LENS_CAPTURE_LIMITS.selectorBytes),
+    patch: z
+      .record(
+        z.string().min(1).max(LENS_CAPTURE_LIMITS.stylePropertyBytes),
+        z.string().max(LENS_CAPTURE_LIMITS.styleValueBytes),
+      )
+      .refine(
+        (value) =>
+          Object.keys(value).length <= LENS_CAPTURE_LIMITS.styleEditItems,
+        "Too many Lens style properties",
+      ),
+    documentId: z.string().min(1).max(LENS_CAPTURE_LIMITS.documentIdBytes),
+  },
+).strict();
 
 export const SecretUpsertArgsSchema = z
   .object({
@@ -992,6 +979,23 @@ export const ClaudeRuntimeActionArgsSchema = z
   })
   .strict();
 
+export const ClaudeSessionForkArgsSchema = z
+  .object({
+    sessionId: z.string().min(1).max(200),
+    upToMessageId: z.string().min(1).max(200),
+    title: z.string().min(1).max(200).optional(),
+    cwd: z.string().max(4096).optional(),
+  })
+  .strict();
+
+export const ClaudeSessionRenameArgsSchema = z
+  .object({
+    sessionId: z.string().min(1).max(200),
+    title: z.string().min(1).max(200),
+    cwd: z.string().max(4096).optional(),
+  })
+  .strict();
+
 export const CodexRuntimeActionArgsSchema = ClaudeRuntimeActionArgsSchema;
 
 export const RateLimitsSnapshotArgsSchema = ClaudeRuntimeActionArgsSchema;
@@ -1056,6 +1060,7 @@ export const CodexThreadReadArgsSchema = z
 export const CodexThreadForkArgsSchema = z
   .object({
     threadId: z.string().min(1).max(200),
+    lastTurnId: z.string().min(1).max(200).optional(),
     runtimeOptions: RuntimeOptionsSchema,
   })
   .strict();
@@ -1222,6 +1227,14 @@ export const LoadTaskMessagesArgsSchema = z
     taskId: z.string().min(1).max(200),
     limit: z.number().int().min(1).max(500).optional(),
     offset: z.number().int().min(0).max(1_000_000).optional(),
+  })
+  .strict();
+
+export const TruncateTaskMessagesAfterArgsSchema = z
+  .object({
+    workspaceId: z.string().min(1).max(200),
+    taskId: z.string().min(1).max(200),
+    messageId: z.string().min(1).max(200),
   })
   .strict();
 

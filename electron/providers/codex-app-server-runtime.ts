@@ -78,6 +78,7 @@ import {
   buildCodexTurnSteerParams,
   CODEX_STEER_REQUEST_TIMEOUT_MS,
 } from "./codex-app-server-steer";
+import { mapCodexThreadForkResponse } from "./codex-thread-actions";
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
 import {
   toCodexUserFacingErrorMessage,
@@ -166,7 +167,6 @@ const codexProjectMcpConfigRefreshTracker = new McpConfigRefreshTracker();
 const freshCodexThreadExecutables = new Set<string>();
 const activeCodexTurnsByExecutable = new Map<string, number>();
 const pendingMcpRefreshExecutables = new Set<string>();
-
 const APP_SERVER_INTERRUPT_GRACE_MS = 10_000;
 const CODEX_CONFIG_READ_TIMEOUT_MS = 5_000;
 
@@ -2037,23 +2037,16 @@ export async function readCodexThread(args: {
 
 export async function forkCodexThread(args: {
   threadId: string;
+  lastTurnId?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }): Promise<CodexThreadForkResponse> {
   try {
     const client = getCodexAppServerClientFromRuntimeOptions(args);
     const response = await client.request<any>("thread/fork", {
       threadId: args.threadId,
+      ...(args.lastTurnId ? { lastTurnId: args.lastTurnId } : {}),
     });
-    return {
-      ok: true,
-      detail: "Forked Codex thread.",
-      threadId:
-        typeof response?.thread?.id === "string"
-          ? response.thread.id
-          : typeof response?.threadId === "string"
-            ? response.threadId
-            : undefined,
-    };
+    return mapCodexThreadForkResponse(response);
   } catch (error) {
     return {
       ok: false,
@@ -2504,9 +2497,10 @@ export async function streamCodexWithAppServer(
     }
   }
 
-  const transientSecretClient = Object.keys(boundSecretEnv).length > 0
-    ? new CodexAppServerClient(codexExecutablePath, boundSecretEnv)
-    : null;
+  const transientSecretClient =
+    Object.keys(boundSecretEnv).length > 0
+      ? new CodexAppServerClient(codexExecutablePath, boundSecretEnv)
+      : null;
   client =
     transientSecretClient ??
     getCodexAppServerClient({ executablePath: codexExecutablePath });
@@ -3923,6 +3917,12 @@ export async function streamCodexWithAppServer(
       }
 
       appServerTurnId = turnResponse.turn.id;
+      emitBridgeEvent({
+        type: "provider_turn",
+        providerId: "codex",
+        nativeSessionId: threadId,
+        nativeTurnId: appServerTurnId,
+      });
       if (codexDebug) {
         console.debug("[codex-app-server-runtime] turn/start acknowledged", {
           threadId,

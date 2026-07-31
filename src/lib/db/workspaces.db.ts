@@ -149,6 +149,14 @@ interface RequiredPersistenceApi {
     ok: boolean;
     page: TaskMessagesPage | null;
   }>;
+  truncateTaskMessagesAfter?: (args: {
+    workspaceId: string;
+    taskId: string;
+    messageId: string;
+  }) => Promise<{
+    ok: boolean;
+    removedCount: number;
+  }>;
   loadWorkspaceEditorTabBodies?: (args: {
     workspaceId: string;
     tabIds: string[];
@@ -172,7 +180,12 @@ interface RequiredPersistenceApi {
 }
 
 const fallbackStorageKey = "stave:workspace-fallback:v1";
-let memoryFallbackRows: Array<{ id: string; name: string; updatedAt: string; snapshot: WorkspaceSnapshot }> = [];
+let memoryFallbackRows: Array<{
+  id: string;
+  name: string;
+  updatedAt: string;
+  snapshot: WorkspaceSnapshot;
+}> = [];
 
 function hasWindow() {
   return typeof window !== "undefined";
@@ -187,7 +200,12 @@ function loadFallbackRows() {
     if (!raw) {
       return memoryFallbackRows;
     }
-    const parsed = JSON.parse(raw) as Array<{ id: string; name: string; updatedAt: string; snapshot: WorkspaceSnapshot }>;
+    const parsed = JSON.parse(raw) as Array<{
+      id: string;
+      name: string;
+      updatedAt: string;
+      snapshot: WorkspaceSnapshot;
+    }>;
     memoryFallbackRows = Array.isArray(parsed) ? parsed : memoryFallbackRows;
     return memoryFallbackRows;
   } catch {
@@ -195,7 +213,14 @@ function loadFallbackRows() {
   }
 }
 
-function saveFallbackRows(args: { rows: Array<{ id: string; name: string; updatedAt: string; snapshot: WorkspaceSnapshot }> }) {
+function saveFallbackRows(args: {
+  rows: Array<{
+    id: string;
+    name: string;
+    updatedAt: string;
+    snapshot: WorkspaceSnapshot;
+  }>;
+}) {
   memoryFallbackRows = args.rows;
   if (!hasWindow()) {
     return;
@@ -205,6 +230,35 @@ function saveFallbackRows(args: { rows: Array<{ id: string; name: string; update
   } catch {
     // ignore localStorage write errors and keep in-memory fallback
   }
+}
+
+function preserveUnloadedFallbackTaskMessages(args: {
+  existingSnapshot: WorkspaceSnapshot;
+  nextSnapshot: WorkspaceSnapshot;
+}): WorkspaceSnapshot {
+  const retainedTaskIds = new Set(
+    args.nextSnapshot.tasks.map((task) => task.id),
+  );
+  const retainedMessages = Object.fromEntries(
+    Object.entries(args.existingSnapshot.messagesByTask).filter(
+      ([taskId]) =>
+        retainedTaskIds.has(taskId) &&
+        !Object.prototype.hasOwnProperty.call(
+          args.nextSnapshot.messagesByTask,
+          taskId,
+        ),
+    ),
+  );
+  if (Object.keys(retainedMessages).length === 0) {
+    return args.nextSnapshot;
+  }
+  return {
+    ...args.nextSnapshot,
+    messagesByTask: {
+      ...retainedMessages,
+      ...args.nextSnapshot.messagesByTask,
+    },
+  };
 }
 
 function getPersistenceApi() {
@@ -235,17 +289,23 @@ function buildShellFromSnapshot(snapshot: WorkspaceSnapshot): WorkspaceShell {
     dockLayout: snapshot.dockLayout,
     workspaceInformation: snapshot.workspaceInformation,
     messageCountByTask: Object.fromEntries(
-      Object.entries(snapshot.messagesByTask).map(([taskId, messages]) => [taskId, messages.length] as const)
+      Object.entries(snapshot.messagesByTask).map(
+        ([taskId, messages]) => [taskId, messages.length] as const,
+      ),
     ),
   };
 }
 
-function buildShellSummaryFromSnapshot(snapshot: WorkspaceSnapshot): WorkspaceShellSummary {
+function buildShellSummaryFromSnapshot(
+  snapshot: WorkspaceSnapshot,
+): WorkspaceShellSummary {
   return {
     activeTaskId: snapshot.activeTaskId,
     tasks: snapshot.tasks,
     messageCountByTask: Object.fromEntries(
-      Object.entries(snapshot.messagesByTask).map(([taskId, messages]) => [taskId, messages.length] as const)
+      Object.entries(snapshot.messagesByTask).map(
+        ([taskId, messages]) => [taskId, messages.length] as const,
+      ),
     ),
     terminalTabCount: snapshot.terminalTabs?.length ?? 0,
     cliSessionTabCount: snapshot.cliSessionTabs?.length ?? 0,
@@ -262,7 +322,9 @@ function buildShellLiteFromShell(shell: WorkspaceShell): WorkspaceShellLite {
   };
 }
 
-function buildShellLiteFromSnapshot(snapshot: WorkspaceSnapshot): WorkspaceShellLite {
+function buildShellLiteFromSnapshot(
+  snapshot: WorkspaceSnapshot,
+): WorkspaceShellLite {
   return buildShellLiteFromShell(buildShellFromSnapshot(snapshot));
 }
 
@@ -280,7 +342,9 @@ export async function listWorkspaceSummaries(): Promise<WorkspaceSummary[]> {
   return response.rows;
 }
 
-export async function loadWorkspaceSnapshot(args: { workspaceId: string }): Promise<WorkspaceSnapshot | null> {
+export async function loadWorkspaceSnapshot(args: {
+  workspaceId: string;
+}): Promise<WorkspaceSnapshot | null> {
   const persistence = getPersistenceApi();
   if (!persistence) {
     const row = loadFallbackRows().find((item) => item.id === args.workspaceId);
@@ -293,10 +357,14 @@ export async function loadWorkspaceSnapshot(args: { workspaceId: string }): Prom
     }
     return {
       ...parsed,
-      messagesByTask: normalizeMessagesForSnapshot({ messagesByTask: parsed.messagesByTask }),
+      messagesByTask: normalizeMessagesForSnapshot({
+        messagesByTask: parsed.messagesByTask,
+      }),
     };
   }
-  const response = await persistence.loadWorkspace({ workspaceId: args.workspaceId });
+  const response = await persistence.loadWorkspace({
+    workspaceId: args.workspaceId,
+  });
   if (!response.ok) {
     throw new Error(`Failed to load workspace snapshot: ${args.workspaceId}`);
   }
@@ -309,11 +377,15 @@ export async function loadWorkspaceSnapshot(args: { workspaceId: string }): Prom
   }
   return {
     ...parsed,
-    messagesByTask: normalizeMessagesForSnapshot({ messagesByTask: parsed.messagesByTask }),
+    messagesByTask: normalizeMessagesForSnapshot({
+      messagesByTask: parsed.messagesByTask,
+    }),
   };
 }
 
-export async function loadWorkspaceShell(args: { workspaceId: string }): Promise<WorkspaceShell | null> {
+export async function loadWorkspaceShell(args: {
+  workspaceId: string;
+}): Promise<WorkspaceShell | null> {
   const persistence = getPersistenceApi();
   if (!persistence) {
     const row = loadFallbackRows().find((item) => item.id === args.workspaceId);
@@ -326,7 +398,9 @@ export async function loadWorkspaceShell(args: { workspaceId: string }): Promise
     }
     return buildShellFromSnapshot({
       ...parsed,
-      messagesByTask: normalizeMessagesForSnapshot({ messagesByTask: parsed.messagesByTask }),
+      messagesByTask: normalizeMessagesForSnapshot({
+        messagesByTask: parsed.messagesByTask,
+      }),
     });
   }
 
@@ -335,7 +409,9 @@ export async function loadWorkspaceShell(args: { workspaceId: string }): Promise
     return snapshot ? buildShellFromSnapshot(snapshot) : null;
   }
 
-  const response = await persistence.loadWorkspaceShell({ workspaceId: args.workspaceId });
+  const response = await persistence.loadWorkspaceShell({
+    workspaceId: args.workspaceId,
+  });
   if (!response.ok) {
     throw new Error(`Failed to load workspace shell: ${args.workspaceId}`);
   }
@@ -384,7 +460,9 @@ export async function loadWorkspaceShellForRestore(args: {
     workspaceId: args.workspaceId,
   });
   if (!response.ok) {
-    throw new Error(`Failed to load workspace shell for restore: ${args.workspaceId}`);
+    throw new Error(
+      `Failed to load workspace shell for restore: ${args.workspaceId}`,
+    );
   }
   if (!response.shell) {
     return null;
@@ -398,7 +476,9 @@ export async function loadWorkspaceShellLite(args: {
   const persistence = getPersistenceApi();
   if (!persistence) {
     const row = loadFallbackRows().find((item) => item.id === args.workspaceId);
-    const parsed = row?.snapshot ? parseWorkspaceSnapshot({ payload: row.snapshot }) : null;
+    const parsed = row?.snapshot
+      ? parseWorkspaceSnapshot({ payload: row.snapshot })
+      : null;
     return parsed ? buildShellLiteFromSnapshot(parsed) : null;
   }
 
@@ -425,7 +505,9 @@ export async function loadWorkspaceShellSummary(args: {
   const persistence = getPersistenceApi();
   if (!persistence) {
     const row = loadFallbackRows().find((item) => item.id === args.workspaceId);
-    const snapshot = row?.snapshot ? parseWorkspaceSnapshot({ payload: row.snapshot }) : null;
+    const snapshot = row?.snapshot
+      ? parseWorkspaceSnapshot({ payload: row.snapshot })
+      : null;
     return snapshot ? buildShellSummaryFromSnapshot(snapshot) : null;
   }
 
@@ -447,7 +529,9 @@ export async function loadWorkspaceShellSummary(args: {
     workspaceId: args.workspaceId,
   });
   if (!response.ok) {
-    throw new Error(`Failed to load workspace shell summary: ${args.workspaceId}`);
+    throw new Error(
+      `Failed to load workspace shell summary: ${args.workspaceId}`,
+    );
   }
 
   return response.summary
@@ -472,10 +556,13 @@ export async function loadTaskMessagesPage(args: {
   const persistence = getPersistenceApi();
   if (!persistence) {
     const row = loadFallbackRows().find((item) => item.id === args.workspaceId);
-    const snapshot = row?.snapshot ? parseWorkspaceSnapshot({ payload: row.snapshot }) : null;
-    const messages = normalizeMessagesForSnapshot({
-      messagesByTask: snapshot?.messagesByTask ?? {},
-    })[args.taskId] ?? [];
+    const snapshot = row?.snapshot
+      ? parseWorkspaceSnapshot({ payload: row.snapshot })
+      : null;
+    const messages =
+      normalizeMessagesForSnapshot({
+        messagesByTask: snapshot?.messagesByTask ?? {},
+      })[args.taskId] ?? [];
     const start = Math.max(messages.length - offset - limit, 0);
     const end = Math.max(messages.length - offset, 0);
     const pageMessages = messages.slice(start, end);
@@ -489,7 +576,9 @@ export async function loadTaskMessagesPage(args: {
   }
 
   if (!persistence.loadTaskMessages) {
-    const snapshot = await loadWorkspaceSnapshot({ workspaceId: args.workspaceId });
+    const snapshot = await loadWorkspaceSnapshot({
+      workspaceId: args.workspaceId,
+    });
     const messages = snapshot?.messagesByTask[args.taskId] ?? [];
     const start = Math.max(messages.length - offset - limit, 0);
     const end = Math.max(messages.length - offset, 0);
@@ -510,17 +599,70 @@ export async function loadTaskMessagesPage(args: {
     offset,
   });
   if (!response.ok || !response.page) {
-    throw new Error(`Failed to load task messages: ${args.workspaceId}/${args.taskId}`);
+    throw new Error(
+      `Failed to load task messages: ${args.workspaceId}/${args.taskId}`,
+    );
   }
   return {
-    messages: normalizeMessagesForSnapshot({
-      messagesByTask: { [args.taskId]: response.page.messages },
-    })[args.taskId] ?? [],
+    messages:
+      normalizeMessagesForSnapshot({
+        messagesByTask: { [args.taskId]: response.page.messages },
+      })[args.taskId] ?? [],
     totalCount: response.page.totalCount,
     limit: response.page.limit,
     offset: response.page.offset,
     hasMoreOlder: response.page.hasMoreOlder,
   };
+}
+
+export async function truncateTaskMessagesAfter(args: {
+  workspaceId: string;
+  taskId: string;
+  messageId: string;
+}): Promise<number> {
+  const persistence = getPersistenceApi();
+  if (!persistence) {
+    const rows = loadFallbackRows();
+    let removedCount = 0;
+    const nextRows = rows.map((row) => {
+      if (row.id !== args.workspaceId) {
+        return row;
+      }
+      const messages = row.snapshot.messagesByTask[args.taskId] ?? [];
+      const targetIndex = messages.findIndex(
+        (message) => message.id === args.messageId,
+      );
+      if (targetIndex < 0) {
+        return row;
+      }
+      removedCount = messages.length - targetIndex - 1;
+      return {
+        ...row,
+        snapshot: {
+          ...row.snapshot,
+          messagesByTask: {
+            ...row.snapshot.messagesByTask,
+            [args.taskId]: messages.slice(0, targetIndex + 1),
+          },
+        },
+      };
+    });
+    saveFallbackRows({ rows: nextRows });
+    return removedCount;
+  }
+  if (!persistence.truncateTaskMessagesAfter) {
+    throw new Error(
+      "The persistence bridge does not support conversation rollback.",
+    );
+  }
+
+  const response = await persistence.truncateTaskMessagesAfter(args);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to truncate task messages: ${args.workspaceId}/${args.taskId}/${args.messageId}`,
+    );
+  }
+  return response.removedCount;
 }
 
 export async function loadWorkspaceEditorTabBodies(args: {
@@ -533,7 +675,9 @@ export async function loadWorkspaceEditorTabBodies(args: {
 
   const persistence = getPersistenceApi();
   if (!persistence) {
-    const snapshot = await loadWorkspaceSnapshot({ workspaceId: args.workspaceId });
+    const snapshot = await loadWorkspaceSnapshot({
+      workspaceId: args.workspaceId,
+    });
     const requestedIds = new Set(args.tabIds);
     return (snapshot?.editorTabs ?? [])
       .filter((tab) => requestedIds.has(tab.id))
@@ -571,19 +715,27 @@ export async function loadWorkspaceEditorTabBodies(args: {
     tabIds: args.tabIds,
   });
   if (!response.ok) {
-    throw new Error(`Failed to load workspace editor tab bodies: ${args.workspaceId}`);
+    throw new Error(
+      `Failed to load workspace editor tab bodies: ${args.workspaceId}`,
+    );
   }
   return response.bodies;
 }
 
-export async function closeWorkspacePersistence(args: { workspaceId: string }): Promise<void> {
+export async function closeWorkspacePersistence(args: {
+  workspaceId: string;
+}): Promise<void> {
   const persistence = getPersistenceApi();
   if (!persistence) {
-    const rows = loadFallbackRows().filter((row) => row.id !== args.workspaceId);
+    const rows = loadFallbackRows().filter(
+      (row) => row.id !== args.workspaceId,
+    );
     saveFallbackRows({ rows });
     return;
   }
-  await window.api?.persistence?.closeWorkspace?.({ workspaceId: args.workspaceId });
+  await window.api?.persistence?.closeWorkspace?.({
+    workspaceId: args.workspaceId,
+  });
 }
 
 export async function loadProjectRegistrySnapshot(): Promise<unknown[]> {
@@ -598,12 +750,16 @@ export async function loadProjectRegistrySnapshot(): Promise<unknown[]> {
   return Array.isArray(response.projects) ? response.projects : [];
 }
 
-export async function saveProjectRegistrySnapshot(args: { projects: unknown[] }): Promise<void> {
+export async function saveProjectRegistrySnapshot(args: {
+  projects: unknown[];
+}): Promise<void> {
   const persistence = getPersistenceApi();
   if (!persistence?.saveProjectRegistry) {
     return;
   }
-  const response = await persistence.saveProjectRegistry({ projects: args.projects });
+  const response = await persistence.saveProjectRegistry({
+    projects: args.projects,
+  });
   if (!response.ok) {
     throw new Error("Failed to save project registry via persistence bridge.");
   }
@@ -620,7 +776,9 @@ export async function upsertWorkspace(args: {
   }
   const normalized: WorkspaceSnapshot = {
     ...validated,
-    messagesByTask: normalizeMessagesForSnapshot({ messagesByTask: validated.messagesByTask }),
+    messagesByTask: normalizeMessagesForSnapshot({
+      messagesByTask: validated.messagesByTask,
+    }),
   };
   const persistence = getPersistenceApi();
   if (!persistence) {
@@ -629,12 +787,32 @@ export async function upsertWorkspace(args: {
     const nextRows = (() => {
       const existingIndex = rows.findIndex((row) => row.id === args.id);
       if (existingIndex < 0) {
-        return [...rows, { id: args.id, name: args.name, updatedAt: nextUpdatedAt, snapshot: normalized }];
+        return [
+          ...rows,
+          {
+            id: args.id,
+            name: args.name,
+            updatedAt: nextUpdatedAt,
+            snapshot: normalized,
+          },
+        ];
       }
       return rows.map((row, index) =>
         index === existingIndex
-          ? { id: args.id, name: args.name, updatedAt: nextUpdatedAt, snapshot: normalized }
-          : row
+          ? {
+              id: args.id,
+              name: args.name,
+              updatedAt: nextUpdatedAt,
+              // Browser fallback snapshots share the desktop store's
+              // paged-message contract: an omitted task is unloaded, not
+              // empty. Keep its durable messages until the task itself is
+              // removed or an explicit array replaces them.
+              snapshot: preserveUnloadedFallbackTaskMessages({
+                existingSnapshot: row.snapshot,
+                nextSnapshot: normalized,
+              }),
+            }
+          : row,
       );
     })();
     saveFallbackRows({ rows: nextRows });

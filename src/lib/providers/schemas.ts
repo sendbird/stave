@@ -18,6 +18,13 @@ const ProviderSessionEventSchema = z.object({
   nativeSessionId: z.string(),
 });
 
+const ProviderTurnEventSchema = z.object({
+  type: z.literal("provider_turn"),
+  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  nativeSessionId: z.string(),
+  nativeTurnId: z.string(),
+});
+
 const ProviderGoalStatusSchema = z.union([
   z.literal("active"),
   z.literal("paused"),
@@ -133,13 +140,15 @@ const UserInputQuestionSchema = z.object({
       })),
   ),
   multiSelect: z.boolean().optional(),
-  inputType: z.union([
-    z.literal("text"),
-    z.literal("number"),
-    z.literal("integer"),
-    z.literal("boolean"),
-    z.literal("url_notice"),
-  ]).optional(),
+  inputType: z
+    .union([
+      z.literal("text"),
+      z.literal("number"),
+      z.literal("integer"),
+      z.literal("boolean"),
+      z.literal("url_notice"),
+    ])
+    .optional(),
   required: z.boolean().optional(),
   placeholder: z.string().optional(),
   allowCustom: z.boolean().optional(),
@@ -163,10 +172,12 @@ const PlanReadyEventSchema = z.object({
 const SystemEventSchema = z.object({
   type: z.literal("system"),
   content: z.string(),
-  compactBoundary: z.object({
-    trigger: z.string().optional(),
-    gitRef: z.string().optional(),
-  }).optional(),
+  compactBoundary: z
+    .object({
+      trigger: z.string().optional(),
+      gitRef: z.string().optional(),
+    })
+    .optional(),
 });
 
 const ErrorEventSchema = z.object({
@@ -196,6 +207,7 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   ThinkingEventSchema,
   TextEventSchema,
   ProviderSessionEventSchema,
+  ProviderTurnEventSchema,
   GoalStatusEventSchema,
   UsageEventSchema,
   PromptSuggestionsEventSchema,
@@ -213,4 +225,6 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   SubagentProgressEventSchema,
 ]);
 
-export type ParsedNormalizedProviderEvent = z.infer<typeof NormalizedProviderEventSchema>;
+export type ParsedNormalizedProviderEvent = z.infer<
+  typeof NormalizedProviderEventSchema
+>;

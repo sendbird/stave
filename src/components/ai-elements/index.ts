@@ -26,10 +26,24 @@ export {
 export { Snippet } from "./snippet";
 export { Shimmer } from "./shimmer";
 export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning";
-export { ChainOfThought, ChainOfThoughtContent, ChainOfThoughtStep, ChainOfThoughtTrigger, type ChainOfThoughtStep as ChainOfThoughtStepData, type TraceSummaryItem } from "./chain-of-thought";
+export {
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtStep,
+  ChainOfThoughtTrigger,
+  type ChainOfThoughtStep as ChainOfThoughtStepData,
+  type TraceSummaryItem,
+} from "./chain-of-thought";
 export { SubagentCard, parseSubagentToolInput } from "./subagent";
 export { TodoCard, getTodoProgress, parseTodoInput } from "./todo";
-export { Tool, ToolContent, ToolGroup, ToolHeader, ToolInput, ToolOutput } from "./tool";
+export {
+  Tool,
+  ToolContent,
+  ToolGroup,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+} from "./tool";
 export { TruncationWarningBanner } from "./truncation-warning";
 export { ConfirmationCompact } from "./confirmation";
 export {
@@ -37,9 +51,20 @@ export {
   type UserInputCardPresentation,
 } from "./user-input-card";
 export { PromptInput } from "./prompt-input";
-export { PromptSuggestion, PromptSuggestions, Suggestion, Suggestions } from "./suggestion";
+export {
+  PromptSuggestion,
+  PromptSuggestions,
+  Suggestion,
+  Suggestions,
+} from "./suggestion";
 export { ModelSelector } from "./model-selector";
-export { PermissionModeSelector, cyclePermissionMode, type PermissionModeValue, type ClaudePermissionMode, type CodexApprovalPolicy } from "./permission-mode-selector";
+export {
+  PermissionModeSelector,
+  cyclePermissionMode,
+  type PermissionModeValue,
+  type ClaudePermissionMode,
+  type CodexApprovalPolicy,
+} from "./permission-mode-selector";
 export { ModelIcon } from "./model-icon";
 export {
   Conversation,
@@ -48,6 +73,7 @@ export {
   ConversationEmptyState,
   ConversationScrollButton,
   ConversationVirtualList,
+  type ConversationManualScrollIntentHandle,
   messagesToMarkdown,
 } from "./conversation";
 export { CompactingIndicator, ContextCompactedCheckpoint } from "./checkpoint";

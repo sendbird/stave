@@ -86,6 +86,30 @@ describe("mapClaudeMessageToEvents", () => {
     ]);
   });
 
+  test("surfaces Claude assistant UUIDs as point-in-time turn metadata", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "assistant",
+        uuid: "assistant-message-1",
+        session_id: "session-1",
+        message: {
+          content: [{ type: "text", text: "Done." }],
+        },
+      } as never,
+      claudeDebugStream: false,
+    });
+
+    expect(events).toEqual([
+      {
+        type: "provider_turn",
+        providerId: "claude-code",
+        nativeSessionId: "session-1",
+        nativeTurnId: "assistant-message-1",
+      },
+      { type: "text", text: "Done." },
+    ]);
+  });
+
   test("surfaces Claude local command output as assistant text", () => {
     const events = mapClaudeMessageToEvents({
       message: {

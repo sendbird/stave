@@ -96,8 +96,10 @@ import {
 } from "./providers/codex-app-server-runtime";
 import { getRateLimitsSnapshot } from "./providers/rate-limits/rate-limits-snapshot";
 import {
+  forkClaudeSession,
   getClaudeContextUsage,
   prewarmClaudeSdk,
+  renameClaudeSession,
   reloadClaudePlugins,
   reviewClaudeWorktreeDiff,
   classifyClaudeRoute,
@@ -1287,6 +1289,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "provider.get-claude-context-usage":
       await respond(request.id, await getClaudeContextUsage(request.params));
       return;
+    case "provider.fork-claude-session":
+      await respond(request.id, await forkClaudeSession(request.params));
+      return;
+    case "provider.rename-claude-session":
+      await respond(request.id, await renameClaudeSession(request.params));
+      return;
     case "provider.reload-claude-plugins":
       await respond(request.id, await reloadClaudePlugins(request.params));
       return;
@@ -1449,7 +1457,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await checkoutScmBranch(request.params));
       return;
     case "scm.checkout-default-branch-detached":
-      await respond(request.id, await checkoutDefaultBranchDetached(request.params));
+      await respond(
+        request.id,
+        await checkoutDefaultBranchDetached(request.params),
+      );
       return;
     case "scm.pull-branch":
       await respond(request.id, await pullScmBranch(request.params));

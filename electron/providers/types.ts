@@ -76,6 +76,12 @@ export type BridgeEvent =
       nativeSessionId: string;
     }
   | {
+      type: "provider_turn";
+      providerId: ProviderId;
+      nativeSessionId: string;
+      nativeTurnId: string;
+    }
+  | {
       type: "goal_status";
       providerId: "codex";
       goal: ProviderGoalSnapshot | null;

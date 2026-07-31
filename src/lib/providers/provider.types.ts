@@ -101,6 +101,24 @@ export interface ClaudePluginReloadResponse {
   reload?: ClaudePluginReloadSnapshot;
 }
 
+export interface ClaudeSessionForkResponse {
+  ok: boolean;
+  detail: string;
+  sessionId?: string;
+  lastAssistantMessageId?: string;
+  /**
+   * Source assistant UUID -> forked assistant UUID. Claude remaps transcript
+   * UUIDs while forking, so the renderer needs this to keep older fork points
+   * actionable inside the new Stave task.
+   */
+  messageIdMap?: Record<string, string>;
+}
+
+export interface ProviderMutationResponse {
+  ok: boolean;
+  detail: string;
+}
+
 export interface CodexMcpServerStatusSnapshot {
   name: string;
   enabled: boolean;
@@ -383,6 +401,8 @@ export interface CodexThreadForkResponse {
   ok: boolean;
   detail: string;
   threadId?: string;
+  /** Native turn ids present in the forked thread, in provider order. */
+  turnIds?: string[];
 }
 
 export interface CodexExperimentalFeatureSnapshot {
@@ -475,10 +495,7 @@ export interface CodexReviewStartResponse {
   turnId?: string;
 }
 
-export interface CodexMutationResponse {
-  ok: boolean;
-  detail: string;
-}
+export type CodexMutationResponse = ProviderMutationResponse;
 
 export interface CanonicalRetrievedContextPart {
   type: "retrieved_context";
@@ -553,6 +570,12 @@ export type NormalizedProviderEvent =
       type: "provider_session";
       providerId: ProviderId;
       nativeSessionId: string;
+    }
+  | {
+      type: "provider_turn";
+      providerId: ProviderId;
+      nativeSessionId: string;
+      nativeTurnId: string;
     }
   | {
       type: "goal_status";

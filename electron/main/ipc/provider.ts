@@ -4,6 +4,8 @@ import {
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
   ClaudeRuntimeActionArgsSchema,
+  ClaudeSessionForkArgsSchema,
+  ClaudeSessionRenameArgsSchema,
   CheckAvailabilityArgsSchema,
   ConnectedToolStatusArgsSchema,
   CodexConfigBatchWriteArgsSchema,
@@ -353,6 +355,28 @@ export function registerProviderHandlers() {
       );
     },
   );
+
+  ipcMain.handle("provider:fork-claude-session", (_event, args: unknown) => {
+    const parsedArgs = ClaudeSessionForkArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        ok: false,
+        detail: "Invalid Claude session fork request.",
+      };
+    }
+    return invokeHostService("provider.fork-claude-session", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:rename-claude-session", (_event, args: unknown) => {
+    const parsedArgs = ClaudeSessionRenameArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        ok: false,
+        detail: "Invalid Claude session rename request.",
+      };
+    }
+    return invokeHostService("provider.rename-claude-session", parsedArgs.data);
+  });
 
   ipcMain.handle("provider:reload-claude-plugins", (_event, args: unknown) => {
     const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);

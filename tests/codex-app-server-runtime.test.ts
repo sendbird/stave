@@ -26,6 +26,7 @@ import {
   toCodexConfigLayerDisplayValue,
 } from "../electron/providers/codex-app-server-runtime";
 import { buildCodexTurnSteerParams } from "../electron/providers/codex-app-server-steer";
+import { mapCodexThreadForkResponse } from "../electron/providers/codex-thread-actions";
 import {
   buildCodexDeveloperInstructions,
   CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS,
@@ -93,6 +94,24 @@ const GENERATED_CODEX_APP_SERVER_V2_THREAD_RESUME_PARAM_KEYS: Set<string> =
     "serviceTier",
     "threadId",
   ] as const);
+
+describe("Codex thread actions", () => {
+  test("maps the forked thread id and copied native turn ids", () => {
+    expect(
+      mapCodexThreadForkResponse({
+        thread: {
+          id: "thread-fork",
+          turns: [{ id: "turn-1" }, { id: "turn-2" }],
+        },
+      }),
+    ).toEqual({
+      ok: true,
+      detail: "Forked Codex thread.",
+      threadId: "thread-fork",
+      turnIds: ["turn-1", "turn-2"],
+    });
+  });
+});
 
 function expectGeneratedTurnStartParamKeys(value: object) {
   const unexpectedKeys = Object.keys(value).filter(

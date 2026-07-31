@@ -8,6 +8,8 @@ import type {
   CodexThreadReadResponse,
   CanonicalConversationRequest,
   ClaudeContextUsageResponse,
+  ClaudeSessionForkResponse,
+  ProviderMutationResponse,
   CodexMcpStatusResponse,
   McpDiscoveryResponse,
   ClaudePluginReloadResponse,
@@ -825,6 +827,25 @@ contextBridge.exposeInMainWorld("api", {
         "provider:get-claude-context-usage",
         args,
       ) as Promise<ClaudeContextUsageResponse>,
+    forkClaudeSession: (args: {
+      sessionId: string;
+      upToMessageId: string;
+      title?: string;
+      cwd?: string;
+    }) =>
+      ipcRenderer.invoke(
+        "provider:fork-claude-session",
+        args,
+      ) as Promise<ClaudeSessionForkResponse>,
+    renameClaudeSession: (args: {
+      sessionId: string;
+      title: string;
+      cwd?: string;
+    }) =>
+      ipcRenderer.invoke(
+        "provider:rename-claude-session",
+        args,
+      ) as Promise<ProviderMutationResponse>,
     reloadClaudePlugins: (args: {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -943,6 +964,7 @@ contextBridge.exposeInMainWorld("api", {
       ) as Promise<CodexThreadReadResponse>,
     forkCodexThread: (args: {
       threadId: string;
+      lastTurnId?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     }) =>
       ipcRenderer.invoke(
@@ -1130,6 +1152,18 @@ contextBridge.exposeInMainWorld("api", {
       limit?: number;
       offset?: number;
     }) => ipcRenderer.invoke("persistence:load-task-messages", args),
+    truncateTaskMessagesAfter: (args: {
+      workspaceId: string;
+      taskId: string;
+      messageId: string;
+    }) =>
+      ipcRenderer.invoke(
+        "persistence:truncate-task-messages-after",
+        args,
+      ) as Promise<{
+        ok: boolean;
+        removedCount: number;
+      }>,
     loadWorkspaceEditorTabBodies: (args: {
       workspaceId: string;
       tabIds: string[];

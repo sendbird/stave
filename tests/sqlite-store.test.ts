@@ -401,9 +401,7 @@ describe("SqliteStore", () => {
         "turn-task-1-new",
         "turn-task-2",
       ]);
-      expect(exactOldTurn.map((turn) => turn.id)).toEqual([
-        "turn-task-1-old",
-      ]);
+      expect(exactOldTurn.map((turn) => turn.id)).toEqual(["turn-task-1-old"]);
 
       store.close();
     },
@@ -683,6 +681,74 @@ describe("SqliteStore", () => {
       ]);
       expect(page?.totalCount).toBe(4);
       expect(shell?.messageCountByTask).toEqual({ "task-1": 4 });
+    },
+  );
+
+  nativeSqliteTest(
+    "truncates a task transcript after an explicit rollback boundary",
+    async () => {
+      const SqliteStore = await loadSqliteStore();
+      const store = new SqliteStore({ dbPath });
+      const makeMessage = (id: string) => ({
+        id,
+        role: "assistant" as const,
+        model: "gpt-5.6-terra",
+        providerId: "codex" as const,
+        content: id,
+        parts: [{ type: "text" as const, text: id }],
+      });
+      const task = {
+        id: "task-1",
+        title: "Task One",
+        provider: "codex" as const,
+        updatedAt: "2026-03-06T00:00:00.000Z",
+        unread: false,
+      };
+
+      store.upsertWorkspace({
+        id: "ws-1",
+        name: "Workspace One",
+        snapshot: {
+          activeTaskId: "task-1",
+          tasks: [task],
+          messagesByTask: {
+            "task-1": ["m-1", "m-2", "m-3", "m-4"].map(makeMessage),
+          },
+        },
+      } as unknown as Parameters<typeof store.upsertWorkspace>[0]);
+
+      const result = store.truncateTaskMessagesAfter({
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        messageId: "m-2",
+      });
+      store.upsertWorkspace({
+        id: "ws-1",
+        name: "Workspace One",
+        snapshot: {
+          activeTaskId: "task-1",
+          tasks: [task],
+          messagesByTask: {
+            "task-1": ["m-1", "m-2"].map(makeMessage),
+          },
+        },
+      } as unknown as Parameters<typeof store.upsertWorkspace>[0]);
+
+      const page = store.loadTaskMessagesPage({
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        limit: 10,
+        offset: 0,
+      });
+      const shell = store.loadWorkspaceShell({ workspaceId: "ws-1" });
+      store.close();
+
+      expect(result).toEqual({ ok: true, removedCount: 2 });
+      expect(page?.messages.map((message) => message.id)).toEqual([
+        "m-1",
+        "m-2",
+      ]);
+      expect(shell?.messageCountByTask).toEqual({ "task-1": 2 });
     },
   );
 

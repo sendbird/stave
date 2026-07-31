@@ -29,6 +29,8 @@ import type {
   ClaudeContextUsageResponse,
   ClaudeMcpServerStatusSnapshot,
   ClaudePluginReloadResponse,
+  ClaudeSessionForkResponse,
+  ProviderMutationResponse,
 } from "../../src/lib/providers/provider.types";
 import type {
   CanUseTool,
@@ -2585,13 +2587,30 @@ export function mapClaudeMessageToEvents(args: {
       }
     }
 
+    const nativeSessionId =
+      typeof assistantMsg.session_id === "string"
+        ? assistantMsg.session_id.trim()
+        : "";
+    const nativeTurnId =
+      typeof assistantMsg.uuid === "string" ? assistantMsg.uuid.trim() : "";
+    const events: BridgeEvent[] =
+      nativeSessionId && nativeTurnId
+        ? [
+            {
+              type: "provider_turn",
+              providerId: "claude-code",
+              nativeSessionId,
+              nativeTurnId,
+            },
+          ]
+        : [];
+
     // content is on the nested BetaMessage, not at the top level
     const contentBlocks = assistantMsg.message?.content;
     if (!Array.isArray(contentBlocks)) {
-      return [];
+      return events;
     }
 
-    const events: BridgeEvent[] = [];
     for (const block of contentBlocks) {
       const b = block as {
         type?: string;
@@ -3062,6 +3081,100 @@ export async function runClaudeReadOnlyPrompt(args: {
   } finally {
     args.signal?.removeEventListener("abort", abort);
     stream?.close();
+  }
+}
+
+export async function forkClaudeSession(args: {
+  sessionId: string;
+  upToMessageId: string;
+  title?: string;
+  cwd?: string;
+}): Promise<ClaudeSessionForkResponse> {
+  try {
+    const mod = await getPrewarmedSdkModule();
+    if (!mod.forkSession) {
+      return {
+        ok: false,
+        detail: "Claude SDK forkSession() is unavailable.",
+      };
+    }
+
+    const dir = args.cwd && path.isAbsolute(args.cwd) ? args.cwd : undefined;
+    const sourceMessages = mod.getSessionMessages
+      ? await mod.getSessionMessages(args.sessionId, {
+          ...(dir ? { dir } : {}),
+        }).catch(() => [])
+      : [];
+    const result = await mod.forkSession(args.sessionId, {
+      ...(dir ? { dir } : {}),
+      upToMessageId: args.upToMessageId,
+      ...(args.title?.trim() ? { title: args.title.trim() } : {}),
+    });
+    const forkedMessages = mod.getSessionMessages
+      ? await mod.getSessionMessages(result.sessionId, {
+          ...(dir ? { dir } : {}),
+        }).catch(() => [])
+      : [];
+    const targetIndex = sourceMessages.findIndex(
+      (message) => message.uuid === args.upToMessageId,
+    );
+    const sourceThroughTarget =
+      targetIndex >= 0 ? sourceMessages.slice(0, targetIndex + 1) : [];
+    const messageIdMap = Object.fromEntries(
+      sourceThroughTarget.flatMap((message, index) => {
+        const forkedMessage = forkedMessages[index];
+        return forkedMessage &&
+          message.type === "assistant" &&
+          forkedMessage.type === message.type
+          ? [[message.uuid, forkedMessage.uuid] as const]
+          : [];
+      }),
+    );
+    const lastAssistantMessageId = forkedMessages
+      .filter((message) => message.type === "assistant")
+      .at(-1)?.uuid;
+
+    return {
+      ok: true,
+      detail: "Forked Claude session.",
+      sessionId: result.sessionId,
+      ...(lastAssistantMessageId ? { lastAssistantMessageId } : {}),
+      ...(Object.keys(messageIdMap).length > 0 ? { messageIdMap } : {}),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Claude session fork failed: ${toText(error)}`,
+    };
+  }
+}
+
+export async function renameClaudeSession(args: {
+  sessionId: string;
+  title: string;
+  cwd?: string;
+}): Promise<ProviderMutationResponse> {
+  try {
+    const mod = await getPrewarmedSdkModule();
+    if (!mod.renameSession) {
+      return {
+        ok: false,
+        detail: "Claude SDK renameSession() is unavailable.",
+      };
+    }
+    const dir = args.cwd && path.isAbsolute(args.cwd) ? args.cwd : undefined;
+    await mod.renameSession(args.sessionId, args.title, {
+      ...(dir ? { dir } : {}),
+    });
+    return {
+      ok: true,
+      detail: "Renamed Claude session.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Claude session rename failed: ${toText(error)}`,
+    };
   }
 }
 

@@ -15,6 +15,7 @@ import {
   PruneNotificationsArgsSchema,
   PersistenceUpsertArgsSchema,
   SaveProjectRegistryArgsSchema,
+  TruncateTaskMessagesAfterArgsSchema,
   WorkspaceIdArgsSchema,
 } from "./schemas";
 import {
@@ -119,6 +120,18 @@ export function registerPersistenceHandlers() {
       const store = await ensurePersistenceReady();
       const page = store.loadTaskMessagesPage(parsedArgs.data);
       return { ok: true, page };
+    },
+  );
+
+  ipcMain.handle(
+    "persistence:truncate-task-messages-after",
+    async (_event, args: unknown) => {
+      const parsedArgs = TruncateTaskMessagesAfterArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return { ok: false, removedCount: 0 };
+      }
+      const store = await ensurePersistenceReady();
+      return store.truncateTaskMessagesAfter(parsedArgs.data);
     },
   );
 
@@ -283,8 +296,7 @@ export function registerPersistenceHandlers() {
   ipcMain.handle(
     "persistence:delete-notifications-for-workspaces",
     async (_event, args: unknown) => {
-      const parsedArgs =
-        DeleteWorkspaceNotificationsArgsSchema.safeParse(args);
+      const parsedArgs = DeleteWorkspaceNotificationsArgsSchema.safeParse(args);
       if (!parsedArgs.success) {
         return { ok: false, count: 0 };
       }
