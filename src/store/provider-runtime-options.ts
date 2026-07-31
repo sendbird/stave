@@ -15,6 +15,7 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
+import type { UtilityInferenceContext } from "@/lib/providers/utility-inference";
 import type { AppSettings } from "@/store/app.store";
 
 const DEFAULT_CODEX_APPROVAL_POLICY = "untrusted";
@@ -273,5 +274,23 @@ export function buildProviderRuntimeOptions(args: {
     promptPrDescription: settings.promptPrDescription || undefined,
     promptInlineCompletion: settings.promptInlineCompletion || undefined,
     ...(boundSecretIds ? { boundSecretIds } : {}),
+  };
+}
+
+export function buildUtilityInferenceContext(args: {
+  cwd?: string;
+  provider: ProviderId;
+  model: string;
+  settings: RuntimeSettings & Pick<AppSettings, "utilityInferenceProvider">;
+}): UtilityInferenceContext {
+  return {
+    cwd: args.cwd,
+    utilityProviderId: args.settings.utilityInferenceProvider,
+    activeProviderId: args.provider,
+    runtimeOptions: buildProviderRuntimeOptions({
+      provider: args.provider,
+      model: args.model,
+      settings: args.settings,
+    }),
   };
 }

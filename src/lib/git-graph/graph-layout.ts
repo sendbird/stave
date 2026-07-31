@@ -1,118 +1,279 @@
-// src/lib/git-graph/graph-layout.ts
-import type { GraphCommit, GraphEdge, GraphLayout, GraphNode } from "./types";
+import type {
+  GraphBranch,
+  GraphCommit,
+  GraphEdge,
+  GraphLayout,
+  GraphNode,
+  GraphSegment,
+} from "./types";
 
-interface Lane {
-  hash: string | null; // parent hash this lane is currently reserved for
+interface ActiveLine {
+  branch: GraphBranch;
+  /** The next commit this line is waiting to reach. */
+  targetHash: string | null;
+  /** Lane occupied at the current visible row. */
+  lane: number;
+  /** Style used while the line crosses rows without reaching a commit. */
+  isCommitted: boolean;
+}
+
+interface EdgeDraft {
+  fromRow: number;
+  fromLane: number;
+  toHash: string;
+  branchId: number;
   color: number;
 }
 
-function leftmostFreeLane(lanes: Lane[]): number {
-  for (let i = 0; i < lanes.length; i += 1) {
-    const lane = lanes[i];
-    if (lane !== undefined && lane.hash === null) {
-      return i;
-    }
-  }
-  const newIndex = lanes.length;
-  lanes.push({ hash: null, color: newIndex });
-  return newIndex;
+interface ConnectorDraft {
+  line: ActiveLine;
+  fromLane: number;
+  isCommitted: boolean;
 }
 
-function getLane(lanes: Lane[], index: number): Lane {
-  const lane = lanes[index];
-  if (lane === undefined) {
-    throw new Error(`Lane ${index} is out of bounds (lanes.length=${lanes.length})`);
+export interface BuildGraphLayoutOptions {
+  /**
+   * Synthetic commit used by the renderer for uncommitted changes. Segments
+   * leaving this vertex are rendered with the uncommitted line style.
+   */
+  uncommittedHash?: string;
+}
+
+function firstAvailableColor(lines: ActiveLine[]): number {
+  const occupied = new Set(lines.map((line) => line.branch.color));
+  let color = 0;
+  while (occupied.has(color)) {
+    color += 1;
   }
-  return lane;
+  return color;
+}
+
+function addBranch(
+  branches: GraphBranch[],
+  activeLines: ActiveLine[],
+  targetHash: string | null,
+  lane: number,
+  isCommitted: boolean,
+): ActiveLine {
+  const branch: GraphBranch = {
+    id: branches.length,
+    color: firstAvailableColor(activeLines),
+    segments: [],
+  };
+  branches.push(branch);
+  return { branch, targetHash, lane, isCommitted };
+}
+
+function segment(
+  fromRow: number,
+  fromLane: number,
+  toLane: number,
+  lockedFirst: boolean,
+  isCommitted: boolean,
+): GraphSegment {
+  return {
+    fromRow,
+    fromLane,
+    toRow: fromRow + 1,
+    toLane,
+    lockedFirst,
+    isCommitted,
+  };
 }
 
 /**
- * Pure lane-layout algorithm (vscode-git-graph style line-following).
+ * Lay out newest-first commits as a set of logical branches and row-sized
+ * drawing segments.
  *
- * Single forward pass over commits (newest-first, --date-order).
+ * Active lines reserve lanes until their target commit is reached, including
+ * targets outside the loaded page. When several lines reach the same commit,
+ * they converge on the left-most reserved lane and the remaining lanes are
+ * compacted on the following row.
  *
- * Invariants:
- * - An edge's `toLane` is the lane the line TRAVELS in; that lane stays
- *   reserved for the parent hash until the parent's row, so no other node
- *   can be placed on the vertical segment.
- * - The FIRST parent always reserves the commit's own lane (never adopts an
- *   existing reservation in another lane). This keeps the trunk stable in
- *   lane 0 and lets branch lines run vertically until their fork point.
- * - Several lanes may be reserved for the same parent; at the parent's row
- *   the leftmost wins and the others collapse (their edges bend into the
- *   winner's lane over the final row — drawn by the canvas).
- * - laneCount = maxLaneIndex + 1 (holes included) so the SVG gutter is
- *   always wide enough.
+ * Input follows the graph-log contract: hashes are unique, and commits are in
+ * newest-first order with each loaded child preceding its loaded parents.
  */
-export function buildGraphLayout(commits: GraphCommit[]): GraphLayout {
+export function buildGraphLayout(
+  commits: GraphCommit[],
+  options: BuildGraphLayoutOptions = {},
+): GraphLayout {
   if (commits.length === 0) {
-    return { nodes: [], edges: [], laneCount: 0 };
+    return { nodes: [], edges: [], branches: [], laneCount: 0 };
   }
 
   const nodes: GraphNode[] = [];
-  const edges: GraphEdge[] = [];
-  const lanes: Lane[] = [];
-  let maxLaneIndex = 0;
+  const branches: GraphBranch[] = [];
+  const edgeDrafts: EdgeDraft[] = [];
+  const nodeByHash = new Map<string, GraphNode>();
+  const lastLaneByBranch = new Map<number, number>();
+  let activeLines: ActiveLine[] = [];
+  let laneCount = 0;
 
   for (let row = 0; row < commits.length; row += 1) {
-    const commit = commits[row];
-    if (commit === undefined) continue;
+    const commit = commits[row]!;
+    const sourceIsCommitted = commit.hash !== options.uncommittedHash;
+    const matchingLines = activeLines.filter(
+      (line) => line.targetHash === commit.hash,
+    );
 
-    // 1. The commit lands on the leftmost lane reserved for its hash,
-    //    else on the leftmost free lane.
-    let lane = lanes.findIndex((l) => l.hash === commit.hash);
-    if (lane === -1) {
-      lane = leftmostFreeLane(lanes);
+    let lineWasCreatedForCommit = false;
+    let commitLine = matchingLines[0];
+    if (!commitLine) {
+      commitLine = addBranch(
+        branches,
+        activeLines,
+        null,
+        activeLines.length,
+        sourceIsCommitted,
+      );
+      activeLines.push(commitLine);
+      lineWasCreatedForCommit = true;
     }
-    const color = getLane(lanes, lane).color;
 
-    // 2. Collapse every OTHER lane reserved for this hash (fork-point join).
-    for (let i = 0; i < lanes.length; i += 1) {
-      const l = lanes[i];
-      if (l !== undefined && i !== lane && l.hash === commit.hash) {
-        lanes[i] = { hash: null, color: i };
+    const node: GraphNode = {
+      hash: commit.hash,
+      row,
+      lane: commitLine.lane,
+      color: commitLine.branch.color,
+    };
+    nodes.push(node);
+    if (!nodeByHash.has(commit.hash)) {
+      nodeByHash.set(commit.hash, node);
+    }
+    lastLaneByBranch.set(commitLine.branch.id, node.lane);
+    laneCount = Math.max(laneCount, activeLines.length, node.lane + 1);
+
+    const linesEndingHere = new Set<ActiveLine>();
+    for (const matchedLine of matchingLines) {
+      if (matchedLine !== commitLine) {
+        linesEndingHere.add(matchedLine);
       }
     }
 
-    // 3. Clear the commit's own lane (re-reserved by the first parent below).
-    lanes[lane] = { hash: null, color };
+    if (commit.parents.length === 0) {
+      commitLine.targetHash = null;
+      // A root reached by an existing ancestry line closes that line. A root
+      // discovered on its own has no known lower boundary, so it reserves its
+      // lane through the rest of the loaded window.
+      if (!lineWasCreatedForCommit) {
+        linesEndingHere.add(commitLine);
+      }
+    } else {
+      commitLine.targetHash = commit.parents[0]!;
+      commitLine.isCommitted = sourceIsCommitted;
+      edgeDrafts.push({
+        fromRow: row,
+        fromLane: node.lane,
+        toHash: commit.parents[0]!,
+        branchId: commitLine.branch.id,
+        color: commitLine.branch.color,
+      });
+    }
 
-    nodes.push({ hash: commit.hash, row, lane, color });
-    maxLaneIndex = Math.max(maxLaneIndex, lane);
+    const nextLines = activeLines.filter((line) => !linesEndingHere.has(line));
+    const linesStartingAtNode = new Set<ActiveLine>();
+    const connectors: ConnectorDraft[] = [];
+    const restoreCommittedAfterRow = new Set<ActiveLine>();
 
-    // 4. Reserve travel lanes for parents and emit edges.
-    for (let pi = 0; pi < commit.parents.length; pi += 1) {
-      const parentHash = commit.parents[pi];
-      if (parentHash === undefined) continue;
+    for (
+      let parentIndex = 1;
+      parentIndex < commit.parents.length;
+      parentIndex += 1
+    ) {
+      const parentHash = commit.parents[parentIndex]!;
+      let parentLine = nextLines.find((line) => line.targetHash === parentHash);
 
-      let travelLane: number;
-      if (pi === 0) {
-        // First parent ALWAYS travels in the commit's own lane, even when
-        // another lane already reserved this parent (trunk stability).
-        travelLane = lane;
-        lanes[lane] = { hash: parentHash, color };
+      if (!parentLine) {
+        parentLine = addBranch(
+          branches,
+          nextLines,
+          parentHash,
+          node.lane,
+          sourceIsCommitted,
+        );
+        nextLines.push(parentLine);
+        linesStartingAtNode.add(parentLine);
+        lastLaneByBranch.set(parentLine.branch.id, node.lane);
       } else {
-        const existing = lanes.findIndex((l) => l.hash === parentHash);
-        if (existing !== -1) {
-          // Merge edge joins the line already heading to this parent.
-          travelLane = existing;
-        } else {
-          travelLane = leftmostFreeLane(lanes);
-          lanes[travelLane] = { hash: parentHash, color: travelLane };
+        connectors.push({
+          line: parentLine,
+          fromLane: node.lane,
+          isCommitted: sourceIsCommitted,
+        });
+        if (sourceIsCommitted) {
+          restoreCommittedAfterRow.add(parentLine);
         }
       }
 
-      maxLaneIndex = Math.max(maxLaneIndex, travelLane);
-
-      edges.push({
+      edgeDrafts.push({
         fromRow: row,
-        fromLane: lane,
-        toLane: travelLane,
+        fromLane: node.lane,
         toHash: parentHash,
-        color: getLane(lanes, travelLane).color,
+        branchId: parentLine.branch.id,
+        color: parentLine.branch.color,
       });
     }
+
+    laneCount = Math.max(laneCount, nextLines.length);
+
+    if (row + 1 < commits.length) {
+      const nextHash = commits[row + 1]!.hash;
+      const firstNextMatch = nextLines.findIndex(
+        (line) => line.targetHash === nextHash,
+      );
+      const destinationByLine = new Map<ActiveLine, number>();
+
+      for (let index = 0; index < nextLines.length; index += 1) {
+        const line = nextLines[index]!;
+        const toLane =
+          firstNextMatch !== -1 && line.targetHash === nextHash
+            ? firstNextMatch
+            : index;
+        destinationByLine.set(line, toLane);
+        line.branch.segments.push(
+          segment(
+            row,
+            line.lane,
+            toLane,
+            linesStartingAtNode.has(line),
+            line.isCommitted,
+          ),
+        );
+        line.lane = toLane;
+        lastLaneByBranch.set(line.branch.id, toLane);
+        laneCount = Math.max(laneCount, line.lane + 1);
+      }
+
+      // A parent that already owns a line gets a separate connector from the
+      // merge node. Its existing vertical path remains intact for this row.
+      for (const connector of connectors) {
+        const toLane = destinationByLine.get(connector.line);
+        if (toLane === undefined) {
+          continue;
+        }
+        connector.line.branch.segments.push(
+          segment(row, connector.fromLane, toLane, true, connector.isCommitted),
+        );
+      }
+
+      for (const line of restoreCommittedAfterRow) {
+        line.isCommitted = true;
+      }
+    }
+
+    activeLines = nextLines;
   }
 
-  return { nodes, edges, laneCount: maxLaneIndex + 1 };
+  const edges: GraphEdge[] = edgeDrafts.map((draft) => ({
+    fromRow: draft.fromRow,
+    fromLane: draft.fromLane,
+    toLane:
+      nodeByHash.get(draft.toHash)?.lane ??
+      lastLaneByBranch.get(draft.branchId) ??
+      draft.fromLane,
+    toHash: draft.toHash,
+    color: draft.color,
+  }));
+
+  return { nodes, edges, branches, laneCount };
 }

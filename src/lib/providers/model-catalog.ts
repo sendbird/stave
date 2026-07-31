@@ -74,11 +74,16 @@ export interface ProviderDescriptor {
       rollbackToTurn: ProviderThreadActionCapability;
       renameNativeSession: ProviderThreadActionCapability;
     };
+    utilityInference: {
+      supported: boolean;
+      defaultModel: string;
+    };
   };
 }
 
 export type ProviderThreadActionCapability =
-  { supported: true } | { supported: false; reason: string };
+  | { supported: true }
+  | { supported: false; reason: string };
 
 export const PROVIDER_DESCRIPTORS = [
   {
@@ -102,6 +107,10 @@ export const PROVIDER_DESCRIPTORS = [
         },
         renameNativeSession: { supported: true },
       },
+      utilityInference: {
+        supported: true,
+        defaultModel: "claude-haiku-4-5",
+      },
     },
   },
   {
@@ -120,6 +129,10 @@ export const PROVIDER_DESCRIPTORS = [
         forkFromTurn: { supported: true },
         rollbackToTurn: { supported: true },
         renameNativeSession: { supported: true },
+      },
+      utilityInference: {
+        supported: true,
+        defaultModel: "gpt-5.6-luna",
       },
     },
   },
@@ -213,6 +226,12 @@ export function getProviderThreadActionCapabilities(args: {
   providerId: ProviderId;
 }): ProviderDescriptor["capabilities"]["threadActions"] {
   return getProviderDescriptor(args).capabilities.threadActions;
+}
+
+export function getUtilityInferenceCapability(args: {
+  providerId: ProviderId;
+}) {
+  return getProviderDescriptor(args).capabilities.utilityInference;
 }
 
 export function getDefaultModelForProvider(args: { providerId: ProviderId }) {

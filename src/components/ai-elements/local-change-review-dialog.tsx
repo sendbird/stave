@@ -289,7 +289,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
         <span>Review</span>
       </DialogTrigger>
       <DialogContent
-        className="max-h-[calc(100vh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        className="max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-2xl"
         showCloseButton={!isSubmitting}
       >
         <DialogHeader className="border-b border-border/70 px-6 py-5 pr-14">

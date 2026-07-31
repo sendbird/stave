@@ -32,13 +32,34 @@ export async function assertCdpAllowedForWebContentsId(
   if (!identity) {
     throw new Error("No Lens browser session found for CDP access.");
   }
+  const requestedUrl = wc.getURL();
 
   await assertCdpAllowed({
     workspaceId: identity.workspaceId,
     lensSessionId: identity.lensSessionId,
-    url: wc.getURL(),
+    url: requestedUrl,
     reason,
   });
+
+  const currentWebContents = webContents.fromId(webContentsId);
+  const currentIdentity = getSessionIdentityForWebContentsId(webContentsId);
+  if (
+    currentWebContents !== wc ||
+    !currentWebContents ||
+    currentWebContents.isDestroyed() ||
+    !currentIdentity ||
+    currentIdentity.workspaceId !== identity.workspaceId ||
+    currentIdentity.lensSessionId !== identity.lensSessionId
+  ) {
+    throw new Error(
+      "Lens browser session closed while CDP access was pending.",
+    );
+  }
+  if (currentWebContents.getURL() !== requestedUrl) {
+    throw new Error(
+      "Lens page changed while CDP access was pending; retry the action.",
+    );
+  }
 }
 
 /** Ensure the debugger is attached, attaching lazily if needed. */

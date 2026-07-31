@@ -42,12 +42,12 @@ Use alongside `the-ipc-contract-audit` when the change also crosses IPC.
 
 | File | Role |
 |---|---|
-| `electron/providers/claude-sdk-runtime.ts` | Claude SDK adapter (~1 200 lines) |
+| `electron/providers/claude-sdk-runtime.ts` | Large Claude SDK adapter; inspect targeted sections |
 | `electron/providers/codex-app-server-runtime.ts` | Codex App Server adapter |
 | `electron/providers/runtime.ts` | Shared provider runtime entry |
 | `electron/providers/executable-path.ts` | CLI binary lookup |
 | `electron/providers/cli-path-env.ts` | Env-builder (PATH, config homes) |
-| `electron/providers/adapter.factory.ts` | Event normalization entry (`parseNormalizedEvent`) |
+| `src/lib/providers/adapter.factory.ts` | Event normalization entry (`parseNormalizedEvent`) |
 | `electron/main/utils/tooling-status.ts` | Provider availability probes |
 | `electron/providers/types.ts` | Shared runtime option types |
 | `src/lib/providers/provider.types.ts` | Renderer-facing TS union |
@@ -94,6 +94,8 @@ When upgrading `@anthropic-ai/claude-agent-sdk` or the Claude/Codex CLI expectat
 
 - [ ] Confirm new option names and object shapes against installed package types in `node_modules`, not memory.
 - [ ] For Codex upgrades, read `docs/providers/codex-upgrade-checklist.md`, including Guardian reviewer status.
+- [ ] Review and update the relevant baseline, behavior, and capability documentation in `docs/providers/provider-runtimes.md`; for Codex, keep the upgrade checklist, Settings baseline copy, and generated-schema provenance comments/tests on the same adopted version.
+- [ ] Search the repository for the previous provider version and classify or update every remaining reference.
 - [ ] Apply the same upgrade discipline to the sibling provider if the upgrade introduces shared concepts.
 
 ## Common Failure Modes

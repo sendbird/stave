@@ -91,6 +91,11 @@ import {
 import { buildIntentGuardContextInput } from "@/lib/workspace-information";
 import { deriveTurnVerificationStatus } from "@/lib/workspace-scripts";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
+import {
+  reportUtilityInferenceError,
+  reportUtilityInferenceOutcome,
+} from "@/lib/providers/utility-inference-notice";
+import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -1003,11 +1008,36 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     }
 
     const suggestCommitMessage = window.api?.provider?.suggestCommitMessage;
+    const utilitySettings = useAppStore.getState().settings;
+    const utilityActiveProvider = activeTask?.provider ?? "claude-code";
     const commitMessageSuggestionPromise =
       pendingFiles.length > 0 && !commitMessage.trim() && suggestCommitMessage
-        ? suggestCommitMessage({ cwd: submitWorkspaceCwd }).catch(
-            () => undefined,
-          )
+        ? suggestCommitMessage({
+            ...buildUtilityInferenceContext({
+              cwd: submitWorkspaceCwd,
+              provider: utilityActiveProvider,
+              model:
+                utilityActiveProvider === "codex"
+                  ? utilitySettings.modelCodex
+                  : utilitySettings.modelClaude,
+              settings: utilitySettings,
+            }),
+          })
+            .then((result) => {
+              reportUtilityInferenceOutcome({
+                feature: "commit-message",
+                ok: result.ok,
+                utility: result.utility,
+              });
+              return result;
+            })
+            .catch((error) => {
+              reportUtilityInferenceError({
+                feature: "commit-message",
+                error,
+              });
+              return undefined;
+            })
         : undefined;
 
     if (prePrReviewEnabled && reviewDiff && !options.skipReview) {

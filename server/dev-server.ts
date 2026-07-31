@@ -29,7 +29,33 @@ import {
   runAdvisorPreflight,
 } from "../electron/providers/advisor-runtime";
 import { buildProjectShellEnv } from "../electron/shared/project-node-env";
-import { checkoutDefaultBranchDetached } from "../electron/host-service/scm-runtime";
+import {
+  checkoutDefaultBranchDetached,
+  checkoutScmBranch,
+  cherryPickScmCommit,
+  createScmBranch,
+  createScmTag,
+  deleteScmBranch,
+  deleteScmTag,
+  fetchScmBranch,
+  getScmCommitDetails,
+  getScmCommitDiff,
+  getScmCommitFiles,
+  getScmGraph,
+  mergeScmBranch,
+  pullScmBranch,
+  pushScmBranch,
+  rebaseScmBranch,
+  renameScmBranch,
+  resetScmCommit,
+  revertScmCommit,
+} from "../electron/host-service/scm-runtime";
+import {
+  ScmCommitDetailsArgsSchema,
+  ScmCommitDiffArgsSchema,
+  ScmCommitFilesArgsSchema,
+  ScmGraphArgsSchema,
+} from "../electron/main/ipc/schemas";
 
 // Browser-only development bridge.
 // This is not the primary desktop runtime; it exists so `bun run dev` / `bun run dev:all`
@@ -476,7 +502,7 @@ const server = Bun.serve({
     if (url.pathname === "/api/scm/status" && req.method === "POST") {
       const body = await readJson<{ cwd?: string }>(req);
       const [statusResult, branchResult] = await Promise.all([
-        runCommand({ cmd: "git status --porcelain", cwd: body.cwd }),
+        runCommand({ cmd: "git status --porcelain -z", cwd: body.cwd }),
         runCommand({ cmd: "git rev-parse --abbrev-ref HEAD", cwd: body.cwd }),
       ]);
       const items = statusResult.ok
@@ -586,6 +612,86 @@ const server = Bun.serve({
       });
     }
 
+    if (url.pathname === "/api/scm/graph" && req.method === "POST") {
+      const parsed = ScmGraphArgsSchema.safeParse(await readJson<unknown>(req));
+      if (!parsed.success) {
+        return json(
+          {
+            ok: false,
+            commits: [],
+            head: null,
+            headHash: null,
+            availableRefs: [],
+            workingTree: {
+              staged: 0,
+              unstaged: 0,
+              untracked: 0,
+              conflicts: 0,
+            },
+            workingTreeAvailable: false,
+            worktreePathByBranch: {},
+            worktreePathsAvailable: false,
+            hasMore: false,
+            stderr: "Invalid git graph request.",
+          },
+          400,
+        );
+      }
+      return json(await getScmGraph(parsed.data));
+    }
+
+    if (url.pathname === "/api/scm/commit-details" && req.method === "POST") {
+      const parsed = ScmCommitDetailsArgsSchema.safeParse(
+        await readJson<unknown>(req),
+      );
+      if (!parsed.success) {
+        return json(
+          {
+            ok: false,
+            details: null,
+            stderr: "Invalid commit details request.",
+          },
+          400,
+        );
+      }
+      return json(await getScmCommitDetails(parsed.data));
+    }
+
+    if (url.pathname === "/api/scm/commit-files" && req.method === "POST") {
+      const parsed = ScmCommitFilesArgsSchema.safeParse(
+        await readJson<unknown>(req),
+      );
+      if (!parsed.success) {
+        return json(
+          {
+            ok: false,
+            files: [],
+            stderr: "Invalid commit files request.",
+          },
+          400,
+        );
+      }
+      return json(await getScmCommitFiles(parsed.data));
+    }
+
+    if (url.pathname === "/api/scm/commit-diff" && req.method === "POST") {
+      const parsed = ScmCommitDiffArgsSchema.safeParse(
+        await readJson<unknown>(req),
+      );
+      if (!parsed.success) {
+        return json(
+          {
+            ok: false,
+            oldContent: "",
+            newContent: "",
+            stderr: "Invalid commit diff request.",
+          },
+          400,
+        );
+      }
+      return json(await getScmCommitDiff(parsed.data));
+    }
+
     if (url.pathname === "/api/scm/history" && req.method === "POST") {
       const body = await readJson<{ cwd?: string; limit?: number }>(req);
       const limit = Math.max(1, Math.min(50, body.limit ?? 20));
@@ -613,12 +719,12 @@ const server = Bun.serve({
       const body = await readJson<{ cwd?: string; refreshRemote?: boolean }>(
         req,
       );
-      const refreshResult = await runCommand({
-        cmd: body.refreshRemote
-          ? "git fetch --all --prune"
-          : "git remote prune origin",
-        cwd: body.cwd,
-      });
+      const refreshResult = body.refreshRemote
+        ? await runCommand({
+            cmd: "git fetch --all --prune",
+            cwd: body.cwd,
+          })
+        : { ok: true, code: 0, stdout: "", stderr: "" };
       const [result, remoteResult, currentResult, worktreeResult] =
         await Promise.all([
           runCommand({
@@ -670,51 +776,28 @@ const server = Bun.serve({
       });
     }
 
+    if (url.pathname === "/api/scm/fetch" && req.method === "POST") {
+      const body = await readJson<{ cwd?: string; branch?: string }>(req);
+      return json(await fetchScmBranch(body));
+    }
+
+    if (url.pathname === "/api/scm/pull" && req.method === "POST") {
+      const body = await readJson<{ cwd?: string; branch?: string }>(req);
+      return json(await pullScmBranch(body));
+    }
+
     if (url.pathname === "/api/scm/branch-create" && req.method === "POST") {
       const body = await readJson<{
         cwd?: string;
         name: string;
         from?: string;
       }>(req);
-      const branchName = body.name.trim();
-      if (!branchName) {
-        return json(
-          {
-            ok: false,
-            code: -1,
-            stdout: "",
-            stderr: "Branch name is required.",
-          },
-          400,
-        );
-      }
-      const fromRef = body.from?.trim();
-      const command = fromRef
-        ? `git branch ${JSON.stringify(branchName)} ${JSON.stringify(fromRef)}`
-        : `git branch ${JSON.stringify(branchName)}`;
-      return json(await runCommand({ cmd: command, cwd: body.cwd }));
+      return json(await createScmBranch(body));
     }
 
     if (url.pathname === "/api/scm/branch-checkout" && req.method === "POST") {
       const body = await readJson<{ cwd?: string; name: string }>(req);
-      const branchName = body.name.trim();
-      if (!branchName) {
-        return json(
-          {
-            ok: false,
-            code: -1,
-            stdout: "",
-            stderr: "Branch name is required.",
-          },
-          400,
-        );
-      }
-      return json(
-        await runCommand({
-          cmd: `git checkout ${JSON.stringify(branchName)}`,
-          cwd: body.cwd,
-        }),
-      );
+      return json(await checkoutScmBranch(body));
     }
 
     if (
@@ -727,68 +810,74 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/scm/branch-merge" && req.method === "POST") {
       const body = await readJson<{ cwd?: string; branch: string }>(req);
-      const branchName = body.branch.trim();
-      if (!branchName) {
-        return json(
-          {
-            ok: false,
-            code: -1,
-            stdout: "",
-            stderr: "Branch name is required.",
-          },
-          400,
-        );
-      }
-      return json(
-        await runCommand({
-          cmd: `git merge ${JSON.stringify(branchName)}`,
-          cwd: body.cwd,
-        }),
-      );
+      return json(await mergeScmBranch(body));
     }
 
     if (url.pathname === "/api/scm/branch-rebase" && req.method === "POST") {
       const body = await readJson<{ cwd?: string; branch: string }>(req);
-      const branchName = body.branch.trim();
-      if (!branchName) {
-        return json(
-          {
-            ok: false,
-            code: -1,
-            stdout: "",
-            stderr: "Branch name is required.",
-          },
-          400,
-        );
-      }
-      return json(
-        await runCommand({
-          cmd: `git rebase ${JSON.stringify(branchName)}`,
-          cwd: body.cwd,
-        }),
-      );
+      return json(await rebaseScmBranch(body));
     }
 
     if (url.pathname === "/api/scm/cherry-pick" && req.method === "POST") {
       const body = await readJson<{ cwd?: string; commit: string }>(req);
-      const commit = body.commit.trim();
-      if (!commit) {
-        return json(
-          {
-            ok: false,
-            code: -1,
-            stdout: "",
-            stderr: "Commit hash is required.",
-          },
-          400,
-        );
-      }
-      return json(
-        await runCommand({
-          cmd: `git cherry-pick ${JSON.stringify(commit)}`,
-          cwd: body.cwd,
-        }),
-      );
+      return json(await cherryPickScmCommit(body));
+    }
+
+    if (url.pathname === "/api/scm/revert" && req.method === "POST") {
+      const body = await readJson<{ cwd?: string; commit: string }>(req);
+      return json(await revertScmCommit(body));
+    }
+
+    if (url.pathname === "/api/scm/reset" && req.method === "POST") {
+      const body = await readJson<{
+        cwd?: string;
+        commit: string;
+        mode: "soft" | "mixed" | "hard";
+      }>(req);
+      return json(await resetScmCommit(body));
+    }
+
+    if (url.pathname === "/api/scm/tag-create" && req.method === "POST") {
+      const body = await readJson<{
+        cwd?: string;
+        name: string;
+        commit?: string;
+        message?: string;
+      }>(req);
+      return json(await createScmTag(body));
+    }
+
+    if (url.pathname === "/api/scm/tag-delete" && req.method === "POST") {
+      const body = await readJson<{ cwd?: string; name: string }>(req);
+      return json(await deleteScmTag(body));
+    }
+
+    if (url.pathname === "/api/scm/branch-rename" && req.method === "POST") {
+      const body = await readJson<{
+        cwd?: string;
+        from: string;
+        to: string;
+      }>(req);
+      return json(await renameScmBranch(body));
+    }
+
+    if (url.pathname === "/api/scm/branch-delete" && req.method === "POST") {
+      const body = await readJson<{
+        cwd?: string;
+        name: string;
+        force?: boolean;
+      }>(req);
+      return json(await deleteScmBranch(body));
+    }
+
+    if (url.pathname === "/api/scm/push" && req.method === "POST") {
+      const body = await readJson<{
+        cwd?: string;
+        branch?: string;
+        remote?: string;
+        force?: boolean;
+      }>(req);
+      return json(await pushScmBranch(body));
     }
 
     if (url.pathname === "/api/terminal/create" && req.method === "POST") {

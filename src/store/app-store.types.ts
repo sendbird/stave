@@ -500,11 +500,13 @@ export interface AppState
   resolveApproval: (args: {
     taskId: string;
     messageId: string;
+    requestId?: string;
     approved: boolean;
   }) => void;
   resolveUserInput: (args: {
     taskId: string;
     messageId: string;
+    requestId?: string;
     answers?: Record<string, string>;
     denied?: boolean;
   }) => void;

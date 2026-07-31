@@ -364,13 +364,13 @@ When a task switches from one Codex model to another, Stave does not attempt to 
 
 ## Supported Codex baseline
 
-- Codex App Server transport: local `codex app-server` from Codex CLI `0.142.0`
-- Codex CLI baseline: `0.142.0`
+- Codex App Server transport: local `codex app-server` from Codex CLI `0.144.1`
+- Codex CLI baseline: `0.144.1`
 - Current Stave-supported Codex model IDs: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5` (default: `gpt-5.6-terra`)
 
-Stave requires a user-installed Codex CLI (`codex` ≥ 0.142.0). Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery.
+Stave requires a user-installed Codex CLI (`codex` ≥ 0.144.1). Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery.
 
-The Codex App Server adapter advertises the `experimentalApi` capability during initialization for App Server features that require it, but thread and turn request payloads are kept within the generated 0.142.0 protocol surface.
+The Codex App Server adapter advertises the `experimentalApi` capability during initialization for App Server features that require it, but thread and turn request payloads are kept within the generated 0.144.1 protocol surface.
 
 Claude follows the same pattern. Users can force a specific local `claude` install via `runtimeOptions.claudeBinaryPath` or the Settings dialog's Claude Binary override before Stave falls back to environment-based discovery.
 

@@ -26,8 +26,16 @@ interface CdpControllerState {
 }
 
 const controllers = new Map<number, CdpControllerState>();
+const disposedWebContentsIds = new Set<number>();
+
+function assertControllerNotDisposed(webContentsId: number): void {
+  if (disposedWebContentsIds.has(webContentsId)) {
+    throw new Error(`WebContents ${webContentsId} is closing`);
+  }
+}
 
 function requireWebContents(webContentsId: number): Electron.WebContents {
+  assertControllerNotDisposed(webContentsId);
   const wc = webContents.fromId(webContentsId);
   if (!wc || wc.isDestroyed()) {
     throw new Error(`WebContents ${webContentsId} not found or destroyed`);
@@ -105,6 +113,7 @@ function getOrCreateController(webContentsId: number): CdpControllerState {
 }
 
 function finalizeControllerDetach(state: CdpControllerState): void {
+  state.detachRequested = false;
   const wc = webContents.fromId(state.webContentsId);
   if (wc && !wc.isDestroyed()) {
     wc.debugger.off("message", state.onMessage);
@@ -169,6 +178,9 @@ export async function sendCdpCommandIfAttached(
   method: string,
   params?: Record<string, unknown>,
 ): Promise<unknown | undefined> {
+  if (disposedWebContentsIds.has(webContentsId)) {
+    return undefined;
+  }
   const wc = webContents.fromId(webContentsId);
   if (!wc || wc.isDestroyed() || !wc.debugger.isAttached()) {
     return undefined;
@@ -207,15 +219,49 @@ export function subscribeCdpDetach(
   return () => controller.detachListeners.delete(listener);
 }
 
-export function detachCdpController(webContentsId: number): void {
+export function detachCdpController(
+  webContentsId: number,
+  options?: { force?: boolean },
+): void {
   const controller = controllers.get(webContentsId);
   if (controller) {
-    if (controller.attachedByController && controller.inFlightCommands > 0) {
+    if (
+      !options?.force &&
+      controller.attachedByController &&
+      controller.inFlightCommands > 0
+    ) {
       controller.detachRequested = true;
       return;
     }
     finalizeControllerDetach(controller);
   }
+}
+
+/** Permanently reject new CDP work while a WebContents is closing. */
+export function disposeCdpController(webContentsId: number): void {
+  const wc = webContents.fromId(webContentsId);
+  let isAlive = false;
+  try {
+    isAlive = Boolean(wc && !wc.isDestroyed());
+  } catch {
+    // Treat an unreadable wrapper as alive and keep the id tombstoned.
+    isAlive = Boolean(wc);
+  }
+  if (wc && isAlive) {
+    if (!disposedWebContentsIds.has(webContentsId)) {
+      disposedWebContentsIds.add(webContentsId);
+      try {
+        wc.once("destroyed", () => {
+          disposedWebContentsIds.delete(webContentsId);
+        });
+      } catch {
+        // Keep the tombstone when destruction cannot be observed safely.
+      }
+    }
+  } else {
+    disposedWebContentsIds.delete(webContentsId);
+  }
+  detachCdpController(webContentsId, { force: true });
 }
 
 export function isCdpAttached(webContentsId: number): boolean {

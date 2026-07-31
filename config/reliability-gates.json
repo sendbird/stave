@@ -63,6 +63,78 @@
         "electron/providers/codex-app-server-runtime.ts",
         "docs/providers/provider-runtimes.md"
       ]
+    },
+    {
+      "id": "provider-ipc-contract",
+      "title": "Provider IPC stays wired end to end",
+      "invariant": "Every provider preload method has a matching Window API declaration, validated main handler, host protocol request, and host dispatch route.",
+      "testFiles": [
+        "tests/provider-ipc-contract.test.ts",
+        "tests/provider-runtime-contracts.test.ts"
+      ],
+      "assertionRefs": [
+        "electron/main/ipc/provider.ts",
+        "electron/main/ipc/schemas.ts",
+        "electron/preload.ts",
+        "src/types/window-api.d.ts"
+      ]
+    },
+    {
+      "id": "provider-turn-lifecycle",
+      "title": "Provider turns have one terminal boundary",
+      "invariant": "Claude and Codex turns deliver exactly one terminal event and release runtime and pending-decision state after completion, abort, timeout, or process failure.",
+      "testFiles": [
+        "tests/provider-turn-lifecycle.test.ts",
+        "tests/provider-lifecycle-contract.test.ts",
+        "tests/bridge-persistence-regression.test.ts"
+      ],
+      "assertionRefs": [
+        "electron/providers/provider-turn-lifecycle.ts",
+        "electron/providers/runtime.ts",
+        "src/store/app-store-workspace-hydration-actions.ts",
+        "docs/developer/provider-session-stability.md"
+      ]
+    },
+    {
+      "id": "provider-utility-inference",
+      "title": "Utility inference remains provider neutral",
+      "invariant": "Task naming, route classification, and commit suggestions choose an explicit or active provider deterministically and degrade without blocking the primary task.",
+      "testFiles": ["tests/utility-inference.test.ts"],
+      "assertionRefs": [
+        "electron/providers/utility-inference.ts",
+        "src/lib/providers/utility-inference.ts",
+        "src/store/utility-inference-runtime.ts"
+      ]
+    },
+    {
+      "id": "fleet-inline-control-plane",
+      "title": "Fleet actions target fresh task identities",
+      "invariant": "Inline answers, approvals, steering, queueing, and stop actions revalidate project, workspace, task, turn, and request identity before delivery.",
+      "testFiles": [
+        "tests/fleet-control-plane.test.ts",
+        "tests/fleet-task-control-panel.test.ts",
+        "tests/bridge-persistence-regression.test.ts"
+      ],
+      "assertionRefs": [
+        "src/lib/fleet/control-plane.ts",
+        "src/components/layout/FleetTaskControlPanel.tsx",
+        "src/store/app-store-provider-interaction-actions.ts"
+      ]
+    },
+    {
+      "id": "task-execution-summary",
+      "title": "Task review metrics preserve provenance",
+      "invariant": "Fleet, Turn Activity, and completion notifications reuse reported or derived task metrics and never present missing checks, usage, or context headroom as zero.",
+      "testFiles": [
+        "tests/task-execution-summary.test.ts",
+        "tests/turn-activity-render.test.tsx",
+        "tests/app-notification-builders.test.ts"
+      ],
+      "assertionRefs": [
+        "src/lib/fleet/task-execution-summary.ts",
+        "src/components/layout/TaskExecutionSummarySurface.tsx",
+        "src/store/app-notification-builders.ts"
+      ]
     }
   ]
 }

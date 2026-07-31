@@ -24,6 +24,11 @@ import type {
   RateLimitsSnapshotResponse,
 } from "../src/lib/providers/provider.types";
 import type {
+  RouteClassification,
+  UtilityInferenceContext,
+  UtilityInferenceMetadata,
+} from "../src/lib/providers/utility-inference";
+import type {
   ConnectedToolId,
   ConnectedToolStatusResponse,
 } from "../src/lib/providers/connected-tool-status";
@@ -688,30 +693,11 @@ ipcRenderer.on(
 ipcRenderer.on(
   "lens:console-entry",
   (_event, payload: BrowserConsoleEventPayload) => {
+    if (lensConsoleEventSubscribers.size === 0) {
+      return;
+    }
     for (const subscriber of lensConsoleEventSubscribers) {
       subscriber(payload);
-    }
-
-    const prefix = `[Lens:${payload.workspaceId}]`;
-    const message = payload.entry.source
-      ? `${prefix} ${payload.entry.text} (${payload.entry.source})`
-      : `${prefix} ${payload.entry.text}`;
-    switch (payload.entry.level) {
-      case "debug":
-        console.debug(message);
-        break;
-      case "info":
-        console.info(message);
-        break;
-      case "warn":
-        console.warn(message);
-        break;
-      case "error":
-        console.error(message);
-        break;
-      default:
-        console.log(message);
-        break;
     }
   },
 );
@@ -1045,46 +1031,39 @@ contextBridge.exposeInMainWorld("api", {
         "provider:batch-write-codex-config",
         args,
       ) as Promise<CodexMutationResponse>,
-    suggestTaskName: (args: {
-      prompt: string;
-      history?: Array<{ role: string; content: string }>;
-    }) =>
+    suggestTaskName: (
+      args: UtilityInferenceContext & {
+        prompt: string;
+        history?: Array<{ role: string; content: string }>;
+      },
+    ) =>
       ipcRenderer.invoke("provider:suggest-task-name", args) as Promise<{
         ok: boolean;
         title?: string;
+        utility: UtilityInferenceMetadata;
       }>,
-    classifyRoute: (args: {
-      prompt: string;
-      history?: Array<{
-        role: "user" | "assistant";
-        content: string;
-        providerId?: ProviderId;
-        model?: string;
-      }>;
-      fileContextCount?: number;
-    }) =>
+    classifyRoute: (
+      args: UtilityInferenceContext & {
+        prompt: string;
+        history?: Array<{
+          role: "user" | "assistant";
+          content: string;
+          providerId?: ProviderId;
+          model?: string;
+        }>;
+        fileContextCount?: number;
+      },
+    ) =>
       ipcRenderer.invoke("provider:classify-route", args) as Promise<{
         ok: boolean;
-        classification?: {
-          taskType:
-            | "quick_edit"
-            | "plan"
-            | "implementation"
-            | "debug"
-            | "review"
-            | "general"
-            | "safety";
-          complexity: "low" | "medium" | "high";
-          recommendedTier: "light" | "standard" | "heavy" | "frontier";
-          confidence: number;
-          rationale?: string;
-          stick?: boolean;
-        };
+        classification?: RouteClassification;
+        utility: UtilityInferenceMetadata;
       }>,
-    suggestCommitMessage: (args: { cwd?: string }) =>
+    suggestCommitMessage: (args: UtilityInferenceContext) =>
       ipcRenderer.invoke("provider:suggest-commit-message", args) as Promise<{
         ok: boolean;
         message?: string;
+        utility: UtilityInferenceMetadata;
       }>,
     suggestPRDescription: (args: {
       cwd?: string;
@@ -1752,7 +1731,11 @@ contextBridge.exposeInMainWorld("api", {
       limit?: number;
       skip?: number;
       scope?: string;
+      refs?: string[];
+      includeRepositoryState?: boolean;
     }) => ipcRenderer.invoke("scm:graph", args),
+    getCommitDetails: (args: { hash: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:commit-details", args),
     getCommitFiles: (args: { hash: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:commit-files", args),
     getCommitDiff: (args: {

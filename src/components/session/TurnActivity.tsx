@@ -33,7 +33,12 @@ import {
   type TurnActivityTodo,
 } from "@/components/session/turn-activity.utils";
 import { Button } from "@/components/ui";
+import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import { useThrottledValue } from "@/hooks/use-throttled-value";
+import {
+  buildTaskExecutionSummary,
+  type TaskExecutionSummary,
+} from "@/lib/fleet/task-execution-summary";
 import {
   formatProviderTurnElapsedDuration,
   formatProviderTurnIdleDuration,
@@ -134,6 +139,8 @@ export function TurnActivity() {
     activeTurnId,
     activity,
     expandedByDefault,
+    verification,
+    rateLimits,
   ] = useAppStore(
     useShallow((state) => [
       state.tasks.find((task) => task.id === taskId) ?? null,
@@ -146,6 +153,8 @@ export function TurnActivity() {
       state.activeTurnIdsByTask[taskId] ?? null,
       state.providerTurnActivityByTask[taskId] ?? null,
       state.settings.turnActivityExpandedByDefault,
+      state.turnVerificationByWorkspace[state.activeWorkspaceId] ?? null,
+      state.rateLimitsSnapshot,
     ]),
   );
   const activeProvider = activeTask?.provider ?? draftProvider;
@@ -201,6 +210,25 @@ export function TurnActivity() {
   );
   const currentActivity =
     activity?.turnId === activeTurnId || hasRetainedFailure ? activity : null;
+  const executionSummary = useMemo(
+    () =>
+      buildTaskExecutionSummary({
+        taskId,
+        providerId: activeProvider,
+        messages,
+        activity: currentActivity,
+        verification,
+        rateLimits,
+      }),
+    [
+      activeProvider,
+      currentActivity,
+      messages,
+      rateLimits,
+      taskId,
+      verification,
+    ],
+  );
   const shouldShow = resolveTurnActivityVisibility({
     isTurnActive: Boolean(activeTurnId),
     isPlanPending,
@@ -268,11 +296,13 @@ export function TurnActivity() {
       todos: throttledTodos,
       expandedByDefault,
       hasPendingInteractionCard,
+      executionSummary,
     };
   }, [
     activeTurnId,
     currentActivity,
     expandedByDefault,
+    executionSummary,
     hasPendingInteractionCard,
     isPlanPreparing,
     shouldShow,
@@ -335,6 +365,7 @@ interface TurnActivitySurfaceProps {
    * its own duplicate row instead.
    */
   hasPendingInteractionCard?: boolean;
+  executionSummary?: TaskExecutionSummary;
 }
 
 export const TurnActivitySurface = memo(function TurnActivitySurface(
@@ -467,7 +498,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     featuredItem.detail !== headline
       ? featuredItem.detail
       : null;
-  const canExpand = activityItems.length > 0 && !interactionCardOwnsFocus;
+  const canExpand =
+    (activityItems.length > 0 || props.executionSummary != null) &&
+    !interactionCardOwnsFocus;
   // `0/4` says nothing, so the ratio only appears once work has landed.
   const showProgress =
     !interactionCardOwnsFocus &&
@@ -600,6 +633,14 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               {activityItems.map((item) => (
                 <TurnActivityRow key={item.id} item={item} />
               ))}
+              {props.executionSummary ? (
+                <TaskExecutionSummarySurface
+                  compact
+                  summary={props.executionSummary}
+                  showLatestActivity={false}
+                  className="px-1.5 pb-1 pt-2"
+                />
+              ) : null}
             </div>
           </div>
         ) : null}

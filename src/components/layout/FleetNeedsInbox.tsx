@@ -6,6 +6,10 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import {
+  FleetTaskControlPanel,
+  type FleetTaskControlTarget,
+} from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { Badge, Button } from "@/components/ui";
 import type {
@@ -104,7 +108,7 @@ export function FleetNeedsInbox(args: {
   selectedNeedId: string | null;
   busyNeedId: string | null;
   onOpen: (item: FleetNeedItem) => void;
-  onResolveApproval: (item: FleetNeedItem, approved: boolean) => void;
+  onOpenTask: (target: FleetTaskControlTarget) => void;
   onMarkRead: (item: FleetNeedItem) => void;
   onDismiss: (item: FleetNeedItem) => void;
   onOpenPr: (item: FleetNeedItem) => void;
@@ -139,14 +143,17 @@ export function FleetNeedsInbox(args: {
           Press N for next
         </span>
       </div>
-      <ul className="max-h-64 overflow-y-auto border-t border-border/45">
+      <ul
+        className={cn(
+          "overflow-y-auto border-t border-border/45",
+          args.selectedNeedId ? "max-h-[min(48rem,70vh)]" : "max-h-64",
+        )}
+      >
         {args.items.map((item) => {
           const selected = args.selectedNeedId === item.id;
           const busy = args.busyNeedId === item.id;
           const detail = getFleetNeedDetail(item);
           const title = getFleetNeedTitle(item);
-          const canResolveApproval =
-            item.kind === "approval" && Boolean(item.notificationId);
           const canMarkRead =
             Boolean(item.notificationId) &&
             (item.kind === "run-failed" || item.kind === "result-ready");
@@ -160,115 +167,131 @@ export function FleetNeedsInbox(args: {
             item.source === "notification" &&
             Boolean(item.notificationId) &&
             (item.kind === "approval" || item.kind === "user-input");
+          const triggerId = `fleet-need-trigger-${item.id}`;
+          const controlTarget = item.taskId
+            ? {
+                projectPath: item.projectPath,
+                workspaceId: item.workspaceId,
+                taskId: item.taskId,
+                taskTitle: item.taskTitle,
+                turnId: item.turnId,
+              }
+            : null;
 
           return (
             <li
               key={item.id}
               className={cn(
-                "grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-stretch border-b border-border/45 last:border-b-0",
+                "border-b border-border/45 last:border-b-0",
                 selected && "bg-accent/18",
               )}
             >
-              <button
-                type="button"
-                className="flex min-w-0 items-center gap-3 px-4 py-2.5 text-left hover:bg-accent/18 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55"
-                aria-label={`${getFleetNeedPrimaryAction(item)} for ${title} in ${item.workspaceName}`}
-                disabled={busy}
-                onClick={() => args.onOpen(item)}
-              >
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "shrink-0 rounded-sm",
-                    FLEET_NEED_BADGE_CLASS[item.kind],
-                  )}
+              <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-stretch">
+                <button
+                  id={triggerId}
+                  type="button"
+                  className="flex min-w-0 items-center gap-3 px-4 py-2.5 text-left hover:bg-accent/18 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55"
+                  aria-label={`${getFleetNeedPrimaryAction(item)} for ${title} in ${item.workspaceName}`}
+                  aria-expanded={controlTarget ? selected : undefined}
+                  aria-controls={
+                    controlTarget && selected
+                      ? `fleet-need-controls-${item.id}`
+                      : undefined
+                  }
+                  disabled={busy}
+                  onClick={() => args.onOpen(item)}
                 >
-                  {getFleetNeedIcon(item)}
-                  {FLEET_NEED_LABEL[item.kind]}
-                </Badge>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-foreground">
-                    {title}
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "shrink-0 rounded-sm",
+                      FLEET_NEED_BADGE_CLASS[item.kind],
+                    )}
+                  >
+                    {getFleetNeedIcon(item)}
+                    {FLEET_NEED_LABEL[item.kind]}
+                  </Badge>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {title}
+                    </span>
+                    <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+                      <span className="truncate">{item.workspaceName}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="truncate">{item.projectName}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{formatTaskUpdatedAt({ value: item.createdAt })}</span>
+                      {detail ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="max-w-80 truncate">{detail}</span>
+                        </>
+                      ) : null}
+                    </span>
                   </span>
-                  <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
-                    <span className="truncate">{item.workspaceName}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="truncate">{item.projectName}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{formatTaskUpdatedAt({ value: item.createdAt })}</span>
-                    {detail ? (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <span className="max-w-80 truncate">{detail}</span>
-                      </>
-                    ) : null}
-                  </span>
-                </span>
-              </button>
-              <div className="flex items-center gap-1 px-3 py-2">
-                {canResolveApproval ? (
-                  <>
+                </button>
+                <div className="flex items-center gap-1 px-3 py-2">
+                  {canMarkRead ? (
                     <Button
                       type="button"
                       size="sm"
+                      variant="ghost"
                       className="min-h-11"
                       disabled={busy}
-                      onClick={() => args.onResolveApproval(item, true)}
+                      onClick={() => args.onMarkRead(item)}
                     >
-                      Approve
+                      {item.kind === "result-ready"
+                        ? "Mark reviewed"
+                        : "Mark read"}
                     </Button>
+                  ) : null}
+                  {canDismiss ? (
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
                       className="min-h-11"
                       disabled={busy}
-                      onClick={() => args.onResolveApproval(item, false)}
+                      aria-label={`Dismiss ${item.kind === "approval" ? "approval" : "question"} for ${title} in ${item.workspaceName}`}
+                      onClick={() => args.onDismiss(item)}
                     >
-                      Deny
+                      Dismiss
                     </Button>
-                  </>
-                ) : null}
-                {canMarkRead ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="min-h-11"
-                    disabled={busy}
-                    onClick={() => args.onMarkRead(item)}
-                  >
-                    {item.kind === "result-ready"
-                      ? "Mark reviewed"
-                      : "Mark read"}
-                  </Button>
-                ) : null}
-                {canDismiss ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="min-h-11"
-                    disabled={busy}
-                    aria-label={`Dismiss ${item.kind === "approval" ? "approval" : "question"} for ${title} in ${item.workspaceName}`}
-                    onClick={() => args.onDismiss(item)}
-                  >
-                    Dismiss
-                  </Button>
-                ) : null}
-                {item.prUrl ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="min-h-11"
-                    disabled={busy}
-                    onClick={() => args.onOpenPr(item)}
-                  >
-                    Open PR
-                  </Button>
-                ) : null}
+                  ) : null}
+                  {item.prUrl ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="min-h-11"
+                      disabled={busy}
+                      onClick={() => args.onOpenPr(item)}
+                    >
+                      Open PR
+                    </Button>
+                  ) : null}
+                </div>
               </div>
+              {selected && controlTarget ? (
+                <div id={`fleet-need-controls-${item.id}`}>
+                  <FleetTaskControlPanel
+                    target={controlTarget}
+                    expectedInteraction={
+                      (item.kind === "approval" ||
+                        item.kind === "user-input") &&
+                      item.requestId
+                        ? {
+                            kind: item.kind,
+                            requestId: item.requestId,
+                          }
+                        : undefined
+                    }
+                    returnFocusElementId={triggerId}
+                    onOpenTask={args.onOpenTask}
+                    onClose={() => args.onOpen(item)}
+                  />
+                </div>
+              ) : null}
             </li>
           );
         })}

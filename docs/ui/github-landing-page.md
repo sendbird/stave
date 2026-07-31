@@ -15,7 +15,9 @@ The public site intentionally stays product-facing:
 
 - `site/` — React site app for landing and docs
 - `site/src/public-docs.ts` — curated end-user docs information architecture
-- `site/src/site-components.tsx` — landing, docs layout, and shared site UI
+- `site/src/landing-page.tsx` — product landing page
+- `site/src/site-layout.tsx` — shared docs shell and navigation
+- `site/src/docs-page.tsx` — docs route content and table-of-contents layout
 - `site/src/site.css` — site-only Tailwind and shadcn visual system
 - `scripts/build-pages-site.ts` — generates public docs content, runs the Vite build, and writes `.pages-dist/`
 - `vite.site.config.ts` — Vite config for the public site build

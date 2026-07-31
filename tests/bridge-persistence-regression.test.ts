@@ -4879,6 +4879,140 @@ describe("workspace store hydration ordering", () => {
     );
   });
 
+  test("Fleet-style steer and queue target an inactive workspace without clearing its composer", async () => {
+    const localStorage = createMemoryStorage();
+    const steerCalls: Array<{ turnId: string; text: string }> = [];
+    (globalThis as { window: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          steerTurn: async (args: { turnId: string; text: string }) => {
+            steerCalls.push({ turnId: args.turnId, text: args.text });
+            return { ok: true, delivery: "accepted" };
+          },
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const { createWorkspaceSessionStateFromAppState } = await import(
+      "../src/store/workspace-runtime-state"
+    );
+    const initialState = useAppStore.getInitialState();
+    const inactiveTask = {
+      id: "task-inactive-control",
+      title: "Inactive control",
+      provider: "codex" as const,
+      updatedAt: "2026-07-31T00:00:00.000Z",
+      unread: false,
+      archivedAt: null,
+      controlMode: "interactive" as const,
+      controlOwner: "stave" as const,
+    };
+    const inactiveSession = createWorkspaceSessionStateFromAppState({
+      ...initialState,
+      activeTaskId: inactiveTask.id,
+      tasks: [inactiveTask],
+      messagesByTask: {
+        [inactiveTask.id]: [
+          {
+            id: "assistant-inactive-control",
+            role: "assistant",
+            model: "gpt-5.6",
+            providerId: "codex",
+            content: "",
+            isStreaming: true,
+            parts: [],
+          },
+        ],
+      },
+      messageCountByTask: { [inactiveTask.id]: 1 },
+      promptDraftByTask: {
+        [inactiveTask.id]: {
+          text: "Keep the task composer",
+          attachedFilePaths: [],
+          attachments: [],
+        },
+      },
+      activeTurnIdsByTask: { [inactiveTask.id]: "turn-inactive-control" },
+    });
+    useAppStore.setState({
+      ...initialState,
+      projectPath: "/tmp/stave",
+      activeWorkspaceId: "workspace-active",
+      tasks: [],
+      messagesByTask: {},
+      activeTurnIdsByTask: {},
+      workspacePathById: {
+        "workspace-inactive": "/tmp/stave/.stave/workspaces/inactive",
+      },
+      workspaceRuntimeCacheById: {
+        "workspace-inactive": inactiveSession,
+      },
+      taskWorkspaceIdById: {
+        [inactiveTask.id]: "workspace-inactive",
+      },
+      providerTurnActivityByTask: {
+        [inactiveTask.id]: {
+          turnId: "turn-inactive-control",
+          providerId: "codex",
+          startedAt: 1,
+          lastEventAt: 2,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+      },
+      settings: {
+        ...initialState.settings,
+        midTurnSteeringEnabled: true,
+      },
+    });
+
+    const steered = await useAppStore.getState().sendUserMessage({
+      taskId: inactiveTask.id,
+      content: "Steer from Fleet",
+      submitIntent: "steer",
+      preservePromptDraft: true,
+    });
+    const queued = await useAppStore.getState().sendUserMessage({
+      taskId: inactiveTask.id,
+      content: "Queue from Fleet",
+      submitIntent: "queue",
+      preservePromptDraft: true,
+    });
+
+    const cached =
+      useAppStore.getState().workspaceRuntimeCacheById["workspace-inactive"];
+    expect(steered).toMatchObject({ status: "steered" });
+    expect(queued).toMatchObject({ status: "queued" });
+    expect(steerCalls).toEqual([
+      {
+        turnId: "turn-inactive-control",
+        text: "Steer from Fleet",
+      },
+    ]);
+    expect(cached?.promptDraftByTask[inactiveTask.id]?.text).toBe(
+      "Keep the task composer",
+    );
+    expect(
+      cached?.promptDraftByTask[inactiveTask.id]?.queuedTurns?.map(
+        (item) => item.content,
+      ),
+    ).toEqual(["Queue from Fleet"]);
+    expect(
+      cached?.messagesByTask[inactiveTask.id]?.some(
+        (message) =>
+          message.role === "user" &&
+          message.content === "Steer from Fleet" &&
+          message.steeredIntoTurnId === "turn-inactive-control",
+      ),
+    ).toBe(true);
+  });
+
   test("auto-dispatches Codex /goal objectives after the goal is set", async () => {
     const localStorage = createMemoryStorage();
     const startedPrompts: string[] = [];
@@ -7400,6 +7534,108 @@ describe("workspace store hydration ordering", () => {
     });
   });
 
+  test("abortTaskTurn stops the exact inactive workspace turn", async () => {
+    const localStorage = createMemoryStorage();
+    const abortCalls: string[] = [];
+    (globalThis as { window: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          abortTurn: async ({ turnId }: { turnId: string }) => {
+            abortCalls.push(turnId);
+            return { ok: true, message: "aborted" };
+          },
+          cleanupTask: async () => ({ ok: true }),
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const { createWorkspaceSessionStateFromAppState } = await import(
+      "../src/store/workspace-runtime-state"
+    );
+    const initialState = useAppStore.getInitialState();
+    const inactiveTask = {
+      id: "task-inactive-abort",
+      title: "Inactive abort",
+      provider: "codex" as const,
+      updatedAt: "2026-07-31T00:00:00.000Z",
+      unread: false,
+      archivedAt: null,
+      controlMode: "interactive" as const,
+      controlOwner: "stave" as const,
+    };
+    const inactiveSession = createWorkspaceSessionStateFromAppState({
+      ...initialState,
+      activeTaskId: inactiveTask.id,
+      tasks: [inactiveTask],
+      messagesByTask: {
+        [inactiveTask.id]: [
+          {
+            id: "assistant-inactive-abort",
+            role: "assistant",
+            model: "gpt-5.6",
+            providerId: "codex",
+            content: "",
+            isStreaming: true,
+            parts: [
+              {
+                type: "user_input",
+                requestId: "request-inactive-abort",
+                toolName: "request_user_input",
+                questions: [],
+                state: "input-requested",
+              },
+            ],
+          },
+        ],
+      },
+      messageCountByTask: { [inactiveTask.id]: 1 },
+      activeTurnIdsByTask: { [inactiveTask.id]: "turn-inactive-abort" },
+      providerSessionByTask: {
+        [inactiveTask.id]: { codex: "thread-inactive-abort" },
+      },
+    });
+    useAppStore.setState({
+      ...initialState,
+      projectPath: "/tmp/stave",
+      activeWorkspaceId: "workspace-active",
+      tasks: [],
+      messagesByTask: {},
+      activeTurnIdsByTask: {},
+      workspaceRuntimeCacheById: {
+        "workspace-inactive": inactiveSession,
+      },
+      taskWorkspaceIdById: {
+        [inactiveTask.id]: "workspace-inactive",
+      },
+    });
+
+    useAppStore.getState().abortTaskTurn({ taskId: inactiveTask.id });
+    await Bun.sleep(0);
+
+    const cached =
+      useAppStore.getState().workspaceRuntimeCacheById["workspace-inactive"];
+    expect(abortCalls).toEqual(["turn-inactive-abort"]);
+    expect(cached?.activeTurnIdsByTask[inactiveTask.id]).toBeUndefined();
+    expect(cached?.providerSessionByTask[inactiveTask.id]).toBeUndefined();
+    expect(cached?.messagesByTask[inactiveTask.id]?.[0]).toMatchObject({
+      isStreaming: false,
+      parts: [
+        {
+          type: "user_input",
+          requestId: "request-inactive-abort",
+          state: "input-interrupted",
+        },
+        {
+          type: "system_event",
+        },
+      ],
+    });
+  });
+
   test("rollbackTask clears provider session so the next turn replays restored history", async () => {
     const localStorage = createMemoryStorage();
     const runCalls: Array<{ cwd?: string; command: string }> = [];
@@ -7947,6 +8183,132 @@ describe("workspace store hydration ordering", () => {
       role: "assistant",
       content: "Approval delivery failed: no active turn found for this task.",
     });
+  });
+
+  test("Fleet interaction actions preserve the exact request within a shared message", async () => {
+    const approvalCalls: string[] = [];
+    const inputCalls: string[] = [];
+    setWindowContext({
+      localStorage: createMemoryStorage(),
+      api: {
+        provider: {
+          respondApproval: async (args: { requestId: string }) => {
+            approvalCalls.push(args.requestId);
+            return { ok: true, message: "ok" };
+          },
+          respondUserInput: async (args: { requestId: string }) => {
+            inputCalls.push(args.requestId);
+            return { ok: true, message: "ok" };
+          },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-exact-request",
+      projectPath: "/tmp/stave-project",
+      tasks: [
+        {
+          id: "task-exact-request",
+          title: "Exact request",
+          provider: "codex",
+          updatedAt: "2026-07-31T00:00:00.000Z",
+          unread: false,
+          controlMode: "interactive",
+          controlOwner: "stave",
+        },
+      ],
+      messagesByTask: {
+        "task-exact-request": [
+          {
+            id: "assistant-exact-request",
+            role: "assistant",
+            model: "gpt-5.6",
+            providerId: "codex",
+            content: "",
+            isStreaming: true,
+            parts: [
+              {
+                type: "approval",
+                toolName: "bash",
+                requestId: "approval-first",
+                description: "Run the first command",
+                state: "approval-requested",
+              },
+              {
+                type: "approval",
+                toolName: "bash",
+                requestId: "approval-latest",
+                description: "Run the latest command",
+                state: "approval-requested",
+              },
+              {
+                type: "user_input",
+                toolName: "request_user_input",
+                requestId: "input-first",
+                questions: [],
+                state: "input-requested",
+              },
+              {
+                type: "user_input",
+                toolName: "request_user_input",
+                requestId: "input-latest",
+                questions: [],
+                state: "input-requested",
+              },
+            ],
+          },
+        ],
+      },
+      activeTurnIdsByTask: {
+        "task-exact-request": "turn-exact-request",
+      },
+      taskWorkspaceIdById: { "task-exact-request": "ws-main" },
+    });
+
+    useAppStore.getState().resolveApproval({
+      taskId: "task-exact-request",
+      messageId: "assistant-exact-request",
+      requestId: "approval-first",
+      approved: true,
+    });
+    useAppStore.getState().resolveUserInput({
+      taskId: "task-exact-request",
+      messageId: "assistant-exact-request",
+      requestId: "input-first",
+      answers: {},
+    });
+    await Bun.sleep(0);
+
+    expect(approvalCalls).toEqual(["approval-first"]);
+    expect(inputCalls).toEqual(["input-first"]);
+    expect(
+      useAppStore.getState().messagesByTask["task-exact-request"]?.[0]?.parts,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          requestId: "approval-first",
+          state: "approval-responded",
+        }),
+        expect.objectContaining({
+          requestId: "approval-latest",
+          state: "approval-requested",
+        }),
+        expect.objectContaining({
+          requestId: "input-first",
+          state: "input-responded",
+        }),
+        expect.objectContaining({
+          requestId: "input-latest",
+          state: "input-requested",
+        }),
+      ]),
+    );
   });
 
   test("notification approval delegates to a Stave-owned managed task", async () => {

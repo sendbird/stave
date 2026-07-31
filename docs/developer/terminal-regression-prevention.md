@@ -24,7 +24,8 @@ In Stave today, that means:
 - `useTerminalInstance.ts` owns dock `xterm.js` renderer lifecycle, DOM rendering, resize, and theme sync
 - `useCliSessionManager.ts` owns CLI session lifecycle and host snapshot restore
 - `useCliTerminalInstance.ts` owns CLI `xterm.js` renderer lifecycle, fit/resize, and focus
-- `TerminalDock.tsx` owns dock chrome
+- `TerminalSurfacePanel.tsx` owns terminal pane chrome
+- `WorkspacePaneHost.tsx` owns pane placement, keep-alive registration, and close routing
 - `CliSessionPanel.tsx` owns full-panel CLI session chrome
 - `terminal-surface-styles.ts` owns shared shell-to-terminal inset styling
 - `terminal-runtime.ts` (host-service) owns PTY state, slot registry, attach/detach, and output buffering
@@ -75,9 +76,11 @@ Stave uses a **surface-specific renderer model on top of a shared attach/detach 
 | `src/components/layout/useCliTerminalInstance.ts` | CLI `xterm.js` renderer init, fit/resize, and focus recovery |
 | `src/components/layout/pty-session-surface.utils.ts` | Shared pure rules for creation gating |
 | `src/components/layout/terminal-surface-styles.ts` | Shared terminal inset/focus styling so dock and CLI surfaces do not diverge |
-| `src/components/layout/TerminalDock.tsx` | Dock shell, controls, and surface mounting |
 | `src/components/layout/CliSessionPanel.tsx` | CLI shell, controls, and surface mounting |
 | `src/components/layout/app-shell.shortcuts.ts` | Keyboard boundary between app shortcuts and terminal-native shortcuts |
+| `src/components/panes/WorkspacePaneHost.tsx` | Pane placement, terminal keep-alive registration, and surface close routing |
+| `src/components/panes/surfaces/TerminalSurfacePanel.tsx` | Terminal pane shell, controls, and surface mounting |
+| `src/components/panes/terminal-pane-group.ts` | Pure terminal pane placement and initial group sizing rules |
 | `src/store/workspace-session-state.ts` | Workspace restore semantics for active surfaces and shell state |
 | `src/store/app.store.ts` | Terminal and CLI tab lifecycle, workspace snapshot persistence, session cleanup on delete |
 | `src/lib/terminal/types.ts` | Terminal types, slot key builder (`buildTerminalSessionSlotKey`), session slot state |
@@ -113,7 +116,7 @@ Do not move PTY lifecycle decisions into React shell components.
 
 ### 4. Preserve the shell/runtime split
 
-`TerminalDock.tsx` and `CliSessionPanel.tsx` should describe:
+`TerminalSurfacePanel.tsx` and `CliSessionPanel.tsx` should describe:
 
 - headers, labels, buttons, badges, error banners, shell layout
 
@@ -154,14 +157,18 @@ Use the lightest layer that proves the behavior, but do not stop too early.
 Use `bun test` for pure or narrowly-scoped logic:
 
 - `tests/pty-session-surface.utils.test.ts`
-- `tests/terminal-dock.utils.test.ts`
+- `tests/terminal-pane-group.test.ts`
+- `tests/terminal-tab-manager.test.ts`
+- `tests/terminal-instance.test.ts`
+- `tests/terminal-runtime.test.ts`
 - `tests/terminal-session-slot-registry.test.ts`
 
 These should cover:
 
 - session creation gating
 - focus fallback order
-- dock auto-create rules
+- terminal pane placement and group sizing
+- hidden-tab mounting and stale tab-state pruning
 - slot reuse and cleanup semantics
 - attach/detach state transitions
 

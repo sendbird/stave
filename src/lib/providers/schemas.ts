@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { NormalizedProviderEvent } from "./provider.types";
 
 const ThinkingEventSchema = z.object({
   type: z.literal("thinking"),
@@ -203,28 +204,71 @@ const SubagentProgressEventSchema = z.object({
   content: z.string(),
 });
 
+export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
+  thinking: ThinkingEventSchema,
+  text: TextEventSchema,
+  provider_session: ProviderSessionEventSchema,
+  provider_turn: ProviderTurnEventSchema,
+  goal_status: GoalStatusEventSchema,
+  usage: UsageEventSchema,
+  prompt_suggestions: PromptSuggestionsEventSchema,
+  tool: ToolEventSchema,
+  tool_progress: ToolProgressEventSchema,
+  tool_result: ToolResultEventSchema,
+  diff: DiffEventSchema,
+  approval: ApprovalEventSchema,
+  user_input: UserInputEventSchema,
+  plan_ready: PlanReadyEventSchema,
+  system: SystemEventSchema,
+  error: ErrorEventSchema,
+  done: DoneEventSchema,
+  model_resolved: ModelResolvedEventSchema,
+  subagent_progress: SubagentProgressEventSchema,
+} as const satisfies Record<NormalizedProviderEvent["type"], z.ZodTypeAny>;
+
 export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
-  ThinkingEventSchema,
-  TextEventSchema,
-  ProviderSessionEventSchema,
-  ProviderTurnEventSchema,
-  GoalStatusEventSchema,
-  UsageEventSchema,
-  PromptSuggestionsEventSchema,
-  ToolEventSchema,
-  ToolProgressEventSchema,
-  ToolResultEventSchema,
-  DiffEventSchema,
-  ApprovalEventSchema,
-  UserInputEventSchema,
-  PlanReadyEventSchema,
-  SystemEventSchema,
-  ErrorEventSchema,
-  DoneEventSchema,
-  ModelResolvedEventSchema,
-  SubagentProgressEventSchema,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.thinking,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.text,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_session,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_turn,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.goal_status,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.usage,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.prompt_suggestions,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.tool,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.tool_progress,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.tool_result,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.diff,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.approval,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.user_input,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.plan_ready,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.system,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.error,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.done,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.model_resolved,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.subagent_progress,
 ]);
 
 export type ParsedNormalizedProviderEvent = z.infer<
   typeof NormalizedProviderEventSchema
+>;
+
+type IsExactType<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <
+    Value,
+  >() => Value extends Right ? 1 : 2
+    ? (<Value>() => Value extends Right ? 1 : 2) extends <
+        Value,
+      >() => Value extends Left ? 1 : 2
+      ? true
+      : false
+    : false;
+type AssertExactType<Value extends true> = Value;
+
+/**
+ * Compile-time half of the event contract gate. The runtime test covers
+ * discriminants; this assertion also fails typecheck when a required field or
+ * field type drifts between the TypeScript union and its Zod output.
+ */
+export type NormalizedProviderEventSchemaContract = AssertExactType<
+  IsExactType<NormalizedProviderEvent, ParsedNormalizedProviderEvent>
 >;

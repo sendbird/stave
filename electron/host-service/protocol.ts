@@ -24,6 +24,11 @@ import type {
   RateLimitsSnapshotResponse,
 } from "../../src/lib/providers/provider.types";
 import type {
+  RouteClassification,
+  UtilityInferenceContext,
+  UtilityInferenceMetadata,
+} from "../../src/lib/providers/utility-inference";
+import type {
   ConnectedToolStatusRequest,
   ConnectedToolStatusResponse,
 } from "../../src/lib/providers/connected-tool-status";
@@ -64,6 +69,11 @@ import type {
   SecondaryProviderExecutionResult,
 } from "../../src/lib/runs/secondary-run";
 import type { LocalMcpTaskTurnUpdate } from "../../src/lib/local-mcp/task-turn-update";
+import type {
+  GraphCommitDetailsResult,
+  GraphFileChange,
+  GraphResult,
+} from "../../src/lib/git-graph/types";
 
 export interface HostWorkspaceScriptRunEntryArgs {
   workspaceId: string;
@@ -231,7 +241,7 @@ export interface HostProviderMutationResult {
   message?: string;
 }
 
-export interface HostProviderSuggestTaskNameArgs {
+export interface HostProviderSuggestTaskNameArgs extends UtilityInferenceContext {
   prompt: string;
   history?: Array<{ role: string; content: string }>;
 }
@@ -239,9 +249,10 @@ export interface HostProviderSuggestTaskNameArgs {
 export interface HostProviderSuggestTaskNameResult {
   ok: boolean;
   title?: string;
+  utility: UtilityInferenceMetadata;
 }
 
-export interface HostProviderClassifyRouteArgs {
+export interface HostProviderClassifyRouteArgs extends UtilityInferenceContext {
   prompt: string;
   history?: Array<{
     role: "user" | "assistant";
@@ -254,30 +265,16 @@ export interface HostProviderClassifyRouteArgs {
 
 export interface HostProviderClassifyRouteResult {
   ok: boolean;
-  classification?: {
-    taskType:
-      | "quick_edit"
-      | "plan"
-      | "implementation"
-      | "debug"
-      | "review"
-      | "general"
-      | "safety";
-    complexity: "low" | "medium" | "high";
-    recommendedTier: "light" | "standard" | "heavy" | "frontier";
-    confidence: number;
-    rationale?: string;
-    stick?: boolean;
-  };
+  classification?: RouteClassification;
+  utility: UtilityInferenceMetadata;
 }
 
-export interface HostProviderSuggestCommitMessageArgs {
-  cwd?: string;
-}
+export interface HostProviderSuggestCommitMessageArgs extends UtilityInferenceContext {}
 
 export interface HostProviderSuggestCommitMessageResult {
   ok: boolean;
   message?: string;
+  utility: UtilityInferenceMetadata;
 }
 
 export interface HostProviderSuggestPRDescriptionArgs {
@@ -356,13 +353,8 @@ export interface HostScmHistoryResult {
   stderr: string;
 }
 
-export interface HostScmGraphResult {
-  ok: boolean;
-  commits: import("../../src/lib/git-graph/types").GraphCommit[];
-  head: string | null;
-  hasMore: boolean;
-  stderr: string;
-}
+export type HostScmGraphResult = GraphResult;
+export type HostScmCommitDetailsResult = GraphCommitDetailsResult;
 
 export interface HostScmListBranchesResult {
   ok: boolean;
@@ -736,6 +728,12 @@ export interface HostServiceRequestMap {
     limit?: number;
     skip?: number;
     scope?: "current" | "all" | string;
+    refs?: string[];
+    includeRepositoryState?: boolean;
+  };
+  "scm.commit-details": {
+    hash: string;
+    cwd?: string;
   };
   "scm.commit-files": {
     hash: string;
@@ -957,9 +955,10 @@ export interface HostServiceResponseMap {
   "scm.discard-file": CommandResult;
   "scm.diff": HostScmDiffResult;
   "scm.graph": HostScmGraphResult;
+  "scm.commit-details": HostScmCommitDetailsResult;
   "scm.commit-files": {
     ok: boolean;
-    files: Array<{ path: string; status: string }>;
+    files: GraphFileChange[];
     stderr: string;
   };
   "scm.commit-diff": {

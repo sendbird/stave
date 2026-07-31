@@ -60,6 +60,7 @@ import {
   copyEditorTabPath,
   copyEditorTabRelativePath,
 } from "@/components/panes/editor-tab-actions";
+import { shouldShowEditorFileActions } from "@/components/panes/editor-tab-presentation";
 import { clearLensTabState } from "@/components/panes/lens-tab-state";
 import {
   PANE_CUSTOM_ICON_OPTIONS,
@@ -558,9 +559,9 @@ function buildTabContextMenuItems(
       }
     };
 
-    items.push("separator");
-    if (editorTab) {
+    if (shouldShowEditorFileActions(editorTab)) {
       items.push(
+        "separator",
         {
           label: "Copy Path",
           action: () =>

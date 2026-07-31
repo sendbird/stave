@@ -28,7 +28,6 @@ export function resolveMidTurnSteeringContext(args: {
   fallbackProviderId: ProviderId;
   messages: ChatMessage[];
   hasAttachments: boolean;
-  isActiveWorkspace: boolean;
 }) {
   const providerId =
     args.activity?.turnId === args.activeTurnId
@@ -49,13 +48,6 @@ export function resolveMidTurnSteeringContext(args: {
     return {
       providerId,
       unavailableMessage: `${providerId} does not support mid-turn steering.`,
-    };
-  }
-  if (!args.isActiveWorkspace) {
-    return {
-      providerId,
-      unavailableMessage:
-        "Switch to this task's workspace to steer its active turn.",
     };
   }
   return { providerId, unavailableMessage: null };

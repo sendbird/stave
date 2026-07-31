@@ -1,6 +1,7 @@
 import { ipcMain, webContents } from "electron";
 import { invokeHostService, onHostServiceEvent } from "../host-service-client";
 import {
+  AbortTurnArgsSchema,
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
   ClaudeRuntimeActionArgsSchema,
@@ -40,6 +41,7 @@ import {
   SteerTurnArgsSchema,
 } from "./schemas";
 import { discoverMcpServers } from "../mcp-discovery";
+import { createUnavailableUtilityInferenceMetadata } from "../../../src/lib/providers/utility-inference";
 
 function formatSchemaIssuePath(path: PropertyKey[]) {
   if (path.length === 0) {
@@ -246,11 +248,11 @@ export function registerProviderHandlers() {
   });
 
   ipcMain.handle("provider:abort-turn", (_event, args: unknown) => {
-    const turnId = (args as { turnId?: unknown })?.turnId;
-    if (typeof turnId !== "string" || turnId.trim().length === 0) {
+    const parsedArgs = AbortTurnArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
       return { ok: false, message: "Invalid provider abort request." };
     }
-    return invokeHostService("provider.abort-turn", { turnId });
+    return invokeHostService("provider.abort-turn", parsedArgs.data);
   });
 
   ipcMain.handle("provider:cleanup-task", (_event, args: unknown) => {
@@ -708,7 +710,12 @@ export function registerProviderHandlers() {
   ipcMain.handle("provider:suggest-task-name", (_event, args: unknown) => {
     const parsed = SuggestTaskNameArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false };
+      return {
+        ok: false,
+        utility: createUnavailableUtilityInferenceMetadata(
+          "Invalid task-name inference request.",
+        ),
+      };
     }
     return invokeHostService("provider.suggest-task-name", parsed.data);
   });
@@ -716,7 +723,12 @@ export function registerProviderHandlers() {
   ipcMain.handle("provider:classify-route", (_event, args: unknown) => {
     const parsed = ClassifyRouteArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false };
+      return {
+        ok: false,
+        utility: createUnavailableUtilityInferenceMetadata(
+          "Invalid route-classification request.",
+        ),
+      };
     }
     return invokeHostService("provider.classify-route", parsed.data);
   });
@@ -724,7 +736,12 @@ export function registerProviderHandlers() {
   ipcMain.handle("provider:suggest-commit-message", (_event, args: unknown) => {
     const parsed = SuggestCommitMessageArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false };
+      return {
+        ok: false,
+        utility: createUnavailableUtilityInferenceMetadata(
+          "Invalid commit-message inference request.",
+        ),
+      };
     }
     return invokeHostService("provider.suggest-commit-message", parsed.data);
   });
