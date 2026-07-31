@@ -1,7 +1,6 @@
-import { GitGraph, Globe, TerminalSquare } from "lucide-react";
+import { Globe, TerminalSquare } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  focusOrCreateGitGraphSurface,
   focusOrCreateLensSurface,
   paneHost,
 } from "@/components/panes/pane-host-controller";
@@ -19,7 +18,6 @@ import {
   type RightRailPanelId,
 } from "@/lib/right-rail-panels";
 import { cn } from "@/lib/utils";
-import { gitGraphTabId } from "@/store/app-store-editor-actions";
 import { useAppStore } from "@/store/app.store";
 
 const RAIL_BUTTON_CLASS =
@@ -35,8 +33,6 @@ export function RightRail() {
     sidebarOverlayTab,
     activeSurfaceKind,
     setLayout,
-    activeEditorTabId,
-    activeWorkspaceId,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -46,8 +42,6 @@ export function RightRail() {
           state.layout.sidebarOverlayTab,
           state.activeSurface.kind,
           state.setLayout,
-          state.activeEditorTabId,
-          state.activeWorkspaceId,
         ] as const,
     ),
   );
@@ -72,9 +66,6 @@ export function RightRail() {
 
   const lensActive = activeSurfaceKind === "lens";
   const terminalActive = activeSurfaceKind === "terminal";
-  const gitGraphActive =
-    activeSurfaceKind === "editor" &&
-    activeEditorTabId === gitGraphTabId(activeWorkspaceId);
   return (
     <aside
       data-testid="workspace-bar"
@@ -110,24 +101,6 @@ export function RightRail() {
               </Tooltip>
             );
           })}
-          <Tooltip>
-            <TooltipTrigger render={<span className="inline-flex" />}>
-              <Button
-                size="sm"
-                variant={gitGraphActive ? "default" : "ghost"}
-                disabled={!hasProject}
-                className={cn(
-                  RAIL_BUTTON_CLASS,
-                  !gitGraphActive && RAIL_BUTTON_INACTIVE_CLASS,
-                )}
-                onClick={() => focusOrCreateGitGraphSurface()}
-                aria-label="Git Graph"
-              >
-                <GitGraph className={RAIL_ICON_CLASS} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Git Graph</TooltipContent>
-          </Tooltip>
           <Tooltip>
             <TooltipTrigger render={<span className="inline-flex" />}>
               <Button

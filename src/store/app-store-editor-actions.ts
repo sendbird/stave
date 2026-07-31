@@ -27,6 +27,25 @@ export function gitGraphTabId(workspaceId: string): string {
   return `git-graph:${workspaceId}`;
 }
 
+export function resolveOpenableGitGraphWorkspaceId(args: {
+  activeWorkspaceId: string;
+  projectPath: string | null;
+  workspaces: ReadonlyArray<{ id: string }>;
+  workspacePathById: Record<string, string>;
+}): string | null {
+  const workspaceId = args.activeWorkspaceId.trim();
+  if (
+    !workspaceId ||
+    !args.workspaces.some((workspace) => workspace.id === workspaceId)
+  ) {
+    return null;
+  }
+
+  const workspacePath =
+    args.workspacePathById[workspaceId] ?? args.projectPath ?? "";
+  return workspacePath.trim() ? workspaceId : null;
+}
+
 type EditorActionName =
   | "resolveDiff"
   | "openDiffInEditor"
@@ -295,7 +314,15 @@ export function createEditorActions(args: {
     },
     openGitGraph: () => {
       set((state) => {
-        const workspaceId = state.activeWorkspaceId;
+        const workspaceId = resolveOpenableGitGraphWorkspaceId({
+          activeWorkspaceId: state.activeWorkspaceId,
+          projectPath: state.projectPath,
+          workspaces: state.workspaces,
+          workspacePathById: state.workspacePathById,
+        });
+        if (!workspaceId) {
+          return {};
+        }
         const tabId = gitGraphTabId(workspaceId);
         const existing = state.editorTabs.find((tab) => tab.id === tabId);
         if (existing) {

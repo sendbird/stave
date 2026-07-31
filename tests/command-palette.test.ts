@@ -237,6 +237,21 @@ describe("command palette registry", () => {
     ).toBe(true);
   });
 
+  test("hides Git Graph without an active workspace", () => {
+    const actions = listCommandPaletteActions(
+      createContext({
+        workspaces: createContext().workspaces.map((workspace) => ({
+          ...workspace,
+          isActive: false,
+        })),
+      }),
+    );
+
+    expect(actions.some((item) => item.id === "view.open-git-graph")).toBe(
+      false,
+    );
+  });
+
   test("hides compare until a task is active", () => {
     const groups = buildCommandPaletteGroups(
       createContext({ activeTaskId: "" }),

@@ -4,6 +4,7 @@ import {
   FolderOpen,
   ChevronDown,
   Copy,
+  GitGraph,
   PanelLeft,
 } from "lucide-react";
 import { GhosttyIcon, VSCodeIcon } from "@/components/brand-icons";
@@ -23,6 +24,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import { focusOrCreateGitGraphSurface } from "@/components/panes/pane-host-controller";
+import { resolveOpenableGitGraphWorkspaceId } from "@/store/app-store-editor-actions";
 import { useAppStore } from "@/store/app.store";
 import { TopBarBranchDropdown } from "@/components/layout/TopBarBranchDropdown";
 import { TopBarFileSearch } from "@/components/layout/TopBarFileSearch";
@@ -48,6 +51,7 @@ export function TopBar() {
   const [workspacePathMenuOpen, setWorkspacePathMenuOpen] = useState(false);
   const [
     activeWorkspaceId,
+    workspaces,
     workspacePathById,
     projectPath,
     workspaceSidebarCollapsed,
@@ -57,6 +61,7 @@ export function TopBar() {
       (state) =>
         [
           state.activeWorkspaceId,
+          state.workspaces,
           state.workspacePathById,
           state.projectPath,
           state.layout.workspaceSidebarCollapsed,
@@ -72,6 +77,14 @@ export function TopBar() {
     workspacePath: activeWorkspacePath,
     projectPath,
   });
+  const canOpenGitGraph = Boolean(
+    resolveOpenableGitGraphWorkspaceId({
+      activeWorkspaceId,
+      projectPath,
+      workspaces,
+      workspacePathById,
+    }),
+  );
 
   // Pre-warm the module-level repo-map context cache so the first AI turn in
   // this workspace can synchronously read it (a plain Map.get — no IPC).
@@ -243,6 +256,29 @@ export function TopBar() {
           ) : null}
           {hasProjectContext ? (
             <TopBarBranchDropdown noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+          ) : null}
+          {hasProjectContext ? (
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 shrink-0 gap-1.5 rounded-md border border-border/60 bg-background/60 px-2.5 text-xs font-normal text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                  style={TOP_BAR_NO_DRAG_STYLE}
+                  disabled={!canOpenGitGraph}
+                  onClick={focusOrCreateGitGraphSurface}
+                  aria-label="Git Graph"
+                >
+                  <GitGraph className="size-3.5 shrink-0" />
+                  <span>Git Graph</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {canOpenGitGraph
+                  ? "Open Git Graph"
+                  : "Select an active workspace to open Git Graph"}
+              </TooltipContent>
+            </Tooltip>
           ) : null}
           {hasProjectContext ? (
             <TopBarOpenPR

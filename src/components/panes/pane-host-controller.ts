@@ -4,7 +4,10 @@ import {
   presentLensSessionInWorkspace,
   type LensSessionPresentationOptions,
 } from "@/lib/lens/lens-session-presentation";
-import { gitGraphTabId } from "@/store/app-store-editor-actions";
+import {
+  gitGraphTabId,
+  resolveOpenableGitGraphWorkspaceId,
+} from "@/store/app-store-editor-actions";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -116,10 +119,19 @@ export function focusOrCreateLensSurface(): string | null {
  */
 export function focusOrCreateGitGraphSurface(): void {
   const store = useAppStore.getState();
+  const workspaceId = resolveOpenableGitGraphWorkspaceId({
+    activeWorkspaceId: store.activeWorkspaceId,
+    projectPath: store.projectPath,
+    workspaces: store.workspaces,
+    workspacePathById: store.workspacePathById,
+  });
+  if (!workspaceId) {
+    return;
+  }
   store.openGitGraph();
   paneHost.openSurface({
     kind: "editor",
-    editorTabId: gitGraphTabId(store.activeWorkspaceId),
+    editorTabId: gitGraphTabId(workspaceId),
   });
 }
 

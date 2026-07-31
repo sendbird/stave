@@ -697,16 +697,20 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     group: "view",
     icon: GitGraph,
     keywords: ["git", "graph", "commits", "log", "branches", "history"],
-    build: (args) => ({
-      id: "view.open-git-graph",
-      title: "Open Git Graph",
-      subtitle: "Open the commit graph in an editor tab.",
-      group: "view",
-      icon: GitGraph,
-      keywords: ["git", "graph", "commits", "log", "branches", "history"],
-      run: args.commands.openGitGraph,
-      source: "core",
-    }),
+    build: (args) =>
+      args.workspacePath &&
+      args.workspaces.some((workspace) => workspace.isActive)
+        ? {
+            id: "view.open-git-graph",
+            title: "Open Git Graph",
+            subtitle: "Open the commit graph in an editor tab.",
+            group: "view",
+            icon: GitGraph,
+            keywords: ["git", "graph", "commits", "log", "branches", "history"],
+            run: args.commands.openGitGraph,
+            source: "core",
+          }
+        : null,
   },
   {
     id: "view.split-pane-right",
