@@ -4,6 +4,13 @@ icon: build/icon
 files:
   - out/**
   - package.json
+extraResources:
+  - from: LICENSE
+    to: LICENSE
+  - from: NOTICE
+    to: NOTICE
+  - from: licenses
+    to: licenses
 directories:
   output: release
 asar: true

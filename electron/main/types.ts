@@ -5,6 +5,8 @@ export interface CommandResult {
   code: number;
   stdout: string;
   stderr: string;
+  stdoutTruncated?: boolean;
+  stderrTruncated?: boolean;
 }
 
 export interface SourceControlStatusItem {

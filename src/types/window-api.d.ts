@@ -102,7 +102,11 @@ import type {
   WorkspaceScriptStatusEntry,
 } from "@/lib/workspace-scripts/types";
 import type { PersistenceBootstrapStatus } from "@/lib/persistence/bootstrap-status";
-import type { GraphCommit } from "@/lib/git-graph/types";
+import type {
+  GraphCommitDetailsResult,
+  GraphFileChange,
+  GraphResult,
+} from "@/lib/git-graph/types";
 import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.types";
 import type {
   SecondaryRunAggregate,
@@ -1078,13 +1082,7 @@ interface SourceControlStatusResult {
   stderr: string;
 }
 
-interface SourceControlGraphResult {
-  ok: boolean;
-  commits: GraphCommit[];
-  head: string | null;
-  hasMore: boolean;
-  stderr: string;
-}
+type SourceControlGraphResult = GraphResult;
 
 interface SourceControlCommandResult {
   ok: boolean;
@@ -1136,10 +1134,16 @@ interface WindowSourceControlApi {
     limit?: number;
     skip?: number;
     scope?: "current" | "all" | string;
+    refs?: string[];
+    includeRepositoryState?: boolean;
   }) => Promise<SourceControlGraphResult>;
+  getCommitDetails?: (args: {
+    hash: string;
+    cwd?: string;
+  }) => Promise<GraphCommitDetailsResult>;
   getCommitFiles?: (args: { hash: string; cwd?: string }) => Promise<{
     ok: boolean;
-    files: Array<{ path: string; status: string; oldPath?: string }>;
+    files: GraphFileChange[];
     stderr: string;
   }>;
   getCommitDiff?: (args: {
@@ -1311,7 +1315,7 @@ interface WindowPersistenceApi {
       editorTabs?: Array<{
         id: string;
         filePath: string;
-        kind?: "text" | "image";
+        kind?: "text" | "image" | "git-graph";
         language: string;
         content?: string;
         contentState?: "ready" | "deferred" | "loading" | "too-large";
@@ -1354,7 +1358,7 @@ interface WindowPersistenceApi {
       editorTabs?: Array<{
         id: string;
         filePath: string;
-        kind?: "text" | "image";
+        kind?: "text" | "image" | "git-graph";
         language: string;
         content?: string;
         contentState?: "ready" | "deferred" | "loading" | "too-large";
@@ -1457,7 +1461,7 @@ interface WindowPersistenceApi {
       editorTabs?: Array<{
         id: string;
         filePath: string;
-        kind?: "text" | "image";
+        kind?: "text" | "image" | "git-graph";
         language: string;
         content: string;
         contentState?: "ready" | "deferred" | "loading" | "too-large";
@@ -1570,7 +1574,7 @@ interface WindowPersistenceApi {
       editorTabs?: Array<{
         id: string;
         filePath: string;
-        kind?: "text" | "image";
+        kind?: "text" | "image" | "git-graph";
         language: string;
         content: string;
         contentState?: "ready" | "deferred" | "loading" | "too-large";
@@ -2011,9 +2015,7 @@ interface WindowSecretsApi {
     secret?: SecretMetadata;
     message?: string;
   }>;
-  delete?: (args: {
-    id: string;
-  }) => Promise<{ ok: boolean; message?: string }>;
+  delete?: (args: { id: string }) => Promise<{ ok: boolean; message?: string }>;
   reveal?: (args: {
     id: string;
   }) => Promise<{ ok: boolean; value?: string; message?: string }>;

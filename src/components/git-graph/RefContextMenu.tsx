@@ -18,7 +18,6 @@ import {
   Pencil,
   Trash2,
   Upload,
-  Download,
   ChevronsUp,
 } from "lucide-react";
 import {
@@ -59,6 +58,7 @@ export interface RefContextMenuProps {
   currentBranch: string;
   /** worktreePathByBranch map from listBranches */
   worktreePathByBranch: Record<string, string>;
+  worktreePathsAvailable: boolean;
   /** cwd of the current workspace — used as the workspacePath for the worktree guard */
   workspacePath: string | undefined;
   onCheckout: (ref: GraphRef) => Promise<void>;
@@ -67,7 +67,6 @@ export interface RefContextMenuProps {
   onMergeInto: (ref: GraphRef) => Promise<void>;
   onRebaseOnto: (ref: GraphRef) => Promise<void>;
   onPush: (ref: GraphRef, force: boolean) => Promise<void>;
-  onPull: (ref: GraphRef) => Promise<void>;
   onCopyName: (ref: GraphRef) => void;
 }
 
@@ -298,6 +297,7 @@ export function RefContextMenu({
   onClose,
   currentBranch,
   worktreePathByBranch,
+  worktreePathsAvailable,
   workspacePath,
   onCheckout,
   onRename,
@@ -305,7 +305,6 @@ export function RefContextMenu({
   onMergeInto,
   onRebaseOnto,
   onPush,
-  onPull,
   onCopyName,
 }: RefContextMenuProps) {
   const [pendingDialog, setPendingDialog] = useState<PendingDialog>(null);
@@ -323,15 +322,20 @@ export function RefContextMenu({
   // Worktree guard — only relevant for local branches
   const attachedElsewhere =
     refType === "localBranch" &&
+    worktreePathsAvailable &&
     isBranchAttachedElsewhere({
       branch: refName,
       workspacePath,
       worktreePathByBranch,
     });
+  const worktreeLocationsUnavailable =
+    refType === "localBranch" && !worktreePathsAvailable;
 
-  const worktreeTooltip = attachedElsewhere
-    ? `"${refName}" is checked out in another worktree`
-    : undefined;
+  const worktreeTooltip = worktreeLocationsUnavailable
+    ? "Worktree locations are unavailable, so this action is disabled."
+    : attachedElsewhere
+      ? `"${refName}" is checked out in another worktree`
+      : undefined;
 
   // Whether this ref IS the current HEAD branch
   const isCurrentBranch =
@@ -347,6 +351,7 @@ export function RefContextMenu({
         }}
       >
         <DropdownMenuTrigger
+          nativeButton={false}
           render={
             <div
               aria-hidden="true"
@@ -378,15 +383,44 @@ export function RefContextMenu({
                 : ""}
             {refName}
           </DropdownMenuLabel>
+          {worktreeLocationsUnavailable ? (
+            <DropdownMenuLabel
+              className="flex items-start gap-1.5 whitespace-normal text-[10px] font-normal leading-4 text-warning"
+              role="status"
+            >
+              <AlertTriangle
+                className="mt-0.5 size-3 shrink-0"
+                aria-hidden="true"
+              />
+              Worktree locations could not be read. Checkout and delete are
+              disabled.
+            </DropdownMenuLabel>
+          ) : attachedElsewhere ? (
+            <DropdownMenuLabel
+              className="flex items-start gap-1.5 whitespace-normal text-[10px] font-normal leading-4 text-warning"
+              role="status"
+            >
+              <AlertTriangle
+                className="mt-0.5 size-3 shrink-0"
+                aria-hidden="true"
+              />
+              This branch is checked out in another worktree. Checkout and
+              delete are disabled.
+            </DropdownMenuLabel>
+          ) : null}
           <DropdownMenuSeparator />
 
           {/* ---- localBranch actions ---- */}
           {refType === "localBranch" && (
             <>
               <DropdownMenuItem
-                disabled={attachedElsewhere || isCurrentBranch}
+                disabled={
+                  worktreeLocationsUnavailable ||
+                  attachedElsewhere ||
+                  isCurrentBranch
+                }
                 title={
-                  attachedElsewhere
+                  worktreeLocationsUnavailable || attachedElsewhere
                     ? worktreeTooltip
                     : isCurrentBranch
                       ? "Already on this branch"
@@ -472,9 +506,13 @@ export function RefContextMenu({
 
               <DropdownMenuItem
                 variant="destructive"
-                disabled={attachedElsewhere || isCurrentBranch}
+                disabled={
+                  worktreeLocationsUnavailable ||
+                  attachedElsewhere ||
+                  isCurrentBranch
+                }
                 title={
-                  attachedElsewhere
+                  worktreeLocationsUnavailable || attachedElsewhere
                     ? worktreeTooltip
                     : isCurrentBranch
                       ? "Cannot delete the currently checked-out branch"
@@ -502,16 +540,6 @@ export function RefContextMenu({
               >
                 <GitBranch className="size-4" />
                 Checkout (track locally)
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                onSelect={() => {
-                  onClose();
-                  void onPull(ref!);
-                }}
-              >
-                <Download className="size-4" />
-                Pull
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />

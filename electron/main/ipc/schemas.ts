@@ -107,14 +107,16 @@ export const LensSessionTargetArgsSchema = z
   })
   .strict();
 
-export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend({
-  options: z
-    .object({
-      extractDebugSource: z.boolean().optional(),
-    })
-    .strict()
-    .optional(),
-}).strict();
+export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend(
+  {
+    options: z
+      .object({
+        extractDebugSource: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
+  },
+).strict();
 
 export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
   options: z
@@ -130,14 +132,8 @@ export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
             .number()
             .min(-LENS_CAPTURE_LIMITS.rectCoordinate)
             .max(LENS_CAPTURE_LIMITS.rectCoordinate),
-          width: z
-            .number()
-            .positive()
-            .max(LENS_CAPTURE_LIMITS.rectSize),
-          height: z
-            .number()
-            .positive()
-            .max(LENS_CAPTURE_LIMITS.rectSize),
+          width: z.number().positive().max(LENS_CAPTURE_LIMITS.rectSize),
+          height: z.number().positive().max(LENS_CAPTURE_LIMITS.rectSize),
         })
         .strict()
         .optional(),
@@ -153,36 +149,27 @@ export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
 
 export const LensAnnotationRemoveArgsSchema =
   LensSessionTargetArgsSchema.extend({
-    annotationId: z
-      .string()
-      .min(1)
-      .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
-    documentId: z
-      .string()
-      .min(1)
-      .max(LENS_CAPTURE_LIMITS.documentIdBytes),
+    annotationId: z.string().min(1).max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+    documentId: z.string().min(1).max(LENS_CAPTURE_LIMITS.documentIdBytes),
   }).strict();
 
-export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend({
-  annotationId: z
-    .string()
-    .min(1)
-    .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
-  selector: z.string().min(1).max(LENS_CAPTURE_LIMITS.selectorBytes),
-  patch: z
-    .record(
-      z.string().min(1).max(LENS_CAPTURE_LIMITS.stylePropertyBytes),
-      z.string().max(LENS_CAPTURE_LIMITS.styleValueBytes),
-    )
-    .refine(
-      (value) => Object.keys(value).length <= LENS_CAPTURE_LIMITS.styleEditItems,
-      "Too many Lens style properties",
-    ),
-  documentId: z
-    .string()
-    .min(1)
-    .max(LENS_CAPTURE_LIMITS.documentIdBytes),
-}).strict();
+export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend(
+  {
+    annotationId: z.string().min(1).max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+    selector: z.string().min(1).max(LENS_CAPTURE_LIMITS.selectorBytes),
+    patch: z
+      .record(
+        z.string().min(1).max(LENS_CAPTURE_LIMITS.stylePropertyBytes),
+        z.string().max(LENS_CAPTURE_LIMITS.styleValueBytes),
+      )
+      .refine(
+        (value) =>
+          Object.keys(value).length <= LENS_CAPTURE_LIMITS.styleEditItems,
+        "Too many Lens style properties",
+      ),
+    documentId: z.string().min(1).max(LENS_CAPTURE_LIMITS.documentIdBytes),
+  },
+).strict();
 
 export const SecretUpsertArgsSchema = z
   .object({
@@ -307,6 +294,56 @@ export const StageFilesArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
     paths: z.array(z.string().min(1).max(4096)).min(1).max(1000),
+  })
+  .strict();
+
+const GitGraphRevisionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(1024)
+  .refine(
+    (value) => !value.startsWith("-") && !/[\x00-\x1f\x7f]/.test(value),
+    "Git refs must not be option-like or contain control characters.",
+  );
+
+const GitCommitHashSchema = z
+  .string()
+  .trim()
+  .regex(/^[0-9a-f]{7,64}$/i, "A valid commit hash is required.");
+
+const GitPathSchema = z
+  .string()
+  .min(1)
+  .max(4096)
+  .refine((value) => !value.includes("\0"), "Git paths must not contain NUL.");
+
+export const ScmGraphArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    limit: z.number().int().min(1).max(2000).optional(),
+    skip: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+    scope: GitGraphRevisionSchema.optional(),
+    refs: z.array(GitGraphRevisionSchema).max(256).optional(),
+    includeRepositoryState: z.boolean().optional(),
+  })
+  .strict();
+
+export const ScmCommitDetailsArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    hash: GitCommitHashSchema,
+  })
+  .strict();
+
+export const ScmCommitFilesArgsSchema = ScmCommitDetailsArgsSchema;
+
+export const ScmCommitDiffArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    hash: GitCommitHashSchema,
+    path: GitPathSchema,
+    oldPath: GitPathSchema.optional(),
   })
   .strict();
 

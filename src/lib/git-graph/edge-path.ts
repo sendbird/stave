@@ -1,117 +1,127 @@
-// src/lib/git-graph/edge-path.ts
-//
-// Pure SVG path builders for git-graph edges (vscode-git-graph style):
-// bends are confined to a single row height; everything else is a straight
-// vertical line in the edge's travel lane. No React — unit-testable alone.
+/*
+ * Portions adapted from Git Graph for Visual Studio Code v1.4.6.
+ * Copyright (c) 2019-present, mhutchie. See NOTICE and
+ * licenses/vscode-git-graph-MIT.txt.
+ */
+import type { GraphSegment } from "./types";
 
-function laneCenterX(lane: number, laneWidth: number): number {
-  return lane * laneWidth + laneWidth / 2;
+export interface GraphPathGeometry {
+  laneWidth: number;
+  rowHeight: number;
+  /** Optional distance from the SVG edge to the centre of lane zero. */
+  offsetX?: number;
+}
+
+export interface GraphPathPart {
+  d: string;
+  isCommitted: boolean;
+}
+
+export function graphLaneX(
+  lane: number,
+  laneWidth: number,
+  offsetX = laneWidth / 2,
+): number {
+  return lane * laneWidth + offsetX;
 }
 
 function rowCenterY(row: number, rowHeight: number): number {
   return row * rowHeight + rowHeight / 2;
 }
 
-/** Cubic bezier turning from (x1, y1) to (x2, y1 + rowHeight) within one row. */
-function bend(x1: number, y1: number, x2: number, rowHeight: number): string {
-  const yMid = y1 + rowHeight / 2;
-  const y2 = y1 + rowHeight;
-  return `C ${x1} ${yMid}, ${x2} ${yMid}, ${x2} ${y2}`;
+function coordinate(value: number): string {
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(1).replace(/\.0$/, "");
 }
 
-export interface EdgePathArgs {
-  fromLane: number;
-  fromRow: number;
-  /** Lane the edge travels in (GraphEdge.toLane). */
-  travelLane: number;
-  /** The parent node's final lane. */
-  toLane: number;
-  /** The parent node's row. */
-  toRow: number;
-  laneWidth: number;
-  rowHeight: number;
+function samePoint(
+  left: { row: number; lane: number },
+  right: { row: number; lane: number },
+) {
+  return left.row === right.row && left.lane === right.lane;
 }
 
 /**
- * Edge path from a commit node to its parent node.
+ * Convert one branch's row-by-row layout into rounded SVG path parts.
  *
- * Segments (each bend spans exactly ONE row):
- *   1. top bend    — fromLane → travelLane, in the row below the commit
- *   2. vertical    — straight line down the travel lane
- *   3. bottom bend — travelLane → toLane, in the row above the parent
+ * Rounded transitions use vertical control points at 80% of the row span,
+ * matching Git Graph's default curve geometry. Consecutive vertical segments
+ * are collapsed into one command, while discontinuous merge connectors are
+ * appended with another move command to the same SVG path. Keeping every
+ * committed subpath of a branch together preserves Git Graph's shadow and
+ * foreground paint order at joins and crossings.
  */
-export function buildEdgePath(args: EdgePathArgs): string {
-  const { fromLane, fromRow, travelLane, toLane, toRow, laneWidth, rowHeight } =
-    args;
-  const x1 = laneCenterX(fromLane, laneWidth);
-  const y1 = rowCenterY(fromRow, rowHeight);
-  const x2 = laneCenterX(toLane, laneWidth);
-  const y2 = rowCenterY(toRow, rowHeight);
-  const xT = laneCenterX(travelLane, laneWidth);
+export function buildGraphBranchPaths(
+  segments: GraphSegment[],
+  geometry: GraphPathGeometry,
+): GraphPathPart[] {
+  const { laneWidth, rowHeight, offsetX = laneWidth / 2 } = geometry;
+  const parts: GraphPathPart[] = [];
+  let commands: string[] = [];
+  let committed = true;
+  let previous: GraphSegment | null = null;
+  let lastCommandWasVertical = false;
 
-  if (fromLane === travelLane && travelLane === toLane) {
-    return `M ${x1} ${y1} L ${x2} ${y2}`;
+  const flush = () => {
+    if (commands.length > 1) {
+      parts.push({ d: commands.join(" "), isCommitted: committed });
+    }
+    commands = [];
+    previous = null;
+    lastCommandWasVertical = false;
+  };
+
+  for (const segment of segments) {
+    const isContinuous =
+      previous !== null &&
+      samePoint(
+        { row: previous.toRow, lane: previous.toLane },
+        { row: segment.fromRow, lane: segment.fromLane },
+      );
+    if (commands.length === 0 || committed !== segment.isCommitted) {
+      flush();
+      committed = segment.isCommitted;
+      commands.push(
+        `M ${coordinate(
+          graphLaneX(segment.fromLane, laneWidth, offsetX),
+        )} ${coordinate(rowCenterY(segment.fromRow, rowHeight))}`,
+      );
+    } else if (!isContinuous) {
+      commands.push(
+        `M ${coordinate(
+          graphLaneX(segment.fromLane, laneWidth, offsetX),
+        )} ${coordinate(rowCenterY(segment.fromRow, rowHeight))}`,
+      );
+      lastCommandWasVertical = false;
+    }
+
+    const x1 = graphLaneX(segment.fromLane, laneWidth, offsetX);
+    const x2 = graphLaneX(segment.toLane, laneWidth, offsetX);
+    const y1 = rowCenterY(segment.fromRow, rowHeight);
+    const y2 = rowCenterY(segment.toRow, rowHeight);
+    if (x1 === x2) {
+      const lineCommand = `L ${coordinate(x2)} ${coordinate(y2)}`;
+      if (lastCommandWasVertical && isContinuous) {
+        commands[commands.length - 1] = lineCommand;
+      } else {
+        commands.push(lineCommand);
+      }
+      lastCommandWasVertical = true;
+    } else {
+      const controlOffset = (y2 - y1) * 0.8;
+      commands.push(
+        `C ${coordinate(x1)} ${coordinate(
+          y1 + controlOffset,
+        )}, ${coordinate(x2)} ${coordinate(
+          y2 - controlOffset,
+        )}, ${coordinate(x2)} ${coordinate(y2)}`,
+      );
+      lastCommandWasVertical = false;
+    }
+    previous = segment;
   }
+  flush();
 
-  const rowSpan = toRow - fromRow;
-  const needsTopBend = fromLane !== travelLane;
-  const needsBottomBend = travelLane !== toLane;
-
-  // Not enough rows for two one-row bends: single bend across the span.
-  if (rowSpan < 2 && needsTopBend && needsBottomBend) {
-    const yMid = (y1 + y2) / 2;
-    return `M ${x1} ${y1} C ${x1} ${yMid}, ${x2} ${yMid}, ${x2} ${y2}`;
-  }
-
-  const parts: string[] = [`M ${x1} ${y1}`];
-  let cursorY = y1;
-
-  if (needsTopBend) {
-    parts.push(bend(x1, cursorY, xT, rowHeight));
-    cursorY += rowHeight;
-  }
-
-  const verticalEndY = needsBottomBend ? y2 - rowHeight : y2;
-  if (verticalEndY > cursorY) {
-    parts.push(`L ${xT} ${verticalEndY}`);
-  }
-
-  if (needsBottomBend) {
-    parts.push(bend(xT, y2 - rowHeight, x2, rowHeight));
-  }
-
-  return parts.join(" ");
-}
-
-export interface UnresolvedEdgePathArgs {
-  fromLane: number;
-  fromRow: number;
-  travelLane: number;
-  /** Bottom y of the canvas (totalRows * rowHeight). */
-  bottomY: number;
-  laneWidth: number;
-  rowHeight: number;
-}
-
-/**
- * Edge whose parent is outside the loaded window: bend into the travel lane
- * (if needed) then run straight to the bottom of the canvas, signalling the
- * line continues past "Load more".
- */
-export function buildUnresolvedEdgePath(args: UnresolvedEdgePathArgs): string {
-  const { fromLane, fromRow, travelLane, bottomY, laneWidth, rowHeight } = args;
-  const x1 = laneCenterX(fromLane, laneWidth);
-  const y1 = rowCenterY(fromRow, rowHeight);
-  const xT = laneCenterX(travelLane, laneWidth);
-
-  const parts: string[] = [`M ${x1} ${y1}`];
-  let cursorY = y1;
-  if (fromLane !== travelLane) {
-    parts.push(bend(x1, y1, xT, rowHeight));
-    cursorY += rowHeight;
-  }
-  if (bottomY > cursorY) {
-    parts.push(`L ${xT} ${bottomY}`);
-  }
-  return parts.join(" ");
+  return parts;
 }

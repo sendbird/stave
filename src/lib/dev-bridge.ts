@@ -9,14 +9,9 @@ import type {
   TerminalCreateSessionArgs,
 } from "@/lib/terminal/types";
 
-const DEV_API_BASE = "http://127.0.0.1:3001";
-
-function isElectronRuntime() {
-  if (typeof navigator === "undefined") {
-    return false;
-  }
-  return navigator.userAgent.toLowerCase().includes("electron");
-}
+const DEV_API_BASE = (
+  import.meta.env.VITE_STAVE_DEV_API_BASE?.trim() || "http://127.0.0.1:3001"
+).replace(/\/+$/, "");
 
 async function postJson<TResponse>(args: {
   path: string;
@@ -37,13 +32,10 @@ async function postJson<TResponse>(args: {
 }
 
 export function installDevApiBridge() {
-  if (!import.meta.env.DEV) {
+  if (import.meta.env.MODE === "production") {
     return;
   }
   if (typeof window === "undefined") {
-    return;
-  }
-  if (isElectronRuntime()) {
     return;
   }
   if (window.api?.provider?.streamTurn && window.api?.terminal?.runCommand) {
@@ -176,10 +168,30 @@ export function installDevApiBridge() {
         postJson({ path: "/api/scm/discard-file", body: args }),
       getDiff: (args: { path: string; cwd?: string }) =>
         postJson({ path: "/api/scm/diff", body: args }),
+      getGraph: (args: {
+        cwd?: string;
+        limit?: number;
+        skip?: number;
+        scope?: "current" | "all" | string;
+        refs?: string[];
+        includeRepositoryState?: boolean;
+      }) => postJson({ path: "/api/scm/graph", body: args }),
+      getCommitDetails: (args: { hash: string; cwd?: string }) =>
+        postJson({ path: "/api/scm/commit-details", body: args }),
+      getCommitFiles: (args: { hash: string; cwd?: string }) =>
+        postJson({ path: "/api/scm/commit-files", body: args }),
+      getCommitDiff: (args: {
+        hash: string;
+        path: string;
+        oldPath?: string;
+        cwd?: string;
+      }) => postJson({ path: "/api/scm/commit-diff", body: args }),
       getHistory: (args: { cwd?: string; limit?: number }) =>
         postJson({ path: "/api/scm/history", body: args }),
       listBranches: (args: { cwd?: string; refreshRemote?: boolean }) =>
         postJson({ path: "/api/scm/branches", body: args }),
+      fetchBranch: (args: { cwd?: string; branch?: string }) =>
+        postJson({ path: "/api/scm/fetch", body: args }),
       createBranch: (args: { name: string; cwd?: string; from?: string }) =>
         postJson({ path: "/api/scm/branch-create", body: args }),
       checkoutBranch: (args: { name: string; cwd?: string }) =>
@@ -195,6 +207,33 @@ export function installDevApiBridge() {
         postJson({ path: "/api/scm/branch-rebase", body: args }),
       cherryPick: (args: { commit: string; cwd?: string }) =>
         postJson({ path: "/api/scm/cherry-pick", body: args }),
+      pullBranch: (args: { cwd?: string; branch?: string }) =>
+        postJson({ path: "/api/scm/pull", body: args }),
+      revert: (args: { commit: string; cwd?: string }) =>
+        postJson({ path: "/api/scm/revert", body: args }),
+      reset: (args: {
+        commit: string;
+        mode: "soft" | "mixed" | "hard";
+        cwd?: string;
+      }) => postJson({ path: "/api/scm/reset", body: args }),
+      createTag: (args: {
+        name: string;
+        commit?: string;
+        message?: string;
+        cwd?: string;
+      }) => postJson({ path: "/api/scm/tag-create", body: args }),
+      deleteTag: (args: { name: string; cwd?: string }) =>
+        postJson({ path: "/api/scm/tag-delete", body: args }),
+      renameBranch: (args: { from: string; to: string; cwd?: string }) =>
+        postJson({ path: "/api/scm/branch-rename", body: args }),
+      deleteBranch: (args: { name: string; force?: boolean; cwd?: string }) =>
+        postJson({ path: "/api/scm/branch-delete", body: args }),
+      push: (args: {
+        branch?: string;
+        remote?: string;
+        force?: boolean;
+        cwd?: string;
+      }) => postJson({ path: "/api/scm/push", body: args }),
     },
   };
 }
