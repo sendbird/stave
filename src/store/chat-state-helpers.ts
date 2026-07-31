@@ -1,6 +1,9 @@
 import { sanitizeFileContextPayload } from "@/lib/file-context-sanitization";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
+import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
+import { getRespondingProviderId } from "@/lib/tasks";
 import type {
   ChatMessage,
   FileContextPart,
@@ -17,6 +20,45 @@ export function buildMessageId(args: { taskId: string; count: number }) {
 
 export function buildRecentTimestamp() {
   return new Date().toISOString();
+}
+
+export function resolveMidTurnSteeringContext(args: {
+  activeTurnId: string;
+  activity?: Pick<ProviderTurnActivitySnapshot, "turnId" | "providerId">;
+  fallbackProviderId: ProviderId;
+  messages: ChatMessage[];
+  hasAttachments: boolean;
+  isActiveWorkspace: boolean;
+}) {
+  const providerId =
+    args.activity?.turnId === args.activeTurnId
+      ? args.activity.providerId
+      : getRespondingProviderId({
+          fallbackProviderId: args.fallbackProviderId,
+          messages: args.messages,
+        });
+
+  if (args.hasAttachments) {
+    return {
+      providerId,
+      unavailableMessage:
+        "Attachments can't be steered into a live turn — press Tab to queue instead.",
+    };
+  }
+  if (!providerSupportsMidTurnSteering({ providerId })) {
+    return {
+      providerId,
+      unavailableMessage: `${providerId} does not support mid-turn steering.`,
+    };
+  }
+  if (!args.isActiveWorkspace) {
+    return {
+      providerId,
+      unavailableMessage:
+        "Switch to this task's workspace to steer its active turn.",
+    };
+  }
+  return { providerId, unavailableMessage: null };
 }
 
 export function createUserTextPart(args: { text: string }): TextPart {

@@ -4660,6 +4660,14 @@ describe("workspace store hydration ordering", () => {
     });
     expect(steerCalls).toEqual([]);
 
+    // A provider selection made during the active turn configures the next
+    // turn. Steering must remain attributed to the provider that owns the
+    // currently running turn.
+    useAppStore
+      .getState()
+      .setTaskProvider({ taskId: "task-main", provider: "claude-code" });
+    expect(useAppStore.getState().tasks[0]?.provider).toBe("claude-code");
+
     // Explicit submitIntent: "steer" delivers into the live turn as a plain
     // user message — no queuedTurns entry, no new assistant placeholder.
     const steerResult = await useAppStore.getState().sendUserMessage({
@@ -4695,8 +4703,12 @@ describe("workspace store hydration ordering", () => {
     });
     expect(steeredState.messagesByTask["task-main"]?.at(-1)).toMatchObject({
       role: "assistant",
+      providerId: "codex",
       isStreaming: true,
     });
+    expect(
+      steeredState.providerTurnActivityByTask["task-main"]?.providerId,
+    ).toBe("codex");
 
     // A delayed steer acknowledgement must not erase a newer draft written
     // while the request was in flight (task switches and external store
