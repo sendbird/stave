@@ -48,9 +48,9 @@ export async function revealSecret(id: string) {
 }
 
 /**
- * Resolve a task's bound secret ids to an environment map, for injection into a
- * provider's agent shell. MAIN-PROCESS ONLY: this returns plaintext values, so
- * it must never be exposed through preload or forwarded to the renderer.
+ * Resolve a task's bound secret ids to an environment map for provider shell
+ * commands and supported MCP authentication. MAIN-PROCESS ONLY: this returns
+ * plaintext values, so it must never reach preload or the renderer.
  *
  * Returns an empty map on any resolution failure rather than throwing, so a
  * misconfigured or unavailable vault degrades to "no injected secrets" instead

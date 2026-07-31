@@ -223,7 +223,7 @@ export function SecretsSettingsCard() {
     <>
       <SettingsCard
         title="Secrets"
-        description="Store API tokens and other secret values. Values are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses. They are revealed only when you explicitly ask, or injected into a task's shell as an environment variable when you bind them."
+        description="Store API tokens and other secret values. Values are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses. They are revealed only when you explicitly ask, or injected into a bound task's provider runtime as an environment variable."
         titleAccessory={
           <Button
             type="button"
@@ -242,10 +242,10 @@ export function SecretsSettingsCard() {
           <p className="text-xs leading-5 text-muted-foreground">
             A secret's value is never shown to an agent. Give a secret an
             environment variable name to bind it to a task from the composer —
-            its value is then injected into that session's shell, so commands
-            can use it (e.g. <code>$OPENAI_API_KEY</code>) without the value
-            entering the model's context. A command that echoes the variable
-            can still surface it.
+            its value is then available to that task's shell and supported MCP
+            authentication (e.g. <code>$OPENAI_API_KEY</code>) without entering
+            the model's context. A command that echoes the variable can still
+            surface it.
           </p>
         </div>
 
@@ -316,12 +316,12 @@ export function SecretsSettingsCard() {
                 onChange={(event) => setEnvVarName(event.target.value)}
               />
               <span className="block font-normal leading-4 text-muted-foreground">
-                Set this to let a task inject the value into the agent's shell as
+                Set this to let a task inject the value into its runtime as
                 <code className="mx-1 rounded bg-muted px-1 py-0.5">
                   ${envVarName.trim() || "NAME"}
                 </code>
-                . The value is never shown to the agent, but the running shell
-                can read it.
+                . Shell commands and supported MCP authentication can read it,
+                but the value is never shown to the agent.
               </span>
             </label>
             <label className="block space-y-1.5 text-xs font-medium">
