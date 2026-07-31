@@ -73,7 +73,7 @@ async function pathExists(candidate) {
   }
 }
 
-async function collectFiles(relativePath, predicate) {
+async function collectFiles(relativePath, predicate, directories) {
   const absolutePath = path.join(root, relativePath);
   const entries = await readdir(absolutePath, { withFileTypes: true });
   const files = [];
@@ -82,7 +82,10 @@ async function collectFiles(relativePath, predicate) {
     if (ignoredDirectories.has(entry.name)) continue;
     const childRelativePath = path.posix.join(relativePath, entry.name);
     if (entry.isDirectory()) {
-      files.push(...(await collectFiles(childRelativePath, predicate)));
+      directories?.push(childRelativePath);
+      files.push(
+        ...(await collectFiles(childRelativePath, predicate, directories)),
+      );
     } else if (predicate(childRelativePath)) {
       files.push(childRelativePath);
     }
@@ -187,6 +190,17 @@ function extractReferences(relativePath, source) {
   let fenceMarker = null;
 
   for (const [index, line] of lines.entries()) {
+    // Fence state gates every extractor below. Fenced blocks hold
+    // illustrative content (shell transcripts, diagrams, code samples), so
+    // their path-like tokens must not become hard failures.
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      fenceMarker = fenceMarker === marker ? null : (fenceMarker ?? marker);
+      continue;
+    }
+    if (fenceMarker) continue;
+
     for (const match of line.matchAll(repositoryPathTokenPattern)) {
       const value = normalizeInlineReference(match[1]);
       if (value) {
@@ -198,14 +212,6 @@ function extractReferences(relativePath, source) {
         });
       }
     }
-
-    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
-    if (fenceMatch) {
-      const marker = fenceMatch[1][0];
-      fenceMarker = fenceMarker === marker ? null : (fenceMarker ?? marker);
-      continue;
-    }
-    if (fenceMarker) continue;
 
     for (const match of line.matchAll(/!?\[[^\]]*]\(([^)\s]+)(?:\s+[^)]*)?\)/g)) {
       references.push({
@@ -259,9 +265,15 @@ function resolveReference(reference) {
 }
 
 const documentationFiles = await collectDocumentationFiles();
-const repositoryFiles = await collectFiles(".", () => true);
+const collectedDirectories = [];
+const repositoryFiles = await collectFiles(".", () => true, collectedDirectories);
 const repositoryPaths = new Set(
   repositoryFiles.map((relativePath) => relativePath.replace(/^\.\//, "")),
+);
+// Existence checks use these walk-derived sets instead of the filesystem so
+// results stay identical between case-insensitive macOS and case-sensitive CI.
+const repositoryDirectoryPaths = new Set(
+  collectedDirectories.map((relativePath) => relativePath.replace(/^\.\//, "")),
 );
 const repositoryBasenames = new Set(
   repositoryFiles.map((relativePath) => path.posix.basename(relativePath)),
@@ -271,7 +283,10 @@ const failures = [];
 for (const documentationFile of documentationFiles) {
   const source = await readFile(path.join(root, documentationFile), "utf8");
   for (const reference of extractReferences(documentationFile, source)) {
-    const resolved = resolveReference(reference);
+    const rawResolved = resolveReference(reference);
+    if (!rawResolved) continue;
+    // Trim trailing slashes so directory references match the directory set.
+    const resolved = rawResolved.replace(/\/+$/, "");
     if (!resolved) continue;
     if (resolved.startsWith("../")) {
       failures.push(
@@ -282,14 +297,21 @@ for (const documentationFile of documentationFiles) {
 
     let exists;
     if (!resolved.includes("/")) {
-      exists = repositoryBasenames.has(resolved);
+      // Trimmed top-level directory references ("src/" -> "src") land here
+      // alongside bare file basenames, so consult both sets.
+      exists =
+        repositoryBasenames.has(resolved) ||
+        repositoryDirectoryPaths.has(resolved);
     } else if (/[*?]/.test(resolved)) {
       const matcher = globToRegExp(resolved);
-      exists = [...repositoryPaths].some((candidate) => matcher.test(candidate));
+      exists =
+        [...repositoryPaths].some((candidate) => matcher.test(candidate)) ||
+        [...repositoryDirectoryPaths].some((candidate) =>
+          matcher.test(candidate),
+        );
     } else {
       exists =
-        repositoryPaths.has(resolved) ||
-        (await pathExists(path.join(root, resolved)));
+        repositoryPaths.has(resolved) || repositoryDirectoryPaths.has(resolved);
     }
 
     if (!exists) {
