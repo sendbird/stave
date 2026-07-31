@@ -107,7 +107,10 @@ async function collectDocumentationFiles() {
           candidate.endsWith(".md"),
         )),
       );
-    } else if (relativePath.endsWith(".md") && (await pathExists(absolutePath))) {
+    } else if (
+      relativePath.endsWith(".md") &&
+      (await pathExists(absolutePath))
+    ) {
       files.push(relativePath);
     }
   }
@@ -175,10 +178,7 @@ function normalizeInlineReference(reference) {
   ) {
     return stripped;
   }
-  if (
-    !stripped.includes("/") &&
-    sourceLikeBasenamePattern.test(stripped)
-  ) {
+  if (!stripped.includes("/") && sourceLikeBasenamePattern.test(stripped)) {
     return stripped;
   }
   return null;
@@ -187,20 +187,12 @@ function normalizeInlineReference(reference) {
 function extractReferences(relativePath, source) {
   const references = [];
   const lines = source.split("\n");
-  let fenceMarker = null;
+  let fenceDelimiter = null;
 
   for (const [index, line] of lines.entries()) {
-    // Fence state gates every extractor below. Fenced blocks hold
-    // illustrative content (shell transcripts, diagrams, code samples), so
-    // their path-like tokens must not become hard failures.
-    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
-    if (fenceMatch) {
-      const marker = fenceMatch[1][0];
-      fenceMarker = fenceMarker === marker ? null : (fenceMarker ?? marker);
-      continue;
-    }
-    if (fenceMarker) continue;
-
+    // Bare repository paths remain auditable inside fenced diagrams and
+    // examples. Authors can use placeholders for intentionally illustrative
+    // paths; otherwise, a repository-looking path must continue to resolve.
     for (const match of line.matchAll(repositoryPathTokenPattern)) {
       const value = normalizeInlineReference(match[1]);
       if (value) {
@@ -213,7 +205,29 @@ function extractReferences(relativePath, source) {
       }
     }
 
-    for (const match of line.matchAll(/!?\[[^\]]*]\(([^)\s]+)(?:\s+[^)]*)?\)/g)) {
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
+    if (fenceDelimiter) {
+      if (
+        fenceMatch &&
+        fenceMatch[1][0] === fenceDelimiter.character &&
+        fenceMatch[1].length >= fenceDelimiter.length &&
+        fenceMatch[2].trim().length === 0
+      ) {
+        fenceDelimiter = null;
+      }
+      continue;
+    }
+    if (fenceMatch) {
+      fenceDelimiter = {
+        character: fenceMatch[1][0],
+        length: fenceMatch[1].length,
+      };
+      continue;
+    }
+
+    for (const match of line.matchAll(
+      /!?\[[^\]]*]\(([^)\s]+)(?:\s+[^)]*)?\)/g,
+    )) {
       references.push({
         kind: "link",
         line: index + 1,
@@ -266,7 +280,11 @@ function resolveReference(reference) {
 
 const documentationFiles = await collectDocumentationFiles();
 const collectedDirectories = [];
-const repositoryFiles = await collectFiles(".", () => true, collectedDirectories);
+const repositoryFiles = await collectFiles(
+  ".",
+  () => true,
+  collectedDirectories,
+);
 const repositoryPaths = new Set(
   repositoryFiles.map((relativePath) => relativePath.replace(/^\.\//, "")),
 );

@@ -40,9 +40,8 @@ function encodeJwtPayload(payload: Record<string, unknown>) {
   return `header.${encoded}.signature`;
 }
 
-// Derived from `codex app-server generate-json-schema --out <dir>`.
-// Key sets verified unchanged across Codex CLI/App Server 0.142.0-0.145.0
-// (last regenerated with 0.145.0; documented baseline: 0.144.1).
+// Derived from `codex app-server generate-json-schema --out <dir>` for
+// Codex CLI/App Server 0.144.1.
 const GENERATED_CODEX_APP_SERVER_V2_TURN_START_PARAM_KEYS: Set<string> =
   new Set([
     "approvalPolicy",
