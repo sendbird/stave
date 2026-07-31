@@ -50,7 +50,7 @@ import type {
   PrePrReviewFinding,
   PrePrReviewProviderId,
 } from "../../src/lib/source-control-review";
-import type { CommandResult, SourceControlStatusItem } from "../main/types";
+import type { CommandResult, DetachedCheckoutResult, SourceControlStatusItem } from "../main/types";
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 import type {
   SecondaryProviderCancelRequest,
@@ -750,6 +750,9 @@ export interface HostServiceRequestMap {
     name: string;
     cwd?: string;
   };
+  "scm.checkout-default-branch-detached": {
+    cwd?: string;
+  };
   "scm.pull-branch": {
     cwd?: string;
     branch?: string;
@@ -950,6 +953,7 @@ export interface HostServiceResponseMap {
   "scm.fetch-branch": CommandResult;
   "scm.create-branch": CommandResult;
   "scm.checkout-branch": CommandResult;
+  "scm.checkout-default-branch-detached": DetachedCheckoutResult;
   "scm.pull-branch": CommandResult;
   "scm.merge-branch": CommandResult;
   "scm.rebase-branch": CommandResult;

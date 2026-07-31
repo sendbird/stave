@@ -84,6 +84,10 @@ export function registerScmHandlers() {
     invokeHostService("scm.checkout-branch", args),
   );
 
+  ipcMain.handle("scm:checkout-default-branch-detached", (_event, args: { cwd?: string }) =>
+    invokeHostService("scm.checkout-default-branch-detached", args),
+  );
+
   ipcMain.handle("scm:pull-branch", (_event, args: { cwd?: string; branch?: string }) =>
     invokeHostService("scm.pull-branch", args),
   );

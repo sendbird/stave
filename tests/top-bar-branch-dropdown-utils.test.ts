@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildTopBarBranchGroups,
+  isDetachedHead,
   normalizeRemoteBranchName,
   resolveDefaultBranchDrift,
+  resolveOriginDefaultBranchLabel,
   validateNewBranchName,
 } from "@/components/layout/TopBarBranchDropdown.utils";
 
@@ -108,6 +110,35 @@ describe("TopBarBranchDropdown utils", () => {
         expectedBranch: "main",
         actualBranch: "feature/worktree",
       }),
+    ).toBeNull();
+  });
+
+  test("treats a detached HEAD as a non-branch instead of drift", () => {
+    expect(isDetachedHead("HEAD")).toBe(true);
+    expect(isDetachedHead("main")).toBe(false);
+    expect(isDetachedHead(null)).toBe(false);
+    expect(
+      resolveDefaultBranchDrift({
+        isDefaultWorkspace: true,
+        expectedBranch: "main",
+        actualBranch: "HEAD",
+      }),
+    ).toBeNull();
+  });
+
+  test("resolves the origin default branch label from remote branches", () => {
+    expect(
+      resolveOriginDefaultBranchLabel({
+        remoteBranches: ["origin/master", "origin/main", "origin/feature"],
+      }),
+    ).toBe("origin/main");
+    expect(
+      resolveOriginDefaultBranchLabel({
+        remoteBranches: ["origin/master", "origin/feature"],
+      }),
+    ).toBe("origin/master");
+    expect(
+      resolveOriginDefaultBranchLabel({ remoteBranches: ["origin/feature"] }),
     ).toBeNull();
   });
 

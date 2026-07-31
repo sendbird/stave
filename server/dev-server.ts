@@ -29,6 +29,7 @@ import {
   runAdvisorPreflight,
 } from "../electron/providers/advisor-runtime";
 import { buildProjectShellEnv } from "../electron/shared/project-node-env";
+import { checkoutDefaultBranchDetached } from "../electron/host-service/scm-runtime";
 
 // Browser-only development bridge.
 // This is not the primary desktop runtime; it exists so `bun run dev` / `bun run dev:all`
@@ -714,6 +715,14 @@ const server = Bun.serve({
           cwd: body.cwd,
         }),
       );
+    }
+
+    if (
+      url.pathname === "/api/scm/branch-checkout-default-detached" &&
+      req.method === "POST"
+    ) {
+      const body = await readJson<{ cwd?: string }>(req);
+      return json(await checkoutDefaultBranchDetached({ cwd: body.cwd }));
     }
 
     if (url.pathname === "/api/scm/branch-merge" && req.method === "POST") {

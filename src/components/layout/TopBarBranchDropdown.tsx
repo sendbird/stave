@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Download,
   GitBranch,
+  GitBranchPlus,
   Loader2,
   Plus,
   RefreshCw,
@@ -22,6 +23,11 @@ import {
   TooltipTrigger,
   toast,
 } from "@/components/ui";
+import {
+  DETACHED_HEAD_BRANCH,
+  formatBranchLabel,
+  isDetachedHead,
+} from "@/lib/source-control-branch-label";
 import { isBranchAttachedElsewhere } from "@/lib/source-control-worktrees";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
@@ -29,6 +35,7 @@ import { formatWorkspacePathLabel } from "@/store/project.utils";
 import {
   buildTopBarBranchGroups,
   resolveDefaultBranchDrift,
+  resolveOriginDefaultBranchLabel,
   validateNewBranchName,
   type TopBarBranchOption,
 } from "@/components/layout/TopBarBranchDropdown.utils";
@@ -62,7 +69,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     useState<BranchStatusSummary>(CLEAN_BRANCH_STATUS);
   const [isBusy, setIsBusy] = useState(false);
   const [branchOperation, setBranchOperation] = useState<
-    "fetch" | "pull" | null
+    "fetch" | "pull" | "detach" | null
   >(null);
   const branchRequestIdRef = useRef(0);
   const branchDetectionRequestIdRef = useRef(0);
@@ -105,6 +112,14 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   const currentBranch = isDefaultWorkspace
     ? (detectedActualBranch ?? activeWorkspaceBranch ?? null)
     : (activeWorkspaceBranch ?? detectedActualBranch ?? null);
+  const isDetachedCheckout = isDetachedHead(currentBranch);
+  const currentBranchLabel = currentBranch
+    ? formatBranchLabel(currentBranch)
+    : currentBranch;
+  const originDefaultRef = useMemo(
+    () => resolveOriginDefaultBranchLabel({ remoteBranches }),
+    [remoteBranches],
+  );
   const branchDrift = useMemo(
     () =>
       resolveDefaultBranchDrift({
@@ -400,6 +415,57 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     }
   }, [branchStatus.dirtyCount, currentBranch, loadBranches, workspaceCwd]);
 
+  const handleDetachOriginDefaultBranch = useCallback(async () => {
+    const checkoutDefaultBranchDetached =
+      window.api?.sourceControl?.checkoutDefaultBranchDetached;
+    if (!checkoutDefaultBranchDetached) {
+      const message = "Detached checkout bridge unavailable.";
+      setBranchError(message);
+      toast.error("Detached checkout failed", { description: message });
+      return;
+    }
+
+    setIsBusy(true);
+    setBranchOperation("detach");
+    setBranchError("");
+    try {
+      const result = await checkoutDefaultBranchDetached({ cwd: workspaceCwd });
+      if (!result.ok) {
+        const message = formatScmCommandError(
+          result,
+          "Detached checkout failed.",
+        );
+        setBranchError(message);
+        toast.error("Detached checkout failed", { description: message });
+        return;
+      }
+      // Mirror `checkoutLocalBranch`: the persisted workspace branch has to follow the
+      // checkout, otherwise every other surface reading it keeps showing the old branch.
+      setWorkspaceBranch({
+        workspaceId: activeWorkspaceId,
+        branch: DETACHED_HEAD_BRANCH,
+      });
+      setDetectedCurrentBranch({
+        workspaceId: activeWorkspaceId,
+        branch: DETACHED_HEAD_BRANCH,
+      });
+      toast.success(`Checked out ${result.ref}`, {
+        description: result.head
+          ? `Detached HEAD at ${result.head}`
+          : "Detached HEAD",
+      });
+      await loadBranches();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Detached checkout failed.";
+      setBranchError(message);
+      toast.error("Detached checkout failed", { description: message });
+    } finally {
+      setBranchOperation(null);
+      setIsBusy(false);
+    }
+  }, [activeWorkspaceId, loadBranches, setWorkspaceBranch, workspaceCwd]);
+
   useEffect(() => {
     if (!hasWorkspaceContext || !branchOpen || !isDefaultWorkspace) return;
     void loadBranches();
@@ -649,7 +715,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               ) : (
                 <GitBranch className="size-3.5 shrink-0" />
               )}
-              <span className="truncate">{currentBranch}</span>
+              <span className="truncate">{currentBranchLabel}</span>
               {branchStatus.dirtyCount > 0 ? (
                 <span
                   className={cn(
@@ -762,7 +828,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
             <div className="mt-2 rounded-md border border-border/70 bg-muted/30 px-2.5 py-2">
               <div className="flex items-center justify-between gap-3 text-xs">
                 <span className="min-w-0 truncate font-medium text-foreground">
-                  {currentBranch}
+                  {currentBranchLabel}
                 </span>
                 <span
                   className={cn(
@@ -784,7 +850,9 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
                 {branchStatus.dirtyCount > 0
                   ? "Local edits stay in this workspace. Git may block unsafe checkouts."
-                  : "Create or switch branches for this default workspace."}
+                  : isDetachedCheckout
+                    ? "HEAD is detached, so no local branch moves. Check out a branch to reattach."
+                    : "Create or switch branches for this default workspace."}
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Button
@@ -807,7 +875,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   variant="outline"
                   size="sm"
                   className="h-7 gap-1.5 rounded-sm px-2 text-xs"
-                  disabled={isBusy}
+                  disabled={isBusy || isDetachedCheckout}
                   onClick={() => void handlePullCurrentBranch()}
                 >
                   {branchOperation === "pull" ? (
@@ -818,12 +886,40 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   Pull
                 </Button>
               </div>
+              <Tooltip>
+                <TooltipTrigger render={<span className="mt-2 flex" />}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-full gap-1.5 rounded-sm px-2 text-xs"
+                    disabled={isBusy || !originDefaultRef}
+                    onClick={() => void handleDetachOriginDefaultBranch()}
+                  >
+                    {branchOperation === "detach" ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <GitBranchPlus className="size-3.5" />
+                    )}
+                    <span className="truncate">
+                      {originDefaultRef
+                        ? `Fetch & checkout ${originDefaultRef}`
+                        : "Fetch & checkout origin default"}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {originDefaultRef
+                    ? `Fetch origin and check out ${originDefaultRef} as a detached HEAD, without creating or moving a local branch`
+                    : "Neither origin/main nor origin/master is available"}
+                </TooltipContent>
+              </Tooltip>
             </div>
 
             <div className="mt-2 flex gap-2">
               <Input
                 className="h-8 rounded-md text-sm"
-                placeholder={`New branch from ${currentBranch}`}
+                placeholder={`New branch from ${currentBranchLabel}`}
                 value={newBranchName}
                 aria-invalid={Boolean(
                   newBranchName.trim() && createBranchError,
@@ -943,13 +1039,13 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         }
       >
         <GitBranch className="size-3.5 shrink-0" />
-        <span className="truncate">{currentBranch}</span>
+        <span className="truncate">{currentBranchLabel}</span>
       </TooltipTrigger>
       <TooltipContent side="bottom">
         Branch is managed by this worktree
         {workspaceCwd
           ? `: ${formatWorkspacePathLabel({ workspacePath: workspaceCwd, projectPath })}`
-          : `: ${currentBranch}`}
+          : `: ${currentBranchLabel}`}
       </TooltipContent>
     </Tooltip>
   );
