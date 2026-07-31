@@ -27,24 +27,22 @@ function getLane(lanes: Lane[], index: number): Lane {
 }
 
 /**
- * Pure lane-layout algorithm.
+ * Pure lane-layout algorithm (vscode-git-graph style line-following).
  *
  * Single forward pass over commits (newest-first, --date-order).
- * Assigns each commit a lane + color and emits edges to parents.
  *
- * Algorithm:
- * - Maintain `lanes: Lane[]` where each slot holds the parent hash a lane is
- *   "waiting to place" (a child has reserved that lane for this parent).
- * - For each commit at `row`:
- *   1. Find the leftmost lane reserved for this commit's hash; if none, allocate
- *      the leftmost free lane. That is the commit's lane.
- *   2. The commit's color is the color assigned to that lane.
- *   3. Clear every OTHER lane also reserved for this hash (merge-target collapse).
- *   4. For each parent: the first parent reuses the commit's lane; additional
- *      parents take new leftmost-free lanes. Reserve those lanes for the parent
- *      hash, carrying the lane's color (new lanes get fresh color = lane index).
- *   5. Emit an edge from the commit to each parent's reserved lane.
- * - laneCount = max number of simultaneously occupied lanes across all rows.
+ * Invariants:
+ * - An edge's `toLane` is the lane the line TRAVELS in; that lane stays
+ *   reserved for the parent hash until the parent's row, so no other node
+ *   can be placed on the vertical segment.
+ * - The FIRST parent always reserves the commit's own lane (never adopts an
+ *   existing reservation in another lane). This keeps the trunk stable in
+ *   lane 0 and lets branch lines run vertically until their fork point.
+ * - Several lanes may be reserved for the same parent; at the parent's row
+ *   the leftmost wins and the others collapse (their edges bend into the
+ *   winner's lane over the final row — drawn by the canvas).
+ * - laneCount = maxLaneIndex + 1 (holes included) so the SVG gutter is
+ *   always wide enough.
  */
 export function buildGraphLayout(commits: GraphCommit[]): GraphLayout {
   if (commits.length === 0) {
@@ -54,20 +52,21 @@ export function buildGraphLayout(commits: GraphCommit[]): GraphLayout {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const lanes: Lane[] = [];
-  let laneCount = 0;
+  let maxLaneIndex = 0;
 
   for (let row = 0; row < commits.length; row += 1) {
     const commit = commits[row];
     if (commit === undefined) continue;
 
-    // Step 1: find the leftmost lane reserved for this commit, else allocate one.
+    // 1. The commit lands on the leftmost lane reserved for its hash,
+    //    else on the leftmost free lane.
     let lane = lanes.findIndex((l) => l.hash === commit.hash);
     if (lane === -1) {
       lane = leftmostFreeLane(lanes);
     }
     const color = getLane(lanes, lane).color;
 
-    // Step 3: clear OTHER lanes also reserved for this hash (merge-target collapse).
+    // 2. Collapse every OTHER lane reserved for this hash (fork-point join).
     for (let i = 0; i < lanes.length; i += 1) {
       const l = lanes[i];
       if (l !== undefined && i !== lane && l.hash === commit.hash) {
@@ -75,53 +74,45 @@ export function buildGraphLayout(commits: GraphCommit[]): GraphLayout {
       }
     }
 
-    // Clear the commit's own lane (will be re-reserved by parents below).
+    // 3. Clear the commit's own lane (re-reserved by the first parent below).
     lanes[lane] = { hash: null, color };
 
     nodes.push({ hash: commit.hash, row, lane, color });
+    maxLaneIndex = Math.max(maxLaneIndex, lane);
 
-    // Step 4: reserve lanes for parents.
+    // 4. Reserve travel lanes for parents and emit edges.
     for (let pi = 0; pi < commit.parents.length; pi += 1) {
       const parentHash = commit.parents[pi];
       if (parentHash === undefined) continue;
 
-      // If a lane is already reserved for this parent, keep it.
-      const existing = lanes.findIndex((l) => l.hash === parentHash);
-      let parentLane: number;
-
-      if (existing !== -1) {
-        parentLane = existing;
-      } else if (pi === 0) {
-        // First parent reuses the commit's lane.
-        parentLane = lane;
+      let travelLane: number;
+      if (pi === 0) {
+        // First parent ALWAYS travels in the commit's own lane, even when
+        // another lane already reserved this parent (trunk stability).
+        travelLane = lane;
         lanes[lane] = { hash: parentHash, color };
       } else {
-        // Additional parents take new leftmost-free lanes.
-        parentLane = leftmostFreeLane(lanes);
-        lanes[parentLane] = { hash: parentHash, color: parentLane };
+        const existing = lanes.findIndex((l) => l.hash === parentHash);
+        if (existing !== -1) {
+          // Merge edge joins the line already heading to this parent.
+          travelLane = existing;
+        } else {
+          travelLane = leftmostFreeLane(lanes);
+          lanes[travelLane] = { hash: parentHash, color: travelLane };
+        }
       }
 
-      const parentLaneColor = getLane(lanes, parentLane).color;
+      maxLaneIndex = Math.max(maxLaneIndex, travelLane);
 
-      // Step 5: emit edge.
       edges.push({
         fromRow: row,
         fromLane: lane,
-        toRow: row + 1, // visual hop placeholder; canvas resolves actual row by hash
-        toLane: parentLane,
-        color: parentLaneColor,
+        toLane: travelLane,
+        toHash: parentHash,
+        color: getLane(lanes, travelLane).color,
       });
     }
-
-    // Measure occupied lanes AFTER reserving parents.
-    const occupied = lanes.filter((l) => l.hash !== null).length;
-    laneCount = Math.max(laneCount, occupied);
   }
 
-  // Ensure at least 1 lane for non-empty input (e.g. single root commit with no parents).
-  if (laneCount === 0 && commits.length > 0) {
-    laneCount = 1;
-  }
-
-  return { nodes, edges, laneCount };
+  return { nodes, edges, laneCount: maxLaneIndex + 1 };
 }
