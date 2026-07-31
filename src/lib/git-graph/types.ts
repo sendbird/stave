@@ -33,8 +33,10 @@ export interface GraphNode {
 export interface GraphEdge {
   fromRow: number;
   fromLane: number;
-  toRow: number;
+  /** Lane the edge travels in — reserved for the parent until its row. */
   toLane: number;
+  /** Parent commit hash; the renderer resolves the destination node by hash. */
+  toHash: string;
   color: number;
 }
 

@@ -89,6 +89,7 @@ function createContext(
       openExplorerSearch: () => {},
       openLatestCompletedTurnTask: async () => {},
       openLens: () => {},
+      openGitGraph: () => {},
       openKickoff: () => {},
       openInGhostty: async () => {},
       openInTerminal: async () => {},
@@ -142,6 +143,9 @@ describe("command palette registry", () => {
           item.id === "navigation.fleet-view" && item.shortcut === "Cmd+K F",
       ),
     ).toBe(true);
+    expect(actions.some((item) => item.id === "view.open-git-graph")).toBe(
+      true,
+    );
     expect(actions.some((item) => item.id === "task.select.task-2")).toBe(true);
     expect(
       actions.some((item) => item.id === "workspace.select.ws-feature"),
@@ -231,6 +235,21 @@ describe("command palette registry", () => {
           item.shortcut === "Cmd+Shift+\\",
       ),
     ).toBe(true);
+  });
+
+  test("hides Git Graph without an active workspace", () => {
+    const actions = listCommandPaletteActions(
+      createContext({
+        workspaces: createContext().workspaces.map((workspace) => ({
+          ...workspace,
+          isActive: false,
+        })),
+      }),
+    );
+
+    expect(actions.some((item) => item.id === "view.open-git-graph")).toBe(
+      false,
+    );
   });
 
   test("hides compare until a task is active", () => {

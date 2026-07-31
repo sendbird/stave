@@ -3,6 +3,7 @@ import {
   Command as CommandIcon,
   FolderOpen,
   GitBranch,
+  GitGraph,
   GitPullRequest,
   Globe,
   Home,
@@ -125,6 +126,7 @@ export interface CommandPaletteCommandHandlers {
   openInGhostty: (path: string) => Promise<void> | void;
   openInVSCode: (path: string) => Promise<void> | void;
   openFleetView: () => void;
+  openGitGraph: () => void;
   openAutomationCenter: () => void;
   openKeyboardShortcuts: () => void;
   openProject: (projectPath: string) => Promise<void> | void;
@@ -687,6 +689,28 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       run: args.commands.openLens,
       source: "core",
     }),
+  },
+  {
+    id: "view.open-git-graph",
+    title: "Open Git Graph",
+    description: "Open the commit graph for the active workspace.",
+    group: "view",
+    icon: GitGraph,
+    keywords: ["git", "graph", "commits", "log", "branches", "history"],
+    build: (args) =>
+      args.workspacePath &&
+      args.workspaces.some((workspace) => workspace.isActive)
+        ? {
+            id: "view.open-git-graph",
+            title: "Open Git Graph",
+            subtitle: "Open the commit graph in an editor tab.",
+            group: "view",
+            icon: GitGraph,
+            keywords: ["git", "graph", "commits", "log", "branches", "history"],
+            run: args.commands.openGitGraph,
+            source: "core",
+          }
+        : null,
   },
   {
     id: "view.split-pane-right",
