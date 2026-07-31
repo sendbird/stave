@@ -24,8 +24,10 @@ import {
   sanitizeLensNetworkUrl,
 } from "../../../src/lib/lens/lens-network";
 import { normalizeLensHostEntry } from "../../../src/lib/lens/lens-security";
+import type { LensConsoleRateLimitDecision } from "../../../src/lib/lens/lens-console";
 import {
   detachCdpController,
+  disposeCdpController,
   sendCdpCommand,
   sendCdpCommandIfAttached,
   subscribeCdpDetach,
@@ -111,6 +113,7 @@ interface DiagnosticsCapture {
   enabled: boolean;
   generation: number;
   onConsoleEntry: (entry: BrowserConsoleEntry) => void;
+  acceptConsoleEntry?: () => LensConsoleRateLimitDecision;
   onNetworkEntry: (entry: BrowserNetworkEntry) => void;
   shouldIgnoreConsoleText?: (text: string) => boolean;
   unsubscribeMessage: () => void;
@@ -460,6 +463,22 @@ function emitConsoleEntry(args: {
   lineNumber?: number;
   columnNumber?: number;
 }) {
+  const rateLimit = args.capture.acceptConsoleEntry?.();
+  if (rateLimit && !rateLimit.accepted) {
+    stopCaptureForConsoleOverload(args.capture);
+    return;
+  }
+  if (rateLimit && rateLimit.droppedCount > 0) {
+    args.capture.onConsoleEntry({
+      id: randomUUID(),
+      level: "warn",
+      text: `Lens console dropped ${rateLimit.droppedCount} excessive page log entries.`,
+      timestamp: new Date().toISOString(),
+      source: "lens",
+      captureSource: "cdp",
+    });
+  }
+
   const entryId = randomUUID();
   const remoteArguments = (args.remoteArguments ?? [])
     .slice(0, MAX_CONSOLE_ARGUMENTS)
@@ -1216,9 +1235,14 @@ function releaseAllHandles(capture: DiagnosticsCapture) {
 function clearCaptureData(
   capture: DiagnosticsCapture,
   kind?: "console" | "network",
+  releaseRemoteObjects = true,
 ) {
   if (!kind || kind === "console") {
-    releaseAllHandles(capture);
+    if (releaseRemoteObjects) {
+      releaseAllHandles(capture);
+    } else {
+      capture.objectHandles.clear();
+    }
     capture.consoleDetails.clear();
     capture.recentConsole.clear();
   }
@@ -1236,8 +1260,15 @@ function clearCaptureData(
   }
 }
 
-function archiveCaptureData(capture: DiagnosticsCapture) {
-  releaseAllHandles(capture);
+function archiveCaptureData(
+  capture: DiagnosticsCapture,
+  releaseRemoteObjects = true,
+) {
+  if (releaseRemoteObjects) {
+    releaseAllHandles(capture);
+  } else {
+    capture.objectHandles.clear();
+  }
   for (const [entryId, detail] of capture.consoleDetails) {
     capture.consoleDetails.set(entryId, {
       ...detail,
@@ -1256,12 +1287,50 @@ function archiveCaptureData(capture: DiagnosticsCapture) {
   capture.executionContexts.clear();
 }
 
+function stopCaptureForConsoleOverload(capture: DiagnosticsCapture): void {
+  if (!capture.enabled || captures.get(capture.webContentsId) !== capture) {
+    return;
+  }
+
+  capture.enabled = false;
+  capture.generation += 1;
+  capture.unsubscribeMessage();
+  capture.unsubscribeDetach();
+  // One CDP command clears the target's retained console objects without an
+  // unbounded releaseObject command per dropped event. Strip local handles so
+  // preserved details never point at objects invalidated by that clear.
+  archiveCaptureData(capture, false);
+  void sendCdpCommandIfAttached(
+    capture.webContentsId,
+    "Runtime.discardConsoleEntries",
+  ).catch(() => undefined);
+  // Console overload is the fail-safe path: do not let a stalled renderer
+  // hold the debugger open while this best-effort discard command is pending.
+  detachCdpController(capture.webContentsId, { force: true });
+  const message =
+    "Lens full diagnostics stopped because the page emitted excessive console logs.";
+  try {
+    capture.onConsoleEntry({
+      id: randomUUID(),
+      level: "warn",
+      text: message,
+      timestamp: new Date().toISOString(),
+      source: "lens",
+      captureSource: "cdp",
+      diagnosticsCaptureState: { enabled: false, message },
+    });
+  } catch {
+    // Cleanup above must remain authoritative if a consumer is already gone.
+  }
+}
+
 export async function startLensCdpDiagnostics(args: {
   webContentsId: number;
   workspaceId: string;
   lensSessionId: string;
   url: string;
   onConsoleEntry: (entry: BrowserConsoleEntry) => void;
+  acceptConsoleEntry?: () => LensConsoleRateLimitDecision;
   onNetworkEntry: (entry: BrowserNetworkEntry) => void;
   shouldIgnoreConsoleText?: (text: string) => boolean;
 }): Promise<LensDiagnosticsCaptureState> {
@@ -1298,6 +1367,7 @@ export async function startLensCdpDiagnostics(args: {
   capture.enabled = false;
   capture.generation = 0;
   capture.onConsoleEntry = args.onConsoleEntry;
+  capture.acceptConsoleEntry = args.acceptConsoleEntry;
   capture.onNetworkEntry = args.onNetworkEntry;
   capture.shouldIgnoreConsoleText = args.shouldIgnoreConsoleText;
   capture.pendingNetwork = new Map();
@@ -1343,10 +1413,23 @@ export async function startLensCdpDiagnostics(args: {
         maxPostDataSize: MAX_LENS_NETWORK_BODY_BYTES,
       }),
     ]);
+    if (captures.get(args.webContentsId) !== capture || !capture.enabled) {
+      return {
+        enabled: false,
+        message: "Lens browser session closed while diagnostics were starting.",
+      };
+    }
     capture.enabled = true;
     return { enabled: true, host };
   } catch (error) {
-    stopLensCdpDiagnostics(args.webContentsId, true);
+    if (captures.get(args.webContentsId) === capture) {
+      stopLensCdpDiagnostics(args.webContentsId, true);
+    } else {
+      capture.enabled = false;
+      capture.unsubscribeMessage();
+      capture.unsubscribeDetach();
+      clearCaptureData(capture, undefined, false);
+    }
     return {
       enabled: false,
       message: error instanceof Error ? error.message : String(error),
@@ -1374,6 +1457,24 @@ export function stopLensCdpDiagnostics(
   }
   if (detach) detachCdpController(webContentsId);
   return { enabled: false };
+}
+
+/**
+ * Dispose capture state for a WebContents that is about to be destroyed.
+ * Remote object handles die with the target, so issuing Runtime.releaseObject
+ * here only creates CDP work that races with WebContents teardown.
+ */
+export function disposeLensCdpDiagnostics(webContentsId: number): void {
+  const capture = captures.get(webContentsId);
+  if (capture) {
+    capture.enabled = false;
+    capture.generation += 1;
+    capture.unsubscribeMessage();
+    capture.unsubscribeDetach();
+    clearCaptureData(capture, undefined, false);
+    captures.delete(webContentsId);
+  }
+  disposeCdpController(webContentsId);
 }
 
 export function getLensCdpDiagnosticsState(
