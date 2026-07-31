@@ -1,4 +1,7 @@
+import { isDetachedHead } from "@/lib/source-control-branch-label";
 import { isBranchAttachedElsewhere } from "@/lib/source-control-worktrees";
+
+export { isDetachedHead };
 
 export type TopBarBranchOptionKind = "local" | "remote";
 export type TopBarBranchOptionState = "current" | "available" | "attached";
@@ -38,11 +41,26 @@ export function resolveDefaultBranchDrift(args: {
     !args.isDefaultWorkspace ||
     !expectedBranch ||
     !actualBranch ||
-    expectedBranch === actualBranch
+    expectedBranch === actualBranch ||
+    // A deliberate detached checkout is not branch drift.
+    isDetachedHead(actualBranch)
   ) {
     return null;
   }
   return { expectedBranch, actualBranch };
+}
+
+/**
+ * Pick the remote default branch the same way the host service does: `origin/main` first,
+ * then `origin/master`. Returns null when neither remote-tracking ref is known.
+ */
+export function resolveOriginDefaultBranchLabel(args: {
+  remoteBranches: string[];
+}) {
+  const available = new Set(args.remoteBranches.map((name) => name.trim()));
+  return (
+    ["origin/main", "origin/master"].find((ref) => available.has(ref)) ?? null
+  );
 }
 
 export function normalizeRemoteBranchName(branch: string) {

@@ -21,6 +21,7 @@ import {
   resetHostServicePersistence,
 } from "./host-service/persistence";
 import {
+  checkoutDefaultBranchDetached,
   checkoutScmBranch,
   cherryPickScmCommit,
   commitSourceControl,
@@ -1446,6 +1447,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.checkout-branch":
       await respond(request.id, await checkoutScmBranch(request.params));
+      return;
+    case "scm.checkout-default-branch-detached":
+      await respond(request.id, await checkoutDefaultBranchDetached(request.params));
       return;
     case "scm.pull-branch":
       await respond(request.id, await pullScmBranch(request.params));

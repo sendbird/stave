@@ -64,6 +64,23 @@ describe("project name normalization", () => {
     ).toBe("Default");
   });
 
+  test("renders a detached checkout as a label instead of the raw HEAD sentinel", () => {
+    expect(
+      formatWorkspaceDisplayName({
+        name: "Customer issue",
+        branch: "HEAD",
+        isDefault: false,
+      }),
+    ).toBe("Customer issue (Detached HEAD)");
+    expect(
+      formatWorkspaceDisplayName({
+        name: "",
+        branch: "HEAD",
+        isDefault: false,
+      }),
+    ).toBe("Detached HEAD");
+  });
+
   test("filters sidebar workspaces by custom label and branch", () => {
     const sourceProjects = [
       {
