@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildPendingProviderTurnState,
   buildSteeredUserMessageState,
+  resolveMidTurnSteeringContext,
 } from "@/store/chat-state-helpers";
 import type { ChatMessage, Task } from "@/types/chat";
 
@@ -26,6 +27,68 @@ const sharedArgs = {
   activeModel: "gpt-5.4",
   content: "hello",
 };
+
+describe("resolveMidTurnSteeringContext", () => {
+  test("keeps steering bound to the provider that owns the active turn", () => {
+    const result = resolveMidTurnSteeringContext({
+      activeTurnId: "turn-1",
+      activity: {
+        turnId: "turn-1",
+        providerId: "codex",
+      },
+      fallbackProviderId: "claude-code",
+      messages: [],
+      hasAttachments: false,
+      isActiveWorkspace: true,
+    });
+
+    expect(result).toEqual({
+      providerId: "codex",
+      unavailableMessage: null,
+    });
+  });
+
+  test("uses conversation history when activity belongs to another turn", () => {
+    const result = resolveMidTurnSteeringContext({
+      activeTurnId: "turn-2",
+      activity: {
+        turnId: "turn-1",
+        providerId: "claude-code",
+      },
+      fallbackProviderId: "claude-code",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          model: "gpt-5.4",
+          providerId: "codex",
+          content: "Working",
+          isStreaming: true,
+          parts: [],
+        },
+      ],
+      hasAttachments: false,
+      isActiveWorkspace: true,
+    });
+
+    expect(result.providerId).toBe("codex");
+    expect(result.unavailableMessage).toBeNull();
+  });
+
+  test("returns the first steering eligibility failure", () => {
+    const result = resolveMidTurnSteeringContext({
+      activeTurnId: "turn-1",
+      fallbackProviderId: "claude-code",
+      messages: [],
+      hasAttachments: true,
+      isActiveWorkspace: false,
+    });
+
+    expect(result.unavailableMessage).toBe(
+      "Attachments can't be steered into a live turn — press Tab to queue instead.",
+    );
+  });
+});
 
 describe("buildPendingProviderTurnState — message IDs", () => {
   test("anchors new IDs to the durable total when the window is trimmed", () => {

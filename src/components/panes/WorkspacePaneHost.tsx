@@ -76,6 +76,24 @@ const STAVE_DOCKVIEW_THEME: DockviewTheme = {
   tabGroupIndicator: "none",
 };
 
+function syncLensSplitBoundaryMarkers(api: DockviewApi) {
+  for (const group of api.groups) {
+    const view = group.element.parentElement;
+    if (
+      !(view instanceof HTMLElement) ||
+      !view.classList.contains("dv-view")
+    ) {
+      continue;
+    }
+    view.toggleAttribute(
+      "data-lens-split-boundary",
+      group.panels.some(
+        (panel) => parsePanePanelId(panel.id)?.kind === "lens",
+      ),
+    );
+  }
+}
+
 function PaneIconPicker(props: IContextMenuItemComponentProps) {
   const options = props.componentProps as
     { panelId?: string; selectedIcon?: string | null } | undefined;
@@ -744,6 +762,7 @@ export function WorkspacePaneHost() {
       }
     } finally {
       reconcilingRef.current = false;
+      syncLensSplitBoundaryMarkers(api);
     }
   }, []);
 
@@ -826,6 +845,21 @@ export function WorkspacePaneHost() {
           dropEvent.preventDefault();
         }
       });
+
+      let lensBoundarySyncRaf = 0;
+      const scheduleLensBoundarySync = () => {
+        cancelAnimationFrame(lensBoundarySyncRaf);
+        lensBoundarySyncRaf = requestAnimationFrame(() => {
+          lensBoundarySyncRaf = 0;
+          if (apiRef.current === api) {
+            syncLensSplitBoundaryMarkers(api);
+          }
+        });
+      };
+      api.onDidAddPanel(scheduleLensBoundarySync);
+      api.onDidRemovePanel(scheduleLensBoundarySync);
+      api.onDidMovePanel(scheduleLensBoundarySync);
+      api.onDidLayoutFromJSON(scheduleLensBoundarySync);
 
       api.onDidActivePanelChange(({ panel }) => {
         if (!panel) {

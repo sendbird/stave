@@ -1424,11 +1424,14 @@ function LensSessionSurface(args: {
           return;
         }
 
+        // Keep the measured CSS-pixel rectangle intact. The main process
+        // converts its scaled edges inward so the native view cannot overlap
+        // Dockview's renderer-owned resize sash by a rounding pixel.
         pendingBoundsRef.current = {
-          x: Math.round(rect.left),
-          y: Math.round(rect.top),
-          width: Math.round(rect.width),
-          height: Math.round(rect.height),
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
         };
 
         cancelAnimationFrame(flushRafRef.current);
