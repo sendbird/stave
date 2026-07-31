@@ -42,6 +42,10 @@ import {
   formatAdvisorSystemTrace,
   runAdvisorPreflight,
 } from "./advisor-runtime";
+import {
+  createProviderTurnLifecycle,
+  type ProviderTurnLifecycleSnapshot,
+} from "./provider-turn-lifecycle";
 
 const sdkTurnTimeoutMs = Number(
   process.env.STAVE_PROVIDER_TIMEOUT_MS ?? 300000,
@@ -98,6 +102,16 @@ const activeStreams = new Map<string, ActiveStreamSession>();
  * SQLite being closed → "database connection is not open".
  */
 const activeTurnPromises = new Map<string, Promise<void>>();
+let lastCompletedLifecycleSnapshot: ProviderTurnLifecycleSnapshot | null = null;
+
+export function getProviderRuntimeLifecycleSnapshot() {
+  return {
+    activeSessionCount: activeSessions.size,
+    activeStreamCount: activeStreams.size,
+    activeTurnPromiseCount: activeTurnPromises.size,
+    lastCompleted: lastCompletedLifecycleSnapshot,
+  };
+}
 function upsertActiveSession(args: {
   turnId: string;
   providerId: StreamTurnArgs["providerId"];
@@ -529,6 +543,16 @@ export function createTurnTimeoutController(args: {
 async function runProviderTurn(
   args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
 ) {
+  const lifecycle = createProviderTurnLifecycle({
+    onEvent: args.onEvent,
+  });
+  const finishLifecycle = (
+    reason: "completed" | "runtime_failure" | "user_abort",
+  ) => {
+    lifecycle.finish(reason);
+    lastCompletedLifecycleSnapshot = lifecycle.snapshot();
+    return lifecycle.events();
+  };
   const turnId = args.turnId ?? randomUUID();
   let abortRequested = false;
   let activePhaseAborter: (() => void) | null = null;
@@ -646,10 +670,11 @@ async function runProviderTurn(
       const mappedTerminalEvents = terminalEvents.flatMap((event) =>
         mapUsage(event),
       );
-      mappedTerminalEvents.forEach((event) => args.onEvent?.(event));
+      mappedTerminalEvents.forEach((event) => lifecycle.emit(event));
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
-      return mappedTerminalEvents;
+      lastCompletedLifecycleSnapshot = lifecycle.snapshot();
+      return lifecycle.events();
     }
     if (advisorResult.shouldTrace) {
       const trace: BridgeEvent = {
@@ -657,7 +682,7 @@ async function runProviderTurn(
         content: formatAdvisorSystemTrace(advisorResult),
       };
       advisorEvents.push(trace);
-      args.onEvent?.(trace);
+      lifecycle.emit(trace);
     }
     advisorUsage = advisorResult.usage;
     if (advisorResult.status === "completed" && effectiveArgs.conversation) {
@@ -677,7 +702,7 @@ async function runProviderTurn(
   const emitPrimaryEvent = (event: BridgeEvent) => {
     emittedPrimaryEvents.push(event);
     for (const mappedEvent of mapUsageForDownstream(event)) {
-      args.onEvent?.(mappedEvent);
+      lifecycle.emit(mappedEvent);
     }
   };
   const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
@@ -696,11 +721,6 @@ async function runProviderTurn(
       emitPrimaryEvent(event);
     }
   };
-  const mapReturnedEvents = (events: BridgeEvent[]) => {
-    const mapUsage = createAdvisorUsageMerger(advisorUsage);
-    return [...advisorEvents, ...events.flatMap((event) => mapUsage(event))];
-  };
-
   if (effectiveArgs.providerId === "claude-code") {
     try {
       const events = await runStreamWithPausableTimeout(
@@ -721,13 +741,43 @@ async function runProviderTurn(
       );
       if (events && events.length > 0) {
         emitMissingReturnedEvents(events);
-        return mapReturnedEvents(events);
+        return finishLifecycle(
+          abortRequested
+            ? timeoutController.timedOut
+              ? "runtime_failure"
+              : "user_abort"
+            : "completed",
+        );
+      }
+      if (abortRequested) {
+        if (timeoutController.timedOut) {
+          emitPrimaryEvent({
+            type: "error",
+            message: `Provider turn timed out. timeout=${turnTimeoutMs}ms`,
+            recoverable: true,
+          });
+          return finishLifecycle("runtime_failure");
+        }
+        return finishLifecycle("user_abort");
       }
       const fallback = toClaudeErrorEvents({
         message: `Claude SDK unavailable/timeout. Check claude login and SDK environment. timeout=${turnTimeoutMs}ms`,
       });
       fallback.forEach((event) => emitPrimaryEvent(event));
-      return mapReturnedEvents(fallback);
+      lastCompletedLifecycleSnapshot = lifecycle.snapshot();
+      return lifecycle.events();
+    } catch (error) {
+      if (abortRequested && !timeoutController.timedOut) {
+        return finishLifecycle("user_abort");
+      }
+      emitPrimaryEvent({
+        type: "error",
+        message: timeoutController.timedOut
+          ? `Provider turn timed out. timeout=${turnTimeoutMs}ms`
+          : `Claude provider stream failed: ${String(error)}`,
+        recoverable: true,
+      });
+      return finishLifecycle("runtime_failure");
     } finally {
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
@@ -753,13 +803,43 @@ async function runProviderTurn(
     );
     if (events && events.length > 0) {
       emitMissingReturnedEvents(events);
-      return mapReturnedEvents(events);
+      return finishLifecycle(
+        abortRequested
+          ? timeoutController.timedOut
+            ? "runtime_failure"
+            : "user_abort"
+          : "completed",
+      );
+    }
+    if (abortRequested) {
+      if (timeoutController.timedOut) {
+        emitPrimaryEvent({
+          type: "error",
+          message: `Provider turn timed out. timeout=${turnTimeoutMs}ms`,
+          recoverable: true,
+        });
+        return finishLifecycle("runtime_failure");
+      }
+      return finishLifecycle("user_abort");
     }
     const fallback = toCodexErrorEvents({
       message: `Codex unavailable/timeout. Check codex auth and runtime environment. timeout=${turnTimeoutMs}ms`,
     });
     fallback.forEach((event) => emitPrimaryEvent(event));
-    return mapReturnedEvents(fallback);
+    lastCompletedLifecycleSnapshot = lifecycle.snapshot();
+    return lifecycle.events();
+  } catch (error) {
+    if (abortRequested && !timeoutController.timedOut) {
+      return finishLifecycle("user_abort");
+    }
+    emitPrimaryEvent({
+      type: "error",
+      message: timeoutController.timedOut
+        ? `Provider turn timed out. timeout=${turnTimeoutMs}ms`
+        : `Codex provider stream failed: ${String(error)}`,
+      recoverable: true,
+    });
+    return finishLifecycle("runtime_failure");
   } finally {
     timeoutController.dispose();
     clearActiveTurnState({ turnId });
@@ -781,6 +861,15 @@ export const providerRuntime: ProviderRuntime = {
       retainedBytes: 0,
     };
     activeStreams.set(streamId, session);
+    const deliveryLifecycle = createProviderTurnLifecycle({
+      onEvent: (event) => {
+        if (shouldBufferForPolling) {
+          appendStreamEvent(session, event);
+        }
+        session.updatedAt = Date.now();
+        options?.onEvent?.(event);
+      },
+    });
     upsertActiveSession({
       turnId,
       providerId: args.providerId,
@@ -792,11 +881,7 @@ export const providerRuntime: ProviderRuntime = {
         ...args,
         turnId,
         onEvent: (event) => {
-          if (shouldBufferForPolling) {
-            appendStreamEvent(session, event);
-          }
-          session.updatedAt = Date.now();
-          options?.onEvent?.(event);
+          deliveryLifecycle.emit(event);
         },
       })
         .catch((error) => {
@@ -805,20 +890,13 @@ export const providerRuntime: ProviderRuntime = {
             message: `Provider stream failed: ${String(error)}`,
             recoverable: true,
           };
-          if (shouldBufferForPolling) {
-            appendStreamEvent(session, errorEvent);
-          }
-          options?.onEvent?.(errorEvent);
-          const doneEvent: BridgeEvent = {
-            type: "done",
-            stop_reason: "runtime_failure",
-          };
-          if (shouldBufferForPolling) {
-            appendStreamEvent(session, doneEvent);
-          }
-          options?.onEvent?.(doneEvent);
+          deliveryLifecycle.emit(errorEvent);
+          deliveryLifecycle.finish("runtime_failure");
         })
         .finally(() => {
+          if (!deliveryLifecycle.terminal) {
+            deliveryLifecycle.finish("runtime_failure");
+          }
           session.done = true;
           session.updatedAt = Date.now();
           clearActiveTurnState({ turnId });

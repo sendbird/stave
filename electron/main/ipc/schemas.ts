@@ -107,14 +107,16 @@ export const LensSessionTargetArgsSchema = z
   })
   .strict();
 
-export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend({
-  options: z
-    .object({
-      extractDebugSource: z.boolean().optional(),
-    })
-    .strict()
-    .optional(),
-}).strict();
+export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend(
+  {
+    options: z
+      .object({
+        extractDebugSource: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
+  },
+).strict();
 
 export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
   options: z
@@ -130,14 +132,8 @@ export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
             .number()
             .min(-LENS_CAPTURE_LIMITS.rectCoordinate)
             .max(LENS_CAPTURE_LIMITS.rectCoordinate),
-          width: z
-            .number()
-            .positive()
-            .max(LENS_CAPTURE_LIMITS.rectSize),
-          height: z
-            .number()
-            .positive()
-            .max(LENS_CAPTURE_LIMITS.rectSize),
+          width: z.number().positive().max(LENS_CAPTURE_LIMITS.rectSize),
+          height: z.number().positive().max(LENS_CAPTURE_LIMITS.rectSize),
         })
         .strict()
         .optional(),
@@ -153,36 +149,27 @@ export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
 
 export const LensAnnotationRemoveArgsSchema =
   LensSessionTargetArgsSchema.extend({
-    annotationId: z
-      .string()
-      .min(1)
-      .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
-    documentId: z
-      .string()
-      .min(1)
-      .max(LENS_CAPTURE_LIMITS.documentIdBytes),
+    annotationId: z.string().min(1).max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+    documentId: z.string().min(1).max(LENS_CAPTURE_LIMITS.documentIdBytes),
   }).strict();
 
-export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend({
-  annotationId: z
-    .string()
-    .min(1)
-    .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
-  selector: z.string().min(1).max(LENS_CAPTURE_LIMITS.selectorBytes),
-  patch: z
-    .record(
-      z.string().min(1).max(LENS_CAPTURE_LIMITS.stylePropertyBytes),
-      z.string().max(LENS_CAPTURE_LIMITS.styleValueBytes),
-    )
-    .refine(
-      (value) => Object.keys(value).length <= LENS_CAPTURE_LIMITS.styleEditItems,
-      "Too many Lens style properties",
-    ),
-  documentId: z
-    .string()
-    .min(1)
-    .max(LENS_CAPTURE_LIMITS.documentIdBytes),
-}).strict();
+export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend(
+  {
+    annotationId: z.string().min(1).max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+    selector: z.string().min(1).max(LENS_CAPTURE_LIMITS.selectorBytes),
+    patch: z
+      .record(
+        z.string().min(1).max(LENS_CAPTURE_LIMITS.stylePropertyBytes),
+        z.string().max(LENS_CAPTURE_LIMITS.styleValueBytes),
+      )
+      .refine(
+        (value) =>
+          Object.keys(value).length <= LENS_CAPTURE_LIMITS.styleEditItems,
+        "Too many Lens style properties",
+      ),
+    documentId: z.string().min(1).max(LENS_CAPTURE_LIMITS.documentIdBytes),
+  },
+).strict();
 
 export const SecretUpsertArgsSchema = z
   .object({
@@ -215,6 +202,12 @@ export const SecretRevealArgsSchema = z
 
 export const SuggestTaskNameArgsSchema = z
   .object({
+    cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().max(2000),
     history: z
       .array(
@@ -232,6 +225,12 @@ export const SuggestTaskNameArgsSchema = z
 
 export const ClassifyRouteArgsSchema = z
   .object({
+    cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().max(8000),
     history: z
       .array(
@@ -253,6 +252,17 @@ export const ClassifyRouteArgsSchema = z
 export const SuggestCommitMessageArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
+  })
+  .strict();
+
+export const AbortTurnArgsSchema = z
+  .object({
+    turnId: z.string().trim().min(1).max(200),
   })
   .strict();
 

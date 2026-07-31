@@ -21,6 +21,11 @@ import type {
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import type {
+  RouteClassification,
+  UtilityInferenceContext,
+  UtilityInferenceMetadata,
+} from "@/lib/providers/utility-inference";
+import type {
   ConnectedToolId,
   ConnectedToolStatusResponse,
 } from "@/lib/providers/connected-tool-status";
@@ -359,45 +364,39 @@ interface WindowProviderApi {
     }>;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexMutationResponse>;
-  /** Generates a short task title from the given prompt and optional
-   *  conversation history using a lightweight single-turn Claude query
-   *  isolated from the main task conversation. */
-  suggestTaskName?: (args: {
-    prompt: string;
-    history?: Array<{ role: string; content: string }>;
-  }) => Promise<{ ok: boolean; title?: string }>;
-  classifyRoute?: (args: {
-    prompt: string;
-    history?: Array<{
-      role: "user" | "assistant";
-      content: string;
-      providerId?: ProviderId;
-      model?: string;
-    }>;
-    fileContextCount?: number;
-  }) => Promise<{
+  /** Generates a short task title in an isolated, read-only utility turn. */
+  suggestTaskName?: (
+    args: UtilityInferenceContext & {
+      prompt: string;
+      history?: Array<{ role: string; content: string }>;
+    },
+  ) => Promise<{
     ok: boolean;
-    classification?: {
-      taskType:
-        | "quick_edit"
-        | "plan"
-        | "implementation"
-        | "debug"
-        | "review"
-        | "general"
-        | "safety";
-      complexity: "low" | "medium" | "high";
-      recommendedTier: "light" | "standard" | "heavy" | "frontier";
-      confidence: number;
-      rationale?: string;
-      stick?: boolean;
-    };
+    title?: string;
+    utility: UtilityInferenceMetadata;
   }>;
-  /** Generates a conventional commit message from the current git diff in the
-   *  given working directory using a lightweight single-turn Claude query. */
-  suggestCommitMessage?: (args: {
-    cwd?: string;
-  }) => Promise<{ ok: boolean; message?: string }>;
+  classifyRoute?: (
+    args: UtilityInferenceContext & {
+      prompt: string;
+      history?: Array<{
+        role: "user" | "assistant";
+        content: string;
+        providerId?: ProviderId;
+        model?: string;
+      }>;
+      fileContextCount?: number;
+    },
+  ) => Promise<{
+    ok: boolean;
+    classification?: RouteClassification;
+    utility: UtilityInferenceMetadata;
+  }>;
+  /** Generates a conventional commit message in a read-only utility turn. */
+  suggestCommitMessage?: (args: UtilityInferenceContext) => Promise<{
+    ok: boolean;
+    message?: string;
+    utility: UtilityInferenceMetadata;
+  }>;
   /** Generates a PR title and description from the branch diff and commit log
    *  using a read-only single-turn query from the active task provider. */
   suggestPRDescription?: (args: {
@@ -2011,9 +2010,7 @@ interface WindowSecretsApi {
     secret?: SecretMetadata;
     message?: string;
   }>;
-  delete?: (args: {
-    id: string;
-  }) => Promise<{ ok: boolean; message?: string }>;
+  delete?: (args: { id: string }) => Promise<{ ok: boolean; message?: string }>;
   reveal?: (args: {
     id: string;
   }) => Promise<{ ok: boolean; value?: string; message?: string }>;

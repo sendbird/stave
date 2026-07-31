@@ -1861,6 +1861,7 @@ function ModelsSection() {
     claudeEffort,
     codexReasoningEffort,
     codexBinaryPath,
+    utilityInferenceProvider,
     autoRoutingEnabled,
     autoRoutingUseClassifier,
     autoRoutingObjective,
@@ -1877,6 +1878,7 @@ function ModelsSection() {
           state.settings.claudeEffort,
           state.settings.codexReasoningEffort,
           state.settings.codexBinaryPath,
+          state.settings.utilityInferenceProvider,
           state.settings.autoRoutingEnabled,
           state.settings.autoRoutingUseClassifier,
           state.settings.autoRoutingObjective,
@@ -2111,6 +2113,36 @@ function ModelsSection() {
               </SelectContent>
             </Select>
           </LabeledField>
+          <LabeledField
+            title="Utility AI"
+            description="Provider used for task names, low-confidence route classification, and commit messages. Auto prefers the active task provider and falls back safely."
+          >
+            <Select
+              value={utilityInferenceProvider}
+              onValueChange={(value) =>
+                updateSettings({
+                  patch: {
+                    utilityInferenceProvider: value as
+                      | "auto"
+                      | "claude-code"
+                      | "codex",
+                  },
+                })
+              }
+            >
+              <SelectTrigger
+                className="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
+                aria-label="Utility AI provider"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="claude-code">Claude</SelectItem>
+                <SelectItem value="codex">Codex</SelectItem>
+              </SelectContent>
+            </Select>
+          </LabeledField>
           <div className="space-y-3 border-t border-border/70 pt-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
@@ -2159,7 +2191,7 @@ function ModelsSection() {
             <div className="grid gap-3 md:grid-cols-3">
               <SwitchField
                 title="Classifier"
-                description="Use the Claude classifier for low-confidence prompts."
+                description="Use the selected Utility AI for low-confidence prompts."
                 checked={autoRoutingUseClassifier}
                 onCheckedChange={(checked) =>
                   updateSettings({

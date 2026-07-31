@@ -2,8 +2,60 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TurnActivitySurface } from "@/components/session/TurnActivity";
+import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 
 describe("TurnActivity", () => {
+  test("reuses the task execution summary in the expanded shelf", () => {
+    const executionSummary = buildTaskExecutionSummary({
+      providerId: "codex",
+      messages: [
+        {
+          id: "assistant-summary",
+          role: "assistant",
+          model: "gpt-5.6",
+          providerId: "codex",
+          content: "Implemented Fleet controls.",
+          startedAt: "2026-07-31T00:00:00.000Z",
+          completedAt: "2026-07-31T00:00:02.000Z",
+          usage: { inputTokens: 100, outputTokens: 20 },
+          parts: [
+            {
+              type: "code_diff",
+              filePath: "src/Fleet.tsx",
+              oldContent: "",
+              newContent: "export const Fleet = true;\n",
+              status: "accepted",
+            },
+          ],
+        },
+      ],
+    });
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-summary",
+        activity: {
+          turnId: "turn-summary",
+          providerId: "codex",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [],
+        todos: [],
+        executionSummary,
+      }),
+    );
+
+    expect(html).toContain("Task execution summary");
+    expect(html).toContain("1 file");
+    expect(html).toContain("120 tokens");
+    expect(html).toContain("Not supported");
+  });
+
   test("renders live agent work in the stacked activity shelf", () => {
     const html = renderToStaticMarkup(
       createElement(TurnActivitySurface, {

@@ -19,7 +19,12 @@ import { buildNotificationToastOptions } from "@/lib/notifications/notification.
 import type {
   NormalizedProviderEvent,
   ProviderId,
+  RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
+import {
+  buildTaskExecutionSummary,
+  buildTaskReviewArtifact,
+} from "@/lib/fleet/task-execution-summary";
 import { isTrustedApproval } from "@/lib/providers/trusted-tools";
 import {
   findPendingApprovalMessageByRequestId,
@@ -41,6 +46,7 @@ export interface NotificationProjectScopeState {
   projectName: string | null;
   workspaces: WorkspaceSummary[];
   recentProjects: RecentProjectState[];
+  rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
 }
 
 const OPEN_NOTIFICATION_ACTION_BUTTON_STYLE = {
@@ -109,12 +115,20 @@ export function buildTaskTurnCompletedNotificationInput(args: {
     session: args.session,
     taskId: args.taskId,
   });
+  const executionSummary = buildTaskExecutionSummary({
+    taskId: args.taskId,
+    providerId: args.provider,
+    messages: args.session.messagesByTask[args.taskId] ?? [],
+    rateLimits: args.state.rateLimitsSnapshot,
+  });
+  const reviewArtifact = buildTaskReviewArtifact(executionSummary);
+  const reviewFacts = reviewArtifact.facts.slice(0, 2);
 
   return {
     id: crypto.randomUUID(),
     kind: "task.turn_completed",
     title: taskTitle,
-    body: `Latest run finished in ${workspaceName}.`,
+    body: `Latest run finished in ${workspaceName}.${reviewFacts.length > 0 ? ` ${reviewFacts.join(" · ")}.` : ""}`,
     projectPath: project?.projectPath ?? null,
     projectName: project?.projectName ?? null,
     workspaceId: args.workspaceId,
@@ -126,6 +140,13 @@ export function buildTaskTurnCompletedNotificationInput(args: {
     action: null,
     payload: {
       stopReason: doneEvent.stop_reason ?? null,
+      executionSummaryProvenance: Object.fromEntries(
+        Object.entries(executionSummary).map(([key, metric]) => [
+          key,
+          metric.provenance,
+        ]),
+      ),
+      reviewArtifact,
     },
     dedupeKey: `task.turn_completed:${args.turnId}`,
   };

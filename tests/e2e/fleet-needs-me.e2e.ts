@@ -1,4 +1,38 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
+
+async function measureTextContrast(locator: Locator) {
+  return locator.evaluate((element) => {
+    const style = window.getComputedStyle(element);
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return 0;
+    }
+    const readColor = (value: string) => {
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = value;
+      context.fillRect(0, 0, 1, 1);
+      return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+    };
+    const luminance = (channels: number[]) => {
+      const [red = 0, green = 0, blue = 0] = channels.map((channel) => {
+        const normalized = channel / 255;
+        return normalized <= 0.04045
+          ? normalized / 12.92
+          : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    };
+    const foreground = luminance(readColor(style.color));
+    const background = luminance(readColor(style.backgroundColor));
+    return (
+      (Math.max(foreground, background) + 0.05) /
+      (Math.min(foreground, background) + 0.05)
+    );
+  });
+}
 
 test("Fleet keeps durable needs actionable across cold workspace state", async ({
   page,
@@ -21,7 +55,29 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
           archivedAt: null,
         },
       ],
-      messagesByTask: { [taskId]: [] },
+      messagesByTask: {
+        [taskId]: [
+          {
+            id: "message-approval",
+            role: "assistant",
+            model: "gpt-5",
+            providerId: "codex",
+            content: "",
+            startedAt: "2026-07-26T01:09:00.000Z",
+            parts: [
+              {
+                type: "approval",
+                toolName: "Bash",
+                description:
+                  "Run the production deployment after the verification checks pass.",
+                requestId: "approval-deploy",
+                state: "approval-requested",
+              },
+            ],
+          },
+        ],
+      },
+      activeTurnIdsByTask: { [taskId]: "turn-approval" },
     };
 
     window.localStorage.setItem(
@@ -147,14 +203,120 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await expect(items.nth(1)).toContainText("Review summary");
   await expect(
     items.nth(0).getByRole("button", { name: "Dismiss" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
+  const approvalTrigger = items.nth(0).getByRole("button", {
+    name: /Open approval for .+ in fleet-needs/,
+  });
+  await approvalTrigger.click();
+  const controls = page.getByRole("region", {
+    name: "Controls for Fleet fixture",
+  });
+  await expect(controls).toBeVisible();
+  await expect(controls).toBeFocused();
+  await expect(
+    controls.getByRole("region", { name: "Task execution summary" }),
+  ).toBeVisible();
+  await expect(controls).toContainText(
+    "Run the production deployment after the verification checks pass.",
+  );
+  await expect(controls).toContainText(
+    "This request was already answered or expired.",
+  );
+  await expect(controls.getByRole("button", { name: "Approve" })).toHaveCount(
+    0,
+  );
+  await expect(controls.getByRole("button", { name: "Reject" })).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("fleet-needs-me.png"),
     fullPage: true,
   });
+  await page.keyboard.press("Escape");
+  await expect(controls).toBeHidden();
+  await expect(approvalTrigger).toBeFocused();
+
+  await page.evaluate(async () => {
+    const storeModule = await import("/src/store/app.store.ts");
+    const store = storeModule.useAppStore;
+    const state = store.getState();
+    const taskId = "task-fleet-needs";
+    const turnId = "turn-approval";
+    const now = Date.now();
+    store.setState({
+      activeTurnIdsByTask: {
+        ...state.activeTurnIdsByTask,
+        [taskId]: turnId,
+      },
+      providerTurnActivityByTask: {
+        ...state.providerTurnActivityByTask,
+        [taskId]: {
+          turnId,
+          providerId: "codex",
+          startedAt: now - 12_000,
+          lastEventAt: now,
+          stalledAt: null,
+          pendingInteraction: "approval",
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+      },
+    });
+  });
+  await expect(
+    items.nth(0).getByRole("button", { name: "Dismiss" }),
+  ).toHaveCount(0);
+  await approvalTrigger.click();
+  await expect(controls).toBeVisible();
+  await expect(controls).toBeFocused();
+  await expect(controls).not.toContainText(
+    "This request was already answered or expired.",
+  );
+  await expect(
+    controls.getByRole("button", { name: "Approve" }),
+  ).toBeVisible();
+  await expect(
+    controls.getByRole("button", { name: "Reject" }),
+  ).toBeVisible();
+  await expect(controls.getByRole("button", { name: "Stop" })).toBeVisible();
+  const approvalButton = controls.getByRole("button", { name: "Approve" });
+  await expect
+    .poll(() => measureTextContrast(approvalButton))
+    .toBeGreaterThanOrEqual(4.5);
+  await page.screenshot({
+    path: testInfo.outputPath("fleet-live-approval-controls.png"),
+    fullPage: true,
+  });
+  const darkPanelBackground = await controls.evaluate(
+    (element) => window.getComputedStyle(element).backgroundColor,
+  );
+  await page.evaluate(async () => {
+    const storeModule = await import("/src/store/app.store.ts");
+    storeModule.useAppStore.getState().updateSettings({
+      patch: { themeMode: "light", customThemeId: null },
+    });
+  });
+  const lightPanelBackground = await controls.evaluate(
+    (element) => window.getComputedStyle(element).backgroundColor,
+  );
+  expect(lightPanelBackground).not.toBe(darkPanelBackground);
+  await expect
+    .poll(() => measureTextContrast(approvalButton))
+    .toBeGreaterThanOrEqual(4.5);
+  await page.screenshot({
+    path: testInfo.outputPath("fleet-live-approval-controls-light.png"),
+    fullPage: true,
+  });
+  await page.evaluate(async () => {
+    const storeModule = await import("/src/store/app.store.ts");
+    storeModule.useAppStore.getState().updateSettings({
+      patch: { themeMode: "dark", customThemeId: null },
+    });
+  });
+  await page.keyboard.press("Escape");
+  await expect(controls).toBeHidden();
+  await expect(approvalTrigger).toBeFocused();
 
   await items.nth(1).getByRole("button", { name: "Mark reviewed" }).click();
   await expect(needs).toContainText("1 actionable item");
-  await expect(needs).toContainText("Approve deployment");
+  await expect(needs).toContainText("Fleet fixture");
   await expect(needs).not.toContainText("Review summary");
 });

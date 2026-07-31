@@ -59,10 +59,7 @@ import {
 } from "@/lib/providers/model-catalog";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
-import {
-  resolveAutoRoutingDecision,
-  type AutoRoutingClassifierResult,
-} from "@/store/auto-routing";
+import { resolveAutoRoutingDecision } from "@/store/auto-routing";
 import {
   collectIntentContext,
   deriveIntentComplianceStatus,
@@ -70,10 +67,7 @@ import {
   type TurnIntentComplianceResult,
 } from "@/lib/source-control-review";
 import {
-  buildSuggestTaskNamePayload,
   isTaskManaged,
-  normalizeSuggestedTaskTitle,
-  shouldSuggestTaskName,
 } from "@/lib/tasks";
 import { resolveWorkspacePathForId } from "@/store/workspace-file-cache";
 import { resolveSkillSelections } from "@/lib/skills/catalog";
@@ -108,7 +102,12 @@ import { launchReadyCompareJudgesFromStore } from "@/store/compare-run-judge";
 import {
   applyProjectBasePromptToRuntimeOptions,
   buildProviderRuntimeOptions,
+  buildUtilityInferenceContext,
 } from "@/store/provider-runtime-options";
+import {
+  createUtilityRouteClassifier,
+  maybeSuggestUtilityTaskName,
+} from "@/store/utility-inference-runtime";
 import {
   buildPendingProviderTurnState,
   buildSteeredUserMessageState,
@@ -1950,9 +1949,6 @@ export const useAppStore = create<AppState>()(
           buildPromptDraftDisplayPartsForSend(promptDraft);
         const activeTurnId =
           taskWorkspaceSession.activeTurnIdsByTask[resolvedTaskId];
-        if (activeTurnId && preservePromptDraft) {
-          return { status: "blocked" } satisfies SendUserMessageResult;
-        }
         // A "stalled" turn is one whose provider stream has gone silent past the
         // stall threshold with no pending approval/user_input interaction — e.g. a
         // background task that never emitted `done`, or one whose runtime died. In
@@ -2001,7 +1997,6 @@ export const useAppStore = create<AppState>()(
             hasAttachments:
               (promptDraft.attachments?.length ?? 0) > 0 ||
               (promptDraft.attachedFilePaths?.length ?? 0) > 0,
-            isActiveWorkspace: taskWorkspaceId === get().activeWorkspaceId,
           });
           if (steeringContext.unavailableMessage) {
             return {
@@ -2043,15 +2038,30 @@ export const useAppStore = create<AppState>()(
             } satisfies SendUserMessageResult;
           }
           set((nextState) => {
+            const isActiveWorkspace =
+              taskWorkspaceId === nextState.activeWorkspaceId;
+            const cachedSession = isActiveWorkspace
+              ? null
+              : nextState.workspaceRuntimeCacheById[taskWorkspaceId];
+            if (!isActiveWorkspace && !cachedSession) {
+              return nextState;
+            }
+            const messagesByTask =
+              cachedSession?.messagesByTask ?? nextState.messagesByTask;
+            const messageCountByTask =
+              cachedSession?.messageCountByTask ?? nextState.messageCountByTask;
+            const activeTurnIdsByTask =
+              cachedSession?.activeTurnIdsByTask ??
+              nextState.activeTurnIdsByTask;
             const turnStillActive =
-              nextState.activeTurnIdsByTask[resolvedTaskId] === activeTurnId;
+              activeTurnIdsByTask[resolvedTaskId] === activeTurnId;
             const activeModel =
               activeTurnProvider === "claude-code"
                 ? nextState.settings.modelClaude
                 : nextState.settings.modelCodex;
             const steeredState = buildSteeredUserMessageState({
-              messagesByTask: nextState.messagesByTask,
-              messageCountByTask: nextState.messageCountByTask,
+              messagesByTask,
+              messageCountByTask,
               taskId: resolvedTaskId,
               content: promptContent,
               steeredIntoTurnId: activeTurnId,
@@ -2060,31 +2070,48 @@ export const useAppStore = create<AppState>()(
               activeModel,
               turnStillActive,
             });
-            const currentDraft = nextState.promptDraftByTask[resolvedTaskId];
+            const promptDraftByTask =
+              cachedSession?.promptDraftByTask ?? nextState.promptDraftByTask;
+            const currentDraft = promptDraftByTask[resolvedTaskId];
             const shouldClearSubmittedDraft =
-              currentDraft?.text === promptDraft.text;
+              !preservePromptDraft && currentDraft?.text === promptDraft.text;
+            const nextPromptDraftByTask = shouldClearSubmittedDraft
+              ? {
+                  ...promptDraftByTask,
+                  [resolvedTaskId]: normalizePromptDraftForStorage({
+                    ...(currentDraft ?? sourcePromptDraft),
+                    text: "",
+                    attachedFilePaths: [],
+                    attachments: [],
+                    promptBatch: undefined,
+                  }),
+                }
+              : promptDraftByTask;
+            const activityByTask = turnStillActive
+              ? startProviderTurnActivity({
+                  activityByTask: nextState.providerTurnActivityByTask,
+                  taskId: resolvedTaskId,
+                  turnId: activeTurnId,
+                  providerId: activeTurnProvider,
+                })
+              : nextState.providerTurnActivityByTask;
+            if (cachedSession) {
+              return {
+                workspaceRuntimeCacheById: {
+                  ...nextState.workspaceRuntimeCacheById,
+                  [taskWorkspaceId]: {
+                    ...cachedSession,
+                    ...steeredState,
+                    promptDraftByTask: nextPromptDraftByTask,
+                  },
+                },
+                providerTurnActivityByTask: activityByTask,
+              };
+            }
             return {
               ...steeredState,
-              promptDraftByTask: shouldClearSubmittedDraft
-                ? {
-                    ...nextState.promptDraftByTask,
-                    [resolvedTaskId]: normalizePromptDraftForStorage({
-                      ...(currentDraft ?? sourcePromptDraft),
-                      text: "",
-                      attachedFilePaths: [],
-                      attachments: [],
-                      promptBatch: undefined,
-                    }),
-                  }
-                : nextState.promptDraftByTask,
-              providerTurnActivityByTask: turnStillActive
-                ? startProviderTurnActivity({
-                    activityByTask: nextState.providerTurnActivityByTask,
-                    taskId: resolvedTaskId,
-                    turnId: activeTurnId,
-                    providerId: activeTurnProvider,
-                  })
-                : nextState.providerTurnActivityByTask,
+              promptDraftByTask: nextPromptDraftByTask,
+              providerTurnActivityByTask: activityByTask,
               workspaceSnapshotVersion:
                 incrementWorkspaceSnapshotVersion(nextState),
             };
@@ -2106,18 +2133,21 @@ export const useAppStore = create<AppState>()(
             sourceTurnId: activeTurnId,
             content: promptContent,
           });
+          const storedDraft =
+            taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
+            sourcePromptDraft;
           const queuedPromptDraft = normalizePromptDraftForStorage({
-            ...(taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
-              sourcePromptDraft),
-            text: "",
-            attachedFilePaths: [],
-            attachments: [],
-            promptBatch: undefined,
+            ...storedDraft,
+            ...(preservePromptDraft
+              ? {}
+              : {
+                  text: "",
+                  attachedFilePaths: [],
+                  attachments: [],
+                  promptBatch: undefined,
+                }),
             queuedTurns: [
-              ...((
-                taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
-                sourcePromptDraft
-              ).queuedTurns ?? []),
+              ...(storedDraft.queuedTurns ?? []),
               queuedTurn,
             ],
             queuedNextTurn: undefined,
@@ -2322,7 +2352,14 @@ export const useAppStore = create<AppState>()(
             promptDraft.runtimeOverrides?.autoRouting === true
           ) {
             const classifyRoute = state.settings.autoRoutingUseClassifier
-              ? window.api?.provider?.classifyRoute
+              ? createUtilityRouteClassifier({
+                  context: buildUtilityInferenceContext({
+                    cwd: workspaceCwd,
+                    provider,
+                    model: activeModel,
+                    settings: state.settings,
+                  }),
+                })
               : undefined;
             autoRoutingDecision = await resolveAutoRoutingDecision({
               settings: {
@@ -2354,35 +2391,7 @@ export const useAppStore = create<AppState>()(
                 model: message.model,
               })),
               fileContextCount: resolvedFileContexts.length,
-              classifyRoute: classifyRoute
-                ? async (request) => {
-                    const result = await classifyRoute({
-                      prompt: request.prompt,
-                      history: request.history.map((message) => ({
-                        role: message.role,
-                        content: message.content,
-                        providerId:
-                          message.providerId === "claude-code" ||
-                          message.providerId === "codex"
-                            ? message.providerId
-                            : undefined,
-                        model: message.model,
-                      })),
-                      fileContextCount: request.fileContextCount,
-                    });
-                    return result?.ok && result.classification
-                      ? ({
-                          taskType: result.classification.taskType,
-                          complexity: result.classification.complexity,
-                          recommendedTier:
-                            result.classification.recommendedTier,
-                          confidence: result.classification.confidence,
-                          rationale: result.classification.rationale,
-                          stick: result.classification.stick,
-                        } satisfies AutoRoutingClassifierResult)
-                      : null;
-                  }
-                : undefined,
+              classifyRoute,
             });
             provider = autoRoutingDecision.providerId;
             activeModel = autoRoutingDecision.model;
@@ -2395,51 +2404,28 @@ export const useAppStore = create<AppState>()(
           });
           const normalizedPrompt = skillSelection.normalizedText;
 
-          // ── Auto task naming ──────────────────────────────────────────────────
-          // Fire a lightweight single-turn Claude query to keep the task title
-          // aligned with the evolving conversation. Gated so it only runs during
-          // the opening naming window and never after a manual rename, and sends
-          // a clipped payload. Runs fully async — never blocks the main turn.
-          {
-            const capturedTaskId = resolvedTaskId;
-            const priorUserTurnCount = latestHistory.reduce(
-              (count, message) => (message.role === "user" ? count + 1 : count),
-              0,
-            );
-            if (
-              shouldSuggestTaskName({
-                task: latestWorkspaceSession.tasks.find(
-                  (task) => task.id === resolvedTaskId,
-                ),
-                priorUserTurnCount,
-              })
-            ) {
-              const suggestPayload = buildSuggestTaskNamePayload({
-                prompt: normalizedPrompt || promptContent,
-                history: latestHistory,
-              });
-              void window.api?.provider
-                ?.suggestTaskName?.(suggestPayload)
-                .then((result) => {
-                  if (result?.ok && result.title) {
-                    const safeTitle = normalizeSuggestedTaskTitle({
-                      title: result.title,
-                    });
-                    if (safeTitle) {
-                      get().renameTask({
-                        taskId: capturedTaskId,
-                        title: safeTitle,
-                        source: "auto",
-                      });
-                    }
-                  }
-                })
-                .catch(() => {
-                  // Title generation failed — keep the current title.
-                });
-            }
-          }
-          // ─────────────────────────────────────────────────────────────────────
+          maybeSuggestUtilityTaskName({
+            task: latestWorkspaceSession.tasks.find(
+              (candidate) => candidate.id === resolvedTaskId,
+            ),
+            priorUserTurnCount: latestHistory.filter(
+              (message) => message.role === "user",
+            ).length,
+            prompt: normalizedPrompt || promptContent,
+            history: latestHistory,
+            context: buildUtilityInferenceContext({
+              cwd: workspaceCwd,
+              provider,
+              model: activeModel,
+              settings: state.settings,
+            }),
+            onTitle: (title) =>
+              get().renameTask({
+                taskId: resolvedTaskId,
+                title,
+                source: "auto",
+              }),
+          });
 
           const providerSession =
             latestWorkspaceSession.providerSessionByTask[resolvedTaskId];

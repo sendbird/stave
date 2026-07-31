@@ -173,6 +173,12 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await expect(activity).toBeVisible();
   await expect(activity).toHaveAccessibleName("Turn activity");
   await expect(activity.getByTestId("turn-activity-orb")).toBeVisible();
+  const executionSummary = activity.getByRole("region", {
+    name: "Task execution summary",
+  });
+  await expect(executionSummary).toBeVisible();
+  await expect(executionSummary).toContainText("Elapsed");
+  await expect(executionSummary).toContainText("Verification");
   await expect(activity).toContainText("Inspect Lens diagnostics");
   await expect(activity).toContainText("2 running · 1 done");
   await expect(
@@ -271,6 +277,9 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await expect(stack).toBeVisible();
   await expect(promptInput).toBeVisible();
   await expect(conversation).toBeVisible();
+  await activity.screenshot({
+    path: testInfo.outputPath("turn-activity-expanded-summary.png"),
+  });
 
   const collapse = activity.getByRole("button", {
     name: "Minimize turn activity",

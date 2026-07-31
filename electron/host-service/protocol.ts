@@ -22,6 +22,11 @@ import type {
   RateLimitsSnapshotResponse,
 } from "../../src/lib/providers/provider.types";
 import type {
+  RouteClassification,
+  UtilityInferenceContext,
+  UtilityInferenceMetadata,
+} from "../../src/lib/providers/utility-inference";
+import type {
   ConnectedToolStatusRequest,
   ConnectedToolStatusResponse,
 } from "../../src/lib/providers/connected-tool-status";
@@ -50,7 +55,11 @@ import type {
   PrePrReviewFinding,
   PrePrReviewProviderId,
 } from "../../src/lib/source-control-review";
-import type { CommandResult, DetachedCheckoutResult, SourceControlStatusItem } from "../main/types";
+import type {
+  CommandResult,
+  DetachedCheckoutResult,
+  SourceControlStatusItem,
+} from "../main/types";
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 import type {
   SecondaryProviderCancelRequest,
@@ -225,7 +234,7 @@ export interface HostProviderMutationResult {
   message?: string;
 }
 
-export interface HostProviderSuggestTaskNameArgs {
+export interface HostProviderSuggestTaskNameArgs extends UtilityInferenceContext {
   prompt: string;
   history?: Array<{ role: string; content: string }>;
 }
@@ -233,9 +242,10 @@ export interface HostProviderSuggestTaskNameArgs {
 export interface HostProviderSuggestTaskNameResult {
   ok: boolean;
   title?: string;
+  utility: UtilityInferenceMetadata;
 }
 
-export interface HostProviderClassifyRouteArgs {
+export interface HostProviderClassifyRouteArgs extends UtilityInferenceContext {
   prompt: string;
   history?: Array<{
     role: "user" | "assistant";
@@ -248,30 +258,16 @@ export interface HostProviderClassifyRouteArgs {
 
 export interface HostProviderClassifyRouteResult {
   ok: boolean;
-  classification?: {
-    taskType:
-      | "quick_edit"
-      | "plan"
-      | "implementation"
-      | "debug"
-      | "review"
-      | "general"
-      | "safety";
-    complexity: "low" | "medium" | "high";
-    recommendedTier: "light" | "standard" | "heavy" | "frontier";
-    confidence: number;
-    rationale?: string;
-    stick?: boolean;
-  };
+  classification?: RouteClassification;
+  utility: UtilityInferenceMetadata;
 }
 
-export interface HostProviderSuggestCommitMessageArgs {
-  cwd?: string;
-}
+export interface HostProviderSuggestCommitMessageArgs extends UtilityInferenceContext {}
 
 export interface HostProviderSuggestCommitMessageResult {
   ok: boolean;
   message?: string;
+  utility: UtilityInferenceMetadata;
 }
 
 export interface HostProviderSuggestPRDescriptionArgs {

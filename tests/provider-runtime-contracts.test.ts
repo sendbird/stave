@@ -4,7 +4,10 @@ import {
   NORMALIZED_PROVIDER_EVENT_TYPES,
   PROVIDER_RUNTIME_OPTION_KEYS,
 } from "@/lib/providers/runtime-option-contract";
-import { NormalizedProviderEventSchema } from "@/lib/providers/schemas";
+import {
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE,
+  NormalizedProviderEventSchema,
+} from "@/lib/providers/schemas";
 
 function sortStrings(values: readonly string[]) {
   return [...values].sort((left, right) => left.localeCompare(right));
@@ -19,7 +22,14 @@ describe("provider runtime contracts", () => {
 
   test("keeps normalized provider event discriminants aligned with the Zod schema", () => {
     expect(sortStrings(NORMALIZED_PROVIDER_EVENT_TYPES)).toEqual(
-      sortStrings(NormalizedProviderEventSchema.options.map((option) => option.shape.type.value)),
+      sortStrings(
+        NormalizedProviderEventSchema.options.map(
+          (option) => option.shape.type.value,
+        ),
+      ),
+    );
+    expect(sortStrings(NORMALIZED_PROVIDER_EVENT_TYPES)).toEqual(
+      sortStrings(Object.keys(NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE)),
     );
   });
 });

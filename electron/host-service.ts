@@ -100,11 +100,13 @@ import {
   prewarmClaudeSdk,
   reloadClaudePlugins,
   reviewClaudeWorktreeDiff,
-  classifyClaudeRoute,
-  suggestClaudeCommitMessage,
   suggestClaudePRDescription,
-  suggestClaudeTaskName,
 } from "./providers/claude-sdk-runtime";
+import {
+  classifyUtilityRoute,
+  suggestUtilityCommitMessage,
+  suggestUtilityTaskName,
+} from "./providers/utility-inference";
 import {
   normalizePrePrReviewProvider,
   PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS,
@@ -769,7 +771,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
   } as const;
 }
 
-async function suggestProviderCommitMessage(args: { cwd?: string }) {
+async function suggestProviderCommitMessage(
+  args: import("./host-service/protocol").HostProviderSuggestCommitMessageArgs,
+) {
   const cwd = args.cwd;
   const [diffResult, statusResult] = await Promise.all([
     runCommandArgs({ command: "git", commandArgs: ["diff", "HEAD"], cwd }),
@@ -782,7 +786,7 @@ async function suggestProviderCommitMessage(args: { cwd?: string }) {
 
   const diff = diffResult.ok ? diffResult.stdout.trim() : "";
   const fileList = statusResult.ok ? statusResult.stdout.trim() : "";
-  return suggestClaudeCommitMessage({ diff, fileList });
+  return suggestUtilityCommitMessage({ ...args, diff, fileList });
 }
 
 async function collectProviderPullRequestContext(args: {
@@ -1365,10 +1369,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await batchWriteCodexConfig(request.params));
       return;
     case "provider.suggest-task-name":
-      await respond(request.id, await suggestClaudeTaskName(request.params));
+      await respond(request.id, await suggestUtilityTaskName(request.params));
       return;
     case "provider.classify-route":
-      await respond(request.id, await classifyClaudeRoute(request.params));
+      await respond(request.id, await classifyUtilityRoute(request.params));
       return;
     case "provider.suggest-commit-message":
       await respond(
@@ -1449,7 +1453,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await checkoutScmBranch(request.params));
       return;
     case "scm.checkout-default-branch-detached":
-      await respond(request.id, await checkoutDefaultBranchDetached(request.params));
+      await respond(
+        request.id,
+        await checkoutDefaultBranchDetached(request.params),
+      );
       return;
     case "scm.pull-branch":
       await respond(request.id, await pullScmBranch(request.params));
