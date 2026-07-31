@@ -33,7 +33,7 @@ If you are debugging terminal input loss, session restore bugs, terminal viewpor
 
 Use that guide as the mandatory check list for:
 
-- `usePtySessionSurface.ts` focus and session lifecycle work
+- `useTerminalInstance.ts` focus/renderer work and `useTerminalSessionManager.ts` session lifecycle work
 - docked terminal or CLI session shell layout changes
 - terminal-related workspace/task switching behavior
 - terminal keyboard boundary changes

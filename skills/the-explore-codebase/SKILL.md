@@ -33,7 +33,7 @@ If the retrieved context pinpoints the subsystem, jump straight to targeted read
 
 ## Stave Hotspots
 
-- `src/store/app.store.ts` is a coordinator (~2 100 lines), not a good first file for broad scanning. Read targeted slices with `offset`/`limit`.
+- `src/store/app.store.ts` is a large coordinator, not a good first file for broad scanning. Read targeted slices with `offset`/`limit`.
 - `electron/main/ipc/schemas.ts` is the first stop for schema-ish regressions.
 - `electron/providers/claude-sdk-runtime.ts` and `electron/providers/codex-app-server-runtime.ts` should be checked together when behavior is provider-adapter-specific.
 - `src/lib/providers/schemas.ts` is the Zod discriminated union mirror of `NormalizedProviderEvent` — always inspect alongside `src/lib/providers/provider.types.ts`.

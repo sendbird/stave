@@ -127,5 +127,5 @@ When changing project selection, workspace hydration, worktree import, notificat
 ## Minimum Verification
 
 - run `bun run typecheck` after provider or IPC contract changes
-- verify the changed docs still point to real files
+- run `bun run check:doc-paths` after changing repository path references in `AGENTS.md`, `CLAUDE.md`, `docs/`, or `skills/`
 - if a runtime path changed, smoke-check both Claude and Codex entry flows

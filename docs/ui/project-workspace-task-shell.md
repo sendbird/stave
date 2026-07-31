@@ -86,15 +86,14 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
 - `SettingsDialog`
   - includes a `Projects` section with a dedicated project menu and a single detail panel for the selected project
   - keeps repository workspace defaults, git metadata, scripts config editing, close action, and project removal inside that selected-project panel instead of the main sidebar row
-- `WorkspaceTaskTabs`
-  - renders active tasks and full-panel CLI sessions as horizontal tabs for the selected workspace
+- `WorkspacePaneHost`
+  - renders task, CLI, terminal, editor, Lens, and compare-run surfaces as movable pane tabs for the selected workspace
+  - uses `PaneTabChip` for row-local task status, model/surface icons, rename, pin, middle-click, and close behavior
   - uses one shared leading slot for responding wave or model icon
-  - keeps docked terminal tabs out of the top strip so the dock stays operationally separate from the task / CLI surface switcher
-  - supports drag-and-drop reordering directly in the tab strip for tasks and CLI sessions
+  - keeps terminal, CLI, and Lens surfaces mounted while hidden so their runtime state survives pane switches
+  - supports drag-and-drop reordering and pane splitting across surface types
   - lets users middle-click task and CLI session tabs to close them through the existing archive / close flows, while leaving managed tasks protected
-  - exposes the archive action with confirmation, per-task overflow menu, and workspace-level `Task History`
-  - keeps a compact overflow menu for strip-level actions such as `Task History` and showing or hiding the preset bar
-  - uses a single icon-only `+` launcher at the far right so `New Task` and `New CLI Session` live in one dropdown, with CLI options still expanding to the provider/context choices
+  - exposes archive confirmation, pane actions, and workspace-level `Task History`
   - keeps the preset bar keyboard-aware, with the first nine presets responding to `Ctrl+1..9` in current list order and a dedicated settings section for managing that order
   - keeps notification deep-links explicit for archived tasks by routing to the owning workspace first, then requiring an explicit restore before the task reopens
 - `RightRail`
@@ -139,7 +138,8 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
 - `src/components/layout/EditorPanel.tsx`
 - `src/components/session/ChatArea.tsx`
 - `src/components/layout/ProjectWorkspaceSidebar.tsx`
-- `src/components/layout/WorkspaceTaskTabs.tsx`
+- `src/components/panes/WorkspacePaneHost.tsx`
+- `src/components/panes/PaneTabChip.tsx`
 - `src/components/layout/RightRail.tsx`
 - `src/lib/tasks.ts`
 - `package.json`

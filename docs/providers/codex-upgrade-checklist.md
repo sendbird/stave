@@ -2,13 +2,15 @@
 
 Use this checklist whenever Stave changes expected Codex CLI or app-server behavior, or adopts a newer Codex app-server protocol surface.
 
-Current baseline: local `codex` CLI/App Server `0.142.0`.
+Current baseline: local `codex` CLI/App Server `0.144.1`.
 
 ## Guardrails
 
 - Treat the upgrade as both a dependency change and a contract review. Do not close the work with only a version bump.
 - Verify the installed package types, generated app-server protocol surface, and current OpenAI Codex docs before wiring new behavior into Stave.
 - If official support exists for a capability Stave has been waiting on, either wire it end to end in the same change or document why it is intentionally deferred in the same change or handoff.
+- Update the supported baseline and affected behavior descriptions in `docs/providers/provider-runtimes.md`, this checklist, Settings baseline copy, and generated-schema provenance comments/tests in the same change.
+- After updating those references, search the repository for the previous baseline and resolve every remaining hit as current, historical, or intentionally external before finishing.
 
 ## Guardian Reviewer
 
