@@ -206,9 +206,9 @@ export class SecretVault {
   }
 
   /**
-   * Resolve bound secret ids to an environment map for injection into an agent
-   * shell. Main-process only — the plaintext values returned here must never be
-   * forwarded to the renderer or serialized into model-visible text.
+   * Resolve bound secret ids to an environment map for provider runtime
+   * injection. Main-process only — the plaintext values returned here must
+   * never reach the renderer or model-visible text.
    *
    * A bound id is silently skipped (with the reason recorded in the returned
    * `skipped` list) when it has no id match, defines no `envVarName`, collides

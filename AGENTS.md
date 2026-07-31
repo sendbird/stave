@@ -89,7 +89,7 @@ Rules:
 
 ## Secret Injection Guardrails
 
-Vault secrets may be bound to a task and injected into the agent shell as environment variables. The value must reach the shell **without ever entering the model's text channel, the renderer, or logs.**
+Vault secrets may be bound to a task and injected into the provider runtime as environment variables for shell commands and supported MCP authentication. The value must reach the runtime **without ever entering the model's text channel, the renderer, or logs.**
 
 Required check files:
 
@@ -105,7 +105,7 @@ Rules:
 - Only secret **ids** travel in `runtimeOptions.boundSecretIds`; values are resolved to env **only in the main process** at spawn/thread-start. Never expose the resolver via `preload.ts`.
 - Enforce the reserved-key denylist at resolve time so a bound secret can never override `PATH`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, the Stave MCP token, or `ELECTRON_*`.
 - Inject secrets for the **primary user turn only** — never for introspection, aux, or secondary read-only analysis queries.
-- Claude injects at the `options.env` layer (kept out of `buildClaudeDiagnostics`); Codex injects via per-thread `shell_environment_policy.set.<KEY>` overrides, forwarded on **both** `thread/start` and `thread/resume`.
+- Claude injects at the `options.env` layer (kept out of `buildClaudeDiagnostics`); Codex injects shell variables via per-thread `shell_environment_policy.set.<KEY>` overrides, forwarded on **both** `thread/start` and `thread/resume`. Secret-bound primary Codex turns use a disposable App Server process with the same environment so `bearer_token_env_var` MCP authentication works without exposing values to shared clients.
 - Never write a secret value to `console.*`, a `BridgeEvent`, a transcript, or the thread key. Log only counts, env-var names, and skip reasons.
 - This is an *automatic-leak* guarantee, not a sandbox: a deliberate `echo $NAME` can still surface a bound value. Keep the Settings > Secrets copy honest about this.
 

@@ -899,8 +899,10 @@ class CodexAppServerClient {
   private exitListeners = new Set<(message: string) => void>();
   private initialized = false;
   private lastErrorMessage: string | null = null;
-
-  constructor(private readonly executablePath: string) {}
+  constructor(
+    private readonly executablePath: string,
+    private readonly secretEnv: Record<string, string> = {},
+  ) {}
 
   async ensureStarted() {
     if (this.process && this.initialized) {
@@ -924,10 +926,6 @@ class CodexAppServerClient {
     };
   }
 
-  /**
-   * Register a callback that fires when the underlying app-server process
-   * exits (or is torn down). Returns an unsubscribe function.
-   */
   onProcessExit(listener: (message: string) => void) {
     this.exitListeners.add(listener);
     return () => {
@@ -991,7 +989,10 @@ class CodexAppServerClient {
       ["app-server", "--listen", "stdio://"],
       {
         stdio: ["pipe", "pipe", "pipe"],
-        env: buildCodexEnv({ executablePath: this.executablePath }),
+        env: {
+          ...buildCodexEnv({ executablePath: this.executablePath }),
+          ...this.secretEnv,
+        },
         cwd: process.cwd(),
       },
     );
@@ -1001,11 +1002,8 @@ class CodexAppServerClient {
       label: "codex-app-server stdout",
       maxBufferBytes: CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES,
       maxLineBytes: CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES,
-      // Drop oversized lines and resync at the next newline instead of
-      // throwing: a teardown here kills the shared App Server client for
-      // every task using this executable, so one runaway tool output must
-      // not take down unrelated sessions. Only size + JSON-RPC envelope
-      // metadata is logged — never payload content.
+      // Drop oversized lines without taking down unrelated shared sessions.
+      // Log only size and JSON-RPC envelope metadata, never payload content.
       onOversizedLine: ({ lineBytes, linePrefix }) => {
         const described = describeJsonRpcLinePrefix(linePrefix);
         console.warn(
@@ -1016,8 +1014,7 @@ class CodexAppServerClient {
             ...described,
           },
         );
-        // If the dropped line was a response to a pending request, reject it
-        // immediately instead of waiting for its method-specific deadline.
+        // Reject a dropped pending response instead of waiting for its deadline.
         if (described.responseId !== null) {
           const pending = takePendingCodexAppServerResponse({
             pendingResponses: this.pendingResponses,
@@ -1253,8 +1250,7 @@ async function resolveCodexMcpConfigPathGroups(args: {
     );
     configLayers = Array.isArray(response.layers) ? response.layers : [];
   } catch {
-    // Older or temporarily unhealthy App Servers can still run a turn. Keep
-    // the static user/workspace fallbacks instead of failing preflight.
+    // Keep static path fallbacks when config/read is unavailable.
   }
   return getCodexMcpConfigPathGroups({
     cwd: args.cwd,
@@ -1263,7 +1259,11 @@ async function resolveCodexMcpConfigPathGroups(args: {
   });
 }
 
-function finishCodexTurn(executablePath: string) {
+function finishCodexTurn(
+  executablePath: string,
+  transientClient?: CodexAppServerClient | null,
+) {
+  transientClient?.dispose("Closed secret-bound Codex App Server.");
   const activeTurns =
     (activeCodexTurnsByExecutable.get(executablePath) ?? 1) - 1;
   if (activeTurns > 0) {
@@ -2464,6 +2464,14 @@ export async function streamCodexWithAppServer(
     return unavailableEvents;
   }
 
+  // A per-turn process lets Codex resolve MCP bearer_token_env_var settings
+  // without exposing bound values to shared clients or read-only analysis.
+  const boundSecretEnv =
+    secondaryReadOnly ||
+    !runtimeOptions?.boundSecretIds ||
+    runtimeOptions.boundSecretIds.length === 0
+      ? {}
+      : await resolveBoundSecretEnv({ ids: runtimeOptions.boundSecretIds });
   const codexRuntimeEnv = buildCodexCliEnv({
     executablePath: codexExecutablePath,
   });
@@ -2487,9 +2495,8 @@ export async function streamCodexWithAppServer(
     }),
   ]);
   if (globalMcpRefresh.changed || projectMcpRefresh.changed) {
-    // App Server reads config.toml only when its process starts, while resumed
-    // threads retain their MCP catalog. Restart and start fresh native threads
-    // so servers added after the Stave conversation began are usable.
+    // App Server reads config.toml at process start and resumed threads retain
+    // their MCP catalog, so restart and force fresh native threads.
     if ((activeCodexTurnsByExecutable.get(codexExecutablePath) ?? 0) > 0) {
       pendingMcpRefreshExecutables.add(codexExecutablePath);
     } else {
@@ -2497,9 +2504,12 @@ export async function streamCodexWithAppServer(
     }
   }
 
-  client = getCodexAppServerClient({
-    executablePath: codexExecutablePath,
-  });
+  const transientSecretClient = Object.keys(boundSecretEnv).length > 0
+    ? new CodexAppServerClient(codexExecutablePath, boundSecretEnv)
+    : null;
+  client =
+    transientSecretClient ??
+    getCodexAppServerClient({ executablePath: codexExecutablePath });
   activeCodexTurnsByExecutable.set(
     codexExecutablePath,
     (activeCodexTurnsByExecutable.get(codexExecutablePath) ?? 0) + 1,
@@ -2519,7 +2529,7 @@ export async function streamCodexWithAppServer(
         { type: "done" },
       ];
       events.forEach((event) => args.onEvent?.(event));
-      finishCodexTurn(codexExecutablePath);
+      finishCodexTurn(codexExecutablePath, transientSecretClient);
       return events;
     }
   } catch (error) {
@@ -2534,7 +2544,7 @@ export async function streamCodexWithAppServer(
       { type: "done" },
     ];
     events.forEach((event) => args.onEvent?.(event));
-    finishCodexTurn(codexExecutablePath);
+    finishCodexTurn(codexExecutablePath, transientSecretClient);
     return events;
   }
 
@@ -2555,19 +2565,11 @@ export async function streamCodexWithAppServer(
         { type: "done", stop_reason: "runtime_failure" },
       ];
       events.forEach((event) => args.onEvent?.(event));
-      finishCodexTurn(codexExecutablePath);
+      finishCodexTurn(codexExecutablePath, transientSecretClient);
       return events;
     }
   }
 
-  // Resolve bound-secret env for the primary user turn only. Secondary
-  // read-only analysis turns never receive injected secrets, mirroring Claude.
-  const boundSecretEnv =
-    secondaryReadOnly ||
-    !runtimeOptions?.boundSecretIds ||
-    runtimeOptions.boundSecretIds.length === 0
-      ? {}
-      : await resolveBoundSecretEnv({ ids: runtimeOptions.boundSecretIds });
   const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
   const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
   const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
@@ -2603,7 +2605,7 @@ export async function streamCodexWithAppServer(
       { type: "done" },
     ];
     events.forEach((event) => args.onEvent?.(event));
-    finishCodexTurn(codexExecutablePath);
+    finishCodexTurn(codexExecutablePath, transientSecretClient);
     return events;
   }
 
@@ -2682,7 +2684,7 @@ export async function streamCodexWithAppServer(
     if (goalCommandEvents) {
       emitBridgeEvents(goalCommandEvents);
       if (!secondaryReadOnly) {
-        finishCodexTurn(codexExecutablePath);
+        finishCodexTurn(codexExecutablePath, transientSecretClient);
       }
       return finalizeCollectedEvents();
     }
@@ -2696,7 +2698,7 @@ export async function streamCodexWithAppServer(
     if (compactCommandEvents) {
       emitBridgeEvents(compactCommandEvents);
       if (!secondaryReadOnly) {
-        finishCodexTurn(codexExecutablePath);
+        finishCodexTurn(codexExecutablePath, transientSecretClient);
       }
       return finalizeCollectedEvents();
     }
@@ -4011,7 +4013,7 @@ export async function streamCodexWithAppServer(
       await elicitationPauseController.endAll();
       unsubscribe();
       if (!secondaryReadOnly) {
-        finishCodexTurn(codexExecutablePath);
+        finishCodexTurn(codexExecutablePath, transientSecretClient);
       }
     }
   } finally {
@@ -4021,7 +4023,7 @@ export async function streamCodexWithAppServer(
       request: client.request.bind(client),
     });
     if (secondaryReadOnly) {
-      finishCodexTurn(codexExecutablePath);
+      finishCodexTurn(codexExecutablePath, transientSecretClient);
     }
   }
 }

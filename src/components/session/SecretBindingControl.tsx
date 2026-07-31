@@ -21,7 +21,7 @@ interface SecretBindingControlProps {
 
 /**
  * Composer control that lets the user bind vault secrets to the current task so
- * their values are injected into the agent's shell as environment variables.
+ * its provider runtime receives them as environment variables.
  *
  * Only secrets that define an `envVarName` are injectable and therefore listed.
  * The control never reveals a value — it shows the masked preview and the env
@@ -164,9 +164,9 @@ export function SecretBindingControl({
             })}
             <DropdownMenuSeparator />
             <p className="px-2 py-2 text-[11px] leading-4 text-muted-foreground">
-              Bound values are injected into shell commands this session runs.
-              They are never shown to the agent, but a command that echoes the
-              variable can still surface it.
+              Bound values are available to shell commands and supported MCP
+              authentication for this task. They are never shown to the agent,
+              but a command that echoes the variable can still surface it.
             </p>
           </>
         )}

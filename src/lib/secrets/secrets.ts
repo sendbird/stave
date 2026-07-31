@@ -16,8 +16,8 @@ export interface SecretMetadata {
   valuePreview: string;
   /**
    * Optional POSIX environment-variable name. When set, the secret can be bound
-   * to a task so its value is injected into the agent's shell as this variable.
-   * The value itself is never carried here — only the variable name.
+   * to a task so its provider runtime receives the value under this name. The
+   * value itself is never carried here — only the variable name.
    */
   envVarName?: string;
   createdAt: string;
