@@ -56,7 +56,6 @@ import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
 import {
   inferProviderIdFromModel,
   normalizeModelSelection,
-  providerSupportsMidTurnSteering,
 } from "@/lib/providers/model-catalog";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
@@ -114,6 +113,7 @@ import {
   buildPendingProviderTurnState,
   buildSteeredUserMessageState,
   buildRecentTimestamp,
+  resolveMidTurnSteeringContext,
 } from "@/store/chat-state-helpers";
 import {
   createProviderTurnEventController,
@@ -1984,9 +1984,6 @@ export const useAppStore = create<AppState>()(
           // fails, this returns `steer-unavailable` immediately and does
           // NOT fall through to the queue path. The caller decides what to
           // do with that (e.g. tell the user to press Tab to queue).
-          const noAttachments =
-            (promptDraft.attachments?.length ?? 0) === 0 &&
-            (promptDraft.attachedFilePaths?.length ?? 0) === 0;
           const steerTurn = window.api?.provider?.steerTurn;
           if (!steerTurn) {
             return {
@@ -1996,32 +1993,25 @@ export const useAppStore = create<AppState>()(
               message: "Mid-turn steering is not available in this build.",
             } satisfies SendUserMessageResult;
           }
-          if (!noAttachments) {
+          const steeringContext = resolveMidTurnSteeringContext({
+            activeTurnId,
+            activity: state.providerTurnActivityByTask[resolvedTaskId],
+            fallbackProviderId: provider,
+            messages: existingHistory,
+            hasAttachments:
+              (promptDraft.attachments?.length ?? 0) > 0 ||
+              (promptDraft.attachedFilePaths?.length ?? 0) > 0,
+            isActiveWorkspace: taskWorkspaceId === get().activeWorkspaceId,
+          });
+          if (steeringContext.unavailableMessage) {
             return {
               status: "steer-unavailable",
               taskId: resolvedTaskId,
               workspaceId: taskWorkspaceId,
-              message:
-                "Attachments can't be steered into a live turn — press Tab to queue instead.",
+              message: steeringContext.unavailableMessage,
             } satisfies SendUserMessageResult;
           }
-          if (!providerSupportsMidTurnSteering({ providerId: provider })) {
-            return {
-              status: "steer-unavailable",
-              taskId: resolvedTaskId,
-              workspaceId: taskWorkspaceId,
-              message: `${provider} does not support mid-turn steering.`,
-            } satisfies SendUserMessageResult;
-          }
-          if (taskWorkspaceId !== get().activeWorkspaceId) {
-            return {
-              status: "steer-unavailable",
-              taskId: resolvedTaskId,
-              workspaceId: taskWorkspaceId,
-              message:
-                "Switch to this task's workspace to steer its active turn.",
-            } satisfies SendUserMessageResult;
-          }
+          const activeTurnProvider = steeringContext.providerId;
           const clientMessageId = crypto.randomUUID();
           const steerResult = await submitSteerWithDeadline({
             send: steerTurn,
@@ -2056,7 +2046,7 @@ export const useAppStore = create<AppState>()(
             const turnStillActive =
               nextState.activeTurnIdsByTask[resolvedTaskId] === activeTurnId;
             const activeModel =
-              provider === "claude-code"
+              activeTurnProvider === "claude-code"
                 ? nextState.settings.modelClaude
                 : nextState.settings.modelCodex;
             const steeredState = buildSteeredUserMessageState({
@@ -2066,7 +2056,7 @@ export const useAppStore = create<AppState>()(
               content: promptContent,
               steeredIntoTurnId: activeTurnId,
               clientMessageId,
-              provider,
+              provider: activeTurnProvider,
               activeModel,
               turnStillActive,
             });
@@ -2092,7 +2082,7 @@ export const useAppStore = create<AppState>()(
                     activityByTask: nextState.providerTurnActivityByTask,
                     taskId: resolvedTaskId,
                     turnId: activeTurnId,
-                    providerId: provider,
+                    providerId: activeTurnProvider,
                   })
                 : nextState.providerTurnActivityByTask,
               workspaceSnapshotVersion:
