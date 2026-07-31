@@ -314,6 +314,18 @@ const ChatMessageSchema = z.object({
     })
     .optional(),
   promptSuggestions: z.array(z.string()).optional(),
+  providerBoundary: z
+    .object({
+      providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+      kind: z.union([
+        z.literal("thread"),
+        z.literal("turn"),
+        z.literal("message"),
+      ]),
+      nativeId: z.string().min(1).max(500),
+    })
+    .strict()
+    .optional(),
   parts: z.array(MessagePartSchema),
   displayParts: z.array(MessagePartSchema).optional(),
   steeredIntoTurnId: z.string().optional(),

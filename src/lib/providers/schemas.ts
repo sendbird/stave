@@ -68,6 +68,40 @@ const PromptSuggestionsEventSchema = z.object({
   suggestions: z.array(z.string()),
 });
 
+const HistoryBoundaryEventSchema = z.object({
+  type: z.literal("history_boundary"),
+  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  boundaryKind: z.union([
+    z.literal("thread"),
+    z.literal("turn"),
+    z.literal("message"),
+  ]),
+  nativeId: z.string(),
+  targetRole: z.union([z.literal("user"), z.literal("assistant")]),
+});
+
+const PermissionDenialEventSchema = z.object({
+  type: z.literal("permission_denial"),
+  toolName: z.string(),
+  message: z.string(),
+  reasonType: z.string().optional(),
+  reason: z.string().optional(),
+});
+
+const HookActivityEventSchema = z.object({
+  type: z.literal("hook_activity"),
+  hookId: z.string(),
+  hookName: z.string(),
+  hookEvent: z.string(),
+  status: z.union([
+    z.literal("running"),
+    z.literal("completed"),
+    z.literal("failed"),
+    z.literal("cancelled"),
+    z.literal("blocked"),
+  ]),
+});
+
 const ToolStateSchema = z.union([
   z.literal("input-streaming"),
   z.literal("input-available"),
@@ -212,6 +246,9 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   goal_status: GoalStatusEventSchema,
   usage: UsageEventSchema,
   prompt_suggestions: PromptSuggestionsEventSchema,
+  history_boundary: HistoryBoundaryEventSchema,
+  permission_denial: PermissionDenialEventSchema,
+  hook_activity: HookActivityEventSchema,
   tool: ToolEventSchema,
   tool_progress: ToolProgressEventSchema,
   tool_result: ToolResultEventSchema,
@@ -234,6 +271,9 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.goal_status,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.usage,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.prompt_suggestions,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.history_boundary,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.permission_denial,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.hook_activity,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.tool,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.tool_progress,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.tool_result,

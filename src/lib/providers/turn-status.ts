@@ -41,7 +41,7 @@ export type ProviderTurnWorkStatus =
 
 export interface ProviderTurnWorkItem {
   id: string;
-  kind: "subagent" | "tool";
+  kind: "subagent" | "tool" | "hook";
   status: ProviderTurnWorkStatus;
   title: string;
   detail?: string;
@@ -240,6 +240,9 @@ function isProviderTurnRecoveryEvent(event: NormalizedProviderEvent) {
   if (event.type === "tool_result") {
     return !event.isError;
   }
+  if (event.type === "hook_activity") {
+    return event.status === "running" || event.status === "completed";
+  }
   return (
     event.type === "text" ||
     event.type === "thinking" ||
@@ -363,7 +366,10 @@ function resolveToolTitle(
     truncateWorkText(parsed?.task_name) ??
     truncateWorkText(parsed?.name);
   return (
-    title ?? currentTitle ?? formatToolDisplayName(toolName) ?? "Background work"
+    title ??
+    currentTitle ??
+    formatToolDisplayName(toolName) ??
+    "Background work"
   );
 }
 
@@ -516,7 +522,8 @@ function pruneGeneralToolItems(args: WorkItemCollection) {
   const generalToolIds = args.orderedWorkItemIds.filter(
     (id) => args.workItemsById[id]?.kind === "tool",
   );
-  const overflowCount = generalToolIds.length - PROVIDER_TURN_GENERAL_TOOL_LIMIT;
+  const overflowCount =
+    generalToolIds.length - PROVIDER_TURN_GENERAL_TOOL_LIMIT;
   if (overflowCount <= 0) {
     return args;
   }
@@ -571,6 +578,28 @@ function applyTurnWorkEvents(args: {
   };
 
   for (const event of args.events) {
+    if (event.type === "hook_activity") {
+      const id = `hook:${event.hookId}`;
+      const currentItem = workItemsById[id];
+      const badge = truncateWorkText(event.hookEvent);
+      upsertItem({
+        id,
+        kind: "hook",
+        status:
+          event.status === "running"
+            ? "running"
+            : event.status === "completed" || event.status === "cancelled"
+              ? "completed"
+              : "failed",
+        title: truncateWorkText(event.hookName) ?? "Provider hook",
+        ...(badge ? { badge } : {}),
+        progressMessages: [],
+        startedAt: currentItem?.startedAt ?? args.now,
+        updatedAt: args.now,
+      });
+      continue;
+    }
+
     if (event.type === "subagent_progress" && event.toolUseId) {
       const currentItem = workItemsById[event.toolUseId];
       const progressMessages = appendProgressMessage(

@@ -8,6 +8,7 @@ import type {
   CodexThreadReadResponse,
   CanonicalConversationRequest,
   ClaudeContextUsageResponse,
+  ClaudeFileRewindResponse,
   ClaudeMcpOauthLoginResponse,
   ClaudeMcpStatusResponse,
   ClaudeSessionForkResponse,
@@ -19,6 +20,7 @@ import type {
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
   ProviderId,
+  ProviderAvailabilityResponse,
   ProviderRuntimeOptions,
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
@@ -793,7 +795,11 @@ contextBridge.exposeInMainWorld("api", {
     checkAvailability: (args: {
       providerId: ProviderId;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-    }) => ipcRenderer.invoke("provider:check-availability", args),
+    }) =>
+      ipcRenderer.invoke(
+        "provider:check-availability",
+        args,
+      ) as Promise<ProviderAvailabilityResponse>,
     getCommandCatalog: (args: {
       providerId: ProviderId;
       cwd?: string;
@@ -833,6 +839,17 @@ contextBridge.exposeInMainWorld("api", {
         "provider:fork-claude-session",
         args,
       ) as Promise<ClaudeSessionForkResponse>,
+    rewindClaudeFiles: (args: {
+      sessionId: string;
+      userMessageId: string;
+      dryRun: boolean;
+      cwd?: string;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:rewind-claude-files",
+        args,
+      ) as Promise<ClaudeFileRewindResponse>,
     renameClaudeSession: (args: {
       sessionId: string;
       title: string;
@@ -994,6 +1011,7 @@ contextBridge.exposeInMainWorld("api", {
     forkCodexThread: (args: {
       threadId: string;
       lastTurnId?: string;
+      beforeTurnId?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     }) =>
       ipcRenderer.invoke(

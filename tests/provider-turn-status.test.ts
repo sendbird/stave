@@ -590,6 +590,65 @@ describe("provider turn status helpers", () => {
     },
   );
 
+  test("tracks provider hooks as transient work without transcript output", () => {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 1000,
+    });
+    const running = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 2000,
+      events: [
+        {
+          type: "hook_activity",
+          hookId: "hook-1",
+          hookName: "command: hooks.json",
+          hookEvent: "user_prompt_submit",
+          status: "running",
+        },
+      ],
+    });
+    const completed = applyProviderTurnActivityEvents({
+      activityByTask: running,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 3000,
+      events: [
+        {
+          type: "hook_activity",
+          hookId: "hook-1",
+          hookName: "command: hooks.json",
+          hookEvent: "user_prompt_submit",
+          status: "completed",
+        },
+      ],
+    });
+
+    expect(running["task-1"]?.orderedWorkItemIds).toEqual(["hook:hook-1"]);
+    expect(running["task-1"]?.workItemsById["hook:hook-1"]).toEqual({
+      id: "hook:hook-1",
+      kind: "hook",
+      status: "running",
+      title: "command: hooks.json",
+      badge: "user_prompt_submit",
+      progressMessages: [],
+      startedAt: 2000,
+      updatedAt: 2000,
+    });
+    expect(completed["task-1"]?.workItemsById["hook:hook-1"]).toMatchObject({
+      status: "completed",
+      startedAt: 2000,
+      updatedAt: 3000,
+    });
+  });
+
   test("tracks a subagent lifecycle with bounded progress detail", () => {
     const started = startProviderTurnActivity({
       activityByTask: {},

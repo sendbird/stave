@@ -725,6 +725,14 @@ export const RuntimeOptionsObjectSchema = z
     claudeAllowDangerouslySkipPermissions: z.boolean().optional(),
     claudeSandboxEnabled: z.boolean().optional(),
     claudeAllowUnsandboxedCommands: z.boolean().optional(),
+    claudeSandboxCredentialFiles: z
+      .array(z.string().trim().min(1).max(4096))
+      .max(100)
+      .optional(),
+    claudeSandboxCredentialEnvVars: z
+      .array(z.string().trim().min(1).max(200))
+      .max(100)
+      .optional(),
     claudeSystemPrompt: z.string().max(20_000).optional(),
     claudeMaxTurns: z.number().int().min(1).max(200).optional(),
     claudeMaxBudgetUsd: z.number().min(0).max(10_000).optional(),
@@ -799,7 +807,21 @@ export const RuntimeOptionsObjectSchema = z
       ])
       .optional(),
     codexWebSearch: z
-      .union([z.literal("disabled"), z.literal("cached"), z.literal("live")])
+      .union([
+        z.literal("disabled"),
+        z.literal("cached"),
+        z.literal("live"),
+        z.literal("indexed"),
+      ])
+      .optional(),
+    codexAppToolApprovalMode: z
+      .union([
+        z.literal("inherit"),
+        z.literal("auto"),
+        z.literal("prompt"),
+        z.literal("writes"),
+        z.literal("approve"),
+      ])
       .optional(),
     codexShowRawReasoning: z.boolean().optional(),
     codexReasoningSummary: z
@@ -1151,8 +1173,18 @@ export const ClaudeSessionForkArgsSchema = z
   .object({
     sessionId: z.string().min(1).max(200),
     upToMessageId: z.string().min(1).max(200),
-    title: z.string().min(1).max(200).optional(),
+    title: z.string().trim().min(1).max(200).optional(),
     cwd: z.string().max(4096).optional(),
+  })
+  .strict();
+
+export const ClaudeFileRewindArgsSchema = z
+  .object({
+    sessionId: z.string().min(1).max(200),
+    userMessageId: z.string().min(1).max(200),
+    dryRun: z.boolean(),
+    cwd: z.string().max(4096).optional(),
+    runtimeOptions: RuntimeOptionsSchema,
   })
   .strict();
 
@@ -1207,7 +1239,6 @@ export const McpServerConfigMutationApplyArgsSchema = z.discriminatedUnion(
     }).strict(),
   ],
 );
-
 export const CodexRuntimeActionArgsSchema = ClaudeRuntimeActionArgsSchema;
 
 export const RateLimitsSnapshotArgsSchema = ClaudeRuntimeActionArgsSchema;
@@ -1282,9 +1313,13 @@ export const CodexThreadForkArgsSchema = z
   .object({
     threadId: z.string().min(1).max(200),
     lastTurnId: z.string().min(1).max(200).optional(),
+    beforeTurnId: z.string().min(1).max(200).optional(),
     runtimeOptions: RuntimeOptionsSchema,
   })
-  .strict();
+  .strict()
+  .refine((value) => !(value.lastTurnId && value.beforeTurnId), {
+    message: "lastTurnId and beforeTurnId cannot be combined.",
+  });
 
 export const CodexThreadArchiveArgsSchema = z
   .object({

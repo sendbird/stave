@@ -7,6 +7,7 @@ import type {
   CodexThreadReadResponse,
   CanonicalConversationRequest,
   ClaudeContextUsageResponse,
+  ClaudeFileRewindResponse,
   ClaudeMcpOauthLoginResponse,
   ClaudeMcpStatusResponse,
   ClaudeSessionForkResponse,
@@ -18,6 +19,7 @@ import type {
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
   ProviderId,
+  ProviderAvailabilityResponse,
   ProviderRuntimeOptions,
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
@@ -243,11 +245,7 @@ interface WindowProviderApi {
   checkAvailability?: (args: {
     providerId: ProviderId;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
-  }) => Promise<{
-    ok: boolean;
-    available: boolean;
-    detail: string;
-  }>;
+  }) => Promise<ProviderAvailabilityResponse>;
   getCommandCatalog?: (args: {
     providerId: ProviderId;
     cwd?: string;
@@ -274,6 +272,13 @@ interface WindowProviderApi {
     title?: string;
     cwd?: string;
   }) => Promise<ClaudeSessionForkResponse>;
+  rewindClaudeFiles?: (args: {
+    sessionId: string;
+    userMessageId: string;
+    dryRun: boolean;
+    cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+  }) => Promise<ClaudeFileRewindResponse>;
   renameClaudeSession?: (args: {
     sessionId: string;
     title: string;
@@ -363,6 +368,7 @@ interface WindowProviderApi {
   forkCodexThread?: (args: {
     threadId: string;
     lastTurnId?: string;
+    beforeTurnId?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexThreadForkResponse>;
   archiveCodexThread?: (args: {

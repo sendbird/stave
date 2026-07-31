@@ -9,11 +9,13 @@ import type {
   CodexConfigLayerSnapshot,
   CodexConfigOriginSnapshot,
   CodexConfigSnapshot,
+  CodexHookCatalogGroup,
   CodexMcpServerStatusSnapshot,
   CodexModelCatalogEntry,
   CodexPluginDetailSnapshot,
   CodexPluginSummarySnapshot,
   CodexRateLimitSnapshot,
+  CodexSkillCatalogGroup,
   CodexThreadSnapshot,
 } from "../../src/lib/providers/provider.types";
 import { toText } from "./utils";
@@ -21,6 +23,76 @@ import {
   sanitizeMcpDiagnosticText,
   sanitizeMcpUrl,
 } from "./mcp-config-management-shared";
+
+export function mapCodexSkillCatalogGroups(
+  data: unknown,
+  fallbackCwd: string,
+): CodexSkillCatalogGroup[] {
+  return Array.isArray(data)
+    ? data.map((entry: any) => ({
+        cwd: String(entry?.cwd ?? fallbackCwd),
+        skills: Array.isArray(entry?.skills)
+          ? entry.skills.map((skill: any) => ({
+              name: String(skill?.name ?? ""),
+              description: String(skill?.description ?? ""),
+              shortDescription:
+                typeof skill?.shortDescription === "string"
+                  ? skill.shortDescription
+                  : typeof skill?.interface?.short_description === "string"
+                    ? skill.interface.short_description
+                    : null,
+              path: String(skill?.path ?? ""),
+              scope: typeof skill?.scope === "string" ? skill.scope : "unknown",
+              enabled: Boolean(skill?.enabled),
+            }))
+          : [],
+        errors: Array.isArray(entry?.errors)
+          ? entry.errors.map((error: any) =>
+              typeof error?.message === "string"
+                ? error.message
+                : JSON.stringify(error ?? {}),
+            )
+          : [],
+      }))
+    : [];
+}
+
+export function mapCodexHookCatalogGroups(
+  data: unknown,
+  fallbackCwd: string,
+): CodexHookCatalogGroup[] {
+  return Array.isArray(data)
+    ? data.map((entry: any) => ({
+        cwd: String(entry?.cwd ?? fallbackCwd),
+        hooks: Array.isArray(entry?.hooks)
+          ? entry.hooks.map((hook: any) => ({
+              key: String(hook?.key ?? ""),
+              eventName: String(hook?.eventName ?? "unknown"),
+              handlerType: String(hook?.handlerType ?? "unknown"),
+              enabled: Boolean(hook?.enabled),
+              source: String(hook?.source ?? "unknown"),
+              sourcePath: String(hook?.sourcePath ?? ""),
+              trustStatus: String(hook?.trustStatus ?? "unknown"),
+              isManaged: Boolean(hook?.isManaged),
+              statusMessage:
+                typeof hook?.statusMessage === "string"
+                  ? hook.statusMessage
+                  : null,
+            }))
+          : [],
+        errors: Array.isArray(entry?.errors)
+          ? entry.errors.map((error: any) =>
+              [error?.path, error?.message]
+                .filter((value) => typeof value === "string" && value.trim())
+                .join(": "),
+            )
+          : [],
+        warnings: Array.isArray(entry?.warnings)
+          ? entry.warnings.map((warning: unknown) => String(warning ?? ""))
+          : [],
+      }))
+    : [];
+}
 
 function toCodexStatusLabel(status: unknown) {
   if (!status || typeof status !== "object") {

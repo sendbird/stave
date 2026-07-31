@@ -42,6 +42,7 @@ type TaskCoreActionKey =
   | "renameTask"
   | "restoreTask"
   | "duplicateTask"
+  | "rewindClaudeFilesFromMessage"
   | "reorderTasks";
 
 type TaskCoreActions = Pick<AppState, TaskCoreActionKey>;
@@ -776,6 +777,74 @@ export function createTaskCoreActions(args: {
           },
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
+      });
+    },
+    rewindClaudeFilesFromMessage: async ({ taskId, messageId, dryRun }) => {
+      const state = get();
+      if (state.activeTurnIdsByTask[taskId]) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "Wait for the active turn to finish before rewinding files.",
+        };
+      }
+      if (
+        !state.providerRuntimeCapabilities["claude-code"].history.rewind.files
+      ) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "The selected Claude runtime does not support file rewind.",
+        };
+      }
+      const message = state.messagesByTask[taskId]?.find(
+        (candidate) => candidate.id === messageId,
+      );
+      const boundary = message?.providerBoundary;
+      if (
+        !message ||
+        message.role !== "user" ||
+        boundary?.providerId !== "claude-code" ||
+        boundary.kind !== "message"
+      ) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "This message is not a Claude file-rewind checkpoint.",
+        };
+      }
+      const sessionId = getProviderSessionId({
+        sessions: state.providerSessionByTask[taskId],
+        providerId: "claude-code",
+      });
+      if (!sessionId) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "The Claude session is unavailable.",
+        };
+      }
+      const rewindClaudeFiles = window.api?.provider?.rewindClaudeFiles;
+      if (!rewindClaudeFiles) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "Claude file rewind is unavailable in this build.",
+        };
+      }
+      const workspaceId =
+        state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId;
+      const cwd = workspaceId
+        ? state.workspacePathById[workspaceId]
+        : (state.projectPath ?? undefined);
+      return rewindClaudeFiles({
+        sessionId,
+        userMessageId: boundary.nativeId,
+        dryRun,
+        cwd,
+        runtimeOptions: {
+          claudeBinaryPath: state.settings.claudeBinaryPath || undefined,
+        },
       });
     },
     reorderTasks: ({ activeTaskId, overTaskId, filter }) => {

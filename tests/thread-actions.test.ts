@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { getProviderThreadActionCapabilities } from "@/lib/providers/model-catalog";
 import {
+  createDefaultProviderRuntimeCapabilities,
+  resolveProviderRuntimeCapabilities,
+} from "@/lib/providers/runtime-capabilities";
+import {
   buildConversationTurnActionStateByMessageId,
   toProviderSessionTitle,
 } from "@/lib/providers/thread-actions";
@@ -117,6 +121,24 @@ describe("conversation turn action availability", () => {
     expect(state?.rollback.reason).toContain(
       "does not expose in-place session rollback",
     );
+  });
+
+  test("hides point-in-time forks when the selected runtime is too old", () => {
+    const runtimeCapabilities = createDefaultProviderRuntimeCapabilities();
+    runtimeCapabilities.codex = resolveProviderRuntimeCapabilities({
+      providerId: "codex",
+      versionText: "codex-cli 0.116.0",
+      available: true,
+    });
+    const state = buildConversationTurnActionStateByMessageId({
+      messages,
+      providerSession,
+      hasActiveTurn: false,
+      runtimeCapabilities,
+    }).get("codex-1");
+
+    expect(state?.fork.enabled).toBe(false);
+    expect(state?.fork.reason).toContain("runtime version");
   });
 
   test("allows a local rollback when only another provider has later messages", () => {

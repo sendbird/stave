@@ -19,6 +19,8 @@ const settings = {
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: true,
   claudeAllowUnsandboxedCommands: true,
+  claudeSandboxCredentialFiles: "",
+  claudeSandboxCredentialEnvVars: "",
   advisorTarget: null,
   claudeEffort: "medium",
   claudeThinkingMode: "adaptive",
@@ -40,6 +42,7 @@ const settings = {
   codexBinaryPath: "",
   codexReasoningEffort: "medium",
   codexWebSearch: "cached",
+  codexAppToolApprovalMode: "inherit",
   codexShowRawReasoning: false,
   codexReasoningSummary: "auto",
   codexReasoningSummarySupport: "auto",
@@ -170,6 +173,10 @@ describe("buildProviderRuntimeOptions", () => {
           claudeAgentName: "code-reviewer",
           claudeFallbackModel: "claude-haiku-4-5",
           claudeResumeSessionAt: "message-uuid",
+          claudeSandboxCredentialFiles:
+            "/tmp/service-token, /tmp/service-token\n/tmp/oauth-token",
+          claudeSandboxCredentialEnvVars:
+            "SERVICE_TOKEN, SERVICE_TOKEN\nOAUTH_TOKEN",
         },
         providerSession: null,
       }),
@@ -184,6 +191,8 @@ describe("buildProviderRuntimeOptions", () => {
       claudeAgentName: "code-reviewer",
       claudeFallbackModel: "claude-haiku-4-5",
       claudeResumeSessionAt: "message-uuid",
+      claudeSandboxCredentialFiles: ["/tmp/service-token", "/tmp/oauth-token"],
+      claudeSandboxCredentialEnvVars: ["SERVICE_TOKEN", "OAUTH_TOKEN"],
     });
   });
 
@@ -237,11 +246,15 @@ describe("buildProviderRuntimeOptions", () => {
         settings: {
           ...settings,
           codexApprovalPolicy: "on-failure",
+          codexWebSearch: "indexed",
+          codexAppToolApprovalMode: "writes",
         },
         providerSession: null,
       }),
     ).toMatchObject({
       codexApprovalPolicy: "on-failure",
+      codexWebSearch: "indexed",
+      codexAppToolApprovalMode: "writes",
     });
   });
 

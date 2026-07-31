@@ -8,6 +8,8 @@ import type { PersistenceBootstrapPhase } from "@/lib/persistence/bootstrap-stat
 import type {
   ProviderGoalSnapshot,
   ProviderId,
+  ProviderRuntimeCapabilities,
+  ClaudeFileRewindResponse,
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import type { UpdateModelRuntimePreferenceArgs } from "@/lib/providers/model-runtime-preferences";
@@ -152,6 +154,7 @@ export interface AppState
   workspaceFileCacheByPath: Record<string, string[]>;
   taskCheckpointById: Record<string, string>;
   providerAvailability: Record<ProviderId, boolean>;
+  providerRuntimeCapabilities: Record<ProviderId, ProviderRuntimeCapabilities>;
   skillCatalog: SkillCatalogState;
   notifications: AppNotification[];
   reviewCommentsByTask: Record<string, ReviewComment[] | undefined>;
@@ -352,6 +355,11 @@ export interface AppState
     taskId: string;
     messageId: string;
   }) => Promise<ConversationThreadActionResult>;
+  rewindClaudeFilesFromMessage: (args: {
+    taskId: string;
+    messageId: string;
+    dryRun: boolean;
+  }) => Promise<ClaudeFileRewindResponse>;
   reorderTasks: (args: {
     activeTaskId: string;
     overTaskId: string;

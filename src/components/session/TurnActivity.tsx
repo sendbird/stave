@@ -9,6 +9,7 @@ import {
   CirclePause,
   ClipboardList,
   ListChecks,
+  Webhook,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -76,6 +77,7 @@ const TURN_ACTIVITY_ICONS: Record<TurnActivityIconKey, LucideIcon> = {
   subagent: Bot,
   todo: ClipboardList,
   tool: Wrench,
+  hook: Webhook,
 };
 
 function useTurnClock(activeTurnId: string | null) {
