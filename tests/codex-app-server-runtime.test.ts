@@ -41,7 +41,7 @@ function encodeJwtPayload(payload: Record<string, unknown>) {
 }
 
 // Derived from `codex app-server generate-json-schema --out <dir>` for
-// Codex CLI/App Server 0.142.0.
+// Codex CLI/App Server 0.144.1.
 const GENERATED_CODEX_APP_SERVER_V2_TURN_START_PARAM_KEYS: Set<string> =
   new Set([
     "approvalPolicy",

@@ -218,7 +218,7 @@ export function CodexBinaryPathCard() {
         </p>
         <p className="mt-1">
           Stave targets the Codex App Server path in local `codex` CLI
-          `0.142.0`. If your installed CLI is older, update it or point this
+          `0.144.1`. If your installed CLI is older, update it or point this
           field at the version you want Stave to use.
         </p>
       </div>

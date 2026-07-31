@@ -86,6 +86,7 @@ Rules:
 - When a provider payload changes, verify the full renderer -> preload -> IPC schema -> main -> runtime path.
 - If a change is provider-specific, say so explicitly. Otherwise, check the sibling provider adapter for symmetry.
 - For Codex runtime upgrades, review `docs/providers/codex-upgrade-checklist.md`.
+- Treat Claude Agent SDK and Codex CLI/App Server support-version changes as documentation changes in the same commit. Review behavior and capability descriptions in `docs/providers/provider-runtimes.md`; for Codex, also update `docs/providers/codex-upgrade-checklist.md`, Settings baseline copy, and generated-schema provenance comments/tests. Verify against the exact adopted version, then search the repository for the previous version before finishing.
 
 ## Secret Injection Guardrails
 
@@ -121,9 +122,11 @@ Required check files:
 - `src/components/layout/TerminalTabSurface.tsx`
 - `src/components/layout/pty-session-surface.utils.ts`
 - `src/components/layout/terminal-surface-styles.ts`
-- `src/components/layout/TerminalDock.tsx`
 - `src/components/layout/CliSessionPanel.tsx`
 - `src/components/layout/app-shell.shortcuts.ts`
+- `src/components/panes/WorkspacePaneHost.tsx`
+- `src/components/panes/surfaces/TerminalSurfacePanel.tsx`
+- `src/components/panes/terminal-pane-group.ts`
 - `src/lib/terminal/types.ts`
 - `src/store/workspace-session-state.ts`
 - `src/store/app.store.ts`
@@ -131,7 +134,10 @@ Required check files:
 - `electron/host-service/terminal-runtime.ts`
 - `src/types/window-api.d.ts`
 - `tests/pty-session-surface.utils.test.ts`
-- `tests/terminal-dock.utils.test.ts`
+- `tests/terminal-pane-group.test.ts`
+- `tests/terminal-tab-manager.test.ts`
+- `tests/terminal-instance.test.ts`
+- `tests/terminal-runtime.test.ts`
 - `tests/terminal-session-slot-registry.test.ts`
 
 Rules:
