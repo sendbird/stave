@@ -155,6 +155,58 @@ test("icon-triggered menus keep a usable width and full-width rows", async ({
   await expect(openInFinderItem).toHaveCSS("text-align", "left");
 });
 
+test("local change review keeps actions visible while its body scrolls", async ({
+  page,
+}) => {
+  await seedWorkspace(page);
+  await page.setViewportSize({ width: 720, height: 640 });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Review local changes" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Review local changes" });
+  const scrollArea = dialog.locator(":scope > div.overflow-y-auto");
+  const footer = dialog.locator('[data-slot="dialog-footer"]');
+  const submit = dialog.getByRole("button", { name: "Review changes" });
+
+  await expect(dialog).toBeVisible();
+  await expect(scrollArea).toBeVisible();
+  await expect(submit).toBeVisible();
+
+  const scrollBounds = await scrollArea.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(scrollBounds.scrollHeight).toBeGreaterThan(
+    scrollBounds.clientHeight,
+  );
+
+  const viewportHeight = page.viewportSize()!.height;
+  const dialogBox = await dialog.boundingBox();
+  const footerBox = await footer.boundingBox();
+  const submitBox = await submit.boundingBox();
+  expect(dialogBox).not.toBeNull();
+  expect(footerBox).not.toBeNull();
+  expect(submitBox).not.toBeNull();
+  expect(dialogBox!.y).toBeGreaterThanOrEqual(0);
+  expect(dialogBox!.y + dialogBox!.height).toBeLessThanOrEqual(
+    viewportHeight,
+  );
+  expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(
+    viewportHeight,
+  );
+  expect(submitBox!.y + submitBox!.height).toBeLessThanOrEqual(
+    viewportHeight,
+  );
+
+  await scrollArea.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect
+    .poll(() => scrollArea.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
 test("workspace tools no-result views share one empty-state pattern", async ({
   page,
 }) => {
