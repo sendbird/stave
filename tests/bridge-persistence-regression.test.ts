@@ -3625,6 +3625,91 @@ describe("workspace store hydration ordering", () => {
     expect(upsertCalls).toHaveLength(1);
   });
 
+  test("pane focus changes keep every open task pane resident after snapshot flush", async () => {
+    const localStorage = createMemoryStorage();
+    setWindowContext({
+      localStorage,
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          upsertWorkspace: async () => ({ ok: true }),
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    const createMessage = (taskId: string, content: string) => ({
+      id: `${taskId}-m-1`,
+      role: "user" as const,
+      model: "user",
+      providerId: "user" as const,
+      content,
+      parts: [{ type: "text" as const, text: content }],
+    });
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-03-10T00:00:00.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-left",
+      activeSurface: { kind: "task", taskId: "task-left" },
+      openTaskTabIds: ["task-left", "task-right"],
+      tasks: [
+        {
+          id: "task-left",
+          title: "Left Pane",
+          provider: "codex",
+          updatedAt: "2026-03-10T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+        {
+          id: "task-right",
+          title: "Right Pane",
+          provider: "codex",
+          updatedAt: "2026-03-10T00:01:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+        {
+          id: "task-closed",
+          title: "Closed Task",
+          provider: "codex",
+          updatedAt: "2026-03-10T00:02:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: {
+        "task-left": [createMessage("task-left", "keep left pane visible")],
+        "task-right": [createMessage("task-right", "keep right pane visible")],
+        "task-closed": [createMessage("task-closed", "compact closed task")],
+      },
+      activeTurnIdsByTask: {},
+      workspaceInformation: createEmptyWorkspaceInformation(),
+    });
+
+    useAppStore.getState().setActiveSurfaceFromPane({
+      kind: "task",
+      taskId: "task-right",
+    });
+    await useAppStore.getState().flushActiveWorkspaceSnapshot();
+
+    const nextState = useAppStore.getState();
+    expect(nextState.activeTaskId).toBe("task-right");
+    expect(nextState.messagesByTask["task-left"]?.at(-1)?.content).toBe(
+      "keep left pane visible",
+    );
+    expect(nextState.messagesByTask["task-right"]?.at(-1)?.content).toBe(
+      "keep right pane visible",
+    );
+    expect(nextState.messagesByTask["task-closed"]).toBeUndefined();
+  });
+
   test("switchWorkspace preserves inactive workspace turn state and persists it when the stream completes", async () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: Array<unknown> = [];
