@@ -97,8 +97,10 @@ import {
 } from "./providers/codex-app-server-runtime";
 import { getRateLimitsSnapshot } from "./providers/rate-limits/rate-limits-snapshot";
 import {
+  forkClaudeSession,
   getClaudeContextUsage,
   prewarmClaudeSdk,
+  renameClaudeSession,
   reloadClaudePlugins,
   reviewClaudeWorktreeDiff,
   suggestClaudePRDescription,
@@ -1291,6 +1293,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.get-claude-context-usage":
       await respond(request.id, await getClaudeContextUsage(request.params));
+      return;
+    case "provider.fork-claude-session":
+      await respond(request.id, await forkClaudeSession(request.params));
+      return;
+    case "provider.rename-claude-session":
+      await respond(request.id, await renameClaudeSession(request.params));
       return;
     case "provider.reload-claude-plugins":
       await respond(request.id, await reloadClaudePlugins(request.params));

@@ -27,6 +27,7 @@ import { createTerminalActions } from "@/store/app-store-terminal-actions";
 import { createSettingsActions } from "@/store/app-store-settings-actions";
 import { createCompareActions } from "@/store/app-store-compare-actions";
 import { createTaskCoreActions } from "@/store/app-store-task-core-actions";
+import { createConversationThreadActions } from "@/store/app-store-conversation-thread-actions";
 import { createTaskLifecycleActions } from "@/store/app-store-task-lifecycle-actions";
 import { createSupportActions } from "@/store/app-store-support-actions";
 import { createProviderInteractionActions } from "@/store/app-store-provider-interaction-actions";
@@ -1493,6 +1494,12 @@ export const useAppStore = create<AppState>()(
       shouldLoadLatestTaskMessages,
       findTaskById,
     });
+    const conversationThreadActions = createConversationThreadActions({
+      set,
+      get,
+      runScriptHookInBackground,
+      incrementWorkspaceSnapshotVersion,
+    });
     const taskLifecycleActions = createTaskLifecycleActions({
       set,
       get,
@@ -1754,6 +1761,7 @@ export const useAppStore = create<AppState>()(
       ...createAppSurfaceActions<AppState>(set),
       ...compareActions,
       ...taskCoreActions,
+      ...conversationThreadActions,
       ...terminalActions,
       ...taskLifecycleActions,
       ...paneActions,

@@ -88,6 +88,9 @@ export type SendUserMessageResult =
     }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string };
 
+export type ConversationThreadActionResult =
+  { ok: true; detail: string; taskId?: string } | { ok: false; detail: string };
+
 export interface AppState
   extends
     AppSurfaceActions,
@@ -341,6 +344,14 @@ export interface AppState
   }) => void;
   restoreTask: (args: { taskId: string }) => void;
   duplicateTask: (args: { taskId: string }) => Promise<void>;
+  forkConversationFromMessage: (args: {
+    taskId: string;
+    messageId: string;
+  }) => Promise<ConversationThreadActionResult>;
+  rollbackConversationToMessage: (args: {
+    taskId: string;
+    messageId: string;
+  }) => Promise<ConversationThreadActionResult>;
   reorderTasks: (args: {
     activeTaskId: string;
     overTaskId: string;

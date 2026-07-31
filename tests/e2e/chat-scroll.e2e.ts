@@ -8,7 +8,10 @@ interface ChatScrollHarness {
 
 async function installChatScrollHarness(
   page: Page,
-  options: { alphaTotalMessageCount?: number } = {},
+  options: {
+    alphaTotalMessageCount?: number;
+    withThreadActionMetadata?: boolean;
+  } = {},
 ): Promise<ChatScrollHarness> {
   const providerTurnPrompts: string[] = [];
   await page.route("http://127.0.0.1:3001/api/provider/turn", async (route) => {
@@ -40,10 +43,17 @@ async function installChatScrollHarness(
   });
 
   await page.addInitScript(
-    ({ alphaTotalMessageCount }) => {
-      const buildMessages = (taskId: string, count: number) =>
+    ({ alphaTotalMessageCount, withThreadActionMetadata }) => {
+      const buildMessages = (
+        taskId: string,
+        count: number,
+        providerId: "claude-code" | "codex",
+      ) =>
         Array.from({ length: count }, (_, index) => {
           const role = index % 2 === 0 ? "user" : "assistant";
+          const messageProviderId = withThreadActionMetadata
+            ? providerId
+            : "claude-code";
           const content = [
             `${taskId} message ${index + 1}`,
             "This deliberately long paragraph wraps across several lines when another panel narrows the conversation surface.",
@@ -52,8 +62,21 @@ async function installChatScrollHarness(
           return {
             id: `${taskId}-message-${index + 1}`,
             role,
-            model: role === "assistant" ? "claude-sonnet-4-5" : "",
-            providerId: role === "assistant" ? "claude-code" : "user",
+            model:
+              role === "assistant"
+                ? messageProviderId === "codex"
+                  ? "gpt-5.6-terra"
+                  : "claude-sonnet-4-5"
+                : "",
+            providerId: role === "assistant" ? messageProviderId : "user",
+            nativeProviderSessionId:
+              role === "assistant" && withThreadActionMetadata
+                ? `${providerId}-${taskId}`
+                : undefined,
+            nativeProviderTurnId:
+              role === "assistant" && withThreadActionMetadata
+                ? `${providerId}-${taskId}-turn-${Math.ceil((index + 1) / 2)}`
+                : undefined,
             content,
             parts: [{ type: "text", text: content }],
           };
@@ -75,11 +98,11 @@ async function installChatScrollHarness(
         },
       ];
       const messagesByTask = {
-        "task-alpha": buildMessages("task-alpha", 36),
-        "task-beta": buildMessages("task-beta", 44),
+        "task-alpha": buildMessages("task-alpha", 36, "claude-code"),
+        "task-beta": buildMessages("task-beta", 44, "codex"),
       };
       const secondaryMessagesByTask = {
-        "task-gamma": buildMessages("task-gamma", 40),
+        "task-gamma": buildMessages("task-gamma", 40, "codex"),
       };
       const paneState = {
         activeTaskId: "task-alpha",
@@ -89,6 +112,20 @@ async function installChatScrollHarness(
           "task-alpha": alphaTotalMessageCount,
           "task-beta": messagesByTask["task-beta"].length,
         },
+        ...(withThreadActionMetadata
+          ? {
+              providerSessionByTask: {
+                "task-alpha": {
+                  "claude-code": {
+                    nativeSessionId: "claude-code-task-alpha",
+                  },
+                },
+                "task-beta": {
+                  codex: { nativeSessionId: "codex-task-beta" },
+                },
+              },
+            }
+          : {}),
         openTaskTabIds: ["task-alpha", "task-beta"],
         activeSurface: { kind: "task", taskId: "task-alpha" },
       };
@@ -107,6 +144,15 @@ async function installChatScrollHarness(
         messageCountByTask: {
           "task-gamma": secondaryMessagesByTask["task-gamma"].length,
         },
+        ...(withThreadActionMetadata
+          ? {
+              providerSessionByTask: {
+                "task-gamma": {
+                  codex: { nativeSessionId: "codex-task-gamma" },
+                },
+              },
+            }
+          : {}),
         openTaskTabIds: ["task-gamma"],
         activeSurface: { kind: "task", taskId: "task-gamma" },
       };
@@ -167,6 +213,7 @@ async function installChatScrollHarness(
     },
     {
       alphaTotalMessageCount: options.alphaTotalMessageCount ?? 36,
+      withThreadActionMetadata: options.withThreadActionMetadata ?? false,
     },
   );
 
@@ -244,6 +291,98 @@ async function expectScrollAnchor(
     })
     .toBeLessThanOrEqual(4);
 }
+
+test("conversation turn rail previews, navigates, and explains provider capabilities", async ({
+  page,
+}) => {
+  await installChatScrollHarness(page, { withThreadActionMetadata: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const rail = page.getByTestId("conversation-turn-rail");
+  const preview = page.getByTestId("conversation-turn-preview");
+  const firstTick = rail.locator(
+    '[data-turn-rail-message-id="task-alpha-message-12"]',
+  );
+  const secondTick = rail.locator(
+    '[data-turn-rail-message-id="task-alpha-message-14"]',
+  );
+
+  await expect(rail).toBeVisible();
+  await firstTick.hover();
+  await expect(preview).toHaveAttribute("data-state", "open");
+  await expect(preview).toContainText("task-alpha message 11");
+  await expect(firstTick.locator("span")).toHaveAttribute(
+    "style",
+    "transform: scaleX(1);",
+  );
+  await expect(secondTick.locator("span")).toHaveAttribute(
+    "style",
+    "transform: scaleX(0.68);",
+  );
+
+  const rollback = preview.getByRole("button", {
+    name: "Rollback to here",
+  });
+  await expect(rollback).toHaveAttribute("aria-disabled", "true");
+  await rollback.hover();
+  await expect(page.locator('[data-slot="tooltip-content"]')).toContainText(
+    "Claude Code does not expose in-place session rollback",
+  );
+
+  await firstTick.click();
+  await expect(
+    page.locator('[data-message-id="task-alpha-message-12"]'),
+  ).toBeVisible();
+  await expect(firstTick).toHaveAttribute("aria-current", "step");
+
+  await page.mouse.move(0, 0);
+  await firstTick.focus();
+  await firstTick.press("ArrowDown");
+  await expect(secondTick).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    preview.getByRole("button", { name: "Fork here" }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(preview).toHaveAttribute("data-state", "closed");
+  await expect(secondTick).toBeFocused();
+
+  await page
+    .locator('[data-pane-tab-chip="task:task-beta"]')
+    .filter({ hasText: "Beta Task" })
+    .click();
+  const codexRail = page.getByTestId("conversation-turn-rail");
+  const codexPreview = page.getByTestId("conversation-turn-preview");
+  await codexRail.locator("[data-turn-rail-message-id]").nth(1).hover();
+  const codexRollback = codexPreview.getByRole("button", {
+    name: "Rollback to here",
+  });
+  await expect(codexRollback).toHaveAttribute("aria-disabled", "false");
+  await codexRollback.click();
+  const rollbackDialog = page.getByRole("dialog", {
+    name: "Roll back to this response?",
+  });
+  await expect(rollbackDialog).toBeVisible();
+  await rollbackDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(rollbackDialog).toBeHidden();
+  await expect(codexPreview).toHaveAttribute("data-state", "open");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const reducedMotionTransitions = await Promise.all([
+    codexRail
+      .locator("[data-turn-rail-message-id]")
+      .nth(1)
+      .locator("span")
+      .evaluate(
+        (element) => window.getComputedStyle(element).transitionProperty,
+      ),
+    codexPreview.evaluate(
+      (element) => window.getComputedStyle(element).transitionProperty,
+    ),
+  ]);
+  expect(reducedMotionTransitions).toEqual(["none", "none"]);
+});
 
 test("submitting a new prompt restores the latest conversation position", async ({
   page,
@@ -474,9 +613,7 @@ test("split task panes keep both conversations visible across focus changes", as
   const alphaScrollContainer = page.getByTestId(
     "conversation-scroll-task-alpha",
   );
-  const betaScrollContainer = page.getByTestId(
-    "conversation-scroll-task-beta",
-  );
+  const betaScrollContainer = page.getByTestId("conversation-scroll-task-beta");
   await expect(alphaScrollContainer).toBeVisible();
   await expect(betaScrollContainer).toBeVisible();
   await expectLatestMessageAtBottom(page, "task-alpha", 36);

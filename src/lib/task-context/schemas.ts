@@ -279,6 +279,8 @@ const ChatMessageSchema = z.object({
     z.literal("codex"),
     z.literal("user"),
   ]),
+  nativeProviderSessionId: z.string().optional(),
+  nativeProviderTurnId: z.string().optional(),
   modelInfo: z
     .object({
       effort: z.union([

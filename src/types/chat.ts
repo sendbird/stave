@@ -267,6 +267,18 @@ export interface ChatMessage {
   role: MessageRole;
   model: string;
   providerId: "claude-code" | "codex" | "user";
+  /**
+   * Native provider session/thread that produced this assistant response.
+   * Kept on the message so point-in-time actions cannot accidentally target a
+   * newer session after a task has switched or reset providers.
+   */
+  nativeProviderSessionId?: string;
+  /**
+   * Native provider turn/message identifier used for point-in-time fork and
+   * rollback actions. For Claude this is SDKAssistantMessage.uuid; for Codex
+   * it is the App Server turn id.
+   */
+  nativeProviderTurnId?: string;
   modelInfo?: TurnModelInfo;
   content: string;
   displayContent?: string;

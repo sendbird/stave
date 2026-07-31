@@ -1052,6 +1052,23 @@ export const ClaudeRuntimeActionArgsSchema = z
   })
   .strict();
 
+export const ClaudeSessionForkArgsSchema = z
+  .object({
+    sessionId: z.string().min(1).max(200),
+    upToMessageId: z.string().min(1).max(200),
+    title: z.string().min(1).max(200).optional(),
+    cwd: z.string().max(4096).optional(),
+  })
+  .strict();
+
+export const ClaudeSessionRenameArgsSchema = z
+  .object({
+    sessionId: z.string().min(1).max(200),
+    title: z.string().min(1).max(200),
+    cwd: z.string().max(4096).optional(),
+  })
+  .strict();
+
 export const CodexRuntimeActionArgsSchema = ClaudeRuntimeActionArgsSchema;
 
 export const RateLimitsSnapshotArgsSchema = ClaudeRuntimeActionArgsSchema;
@@ -1116,6 +1133,7 @@ export const CodexThreadReadArgsSchema = z
 export const CodexThreadForkArgsSchema = z
   .object({
     threadId: z.string().min(1).max(200),
+    lastTurnId: z.string().min(1).max(200).optional(),
     runtimeOptions: RuntimeOptionsSchema,
   })
   .strict();
@@ -1282,6 +1300,14 @@ export const LoadTaskMessagesArgsSchema = z
     taskId: z.string().min(1).max(200),
     limit: z.number().int().min(1).max(500).optional(),
     offset: z.number().int().min(0).max(1_000_000).optional(),
+  })
+  .strict();
+
+export const TruncateTaskMessagesAfterArgsSchema = z
+  .object({
+    workspaceId: z.string().min(1).max(200),
+    taskId: z.string().min(1).max(200),
+    messageId: z.string().min(1).max(200),
   })
   .strict();
 

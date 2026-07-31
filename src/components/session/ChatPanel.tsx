@@ -31,6 +31,7 @@ import {
   ConversationContent,
   ConversationScrollButton,
   ConversationVirtualList,
+  type ConversationManualScrollIntentHandle,
   Message,
   MessageAction,
   MessageActions,
@@ -58,10 +59,25 @@ import {
   CopyButton,
   toProviderWaveToneClass,
 } from "./chat-panel-message-parts";
+import { ConversationTurnActions } from "./ConversationTurnActions";
+import {
+  ConversationTurnRail,
+  type ConversationTurnRailHandle,
+} from "./ConversationTurnRail";
+import {
+  buildConversationTurnRailItems,
+  findActiveConversationTurnMessageId,
+} from "./conversation-turn-rail.utils";
 import { AssistantMessageBody } from "./message/assistant-trace";
 import { SessionLoadingState } from "./SessionLoadingState";
+import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
+import {
+  buildConversationTurnActionStateByMessageId,
+  type ConversationTurnActionState,
+} from "@/lib/providers/thread-actions";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
+const EMPTY_PROVIDER_SESSION: TaskProviderSessionState = {};
 
 function escapeAttributeSelectorValue(value: string) {
   return value.replace(/["\\]/g, "\\$&");
@@ -122,10 +138,13 @@ interface MessageRowProps {
   liveStreamingMessageId?: string;
   showInterimMessages: boolean;
   traceExpansionMode: "auto" | "manual";
+  threadActionState?: ConversationTurnActionState;
   message: {
     id: string;
     role: "user" | "assistant";
     providerId: "claude-code" | "codex" | "user";
+    nativeProviderSessionId?: string;
+    nativeProviderTurnId?: string;
     model: string;
     modelInfo?: ChatMessage["modelInfo"];
     content: string;
@@ -150,6 +169,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     liveStreamingMessageId,
     showInterimMessages,
     traceExpansionMode,
+    threadActionState,
     message,
   } = args;
   const showRespondingWave =
@@ -191,7 +211,15 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   }
 
   return (
-    <div data-message-id={message.id} className={cn(isFirst && "pt-3 sm:pt-4")}>
+    <div
+      data-message-id={message.id}
+      data-conversation-turn-id={
+        message.role === "assistant" && threadActionState
+          ? message.id
+          : undefined
+      }
+      className={cn(isFirst && "pt-3 sm:pt-4")}
+    >
       <Message from={message.role}>
         <div
           className={cn(
@@ -348,6 +376,14 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
+              {message.role === "assistant" && threadActionState ? (
+                <ConversationTurnActions
+                  taskId={taskId}
+                  messageId={message.id}
+                  state={threadActionState}
+                  className="pointer-events-none opacity-0 transition-opacity duration-150 group-hover/message-shell:pointer-events-auto group-hover/message-shell:opacity-100 group-focus-within/message-shell:pointer-events-auto group-focus-within/message-shell:opacity-100 motion-reduce:transition-none"
+                />
+              ) : null}
             </div>
           </MessageActions>
         </div>
@@ -381,6 +417,9 @@ function ChatPanelMessageList(props: {
   const messages = useAppStore(
     (state) => state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
   );
+  const providerSession = useAppStore(
+    (state) => state.providerSessionByTask[taskId] ?? EMPTY_PROVIDER_SESSION,
+  );
   const totalMessageCount = useAppStore(
     (state) => state.messageCountByTask[taskId] ?? 0,
   );
@@ -394,6 +433,10 @@ function ChatPanelMessageList(props: {
     (state) => state.taskMessagesLoadingByTask[taskId] === true,
   );
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+  const manualScrollIntentRef =
+    useRef<ConversationManualScrollIntentHandle | null>(null);
+  const turnRailRef = useRef<ConversationTurnRailHandle | null>(null);
+  const turnRailNavigationFrameRef = useRef<number | null>(null);
   const retainedScrollToLatestMessageNonceRef = useRef(0);
   retainedScrollToLatestMessageNonceRef.current = retainTaskScrollToLatestNonce(
     {
@@ -411,6 +454,23 @@ function ChatPanelMessageList(props: {
   const visibleMessages = useMemo(
     () => messages.filter((message) => !message.isPlanResponse),
     [messages],
+  );
+  const threadActionStateByMessageId = useMemo(
+    () =>
+      buildConversationTurnActionStateByMessageId({
+        messages,
+        providerSession,
+        hasActiveTurn: Boolean(activeTurnId),
+      }),
+    [activeTurnId, messages, providerSession],
+  );
+  const turnRailItems = useMemo(
+    () =>
+      buildConversationTurnRailItems({
+        messages: visibleMessages,
+        actionStateByMessageId: threadActionStateByMessageId,
+      }),
+    [threadActionStateByMessageId, visibleMessages],
   );
   const hasOlderMessages = messages.length < totalMessageCount;
   const showConversationLoadingState = shouldShowConversationLoadingState({
@@ -451,6 +511,14 @@ function ChatPanelMessageList(props: {
     () => findLatestPendingToolInteraction({ messages: visibleMessages }),
     [visibleMessages],
   );
+
+  useEffect(() => {
+    return () => {
+      if (turnRailNavigationFrameRef.current !== null) {
+        window.cancelAnimationFrame(turnRailNavigationFrameRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (previousActiveTurnIdRef.current && !activeTurnId) {
@@ -526,109 +594,167 @@ function ChatPanelMessageList(props: {
   ]);
 
   return (
-    <ConversationContent
-      data-testid={`conversation-scroll-${taskId}`}
-      autoScrollKey={autoScrollKey}
-      autoScrollBehavior="auto"
-      forceScrollKey={forceScrollKey}
-      scrollScopeKey={scrollContextKey}
-      forceScrollScopeKey={scrollContextKey}
-      restoreScrollPosition={restoreItemIndex != null}
-      withInnerLayout={
-        visibleMessages.length === 0 && !showConversationLoadingState
-      }
-      onScrollPositionChange={({ atBottom, container }) => {
-        if (atBottom) {
-          taskScrollAnchorCache.delete(scrollContextKey);
-          return;
+    <>
+      <ConversationContent
+        data-testid={`conversation-scroll-${taskId}`}
+        autoScrollKey={autoScrollKey}
+        autoScrollBehavior="auto"
+        forceScrollKey={forceScrollKey}
+        scrollScopeKey={scrollContextKey}
+        forceScrollScopeKey={scrollContextKey}
+        manualScrollIntentRef={manualScrollIntentRef}
+        restoreScrollPosition={restoreItemIndex != null}
+        withInnerLayout={
+          visibleMessages.length === 0 && !showConversationLoadingState
         }
-        const containerTop = container.getBoundingClientRect().top;
-        const anchorNode = Array.from(
-          container.querySelectorAll<HTMLElement>("[data-message-id]"),
-        ).find((node) => node.getBoundingClientRect().bottom > containerTop);
-        const messageId = anchorNode?.dataset.messageId;
-        if (!anchorNode || !messageId) {
-          return;
-        }
-        taskScrollAnchorCache.save(scrollContextKey, {
-          messageId,
-          // Preserve the signed offset. At the absolute top, the first
-          // message can sit below the container because "Load older" precedes
-          // the list, so clamping this value would lose the true top anchor.
-          offset: Math.round(
-            containerTop - anchorNode.getBoundingClientRect().top,
-          ),
-        });
-      }}
-    >
-      {hasOlderMessages ? (
-        <div className="mx-auto mb-3 flex w-full max-w-6xl px-3 pt-3 sm:px-5 sm:pt-4">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={taskMessagesLoading}
-            className="h-8 rounded-sm"
-            onClick={() => {
-              void loadTaskMessages({ taskId, mode: "older" });
-            }}
-          >
-            {taskMessagesLoading
-              ? "Loading older messages..."
-              : `Load older messages (${totalMessageCount - messages.length} remaining)`}
-          </Button>
-        </div>
-      ) : null}
-      {showConversationLoadingState ? (
-        <SessionLoadingState
-          testId="conversation-loading-state"
-          title="Loading conversation"
-          description="Fetching the latest messages for this task."
-        />
-      ) : visibleMessages.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <MessageSquareIcon />
-            </EmptyMedia>
-            <EmptyTitle>Start a conversation</EmptyTitle>
-            <EmptyDescription>
-              Send a prompt to begin this task.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <ConversationVirtualList
-          listKey={scrollContextKey}
-          listRef={virtuosoRef}
-          data={visibleMessages}
-          forceScrollKey={forceScrollKey}
-          forceScrollScopeKey={scrollContextKey}
-          restoreKey={props.scrollActivationKey}
-          restoreItemIndex={restoreItemIndex}
-          restoreItemId={restoreAnchor?.messageId}
-          restoreItemOffset={restoreAnchor?.offset}
-          itemKey={(_, message) => message.id}
-          itemContent={(index, message) => (
-            <MessageRow
-              taskId={taskId}
-              activeTurnId={activeTurnId}
-              chatStreamingEnabled={chatStreamingEnabled}
-              elapsedAnchorMs={
-                message.id === liveStreamingMessageId
-                  ? elapsedAnchorMs
-                  : undefined
-              }
-              isFirst={index === 0}
-              liveStreamingMessageId={liveStreamingMessageId}
-              showInterimMessages={showInterimMessages}
-              traceExpansionMode={traceExpansionMode}
-              message={message}
-            />
-          )}
-        />
-      )}
-    </ConversationContent>
+        onScrollPositionChange={({ atBottom, container }) => {
+          const nextActiveRailMessageId = atBottom
+            ? turnRailItems.at(-1)?.messageId
+            : findActiveConversationTurnMessageId({
+                turns: Array.from(
+                  container.querySelectorAll<HTMLElement>(
+                    "[data-conversation-turn-id]",
+                  ),
+                ).flatMap((node) => {
+                  const messageId = node.dataset.conversationTurnId;
+                  if (!messageId) {
+                    return [];
+                  }
+                  const bounds = node.getBoundingClientRect();
+                  return [
+                    {
+                      messageId,
+                      top: bounds.top,
+                      bottom: bounds.bottom,
+                    },
+                  ];
+                }),
+                viewportTop: container.getBoundingClientRect().top,
+                viewportHeight: container.clientHeight,
+              });
+          if (nextActiveRailMessageId) {
+            turnRailRef.current?.setActiveMessageId(nextActiveRailMessageId);
+          }
+
+          if (atBottom) {
+            taskScrollAnchorCache.delete(scrollContextKey);
+            return;
+          }
+          const containerTop = container.getBoundingClientRect().top;
+          const anchorNode = Array.from(
+            container.querySelectorAll<HTMLElement>("[data-message-id]"),
+          ).find((node) => node.getBoundingClientRect().bottom > containerTop);
+          const messageId = anchorNode?.dataset.messageId;
+          if (!anchorNode || !messageId) {
+            return;
+          }
+          taskScrollAnchorCache.save(scrollContextKey, {
+            messageId,
+            // Preserve the signed offset. At the absolute top, the first
+            // message can sit below the container because "Load older" precedes
+            // the list, so clamping this value would lose the true top anchor.
+            offset: Math.round(
+              containerTop - anchorNode.getBoundingClientRect().top,
+            ),
+          });
+        }}
+      >
+        {hasOlderMessages ? (
+          <div className="mx-auto mb-3 flex w-full max-w-6xl px-3 pt-3 sm:px-5 sm:pt-4">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={taskMessagesLoading}
+              className="h-8 rounded-sm"
+              onClick={() => {
+                void loadTaskMessages({ taskId, mode: "older" });
+              }}
+            >
+              {taskMessagesLoading
+                ? "Loading older messages..."
+                : `Load older messages (${totalMessageCount - messages.length} remaining)`}
+            </Button>
+          </div>
+        ) : null}
+        {showConversationLoadingState ? (
+          <SessionLoadingState
+            testId="conversation-loading-state"
+            title="Loading conversation"
+            description="Fetching the latest messages for this task."
+          />
+        ) : visibleMessages.length === 0 ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <MessageSquareIcon />
+              </EmptyMedia>
+              <EmptyTitle>Start a conversation</EmptyTitle>
+              <EmptyDescription>
+                Send a prompt to begin this task.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ConversationVirtualList
+            listKey={scrollContextKey}
+            listRef={virtuosoRef}
+            data={visibleMessages}
+            forceScrollKey={forceScrollKey}
+            forceScrollScopeKey={scrollContextKey}
+            restoreKey={props.scrollActivationKey}
+            restoreItemIndex={restoreItemIndex}
+            restoreItemId={restoreAnchor?.messageId}
+            restoreItemOffset={restoreAnchor?.offset}
+            itemKey={(_, message) => message.id}
+            itemContent={(index, message) => (
+              <MessageRow
+                taskId={taskId}
+                activeTurnId={activeTurnId}
+                chatStreamingEnabled={chatStreamingEnabled}
+                elapsedAnchorMs={
+                  message.id === liveStreamingMessageId
+                    ? elapsedAnchorMs
+                    : undefined
+                }
+                isFirst={index === 0}
+                liveStreamingMessageId={liveStreamingMessageId}
+                showInterimMessages={showInterimMessages}
+                traceExpansionMode={traceExpansionMode}
+                threadActionState={threadActionStateByMessageId.get(message.id)}
+                message={message}
+              />
+            )}
+          />
+        )}
+      </ConversationContent>
+      <ConversationTurnRail
+        ref={turnRailRef}
+        taskId={taskId}
+        items={turnRailItems}
+        hasEarlierMessages={hasOlderMessages}
+        onNavigate={(item) => {
+          manualScrollIntentRef.current?.markManualScrollIntent();
+          if (turnRailNavigationFrameRef.current !== null) {
+            window.cancelAnimationFrame(turnRailNavigationFrameRef.current);
+          }
+          turnRailNavigationFrameRef.current = window.requestAnimationFrame(
+            () => {
+              turnRailNavigationFrameRef.current = null;
+              virtuosoRef.current?.scrollToIndex({
+                index: item.messageIndex,
+                align: "center",
+                behavior: "auto",
+              });
+              // Virtuoso may synchronously report the pre-settled viewport
+              // while it measures the target row. Preserve the user's explicit
+              // choice until stable row geometry drives the next report.
+              turnRailRef.current?.setActiveMessageId(item.messageId);
+            },
+          );
+        }}
+      />
+    </>
   );
 }
 

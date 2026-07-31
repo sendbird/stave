@@ -7,6 +7,8 @@ import type {
   CodexThreadReadResponse,
   CanonicalConversationRequest,
   ClaudeContextUsageResponse,
+  ClaudeSessionForkResponse,
+  ProviderMutationResponse,
   CodexMcpStatusResponse,
   McpDiscoveryResponse,
   ClaudePluginReloadResponse,
@@ -256,6 +258,17 @@ interface WindowProviderApi {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<ClaudeContextUsageResponse>;
+  forkClaudeSession?: (args: {
+    sessionId: string;
+    upToMessageId: string;
+    title?: string;
+    cwd?: string;
+  }) => Promise<ClaudeSessionForkResponse>;
+  renameClaudeSession?: (args: {
+    sessionId: string;
+    title: string;
+    cwd?: string;
+  }) => Promise<ProviderMutationResponse>;
   reloadClaudePlugins?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
@@ -320,6 +333,7 @@ interface WindowProviderApi {
   }) => Promise<CodexThreadReadResponse>;
   forkCodexThread?: (args: {
     threadId: string;
+    lastTurnId?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexThreadForkResponse>;
   archiveCodexThread?: (args: {
@@ -1516,6 +1530,14 @@ interface WindowPersistenceApi {
       offset: number;
       hasMoreOlder: boolean;
     } | null;
+  }>;
+  truncateTaskMessagesAfter?: (args: {
+    workspaceId: string;
+    taskId: string;
+    messageId: string;
+  }) => Promise<{
+    ok: boolean;
+    removedCount: number;
   }>;
   loadWorkspaceEditorTabBodies?: (args: {
     workspaceId: string;

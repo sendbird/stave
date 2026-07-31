@@ -229,6 +229,10 @@ interface ScrollPositionChangeArgs {
 
 type ScrollPositionChangeHandler = (args: ScrollPositionChangeArgs) => void;
 
+export interface ConversationManualScrollIntentHandle {
+  markManualScrollIntent: () => void;
+}
+
 interface ConversationContentProps extends HTMLAttributes<HTMLDivElement> {
   autoScrollKey?: string | number;
   autoScrollBehavior?: ScrollBehavior;
@@ -238,6 +242,7 @@ interface ConversationContentProps extends HTMLAttributes<HTMLDivElement> {
   restoreScrollPosition?: boolean;
   withInnerLayout?: boolean;
   onScrollPositionChange?: ScrollPositionChangeHandler;
+  manualScrollIntentRef?: MutableRefObject<ConversationManualScrollIntentHandle | null>;
 }
 
 export function ConversationContent(props: ConversationContentProps) {
@@ -260,9 +265,19 @@ export function ConversationContent(props: ConversationContentProps) {
     restoreScrollPosition = false,
     withInnerLayout = true,
     onScrollPositionChange,
+    manualScrollIntentRef,
     className,
     ...rest
   } = props;
+  const manualScrollIntentHandle = useMemo(
+    () => ({
+      markManualScrollIntent() {
+        userScrollIntentUntilRef.current = 0;
+        setStickToBottom(false);
+      },
+    }),
+    [setStickToBottom, userScrollIntentUntilRef],
+  );
   const lastReportedScrollRef = useRef<{
     scope?: string | number;
     scrollTop: number;
@@ -347,6 +362,17 @@ export function ConversationContent(props: ConversationContentProps) {
   const markUserScrollIntent = () => {
     userScrollIntentUntilRef.current = Date.now() + 1_500;
   };
+  useEffect(() => {
+    if (!manualScrollIntentRef) {
+      return;
+    }
+    manualScrollIntentRef.current = manualScrollIntentHandle;
+    return () => {
+      if (manualScrollIntentRef.current === manualScrollIntentHandle) {
+        manualScrollIntentRef.current = null;
+      }
+    };
+  }, [manualScrollIntentHandle, manualScrollIntentRef]);
   useEffect(() => {
     const previous = lastAutoScrollScopeRef.current;
     const scopeChanged =
@@ -1084,7 +1110,8 @@ export function ConversationEmptyState(args: {
   );
 }
 
-interface ConversationScrollButtonProps extends HTMLAttributes<HTMLButtonElement> {
+interface ConversationScrollButtonProps
+  extends HTMLAttributes<HTMLButtonElement> {
   tooltip?: string;
 }
 
@@ -1150,10 +1177,8 @@ export function messagesToMarkdown(
     .join("\n\n");
 }
 
-interface ConversationDownloadProps extends Omit<
-  React.ComponentProps<typeof Button>,
-  "onClick"
-> {
+interface ConversationDownloadProps
+  extends Omit<React.ComponentProps<typeof Button>, "onClick"> {
   messages: ConversationMarkdownMessage[];
   filename?: string;
   formatMessage?: (

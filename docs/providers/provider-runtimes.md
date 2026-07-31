@@ -268,6 +268,23 @@ Codex checkpoint and compaction support:
   operations; Stave does not claim that Codex can restore the App Server
   thread to a checkpoint.
 
+Conversation history actions are tracked separately from checkpoints and
+compaction:
+
+- Claude and Codex can fork a new native session or thread from a recorded
+  assistant turn, creating a new Stave task while leaving workspace files and
+  the source task unchanged.
+- Codex can roll its App Server thread back to a recorded turn. Stave removes
+  later task messages only after the native rollback succeeds. Claude exposes
+  no equivalent in-place rollback API, so the UI keeps the action visible but
+  explains why it is unavailable.
+- Manual task rename updates every linked Claude session and Codex thread. The
+  Stave task title remains authoritative if a provider rename request fails.
+- The renderer derives action availability from a shared provider capability
+  descriptor and persisted native session/turn metadata. Legacy, streaming,
+  stale-session, and latest-turn cases remain visible with a reason instead of
+  silently hiding the control.
+
 Codex-specific runtime controls come from the UI and runtime options:
 
 - network access

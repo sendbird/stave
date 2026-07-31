@@ -463,7 +463,7 @@ function buildTabContextMenuItems(
 
   const items: (BuiltInContextMenuItem | ReactContextMenuItemConfig)[] = [
     {
-      label: "Rename",
+      label: surface.kind === "task" ? "Rename task" : "Rename",
       disabled: isManagedTask,
       action: () => dispatchPaneRenameRequest({ panelId }),
     },

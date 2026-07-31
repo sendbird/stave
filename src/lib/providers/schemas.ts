@@ -19,6 +19,13 @@ const ProviderSessionEventSchema = z.object({
   nativeSessionId: z.string(),
 });
 
+const ProviderTurnEventSchema = z.object({
+  type: z.literal("provider_turn"),
+  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  nativeSessionId: z.string(),
+  nativeTurnId: z.string(),
+});
+
 const ProviderGoalStatusSchema = z.union([
   z.literal("active"),
   z.literal("paused"),
@@ -201,6 +208,7 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   thinking: ThinkingEventSchema,
   text: TextEventSchema,
   provider_session: ProviderSessionEventSchema,
+  provider_turn: ProviderTurnEventSchema,
   goal_status: GoalStatusEventSchema,
   usage: UsageEventSchema,
   prompt_suggestions: PromptSuggestionsEventSchema,
@@ -222,6 +230,7 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.thinking,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.text,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_session,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_turn,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.goal_status,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.usage,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.prompt_suggestions,
@@ -244,10 +253,12 @@ export type ParsedNormalizedProviderEvent = z.infer<
 >;
 
 type IsExactType<Left, Right> =
-  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() =>
-    Value extends Right ? 1 : 2
-    ? (<Value>() => Value extends Right ? 1 : 2) extends <Value>() =>
-        Value extends Left ? 1 : 2
+  (<Value>() => Value extends Left ? 1 : 2) extends <
+    Value,
+  >() => Value extends Right ? 1 : 2
+    ? (<Value>() => Value extends Right ? 1 : 2) extends <
+        Value,
+      >() => Value extends Left ? 1 : 2
       ? true
       : false
     : false;

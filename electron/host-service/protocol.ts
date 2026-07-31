@@ -11,6 +11,8 @@ import type {
   CodexThreadForkResponse,
   CodexThreadReadResponse,
   ClaudeContextUsageResponse,
+  ClaudeSessionForkResponse,
+  ProviderMutationResponse,
   ClaudePluginReloadResponse,
   CodexMcpStatusResponse,
   CodexMutationResponse,
@@ -556,6 +558,17 @@ export interface HostServiceRequestMap {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.fork-claude-session": {
+    sessionId: string;
+    upToMessageId: string;
+    title?: string;
+    cwd?: string;
+  };
+  "provider.rename-claude-session": {
+    sessionId: string;
+    title: string;
+    cwd?: string;
+  };
   "provider.reload-claude-plugins": {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -617,6 +630,7 @@ export interface HostServiceRequestMap {
   };
   "provider.fork-codex-thread": {
     threadId: string;
+    lastTurnId?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.archive-codex-thread": {
@@ -894,6 +908,8 @@ export interface HostServiceResponseMap {
   "provider.get-command-catalog": ProviderCommandCatalogResult;
   "provider.get-connected-tool-status": ConnectedToolStatusResponse;
   "provider.get-claude-context-usage": ClaudeContextUsageResponse;
+  "provider.fork-claude-session": ClaudeSessionForkResponse;
+  "provider.rename-claude-session": ProviderMutationResponse;
   "provider.reload-claude-plugins": ClaudePluginReloadResponse;
   "provider.get-codex-mcp-status": CodexMcpStatusResponse;
   "provider.get-codex-model-catalog": CodexModelCatalogResponse;
