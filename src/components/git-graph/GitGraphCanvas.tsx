@@ -1,6 +1,10 @@
 import * as React from "react";
 import type { GraphCommit, GraphEdge, GraphNode } from "@/lib/git-graph/types";
 import { buildGraphLayout } from "@/lib/git-graph/graph-layout";
+import {
+  buildEdgePath,
+  buildUnresolvedEdgePath,
+} from "@/lib/git-graph/edge-path";
 import { GitGraphRow, ROW_HEIGHT, LANE_WIDTH } from "./GitGraphRow";
 import type { GraphRef } from "@/lib/git-graph/types";
 
@@ -34,47 +38,7 @@ function laneColor(colorIndex: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// SVG path helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Build an SVG path from (fromLane, fromRow) to (toLane, toRow).
- *
- * Co-ordinates are centre-of-cell:
- *   x = lane * LANE_WIDTH + LANE_WIDTH / 2
- *   y = row  * ROW_HEIGHT + ROW_HEIGHT / 2
- *
- * For straight vertical edges (same lane) we use a plain L command.
- * For diagonal edges (different lanes) we draw:
- *   - a short vertical segment from the source node down a fraction of the gap
- *   - then a cubic bezier curve to the destination
- * This produces the smooth single-bend expected by the spec.
- */
-function buildEdgePath(
-  fromLane: number,
-  fromRow: number,
-  toLane: number,
-  toRow: number,
-): string {
-  const x1 = fromLane * LANE_WIDTH + LANE_WIDTH / 2;
-  const y1 = fromRow * ROW_HEIGHT + ROW_HEIGHT / 2;
-  const x2 = toLane * LANE_WIDTH + LANE_WIDTH / 2;
-  const y2 = toRow * ROW_HEIGHT + ROW_HEIGHT / 2;
-
-  if (fromLane === toLane) {
-    // Straight vertical segment
-    return `M ${x1} ${y1} L ${x2} ${y2}`;
-  }
-
-  // Bezier bend: control points placed at 1/3 and 2/3 of the vertical span
-  const dy = y2 - y1;
-  const cp1y = y1 + dy * 0.33;
-  const cp2y = y1 + dy * 0.67;
-  return `M ${x1} ${y1} C ${x1} ${cp1y}, ${x2} ${cp2y}, ${x2} ${y2}`;
-}
-
-// ---------------------------------------------------------------------------
-// SVG edge renderer — resolves parent rows from node map (not edge.toRow)
+// SVG edge renderer — resolves parent nodes by edge.toHash
 // ---------------------------------------------------------------------------
 
 interface SvgLayerProps {
@@ -84,8 +48,6 @@ interface SvgLayerProps {
   nodeByHash: ReadonlyMap<string, GraphNode>;
   /** hash → GraphCommit look-up for ref/HEAD detection */
   commitByHash: ReadonlyMap<string, GraphCommit>;
-  /** commit list so we can resolve parent hash → parentNode */
-  commits: GraphCommit[];
   laneCount: number;
   totalRows: number;
 }
@@ -95,63 +57,38 @@ function SvgLayer({
   nodes,
   nodeByHash,
   commitByHash,
-  commits,
   laneCount,
   totalRows,
 }: SvgLayerProps) {
   const svgWidth = laneCount * LANE_WIDTH;
   const svgHeight = totalRows * ROW_HEIGHT;
 
-  // Build a map from row → parent-hash at that edge destination.
-  // GraphEdge does NOT carry the parent hash — we need it to look up the real
-  // destination row.  Reconstruct: edge i at row R corresponds to commit R's
-  // i-th parent (they are emitted in parent order by buildGraphLayout).
-
-  // Build: commit row → commit for quick lookup
-  const commitByRow = React.useMemo(() => {
-    const m = new Map<number, GraphCommit>();
-    commits.forEach((c, idx) => m.set(idx, c));
-    return m;
-  }, [commits]);
-
-  // For each edge, find the parent's actual node row via nodeByHash.
-  // edgePaths groups by color string for batched <path> elements.
+  // Group path strings by color for batched <path> elements.
   const pathsByColor = React.useMemo(() => {
     const map = new Map<string, string[]>();
-
-    // Group edges by (fromRow, fromLane) → parentIndex (order emitted)
-    // The algorithm emits parents in order per commit row. We track
-    // "how many edges have we seen from each fromRow so far" to index parents.
-    const parentIndexForRow = new Map<number, number>();
+    const bottomY = totalRows * ROW_HEIGHT;
 
     for (const edge of edges) {
-      const { fromRow, fromLane, toLane, color } = edge;
-
-      // Determine parent index for this fromRow
-      const pIdx = parentIndexForRow.get(fromRow) ?? 0;
-      parentIndexForRow.set(fromRow, pIdx + 1);
-
-      // Look up the parent hash from the commit
-      const commit = commitByRow.get(fromRow);
-      const parentHash = commit?.parents[pIdx];
-
-      let toRow: number;
-      if (parentHash !== undefined) {
-        // Resolve actual destination row from node map
-        const parentNode = nodeByHash.get(parentHash);
-        if (parentNode !== undefined) {
-          toRow = parentNode.row;
-        } else {
-          // Parent not in the loaded window — draw a short stub downward
-          toRow = fromRow + 1;
-        }
-      } else {
-        // Fallback: edge.toRow was a visual-hop placeholder, use stub
-        toRow = fromRow + 1;
-      }
-
-      const pathD = buildEdgePath(fromLane, fromRow, toLane, toRow);
-      const colorStr = laneColor(color);
+      const parentNode = nodeByHash.get(edge.toHash);
+      const pathD = parentNode
+        ? buildEdgePath({
+            fromLane: edge.fromLane,
+            fromRow: edge.fromRow,
+            travelLane: edge.toLane,
+            toLane: parentNode.lane,
+            toRow: parentNode.row,
+            laneWidth: LANE_WIDTH,
+            rowHeight: ROW_HEIGHT,
+          })
+        : buildUnresolvedEdgePath({
+            fromLane: edge.fromLane,
+            fromRow: edge.fromRow,
+            travelLane: edge.toLane,
+            bottomY,
+            laneWidth: LANE_WIDTH,
+            rowHeight: ROW_HEIGHT,
+          });
+      const colorStr = laneColor(edge.color);
       const existing = map.get(colorStr);
       if (existing) {
         existing.push(pathD);
@@ -161,7 +98,7 @@ function SvgLayer({
     }
 
     return map;
-  }, [edges, commitByRow, nodeByHash]);
+  }, [edges, nodeByHash, totalRows]);
 
   const NODE_RADIUS = 4;
 
@@ -264,7 +201,6 @@ export function GitGraphCanvas({
   }, [commits]);
 
   const totalRows = commits.length;
-  const svgWidth = layout.laneCount * LANE_WIDTH;
   const totalHeight = totalRows * ROW_HEIGHT;
 
   return (
@@ -279,7 +215,6 @@ export function GitGraphCanvas({
         nodes={layout.nodes}
         nodeByHash={nodeByHash}
         commitByHash={commitByHash}
-        commits={commits}
         laneCount={Math.max(layout.laneCount, 1)}
         totalRows={totalRows}
       />
