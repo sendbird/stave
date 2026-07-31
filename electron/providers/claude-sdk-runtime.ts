@@ -27,7 +27,9 @@ import {
 } from "../../src/types/chat";
 import type {
   ClaudeContextUsageResponse,
+  ClaudeMcpOauthLoginResponse,
   ClaudeMcpServerStatusSnapshot,
+  ClaudeMcpStatusResponse,
   ClaudePluginReloadResponse,
   ClaudeSessionForkResponse,
   ProviderMutationResponse,
@@ -89,6 +91,7 @@ import {
   resolveClaudeMcpServers,
   type ClaudeMcpConfigDiagnostic,
 } from "./claude-mcp-config";
+import { sanitizeMcpDiagnosticText } from "./mcp-config-management-shared";
 
 /**
  * Cache boundary marker for the claude-agent-sdk systemPrompt string[] API.
@@ -2046,13 +2049,77 @@ export function buildClaudeQueryOptions(args: {
   };
 }
 
+type ClaudeMcpRecentError = {
+  message: string;
+  occurredAt: number;
+};
+
+const claudeMcpRecentErrorByServer = new Map<string, ClaudeMcpRecentError>();
+
+function toClaudeMcpRecentErrorKey(args: {
+  scopeKey: string;
+  serverName: string;
+}) {
+  return `${args.scopeKey}\u0000${args.serverName}`;
+}
+
+function rememberClaudeMcpError(args: {
+  scopeKey: string;
+  serverName: string;
+  error: string;
+}) {
+  const message = sanitizeTextField({
+    value: sanitizeMcpDiagnosticText(args.error),
+    label: "Claude MCP error",
+    maxChars: 2_000,
+  });
+  if (!message) {
+    return;
+  }
+  claudeMcpRecentErrorByServer.set(toClaudeMcpRecentErrorKey(args), {
+    message,
+    occurredAt: Date.now(),
+  });
+}
+
 function toClaudeMcpServerStatusSnapshot(
   status: McpServerStatus,
+  options?: { scopeKey?: string; checkedAt?: number },
 ): ClaudeMcpServerStatusSnapshot {
+  const error = status.error
+    ? sanitizeTextField({
+        value: sanitizeMcpDiagnosticText(status.error),
+        label: "Claude MCP error",
+        maxChars: 2_000,
+      })
+    : undefined;
+  if (options?.scopeKey && error) {
+    rememberClaudeMcpError({
+      scopeKey: options.scopeKey,
+      serverName: status.name,
+      error,
+    });
+  }
+  const recentError = options?.scopeKey
+    ? claudeMcpRecentErrorByServer.get(
+        toClaudeMcpRecentErrorKey({
+          scopeKey: options.scopeKey,
+          serverName: status.name,
+        }),
+      )
+    : undefined;
+
   return {
     name: status.name,
     status: status.status,
-    ...(status.error ? { error: status.error } : {}),
+    ...(error ? { error } : {}),
+    ...(recentError
+      ? {
+          lastError: recentError.message,
+          lastErrorAt: recentError.occurredAt,
+        }
+      : {}),
+    ...(options?.checkedAt ? { statusUpdatedAt: options.checkedAt } : {}),
     ...(status.scope ? { scope: status.scope } : {}),
     ...(Array.isArray(status.tools) ? { toolCount: status.tools.length } : {}),
   };
@@ -3451,6 +3518,305 @@ class SteerableUserMessageQueue implements AsyncIterable<SDKUserMessage> {
       },
     };
   }
+}
+
+type ClaudeMcpAuthenticateResult = {
+  authUrl?: unknown;
+  authorizationUrl?: unknown;
+  requiresUserAction?: unknown;
+  callbackExpected?: unknown;
+};
+
+export function resolveClaudeMcpOauthLoginResult(response: unknown) {
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    return {
+      requiresUserAction: false,
+      callbackExpected: false,
+    };
+  }
+  const record = response as Record<string, unknown>;
+  const authorizationUrl =
+    typeof record.authUrl === "string" && record.authUrl.trim()
+      ? record.authUrl.trim()
+      : typeof record.authorizationUrl === "string" &&
+          record.authorizationUrl.trim()
+        ? record.authorizationUrl.trim()
+        : undefined;
+
+  return {
+    ...(authorizationUrl ? { authorizationUrl } : {}),
+    requiresUserAction: record.requiresUserAction === true,
+    callbackExpected: record.callbackExpected === true,
+  };
+}
+
+// The SDK runtime exposes this control method even though its public Query
+// declaration currently omits it. Keep the narrow compatibility adapter here.
+type ClaudeMcpControlQuery = Query & {
+  mcpAuthenticate: (
+    serverName: string,
+    redirectUri?: string,
+  ) => Promise<ClaudeMcpAuthenticateResult>;
+};
+
+type ActiveClaudeMcpOauthFlow = {
+  key: string;
+  scopeKey: string;
+  serverName: string;
+  stream: ClaudeMcpControlQuery;
+  input: SteerableUserMessageQueue;
+  cancelled: boolean;
+};
+
+const CLAUDE_MCP_OAUTH_DEFAULT_TIMEOUT_SECS = 10 * 60;
+const CLAUDE_MCP_OAUTH_POLL_INTERVAL_MS = 1_500;
+const activeClaudeMcpOauthFlowByKey = new Map<
+  string,
+  ActiveClaudeMcpOauthFlow
+>();
+
+async function createClaudeMcpControlQuery(args: {
+  cwd?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  prompt: "" | AsyncIterable<SDKUserMessage>;
+}) {
+  const runtimeCwd =
+    args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  const mod = await getPrewarmedSdkModule();
+  const queryFn = (
+    mod as { query?: typeof import("@anthropic-ai/claude-agent-sdk").query }
+  ).query;
+
+  if (!queryFn) {
+    throw new Error("query() is unavailable from the Claude SDK import.");
+  }
+
+  const claudeExecutablePath = resolveClaudeRuntimeExecutablePath({
+    runtimeOptions: args.runtimeOptions,
+  });
+  const { mcpServers } = await resolveClaudeMcpServersForQuery({
+    cwd: runtimeCwd,
+    claudeExecutablePath,
+    runtimeOptions: args.runtimeOptions,
+  });
+  const stream = queryFn({
+    prompt: args.prompt,
+    options: buildClaudeQueryOptions({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+      systemPrompt: args.runtimeOptions?.claudeSystemPrompt,
+      promptSuggestions: false,
+      mcpServers,
+    }),
+  }) as ClaudeMcpControlQuery;
+
+  return {
+    runtimeCwd,
+    scopeKey: `${claudeExecutablePath}\u0000${runtimeCwd}`,
+    stream,
+  };
+}
+
+function closeClaudeMcpOauthFlow(flow: ActiveClaudeMcpOauthFlow) {
+  flow.cancelled = true;
+  flow.input.close();
+  flow.stream.close();
+  if (activeClaudeMcpOauthFlowByKey.get(flow.key) === flow) {
+    activeClaudeMcpOauthFlowByKey.delete(flow.key);
+  }
+}
+
+function waitForClaudeMcpOauthPoll() {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, CLAUDE_MCP_OAUTH_POLL_INTERVAL_MS);
+  });
+}
+
+async function monitorClaudeMcpOauthFlow(args: {
+  flow: ActiveClaudeMcpOauthFlow;
+  timeoutSecs: number;
+}) {
+  const expiresAt = Date.now() + args.timeoutSecs * 1_000;
+  try {
+    while (!args.flow.cancelled && Date.now() < expiresAt) {
+      await waitForClaudeMcpOauthPoll();
+      if (args.flow.cancelled) {
+        return;
+      }
+
+      const statuses = await args.flow.stream.mcpServerStatus();
+      const target = statuses.find(
+        (status) => status.name === args.flow.serverName,
+      );
+      if (!target) {
+        continue;
+      }
+      toClaudeMcpServerStatusSnapshot(target, {
+        scopeKey: args.flow.scopeKey,
+        checkedAt: Date.now(),
+      });
+      if (target.status === "connected") {
+        closeClaudeMcpOauthFlow(args.flow);
+        return;
+      }
+      if (target.status === "failed") {
+        closeClaudeMcpOauthFlow(args.flow);
+        return;
+      }
+    }
+
+    if (!args.flow.cancelled) {
+      rememberClaudeMcpError({
+        scopeKey: args.flow.scopeKey,
+        serverName: args.flow.serverName,
+        error:
+          "OAuth login timed out before Claude reported a connected MCP server.",
+      });
+      closeClaudeMcpOauthFlow(args.flow);
+    }
+  } catch (error) {
+    if (!args.flow.cancelled) {
+      rememberClaudeMcpError({
+        scopeKey: args.flow.scopeKey,
+        serverName: args.flow.serverName,
+        error: `OAuth status check failed: ${sanitizeMcpDiagnosticText(toText(error))}`,
+      });
+      closeClaudeMcpOauthFlow(args.flow);
+    }
+  }
+}
+
+export async function getClaudeMcpStatus(args: {
+  cwd?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<ClaudeMcpStatusResponse> {
+  const checkedAt = Date.now();
+  let stream: ClaudeMcpControlQuery | null = null;
+  try {
+    const control = await createClaudeMcpControlQuery({
+      cwd: args.cwd,
+      runtimeOptions: args.runtimeOptions,
+      prompt: "",
+    });
+    stream = control.stream;
+    const statuses = await stream.mcpServerStatus();
+    return {
+      ok: true,
+      detail:
+        statuses.length > 0
+          ? `Loaded ${statuses.length} Claude MCP server status${statuses.length === 1 ? "" : "es"} for ${control.runtimeCwd}.`
+          : `No Claude MCP servers are configured for ${control.runtimeCwd}.`,
+      servers: statuses.map((status) =>
+        toClaudeMcpServerStatusSnapshot(status, {
+          scopeKey: control.scopeKey,
+          checkedAt,
+        }),
+      ),
+      checkedAt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Claude MCP status unavailable: ${sanitizeMcpDiagnosticText(toText(error))}`,
+      servers: [],
+      checkedAt,
+    };
+  } finally {
+    stream?.close();
+  }
+}
+
+export async function startClaudeMcpOauthLogin(args: {
+  name: string;
+  cwd?: string;
+  timeoutSecs?: number;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<ClaudeMcpOauthLoginResponse> {
+  const serverName = args.name.trim();
+  if (!serverName) {
+    return {
+      ok: false,
+      detail: "Claude MCP OAuth login requires a server name.",
+    };
+  }
+
+  const input = new SteerableUserMessageQueue();
+  let stream: ClaudeMcpControlQuery | null = null;
+  try {
+    const control = await createClaudeMcpControlQuery({
+      cwd: args.cwd,
+      runtimeOptions: args.runtimeOptions,
+      prompt: input,
+    });
+    stream = control.stream;
+    const flowKey = `${control.scopeKey}\u0000${serverName}`;
+    const existingFlow = activeClaudeMcpOauthFlowByKey.get(flowKey);
+    if (existingFlow) {
+      closeClaudeMcpOauthFlow(existingFlow);
+    }
+
+    const response = resolveClaudeMcpOauthLoginResult(
+      await stream.mcpAuthenticate(serverName),
+    );
+    const { authorizationUrl, requiresUserAction, callbackExpected } = response;
+
+    if ((requiresUserAction || callbackExpected) && !authorizationUrl) {
+      return {
+        ok: false,
+        detail:
+          `Claude MCP OAuth login for ${serverName} requires browser action, ` +
+          "but the SDK did not return an authorization URL.",
+        requiresUserAction,
+        callbackExpected,
+      };
+    }
+
+    if (authorizationUrl || requiresUserAction || callbackExpected) {
+      const flow: ActiveClaudeMcpOauthFlow = {
+        key: flowKey,
+        scopeKey: control.scopeKey,
+        serverName,
+        stream,
+        input,
+        cancelled: false,
+      };
+      activeClaudeMcpOauthFlowByKey.set(flowKey, flow);
+      stream = null;
+      void monitorClaudeMcpOauthFlow({
+        flow,
+        timeoutSecs: args.timeoutSecs ?? CLAUDE_MCP_OAUTH_DEFAULT_TIMEOUT_SECS,
+      });
+    }
+
+    return {
+      ok: true,
+      detail: authorizationUrl
+        ? `Started Claude MCP OAuth login for ${serverName}.`
+        : `Claude MCP server ${serverName} did not require browser authorization.`,
+      ...(authorizationUrl ? { authorizationUrl } : {}),
+      requiresUserAction,
+      callbackExpected,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Claude MCP OAuth login failed: ${sanitizeMcpDiagnosticText(toText(error))}`,
+    };
+  } finally {
+    if (stream) {
+      input.close();
+      stream.close();
+    }
+  }
+}
+
+export function cleanupClaudeMcpOauthFlows() {
+  for (const flow of activeClaudeMcpOauthFlowByKey.values()) {
+    closeClaudeMcpOauthFlow(flow);
+  }
+  activeClaudeMcpOauthFlowByKey.clear();
+  claudeMcpRecentErrorByServer.clear();
 }
 
 /**

@@ -1,5 +1,6 @@
 import {
   buildClaudeEnv,
+  cleanupClaudeMcpOauthFlows,
   cleanupClaudeTask,
   getClaudeCommandCatalog,
   resolveClaudeExecutablePath,
@@ -1077,6 +1078,7 @@ export const providerRuntime: ProviderRuntime = {
   },
   getConnectedToolStatus: async (args) => getProviderConnectedToolStatus(args),
   shutdown: async () => {
+    cleanupClaudeMcpOauthFlows();
     const taskIds = new Set<string>();
     for (const session of activeSessions.values()) {
       session.abort?.();

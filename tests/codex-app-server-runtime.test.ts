@@ -25,6 +25,10 @@ import {
   summarizeCodexAppServerDebugMessage,
   toCodexConfigLayerDisplayValue,
 } from "../electron/providers/codex-app-server-runtime";
+import {
+  parseCodexMcpRuntimeNotification,
+  resolveCodexMcpOauthAuthorizationUrl,
+} from "../electron/providers/codex-mcp-management";
 import { buildCodexTurnSteerParams } from "../electron/providers/codex-app-server-steer";
 import { mapCodexThreadForkResponse } from "../electron/providers/codex-thread-actions";
 import {
@@ -40,6 +44,67 @@ function encodeJwtPayload(payload: Record<string, unknown>) {
     .replace(/=+$/g, "");
   return `header.${encoded}.signature`;
 }
+
+describe("Codex MCP runtime status", () => {
+  test("accepts the App Server snake_case OAuth URL", () => {
+    expect(
+      resolveCodexMcpOauthAuthorizationUrl({
+        authorization_url: "https://auth.example.test",
+      }),
+    ).toBe("https://auth.example.test");
+  });
+
+  test("maps startup failures that require OAuth again", () => {
+    expect(
+      parseCodexMcpRuntimeNotification({
+        method: "mcpServer/startupStatus/updated",
+        params: {
+          name: "github",
+          status: "failed",
+          failureReason: "reauthenticationRequired",
+          error: { message: "Token expired." },
+        },
+      }),
+    ).toMatchObject({
+      name: "github",
+      connectionStatus: "needs-auth",
+      failureReason: "reauthenticationRequired",
+      lastError: "Token expired.",
+    });
+  });
+
+  test("keeps a completed OAuth login in startup until the server is ready", () => {
+    expect(
+      parseCodexMcpRuntimeNotification({
+        method: "mcpServer/oauthLogin/completed",
+        params: { name: "github", success: true },
+      }),
+    ).toMatchObject({
+      name: "github",
+      connectionStatus: "starting",
+    });
+  });
+
+  test("clears a stale authentication failure when startup recovers", () => {
+    expect(
+      parseCodexMcpRuntimeNotification({
+        method: "mcpServer/startupStatus/updated",
+        params: {
+          name: "github",
+          status: "ready",
+          failureReason: null,
+          error: null,
+        },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        name: "github",
+        connectionStatus: "connected",
+        failureReason: undefined,
+      }),
+    );
+  });
+});
 
 // Derived from `codex app-server generate-json-schema --out <dir>` for
 // Codex CLI/App Server 0.144.1.

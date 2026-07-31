@@ -8,6 +8,8 @@ import type {
   CodexThreadReadResponse,
   CanonicalConversationRequest,
   ClaudeContextUsageResponse,
+  ClaudeMcpOauthLoginResponse,
+  ClaudeMcpStatusResponse,
   ClaudeSessionForkResponse,
   ProviderMutationResponse,
   CodexMcpStatusResponse,
@@ -28,6 +30,14 @@ import type {
   UtilityInferenceContext,
   UtilityInferenceMetadata,
 } from "../src/lib/providers/utility-inference";
+import type {
+  McpServerConfigListRequest,
+  McpServerConfigListResponse,
+  McpServerConfigMutationApplyRequest,
+  McpServerConfigMutationPreviewResponse,
+  McpServerConfigMutationRequest,
+  McpServerConfigMutationResponse,
+} from "../src/lib/providers/mcp-config.types";
 import type {
   ConnectedToolId,
   ConnectedToolStatusResponse,
@@ -840,6 +850,14 @@ contextBridge.exposeInMainWorld("api", {
         "provider:reload-claude-plugins",
         args,
       ) as Promise<ClaudePluginReloadResponse>,
+    getClaudeMcpStatus: (args: {
+      cwd?: string;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:get-claude-mcp-status",
+        args,
+      ) as Promise<ClaudeMcpStatusResponse>,
     getCodexMcpStatus: (args: {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -853,6 +871,21 @@ contextBridge.exposeInMainWorld("api", {
         "provider:discover-mcp-servers",
         args,
       ) as Promise<McpDiscoveryResponse>,
+    listMcpServerConfigs: (args: McpServerConfigListRequest) =>
+      ipcRenderer.invoke(
+        "provider:list-mcp-server-configs",
+        args,
+      ) as Promise<McpServerConfigListResponse>,
+    previewMcpServerConfigMutation: (args: McpServerConfigMutationRequest) =>
+      ipcRenderer.invoke(
+        "provider:preview-mcp-server-config-mutation",
+        args,
+      ) as Promise<McpServerConfigMutationPreviewResponse>,
+    applyMcpServerConfigMutation: (args: McpServerConfigMutationApplyRequest) =>
+      ipcRenderer.invoke(
+        "provider:apply-mcp-server-config-mutation",
+        args,
+      ) as Promise<McpServerConfigMutationResponse>,
     getCodexModelCatalog: (args: {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -921,6 +954,16 @@ contextBridge.exposeInMainWorld("api", {
         "provider:start-codex-mcp-oauth-login",
         args,
       ) as Promise<CodexMcpOauthLoginResponse>,
+    startClaudeMcpOauthLogin: (args: {
+      name: string;
+      cwd?: string;
+      timeoutSecs?: number;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:start-claude-mcp-oauth-login",
+        args,
+      ) as Promise<ClaudeMcpOauthLoginResponse>,
     readCodexMcpResource: (args: {
       threadId: string;
       server: string;

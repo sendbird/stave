@@ -11,6 +11,7 @@ import {
   resolveClaudeForegroundSubagentInput,
   resolveClaudeAgentProgressSummaries,
   resolveClaudeApprovalDecisionTimeoutMs,
+  resolveClaudeMcpOauthLoginResult,
   resolveClaudePermissionModeDecision,
   buildClaudeSystemPrompt,
   buildClaudeUserInputPermissionResult,
@@ -33,6 +34,38 @@ import {
 } from "../electron/providers/claude-sdk-runtime";
 
 const workspaceRoot = "/workspace/stave";
+
+describe("Claude MCP OAuth", () => {
+  test("normalizes the Claude SDK control response", () => {
+    expect(
+      resolveClaudeMcpOauthLoginResult({
+        authUrl: " https://auth.example.test/start ",
+        requiresUserAction: true,
+        callbackExpected: true,
+      }),
+    ).toEqual({
+      authorizationUrl: "https://auth.example.test/start",
+      requiresUserAction: true,
+      callbackExpected: true,
+    });
+  });
+
+  test("accepts the alternate authorization URL field safely", () => {
+    expect(
+      resolveClaudeMcpOauthLoginResult({
+        authorizationUrl: "https://auth.example.test/alternate",
+      }),
+    ).toEqual({
+      authorizationUrl: "https://auth.example.test/alternate",
+      requiresUserAction: false,
+      callbackExpected: false,
+    });
+    expect(resolveClaudeMcpOauthLoginResult(null)).toEqual({
+      requiresUserAction: false,
+      callbackExpected: false,
+    });
+  });
+});
 
 describe("parseClaudeRouteClassificationJson", () => {
   test("parses strict route classification JSON", () => {

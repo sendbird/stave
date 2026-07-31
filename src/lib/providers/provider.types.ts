@@ -79,8 +79,26 @@ export interface ClaudeMcpServerStatusSnapshot {
   name: string;
   status: "connected" | "failed" | "needs-auth" | "pending" | "disabled";
   error?: string;
+  lastError?: string;
+  lastErrorAt?: number;
+  statusUpdatedAt?: number;
   scope?: string;
   toolCount?: number;
+}
+
+export interface ClaudeMcpStatusResponse {
+  ok: boolean;
+  detail: string;
+  servers: ClaudeMcpServerStatusSnapshot[];
+  checkedAt: number;
+}
+
+export interface ClaudeMcpOauthLoginResponse {
+  ok: boolean;
+  detail: string;
+  authorizationUrl?: string;
+  requiresUserAction?: boolean;
+  callbackExpected?: boolean;
 }
 
 export interface ClaudePluginReloadSnapshot {
@@ -123,6 +141,18 @@ export interface CodexMcpServerStatusSnapshot {
   name: string;
   enabled: boolean;
   disabledReason: string | null;
+  connectionStatus?:
+    | "starting"
+    | "connected"
+    | "failed"
+    | "needs-auth"
+    | "cancelled"
+    | "disabled"
+    | "unknown";
+  lastError?: string;
+  lastErrorAt?: number;
+  statusUpdatedAt?: number;
+  failureReason?: string;
   transportType: string;
   url: string | null;
   bearerTokenEnvVar: string | null;
@@ -158,10 +188,12 @@ export interface CodexMcpStatusResponse {
 
 export interface McpDiscoveredServer {
   name: string;
-  sources: Array<"claude-user" | "claude-project" | "codex-user">;
+  sources: Array<
+    "claude-user" | "claude-project" | "claude-local" | "codex-user"
+  >;
   claude: { configured: boolean };
   codex: { configured: boolean };
-  transport: "stdio" | "http" | "unknown";
+  transport: "stdio" | "http" | "sse" | "unknown";
 }
 
 export interface McpDiscoveryResponse {

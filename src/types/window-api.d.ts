@@ -7,6 +7,8 @@ import type {
   CodexThreadReadResponse,
   CanonicalConversationRequest,
   ClaudeContextUsageResponse,
+  ClaudeMcpOauthLoginResponse,
+  ClaudeMcpStatusResponse,
   ClaudeSessionForkResponse,
   ProviderMutationResponse,
   CodexMcpStatusResponse,
@@ -27,6 +29,14 @@ import type {
   UtilityInferenceContext,
   UtilityInferenceMetadata,
 } from "@/lib/providers/utility-inference";
+import type {
+  McpServerConfigListRequest,
+  McpServerConfigListResponse,
+  McpServerConfigMutationApplyRequest,
+  McpServerConfigMutationPreviewResponse,
+  McpServerConfigMutationRequest,
+  McpServerConfigMutationResponse,
+} from "@/lib/providers/mcp-config.types";
 import type {
   ConnectedToolId,
   ConnectedToolStatusResponse,
@@ -273,6 +283,10 @@ interface WindowProviderApi {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<ClaudePluginReloadResponse>;
+  getClaudeMcpStatus?: (args: {
+    cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+  }) => Promise<ClaudeMcpStatusResponse>;
   getCodexMcpStatus?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
@@ -280,6 +294,15 @@ interface WindowProviderApi {
   discoverMcpServers?: (args: {
     cwd?: string;
   }) => Promise<McpDiscoveryResponse>;
+  listMcpServerConfigs?: (
+    args: McpServerConfigListRequest,
+  ) => Promise<McpServerConfigListResponse>;
+  previewMcpServerConfigMutation?: (
+    args: McpServerConfigMutationRequest,
+  ) => Promise<McpServerConfigMutationPreviewResponse>;
+  applyMcpServerConfigMutation?: (
+    args: McpServerConfigMutationApplyRequest,
+  ) => Promise<McpServerConfigMutationResponse>;
   getCodexModelCatalog?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
@@ -316,6 +339,12 @@ interface WindowProviderApi {
     timeoutSecs?: number;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexMcpOauthLoginResponse>;
+  startClaudeMcpOauthLogin?: (args: {
+    name: string;
+    cwd?: string;
+    timeoutSecs?: number;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+  }) => Promise<ClaudeMcpOauthLoginResponse>;
   readCodexMcpResource?: (args: {
     threadId: string;
     server: string;

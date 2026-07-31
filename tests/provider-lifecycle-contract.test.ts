@@ -68,6 +68,7 @@ async function runMockAdapter(args: AdapterArgs) {
 
 mock.module("../electron/providers/claude-sdk-runtime", () => ({
   buildClaudeEnv: () => ({}),
+  cleanupClaudeMcpOauthFlows: () => {},
   cleanupClaudeTask: () => {},
   getClaudeCommandCatalog: async () => ({
     ok: true,
