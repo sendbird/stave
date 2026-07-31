@@ -1072,6 +1072,7 @@ export function AppShell() {
           await window.api?.shell?.openInVSCode?.({ path });
         },
         openFleetView: () => openFleetView(),
+        openGitGraph: () => useAppStore.getState().openGitGraph(),
         openAutomationCenter: () => openAutomationCenter(),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
         openProject: (nextProjectPath: string) =>

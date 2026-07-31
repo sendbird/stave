@@ -89,6 +89,7 @@ function createContext(
       openExplorerSearch: () => {},
       openLatestCompletedTurnTask: async () => {},
       openLens: () => {},
+      openGitGraph: () => {},
       openKickoff: () => {},
       openInGhostty: async () => {},
       openInTerminal: async () => {},
@@ -142,6 +143,9 @@ describe("command palette registry", () => {
           item.id === "navigation.fleet-view" && item.shortcut === "Cmd+K F",
       ),
     ).toBe(true);
+    expect(actions.some((item) => item.id === "view.open-git-graph")).toBe(
+      true,
+    );
     expect(actions.some((item) => item.id === "task.select.task-2")).toBe(true);
     expect(
       actions.some((item) => item.id === "workspace.select.ws-feature"),
