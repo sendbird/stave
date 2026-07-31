@@ -50,7 +50,11 @@ import type {
   PrePrReviewFinding,
   PrePrReviewProviderId,
 } from "../../src/lib/source-control-review";
-import type { CommandResult, DetachedCheckoutResult, SourceControlStatusItem } from "../main/types";
+import type {
+  CommandResult,
+  DetachedCheckoutResult,
+  SourceControlStatusItem,
+} from "../main/types";
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 import type {
   SecondaryProviderCancelRequest,
@@ -58,6 +62,11 @@ import type {
   SecondaryProviderExecutionResult,
 } from "../../src/lib/runs/secondary-run";
 import type { LocalMcpTaskTurnUpdate } from "../../src/lib/local-mcp/task-turn-update";
+import type {
+  GraphCommitDetailsResult,
+  GraphFileChange,
+  GraphResult,
+} from "../../src/lib/git-graph/types";
 
 export interface HostWorkspaceScriptRunEntryArgs {
   workspaceId: string;
@@ -350,13 +359,8 @@ export interface HostScmHistoryResult {
   stderr: string;
 }
 
-export interface HostScmGraphResult {
-  ok: boolean;
-  commits: import("../../src/lib/git-graph/types").GraphCommit[];
-  head: string | null;
-  hasMore: boolean;
-  stderr: string;
-}
+export type HostScmGraphResult = GraphResult;
+export type HostScmCommitDetailsResult = GraphCommitDetailsResult;
 
 export interface HostScmListBranchesResult {
   ok: boolean;
@@ -718,6 +722,12 @@ export interface HostServiceRequestMap {
     limit?: number;
     skip?: number;
     scope?: "current" | "all" | string;
+    refs?: string[];
+    includeRepositoryState?: boolean;
+  };
+  "scm.commit-details": {
+    hash: string;
+    cwd?: string;
   };
   "scm.commit-files": {
     hash: string;
@@ -937,9 +947,10 @@ export interface HostServiceResponseMap {
   "scm.discard-file": CommandResult;
   "scm.diff": HostScmDiffResult;
   "scm.graph": HostScmGraphResult;
+  "scm.commit-details": HostScmCommitDetailsResult;
   "scm.commit-files": {
     ok: boolean;
-    files: Array<{ path: string; status: string }>;
+    files: GraphFileChange[];
     stderr: string;
   };
   "scm.commit-diff": {

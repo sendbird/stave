@@ -35,6 +35,7 @@ import {
   fetchScmBranch,
   fetchGitHubPrStatus,
   fetchRepoMergeSettings,
+  getScmCommitDetails,
   getScmCommitDiff,
   getScmCommitFiles,
   getScmGraph,
@@ -1427,6 +1428,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "scm.graph":
       await respond(request.id, await getScmGraph(request.params));
       return;
+    case "scm.commit-details":
+      await respond(request.id, await getScmCommitDetails(request.params));
+      return;
     case "scm.commit-files":
       await respond(request.id, await getScmCommitFiles(request.params));
       return;
@@ -1449,7 +1453,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await checkoutScmBranch(request.params));
       return;
     case "scm.checkout-default-branch-detached":
-      await respond(request.id, await checkoutDefaultBranchDetached(request.params));
+      await respond(
+        request.id,
+        await checkoutDefaultBranchDetached(request.params),
+      );
       return;
     case "scm.pull-branch":
       await respond(request.id, await pullScmBranch(request.params));

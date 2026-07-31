@@ -1,509 +1,898 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
-import { GitGraph, LoaderCircle, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui";
+import { AlertCircle, GitGraph, LoaderCircle, X } from "lucide-react";
+import { Button, toast } from "@/components/ui";
+import { findGraphCommitMatches } from "@/lib/git-graph/search";
+import { formatSourceControlDiffPath } from "@/lib/source-control-diff";
+import type { GraphFileChange, GraphRef } from "@/lib/git-graph/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
-import type { GraphCommit, GraphRef } from "@/lib/git-graph/types";
+import { CommitContextMenu } from "./CommitContextMenu";
+import { CommitDetailPanel } from "./CommitDetailPanel";
+import { GitGraphCanvas, type GitGraphCanvasHandle } from "./GitGraphCanvas";
 import {
-  loadCommitDiff,
-  loadCommitFiles,
-  loadGraph,
-  revertCommit,
-  resetCommit,
-  createTag,
+  GitGraphToolbar,
+  type GitGraphColumnVisibility,
+} from "./GitGraphToolbar";
+import { RefContextMenu } from "./RefContextMenu";
+import type { GitGraphColumnWidths } from "./GitGraphRow";
+import {
+  checkoutBranch,
+  checkoutCommit,
   cherryPickCommit,
   createBranchFrom,
-  checkoutCommit,
-  listBranches,
-  checkoutBranch,
-  renameBranch,
+  createTag,
   deleteBranch,
   deleteTag,
+  fetchAllRemotes,
+  loadCommitDiff,
+  loadWorkingTreeDiff,
   mergeBranch,
-  rebaseBranch,
-  pullBranch,
   pushBranch,
+  rebaseBranch,
+  renameBranch,
+  resetCommit,
+  revertCommit,
 } from "./git-graph-actions";
-import { GitGraphCanvas } from "./GitGraphCanvas";
-import { CommitDetailPanel } from "./CommitDetailPanel";
-import {
-  CommitContextMenu,
-  type CommitContextMenuAnchor,
-} from "./CommitContextMenu";
-import { RefContextMenu, type RefContextMenuAnchor } from "./RefContextMenu";
+import { WORKING_TREE_SELECTION, useGitGraphData } from "./useGitGraphData";
 
-type Scope = "all" | "current";
+const PREFERENCES_KEY = "stave:git-graph-preferences:v1";
+const DEFAULT_COLUMNS: GitGraphColumnVisibility = {
+  author: true,
+  date: true,
+  hash: true,
+};
+const DEFAULT_COLUMN_WIDTHS: GitGraphColumnWidths = {
+  author: 150,
+  date: 118,
+  hash: 82,
+};
 
-const INITIAL_LIMIT = 500;
+interface GitGraphPreferences {
+  columns: GitGraphColumnVisibility;
+  columnWidths: GitGraphColumnWidths;
+  detailWidth: number;
+  detailHeight: number;
+}
 
-interface CommitFile {
-  path: string;
-  status: string;
-  oldPath?: string;
+const DEFAULT_PREFERENCES: GitGraphPreferences = {
+  columns: DEFAULT_COLUMNS,
+  columnWidths: DEFAULT_COLUMN_WIDTHS,
+  detailWidth: 370,
+  detailHeight: 270,
+};
+
+function boundedPreference(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(max, Math.max(min, value))
+    : fallback;
+}
+
+function readPreferences(): GitGraphPreferences {
+  if (typeof window === "undefined") {
+    return DEFAULT_PREFERENCES;
+  }
+  try {
+    const stored = JSON.parse(
+      window.localStorage.getItem(PREFERENCES_KEY) ?? "{}",
+    ) as Partial<GitGraphPreferences>;
+    return {
+      columns: {
+        author:
+          typeof stored.columns?.author === "boolean"
+            ? stored.columns.author
+            : DEFAULT_COLUMNS.author,
+        date:
+          typeof stored.columns?.date === "boolean"
+            ? stored.columns.date
+            : DEFAULT_COLUMNS.date,
+        hash:
+          typeof stored.columns?.hash === "boolean"
+            ? stored.columns.hash
+            : DEFAULT_COLUMNS.hash,
+      },
+      columnWidths: {
+        author: boundedPreference(
+          stored.columnWidths?.author,
+          DEFAULT_COLUMN_WIDTHS.author,
+          88,
+          320,
+        ),
+        date: boundedPreference(
+          stored.columnWidths?.date,
+          DEFAULT_COLUMN_WIDTHS.date,
+          88,
+          320,
+        ),
+        hash: boundedPreference(
+          stored.columnWidths?.hash,
+          DEFAULT_COLUMN_WIDTHS.hash,
+          68,
+          180,
+        ),
+      },
+      detailWidth: boundedPreference(
+        stored.detailWidth,
+        DEFAULT_PREFERENCES.detailWidth,
+        220,
+        1_000,
+      ),
+      detailHeight: boundedPreference(
+        stored.detailHeight,
+        DEFAULT_PREFERENCES.detailHeight,
+        220,
+        800,
+      ),
+    };
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+}
+
+function persistPreferences(preferences: GitGraphPreferences) {
+  try {
+    window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
+  } catch {
+    // Preferences are optional; private browsing and storage policies may
+    // reject localStorage writes without affecting graph functionality.
+  }
 }
 
 interface GitGraphViewProps {
   workspaceCwd: string | undefined;
 }
 
-export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
-  const [commits, setCommits] = useState<GraphCommit[]>([]);
-  const [head, setHead] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [scope, setScope] = useState<Scope>("all");
-  const [selectedHash, setSelectedHash] = useState<string | null>(null);
-  const [files, setFiles] = useState<CommitFile[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [filesLoading, setFilesLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [loadMorePending, setLoadMorePending] = useState(false);
-  const [contextMenuAnchor, setContextMenuAnchor] =
-    useState<CommitContextMenuAnchor | null>(null);
-  const [refContextMenuAnchor, setRefContextMenuAnchor] =
-    useState<RefContextMenuAnchor | null>(null);
+interface ActionResult {
+  ok: boolean;
+  stderr?: string;
+}
 
-  // Branch / worktree metadata (loaded alongside the graph)
-  const [currentBranch, setCurrentBranch] = useState("");
-  const [worktreePathByBranch, setWorktreePathByBranch] = useState<
-    Record<string, string>
-  >({});
+function workingTreeDirty(args: {
+  staged: number;
+  unstaged: number;
+  untracked: number;
+  conflicts: number;
+}) {
+  return args.staged + args.unstaged + args.untracked + args.conflicts > 0;
+}
 
-  const openDiffInEditor = useAppStore((s) => s.openDiffInEditor);
+function operationError(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
-  const fetchBranchMeta = useCallback(async () => {
-    if (!workspaceCwd) return;
-    const result = await listBranches(workspaceCwd);
-    if (result.ok) {
-      setCurrentBranch(result.current);
-      setWorktreePathByBranch(result.worktreePathByBranch);
-    }
-  }, [workspaceCwd]);
+function exactRevision(graphRef: GraphRef) {
+  return graphRef.revision ?? graphRef.name;
+}
 
-  const fetchGraph = useCallback(
-    async (args: { scope: Scope; skip?: number; append?: boolean }) => {
-      if (!workspaceCwd) {
-        setError("No workspace path available.");
-        return;
-      }
-      if (args.append) {
-        setLoadMorePending(true);
-      } else {
-        setLoading(true);
-        setError("");
-      }
-
-      try {
-        const result = await loadGraph(workspaceCwd, {
-          scope: args.scope,
-          limit: INITIAL_LIMIT,
-          skip: args.skip ?? 0,
-        });
-        if (!result.ok) {
-          setError(result.stderr || "Failed to load git graph.");
-        } else {
-          setError("");
-        }
-        if (args.append) {
-          setCommits((prev) => [...prev, ...result.commits]);
-        } else {
-          setCommits(result.commits);
-          setSelectedHash(null);
-          setFiles([]);
-        }
-        setHead(result.head);
-        setHasMore(result.hasMore);
-        // Load branch/worktree metadata in parallel with graph
-        void fetchBranchMeta();
-      } finally {
-        setLoading(false);
-        setLoadMorePending(false);
-      }
-    },
-    [workspaceCwd, fetchBranchMeta],
-  );
-
-  // Load on mount, scope change, or workspaceCwd change.
-  // lastFetchKeyRef tracks the previously-fetched (scope, cwd) pair so that
-  // a stale re-render does not trigger a duplicate request.
-  const lastFetchKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!workspaceCwd) return;
-    const key = `${scope}:${workspaceCwd}`;
-    if (lastFetchKeyRef.current === key) return;
-    lastFetchKeyRef.current = key;
-    void fetchGraph({ scope });
-    // fetchGraph is stable (useCallback dep on workspaceCwd); no loop risk.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, workspaceCwd]);
-
-  async function handleSelect(hash: string) {
-    setSelectedHash(hash);
-    setFiles([]);
-    if (!workspaceCwd) return;
-    setFilesLoading(true);
-    try {
-      const result = await loadCommitFiles(workspaceCwd, hash);
-      if (result.ok) {
-        setFiles(result.files);
-      } else {
-        setError(result.stderr || "Failed to load commit files.");
-        setFiles([]);
-      }
-    } finally {
-      setFilesLoading(false);
-    }
+function checkoutRevision(
+  graphRef: GraphRef,
+  repositoryRefs: readonly GraphRef[],
+) {
+  if (graphRef.type !== "remoteBranch") {
+    return graphRef.type === "localBranch"
+      ? graphRef.name
+      : exactRevision(graphRef);
   }
+  const remotePrefix = graphRef.remote
+    ? `${graphRef.remote}/`
+    : `${graphRef.name.split("/")[0] ?? ""}/`;
+  const localName = graphRef.name.startsWith(remotePrefix)
+    ? graphRef.name.slice(remotePrefix.length)
+    : graphRef.name;
+  return repositoryRefs.some(
+    (candidate) =>
+      candidate.type === "localBranch" && candidate.name === localName,
+  )
+    ? localName
+    : exactRevision(graphRef);
+}
 
-  async function handleOpenFile(file: CommitFile) {
-    if (!workspaceCwd || !selectedHash) return;
-    const result = await loadCommitDiff(
-      workspaceCwd,
-      selectedHash,
-      file.path,
-      file.oldPath,
-    );
-    if (!result.ok) {
-      setError(result.stderr || "Failed to load commit diff.");
+export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
+  const {
+    graph,
+    selectedRefs,
+    selection,
+    details,
+    workingTreeFiles,
+    loading,
+    loadingMore,
+    detailsLoading,
+    error,
+    setError,
+    setSelectedRefs,
+    reload,
+    loadMore,
+    selectCommit,
+    selectWorkingTree,
+    clearSelection,
+  } = useGitGraphData(workspaceCwd);
+  const [preferences, setPreferences] = useState(readPreferences);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeMatchIndex, setActiveMatchIndex] = useState(0);
+  const [fetching, setFetching] = useState(false);
+  const [pendingAction, setPendingAction] = useState("");
+  const [detailLocation, setDetailLocation] = useState<"right" | "bottom">(
+    "right",
+  );
+  const [rootSize, setRootSize] = useState({ width: 0, height: 0 });
+  const [commitMenu, setCommitMenu] = useState<{
+    x: number;
+    y: number;
+    hash: string;
+    subject: string;
+  } | null>(null);
+  const [refMenu, setRefMenu] = useState<{
+    x: number;
+    y: number;
+    ref: GraphRef;
+  } | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<GitGraphCanvasHandle>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  const mutationInFlightRef = useRef(false);
+  const openDiffInEditor = useAppStore((state) => state.openDiffInEditor);
+
+  useEffect(() => {
+    persistPreferences(preferences);
+  }, [preferences]);
+
+  useEffect(() => {
+    const element = rootRef.current;
+    if (!element || typeof ResizeObserver === "undefined") {
       return;
     }
-    openDiffInEditor({
-      editorTabId: `commit-diff:${selectedHash}:${file.path}`,
-      filePath: file.path,
-      oldContent: result.oldContent,
-      newContent: result.newContent,
-    });
+    const update = () => {
+      const width = element.clientWidth;
+      const height = element.clientHeight;
+      setRootSize({ width, height });
+      setDetailLocation(width < 820 ? "bottom" : "right");
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => () => resizeCleanupRef.current?.(), []);
+
+  const searchMatchHashes = useMemo(
+    () => findGraphCommitMatches(graph.commits, searchQuery),
+    [graph.commits, searchQuery],
+  );
+  const searchMatches = useMemo(
+    () => new Set(searchMatchHashes),
+    [searchMatchHashes],
+  );
+  const activeMatchHash =
+    searchMatchHashes.length > 0
+      ? searchMatchHashes[
+          Math.min(activeMatchIndex, searchMatchHashes.length - 1)
+        ]
+      : null;
+
+  useEffect(() => {
+    setActiveMatchIndex(0);
+    const firstMatch = searchMatchHashes[0];
+    if (firstMatch) {
+      canvasRef.current?.scrollToHash(firstMatch);
+    }
+  }, [searchMatchHashes]);
+
+  const selectedCommit = useMemo(() => {
+    if (selection?.kind !== "commit") {
+      return null;
+    }
+    return (
+      graph.commits.find((commit) => commit.hash === selection.hash) ?? null
+    );
+  }, [graph.commits, selection]);
+  const effectiveDetailWidth =
+    rootSize.width > 0
+      ? Math.min(preferences.detailWidth, Math.max(320, rootSize.width * 0.62))
+      : preferences.detailWidth;
+  const effectiveDetailHeight =
+    rootSize.height > 0
+      ? Math.min(
+          preferences.detailHeight,
+          Math.max(220, rootSize.height * 0.65),
+        )
+      : preferences.detailHeight;
+
+  const runMutation = useCallback(
+    async (
+      label: string,
+      operation: () => Promise<ActionResult>,
+      options: { reload?: boolean } = {},
+    ): Promise<boolean> => {
+      if (mutationInFlightRef.current) {
+        return false;
+      }
+      mutationInFlightRef.current = true;
+      setPendingAction(label);
+      setError("");
+      try {
+        const result = await operation();
+        if (!result.ok) {
+          const message = result.stderr || `${label} failed.`;
+          setError(message);
+          toast.error(label, { description: message });
+          return false;
+        }
+        toast.success(label);
+        if (options.reload !== false) {
+          await reload();
+        }
+        return true;
+      } catch (requestFailure) {
+        const message = operationError(requestFailure, `${label} failed.`);
+        setError(message);
+        toast.error(label, { description: message });
+        return false;
+      } finally {
+        mutationInFlightRef.current = false;
+        setPendingAction("");
+      }
+    },
+    [reload, setError],
+  );
+
+  const handleFetch = useCallback(async () => {
+    if (!workspaceCwd || fetching) {
+      return;
+    }
+    setFetching(true);
+    try {
+      await runMutation("Fetched all remotes", () =>
+        fetchAllRemotes(workspaceCwd),
+      );
+    } finally {
+      setFetching(false);
+    }
+  }, [fetching, runMutation, workspaceCwd]);
+
+  const handleOpenFile = useCallback(
+    async (file: GraphFileChange) => {
+      if (!workspaceCwd || !selection) {
+        return;
+      }
+      try {
+        const result =
+          selection.kind === WORKING_TREE_SELECTION
+            ? await loadWorkingTreeDiff(
+                workspaceCwd,
+                formatSourceControlDiffPath({
+                  path: file.path,
+                  oldPath: file.oldPath,
+                }),
+              )
+            : await loadCommitDiff(
+                workspaceCwd,
+                selection.hash,
+                file.path,
+                file.oldPath,
+              );
+        if (!result.ok) {
+          setError(result.stderr || "Failed to load file diff.");
+          return;
+        }
+        const revision =
+          selection.kind === WORKING_TREE_SELECTION
+            ? "working-tree"
+            : selection.hash;
+        openDiffInEditor({
+          editorTabId: `git-graph-diff:${revision}:${encodeURIComponent(file.path)}`,
+          filePath: file.path,
+          oldContent: result.oldContent ?? "",
+          newContent: result.newContent ?? "",
+        });
+      } catch (requestFailure) {
+        setError(operationError(requestFailure, "Failed to load file diff."));
+      }
+    },
+    [openDiffInEditor, selection, setError, workspaceCwd],
+  );
+
+  const locateHash = useCallback(
+    (hash: string | null) => {
+      if (!hash) {
+        setError("HEAD is not available in this repository.");
+        return;
+      }
+      if (!graph.commits.some((commit) => commit.hash === hash)) {
+        setError(
+          "HEAD is outside the loaded history. Clear the branch filter or load more commits.",
+        );
+        return;
+      }
+      canvasRef.current?.scrollToHash(hash);
+    },
+    [graph.commits, setError],
+  );
+
+  const navigateSearch = useCallback(
+    (direction: -1 | 1) => {
+      if (searchMatchHashes.length === 0) {
+        return;
+      }
+      const next =
+        (activeMatchIndex + direction + searchMatchHashes.length) %
+        searchMatchHashes.length;
+      setActiveMatchIndex(next);
+      const hash = searchMatchHashes[next];
+      if (hash) {
+        canvasRef.current?.scrollToHash(hash);
+        void selectCommit(hash);
+      }
+    },
+    [activeMatchIndex, searchMatchHashes, selectCommit],
+  );
+
+  const navigateRows = useCallback(
+    (direction: -1 | 1, followParent: boolean, alternate: boolean) => {
+      if (followParent && selection?.kind === "commit") {
+        const commit = graph.commits.find(
+          (candidate) => candidate.hash === selection.hash,
+        );
+        const relatedHash =
+          direction === 1
+            ? commit?.parents[alternate ? 1 : 0]
+            : graph.commits.find((candidate) =>
+                candidate.parents
+                  .slice(alternate ? 1 : 0, alternate ? 2 : 1)
+                  .includes(selection.hash),
+              )?.hash;
+        if (relatedHash) {
+          canvasRef.current?.scrollToHash(relatedHash);
+          void selectCommit(relatedHash);
+        }
+        canvasRef.current?.focus();
+        return;
+      }
+
+      const rows = [
+        ...(workingTreeDirty(graph.workingTree)
+          ? [WORKING_TREE_SELECTION]
+          : []),
+        ...graph.commits.map((commit) => commit.hash),
+      ];
+      if (rows.length === 0) {
+        return;
+      }
+      const currentKey =
+        selection?.kind === WORKING_TREE_SELECTION
+          ? WORKING_TREE_SELECTION
+          : selection?.kind === "commit"
+            ? selection.hash
+            : null;
+      const currentIndex = currentKey ? rows.indexOf(currentKey) : -1;
+      const nextIndex = Math.min(
+        rows.length - 1,
+        Math.max(0, currentIndex === -1 ? 0 : currentIndex + direction),
+      );
+      const next = rows[nextIndex];
+      if (next === WORKING_TREE_SELECTION) {
+        canvasRef.current?.scrollToWorkingTree();
+        void selectWorkingTree();
+      } else if (next) {
+        canvasRef.current?.scrollToHash(next);
+        void selectCommit(next);
+      }
+      canvasRef.current?.focus();
+    },
+    [
+      graph.commits,
+      graph.workingTree,
+      selectCommit,
+      selectWorkingTree,
+      selection,
+    ],
+  );
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const modifier = event.metaKey || event.ctrlKey;
+    if (modifier && event.key.toLocaleLowerCase() === "f") {
+      event.preventDefault();
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+      return;
+    }
+    if (modifier && event.key.toLocaleLowerCase() === "r") {
+      event.preventDefault();
+      void reload();
+      return;
+    }
+    if (modifier && event.key.toLocaleLowerCase() === "h") {
+      event.preventDefault();
+      locateHash(graph.headHash);
+      return;
+    }
+    const target = event.target;
+    const isTextInput =
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      (target instanceof HTMLElement && target.isContentEditable);
+    if (isTextInput) {
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      clearSelection();
+      return;
+    }
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      event.preventDefault();
+      navigateRows(event.key === "ArrowUp" ? -1 : 1, modifier, event.shiftKey);
+    }
   }
 
-  function handleLoadMore() {
-    void fetchGraph({ scope, skip: commits.length, append: true });
-  }
-
-  function handleRefresh() {
-    lastFetchKeyRef.current = null;
-    void fetchGraph({ scope });
-  }
-
-  // Context menu open
-  function handleCommitContextMenu(e: MouseEvent, hash: string) {
-    e.preventDefault();
-    const commit = commits.find((c) => c.hash === hash);
-    setContextMenuAnchor({
-      x: e.clientX,
-      y: e.clientY,
+  function openCommitContextMenu(event: MouseEvent, hash: string) {
+    event.preventDefault();
+    const commit = graph.commits.find((candidate) => candidate.hash === hash);
+    setCommitMenu({
+      x: event.clientX,
+      y: event.clientY,
       hash,
       subject: commit?.subject ?? "",
     });
   }
 
-  // Context menu actions — each calls the API then refreshes on success or sets error
-  async function handleContextCheckout(hash: string) {
-    if (!workspaceCwd) return;
-    const result = await checkoutCommit(workspaceCwd, hash);
-    if (!result.ok) {
-      setError(result.stderr ?? "Checkout failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleContextCreateBranch(hash: string, name: string) {
-    if (!workspaceCwd) return;
-    const result = await createBranchFrom(workspaceCwd, name, hash);
-    if (!result.ok) {
-      setError(result.stderr ?? "Create branch failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleContextCreateTag(hash: string, name: string) {
-    if (!workspaceCwd) return;
-    const result = await createTag(workspaceCwd, name, hash);
-    if (!result.ok) {
-      setError(result.stderr ?? "Create tag failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleContextCherryPick(hash: string) {
-    if (!workspaceCwd) return;
-    const result = await cherryPickCommit(workspaceCwd, hash);
-    if (!result.ok) {
-      setError(result.stderr ?? "Cherry-pick failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleContextRevert(hash: string) {
-    if (!workspaceCwd) return;
-    const result = await revertCommit(workspaceCwd, hash);
-    if (!result.ok) {
-      setError(result.stderr ?? "Revert failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleContextReset(
-    hash: string,
-    mode: "soft" | "mixed" | "hard",
+  function openRefContextMenu(
+    event: MouseEvent,
+    _hash: string,
+    graphRef: GraphRef,
   ) {
-    if (!workspaceCwd) return;
-    const result = await resetCommit(workspaceCwd, hash, mode);
-    if (!result.ok) {
-      setError(result.stderr ?? "Reset failed.");
-    } else {
-      handleRefresh();
-    }
+    event.preventDefault();
+    event.stopPropagation();
+    setRefMenu({ x: event.clientX, y: event.clientY, ref: graphRef });
   }
 
-  function handleCopyHash(hash: string) {
-    void navigator.clipboard.writeText(hash);
+  const handleRefCheckout = useCallback(
+    async (graphRef: GraphRef) => {
+      if (!workspaceCwd) {
+        return;
+      }
+      await runMutation(`Checked out ${graphRef.name}`, () =>
+        checkoutBranch(
+          workspaceCwd,
+          checkoutRevision(graphRef, graph.availableRefs),
+        ),
+      );
+    },
+    [graph.availableRefs, runMutation, workspaceCwd],
+  );
+
+  function startDetailResize(event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startSize =
+      detailLocation === "right" ? effectiveDetailWidth : effectiveDetailHeight;
+    const onMove = (moveEvent: PointerEvent) => {
+      const root = rootRef.current;
+      if (!root) {
+        return;
+      }
+      const delta =
+        detailLocation === "right"
+          ? startX - moveEvent.clientX
+          : startY - moveEvent.clientY;
+      const max =
+        detailLocation === "right"
+          ? Math.max(320, root.clientWidth * 0.62)
+          : Math.max(220, root.clientHeight * 0.65);
+      const next = Math.round(Math.min(max, Math.max(220, startSize + delta)));
+      setPreferences((current) =>
+        detailLocation === "right"
+          ? { ...current, detailWidth: next }
+          : { ...current, detailHeight: next },
+      );
+    };
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", cleanup);
+      resizeCleanupRef.current = null;
+    };
+    resizeCleanupRef.current?.();
+    resizeCleanupRef.current = cleanup;
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", cleanup, { once: true });
   }
 
-  // Ref context menu open
-  function handleRefContextMenu(e: MouseEvent, _hash: string, ref: GraphRef) {
-    e.preventDefault();
-    e.stopPropagation();
-    setRefContextMenuAnchor({ x: e.clientX, y: e.clientY, ref });
-  }
-
-  // Ref action handlers — refresh graph + branch metadata on success
-  async function handleRefCheckout(ref: GraphRef) {
-    if (!workspaceCwd) return;
-    const result = await checkoutBranch(workspaceCwd, ref.name);
-    if (!result.ok) {
-      setError(result.stderr ?? "Checkout failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleRefRename(ref: GraphRef, newName: string) {
-    if (!workspaceCwd) return;
-    const result = await renameBranch(workspaceCwd, ref.name, newName);
-    if (!result.ok) {
-      setError(result.stderr ?? "Rename failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleRefDelete(ref: GraphRef, force: boolean) {
-    if (!workspaceCwd) return;
-    const result =
-      ref.type === "tag"
-        ? await deleteTag(workspaceCwd, ref.name)
-        : await deleteBranch(workspaceCwd, ref.name, force);
-    if (!result.ok) {
-      setError(result.stderr ?? "Delete failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleRefMergeInto(ref: GraphRef) {
-    if (!workspaceCwd) return;
-    const result = await mergeBranch(workspaceCwd, ref.name);
-    if (!result.ok) {
-      setError(result.stderr ?? "Merge failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleRefRebaseOnto(ref: GraphRef) {
-    if (!workspaceCwd) return;
-    const result = await rebaseBranch(workspaceCwd, ref.name);
-    if (!result.ok) {
-      setError(result.stderr ?? "Rebase failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleRefPush(ref: GraphRef, force: boolean) {
-    if (!workspaceCwd) return;
-    const result = await pushBranch(workspaceCwd, ref.name, force);
-    if (!result.ok) {
-      setError(result.stderr ?? "Push failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  async function handleRefPull(ref: GraphRef) {
-    if (!workspaceCwd) return;
-    // For remote branches like "origin/main", extract just the branch part
-    const branch = ref.name.includes("/")
-      ? ref.name.split("/").slice(1).join("/")
-      : ref.name;
-    const result = await pullBranch(workspaceCwd, branch);
-    if (!result.ok) {
-      setError(result.stderr ?? "Pull failed.");
-    } else {
-      handleRefresh();
-    }
-  }
-
-  function handleRefCopyName(ref: GraphRef) {
-    void navigator.clipboard.writeText(ref.name);
-  }
-
-  const selectedCommit = selectedHash
-    ? (commits.find((c) => c.hash === selectedHash) ?? null)
-    : null;
+  const showEmpty =
+    !loading &&
+    graph.commits.length === 0 &&
+    !workingTreeDirty(graph.workingTree);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-editor text-editor-foreground">
-      {/* Toolbar */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border/70 px-3 py-2">
-        <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-muted/30 p-1">
-          <button
-            type="button"
-            onClick={() => setScope("all")}
-            className={cn(
-              "h-7 rounded-md px-3 text-xs font-medium transition-colors",
-              scope === "all"
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            onClick={() => setScope("current")}
-            className={cn(
-              "h-7 rounded-md px-3 text-xs font-medium transition-colors",
-              scope === "current"
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Current Branch
-          </button>
-        </div>
+    <div
+      ref={rootRef}
+      className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-editor text-editor-foreground"
+      onKeyDown={handleKeyDown}
+      data-testid="git-graph-view"
+    >
+      <GitGraphToolbar
+        head={graph.head}
+        availableRefs={graph.availableRefs}
+        selectedRefs={selectedRefs}
+        workingTree={graph.workingTree}
+        workingTreeAvailable={graph.workingTreeAvailable}
+        loadedCount={graph.commits.length}
+        hasMore={graph.hasMore}
+        loading={loading}
+        fetching={fetching}
+        searchQuery={searchQuery}
+        matchPosition={
+          activeMatchHash
+            ? Math.min(activeMatchIndex + 1, searchMatchHashes.length)
+            : 0
+        }
+        matchCount={searchMatchHashes.length}
+        columns={preferences.columns}
+        onSelectedRefsChange={setSelectedRefs}
+        onSearchQueryChange={setSearchQuery}
+        onPreviousMatch={() => navigateSearch(-1)}
+        onNextMatch={() => navigateSearch(1)}
+        onLocateHead={() => locateHash(graph.headHash)}
+        onFetch={() => void handleFetch()}
+        onRefresh={() => void reload()}
+        onColumnsChange={(columns) =>
+          setPreferences((current) => ({ ...current, columns }))
+        }
+        searchInputRef={searchInputRef}
+      />
 
-        {head ? (
-          <span className="text-[11px] text-muted-foreground">
-            <span className="font-medium text-foreground">{head}</span>
-          </span>
-        ) : null}
-
-        <div className="ml-auto flex items-center gap-1">
-          {hasMore ? (
-            <Button
-              type="button"
-              size="xs"
-              variant="ghost"
-              className="h-7 gap-1 rounded-lg px-2 text-[11px] text-muted-foreground hover:text-foreground"
-              disabled={loadMorePending || loading}
-              onClick={handleLoadMore}
-            >
-              {loadMorePending ? (
-                <LoaderCircle className="size-3 animate-spin" />
-              ) : null}
-              Load more
-            </Button>
-          ) : null}
+      {error ? (
+        <div className="flex shrink-0 items-start gap-2 border-b border-destructive/25 bg-destructive/8 px-3 py-2 text-xs text-destructive">
+          <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+          <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+            {error}
+          </p>
           <Button
             type="button"
             size="icon-xs"
             variant="ghost"
-            aria-label="Refresh git graph"
-            title="Refresh"
-            className="size-7 rounded-lg text-muted-foreground hover:text-foreground"
-            disabled={loading}
-            onClick={handleRefresh}
+            className="size-5 text-destructive"
+            onClick={() => setError("")}
+            aria-label="Dismiss git graph error"
           >
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+            <X className="size-3" />
           </Button>
-        </div>
-      </div>
-
-      {/* Main content: canvas + detail panel */}
-      {error ? (
-        <div className="m-3 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
         </div>
       ) : null}
 
-      {loading && commits.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Loading git graph…</p>
+      {loading && graph.commits.length === 0 ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <LoaderCircle className="size-5 animate-spin" />
+            <p className="text-xs">Reading repository history…</p>
           </div>
         </div>
-      ) : commits.length === 0 && !loading ? (
-        <div className="flex flex-1 items-center justify-center p-6">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <GitGraph className="size-8 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">No commits found</p>
+      ) : showEmpty ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+          <div className="flex max-w-sm flex-col items-center gap-2 text-center">
+            <GitGraph className="size-8 text-muted-foreground/45" />
+            <p className="text-sm font-medium text-foreground">
+              No commits found
+            </p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              This repository has no commits in the selected branch scope.
+            </p>
           </div>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          {/* Graph canvas — scrollable */}
-          <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-            <GitGraphCanvas
-              commits={commits}
-              selectedHash={selectedHash}
-              onSelect={(hash) => void handleSelect(hash)}
-              onCommitContextMenu={handleCommitContextMenu}
-              onRefContextMenu={handleRefContextMenu}
-            />
-          </div>
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1 overflow-hidden",
+            detailLocation === "bottom" && "flex-col",
+          )}
+        >
+          <GitGraphCanvas
+            ref={canvasRef}
+            commits={graph.commits}
+            headHash={graph.headHash}
+            workingTree={graph.workingTree}
+            selection={selection}
+            searchMatches={searchMatches}
+            searchQuery={searchQuery}
+            columns={preferences.columns}
+            columnWidths={preferences.columnWidths}
+            hasMore={graph.hasMore}
+            loadingMore={loadingMore}
+            onSelectCommit={(hash) => void selectCommit(hash)}
+            onSelectWorkingTree={() => void selectWorkingTree()}
+            onCommitContextMenu={openCommitContextMenu}
+            onRefContextMenu={openRefContextMenu}
+            onRefDoubleClick={(graphRef) => void handleRefCheckout(graphRef)}
+            onColumnWidthChange={(column, width) =>
+              setPreferences((current) => ({
+                ...current,
+                columnWidths: {
+                  ...current.columnWidths,
+                  [column]: width,
+                },
+              }))
+            }
+            onEndReached={() => void loadMore()}
+          />
 
-          {/* Detail panel — fixed width sidebar */}
-          <div className="w-72 shrink-0 overflow-hidden border-l border-border/70">
-            <CommitDetailPanel
-              commit={selectedCommit}
-              files={files}
-              loading={filesLoading}
-              onOpenFile={(file) => void handleOpenFile(file)}
-            />
-          </div>
+          {selection ? (
+            <>
+              <div
+                role="separator"
+                aria-orientation={
+                  detailLocation === "right" ? "vertical" : "horizontal"
+                }
+                aria-label="Resize commit details"
+                className={cn(
+                  "z-10 shrink-0 touch-none bg-border/65 transition-colors hover:bg-primary/45",
+                  detailLocation === "right"
+                    ? "w-1 cursor-col-resize"
+                    : "h-1 cursor-row-resize",
+                )}
+                onPointerDown={startDetailResize}
+              />
+              <div
+                className="min-h-0 min-w-0 shrink-0 overflow-hidden"
+                style={
+                  detailLocation === "right"
+                    ? { width: effectiveDetailWidth }
+                    : { height: effectiveDetailHeight }
+                }
+              >
+                <CommitDetailPanel
+                  selection={selection}
+                  commit={selectedCommit}
+                  details={details}
+                  workingTree={graph.workingTree}
+                  workingTreeFiles={workingTreeFiles}
+                  loading={detailsLoading}
+                  onOpenFile={(file) => void handleOpenFile(file)}
+                  onClose={clearSelection}
+                />
+              </div>
+            </>
+          ) : null}
         </div>
       )}
 
-      {/* Commit context menu — rendered outside the canvas scroll container */}
+      {pendingAction ? (
+        <div className="pointer-events-none absolute bottom-3 right-3 z-20 flex items-center gap-1.5 rounded-md border border-border/70 bg-popover px-2.5 py-1.5 text-[10px] text-popover-foreground shadow-md">
+          <LoaderCircle className="size-3 animate-spin" />
+          {pendingAction}…
+        </div>
+      ) : null}
+
       <CommitContextMenu
-        anchor={contextMenuAnchor}
-        onClose={() => setContextMenuAnchor(null)}
-        onCopyHash={handleCopyHash}
-        onCheckout={(hash) => void handleContextCheckout(hash)}
-        onCreateBranch={(hash, name) => handleContextCreateBranch(hash, name)}
-        onCreateTag={(hash, name) => handleContextCreateTag(hash, name)}
-        onCherryPick={(hash) => handleContextCherryPick(hash)}
-        onRevert={(hash) => handleContextRevert(hash)}
-        onReset={(hash, mode) => handleContextReset(hash, mode)}
+        anchor={commitMenu}
+        onClose={() => setCommitMenu(null)}
+        onCopyHash={(hash) => void navigator.clipboard.writeText(hash)}
+        onCheckout={(hash) => {
+          if (workspaceCwd) {
+            void runMutation("Checked out commit", () =>
+              checkoutCommit(workspaceCwd, hash),
+            );
+          }
+        }}
+        onCreateBranch={async (hash, name) => {
+          if (workspaceCwd) {
+            await runMutation(`Created branch ${name}`, () =>
+              createBranchFrom(workspaceCwd, name, hash),
+            );
+          }
+        }}
+        onCreateTag={async (hash, name) => {
+          if (workspaceCwd) {
+            await runMutation(`Created tag ${name}`, () =>
+              createTag(workspaceCwd, name, hash),
+            );
+          }
+        }}
+        onCherryPick={async (hash) => {
+          if (workspaceCwd) {
+            await runMutation("Cherry-picked commit", () =>
+              cherryPickCommit(workspaceCwd, hash),
+            );
+          }
+        }}
+        onRevert={async (hash) => {
+          if (workspaceCwd) {
+            await runMutation("Reverted commit", () =>
+              revertCommit(workspaceCwd, hash),
+            );
+          }
+        }}
+        onReset={async (hash, mode) => {
+          if (workspaceCwd) {
+            await runMutation(`${mode} reset complete`, () =>
+              resetCommit(workspaceCwd, hash, mode),
+            );
+          }
+        }}
       />
 
-      {/* Ref context menu — rendered outside the canvas scroll container */}
       <RefContextMenu
-        anchor={refContextMenuAnchor}
-        onClose={() => setRefContextMenuAnchor(null)}
-        currentBranch={currentBranch}
-        worktreePathByBranch={worktreePathByBranch}
+        anchor={refMenu}
+        onClose={() => setRefMenu(null)}
+        currentBranch={graph.head ?? ""}
+        worktreePathByBranch={graph.worktreePathByBranch}
+        worktreePathsAvailable={graph.worktreePathsAvailable}
         workspacePath={workspaceCwd}
-        onCheckout={(ref) => handleRefCheckout(ref)}
-        onRename={(ref, newName) => handleRefRename(ref, newName)}
-        onDelete={(ref, force) => handleRefDelete(ref, force)}
-        onMergeInto={(ref) => handleRefMergeInto(ref)}
-        onRebaseOnto={(ref) => handleRefRebaseOnto(ref)}
-        onPush={(ref, force) => handleRefPush(ref, force)}
-        onPull={(ref) => handleRefPull(ref)}
-        onCopyName={handleRefCopyName}
+        onCheckout={handleRefCheckout}
+        onRename={async (graphRef, newName) => {
+          if (workspaceCwd) {
+            const succeeded = await runMutation(
+              `Renamed branch to ${newName}`,
+              () => renameBranch(workspaceCwd, graphRef.name, newName),
+              { reload: false },
+            );
+            if (succeeded) {
+              const previousRevision = exactRevision(graphRef);
+              setSelectedRefs(
+                selectedRefs.map((revision) =>
+                  revision === previousRevision
+                    ? `refs/heads/${newName}`
+                    : revision,
+                ),
+              );
+            }
+          }
+        }}
+        onDelete={async (graphRef, force) => {
+          if (!workspaceCwd) {
+            return;
+          }
+          const succeeded = await runMutation(
+            `Deleted ${graphRef.name}`,
+            () =>
+              graphRef.type === "tag"
+                ? deleteTag(workspaceCwd, graphRef.name)
+                : deleteBranch(workspaceCwd, graphRef.name, force),
+            { reload: false },
+          );
+          if (succeeded) {
+            const deletedRevision = exactRevision(graphRef);
+            setSelectedRefs(
+              selectedRefs.filter((revision) => revision !== deletedRevision),
+            );
+          }
+        }}
+        onMergeInto={async (graphRef) => {
+          if (workspaceCwd) {
+            await runMutation(`Merged ${graphRef.name}`, () =>
+              mergeBranch(workspaceCwd, exactRevision(graphRef)),
+            );
+          }
+        }}
+        onRebaseOnto={async (graphRef) => {
+          if (workspaceCwd) {
+            await runMutation(`Rebased onto ${graphRef.name}`, () =>
+              rebaseBranch(workspaceCwd, exactRevision(graphRef)),
+            );
+          }
+        }}
+        onPush={async (graphRef, force) => {
+          if (workspaceCwd) {
+            await runMutation(`Pushed ${graphRef.name}`, () =>
+              pushBranch(workspaceCwd, exactRevision(graphRef), force),
+            );
+          }
+        }}
+        onCopyName={(graphRef) =>
+          void navigator.clipboard.writeText(graphRef.name)
+        }
       />
     </div>
   );

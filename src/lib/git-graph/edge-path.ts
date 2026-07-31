@@ -1,117 +1,197 @@
-// src/lib/git-graph/edge-path.ts
-//
-// Pure SVG path builders for git-graph edges (vscode-git-graph style):
-// bends are confined to a single row height; everything else is a straight
-// vertical line in the edge's travel lane. No React — unit-testable alone.
+import type { GraphSegment } from "./types";
 
-function laneCenterX(lane: number, laneWidth: number): number {
-  return lane * laneWidth + laneWidth / 2;
-}
-
-function rowCenterY(row: number, rowHeight: number): number {
-  return row * rowHeight + rowHeight / 2;
-}
-
-/** Cubic bezier turning from (x1, y1) to (x2, y1 + rowHeight) within one row. */
-function bend(x1: number, y1: number, x2: number, rowHeight: number): string {
-  const yMid = y1 + rowHeight / 2;
-  const y2 = y1 + rowHeight;
-  return `C ${x1} ${yMid}, ${x2} ${yMid}, ${x2} ${y2}`;
-}
-
-export interface EdgePathArgs {
-  fromLane: number;
-  fromRow: number;
-  /** Lane the edge travels in (GraphEdge.toLane). */
-  travelLane: number;
-  /** The parent node's final lane. */
-  toLane: number;
-  /** The parent node's row. */
-  toRow: number;
+export interface GraphPathGeometry {
   laneWidth: number;
   rowHeight: number;
+  /** Optional distance from the SVG edge to the centre of lane zero. */
+  offsetX?: number;
+}
+
+export interface GraphPathPart {
+  d: string;
+  isCommitted: boolean;
+}
+
+interface GridPoint {
+  row: number;
+  lane: number;
+}
+
+interface PixelPoint {
+  x: number;
+  y: number;
+}
+
+interface PathLeg {
+  kind: "line" | "curve";
+  from: PixelPoint;
+  to: PixelPoint;
+}
+
+interface SegmentRun {
+  isCommitted: boolean;
+  segments: GraphSegment[];
+}
+
+export function graphLaneX(
+  lane: number,
+  laneWidth: number,
+  offsetX = laneWidth / 2,
+): number {
+  return lane * laneWidth + offsetX;
+}
+
+function coordinate(value: number): string {
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(1).replace(/\.0$/, "");
+}
+
+function segmentStart(segment: GraphSegment): GridPoint {
+  return { row: segment.fromRow, lane: segment.fromLane };
+}
+
+function segmentEnd(segment: GraphSegment): GridPoint {
+  return { row: segment.toRow, lane: segment.toLane };
+}
+
+function sameGridPoint(left: GridPoint, right: GridPoint): boolean {
+  return left.row === right.row && left.lane === right.lane;
+}
+
+function toPixelPoint(
+  point: GridPoint,
+  geometry: Required<GraphPathGeometry>,
+): PixelPoint {
+  return {
+    x: graphLaneX(point.lane, geometry.laneWidth, geometry.offsetX),
+    y: point.row * geometry.rowHeight + geometry.rowHeight / 2,
+  };
+}
+
+function groupByCommitState(segments: GraphSegment[]): SegmentRun[] {
+  const runs: SegmentRun[] = [];
+
+  for (const segment of segments) {
+    const current = runs.at(-1);
+    if (!current || current.isCommitted !== segment.isCommitted) {
+      runs.push({
+        isCommitted: segment.isCommitted,
+        segments: [segment],
+      });
+      continue;
+    }
+    current.segments.push(segment);
+  }
+
+  return runs;
+}
+
+function splitConnectedChains(segments: GraphSegment[]): GraphSegment[][] {
+  const chains: GraphSegment[][] = [];
+
+  for (const segment of segments) {
+    const chain = chains.at(-1);
+    const previous = chain?.at(-1);
+    if (
+      !chain ||
+      !previous ||
+      !sameGridPoint(segmentEnd(previous), segmentStart(segment))
+    ) {
+      chains.push([segment]);
+      continue;
+    }
+    chain.push(segment);
+  }
+
+  return chains;
+}
+
+function collapseVerticalLegs(
+  segments: GraphSegment[],
+  geometry: Required<GraphPathGeometry>,
+): PathLeg[] {
+  const legs: PathLeg[] = [];
+
+  for (const segment of segments) {
+    const from = toPixelPoint(segmentStart(segment), geometry);
+    const to = toPixelPoint(segmentEnd(segment), geometry);
+    const kind = from.x === to.x ? "line" : "curve";
+    const previous = legs.at(-1);
+
+    if (
+      kind === "line" &&
+      previous?.kind === "line" &&
+      previous.to.x === from.x &&
+      previous.to.y === from.y
+    ) {
+      previous.to = to;
+      continue;
+    }
+
+    legs.push({ kind, from, to });
+  }
+
+  return legs;
+}
+
+function serializeChain(
+  segments: GraphSegment[],
+  geometry: Required<GraphPathGeometry>,
+): string {
+  const legs = collapseVerticalLegs(segments, geometry);
+  const first = legs[0];
+  if (!first) {
+    return "";
+  }
+
+  const commands = [
+    `M ${coordinate(first.from.x)} ${coordinate(first.from.y)}`,
+  ];
+
+  for (const leg of legs) {
+    if (leg.kind === "line") {
+      commands.push(`L ${coordinate(leg.to.x)} ${coordinate(leg.to.y)}`);
+      continue;
+    }
+
+    const middleY = (leg.from.y + leg.to.y) / 2;
+    commands.push(
+      `C ${coordinate(leg.from.x)} ${coordinate(middleY)}, ${coordinate(
+        leg.to.x,
+      )} ${coordinate(middleY)}, ${coordinate(leg.to.x)} ${coordinate(
+        leg.to.y,
+      )}`,
+    );
+  }
+
+  return commands.join(" ");
 }
 
 /**
- * Edge path from a commit node to its parent node.
+ * Convert ordered row segments into open SVG paths.
  *
- * Segments (each bend spans exactly ONE row):
- *   1. top bend    — fromLane → travelLane, in the row below the commit
- *   2. vertical    — straight line down the travel lane
- *   3. bottom bend — travelLane → toLane, in the row above the parent
+ * Lane changes use a symmetric cubic Bezier with both control points on the
+ * row midpoint. This keeps a vertical tangent at each node while producing a
+ * smooth transition between lanes. Disconnected connectors retain separate
+ * move commands but share one paint group so the existing shadow and branch
+ * strokes are composited consistently.
  */
-export function buildEdgePath(args: EdgePathArgs): string {
-  const { fromLane, fromRow, travelLane, toLane, toRow, laneWidth, rowHeight } =
-    args;
-  const x1 = laneCenterX(fromLane, laneWidth);
-  const y1 = rowCenterY(fromRow, rowHeight);
-  const x2 = laneCenterX(toLane, laneWidth);
-  const y2 = rowCenterY(toRow, rowHeight);
-  const xT = laneCenterX(travelLane, laneWidth);
+export function buildGraphBranchPaths(
+  segments: GraphSegment[],
+  geometry: GraphPathGeometry,
+): GraphPathPart[] {
+  const resolvedGeometry: Required<GraphPathGeometry> = {
+    laneWidth: geometry.laneWidth,
+    rowHeight: geometry.rowHeight,
+    offsetX: geometry.offsetX ?? geometry.laneWidth / 2,
+  };
 
-  if (fromLane === travelLane && travelLane === toLane) {
-    return `M ${x1} ${y1} L ${x2} ${y2}`;
-  }
-
-  const rowSpan = toRow - fromRow;
-  const needsTopBend = fromLane !== travelLane;
-  const needsBottomBend = travelLane !== toLane;
-
-  // Not enough rows for two one-row bends: single bend across the span.
-  if (rowSpan < 2 && needsTopBend && needsBottomBend) {
-    const yMid = (y1 + y2) / 2;
-    return `M ${x1} ${y1} C ${x1} ${yMid}, ${x2} ${yMid}, ${x2} ${y2}`;
-  }
-
-  const parts: string[] = [`M ${x1} ${y1}`];
-  let cursorY = y1;
-
-  if (needsTopBend) {
-    parts.push(bend(x1, cursorY, xT, rowHeight));
-    cursorY += rowHeight;
-  }
-
-  const verticalEndY = needsBottomBend ? y2 - rowHeight : y2;
-  if (verticalEndY > cursorY) {
-    parts.push(`L ${xT} ${verticalEndY}`);
-  }
-
-  if (needsBottomBend) {
-    parts.push(bend(xT, y2 - rowHeight, x2, rowHeight));
-  }
-
-  return parts.join(" ");
-}
-
-export interface UnresolvedEdgePathArgs {
-  fromLane: number;
-  fromRow: number;
-  travelLane: number;
-  /** Bottom y of the canvas (totalRows * rowHeight). */
-  bottomY: number;
-  laneWidth: number;
-  rowHeight: number;
-}
-
-/**
- * Edge whose parent is outside the loaded window: bend into the travel lane
- * (if needed) then run straight to the bottom of the canvas, signalling the
- * line continues past "Load more".
- */
-export function buildUnresolvedEdgePath(args: UnresolvedEdgePathArgs): string {
-  const { fromLane, fromRow, travelLane, bottomY, laneWidth, rowHeight } = args;
-  const x1 = laneCenterX(fromLane, laneWidth);
-  const y1 = rowCenterY(fromRow, rowHeight);
-  const xT = laneCenterX(travelLane, laneWidth);
-
-  const parts: string[] = [`M ${x1} ${y1}`];
-  let cursorY = y1;
-  if (fromLane !== travelLane) {
-    parts.push(bend(x1, y1, xT, rowHeight));
-    cursorY += rowHeight;
-  }
-  if (bottomY > cursorY) {
-    parts.push(`L ${xT} ${bottomY}`);
-  }
-  return parts.join(" ");
+  return groupByCommitState(segments).map((run) => ({
+    d: splitConnectedChains(run.segments)
+      .map((chain) => serializeChain(chain, resolvedGeometry))
+      .filter(Boolean)
+      .join(" "),
+    isCommitted: run.isCommitted,
+  }));
 }

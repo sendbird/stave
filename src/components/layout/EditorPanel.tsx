@@ -5,7 +5,10 @@ import { toast } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { workspaceFsAdapter } from "@/lib/fs";
 import type { WorkspaceCreateEntryResult, WorkspaceDeleteEntryResult, WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
-import { parseUnifiedDiffToBuffers } from "@/lib/source-control-diff";
+import {
+  formatSourceControlDiffPath,
+  parseUnifiedDiffToBuffers,
+} from "@/lib/source-control-diff";
 import { hasSourceControlStagedChanges, type SourceControlStatusItem } from "@/lib/source-control-status";
 import { resolveWorkspaceTodoStatus } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
@@ -520,9 +523,13 @@ export function EditorPanel(props: EditorPanelProps) {
       const nextAction = args.action === "toggle"
         ? (isStaged ? "unstage" : "stage")
         : args.action;
+      const path = formatSourceControlDiffPath({
+        path: args.item.path,
+        oldPath: args.item.oldPath,
+      });
       const result = nextAction === "unstage"
-        ? await unstageFile({ path: args.item.path, cwd: workspaceCwd })
-        : await stageFile({ path: args.item.path, cwd: workspaceCwd });
+        ? await unstageFile({ path, cwd: workspaceCwd })
+        : await stageFile({ path, cwd: workspaceCwd });
 
       if (!result.ok) {
         setSourceError(result.stderr || "git stage toggle failed");
@@ -544,7 +551,13 @@ export function EditorPanel(props: EditorPanelProps) {
 
     setIsScmBusy(true);
     try {
-      const result = await discardFile({ path: args.item.path, cwd: workspaceCwd });
+      const result = await discardFile({
+        path: formatSourceControlDiffPath({
+          path: args.item.path,
+          oldPath: args.item.oldPath,
+        }),
+        cwd: workspaceCwd,
+      });
       if (!result.ok) {
         setSourceError(result.stderr || "git discard failed");
       } else {

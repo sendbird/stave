@@ -1718,7 +1718,11 @@ contextBridge.exposeInMainWorld("api", {
       limit?: number;
       skip?: number;
       scope?: string;
+      refs?: string[];
+      includeRepositoryState?: boolean;
     }) => ipcRenderer.invoke("scm:graph", args),
+    getCommitDetails: (args: { hash: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:commit-details", args),
     getCommitFiles: (args: { hash: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:commit-files", args),
     getCommitDiff: (args: {

@@ -38,6 +38,41 @@ const HOST_SERVICE_STDOUT_BUFFER_MAX_BYTES =
 const HOST_SERVICE_STDOUT_MESSAGE_MAX_BYTES =
   HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES;
 
+interface HostServiceDiagnosticStream {
+  on(event: "error", listener: (error: Error) => void): unknown;
+  write(chunk: string, callback?: (error?: Error | null) => void): unknown;
+}
+
+const guardedDiagnosticStreams = new WeakSet<object>();
+
+/**
+ * Host-service stderr is diagnostic-only. A detached development launcher can
+ * leave Electron's inherited stderr revoked, and a failed diagnostic write
+ * must not take down the main process or interrupt an otherwise valid IPC
+ * response.
+ */
+export function forwardHostServiceStderr(
+  chunk: string,
+  stream: HostServiceDiagnosticStream = process.stderr,
+) {
+  const text = chunk.trim();
+  if (!text) {
+    return;
+  }
+
+  const streamObject = stream as object;
+  if (!guardedDiagnosticStreams.has(streamObject)) {
+    guardedDiagnosticStreams.add(streamObject);
+    stream.on("error", () => {});
+  }
+
+  try {
+    stream.write(`[host-service] ${text}\n`, () => {});
+  } catch {
+    // Best-effort diagnostics must never affect host-service availability.
+  }
+}
+
 export function resolveHostServiceScriptPath(args: {
   moduleUrl: string;
   pathExists?: (path: string) => boolean;
@@ -219,10 +254,7 @@ class HostServiceClient {
     child.stderr.setEncoding("utf8");
     if (process.env.STAVE_DEV) {
       child.stderr.on("data", (chunk: string) => {
-        const text = chunk.trim();
-        if (text) {
-          console.error(`[host-service] ${text}`);
-        }
+        forwardHostServiceStderr(chunk);
       });
     } else {
       child.stderr.resume();

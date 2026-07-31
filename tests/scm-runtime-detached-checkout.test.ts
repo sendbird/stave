@@ -117,7 +117,7 @@ describe("checkoutDefaultBranchDetached", () => {
     expect(calls.map((call) => call.commandArgs.join(" "))).toEqual([
       "fetch origin --prune",
       "rev-parse --verify --quiet refs/remotes/origin/main",
-      "status --porcelain --untracked-files=all",
+      "status --porcelain --untracked-files=all -z",
       "checkout --detach origin/main",
       "rev-parse --short HEAD",
     ]);

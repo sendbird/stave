@@ -3,19 +3,52 @@ import { invokeHostService } from "../host-service-client";
 import {
   CreatePRArgsSchema,
   GetPrStatusByUrlArgsSchema,
+  ScmCommitDetailsArgsSchema,
+  ScmCommitDiffArgsSchema,
+  ScmCommitFilesArgsSchema,
+  ScmGraphArgsSchema,
   StageFilesArgsSchema,
   TryAutoFixLintArgsSchema,
 } from "./schemas";
 
+function invalidGraphResult(stderr: string) {
+  return {
+    ok: false,
+    commits: [],
+    head: null,
+    headHash: null,
+    availableRefs: [],
+    workingTree: {
+      staged: 0,
+      unstaged: 0,
+      untracked: 0,
+      conflicts: 0,
+    },
+    workingTreeAvailable: false,
+    worktreePathByBranch: {},
+    worktreePathsAvailable: false,
+    hasMore: false,
+    stderr,
+  };
+}
+
 export function registerScmHandlers() {
-  ipcMain.handle("scm:status", (_event, args: { cwd?: string }) => invokeHostService("scm.status", args));
+  ipcMain.handle("scm:status", (_event, args: { cwd?: string }) =>
+    invokeHostService("scm.status", args),
+  );
 
-  ipcMain.handle("scm:stage-all", (_event, args: { cwd?: string }) => invokeHostService("scm.stage-all", args));
+  ipcMain.handle("scm:stage-all", (_event, args: { cwd?: string }) =>
+    invokeHostService("scm.stage-all", args),
+  );
 
-  ipcMain.handle("scm:unstage-all", (_event, args: { cwd?: string }) => invokeHostService("scm.unstage-all", args));
+  ipcMain.handle("scm:unstage-all", (_event, args: { cwd?: string }) =>
+    invokeHostService("scm.unstage-all", args),
+  );
 
-  ipcMain.handle("scm:commit", (_event, args: { message: string; cwd?: string }) =>
-    invokeHostService("scm.commit", args),
+  ipcMain.handle(
+    "scm:commit",
+    (_event, args: { message: string; cwd?: string }) =>
+      invokeHostService("scm.commit", args),
   );
 
   ipcMain.handle("scm:try-auto-fix-lint", (_event, args: unknown) => {
@@ -30,8 +63,10 @@ export function registerScmHandlers() {
     return invokeHostService("scm.try-auto-fix-lint", parsed.data);
   });
 
-  ipcMain.handle("scm:stage-file", (_event, args: { path: string; cwd?: string }) =>
-    invokeHostService("scm.stage-file", args),
+  ipcMain.handle(
+    "scm:stage-file",
+    (_event, args: { path: string; cwd?: string }) =>
+      invokeHostService("scm.stage-file", args),
   );
 
   ipcMain.handle("scm:stage-files", (_event, args: unknown) => {
@@ -42,96 +77,179 @@ export function registerScmHandlers() {
     return invokeHostService("scm.stage-files", parsed.data);
   });
 
-  ipcMain.handle("scm:unstage-file", (_event, args: { path: string; cwd?: string }) =>
-    invokeHostService("scm.unstage-file", args),
+  ipcMain.handle(
+    "scm:unstage-file",
+    (_event, args: { path: string; cwd?: string }) =>
+      invokeHostService("scm.unstage-file", args),
   );
 
-  ipcMain.handle("scm:discard-file", (_event, args: { path: string; cwd?: string }) =>
-    invokeHostService("scm.discard-file", args),
+  ipcMain.handle(
+    "scm:discard-file",
+    (_event, args: { path: string; cwd?: string }) =>
+      invokeHostService("scm.discard-file", args),
   );
 
-  ipcMain.handle("scm:diff", (_event, args: { path: string; cwd?: string }) => invokeHostService("scm.diff", args));
-
-  ipcMain.handle("scm:graph", (_event, args: { cwd?: string; limit?: number; skip?: number; scope?: string }) =>
-    invokeHostService("scm.graph", args),
+  ipcMain.handle("scm:diff", (_event, args: { path: string; cwd?: string }) =>
+    invokeHostService("scm.diff", args),
   );
 
-  ipcMain.handle("scm:commit-files", (_event, args: { hash: string; cwd?: string }) =>
-    invokeHostService("scm.commit-files", args),
+  ipcMain.handle("scm:graph", (_event, args: unknown) => {
+    const parsed = ScmGraphArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return invalidGraphResult("Invalid git graph request.");
+    }
+    return invokeHostService("scm.graph", parsed.data);
+  });
+
+  ipcMain.handle("scm:commit-details", (_event, args: unknown) => {
+    const parsed = ScmCommitDetailsArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        details: null,
+        stderr: "Invalid commit details request.",
+      };
+    }
+    return invokeHostService("scm.commit-details", parsed.data);
+  });
+
+  ipcMain.handle("scm:commit-files", (_event, args: unknown) => {
+    const parsed = ScmCommitFilesArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        files: [],
+        stderr: "Invalid commit files request.",
+      };
+    }
+    return invokeHostService("scm.commit-files", parsed.data);
+  });
+
+  ipcMain.handle("scm:commit-diff", (_event, args: unknown) => {
+    const parsed = ScmCommitDiffArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        oldContent: "",
+        newContent: "",
+        stderr: "Invalid commit diff request.",
+      };
+    }
+    return invokeHostService("scm.commit-diff", parsed.data);
+  });
+
+  ipcMain.handle(
+    "scm:history",
+    (_event, args: { cwd?: string; limit?: number }) =>
+      invokeHostService("scm.history", args),
   );
 
-  ipcMain.handle("scm:commit-diff", (_event, args: { hash: string; path: string; oldPath?: string; cwd?: string }) =>
-    invokeHostService("scm.commit-diff", args),
+  ipcMain.handle(
+    "scm:list-branches",
+    (_event, args: { cwd?: string; refreshRemote?: boolean }) =>
+      invokeHostService("scm.list-branches", args),
   );
 
-  ipcMain.handle("scm:history", (_event, args: { cwd?: string; limit?: number }) =>
-    invokeHostService("scm.history", args),
+  ipcMain.handle(
+    "scm:fetch-branch",
+    (_event, args: { cwd?: string; branch?: string }) =>
+      invokeHostService("scm.fetch-branch", args),
   );
 
-  ipcMain.handle("scm:list-branches", (_event, args: { cwd?: string; refreshRemote?: boolean }) =>
-    invokeHostService("scm.list-branches", args),
+  ipcMain.handle(
+    "scm:create-branch",
+    (_event, args: { name: string; cwd?: string; from?: string }) =>
+      invokeHostService("scm.create-branch", args),
   );
 
-  ipcMain.handle("scm:fetch-branch", (_event, args: { cwd?: string; branch?: string }) =>
-    invokeHostService("scm.fetch-branch", args),
+  ipcMain.handle(
+    "scm:checkout-branch",
+    (_event, args: { name: string; cwd?: string }) =>
+      invokeHostService("scm.checkout-branch", args),
   );
 
-  ipcMain.handle("scm:create-branch", (_event, args: { name: string; cwd?: string; from?: string }) =>
-    invokeHostService("scm.create-branch", args),
+  ipcMain.handle(
+    "scm:checkout-default-branch-detached",
+    (_event, args: { cwd?: string }) =>
+      invokeHostService("scm.checkout-default-branch-detached", args),
   );
 
-  ipcMain.handle("scm:checkout-branch", (_event, args: { name: string; cwd?: string }) =>
-    invokeHostService("scm.checkout-branch", args),
+  ipcMain.handle(
+    "scm:pull-branch",
+    (_event, args: { cwd?: string; branch?: string }) =>
+      invokeHostService("scm.pull-branch", args),
   );
 
-  ipcMain.handle("scm:checkout-default-branch-detached", (_event, args: { cwd?: string }) =>
-    invokeHostService("scm.checkout-default-branch-detached", args),
+  ipcMain.handle(
+    "scm:merge-branch",
+    (_event, args: { branch: string; cwd?: string }) =>
+      invokeHostService("scm.merge-branch", args),
   );
 
-  ipcMain.handle("scm:pull-branch", (_event, args: { cwd?: string; branch?: string }) =>
-    invokeHostService("scm.pull-branch", args),
+  ipcMain.handle(
+    "scm:rebase-branch",
+    (_event, args: { branch: string; cwd?: string }) =>
+      invokeHostService("scm.rebase-branch", args),
   );
 
-  ipcMain.handle("scm:merge-branch", (_event, args: { branch: string; cwd?: string }) =>
-    invokeHostService("scm.merge-branch", args),
+  ipcMain.handle(
+    "scm:cherry-pick",
+    (_event, args: { commit: string; cwd?: string }) =>
+      invokeHostService("scm.cherry-pick", args),
   );
 
-  ipcMain.handle("scm:rebase-branch", (_event, args: { branch: string; cwd?: string }) =>
-    invokeHostService("scm.rebase-branch", args),
+  ipcMain.handle("scm:revert", (_e, a: { commit: string; cwd?: string }) =>
+    invokeHostService("scm.revert", a),
   );
 
-  ipcMain.handle("scm:cherry-pick", (_event, args: { commit: string; cwd?: string }) =>
-    invokeHostService("scm.cherry-pick", args),
+  ipcMain.handle(
+    "scm:reset",
+    (
+      _e,
+      a: { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string },
+    ) => invokeHostService("scm.reset", a),
   );
 
-  ipcMain.handle("scm:revert", (_e, a: { commit: string; cwd?: string }) => invokeHostService("scm.revert", a));
-
-  ipcMain.handle("scm:reset", (_e, a: { commit: string; mode: "soft" | "mixed" | "hard"; cwd?: string }) =>
-    invokeHostService("scm.reset", a),
+  ipcMain.handle(
+    "scm:create-tag",
+    (
+      _e,
+      a: { name: string; commit?: string; message?: string; cwd?: string },
+    ) => invokeHostService("scm.create-tag", a),
   );
 
-  ipcMain.handle("scm:create-tag", (_e, a: { name: string; commit?: string; message?: string; cwd?: string }) =>
-    invokeHostService("scm.create-tag", a),
+  ipcMain.handle("scm:delete-tag", (_e, a: { name: string; cwd?: string }) =>
+    invokeHostService("scm.delete-tag", a),
   );
 
-  ipcMain.handle("scm:delete-tag", (_e, a: { name: string; cwd?: string }) => invokeHostService("scm.delete-tag", a));
-
-  ipcMain.handle("scm:rename-branch", (_e, a: { from: string; to: string; cwd?: string }) =>
-    invokeHostService("scm.rename-branch", a),
+  ipcMain.handle(
+    "scm:rename-branch",
+    (_e, a: { from: string; to: string; cwd?: string }) =>
+      invokeHostService("scm.rename-branch", a),
   );
 
-  ipcMain.handle("scm:delete-branch", (_e, a: { name: string; force?: boolean; cwd?: string }) =>
-    invokeHostService("scm.delete-branch", a),
+  ipcMain.handle(
+    "scm:delete-branch",
+    (_e, a: { name: string; force?: boolean; cwd?: string }) =>
+      invokeHostService("scm.delete-branch", a),
   );
 
-  ipcMain.handle("scm:push", (_e, a: { branch?: string; remote?: string; force?: boolean; cwd?: string }) =>
-    invokeHostService("scm.push", a),
+  ipcMain.handle(
+    "scm:push",
+    (
+      _e,
+      a: { branch?: string; remote?: string; force?: boolean; cwd?: string },
+    ) => invokeHostService("scm.push", a),
   );
 
-  ipcMain.handle("scm:get-pr-status", (_event, args: { cwd?: string }) => invokeHostService("scm.get-pr-status", args));
+  ipcMain.handle("scm:get-pr-status", (_event, args: { cwd?: string }) =>
+    invokeHostService("scm.get-pr-status", args),
+  );
 
-  ipcMain.handle("scm:get-repo-merge-settings", (_event, args: { cwd?: string }) =>
-    invokeHostService("scm.get-repo-merge-settings", args),
+  ipcMain.handle(
+    "scm:get-repo-merge-settings",
+    (_event, args: { cwd?: string }) =>
+      invokeHostService("scm.get-repo-merge-settings", args),
   );
 
   ipcMain.handle("scm:get-pr-status-for-url", (_event, args: unknown) => {
@@ -142,7 +260,9 @@ export function registerScmHandlers() {
     return invokeHostService("scm.get-pr-status-for-url", parsed.data);
   });
 
-  ipcMain.handle("scm:set-pr-ready", (_event, args: { cwd?: string }) => invokeHostService("scm.set-pr-ready", args));
+  ipcMain.handle("scm:set-pr-ready", (_event, args: { cwd?: string }) =>
+    invokeHostService("scm.set-pr-ready", args),
+  );
 
   ipcMain.handle(
     "scm:merge-pr",
