@@ -1,18 +1,20 @@
-## [0.13.3](https://github.com/sendbird/stave/compare/v0.13.2...v0.13.3) (2026-07-30)
+## [0.13.3](https://github.com/sendbird/stave/compare/v0.13.2...v0.13.3) (2026-07-31)
 
 ### Features
 
-* Bind vault secrets to tasks by environment-variable name and inject values only into agent shell processes, keeping plaintext out of runtime options, prompts, transcripts, diagnostics, and logs.
+* Bind vault secrets to tasks by environment-variable name and inject them only into agent shell processes, preserving overrides across Claude and Codex launches and thread resumes while keeping plaintext out of runtime options, prompts, transcripts, diagnostics, and logs.
+* Add a `Fetch & checkout origin/main` action that fetches the remote default branch, guards dirty trees, detaches HEAD safely, and renders detached checkouts clearly across workspace surfaces.
 
 ### Bug Fixes
 
 * Redesign the pending Ask User Question experience with accessible radio and checkbox controls, custom answers, explicit Continue and Decline actions, responsive spacing, and compact settled-state summaries.
-* Preserve bound secret environment overrides across Claude and Codex launches and Codex thread resumes while validating reserved and duplicate environment-variable names.
 * Scope unattended automation approvals to each run, isolating provider, Stave Local MCP, and Lens access and revoking the run's authorization when it ends.
+* Keep active turns alive when the selected model changes during a conversation.
+* Prevent Lens resize sash borders from overlapping adjacent surfaces.
 
 ### References
 
-* [#275](https://github.com/sendbird/stave/pull/275), [#276](https://github.com/sendbird/stave/pull/276), [#278](https://github.com/sendbird/stave/pull/278)
+* [#275](https://github.com/sendbird/stave/pull/275), [#276](https://github.com/sendbird/stave/pull/276), [#278](https://github.com/sendbird/stave/pull/278), [#279](https://github.com/sendbird/stave/pull/279), [#280](https://github.com/sendbird/stave/pull/280), [#281](https://github.com/sendbird/stave/pull/281)
 ## [0.13.2](https://github.com/sendbird/stave/compare/v0.13.1...v0.13.2) (2026-07-29)
 
 ### Bug Fixes
