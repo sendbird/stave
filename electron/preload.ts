@@ -22,6 +22,11 @@ import type {
   RateLimitsSnapshotResponse,
 } from "../src/lib/providers/provider.types";
 import type {
+  RouteClassification,
+  UtilityInferenceContext,
+  UtilityInferenceMetadata,
+} from "../src/lib/providers/utility-inference";
+import type {
   ConnectedToolId,
   ConnectedToolStatusResponse,
 } from "../src/lib/providers/connected-tool-status";
@@ -1004,46 +1009,39 @@ contextBridge.exposeInMainWorld("api", {
         "provider:batch-write-codex-config",
         args,
       ) as Promise<CodexMutationResponse>,
-    suggestTaskName: (args: {
-      prompt: string;
-      history?: Array<{ role: string; content: string }>;
-    }) =>
+    suggestTaskName: (
+      args: UtilityInferenceContext & {
+        prompt: string;
+        history?: Array<{ role: string; content: string }>;
+      },
+    ) =>
       ipcRenderer.invoke("provider:suggest-task-name", args) as Promise<{
         ok: boolean;
         title?: string;
+        utility: UtilityInferenceMetadata;
       }>,
-    classifyRoute: (args: {
-      prompt: string;
-      history?: Array<{
-        role: "user" | "assistant";
-        content: string;
-        providerId?: ProviderId;
-        model?: string;
-      }>;
-      fileContextCount?: number;
-    }) =>
+    classifyRoute: (
+      args: UtilityInferenceContext & {
+        prompt: string;
+        history?: Array<{
+          role: "user" | "assistant";
+          content: string;
+          providerId?: ProviderId;
+          model?: string;
+        }>;
+        fileContextCount?: number;
+      },
+    ) =>
       ipcRenderer.invoke("provider:classify-route", args) as Promise<{
         ok: boolean;
-        classification?: {
-          taskType:
-            | "quick_edit"
-            | "plan"
-            | "implementation"
-            | "debug"
-            | "review"
-            | "general"
-            | "safety";
-          complexity: "low" | "medium" | "high";
-          recommendedTier: "light" | "standard" | "heavy" | "frontier";
-          confidence: number;
-          rationale?: string;
-          stick?: boolean;
-        };
+        classification?: RouteClassification;
+        utility: UtilityInferenceMetadata;
       }>,
-    suggestCommitMessage: (args: { cwd?: string }) =>
+    suggestCommitMessage: (args: UtilityInferenceContext) =>
       ipcRenderer.invoke("provider:suggest-commit-message", args) as Promise<{
         ok: boolean;
         message?: string;
+        utility: UtilityInferenceMetadata;
       }>,
     suggestPRDescription: (args: {
       cwd?: string;

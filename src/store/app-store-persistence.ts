@@ -14,6 +14,7 @@ import {
   normalizeModelShortcutKeys,
 } from "@/lib/providers/model-shortcuts";
 import { normalizeResponseStylePrompt } from "@/lib/providers/prompt-defaults";
+import { normalizeUtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import { upgradeSettingsScopedClaudeModel } from "@/lib/providers/model-catalog";
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
@@ -236,6 +237,8 @@ export function createAppStorePersistenceOptions() {
       state.settings.autoRoutingObjective = normalizeAutoRoutingObjective(
         raw.autoRoutingObjective,
       );
+      state.settings.utilityInferenceProvider =
+        normalizeUtilityInferenceProvider(raw.utilityInferenceProvider);
       state.settings.autoRoutingEligibleClaudeModels =
         normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleClaudeModels);
       state.settings.autoRoutingEligibleCodexModels =

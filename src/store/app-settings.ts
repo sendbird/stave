@@ -63,6 +63,7 @@ import {
   listProviderIds,
 } from "@/lib/providers/model-catalog";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
+import type { UtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import type { WorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import type {
   CustomThemeDefinition,
@@ -141,6 +142,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   modelClaude: string;
   modelCodex: string;
   modelRuntimePreferences: ModelRuntimePreferences;
+  /** Provider preference for isolated task-name, routing, and commit utilities. */
+  utilityInferenceProvider: UtilityInferenceProvider;
   autoRoutingEnabled: boolean;
   autoRoutingUseClassifier: boolean;
   autoRoutingObjective: number;
@@ -376,6 +379,7 @@ export const defaultSettings: AppSettings = {
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
   modelRuntimePreferences: {},
+  utilityInferenceProvider: "auto",
   autoRoutingEnabled: false,
   autoRoutingUseClassifier: false,
   autoRoutingObjective: 0.5,

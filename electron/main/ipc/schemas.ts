@@ -202,6 +202,12 @@ export const SecretRevealArgsSchema = z
 
 export const SuggestTaskNameArgsSchema = z
   .object({
+    cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().max(2000),
     history: z
       .array(
@@ -219,6 +225,12 @@ export const SuggestTaskNameArgsSchema = z
 
 export const ClassifyRouteArgsSchema = z
   .object({
+    cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().max(8000),
     history: z
       .array(
@@ -240,6 +252,17 @@ export const ClassifyRouteArgsSchema = z
 export const SuggestCommitMessageArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
+  })
+  .strict();
+
+export const AbortTurnArgsSchema = z
+  .object({
+    turnId: z.string().trim().min(1).max(200),
   })
   .strict();
 

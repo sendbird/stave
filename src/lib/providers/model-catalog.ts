@@ -69,6 +69,10 @@ export interface ProviderDescriptor {
   capabilities: {
     nativeCommandCatalog: boolean;
     supportsMidTurnSteering: boolean;
+    utilityInference: {
+      supported: boolean;
+      defaultModel: string;
+    };
   };
 }
 
@@ -85,6 +89,10 @@ export const PROVIDER_DESCRIPTORS = [
     capabilities: {
       nativeCommandCatalog: true,
       supportsMidTurnSteering: true,
+      utilityInference: {
+        supported: true,
+        defaultModel: "claude-haiku-4-5",
+      },
     },
   },
   {
@@ -99,6 +107,10 @@ export const PROVIDER_DESCRIPTORS = [
     capabilities: {
       nativeCommandCatalog: true,
       supportsMidTurnSteering: true,
+      utilityInference: {
+        supported: true,
+        defaultModel: "gpt-5.6-luna",
+      },
     },
   },
 ] as const satisfies readonly ProviderDescriptor[];
@@ -185,6 +197,12 @@ export function providerSupportsMidTurnSteering(args: {
   providerId: ProviderId;
 }) {
   return getProviderDescriptor(args).capabilities.supportsMidTurnSteering;
+}
+
+export function getUtilityInferenceCapability(args: {
+  providerId: ProviderId;
+}) {
+  return getProviderDescriptor(args).capabilities.utilityInference;
 }
 
 export function getDefaultModelForProvider(args: { providerId: ProviderId }) {

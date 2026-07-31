@@ -28,6 +28,10 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { FleetNeedsInbox } from "@/components/layout/FleetNeedsInbox";
+import {
+  FleetTaskControlPanel,
+  type FleetTaskControlTarget,
+} from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
 import {
@@ -376,6 +380,7 @@ function FleetTaskRow(args: {
   tabIndex: number;
   taskKey: string;
   isFocused: boolean;
+  isExpanded: boolean;
   onFocus: (taskKey: string) => void;
   onMoveFocus: (
     taskKey: string,
@@ -386,6 +391,7 @@ function FleetTaskRow(args: {
     workspaceId: string;
     taskId: string;
   }) => void;
+  onToggleTaskControl: (target: FleetTaskControlTarget) => void;
 }) {
   const taskTitle = formatTaskTitle(args.row.task);
   const statusLabel = formatFleetStatusLabel(args.row.status);
@@ -399,79 +405,102 @@ function FleetTaskRow(args: {
   };
 
   return (
-    <button
-      type="button"
-      data-fleet-task-row="true"
-      data-task-key={args.taskKey}
+    <div
       className={cn(
         "group relative grid min-h-15 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border/45 px-4 py-2.5 pl-5 text-left transition-[background-color,color] duration-150 before:absolute before:inset-y-2.5 before:left-0 before:w-0.5 before:rounded-r-full hover:bg-accent/20 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55",
         statusRailClassName[args.row.status],
-        args.isFocused && "bg-accent/15",
+        (args.isFocused || args.isExpanded) && "bg-accent/15",
       )}
-      tabIndex={args.tabIndex}
-      aria-label={`Open ${taskTitle}, ${statusLabel}`}
-      onFocus={() => args.onFocus(args.taskKey)}
-      onClick={() =>
-        args.onOpenTask({
-          projectPath: args.projectPath,
-          workspaceId: args.workspaceId,
-          taskId: args.row.task.id,
-        })
-      }
-      onKeyDown={(event) => {
-        if (
-          event.defaultPrevented ||
-          event.altKey ||
-          event.ctrlKey ||
-          event.metaKey
-        ) {
-          return;
-        }
-        const key = event.key.toLowerCase();
-        const direction =
-          event.key === "ArrowUp" || key === "k"
-            ? "up"
-            : event.key === "ArrowDown" || key === "j"
-              ? "down"
-              : event.key === "Home"
-                ? "first"
-                : event.key === "End"
-                  ? "last"
-                  : null;
-        if (!direction) {
-          return;
-        }
-        event.preventDefault();
-        args.onMoveFocus(args.taskKey, direction);
-      }}
     >
-      <span className="min-w-0 space-y-1">
-        <span className="flex min-w-0 items-center gap-2">
-          <FleetProviderIcon provider={args.row.task.provider} />
-          <span className="truncate text-sm font-medium text-foreground">
-            {taskTitle}
+      <button
+        id={`fleet-task-trigger-${args.taskKey}`}
+        type="button"
+        data-fleet-task-row="true"
+        data-task-key={args.taskKey}
+        className="min-w-0 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55"
+        tabIndex={args.tabIndex}
+        aria-label={`${args.isExpanded ? "Hide" : "Show"} controls for ${taskTitle}, ${statusLabel}`}
+        aria-expanded={args.isExpanded}
+        aria-controls={
+          args.isExpanded ? `fleet-task-controls-${args.taskKey}` : undefined
+        }
+        onFocus={() => args.onFocus(args.taskKey)}
+        onClick={() =>
+          args.onToggleTaskControl({
+            projectPath: args.projectPath,
+            workspaceId: args.workspaceId,
+            taskId: args.row.task.id,
+            taskTitle,
+          })
+        }
+        onKeyDown={(event) => {
+          if (
+            event.defaultPrevented ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey
+          ) {
+            return;
+          }
+          const key = event.key.toLowerCase();
+          const direction =
+            event.key === "ArrowUp" || key === "k"
+              ? "up"
+              : event.key === "ArrowDown" || key === "j"
+                ? "down"
+                : event.key === "Home"
+                  ? "first"
+                  : event.key === "End"
+                    ? "last"
+                    : null;
+          if (!direction) {
+            return;
+          }
+          event.preventDefault();
+          args.onMoveFocus(args.taskKey, direction);
+        }}
+      >
+        <span className="min-w-0 space-y-1">
+          <span className="flex min-w-0 items-center gap-2">
+            <FleetProviderIcon provider={args.row.task.provider} />
+            <span className="truncate text-sm font-medium text-foreground">
+              {taskTitle}
+            </span>
+            <FleetStatusBadge status={args.row.status} />
           </span>
-          <FleetStatusBadge status={args.row.status} />
-        </span>
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <span className="truncate">
-            {formatWorkspaceName(args.workspaceName, args.branch)}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span className="truncate">
+              {formatWorkspaceName(args.workspaceName, args.branch)}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>{args.row.updatedLabel}</span>
+            {args.row.messageCount > 0 ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{formatMessageCount(args.row.messageCount)}</span>
+              </>
+            ) : null}
           </span>
-          <span aria-hidden="true">·</span>
-          <span>{args.row.updatedLabel}</span>
-          {args.row.messageCount > 0 ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{formatMessageCount(args.row.messageCount)}</span>
-            </>
-          ) : null}
         </span>
-      </span>
-      <span className="inline-flex h-8 items-center gap-1 px-2 text-sm text-muted-foreground transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground">
+      </button>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className="min-h-9"
+        aria-label={`Open ${taskTitle}`}
+        onClick={() =>
+          args.onOpenTask({
+            projectPath: args.projectPath,
+            workspaceId: args.workspaceId,
+            taskId: args.row.task.id,
+          })
+        }
+      >
+        Open
         <ArrowRight className="size-4" aria-hidden="true" />
-        <span className="hidden sm:inline">Open</span>
-      </span>
-    </button>
+      </Button>
+    </div>
   );
 }
 
@@ -499,6 +528,7 @@ function FleetWorkspaceSection(args: {
   isCollapsed: boolean;
   isHiddenByAncestor: boolean;
   focusedTaskKey: string | null;
+  expandedTaskKey: string | null;
   onFocusTask: (taskKey: string) => void;
   onMoveFocus: (
     taskKey: string,
@@ -510,6 +540,7 @@ function FleetWorkspaceSection(args: {
     workspaceId: string;
     taskId: string;
   }) => void;
+  onToggleTaskControl: (target: FleetTaskControlTarget) => void;
   onLifecycleChange: (
     workspaceId: string,
     status: FleetLifecycleStatus | null,
@@ -833,42 +864,57 @@ function FleetWorkspaceSection(args: {
               <FleetTaskSkeleton />
             </>
           ) : (
-            filteredRows.map((row) => (
-              <MemoizedFleetTaskRow
-                key={row.task.id}
-                projectPath={args.projectPath}
-                workspaceId={args.workspace.id}
-                workspaceName={args.workspace.name}
-                branch={args.workspace.branch}
-                row={row}
-                taskKey={getFleetTaskKey(
-                  args.projectPath,
-                  args.workspace.id,
-                  row.task.id,
-                )}
-                tabIndex={
-                  args.focusedTaskKey ===
-                  getFleetTaskKey(
-                    args.projectPath,
-                    args.workspace.id,
-                    row.task.id,
-                  )
-                    ? 0
-                    : -1
-                }
-                isFocused={
-                  args.focusedTaskKey ===
-                  getFleetTaskKey(
-                    args.projectPath,
-                    args.workspace.id,
-                    row.task.id,
-                  )
-                }
-                onFocus={args.onFocusTask}
-                onMoveFocus={args.onMoveFocus}
-                onOpenTask={args.onOpenTask}
-              />
-            ))
+            filteredRows.map((row) => {
+              const taskKey = getFleetTaskKey(
+                args.projectPath,
+                args.workspace.id,
+                row.task.id,
+              );
+              const expanded = args.expandedTaskKey === taskKey;
+              return (
+                <Fragment key={row.task.id}>
+                  <MemoizedFleetTaskRow
+                    projectPath={args.projectPath}
+                    workspaceId={args.workspace.id}
+                    workspaceName={args.workspace.name}
+                    branch={args.workspace.branch}
+                    row={row}
+                    taskKey={taskKey}
+                    tabIndex={args.focusedTaskKey === taskKey ? 0 : -1}
+                    isFocused={args.focusedTaskKey === taskKey}
+                    isExpanded={expanded}
+                    onFocus={args.onFocusTask}
+                    onMoveFocus={args.onMoveFocus}
+                    onOpenTask={args.onOpenTask}
+                    onToggleTaskControl={args.onToggleTaskControl}
+                  />
+                  {expanded ? (
+                    <div id={`fleet-task-controls-${taskKey}`}>
+                      <FleetTaskControlPanel
+                        target={{
+                          projectPath: args.projectPath,
+                          workspaceId: args.workspace.id,
+                          taskId: row.task.id,
+                          taskTitle: formatTaskTitle(row.task),
+                          turnId:
+                            taskState.activeTurnIdsByTask[row.task.id] ?? null,
+                        }}
+                        returnFocusElementId={`fleet-task-trigger-${taskKey}`}
+                        onOpenTask={args.onOpenTask}
+                        onClose={() =>
+                          args.onToggleTaskControl({
+                            projectPath: args.projectPath,
+                            workspaceId: args.workspace.id,
+                            taskId: row.task.id,
+                            taskTitle: formatTaskTitle(row.task),
+                          })
+                        }
+                      />
+                    </div>
+                  ) : null}
+                </Fragment>
+              );
+            })
           )}
         </div>
       ) : null}
@@ -932,7 +978,6 @@ export function FleetView() {
     openProject,
     switchWorkspace,
     openNotificationContext,
-    resolveNotificationApproval,
     markNotificationRead,
   ] = useAppStore(
     useShallow(
@@ -943,7 +988,6 @@ export function FleetView() {
           state.openProject,
           state.switchWorkspace,
           state.openNotificationContext,
-          state.resolveNotificationApproval,
           state.markNotificationRead,
         ] as const,
     ),
@@ -971,6 +1015,7 @@ export function FleetView() {
     useState<FleetTaskFilter>("attention");
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedTaskKey, setFocusedTaskKey] = useState<string | null>(null);
+  const [expandedTaskKey, setExpandedTaskKey] = useState<string | null>(null);
   const [selectedAttentionKey, setSelectedAttentionKey] =
     useState<string | null>(null);
   const [busyNeedId, setBusyNeedId] = useState<string | null>(null);
@@ -1048,9 +1093,26 @@ export function FleetView() {
 
   const handleOpenTask = useCallback(
     (target: { projectPath: string; workspaceId: string; taskId: string }) => {
+      setExpandedTaskKey(null);
+      setSelectedAttentionKey(null);
       void focusTaskAttention(target);
     },
     [focusTaskAttention],
+  );
+
+  const handleToggleTaskControl = useCallback(
+    (target: FleetTaskControlTarget) => {
+      const taskKey = getFleetTaskKey(
+        target.projectPath,
+        target.workspaceId,
+        target.taskId,
+      );
+      setSelectedAttentionKey(null);
+      setExpandedTaskKey((current) =>
+        current === taskKey ? null : taskKey,
+      );
+    },
+    [],
   );
 
   const handleFocusTask = useCallback((taskKey: string) => {
@@ -1176,6 +1238,13 @@ export function FleetView() {
 
   const openAttentionTarget = useCallback(
     (target: FleetNeedItem) => {
+      if (target.taskId) {
+        setExpandedTaskKey(null);
+        setSelectedAttentionKey((current) =>
+          current === target.id ? null : target.id,
+        );
+        return;
+      }
       setSelectedAttentionKey(target.id);
       setBusyNeedId(target.id);
       void (async () => {
@@ -1210,24 +1279,6 @@ export function FleetView() {
       openProject,
       switchWorkspace,
     ],
-  );
-
-  const resolveAttentionApproval = useCallback(
-    (target: FleetNeedItem, approved: boolean) => {
-      if (!target.notificationId) {
-        openAttentionTarget(target);
-        return;
-      }
-      setSelectedAttentionKey(target.id);
-      setBusyNeedId(target.id);
-      void resolveNotificationApproval({
-        notificationId: target.notificationId,
-        approved,
-      }).finally(() => {
-        setBusyNeedId((current) => (current === target.id ? null : current));
-      });
-    },
-    [openAttentionTarget, resolveNotificationApproval],
   );
 
   const markAttentionRead = useCallback(
@@ -1571,7 +1622,7 @@ export function FleetView() {
         selectedNeedId={selectedAttentionKey}
         busyNeedId={busyNeedId}
         onOpen={openAttentionTarget}
-        onResolveApproval={resolveAttentionApproval}
+        onOpenTask={handleOpenTask}
         onMarkRead={markAttentionRead}
         onDismiss={dismissAttentionNeed}
         onOpenPr={openAttentionPr}
@@ -1758,10 +1809,12 @@ export function FleetView() {
                                     projectIsCollapsed || laneIsCollapsed
                                   }
                                   focusedTaskKey={focusedTaskKey}
+                                  expandedTaskKey={expandedTaskKey}
                                   onFocusTask={handleFocusTask}
                                   onMoveFocus={handleMoveFocus}
                                   onToggleWorkspace={toggleWorkspace}
                                   onOpenTask={handleOpenTask}
+                                  onToggleTaskControl={handleToggleTaskControl}
                                   onLifecycleChange={handleLifecycleChange}
                                   onVisibilityChange={handleVisibilityChange}
                                 />
