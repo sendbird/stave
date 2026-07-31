@@ -666,7 +666,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
             variant="ghost"
             className="size-5 text-destructive"
             onClick={() => setError("")}
-            aria-label="Dismiss git graph error"
+            aria-label="Dismiss commit graph error"
           >
             <X className="size-3" />
           </Button>

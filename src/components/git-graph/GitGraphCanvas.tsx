@@ -472,7 +472,7 @@ export const GitGraphCanvas = forwardRef<
   return (
     <div
       role="grid"
-      aria-label="Git commit graph"
+      aria-label="Commit graph"
       aria-rowcount={rowCount + 1}
       className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor"
     >

@@ -248,7 +248,7 @@ function syncLanguageIntelligenceLifecycle(monaco: Monaco | null) {
 
 /**
  * Dockview panel wrapper for an editor file tab: a single-file Monaco surface
- * (text / diff / markdown preview / image / git graph) bound to the panel's
+ * (text / diff / markdown preview / image / commit graph) bound to the panel's
  * editorTabId.
  */
 export function EditorSurfacePanel(props: IDockviewPanelProps) {

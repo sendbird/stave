@@ -6,10 +6,14 @@ import {
   shouldShowEditorFileActions,
 } from "@/components/panes/editor-tab-presentation";
 import { EditorPaneChipGlyph } from "@/components/panes/PaneTabChip";
+import {
+  COMMIT_GRAPH_TITLE,
+  normalizeGitGraphEditorTabs,
+} from "@/lib/git-graph/presentation";
 import { prepareWorkspaceShellEditorTabsPersistence } from "../electron/persistence/workspace-shell-artifacts";
 
-describe("Git Graph editor integration", () => {
-  test("classifies Git Graph tabs separately from file tabs", () => {
+describe("Commit graph editor integration", () => {
+  test("classifies commit graph tabs separately from file tabs", () => {
     expect(isGitGraphEditorTab({ kind: "git-graph" })).toBe(true);
     expect(shouldShowEditorFileActions({ kind: "git-graph" })).toBe(false);
     expect(shouldShowEditorFileActions({ kind: "text" })).toBe(true);
@@ -17,7 +21,7 @@ describe("Git Graph editor integration", () => {
     expect(shouldShowEditorFileActions(null)).toBe(false);
   });
 
-  test("uses the Git Graph glyph only for Git Graph editor tabs", () => {
+  test("uses the graph glyph only for commit graph editor tabs", () => {
     const graphHtml = renderToStaticMarkup(
       createElement(EditorPaneChipGlyph, { kind: "git-graph" }),
     );
@@ -29,14 +33,14 @@ describe("Git Graph editor integration", () => {
     expect(fileHtml).toContain('data-pane-tab-icon="file"');
   });
 
-  test("keeps Git Graph tabs inline with their persisted surface kind", () => {
+  test("keeps commit graph tabs inline with their persisted surface kind", () => {
     const prepared = prepareWorkspaceShellEditorTabsPersistence({
       artifactId: "workspace-shell-git-graph",
       createdAt: "2026-07-31T00:00:00.000Z",
       editorTabs: [
         {
           id: "git-graph:workspace-1",
-          filePath: "Git Graph",
+          filePath: COMMIT_GRAPH_TITLE,
           kind: "git-graph",
           language: "",
           content: "",
@@ -48,5 +52,21 @@ describe("Git Graph editor integration", () => {
 
     expect(prepared.artifact).toBeNull();
     expect(prepared.persistedEditorTabs?.[0]?.kind).toBe("git-graph");
+  });
+
+  test("renames restored Git Graph tabs to Commit graph", () => {
+    const [tab] = normalizeGitGraphEditorTabs([
+      {
+        id: "git-graph:workspace-1",
+        filePath: "Git Graph",
+        kind: "git-graph",
+        language: "",
+        content: "",
+        hasConflict: false,
+        isDirty: false,
+      },
+    ]);
+
+    expect(tab?.filePath).toBe(COMMIT_GRAPH_TITLE);
   });
 });

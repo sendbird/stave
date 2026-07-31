@@ -96,7 +96,7 @@ export function registerScmHandlers() {
   ipcMain.handle("scm:graph", (_event, args: unknown) => {
     const parsed = ScmGraphArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return invalidGraphResult("Invalid git graph request.");
+      return invalidGraphResult("Invalid commit graph request.");
     }
     return invokeHostService("scm.graph", parsed.data);
   });

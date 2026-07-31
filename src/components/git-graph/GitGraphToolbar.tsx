@@ -435,7 +435,7 @@ export function GitGraphToolbar({
                   className="size-8"
                   disabled={loading}
                   onClick={onRefresh}
-                  aria-label="Refresh git graph"
+                  aria-label="Refresh commit graph"
                 />
               }
             >

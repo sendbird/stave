@@ -426,7 +426,7 @@ describe("task-context workspace schemas", () => {
         editorTabs: [
           {
             id: "git-graph",
-            filePath: "Git Graph",
+            filePath: "Commit graph",
             kind: "git-graph",
             language: "",
             content: "",

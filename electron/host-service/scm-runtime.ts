@@ -564,7 +564,7 @@ function resolveGraphRevisionArgs(
     return {
       ok: false,
       stderr:
-        "Git graph refs must not be empty, option-like, or contain control characters.",
+        "Commit graph refs must not be empty, option-like, or contain control characters.",
     };
   }
   if (requestedRefs.length > 0) {
@@ -582,7 +582,7 @@ function resolveGraphRevisionArgs(
     return {
       ok: false,
       stderr:
-        "Git graph scope must not be empty, option-like, or contain control characters.",
+        "Commit graph scope must not be empty, option-like, or contain control characters.",
     };
   }
   return { ok: true, revisions: [scope] };
@@ -625,7 +625,7 @@ export async function getScmGraph(
     (args.skip !== undefined && (!Number.isInteger(args.skip) || args.skip < 0))
   ) {
     return failedScmGraph(
-      "Git graph limit and skip must be non-negative integers.",
+      "Commit graph limit and skip must be non-negative integers.",
     );
   }
 
@@ -735,7 +735,7 @@ export async function getScmGraph(
   }
   if (refsResult.stdoutTruncated) {
     return failedScmGraph(
-      "This repository has too many refs to load safely in Git Graph.",
+      "This repository has too many refs to load safely in the commit graph.",
     );
   }
   if (branchResult.stdoutTruncated || headHashResult.stdoutTruncated) {

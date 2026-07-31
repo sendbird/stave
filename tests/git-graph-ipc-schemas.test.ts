@@ -8,7 +8,7 @@ import {
 
 const HASH = "a".repeat(40);
 
-describe("git graph IPC schemas", () => {
+describe("commit graph IPC schemas", () => {
   test("accepts a bounded graph request with an explicit ref filter", () => {
     const parsed = ScmGraphArgsSchema.safeParse({
       cwd: "/tmp/project",
