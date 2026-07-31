@@ -296,6 +296,12 @@ export interface ChatMessage {
     ttftMs?: number;
   };
   promptSuggestions?: string[];
+  /** Provider-native history boundary used for branch and rewind actions. */
+  providerBoundary?: {
+    providerId: "claude-code" | "codex";
+    kind: "thread" | "turn" | "message";
+    nativeId: string;
+  };
   parts: MessagePart[];
   displayParts?: MessagePart[];
   /**

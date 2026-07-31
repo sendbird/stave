@@ -182,6 +182,8 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "provider_session":
     case "provider_turn":
     case "goal_status":
+    case "history_boundary":
+    case "hook_activity":
     case "model_resolved":
     case "done":
       return false;
@@ -301,7 +303,18 @@ function normalizeEventToPart(args: {
     case "provider_session":
     case "provider_turn":
     case "goal_status":
+    case "history_boundary":
+    case "hook_activity":
       return null;
+    case "permission_denial": {
+      const reason = event.reason?.trim() || event.message.trim();
+      return sanitizeMessagePartPayload({
+        type: "system_event",
+        content: reason
+          ? `Permission denied for ${event.toolName}: ${reason}`
+          : `Permission denied for ${event.toolName}.`,
+      });
+    }
     case "tool":
       return createToolPart({
         toolUseId: event.toolUseId,
@@ -916,6 +929,52 @@ export function replayProviderEventsToTaskState(args: {
       if (!providerGoalsEqual(nextProviderGoal, event.goal)) {
         nextProviderGoal = event.goal;
         changed = true;
+      }
+      continue;
+    }
+
+    if (event.type === "hook_activity") {
+      continue;
+    }
+
+    if (event.type === "history_boundary") {
+      let targetIndex = -1;
+      for (let index = current.length - 1; index >= 0; index -= 1) {
+        if (current[index]?.role === event.targetRole) {
+          targetIndex = index;
+          break;
+        }
+      }
+      if (targetIndex === -1 && event.targetRole === "assistant") {
+        const assistant = createStreamingAssistantMessage({
+          taskId: args.taskId,
+          count: current.length + messageIndexOffset,
+          provider: args.provider,
+          model: args.model,
+        });
+        current = [...current, assistant];
+        targetIndex = current.length - 1;
+      }
+      const boundaryTarget = current[targetIndex];
+      if (boundaryTarget) {
+        const nextBoundary = {
+          providerId: event.providerId,
+          kind: event.boundaryKind,
+          nativeId: event.nativeId,
+        } as const;
+        if (
+          boundaryTarget.providerBoundary?.providerId !==
+            nextBoundary.providerId ||
+          boundaryTarget.providerBoundary.kind !== nextBoundary.kind ||
+          boundaryTarget.providerBoundary.nativeId !== nextBoundary.nativeId
+        ) {
+          current = current.map((message, index) =>
+            index === targetIndex
+              ? { ...message, providerBoundary: nextBoundary }
+              : message,
+          );
+          changed = true;
+        }
       }
       continue;
     }

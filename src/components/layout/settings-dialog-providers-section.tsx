@@ -457,6 +457,14 @@ const CODEX_WEB_SEARCH_HELP = [
       "Best when you want fully local reasoning or reproducible offline behavior.",
   },
   {
+    value: "indexed",
+    label: "Indexed",
+    description:
+      "Use Codex's indexed search corpus without requesting a live fetch for every query.",
+    example:
+      "Use this for broad documentation discovery when the selected Codex runtime is 0.142 or newer.",
+  },
+  {
     value: "live",
     label: "Live",
     description:
@@ -466,6 +474,40 @@ const CODEX_WEB_SEARCH_HELP = [
   },
 ] as const satisfies readonly ExplainedSelectOption<
   NonNullable<ProviderRuntimeOptions["codexWebSearch"]>
+>[];
+
+const CODEX_APP_TOOL_APPROVAL_HELP = [
+  {
+    value: "inherit",
+    label: "Inherit",
+    description: "Keep the user's Codex config for App and MCP tool approvals.",
+    example: "Use this when Codex config.toml is the source of truth.",
+  },
+  {
+    value: "auto",
+    label: "Auto",
+    description: "Let Codex choose when an App or MCP tool needs approval.",
+  },
+  {
+    value: "prompt",
+    label: "Prompt",
+    description: "Ask before every App or MCP tool call.",
+  },
+  {
+    value: "writes",
+    label: "Writes",
+    description:
+      "Ask only for tools not marked read-only by their tool annotation.",
+    example:
+      "This is an approval hint, not a filesystem or network sandbox boundary.",
+  },
+  {
+    value: "approve",
+    label: "Approve",
+    description: "Approve App and MCP tool calls without prompting.",
+  },
+] as const satisfies readonly ExplainedSelectOption<
+  NonNullable<ProviderRuntimeOptions["codexAppToolApprovalMode"]>
 >[];
 
 function buildGuideItems<T extends string>(
@@ -575,6 +617,8 @@ export function ProvidersSection() {
     claudeAllowDangerouslySkipPermissions,
     claudeSandboxEnabled,
     claudeAllowUnsandboxedCommands,
+    claudeSandboxCredentialFiles,
+    claudeSandboxCredentialEnvVars,
     claudeTaskBudgetTokens,
     advisorTarget,
     claudeSettingSources,
@@ -597,6 +641,7 @@ export function ProvidersSection() {
     codexReasoningEffort,
     modelCodex,
     codexWebSearch,
+    codexAppToolApprovalMode,
     codexShowRawReasoning,
     codexReasoningSummary,
     codexReasoningSummarySupport,
@@ -606,6 +651,8 @@ export function ProvidersSection() {
     codexBinaryPath,
     activeTaskProvider,
     activeTaskModelOverride,
+    claudeRuntimeCapabilities,
+    codexRuntimeCapabilities,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -616,6 +663,8 @@ export function ProvidersSection() {
           state.settings.claudeAllowDangerouslySkipPermissions,
           state.settings.claudeSandboxEnabled,
           state.settings.claudeAllowUnsandboxedCommands,
+          state.settings.claudeSandboxCredentialFiles,
+          state.settings.claudeSandboxCredentialEnvVars,
           state.settings.claudeTaskBudgetTokens,
           state.settings.advisorTarget,
           state.settings.claudeSettingSources,
@@ -638,6 +687,7 @@ export function ProvidersSection() {
           state.settings.codexReasoningEffort,
           state.settings.modelCodex,
           state.settings.codexWebSearch,
+          state.settings.codexAppToolApprovalMode,
           state.settings.codexShowRawReasoning,
           state.settings.codexReasoningSummary,
           state.settings.codexReasoningSummarySupport,
@@ -649,6 +699,8 @@ export function ProvidersSection() {
             ?.provider ?? null,
           state.promptDraftByTask[state.activeTaskId]?.runtimeOverrides
             ?.model ?? null,
+          state.providerRuntimeCapabilities["claude-code"],
+          state.providerRuntimeCapabilities.codex,
         ] as const,
     ),
   );
@@ -691,6 +743,20 @@ export function ProvidersSection() {
         (supported as readonly string[]).includes(option.value),
     );
   }, [modelCodex]);
+  const codexWebSearchOptions = useMemo(
+    () =>
+      CODEX_WEB_SEARCH_HELP.filter(
+        (option) =>
+          option.value !== "indexed" ||
+          codexRuntimeCapabilities.webSearchModes.includes("indexed"),
+      ),
+    [codexRuntimeCapabilities.webSearchModes],
+  );
+  const effectiveCodexWebSearch =
+    codexWebSearch === "indexed" &&
+    !codexRuntimeCapabilities.webSearchModes.includes("indexed")
+      ? "cached"
+      : codexWebSearch;
   const advisorMode: "off" | ProviderId = advisorTarget?.providerId ?? "off";
   const codexModelCatalog = useCodexModelCatalog({
     enabled: advisorTarget?.providerId === "codex",
@@ -1013,6 +1079,40 @@ export function ProvidersSection() {
                   })
                 }
               />
+              {claudeRuntimeCapabilities.sandbox.credentialGuards ? (
+                <>
+                  <LabeledField
+                    title="Protected Credential Files"
+                    description="Comma-separated file paths Claude's sandbox must deny as credentials. Enter paths only, never secret contents."
+                  >
+                    <DraftInput
+                      className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+                      value={claudeSandboxCredentialFiles}
+                      placeholder="~/.config/example/credentials.json"
+                      onCommit={(value) =>
+                        updateSettings({
+                          patch: { claudeSandboxCredentialFiles: value },
+                        })
+                      }
+                    />
+                  </LabeledField>
+                  <LabeledField
+                    title="Protected Credential Variables"
+                    description="Comma-separated environment variable names Claude's sandbox must deny. Enter names only; values never belong here."
+                  >
+                    <DraftInput
+                      className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+                      value={claudeSandboxCredentialEnvVars}
+                      placeholder="EXAMPLE_TOKEN, SERVICE_PASSWORD"
+                      onCommit={(value) =>
+                        updateSettings({
+                          patch: { claudeSandboxCredentialEnvVars: value },
+                        })
+                      }
+                    />
+                  </LabeledField>
+                </>
+              ) : null}
               <LabeledField
                 title="Setting Sources"
                 description="Controls which Claude filesystem setting layers are loaded. `project` is required for CLAUDE.md and project slash commands."
@@ -1356,6 +1456,34 @@ export function ProvidersSection() {
                   }
                 />
               </LabeledField>
+              {codexRuntimeCapabilities.approval.appToolModes.length > 0 ? (
+                <LabeledField
+                  title="App Tool Approvals"
+                  description="Controls App and MCP tools separately from shell command approvals."
+                  guide={
+                    <SettingsFieldGuide
+                      title="Codex App Tool Approvals"
+                      summary="This controls approval prompts for connected App and MCP tools, not shell commands or sandbox permissions."
+                      items={buildGuideItems(CODEX_APP_TOOL_APPROVAL_HELP)}
+                      examples={buildGuideExamples(
+                        CODEX_APP_TOOL_APPROVAL_HELP,
+                      )}
+                      note="`writes` trusts each tool's read-only annotation; it is not a security boundary."
+                      tooltip="Compare App tool approval modes"
+                    />
+                  }
+                >
+                  <DescribedSelect
+                    value={codexAppToolApprovalMode}
+                    options={CODEX_APP_TOOL_APPROVAL_HELP}
+                    onValueChange={(value) =>
+                      updateSettings({
+                        patch: { codexAppToolApprovalMode: value },
+                      })
+                    }
+                  />
+                </LabeledField>
+              ) : null}
               <LabeledField
                 title="Reasoning"
                 guide={
@@ -1452,8 +1580,8 @@ export function ProvidersSection() {
                 }
               >
                 <DescribedSelect
-                  value={codexWebSearch}
-                  options={CODEX_WEB_SEARCH_HELP}
+                  value={effectiveCodexWebSearch}
+                  options={codexWebSearchOptions}
                   onValueChange={(value) =>
                     updateSettings({
                       patch: {
@@ -1462,6 +1590,13 @@ export function ProvidersSection() {
                     })
                   }
                 />
+                {codexWebSearch === "indexed" &&
+                effectiveCodexWebSearch !== "indexed" ? (
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Indexed search is unavailable in the selected Codex version;
+                    Stave will use cached search instead.
+                  </p>
+                ) : null}
               </LabeledField>
               <SwitchField
                 title="Fast Mode"

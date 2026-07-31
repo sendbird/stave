@@ -1,7 +1,10 @@
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { getProviderThreadActionCapabilities } from "@/lib/providers/model-catalog";
 import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import type {
+  ProviderId,
+  ProviderRuntimeCapabilities,
+} from "@/lib/providers/provider.types";
 import type { ChatMessage } from "@/types/chat";
 
 export interface ConversationTurnActionAvailability {
@@ -51,6 +54,7 @@ export function buildConversationTurnActionStateByMessageId(args: {
   messages: ChatMessage[];
   providerSession?: TaskProviderSessionState;
   hasActiveTurn: boolean;
+  runtimeCapabilities?: Record<ProviderId, ProviderRuntimeCapabilities>;
 }): Map<string, ConversationTurnActionState> {
   const stateByMessageId = new Map<string, ConversationTurnActionState>();
   const laterTurnIdsBySession = new Map<string, Set<string>>();
@@ -67,6 +71,11 @@ export function buildConversationTurnActionStateByMessageId(args: {
     }
 
     const capabilities = getProviderThreadActionCapabilities({ providerId });
+    const expectedForkBoundary = providerId === "codex" ? "turn" : "message";
+    const runtimeSupportsFork = args.runtimeCapabilities
+      ? args.runtimeCapabilities[providerId].history.forkBoundary ===
+        expectedForkBoundary
+      : true;
     const sessionCursor = getProviderSessionCursor({
       sessions: args.providerSession,
       providerId,
@@ -102,11 +111,15 @@ export function buildConversationTurnActionStateByMessageId(args: {
 
     const fork = !capabilities.forkFromTurn.supported
       ? unavailable(capabilities.forkFromTurn.reason)
-      : commonReason
-        ? unavailable(commonReason)
-        : available(
-            "Fork a new task from this response. Workspace files stay as they are.",
-          );
+      : !runtimeSupportsFork
+        ? unavailable(
+            "The selected runtime version does not support point-in-time forks.",
+          )
+        : commonReason
+          ? unavailable(commonReason)
+          : available(
+              "Fork a new task from this response. Workspace files stay as they are.",
+            );
 
     let rollback: ConversationTurnActionAvailability;
     if (!capabilities.rollbackToTurn.supported) {

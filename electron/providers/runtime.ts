@@ -31,6 +31,11 @@ import {
 import { randomUUID } from "node:crypto";
 import { probeExecutableVersion } from "./runtime-shared";
 import {
+  createEmptyProviderRuntimeCapabilities,
+  extractRuntimeVersion,
+  resolveProviderRuntimeCapabilities,
+} from "../../src/lib/providers/runtime-capabilities";
+import {
   PROVIDER_STEER_ACK_TIMEOUT_MS,
   waitForSteerDelivery,
 } from "../../src/lib/providers/steer-delivery";
@@ -372,6 +377,7 @@ function describeClaudeAvailability(
       available: false,
       detail:
         "Claude CLI not found from runtime override, STAVE_CLAUDE_CLI_PATH, CLAUDE_CODE_PATH, login-shell PATH, or home-bin candidates.",
+      capabilities: createEmptyProviderRuntimeCapabilities(),
     };
   }
 
@@ -380,6 +386,7 @@ function describeClaudeAvailability(
     env: buildClaudeEnv({ executablePath }),
   });
   const available = versionProbe.status === 0;
+  const version = extractRuntimeVersion(versionProbe.text);
   const detail = available
     ? `Resolved Claude CLI: ${executablePath}`
     : [
@@ -389,7 +396,16 @@ function describeClaudeAvailability(
       ]
         .filter(Boolean)
         .join("\n");
-  return { available, detail };
+  return {
+    available,
+    detail,
+    ...(version ? { version } : {}),
+    capabilities: resolveProviderRuntimeCapabilities({
+      providerId: "claude-code",
+      versionText: versionProbe.text,
+      available,
+    }),
+  };
 }
 
 function describeCodexAvailability(
@@ -403,6 +419,7 @@ function describeCodexAvailability(
       available: false,
       detail:
         "Codex executable not found from runtime override, env vars, login-shell PATH, or home-bin candidates.",
+      capabilities: createEmptyProviderRuntimeCapabilities(),
     };
   }
 
@@ -411,6 +428,7 @@ function describeCodexAvailability(
     env: buildCodexCliEnv({ executablePath }),
   });
   const available = versionProbe.status === 0;
+  const version = extractRuntimeVersion(versionProbe.text);
   const detail = available
     ? `Resolved Codex executable: ${executablePath}`
     : [
@@ -420,7 +438,16 @@ function describeCodexAvailability(
       ]
         .filter(Boolean)
         .join("\n");
-  return { available, detail };
+  return {
+    available,
+    detail,
+    ...(version ? { version } : {}),
+    capabilities: resolveProviderRuntimeCapabilities({
+      providerId: "codex",
+      versionText: versionProbe.text,
+      available,
+    }),
+  };
 }
 
 async function withTimeout<T>(args: {
@@ -1051,6 +1078,7 @@ export const providerRuntime: ProviderRuntime = {
       ok: false,
       available: false,
       detail: `Unsupported provider: ${providerId}`,
+      capabilities: createEmptyProviderRuntimeCapabilities(),
     };
   },
   getCommandCatalog: async ({ providerId, cwd, runtimeOptions }) => {

@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ClaudeFileRewindArgsSchema,
+  ClaudeSessionForkArgsSchema,
   CliSessionCreateSessionArgsSchema,
   ClaudeMcpOauthLoginArgsSchema,
+  CodexThreadForkArgsSchema,
   CreatePRArgsSchema,
   FilesystemRepoMapArgsSchema,
   LocalMcpConfigUpdateArgsSchema,
@@ -149,10 +152,47 @@ describe("provider IPC schemas", () => {
         claudeAgentName: "code-reviewer",
         claudeFallbackModel: "claude-sonnet-4-6,claude-haiku-4-5",
         claudeResumeSessionAt: "message-uuid",
+        claudeSandboxCredentialFiles: ["/tmp/service-token"],
+        claudeSandboxCredentialEnvVars: ["SERVICE_TOKEN"],
+        codexWebSearch: "indexed",
+        codexAppToolApprovalMode: "writes",
       },
     });
 
     expect(parsed.success).toBe(true);
+  });
+
+  test("validates provider-native branch and rewind boundaries", () => {
+    expect(
+      ClaudeSessionForkArgsSchema.safeParse({
+        sessionId: "claude-session-1",
+        upToMessageId: "message-uuid-1",
+        cwd: "/tmp/project",
+      }).success,
+    ).toBe(true);
+    expect(
+      ClaudeFileRewindArgsSchema.safeParse({
+        sessionId: "claude-session-1",
+        userMessageId: "message-uuid-1",
+        dryRun: true,
+        runtimeOptions: {},
+      }).success,
+    ).toBe(true);
+    expect(
+      CodexThreadForkArgsSchema.safeParse({
+        threadId: "thread-1",
+        lastTurnId: "turn-1",
+        runtimeOptions: {},
+      }).success,
+    ).toBe(true);
+    expect(
+      CodexThreadForkArgsSchema.safeParse({
+        threadId: "thread-1",
+        lastTurnId: "turn-1",
+        beforeTurnId: "turn-2",
+        runtimeOptions: {},
+      }).success,
+    ).toBe(false);
   });
 
   test("validates the provider-neutral Advisor target", () => {
@@ -251,6 +291,11 @@ describe("provider IPC schemas", () => {
               providerId: "codex",
               model: "gpt-5.4",
               content: "",
+              providerBoundary: {
+                providerId: "codex",
+                kind: "turn",
+                nativeId: "turn-1",
+              },
               parts: [
                 {
                   type: "tool_use",
@@ -273,6 +318,11 @@ describe("provider IPC schemas", () => {
     });
 
     expect(parsed).not.toBeNull();
+    expect(parsed?.messagesByTask["task-1"]?.[0]?.providerBoundary).toEqual({
+      providerId: "codex",
+      kind: "turn",
+      nativeId: "turn-1",
+    });
     expect(parsed?.messagesByTask["task-1"]?.[0]?.parts[0]).toEqual({
       type: "tool_use",
       toolName: "Agent",

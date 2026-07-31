@@ -11,6 +11,7 @@ import type {
   CodexThreadForkResponse,
   CodexThreadReadResponse,
   ClaudeContextUsageResponse,
+  ClaudeFileRewindResponse,
   ClaudeMcpOauthLoginResponse,
   ClaudeMcpStatusResponse,
   ClaudeSessionForkResponse,
@@ -22,6 +23,7 @@ import type {
   CodexPluginInstallResponse,
   CodexReviewStartResponse,
   ProviderRuntimeOptions,
+  ProviderAvailabilityResponse,
   ProviderSteerTurnResponse,
   RateLimitsSnapshotResponse,
 } from "../../src/lib/providers/provider.types";
@@ -574,6 +576,13 @@ export interface HostServiceRequestMap {
     title?: string;
     cwd?: string;
   };
+  "provider.rewind-claude-files": {
+    sessionId: string;
+    userMessageId: string;
+    dryRun: boolean;
+    cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
   "provider.rename-claude-session": {
     sessionId: string;
     title: string;
@@ -654,6 +663,7 @@ export interface HostServiceRequestMap {
   "provider.fork-codex-thread": {
     threadId: string;
     lastTurnId?: string;
+    beforeTurnId?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.archive-codex-thread": {
@@ -923,15 +933,12 @@ export interface HostServiceResponseMap {
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;
   "provider.steer-turn": ProviderSteerTurnResponse;
-  "provider.check-availability": {
-    ok: boolean;
-    available: boolean;
-    detail: string;
-  };
+  "provider.check-availability": ProviderAvailabilityResponse;
   "provider.get-command-catalog": ProviderCommandCatalogResult;
   "provider.get-connected-tool-status": ConnectedToolStatusResponse;
   "provider.get-claude-context-usage": ClaudeContextUsageResponse;
   "provider.fork-claude-session": ClaudeSessionForkResponse;
+  "provider.rewind-claude-files": ClaudeFileRewindResponse;
   "provider.rename-claude-session": ProviderMutationResponse;
   "provider.reload-claude-plugins": ClaudePluginReloadResponse;
   "provider.get-claude-mcp-status": ClaudeMcpStatusResponse;

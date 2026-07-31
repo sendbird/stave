@@ -237,6 +237,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeAllowDangerouslySkipPermissions: boolean;
   claudeSandboxEnabled: boolean;
   claudeAllowUnsandboxedCommands: boolean;
+  /** Comma/newline-delimited credential file paths denied by Claude sandbox. */
+  claudeSandboxCredentialFiles: string;
+  /** Comma/newline-delimited credential env names denied by Claude sandbox. */
+  claudeSandboxCredentialEnvVars: string;
   claudeTaskBudgetTokens: number;
   /** Optional isolated read-only preflight used before normal user turns. */
   advisorTarget: AdvisorTarget | null;
@@ -263,7 +267,9 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   codexBinaryPath: string;
   codexReasoningEffort:
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-  codexWebSearch: "disabled" | "cached" | "live";
+  codexWebSearch: "disabled" | "cached" | "live" | "indexed";
+  codexAppToolApprovalMode:
+    "inherit" | "auto" | "prompt" | "writes" | "approve";
   codexShowRawReasoning: boolean;
   codexReasoningSummary: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport: "auto" | "enabled" | "disabled";
@@ -444,6 +450,8 @@ export const defaultSettings: AppSettings = {
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: false,
   claudeAllowUnsandboxedCommands: true,
+  claudeSandboxCredentialFiles: "",
+  claudeSandboxCredentialEnvVars: "",
   claudeTaskBudgetTokens: 0,
   advisorTarget: null,
   craneConnector: {
@@ -473,6 +481,7 @@ export const defaultSettings: AppSettings = {
   // the default model family (GPT-5.6).
   codexReasoningEffort: "xhigh",
   codexWebSearch: "live",
+  codexAppToolApprovalMode: "inherit",
   codexShowRawReasoning: false,
   codexReasoningSummary: "auto",
   codexReasoningSummarySupport: "auto",

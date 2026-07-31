@@ -104,6 +104,7 @@ import {
   prewarmClaudeSdk,
   renameClaudeSession,
   reloadClaudePlugins,
+  rewindClaudeFiles,
   reviewClaudeWorktreeDiff,
   suggestClaudePRDescription,
   startClaudeMcpOauthLogin,
@@ -1357,6 +1358,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.fork-claude-session":
       await respond(request.id, await forkClaudeSession(request.params));
+      return;
+    case "provider.rewind-claude-files":
+      await respond(request.id, await rewindClaudeFiles(request.params));
       return;
     case "provider.rename-claude-session":
       await respond(request.id, await renameClaudeSession(request.params));

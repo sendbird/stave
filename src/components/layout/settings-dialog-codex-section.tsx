@@ -50,6 +50,7 @@ import {
   RefreshCcw,
   Search,
   Sparkles,
+  Webhook,
 } from "lucide-react";
 import {
   useCallback,
@@ -1823,6 +1824,98 @@ export function CodexSection() {
                                       ))}
                                   </div>
                                 ) : null}
+                              </div>
+                            ))
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem
+                        value="hooks"
+                        className="rounded-xl border border-border/70 px-3"
+                      >
+                        <AccordionTrigger className="py-3">
+                          <div className="flex items-center gap-2">
+                            <Webhook className="size-4 text-muted-foreground" />
+                            <span>Provider hooks</span>
+                            <StatusPill
+                              label={`${snapshot.hooks.reduce(
+                                (count, group) => count + group.hooks.length,
+                                0,
+                              )}`}
+                            />
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-3 pb-3">
+                          {snapshot.hooks.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              No hook inventory was returned by the selected
+                              Codex runtime.
+                            </p>
+                          ) : (
+                            snapshot.hooks.map((group) => (
+                              <div key={group.cwd} className="space-y-2">
+                                <p className="break-all text-xs text-muted-foreground">
+                                  {group.cwd}
+                                </p>
+                                {group.hooks.map((hook) => (
+                                  <div
+                                    key={`${group.cwd}:${hook.key}`}
+                                    className="rounded-xl border border-border/70 bg-background/40 px-3 py-3"
+                                  >
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                      <div className="min-w-0 space-y-1">
+                                        <p className="break-words text-sm font-medium text-foreground">
+                                          {hook.key || hook.handlerType}
+                                        </p>
+                                        <p className="break-all text-xs text-muted-foreground">
+                                          {hook.sourcePath}
+                                        </p>
+                                        {hook.statusMessage ? (
+                                          <p className="text-xs text-muted-foreground">
+                                            {hook.statusMessage}
+                                          </p>
+                                        ) : null}
+                                      </div>
+                                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                        <StatusPill
+                                          label={hook.eventName}
+                                          tone={
+                                            hook.enabled ? "success" : "default"
+                                          }
+                                        />
+                                        <StatusPill label={hook.handlerType} />
+                                        <StatusPill
+                                          label={hook.trustStatus}
+                                          tone={
+                                            hook.trustStatus === "trusted" ||
+                                            hook.trustStatus === "managed"
+                                              ? "success"
+                                              : hook.trustStatus === "modified"
+                                                ? "warning"
+                                                : "danger"
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                                {group.warnings.map((warning, index) => (
+                                  <p
+                                    key={`${group.cwd}:warning:${index}`}
+                                    className="text-xs text-muted-foreground"
+                                  >
+                                    {warning}
+                                  </p>
+                                ))}
+                                {group.errors.map((error, index) => (
+                                  <p
+                                    key={`${group.cwd}:error:${index}`}
+                                    className="text-xs text-destructive"
+                                  >
+                                    {error}
+                                  </p>
+                                ))}
                               </div>
                             ))
                           )}

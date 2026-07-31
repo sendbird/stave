@@ -12,6 +12,49 @@ import type { SkillPromptContext } from "@/lib/skills/types";
 export type ProviderId = "claude-code" | "codex";
 export type ClaudeSettingSource = "user" | "project" | "local";
 
+export type ProviderHistoryForkBoundary = "thread" | "turn" | "message";
+export type ProviderAppToolApprovalMode =
+  "auto" | "prompt" | "writes" | "approve";
+export type ProviderWebSearchMode = "disabled" | "cached" | "live" | "indexed";
+
+/**
+ * Features that Stave has wired end-to-end for the selected runtime version.
+ * This intentionally does not describe every feature the upstream runtime may
+ * expose.
+ */
+export interface ProviderRuntimeCapabilities {
+  approval: {
+    appToolModes: ProviderAppToolApprovalMode[];
+    autoClassifierPolicy: boolean;
+    permissionProfiles: boolean;
+  };
+  sandbox: {
+    credentialGuards: boolean;
+  };
+  history: {
+    forkBoundary: ProviderHistoryForkBoundary | null;
+    rewind: {
+      files: boolean;
+      conversation: boolean;
+    };
+  };
+  hooks: {
+    lifecycleEvents: boolean;
+    inventory: boolean;
+    trustManagement: boolean;
+  };
+  delegationPolicies: Array<"disabled" | "explicit" | "proactive">;
+  webSearchModes: ProviderWebSearchMode[];
+}
+
+export interface ProviderAvailabilityResponse {
+  ok: boolean;
+  available: boolean;
+  detail: string;
+  version?: string;
+  capabilities: ProviderRuntimeCapabilities;
+}
+
 export interface AdvisorTarget {
   providerId: ProviderId;
   model: string;
@@ -73,6 +116,15 @@ export interface ClaudeContextUsageResponse {
   ok: boolean;
   detail: string;
   usage?: ClaudeContextUsageSnapshot;
+}
+
+export interface ClaudeFileRewindResponse {
+  ok: boolean;
+  detail: string;
+  canRewind: boolean;
+  filesChanged?: string[];
+  insertions?: number;
+  deletions?: number;
 }
 
 export interface ClaudeMcpServerStatusSnapshot {
@@ -244,6 +296,25 @@ export interface CodexSkillCatalogGroup {
   cwd: string;
   skills: CodexSkillSnapshot[];
   errors: string[];
+}
+
+export interface CodexHookSnapshot {
+  key: string;
+  eventName: string;
+  handlerType: string;
+  enabled: boolean;
+  source: string;
+  sourcePath: string;
+  trustStatus: string;
+  isManaged: boolean;
+  statusMessage: string | null;
+}
+
+export interface CodexHookCatalogGroup {
+  cwd: string;
+  hooks: CodexHookSnapshot[];
+  errors: string[];
+  warnings: string[];
 }
 
 export interface CodexPluginMarketplaceSnapshot {
@@ -483,6 +554,7 @@ export interface CodexAppServerSnapshot {
   account: CodexAccountSnapshot | null;
   rateLimits: CodexRateLimitSnapshot[];
   skills: CodexSkillCatalogGroup[];
+  hooks: CodexHookCatalogGroup[];
   pluginMarketplaces: CodexPluginMarketplaceSnapshot[];
   plugins: CodexPluginSummarySnapshot[];
   pluginMarketplaceLoadErrors: string[];
@@ -625,6 +697,27 @@ export type NormalizedProviderEvent =
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
   | {
+      type: "history_boundary";
+      providerId: ProviderId;
+      boundaryKind: ProviderHistoryForkBoundary;
+      nativeId: string;
+      targetRole: "user" | "assistant";
+    }
+  | {
+      type: "permission_denial";
+      toolName: string;
+      message: string;
+      reasonType?: string;
+      reason?: string;
+    }
+  | {
+      type: "hook_activity";
+      hookId: string;
+      hookName: string;
+      hookEvent: string;
+      status: "running" | "completed" | "failed" | "cancelled" | "blocked";
+    }
+  | {
       type: "tool";
       toolUseId?: string;
       toolName: string;
@@ -716,6 +809,10 @@ export interface ProviderRuntimeOptions {
   claudeAllowDangerouslySkipPermissions?: boolean;
   claudeSandboxEnabled?: boolean;
   claudeAllowUnsandboxedCommands?: boolean;
+  /** File paths the Claude sandbox must deny as credentials. */
+  claudeSandboxCredentialFiles?: string[];
+  /** Environment variable names the Claude sandbox must deny as credentials. */
+  claudeSandboxCredentialEnvVars?: string[];
   claudeSystemPrompt?: string;
   claudeMaxTurns?: number;
   claudeMaxBudgetUsd?: number;
@@ -752,7 +849,9 @@ export interface ProviderRuntimeOptions {
   // it to "low". "max" and "ultra" arrived with the GPT-5.6 Codex CLI scale.
   codexReasoningEffort?:
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-  codexWebSearch?: "disabled" | "cached" | "live";
+  codexWebSearch?: ProviderWebSearchMode;
+  /** Global Codex App/MCP tool approval mode. Independent from shell approval. */
+  codexAppToolApprovalMode?: "inherit" | ProviderAppToolApprovalMode;
   codexShowRawReasoning?: boolean;
   codexReasoningSummary?: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport?: "auto" | "enabled" | "disabled";

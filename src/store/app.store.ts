@@ -67,9 +67,7 @@ import {
   normalizePrePrReviewProvider,
   type TurnIntentComplianceResult,
 } from "@/lib/source-control-review";
-import {
-  isTaskManaged,
-} from "@/lib/tasks";
+import { isTaskManaged } from "@/lib/tasks";
 import { resolveWorkspacePathForId } from "@/store/workspace-file-cache";
 import { resolveSkillSelections } from "@/lib/skills/catalog";
 import {
@@ -197,6 +195,7 @@ import {
   createDefaultProviderAvailability,
   defaultSettings,
 } from "@/store/app-settings";
+import { createDefaultProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
 
 const LOCAL_ABORT_SYSTEM_EVENT_CONTENT =
   "Generation was stopped locally before completion.";
@@ -1625,6 +1624,7 @@ export const useAppStore = create<AppState>()(
       workspaceFileCacheByPath: {},
       taskCheckpointById: {},
       providerAvailability: createDefaultProviderAvailability(),
+      providerRuntimeCapabilities: createDefaultProviderRuntimeCapabilities(),
       skillCatalog: {
         status: "idle",
         workspacePath: null,
@@ -2154,10 +2154,7 @@ export const useAppStore = create<AppState>()(
                   attachments: [],
                   promptBatch: undefined,
                 }),
-            queuedTurns: [
-              ...(storedDraft.queuedTurns ?? []),
-              queuedTurn,
-            ],
+            queuedTurns: [...(storedDraft.queuedTurns ?? []), queuedTurn],
             queuedNextTurn: undefined,
           });
           set((nextState) => {

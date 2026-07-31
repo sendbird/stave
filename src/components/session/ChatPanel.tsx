@@ -10,7 +10,9 @@ import type { VirtuosoHandle } from "react-virtuoso";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  LoaderCircle,
   MessageSquareIcon,
+  Undo2,
   Zap,
 } from "lucide-react";
 import {
@@ -25,7 +27,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
   WaveIndicator,
+  toast,
 } from "@/components/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Conversation,
   ConversationContent,
@@ -54,6 +65,7 @@ import {
   taskScrollAnchorCache,
 } from "@/store/task-scroll.utils";
 import type { ChatMessage, MessagePart } from "@/types/chat";
+import type { ClaudeFileRewindResponse } from "@/lib/providers/provider.types";
 import { useShallow } from "zustand/react/shallow";
 import {
   CopyButton,
@@ -155,6 +167,7 @@ interface MessageRowProps {
     displayParts?: MessagePart[];
     isStreaming?: boolean;
     steerDeliveryState?: ChatMessage["steerDeliveryState"];
+    providerBoundary?: ChatMessage["providerBoundary"];
     usage?: MessageUsage;
   };
 }
@@ -177,6 +190,29 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     message.id === liveStreamingMessageId &&
     message.role === "assistant" &&
     message.isStreaming;
+  const [historyAction, setHistoryAction] = useState<
+    "preview" | "rewind" | null
+  >(null);
+  const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
+  const [rewindPreview, setRewindPreview] =
+    useState<ClaudeFileRewindResponse | null>(null);
+  const [rewindClaudeFilesFromMessage, capabilities] = useAppStore(
+    useShallow((state) => [
+      state.rewindClaudeFilesFromMessage,
+      message.providerBoundary
+        ? state.providerRuntimeCapabilities[message.providerBoundary.providerId]
+        : null,
+    ]),
+  );
+  const boundary = message.providerBoundary;
+  const canRewindFiles = Boolean(
+    !activeTurnId &&
+    !message.isStreaming &&
+    message.role === "user" &&
+    boundary?.providerId === "claude-code" &&
+    boundary.kind === "message" &&
+    capabilities?.history.rewind.files,
+  );
   const elapsedLabel = useMemo(
     () => getMessageElapsedLabel({ message, nowMs: elapsedAnchorMs }),
     [elapsedAnchorMs, message],
@@ -208,6 +244,56 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     }
     event.clipboardData.setData("text/plain", clipboardText);
     event.preventDefault();
+  }
+
+  async function handleRewindPreview() {
+    setRewindPreview(null);
+    setRewindDialogOpen(true);
+    setHistoryAction("preview");
+    try {
+      const result = await rewindClaudeFilesFromMessage({
+        taskId,
+        messageId: message.id,
+        dryRun: true,
+      });
+      setRewindPreview(result);
+    } catch (error) {
+      setRewindPreview({
+        ok: false,
+        canRewind: false,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setHistoryAction(null);
+    }
+  }
+
+  async function handleRewindConfirm() {
+    setHistoryAction("rewind");
+    try {
+      const result = await rewindClaudeFilesFromMessage({
+        taskId,
+        messageId: message.id,
+        dryRun: false,
+      });
+      if (result.ok && result.canRewind) {
+        setRewindDialogOpen(false);
+        toast.success("Claude files rewound", {
+          description: `${result.filesChanged?.length ?? 0} file(s) restored. Conversation history was unchanged.`,
+        });
+      } else {
+        setRewindPreview(result);
+        toast.error("Could not rewind Claude files", {
+          description: result.detail,
+        });
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setRewindPreview({ ok: false, canRewind: false, detail });
+      toast.error("Could not rewind Claude files", { description: detail });
+    } finally {
+      setHistoryAction(null);
+    }
   }
 
   return (
@@ -250,7 +336,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           <MessageActions
             className={cn(
               message.role === "user" &&
-                "pointer-events-none self-end !ml-0 !mt-1 opacity-0 transition-opacity group-hover/message-shell:pointer-events-auto group-hover/message-shell:opacity-100",
+                "pointer-events-none self-end !ml-0 !mt-1 opacity-0 transition-opacity group-hover/message-shell:pointer-events-auto group-hover/message-shell:opacity-100 group-focus-within/message-shell:pointer-events-auto group-focus-within/message-shell:opacity-100",
               message.role === "assistant" && "self-stretch !ml-0 !mt-1",
             )}
           >
@@ -293,6 +379,23 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 key="copy-action"
                 text={message.displayContent ?? message.content}
               />
+              {canRewindFiles ? (
+                <MessageAction
+                  key="rewind-action"
+                  label="Preview Claude file rewind"
+                  disabled={historyAction != null}
+                  onClick={() => void handleRewindPreview()}
+                >
+                  {historyAction === "preview" ? (
+                    <LoaderCircle
+                      aria-hidden="true"
+                      className="size-3.5 animate-spin"
+                    />
+                  ) : (
+                    <Undo2 className="size-3.5" />
+                  )}
+                </MessageAction>
+              ) : null}
               {message.role === "assistant" &&
               message.usage &&
               !showRespondingWave ? (
@@ -386,6 +489,100 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               ) : null}
             </div>
           </MessageActions>
+          {canRewindFiles || rewindDialogOpen ? (
+            <Dialog
+              open={rewindDialogOpen}
+              onOpenChange={(open) => {
+                if (historyAction !== "rewind") {
+                  setRewindDialogOpen(open);
+                }
+              }}
+            >
+              <DialogContent showCloseButton={false} className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Rewind Claude file changes?</DialogTitle>
+                  <DialogDescription>
+                    This restores working files to their state before this user
+                    message. Conversation history and Git history are not
+                    changed.
+                  </DialogDescription>
+                </DialogHeader>
+                <div aria-live="polite" className="min-w-0 space-y-3">
+                  {historyAction === "preview" && !rewindPreview ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <LoaderCircle
+                        aria-hidden="true"
+                        className="size-4 animate-spin"
+                      />
+                      Checking affected files…
+                    </div>
+                  ) : rewindPreview?.ok && rewindPreview.canRewind ? (
+                    <>
+                      <p className="text-sm text-foreground">
+                        {rewindPreview.filesChanged?.length ?? 0} file(s) will
+                        change
+                        {rewindPreview.insertions != null ||
+                        rewindPreview.deletions != null
+                          ? ` · +${rewindPreview.insertions ?? 0} / −${rewindPreview.deletions ?? 0}`
+                          : ""}
+                        .
+                      </p>
+                      {rewindPreview.filesChanged?.length ? (
+                        <ul
+                          aria-label="Files affected by rewind"
+                          className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-xs"
+                        >
+                          {rewindPreview.filesChanged.map((filePath) => (
+                            <li key={filePath} className="break-all">
+                              {filePath}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Claude reported no changed file paths.
+                        </p>
+                      )}
+                    </>
+                  ) : rewindPreview ? (
+                    <p className="text-sm text-destructive">
+                      {rewindPreview.detail}
+                    </p>
+                  ) : null}
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={historyAction === "rewind"}
+                    onClick={() => setRewindDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={
+                      historyAction != null ||
+                      !rewindPreview?.ok ||
+                      !rewindPreview.canRewind
+                    }
+                    onClick={() => void handleRewindConfirm()}
+                  >
+                    {historyAction === "rewind" ? (
+                      <LoaderCircle
+                        aria-hidden="true"
+                        className="size-4 animate-spin"
+                      />
+                    ) : null}
+                    Rewind files
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : null}
         </div>
       </Message>
     </div>
@@ -419,6 +616,9 @@ function ChatPanelMessageList(props: {
   );
   const providerSession = useAppStore(
     (state) => state.providerSessionByTask[taskId] ?? EMPTY_PROVIDER_SESSION,
+  );
+  const providerRuntimeCapabilities = useAppStore(
+    (state) => state.providerRuntimeCapabilities,
   );
   const totalMessageCount = useAppStore(
     (state) => state.messageCountByTask[taskId] ?? 0,
@@ -461,8 +661,9 @@ function ChatPanelMessageList(props: {
         messages,
         providerSession,
         hasActiveTurn: Boolean(activeTurnId),
+        runtimeCapabilities: providerRuntimeCapabilities,
       }),
-    [activeTurnId, messages, providerSession],
+    [activeTurnId, messages, providerRuntimeCapabilities, providerSession],
   );
   const turnRailItems = useMemo(
     () =>

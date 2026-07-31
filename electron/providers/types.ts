@@ -1,5 +1,6 @@
 import type {
   CanonicalConversationRequest,
+  ProviderAvailabilityResponse,
   ProviderGoalSnapshot,
   ProviderRuntimeOptions,
   ProviderSteerTurnRequest,
@@ -96,6 +97,27 @@ export type BridgeEvent =
       ttftMs?: number;
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
+  | {
+      type: "history_boundary";
+      providerId: ProviderId;
+      boundaryKind: "thread" | "turn" | "message";
+      nativeId: string;
+      targetRole: "user" | "assistant";
+    }
+  | {
+      type: "permission_denial";
+      toolName: string;
+      message: string;
+      reasonType?: string;
+      reason?: string;
+    }
+  | {
+      type: "hook_activity";
+      hookId: string;
+      hookName: string;
+      hookEvent: string;
+      status: "running" | "completed" | "failed" | "cancelled" | "blocked";
+    }
   | {
       type: "tool";
       toolUseId?: string;
@@ -199,11 +221,7 @@ export interface ProviderRuntime {
   checkAvailability: (args: {
     providerId: ProviderId;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  }) => Promise<{
-    ok: boolean;
-    available: boolean;
-    detail: string;
-  }>;
+  }) => Promise<ProviderAvailabilityResponse>;
   getCommandCatalog: (args: {
     providerId: ProviderId;
     cwd?: string;

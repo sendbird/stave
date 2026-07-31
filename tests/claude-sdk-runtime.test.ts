@@ -158,6 +158,126 @@ describe("mapClaudeMessageToEvents", () => {
     expect(events).toEqual([{ type: "text", text: "Current cost: $0.12" }]);
   });
 
+  test("normalizes permission denials without exposing provider payloads", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "system",
+        subtype: "permission_denied",
+        uuid: "msg-denied-1",
+        session_id: "session-1",
+        tool_name: "Bash",
+        message: "Credential access was denied.",
+        decision_reason_type: "rule",
+        decision_reason: "sandbox credential policy",
+        raw_credentials: "must-not-surface",
+      } as never,
+      claudeDebugStream: false,
+    });
+
+    expect(events).toEqual([
+      {
+        type: "permission_denial",
+        toolName: "Bash",
+        message: "Credential access was denied.",
+        reasonType: "rule",
+        reason: "sandbox credential policy",
+      },
+    ]);
+    expect(JSON.stringify(events)).not.toContain("must-not-surface");
+  });
+
+  test("normalizes hook lifecycle without exposing hook output", () => {
+    const base = {
+      type: "system",
+      uuid: "msg-hook-1",
+      session_id: "session-1",
+      hook_id: "hook-1",
+      hook_name: "audit-hook",
+      hook_event: "UserPromptSubmit",
+      stdout: "sensitive hook output",
+    } as const;
+
+    const started = mapClaudeMessageToEvents({
+      message: { ...base, subtype: "hook_started" } as never,
+      claudeDebugStream: false,
+    });
+    const progress = mapClaudeMessageToEvents({
+      message: { ...base, subtype: "hook_progress" } as never,
+      claudeDebugStream: false,
+    });
+    const completed = mapClaudeMessageToEvents({
+      message: {
+        ...base,
+        subtype: "hook_response",
+        outcome: "success",
+      } as never,
+      claudeDebugStream: false,
+    });
+
+    expect(started).toEqual([
+      {
+        type: "hook_activity",
+        hookId: "hook-1",
+        hookName: "audit-hook",
+        hookEvent: "UserPromptSubmit",
+        status: "running",
+      },
+    ]);
+    expect(progress).toEqual(started);
+    expect(completed).toEqual([
+      {
+        ...started[0],
+        status: "completed",
+      },
+    ]);
+    expect(JSON.stringify([started, progress, completed])).not.toContain(
+      "sensitive hook output",
+    );
+  });
+
+  test("emits native message boundaries for top-level human conversation messages", () => {
+    const assistantEvents = mapClaudeMessageToEvents({
+      message: {
+        type: "assistant",
+        uuid: "assistant-message-1",
+        parent_tool_use_id: null,
+        message: { content: [{ type: "text", text: "Done." }] },
+      } as never,
+      claudeDebugStream: false,
+    });
+    const userEvents = mapClaudeMessageToEvents({
+      message: {
+        type: "user",
+        uuid: "user-message-1",
+        parent_tool_use_id: null,
+        isSynthetic: false,
+        origin: { kind: "human" },
+        message: { content: "Continue." },
+      } as never,
+      claudeDebugStream: false,
+    });
+
+    expect(assistantEvents).toEqual([
+      {
+        type: "history_boundary",
+        providerId: "claude-code",
+        boundaryKind: "message",
+        nativeId: "assistant-message-1",
+        targetRole: "assistant",
+      },
+      { type: "text", text: "Done." },
+    ]);
+    expect(userEvents).toEqual([
+      {
+        type: "history_boundary",
+        providerId: "claude-code",
+        boundaryKind: "message",
+        nativeId: "user-message-1",
+        targetRole: "user",
+      },
+    ]);
+  });
+
   test.each([
     {
       error: "authentication_failed",
@@ -1313,6 +1433,47 @@ describe("buildClaudeQueryOptions", () => {
       forkSession: true,
       resumeSessionAt: "message-uuid",
     });
+  });
+
+  test("builds deny-only sandbox credential rules from names and paths", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: {
+        claudeSandboxEnabled: true,
+        claudeSandboxCredentialFiles: [
+          "/tmp/service-token",
+          " /tmp/service-token ",
+        ],
+        claudeSandboxCredentialEnvVars: [
+          "SERVICE_TOKEN",
+          " SERVICE_TOKEN ",
+          "INVALID-NAME",
+        ],
+      },
+    });
+
+    expect(options.sandbox).toMatchObject({
+      enabled: true,
+      credentials: {
+        files: [{ path: "/tmp/service-token", mode: "deny" }],
+        envVars: [{ name: "SERVICE_TOKEN", mode: "deny" }],
+      },
+    });
+  });
+
+  test("does not let injected secrets override runtime-owned environment", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      secretEnv: {
+        PATH: "attacker-controlled",
+        SAFE_SERVICE_TOKEN: "placeholder-value",
+      },
+    });
+
+    expect(options.env?.PATH).not.toBe("attacker-controlled");
+    expect(options.env?.SAFE_SERVICE_TOKEN).toBe("placeholder-value");
   });
 
   test("always registers the foreground-subagent PreToolUse hook", () => {

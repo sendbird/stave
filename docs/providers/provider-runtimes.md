@@ -7,6 +7,12 @@ Stave supports two task providers directly:
 - `claude-code` for Claude Code SDK turns.
 - `codex` for Codex App Server turns.
 
+Upgrade reviews use
+[Claude Agent SDK Upgrade Checklist](./claude-sdk-upgrade-checklist.md) and
+[Codex Upgrade Checklist](./codex-upgrade-checklist.md). Cross-provider feature
+decisions are recorded in
+[H1 2026 Runtime Feature Adoption Plan](./runtime-feature-adoption-plan.md).
+
 The renderer submits a selected provider and model with each turn. `electron/main/ipc/provider.ts` validates the request, forwards it into the dedicated desktop `host-service` child process, and `electron/providers/runtime.ts` dispatches to the matching provider runtime.
 
 ## Advisor preflight
@@ -49,7 +55,7 @@ are selected by an internal execution policy. See
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.
 
-Current baseline: `@anthropic-ai/claude-agent-sdk@0.3.179` with bundled Claude Code `2.1.179` support.
+Current baseline: exact pin `@anthropic-ai/claude-agent-sdk@0.3.197` with bundled Claude Code `2.1.197` support.
 
 High-level flow:
 
@@ -68,6 +74,9 @@ Claude event mapping:
 - `ExitPlanMode` tool payload -> `plan_ready`
 - `task_progress.summary` -> `system` when Claude agent progress summaries are enabled
 - MCP elicitation and supported user dialogs -> `user_input`
+- provider-native message UUID -> `history_boundary`
+- sandbox and auto-mode denial -> `permission_denial`
+- hook start, progress, response, or blocking feedback -> `hook_activity`
 - `compact_boundary` -> `system` with `compactBoundary.trigger` and `compactBoundary.gitRef` metadata
 - `status: compacting` -> `system` (`Compacting conversation context…`)
 - stream or runtime failures -> `error`
@@ -101,6 +110,7 @@ Claude-specific runtime controls come from the UI and runtime options:
 - dangerous skip permissions
 - sandbox enabled
 - allow unsandboxed commands
+- sandbox credential file paths and environment-variable names (deny-only)
 - setting sources
 - task budget
 - prompt suggestions
@@ -108,6 +118,7 @@ Claude-specific runtime controls come from the UI and runtime options:
 - subagent text forwarding
 - file checkpointing
 - session fork / resume-at-message controls
+- message-boundary task branching and checkpointed file rewind
 - skill, local plugin, main-agent, and fallback-model hints
 - strict MCP config
 - provider timeout
@@ -215,6 +226,8 @@ Codex event mapping:
 - MCP tool calls -> `tool`
 - web search -> `tool`
 - file changes -> diff events
+- hook lifecycle -> `hook_activity`
+- acknowledged turn id -> assistant `history_boundary`
 - failures -> `error`
 
 Codex text-boundary note:
@@ -289,7 +302,10 @@ Codex-specific runtime controls come from the UI and runtime options:
 
 - network access
 - file access
-- approval policy (`never`, `on-request`, `untrusted`)
+- shell approval policy (`never`, `on-request`, `untrusted`, plus persisted
+  legacy `on-failure` compatibility)
+- App/MCP tool approval (`inherit`, `auto`, `prompt`, `writes`, `approve`)
+- web search (`disabled`, `cached`, `live`, `indexed` when supported)
 - reasoning effort
 - reasoning summary and raw reasoning toggles
 - plan mode
@@ -315,8 +331,9 @@ Codex slash-command behavior:
 - Stave also listens for Codex App Server `thread/goal/updated` and `thread/goal/cleared` notifications, stores the current task goal as runtime state, and shows the active goal status/progress near the chat input.
 - The Settings developer surface mirrors the native Codex MCP/runtime status rather than synthesizing a Claude-style plugin list.
 
-Stave only accepts the canonical Codex approval policies: `never`,
-`on-request`, and `untrusted`.
+Stave uses `never`, `on-request`, and `untrusted` for selectable Codex shell
+approval policies. It preserves persisted `on-failure` values for compatibility
+but does not use that legacy mode as a new default.
 
 ### Codex settings quick guide
 
@@ -348,13 +365,14 @@ If you want the user-facing setup workflow instead of the runtime internals, use
 - `web search mode`
   - `disabled`: fully local.
   - `cached`: App Server-aligned default; lower-volatility search path when available.
+  - `indexed`: use the indexed corpus when the selected runtime supports it.
   - `live`: allow current web lookup.
 - Example mode presets
   - `Manual`: `read-only` + `on-request` + network off + web search disabled
   - `Guided`: `workspace-write` + `untrusted` + network off + web search cached
   - `Auto`: `danger-full-access` + `never` + network on + web search live
 
-Current Codex defaults follow the App Server-aligned baseline in Stave: `workspace-write` file access, `untrusted` approvals, `network access = off`, `web search = cached`, `reasoning effort = xhigh` (the codex-cli 0.144.1 server-catalog default for the GPT-5.6 family), raw reasoning off, and reasoning summary auto-detection enabled.
+Current Codex defaults follow the App Server-aligned baseline in Stave: `workspace-write` file access, `untrusted` approvals, `network access = off`, `web search = cached`, `reasoning effort = xhigh` (the current server-catalog default for the GPT-5.6 family), raw reasoning off, and reasoning summary auto-detection enabled.
 
 Stave now forwards an explicit `show_raw_agent_reasoning: false` override when the Codex UI toggle is off, so local CLI defaults or config files do not leave raw reasoning enabled unexpectedly.
 
@@ -362,15 +380,15 @@ Codex threads are keyed by task/cwd plus the active file-access, network, approv
 
 When a task switches from one Codex model to another, Stave does not attempt to resume the older native thread. Instead it replays the task history into a fresh Codex thread so model-bound session errors do not break the next turn.
 
-## Supported Codex baseline
+## Codex verification baseline
 
-- Codex App Server transport: local `codex app-server` from Codex CLI `0.144.1`
-- Codex CLI baseline: `0.144.1`
+- Codex App Server transport: local `codex app-server` from Codex CLI `0.145.0`
+- Current schema verification baseline: `0.145.0` (verified July 31, 2026)
 - Current Stave-supported Codex model IDs: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5` (default: `gpt-5.6-terra`)
 
-Stave requires a user-installed Codex CLI (`codex` ≥ 0.144.1). Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery.
+Stave requires a user-installed Codex CLI. Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery. Stave does not currently enforce a semantic-version floor, so controls for newly adopted features must be capability-gated for older executables.
 
-The Codex App Server adapter advertises the `experimentalApi` capability during initialization for App Server features that require it, but thread and turn request payloads are kept within the generated 0.144.1 protocol surface.
+The Codex App Server adapter advertises the `experimentalApi` capability during initialization for App Server features that require it, but thread and turn request payloads are kept within the generated `0.145.0` protocol surface.
 
 Claude follows the same pattern. Users can force a specific local `claude` install via `runtimeOptions.claudeBinaryPath` or the Settings dialog's Claude Binary override before Stave falls back to environment-based discovery.
 

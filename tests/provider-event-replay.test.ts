@@ -829,6 +829,101 @@ describe("plan response replay", () => {
   });
 });
 
+describe("provider-native history metadata", () => {
+  test("attaches user and assistant boundaries to their transcript messages", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [
+        {
+          id: "task-1-m-1",
+          role: "user",
+          model: "user",
+          providerId: "user",
+          content: "Continue.",
+          parts: [{ type: "text", text: "Continue." }],
+        },
+      ],
+      events: [
+        {
+          type: "history_boundary",
+          providerId: "claude-code",
+          boundaryKind: "message",
+          nativeId: "user-message-1",
+          targetRole: "user",
+        },
+        {
+          type: "history_boundary",
+          providerId: "claude-code",
+          boundaryKind: "message",
+          nativeId: "assistant-message-1",
+          targetRole: "assistant",
+        },
+        { type: "text", text: "Done." },
+        { type: "done" },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages[0]?.providerBoundary).toEqual({
+      providerId: "claude-code",
+      kind: "message",
+      nativeId: "user-message-1",
+    });
+    expect(replayed.messages[1]).toMatchObject({
+      role: "assistant",
+      content: "Done.",
+      providerBoundary: {
+        providerId: "claude-code",
+        kind: "message",
+        nativeId: "assistant-message-1",
+      },
+    });
+  });
+
+  test("keeps hook activity out of the transcript", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "hook_activity",
+          hookId: "hook-1",
+          hookName: "audit-hook",
+          hookEvent: "UserPromptSubmit",
+          status: "completed",
+        },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages).toEqual([]);
+  });
+
+  test("surfaces permission denials as concise system events", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "permission_denial",
+          toolName: "Bash",
+          message: "Access denied.",
+          reason: "Credential policy",
+        },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages[0]?.parts).toContainEqual({
+      type: "system_event",
+      content: "Permission denied for Bash: Credential policy",
+    });
+  });
+});
+
 describe("subagent progress integration", () => {
   test("appends progress to matching Agent tool_use by toolUseId", () => {
     const message = createMessage({

@@ -20,7 +20,6 @@ import type {
   CodexPluginMarketplaceSnapshot,
   CodexRateLimitSnapshot,
   CodexReviewStartResponse,
-  CodexSkillCatalogGroup,
   CodexThreadForkResponse,
   CodexThreadReadResponse,
 } from "../../src/lib/providers/provider.types";
@@ -94,15 +93,16 @@ import {
   readCodexGoalStatusEvent,
   runCodexCompactSlashCommand,
   runCodexGoalSlashCommand,
-  type CodexElicitationPauseClient,
 } from "./codex-goal-commands";
 import {
   mapCodexConfigSnapshot,
+  mapCodexHookCatalogGroups,
   mapCodexMcpStatusSnapshot,
   mapCodexModelCatalogEntry,
   mapCodexPluginDetail,
   mapCodexPluginSummary,
   mapCodexRateLimitBuckets,
+  mapCodexSkillCatalogGroups,
   mapCodexThreadSnapshot,
 } from "./codex-snapshot-mappers";
 import {
@@ -126,6 +126,12 @@ import {
 import { mergeCodexTurnConfigOverrides } from "./codex-app-server-config-overrides";
 import { parsePositiveIntEnv } from "./runtime-shared";
 import { createCodexMcpManagement } from "./codex-mcp-management";
+import {
+  downgradeUnsupportedCodexRuntimeOptions,
+  getCodexVersionCapabilities,
+} from "./codex-runtime-capabilities";
+import { mapCodexHookNotificationToBridgeEvent } from "./codex-hook-mapping";
+import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -152,6 +158,9 @@ export {
   buildSandboxPolicy,
 } from "./codex-app-server-params";
 export { buildCodexUnattendedAutomationMcpOverrides } from "./codex-app-server-config-overrides";
+export { applyCodexRuntimeCapabilityDowngrades } from "./codex-runtime-capabilities";
+export { mapCodexHookNotificationToBridgeEvent } from "./codex-hook-mapping";
+export { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
 export {
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
@@ -632,112 +641,6 @@ function mapApprovalToolName(method: ServerRequestMethod) {
     default:
       return method;
   }
-}
-
-export function createCodexAppServerElicitationPauseController(args: {
-  client: CodexElicitationPauseClient;
-  threadId: string;
-  debug?: boolean;
-}) {
-  const pendingRequestIds = new Set<string>();
-  let queue = Promise.resolve();
-
-  const enqueue = (operation: () => Promise<void>) => {
-    const next = queue.then(operation, operation);
-    queue = next.catch(() => {});
-    return next;
-  };
-
-  const logFailure = (
-    phase: "pause" | "resume",
-    requestId: string,
-    error: unknown,
-  ) => {
-    console.warn(
-      `[provider-runtime] Codex app-server elicitation ${phase} failed`,
-      {
-        threadId: args.threadId,
-        requestId,
-        error: toErrorMessage(error),
-      },
-    );
-  };
-
-  const logState = (
-    phase: "pause" | "resume",
-    requestId: string,
-    response: { count?: number; paused?: boolean } | undefined,
-  ) => {
-    if (!args.debug) {
-      return;
-    }
-    console.debug(`[codex-app-server-runtime] elicitation ${phase} applied`, {
-      threadId: args.threadId,
-      requestId,
-      count: response?.count,
-      paused: response?.paused,
-    });
-  };
-
-  return {
-    begin(requestId: string) {
-      return enqueue(async () => {
-        if (!requestId || pendingRequestIds.has(requestId)) {
-          return;
-        }
-        pendingRequestIds.add(requestId);
-        try {
-          const response = await args.client.request<{
-            count?: number;
-            paused?: boolean;
-          }>("thread/increment_elicitation", {
-            threadId: args.threadId,
-          });
-          logState("pause", requestId, response);
-        } catch (error) {
-          pendingRequestIds.delete(requestId);
-          logFailure("pause", requestId, error);
-        }
-      });
-    },
-    end(requestId: string) {
-      return enqueue(async () => {
-        if (!requestId || !pendingRequestIds.delete(requestId)) {
-          return;
-        }
-        try {
-          const response = await args.client.request<{
-            count?: number;
-            paused?: boolean;
-          }>("thread/decrement_elicitation", {
-            threadId: args.threadId,
-          });
-          logState("resume", requestId, response);
-        } catch (error) {
-          logFailure("resume", requestId, error);
-        }
-      });
-    },
-    endAll() {
-      return enqueue(async () => {
-        const requestIds = [...pendingRequestIds];
-        pendingRequestIds.clear();
-        for (const requestId of requestIds) {
-          try {
-            const response = await args.client.request<{
-              count?: number;
-              paused?: boolean;
-            }>("thread/decrement_elicitation", {
-              threadId: args.threadId,
-            });
-            logState("resume", requestId, response);
-          } catch (error) {
-            logFailure("resume", requestId, error);
-          }
-        }
-      });
-    },
-  };
 }
 
 function mapUserInputQuestions(questions: Array<Record<string, unknown>>) {
@@ -1471,10 +1374,17 @@ export async function getCodexAppServerSnapshot(args: {
   try {
     const client = getCodexAppServerClientFromRuntimeOptions(args);
     const cwd = args.cwd?.trim() || process.cwd();
+    const executablePath = resolveCodexExecutablePath({
+      explicitPath: args.runtimeOptions?.codexBinaryPath,
+    });
+    const capabilities = executablePath
+      ? getCodexVersionCapabilities(executablePath)
+      : null;
     const snapshot: CodexAppServerSnapshot = {
       account: null,
       rateLimits: [],
       skills: [],
+      hooks: [],
       pluginMarketplaces: [],
       plugins: [],
       pluginMarketplaceLoadErrors: [],
@@ -1523,38 +1433,18 @@ export async function getCodexAppServerSnapshot(args: {
           cwds: [cwd],
           forceReload: false,
         });
-        snapshot.skills = Array.isArray(response?.data)
-          ? response.data.map((entry: any): CodexSkillCatalogGroup => ({
-              cwd: String(entry?.cwd ?? cwd),
-              skills: Array.isArray(entry?.skills)
-                ? entry.skills.map((skill: any) => ({
-                    name: String(skill?.name ?? ""),
-                    description: String(skill?.description ?? ""),
-                    shortDescription:
-                      typeof skill?.shortDescription === "string"
-                        ? skill.shortDescription
-                        : typeof skill?.interface?.short_description ===
-                            "string"
-                          ? skill.interface.short_description
-                          : null,
-                    path: String(skill?.path ?? ""),
-                    scope:
-                      typeof skill?.scope === "string"
-                        ? skill.scope
-                        : "unknown",
-                    enabled: Boolean(skill?.enabled),
-                  }))
-                : [],
-              errors: Array.isArray(entry?.errors)
-                ? entry.errors.map((error: any) =>
-                    typeof error?.message === "string"
-                      ? error.message
-                      : JSON.stringify(error ?? {}),
-                  )
-                : [],
-            }))
-          : [];
+        snapshot.skills = mapCodexSkillCatalogGroups(response?.data, cwd);
       }),
+      ...(capabilities?.hooks.inventory
+        ? [
+            loadSection("hooks", async () => {
+              const response = await client.request<any>("hooks/list", {
+                cwds: [cwd],
+              });
+              snapshot.hooks = mapCodexHookCatalogGroups(response?.data, cwd);
+            }),
+          ]
+        : []),
       loadSection("plugins", async () => {
         const response = await client.request<any>("plugin/list", {
           cwds: [cwd],
@@ -1978,13 +1868,32 @@ export async function readCodexThread(args: {
 export async function forkCodexThread(args: {
   threadId: string;
   lastTurnId?: string;
+  beforeTurnId?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }): Promise<CodexThreadForkResponse> {
   try {
+    const executablePath = resolveCodexExecutablePath({
+      explicitPath: args.runtimeOptions?.codexBinaryPath,
+    });
+    if (!executablePath) {
+      return { ok: false, detail: "Codex executable not found." };
+    }
+    const boundaryRequested = Boolean(args.lastTurnId || args.beforeTurnId);
+    if (
+      boundaryRequested &&
+      getCodexVersionCapabilities(executablePath).history.forkBoundary !==
+        "turn"
+    ) {
+      return {
+        ok: false,
+        detail: "The selected Codex version does not support turn-level forks.",
+      };
+    }
     const client = getCodexAppServerClientFromRuntimeOptions(args);
     const response = await client.request<any>("thread/fork", {
       threadId: args.threadId,
       ...(args.lastTurnId ? { lastTurnId: args.lastTurnId } : {}),
+      ...(args.beforeTurnId ? { beforeTurnId: args.beforeTurnId } : {}),
     });
     return mapCodexThreadForkResponse(response);
   } catch (error) {
@@ -2374,14 +2283,14 @@ export async function streamCodexWithAppServer(
   },
 ): Promise<BridgeEvent[] | null> {
   const secondaryReadOnly = args.executionPolicy === "secondary-read-only";
-  const runtimeOptions = resolveCodexSecondaryRuntimeOptions({
+  const requestedRuntimeOptions = resolveCodexSecondaryRuntimeOptions({
     enabled: secondaryReadOnly,
     runtimeOptions: args.runtimeOptions,
   });
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
   const codexExecutablePath = resolveCodexExecutablePath({
-    explicitPath: runtimeOptions?.codexBinaryPath,
+    explicitPath: requestedRuntimeOptions?.codexBinaryPath,
   });
   if (!codexExecutablePath) {
     const unavailableEvents: BridgeEvent[] = [
@@ -2396,6 +2305,11 @@ export async function streamCodexWithAppServer(
     unavailableEvents.forEach((event) => args.onEvent?.(event));
     return unavailableEvents;
   }
+  const runtimeOptions = downgradeUnsupportedCodexRuntimeOptions({
+    executablePath: codexExecutablePath,
+    runtimeOptions: requestedRuntimeOptions,
+  });
+  const codexCapabilities = getCodexVersionCapabilities(codexExecutablePath);
 
   // A per-turn process lets Codex resolve MCP bearer_token_env_var settings
   // without exposing bound values to shared clients or read-only analysis.
@@ -3276,6 +3190,17 @@ export async function streamCodexWithAppServer(
       }
 
       switch (message.method) {
+        case "hook/started":
+        case "hook/completed": {
+          if (!codexCapabilities.hooks.lifecycleEvents) {
+            return;
+          }
+          const hookEvent = mapCodexHookNotificationToBridgeEvent(params);
+          if (hookEvent) {
+            emitBridgeEvent(hookEvent);
+          }
+          return;
+        }
         case "item/started": {
           const item = params.item as CodexMcpToolCallItem | undefined;
           if (item?.type !== "mcpToolCall") {
@@ -3863,6 +3788,15 @@ export async function streamCodexWithAppServer(
         nativeSessionId: threadId,
         nativeTurnId: appServerTurnId,
       });
+      if (codexCapabilities.history.forkBoundary === "turn") {
+        emitBridgeEvent({
+          type: "history_boundary",
+          providerId: "codex",
+          boundaryKind: "turn",
+          nativeId: appServerTurnId,
+          targetRole: "assistant",
+        });
+      }
       if (codexDebug) {
         console.debug("[codex-app-server-runtime] turn/start acknowledged", {
           threadId,

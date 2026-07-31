@@ -4,6 +4,7 @@ import {
   AbortTurnArgsSchema,
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
+  ClaudeFileRewindArgsSchema,
   ClaudeMcpOauthLoginArgsSchema,
   ClaudeRuntimeActionArgsSchema,
   ClaudeSessionForkArgsSchema,
@@ -371,6 +372,18 @@ export function registerProviderHandlers() {
       };
     }
     return invokeHostService("provider.fork-claude-session", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:rewind-claude-files", (_event, args: unknown) => {
+    const parsedArgs = ClaudeFileRewindArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        ok: false,
+        canRewind: false,
+        detail: "Invalid Claude file rewind request.",
+      };
+    }
+    return invokeHostService("provider.rewind-claude-files", parsedArgs.data);
   });
 
   ipcMain.handle("provider:rename-claude-session", (_event, args: unknown) => {

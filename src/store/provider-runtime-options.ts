@@ -37,6 +37,8 @@ type RuntimeSettings = Pick<
   | "claudeAllowDangerouslySkipPermissions"
   | "claudeSandboxEnabled"
   | "claudeAllowUnsandboxedCommands"
+  | "claudeSandboxCredentialFiles"
+  | "claudeSandboxCredentialEnvVars"
   | "claudeTaskBudgetTokens"
   | "advisorTarget"
   | "claudeSettingSources"
@@ -61,6 +63,7 @@ type RuntimeSettings = Pick<
   | "codexBinaryPath"
   | "codexReasoningEffort"
   | "codexWebSearch"
+  | "codexAppToolApprovalMode"
   | "codexShowRawReasoning"
   | "codexReasoningSummary"
   | "codexReasoningSummarySupport"
@@ -211,6 +214,22 @@ export function buildProviderRuntimeOptions(args: {
       settings.claudeAllowDangerouslySkipPermissions,
     claudeSandboxEnabled: settings.claudeSandboxEnabled,
     claudeAllowUnsandboxedCommands: settings.claudeAllowUnsandboxedCommands,
+    ...(normalizeDelimitedSettingList(settings.claudeSandboxCredentialFiles)
+      .length > 0
+      ? {
+          claudeSandboxCredentialFiles: normalizeDelimitedSettingList(
+            settings.claudeSandboxCredentialFiles,
+          ),
+        }
+      : {}),
+    ...(normalizeDelimitedSettingList(settings.claudeSandboxCredentialEnvVars)
+      .length > 0
+      ? {
+          claudeSandboxCredentialEnvVars: normalizeDelimitedSettingList(
+            settings.claudeSandboxCredentialEnvVars,
+          ),
+        }
+      : {}),
     claudeSettingSources: normalizeClaudeSettingSources({
       value: settings.claudeSettingSources,
     }),
@@ -262,6 +281,7 @@ export function buildProviderRuntimeOptions(args: {
     codexBinaryPath: settings.codexBinaryPath || undefined,
     codexReasoningEffort: settings.codexReasoningEffort,
     codexWebSearch: settings.codexWebSearch,
+    codexAppToolApprovalMode: settings.codexAppToolApprovalMode,
     codexShowRawReasoning: settings.codexShowRawReasoning,
     codexReasoningSummary: settings.codexReasoningSummary,
     codexReasoningSummarySupport: settings.codexReasoningSummarySupport,
