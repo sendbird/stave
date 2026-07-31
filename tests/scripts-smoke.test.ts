@@ -90,17 +90,13 @@ describe("package scripts", () => {
     expect(config.includes("- node_modules/portless/dist/**")).toBe(true);
   });
 
-  test("packages legal notices as readable extra resources", () => {
+  test("packages Stave legal files without a third-party license directory", () => {
     const repoRoot = path.join(import.meta.dirname, "..");
     const config = readFileSync(
       path.join(repoRoot, "electron-builder.yml"),
       "utf8",
     );
     const notice = readFileSync(path.join(repoRoot, "NOTICE"), "utf8");
-    const gitGraphLicense = readFileSync(
-      path.join(repoRoot, "licenses", "vscode-git-graph-MIT.txt"),
-      "utf8",
-    );
 
     expect(config).toContain(
       [
@@ -109,21 +105,11 @@ describe("package scripts", () => {
         "    to: LICENSE",
         "  - from: NOTICE",
         "    to: NOTICE",
-        "  - from: licenses",
-        "    to: licenses",
       ].join("\n"),
     );
-    expect(notice).toMatch(/modified SVG edge-rendering geometry/);
-    expect(notice).not.toContain("commit graph layout algorithm");
-    expect(notice).toContain("commit e56379d616f8b0b8ee075497948131c31639f6b1");
-    expect(notice).toContain(
-      "blob/e56379d616f8b0b8ee075497948131c31639f6b1/web/graph.ts",
-    );
-    expect(notice).toContain("licenses/vscode-git-graph-MIT.txt");
-    expect(gitGraphLicense).toContain("Copyright (c) 2019-present, mhutchie");
-    expect(gitGraphLicense).toContain(
-      "The above copyright notice and this permission notice shall be included",
-    );
+    expect(config).not.toContain("  - from: licenses");
+    expect(notice).toContain("Copyright 2026 Sendbird, Inc.");
+    expect(notice).not.toContain("SVG edge-rendering geometry");
   });
 
   test("node-invoked mjs scripts use Node-compatible entrypoint guards", () => {

@@ -9,8 +9,6 @@ extraResources:
     to: LICENSE
   - from: NOTICE
     to: NOTICE
-  - from: licenses
-    to: licenses
 directories:
   output: release
 asar: true

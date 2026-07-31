@@ -11,12 +11,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
-This product includes modified SVG edge-rendering geometry derived from Git
-Graph for Visual Studio Code v1.4.6
-(commit e56379d616f8b0b8ee075497948131c31639f6b1):
-https://github.com/mhutchie/vscode-git-graph/blob/e56379d616f8b0b8ee075497948131c31639f6b1/web/graph.ts
-
-Copyright (c) 2019-present, mhutchie.
-Licensed under the MIT License. The full license text is distributed at
-licenses/vscode-git-graph-MIT.txt.

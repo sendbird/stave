@@ -36,10 +36,10 @@ describe("buildGraphBranchPaths", () => {
     ).toEqual([{ d: "M 7 14 L 7 70", isCommitted: true }]);
   });
 
-  it("uses Git Graph's 0.8-row rounded transition geometry", () => {
+  it("uses symmetric row-midpoint controls for rounded transitions", () => {
     expect(buildGraphBranchPaths([segment(0, 0, 1, 1)], GEOMETRY)).toEqual([
       {
-        d: "M 7 14 C 7 36.4, 21 19.6, 21 42",
+        d: "M 7 14 C 7 28, 21 28, 21 42",
         isCommitted: true,
       },
     ]);
@@ -58,7 +58,7 @@ describe("buildGraphBranchPaths", () => {
       ),
     ).toEqual([
       {
-        d: "M 7 14 L 7 70 M 35 14 C 35 36.4, 21 19.6, 21 42 C 21 64.4, 7 47.6, 7 70",
+        d: "M 7 14 L 7 70 M 35 14 C 35 28, 21 28, 21 42 C 21 56, 7 56, 7 70",
         isCommitted: true,
       },
     ]);
