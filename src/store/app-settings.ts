@@ -16,6 +16,7 @@ import type {
   ProviderId,
 } from "@/lib/providers/provider.types";
 import type { PrMergeMethod } from "@/lib/pr-status";
+import type { ComposerControlPlacements } from "@/lib/composer-controls";
 import type { ModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
 import type { AppShortcutKeys } from "@/lib/app-shortcuts";
 import { DEFAULT_APP_SHORTCUT_KEYS } from "@/lib/app-shortcuts";
@@ -138,7 +139,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * default.
    */
   turnActivityExpandedByDefault: boolean;
-  codexFastModeVisible: boolean;
+  /**
+   * Where each prompt-input control renders: the toolbar, the `⋯` tray, or
+   * nowhere. Sparse — an absent entry means "toolbar", so controls added later
+   * are visible by default without a migration.
+   */
+  composerControlPlacements: ComposerControlPlacements;
   modelClaude: string;
   modelCodex: string;
   modelRuntimePreferences: ModelRuntimePreferences;
@@ -381,7 +387,7 @@ export const defaultSettings: AppSettings = {
   reasoningExpansionMode: "manual",
   showInterimMessages: false,
   turnActivityExpandedByDefault: true,
-  codexFastModeVisible: true,
+  composerControlPlacements: {},
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
   modelRuntimePreferences: {},

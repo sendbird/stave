@@ -36,6 +36,7 @@ import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
   normalizeVisualCommentShortcut,
 } from "@/lib/visual-comment-shortcuts";
+import { normalizeComposerControlPlacements } from "@/lib/composer-controls";
 import { normalizeWorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import {
@@ -311,9 +312,32 @@ export function createAppStorePersistenceOptions() {
         raw.messageCodeFontSize =
           _legacyFontSizeMap[raw.messageCodeFontSize] ?? 14;
       }
-      if (typeof raw.fastModeVisible === "boolean") {
-        state.settings.codexFastModeVisible ??= raw.fastModeVisible;
-        delete raw.fastModeVisible;
+      // Both legacy fast-mode visibility booleans fold into the composer
+      // control map, so "which prompt-input controls render" has exactly one
+      // mechanism instead of a per-control flag.
+      const legacyFastModeVisible =
+        typeof raw.codexFastModeVisible === "boolean"
+          ? (raw.codexFastModeVisible as boolean)
+          : typeof raw.fastModeVisible === "boolean"
+            ? (raw.fastModeVisible as boolean)
+            : undefined;
+      delete raw.fastModeVisible;
+      delete raw.codexFastModeVisible;
+      state.settings.composerControlPlacements =
+        normalizeComposerControlPlacements(raw.composerControlPlacements);
+      // Keyed off whether the user ever wrote the new format, not off whether
+      // `fast` survived normalization: an explicit `fast: "toolbar"` is sparse
+      // (it is the default), so reading the resolved map would let the stale
+      // legacy flag re-hide it on every single rehydrate.
+      const hasComposerControlPlacements = Object.prototype.hasOwnProperty.call(
+        persistedSettings ?? {},
+        "composerControlPlacements",
+      );
+      if (legacyFastModeVisible === false && !hasComposerControlPlacements) {
+        state.settings.composerControlPlacements = {
+          ...state.settings.composerControlPlacements,
+          fast: "hidden",
+        };
       }
       if (
         typeof raw.reasoningDefaultExpanded === "boolean" &&

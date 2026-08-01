@@ -72,7 +72,6 @@ type RuntimeSettings = Pick<
   | "codexReasoningSummarySupport"
   | "codexFastMode"
   | "codexPlanMode"
-  | "codexFastModeVisible"
   | "promptResponseStyle"
   | "promptPrDescription"
   | "promptInlineCompletion"

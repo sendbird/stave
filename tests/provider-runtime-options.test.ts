@@ -48,7 +48,6 @@ const settings = {
   codexReasoningSummarySupport: "auto",
   codexFastMode: true,
   codexPlanMode: false,
-  codexFastModeVisible: true,
   trustedTools: [],
 } as const;
 

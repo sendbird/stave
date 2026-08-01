@@ -18,6 +18,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui";
+import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { cn } from "@/lib/utils";
 import {
   buildCommandPaletteGroups,
@@ -190,7 +191,14 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
                     }}
                     className="items-start gap-3 px-3 py-2.5"
                   >
-                    {Icon ? (
+                    {action.providerIcon ? (
+                      <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center">
+                        <ModelIcon
+                          providerId={action.providerIcon}
+                          className="size-4"
+                        />
+                      </div>
+                    ) : Icon ? (
                       <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-muted-foreground">
                         <Icon className="size-4" />
                       </div>

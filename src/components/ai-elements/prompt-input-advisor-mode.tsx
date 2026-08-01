@@ -2,10 +2,11 @@ import {
   ArrowLeftRight,
   Check,
   ChevronDown,
+  CircleSlash,
   Info,
   TriangleAlert,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   Button,
   Popover,
@@ -15,6 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
+import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   type AdvisorArmOptionId,
   type AdvisorEffortOptionValue,
@@ -27,7 +29,6 @@ import {
 import {
   ADVISOR_PICKER_SHORTCUT_LABEL,
   ADVISOR_TOGGLE_SHORTCUT_LABEL,
-  resolveAdvisorShortcutAction,
 } from "@/lib/advisor-shortcuts";
 import type { AdvisorArmState } from "@/lib/providers/advisor";
 import {
@@ -55,12 +56,12 @@ export function PromptInputAdvisorPill(args: {
   blocking?: boolean;
   disabled?: boolean;
   /**
-   * Enables `Alt+A` / `Alt+Shift+A`. The control owns its own listener so the
-   * Advisor stays out of `PromptInput`'s prop surface; the host passes the same
-   * "this panel is the active task" flag it uses for every other composer
-   * shortcut.
+   * Picker visibility, controlled by the host. The pill can be demoted to the
+   * `⋯` tray or hidden entirely, so `Alt+Shift+A` has to be able to open the
+   * picker on a pill that is not currently mounted — which means the host owns
+   * both this flag and the keyboard listener that sets it.
    */
-  shortcutsEnabled?: boolean;
+  open: boolean;
   onToggle: () => void;
   onSelectProvider: (optionId: AdvisorArmOptionId) => void;
   onSelectModel: (model: string) => void;
@@ -69,7 +70,7 @@ export function PromptInputAdvisorPill(args: {
   onOpenChange?: (open: boolean) => void;
   className?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const open = args.open;
   const presentation = describeAdvisorPill({
     arm: args.arm,
     primaryProviderId: args.primaryProviderId,
@@ -77,14 +78,16 @@ export function PromptInputAdvisorPill(args: {
     blocking: args.blocking,
   });
   const activeOptionId = resolveAdvisorArmOptionId(args.arm);
-  const effortSelection = args.arm.target
-    ? resolveAdvisorEffortSelection(args.arm.target)
+  // Bound to a const so the non-null narrow survives into the row callbacks
+  // below; narrowing `args.arm.target` directly does not cross a closure.
+  const armedTarget = args.arm.target;
+  const effortSelection = armedTarget
+    ? resolveAdvisorEffortSelection(armedTarget)
     : null;
   const { onOpenChange, onToggle } = args;
   const canToggle = presentation.canToggle;
 
   const openPicker = useCallback(() => {
-    setOpen(true);
     onOpenChange?.(true);
   }, [onOpenChange]);
 
@@ -98,31 +101,6 @@ export function PromptInputAdvisorPill(args: {
     onToggle();
   }, [canToggle, onToggle, openPicker]);
 
-  const shortcutsEnabled = args.shortcutsEnabled && !args.disabled;
-  useEffect(() => {
-    if (!shortcutsEnabled) {
-      return;
-    }
-    const onWindowKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
-        return;
-      }
-      const action = resolveAdvisorShortcutAction(event);
-      if (!action) {
-        return;
-      }
-      // Claimed before the composer can insert the Option-composed character
-      // this chord produces on macOS.
-      event.preventDefault();
-      if (action === "picker") {
-        openPicker();
-        return;
-      }
-      requestToggle();
-    };
-    window.addEventListener("keydown", onWindowKeyDown);
-    return () => window.removeEventListener("keydown", onWindowKeyDown);
-  }, [openPicker, requestToggle, shortcutsEnabled]);
   const iconToneClass =
     presentation.tone === "warning"
       ? "text-warning"
@@ -183,13 +161,7 @@ export function PromptInputAdvisorPill(args: {
         </TooltipContent>
       </Tooltip>
 
-      <Popover
-        open={open}
-        onOpenChange={(nextOpen) => {
-          setOpen(nextOpen);
-          args.onOpenChange?.(nextOpen);
-        }}
-      >
+      <Popover open={open} onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}>
         <PopoverTrigger
           render={
             <button
@@ -231,9 +203,18 @@ export function PromptInputAdvisorPill(args: {
                   )}
                   onClick={() => {
                     args.onSelectProvider(option.id);
-                    setOpen(false);
+                    onOpenChange?.(false);
                   }}
                 >
+                  {/* `off` keeps the slot so all three rows share one text
+                      baseline; a mark there would imply a vendor. */}
+                  <span className="flex size-4 shrink-0 items-center justify-center self-start pt-0.5">
+                    {option.id === "off" ? (
+                      <CircleSlash className="size-3.5 text-muted-foreground/70" />
+                    ) : (
+                      <ModelIcon providerId={option.id} className="size-4" />
+                    )}
+                  </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="text-sm font-medium leading-none">
                       {option.label}
@@ -255,14 +236,14 @@ export function PromptInputAdvisorPill(args: {
             })}
           </div>
 
-          {args.arm.enabled && args.arm.target ? (
+          {args.arm.enabled && armedTarget ? (
             <div className="space-y-1 border-t border-border/60 pt-2">
               <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                 Advisor model
               </p>
               <div className="max-h-52 space-y-0.5 overflow-y-auto">
                 {args.advisorModelOptions.map((model) => {
-                  const isActive = args.arm.target?.model === model;
+                  const isActive = armedTarget.model === model;
                   return (
                     <Button
                       key={model}
@@ -276,6 +257,14 @@ export function PromptInputAdvisorPill(args: {
                         args.onSelectModel(model);
                       }}
                     >
+                      {/* Every row here is the armed provider, so the mark is an
+                          anchor rather than a distinction — it matches the main
+                          model list users already read. */}
+                      <ModelIcon
+                        providerId={armedTarget.providerId}
+                        model={model}
+                        className="size-3.5"
+                      />
                       <span className="min-w-0 flex-1 truncate">
                         {toHumanModelName({ model })}
                       </span>

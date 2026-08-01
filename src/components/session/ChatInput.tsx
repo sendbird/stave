@@ -25,6 +25,7 @@ import {
   formatAdvisorRuntimeStatusValue,
 } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
+import { resolveAdvisorShortcutAction } from "@/lib/advisor-shortcuts";
 import {
   CompareRunPrepareDialog,
   type CompareRunPreparation,
@@ -207,7 +208,6 @@ const INACTIVE_CODEX_SETTINGS = [
   "",
   false,
   false,
-  true,
 ] as const;
 const EMPTY_PROVIDER_MODE_PRESETS: readonly ProviderModePresetDefinition[] = [];
 
@@ -289,6 +289,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     settingsAdvisorTarget,
     settingsCodexBinaryPath,
     skipTaskAdvisor,
+    composerControlPlacements,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -313,6 +314,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.settings.advisorTarget,
           state.settings.codexBinaryPath,
           state.skipTaskAdvisor,
+          state.settings.composerControlPlacements,
         ] as const,
     ),
   );
@@ -408,6 +410,57 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   const isSteerSubmitting = pendingSteerTaskIdsRef.current.has(
     args.providerSelectionTarget,
   );
+
+  // Owned by the host, not the pill: placement can demote the Advisor into the
+  // ⋯ tray or hide it, and a shortcut that dies with its button is worse than
+  // no shortcut. Toggling arms the Advisor, which force-shows the pill anyway;
+  // opening the picker force-shows it via `advisorPickerOpen`.
+  function handleAdvisorToggle() {
+    const patch = buildAdvisorTogglePatch({
+      overrides: promptDraft.runtimeOverrides,
+      arm: advisorArm,
+    });
+    if (!patch) {
+      // Nothing is configured to arm, so the picker is the only honest
+      // response to a toggle request.
+      setAdvisorPickerOpen(true);
+      return;
+    }
+    applyAdvisorOverrides(patch);
+    // Turning the Advisor off while it is holding the turn has to release the
+    // turn too, otherwise the control silently means "next time" at the one
+    // moment the user wants it to mean now.
+    if (advisorArm.enabled && advisorBlockingTurn) {
+      skipTaskAdvisor({ taskId: args.activeTaskId });
+    }
+  }
+  const advisorToggleRef = useRef(handleAdvisorToggle);
+  advisorToggleRef.current = handleAdvisorToggle;
+  const advisorShortcutsEnabled = args.windowShortcutsEnabled && !isInputBlocked;
+  useEffect(() => {
+    if (!advisorShortcutsEnabled) {
+      return;
+    }
+    const onWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+      const action = resolveAdvisorShortcutAction(event);
+      if (!action) {
+        return;
+      }
+      // Claimed before the composer can insert the Option-composed character
+      // this chord produces on macOS.
+      event.preventDefault();
+      if (action === "picker") {
+        setAdvisorPickerOpen(true);
+        return;
+      }
+      advisorToggleRef.current();
+    };
+    window.addEventListener("keydown", onWindowKeyDown);
+    return () => window.removeEventListener("keydown", onWindowKeyDown);
+  }, [advisorShortcutsEnabled]);
 
   function setSteerSubmissionPending(taskId: string, pending: boolean) {
     if (pending) {
@@ -1097,6 +1150,14 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           windowShortcutsEnabled={args.windowShortcutsEnabled}
           isTurnActive={args.isTurnActive}
+          composerControlPlacements={composerControlPlacements}
+          onComposerControlPlacementsChange={(next) =>
+            updateSettings({ patch: { composerControlPlacements: next } })
+          }
+          advisorActive={advisorArm.enabled || advisorPickerOpen}
+          secretsActive={
+            (promptDraft.runtimeOverrides?.boundSecretIds?.length ?? 0) > 0
+          }
           advisorControl={
             <PromptInputAdvisorPill
               arm={advisorArm}
@@ -1105,24 +1166,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               advisorModelOptions={advisorModelOptions}
               blocking={advisorBlockingTurn}
               disabled={isInputBlocked}
-              shortcutsEnabled={args.windowShortcutsEnabled}
+              open={advisorPickerOpen}
               onOpenChange={setAdvisorPickerOpen}
-              onToggle={() => {
-                const patch = buildAdvisorTogglePatch({
-                  overrides: promptDraft.runtimeOverrides,
-                  arm: advisorArm,
-                });
-                if (!patch) {
-                  return;
-                }
-                applyAdvisorOverrides(patch);
-                // Turning the Advisor off while it is holding the turn has to
-                // release the turn too, otherwise the control silently means
-                // "next time" at the one moment the user wants it to mean now.
-                if (advisorArm.enabled && advisorBlockingTurn) {
-                  skipTaskAdvisor({ taskId: args.activeTaskId });
-                }
-              }}
+              onToggle={handleAdvisorToggle}
               onSelectProvider={(optionId) => {
                 applyAdvisorOverrides(
                   buildAdvisorArmPatch({
@@ -1157,9 +1203,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               }}
             />
           }
-          beforeRuntimeAction={
+          secretsControl={
             args.isTurnActive ? null : (
-              <>
               <div
                 className="inline-flex h-9 items-stretch"
                 data-secret-binding-control="true"
@@ -1184,6 +1229,10 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   }}
                 />
               </div>
+            )
+          }
+          compareControl={
+            args.isTurnActive ? null : (
               <div
                 className="inline-flex h-9 items-stretch gap-0.5 rounded-md"
                 data-compare-control="true"
@@ -1302,7 +1351,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              </>
             )
           }
           submitMode={managedTaskComposerAccess.submitMode}
@@ -1758,7 +1806,6 @@ function BaseChatInput() {
     codexBinaryPath,
     codexPlanMode,
     codexFastMode,
-    codexFastModeVisible,
   ] = useAppStore(
     useShallow((state) => {
       if (activeProvider !== "codex") {
@@ -1781,7 +1828,6 @@ function BaseChatInput() {
         settings.codexBinaryPath,
         settings.codexPlanMode,
         settings.codexFastMode,
-        settings.codexFastModeVisible,
       ] as const;
     }),
   );
@@ -2492,7 +2538,7 @@ function BaseChatInput() {
       }}
       fastMode={activeProvider === "codex" ? codexFastMode : undefined}
       onFastModeChange={
-        activeProvider === "codex" && codexFastModeVisible
+        activeProvider === "codex"
           ? (enabled) => {
               updateModelRuntimePreference({
                 providerId: activeProvider,

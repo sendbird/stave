@@ -146,11 +146,33 @@ export function SettingsCard(args: {
   );
 }
 
+/**
+ * Optional leading mark for a choice.
+ *
+ * A separate field rather than a `ReactNode` label so the label stays a plain
+ * string: it is what screen readers announce and what the layout truncates
+ * against. Rendered inside a neutral plate because the checked state fills the
+ * row with `primary`, and the vendor marks are fixed brand colors that would
+ * otherwise sit directly on a saturated blue.
+ */
+function ChoiceMark(args: { children: ReactNode }) {
+  return (
+    <span className="flex size-5 shrink-0 items-center justify-center rounded-[5px] bg-background/90">
+      {args.children}
+    </span>
+  );
+}
+
 export function ChoiceButtons<T extends string>(args: {
   value: T;
   onChange: (value: T) => void;
   columns?: 2 | 3;
-  options: Array<{ value: T; label: string; description?: string }>;
+  options: Array<{
+    value: T;
+    label: string;
+    description?: string;
+    icon?: ReactNode;
+  }>;
   "aria-label"?: string;
 }) {
   const hasDescriptions = args.options.some((option) => option.description);
@@ -182,10 +204,18 @@ export function ChoiceButtons<T extends string>(args: {
           )}
         >
           {option.description ? (
-            <div className="space-y-1">
-              <p className="text-[15px] font-medium">{option.label}</p>
-              <p className="text-sm opacity-75">{option.description}</p>
+            <div className="flex min-w-0 items-start gap-2.5">
+              {option.icon ? <ChoiceMark>{option.icon}</ChoiceMark> : null}
+              <div className="min-w-0 space-y-1">
+                <p className="text-[15px] font-medium">{option.label}</p>
+                <p className="text-sm opacity-75">{option.description}</p>
+              </div>
             </div>
+          ) : option.icon ? (
+            <span className="flex items-center gap-1.5">
+              <ChoiceMark>{option.icon}</ChoiceMark>
+              {option.label}
+            </span>
           ) : (
             option.label
           )}

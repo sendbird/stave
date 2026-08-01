@@ -164,12 +164,15 @@ export function getProviderLabel(args: {
   return args.variant === "full" ? descriptor.label : descriptor.shortLabel;
 }
 
-export function getProviderIconUrl(args: {
-  providerId: ProviderId;
-  model?: string;
-  isDarkMode?: boolean;
-}) {
-  return getProviderDescriptor({ providerId: args.providerId }).iconUrl;
+/**
+ * Marks are vendor-level and theme-independent: both ship their own brand
+ * colors and are legible on light and dark surfaces, so neither the model nor
+ * the active theme changes the resolved URL. Previously this accepted both and
+ * ignored them, which made `ModelIcon` subscribe to `isDarkMode` for a value
+ * that could not affect the result.
+ */
+export function getProviderIconUrl(args: { providerId: ProviderId }) {
+  return getProviderDescriptor(args).iconUrl;
 }
 
 export function inferProviderIdFromModel(args: { model: string }): ProviderId {

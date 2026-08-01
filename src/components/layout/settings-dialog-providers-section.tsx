@@ -1,3 +1,4 @@
+import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   buildModelSelectorOptions,
   buildModelSelectorValue,
@@ -891,11 +892,13 @@ export function ProvidersSection() {
               value: "claude-code",
               label: "Claude",
               description: "Use an isolated Claude SDK turn.",
+              icon: <ModelIcon providerId="claude-code" className="size-3.5" />,
             },
             {
               value: "codex",
               label: "Codex",
               description: "Use an ephemeral Codex App Server thread.",
+              icon: <ModelIcon providerId="codex" className="size-3.5" />,
             },
           ]}
         />

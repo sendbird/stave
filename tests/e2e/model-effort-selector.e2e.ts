@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-function seedWorkspace(page: import("@playwright/test").Page) {
-  return page.addInitScript(() => {
+function seedWorkspace(
+  page: import("@playwright/test").Page,
+  settings: Record<string, unknown> = {},
+) {
+  return page.addInitScript((settingsOverride) => {
     (window as unknown as { api?: Record<string, unknown> }).api = {
       provider: {
         streamTurn: async () => [],
@@ -56,13 +59,13 @@ function seedWorkspace(page: import("@playwright/test").Page) {
           workspaceBranchById: { "ws-main": "main" },
           workspacePathById: { "ws-main": "/tmp/stave-project" },
           workspaceDefaultById: { "ws-main": true },
-          settings: { autoRoutingEnabled: true },
+          settings: { autoRoutingEnabled: true, ...settingsOverride },
           ...workspaceSnapshot,
         },
         version: 0,
       }),
     );
-  });
+  }, settings);
 }
 
 test("selects model and effort from the provider heatmaps", async ({
@@ -224,9 +227,7 @@ test("selects model and effort from the provider heatmaps", async ({
   await expect(claudeGrid.locator('[data-orb="selected"]')).toBeVisible();
   await expect(claudeGrid.locator('[data-orb-state="working"]')).toBeVisible();
   await page.getByRole("button", { name: "1M context" }).click();
-  await expect(trigger).toHaveAccessibleName(
-    /Claude Opus 5 \(1M\) · X-High/,
-  );
+  await expect(trigger).toHaveAccessibleName(/Claude Opus 5 \(1M\) · X-High/);
 
   await page.getByRole("button", { name: "Fast" }).click();
   await codexGrid
@@ -277,4 +278,40 @@ test("stacks the provider heatmaps without viewport overflow", async ({
     () => document.documentElement.scrollWidth > window.innerWidth,
   );
   expect(hasHorizontalOverflow).toBe(false);
+});
+
+test("removes Fast from the model selector when its control is off", async ({
+  page,
+}) => {
+  await seedWorkspace(page, {
+    composerControlPlacements: { fast: "hidden" },
+  });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /Model and effort:/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Fast", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("selects composer control placement with Arrow keys", async ({ page }) => {
+  await seedWorkspace(page);
+  await page.goto("/");
+
+  await page.locator('[data-composer-toolbar="true"]').click({
+    button: "right",
+    position: { x: 4, y: 4 },
+  });
+  const fastPlacement = page.getByRole("radiogroup", {
+    name: "Fast mode placement",
+  });
+  const bar = fastPlacement.getByRole("radio", { name: "Bar" });
+  const off = fastPlacement.getByRole("radio", { name: "Off" });
+
+  await bar.focus();
+  await bar.press("ArrowRight");
+  await expect(off).toBeFocused();
+  await expect(off).toBeChecked();
+  await expect(bar).toHaveAttribute("tabindex", "-1");
+  await expect(off).toHaveAttribute("tabindex", "0");
 });

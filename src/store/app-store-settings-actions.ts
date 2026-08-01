@@ -1,5 +1,6 @@
 import type { StoreApi } from "zustand";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
+import { normalizeComposerControlPlacements } from "@/lib/composer-controls";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
 import {
   normalizeNotificationSoundMode,
@@ -365,6 +366,13 @@ export function createSettingsActions(args: {
                 normalizeWorkspaceInformationSectionVisibility(
                   patch.infoPanelSectionVisibility,
                 ),
+            }),
+        ...(patch.composerControlPlacements === undefined
+          ? {}
+          : {
+              composerControlPlacements: normalizeComposerControlPlacements(
+                patch.composerControlPlacements,
+              ),
             }),
         ...(patch.kickoffSourceConfigs === undefined
           ? {}
