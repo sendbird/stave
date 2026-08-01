@@ -11,7 +11,7 @@ import {
   ROW_HEIGHT,
 } from "@/components/git-graph/GitGraphRow";
 
-describe("Git Graph toolbar", () => {
+describe("Commit graph toolbar", () => {
   test("uses a two-row compact layout and exposes unavailable status", () => {
     const html = renderToStaticMarkup(
       createElement(GitGraphToolbar, {
@@ -86,7 +86,7 @@ describe("Git Graph toolbar", () => {
     expect(html).not.toContain("2 files");
   });
 
-  test("renders Git Graph's compact geometry and default line treatment", () => {
+  test("renders the commit graph's compact geometry and default line treatment", () => {
     const html = renderToStaticMarkup(
       createElement(GitGraphCanvas, {
         commits: [

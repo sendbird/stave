@@ -111,7 +111,7 @@ export function focusOrCreateLensSurface(): string | null {
 }
 
 /**
- * Focus the per-workspace Git Graph pane, creating its editor tab when none
+ * Focus the per-workspace commit graph pane, creating its editor tab when none
  * exists yet. Mirrors `focusOrCreateLensSurface`: the store action alone only
  * updates `activeEditorTabId`, which does not reveal the Dockview panel when
  * another surface (task/terminal/lens) is currently active, so this always

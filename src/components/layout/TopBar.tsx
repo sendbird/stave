@@ -24,6 +24,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import {
+  COMMIT_GRAPH_TITLE,
+  OPEN_COMMIT_GRAPH_TITLE,
+} from "@/lib/git-graph/presentation";
 import { focusOrCreateGitGraphSurface } from "@/components/panes/pane-host-controller";
 import { resolveOpenableGitGraphWorkspaceId } from "@/store/app-store-editor-actions";
 import { useAppStore } from "@/store/app.store";
@@ -267,16 +271,16 @@ export function TopBar() {
                   style={TOP_BAR_NO_DRAG_STYLE}
                   disabled={!canOpenGitGraph}
                   onClick={focusOrCreateGitGraphSurface}
-                  aria-label="Git Graph"
+                  aria-label={COMMIT_GRAPH_TITLE}
                 >
                   <GitGraph className="size-3.5 shrink-0" />
-                  <span>Git Graph</span>
+                  <span>{COMMIT_GRAPH_TITLE}</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 {canOpenGitGraph
-                  ? "Open Git Graph"
-                  : "Select an active workspace to open Git Graph"}
+                  ? OPEN_COMMIT_GRAPH_TITLE
+                  : "Select an active workspace to open the commit graph"}
               </TooltipContent>
             </Tooltip>
           ) : null}

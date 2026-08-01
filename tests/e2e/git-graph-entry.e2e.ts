@@ -80,7 +80,7 @@ async function seedProject(page: Page, options: { withWorkspace: boolean }) {
   }, options);
 }
 
-test("shows Git Graph beside branch information instead of in the right rail", async ({
+test("shows Commit graph beside branch information instead of in the right rail", async ({
   page,
 }) => {
   await seedProject(page, { withWorkspace: true });
@@ -88,18 +88,18 @@ test("shows Git Graph beside branch information instead of in the right rail", a
 
   const topBarButton = page
     .getByTestId("top-bar")
-    .getByRole("button", { name: "Git Graph" });
+    .getByRole("button", { name: "Commit graph" });
   await expect(topBarButton).toBeVisible();
   await expect(topBarButton).toBeEnabled();
-  await expect(topBarButton).toHaveText("Git Graph");
+  await expect(topBarButton).toHaveText("Commit graph");
   await expect(
     page
       .getByTestId("workspace-bar")
-      .getByRole("button", { name: "Git Graph" }),
+      .getByRole("button", { name: "Commit graph" }),
   ).toHaveCount(0);
 });
 
-test("disables Git Graph when there is no active workspace", async ({
+test("disables Commit graph when there is no active workspace", async ({
   page,
 }) => {
   await seedProject(page, { withWorkspace: true });
@@ -117,6 +117,8 @@ test("disables Git Graph when there is no active workspace", async ({
   });
 
   await expect(
-    page.getByTestId("top-bar").getByRole("button", { name: "Git Graph" }),
+    page
+      .getByTestId("top-bar")
+      .getByRole("button", { name: "Commit graph" }),
   ).toBeDisabled();
 });

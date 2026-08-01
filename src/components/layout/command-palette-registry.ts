@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
+import { OPEN_COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   formatAppShortcutLabel,
@@ -699,7 +700,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.open-git-graph",
-    title: "Open Git Graph",
+    title: OPEN_COMMIT_GRAPH_TITLE,
     description: "Open the commit graph for the active workspace.",
     group: "view",
     icon: GitGraph,
@@ -709,7 +710,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.workspaces.some((workspace) => workspace.isActive)
         ? {
             id: "view.open-git-graph",
-            title: "Open Git Graph",
+            title: OPEN_COMMIT_GRAPH_TITLE,
             subtitle: "Open the commit graph in an editor tab.",
             group: "view",
             icon: GitGraph,

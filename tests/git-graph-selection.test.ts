@@ -32,7 +32,7 @@ function graphResult(overrides: Partial<GraphResult> = {}): GraphResult {
   };
 }
 
-describe("Git Graph selection reconciliation", () => {
+describe("Commit graph selection reconciliation", () => {
   test("clears a working-tree selection when refresh is clean or unavailable", () => {
     const selection: GitGraphSelection = {
       kind: WORKING_TREE_SELECTION,
@@ -99,7 +99,7 @@ describe("Git Graph selection reconciliation", () => {
   });
 });
 
-describe("Git Graph reload effects", () => {
+describe("Commit graph reload effects", () => {
   test("refetches working-tree files whenever that selection survives a reload", () => {
     const workingTree: GitGraphSelection = { kind: WORKING_TREE_SELECTION };
 
@@ -164,7 +164,7 @@ describe("Git Graph reload effects", () => {
   });
 });
 
-describe("Git Graph request ownership", () => {
+describe("Commit graph request ownership", () => {
   test("blocks duplicate claims and keeps a replacement safe from stale cleanup", () => {
     const ownerRef: { current: GitGraphRequestOwner | null } = {
       current: null,

@@ -2,6 +2,7 @@ import type { StoreApi } from "zustand";
 import { formatWithEslint } from "@/components/layout/editor-language-intelligence";
 import { loadWorkspaceEditorTabBodies } from "@/lib/db/workspaces.db";
 import { workspaceFsAdapter } from "@/lib/fs";
+import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import { resolveWorkspaceRelativeFilePath } from "@/lib/workspace-file-path";
 import type { AppState } from "@/store/app-store.types";
 import {
@@ -22,7 +23,7 @@ const EMPTY_PROMPT_DRAFT: PromptDraft = {
   attachments: [],
 };
 
-/** Deterministic editor-tab id for the per-workspace Git Graph panel. */
+/** Deterministic editor-tab id for the per-workspace commit graph panel. */
 export function gitGraphTabId(workspaceId: string): string {
   return `git-graph:${workspaceId}`;
 }
@@ -342,7 +343,7 @@ export function createEditorActions(args: {
 
         const nextTab: EditorTab = {
           id: tabId,
-          filePath: "Git Graph",
+          filePath: COMMIT_GRAPH_TITLE,
           kind: "git-graph",
           language: "",
           content: "",

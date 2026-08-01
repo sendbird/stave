@@ -632,7 +632,7 @@ const server = Bun.serve({
             worktreePathByBranch: {},
             worktreePathsAvailable: false,
             hasMore: false,
-            stderr: "Invalid git graph request.",
+            stderr: "Invalid commit graph request.",
           },
           400,
         );

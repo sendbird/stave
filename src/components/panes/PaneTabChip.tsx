@@ -20,6 +20,7 @@ import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
 import { Badge, WaveIndicator } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
+import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
 import { getRespondingProviderId, isTaskManaged } from "@/lib/tasks";
@@ -209,10 +210,12 @@ function usePaneChipTitle(
           (tab) => tab.id === surface.editorTabId,
         );
         return editorTab
-          ? resolvePathBaseName({
-              path: editorTab.filePath,
-              fallback: "Editor",
-            })
+          ? isGitGraphEditorTab(editorTab)
+            ? COMMIT_GRAPH_TITLE
+            : resolvePathBaseName({
+                path: editorTab.filePath,
+                fallback: "Editor",
+              })
           : "Editor";
       }
       case "lens":
