@@ -367,3 +367,62 @@ describe("buildProviderRuntimeOptions", () => {
     });
   });
 });
+
+describe("advisor arming in runtime options", () => {
+  const advisorSettings = {
+    ...settings,
+    advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
+  };
+
+  test("carries the Settings default for a task with no override", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-5",
+        includeAdvisor: true,
+        settings: advisorSettings as never,
+      }).advisorTarget,
+    ).toEqual({ providerId: "codex", model: "gpt-5.6-sol" });
+  });
+
+  test("a task that disarmed the advisor sends no target", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-5",
+        includeAdvisor: true,
+        advisorRuntimeOverrides: { advisorEnabled: false },
+        settings: advisorSettings as never,
+      }).advisorTarget,
+    ).toBeUndefined();
+  });
+
+  test("a task can arm the advisor while the Settings default is off", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "codex",
+        model: "gpt-5.6-terra",
+        includeAdvisor: true,
+        advisorRuntimeOverrides: {
+          advisorEnabled: true,
+          advisorTarget: { providerId: "claude-code", model: "claude-fable-5" },
+        },
+        settings: settings as never,
+      }).advisorTarget,
+    ).toEqual({ providerId: "claude-code", model: "claude-fable-5" });
+  });
+
+  test("utility turns stay advisor-free even with a task override", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-5",
+        advisorRuntimeOverrides: {
+          advisorEnabled: true,
+          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
+        },
+        settings: advisorSettings as never,
+      }).advisorTarget,
+    ).toBeUndefined();
+  });
+});

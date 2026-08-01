@@ -11,6 +11,7 @@ interface QueuedTaskTurnActions {
   sendUserMessage: (args: {
     taskId: string;
     content: string;
+    turnOrigin: "conversation" | "utility";
   }) => unknown;
   clearPromptDraft: (args: { taskId: string }) => void;
 }
@@ -52,6 +53,9 @@ export function createQueuedTaskTurnDispatcher(args: {
       void actions.sendUserMessage({
         taskId: target.taskId,
         content: autoDispatchDraft.text,
+        // The user typed and queued this follow-up themselves; it is the task's
+        // own dialogue, just delivered on turn completion instead of on Enter.
+        turnOrigin: "conversation",
       });
     } else {
       actions.clearPromptDraft({ taskId: target.taskId });

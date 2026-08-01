@@ -184,6 +184,7 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "goal_status":
     case "history_boundary":
     case "hook_activity":
+    case "advisor_activity":
     case "model_resolved":
     case "done":
       return false;
@@ -305,6 +306,9 @@ function normalizeEventToPart(args: {
     case "goal_status":
     case "history_boundary":
     case "hook_activity":
+    // Advisor lifecycle lives in its own store slice, never in the transcript:
+    // the advice text must not become a persisted assistant response.
+    case "advisor_activity":
       return null;
     case "permission_denial": {
       const reason = event.reason?.trim() || event.message.trim();
@@ -933,7 +937,7 @@ export function replayProviderEventsToTaskState(args: {
       continue;
     }
 
-    if (event.type === "hook_activity") {
+    if (event.type === "hook_activity" || event.type === "advisor_activity") {
       continue;
     }
 

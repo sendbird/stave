@@ -324,6 +324,7 @@ type KickoffWorkspaceState = {
   sendUserMessage: (args: {
     taskId: string;
     content: string;
+    turnOrigin: "conversation" | "utility";
     providerOverride?: ProviderId;
     runtimeOverrides?: PromptDraftRuntimeOverrides;
   }) => Promise<{ status: string }>;
@@ -383,6 +384,8 @@ export async function runWorkspaceKickoff(args: {
   const sendResult = await state.sendUserMessage({
     taskId,
     content: prompt,
+    // Generated to seed a workspace, not authored in a composer.
+    turnOrigin: "utility",
     providerOverride: args.input.firstTaskProvider,
     runtimeOverrides: args.input.firstTaskRuntimeOverrides,
   });

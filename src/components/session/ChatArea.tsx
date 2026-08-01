@@ -7,6 +7,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, type MouseEvent } from "react";
+import { AdvisorExchangeMonitor } from "@/components/session/AdvisorExchangeMonitor";
 import { ChatInput } from "@/components/session/ChatInput";
 import { ChatPanel } from "@/components/session/ChatPanel";
 import {
@@ -347,6 +348,12 @@ function ChatAreaImpl(props: ChatAreaProps) {
                 dock height changes frame-by-frame. */}
             <RenderProfiler id="PlanViewer">
               <PlanViewer />
+            </RenderProfiler>
+            {/* Advisor state is anchored top-right, opposite the plan card and
+                clear of the turn rail, because it describes the turn's setup
+                rather than its output. */}
+            <RenderProfiler id="AdvisorExchangeMonitor">
+              <AdvisorExchangeMonitor />
             </RenderProfiler>
           </div>
         </div>

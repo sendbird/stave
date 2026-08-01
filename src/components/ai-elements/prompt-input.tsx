@@ -258,6 +258,12 @@ interface PromptInputProps {
     answers: Record<string, string>;
   }) => void;
   onUserInputDeny?: (args: { messageId: string }) => void;
+  /**
+   * Advisor arming control. A slot rather than typed props because it is driven
+   * entirely by task-scoped store state, and it renders during an active turn
+   * (unlike `beforeRuntimeAction`) so a blocked turn stays explainable.
+   */
+  advisorControl?: ReactNode;
   beforeRuntimeAction?: ReactNode;
   workspaceCwd?: string;
   reviewModelOptions?: readonly ModelSelectorOption[];
@@ -619,6 +625,7 @@ export function PromptInput(args: PromptInputProps) {
     pendingUserInput,
     onUserInputSubmit,
     onUserInputDeny,
+    advisorControl,
     beforeRuntimeAction,
     workspaceCwd,
     reviewModelOptions,
@@ -3330,6 +3337,7 @@ export function PromptInput(args: PromptInputProps) {
                     <TooltipContent side="top">{`Thinking: ${thinkingMode ?? "adaptive"}`}</TooltipContent>
                   </Tooltip>
                 ) : null}
+                {advisorControl}
                 {reviewModelOptions?.length &&
                 onLocalChangeReview &&
                 !isTurnActive ? (

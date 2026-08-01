@@ -16,6 +16,14 @@ import {
 } from "@/components/ai-elements/model-selector";
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
+import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
+import {
+  buildAdvisorArmPatch,
+  buildAdvisorEffortPatch,
+  buildAdvisorModelPatch,
+  buildAdvisorTogglePatch,
+  formatAdvisorRuntimeStatusValue,
+} from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import {
   CompareRunPrepareDialog,
@@ -59,6 +67,8 @@ import {
   type ProviderModePresetDefinition,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
+import { resolveAdvisorArmState } from "@/lib/providers/advisor";
+import { isAdvisorExchangeBlocking } from "@/lib/providers/advisor-activity";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { buildModelEffortRuntimeOverrides } from "@/lib/providers/model-effort";
 import type { ClaudeSettingSource } from "@/lib/providers/provider.types";
@@ -73,6 +83,7 @@ import {
   clampCodexEffortToModel,
   getDefaultModelForProvider,
   getProviderLabel,
+  getSdkModelOptions,
   listProviderIds,
   normalizeModelSelection,
   providerSupportsMidTurnSteering,
@@ -128,6 +139,7 @@ import type {
   Attachment,
   ChatMessage,
   PromptDraft,
+  PromptDraftRuntimeOverrides,
   TaskControlOwner,
   TaskSourceContext,
 } from "@/types/chat";
@@ -274,6 +286,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     trustedTools,
     lensVisualCommentScreenshotsAsImageContext,
     workspaceInformation,
+    settingsAdvisorTarget,
+    settingsCodexBinaryPath,
+    skipTaskAdvisor,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -295,6 +310,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.settings.trustedTools,
           state.settings.lensVisualCommentScreenshotsAsImageContext,
           state.workspaceInformation,
+          state.settings.advisorTarget,
+          state.settings.codexBinaryPath,
+          state.skipTaskAdvisor,
         ] as const,
     ),
   );
@@ -327,6 +345,53 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   const providerTurnActivity = useAppStore(
     (state) => state.providerTurnActivityByTask[args.activeTaskId] ?? null,
   );
+  // A boolean, not the snapshot: the pill only needs to know whether the turn
+  // is currently parked on the Advisor, and the monitor owns the detail.
+  const advisorBlockingTurn = useAppStore((state) => {
+    const snapshot = state.advisorExchangeByTask[args.activeTaskId];
+    return snapshot ? isAdvisorExchangeBlocking(snapshot) : false;
+  });
+  const advisorArm = useMemo(
+    () =>
+      resolveAdvisorArmState({
+        overrides: promptDraft.runtimeOverrides,
+        settingsTarget: settingsAdvisorTarget,
+      }),
+    [promptDraft.runtimeOverrides, settingsAdvisorTarget],
+  );
+  const [advisorPickerOpen, setAdvisorPickerOpen] = useState(false);
+  // Codex advertises models dynamically, so the list is only worth fetching
+  // once the user actually opens the picker on a Codex advisor.
+  const advisorCodexCatalog = useCodexModelCatalog({
+    enabled: advisorPickerOpen && advisorArm.target?.providerId === "codex",
+    codexBinaryPath: settingsCodexBinaryPath,
+  });
+  const advisorModelOptions = useMemo(() => {
+    const providerId = advisorArm.target?.providerId;
+    if (!providerId) {
+      return [] as readonly string[];
+    }
+    const catalog: readonly string[] =
+      providerId === "codex"
+        ? advisorCodexCatalog.models
+        : getSdkModelOptions({ providerId });
+    const selected = advisorArm.target?.model;
+    // Keep a persisted-but-unlisted model visible so the picker always shows
+    // what is actually configured instead of silently disagreeing with it.
+    return selected && !catalog.includes(selected)
+      ? [selected, ...catalog]
+      : [...catalog];
+  }, [advisorArm.target, advisorCodexCatalog.models]);
+
+  function applyAdvisorOverrides(runtimeOverrides: PromptDraftRuntimeOverrides) {
+    // Commit first: `updatePromptDraft` merges onto the stored draft, so an
+    // uncommitted composer edit would otherwise be dropped by the patch.
+    commitCurrentDraftText();
+    updatePromptDraft({
+      taskId: args.providerSelectionTarget,
+      patch: { runtimeOverrides },
+    });
+  }
   const pendingApprovals = useMemo(
     () => findPendingApprovals({ messages: activeTaskMessages }),
     [activeTaskMessages],
@@ -654,6 +719,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     const result = await sendUserMessage({
       taskId: args.activeTaskId,
       content: item.content,
+      turnOrigin: "conversation",
       queuedTurnId: itemId,
     });
     if (result.status === "blocked") {
@@ -1031,6 +1097,66 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           windowShortcutsEnabled={args.windowShortcutsEnabled}
           isTurnActive={args.isTurnActive}
+          advisorControl={
+            <PromptInputAdvisorPill
+              arm={advisorArm}
+              primaryProviderId={args.activeProvider}
+              primaryModel={args.selectedModelOption.model}
+              advisorModelOptions={advisorModelOptions}
+              blocking={advisorBlockingTurn}
+              disabled={isInputBlocked}
+              shortcutsEnabled={args.windowShortcutsEnabled}
+              onOpenChange={setAdvisorPickerOpen}
+              onToggle={() => {
+                const patch = buildAdvisorTogglePatch({
+                  overrides: promptDraft.runtimeOverrides,
+                  arm: advisorArm,
+                });
+                if (!patch) {
+                  return;
+                }
+                applyAdvisorOverrides(patch);
+                // Turning the Advisor off while it is holding the turn has to
+                // release the turn too, otherwise the control silently means
+                // "next time" at the one moment the user wants it to mean now.
+                if (advisorArm.enabled && advisorBlockingTurn) {
+                  skipTaskAdvisor({ taskId: args.activeTaskId });
+                }
+              }}
+              onSelectProvider={(optionId) => {
+                applyAdvisorOverrides(
+                  buildAdvisorArmPatch({
+                    overrides: promptDraft.runtimeOverrides,
+                    arm: advisorArm,
+                    optionId,
+                  }),
+                );
+                if (optionId === "off" && advisorBlockingTurn) {
+                  skipTaskAdvisor({ taskId: args.activeTaskId });
+                }
+              }}
+              onSelectModel={(model) => {
+                const patch = buildAdvisorModelPatch({
+                  overrides: promptDraft.runtimeOverrides,
+                  arm: advisorArm,
+                  model,
+                });
+                if (patch) {
+                  applyAdvisorOverrides(patch);
+                }
+              }}
+              onSelectEffort={(effort) => {
+                const patch = buildAdvisorEffortPatch({
+                  overrides: promptDraft.runtimeOverrides,
+                  arm: advisorArm,
+                  effort,
+                });
+                if (patch) {
+                  applyAdvisorOverrides(patch);
+                }
+              }}
+            />
+          }
           beforeRuntimeAction={
             args.isTurnActive ? null : (
               <>
@@ -1238,6 +1364,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             const result = await sendUserMessage({
               taskId: args.activeTaskId,
               content: suggestion,
+              turnOrigin: "conversation",
             });
             if (
               result.status === "started" ||
@@ -1422,6 +1549,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                 imageContexts:
                   imageContexts.length > 0 ? imageContexts : undefined,
                 submitIntent: intent,
+                turnOrigin: "conversation",
               });
               if (result.status === "steered") {
                 clearSubmittedDraft();
@@ -1515,6 +1643,9 @@ function BaseChatInput() {
     (state) =>
       state.promptDraftByTask[activeTaskId || "draft:session"]
         ?.runtimeOverrides,
+  );
+  const settingsAdvisorTarget = useAppStore(
+    (state) => state.settings.advisorTarget,
   );
   const workspaceCwd = useAppStore(
     (state) =>
@@ -1788,9 +1919,20 @@ function BaseChatInput() {
       }),
     [activeProvider, activeProviderGoal],
   );
+  const advisorRuntimeSummary = useMemo(
+    () =>
+      formatAdvisorRuntimeStatusValue(
+        resolveAdvisorArmState({
+          overrides: promptDraftRuntimeOverrides,
+          settingsTarget: settingsAdvisorTarget,
+        }),
+      ),
+    [promptDraftRuntimeOverrides, settingsAdvisorTarget],
+  );
   const runtimeStatusItems = useMemo(() => {
     return buildChatInputRuntimeStatusItems({
       activeProvider,
+      advisorSummary: advisorRuntimeSummary,
       providerTimeoutMs,
       claudePermissionMode: effectiveClaudePermissionMode,
       claudeAllowDangerouslySkipPermissions,
@@ -1817,6 +1959,7 @@ function BaseChatInput() {
     });
   }, [
     activeProvider,
+    advisorRuntimeSummary,
     claudeAllowDangerouslySkipPermissions,
     claudeAgentProgressSummaries,
     claudeAllowUnsandboxedCommands,
@@ -2154,6 +2297,7 @@ function BaseChatInput() {
           instructions: review.instructions,
         }),
         providerOverride: review.reviewer.providerId,
+        turnOrigin: "utility",
         runtimeOverrides: {
           autoRouting: false,
           model: review.reviewer.model,

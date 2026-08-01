@@ -3218,6 +3218,12 @@ export async function runClaudeReadOnlyPrompt(args: {
   >;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   signal?: AbortSignal;
+  /**
+   * Caller-facing name used in failure text. This helper is shared by the
+   * Advisor, commit-message generation, task naming, and route classification,
+   * so hardcoding "Advisor" leaked advisor wording into unrelated toasts.
+   */
+  label?: string;
 }): Promise<{
   ok: boolean;
   text?: string;
@@ -3227,10 +3233,11 @@ export async function runClaudeReadOnlyPrompt(args: {
 }> {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  const label = args.label?.trim() || DEFAULT_READ_ONLY_PROMPT_LABEL;
   const abortController = new AbortController();
   const abort = () => abortController.abort();
   if (args.signal?.aborted) {
-    return { ok: false, aborted: true, detail: "Advisor was aborted." };
+    return { ok: false, aborted: true, detail: `${label} was aborted.` };
   }
   args.signal?.addEventListener("abort", abort, { once: true });
 
@@ -3274,9 +3281,9 @@ export async function runClaudeReadOnlyPrompt(args: {
           usage,
           detail:
             result.subtype === "success"
-              ? "Claude Advisor returned an error result."
+              ? `Claude ${label} returned an error result.`
               : result.errors.join("\n") ||
-                "Claude Advisor failed during execution.",
+                `Claude ${label} failed during execution.`,
         };
       }
       return {
@@ -3287,18 +3294,18 @@ export async function runClaudeReadOnlyPrompt(args: {
     }
     return {
       ok: false,
-      detail: "Claude Advisor ended without a result.",
+      detail: `Claude ${label} ended without a result.`,
     };
   } catch (error) {
     if (
       abortController.signal.aborted ||
       (error instanceof Error && error.name === "AbortError")
     ) {
-      return { ok: false, aborted: true, detail: "Advisor was aborted." };
+      return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
     return {
       ok: false,
-      detail: `Claude Advisor failed: ${toText(error)}`,
+      detail: `Claude ${label} failed: ${toText(error)}`,
     };
   } finally {
     args.signal?.removeEventListener("abort", abort);

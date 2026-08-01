@@ -77,6 +77,7 @@ import {
 } from "./codex-app-server-steer";
 import { mapCodexThreadForkResponse } from "./codex-thread-actions";
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
+import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
 import {
   toCodexUserFacingErrorMessage,
   toErrorMessage,
@@ -1295,12 +1296,19 @@ async function listPaginatedCodexData<T>(args: {
   method: string;
   params?: Record<string, unknown>;
   maxPages?: number;
+  signal?: AbortSignal;
 }): Promise<T[]> {
   const results: T[] = [];
   let cursor: string | null = null;
   let pages = 0;
   const maxPages = args.maxPages ?? 10;
   while (pages < maxPages) {
+    // Checked per page rather than only up front: a sweep can run for up to
+    // `maxPages` round trips, and a caller that has already been cancelled
+    // should not keep paying for the rest of them.
+    if (args.signal?.aborted) {
+      break;
+    }
     const response = await args.client.request<{
       data?: T[];
       nextCursor?: string | null;
@@ -1321,6 +1329,12 @@ async function listPaginatedCodexData<T>(args: {
 export async function getCodexModelCatalog(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  /**
+   * Stops the paginated sweep when the caller has already been cancelled. The
+   * Advisor preflight passes its abort signal here; without it the sweep kept
+   * running after the turn was gone.
+   */
+  signal?: AbortSignal;
 }): Promise<CodexModelCatalogResponse> {
   try {
     const client = getCodexAppServerClientFromRuntimeOptions(args);
@@ -1331,6 +1345,7 @@ export async function getCodexModelCatalog(args: {
         includeHidden: false,
         limit: 100,
       },
+      ...(args.signal ? { signal: args.signal } : {}),
     });
     return {
       ok: true,
@@ -2187,8 +2202,9 @@ export async function runCodexReadOnlyPrompt(
 ): Promise<CodexReadOnlyPromptResult> {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  const label = args.label?.trim() || DEFAULT_READ_ONLY_PROMPT_LABEL;
   if (args.signal?.aborted) {
-    return { ok: false, aborted: true, detail: "Advisor was aborted." };
+    return { ok: false, aborted: true, detail: `${label} was aborted.` };
   }
   const codexExecutablePath = resolveCodexExecutablePath({
     explicitPath: args.runtimeOptions?.codexBinaryPath,
@@ -2201,9 +2217,12 @@ export async function runCodexReadOnlyPrompt(
   });
   return runCodexReadOnlyPromptWithClient({
     ...args,
+    label,
     runtimeCwd,
     request: <T>(method: string, params: unknown) =>
       client.request<T>(method, params),
+    respond: (requestId, result) =>
+      client.respond(requestId as JsonRpcId, result),
     subscribe: (listener) => client.subscribe(listener),
     buildThreadStartParams: buildCodexThreadStartParams,
     buildTurnStartParams: buildCodexTurnStartParams,
@@ -2910,6 +2929,18 @@ export async function streamCodexWithAppServer(
       }
 
       if (Object.prototype.hasOwnProperty.call(message, "id")) {
+        const requestParams = isRecord(message.params) ? message.params : null;
+        const requestThreadId =
+          typeof requestParams?.threadId === "string"
+            ? requestParams.threadId
+            : null;
+        // Notifications are thread-filtered further down, but requests were
+        // not: with the App Server client shared process-wide, a request raised
+        // on another thread (an isolated Advisor thread, or another task's turn)
+        // surfaced in *this* turn's UI and was answered on its behalf.
+        if (requestThreadId && threadId && requestThreadId !== threadId) {
+          return;
+        }
         const requestId = String(message.id);
         const secondaryDenial = secondaryReadOnly
           ? buildCodexSecondaryServerRequestDenial(message.method)

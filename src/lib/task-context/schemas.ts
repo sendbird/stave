@@ -238,8 +238,40 @@ const PromptDraftRuntimeOverridesSchema = z
       .optional(),
     autoRouting: z.boolean().optional(),
     boundSecretIds: z.array(z.string().uuid()).optional(),
-  })
-  .strict();
+    // Per-task Advisor arming. `advisorEnabled` is stored separately from
+    // `advisorTarget` so turning the Advisor off keeps the remembered model.
+    // Both carry `.catch(undefined)`: a malformed value must degrade to
+    // "unset" rather than failing this object, because that failure would
+    // propagate up and reject the whole workspace snapshot (see note below).
+    advisorEnabled: z.boolean().optional().catch(undefined),
+    advisorTarget: z
+      .object({
+        providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+        model: z.string().trim().min(1).max(200),
+        // Absent means "follow the model's provider default". Codex's legacy
+        // "minimal" is not accepted; `resolveAdvisorEffort` collapses it to
+        // "low" before any call, so persisting it would name a tier that
+        // never runs.
+        effort: z
+          .union([
+            z.literal("low"),
+            z.literal("medium"),
+            z.literal("high"),
+            z.literal("xhigh"),
+            z.literal("max"),
+            z.literal("ultra"),
+          ])
+          .optional(),
+      })
+      .optional()
+      .catch(undefined),
+  });
+// NOTE: deliberately NOT `.strict()`. `parseWorkspaceSnapshot` is all-or-nothing,
+// so one unrecognized key here rejects the ENTIRE workspace snapshot — every task,
+// message, and draft — and the empty hydration then overwrites the stored row.
+// Unknown keys must degrade to "silently dropped" (a forgotten setting), never to
+// "workspace erased". This also makes downgrades safe: an older build reading a
+// snapshot written by a newer one loses the new override, not the workspace.
 
 const PromptDraftQueuedNextTurnSchema = z
   .object({

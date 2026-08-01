@@ -1627,6 +1627,7 @@ export function WorkspaceInformationPanel() {
       const result = await sendUserMessage({
         taskId: newTaskId,
         content,
+        turnOrigin: "conversation",
       });
       if (result.status === "blocked") {
         toast.error("Task created but prompt was blocked", {

@@ -1,4 +1,7 @@
 import type { LensAnnotation } from "@/lib/lens/lens.types";
+// Type-only, and `provider.types` imports this module the same way, so the
+// cycle is erased at compile time rather than existing at runtime.
+import type { AdvisorTarget } from "@/lib/providers/provider.types";
 import type { WorkspaceInformationReference } from "@/lib/workspace-information-references";
 
 export type MessageRole = "user" | "assistant";
@@ -85,6 +88,18 @@ export interface PromptDraftRuntimeOverrides {
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
   autoRouting?: boolean;
   model?: string;
+  /**
+   * Per-task Advisor arming. Absent inherits the Settings default (a configured
+   * `settings.advisorTarget` means "armed by default"). `false` disarms only
+   * this task and deliberately keeps `advisorTarget`, so re-arming restores the
+   * previous pick instead of silently falling back to the global one.
+   */
+  advisorEnabled?: boolean;
+  /**
+   * Per-task Advisor target. Kept task-local so arming one task never changes
+   * which model advises another task.
+   */
+  advisorTarget?: AdvisorTarget;
   /**
    * Ids of vault secrets bound to this task for env injection. Persists in the
    * workspace snapshot so a binding survives restart. Ids only — never values.

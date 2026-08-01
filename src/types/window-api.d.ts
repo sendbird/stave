@@ -219,6 +219,10 @@ interface WindowProviderApi {
   abortTurn?: (args: {
     turnId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
+  /** Cancels only the Advisor preflight; the primary turn keeps running. */
+  skipAdvisor?: (args: {
+    turnId: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   steerTurn?: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;

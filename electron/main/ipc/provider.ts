@@ -260,6 +260,14 @@ export function registerProviderHandlers() {
     return invokeHostService("provider.abort-turn", parsedArgs.data);
   });
 
+  ipcMain.handle("provider:skip-advisor", (_event, args: unknown) => {
+    const parsedArgs = AbortTurnArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return { ok: false, message: "Invalid Advisor skip request." };
+    }
+    return invokeHostService("provider.skip-advisor", parsedArgs.data);
+  });
+
   ipcMain.handle("provider:cleanup-task", (_event, args: unknown) => {
     const parsedArgs = CleanupTaskArgsSchema.safeParse(args);
     if (!parsedArgs.success) {

@@ -1,16 +1,24 @@
 import type { BridgeEvent, StreamTurnArgs } from "./types";
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
+import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
+import {
+  buildCodexMcpDisableConfigOverrides,
+  buildCodexSecondaryServerRequestDenial,
+} from "./codex-app-server-params";
 
 type UsageEvent = Extract<BridgeEvent, { type: "usage" }>;
 type RuntimeOptions = StreamTurnArgs["runtimeOptions"];
 const DEFAULT_CODEX_READ_ONLY_CLEANUP_TIMEOUT_MS = 2_000;
 
 type JsonRpcMessage = {
+  id?: unknown;
   method?: string;
   params?: unknown;
 };
 
 type Request = <T = unknown>(method: string, params: unknown) => Promise<T>;
+
+type Respond = (requestId: unknown, result: unknown) => Promise<unknown>;
 
 type BuildThreadStartParams = (args: {
   cwd: string;
@@ -18,8 +26,29 @@ type BuildThreadStartParams = (args: {
   ephemeral?: boolean;
   sandbox?: "read-only" | "workspace-write" | "danger-full-access";
   approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
+  configOverrides?: Record<string, string | boolean>;
   isolated?: boolean;
 }) => unknown;
+
+/**
+ * Isolated threads advertise "no tools, no MCP", but `thread/start` only
+ * *instructs* the model not to use MCP. Any registered server stays reachable
+ * unless it is explicitly disabled per thread, so an isolated call could still
+ * reach the network or mutate state through an MCP tool. Resolving the catalog
+ * is therefore mandatory: if it cannot be read, the isolated call is refused
+ * rather than run with weaker isolation than it claims.
+ */
+async function resolveIsolatedMcpDisableOverrides(request: Request) {
+  const response = await request<{ data?: unknown }>("mcpServerStatus/list", {});
+  if (!Array.isArray(response.data)) {
+    throw new Error("Codex returned an invalid MCP server catalog.");
+  }
+  return buildCodexMcpDisableConfigOverrides(
+    response.data.filter((server): server is { name?: unknown } =>
+      isRecord(server),
+    ),
+  );
+}
 
 type BuildTurnStartParams = (args: {
   threadId: string;
@@ -37,6 +66,8 @@ export type CodexReadOnlyPromptArgs = {
   runtimeOptions?: RuntimeOptions;
   signal?: AbortSignal;
   isolated?: boolean;
+  /** Caller-facing name used in failure text. See `read-only-prompt-labels.ts`. */
+  label?: string;
 };
 
 export type CodexReadOnlyPromptResult = {
@@ -107,14 +138,22 @@ export async function runCodexReadOnlyPromptWithClient(
   args: Omit<CodexReadOnlyPromptArgs, "cwd"> & {
     runtimeCwd: string;
     request: Request;
+    /**
+     * Answers server->client requests raised on this ephemeral thread. Without
+     * it an approval or elicitation request for the read-only thread is never
+     * answered: the primary turn's subscriber does not own this thread, so the
+     * call would simply hang until the caller's deadline.
+     */
+    respond?: Respond;
     subscribe: (listener: (message: JsonRpcMessage) => void) => () => void;
     buildThreadStartParams: BuildThreadStartParams;
     buildTurnStartParams: BuildTurnStartParams;
     cleanupTimeoutMs?: number;
   },
 ): Promise<CodexReadOnlyPromptResult> {
+  const label = args.label?.trim() || DEFAULT_READ_ONLY_PROMPT_LABEL;
   if (args.signal?.aborted) {
-    return { ok: false, aborted: true, detail: "Advisor was aborted." };
+    return { ok: false, aborted: true, detail: `${label} was aborted.` };
   }
 
   const model = args.model?.trim() || args.runtimeOptions?.model?.trim();
@@ -141,12 +180,37 @@ export async function runCodexReadOnlyPromptWithClient(
       .request("turn/interrupt", { threadId, turnId })
       .catch(() => undefined);
   };
+  let resolveAborted: () => void = () => {};
+  const abortedSignal = new Promise<void>((resolve) => {
+    resolveAborted = resolve;
+  });
   const abort = () => {
     aborted = true;
     requestInterrupt();
     resolveCompletion?.();
+    resolveAborted();
   };
   args.signal?.addEventListener("abort", abort, { once: true });
+  /**
+   * Races a request against the abort.
+   *
+   * `turn/start` does not resolve until the model has finished generating, so
+   * awaiting it directly means an abort cannot take effect until the work it
+   * was meant to cancel has already been paid for — and there is no `turnId`
+   * to interrupt with until it resolves, so `requestInterrupt` no-ops for that
+   * whole window. Bailing out here instead falls through to the `finally`,
+   * which deletes the ephemeral thread; that is what actually stops the turn
+   * server-side.
+   *
+   * A rejection arriving after the abort already won the race is discarded by
+   * `Promise.race` rather than going unhandled, since race attaches a handler
+   * to every entrant.
+   */
+  const raceAbort = <T>(task: Promise<T>) =>
+    Promise.race([
+      task.then((value) => ({ aborted: false as const, value })),
+      abortedSignal.then(() => ({ aborted: true as const })),
+    ]);
 
   try {
     const account = await args.request<{
@@ -154,10 +218,17 @@ export async function runCodexReadOnlyPromptWithClient(
       requiresOpenaiAuth: boolean;
     }>("account/read", { refreshToken: true });
     if (aborted) {
-      return { ok: false, aborted: true, detail: "Advisor was aborted." };
+      return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
     if (!account.account && account.requiresOpenaiAuth) {
       return { ok: false, detail: "Codex authentication is required." };
+    }
+
+    const isolatedConfigOverrides = args.isolated
+      ? await resolveIsolatedMcpDisableOverrides(args.request)
+      : undefined;
+    if (aborted) {
+      return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
 
     const threadResponse = await args.request<{ thread: { id: string } }>(
@@ -168,12 +239,15 @@ export async function runCodexReadOnlyPromptWithClient(
         ephemeral: true,
         sandbox: "read-only",
         approvalPolicy: "never",
+        ...(isolatedConfigOverrides
+          ? { configOverrides: isolatedConfigOverrides }
+          : {}),
         isolated: args.isolated,
       }),
     );
     threadId = threadResponse.thread.id;
     if (aborted) {
-      return { ok: false, aborted: true, detail: "Advisor was aborted." };
+      return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
 
     let latestAgentMessageText = "";
@@ -188,7 +262,31 @@ export async function runCodexReadOnlyPromptWithClient(
         return;
       }
       const params = isRecord(message.params) ? message.params : null;
+      const isRequest = Object.prototype.hasOwnProperty.call(message, "id");
+      if (isRequest) {
+        // This thread is read-only, sandboxed, and has no user attached, so any
+        // interactive or privileged request is declined immediately rather than
+        // left unanswered.
+        if (params?.threadId !== threadId) {
+          return;
+        }
+        const denial = buildCodexSecondaryServerRequestDenial(message.method);
+        if (denial && args.respond) {
+          void args.respond(message.id, denial).catch(() => undefined);
+        }
+        failureMessage = `${label} requested an interactive or privileged operation and was stopped.`;
+        resolveCompletion?.();
+        return;
+      }
       if (params?.threadId !== threadId) {
+        // A global `error` notification carries no thread id, so it must still
+        // fail the call fast instead of waiting for the caller's deadline.
+        if (message.method === "error" && params?.threadId === undefined) {
+          failureMessage =
+            extractErrorMessage(params) ??
+            "Codex App Server read-only turn failed.";
+          resolveCompletion?.();
+        }
         return;
       }
 
@@ -247,27 +345,35 @@ export async function runCodexReadOnlyPromptWithClient(
       }
     });
 
-    const turnResponse = await args.request<{
-      turn: {
-        id: string;
-        status?: string;
-        error?: { message?: string | null } | null;
-        items?: unknown[];
-      };
-    }>(
-      "turn/start",
-      args.buildTurnStartParams({
-        threadId,
-        cwd: args.runtimeCwd,
-        prompt: args.prompt,
-        runtimeOptions: readOnlyRuntimeOptions,
-        outputSchema: args.outputSchema,
-      }),
+    const turnOutcome = await raceAbort(
+      args.request<{
+        turn: {
+          id: string;
+          status?: string;
+          error?: { message?: string | null } | null;
+          items?: unknown[];
+        };
+      }>(
+        "turn/start",
+        args.buildTurnStartParams({
+          threadId,
+          cwd: args.runtimeCwd,
+          prompt: args.prompt,
+          runtimeOptions: readOnlyRuntimeOptions,
+          outputSchema: args.outputSchema,
+        }),
+      ),
     );
+    if (turnOutcome.aborted) {
+      // No `turnId` exists yet, so there is nothing to interrupt. The `finally`
+      // deletes the ephemeral thread, which is what ends the turn server-side.
+      return { ok: false, aborted: true, detail: `${label} was aborted.` };
+    }
+    const turnResponse = turnOutcome.value;
     turnId = turnResponse.turn.id;
     if (aborted) {
       requestInterrupt();
-      return { ok: false, aborted: true, detail: "Advisor was aborted." };
+      return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
     const immediateText = extractLatestAgentMessageTextFromTurn(
       turnResponse.turn,
@@ -292,7 +398,7 @@ export async function runCodexReadOnlyPromptWithClient(
         ok: false,
         aborted: true,
         usage: latestUsage,
-        detail: "Advisor was aborted.",
+        detail: `${label} was aborted.`,
       };
     }
     if (failureMessage) {
@@ -305,7 +411,7 @@ export async function runCodexReadOnlyPromptWithClient(
     };
   } catch (error) {
     if (aborted) {
-      return { ok: false, aborted: true, detail: "Advisor was aborted." };
+      return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
     return {
       ok: false,

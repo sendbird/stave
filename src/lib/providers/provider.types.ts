@@ -55,10 +55,53 @@ export interface ProviderAvailabilityResponse {
   capabilities: ProviderRuntimeCapabilities;
 }
 
+/**
+ * Effort tiers an Advisor target may pin, as the union of both providers'
+ * scales. Declared here rather than derived from `ProviderRuntimeOptions` so a
+ * persisted Advisor target can never carry Codex's legacy `"minimal"`, which is
+ * no longer selectable anywhere in the UI.
+ *
+ * Which tiers are actually offered is provider- and model-specific; see
+ * `resolveAdvisorEffort` for the single point that validates and clamps one.
+ */
+export type AdvisorEffort =
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max"
+  | "ultra";
+
 export interface AdvisorTarget {
   providerId: ProviderId;
   model: string;
+  /**
+   * Explicit effort for the Advisor call. Omitted means "follow the model's
+   * provider default", which is what every target did before the tier became
+   * selectable — so an absent value is a real choice, not a missing one.
+   */
+  effort?: AdvisorEffort;
 }
+
+/**
+ * Advisor lifecycle phases carried by the `advisor_activity` provider event.
+ * See `src/lib/providers/advisor-activity.ts` for the reducer and the rationale
+ * behind keeping `completed` and `applied` separate.
+ */
+export type AdvisorActivityPhase =
+  | "started"
+  | "completed"
+  | "applied"
+  | "primary_started"
+  | "failed"
+  | "timeout"
+  | "aborted"
+  | "skipped";
+
+/** How the runtime actually isolated the advisor call. */
+export type AdvisorIsolationMode =
+  | "claude-tools-disabled"
+  | "codex-ephemeral-read-only";
 
 export interface ProviderSteerTurnRequest {
   turnId: string;
@@ -696,6 +739,45 @@ export type NormalizedProviderEvent =
       ttftMs?: number;
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
+  | {
+      /**
+       * Structured advisor lifecycle signal. Replaces string-sniffing a
+       * `system` trace, and is the only channel that can distinguish "advisor
+       * produced advice" from "advice reached the primary prompt".
+       */
+      type: "advisor_activity";
+      phase: AdvisorActivityPhase;
+      /** Provider running the primary turn that asked for advice. */
+      primaryProviderId: ProviderId;
+      /** Primary model id, so "a different model answered" is verifiable. */
+      primaryModel?: string;
+      /** Advisor provider. Absent when the configured target was unusable. */
+      advisorProviderId?: ProviderId;
+      advisorModel?: string;
+      /**
+       * Effort the runtime actually requested, after defaulting and clamping.
+       * Reported rather than re-derived in the renderer for the same reason as
+       * `isolation`: the UI must not claim a tier the call did not use.
+       */
+      advisorEffort?: AdvisorEffort;
+      isolation?: AdvisorIsolationMode;
+      /** Wall-clock timestamp of this phase, from the main process. */
+      at: number;
+      /** Advisor deadline, reported on `started` so the UI can count down. */
+      timeoutMs?: number;
+      durationMs?: number;
+      /** Advisor-authored advice. Only on `completed`. */
+      advice?: string;
+      adviceChars?: number;
+      /** Only on `applied`: what actually landed in the primary prompt. */
+      injectedChars?: number;
+      injectedPartIndex?: number;
+      /** Failure, timeout, or skip reason. */
+      detail?: string;
+      inputTokens?: number;
+      outputTokens?: number;
+      totalCostUsd?: number;
+    }
   | {
       type: "history_boundary";
       providerId: ProviderId;

@@ -27,6 +27,11 @@ import type { AppSettings } from "@/store/app.store";
 
 interface ChatInputRuntimeArgs {
   activeProvider: ProviderId;
+  /**
+   * Effective Advisor pair for the next turn, or "Off". Provider-neutral: the
+   * Advisor can be either provider regardless of which one runs the turn.
+   */
+  advisorSummary: string;
   providerTimeoutMs: number;
   claudePermissionMode: AppSettings["claudePermissionMode"];
   claudePermissionModeBeforePlan: AppSettings["claudePermissionModeBeforePlan"];
@@ -221,6 +226,16 @@ export function buildChatInputGoalStatus(
   };
 }
 
+function buildAdvisorRuntimeStatusItem(
+  advisorSummary: string,
+): PromptInputRuntimeStatusItem {
+  return {
+    id: "advisor",
+    label: "Advisor",
+    value: advisorSummary,
+  };
+}
+
 export function buildChatInputRuntimeStatusItems(
   args: ChatInputRuntimeArgs,
 ): PromptInputRuntimeStatusItem[] {
@@ -294,6 +309,7 @@ export function buildChatInputRuntimeStatusItems(
         label: "Progress Summaries",
         value: args.claudeAgentProgressSummaries ? "On" : "Off",
       },
+      buildAdvisorRuntimeStatusItem(args.advisorSummary),
       ...(args.claudeBinaryPath.trim()
         ? [
             {
@@ -386,6 +402,7 @@ export function buildChatInputRuntimeStatusItems(
       value: args.codexFastMode ? "On" : "Off",
       tone: args.codexFastMode ? "warning" : "default",
     },
+    buildAdvisorRuntimeStatusItem(args.advisorSummary),
     ...(args.codexBinaryPath.trim()
       ? [
           {

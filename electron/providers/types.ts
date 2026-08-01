@@ -1,4 +1,6 @@
 import type {
+  AdvisorActivityPhase,
+  AdvisorIsolationMode,
   CanonicalConversationRequest,
   ProviderAvailabilityResponse,
   ProviderGoalSnapshot,
@@ -97,6 +99,28 @@ export type BridgeEvent =
       ttftMs?: number;
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
+  | {
+      /** Structured advisor lifecycle signal. Mirrors `NormalizedProviderEvent`. */
+      type: "advisor_activity";
+      phase: AdvisorActivityPhase;
+      primaryProviderId: ProviderId;
+      /** Primary model id, so "a different model answered" is verifiable. */
+      primaryModel?: string;
+      advisorProviderId?: ProviderId;
+      advisorModel?: string;
+      isolation?: AdvisorIsolationMode;
+      at: number;
+      timeoutMs?: number;
+      durationMs?: number;
+      advice?: string;
+      adviceChars?: number;
+      injectedChars?: number;
+      injectedPartIndex?: number;
+      detail?: string;
+      inputTokens?: number;
+      outputTokens?: number;
+      totalCostUsd?: number;
+    }
   | {
       type: "history_boundary";
       providerId: ProviderId;
@@ -203,6 +227,12 @@ export interface ProviderRuntime {
     message?: string;
   };
   abortTurn: (args: { turnId: string }) => { ok: boolean; message: string };
+  /**
+   * Cancels only the Advisor preflight for a turn. The primary turn continues
+   * with an `advisor_activity` `skipped` phase, so a slow advisor never forces
+   * the user to abort work they still want.
+   */
+  skipAdvisor: (args: { turnId: string }) => { ok: boolean; message: string };
   cleanupTask: (args: { taskId: string }) => { ok: boolean; message: string };
   respondApproval: (args: {
     turnId: string;
