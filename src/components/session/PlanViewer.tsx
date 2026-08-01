@@ -222,6 +222,7 @@ export function PlanViewer() {
     void sendUserMessage({
       taskId: activeTaskId,
       content: APPROVE_PLAN_MESSAGE,
+      turnOrigin: "conversation",
     });
     setRevising(false);
     setRevisionText("");
@@ -264,6 +265,7 @@ export function PlanViewer() {
     void sendUserMessage({
       taskId: activeTaskId,
       content: revisionText.trim(),
+      turnOrigin: "conversation",
     });
     setRevising(false);
     setRevisionText("");

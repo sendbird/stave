@@ -25,11 +25,14 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { ComposerControlPlacementList } from "@/components/ai-elements/prompt-input-control-menu";
 import {
   buildModelSelectorOptions,
   buildModelSelectorValue,
   buildRecommendedModelSelectorOptions,
   ModelSelector,
+  type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
@@ -2266,7 +2269,7 @@ function ChatSection() {
     reasoningExpansionMode,
     showInterimMessages,
     turnActivityExpandedByDefault,
-    codexFastModeVisible,
+    composerControlPlacements,
     steerQueueEnterAction,
     midTurnSteeringEnabled,
   ] = useAppStore(
@@ -2283,7 +2286,7 @@ function ChatSection() {
           state.settings.reasoningExpansionMode,
           state.settings.showInterimMessages,
           state.settings.turnActivityExpandedByDefault,
-          state.settings.codexFastModeVisible,
+          state.settings.composerControlPlacements,
           state.settings.steerQueueEnterAction,
           state.settings.midTurnSteeringEnabled,
         ] as const,
@@ -2461,12 +2464,15 @@ function ChatSection() {
               })
             }
           />
-          <SwitchField
-            title="Show Fast Mode Toggle (Codex)"
-            description="Show the Fast mode toggle button when Codex is the active provider."
-            checked={codexFastModeVisible}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { codexFastModeVisible: checked } })
+        </SettingsCard>
+        <SettingsCard
+          title="Composer Controls"
+          description="Choose where each prompt input control lives: pinned to the toolbar, tucked into the ⋯ tray, or off. You can also right-click the toolbar to edit this in place."
+        >
+          <ComposerControlPlacementList
+            placements={composerControlPlacements}
+            onChange={(next) =>
+              updateSettings({ patch: { composerControlPlacements: next } })
             }
           />
         </SettingsCard>
@@ -2828,6 +2834,31 @@ function SkillsSection() {
         </SettingsCard>
       </SectionStack>
     </>
+  );
+}
+
+/**
+ * Row for one `Alt+1..0` slot option.
+ *
+ * This is the one model list in Settings that is genuinely mixed — a single flat
+ * dropdown spanning both providers — so the mark is doing identification work
+ * here, not decoration. Base UI's `SelectValue` replays the selected item's
+ * children, so the collapsed trigger gets the mark for free.
+ */
+function ModelShortcutOptionLabel(args: { option: ModelSelectorOption }) {
+  const { option } = args;
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <ModelIcon
+        providerId={option.providerId}
+        model={option.model}
+        className="size-3.5"
+      />
+      <span className="truncate">
+        {getProviderLabel({ providerId: option.providerId, variant: "full" })} ·{" "}
+        {option.label}
+      </span>
+    </span>
   );
 }
 
@@ -3378,11 +3409,7 @@ function CommandPaletteSection() {
                             <SelectLabel>Recommended</SelectLabel>
                             {recommendedModelShortcutOptions.map((option) => (
                               <SelectItem key={option.key} value={option.key}>
-                                {getProviderLabel({
-                                  providerId: option.providerId,
-                                  variant: "full",
-                                })}{" "}
-                                · {option.label}
+                                <ModelShortcutOptionLabel option={option} />
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -3391,11 +3418,7 @@ function CommandPaletteSection() {
                             <SelectLabel>All Models</SelectLabel>
                             {additionalModelShortcutOptions.map((option) => (
                               <SelectItem key={option.key} value={option.key}>
-                                {getProviderLabel({
-                                  providerId: option.providerId,
-                                  variant: "full",
-                                })}{" "}
-                                · {option.label}
+                                <ModelShortcutOptionLabel option={option} />
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -4008,11 +4031,15 @@ function PromptsSection() {
                   value: "claude-code",
                   label: "Claude",
                   description: "Uses the configured Claude model.",
+                  icon: (
+                    <ModelIcon providerId="claude-code" className="size-3.5" />
+                  ),
                 },
                 {
                   value: "codex",
                   label: "Codex",
                   description: "Uses the configured Codex model.",
+                  icon: <ModelIcon providerId="codex" className="size-3.5" />,
                 },
               ]}
             />

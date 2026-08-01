@@ -41,12 +41,17 @@ import {
 } from "../../src/lib/providers/steer-delivery";
 import {
   appendAdvisorAdvice,
+  normalizeAdvisorTarget,
   withoutAdvisorTarget,
 } from "../../src/lib/providers/advisor";
 import {
+  buildAdvisorOutcomeEvent,
+  buildAdvisorStartedEvent,
   createAdvisorUsageMerger,
   formatAdvisorSystemTrace,
+  resolveAdvisorIsolationMode,
   runAdvisorPreflight,
+  shouldContinuePrimaryTurn,
 } from "./advisor-runtime";
 import {
   createProviderTurnLifecycle,
@@ -88,6 +93,12 @@ type ActiveRuntimeSession = {
     text: string;
     clientMessageId?: string;
   }) => Promise<ProviderResponderResult>;
+  /**
+   * Drops the advisor preflight while keeping the primary turn. Separate from
+   * `abort` so escaping a slow advisor never costs the user their whole turn.
+   * Returns `false` once the preflight is no longer running.
+   */
+  skipAdvisor?: () => boolean;
   timeoutController?: TurnTimeoutController;
 };
 
@@ -127,6 +138,7 @@ function upsertActiveSession(args: {
   respondApproval?: ActiveRuntimeSession["respondApproval"];
   respondUserInput?: ActiveRuntimeSession["respondUserInput"];
   steer?: ActiveRuntimeSession["steer"];
+  skipAdvisor?: ActiveRuntimeSession["skipAdvisor"];
   timeoutController?: TurnTimeoutController;
 }) {
   const current = activeSessions.get(args.turnId);
@@ -139,6 +151,7 @@ function upsertActiveSession(args: {
     respondApproval: args.respondApproval ?? current?.respondApproval,
     respondUserInput: args.respondUserInput ?? current?.respondUserInput,
     steer: args.steer ?? current?.steer,
+    skipAdvisor: args.skipAdvisor ?? current?.skipAdvisor,
     timeoutController: args.timeoutController ?? current?.timeoutController,
   });
 }
@@ -170,6 +183,11 @@ function abortActive(args: { turnId: string }) {
 
 function clearActiveTurnState(args: { turnId: string }) {
   activeSessions.delete(args.turnId);
+}
+
+function skipAdvisorForTurn(args: { turnId: string }) {
+  const skip = activeSessions.get(args.turnId)?.skipAdvisor;
+  return skip ? skip() : false;
 }
 
 function summarizeActiveTurns() {
@@ -574,9 +592,18 @@ async function runProviderTurn(
   const lifecycle = createProviderTurnLifecycle({
     onEvent: args.onEvent,
   });
+  /**
+   * Set once the advisor usage mapper exists. Terminal `done` events synthesised
+   * here bypass the per-event mapper, so without this flush the advisor's tokens
+   * were billed but never reported whenever the turn timed out or aborted.
+   */
+  let flushAdvisorUsage: (() => BridgeEvent[]) | null = null;
   const finishLifecycle = (
     reason: "completed" | "runtime_failure" | "user_abort",
   ) => {
+    for (const event of flushAdvisorUsage?.() ?? []) {
+      lifecycle.emit(event);
+    }
     lifecycle.finish(reason);
     lastCompletedLifecycleSnapshot = lifecycle.snapshot();
     return lifecycle.events();
@@ -595,6 +622,40 @@ async function runProviderTurn(
     activePhaseAborter = aborter;
     if (abortRequested) {
       aborter();
+    }
+  };
+  let advisorSkipRequested = false;
+  let advisorPhaseActive = false;
+  let advisorSkipHandler: (() => void) | null = null;
+  /**
+   * Published to the active session *before* the preflight starts, because the
+   * preflight's eligibility phase can itself take seconds — the Codex catalog
+   * sweep is a paginated network call. Registering only once the runner exists
+   * left a window where `skipAdvisor` answered "no Advisor is running" while
+   * the UI was visibly blocked on one, and the request was dropped.
+   */
+  const publishAdvisorSkip = () => {
+    upsertActiveSession({
+      turnId,
+      providerId: args.providerId,
+      taskId: args.taskId,
+      skipAdvisor: () => {
+        // Reports whether a skip was actually possible. Once the preflight has
+        // resolved there is nothing left to skip, and answering "skipped" then
+        // would tell the user their still-running primary turn lost its advice.
+        if (!advisorPhaseActive) {
+          return false;
+        }
+        advisorSkipRequested = true;
+        advisorSkipHandler?.();
+        return true;
+      },
+    });
+  };
+  const registerAdvisorSkip = (skip: () => void) => {
+    advisorSkipHandler = skip;
+    if (advisorSkipRequested) {
+      skip();
     }
   };
   const updateActiveSession = (
@@ -664,18 +725,56 @@ async function runProviderTurn(
       downstream?.(event);
     };
 
-  const advisorEvents: BridgeEvent[] = [];
   let effectiveArgs: typeof args = {
     ...args,
     runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
   };
   let advisorUsage: Extract<BridgeEvent, { type: "usage" }> | undefined;
+  // Usage from an advisor that was skipped or timed out, harvested after the
+  // preflight already returned. Read lazily by the usage merger below.
+  let lateAdvisorUsage: Extract<BridgeEvent, { type: "usage" }> | undefined;
+  let advisorRan = false;
   if (args.runtimeOptions?.advisorTarget) {
-    const advisorResult = await runAdvisorPreflight({
-      turn: args,
-      registerAbort: registerPhaseAborter,
-    });
-    if (advisorResult.status === "aborted" || abortRequested) {
+    advisorRan = true;
+    const advisorTarget = normalizeAdvisorTarget(
+      args.runtimeOptions.advisorTarget,
+    );
+    lifecycle.emit(
+      buildAdvisorStartedEvent({
+        primaryProviderId: args.providerId,
+        primaryModel: args.runtimeOptions?.model,
+        target: advisorTarget,
+        at: Date.now(),
+      }),
+    );
+    advisorPhaseActive = true;
+    publishAdvisorSkip();
+    // The advisor is another model's latency, not the primary provider's
+    // generation budget. Without this pause a 90s advisor could consume the
+    // whole `providerTimeoutMs` and kill the turn before the primary ever ran.
+    timeoutController.pauseForDecision();
+    let advisorResult: Awaited<ReturnType<typeof runAdvisorPreflight>>;
+    try {
+      advisorResult = await runAdvisorPreflight({
+        turn: args,
+        registerAbort: registerPhaseAborter,
+        registerSkip: registerAdvisorSkip,
+        reportLateUsage: (usage) => {
+          lateAdvisorUsage = usage;
+        },
+      });
+    } finally {
+      advisorPhaseActive = false;
+      timeoutController.resumeAfterDecision();
+    }
+    lifecycle.emit(
+      buildAdvisorOutcomeEvent({
+        primaryProviderId: args.providerId,
+        result: advisorResult,
+        at: Date.now(),
+      }),
+    );
+    if (!shouldContinuePrimaryTurn(advisorResult) || abortRequested) {
       const terminalEvents: BridgeEvent[] = timeoutController.timedOut
         ? [
             {
@@ -694,7 +793,9 @@ async function runProviderTurn(
               stop_reason: "user_abort",
             },
           ];
-      const mapUsage = createAdvisorUsageMerger(advisorResult.usage);
+      const mapUsage = createAdvisorUsageMerger(
+        () => advisorResult.usage ?? lateAdvisorUsage,
+      );
       const mappedTerminalEvents = terminalEvents.flatMap((event) =>
         mapUsage(event),
       );
@@ -705,27 +806,56 @@ async function runProviderTurn(
       return lifecycle.events();
     }
     if (advisorResult.shouldTrace) {
-      const trace: BridgeEvent = {
+      // The structured event above drives the live UI; this durable transcript
+      // receipt is what survives a restart.
+      lifecycle.emit({
         type: "system",
         content: formatAdvisorSystemTrace(advisorResult),
-      };
-      advisorEvents.push(trace);
-      lifecycle.emit(trace);
+      });
     }
     advisorUsage = advisorResult.usage;
     if (advisorResult.status === "completed" && effectiveArgs.conversation) {
+      const injection = appendAdvisorAdvice({
+        conversation: effectiveArgs.conversation,
+        target: advisorResult.target,
+        advice: advisorResult.advice,
+      });
       effectiveArgs = {
         ...effectiveArgs,
-        conversation: appendAdvisorAdvice({
-          conversation: effectiveArgs.conversation,
-          target: advisorResult.target,
-          advice: advisorResult.advice,
-        }),
+        conversation: injection.conversation,
       };
+      // `applied` is emitted only from the real injection site. Advice produced
+      // but never injected is a distinct, previously invisible failure mode.
+      if (injection.injectedPartIndex !== null) {
+        lifecycle.emit({
+          type: "advisor_activity",
+          phase: "applied",
+          primaryProviderId: args.providerId,
+          advisorProviderId: advisorResult.target.providerId,
+          advisorModel: advisorResult.target.model,
+          isolation: resolveAdvisorIsolationMode(
+            advisorResult.target.providerId,
+          ),
+          at: Date.now(),
+          injectedChars: injection.injectedChars,
+          injectedPartIndex: injection.injectedPartIndex,
+        });
+      }
     }
   }
 
-  const mapUsageForDownstream = createAdvisorUsageMerger(advisorUsage);
+  const mapUsageForDownstream = createAdvisorUsageMerger(
+    () => advisorUsage ?? lateAdvisorUsage,
+  );
+  flushAdvisorUsage = mapUsageForDownstream.flush;
+  if (advisorRan) {
+    lifecycle.emit({
+      type: "advisor_activity",
+      phase: "primary_started",
+      primaryProviderId: args.providerId,
+      at: Date.now(),
+    });
+  }
   const emittedPrimaryEvents: BridgeEvent[] = [];
   const emitPrimaryEvent = (event: BridgeEvent) => {
     emittedPrimaryEvents.push(event);
@@ -1006,6 +1136,13 @@ export const providerRuntime: ProviderRuntime = {
       return { ok: false, message: "No active provider turn." };
     }
     return { ok: true, message: "Provider turn aborted." };
+  },
+  skipAdvisor: ({ turnId }) => {
+    const ok = skipAdvisorForTurn({ turnId });
+    if (!ok) {
+      return { ok: false, message: "No Advisor preflight is running." };
+    }
+    return { ok: true, message: "Advisor preflight skipped." };
   },
   cleanupTask: ({ taskId }) => {
     clearActiveTaskSessions({ taskId });

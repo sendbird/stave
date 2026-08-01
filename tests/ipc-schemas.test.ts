@@ -222,6 +222,32 @@ describe("provider IPC schemas", () => {
     ).toBe(false);
   });
 
+  test("accepts an optional advisor effort and rejects an unselectable one", () => {
+    const parse = (effort: unknown) =>
+      StreamTurnArgsSchema.safeParse({
+        providerId: "claude-code",
+        prompt: "continue",
+        runtimeOptions: {
+          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol", effort },
+        },
+      }).success;
+
+    expect(parse("ultra")).toBe(true);
+    // "minimal" is Codex's legacy tier: unselectable, and collapsed to "low"
+    // before any call, so it must not cross the IPC boundary as a pin.
+    expect(parse("minimal")).toBe(false);
+    expect(parse("insane")).toBe(false);
+    expect(
+      StreamTurnArgsSchema.safeParse({
+        providerId: "claude-code",
+        prompt: "continue",
+        runtimeOptions: {
+          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
+        },
+      }).success,
+    ).toBe(true);
+  });
+
   test("accepts Claude xhigh effort in runtime options", () => {
     const parsed = StreamTurnArgsSchema.safeParse({
       providerId: "claude-code",

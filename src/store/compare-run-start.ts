@@ -48,6 +48,7 @@ export async function launchCompareRunVariants(args: {
   sendUserMessage: (input: {
     taskId: string;
     content: string;
+    turnOrigin: "conversation" | "utility";
   }) => Promise<CandidateLaunchResult>;
 }) {
   for (let index = 0; index < args.compareRun.variants.length; index += 1) {
@@ -126,6 +127,7 @@ export async function launchCompareRunVariants(args: {
       const launchResult = await args.sendUserMessage({
         taskId: candidate.taskId,
         content: args.seedPrompt,
+        turnOrigin: "utility",
       });
       if (launchResult.status !== "started") {
         args.updateVariant(

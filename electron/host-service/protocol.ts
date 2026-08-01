@@ -536,6 +536,9 @@ export interface HostServiceRequestMap {
   "provider.abort-turn": {
     turnId: string;
   };
+  "provider.skip-advisor": {
+    turnId: string;
+  };
   "provider.cleanup-task": {
     taskId: string;
   };
@@ -929,6 +932,7 @@ export interface HostServiceResponseMap {
   "provider.read-stream-turn": HostProviderReadStreamResult;
   "provider.ack-stream-turn": HostProviderMutationResult;
   "provider.abort-turn": HostProviderMutationResult;
+  "provider.skip-advisor": HostProviderMutationResult;
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;

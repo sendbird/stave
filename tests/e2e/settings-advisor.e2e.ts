@@ -115,7 +115,12 @@ test("Advisor settings support search, provider models, and persistence", async 
     }),
   ).toBeVisible();
 
-  const advisorChoices = settings.getByRole("radiogroup", { name: "Advisor" });
+  // Exact: the card now also holds an "Advisor Effort" radiogroup, and
+  // Playwright's accessible-name matching is a substring match by default.
+  const advisorChoices = settings.getByRole("radiogroup", {
+    name: "Advisor",
+    exact: true,
+  });
   const offChoice = advisorChoices.getByRole("radio", { name: /^Off/ });
   const claudeChoice = advisorChoices.getByRole("radio", { name: /^Claude/ });
   const codexChoice = advisorChoices.getByRole("radio", { name: /^Codex/ });
@@ -150,7 +155,7 @@ test("Advisor settings support search, provider models, and persistence", async 
     "Active pair: Codex · GPT-5.6 Terra → Codex Advisor · GPT-6 Preview",
   );
   await expect(
-    advisorCard.getByText("Next turn", { exact: true }),
+    advisorCard.getByText("Default on", { exact: true }),
   ).toBeVisible();
 
   await expect
@@ -193,7 +198,7 @@ test("Advisor settings support search, provider models, and persistence", async 
     "Codex Advisor · GPT-6 Preview",
   );
   await expect(
-    reloadedAdvisorCard.getByText("Next turn", { exact: true }),
+    reloadedAdvisorCard.getByText("Default on", { exact: true }),
   ).toBeVisible();
   expect(pageErrors.map((error) => error.message)).toEqual([]);
 });

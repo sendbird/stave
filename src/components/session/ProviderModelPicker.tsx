@@ -113,7 +113,14 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
         <SelectContent>
           {providerModels.map((model) => (
             <SelectItem key={model} value={model} className="text-xs">
-              {toHumanModelName({ model })}
+              <span className="flex min-w-0 items-center gap-2">
+                <ModelIcon
+                  providerId={args.selectedProvider}
+                  model={model}
+                  className="size-3.5"
+                />
+                <span className="truncate">{toHumanModelName({ model })}</span>
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

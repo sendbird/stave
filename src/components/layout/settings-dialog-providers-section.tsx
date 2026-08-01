@@ -1,3 +1,4 @@
+import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   buildModelSelectorOptions,
   buildModelSelectorValue,
@@ -40,11 +41,18 @@ import {
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
 import type {
+  AdvisorEffort,
   AdvisorTarget,
   ClaudeSettingSource,
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
+import {
+  ADVISOR_EFFORT_AUTO_VALUE,
+  buildAdvisorEffortOptions,
+  formatAdvisorEffortLabel,
+  resolveAdvisorEffortSelection,
+} from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import {
   getDefaultModelForProvider,
   getProviderLabel,
@@ -52,7 +60,12 @@ import {
   listCodexReasoningEffortsForModel,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
-import { ADVISOR_SETTING_FIELD_ID } from "@/lib/providers/advisor";
+import {
+  ADVISOR_SETTING_FIELD_ID,
+  isAdvisorEffortClamped,
+  listAdvisorEffortsForProvider,
+  resolveAdvisorEffort,
+} from "@/lib/providers/advisor";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
@@ -806,8 +819,28 @@ export function ProvidersSection() {
         advisorTarget?.providerId === providerId && advisorTargetSupported
           ? advisorTarget.model
           : getDefaultModelForProvider({ providerId }),
+      ...(advisorTarget?.effort &&
+      listAdvisorEffortsForProvider(providerId).includes(advisorTarget.effort)
+        ? { effort: advisorTarget.effort }
+        : {}),
     };
     updateSettings({ patch: { advisorTarget: nextTarget } });
+  };
+  const updateAdvisorEffort = (value: string) => {
+    if (!advisorTarget) {
+      return;
+    }
+    updateSettings({
+      patch: {
+        advisorTarget: {
+          providerId: advisorTarget.providerId,
+          model: advisorTarget.model,
+          ...(value === ADVISOR_EFFORT_AUTO_VALUE
+            ? {}
+            : { effort: value as AdvisorEffort }),
+        },
+      },
+    });
   };
   const toggleClaudeSettingSource = (source: "user" | "project" | "local") => {
     updateSettings({
@@ -825,7 +858,7 @@ export function ProvidersSection() {
         id={ADVISOR_SETTING_FIELD_ID}
         tabIndex={-1}
         title="Advisor"
-        description="Run one isolated, read-only preflight before each normal user chat turn. The Advisor can be Claude or Codex regardless of the primary provider."
+        description="Default for new tasks: run one isolated, read-only preflight before each normal user chat turn. The Advisor can be Claude or Codex regardless of the primary provider, and each task can arm or disarm it from the composer."
         titleAccessory={
           <Badge
             variant={
@@ -838,9 +871,9 @@ export function ProvidersSection() {
           >
             {advisorTarget
               ? advisorTargetSupported
-                ? "Next turn"
+                ? "Default on"
                 : "Invalid model"
-              : "Off"}
+              : "Default off"}
           </Badge>
         }
       >
@@ -852,17 +885,20 @@ export function ProvidersSection() {
             {
               value: "off",
               label: "Off",
-              description: "Start the primary provider immediately.",
+              description:
+                "Start the primary provider immediately unless a task arms the Advisor itself.",
             },
             {
               value: "claude-code",
               label: "Claude",
               description: "Use an isolated Claude SDK turn.",
+              icon: <ModelIcon providerId="claude-code" className="size-3.5" />,
             },
             {
               value: "codex",
               label: "Codex",
               description: "Use an ephemeral Codex App Server thread.",
+              icon: <ModelIcon providerId="codex" className="size-3.5" />,
             },
           ]}
         />
@@ -890,6 +926,11 @@ export function ProvidersSection() {
                     advisorTarget: {
                       providerId: selection.providerId,
                       model: selection.model,
+                      // Switching models must not silently reset the pinned
+                      // tier; an unsupported one is clamped at resolution time.
+                      ...(advisorTarget.effort
+                        ? { effort: advisorTarget.effort }
+                        : {}),
                     },
                   },
                 })
@@ -907,6 +948,37 @@ export function ProvidersSection() {
             ) : null}
           </LabeledField>
         ) : null}
+        {advisorTarget ? (
+          <LabeledField
+            title="Advisor Effort"
+            description="The Advisor holds the turn while it thinks, so the tier is a direct latency choice. Auto follows the model's own default, which for Codex is deliberately high."
+          >
+            <ChoiceButtons
+              value={
+                resolveAdvisorEffortSelection(advisorTarget) ??
+                ADVISOR_EFFORT_AUTO_VALUE
+              }
+              onChange={updateAdvisorEffort}
+              options={buildAdvisorEffortOptions(advisorTarget).map(
+                (option) => ({
+                  value: option.value ?? ADVISOR_EFFORT_AUTO_VALUE,
+                  // The full title carries what Auto resolves to, which is the
+                  // number that decides whether this default is expensive.
+                  label: option.title,
+                }),
+              )}
+            />
+            {advisorTarget.effort && isAdvisorEffortClamped(advisorTarget) ? (
+              <p className="text-xs leading-5 text-muted-foreground">
+                The saved tier is{" "}
+                {formatAdvisorEffortLabel(advisorTarget.effort)}, which{" "}
+                {toHumanModelName({ model: advisorTarget.model })} does not
+                accept, so the Advisor runs at{" "}
+                {formatAdvisorEffortLabel(resolveAdvisorEffort(advisorTarget))}.
+              </p>
+            ) : null}
+          </LabeledField>
+        ) : null}
         <div className="rounded-lg border border-border/70 bg-muted/20 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
           <p>
             <span className="font-medium text-foreground">
@@ -920,13 +992,20 @@ export function ProvidersSection() {
                   providerId: advisorTarget.providerId,
                 })} Advisor · ${toHumanModelName({
                   model: advisorTarget.model,
-                })}`
+                })} · ${formatAdvisorEffortLabel(
+                  resolveAdvisorEffort(advisorTarget),
+                )}`
               : "Advisor off"}
           </p>
           <p className="mt-1">
             Adds one model call, latency, and usage. A recoverable Advisor
             failure is traced and the primary turn still runs; Stave never
             switches Advisor models automatically.
+          </p>
+          <p className="mt-1">
+            This is only the default. Each task&apos;s composer has an Advisor
+            control that can turn it on or off, or point it at a different
+            model, for that task alone.
           </p>
         </div>
       </SettingsCard>

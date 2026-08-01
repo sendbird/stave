@@ -139,6 +139,22 @@ export function resolvePromptDraftPlanModeChange(args: {
   };
 }
 
+/**
+ * Every field of the target must be compared. `updatePromptDraft` drops writes
+ * this reports as unchanged, so an omitted field turns its composer control
+ * into one that intermittently does nothing.
+ */
+function areAdvisorTargetsEqual(
+  left?: PromptDraftRuntimeOverrides["advisorTarget"],
+  right?: PromptDraftRuntimeOverrides["advisorTarget"],
+) {
+  return (
+    left?.providerId === right?.providerId &&
+    left?.model === right?.model &&
+    left?.effort === right?.effort
+  );
+}
+
 function areStringArraysEqual(left?: string[], right?: string[]) {
   if (left === right) {
     return true;
@@ -162,6 +178,8 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.codexPlanMode === right?.codexPlanMode &&
     left?.codexReasoningEffort === right?.codexReasoningEffort &&
     left?.autoRouting === right?.autoRouting &&
+    left?.advisorEnabled === right?.advisorEnabled &&
+    areAdvisorTargetsEqual(left?.advisorTarget, right?.advisorTarget) &&
     areStringArraysEqual(left?.boundSecretIds, right?.boundSecretIds)
   );
 }

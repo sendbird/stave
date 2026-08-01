@@ -23,10 +23,72 @@ independent: Claude can advise Codex, Codex can advise Claude, and either
 provider can advise another model from its own catalog. Fable is a normal
 Claude model choice, not a special Advisor mode.
 
-The Advisor target is stored as `advisorTarget: { providerId, model } | null`
-and is only attached to the main user-turn request. Summary generation,
-routing classifiers, task naming, PR helpers, native slash-command turns, and
-other internal one-shot calls do not inherit it.
+The Advisor target is stored as
+`advisorTarget: { providerId, model, effort? } | null` and is only attached to
+the main user-turn request. Summary generation, routing classifiers, task
+naming, PR helpers, native slash-command turns, and other internal one-shot
+calls do not inherit it.
+
+### Advisor effort
+
+`effort` is optional; absent means "follow the model's provider default", which
+is what every target did before the tier became selectable. Because the Advisor
+blocks the turn while it thinks, the tier is a direct latency choice, so the
+composer and Settings both show what the default resolves to rather than only
+the word "Auto".
+
+`resolveAdvisorEffort` in `src/lib/providers/advisor.ts` is the single
+resolution point, shared by the renderer that labels the tier and the main
+process that requests it, so the composer can never promise a tier the call
+would not use. It defaults an absent tier and clamps a pinned one down to what
+the model accepts (Luna caps at `max`, Claude has no `ultra`), rather than
+sending a value the provider would reject. `normalizeAdvisorTarget` drops a tier
+the provider does not have at all while keeping the target: losing the tier
+costs latency, losing the target would silently disarm an Advisor the user
+believes is on. Codex's legacy `minimal` is not selectable and collapses to
+`low` before the call, so it never appears as a pin or in a reported event.
+
+### Per-task arming
+
+The Settings target is the **default**, not the whole story. Each task can arm
+or disarm the Advisor from its composer, next to the plan and thinking toggles,
+via `src/components/ai-elements/prompt-input-advisor-mode.tsx`.
+
+Arming lives in the task's `PromptDraftRuntimeOverrides` as two fields:
+
+- `advisorEnabled?: boolean` — absent inherits the Settings default (a
+  configured `settings.advisorTarget` means "armed by default").
+- `advisorTarget?: AdvisorTarget` — the task's own target, including its pinned
+  effort, kept task-local so arming one task never changes which model advises
+  another.
+
+They are two fields rather than a nullable target on purpose: turning the
+Advisor off keeps the remembered target, so switching it back on is one click
+instead of re-picking a model. A target without `advisorEnabled` never arms
+anything, so a hand-edited or partially migrated snapshot cannot start paying
+for an Advisor the user did not turn on.
+
+`resolveAdvisorArmState` in `src/lib/providers/advisor.ts` is the single
+resolution point, and it re-normalizes the persisted target, so a corrupt
+per-task value falls back to the Settings default instead of reaching the
+runtime. `buildProviderRuntimeOptions` calls it behind `includeAdvisor`, which
+keeps every utility turn advisor-free by construction.
+
+Turning the Advisor off while it is holding the turn also issues
+`provider.skip-advisor`, so the control means "now" at the one moment the user
+needs it to, rather than silently meaning "next turn". The composer also warns
+before the turn is spent when the target is off-catalog (the turn would skip the
+Advisor) or identical to the model running the turn (the second opinion is the
+same model) — the pre-flight counterpart to the monitor's post-hoc checklist.
+A pinned tier the model cannot run is reported separately from those, as a note
+rather than a warning: the Advisor still advises correctly, just one tier down.
+
+`Alt+A` toggles the Advisor and `Alt+Shift+A` opens its picker, joining the
+`Alt`-modifier family the composer already uses for model-adjacent controls.
+`src/lib/advisor-shortcuts.ts` matches on `event.code` because macOS composes
+`Option+A` into `å`. The control installs its own window listener, gated by the
+same `windowShortcutsEnabled` flag the host computes for the active task, which
+keeps the Advisor out of `PromptInput`'s prop surface.
 
 `electron/providers/advisor-runtime.ts` runs the preflight before the primary
 provider dispatch:
@@ -36,14 +98,59 @@ provider dispatch:
 - Codex uses an ephemeral App Server thread with read-only sandboxing,
   approvals disabled, network and web search disabled, plus isolated
   instructions that prohibit tools, apps, plugins, shells, and subagents.
-- Successful advice is bounded and appended to the canonical request as
-  `retrieved_context` with source id `stave:advisor`.
+  Because `isolated` only instructs the model to avoid MCP, every registered
+  MCP server is additionally disabled per thread via config overrides. If the
+  server catalog cannot be read, the isolated call is refused rather than run
+  with weaker isolation than it advertises.
+- Successful advice is bounded, stripped of any `[Section]` header lines so it
+  cannot forge a higher-trust prompt section, and appended to the canonical
+  request as `retrieved_context` with source id `stave:advisor`.
 - A compact `system` trace records completion, skip, or recoverable failure.
   Advisor text is not persisted as a separate assistant response.
-- Advisor usage is merged into the visible primary turn usage when reported.
+- Advisor usage is merged into the visible primary turn usage exactly once,
+  including when the primary turn ends without emitting its own usage event.
 - An unavailable, invalid, failed, or timed-out Advisor does not trigger a
   fallback and does not block the primary turn. A user abort during preflight
   aborts the whole turn.
+- The preflight pauses the primary provider's generation timeout while it runs,
+  so another model's latency cannot consume the primary turn's budget.
+
+### Advisor lifecycle events
+
+The preflight emits structured `advisor_activity` events on the normalized
+provider event union rather than requiring the renderer to sniff the `system`
+trace string. Phases are `started`, `completed`, `applied`, `primary_started`,
+`failed`, `timeout`, `aborted`, and `skipped`.
+
+`completed` and `applied` are deliberately distinct. The advisor producing
+advice and that advice actually reaching the primary prompt are separate
+outcomes, and only `applied` — emitted from the injection site with the real
+`injectedPartIndex` and `injectedChars` — proves the primary model saw it.
+"Advisor ran but the advice never landed" was previously invisible.
+
+Events carry the primary and advisor provider/model plus the isolation mode and
+the effort tier actually applied by the runtime, so the UI never infers either
+from a provider id or from the target it can see. The reported tier is the
+resolved one, so a pin that was defaulted or clamped shows the value the call
+carried rather than the value that was asked for. `src/lib/providers/advisor-activity.ts` folds them into a
+per-task `advisorExchangeSnapshot` held in its own store slice, never in
+`messagesByTask`, so the advice text is not persisted as an assistant response
+and the surface does not depend on transcript rendering.
+
+`provider.skip-advisor` cancels only the preflight: the primary turn continues
+with a `skipped` phase. It is distinct from `abortTurn`, so escaping a slow
+advisor never costs the user their turn. It reports `ok: false` once the
+preflight is no longer running.
+
+The user-facing surface is `src/components/session/AdvisorExchangeMonitor.tsx`,
+a floating card at the top-right of the chat stage. Expanded, it renders a
+checklist computed only from reported fields — separate model, tool isolation,
+advice returned, advice applied, primary started, usage counted — which is the
+acceptance criteria for the event contract, not decoration. It also reports the
+isolation mode, effort tier, and deadline the call actually used.
+`ideas/advisor-ux-lens/harness.html` renders that real component over real
+reducer output for every terminal scenario, plus the real composer pill over
+the real arm resolver for every arming state.
 
 Bounded secondary turns, such as Compare Judge, use the same provider adapters
 through a separate durable contract. Electron main records the run before the

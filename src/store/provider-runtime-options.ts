@@ -4,7 +4,10 @@ import {
   resolveEffectiveCodexFileAccessMode,
 } from "@/lib/providers/codex-runtime-options";
 import { resolveDefaultClaudeFallbackModel } from "@/lib/providers/model-catalog";
-import { normalizeAdvisorTarget } from "@/lib/providers/advisor";
+import {
+  type AdvisorArmOverrides,
+  resolveAdvisorArmState,
+} from "@/lib/providers/advisor";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import {
   normalizeTrustedToolEntries,
@@ -69,7 +72,6 @@ type RuntimeSettings = Pick<
   | "codexReasoningSummarySupport"
   | "codexFastMode"
   | "codexPlanMode"
-  | "codexFastModeVisible"
   | "promptResponseStyle"
   | "promptPrDescription"
   | "promptInlineCompletion"
@@ -159,6 +161,11 @@ export function buildProviderRuntimeOptions(args: {
   providerSession?: TaskProviderSessionState | null;
   includeAdvisor?: boolean;
   /**
+   * The task's per-turn Advisor arming, when the caller has a prompt draft.
+   * Omitted for utility turns, which never opt into the Advisor anyway.
+   */
+  advisorRuntimeOverrides?: AdvisorArmOverrides | null;
+  /**
    * Ids of vault secrets the user bound to this task. Carried through to the
    * runtime so the main process can resolve them to env vars. Ids only.
    */
@@ -173,7 +180,10 @@ export function buildProviderRuntimeOptions(args: {
     value: settings.claudeTaskBudgetTokens,
   });
   const advisorTarget = args.includeAdvisor
-    ? normalizeAdvisorTarget(settings.advisorTarget)
+    ? resolveAdvisorArmState({
+        overrides: args.advisorRuntimeOverrides,
+        settingsTarget: settings.advisorTarget,
+      }).effectiveTarget
     : null;
   const trustedTools = normalizeTrustedToolEntries(settings.trustedTools);
   const claudeAllowedTools =

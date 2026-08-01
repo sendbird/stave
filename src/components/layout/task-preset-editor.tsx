@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
+import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   getDefaultModelForProvider,
   toHumanModelName,
@@ -181,7 +182,10 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
           <SelectContent>
             {providerOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                <span className="flex min-w-0 items-center gap-2">
+                  <ModelIcon providerId={option.value} className="size-3.5" />
+                  <span className="truncate">{option.label}</span>
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -199,7 +203,16 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
             <SelectContent>
               {modelOptions.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {toHumanModelName({ model: option })}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <ModelIcon
+                      providerId={provider}
+                      model={option}
+                      className="size-3.5"
+                    />
+                    <span className="truncate">
+                      {toHumanModelName({ model: option })}
+                    </span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

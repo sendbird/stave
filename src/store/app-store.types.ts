@@ -13,6 +13,7 @@ import type {
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import type { UpdateModelRuntimePreferenceArgs } from "@/lib/providers/model-runtime-preferences";
+import type { AdvisorExchangeByTask } from "@/lib/providers/advisor-activity";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
@@ -166,6 +167,14 @@ export interface AppState
     string,
     ProviderTurnActivitySnapshot | undefined
   >;
+  /**
+   * Latest primary <-> Advisor exchange per task, in memory only.
+   *
+   * Kept out of `messagesByTask` on purpose: the advice text must never become
+   * a persisted assistant response, and the observability surface must not
+   * depend on transcript rendering.
+   */
+  advisorExchangeByTask: AdvisorExchangeByTask;
   nativeSessionReadyByTask: Record<string, boolean>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
@@ -493,6 +502,28 @@ export interface AppState
      * idle/interrupted case where that trigger never fires.
      */
     queuedTurnId?: string;
+    /**
+     * What kind of turn this is, which decides whether the task's Advisor
+     * arming applies.
+     *
+     * Required rather than optional on purpose. The Advisor is a blocking
+     * cross-model call the user pays for on every armed turn, so an optional
+     * flag would default new call sites into paying for it silently — the
+     * "utility turns stay advisor-free by construction, not by remembering"
+     * rule that already governs `buildProviderRuntimeOptions`, enforced at the
+     * one entry point that was still opting everything in.
+     *
+     * - `"conversation"` — the task's own dialogue, authored by the user in a
+     *   composer surface: typing, dispatching a queued follow-up, approving a
+     *   plan, replying from the Fleet panel. Advisor arming applies.
+     * - `"utility"` — a purpose-built turn that is not the task's dialogue:
+     *   compare runs, workspace kickoff, a local-change review sent to an
+     *   explicitly chosen reviewer model. Never runs the Advisor. For compare
+     *   runs this is correctness rather than cost — silently consulting a
+     *   third model inside each arm would contaminate the comparison the user
+     *   asked for. For a chosen reviewer it would contradict the choice.
+     */
+    turnOrigin: "conversation" | "utility";
   }) => Promise<SendUserMessageResult>;
   /**
    * Forward a workspace's failing verification checks back to its agent as the
@@ -505,6 +536,13 @@ export interface AppState
     scriptId?: string;
   }) => Promise<SendUserMessageResult>;
   abortTaskTurn: (args: { taskId: string }) => void;
+  /**
+   * Cancels only the Advisor preflight for the task's active turn. The primary
+   * turn keeps running, so escaping a slow advisor is not an abort.
+   */
+  skipTaskAdvisor: (args: { taskId: string }) => void;
+  /** Dismisses the task's Advisor exchange card without touching the turn. */
+  dismissAdvisorExchange: (args: { taskId: string }) => void;
   resolveApproval: (args: {
     taskId: string;
     messageId: string;

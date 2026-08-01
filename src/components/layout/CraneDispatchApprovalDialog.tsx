@@ -15,6 +15,7 @@ import {
   Switch,
   toast,
 } from "@/components/ui";
+import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   Dialog,
   DialogContent,
@@ -939,9 +940,23 @@ export function CraneDispatchApprovalDialog() {
                       <SelectContent>
                         <SelectItem value="off">Off</SelectItem>
                         <SelectItem value="claude-code">
-                          Claude Advisor
+                          <span className="flex min-w-0 items-center gap-2">
+                            <ModelIcon
+                              providerId="claude-code"
+                              className="size-3.5"
+                            />
+                            <span className="truncate">Claude Advisor</span>
+                          </span>
                         </SelectItem>
-                        <SelectItem value="codex">Codex Advisor</SelectItem>
+                        <SelectItem value="codex">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <ModelIcon
+                              providerId="codex"
+                              className="size-3.5"
+                            />
+                            <span className="truncate">Codex Advisor</span>
+                          </span>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -964,7 +979,16 @@ export function CraneDispatchApprovalDialog() {
                         <SelectContent>
                           {advisorModels.map((value) => (
                             <SelectItem key={value} value={value}>
-                              {toHumanModelName({ model: value })}
+                              <span className="flex min-w-0 items-center gap-2">
+                                <ModelIcon
+                                  providerId={advisorProvider}
+                                  model={value}
+                                  className="size-3.5"
+                                />
+                                <span className="truncate">
+                                  {toHumanModelName({ model: value })}
+                                </span>
+                              </span>
                             </SelectItem>
                           ))}
                         </SelectContent>

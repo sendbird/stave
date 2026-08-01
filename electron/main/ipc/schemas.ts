@@ -842,6 +842,19 @@ export const RuntimeOptionsObjectSchema = z
       .object({
         providerId: ProviderIdSchema,
         model: z.string().trim().min(1).max(200),
+        // Optional: absent means the Advisor follows the model's provider
+        // default. Codex's legacy "minimal" is not accepted here because it is
+        // not selectable, and `resolveAdvisorEffort` would collapse it anyway.
+        effort: z
+          .union([
+            z.literal("low"),
+            z.literal("medium"),
+            z.literal("high"),
+            z.literal("xhigh"),
+            z.literal("max"),
+            z.literal("ultra"),
+          ])
+          .optional(),
       })
       .strict()
       .optional(),

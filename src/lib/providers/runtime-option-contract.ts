@@ -225,6 +225,7 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "goal_status",
   "usage",
   "prompt_suggestions",
+  "advisor_activity",
   "history_boundary",
   "permission_denial",
   "hook_activity",

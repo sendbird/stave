@@ -1314,6 +1314,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "provider.abort-turn":
       await respond(request.id, providerRuntime.abortTurn(request.params));
       return;
+    case "provider.skip-advisor":
+      await respond(request.id, providerRuntime.skipAdvisor(request.params));
+      return;
     case "provider.cleanup-task":
       await respond(request.id, providerRuntime.cleanupTask(request.params));
       return;

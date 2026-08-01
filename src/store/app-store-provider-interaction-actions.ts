@@ -20,6 +20,7 @@ import {
   findLatestPendingUserInputPart,
   interruptPendingToolInteractionsInMessages,
 } from "@/store/provider-message.utils";
+import { clearAdvisorExchange } from "@/lib/providers/advisor-activity";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import type {
@@ -30,7 +31,11 @@ import type {
 } from "@/types/chat";
 
 type ProviderInteractionActionKey =
-  "abortTaskTurn" | "resolveApproval" | "resolveUserInput";
+  | "abortTaskTurn"
+  | "skipTaskAdvisor"
+  | "dismissAdvisorExchange"
+  | "resolveApproval"
+  | "resolveUserInput";
 
 type ProviderInteractionActions = Pick<AppState, ProviderInteractionActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
@@ -76,6 +81,29 @@ export function createProviderInteractionActions(args: {
   } = args;
 
   return {
+    skipTaskAdvisor: ({ taskId }) => {
+      const state = get();
+      const activeTurnId = resolveTaskRuntimeTarget({ state, taskId })?.session
+        .activeTurnIdsByTask[taskId];
+      if (!activeTurnId) {
+        return;
+      }
+      // Deliberately does not touch turn state: the runtime answers with an
+      // `advisor_activity` `skipped` phase and the primary turn continues, so
+      // the store must not pre-empt that with a local guess.
+      void window.api?.provider?.skipAdvisor?.({ turnId: activeTurnId });
+    },
+    dismissAdvisorExchange: ({ taskId }) => {
+      set((state) => {
+        const advisorExchangeByTask = clearAdvisorExchange({
+          exchangeByTask: state.advisorExchangeByTask,
+          taskId,
+        });
+        return advisorExchangeByTask === state.advisorExchangeByTask
+          ? state
+          : { advisorExchangeByTask };
+      });
+    },
     abortTaskTurn: ({ taskId }) => {
       const stateBefore = get();
       const runtimeTarget = resolveTaskRuntimeTarget({

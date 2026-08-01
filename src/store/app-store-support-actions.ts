@@ -758,6 +758,7 @@ export function createSupportActions(args: {
       const result = await get().sendUserMessage({
         taskId: normalizedTaskId,
         content,
+        turnOrigin: "conversation",
         fileContexts: buildReviewFeedbackFileContexts({
           comments,
           editorTabs: state.editorTabs,
@@ -779,7 +780,11 @@ export function createSupportActions(args: {
       if (!content.trim()) {
         return { status: "blocked" } satisfies SendUserMessageResult;
       }
-      return get().sendUserMessage({ taskId: result.taskId, content });
+      return get().sendUserMessage({
+        taskId: result.taskId,
+        content,
+        turnOrigin: "conversation",
+      });
     },
   };
 }

@@ -1,6 +1,7 @@
 import {
   Brain,
   ClipboardCheck,
+  Ellipsis,
   FileText,
   FolderOpen,
   Globe2,
@@ -23,6 +24,7 @@ import type {
   UserInputPart,
 } from "@/types/chat";
 import {
+  Fragment,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -87,6 +89,15 @@ import {
   replaceSlashCommandToken,
 } from "@/lib/commands";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import {
+  COMPOSER_CONTROL_LABELS,
+  collectActiveComposerControls,
+  composerControlIsIconOnly,
+  resolveComposerControlLayout,
+  type ComposerControlId,
+  type ComposerControlPlacements,
+} from "@/lib/composer-controls";
+import { ComposerControlPlacementList } from "@/components/ai-elements/prompt-input-control-menu";
 import {
   filterSkillEntries,
   getActiveSkillTokenMatch,
@@ -158,7 +169,6 @@ import {
   type PromptInputRuntimeProfile,
   type PromptInputRuntimeStatusItem,
 } from "./prompt-input-runtime-bar";
-import { ModelIcon } from "./model-icon";
 import { Suggestion, Suggestions } from "./suggestion";
 import {
   PromptLexicalEditor,
@@ -258,7 +268,29 @@ interface PromptInputProps {
     answers: Record<string, string>;
   }) => void;
   onUserInputDeny?: (args: { messageId: string }) => void;
-  beforeRuntimeAction?: ReactNode;
+  /**
+   * Advisor arming control. A slot rather than typed props because it is driven
+   * entirely by task-scoped store state, and it renders during an active turn
+   * (unlike the secrets and compare slots) so a blocked turn stays
+   * explainable.
+   */
+  advisorControl?: ReactNode;
+  /**
+   * Whether the Advisor is armed. The pill is a slot, so the toolbar cannot
+   * read its state — but placement has to, or a demoted Advisor would bill a
+   * preflight with nothing on screen saying so.
+   */
+  advisorActive?: boolean;
+  /**
+   * Secrets and Compare are separate slots rather than one fragment: placement
+   * is per-control, and a fragment cannot be routed to two different
+   * containers.
+   */
+  secretsControl?: ReactNode;
+  secretsActive?: boolean;
+  compareControl?: ReactNode;
+  composerControlPlacements?: ComposerControlPlacements;
+  onComposerControlPlacementsChange?: (next: ComposerControlPlacements) => void;
   workspaceCwd?: string;
   reviewModelOptions?: readonly ModelSelectorOption[];
   preferredReviewModelKey?: string;
@@ -480,8 +512,7 @@ function LensAnnotationFeedbackPopover(args: {
     setPriority(feedback.priority);
   }, [feedback.intent, feedback.priority]);
 
-  const changed =
-    intent !== feedback.intent || priority !== feedback.priority;
+  const changed = intent !== feedback.intent || priority !== feedback.priority;
 
   return (
     <Popover>
@@ -619,7 +650,13 @@ export function PromptInput(args: PromptInputProps) {
     pendingUserInput,
     onUserInputSubmit,
     onUserInputDeny,
-    beforeRuntimeAction,
+    advisorControl,
+    advisorActive,
+    secretsControl,
+    secretsActive,
+    compareControl,
+    composerControlPlacements,
+    onComposerControlPlacementsChange,
     workspaceCwd,
     reviewModelOptions,
     preferredReviewModelKey,
@@ -997,6 +1034,8 @@ export function PromptInput(args: PromptInputProps) {
     () => getPromptInputRuntimeProfile(runtimeStatusItems ?? []),
     [runtimeStatusItems],
   );
+  const [composerTrayOpen, setComposerTrayOpen] = useState(false);
+  const [composerCustomizeOpen, setComposerCustomizeOpen] = useState(false);
   const shouldShowFocusHint =
     !minimal &&
     !isPromptInputFocused &&
@@ -1490,10 +1529,7 @@ export function PromptInput(args: PromptInputProps) {
               edits.map((edit) => [edit.property, edit.after]),
             ),
           };
-          const nextStyleEdits = [
-            ...(candidate.styleEdits ?? []),
-            ...edits,
-          ];
+          const nextStyleEdits = [...(candidate.styleEdits ?? []), ...edits];
           return {
             ...candidate,
             computedStyles: nextComputedStyles,
@@ -1812,6 +1848,211 @@ export function PromptInput(args: PromptInputProps) {
       </div>
     );
   }
+
+  const hasReviewControl = Boolean(
+    reviewModelOptions?.length && onLocalChangeReview && !isTurnActive,
+  );
+
+  // A control with nothing to render this frame is excluded from every bucket,
+  // so the tray never offers a row that would come up blank.
+  const unavailableComposerControls: ComposerControlId[] = [];
+  if (!onPlanModeChange) unavailableComposerControls.push("plan");
+  if (!providerModeStatus) unavailableComposerControls.push("providerMode");
+  if (!onThinkingModeChange) unavailableComposerControls.push("thinking");
+  if (!advisorControl) unavailableComposerControls.push("advisor");
+  if (!hasReviewControl) unavailableComposerControls.push("review");
+  if (!secretsControl) unavailableComposerControls.push("secrets");
+  if (!compareControl) unavailableComposerControls.push("compare");
+  if (!hasRuntimeContent) unavailableComposerControls.push("runtime");
+
+  const composerControlLayout = resolveComposerControlLayout({
+    placements: composerControlPlacements ?? {},
+    activeIds: collectActiveComposerControls({
+      planMode,
+      thinkingMode,
+      fastMode,
+      advisorArmed: advisorActive,
+      runtimeTone: runtimeProfile.tone,
+      boundSecretCount: secretsActive ? 1 : 0,
+    }),
+    unavailableIds: unavailableComposerControls,
+  });
+
+  const composerControlNodes: Partial<Record<ComposerControlId, ReactNode>> = {
+    plan: onPlanModeChange ? (
+      <Tooltip>
+        <TooltipTrigger
+          type="button"
+          disabled={interactionsDisabled}
+          onClick={() => onPlanModeChange(!planMode)}
+          className={tooltipTriggerButtonClassName({
+            className: cn(
+              PROMPT_TOOLBAR_BUTTON,
+              planMode ? getPromptToolbarAccentClass("plan") : undefined,
+              interactionsDisabled && "cursor-not-allowed opacity-60",
+            ),
+          })}
+        >
+          <ClipboardCheck className="size-3.5" />
+          <span>Plan</span>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          {planMode ? "Plan mode ON" : "Plan mode OFF"}
+        </TooltipContent>
+      </Tooltip>
+    ) : null,
+    providerMode: providerModeStatus ? (
+      <PromptInputProviderModePill
+        status={providerModeStatus}
+        presets={providerModePresets ?? []}
+        activePresetId={activeProviderModePresetId ?? null}
+        onSelect={onProviderModeSelect}
+        disabled={interactionsDisabled}
+      />
+    ) : null,
+    thinking: onThinkingModeChange ? (
+      <Tooltip>
+        <TooltipTrigger
+          type="button"
+          disabled={interactionsDisabled}
+          onClick={() => {
+            const cycle = {
+              adaptive: "enabled",
+              enabled: "disabled",
+              disabled: "adaptive",
+            } as const;
+            onThinkingModeChange(cycle[thinkingMode ?? "adaptive"]);
+          }}
+          className={tooltipTriggerButtonClassName({
+            className: cn(
+              PROMPT_TOOLBAR_BUTTON,
+              thinkingMode === "enabled"
+                ? getPromptToolbarAccentClass("thinking")
+                : thinkingMode === "disabled"
+                  ? "text-muted-foreground/50"
+                  : undefined,
+              interactionsDisabled && "cursor-not-allowed opacity-60",
+            ),
+          })}
+        >
+          <Brain
+            className={cn(
+              "size-3.5",
+              thinkingMode === "adaptive" && "text-prompt-role-thinking",
+            )}
+          />
+          <span>Thinking</span>
+        </TooltipTrigger>
+        <TooltipContent side="top">{`Thinking: ${thinkingMode ?? "adaptive"}`}</TooltipContent>
+      </Tooltip>
+    ) : null,
+    advisor: advisorControl,
+    review: hasReviewControl ? (
+      <LocalChangeReviewDialog
+        workspaceCwd={workspaceCwd}
+        reviewerOptions={reviewModelOptions ?? []}
+        preferredReviewerKey={preferredReviewModelKey}
+        disabled={interactionsDisabled}
+        onSubmit={onLocalChangeReview!}
+      />
+    ) : null,
+    secrets: secretsControl,
+    compare: compareControl,
+    runtime: hasRuntimeContent ? (
+      isMobile ? (
+        <Drawer swipeDirection="down" showSwipeHandle>
+          <DrawerTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled={interactionsDisabled}
+                className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
+                aria-label={`Runtime · ${runtimeProfile.label}`}
+                title="Runtime profile for the next turn"
+              />
+            }
+          >
+            <PromptInputRuntimeTriggerIcon profile={runtimeProfile} />
+          </DrawerTrigger>
+          <DrawerContent className="bg-popover shadow-2xl data-[swipe-direction=down]:max-h-[78vh]">
+            <DrawerHeader className="gap-1.5 px-5 pb-4 pt-4 text-left">
+              <div className="flex items-baseline justify-between gap-4">
+                <DrawerTitle className="text-base font-semibold">
+                  Runtime profile
+                </DrawerTitle>
+                <span
+                  className={cn(
+                    "text-xs font-semibold",
+                    getRuntimeProfileToneClass(runtimeProfile.tone),
+                  )}
+                >
+                  {runtimeProfile.label}
+                </span>
+              </div>
+              <DrawerDescription>
+                {runtimeProfile.description} Effective values for the next turn
+                are shown below.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <PromptInputRuntimeBar statusItems={runtimeStatusItems} />
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled={interactionsDisabled}
+                className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
+                aria-label={`Runtime · ${runtimeProfile.label}`}
+                title="Runtime profile for the next turn"
+              />
+            }
+          >
+            <PromptInputRuntimeTriggerIcon profile={runtimeProfile} />
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            side="top"
+            sideOffset={10}
+            className="w-[min(25rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-0 shadow-xl ring-1 ring-foreground/10"
+          >
+            <div className="px-5 pb-3.5 pt-4">
+              <div className="flex items-baseline justify-between gap-4">
+                <PopoverTitle className="text-base font-semibold">
+                  Runtime profile
+                </PopoverTitle>
+                <span
+                  className={cn(
+                    "text-xs font-semibold",
+                    getRuntimeProfileToneClass(runtimeProfile.tone),
+                  )}
+                >
+                  {runtimeProfile.label}
+                </span>
+              </div>
+              <PopoverDescription className="mt-1">
+                {runtimeProfile.description} Effective values for the next turn
+                are shown below.
+              </PopoverDescription>
+            </div>
+            <PromptInputRuntimeBar statusItems={runtimeStatusItems} />
+          </PopoverContent>
+        </Popover>
+      )
+    ) : null,
+  };
+
+  const canCustomizeComposerControls = Boolean(
+    onComposerControlPlacementsChange,
+  );
 
   return (
     <>
@@ -3233,7 +3474,52 @@ export function PromptInput(args: PromptInputProps) {
             )}
           >
             {!minimal ? (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div
+                className="relative flex flex-wrap items-center gap-1.5"
+                data-composer-toolbar="true"
+                onContextMenu={
+                  canCustomizeComposerControls
+                    ? (event) => {
+                        // Only claim the row's own background and the controls'
+                        // gaps; a right-click inside a text field keeps the
+                        // native menu.
+                        if (
+                          event.target instanceof HTMLElement &&
+                          event.target.closest("input, textarea")
+                        ) {
+                          return;
+                        }
+                        event.preventDefault();
+                        setComposerCustomizeOpen(true);
+                      }
+                    : undefined
+                }
+              >
+                {canCustomizeComposerControls ? (
+                  <Popover
+                    open={composerCustomizeOpen}
+                    onOpenChange={setComposerCustomizeOpen}
+                  >
+                    <PopoverAnchor className="pointer-events-none absolute left-0 top-0 size-0" />
+                    <PopoverContent
+                      align="start"
+                      side="top"
+                      sideOffset={10}
+                      className="w-[min(30rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-2 shadow-xl ring-1 ring-foreground/10"
+                    >
+                      <PopoverTitle className="px-2 pb-1 pt-1 text-sm font-semibold">
+                        Composer controls
+                      </PopoverTitle>
+                      <ComposerControlPlacementList
+                        placements={composerControlPlacements ?? {}}
+                        forcedIds={composerControlLayout.forced}
+                        onChange={(next) =>
+                          onComposerControlPlacementsChange?.(next)
+                        }
+                      />
+                    </PopoverContent>
+                  </Popover>
+                ) : null}
                 <ModelEffortSelector
                   value={selectedModel}
                   options={modelOptions}
@@ -3242,6 +3528,7 @@ export function PromptInput(args: PromptInputProps) {
                   }
                   effortLabel={effortLabel}
                   fastMode={fastMode}
+                  showFastMode={composerControlLayout.toolbar.includes("fast")}
                   disabled={interactionsDisabled}
                   openToken={
                     modelSelectorOpenNonce > 0
@@ -3258,187 +3545,79 @@ export function PromptInput(args: PromptInputProps) {
                     window.requestAnimationFrame(() => focusComposer());
                   }}
                 />
-                {onPlanModeChange ? (
-                  <Tooltip>
-                    <TooltipTrigger
-                      type="button"
-                      disabled={interactionsDisabled}
-                      onClick={() => onPlanModeChange(!planMode)}
-                      className={tooltipTriggerButtonClassName({
-                        className: cn(
-                          PROMPT_TOOLBAR_BUTTON,
-                          planMode
-                            ? getPromptToolbarAccentClass("plan")
-                            : undefined,
-                          interactionsDisabled &&
-                            "cursor-not-allowed opacity-60",
-                        ),
-                      })}
+                {composerControlLayout.toolbar.map((id) => (
+                  <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+                ))}
+                {composerControlLayout.overflow.length > 0 ? (
+                  <Popover
+                    open={composerTrayOpen}
+                    onOpenChange={setComposerTrayOpen}
+                  >
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={interactionsDisabled}
+                          className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
+                          aria-label={`More composer controls (${composerControlLayout.overflow.length})`}
+                          title="More composer controls"
+                          data-composer-tray-trigger="true"
+                        />
+                      }
                     >
-                      <ClipboardCheck className="size-3.5" />
-                      <span>Plan</span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      {planMode ? "Plan mode ON" : "Plan mode OFF"}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : null}
-                {providerModeStatus ? (
-                  <PromptInputProviderModePill
-                    status={providerModeStatus}
-                    presets={providerModePresets ?? []}
-                    activePresetId={activeProviderModePresetId ?? null}
-                    onSelect={onProviderModeSelect}
-                    disabled={interactionsDisabled}
-                  />
-                ) : null}
-                {onThinkingModeChange ? (
-                  <Tooltip>
-                    <TooltipTrigger
-                      type="button"
-                      disabled={interactionsDisabled}
-                      onClick={() => {
-                        const cycle = {
-                          adaptive: "enabled",
-                          enabled: "disabled",
-                          disabled: "adaptive",
-                        } as const;
-                        onThinkingModeChange(cycle[thinkingMode ?? "adaptive"]);
-                      }}
-                      className={tooltipTriggerButtonClassName({
-                        className: cn(
-                          PROMPT_TOOLBAR_BUTTON,
-                          thinkingMode === "enabled"
-                            ? getPromptToolbarAccentClass("thinking")
-                            : thinkingMode === "disabled"
-                              ? "text-muted-foreground/50"
-                              : undefined,
-                          interactionsDisabled &&
-                            "cursor-not-allowed opacity-60",
-                        ),
-                      })}
+                      <Ellipsis className="size-4" />
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      side="top"
+                      sideOffset={10}
+                      className="w-auto min-w-56 max-w-[min(26rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-2 shadow-xl ring-1 ring-foreground/10"
                     >
-                      <Brain
-                        className={cn(
-                          "size-3.5",
-                          thinkingMode === "adaptive" &&
-                            "text-prompt-role-thinking",
+                      <div className="flex flex-col items-stretch gap-1 [&>*]:justify-start">
+                        {composerControlLayout.overflow.map((id) =>
+                          composerControlIsIconOnly(id) ? (
+                            // Position carries the meaning in a horizontal
+                            // toolbar; stacked in the tray, a bare glyph does
+                            // not. The caption is decorative — the control is
+                            // already named for assistive tech.
+                            <div key={id} className="flex items-center gap-2">
+                              {composerControlNodes[id]}
+                              <span
+                                aria-hidden="true"
+                                className="text-sm text-muted-foreground"
+                              >
+                                {COMPOSER_CONTROL_LABELS[id]}
+                              </span>
+                            </div>
+                          ) : (
+                            <Fragment key={id}>
+                              {composerControlNodes[id]}
+                            </Fragment>
+                          ),
                         )}
-                      />
-                      <span>Thinking</span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">{`Thinking: ${thinkingMode ?? "adaptive"}`}</TooltipContent>
-                  </Tooltip>
-                ) : null}
-                {reviewModelOptions?.length &&
-                onLocalChangeReview &&
-                !isTurnActive ? (
-                  <LocalChangeReviewDialog
-                    workspaceCwd={workspaceCwd}
-                    reviewerOptions={reviewModelOptions}
-                    preferredReviewerKey={preferredReviewModelKey}
-                    disabled={interactionsDisabled}
-                    onSubmit={onLocalChangeReview}
-                  />
-                ) : null}
-                {beforeRuntimeAction}
-                {hasRuntimeContent ? (
-                  isMobile ? (
-                    <Drawer swipeDirection="down" showSwipeHandle>
-                      <DrawerTrigger
-                        render={
+                      </div>
+                      {canCustomizeComposerControls ? (
+                        <>
+                          <div className="my-1.5 h-px bg-border/60" />
                           <Button
                             type="button"
                             variant="ghost"
-                            size="icon"
-                            disabled={interactionsDisabled}
-                            className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
-                            aria-label={`Runtime · ${runtimeProfile.label}`}
-                            title="Runtime profile for the next turn"
-                          />
-                        }
-                      >
-                        <PromptInputRuntimeTriggerIcon
-                          profile={runtimeProfile}
-                        />
-                      </DrawerTrigger>
-                      <DrawerContent className="bg-popover shadow-2xl data-[swipe-direction=down]:max-h-[78vh]">
-                        <DrawerHeader className="gap-1.5 px-5 pb-4 pt-4 text-left">
-                          <div className="flex items-baseline justify-between gap-4">
-                            <DrawerTitle className="text-base font-semibold">
-                              Runtime profile
-                            </DrawerTitle>
-                            <span
-                              className={cn(
-                                "text-xs font-semibold",
-                                getRuntimeProfileToneClass(runtimeProfile.tone),
-                              )}
-                            >
-                              {runtimeProfile.label}
-                            </span>
-                          </div>
-                          <DrawerDescription>
-                            {runtimeProfile.description} Effective values for
-                            the next turn are shown below.
-                          </DrawerDescription>
-                        </DrawerHeader>
-                        <div className="min-h-0 flex-1 overflow-y-auto">
-                          <PromptInputRuntimeBar
-                            statusItems={runtimeStatusItems}
-                          />
-                        </div>
-                      </DrawerContent>
-                    </Drawer>
-                  ) : (
-                    <Popover>
-                      <PopoverTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            disabled={interactionsDisabled}
-                            className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
-                            aria-label={`Runtime · ${runtimeProfile.label}`}
-                            title="Runtime profile for the next turn"
-                          />
-                        }
-                      >
-                        <PromptInputRuntimeTriggerIcon
-                          profile={runtimeProfile}
-                        />
-                      </PopoverTrigger>
-                      <PopoverContent
-                        align="start"
-                        side="top"
-                        sideOffset={10}
-                        className="w-[min(25rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-0 shadow-xl ring-1 ring-foreground/10"
-                      >
-                        <div className="px-5 pb-3.5 pt-4">
-                          <div className="flex items-baseline justify-between gap-4">
-                            <PopoverTitle className="text-base font-semibold">
-                              Runtime profile
-                            </PopoverTitle>
-                            <span
-                              className={cn(
-                                "text-xs font-semibold",
-                                getRuntimeProfileToneClass(runtimeProfile.tone),
-                              )}
-                            >
-                              {runtimeProfile.label}
-                            </span>
-                          </div>
-                          <PopoverDescription className="mt-1">
-                            {runtimeProfile.description} Effective values for
-                            the next turn are shown below.
-                          </PopoverDescription>
-                        </div>
-                        <PromptInputRuntimeBar
-                          statusItems={runtimeStatusItems}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  )
+                            size="xs"
+                            className="w-full justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setComposerTrayOpen(false);
+                              setComposerCustomizeOpen(true);
+                            }}
+                          >
+                            <SlidersHorizontal className="size-3" />
+                            Customize controls…
+                          </Button>
+                        </>
+                      ) : null}
+                    </PopoverContent>
+                  </Popover>
                 ) : null}
               </div>
             ) : null}
@@ -3455,7 +3634,12 @@ export function PromptInput(args: PromptInputProps) {
                   onSubmit={onLocalChangeReview}
                 />
               ) : null}
-              {minimal ? beforeRuntimeAction : null}
+              {minimal ? (
+                <>
+                  {secretsControl}
+                  {compareControl}
+                </>
+              ) : null}
               <Tooltip>
                 <TooltipTrigger
                   type="button"

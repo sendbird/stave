@@ -200,7 +200,7 @@ describe("PromptInput queue mode", () => {
               value: "workspace-write",
             },
           ],
-          beforeRuntimeAction: createElement(
+          secretsControl: createElement(
             "button",
             { type: "button", "aria-label": "Open Tools" },
             "Tools",

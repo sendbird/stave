@@ -68,6 +68,61 @@ const PromptSuggestionsEventSchema = z.object({
   suggestions: z.array(z.string()),
 });
 
+const ProviderIdSchema = z.union([
+  z.literal("claude-code"),
+  z.literal("codex"),
+]);
+
+/**
+ * Both providers' effort scales. Codex's legacy `"minimal"` is deliberately
+ * absent: `resolveAdvisorEffort` collapses it to `"low"` before the call, so an
+ * event carrying it would name a tier the Advisor never ran at.
+ */
+const AdvisorEffortSchema = z.union([
+  z.literal("low"),
+  z.literal("medium"),
+  z.literal("high"),
+  z.literal("xhigh"),
+  z.literal("max"),
+  z.literal("ultra"),
+]);
+
+const AdvisorActivityEventSchema = z.object({
+  type: z.literal("advisor_activity"),
+  phase: z.union([
+    z.literal("started"),
+    z.literal("completed"),
+    z.literal("applied"),
+    z.literal("primary_started"),
+    z.literal("failed"),
+    z.literal("timeout"),
+    z.literal("aborted"),
+    z.literal("skipped"),
+  ]),
+  primaryProviderId: ProviderIdSchema,
+  primaryModel: z.string().optional(),
+  advisorProviderId: ProviderIdSchema.optional(),
+  advisorModel: z.string().optional(),
+  advisorEffort: AdvisorEffortSchema.optional(),
+  isolation: z
+    .union([
+      z.literal("claude-tools-disabled"),
+      z.literal("codex-ephemeral-read-only"),
+    ])
+    .optional(),
+  at: z.number(),
+  timeoutMs: z.number().optional(),
+  durationMs: z.number().optional(),
+  advice: z.string().optional(),
+  adviceChars: z.number().optional(),
+  injectedChars: z.number().optional(),
+  injectedPartIndex: z.number().optional(),
+  detail: z.string().optional(),
+  inputTokens: z.number().optional(),
+  outputTokens: z.number().optional(),
+  totalCostUsd: z.number().optional(),
+});
+
 const HistoryBoundaryEventSchema = z.object({
   type: z.literal("history_boundary"),
   providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
@@ -246,6 +301,7 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   goal_status: GoalStatusEventSchema,
   usage: UsageEventSchema,
   prompt_suggestions: PromptSuggestionsEventSchema,
+  advisor_activity: AdvisorActivityEventSchema,
   history_boundary: HistoryBoundaryEventSchema,
   permission_denial: PermissionDenialEventSchema,
   hook_activity: HookActivityEventSchema,
@@ -271,6 +327,7 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.goal_status,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.usage,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.prompt_suggestions,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.advisor_activity,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.history_boundary,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.permission_denial,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.hook_activity,

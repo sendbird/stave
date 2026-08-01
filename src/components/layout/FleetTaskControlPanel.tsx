@@ -363,6 +363,7 @@ export function FleetTaskControlPanel(args: {
       taskId: args.target.taskId,
       content,
       submitIntent: intent,
+      turnOrigin: "conversation",
       preservePromptDraft: true,
     });
     const nextStatus = resolveActionStatus(result);

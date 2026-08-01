@@ -423,6 +423,18 @@ export function KeyboardShortcutsDrawer({
             sequences: [["Shift", "Tab"]],
           },
           {
+            label: "Toggle Advisor",
+            description:
+              "Arm or disarm this task's Advisor. While a turn is waiting on the Advisor, this also skips it and lets the turn continue.",
+            sequences: [["Alt", "A"]],
+          },
+          {
+            label: "Open Advisor picker",
+            description:
+              "Choose which provider, model, and effort advises this task.",
+            sequences: [["Alt", "Shift", "A"]],
+          },
+          {
             label: "Dialog primary action",
             description:
               "Run Save/Create/Open/Confirm in the active dialog. Use modifier+Enter in multiline fields.",

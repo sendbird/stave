@@ -775,6 +775,8 @@ contextBridge.exposeInMainWorld("api", {
     },
     abortTurn: (args: { turnId: string }) =>
       ipcRenderer.invoke("provider:abort-turn", args),
+    skipAdvisor: (args: { turnId: string }) =>
+      ipcRenderer.invoke("provider:skip-advisor", args),
     steerTurn: (
       args: ProviderSteerTurnRequest,
     ): Promise<ProviderSteerTurnResponse> =>
