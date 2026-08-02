@@ -329,6 +329,7 @@ export function createWorkspaceHydrationActions(args: {
         workspaceBranchById: state.workspaceBranchById,
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
+        workspaceLastActiveAtById: state.workspaceLastActiveAtById,
       });
       await saveProjectRegistrySnapshot({
         projects,

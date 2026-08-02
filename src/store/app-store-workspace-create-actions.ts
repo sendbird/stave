@@ -1,4 +1,5 @@
 import type { StoreApi } from "zustand";
+import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
 import { workspaceFsAdapter } from "@/lib/fs";
 import {
   normalizeComparablePath,
@@ -373,10 +374,17 @@ export function createWorkspaceCreateActions(args: {
           ...state.workspaceDefaultById,
           [workspaceId]: false,
         };
+        const nextWorkspaceLastActiveAtById = stampWorkspaceActive({
+          current: state.workspaceLastActiveAtById,
+          workspaceId,
+        });
         return {
           workspaceSnapshotVersion: 0,
           workspaces: nextWorkspaces,
           activeWorkspaceId: workspaceId,
+          // Creating a workspace is deliberate work in it, and it becomes
+          // active here without routing through switchWorkspace.
+          workspaceLastActiveAtById: nextWorkspaceLastActiveAtById,
           workspaceBranchById: nextBranchById,
           workspacePathById: nextPathById,
           workspaceDefaultById: nextDefaultById,
@@ -390,6 +398,7 @@ export function createWorkspaceCreateActions(args: {
             workspaceBranchById: nextBranchById,
             workspacePathById: nextPathById,
             workspaceDefaultById: nextDefaultById,
+            workspaceLastActiveAtById: nextWorkspaceLastActiveAtById,
             archivedWorkspacePathsToRemove: [workspacePath],
           }),
           workspaceFileCacheByPath: rememberCachedWorkspaceFiles({
@@ -668,10 +677,17 @@ export function createWorkspaceCreateActions(args: {
           ...state.workspaceDefaultById,
           [workspaceId]: false,
         };
+        const nextWorkspaceLastActiveAtById = stampWorkspaceActive({
+          current: state.workspaceLastActiveAtById,
+          workspaceId,
+        });
         return {
           workspaceSnapshotVersion: 0,
           workspaces: nextWorkspaces,
           activeWorkspaceId: workspaceId,
+          // Creating a workspace is deliberate work in it, and it becomes
+          // active here without routing through switchWorkspace.
+          workspaceLastActiveAtById: nextWorkspaceLastActiveAtById,
           workspaceBranchById: nextBranchById,
           workspacePathById: nextPathById,
           workspaceDefaultById: nextDefaultById,
@@ -685,6 +701,7 @@ export function createWorkspaceCreateActions(args: {
             workspaceBranchById: nextBranchById,
             workspacePathById: nextPathById,
             workspaceDefaultById: nextDefaultById,
+            workspaceLastActiveAtById: nextWorkspaceLastActiveAtById,
             archivedWorkspacePathsToRemove: [worktreeRoot],
             ...(isExternalWorktree
               ? { linkedWorkspacePathsToAdd: [worktreeRoot] }

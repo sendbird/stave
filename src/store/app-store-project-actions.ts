@@ -1,6 +1,7 @@
 import type { StoreApi } from "zustand";
 import type { PersistedTurnSummary } from "@/lib/db/turns.db";
 import { loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
+import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { WORKSPACE_APP_SURFACE } from "@/store/app-surface";
 import type { AppState } from "@/store/app-store.types";
@@ -90,6 +91,7 @@ export function createProjectActions(args: {
       workspaceBranchById: stateBeforeSwitch.workspaceBranchById,
       workspacePathById: stateBeforeSwitch.workspacePathById,
       workspaceDefaultById: stateBeforeSwitch.workspaceDefaultById,
+      workspaceLastActiveAtById: stateBeforeSwitch.workspaceLastActiveAtById,
     });
     const existingProject =
       rememberedProjects.find(
@@ -102,36 +104,53 @@ export function createProjectActions(args: {
     });
 
     if (stateBeforeSwitch.projectPath === args.projectRootPath) {
-      set((state) => ({
-        recentProjects: upsertRecentProjectState({
-          projects: rememberedProjects,
-          project: {
-            ...(existingProject ?? {
-              projectPath: args.projectRootPath,
-              projectName: args.projectName,
-              lastOpenedAt: new Date().toISOString(),
-              defaultBranch: args.defaultBranch,
-              workspaces: state.workspaces,
-              activeWorkspaceId: state.activeWorkspaceId,
-              workspaceBranchById: state.workspaceBranchById,
-              workspacePathById: state.workspacePathById,
-              workspaceDefaultById: state.workspaceDefaultById,
-              ...resolveRecentProjectPreferences({
+      set((state) => {
+        const workspaceLastActiveAtById = stampWorkspaceActive({
+          current: state.workspaceLastActiveAtById,
+          workspaceId: state.activeWorkspaceId,
+        });
+        const activeWorkspaceLastActiveAt =
+          workspaceLastActiveAtById[state.activeWorkspaceId];
+        return {
+          workspaceLastActiveAtById,
+          recentProjects: upsertRecentProjectState({
+            projects: rememberedProjects,
+            project: {
+              ...(existingProject ?? {
                 projectPath: args.projectRootPath,
-                recentProjects: rememberedProjects,
+                projectName: args.projectName,
+                lastOpenedAt: new Date().toISOString(),
+                defaultBranch: args.defaultBranch,
+                workspaces: state.workspaces,
+                activeWorkspaceId: state.activeWorkspaceId,
+                workspaceBranchById: state.workspaceBranchById,
+                workspacePathById: state.workspacePathById,
+                workspaceDefaultById: state.workspaceDefaultById,
+                ...resolveRecentProjectPreferences({
+                  projectPath: args.projectRootPath,
+                  recentProjects: rememberedProjects,
+                }),
               }),
-            }),
-            projectName: args.projectName,
-            defaultBranch: args.defaultBranch,
-            lastOpenedAt: new Date().toISOString(),
-          },
-        }),
-        defaultBranch: args.defaultBranch,
-        projectName: args.projectName,
-        projectFiles: args.files.length > 0 ? args.files : state.projectFiles,
-        workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
-        workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
-      }));
+              ...(activeWorkspaceLastActiveAt
+                ? {
+                    workspaceLastActiveAtById: {
+                      ...(existingProject?.workspaceLastActiveAtById ?? {}),
+                      [state.activeWorkspaceId]: activeWorkspaceLastActiveAt,
+                    },
+                  }
+                : {}),
+              projectName: args.projectName,
+              defaultBranch: args.defaultBranch,
+              lastOpenedAt: new Date().toISOString(),
+            },
+          }),
+          defaultBranch: args.defaultBranch,
+          projectName: args.projectName,
+          projectFiles: args.files.length > 0 ? args.files : state.projectFiles,
+          workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
+          workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
+        };
+      });
       return;
     }
 
@@ -157,46 +176,69 @@ export function createProjectActions(args: {
       const initialWorkspaceState =
         cachedActiveWorkspaceState ??
         buildWorkspaceSessionState({ snapshot: null });
-      set(() => ({
-        hasHydratedWorkspaces: false,
-        workspaceSnapshotVersion: 0,
-        promptDraftPersistenceVersion: 0,
-        taskMessagesLoadingByTask: {},
-        workspaces: nextProject.workspaces,
-        activeWorkspaceId: nextProject.activeWorkspaceId,
-        activeAppSurface: WORKSPACE_APP_SURFACE,
-        projectPath: args.projectRootPath,
-        recentProjects: upsertRecentProjectState({
-          projects: rememberedProjects,
-          project: nextProject,
-        }),
-        defaultBranch: nextProject.defaultBranch,
-        workspaceBranchById: nextProject.workspaceBranchById,
-        workspacePathById: nextProject.workspacePathById,
-        workspaceDefaultById: nextProject.workspaceDefaultById,
-        projectName: args.projectName,
-        projectFiles: args.files,
-        workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
-        workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
-        taskWorkspaceIdById: registerTaskWorkspaceOwnership({
-          taskWorkspaceIdById: retainTaskWorkspaceOwnership({
-            taskWorkspaceIdById: stateBeforeSwitch.taskWorkspaceIdById,
-            workspaceIds: nextProjectWorkspaceIds,
-          }),
+      set((state) => {
+        const workspaceLastActiveAtById = stampWorkspaceActive({
+          current: state.workspaceLastActiveAtById,
           workspaceId: nextProject.activeWorkspaceId,
-          tasks: initialWorkspaceState.tasks,
-        }),
-        ...initialWorkspaceState,
-        layout: {
-          ...stateBeforeSwitch.layout,
-          terminalDocked: initialWorkspaceState.terminalDocked,
-          editorDiffMode: resolveEditorDiffMode({
-            editorTabs: initialWorkspaceState.editorTabs,
-            activeEditorTabId: initialWorkspaceState.activeEditorTabId,
+        });
+        const activeWorkspaceLastActiveAt =
+          workspaceLastActiveAtById[nextProject.activeWorkspaceId];
+        const stampedNextProject = {
+          ...nextProject,
+          ...(activeWorkspaceLastActiveAt
+            ? {
+                workspaceLastActiveAtById: {
+                  ...(nextProject.workspaceLastActiveAtById ?? {}),
+                  [nextProject.activeWorkspaceId]: activeWorkspaceLastActiveAt,
+                },
+              }
+            : {}),
+        };
+        return {
+          hasHydratedWorkspaces: false,
+          workspaceSnapshotVersion: 0,
+          promptDraftPersistenceVersion: 0,
+          taskMessagesLoadingByTask: {},
+          workspaces: nextProject.workspaces,
+          activeWorkspaceId: nextProject.activeWorkspaceId,
+          // Opening a project lands the user in this workspace without going
+          // through switchWorkspace, so stamp it here too or the workspace people
+          // actually use would look dormant to Fleet.
+          workspaceLastActiveAtById,
+          activeAppSurface: WORKSPACE_APP_SURFACE,
+          projectPath: args.projectRootPath,
+          recentProjects: upsertRecentProjectState({
+            projects: rememberedProjects,
+            project: stampedNextProject,
           }),
-          editorMarkdownPreviewMode: false,
-        },
-      }));
+          defaultBranch: nextProject.defaultBranch,
+          workspaceBranchById: nextProject.workspaceBranchById,
+          workspacePathById: nextProject.workspacePathById,
+          workspaceDefaultById: nextProject.workspaceDefaultById,
+          projectName: args.projectName,
+          projectFiles: args.files,
+          workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
+          workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
+          taskWorkspaceIdById: registerTaskWorkspaceOwnership({
+            taskWorkspaceIdById: retainTaskWorkspaceOwnership({
+              taskWorkspaceIdById: stateBeforeSwitch.taskWorkspaceIdById,
+              workspaceIds: nextProjectWorkspaceIds,
+            }),
+            workspaceId: nextProject.activeWorkspaceId,
+            tasks: initialWorkspaceState.tasks,
+          }),
+          ...initialWorkspaceState,
+          layout: {
+            ...stateBeforeSwitch.layout,
+            terminalDocked: initialWorkspaceState.terminalDocked,
+            editorDiffMode: resolveEditorDiffMode({
+              editorTabs: initialWorkspaceState.editorTabs,
+              activeEditorTabId: initialWorkspaceState.activeEditorTabId,
+            }),
+            editorMarkdownPreviewMode: false,
+          },
+        };
+      });
       await get().hydrateWorkspaces();
       return;
     }
@@ -296,44 +338,63 @@ export function createProjectActions(args: {
       (workspace) => workspace.id,
     );
 
-    set(() => ({
-      hasHydratedWorkspaces: true,
-      workspaceSnapshotVersion: 0,
-      workspaces: nextProject.workspaces,
-      activeWorkspaceId: nextProject.activeWorkspaceId,
-      activeAppSurface: WORKSPACE_APP_SURFACE,
-      projectPath: args.projectRootPath,
-      recentProjects: upsertRecentProjectState({
-        projects: rememberedProjects,
-        project: nextProject,
-      }),
-      defaultBranch: args.defaultBranch,
-      workspaceBranchById: nextProject.workspaceBranchById,
-      workspacePathById: nextProject.workspacePathById,
-      workspaceDefaultById: nextProject.workspaceDefaultById,
-      ...workspaceState,
-      layout: {
-        ...get().layout,
-        terminalDocked: workspaceState.terminalDocked,
-        editorDiffMode: resolveEditorDiffMode({
-          editorTabs: workspaceState.editorTabs,
-          activeEditorTabId: workspaceState.activeEditorTabId,
-        }),
-        editorMarkdownPreviewMode: false,
-      },
-      projectName: args.projectName,
-      projectFiles: args.files,
-      workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
-      workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
-      taskWorkspaceIdById: registerTaskWorkspaceOwnership({
-        taskWorkspaceIdById: retainTaskWorkspaceOwnership({
-          taskWorkspaceIdById: stateBeforeSwitch.taskWorkspaceIdById,
-          workspaceIds: nextProjectWorkspaceIds,
-        }),
+    set((state) => {
+      const workspaceLastActiveAtById = stampWorkspaceActive({
+        current: state.workspaceLastActiveAtById,
         workspaceId: nextProject.activeWorkspaceId,
-        tasks: workspaceState.tasks,
-      }),
-    }));
+      });
+      const activeWorkspaceLastActiveAt =
+        workspaceLastActiveAtById[nextProject.activeWorkspaceId];
+      const stampedNextProject = {
+        ...nextProject,
+        ...(activeWorkspaceLastActiveAt
+          ? {
+              workspaceLastActiveAtById: {
+                [nextProject.activeWorkspaceId]: activeWorkspaceLastActiveAt,
+              },
+            }
+          : {}),
+      };
+      return {
+        hasHydratedWorkspaces: true,
+        workspaceSnapshotVersion: 0,
+        workspaces: nextProject.workspaces,
+        activeWorkspaceId: nextProject.activeWorkspaceId,
+        workspaceLastActiveAtById,
+        activeAppSurface: WORKSPACE_APP_SURFACE,
+        projectPath: args.projectRootPath,
+        recentProjects: upsertRecentProjectState({
+          projects: rememberedProjects,
+          project: stampedNextProject,
+        }),
+        defaultBranch: args.defaultBranch,
+        workspaceBranchById: nextProject.workspaceBranchById,
+        workspacePathById: nextProject.workspacePathById,
+        workspaceDefaultById: nextProject.workspaceDefaultById,
+        ...workspaceState,
+        layout: {
+          ...get().layout,
+          terminalDocked: workspaceState.terminalDocked,
+          editorDiffMode: resolveEditorDiffMode({
+            editorTabs: workspaceState.editorTabs,
+            activeEditorTabId: workspaceState.activeEditorTabId,
+          }),
+          editorMarkdownPreviewMode: false,
+        },
+        projectName: args.projectName,
+        projectFiles: args.files,
+        workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
+        workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
+        taskWorkspaceIdById: registerTaskWorkspaceOwnership({
+          taskWorkspaceIdById: retainTaskWorkspaceOwnership({
+            taskWorkspaceIdById: stateBeforeSwitch.taskWorkspaceIdById,
+            workspaceIds: nextProjectWorkspaceIds,
+          }),
+          workspaceId: nextProject.activeWorkspaceId,
+          tasks: workspaceState.tasks,
+        }),
+      };
+    });
     if (deferredWorkspaceMessageHydration?.activeTaskIdForLatestHydration) {
       void loadTaskMessagesIntoSession({
         workspaceId: defaultWorkspaceId,
@@ -605,6 +666,7 @@ export function createProjectActions(args: {
           workspaceBranchById: state.workspaceBranchById,
           workspacePathById: state.workspacePathById,
           workspaceDefaultById: state.workspaceDefaultById,
+          workspaceLastActiveAtById: state.workspaceLastActiveAtById,
         });
         const fromIndex = currentProjects.findIndex(
           (project) => project.projectPath === normalizedProjectPath,

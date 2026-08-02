@@ -30,7 +30,8 @@ optional shortcuts on top of that.
 ## Quick Start
 
 1. Open Fleet from the top-bar fleet button or the workspace sidebar.
-2. Review the `Needs me` list, which starts with questions and approvals.
+2. Review the fixed `Needs me` rail, which keeps questions and approvals ahead
+   of the folded `Worth a look` review queue.
 3. Select an item to open its exact task or workspace.
 4. Approve or deny approval requests, mark results as reviewed, or open the
    linked pull request from the item actions.
@@ -43,8 +44,13 @@ optional shortcuts on top of that.
 - Workspace sidebar: workspaces with a need that has a visible icon are promoted
   into the active workspace list. A result waiting for review never promotes a
   workspace on its own, because that need carries no visible marker.
-- Fleet view: `Needs me` is the default task filter and the action inbox stays
-  above the workspace lifecycle lanes.
+- Fleet view: `Needs me` is a layout-level rail. It stays visible while board
+  filters change; on narrow screens it becomes a compact top rail. The board
+  itself uses workspace cards and activity filters (`Active`, `Running`,
+  `Blocked`, and `All`) rather than a task timeline.
+- Workspace cards show open tasks, provider and pull-request status, and todo
+  progress. Dormant workspaces stay available under `All`; fabricated empty
+  default rows are hidden until they have real history or activity.
 
 ### Key Controls
 
@@ -87,11 +93,15 @@ optional shortcuts on top of that.
 ## Files And Data
 
 - Fleet does not create a separate task ledger or execution database.
-- Live task state is preferred when available, and it only reports needs that
-  belong to a running turn.
+- Live task state is preferred when available. Historical waiting/error labels
+  do not make a workspace look `Running` after its provider turn has ended.
 - Durable notifications keep pending interactions and unread turn outcomes
-  visible when a workspace runtime is not loaded. They are settled as soon as the
-  task window shows that the request is no longer waiting.
+  visible when a workspace runtime is not loaded. Notifications for archived or
+  legacy tasks are excluded, and a notification is settled as soon as the task
+  window shows that the request is no longer waiting.
+- Fleet records the last deliberate workspace activity separately from
+  snapshot-write timestamps, so an untouched remembered workspace can become
+  dormant without making the whole project look recently active.
 - Stave-owned managed requests can still be answered from the task,
   notification, or Fleet shortcut. Externally owned managed requests are not
   exposed as Stave actions.

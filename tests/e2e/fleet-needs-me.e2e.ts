@@ -196,14 +196,77 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
     .click();
 
   const needs = page.getByRole("region", { name: "Needs me" });
-  await expect(needs).toContainText("2 actionable items");
+  // The rail is layout-level, so it stays mounted regardless of board filter.
+  await expect(needs).toBeVisible();
+  // Blocking needs lead; a completed-turn result is only "worth a look" and
+  // stays folded so it cannot crowd out the item an agent is stalled on.
   const items = needs.getByRole("listitem");
-  await expect(items).toHaveCount(2);
+  await expect(items).toHaveCount(1);
   await expect(items.nth(0)).toContainText("Approve deployment");
-  await expect(items.nth(1)).toContainText("Review summary");
   await expect(
     items.nth(0).getByRole("button", { name: "Dismiss" }),
   ).toBeVisible();
+
+  const reviewToggle = needs.getByRole("button", { name: /Worth a look/ });
+  await expect(reviewToggle).toHaveAttribute("aria-expanded", "false");
+  await reviewToggle.click();
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(1)).toContainText("Review summary");
+  await reviewToggle.click();
+  await expect(items).toHaveCount(1);
+
+  // The board renders the workspace as a card, not a full-width row.
+  const workspaceCard = page.getByRole("article", {
+    name: /fleet-needs workspace in stave-fleet-needs/,
+  });
+  await expect(workspaceCard).toBeVisible();
+  await expect(workspaceCard).toContainText("Fleet fixture");
+  await expect(
+    workspaceCard.getByRole("button", { name: "Open fleet-needs workspace" }),
+  ).toBeVisible();
+
+  // The attention rail stacks above the board on a phone-width viewport, and
+  // the auto-fill card minimum must shrink instead of forcing horizontal
+  // clipping behind the app chrome.
+  await page.setViewportSize({ width: 375, height: 800 });
+  await expect(workspaceCard).toBeVisible();
+  const narrowLayout = await workspaceCard.evaluate((cardElement) => {
+    const root = cardElement.closest<HTMLElement>(
+      '[data-fleet-view-root="true"]',
+    );
+    if (!root) {
+      throw new Error("Fleet layout root was not found");
+    }
+    const board = root.querySelector<HTMLElement>(
+      '[data-fleet-board-scroll="true"]',
+    );
+    const boardRect = board?.getBoundingClientRect();
+    const cardRect = cardElement.getBoundingClientRect();
+    return {
+      rootClientWidth: root.clientWidth,
+      rootScrollWidth: root.scrollWidth,
+      boardClientWidth: board?.clientWidth ?? 0,
+      boardScrollWidth: board?.scrollWidth ?? 0,
+      cardLeft: cardRect.left,
+      cardRight: cardRect.right,
+      boardLeft: boardRect?.left ?? 0,
+      boardRight: boardRect?.right ?? 0,
+    };
+  });
+  expect(narrowLayout.rootScrollWidth).toBeLessThanOrEqual(
+    narrowLayout.rootClientWidth + 1,
+  );
+  expect(narrowLayout.boardScrollWidth).toBeLessThanOrEqual(
+    narrowLayout.boardClientWidth + 1,
+  );
+  expect(narrowLayout.cardLeft).toBeGreaterThanOrEqual(
+    narrowLayout.boardLeft - 1,
+  );
+  expect(narrowLayout.cardRight).toBeLessThanOrEqual(
+    narrowLayout.boardRight + 1,
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+
   const approvalTrigger = items.nth(0).getByRole("button", {
     name: /Open approval for .+ in fleet-needs/,
   });
@@ -270,12 +333,8 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await expect(controls).not.toContainText(
     "This request was already answered or expired.",
   );
-  await expect(
-    controls.getByRole("button", { name: "Approve" }),
-  ).toBeVisible();
-  await expect(
-    controls.getByRole("button", { name: "Reject" }),
-  ).toBeVisible();
+  await expect(controls.getByRole("button", { name: "Approve" })).toBeVisible();
+  await expect(controls.getByRole("button", { name: "Reject" })).toBeVisible();
   await expect(controls.getByRole("button", { name: "Stop" })).toBeVisible();
   const approvalButton = controls.getByRole("button", { name: "Approve" });
   await expect
@@ -315,8 +374,42 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await expect(controls).toBeHidden();
   await expect(approvalTrigger).toBeFocused();
 
-  await items.nth(1).getByRole("button", { name: "Mark reviewed" }).click();
-  await expect(needs).toContainText("1 actionable item");
-  await expect(needs).toContainText("Fleet fixture");
+  // Remove the blocking interaction so the header's "Review queue" action
+  // selects the folded result. The first disclosure click must then really
+  // close it and clear that hidden selection; previously this click was a no-op.
+  await page.evaluate(async () => {
+    const storeModule = await import("/src/store/app.store.ts");
+    const store = storeModule.useAppStore;
+    const state = store.getState();
+    const taskId = "task-fleet-needs";
+    const nextActiveTurnIdsByTask = { ...state.activeTurnIdsByTask };
+    const nextProviderTurnActivityByTask = {
+      ...state.providerTurnActivityByTask,
+    };
+    delete nextActiveTurnIdsByTask[taskId];
+    delete nextProviderTurnActivityByTask[taskId];
+    store.setState({
+      activeTurnIdsByTask: nextActiveTurnIdsByTask,
+      providerTurnActivityByTask: nextProviderTurnActivityByTask,
+      messagesByTask: { ...state.messagesByTask, [taskId]: [] },
+      notifications: state.notifications.filter(
+        (notification) => notification.id !== "notification-approval",
+      ),
+    });
+  });
+  await page.getByRole("button", { name: "Review queue" }).click();
+  await expect(reviewToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(items).toHaveCount(1);
+  await reviewToggle.click();
+  await expect(reviewToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(items).toHaveCount(0);
+
+  // Marking the completed-turn result reviewed clears it from the rail, and the
+  // "Worth a look" group disappears with its last member.
+  await reviewToggle.click();
+  await items.nth(0).getByRole("button", { name: "Mark reviewed" }).click();
+  await expect(items).toHaveCount(0);
   await expect(needs).not.toContainText("Review summary");
+  await expect(reviewToggle).toHaveCount(0);
+  await expect(needs).toContainText("Nothing blocked");
 });

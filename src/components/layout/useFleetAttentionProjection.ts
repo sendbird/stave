@@ -1,17 +1,43 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildFleetAttentionProjection,
+  getFleetAttentionTaskKey,
   type FleetLiveWorkspaceInput,
   type FleetPrWorkspaceInput,
 } from "@/lib/fleet/attention-projection";
+import { loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
+import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
+import type { Task } from "@/types/chat";
 
 interface FleetWorkspaceIdentity {
   projectPath: string;
   projectName: string;
   workspaceId: string;
   workspaceName: string;
+}
+
+const EMPTY_CLOSED_TASK_KEYS: ReadonlySet<string> = new Set();
+const shellTaskLoadByWorkspaceId = new Map<
+  string,
+  Promise<readonly Task[] | null>
+>();
+
+function loadColdWorkspaceTasks(workspaceId: string) {
+  const existing = shellTaskLoadByWorkspaceId.get(workspaceId);
+  if (existing) {
+    return existing;
+  }
+  const pending = loadWorkspaceShellSummary({ workspaceId })
+    .then((summary) => summary?.tasks ?? null)
+    .finally(() => {
+      if (shellTaskLoadByWorkspaceId.get(workspaceId) === pending) {
+        shellTaskLoadByWorkspaceId.delete(workspaceId);
+      }
+    });
+  shellTaskLoadByWorkspaceId.set(workspaceId, pending);
+  return pending;
 }
 
 export function useFleetAttentionProjection() {
@@ -47,6 +73,72 @@ export function useFleetAttentionProjection() {
         ] as const,
     ),
   );
+
+  const coldNotificationWorkspaceIds = useMemo(() => {
+    const knownWorkspaceIds = new Set(
+      recentProjects.flatMap((project) =>
+        project.workspaces.map((workspace) => workspace.id),
+      ),
+    );
+    for (const workspace of workspaces) {
+      knownWorkspaceIds.add(workspace.id);
+    }
+
+    return Array.from(
+      new Set(
+        notifications
+          .map((notification) => notification.workspaceId?.trim())
+          .filter((workspaceId): workspaceId is string => Boolean(workspaceId)),
+      ),
+    ).filter(
+      (workspaceId) =>
+        knownWorkspaceIds.has(workspaceId) &&
+        !(currentProjectPath && workspaceId === activeWorkspaceId) &&
+        !workspaceRuntimeCacheById[workspaceId],
+    );
+  }, [
+    activeWorkspaceId,
+    currentProjectPath,
+    notifications,
+    recentProjects,
+    workspaceRuntimeCacheById,
+    workspaces,
+  ]);
+  const [closedTaskKeysFromShell, setClosedTaskKeysFromShell] = useState<
+    ReadonlySet<string>
+  >(EMPTY_CLOSED_TASK_KEYS);
+
+  useEffect(() => {
+    if (coldNotificationWorkspaceIds.length === 0) {
+      setClosedTaskKeysFromShell(EMPTY_CLOSED_TASK_KEYS);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all(
+      coldNotificationWorkspaceIds.map(async (workspaceId) => ({
+        workspaceId,
+        tasks: await loadColdWorkspaceTasks(workspaceId),
+      })),
+    ).then((workspacesWithTasks) => {
+      if (cancelled) {
+        return;
+      }
+      const closedTaskKeys = new Set<string>();
+      for (const { workspaceId, tasks } of workspacesWithTasks) {
+        for (const task of tasks ?? []) {
+          if (isTaskArchived(task) || isLegacyBranchTask(task)) {
+            closedTaskKeys.add(getFleetAttentionTaskKey(workspaceId, task.id));
+          }
+        }
+      }
+      setClosedTaskKeysFromShell(
+        closedTaskKeys.size > 0 ? closedTaskKeys : EMPTY_CLOSED_TASK_KEYS,
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [coldNotificationWorkspaceIds]);
 
   return useMemo(() => {
     const identityByWorkspaceId = new Map<string, FleetWorkspaceIdentity>();
@@ -119,6 +211,7 @@ export function useFleetAttentionProjection() {
       liveWorkspaces,
       prWorkspaces,
       knownWorkspaceIds: new Set(identityByWorkspaceId.keys()),
+      closedTaskKeys: closedTaskKeysFromShell,
     });
 
     for (const item of projection.items) {
@@ -135,6 +228,7 @@ export function useFleetAttentionProjection() {
     activeTasks,
     activeTurnIdsByTask,
     activeWorkspaceId,
+    closedTaskKeysFromShell,
     currentProjectName,
     currentProjectPath,
     notifications,

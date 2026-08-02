@@ -2,6 +2,10 @@ import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import {
+  mergeWorkspaceActivityStamps,
+  pruneWorkspaceActivityStamps,
+} from "@/lib/fleet/workspace-activity";
+import {
   normalizeNotificationSoundMode,
   normalizeNotificationSoundPreset,
   normalizeNotificationSoundVolume,
@@ -98,11 +102,13 @@ export function createAppStorePersistenceOptions() {
         workspaceBranchById: state.workspaceBranchById,
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
+        workspaceLastActiveAtById: state.workspaceLastActiveAtById,
       }),
       defaultBranch: state.defaultBranch,
       workspaceBranchById: state.workspaceBranchById,
       workspacePathById: state.workspacePathById,
       workspaceDefaultById: state.workspaceDefaultById,
+      workspaceLastActiveAtById: state.workspaceLastActiveAtById,
       taskCheckpointById: state.taskCheckpointById,
       compareRunsById: state.compareRunsById,
       isDarkMode: state.isDarkMode,
@@ -460,6 +466,7 @@ export function createAppStorePersistenceOptions() {
         workspaceBranchById: state.workspaceBranchById,
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
+        workspaceLastActiveAtById: state.workspaceLastActiveAtById,
         recentProjects: state.recentProjects,
       });
       if (state.projectPath && normalizedCurrentProject) {
@@ -476,6 +483,10 @@ export function createAppStorePersistenceOptions() {
         state.workspacePathById = normalizedCurrentProject.workspacePathById;
         state.workspaceDefaultById =
           normalizedCurrentProject.workspaceDefaultById;
+        state.workspaceLastActiveAtById = mergeWorkspaceActivityStamps(
+          state.workspaceLastActiveAtById,
+          normalizedCurrentProject.workspaceLastActiveAtById,
+        );
       } else if (state.projectPath) {
         state.workspaces = [];
         state.activeWorkspaceId = "";
@@ -483,6 +494,25 @@ export function createAppStorePersistenceOptions() {
         state.workspacePathById = {};
         state.workspaceDefaultById = {};
       }
+      // Remembered projects carry their own stamps; fold them in so a Fleet
+      // board opened before the first workspace switch still ranks correctly.
+      // Then drop stamps for workspaces nothing remembers any more: workspace
+      // ids are derived from paths, so a project removed and later re-added
+      // would otherwise inherit its own year-old activity and look current.
+      state.workspaceLastActiveAtById = pruneWorkspaceActivityStamps({
+        current: mergeWorkspaceActivityStamps(
+          state.workspaceLastActiveAtById,
+          ...state.recentProjects.map(
+            (project) => project.workspaceLastActiveAtById,
+          ),
+        ),
+        knownWorkspaceIds: new Set([
+          ...state.workspaces.map((workspace) => workspace.id),
+          ...state.recentProjects.flatMap((project) =>
+            project.workspaces.map((workspace) => workspace.id),
+          ),
+        ]),
+      });
       if (legacyProjectInitCommand) {
         state.recentProjects = state.recentProjects.map((project) => ({
           ...cloneRecentProjectState(project),

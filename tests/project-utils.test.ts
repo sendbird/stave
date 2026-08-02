@@ -1050,3 +1050,120 @@ describe("toShellPathArgument", () => {
     );
   });
 });
+
+describe("workspace activity stamps", () => {
+  const FEATURE_WORKSPACE_ID = "workspace-feature";
+
+  function captureWith(
+    overrides: Partial<Parameters<typeof captureCurrentProjectState>[0]> = {},
+  ) {
+    return captureCurrentProjectState({
+      recentProjects: [],
+      projectPath: PROJECT_PATH,
+      projectName: "stave",
+      defaultBranch: "main",
+      workspaces: [
+        {
+          id: DEFAULT_WORKSPACE_ID,
+          name: "Default Workspace",
+          updatedAt: "2026-03-31T13:36:33.211Z",
+        },
+        {
+          id: FEATURE_WORKSPACE_ID,
+          name: "feat/auto-update-on-mac",
+          updatedAt: "2026-03-31T13:37:33.211Z",
+        },
+      ],
+      activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+      workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
+      workspacePathById: {
+        [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+        [FEATURE_WORKSPACE_ID]: FEATURE_WORKSPACE_PATH,
+      },
+      workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
+      ...overrides,
+    });
+  }
+
+  test("captures per-workspace last-active stamps", () => {
+    const projects = captureWith({
+      workspaceLastActiveAtById: {
+        [FEATURE_WORKSPACE_ID]: "2026-04-01T10:00:00.000Z",
+      },
+    });
+
+    expect(projects[0]?.workspaceLastActiveAtById).toEqual({
+      [FEATURE_WORKSPACE_ID]: "2026-04-01T10:00:00.000Z",
+    });
+  });
+
+  test("a caller that does not track activity does not wipe remembered stamps", () => {
+    const seeded = captureWith({
+      workspaceLastActiveAtById: {
+        [FEATURE_WORKSPACE_ID]: "2026-04-01T10:00:00.000Z",
+      },
+    });
+    const recaptured = captureCurrentProjectState({
+      recentProjects: seeded,
+      projectPath: PROJECT_PATH,
+      projectName: "stave",
+      defaultBranch: "main",
+      workspaces: seeded[0]?.workspaces ?? [],
+      activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+      workspaceBranchById: seeded[0]?.workspaceBranchById ?? {},
+      workspacePathById: seeded[0]?.workspacePathById ?? {},
+      workspaceDefaultById: seeded[0]?.workspaceDefaultById ?? {},
+    });
+
+    expect(
+      recaptured[0]?.workspaceLastActiveAtById?.[FEATURE_WORKSPACE_ID],
+    ).toBe("2026-04-01T10:00:00.000Z");
+  });
+
+  test("normalization keeps stamps for surviving workspaces and drops the rest", () => {
+    const projects = normalizeRecentProjectStates({
+      projects: [
+        {
+          projectPath: PROJECT_PATH,
+          projectName: "stave",
+          lastOpenedAt: "2026-03-31T13:36:33.211Z",
+          defaultBranch: "main",
+          workspaces: [
+            {
+              id: DEFAULT_WORKSPACE_ID,
+              name: "Default Workspace",
+              updatedAt: "2026-03-31T13:36:33.211Z",
+            },
+            {
+              id: FEATURE_WORKSPACE_ID,
+              name: "feat/auto-update-on-mac",
+              updatedAt: "2026-03-31T13:37:33.211Z",
+            },
+          ],
+          activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+          workspaceBranchById: {},
+          workspacePathById: {
+            [FEATURE_WORKSPACE_ID]: FEATURE_WORKSPACE_PATH,
+          },
+          workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
+          workspaceLastActiveAtById: {
+            [FEATURE_WORKSPACE_ID]: "2026-04-01T10:00:00.000Z",
+            "workspace-forgotten": "2026-04-01T09:00:00.000Z",
+          },
+        },
+      ],
+    });
+
+    expect(projects[0]?.workspaceLastActiveAtById).toEqual({
+      [FEATURE_WORKSPACE_ID]: "2026-04-01T10:00:00.000Z",
+    });
+  });
+
+  test("omits the map entirely when nothing has ever been stamped", () => {
+    const projects = captureWith();
+    expect(projects[0]?.workspaceLastActiveAtById).toBeUndefined();
+
+    const normalized = normalizeRecentProjectStates({ projects });
+    expect(normalized[0]?.workspaceLastActiveAtById).toBeUndefined();
+  });
+});

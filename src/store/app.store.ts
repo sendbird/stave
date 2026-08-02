@@ -1578,6 +1578,7 @@ export const useAppStore = create<AppState>()(
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
+      workspaceLastActiveAtById: {},
       workspacePrInfoById: {},
       rateLimitsSnapshot: null,
       rateLimitsLoading: false,

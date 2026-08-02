@@ -28,6 +28,29 @@ export type FleetNeedKind =
 
 export type FleetNeedSource = "live" | "notification" | "pr";
 
+/**
+ * `blocking` needs hold work up until the user acts. `review` needs are worth
+ * seeing but nothing is stalled on them, so the rail can fold them away by
+ * default instead of burying the items that actually block an agent.
+ */
+export type FleetNeedTier = "blocking" | "review";
+
+export const FLEET_NEED_TIER: Record<FleetNeedKind, FleetNeedTier> = {
+  "user-input": "blocking",
+  approval: "blocking",
+  "run-failed": "blocking",
+  "pr-changes-requested": "blocking",
+  "pr-checks-failed": "blocking",
+  "pr-merge-conflict": "blocking",
+  "pr-behind-base": "review",
+  "result-ready": "review",
+  "pr-ready-to-merge": "review",
+};
+
+export function getFleetNeedTier(kind: FleetNeedKind) {
+  return FLEET_NEED_TIER[kind];
+}
+
 export interface FleetNeedItem {
   id: string;
   kind: FleetNeedKind;
@@ -76,6 +99,8 @@ export interface FleetPrWorkspaceInput {
 export interface FleetAttentionProjection {
   items: FleetNeedItem[];
   count: number;
+  blockingItems: FleetNeedItem[];
+  reviewItems: FleetNeedItem[];
   highestNeedByWorkspaceId: Record<string, FleetNeedItem | undefined>;
   needsByWorkspaceId: Record<string, FleetNeedItem[] | undefined>;
 }
@@ -133,13 +158,13 @@ function buildTurnNeedId(args: {
   taskId: string;
   turnId: string;
 }) {
-  return [
-    "turn",
-    args.kind,
-    args.workspaceId,
-    args.taskId,
-    args.turnId,
-  ].join(":");
+  return ["turn", args.kind, args.workspaceId, args.taskId, args.turnId].join(
+    ":",
+  );
+}
+
+export function getFleetAttentionTaskKey(workspaceId: string, taskId: string) {
+  return JSON.stringify([workspaceId, taskId]);
 }
 
 function buildPrNeedId(args: {
@@ -242,8 +267,7 @@ export function collectFleetLiveNeeds(
           task,
           messages,
           activeTurnId,
-          activity:
-            workspace.providerTurnActivityByTask[task.id] ?? null,
+          activity: workspace.providerTurnActivityByTask[task.id] ?? null,
         }) === "error"
       ) {
         const kind = "run-failed" as const;
@@ -273,9 +297,7 @@ function getNotificationRequestId(notification: AppNotification) {
   }
   if (notification.kind === "task.user_input_requested") {
     const requestId = notification.payload.requestId;
-    return typeof requestId === "string"
-      ? normalizeRequired(requestId)
-      : null;
+    return typeof requestId === "string" ? normalizeRequired(requestId) : null;
   }
   return null;
 }
@@ -295,8 +317,7 @@ export function collectFleetNotificationNeeds(
 
     const base = {
       projectPath,
-      projectName:
-        normalizeRequired(notification.projectName) ?? "Project",
+      projectName: normalizeRequired(notification.projectName) ?? "Project",
       workspaceId,
       workspaceName:
         normalizeRequired(notification.workspaceName) ?? "Workspace",
@@ -425,10 +446,7 @@ export function collectFleetPrNeeds(
   });
 }
 
-function choosePreferredNeed(
-  current: FleetNeedItem,
-  candidate: FleetNeedItem,
-) {
+function choosePreferredNeed(current: FleetNeedItem, candidate: FleetNeedItem) {
   const preferred =
     SOURCE_PRIORITY[candidate.source] < SOURCE_PRIORITY[current.source]
       ? candidate
@@ -437,8 +455,7 @@ function choosePreferredNeed(
   return {
     ...fallback,
     ...preferred,
-    notificationId:
-      preferred.notificationId ?? fallback.notificationId,
+    notificationId: preferred.notificationId ?? fallback.notificationId,
     detail: preferred.detail ?? fallback.detail,
     createdAt:
       preferred.createdAt.localeCompare(fallback.createdAt) <= 0
@@ -468,15 +485,32 @@ export function buildFleetAttentionProjection(args: {
    * caller has no workspace inventory to compare against.
    */
   knownWorkspaceIds?: ReadonlySet<string>;
+  /** Closed tasks resolved from cold workspace shells outside live state. */
+  closedTaskKeys?: ReadonlySet<string>;
 }): FleetAttentionProjection {
   const byId = new Map<string, FleetNeedItem>();
   const externalTaskKeys = new Set(
     args.liveWorkspaces.flatMap((workspace) =>
       workspace.tasks
         .filter(isExternallyManagedTask)
-        .map((task) => JSON.stringify([workspace.workspaceId, task.id])),
+        .map((task) =>
+          getFleetAttentionTaskKey(workspace.workspaceId, task.id),
+        ),
     ),
   );
+  // A notification outlives the task it was raised for. Once that task is
+  // archived the request behind it is settled by definition, so the row is
+  // history rather than an open ask and must not keep the attention count up.
+  const closedTaskKeys = new Set(args.closedTaskKeys ?? []);
+  for (const workspace of args.liveWorkspaces) {
+    for (const task of workspace.tasks) {
+      if (isTaskArchived(task) || isLegacyBranchTask(task)) {
+        closedTaskKeys.add(
+          getFleetAttentionTaskKey(workspace.workspaceId, task.id),
+        );
+      }
+    }
+  }
   const knownWorkspaceIds = args.knownWorkspaceIds;
   const candidates = [
     ...collectFleetNotificationNeeds(args.notifications)
@@ -485,9 +519,18 @@ export function buildFleetAttentionProjection(args: {
       )
       .filter(
         (item) =>
+          !item.taskId ||
+          !closedTaskKeys.has(
+            getFleetAttentionTaskKey(item.workspaceId, item.taskId),
+          ),
+      )
+      .filter(
+        (item) =>
           (item.kind !== "approval" && item.kind !== "user-input") ||
           !item.taskId ||
-          !externalTaskKeys.has(JSON.stringify([item.workspaceId, item.taskId])),
+          !externalTaskKeys.has(
+            getFleetAttentionTaskKey(item.workspaceId, item.taskId),
+          ),
       ),
     ...collectFleetPrNeeds(args.prWorkspaces),
     ...collectFleetLiveNeeds(args.liveWorkspaces),
@@ -502,14 +545,9 @@ export function buildFleetAttentionProjection(args: {
   }
 
   const items = Array.from(byId.values()).sort(compareFleetNeeds);
-  const highestNeedByWorkspaceId: Record<
-    string,
-    FleetNeedItem | undefined
-  > = {};
-  const needsByWorkspaceId: Record<
-    string,
-    FleetNeedItem[] | undefined
-  > = {};
+  const highestNeedByWorkspaceId: Record<string, FleetNeedItem | undefined> =
+    {};
+  const needsByWorkspaceId: Record<string, FleetNeedItem[] | undefined> = {};
 
   for (const item of items) {
     const existing = needsByWorkspaceId[item.workspaceId];
@@ -524,6 +562,12 @@ export function buildFleetAttentionProjection(args: {
   return {
     items,
     count: items.length,
+    blockingItems: items.filter(
+      (item) => FLEET_NEED_TIER[item.kind] === "blocking",
+    ),
+    reviewItems: items.filter(
+      (item) => FLEET_NEED_TIER[item.kind] === "review",
+    ),
     highestNeedByWorkspaceId,
     needsByWorkspaceId,
   };
