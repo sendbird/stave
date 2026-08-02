@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildFleetAttentionProjection,
   collectFleetNotificationNeeds,
+  getFleetAttentionTaskKey,
   mapFleetPrNeedKind,
   type FleetLiveWorkspaceInput,
 } from "../src/lib/fleet/attention-projection";
@@ -175,9 +176,7 @@ describe("Fleet attention projection", () => {
     });
 
     const after = buildFleetAttentionProjection({
-      notifications: [
-        { ...question, resolvedAt: "2026-07-26T02:00:00.000Z" },
-      ],
+      notifications: [{ ...question, resolvedAt: "2026-07-26T02:00:00.000Z" }],
       liveWorkspaces,
       prWorkspaces: [],
     });
@@ -428,5 +427,92 @@ describe("Fleet attention projection", () => {
         buildNotification({ taskId: null }),
       ]),
     ).toEqual([]);
+  });
+
+  test("drops notification needs whose task has been archived", () => {
+    const projection = buildFleetAttentionProjection({
+      notifications: [buildNotification()],
+      liveWorkspaces: [
+        buildLiveWorkspace({
+          tasks: [buildTask({ archivedAt: "2026-07-26T02:00:00.000Z" })],
+        }),
+      ],
+      prWorkspaces: [],
+    });
+
+    expect(projection.items).toEqual([]);
+    expect(projection.count).toBe(0);
+  });
+
+  test("drops a closed-task notification resolved from a cold workspace shell", () => {
+    const projection = buildFleetAttentionProjection({
+      notifications: [buildNotification()],
+      liveWorkspaces: [],
+      prWorkspaces: [],
+      closedTaskKeys: new Set([
+        getFleetAttentionTaskKey("workspace-1", "task-1"),
+      ]),
+    });
+
+    expect(projection.items).toEqual([]);
+    expect(projection.count).toBe(0);
+  });
+
+  test("drops notification needs whose task is a legacy branch task", () => {
+    const projection = buildFleetAttentionProjection({
+      notifications: [buildNotification()],
+      liveWorkspaces: [
+        buildLiveWorkspace({
+          tasks: [buildTask({ coliseumParentTaskId: "parent-1" })],
+        }),
+      ],
+      prWorkspaces: [],
+    });
+
+    expect(projection.items).toEqual([]);
+  });
+
+  test("keeps a notification need when a same-id task is archived elsewhere", () => {
+    const projection = buildFleetAttentionProjection({
+      notifications: [buildNotification()],
+      liveWorkspaces: [
+        buildLiveWorkspace({
+          workspaceId: "workspace-2",
+          tasks: [buildTask({ archivedAt: "2026-07-26T02:00:00.000Z" })],
+        }),
+      ],
+      prWorkspaces: [],
+    });
+
+    expect(projection.items).toHaveLength(1);
+    expect(projection.items[0]).toMatchObject({ workspaceId: "workspace-1" });
+  });
+
+  test("splits needs into blocking and review tiers", () => {
+    const projection = buildFleetAttentionProjection({
+      notifications: [buildNotification()],
+      liveWorkspaces: [],
+      prWorkspaces: [
+        {
+          projectPath: "/workspace/project",
+          projectName: "Project",
+          workspaceId: "workspace-2",
+          workspaceName: "docs",
+          status: "ready_to_merge",
+          url: "https://example.test/pr/1",
+          updatedAt: "2026-07-26T00:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(projection.blockingItems.map((item) => item.kind)).toEqual([
+      "approval",
+    ]);
+    expect(projection.reviewItems.map((item) => item.kind)).toEqual([
+      "pr-ready-to-merge",
+    ]);
+    expect(
+      projection.blockingItems.length + projection.reviewItems.length,
+    ).toBe(projection.count);
   });
 });

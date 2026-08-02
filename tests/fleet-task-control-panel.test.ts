@@ -9,8 +9,8 @@ const panelSource = await Bun.file(
 const inboxSource = await Bun.file(
   new URL("../src/components/layout/FleetNeedsInbox.tsx", import.meta.url),
 ).text();
-const fleetViewSource = await Bun.file(
-  new URL("../src/components/layout/FleetView.tsx", import.meta.url),
+const workspaceCardSource = await Bun.file(
+  new URL("../src/components/layout/FleetWorkspaceCard.tsx", import.meta.url),
 ).text();
 
 describe("Fleet inline control surface contract", () => {
@@ -38,6 +38,13 @@ describe("Fleet inline control surface contract", () => {
     expect(panelSource).toContain("busyAction != null");
     expect(panelSource).toContain("restoreTriggerFocus");
     expect(inboxSource).toContain("aria-expanded");
-    expect(fleetViewSource).toContain('data-fleet-task-row="true"');
+    expect(workspaceCardSource).toContain('data-fleet-task-row="true"');
+  });
+
+  test("mounts the control panel from both the needs rail and the board card", () => {
+    expect(inboxSource).toContain("<FleetTaskControlPanel");
+    expect(workspaceCardSource).toContain("<FleetTaskControlPanel");
+    expect(inboxSource).toContain("returnFocusElementId");
+    expect(workspaceCardSource).toContain("returnFocusElementId");
   });
 });

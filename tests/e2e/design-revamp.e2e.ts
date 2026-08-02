@@ -290,17 +290,22 @@ test("Fleet View exposes its operating model at a glance", async ({
   await expect(commandPalette).toBeHidden();
 
   await expect(page.getByRole("heading", { name: "Fleet View" })).toBeVisible();
-  await expect(
-    page.getByText(
-      /Action inbox for questions, approvals, failed runs, results, and PR blockers\./,
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Fleet summary" }),
-  ).toContainText("Needs me");
-  await expect(
-    page.getByRole("region", { name: "Fleet summary" }),
-  ).toContainText("In motion");
+
+  // The attention column is part of the layout, not a strip above the board, so
+  // it is present before any filtering and regardless of what the board shows.
+  const needsRail = page.getByRole("region", { name: "Needs me" });
+  await expect(needsRail).toBeVisible();
+  await expect(needsRail).toContainText("Nothing blocked");
+
+  // The board is filtered by workspace activity rather than task status.
+  for (const label of ["Active", "Running", "Blocked", "All"]) {
+    await expect(
+      page.getByRole("button", { name: label, exact: true }),
+    ).toBeVisible();
+  }
+
+  // Work is presented as agent-workspace cards, not full-width task rows.
+  await expect(page.getByRole("article").first()).toBeVisible();
 
   await page.screenshot({
     path: testInfo.outputPath("fleet-view.png"),

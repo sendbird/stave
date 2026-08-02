@@ -1130,6 +1130,13 @@ describe("workspace persistence fallback", () => {
     expect(
       nextState.recentProjects.map((project) => project.projectPath),
     ).toEqual(["/tmp/stave-project-a", "/tmp/stave-project-b"]);
+    const activeStamp = nextState.workspaceLastActiveAtById[extraWorkspaceId];
+    expect(activeStamp).toBeDefined();
+    expect(
+      nextState.recentProjects.find(
+        (project) => project.projectPath === "/tmp/stave-project-a",
+      )?.workspaceLastActiveAtById?.[extraWorkspaceId],
+    ).toBe(activeStamp);
   });
 
   test("preserves manual project order when opening different projects", async () => {
@@ -4897,9 +4904,8 @@ describe("workspace store hydration ordering", () => {
     } as unknown;
 
     const { useAppStore } = await import("../src/store/app.store");
-    const { createWorkspaceSessionStateFromAppState } = await import(
-      "../src/store/workspace-runtime-state"
-    );
+    const { createWorkspaceSessionStateFromAppState } =
+      await import("../src/store/workspace-runtime-state");
     const initialState = useAppStore.getInitialState();
     const inactiveTask = {
       id: "task-inactive-control",
@@ -6853,12 +6859,10 @@ describe("workspace store hydration ordering", () => {
         },
       });
 
-      await useAppStore
-        .getState()
-        .closeWorkspace({
-          workspaceId: "ws-feature-close",
-          deleteBranch: false,
-        });
+      await useAppStore.getState().closeWorkspace({
+        workspaceId: "ws-feature-close",
+        deleteBranch: false,
+      });
       await waitForPendingWorkspaceArchiveCleanups();
     } finally {
       console.warn = originalWarn;
@@ -7553,9 +7557,8 @@ describe("workspace store hydration ordering", () => {
     } as unknown;
 
     const { useAppStore } = await import("../src/store/app.store");
-    const { createWorkspaceSessionStateFromAppState } = await import(
-      "../src/store/workspace-runtime-state"
-    );
+    const { createWorkspaceSessionStateFromAppState } =
+      await import("../src/store/workspace-runtime-state");
     const initialState = useAppStore.getInitialState();
     const inactiveTask = {
       id: "task-inactive-abort",

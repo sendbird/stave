@@ -51,6 +51,12 @@ export interface RecentProjectState {
   workspaceBranchById: Record<string, string>;
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
+  /**
+   * Last time the user actually worked in each workspace. Distinct from
+   * `WorkspaceSummary.updatedAt`, which bumps on any snapshot flush and so
+   * cannot tell a live workspace apart from a dormant one.
+   */
+  workspaceLastActiveAtById?: Record<string, string>;
   projectBasePrompt?: string;
   kickoffBranchNamingRule?: string;
   newWorkspaceInitCommand?: string;
@@ -244,6 +250,7 @@ export function updateCurrentProjectAppearance(args: {
     workspaceBranchById: Record<string, string>;
     workspacePathById: Record<string, string>;
     workspaceDefaultById: Record<string, boolean>;
+    workspaceLastActiveAtById?: Record<string, string>;
   };
   projectPath?: string;
   icon: ProjectAppearanceIconId;
@@ -329,6 +336,7 @@ export function updateCurrentProjectTextPreference(args: {
     workspaceBranchById: Record<string, string>;
     workspacePathById: Record<string, string>;
     workspaceDefaultById: Record<string, boolean>;
+    workspaceLastActiveAtById?: Record<string, string>;
   };
   projectPath?: string;
   preference: ProjectTextPreference;
@@ -949,8 +957,24 @@ function normalizeRecentProjectStateEntry(
   const nextWorkspaceDefaultById: Record<string, boolean> = {
     [defaultWorkspaceId]: true,
   };
+  const workspaceLastActiveAtById = {
+    ...(project.workspaceLastActiveAtById ?? {}),
+  };
+  const nextWorkspaceLastActiveAtById: Record<string, string> = {};
+  const defaultLastActiveAt =
+    workspaceLastActiveAtById[defaultWorkspaceId] ||
+    (defaultWorkspaceSource
+      ? workspaceLastActiveAtById[defaultWorkspaceSource.id]
+      : undefined);
+  if (defaultLastActiveAt) {
+    nextWorkspaceLastActiveAtById[defaultWorkspaceId] = defaultLastActiveAt;
+  }
 
   for (const workspace of workspaces) {
+    const lastActiveAt = workspaceLastActiveAtById[workspace.id];
+    if (lastActiveAt && workspace.id !== defaultWorkspaceId) {
+      nextWorkspaceLastActiveAtById[workspace.id] = lastActiveAt;
+    }
     if (workspace.id === defaultWorkspaceId) {
       continue;
     }
@@ -982,6 +1006,9 @@ function normalizeRecentProjectStateEntry(
     workspaceBranchById: nextWorkspaceBranchById,
     workspacePathById: nextWorkspacePathById,
     workspaceDefaultById: nextWorkspaceDefaultById,
+    ...(Object.keys(nextWorkspaceLastActiveAtById).length > 0
+      ? { workspaceLastActiveAtById: nextWorkspaceLastActiveAtById }
+      : {}),
     ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
     ...(linkedWorkspacePaths.length > 0 ? { linkedWorkspacePaths } : {}),
     ...normalizeRecentProjectPreferences({
@@ -1005,6 +1032,7 @@ export function normalizeCurrentProjectState(args: {
   workspaceBranchById: Record<string, string>;
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
+  workspaceLastActiveAtById?: Record<string, string>;
   recentProjects: RecentProjectState[];
 }) {
   const projectPath = args.projectPath?.trim();
@@ -1030,6 +1058,10 @@ export function normalizeCurrentProjectState(args: {
     workspaceBranchById: args.workspaceBranchById,
     workspacePathById: args.workspacePathById,
     workspaceDefaultById: args.workspaceDefaultById,
+    workspaceLastActiveAtById: {
+      ...(rememberedProject?.workspaceLastActiveAtById ?? {}),
+      ...(args.workspaceLastActiveAtById ?? {}),
+    },
     projectBasePrompt: rememberedProject?.projectBasePrompt,
     kickoffBranchNamingRule: rememberedProject?.kickoffBranchNamingRule,
     newWorkspaceInitCommand: rememberedProject?.newWorkspaceInitCommand,
@@ -1084,6 +1116,11 @@ export function cloneRecentProjectState(
     workspaceBranchById: { ...project.workspaceBranchById },
     workspacePathById: { ...project.workspacePathById },
     workspaceDefaultById: { ...project.workspaceDefaultById },
+    ...(project.workspaceLastActiveAtById
+      ? {
+          workspaceLastActiveAtById: { ...project.workspaceLastActiveAtById },
+        }
+      : {}),
     ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
     ...(linkedWorkspacePaths.length > 0 ? { linkedWorkspacePaths } : {}),
     ...normalizeRecentProjectPreferences({
@@ -1126,6 +1163,13 @@ export function upsertRecentProjectState(args: {
   );
   const normalizedProject = normalizeRecentProjectStateEntry({
     ...args.project,
+    // Several registry update paths replace the workspace inventory without
+    // touching activity metadata. Preserve remembered stamps unless the caller
+    // supplied a freshly captured map, just like the other project-scoped
+    // metadata below.
+    workspaceLastActiveAtById:
+      args.project.workspaceLastActiveAtById ??
+      existingProject?.workspaceLastActiveAtById,
     archivedWorkspacePaths:
       args.project.archivedWorkspacePaths ??
       existingProject?.archivedWorkspacePaths,
@@ -1161,6 +1205,7 @@ export function captureCurrentProjectState(args: {
   workspaceBranchById: Record<string, string>;
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
+  workspaceLastActiveAtById?: Record<string, string>;
   archivedWorkspacePathsToAdd?: Array<string | null | undefined>;
   archivedWorkspacePathsToRemove?: Array<string | null | undefined>;
   linkedWorkspacePathsToAdd?: Array<string | null | undefined>;
@@ -1208,6 +1253,12 @@ export function captureCurrentProjectState(args: {
       workspaceBranchById: args.workspaceBranchById,
       workspacePathById: args.workspacePathById,
       workspaceDefaultById: args.workspaceDefaultById,
+      // Callers that do not track activity must not wipe what is already
+      // remembered, so fall back to the stored map instead of an empty one.
+      workspaceLastActiveAtById: {
+        ...(rememberedProject?.workspaceLastActiveAtById ?? {}),
+        ...(args.workspaceLastActiveAtById ?? {}),
+      },
       ...(shouldWriteArchivedWorkspacePaths ? { archivedWorkspacePaths } : {}),
       ...(shouldWriteLinkedWorkspacePaths ? { linkedWorkspacePaths } : {}),
       ...resolveRecentProjectPreferences({

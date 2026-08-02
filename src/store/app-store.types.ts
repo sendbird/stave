@@ -111,6 +111,15 @@ export interface AppState
   workspaceBranchById: Record<string, string>;
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
+  /**
+   * When the user last actually worked in each workspace, keyed by workspace
+   * id. Persisted, and stamped wherever a workspace deliberately becomes the
+   * active one: workspace switch, project open, and workspace creation. Turn
+   * activity is covered separately by task `updatedAt`, which Fleet folds in.
+   * Distinct from `WorkspaceSummary.updatedAt`, which bumps on any snapshot
+   * flush and so cannot tell a live workspace from a merely remembered one.
+   */
+  workspaceLastActiveAtById: Record<string, string>;
   /** PR info cache per workspace – transient, not persisted across sessions. */
   workspacePrInfoById: Record<string, WorkspacePrInfo>;
   /** Claude/Codex usage for the bottom status bar – transient, not persisted. */

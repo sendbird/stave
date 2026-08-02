@@ -1,5 +1,6 @@
 import type { StoreApi } from "zustand";
 import { loadWorkspaceSnapshot } from "@/lib/db/workspaces.db";
+import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { WORKSPACE_APP_SURFACE } from "@/store/app-surface";
@@ -317,6 +318,7 @@ export function createWorkspaceManagementActions(args: {
               workspaceBranchById: nextBranchById,
               workspacePathById: nextPathById,
               workspaceDefaultById: nextDefaultById,
+              workspaceLastActiveAtById: nextState.workspaceLastActiveAtById,
               archivedWorkspacePathsToAdd: [workspacePath],
               linkedWorkspacePathsToRemove: [workspacePath],
             }),
@@ -394,6 +396,7 @@ export function createWorkspaceManagementActions(args: {
             workspaceBranchById: nextBranchById,
             workspacePathById: nextPathById,
             workspaceDefaultById: nextDefaultById,
+            workspaceLastActiveAtById: nextState.workspaceLastActiveAtById,
             archivedWorkspacePathsToAdd: [workspacePath],
             linkedWorkspacePathsToRemove: [workspacePath],
           }),
@@ -544,6 +547,10 @@ export function createWorkspaceManagementActions(args: {
         return {
           workspaces: state.workspaces,
           activeWorkspaceId: workspaceId,
+          workspaceLastActiveAtById: stampWorkspaceActive({
+            current: state.workspaceLastActiveAtById,
+            workspaceId,
+          }),
           activeAppSurface: WORKSPACE_APP_SURFACE,
           workspaceSnapshotVersion: 0,
           promptDraftPersistenceVersion: 0,
@@ -766,6 +773,7 @@ export function createWorkspaceManagementActions(args: {
           workspaceBranchById: state.workspaceBranchById,
           workspacePathById: state.workspacePathById,
           workspaceDefaultById: state.workspaceDefaultById,
+          workspaceLastActiveAtById: state.workspaceLastActiveAtById,
         });
         const nextRecentProjects = currentProjects.map((project) => {
           if (project.projectPath !== normalizedProjectPath) {

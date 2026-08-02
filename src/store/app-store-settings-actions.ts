@@ -103,6 +103,7 @@ export function createSettingsActions(args: {
           workspaceBranchById: state.workspaceBranchById,
           workspacePathById: state.workspacePathById,
           workspaceDefaultById: state.workspaceDefaultById,
+          workspaceLastActiveAtById: state.workspaceLastActiveAtById,
         });
         const existingProject = currentProjects.find(
           (project) => project.projectPath === normalizedProjectPath,
@@ -184,6 +185,7 @@ export function createSettingsActions(args: {
           workspaceBranchById: state.workspaceBranchById,
           workspacePathById: state.workspacePathById,
           workspaceDefaultById: state.workspaceDefaultById,
+          workspaceLastActiveAtById: state.workspaceLastActiveAtById,
         });
         const existingProject = currentProjects.find(
           (project) => project.projectPath === normalizedProjectPath,
