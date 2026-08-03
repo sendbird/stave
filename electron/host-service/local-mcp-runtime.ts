@@ -12,7 +12,10 @@ import type {
 } from "../../src/lib/providers/provider.types";
 import { buildCurrentTaskAwarenessRetrievedContext } from "../../src/lib/task-context/current-task-awareness";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
-import type { LocalMcpTaskTurnUpdate } from "../../src/lib/local-mcp/task-turn-update";
+import {
+  projectLocalMcpTaskTurnActivityEvent,
+  type LocalMcpTaskTurnUpdate,
+} from "../../src/lib/local-mcp/task-turn-update";
 import { workspaceHasActiveTurns } from "../../src/lib/notifications/notification.types";
 import {
   applyDetectedWorkspaceResources,
@@ -2267,6 +2270,7 @@ export async function runTask(args: {
       onEvent: (event) => {
         sequence += 1;
         const eventSequence = sequence;
+        const activityEvent = projectLocalMcpTaskTurnActivityEvent(event);
         void workspaceProviderEventQueue
           .enqueue(args.workspaceId, async () => {
             await handleProviderEvent({
@@ -2288,6 +2292,7 @@ export async function runTask(args: {
               sequence: eventSequence,
               eventType: event.type,
               done: event.type === "done",
+              ...(activityEvent ? { activityEvents: [activityEvent] } : {}),
             });
           })
           .catch((error) => {
