@@ -576,7 +576,7 @@ export interface AppState
     filePath: string;
     oldContent: string;
     newContent: string;
-  }) => void;
+  }) => Promise<void>;
   openGitGraph: () => void;
   openFileFromTree: (args: {
     filePath: string;

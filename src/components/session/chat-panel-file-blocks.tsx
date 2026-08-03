@@ -14,6 +14,7 @@ import {
   parseFileChangeToolInput,
   summarizeDiffLineChanges,
 } from "@/components/session/chat-panel.utils";
+import { chatDiffTabId } from "@/lib/editor/snapshot-diff-tabs";
 import {
   formatWorkspaceFilePathForDisplay,
   resolveWorkspaceRelativeFilePath,
@@ -96,10 +97,6 @@ const CHAT_DIFF_VIEWER_STYLES = {
   },
 } as const;
 
-function toDiffEditorTabId(args: { messageId: string; filePath: string; index: number }) {
-  return `chat-diff:${args.messageId}:${args.index}:${args.filePath}`;
-}
-
 function ChangeCount(args: { value: number; tone: "added" | "removed" }) {
   return (
     <span
@@ -150,8 +147,8 @@ export function ChangedFilesBlock(args: { parts: CodeDiffPart[]; taskId: string;
       filePath: args.part.filePath,
       workspacePath: workspaceCwd,
     }) ?? args.part.filePath;
-    openDiffInEditor({
-      editorTabId: toDiffEditorTabId({
+    void openDiffInEditor({
+      editorTabId: chatDiffTabId({
         messageId,
         filePath: normalizedFilePath,
         index: startIndex + args.index,

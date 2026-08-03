@@ -9,6 +9,10 @@ import {
 } from "react";
 import { AlertCircle, GitGraph, LoaderCircle, X } from "lucide-react";
 import { Button, toast } from "@/components/ui";
+import {
+  COMMIT_GRAPH_WORKING_TREE_REVISION,
+  commitGraphDiffTabId,
+} from "@/lib/git-graph/presentation";
 import { findGraphCommitMatches } from "@/lib/git-graph/search";
 import { formatSourceControlDiffPath } from "@/lib/source-control-diff";
 import type { GraphFileChange, GraphRef } from "@/lib/git-graph/types";
@@ -390,10 +394,13 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
         }
         const revision =
           selection.kind === WORKING_TREE_SELECTION
-            ? "working-tree"
+            ? COMMIT_GRAPH_WORKING_TREE_REVISION
             : selection.hash;
-        openDiffInEditor({
-          editorTabId: `git-graph-diff:${revision}:${encodeURIComponent(file.path)}`,
+        await openDiffInEditor({
+          editorTabId: commitGraphDiffTabId({
+            revision,
+            filePath: file.path,
+          }),
           filePath: file.path,
           oldContent: result.oldContent ?? "",
           newContent: result.newContent ?? "",

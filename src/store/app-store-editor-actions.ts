@@ -1,6 +1,7 @@
 import type { StoreApi } from "zustand";
 import { formatWithEslint } from "@/components/layout/editor-language-intelligence";
 import { loadWorkspaceEditorTabBodies } from "@/lib/db/workspaces.db";
+import { isSnapshotDiffEditorTab } from "@/lib/editor/snapshot-diff-tabs";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import { resolveWorkspaceRelativeFilePath } from "@/lib/workspace-file-path";
@@ -71,6 +72,33 @@ function incrementWorkspaceSnapshotVersion(
   state: Pick<AppState, "workspaceSnapshotVersion">,
 ) {
   return state.workspaceSnapshotVersion + 1;
+}
+
+/**
+ * Revision to anchor a freshly opened diff tab to.
+ *
+ * The anchor is what gives the tab's first save the same stale-write protection
+ * a file tab has, and it is what lets the conflict poll tell "unchanged on disk"
+ * apart from "never anchored". A snapshot diff has no anchor to take: neither
+ * side is the file on disk, and the tab is neither refreshed nor saved. A read
+ * failure degrades to `null` so a missing anchor never blocks the diff from
+ * opening.
+ */
+async function readDiffTabBaseRevision(args: {
+  editorTabId: string;
+  filePath: string;
+}): Promise<string | null> {
+  if (isSnapshotDiffEditorTab({ id: args.editorTabId })) {
+    return null;
+  }
+  try {
+    const disk = await workspaceFsAdapter.readFile({
+      filePath: args.filePath,
+    });
+    return disk?.revision ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function createEditorActions(args: {
@@ -242,19 +270,31 @@ export function createEditorActions(args: {
         };
       });
     },
-    openDiffInEditor: ({ editorTabId, filePath, oldContent, newContent }) => {
+    openDiffInEditor: async ({
+      editorTabId,
+      filePath,
+      oldContent,
+      newContent,
+    }) => {
+      const diskRevision = await readDiffTabBaseRevision({
+        editorTabId,
+        filePath,
+      });
+
       set((state) => {
         const existing = state.editorTabs.find((tab) => tab.id === editorTabId);
         const nextLanguage = resolveLanguage({ filePath });
         if (existing) {
           const canRefreshExisting = !existing.isDirty;
+          const nextBaseRevision = diskRevision ?? existing.baseRevision;
           const shouldRefreshExisting =
             canRefreshExisting &&
             (existing.filePath !== filePath ||
               existing.language !== nextLanguage ||
               existing.originalContent !== oldContent ||
               existing.content !== newContent ||
-              existing.savedContent !== newContent);
+              existing.savedContent !== newContent ||
+              existing.baseRevision !== nextBaseRevision);
 
           return {
             editorTabs: shouldRefreshExisting
@@ -268,6 +308,7 @@ export function createEditorActions(args: {
                         contentState: "ready",
                         originalContent: oldContent,
                         savedContent: newContent,
+                        baseRevision: nextBaseRevision,
                         hasConflict: false,
                         isDirty: false,
                       }
@@ -296,7 +337,7 @@ export function createEditorActions(args: {
           contentState: "ready",
           originalContent: oldContent,
           savedContent: newContent,
-          baseRevision: null,
+          baseRevision: diskRevision,
           hasConflict: false,
           isDirty: false,
         };
@@ -643,6 +684,12 @@ export function createEditorActions(args: {
       if (activeTab.kind === "image") {
         return { ok: false };
       }
+      // Neither side of a snapshot diff is the file on disk, so `filePath` is
+      // not a live handle. Writing here would drop a frozen snapshot on top of
+      // the working tree copy, reverting everything changed since.
+      if (isSnapshotDiffEditorTab(activeTab)) {
+        return { ok: false };
+      }
 
       // Format on save with ESLint
       let contentToSave = activeTab.content;
@@ -746,6 +793,12 @@ export function createEditorActions(args: {
 
       for (const tab of state.editorTabs) {
         if (tab.contentState && tab.contentState !== "ready") {
+          continue;
+        }
+        // Snapshot diffs record two frozen sides, not a live view of the file
+        // on disk. Refreshing them would swap the recorded change out of the
+        // modified side of the diff.
+        if (isSnapshotDiffEditorTab(tab)) {
           continue;
         }
         if (tab.kind === "image") {

@@ -588,7 +588,7 @@ export function EditorPanel(props: EditorPanelProps) {
           newContent: result.newContent,
         }
       : parseUnifiedDiffToBuffers({ patch: result.content });
-    openDiffInEditor({
+    await openDiffInEditor({
       editorTabId: `scm-diff:${args.path}`,
       filePath: args.path,
       oldContent: parsed.oldContent,
