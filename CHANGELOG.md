@@ -1,3 +1,19 @@
+## [0.13.6](https://github.com/sendbird/stave/compare/v0.13.5...v0.13.6) (2026-08-03)
+
+### Features
+
+* Improve agent trace surfaces with reusable reasoning, thinking, tool-result, preview, and reduced-motion presentation patterns.
+
+### Bug Fixes
+
+* Keep long Ask User Question requests scrollable so their response actions remain reachable.
+* Bound persistence, host-service, Lens diagnostics, and commit graph resource usage to reduce stuck loading, stale processes, and excessive memory pressure.
+* Show closed-but-not-archived tasks in Task History with the correct Open or Restore behavior and preserve open-task state in workspace summaries.
+
+### References
+
+* [#300](https://github.com/sendbird/stave/pull/300), [#301](https://github.com/sendbird/stave/pull/301), [#302](https://github.com/sendbird/stave/pull/302), [#303](https://github.com/sendbird/stave/pull/303)
+
 ## [0.13.5](https://github.com/sendbird/stave/compare/v0.13.4...v0.13.5) (2026-08-03)
 
 ### Features
