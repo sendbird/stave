@@ -251,6 +251,33 @@ export function getTaskCounts(args: {
   };
 }
 
+/**
+ * The set of past tasks Task History has to offer, most recently updated first.
+ *
+ * A task qualifies when it is archived, or when it is still live but no longer
+ * occupies a pane tab. That second case is the one an archived-only list used
+ * to strand: `closeTaskTab` closes the pane *without* archiving, and hydration
+ * deliberately preserves an empty `openTaskTabIds` instead of reopening an
+ * arbitrary task. Such a task is therefore rendered by no surface at all, so
+ * leaving it out of history makes a workspace full of real work look empty.
+ *
+ * `openTaskTabIds: null` means the pane state for that workspace has not been
+ * loaded; nothing is assumed to be open.
+ */
+export function selectTaskHistoryEntries(args: {
+  tasks: Task[];
+  openTaskTabIds: readonly string[] | null;
+}): Task[] {
+  const openTaskIds = new Set(args.openTaskTabIds ?? []);
+  return args.tasks
+    .filter(
+      (task) =>
+        !isLegacyBranchTask(task) &&
+        (isTaskArchived(task) || !openTaskIds.has(task.id)),
+    )
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
 export function filterTasksByName(args: { tasks: Task[]; query: string }) {
   const visibleTasks = args.tasks.filter((task) => !isLegacyBranchTask(task));
   const trimmed = args.query.trim();

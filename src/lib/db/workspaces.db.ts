@@ -105,6 +105,8 @@ export interface WorkspaceShellSummary {
   messageCountByTask: Record<string, number>;
   terminalTabCount: number;
   cliSessionTabCount: number;
+  /** Absent on legacy/pre-field summaries — "unknown", not "nothing open". */
+  openTaskTabIds?: string[];
 }
 
 export interface TaskMessagesPage {
@@ -309,6 +311,7 @@ function buildShellSummaryFromSnapshot(
     ),
     terminalTabCount: snapshot.terminalTabs?.length ?? 0,
     cliSessionTabCount: snapshot.cliSessionTabs?.length ?? 0,
+    openTaskTabIds: snapshot.openTaskTabIds,
   };
 }
 
@@ -522,6 +525,7 @@ export async function loadWorkspaceShellSummary(args: {
       messageCountByTask: shell.messageCountByTask,
       terminalTabCount: shell.terminalTabs?.length ?? 0,
       cliSessionTabCount: shell.cliSessionTabs?.length ?? 0,
+      openTaskTabIds: shell.openTaskTabIds,
     };
   }
 
@@ -541,6 +545,7 @@ export async function loadWorkspaceShellSummary(args: {
         messageCountByTask: response.summary.messageCountByTask ?? {},
         terminalTabCount: response.summary.terminalTabCount ?? 0,
         cliSessionTabCount: response.summary.cliSessionTabCount ?? 0,
+        openTaskTabIds: response.summary.openTaskTabIds,
       }
     : null;
 }

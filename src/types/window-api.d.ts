@@ -1472,6 +1472,7 @@ interface WindowPersistenceApi {
       messageCountByTask?: Record<string, number>;
       terminalTabCount?: number;
       cliSessionTabCount?: number;
+      openTaskTabIds?: string[];
     } | null;
   }>;
   loadWorkspace?: (args: { workspaceId: string }) => Promise<{

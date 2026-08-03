@@ -675,6 +675,7 @@ export class SqliteStore {
       | "messageCountByTask"
       | "terminalTabs"
       | "cliSessionTabs"
+      | "openTaskTabIds"
     >;
   }): PersistenceWorkspaceShellSummary {
     return {
@@ -683,6 +684,7 @@ export class SqliteStore {
       messageCountByTask: args.shell.messageCountByTask ?? {},
       terminalTabCount: args.shell.terminalTabs?.length ?? 0,
       cliSessionTabCount: args.shell.cliSessionTabs?.length ?? 0,
+      openTaskTabIds: args.shell.openTaskTabIds,
     };
   }
 

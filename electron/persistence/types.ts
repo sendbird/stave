@@ -138,6 +138,12 @@ export interface PersistenceWorkspaceShellSummary {
   messageCountByTask?: Record<string, number>;
   terminalTabCount?: number;
   cliSessionTabCount?: number;
+  /**
+   * Same "absent means legacy, empty means closed" contract as the full shell.
+   * Summary consumers need it to tell an open task apart from one whose tab the
+   * user closed without archiving.
+   */
+  openTaskTabIds?: string[];
 }
 
 export interface PersistenceWorkspaceSummary {
