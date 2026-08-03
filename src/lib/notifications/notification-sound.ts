@@ -14,6 +14,13 @@ export type NotificationSoundMode = (typeof NOTIFICATION_SOUND_MODES)[number];
 export const DEFAULT_NOTIFICATION_SOUND_MODE: NotificationSoundMode = "preset";
 export const DEFAULT_NOTIFICATION_SOUND_PRESET: NotificationSoundPreset =
   "chime";
+/**
+ * Default preset for the "AI needs your attention" cue (question / approval).
+ * Intentionally distinct from {@link DEFAULT_NOTIFICATION_SOUND_PRESET} so the
+ * two events are distinguishable by ear without any user configuration.
+ */
+export const DEFAULT_ATTENTION_NOTIFICATION_SOUND_PRESET: NotificationSoundPreset =
+  "bell";
 export const DEFAULT_NOTIFICATION_SOUND_VOLUME = 0.5;
 export const NOTIFICATION_SOUND_COOLDOWN_MS = 500;
 
@@ -333,6 +340,13 @@ export function createNotificationSoundPlayer(args?: {
 
 export const playNotificationSound = createNotificationSoundPlayer();
 
+/**
+ * Separate player instance for attention (question / approval) cues. Uses its
+ * own cooldown state so an attention sound and a completion sound firing close
+ * together (e.g. within the same turn) don't suppress each other.
+ */
+export const playAttentionNotificationSound = createNotificationSoundPlayer();
+
 // ---------------------------------------------------------------------------
 // Custom audio file playback
 // ---------------------------------------------------------------------------
@@ -424,6 +438,14 @@ export function createCustomNotificationSoundPlayer(args?: {
 }
 
 export const playCustomNotificationSound = createCustomNotificationSoundPlayer();
+
+/**
+ * Separate custom-audio player instance for attention cues, mirroring
+ * {@link playAttentionNotificationSound}. Independent cooldown state keeps
+ * attention and completion custom sounds from suppressing one another.
+ */
+export const playCustomAttentionNotificationSound =
+  createCustomNotificationSoundPlayer();
 
 /**
  * Validate a File for custom notification sound upload.

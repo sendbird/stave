@@ -491,6 +491,27 @@ export function createSettingsActions(args: {
                 patch.notificationSoundMode,
               ),
             }),
+        ...(patch.attentionNotificationSoundVolume === undefined
+          ? {}
+          : {
+              attentionNotificationSoundVolume: normalizeNotificationSoundVolume(
+                patch.attentionNotificationSoundVolume,
+              ),
+            }),
+        ...(patch.attentionNotificationSoundPreset === undefined
+          ? {}
+          : {
+              attentionNotificationSoundPreset: normalizeNotificationSoundPreset(
+                patch.attentionNotificationSoundPreset,
+              ),
+            }),
+        ...(patch.attentionNotificationSoundMode === undefined
+          ? {}
+          : {
+              attentionNotificationSoundMode: normalizeNotificationSoundMode(
+                patch.attentionNotificationSoundMode,
+              ),
+            }),
       };
 
       // ── resolve custom-theme side-effects ───────────────────────

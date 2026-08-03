@@ -200,6 +200,16 @@ export function createAppStorePersistenceOptions() {
       state.settings.notificationSoundMode = normalizeNotificationSoundMode(
         raw.notificationSoundMode,
       );
+      state.settings.attentionNotificationSoundEnabled =
+        typeof raw.attentionNotificationSoundEnabled === "boolean"
+          ? raw.attentionNotificationSoundEnabled
+          : defaultSettings.attentionNotificationSoundEnabled;
+      state.settings.attentionNotificationSoundVolume =
+        normalizeNotificationSoundVolume(raw.attentionNotificationSoundVolume);
+      state.settings.attentionNotificationSoundPreset =
+        normalizeNotificationSoundPreset(raw.attentionNotificationSoundPreset);
+      state.settings.attentionNotificationSoundMode =
+        normalizeNotificationSoundMode(raw.attentionNotificationSoundMode);
       state.settings.commandPaletteShowRecent =
         typeof raw.commandPaletteShowRecent === "boolean"
           ? raw.commandPaletteShowRecent
