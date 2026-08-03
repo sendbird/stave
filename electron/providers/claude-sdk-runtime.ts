@@ -98,6 +98,7 @@ import {
   type ClaudeMcpConfigDiagnostic,
 } from "./claude-mcp-config";
 import { sanitizeMcpDiagnosticText } from "./mcp-config-management-shared";
+import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
 
 /**
  * Cache boundary marker for the claude-agent-sdk systemPrompt string[] API.
