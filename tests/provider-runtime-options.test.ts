@@ -19,6 +19,8 @@ const settings = {
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: true,
   claudeAllowUnsandboxedCommands: true,
+  claudeSandboxCredentialFiles: "",
+  claudeSandboxCredentialEnvVars: "",
   advisorTarget: null,
   claudeEffort: "medium",
   claudeThinkingMode: "adaptive",
@@ -40,12 +42,12 @@ const settings = {
   codexBinaryPath: "",
   codexReasoningEffort: "medium",
   codexWebSearch: "cached",
+  codexAppToolApprovalMode: "inherit",
   codexShowRawReasoning: false,
   codexReasoningSummary: "auto",
   codexReasoningSummarySupport: "auto",
   codexFastMode: true,
   codexPlanMode: false,
-  codexFastModeVisible: true,
   trustedTools: [],
 } as const;
 
@@ -170,6 +172,10 @@ describe("buildProviderRuntimeOptions", () => {
           claudeAgentName: "code-reviewer",
           claudeFallbackModel: "claude-haiku-4-5",
           claudeResumeSessionAt: "message-uuid",
+          claudeSandboxCredentialFiles:
+            "/tmp/service-token, /tmp/service-token\n/tmp/oauth-token",
+          claudeSandboxCredentialEnvVars:
+            "SERVICE_TOKEN, SERVICE_TOKEN\nOAUTH_TOKEN",
         },
         providerSession: null,
       }),
@@ -184,6 +190,8 @@ describe("buildProviderRuntimeOptions", () => {
       claudeAgentName: "code-reviewer",
       claudeFallbackModel: "claude-haiku-4-5",
       claudeResumeSessionAt: "message-uuid",
+      claudeSandboxCredentialFiles: ["/tmp/service-token", "/tmp/oauth-token"],
+      claudeSandboxCredentialEnvVars: ["SERVICE_TOKEN", "OAUTH_TOKEN"],
     });
   });
 
@@ -237,11 +245,15 @@ describe("buildProviderRuntimeOptions", () => {
         settings: {
           ...settings,
           codexApprovalPolicy: "on-failure",
+          codexWebSearch: "indexed",
+          codexAppToolApprovalMode: "writes",
         },
         providerSession: null,
       }),
     ).toMatchObject({
       codexApprovalPolicy: "on-failure",
+      codexWebSearch: "indexed",
+      codexAppToolApprovalMode: "writes",
     });
   });
 
@@ -352,5 +364,64 @@ describe("buildProviderRuntimeOptions", () => {
       codexFileAccess: "workspace-write",
       codexPlanMode: false,
     });
+  });
+});
+
+describe("advisor arming in runtime options", () => {
+  const advisorSettings = {
+    ...settings,
+    advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
+  };
+
+  test("carries the Settings default for a task with no override", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-5",
+        includeAdvisor: true,
+        settings: advisorSettings as never,
+      }).advisorTarget,
+    ).toEqual({ providerId: "codex", model: "gpt-5.6-sol" });
+  });
+
+  test("a task that disarmed the advisor sends no target", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-5",
+        includeAdvisor: true,
+        advisorRuntimeOverrides: { advisorEnabled: false },
+        settings: advisorSettings as never,
+      }).advisorTarget,
+    ).toBeUndefined();
+  });
+
+  test("a task can arm the advisor while the Settings default is off", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "codex",
+        model: "gpt-5.6-terra",
+        includeAdvisor: true,
+        advisorRuntimeOverrides: {
+          advisorEnabled: true,
+          advisorTarget: { providerId: "claude-code", model: "claude-fable-5" },
+        },
+        settings: settings as never,
+      }).advisorTarget,
+    ).toEqual({ providerId: "claude-code", model: "claude-fable-5" });
+  });
+
+  test("utility turns stay advisor-free even with a task override", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-5",
+        advisorRuntimeOverrides: {
+          advisorEnabled: true,
+          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
+        },
+        settings: advisorSettings as never,
+      }).advisorTarget,
+    ).toBeUndefined();
   });
 });

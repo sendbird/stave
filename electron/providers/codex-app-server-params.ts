@@ -109,6 +109,10 @@ export function buildCodexConfigOverrides(args: {
   if (args.runtimeOptions?.codexWebSearch) {
     config.web_search = args.runtimeOptions.codexWebSearch;
   }
+  const appToolApprovalMode = args.runtimeOptions?.codexAppToolApprovalMode;
+  if (appToolApprovalMode && appToolApprovalMode !== "inherit") {
+    config["apps._default.default_tools_approval_mode"] = appToolApprovalMode;
+  }
   const codexFastMode = args.runtimeOptions?.codexFastMode;
   if (codexFastMode !== undefined) {
     config["features.fast_mode"] = codexFastMode;

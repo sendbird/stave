@@ -25,6 +25,7 @@ import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normali
 import { createEmptyWorkspaceInformation, type WorkspaceInformationState } from "@/lib/workspace-information";
 import type { ProviderGoalSnapshot } from "@/lib/providers/provider.types";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
+import { normalizeGitGraphEditorTabs } from "@/lib/git-graph/presentation";
 import { interruptPendingToolInteractionsInMessages } from "@/store/provider-message.utils";
 import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
 
@@ -512,7 +513,9 @@ export function buildWorkspaceSessionState(args: {
   const messageCountByTask = Object.fromEntries(
     Object.entries(messagesByTask).map(([taskId, messages]) => [taskId, messages.length] as const),
   ) as Record<string, number>;
-  const editorTabs = args.snapshot?.editorTabs ?? empty.editorTabs;
+  const editorTabs = normalizeGitGraphEditorTabs(
+    args.snapshot?.editorTabs ?? empty.editorTabs,
+  );
   const requestedActiveEditorTabId = args.snapshot?.activeEditorTabId ?? empty.activeEditorTabId;
   const activeEditorTabId = editorTabs.some((tab) => tab.id === requestedActiveEditorTabId)
     ? requestedActiveEditorTabId
@@ -632,7 +635,9 @@ export function buildWorkspaceSessionStateFromShell(args: {
   for (const [taskId, messages] of Object.entries(messagesByTask)) {
     messageCountByTask[taskId] = Math.max(messageCountByTask[taskId] ?? 0, messages.length);
   }
-  const editorTabs = args.shell?.editorTabs ?? empty.editorTabs;
+  const editorTabs = normalizeGitGraphEditorTabs(
+    args.shell?.editorTabs ?? empty.editorTabs,
+  );
   const requestedActiveEditorTabId = args.shell?.activeEditorTabId ?? empty.activeEditorTabId;
   const activeEditorTabId = editorTabs.some((tab) => tab.id === requestedActiveEditorTabId)
     ? requestedActiveEditorTabId

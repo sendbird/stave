@@ -1,28 +1,51 @@
-import type { GraphCommit } from "@/lib/git-graph/types";
-
-export interface LoadGraphResult {
-  ok: boolean;
-  commits: GraphCommit[];
-  head: string | null;
-  hasMore: boolean;
-  stderr: string;
-}
+import type {
+  GraphCommitDetailsResult,
+  GraphResult,
+} from "@/lib/git-graph/types";
 
 export async function loadGraph(
   cwd: string,
-  opts: { limit?: number; skip?: number; scope?: string } = {},
-): Promise<LoadGraphResult> {
+  opts: {
+    limit?: number;
+    skip?: number;
+    scope?: string;
+    refs?: string[];
+    includeRepositoryState?: boolean;
+  } = {},
+): Promise<GraphResult> {
   const api = window.api?.sourceControl?.getGraph;
   if (!api) {
     return {
       ok: false,
       commits: [],
       head: null,
+      headHash: null,
+      availableRefs: [],
+      workingTree: {
+        staged: 0,
+        unstaged: 0,
+        untracked: 0,
+        conflicts: 0,
+      },
+      workingTreeAvailable: false,
+      worktreePathByBranch: {},
+      worktreePathsAvailable: false,
       hasMore: false,
       stderr: "Unavailable",
     };
   }
   return api({ cwd, ...opts });
+}
+
+export async function loadCommitDetails(
+  cwd: string,
+  hash: string,
+): Promise<GraphCommitDetailsResult> {
+  const api = window.api?.sourceControl?.getCommitDetails;
+  if (!api) {
+    return { ok: false, details: null, stderr: "Unavailable" };
+  }
+  return api({ cwd, hash });
 }
 
 export async function loadCommitFiles(cwd: string, hash: string) {
@@ -35,6 +58,40 @@ export async function loadCommitFiles(cwd: string, hash: string) {
     };
   }
   return api({ cwd, hash });
+}
+
+export async function loadWorkingTree(cwd: string) {
+  const api = window.api?.sourceControl?.getStatus;
+  if (!api) {
+    return {
+      ok: false,
+      branch: "",
+      items: [] as Array<{
+        code: string;
+        path: string;
+        oldPath?: string;
+        indexStatus?: string;
+        workingTreeStatus?: string;
+      }>,
+      hasConflicts: false,
+      stderr: "Unavailable",
+    };
+  }
+  return api({ cwd });
+}
+
+export async function loadWorkingTreeDiff(cwd: string, path: string) {
+  const api = window.api?.sourceControl?.getDiff;
+  if (!api) {
+    return {
+      ok: false,
+      content: "",
+      oldContent: "",
+      newContent: "",
+      stderr: "Unavailable",
+    };
+  }
+  return api({ cwd, path });
 }
 
 export async function loadCommitDiff(
@@ -230,4 +287,10 @@ export async function listBranches(cwd: string): Promise<ListBranchesResult> {
     };
   }
   return api({ cwd }) as Promise<ListBranchesResult>;
+}
+
+export async function fetchAllRemotes(cwd: string): Promise<ActionResult> {
+  const api = window.api?.sourceControl?.fetchBranch;
+  if (!api) return unavailable();
+  return api({ cwd });
 }

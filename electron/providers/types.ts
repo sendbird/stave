@@ -1,5 +1,8 @@
 import type {
+  AdvisorActivityPhase,
+  AdvisorIsolationMode,
   CanonicalConversationRequest,
+  ProviderAvailabilityResponse,
   ProviderGoalSnapshot,
   ProviderRuntimeOptions,
   ProviderSteerTurnRequest,
@@ -76,6 +79,12 @@ export type BridgeEvent =
       nativeSessionId: string;
     }
   | {
+      type: "provider_turn";
+      providerId: ProviderId;
+      nativeSessionId: string;
+      nativeTurnId: string;
+    }
+  | {
       type: "goal_status";
       providerId: "codex";
       goal: ProviderGoalSnapshot | null;
@@ -90,6 +99,49 @@ export type BridgeEvent =
       ttftMs?: number;
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
+  | {
+      /** Structured advisor lifecycle signal. Mirrors `NormalizedProviderEvent`. */
+      type: "advisor_activity";
+      phase: AdvisorActivityPhase;
+      primaryProviderId: ProviderId;
+      /** Primary model id, so "a different model answered" is verifiable. */
+      primaryModel?: string;
+      advisorProviderId?: ProviderId;
+      advisorModel?: string;
+      isolation?: AdvisorIsolationMode;
+      at: number;
+      timeoutMs?: number;
+      durationMs?: number;
+      advice?: string;
+      adviceChars?: number;
+      injectedChars?: number;
+      injectedPartIndex?: number;
+      detail?: string;
+      inputTokens?: number;
+      outputTokens?: number;
+      totalCostUsd?: number;
+    }
+  | {
+      type: "history_boundary";
+      providerId: ProviderId;
+      boundaryKind: "thread" | "turn" | "message";
+      nativeId: string;
+      targetRole: "user" | "assistant";
+    }
+  | {
+      type: "permission_denial";
+      toolName: string;
+      message: string;
+      reasonType?: string;
+      reason?: string;
+    }
+  | {
+      type: "hook_activity";
+      hookId: string;
+      hookName: string;
+      hookEvent: string;
+      status: "running" | "completed" | "failed" | "cancelled" | "blocked";
+    }
   | {
       type: "tool";
       toolUseId?: string;
@@ -175,6 +227,12 @@ export interface ProviderRuntime {
     message?: string;
   };
   abortTurn: (args: { turnId: string }) => { ok: boolean; message: string };
+  /**
+   * Cancels only the Advisor preflight for a turn. The primary turn continues
+   * with an `advisor_activity` `skipped` phase, so a slow advisor never forces
+   * the user to abort work they still want.
+   */
+  skipAdvisor: (args: { turnId: string }) => { ok: boolean; message: string };
   cleanupTask: (args: { taskId: string }) => { ok: boolean; message: string };
   respondApproval: (args: {
     turnId: string;
@@ -193,11 +251,7 @@ export interface ProviderRuntime {
   checkAvailability: (args: {
     providerId: ProviderId;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  }) => Promise<{
-    ok: boolean;
-    available: boolean;
-    detail: string;
-  }>;
+  }) => Promise<ProviderAvailabilityResponse>;
   getCommandCatalog: (args: {
     providerId: ProviderId;
     cwd?: string;

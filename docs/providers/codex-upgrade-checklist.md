@@ -1,68 +1,73 @@
-# Codex Upgrade Checklist
+# Codex 업그레이드 체크리스트
 
-Use this checklist whenever Stave changes expected Codex CLI or app-server behavior, or adopts a newer Codex app-server protocol surface.
+Codex CLI/App Server의 기대 버전이나 protocol surface를 바꿀 때 사용한다.
 
-Current baseline: local `codex` CLI/App Server `0.142.0`.
+- 현재 schema 확인값: 사용자 설치 Codex CLI/App Server `0.145.0`
+- Stave는 Codex를 번들하거나 이 버전을 강제하지 않는다.
+- 관련 결정: [2026년 상반기 런타임 기능 채택 현황](./runtime-feature-adoption-plan.md)
 
-## Guardrails
+## 1. 기준 확인
 
-- Treat the upgrade as both a dependency change and a contract review. Do not close the work with only a version bump.
-- Verify the installed package types, generated app-server protocol surface, and current OpenAI Codex docs before wiring new behavior into Stave.
-- If official support exists for a capability Stave has been waiting on, either wire it end to end in the same change or document why it is intentionally deferred in the same change or handoff.
+- [ ] Stave가 실제 선택한 executable 경로와 `codex --version`을 확인한다.
+- [ ] 같은 executable로 다음 schema를 생성한다.
 
-## Guardian Reviewer
+```sh
+codex app-server generate-json-schema --experimental --out <temporary-directory>
+```
 
-- Explicitly check whether official Guardian reviewer support is present in the installed CLI or app-server protocol.
-- Review support for:
-  - `approvalsReviewer`
-  - `allowedApprovalsReviewers`
-  - `guardian_subagent`
-  - granular approval policy shapes
-  - guardian approval review events or related notification payloads
-- If support is now official and stable enough for Stave, evaluate whether Stave should:
-  - add runtime option support
-  - expose a settings surface
-  - extend Codex mode presets
-- Do not override external `guardian_approval` feature state unless the product decision explicitly calls for it.
+- [ ] 변경 구간의 공식 release note와 App Server 문서를 읽는다.
+- [ ] option·request·response·notification 변경을 **채택**, **보류**, **무관**으로
+      분류한다.
 
-## Required Check Files
+## 2. 계약 확인
 
-- `electron/providers/codex-app-server-runtime.ts`
-- `electron/providers/runtime.ts`
-- `electron/providers/types.ts`
-- `src/lib/providers/provider.types.ts`
-- `electron/main/ipc/schemas.ts`
-- `electron/preload.ts`
-- `src/types/window-api.d.ts`
-- `src/store/provider-runtime-options.ts`
-- `src/lib/providers/provider-mode-presets.ts`
-- `src/components/layout/settings-dialog-providers-section.tsx`
-- `src/components/layout/settings-dialog-codex-section.tsx`
+다음 경로를 함께 확인한다.
 
-## Upgrade Checks
+- runtime: `electron/providers/codex-app-server-runtime.ts`,
+  `electron/providers/codex-app-server-params.ts`,
+  `electron/providers/runtime.ts`, `electron/providers/types.ts`
+- IPC: `src/lib/providers/provider.types.ts`, `src/lib/providers/schemas.ts`,
+  `electron/main/ipc/schemas.ts`, `electron/preload.ts`,
+  `src/types/window-api.d.ts`
+- 설정/UI: `src/store/provider-runtime-options.ts`,
+  `src/lib/providers/runtime-option-contract.ts`,
+  `src/components/layout/settings-dialog-providers-section.tsx`,
+  `src/components/layout/settings-dialog-codex-section.tsx`
+- 테스트: `tests/codex-app-server-runtime.test.ts`, `tests/ipc-schemas.test.ts`,
+  `tests/provider-runtime-options.test.ts`
 
-- Confirm the default runtime path still matches product intent:
-  - app-server path
-- Confirm any new request fields are wired across the full path:
-  - renderer settings or draft override
-  - shared runtime options type
-  - preload and `window.api`
-  - IPC schema
-  - provider runtime request payload
-- Keep App Server request builders aligned with `codex app-server generate-ts` / `generate-json-schema`; do not add hand-written thread or turn fields outside the generated request types.
-- Confirm `on-failure`, `on-request`, `untrusted`, and `never` approval policies still round-trip through settings, IPC schema, and runtime payloads.
-- Confirm sandbox payloads match the generated `SandboxPolicy` variants.
-- Confirm any new response or event payloads are mapped into Stave's normalized provider event flow if needed.
-- Confirm Codex mode presets still reflect the intended autonomy model after the upgrade.
-- Confirm external config import or raw config editing does not silently fight any new first-class Stave surface.
+## 3. 기능별 확인
 
-## Verification
+- **Approval**: shell approval과 App/MCP tool approval을 구분한다. legacy
+  `on-failure`는 호환 목적으로 유지하되 새 기본값으로 사용하지 않는다.
+- **Sandbox**: 생성 schema의 `SandboxPolicy` variant와 정확히 맞춘다.
+- **Hook**: `hooks/list`, `hook/started`, `hook/completed`,
+  `UserPromptSubmit`의 차단·실패를 확인한다. 명령과 raw output은 노출하지 않는다.
+- **Fork**: `thread/fork`의 `lastTurnId`와 `beforeTurnId`를 함께 보내지 않는다.
+- **Search**: `indexed`가 없는 구버전에는 `cached`를 보내고 새 field를 제거한다.
+- **App tool approval**: `auto`·`prompt`·`writes`·`approve`를 shell sandbox로
+  설명하지 않는다.
+- **고급 기능**: permission profile, granular approval, multi-agent policy,
+  rollout budget은 각각 별도의 capability와 채택 결정을 요구한다.
 
-- Run `bun run typecheck`.
-- Run the most relevant provider tests for the touched surfaces.
-- If runtime request or response fields changed, smoke check at least one Codex turn in Stave.
-- If approval behavior changed, verify at least:
-  - normal turn startup
-  - approval request rendering
-  - approval response handling
-  - any app-server-only approval routing behavior introduced by the upgrade
+## 4. 버전 호환
+
+- 새 기능은 `ProviderRuntimeCapabilities`로 UI와 adapter 양쪽에서 제한한다.
+- 버전을 알 수 없으면 fail-closed로 처리한다.
+- 사용자 config와 mode preset의 autonomy 의미가 충돌하지 않는지 확인한다.
+- request field는 생성 schema에 있을 때만 보낸다. 수기 cast로 우회하지 않는다.
+
+## 5. 검증
+
+```sh
+bun run typecheck
+bun test tests/codex-app-server-runtime.test.ts tests/ipc-schemas.test.ts tests/provider-runtime-options.test.ts
+```
+
+request/response 변경은 정상 turn과 resume/fork를, approval 변경은 요청 표시와
+응답 처리를, hook 변경은 lifecycle과 read-only inventory를 추가로 smoke test한다.
+
+## 참고 자료
+
+- [Codex releases](https://github.com/openai/codex/releases)
+- [Codex App Server reference](https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md)

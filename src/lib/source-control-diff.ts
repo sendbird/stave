@@ -7,19 +7,46 @@ export interface SourceControlDiffPaths {
 
 const SCM_RENAME_DELIMITER = " -> ";
 
-export function resolveSourceControlDiffPaths(args: { rawPath: string }): SourceControlDiffPaths {
-  const displayPath = args.rawPath.trim();
-  const segments = displayPath
+/**
+ * Compose the `<old> -> <new>` string the path-based source control IPCs expect.
+ * Status parsing yields exact paths plus a separate rename source, so callers
+ * pair them back up here instead of hand-building the display form.
+ */
+export function formatSourceControlDiffPath(args: { path: string; oldPath?: string }): string {
+  return args.oldPath && args.oldPath !== args.path
+    ? `${args.oldPath}${SCM_RENAME_DELIMITER}${args.path}`
+    : args.path;
+}
+
+export function resolveSourceControlDiffPaths(args: {
+  rawPath: string;
+  oldPath?: string;
+}): SourceControlDiffPaths {
+  const rawPath = args.rawPath.trim();
+
+  // An explicit rename source is authoritative: it survives paths that
+  // themselves contain the rename delimiter.
+  if (args.oldPath !== undefined) {
+    const headPath = args.oldPath.trim() || rawPath;
+    return {
+      displayPath: formatSourceControlDiffPath({ path: rawPath, oldPath: headPath }),
+      headPath,
+      pathspecs: Array.from(new Set([headPath, rawPath].filter(Boolean))),
+      workingTreePath: rawPath,
+    };
+  }
+
+  const segments = rawPath
     .split(SCM_RENAME_DELIMITER)
     .map((segment) => segment.trim())
     .filter(Boolean);
 
-  const headPath = segments[0] ?? displayPath;
-  const workingTreePath = segments.at(-1) ?? displayPath;
+  const headPath = segments[0] ?? rawPath;
+  const workingTreePath = segments.at(-1) ?? rawPath;
   const pathspecs = Array.from(new Set([headPath, workingTreePath].filter(Boolean)));
 
   return {
-    displayPath,
+    displayPath: rawPath,
     headPath,
     pathspecs,
     workingTreePath,

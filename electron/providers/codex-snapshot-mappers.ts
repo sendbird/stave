@@ -9,14 +9,90 @@ import type {
   CodexConfigLayerSnapshot,
   CodexConfigOriginSnapshot,
   CodexConfigSnapshot,
+  CodexHookCatalogGroup,
   CodexMcpServerStatusSnapshot,
   CodexModelCatalogEntry,
   CodexPluginDetailSnapshot,
   CodexPluginSummarySnapshot,
   CodexRateLimitSnapshot,
+  CodexSkillCatalogGroup,
   CodexThreadSnapshot,
 } from "../../src/lib/providers/provider.types";
 import { toText } from "./utils";
+import {
+  sanitizeMcpDiagnosticText,
+  sanitizeMcpUrl,
+} from "./mcp-config-management-shared";
+
+export function mapCodexSkillCatalogGroups(
+  data: unknown,
+  fallbackCwd: string,
+): CodexSkillCatalogGroup[] {
+  return Array.isArray(data)
+    ? data.map((entry: any) => ({
+        cwd: String(entry?.cwd ?? fallbackCwd),
+        skills: Array.isArray(entry?.skills)
+          ? entry.skills.map((skill: any) => ({
+              name: String(skill?.name ?? ""),
+              description: String(skill?.description ?? ""),
+              shortDescription:
+                typeof skill?.shortDescription === "string"
+                  ? skill.shortDescription
+                  : typeof skill?.interface?.short_description === "string"
+                    ? skill.interface.short_description
+                    : null,
+              path: String(skill?.path ?? ""),
+              scope: typeof skill?.scope === "string" ? skill.scope : "unknown",
+              enabled: Boolean(skill?.enabled),
+            }))
+          : [],
+        errors: Array.isArray(entry?.errors)
+          ? entry.errors.map((error: any) =>
+              typeof error?.message === "string"
+                ? error.message
+                : JSON.stringify(error ?? {}),
+            )
+          : [],
+      }))
+    : [];
+}
+
+export function mapCodexHookCatalogGroups(
+  data: unknown,
+  fallbackCwd: string,
+): CodexHookCatalogGroup[] {
+  return Array.isArray(data)
+    ? data.map((entry: any) => ({
+        cwd: String(entry?.cwd ?? fallbackCwd),
+        hooks: Array.isArray(entry?.hooks)
+          ? entry.hooks.map((hook: any) => ({
+              key: String(hook?.key ?? ""),
+              eventName: String(hook?.eventName ?? "unknown"),
+              handlerType: String(hook?.handlerType ?? "unknown"),
+              enabled: Boolean(hook?.enabled),
+              source: String(hook?.source ?? "unknown"),
+              sourcePath: String(hook?.sourcePath ?? ""),
+              trustStatus: String(hook?.trustStatus ?? "unknown"),
+              isManaged: Boolean(hook?.isManaged),
+              statusMessage:
+                typeof hook?.statusMessage === "string"
+                  ? hook.statusMessage
+                  : null,
+            }))
+          : [],
+        errors: Array.isArray(entry?.errors)
+          ? entry.errors.map((error: any) =>
+              [error?.path, error?.message]
+                .filter((value) => typeof value === "string" && value.trim())
+                .join(": "),
+            )
+          : [],
+        warnings: Array.isArray(entry?.warnings)
+          ? entry.warnings.map((warning: unknown) => String(warning ?? ""))
+          : [],
+      }))
+    : [];
+}
 
 function toCodexStatusLabel(status: unknown) {
   if (!status || typeof status !== "object") {
@@ -205,7 +281,10 @@ export function mapCodexModelCatalogEntry(model: any): CodexModelCatalogEntry {
   };
 }
 
-export function mapCodexMcpStatusSnapshot(server: any): CodexMcpServerStatusSnapshot {
+export function mapCodexMcpStatusSnapshot(
+  server: any,
+): CodexMcpServerStatusSnapshot {
+  const sanitizedUrl = sanitizeMcpUrl(server?.url).value ?? null;
   const tools =
     server?.tools && typeof server.tools === "object"
       ? Object.values(server.tools).map((tool: any) => ({
@@ -248,14 +327,58 @@ export function mapCodexMcpStatusSnapshot(server: any): CodexMcpServerStatusSnap
           : {}),
       }))
     : [];
+  const failureReason =
+    typeof server?.failureReason === "string"
+      ? server.failureReason
+      : undefined;
+  const rawConnectionStatus =
+    typeof server?.connectionStatus === "string"
+      ? server.connectionStatus.toLowerCase()
+      : typeof server?.status === "string"
+        ? server.status.toLowerCase()
+        : "";
+  const connectionStatus =
+    failureReason?.toLowerCase() === "reauthenticationrequired"
+      ? "needs-auth"
+      : rawConnectionStatus === "ready" || rawConnectionStatus === "connected"
+        ? "connected"
+        : rawConnectionStatus === "starting"
+          ? "starting"
+          : rawConnectionStatus === "failed"
+            ? "failed"
+            : rawConnectionStatus === "cancelled"
+              ? "cancelled"
+              : rawConnectionStatus === "disabled"
+                ? "disabled"
+                : rawConnectionStatus === "needs-auth"
+                  ? "needs-auth"
+                  : undefined;
+  const rawLastError =
+    typeof server?.error === "string"
+      ? server.error
+      : typeof server?.error?.message === "string"
+        ? server.error.message
+        : undefined;
+  const lastError = rawLastError
+    ? sanitizeMcpDiagnosticText(rawLastError)
+    : undefined;
 
   return {
     name: String(server?.name ?? ""),
     enabled: true,
     disabledReason: null,
+    ...(connectionStatus ? { connectionStatus } : {}),
+    ...(lastError ? { lastError } : {}),
+    ...(typeof server?.lastErrorAt === "number"
+      ? { lastErrorAt: server.lastErrorAt }
+      : {}),
+    ...(typeof server?.statusUpdatedAt === "number"
+      ? { statusUpdatedAt: server.statusUpdatedAt }
+      : {}),
+    ...(failureReason ? { failureReason } : {}),
     transportType:
       typeof server?.transportType === "string" ? server.transportType : "mcp",
-    url: typeof server?.url === "string" ? server.url : null,
+    url: sanitizedUrl,
     bearerTokenEnvVar:
       typeof server?.bearerTokenEnvVar === "string"
         ? server.bearerTokenEnvVar
@@ -452,7 +575,9 @@ function mapCodexIndividualLimit(raw: any) {
   };
 }
 
-export function mapCodexRateLimitBuckets(response: any): CodexRateLimitSnapshot[] {
+export function mapCodexRateLimitBuckets(
+  response: any,
+): CodexRateLimitSnapshot[] {
   const buckets =
     response?.rateLimitsByLimitId &&
     typeof response.rateLimitsByLimitId === "object"

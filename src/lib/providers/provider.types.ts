@@ -12,10 +12,96 @@ import type { SkillPromptContext } from "@/lib/skills/types";
 export type ProviderId = "claude-code" | "codex";
 export type ClaudeSettingSource = "user" | "project" | "local";
 
+export type ProviderHistoryForkBoundary = "thread" | "turn" | "message";
+export type ProviderAppToolApprovalMode =
+  "auto" | "prompt" | "writes" | "approve";
+export type ProviderWebSearchMode = "disabled" | "cached" | "live" | "indexed";
+
+/**
+ * Features that Stave has wired end-to-end for the selected runtime version.
+ * This intentionally does not describe every feature the upstream runtime may
+ * expose.
+ */
+export interface ProviderRuntimeCapabilities {
+  approval: {
+    appToolModes: ProviderAppToolApprovalMode[];
+    autoClassifierPolicy: boolean;
+    permissionProfiles: boolean;
+  };
+  sandbox: {
+    credentialGuards: boolean;
+  };
+  history: {
+    forkBoundary: ProviderHistoryForkBoundary | null;
+    rewind: {
+      files: boolean;
+      conversation: boolean;
+    };
+  };
+  hooks: {
+    lifecycleEvents: boolean;
+    inventory: boolean;
+    trustManagement: boolean;
+  };
+  delegationPolicies: Array<"disabled" | "explicit" | "proactive">;
+  webSearchModes: ProviderWebSearchMode[];
+}
+
+export interface ProviderAvailabilityResponse {
+  ok: boolean;
+  available: boolean;
+  detail: string;
+  version?: string;
+  capabilities: ProviderRuntimeCapabilities;
+}
+
+/**
+ * Effort tiers an Advisor target may pin, as the union of both providers'
+ * scales. Declared here rather than derived from `ProviderRuntimeOptions` so a
+ * persisted Advisor target can never carry Codex's legacy `"minimal"`, which is
+ * no longer selectable anywhere in the UI.
+ *
+ * Which tiers are actually offered is provider- and model-specific; see
+ * `resolveAdvisorEffort` for the single point that validates and clamps one.
+ */
+export type AdvisorEffort =
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max"
+  | "ultra";
+
 export interface AdvisorTarget {
   providerId: ProviderId;
   model: string;
+  /**
+   * Explicit effort for the Advisor call. Omitted means "follow the model's
+   * provider default", which is what every target did before the tier became
+   * selectable — so an absent value is a real choice, not a missing one.
+   */
+  effort?: AdvisorEffort;
 }
+
+/**
+ * Advisor lifecycle phases carried by the `advisor_activity` provider event.
+ * See `src/lib/providers/advisor-activity.ts` for the reducer and the rationale
+ * behind keeping `completed` and `applied` separate.
+ */
+export type AdvisorActivityPhase =
+  | "started"
+  | "completed"
+  | "applied"
+  | "primary_started"
+  | "failed"
+  | "timeout"
+  | "aborted"
+  | "skipped";
+
+/** How the runtime actually isolated the advisor call. */
+export type AdvisorIsolationMode =
+  | "claude-tools-disabled"
+  | "codex-ephemeral-read-only";
 
 export interface ProviderSteerTurnRequest {
   turnId: string;
@@ -75,12 +161,39 @@ export interface ClaudeContextUsageResponse {
   usage?: ClaudeContextUsageSnapshot;
 }
 
+export interface ClaudeFileRewindResponse {
+  ok: boolean;
+  detail: string;
+  canRewind: boolean;
+  filesChanged?: string[];
+  insertions?: number;
+  deletions?: number;
+}
+
 export interface ClaudeMcpServerStatusSnapshot {
   name: string;
   status: "connected" | "failed" | "needs-auth" | "pending" | "disabled";
   error?: string;
+  lastError?: string;
+  lastErrorAt?: number;
+  statusUpdatedAt?: number;
   scope?: string;
   toolCount?: number;
+}
+
+export interface ClaudeMcpStatusResponse {
+  ok: boolean;
+  detail: string;
+  servers: ClaudeMcpServerStatusSnapshot[];
+  checkedAt: number;
+}
+
+export interface ClaudeMcpOauthLoginResponse {
+  ok: boolean;
+  detail: string;
+  authorizationUrl?: string;
+  requiresUserAction?: boolean;
+  callbackExpected?: boolean;
 }
 
 export interface ClaudePluginReloadSnapshot {
@@ -101,10 +214,40 @@ export interface ClaudePluginReloadResponse {
   reload?: ClaudePluginReloadSnapshot;
 }
 
+export interface ClaudeSessionForkResponse {
+  ok: boolean;
+  detail: string;
+  sessionId?: string;
+  lastAssistantMessageId?: string;
+  /**
+   * Source assistant UUID -> forked assistant UUID. Claude remaps transcript
+   * UUIDs while forking, so the renderer needs this to keep older fork points
+   * actionable inside the new Stave task.
+   */
+  messageIdMap?: Record<string, string>;
+}
+
+export interface ProviderMutationResponse {
+  ok: boolean;
+  detail: string;
+}
+
 export interface CodexMcpServerStatusSnapshot {
   name: string;
   enabled: boolean;
   disabledReason: string | null;
+  connectionStatus?:
+    | "starting"
+    | "connected"
+    | "failed"
+    | "needs-auth"
+    | "cancelled"
+    | "disabled"
+    | "unknown";
+  lastError?: string;
+  lastErrorAt?: number;
+  statusUpdatedAt?: number;
+  failureReason?: string;
   transportType: string;
   url: string | null;
   bearerTokenEnvVar: string | null;
@@ -140,10 +283,12 @@ export interface CodexMcpStatusResponse {
 
 export interface McpDiscoveredServer {
   name: string;
-  sources: Array<"claude-user" | "claude-project" | "codex-user">;
+  sources: Array<
+    "claude-user" | "claude-project" | "claude-local" | "codex-user"
+  >;
   claude: { configured: boolean };
   codex: { configured: boolean };
-  transport: "stdio" | "http" | "unknown";
+  transport: "stdio" | "http" | "sse" | "unknown";
 }
 
 export interface McpDiscoveryResponse {
@@ -194,6 +339,25 @@ export interface CodexSkillCatalogGroup {
   cwd: string;
   skills: CodexSkillSnapshot[];
   errors: string[];
+}
+
+export interface CodexHookSnapshot {
+  key: string;
+  eventName: string;
+  handlerType: string;
+  enabled: boolean;
+  source: string;
+  sourcePath: string;
+  trustStatus: string;
+  isManaged: boolean;
+  statusMessage: string | null;
+}
+
+export interface CodexHookCatalogGroup {
+  cwd: string;
+  hooks: CodexHookSnapshot[];
+  errors: string[];
+  warnings: string[];
 }
 
 export interface CodexPluginMarketplaceSnapshot {
@@ -383,6 +547,8 @@ export interface CodexThreadForkResponse {
   ok: boolean;
   detail: string;
   threadId?: string;
+  /** Native turn ids present in the forked thread, in provider order. */
+  turnIds?: string[];
 }
 
 export interface CodexExperimentalFeatureSnapshot {
@@ -431,6 +597,7 @@ export interface CodexAppServerSnapshot {
   account: CodexAccountSnapshot | null;
   rateLimits: CodexRateLimitSnapshot[];
   skills: CodexSkillCatalogGroup[];
+  hooks: CodexHookCatalogGroup[];
   pluginMarketplaces: CodexPluginMarketplaceSnapshot[];
   plugins: CodexPluginSummarySnapshot[];
   pluginMarketplaceLoadErrors: string[];
@@ -475,10 +642,7 @@ export interface CodexReviewStartResponse {
   turnId?: string;
 }
 
-export interface CodexMutationResponse {
-  ok: boolean;
-  detail: string;
-}
+export type CodexMutationResponse = ProviderMutationResponse;
 
 export interface CanonicalRetrievedContextPart {
   type: "retrieved_context";
@@ -555,6 +719,12 @@ export type NormalizedProviderEvent =
       nativeSessionId: string;
     }
   | {
+      type: "provider_turn";
+      providerId: ProviderId;
+      nativeSessionId: string;
+      nativeTurnId: string;
+    }
+  | {
       type: "goal_status";
       providerId: "codex";
       goal: ProviderGoalSnapshot | null;
@@ -569,6 +739,66 @@ export type NormalizedProviderEvent =
       ttftMs?: number;
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
+  | {
+      /**
+       * Structured advisor lifecycle signal. Replaces string-sniffing a
+       * `system` trace, and is the only channel that can distinguish "advisor
+       * produced advice" from "advice reached the primary prompt".
+       */
+      type: "advisor_activity";
+      phase: AdvisorActivityPhase;
+      /** Provider running the primary turn that asked for advice. */
+      primaryProviderId: ProviderId;
+      /** Primary model id, so "a different model answered" is verifiable. */
+      primaryModel?: string;
+      /** Advisor provider. Absent when the configured target was unusable. */
+      advisorProviderId?: ProviderId;
+      advisorModel?: string;
+      /**
+       * Effort the runtime actually requested, after defaulting and clamping.
+       * Reported rather than re-derived in the renderer for the same reason as
+       * `isolation`: the UI must not claim a tier the call did not use.
+       */
+      advisorEffort?: AdvisorEffort;
+      isolation?: AdvisorIsolationMode;
+      /** Wall-clock timestamp of this phase, from the main process. */
+      at: number;
+      /** Advisor deadline, reported on `started` so the UI can count down. */
+      timeoutMs?: number;
+      durationMs?: number;
+      /** Advisor-authored advice. Only on `completed`. */
+      advice?: string;
+      adviceChars?: number;
+      /** Only on `applied`: what actually landed in the primary prompt. */
+      injectedChars?: number;
+      injectedPartIndex?: number;
+      /** Failure, timeout, or skip reason. */
+      detail?: string;
+      inputTokens?: number;
+      outputTokens?: number;
+      totalCostUsd?: number;
+    }
+  | {
+      type: "history_boundary";
+      providerId: ProviderId;
+      boundaryKind: ProviderHistoryForkBoundary;
+      nativeId: string;
+      targetRole: "user" | "assistant";
+    }
+  | {
+      type: "permission_denial";
+      toolName: string;
+      message: string;
+      reasonType?: string;
+      reason?: string;
+    }
+  | {
+      type: "hook_activity";
+      hookId: string;
+      hookName: string;
+      hookEvent: string;
+      status: "running" | "completed" | "failed" | "cancelled" | "blocked";
+    }
   | {
       type: "tool";
       toolUseId?: string;
@@ -661,6 +891,10 @@ export interface ProviderRuntimeOptions {
   claudeAllowDangerouslySkipPermissions?: boolean;
   claudeSandboxEnabled?: boolean;
   claudeAllowUnsandboxedCommands?: boolean;
+  /** File paths the Claude sandbox must deny as credentials. */
+  claudeSandboxCredentialFiles?: string[];
+  /** Environment variable names the Claude sandbox must deny as credentials. */
+  claudeSandboxCredentialEnvVars?: string[];
   claudeSystemPrompt?: string;
   claudeMaxTurns?: number;
   claudeMaxBudgetUsd?: number;
@@ -697,7 +931,9 @@ export interface ProviderRuntimeOptions {
   // it to "low". "max" and "ultra" arrived with the GPT-5.6 Codex CLI scale.
   codexReasoningEffort?:
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-  codexWebSearch?: "disabled" | "cached" | "live";
+  codexWebSearch?: ProviderWebSearchMode;
+  /** Global Codex App/MCP tool approval mode. Independent from shell approval. */
+  codexAppToolApprovalMode?: "inherit" | ProviderAppToolApprovalMode;
   codexShowRawReasoning?: boolean;
   codexReasoningSummary?: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport?: "auto" | "enabled" | "disabled";

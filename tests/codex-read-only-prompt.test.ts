@@ -16,6 +16,9 @@ describe("runCodexReadOnlyPromptWithClient", () => {
           requiresOpenaiAuth: true,
         } as T;
       }
+      if (method === "mcpServerStatus/list") {
+        return { data: [{ name: "github" }, { name: "linear" }] } as T;
+      }
       if (method === "thread/start") {
         return { thread: { id: "advisor-thread" } } as T;
       }
@@ -90,12 +93,19 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         cacheReadTokens: 3,
       },
     });
+    // `isolated` only *instructs* the model to avoid MCP; every registered
+    // server stays reachable unless disabled per thread, so the isolated call
+    // must carry an explicit disable override for each one.
     expect(threadStartArgs).toMatchObject({
       cwd: "/workspace/stave",
       ephemeral: true,
       sandbox: "read-only",
       approvalPolicy: "never",
       isolated: true,
+      configOverrides: {
+        'mcp_servers."github".enabled': false,
+        'mcp_servers."linear".enabled': false,
+      },
       runtimeOptions: {
         model: "gpt-5.6-terra",
         codexFileAccess: "read-only",
@@ -111,10 +121,92 @@ describe("runCodexReadOnlyPromptWithClient", () => {
     });
     expect(methods).toEqual([
       "account/read",
+      "mcpServerStatus/list",
       "thread/start",
       "turn/start",
       "thread/delete",
     ]);
+  });
+
+  test("refuses an isolated call when the MCP catalog cannot be read", async () => {
+    const methods: string[] = [];
+
+    const result = await runCodexReadOnlyPromptWithClient({
+      runtimeCwd: "/workspace/stave",
+      prompt: "Review this request.",
+      isolated: true,
+      request: async <T>(method: string) => {
+        methods.push(method);
+        if (method === "account/read") {
+          return { account: { type: "chatgpt" }, requiresOpenaiAuth: true } as T;
+        }
+        if (method === "mcpServerStatus/list") {
+          return { data: "not-a-list" } as T;
+        }
+        return {} as T;
+      },
+      subscribe: () => () => {},
+      buildThreadStartParams: (args) => args,
+      buildTurnStartParams: (args) => args,
+    });
+
+    // Failing closed matters: running anyway would give the caller weaker
+    // isolation than the `isolated` flag advertises.
+    expect(result).toMatchObject({ ok: false });
+    expect(methods).not.toContain("thread/start");
+  });
+
+  test("does not resolve the MCP catalog for non-isolated calls", async () => {
+    const methods: string[] = [];
+
+    await runCodexReadOnlyPromptWithClient({
+      runtimeCwd: "/workspace/stave",
+      prompt: "Review this request.",
+      request: async <T>(method: string) => {
+        methods.push(method);
+        if (method === "account/read") {
+          return { account: { type: "chatgpt" }, requiresOpenaiAuth: true } as T;
+        }
+        if (method === "thread/start") {
+          return { thread: { id: "read-only-thread" } } as T;
+        }
+        if (method === "turn/start") {
+          return {
+            turn: {
+              id: "read-only-turn",
+              status: "completed",
+              items: [{ type: "agentMessage", text: "Fine." }],
+            },
+          } as T;
+        }
+        return {} as T;
+      },
+      subscribe: () => () => {},
+      buildThreadStartParams: (args) => args,
+      buildTurnStartParams: (args) => args,
+    });
+
+    expect(methods).not.toContain("mcpServerStatus/list");
+  });
+
+  test("labels failures with the caller, not with Advisor", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await runCodexReadOnlyPromptWithClient({
+      runtimeCwd: "/workspace/stave",
+      prompt: "Summarize the diff.",
+      label: "Commit message generation",
+      signal: controller.signal,
+      request: async <T>() => ({}) as T,
+      subscribe: () => () => {},
+      buildThreadStartParams: (args) => args,
+      buildTurnStartParams: (args) => args,
+    });
+
+    // This helper backs commit messages, task naming, and PR descriptions too;
+    // their toasts used to read "Advisor was aborted."
+    expect(result.detail).toBe("Commit message generation was aborted.");
   });
 
   test("does not start a thread when already aborted", async () => {

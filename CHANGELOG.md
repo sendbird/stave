@@ -1,3 +1,19 @@
+## [0.13.4](https://github.com/sendbird/stave/compare/v0.13.3...v0.13.4) (2026-07-31)
+
+### Features
+
+* Move the Git Graph entry point out of the Source Control panel into a dedicated right-rail button and command palette command.
+* Rework git graph lane layout and edge rendering to vscode-git-graph-style geometry, confining bends to a single row near fork/merge points instead of long shallow curves spanning the whole edge.
+
+### Bug Fixes
+
+* Make task-bound secrets reach Codex MCP servers that authenticate through `bearer_token_env_var`, by running secret-bound primary turns in a disposable App Server process carrying the bound environment.
+* Keep shared and secondary read-only Codex App Server processes secret-free and dispose the scoped process once the turn ends.
+* Clarify the Settings and composer guidance for binding secrets to a task.
+
+### References
+
+* [#282](https://github.com/sendbird/stave/pull/282), [#284](https://github.com/sendbird/stave/pull/284)
 ## [0.13.3](https://github.com/sendbird/stave/compare/v0.13.2...v0.13.3) (2026-07-31)
 
 ### Features

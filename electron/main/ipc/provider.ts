@@ -1,9 +1,14 @@
 import { ipcMain, webContents } from "electron";
 import { invokeHostService, onHostServiceEvent } from "../host-service-client";
 import {
+  AbortTurnArgsSchema,
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
+  ClaudeFileRewindArgsSchema,
+  ClaudeMcpOauthLoginArgsSchema,
   ClaudeRuntimeActionArgsSchema,
+  ClaudeSessionForkArgsSchema,
+  ClaudeSessionRenameArgsSchema,
   CheckAvailabilityArgsSchema,
   ConnectedToolStatusArgsSchema,
   CodexConfigBatchWriteArgsSchema,
@@ -13,6 +18,9 @@ import {
   CodexMcpOauthLoginArgsSchema,
   CodexMcpResourceReadArgsSchema,
   McpDiscoveryArgsSchema,
+  McpServerConfigListArgsSchema,
+  McpServerConfigMutationApplyArgsSchema,
+  McpServerConfigMutationArgsSchema,
   CodexPluginDetailArgsSchema,
   CodexPluginInstallArgsSchema,
   CodexPluginUninstallArgsSchema,
@@ -38,6 +46,7 @@ import {
   SteerTurnArgsSchema,
 } from "./schemas";
 import { discoverMcpServers } from "../mcp-discovery";
+import { createUnavailableUtilityInferenceMetadata } from "../../../src/lib/providers/utility-inference";
 
 function formatSchemaIssuePath(path: PropertyKey[]) {
   if (path.length === 0) {
@@ -244,11 +253,19 @@ export function registerProviderHandlers() {
   });
 
   ipcMain.handle("provider:abort-turn", (_event, args: unknown) => {
-    const turnId = (args as { turnId?: unknown })?.turnId;
-    if (typeof turnId !== "string" || turnId.trim().length === 0) {
+    const parsedArgs = AbortTurnArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
       return { ok: false, message: "Invalid provider abort request." };
     }
-    return invokeHostService("provider.abort-turn", { turnId });
+    return invokeHostService("provider.abort-turn", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:skip-advisor", (_event, args: unknown) => {
+    const parsedArgs = AbortTurnArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return { ok: false, message: "Invalid Advisor skip request." };
+    }
+    return invokeHostService("provider.skip-advisor", parsedArgs.data);
   });
 
   ipcMain.handle("provider:cleanup-task", (_event, args: unknown) => {
@@ -354,6 +371,40 @@ export function registerProviderHandlers() {
     },
   );
 
+  ipcMain.handle("provider:fork-claude-session", (_event, args: unknown) => {
+    const parsedArgs = ClaudeSessionForkArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        ok: false,
+        detail: "Invalid Claude session fork request.",
+      };
+    }
+    return invokeHostService("provider.fork-claude-session", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:rewind-claude-files", (_event, args: unknown) => {
+    const parsedArgs = ClaudeFileRewindArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        ok: false,
+        canRewind: false,
+        detail: "Invalid Claude file rewind request.",
+      };
+    }
+    return invokeHostService("provider.rewind-claude-files", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:rename-claude-session", (_event, args: unknown) => {
+    const parsedArgs = ClaudeSessionRenameArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        ok: false,
+        detail: "Invalid Claude session rename request.",
+      };
+    }
+    return invokeHostService("provider.rename-claude-session", parsedArgs.data);
+  });
+
   ipcMain.handle("provider:reload-claude-plugins", (_event, args: unknown) => {
     const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);
     if (!parsedArgs.success) {
@@ -363,6 +414,19 @@ export function registerProviderHandlers() {
       };
     }
     return invokeHostService("provider.reload-claude-plugins", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:get-claude-mcp-status", (_event, args: unknown) => {
+    const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        ok: false,
+        detail: "Invalid Claude MCP status request.",
+        servers: [],
+        checkedAt: Date.now(),
+      };
+    }
+    return invokeHostService("provider.get-claude-mcp-status", parsedArgs.data);
   });
 
   ipcMain.handle("provider:get-codex-mcp-status", (_event, args: unknown) => {
@@ -390,6 +454,74 @@ export function registerProviderHandlers() {
         };
       }
       return discoverMcpServers(parsedArgs.data);
+    },
+  );
+
+  ipcMain.handle(
+    "provider:list-mcp-server-configs",
+    (_event, args: unknown) => {
+      const parsedArgs = McpServerConfigListArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid MCP configuration list request.",
+          servers: [],
+          errors: ["The renderer sent an invalid MCP configuration request."],
+          loadedAt: Date.now(),
+        };
+      }
+      return invokeHostService(
+        "provider.list-mcp-server-configs",
+        parsedArgs.data,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "provider:preview-mcp-server-config-mutation",
+    (_event, args: unknown) => {
+      const parsedArgs = McpServerConfigMutationArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: formatSchemaFailureMessage({
+            issues: parsedArgs.error.issues,
+            fallback: "Invalid MCP configuration preview request.",
+          }),
+        };
+      }
+      return invokeHostService(
+        "provider.preview-mcp-server-config-mutation",
+        parsedArgs.data,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "provider:apply-mcp-server-config-mutation",
+    (_event, args: unknown) => {
+      const parsedArgs = McpServerConfigMutationApplyArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        const operation =
+          args &&
+          typeof args === "object" &&
+          "operation" in args &&
+          ["create", "update", "delete"].includes(String(args.operation))
+            ? (args.operation as "create" | "update" | "delete")
+            : "update";
+        return {
+          ok: false,
+          detail: formatSchemaFailureMessage({
+            issues: parsedArgs.error.issues,
+            fallback: "Invalid MCP configuration apply request.",
+          }),
+          operation,
+        };
+      }
+      return invokeHostService(
+        "provider.apply-mcp-server-config-mutation",
+        parsedArgs.data,
+      );
     },
   );
 
@@ -513,6 +645,23 @@ export function registerProviderHandlers() {
       }
       return invokeHostService(
         "provider.set-codex-experimental-feature-enablement",
+        parsedArgs.data,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "provider:start-claude-mcp-oauth-login",
+    (_event, args: unknown) => {
+      const parsedArgs = ClaudeMcpOauthLoginArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Claude MCP OAuth login request.",
+        };
+      }
+      return invokeHostService(
+        "provider.start-claude-mcp-oauth-login",
         parsedArgs.data,
       );
     },
@@ -684,7 +833,12 @@ export function registerProviderHandlers() {
   ipcMain.handle("provider:suggest-task-name", (_event, args: unknown) => {
     const parsed = SuggestTaskNameArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false };
+      return {
+        ok: false,
+        utility: createUnavailableUtilityInferenceMetadata(
+          "Invalid task-name inference request.",
+        ),
+      };
     }
     return invokeHostService("provider.suggest-task-name", parsed.data);
   });
@@ -692,7 +846,12 @@ export function registerProviderHandlers() {
   ipcMain.handle("provider:classify-route", (_event, args: unknown) => {
     const parsed = ClassifyRouteArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false };
+      return {
+        ok: false,
+        utility: createUnavailableUtilityInferenceMetadata(
+          "Invalid route-classification request.",
+        ),
+      };
     }
     return invokeHostService("provider.classify-route", parsed.data);
   });
@@ -700,7 +859,12 @@ export function registerProviderHandlers() {
   ipcMain.handle("provider:suggest-commit-message", (_event, args: unknown) => {
     const parsed = SuggestCommitMessageArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false };
+      return {
+        ok: false,
+        utility: createUnavailableUtilityInferenceMetadata(
+          "Invalid commit-message inference request.",
+        ),
+      };
     }
     return invokeHostService("provider.suggest-commit-message", parsed.data);
   });

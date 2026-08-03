@@ -17,6 +17,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run check:licenses
       - run: bun run check:reliability-gates
+      - run: bun run check:doc-paths
       - run: bun run check:max-lines-ratchet
       - run: bun run check:switch-exhaustiveness
       - run: bun run typecheck

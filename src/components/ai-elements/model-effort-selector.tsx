@@ -56,6 +56,8 @@ interface ModelEffortSelectorProps {
   effortValue?: ModelEffortValue;
   effortLabel?: string;
   fastMode?: boolean;
+  /** Whether the Codex Fast control is available in the selector header. */
+  showFastMode?: boolean;
   disabled?: boolean;
   openToken?: string | number;
   onFastModeChange?: (enabled: boolean) => void;
@@ -724,28 +726,30 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             fastMode={nextFastMode}
             disabled={args.disabled}
             headerAction={
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-pressed={nextFastMode}
-                onClick={() => {
-                  const enabled = !nextFastMode;
-                  setNextFastMode(enabled);
-                  args.onFastModeChange?.(enabled);
-                }}
-                className={cn(
-                  "relative h-10 min-w-11 px-2 text-xs font-semibold before:absolute before:-inset-y-0.5 before:inset-x-0 before:content-['']",
-                  nextFastMode
-                    ? "bg-prompt-role-fast/10 text-prompt-role-fast"
-                    : "text-muted-foreground",
-                )}
-              >
-                <Zap
-                  className={cn("size-3.5", nextFastMode && "fill-current")}
-                />
-                Fast
-              </Button>
+              args.showFastMode === false ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={nextFastMode}
+                  onClick={() => {
+                    const enabled = !nextFastMode;
+                    setNextFastMode(enabled);
+                    args.onFastModeChange?.(enabled);
+                  }}
+                  className={cn(
+                    "relative h-10 min-w-11 px-2 text-xs font-semibold before:absolute before:-inset-y-0.5 before:inset-x-0 before:content-['']",
+                    nextFastMode
+                      ? "bg-prompt-role-fast/10 text-prompt-role-fast"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  <Zap
+                    className={cn("size-3.5", nextFastMode && "fill-current")}
+                  />
+                  Fast
+                </Button>
+              )
             }
             onPreview={setPreview}
             onSelect={args.onSelect}

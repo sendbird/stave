@@ -64,6 +64,7 @@ import {
   toast,
 } from "@/components/ui";
 import { formatElementForChat } from "@/lib/lens/lens-element-message";
+import { LensDiagnosticsStateRevision } from "@/lib/lens/lens-diagnostics-state";
 import {
   getLensCommentImageId,
   isLensCommentImageAttachment,
@@ -1237,6 +1238,9 @@ function LensSessionSurface(args: {
   const [diagnosticsCaptureState, setDiagnosticsCaptureState] =
     useState<LensDiagnosticsCaptureState | null>(null);
   const [diagnosticsCaptureBusy, setDiagnosticsCaptureBusy] = useState(false);
+  const diagnosticsCaptureStateRevisionRef = useRef(
+    new LensDiagnosticsStateRevision(),
+  );
   const [autoScrollLogs, setAutoScrollLogs] = useState(true);
   const [lastLoadError, setLastLoadError] = useState<string | null>(null);
   const [hasExternalFloatingSurface, setHasExternalFloatingSurface] =
@@ -1764,6 +1768,10 @@ function LensSessionSurface(args: {
         if (!matchesSession(payload, workspaceId, lensSessionId)) {
           return;
         }
+        if (payload.entry.diagnosticsCaptureState) {
+          diagnosticsCaptureStateRevisionRef.current.supersede();
+          setDiagnosticsCaptureState(payload.entry.diagnosticsCaptureState);
+        }
         if (payload.entry.text.startsWith("Navigation failed:")) {
           setLastLoadError(payload.entry.text);
         }
@@ -1836,6 +1844,8 @@ function LensSessionSurface(args: {
   }, [hasLensApi, lensSessionId, workspaceId]);
 
   useEffect(() => {
+    const requestRevision =
+      diagnosticsCaptureStateRevisionRef.current.supersede();
     setDiagnosticsCaptureState(null);
     const getCaptureState = window.api?.lens?.getDiagnosticsCaptureState;
     if (!workspaceId || !hasLensApi || !getCaptureState) {
@@ -1845,7 +1855,12 @@ function LensSessionSurface(args: {
     let cancelled = false;
     void getCaptureState({ workspaceId, lensSessionId })
       .then((result) => {
-        if (cancelled) {
+        if (
+          cancelled ||
+          !diagnosticsCaptureStateRevisionRef.current.isCurrent(
+            requestRevision,
+          )
+        ) {
           return;
         }
         if (result.ok && result.state) {
@@ -1858,12 +1873,18 @@ function LensSessionSurface(args: {
         });
       })
       .catch((error) => {
-        if (!cancelled) {
-          setDiagnosticsCaptureState({
-            enabled: false,
-            message: error instanceof Error ? error.message : String(error),
-          });
+        if (
+          cancelled ||
+          !diagnosticsCaptureStateRevisionRef.current.isCurrent(
+            requestRevision,
+          )
+        ) {
+          return;
         }
+        setDiagnosticsCaptureState({
+          enabled: false,
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
 
     return () => {
@@ -2931,6 +2952,8 @@ function LensSessionSurface(args: {
       if (!workspaceId || !setCapture || diagnosticsCaptureBusy) {
         return;
       }
+      const requestRevision =
+        diagnosticsCaptureStateRevisionRef.current.supersede();
       setDiagnosticsCaptureBusy(true);
       try {
         const result = await setCapture({
@@ -2938,6 +2961,13 @@ function LensSessionSurface(args: {
           lensSessionId,
           enabled,
         });
+        if (
+          !diagnosticsCaptureStateRevisionRef.current.isCurrent(
+            requestRevision,
+          )
+        ) {
+          return;
+        }
         if (!result.ok || !result.state) {
           toast.error(
             enabled
@@ -2952,6 +2982,13 @@ function LensSessionSurface(args: {
         }
         setDiagnosticsCaptureState(result.state);
       } catch (error) {
+        if (
+          !diagnosticsCaptureStateRevisionRef.current.isCurrent(
+            requestRevision,
+          )
+        ) {
+          return;
+        }
         toast.error(
           enabled
             ? "Could not start full capture"

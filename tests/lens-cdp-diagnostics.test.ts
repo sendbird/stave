@@ -92,13 +92,22 @@ function createHarness() {
     webContents,
     consoleEntries,
     networkEntries,
-    async start(url = "https://app.example.test/dashboard") {
+    async start(
+      url = "https://app.example.test/dashboard",
+      acceptConsoleEntry?: () => {
+        accepted: boolean;
+        droppedCount: number;
+      },
+      onConsoleEntry: (entry: BrowserConsoleEntry) => void = (entry) =>
+        consoleEntries.push(entry),
+    ) {
       return diagnostics.startLensCdpDiagnostics({
         webContentsId,
         workspaceId: "workspace-fixture",
         lensSessionId: "lens-fixture",
         url,
-        onConsoleEntry: (entry) => consoleEntries.push(entry),
+        acceptConsoleEntry,
+        onConsoleEntry,
         onNetworkEntry: (entry) => networkEntries.push(entry),
       });
     },
@@ -139,6 +148,70 @@ describe("Lens CDP diagnostics", () => {
     ).toEqual({
       enabled: false,
     });
+  });
+
+  test("does not revive a capture disposed while CDP domains are enabling", async () => {
+    const harness = createHarness();
+    let finishRuntimeEnable: (() => void) | undefined;
+    harness.webContents.debugger.results.set(
+      "Runtime.enable",
+      new Promise<Record<string, unknown>>((resolve) => {
+        finishRuntimeEnable = () => resolve({});
+      }),
+    );
+
+    const starting = harness.start();
+    await waitFor(() =>
+      harness.webContents.debugger.commands.some(
+        ({ method }) => method === "Runtime.enable",
+      ),
+    );
+
+    diagnostics.disposeLensCdpDiagnostics(harness.webContentsId);
+    expect(harness.webContents.debugger.isAttached()).toBe(false);
+    finishRuntimeEnable?.();
+
+    expect(await starting).toEqual({
+      enabled: false,
+      message: "Lens browser session closed while diagnostics were starting.",
+    });
+    expect(
+      diagnostics.getLensCdpDiagnosticsState(harness.webContentsId),
+    ).toEqual({ enabled: false });
+  });
+
+  test("a failed stale setup does not stop its replacement capture", async () => {
+    const harness = createHarness();
+    let rejectFirstRuntimeEnable: ((error: Error) => void) | undefined;
+    harness.webContents.debugger.results.set(
+      "Runtime.enable",
+      new Promise<Record<string, unknown>>((_resolve, reject) => {
+        rejectFirstRuntimeEnable = reject;
+      }),
+    );
+
+    const firstStart = harness.start();
+    await waitFor(() =>
+      harness.webContents.debugger.commands.some(
+        ({ method }) => method === "Runtime.enable",
+      ),
+    );
+    diagnostics.stopLensCdpDiagnostics(harness.webContentsId, true);
+
+    harness.webContents.debugger.results.set("Runtime.enable", {});
+    expect(await harness.start()).toEqual({
+      enabled: true,
+      host: "app.example.test",
+    });
+
+    rejectFirstRuntimeEnable?.(new Error("stale enable failed"));
+    expect(await firstStart).toEqual({
+      enabled: false,
+      message: "stale enable failed",
+    });
+    expect(
+      diagnostics.getLensCdpDiagnosticsState(harness.webContentsId),
+    ).toEqual({ enabled: true, host: "app.example.test" });
   });
 
   test("captures execution contexts emitted while CDP domains are enabling", async () => {
@@ -183,6 +256,140 @@ describe("Lens CDP diagnostics", () => {
       frameId: "frame-startup",
       isDefault: true,
     });
+  });
+
+  test("applies console backpressure before retaining CDP object details", async () => {
+    const harness = createHarness();
+    let accepted = 0;
+    await harness.start("https://app.example.test/dashboard", () => ({
+      accepted: accepted++ < 2,
+      droppedCount: 0,
+    }));
+
+    for (let index = 0; index < 5; index += 1) {
+      harness.webContents.debugger.emitMessage("Runtime.consoleAPICalled", {
+        type: "log",
+        timestamp: 1_700_000_000_000 + index,
+        args: [
+          {
+            type: "object",
+            objectId: `remote-${index}`,
+            description: `entry-${index}`,
+          },
+        ],
+      });
+    }
+
+    expect(harness.consoleEntries).toHaveLength(3);
+    expect(harness.consoleEntries.at(-1)).toMatchObject({
+      level: "warn",
+      text: "Lens full diagnostics stopped because the page emitted excessive console logs.",
+      diagnosticsCaptureState: {
+        enabled: false,
+        message:
+          "Lens full diagnostics stopped because the page emitted excessive console logs.",
+      },
+    });
+    for (const entry of harness.consoleEntries.slice(0, 2)) {
+      const detail = diagnostics.getLensConsoleEntryDetail(
+        harness.webContentsId,
+        entry.id ?? "",
+      );
+      expect(detail).toBeDefined();
+      expect(detail?.arguments[0]?.objectHandle).toBeUndefined();
+    }
+    expect(
+      harness.webContents.debugger.commands.filter(
+        ({ method }) => method === "Runtime.releaseObject",
+      ),
+    ).toHaveLength(0);
+    expect(
+      harness.webContents.debugger.commands.filter(
+        ({ method }) => method === "Runtime.discardConsoleEntries",
+      ),
+    ).toHaveLength(1);
+    expect(
+      diagnostics.getLensCdpDiagnosticsState(harness.webContentsId),
+    ).toEqual({ enabled: false });
+  });
+
+  test("emits one identified warning when a console window reports drops", async () => {
+    const harness = createHarness();
+    await harness.start("https://app.example.test/dashboard", () => ({
+      accepted: true,
+      droppedCount: 7,
+    }));
+
+    harness.webContents.debugger.emitMessage("Runtime.consoleAPICalled", {
+      type: "log",
+      timestamp: 1_700_000_000_000,
+      args: [{ type: "string", value: "after flood" }],
+    });
+
+    expect(harness.consoleEntries).toHaveLength(2);
+    expect(harness.consoleEntries[0]).toMatchObject({
+      level: "warn",
+      text: "Lens console dropped 7 excessive page log entries.",
+      source: "lens",
+      captureSource: "cdp",
+    });
+    expect(harness.consoleEntries[0]?.id).toBeString();
+    expect(harness.consoleEntries[1]?.text).toBe("after flood");
+  });
+
+  test("detaches overloaded diagnostics even when the warning consumer throws", async () => {
+    const harness = createHarness();
+    await harness.start(
+      "https://app.example.test/dashboard",
+      () => ({ accepted: false, droppedCount: 0 }),
+      () => {
+        throw new Error("renderer unavailable");
+      },
+    );
+
+    harness.webContents.debugger.emitMessage("Runtime.consoleAPICalled", {
+      type: "log",
+      timestamp: 1_700_000_000_000,
+      args: [{ type: "object", objectId: "overload-object" }],
+    });
+
+    await waitFor(() => !harness.webContents.debugger.isAttached());
+    expect(
+      harness.webContents.debugger.commands.filter(
+        ({ method }) => method === "Runtime.discardConsoleEntries",
+      ),
+    ).toHaveLength(1);
+    expect(
+      diagnostics.getLensCdpDiagnosticsState(harness.webContentsId),
+    ).toEqual({ enabled: false });
+  });
+
+  test("force-detaches overload capture when console discard never settles", async () => {
+    const harness = createHarness();
+    harness.webContents.debugger.results.set(
+      "Runtime.discardConsoleEntries",
+      new Promise<Record<string, unknown>>(() => undefined),
+    );
+    await harness.start("https://app.example.test/dashboard", () => ({
+      accepted: false,
+      droppedCount: 0,
+    }));
+
+    harness.webContents.debugger.emitMessage("Runtime.consoleAPICalled", {
+      type: "log",
+      timestamp: 1_700_000_000_000,
+      args: [{ type: "object", objectId: "stalled-overload-object" }],
+    });
+
+    expect(harness.webContents.debugger.isAttached()).toBe(false);
+    expect(
+      harness.webContents.debugger.commands.filter(
+        ({ method }) => method === "Runtime.discardConsoleEntries",
+      ),
+    ).toHaveLength(1);
+    expect(
+      diagnostics.getLensCdpDiagnosticsState(harness.webContentsId),
+    ).toEqual({ enabled: false });
   });
 
   test("keeps an allow-once capture active across policy republish", async () => {
@@ -1059,6 +1266,51 @@ describe("Lens CDP diagnostics", () => {
           command.method === "Runtime.releaseObject" &&
           command.params?.objectId === "remote-object-1",
       ),
+    );
+  });
+
+  test("disposes closing targets without issuing remote object cleanup commands", async () => {
+    const harness = createHarness();
+    await harness.start();
+
+    harness.webContents.debugger.emitMessage("Runtime.consoleAPICalled", {
+      type: "log",
+      timestamp: 1_700_000_200_100,
+      args: [
+        {
+          type: "object",
+          subtype: "object",
+          description: "Object",
+          objectId: "closing-remote-object",
+        },
+      ],
+    });
+
+    const entry = harness.consoleEntries.at(-1);
+    expect(
+      diagnostics.getLensConsoleEntryDetail(
+        harness.webContentsId,
+        entry?.id ?? "",
+      )?.arguments[0]?.objectHandle,
+    ).toBeDefined();
+
+    const releaseCountBefore = harness.webContents.debugger.commands.filter(
+      (command) => command.method === "Runtime.releaseObject",
+    ).length;
+
+    diagnostics.disposeLensCdpDiagnostics(harness.webContentsId);
+
+    expect(
+      diagnostics.getLensCdpDiagnosticsState(harness.webContentsId),
+    ).toEqual({ enabled: false });
+    expect(harness.webContents.debugger.isAttached()).toBe(false);
+    expect(
+      harness.webContents.debugger.commands.filter(
+        (command) => command.method === "Runtime.releaseObject",
+      ),
+    ).toHaveLength(releaseCountBefore);
+    await expect(harness.start()).rejects.toThrow(
+      `WebContents ${harness.webContentsId} is closing`,
     );
   });
 

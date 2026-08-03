@@ -34,6 +34,81 @@ describe("parseSourceControlStatusLines", () => {
       },
     ]);
   });
+
+  test("reads NUL-delimited records as exact paths with rename sources", () => {
+    expect(parseSourceControlStatusLines({
+      stdout: [
+        "R  docs/새 이름.md\0docs/old name.md",
+        ' M src/"quoted".ts',
+        "?? src/new file.ts",
+        "",
+      ].join("\0"),
+    })).toEqual([
+      {
+        code: "R",
+        path: "docs/새 이름.md",
+        oldPath: "docs/old name.md",
+        indexStatus: "R",
+        workingTreeStatus: " ",
+      },
+      {
+        code: "M",
+        path: 'src/"quoted".ts',
+        indexStatus: " ",
+        workingTreeStatus: "M",
+      },
+      {
+        code: "??",
+        path: "src/new file.ts",
+        indexStatus: "?",
+        workingTreeStatus: "?",
+      },
+    ]);
+  });
+
+  test("unquotes escaped display paths from newline-delimited output", () => {
+    expect(parseSourceControlStatusLines({
+      stdout: [
+        'A  "\\355\\225\\234\\352\\270\\200.txt"',
+        'R  "docs/old name.md" -> "docs/new name.md"',
+        'M  "src/tab\\there.ts"',
+        "",
+      ].join("\n"),
+    })).toEqual([
+      {
+        code: "A",
+        path: "한글.txt",
+        indexStatus: "A",
+        workingTreeStatus: " ",
+      },
+      {
+        code: "R",
+        path: "docs/new name.md",
+        oldPath: "docs/old name.md",
+        indexStatus: "R",
+        workingTreeStatus: " ",
+      },
+      {
+        code: "M",
+        path: "src/tab\there.ts",
+        indexStatus: "M",
+        workingTreeStatus: " ",
+      },
+    ]);
+  });
+
+  test("keeps trailing whitespace that belongs to a NUL-delimited path", () => {
+    expect(parseSourceControlStatusLines({
+      stdout: "?? src/trailing space \0",
+    })).toEqual([
+      {
+        code: "??",
+        path: "src/trailing space ",
+        indexStatus: "?",
+        workingTreeStatus: "?",
+      },
+    ]);
+  });
 });
 
 describe("source control status helpers", () => {

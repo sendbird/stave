@@ -1,9 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ClaudeFileRewindArgsSchema,
+  ClaudeSessionForkArgsSchema,
   CliSessionCreateSessionArgsSchema,
+  ClaudeMcpOauthLoginArgsSchema,
+  CodexThreadForkArgsSchema,
   CreatePRArgsSchema,
   FilesystemRepoMapArgsSchema,
   LocalMcpConfigUpdateArgsSchema,
+  McpServerConfigMutationApplyArgsSchema,
+  McpServerConfigMutationArgsSchema,
   ReviewDiffArgsSchema,
   RoutineInformationResourceCreateArgsSchema,
   RoutineProviderTimeoutArgsSchema,
@@ -19,6 +25,72 @@ import {
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 
 describe("provider IPC schemas", () => {
+  test("validates Claude MCP OAuth login requests", () => {
+    expect(
+      ClaudeMcpOauthLoginArgsSchema.safeParse({
+        name: "github",
+        cwd: "/tmp/workspace",
+        timeoutSecs: 600,
+        runtimeOptions: {
+          claudeBinaryPath: "/tmp/claude",
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      ClaudeMcpOauthLoginArgsSchema.safeParse({
+        name: "",
+        timeoutSecs: 0,
+      }).success,
+    ).toBe(false);
+  });
+
+  test("validates secret-safe MCP configuration mutations", () => {
+    const create = {
+      operation: "create",
+      cwd: "/tmp/workspace",
+      draft: {
+        provider: "claude-code",
+        scope: "project",
+        name: "docs-server",
+        transport: "http",
+        url: "https://mcp.example.test/api",
+        envVars: [],
+        bearerTokenEnvVar: "DOCS_TOKEN",
+        headerEnvBindings: [{ name: "X-Workspace", envVar: "WORKSPACE_ID" }],
+        enabled: true,
+      },
+    };
+
+    expect(McpServerConfigMutationArgsSchema.safeParse(create).success).toBe(
+      true,
+    );
+    expect(
+      McpServerConfigMutationApplyArgsSchema.safeParse({
+        ...create,
+        expectedRevision: "revision-1",
+      }).success,
+    ).toBe(true);
+    expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        ...create,
+        draft: {
+          ...create.draft,
+          provider: "codex",
+          scope: "project",
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        ...create,
+        draft: {
+          ...create.draft,
+          bearerTokenEnvVar: "literal secret",
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   test("accepts the full steer request contract", () => {
     const parsed = SteerTurnArgsSchema.safeParse({
       turnId: "turn-1",
@@ -80,10 +152,47 @@ describe("provider IPC schemas", () => {
         claudeAgentName: "code-reviewer",
         claudeFallbackModel: "claude-sonnet-4-6,claude-haiku-4-5",
         claudeResumeSessionAt: "message-uuid",
+        claudeSandboxCredentialFiles: ["/tmp/service-token"],
+        claudeSandboxCredentialEnvVars: ["SERVICE_TOKEN"],
+        codexWebSearch: "indexed",
+        codexAppToolApprovalMode: "writes",
       },
     });
 
     expect(parsed.success).toBe(true);
+  });
+
+  test("validates provider-native branch and rewind boundaries", () => {
+    expect(
+      ClaudeSessionForkArgsSchema.safeParse({
+        sessionId: "claude-session-1",
+        upToMessageId: "message-uuid-1",
+        cwd: "/tmp/project",
+      }).success,
+    ).toBe(true);
+    expect(
+      ClaudeFileRewindArgsSchema.safeParse({
+        sessionId: "claude-session-1",
+        userMessageId: "message-uuid-1",
+        dryRun: true,
+        runtimeOptions: {},
+      }).success,
+    ).toBe(true);
+    expect(
+      CodexThreadForkArgsSchema.safeParse({
+        threadId: "thread-1",
+        lastTurnId: "turn-1",
+        runtimeOptions: {},
+      }).success,
+    ).toBe(true);
+    expect(
+      CodexThreadForkArgsSchema.safeParse({
+        threadId: "thread-1",
+        lastTurnId: "turn-1",
+        beforeTurnId: "turn-2",
+        runtimeOptions: {},
+      }).success,
+    ).toBe(false);
   });
 
   test("validates the provider-neutral Advisor target", () => {
@@ -111,6 +220,32 @@ describe("provider IPC schemas", () => {
         },
       }).success,
     ).toBe(false);
+  });
+
+  test("accepts an optional advisor effort and rejects an unselectable one", () => {
+    const parse = (effort: unknown) =>
+      StreamTurnArgsSchema.safeParse({
+        providerId: "claude-code",
+        prompt: "continue",
+        runtimeOptions: {
+          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol", effort },
+        },
+      }).success;
+
+    expect(parse("ultra")).toBe(true);
+    // "minimal" is Codex's legacy tier: unselectable, and collapsed to "low"
+    // before any call, so it must not cross the IPC boundary as a pin.
+    expect(parse("minimal")).toBe(false);
+    expect(parse("insane")).toBe(false);
+    expect(
+      StreamTurnArgsSchema.safeParse({
+        providerId: "claude-code",
+        prompt: "continue",
+        runtimeOptions: {
+          advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
+        },
+      }).success,
+    ).toBe(true);
   });
 
   test("accepts Claude xhigh effort in runtime options", () => {
@@ -182,6 +317,11 @@ describe("provider IPC schemas", () => {
               providerId: "codex",
               model: "gpt-5.4",
               content: "",
+              providerBoundary: {
+                providerId: "codex",
+                kind: "turn",
+                nativeId: "turn-1",
+              },
               parts: [
                 {
                   type: "tool_use",
@@ -204,6 +344,11 @@ describe("provider IPC schemas", () => {
     });
 
     expect(parsed).not.toBeNull();
+    expect(parsed?.messagesByTask["task-1"]?.[0]?.providerBoundary).toEqual({
+      providerId: "codex",
+      kind: "turn",
+      nativeId: "turn-1",
+    });
     expect(parsed?.messagesByTask["task-1"]?.[0]?.parts[0]).toEqual({
       type: "tool_use",
       toolName: "Agent",

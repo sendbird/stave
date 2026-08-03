@@ -297,6 +297,20 @@ function getBridgeEventStringAccessors(event: BridgeEvent) {
           },
         },
       ];
+    case "advisor_activity":
+      // The advice body is the only large field here, and it is the one the UI
+      // shows verbatim, so it must shrink under transport pressure like any
+      // other model-authored text instead of forcing the whole event out.
+      return typeof event.advice === "string"
+        ? [
+            {
+              get: () => event.advice ?? "",
+              set: (value: string) => {
+                event.advice = value;
+              },
+            },
+          ]
+        : [];
     default:
       return [];
   }

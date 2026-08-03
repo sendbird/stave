@@ -53,7 +53,7 @@ export interface PersistenceWorkspaceSnapshot {
   editorTabs?: Array<{
     id: string;
     filePath: string;
-    kind?: "text" | "image";
+    kind?: "text" | "image" | "git-graph";
     language: string;
     content?: string;
     contentState?: "ready" | "deferred" | "loading" | "too-large";
@@ -92,7 +92,7 @@ export interface PersistenceWorkspaceShell {
   editorTabs?: Array<{
     id: string;
     filePath: string;
-    kind?: "text" | "image";
+    kind?: "text" | "image" | "git-graph";
     language: string;
     content?: string;
     contentState?: "ready" | "deferred" | "loading" | "too-large";

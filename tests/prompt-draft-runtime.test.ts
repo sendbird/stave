@@ -285,6 +285,12 @@ describe("prompt-draft runtime state", () => {
               codexPlanMode: true,
               codexReasoningEffort: "ultra",
               autoRouting: true,
+              advisorEnabled: true,
+              advisorTarget: {
+                providerId: "claude-code",
+                model: "claude-opus-4-6",
+                effort: "high",
+              },
             },
           },
         },
@@ -302,6 +308,144 @@ describe("prompt-draft runtime state", () => {
       codexPlanMode: true,
       codexReasoningEffort: "ultra",
       autoRouting: true,
+      advisorEnabled: true,
+      advisorTarget: {
+        providerId: "claude-code",
+        model: "claude-opus-4-6",
+        effort: "high",
+      },
     });
+  });
+
+  // A snapshot is parsed all-or-nothing: any rejection here returns null for the
+  // WHOLE workspace, hydration falls back to an empty state, and the next autosave
+  // makes that permanent. These two cases are the ways a draft override can carry
+  // a value this build does not understand, and neither may cost the user a
+  // workspace. Regression guard for a bug where adding an override field to the
+  // type but not to this schema erased every task on the next relaunch.
+  const snapshotWithDraftOverrides = (
+    runtimeOverrides: Record<string, unknown>,
+  ) => ({
+    activeTaskId: "task-1",
+    tasks: [
+      {
+        id: "task-1",
+        title: "Task 1",
+        provider: "codex" as const,
+        updatedAt: "2026-04-01T00:00:00.000Z",
+        unread: false,
+      },
+    ],
+    messagesByTask: { "task-1": [] },
+    promptDraftByTask: {
+      "task-1": { text: "", attachedFilePaths: [], attachments: [], runtimeOverrides },
+    },
+    providerSessionByTask: {},
+    editorTabs: [],
+    activeEditorTabId: null,
+  });
+
+  test("drops an override field this build does not know instead of rejecting the workspace", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: snapshotWithDraftOverrides({
+        codexPlanMode: true,
+        // Written by a newer build; this one has never heard of it.
+        someFutureOverride: { nested: "value" },
+      }),
+    });
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.tasks).toHaveLength(1);
+    expect(parsed?.promptDraftByTask["task-1"]?.runtimeOverrides).toEqual({
+      codexPlanMode: true,
+    });
+  });
+
+  test("drops a corrupt advisor target instead of rejecting the workspace", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: snapshotWithDraftOverrides({
+        codexPlanMode: true,
+        advisorEnabled: "yes-please",
+        advisorTarget: { providerId: "not-a-provider", model: "" },
+      }),
+    });
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.tasks).toHaveLength(1);
+    expect(parsed?.promptDraftByTask["task-1"]?.runtimeOverrides).toEqual({
+      codexPlanMode: true,
+    });
+  });
+});
+
+describe("advisor overrides in draft equality", () => {
+  test("an advisor arming change is not diffed away as unchanged", () => {
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { advisorEnabled: true },
+        { advisorEnabled: false },
+      ),
+    ).toBe(false);
+    expect(arePromptDraftRuntimeOverridesEqual({ advisorEnabled: true }, {})).toBe(
+      false,
+    );
+  });
+
+  test("an advisor model change is not diffed away as unchanged", () => {
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" } },
+        { advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" } },
+      ),
+    ).toBe(false);
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" } },
+        { advisorTarget: { providerId: "claude-code", model: "gpt-5.6-sol" } },
+      ),
+    ).toBe(false);
+  });
+
+  test("equal advisor arming compares equal", () => {
+    const target = { providerId: "codex" as const, model: "gpt-5.6-sol" };
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { advisorEnabled: true, advisorTarget: { ...target } },
+        { advisorEnabled: true, advisorTarget: { ...target } },
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("advisor target equality", () => {
+  const base = { providerId: "codex" as const, model: "gpt-5.6-sol" };
+
+  test("a changed effort is a real change", () => {
+    // `updatePromptDraft` drops writes this reports as unchanged, so treating
+    // effort as invisible would make the tier control silently do nothing.
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { advisorEnabled: true, advisorTarget: { ...base, effort: "low" } },
+        { advisorEnabled: true, advisorTarget: { ...base, effort: "max" } },
+      ),
+    ).toBe(false);
+  });
+
+  test("pinning a tier differs from following the model default", () => {
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { advisorTarget: base },
+        { advisorTarget: { ...base, effort: "xhigh" } },
+      ),
+    ).toBe(false);
+  });
+
+  test("identical targets still compare equal", () => {
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { advisorEnabled: true, advisorTarget: { ...base, effort: "low" } },
+        { advisorEnabled: true, advisorTarget: { ...base, effort: "low" } },
+      ),
+    ).toBe(true);
   });
 });

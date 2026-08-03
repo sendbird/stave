@@ -69,8 +69,21 @@ export interface ProviderDescriptor {
   capabilities: {
     nativeCommandCatalog: boolean;
     supportsMidTurnSteering: boolean;
+    threadActions: {
+      forkFromTurn: ProviderThreadActionCapability;
+      rollbackToTurn: ProviderThreadActionCapability;
+      renameNativeSession: ProviderThreadActionCapability;
+    };
+    utilityInference: {
+      supported: boolean;
+      defaultModel: string;
+    };
   };
 }
+
+export type ProviderThreadActionCapability =
+  | { supported: true }
+  | { supported: false; reason: string };
 
 export const PROVIDER_DESCRIPTORS = [
   {
@@ -85,6 +98,19 @@ export const PROVIDER_DESCRIPTORS = [
     capabilities: {
       nativeCommandCatalog: true,
       supportsMidTurnSteering: true,
+      threadActions: {
+        forkFromTurn: { supported: true },
+        rollbackToTurn: {
+          supported: false,
+          reason:
+            "Claude Code does not expose in-place session rollback. Use Fork here to branch from this response.",
+        },
+        renameNativeSession: { supported: true },
+      },
+      utilityInference: {
+        supported: true,
+        defaultModel: "claude-haiku-4-5",
+      },
     },
   },
   {
@@ -99,6 +125,15 @@ export const PROVIDER_DESCRIPTORS = [
     capabilities: {
       nativeCommandCatalog: true,
       supportsMidTurnSteering: true,
+      threadActions: {
+        forkFromTurn: { supported: true },
+        rollbackToTurn: { supported: true },
+        renameNativeSession: { supported: true },
+      },
+      utilityInference: {
+        supported: true,
+        defaultModel: "gpt-5.6-luna",
+      },
     },
   },
 ] as const satisfies readonly ProviderDescriptor[];
@@ -129,12 +164,15 @@ export function getProviderLabel(args: {
   return args.variant === "full" ? descriptor.label : descriptor.shortLabel;
 }
 
-export function getProviderIconUrl(args: {
-  providerId: ProviderId;
-  model?: string;
-  isDarkMode?: boolean;
-}) {
-  return getProviderDescriptor({ providerId: args.providerId }).iconUrl;
+/**
+ * Marks are vendor-level and theme-independent: both ship their own brand
+ * colors and are legible on light and dark surfaces, so neither the model nor
+ * the active theme changes the resolved URL. Previously this accepted both and
+ * ignored them, which made `ModelIcon` subscribe to `isDarkMode` for a value
+ * that could not affect the result.
+ */
+export function getProviderIconUrl(args: { providerId: ProviderId }) {
+  return getProviderDescriptor(args).iconUrl;
 }
 
 export function inferProviderIdFromModel(args: { model: string }): ProviderId {
@@ -185,6 +223,18 @@ export function providerSupportsMidTurnSteering(args: {
   providerId: ProviderId;
 }) {
   return getProviderDescriptor(args).capabilities.supportsMidTurnSteering;
+}
+
+export function getProviderThreadActionCapabilities(args: {
+  providerId: ProviderId;
+}): ProviderDescriptor["capabilities"]["threadActions"] {
+  return getProviderDescriptor(args).capabilities.threadActions;
+}
+
+export function getUtilityInferenceCapability(args: {
+  providerId: ProviderId;
+}) {
+  return getProviderDescriptor(args).capabilities.utilityInference;
 }
 
 export function getDefaultModelForProvider(args: { providerId: ProviderId }) {
@@ -480,9 +530,7 @@ export function resolveDefaultCodexEffortForModel(args: {
   // via registerDynamicDefaultReasoningEffort) or our static, verified
   // MODEL_CAPABILITIES entry. The dynamic value wins when present since it
   // reflects the installed Codex binary's current recommendation.
-  const dynamicDefault = dynamicDefaultReasoningEfforts.get(
-    args.model.trim(),
-  );
+  const dynamicDefault = dynamicDefaultReasoningEfforts.get(args.model.trim());
   if (dynamicDefault) {
     return dynamicDefault;
   }

@@ -152,6 +152,10 @@ export interface BrowserConsoleEntry {
   hasObjectArguments?: boolean;
   hasStackTrace?: boolean;
   captureSource?: "cdp" | "electron";
+  /**
+   * Optional live diagnostics transition carried on the existing console event.
+   */
+  diagnosticsCaptureState?: LensDiagnosticsCaptureState;
 }
 
 export interface BrowserConsoleEntryDetail {

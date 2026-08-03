@@ -1,7 +1,7 @@
 {
   "name": "stave",
   "private": true,
-  "version": "0.13.3",
+  "version": "0.13.4",
   "description": "Stave: AI coding workspace for Claude and Codex.",
   "author": {
     "name": "Sendbird, Inc.",
@@ -52,6 +52,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:isolated": "node scripts/run-tests-isolated.mjs",
+    "check:doc-paths": "node scripts/check-doc-paths.mjs",
     "check:max-lines-ratchet": "node scripts/check-max-lines-ratchet.mjs",
     "check:licenses": "node scripts/check-license-compliance.mjs",
     "check:switch-exhaustiveness": "node scripts/check-switch-exhaustiveness.mjs",
@@ -59,10 +60,10 @@
     "test:e2e": "playwright test",
     "qa:ui": "bun run test:e2e",
     "rebuild:electron-deps": "node scripts/rebuild-electron-deps.mjs",
-    "test:ci": "bun run check:licenses && bun run check:reliability-gates && bun run check:max-lines-ratchet && bun run check:switch-exhaustiveness && bun run typecheck && bun run test:isolated && bun run build && bun run build:desktop"
+    "test:ci": "bun run check:licenses && bun run check:reliability-gates && bun run check:doc-paths && bun run check:max-lines-ratchet && bun run check:switch-exhaustiveness && bun run typecheck && bun run test:isolated && bun run build && bun run build:desktop"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.179",
+    "@anthropic-ai/claude-agent-sdk": "0.3.197",
     "@anthropic-ai/sdk": "^0.93.0",
     "@atlaskit/pragmatic-drag-and-drop": "^2.0.1",
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^2.0.0",

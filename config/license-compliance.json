@@ -23,7 +23,7 @@
   "exceptions": [
     {
       "packagePattern": "^@anthropic-ai/claude-agent-sdk(?:-.+)?$",
-      "version": "0.3.179",
+      "version": "0.3.197",
       "licensePattern": "^Custom:",
       "reason": "The Claude Agent SDK is an intentional runtime dependency governed by Anthropic's legal agreements. This exact-version exception must be re-reviewed before SDK or authentication changes.",
       "reference": "https://code.claude.com/docs/en/legal-and-compliance"

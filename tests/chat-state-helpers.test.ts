@@ -39,7 +39,6 @@ describe("resolveMidTurnSteeringContext", () => {
       fallbackProviderId: "claude-code",
       messages: [],
       hasAttachments: false,
-      isActiveWorkspace: true,
     });
 
     expect(result).toEqual({
@@ -68,7 +67,6 @@ describe("resolveMidTurnSteeringContext", () => {
         },
       ],
       hasAttachments: false,
-      isActiveWorkspace: true,
     });
 
     expect(result.providerId).toBe("codex");
@@ -81,7 +79,6 @@ describe("resolveMidTurnSteeringContext", () => {
       fallbackProviderId: "claude-code",
       messages: [],
       hasAttachments: true,
-      isActiveWorkspace: false,
     });
 
     expect(result.unavailableMessage).toBe(

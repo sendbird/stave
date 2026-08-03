@@ -42,6 +42,101 @@ export const McpDiscoveryArgsSchema = z
   .object({ cwd: z.string().max(4096).optional() })
   .strict();
 
+const McpConfigProviderSchema = z.union([
+  z.literal("claude-code"),
+  z.literal("codex"),
+]);
+const McpConfigScopeSchema = z.union([
+  z.literal("user"),
+  z.literal("project"),
+  z.literal("local"),
+]);
+const McpConfigTransportSchema = z.union([
+  z.literal("stdio"),
+  z.literal("http"),
+  z.literal("sse"),
+]);
+const McpServerNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
+const McpEnvVarNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(ENV_VAR_NAME_MAX_LENGTH)
+  .regex(ENV_VAR_NAME_PATTERN);
+const McpHeaderNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/);
+
+export const McpServerConfigDraftSchema = z
+  .object({
+    provider: McpConfigProviderSchema,
+    scope: McpConfigScopeSchema,
+    name: McpServerNameSchema,
+    transport: McpConfigTransportSchema,
+    command: z.string().trim().min(1).max(4096).optional(),
+    args: z.array(z.string().max(4096)).max(200).optional(),
+    url: z
+      .string()
+      .trim()
+      .url()
+      .max(4096)
+      .refine((value) => /^https?:\/\//i.test(value))
+      .optional(),
+    envVars: z.array(McpEnvVarNameSchema).max(100),
+    bearerTokenEnvVar: McpEnvVarNameSchema.optional(),
+    headerEnvBindings: z
+      .array(
+        z
+          .object({
+            name: McpHeaderNameSchema,
+            envVar: McpEnvVarNameSchema,
+          })
+          .strict(),
+      )
+      .max(100),
+    enabled: z.boolean(),
+  })
+  .strict()
+  .superRefine((draft, context) => {
+    if (draft.provider === "codex" && draft.scope !== "user") {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scope"],
+        message: "Codex MCP editing supports user scope only.",
+      });
+    }
+    if (draft.provider === "codex" && draft.transport === "sse") {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["transport"],
+        message: "Codex MCP editing does not support SSE.",
+      });
+    }
+    if (draft.transport === "stdio" && !draft.command) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["command"],
+        message: "A stdio MCP server requires a command.",
+      });
+    }
+  });
+
+const McpServerConfigTargetSchema = z
+  .object({
+    provider: McpConfigProviderSchema,
+    scope: McpConfigScopeSchema,
+    name: McpServerNameSchema,
+  })
+  .strict();
+
 export const LensCredentialUpsertArgsSchema = z
   .object({
     id: z.string().uuid().optional(),
@@ -107,14 +202,16 @@ export const LensSessionTargetArgsSchema = z
   })
   .strict();
 
-export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend({
-  options: z
-    .object({
-      extractDebugSource: z.boolean().optional(),
-    })
-    .strict()
-    .optional(),
-}).strict();
+export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend(
+  {
+    options: z
+      .object({
+        extractDebugSource: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
+  },
+).strict();
 
 export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
   options: z
@@ -130,14 +227,8 @@ export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
             .number()
             .min(-LENS_CAPTURE_LIMITS.rectCoordinate)
             .max(LENS_CAPTURE_LIMITS.rectCoordinate),
-          width: z
-            .number()
-            .positive()
-            .max(LENS_CAPTURE_LIMITS.rectSize),
-          height: z
-            .number()
-            .positive()
-            .max(LENS_CAPTURE_LIMITS.rectSize),
+          width: z.number().positive().max(LENS_CAPTURE_LIMITS.rectSize),
+          height: z.number().positive().max(LENS_CAPTURE_LIMITS.rectSize),
         })
         .strict()
         .optional(),
@@ -153,36 +244,27 @@ export const LensScreenshotArgsSchema = LensSessionTargetArgsSchema.extend({
 
 export const LensAnnotationRemoveArgsSchema =
   LensSessionTargetArgsSchema.extend({
-    annotationId: z
-      .string()
-      .min(1)
-      .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
-    documentId: z
-      .string()
-      .min(1)
-      .max(LENS_CAPTURE_LIMITS.documentIdBytes),
+    annotationId: z.string().min(1).max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+    documentId: z.string().min(1).max(LENS_CAPTURE_LIMITS.documentIdBytes),
   }).strict();
 
-export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend({
-  annotationId: z
-    .string()
-    .min(1)
-    .max(LENS_CAPTURE_LIMITS.annotationIdBytes),
-  selector: z.string().min(1).max(LENS_CAPTURE_LIMITS.selectorBytes),
-  patch: z
-    .record(
-      z.string().min(1).max(LENS_CAPTURE_LIMITS.stylePropertyBytes),
-      z.string().max(LENS_CAPTURE_LIMITS.styleValueBytes),
-    )
-    .refine(
-      (value) => Object.keys(value).length <= LENS_CAPTURE_LIMITS.styleEditItems,
-      "Too many Lens style properties",
-    ),
-  documentId: z
-    .string()
-    .min(1)
-    .max(LENS_CAPTURE_LIMITS.documentIdBytes),
-}).strict();
+export const LensAnnotationStyleArgsSchema = LensSessionTargetArgsSchema.extend(
+  {
+    annotationId: z.string().min(1).max(LENS_CAPTURE_LIMITS.annotationIdBytes),
+    selector: z.string().min(1).max(LENS_CAPTURE_LIMITS.selectorBytes),
+    patch: z
+      .record(
+        z.string().min(1).max(LENS_CAPTURE_LIMITS.stylePropertyBytes),
+        z.string().max(LENS_CAPTURE_LIMITS.styleValueBytes),
+      )
+      .refine(
+        (value) =>
+          Object.keys(value).length <= LENS_CAPTURE_LIMITS.styleEditItems,
+        "Too many Lens style properties",
+      ),
+    documentId: z.string().min(1).max(LENS_CAPTURE_LIMITS.documentIdBytes),
+  },
+).strict();
 
 export const SecretUpsertArgsSchema = z
   .object({
@@ -215,6 +297,12 @@ export const SecretRevealArgsSchema = z
 
 export const SuggestTaskNameArgsSchema = z
   .object({
+    cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().max(2000),
     history: z
       .array(
@@ -232,6 +320,12 @@ export const SuggestTaskNameArgsSchema = z
 
 export const ClassifyRouteArgsSchema = z
   .object({
+    cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().max(8000),
     history: z
       .array(
@@ -253,6 +347,17 @@ export const ClassifyRouteArgsSchema = z
 export const SuggestCommitMessageArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
+  })
+  .strict();
+
+export const AbortTurnArgsSchema = z
+  .object({
+    turnId: z.string().trim().min(1).max(200),
   })
   .strict();
 
@@ -307,6 +412,56 @@ export const StageFilesArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
     paths: z.array(z.string().min(1).max(4096)).min(1).max(1000),
+  })
+  .strict();
+
+const GitGraphRevisionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(1024)
+  .refine(
+    (value) => !value.startsWith("-") && !/[\x00-\x1f\x7f]/.test(value),
+    "Git refs must not be option-like or contain control characters.",
+  );
+
+const GitCommitHashSchema = z
+  .string()
+  .trim()
+  .regex(/^[0-9a-f]{7,64}$/i, "A valid commit hash is required.");
+
+const GitPathSchema = z
+  .string()
+  .min(1)
+  .max(4096)
+  .refine((value) => !value.includes("\0"), "Git paths must not contain NUL.");
+
+export const ScmGraphArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    limit: z.number().int().min(1).max(2000).optional(),
+    skip: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+    scope: GitGraphRevisionSchema.optional(),
+    refs: z.array(GitGraphRevisionSchema).max(256).optional(),
+    includeRepositoryState: z.boolean().optional(),
+  })
+  .strict();
+
+export const ScmCommitDetailsArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    hash: GitCommitHashSchema,
+  })
+  .strict();
+
+export const ScmCommitFilesArgsSchema = ScmCommitDetailsArgsSchema;
+
+export const ScmCommitDiffArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    hash: GitCommitHashSchema,
+    path: GitPathSchema,
+    oldPath: GitPathSchema.optional(),
   })
   .strict();
 
@@ -570,6 +725,14 @@ export const RuntimeOptionsObjectSchema = z
     claudeAllowDangerouslySkipPermissions: z.boolean().optional(),
     claudeSandboxEnabled: z.boolean().optional(),
     claudeAllowUnsandboxedCommands: z.boolean().optional(),
+    claudeSandboxCredentialFiles: z
+      .array(z.string().trim().min(1).max(4096))
+      .max(100)
+      .optional(),
+    claudeSandboxCredentialEnvVars: z
+      .array(z.string().trim().min(1).max(200))
+      .max(100)
+      .optional(),
     claudeSystemPrompt: z.string().max(20_000).optional(),
     claudeMaxTurns: z.number().int().min(1).max(200).optional(),
     claudeMaxBudgetUsd: z.number().min(0).max(10_000).optional(),
@@ -644,7 +807,21 @@ export const RuntimeOptionsObjectSchema = z
       ])
       .optional(),
     codexWebSearch: z
-      .union([z.literal("disabled"), z.literal("cached"), z.literal("live")])
+      .union([
+        z.literal("disabled"),
+        z.literal("cached"),
+        z.literal("live"),
+        z.literal("indexed"),
+      ])
+      .optional(),
+    codexAppToolApprovalMode: z
+      .union([
+        z.literal("inherit"),
+        z.literal("auto"),
+        z.literal("prompt"),
+        z.literal("writes"),
+        z.literal("approve"),
+      ])
       .optional(),
     codexShowRawReasoning: z.boolean().optional(),
     codexReasoningSummary: z
@@ -665,6 +842,19 @@ export const RuntimeOptionsObjectSchema = z
       .object({
         providerId: ProviderIdSchema,
         model: z.string().trim().min(1).max(200),
+        // Optional: absent means the Advisor follows the model's provider
+        // default. Codex's legacy "minimal" is not accepted here because it is
+        // not selectable, and `resolveAdvisorEffort` would collapse it anyway.
+        effort: z
+          .union([
+            z.literal("low"),
+            z.literal("medium"),
+            z.literal("high"),
+            z.literal("xhigh"),
+            z.literal("max"),
+            z.literal("ultra"),
+          ])
+          .optional(),
       })
       .strict()
       .optional(),
@@ -992,6 +1182,76 @@ export const ClaudeRuntimeActionArgsSchema = z
   })
   .strict();
 
+export const ClaudeSessionForkArgsSchema = z
+  .object({
+    sessionId: z.string().min(1).max(200),
+    upToMessageId: z.string().min(1).max(200),
+    title: z.string().trim().min(1).max(200).optional(),
+    cwd: z.string().max(4096).optional(),
+  })
+  .strict();
+
+export const ClaudeFileRewindArgsSchema = z
+  .object({
+    sessionId: z.string().min(1).max(200),
+    userMessageId: z.string().min(1).max(200),
+    dryRun: z.boolean(),
+    cwd: z.string().max(4096).optional(),
+    runtimeOptions: RuntimeOptionsSchema,
+  })
+  .strict();
+
+export const ClaudeSessionRenameArgsSchema = z
+  .object({
+    sessionId: z.string().min(1).max(200),
+    title: z.string().min(1).max(200),
+    cwd: z.string().max(4096).optional(),
+  })
+  .strict();
+
+const McpConfigMutationBaseSchema = z.object({
+  cwd: z.string().max(4096).optional(),
+  runtimeOptions: RuntimeOptionsSchema,
+});
+
+const McpConfigCreateMutationSchema = McpConfigMutationBaseSchema.extend({
+  operation: z.literal("create"),
+  draft: McpServerConfigDraftSchema,
+}).strict();
+const McpConfigUpdateMutationSchema = McpConfigMutationBaseSchema.extend({
+  operation: z.literal("update"),
+  target: McpServerConfigTargetSchema,
+  draft: McpServerConfigDraftSchema,
+}).strict();
+const McpConfigDeleteMutationSchema = McpConfigMutationBaseSchema.extend({
+  operation: z.literal("delete"),
+  target: McpServerConfigTargetSchema,
+}).strict();
+
+export const McpServerConfigListArgsSchema =
+  McpConfigMutationBaseSchema.strict();
+export const McpServerConfigMutationArgsSchema = z.discriminatedUnion(
+  "operation",
+  [
+    McpConfigCreateMutationSchema,
+    McpConfigUpdateMutationSchema,
+    McpConfigDeleteMutationSchema,
+  ],
+);
+export const McpServerConfigMutationApplyArgsSchema = z.discriminatedUnion(
+  "operation",
+  [
+    McpConfigCreateMutationSchema.extend({
+      expectedRevision: z.string().min(1).max(256),
+    }).strict(),
+    McpConfigUpdateMutationSchema.extend({
+      expectedRevision: z.string().min(1).max(256),
+    }).strict(),
+    McpConfigDeleteMutationSchema.extend({
+      expectedRevision: z.string().min(1).max(256),
+    }).strict(),
+  ],
+);
 export const CodexRuntimeActionArgsSchema = ClaudeRuntimeActionArgsSchema;
 
 export const RateLimitsSnapshotArgsSchema = ClaudeRuntimeActionArgsSchema;
@@ -1029,6 +1289,15 @@ export const CodexMcpOauthLoginArgsSchema = z
   })
   .strict();
 
+export const ClaudeMcpOauthLoginArgsSchema = z
+  .object({
+    name: z.string().min(1).max(200),
+    cwd: z.string().max(4096).optional(),
+    timeoutSecs: z.number().int().min(1).max(86_400).optional(),
+    runtimeOptions: RuntimeOptionsSchema,
+  })
+  .strict();
+
 export const CodexMcpResourceReadArgsSchema = z
   .object({
     threadId: z.string().min(1).max(200),
@@ -1056,9 +1325,14 @@ export const CodexThreadReadArgsSchema = z
 export const CodexThreadForkArgsSchema = z
   .object({
     threadId: z.string().min(1).max(200),
+    lastTurnId: z.string().min(1).max(200).optional(),
+    beforeTurnId: z.string().min(1).max(200).optional(),
     runtimeOptions: RuntimeOptionsSchema,
   })
-  .strict();
+  .strict()
+  .refine((value) => !(value.lastTurnId && value.beforeTurnId), {
+    message: "lastTurnId and beforeTurnId cannot be combined.",
+  });
 
 export const CodexThreadArchiveArgsSchema = z
   .object({
@@ -1222,6 +1496,14 @@ export const LoadTaskMessagesArgsSchema = z
     taskId: z.string().min(1).max(200),
     limit: z.number().int().min(1).max(500).optional(),
     offset: z.number().int().min(0).max(1_000_000).optional(),
+  })
+  .strict();
+
+export const TruncateTaskMessagesAfterArgsSchema = z
+  .object({
+    workspaceId: z.string().min(1).max(200),
+    taskId: z.string().min(1).max(200),
+    messageId: z.string().min(1).max(200),
   })
   .strict();
 

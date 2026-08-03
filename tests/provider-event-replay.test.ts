@@ -23,30 +23,72 @@ function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 }
 
 describe("appendProviderEventToAssistant", () => {
+  test("stores native provider turn metadata on the assistant message", () => {
+    const message = appendProviderEventToAssistant({
+      message: createMessage(),
+      event: {
+        type: "provider_turn",
+        providerId: "codex",
+        nativeSessionId: "thread-1",
+        nativeTurnId: "turn-1",
+      },
+    });
+
+    expect(message).toMatchObject({
+      nativeProviderSessionId: "thread-1",
+      nativeProviderTurnId: "turn-1",
+    });
+    expect(message.parts).toEqual([]);
+  });
+
   test("deduplicates code_diff parts for the same file path", () => {
     let message = createMessage();
 
     // First diff for file1
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "diff", filePath: "src/a.ts", oldContent: "old-a", newContent: "new-a-v1", status: "accepted" },
+      event: {
+        type: "diff",
+        filePath: "src/a.ts",
+        oldContent: "old-a",
+        newContent: "new-a-v1",
+        status: "accepted",
+      },
     });
     // Diff for file2
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "diff", filePath: "src/b.ts", oldContent: "old-b", newContent: "new-b", status: "accepted" },
+      event: {
+        type: "diff",
+        filePath: "src/b.ts",
+        oldContent: "old-b",
+        newContent: "new-b",
+        status: "accepted",
+      },
     });
     // Second diff for file1 (same file modified again)
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "diff", filePath: "src/a.ts", oldContent: "old-a", newContent: "new-a-v2", status: "accepted" },
+      event: {
+        type: "diff",
+        filePath: "src/a.ts",
+        oldContent: "old-a",
+        newContent: "new-a-v2",
+        status: "accepted",
+      },
     });
 
     // Should have exactly 2 code_diff parts (one per unique file), not 3
     const diffParts = message.parts.filter((p) => p.type === "code_diff");
     expect(diffParts).toHaveLength(2);
-    expect(diffParts[0]).toMatchObject({ filePath: "src/a.ts", newContent: "new-a-v2" });
-    expect(diffParts[1]).toMatchObject({ filePath: "src/b.ts", newContent: "new-b" });
+    expect(diffParts[0]).toMatchObject({
+      filePath: "src/a.ts",
+      newContent: "new-a-v2",
+    });
+    expect(diffParts[1]).toMatchObject({
+      filePath: "src/b.ts",
+      newContent: "new-b",
+    });
   });
 
   test("keeps code_diff parts for different file paths separate", () => {
@@ -54,15 +96,33 @@ describe("appendProviderEventToAssistant", () => {
 
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "diff", filePath: "src/a.ts", oldContent: "", newContent: "a", status: "accepted" },
+      event: {
+        type: "diff",
+        filePath: "src/a.ts",
+        oldContent: "",
+        newContent: "a",
+        status: "accepted",
+      },
     });
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "diff", filePath: "src/b.ts", oldContent: "", newContent: "b", status: "accepted" },
+      event: {
+        type: "diff",
+        filePath: "src/b.ts",
+        oldContent: "",
+        newContent: "b",
+        status: "accepted",
+      },
     });
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "diff", filePath: "src/c.ts", oldContent: "", newContent: "c", status: "accepted" },
+      event: {
+        type: "diff",
+        filePath: "src/c.ts",
+        oldContent: "",
+        newContent: "c",
+        status: "accepted",
+      },
     });
 
     const diffParts = message.parts.filter((p) => p.type === "code_diff");
@@ -90,13 +150,19 @@ describe("appendProviderEventToAssistant", () => {
     expect(thinkingPart.isStreaming).toBe(false);
     expect(typeof thinkingPart.startedAt).toBe("string");
     expect(typeof thinkingPart.completedAt).toBe("string");
-    expect(Date.parse(thinkingPart.completedAt ?? "")).toBeGreaterThanOrEqual(Date.parse(thinkingPart.startedAt ?? ""));
+    expect(Date.parse(thinkingPart.completedAt ?? "")).toBeGreaterThanOrEqual(
+      Date.parse(thinkingPart.startedAt ?? ""),
+    );
   });
 
   test("timestamps standalone non-streaming reasoning parts so duration chips can render", () => {
     const message = appendProviderEventToAssistant({
       message: createMessage(),
-      event: { type: "thinking", text: "Final reasoning block", isStreaming: false },
+      event: {
+        type: "thinking",
+        text: "Final reasoning block",
+        isStreaming: false,
+      },
     });
 
     const thinkingPart = message.parts.find((part) => part.type === "thinking");
@@ -108,19 +174,31 @@ describe("appendProviderEventToAssistant", () => {
     expect(thinkingPart.isStreaming).toBe(false);
     expect(typeof thinkingPart.startedAt).toBe("string");
     expect(typeof thinkingPart.completedAt).toBe("string");
-    expect(Date.parse(thinkingPart.completedAt ?? "")).toBeGreaterThanOrEqual(Date.parse(thinkingPart.startedAt ?? ""));
+    expect(Date.parse(thinkingPart.completedAt ?? "")).toBeGreaterThanOrEqual(
+      Date.parse(thinkingPart.startedAt ?? ""),
+    );
   });
 
   test("keeps separate text parts when provider text segment ids change", () => {
     let message = createMessage({
       parts: [
-        { type: "tool_use", toolUseId: "todo-1", toolName: "TodoWrite", input: "{\"todos\":[]}", state: "input-streaming" },
+        {
+          type: "tool_use",
+          toolUseId: "todo-1",
+          toolName: "TodoWrite",
+          input: '{"todos":[]}',
+          state: "input-streaming",
+        },
       ],
     });
 
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "text", text: "Inspecting the layout.", segmentId: "msg-1" },
+      event: {
+        type: "text",
+        text: "Inspecting the layout.",
+        segmentId: "msg-1",
+      },
     });
     message = appendProviderEventToAssistant({
       message,
@@ -128,16 +206,23 @@ describe("appendProviderEventToAssistant", () => {
         type: "tool",
         toolUseId: "todo-1",
         toolName: "TodoWrite",
-        input: "{\"todos\":[{\"content\":\"Inspecting layout\",\"status\":\"completed\"}]}",
+        input:
+          '{"todos":[{"content":"Inspecting layout","status":"completed"}]}',
         state: "output-available",
       },
     });
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "text", text: "## Result\n\nFinal answer.", segmentId: "msg-2" },
+      event: {
+        type: "text",
+        text: "## Result\n\nFinal answer.",
+        segmentId: "msg-2",
+      },
     });
 
-    const textParts = message.parts.filter((part): part is TextPart => part.type === "text");
+    const textParts = message.parts.filter(
+      (part): part is TextPart => part.type === "text",
+    );
     expect(textParts).toEqual([
       { type: "text", text: "Inspecting the layout.", segmentId: "msg-1" },
       { type: "text", text: "## Result\n\nFinal answer.", segmentId: "msg-2" },
@@ -186,19 +271,23 @@ describe("appendProviderEventToAssistant", () => {
       event: { type: "done", stop_reason: "output_overflow" },
     });
 
-    expect(updated.parts).toEqual([{ type: "system_event", content: runtimeNotice }]);
+    expect(updated.parts).toEqual([
+      { type: "system_event", content: runtimeNotice },
+    ]);
   });
 
   test("marks a matching approval as responded once the tool starts", () => {
     const updated = appendProviderEventToAssistant({
       message: createMessage({
-        parts: [{
-          type: "approval",
-          toolName: "Bash",
-          description: "Run npm test",
-          requestId: "tool-1",
-          state: "approval-requested",
-        }],
+        parts: [
+          {
+            type: "approval",
+            toolName: "Bash",
+            description: "Run npm test",
+            requestId: "tool-1",
+            state: "approval-requested",
+          },
+        ],
       }),
       event: {
         type: "tool",
@@ -224,13 +313,15 @@ describe("appendProviderEventToAssistant", () => {
   test("marks a matching approval as responded once tool results arrive", () => {
     const updated = appendProviderEventToAssistant({
       message: createMessage({
-        parts: [{
-          type: "approval",
-          toolName: "Read",
-          description: "Inspect file",
-          requestId: "tool-1",
-          state: "approval-requested",
-        }],
+        parts: [
+          {
+            type: "approval",
+            toolName: "Read",
+            description: "Inspect file",
+            requestId: "tool-1",
+            state: "approval-requested",
+          },
+        ],
       }),
       event: {
         type: "tool_result",
@@ -377,14 +468,16 @@ describe("provider session cursor replay", () => {
   test("advances the cursor only after a completed provider turn", () => {
     const replayed = replayProviderEventsToTaskState({
       taskId: "task-1",
-      messages: [{
-        id: "task-1-m-1",
-        role: "user",
-        model: "user",
-        providerId: "user",
-        content: "Implement the change.",
-        parts: [{ type: "text", text: "Implement the change." }],
-      }],
+      messages: [
+        {
+          id: "task-1-m-1",
+          role: "user",
+          model: "user",
+          providerId: "user",
+          content: "Implement the change.",
+          parts: [{ type: "text", text: "Implement the change." }],
+        },
+      ],
       events: [
         {
           type: "provider_session",
@@ -409,11 +502,13 @@ describe("provider session cursor replay", () => {
     const replayed = replayProviderEventsToTaskState({
       taskId: "task-1",
       messages: [],
-      events: [{
-        type: "provider_session",
-        providerId: "claude-code",
-        nativeSessionId: "session-new",
-      }],
+      events: [
+        {
+          type: "provider_session",
+          providerId: "claude-code",
+          nativeSessionId: "session-new",
+        },
+      ],
       provider: "claude-code",
       model: "claude-sonnet-4-6",
       turnId: "turn-1",
@@ -533,7 +628,10 @@ describe("plan response replay", () => {
       taskId: "task-1",
       messages: [],
       events: [
-        { type: "text", text: "Analyzing the codebase.\n\n<proposed_plan>\n## Plan\n- Step 1\n</proposed_plan>" },
+        {
+          type: "text",
+          text: "Analyzing the codebase.\n\n<proposed_plan>\n## Plan\n- Step 1\n</proposed_plan>",
+        },
         { type: "plan_ready", planText: "## Plan\n- Step 1" },
         { type: "done" },
       ],
@@ -560,7 +658,10 @@ describe("plan response replay", () => {
       taskId: "task-1",
       messages: [],
       events: [
-        { type: "text", text: "<proposed_plan>\n## Plan\n- Fix it\n</proposed_plan>" },
+        {
+          type: "text",
+          text: "<proposed_plan>\n## Plan\n- Fix it\n</proposed_plan>",
+        },
         { type: "plan_ready", planText: "## Plan\n- Fix it" },
         { type: "done" },
       ],
@@ -585,7 +686,11 @@ describe("plan response replay", () => {
       events: [
         { type: "text", text: "## Plan\n- Step 1", segmentId: "plan-stream-1" },
         { type: "text", text: "\n- Step 2", segmentId: "plan-stream-1" },
-        { type: "plan_ready", planText: "## Plan\n- Step 1\n- Step 2", sourceSegmentId: "plan-stream-1" },
+        {
+          type: "plan_ready",
+          planText: "## Plan\n- Step 1\n- Step 2",
+          sourceSegmentId: "plan-stream-1",
+        },
         { type: "done" },
       ],
       provider: "codex",
@@ -606,9 +711,17 @@ describe("plan response replay", () => {
       taskId: "task-1",
       messages: [],
       events: [
-        { type: "text", text: "Analyzing the codebase.\n\n", segmentId: "commentary-1" },
+        {
+          type: "text",
+          text: "Analyzing the codebase.\n\n",
+          segmentId: "commentary-1",
+        },
         { type: "text", text: "## Plan\n- Step 1", segmentId: "plan-stream-1" },
-        { type: "plan_ready", planText: "## Plan\n- Step 1\n- Step 2", sourceSegmentId: "plan-stream-1" },
+        {
+          type: "plan_ready",
+          planText: "## Plan\n- Step 1\n- Step 2",
+          sourceSegmentId: "plan-stream-1",
+        },
         { type: "done" },
       ],
       provider: "codex",
@@ -616,7 +729,9 @@ describe("plan response replay", () => {
     });
 
     expect(replayed.messages).toHaveLength(2);
-    expect(replayed.messages[0]?.content.trim()).toBe("Analyzing the codebase.");
+    expect(replayed.messages[0]?.content.trim()).toBe(
+      "Analyzing the codebase.",
+    );
     expect(replayed.messages[0]?.isPlanResponse).not.toBe(true);
     expect(replayed.messages[1]).toMatchObject({
       content: "## Plan\n- Step 1\n- Step 2",
@@ -630,7 +745,10 @@ describe("plan response replay", () => {
       taskId: "task-1",
       messages: [],
       events: [
-        { type: "text", text: "Analysis done.\n\n<proposed_plan>\n## Plan\n- Do X" },
+        {
+          type: "text",
+          text: "Analysis done.\n\n<proposed_plan>\n## Plan\n- Do X",
+        },
         { type: "plan_ready", planText: "## Plan\n- Do X\n- Do Y" },
         { type: "done" },
       ],
@@ -675,7 +793,8 @@ describe("plan response replay", () => {
       events: [
         {
           type: "plan_ready",
-          planText: "...\n\n## Plan\n- Strip commentary\n- Keep steps only\n\nLet me know if you want changes.",
+          planText:
+            "...\n\n## Plan\n- Strip commentary\n- Keep steps only\n\nLet me know if you want changes.",
         },
         { type: "done" },
       ],
@@ -696,10 +815,7 @@ describe("plan response replay", () => {
     const replayed = replayProviderEventsToTaskState({
       taskId: "task-1",
       messages: [],
-      events: [
-        { type: "plan_ready", planText: "..." },
-        { type: "done" },
-      ],
+      events: [{ type: "plan_ready", planText: "..." }, { type: "done" }],
       provider: "codex",
       model: "o3",
     });
@@ -713,17 +829,128 @@ describe("plan response replay", () => {
   });
 });
 
+describe("provider-native history metadata", () => {
+  test("attaches user and assistant boundaries to their transcript messages", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [
+        {
+          id: "task-1-m-1",
+          role: "user",
+          model: "user",
+          providerId: "user",
+          content: "Continue.",
+          parts: [{ type: "text", text: "Continue." }],
+        },
+      ],
+      events: [
+        {
+          type: "history_boundary",
+          providerId: "claude-code",
+          boundaryKind: "message",
+          nativeId: "user-message-1",
+          targetRole: "user",
+        },
+        {
+          type: "history_boundary",
+          providerId: "claude-code",
+          boundaryKind: "message",
+          nativeId: "assistant-message-1",
+          targetRole: "assistant",
+        },
+        { type: "text", text: "Done." },
+        { type: "done" },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages[0]?.providerBoundary).toEqual({
+      providerId: "claude-code",
+      kind: "message",
+      nativeId: "user-message-1",
+    });
+    expect(replayed.messages[1]).toMatchObject({
+      role: "assistant",
+      content: "Done.",
+      providerBoundary: {
+        providerId: "claude-code",
+        kind: "message",
+        nativeId: "assistant-message-1",
+      },
+    });
+  });
+
+  test("keeps hook activity out of the transcript", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "hook_activity",
+          hookId: "hook-1",
+          hookName: "audit-hook",
+          hookEvent: "UserPromptSubmit",
+          status: "completed",
+        },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages).toEqual([]);
+  });
+
+  test("surfaces permission denials as concise system events", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "permission_denial",
+          toolName: "Bash",
+          message: "Access denied.",
+          reason: "Credential policy",
+        },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages[0]?.parts).toContainEqual({
+      type: "system_event",
+      content: "Permission denied for Bash: Credential policy",
+    });
+  });
+});
+
 describe("subagent progress integration", () => {
   test("appends progress to matching Agent tool_use by toolUseId", () => {
     const message = createMessage({
       parts: [
-        { type: "tool_use", toolUseId: "toolu_1", toolName: "agent", input: "{}", state: "input-streaming" },
-        { type: "tool_use", toolUseId: "toolu_2", toolName: "agent", input: "{}", state: "input-streaming" },
+        {
+          type: "tool_use",
+          toolUseId: "toolu_1",
+          toolName: "agent",
+          input: "{}",
+          state: "input-streaming",
+        },
+        {
+          type: "tool_use",
+          toolUseId: "toolu_2",
+          toolName: "agent",
+          input: "{}",
+          state: "input-streaming",
+        },
       ],
     });
     const updated = appendProviderEventToAssistant({
       message,
-      event: { type: "subagent_progress", toolUseId: "toolu_1", content: "Reading files" },
+      event: {
+        type: "subagent_progress",
+        toolUseId: "toolu_1",
+        content: "Reading files",
+      },
     });
     const part1 = updated.parts[0] as import("@/types/chat").ToolUsePart;
     const part2 = updated.parts[1] as import("@/types/chat").ToolUsePart;
@@ -734,8 +961,20 @@ describe("subagent progress integration", () => {
   test("appends to last active Agent when toolUseId is not provided", () => {
     const message = createMessage({
       parts: [
-        { type: "tool_use", toolUseId: "toolu_1", toolName: "agent", input: "{}", state: "output-available" },
-        { type: "tool_use", toolUseId: "toolu_2", toolName: "agent", input: "{}", state: "input-streaming" },
+        {
+          type: "tool_use",
+          toolUseId: "toolu_1",
+          toolName: "agent",
+          input: "{}",
+          state: "output-available",
+        },
+        {
+          type: "tool_use",
+          toolUseId: "toolu_2",
+          toolName: "agent",
+          input: "{}",
+          state: "input-streaming",
+        },
       ],
     });
     const updated = appendProviderEventToAssistant({
@@ -751,16 +990,30 @@ describe("subagent progress integration", () => {
   test("accumulates multiple progress messages on the same agent", () => {
     let message = createMessage({
       parts: [
-        { type: "tool_use", toolUseId: "toolu_1", toolName: "agent", input: "{}", state: "input-streaming" },
+        {
+          type: "tool_use",
+          toolUseId: "toolu_1",
+          toolName: "agent",
+          input: "{}",
+          state: "input-streaming",
+        },
       ],
     });
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "subagent_progress", toolUseId: "toolu_1", content: "Step 1" },
+      event: {
+        type: "subagent_progress",
+        toolUseId: "toolu_1",
+        content: "Step 1",
+      },
     });
     message = appendProviderEventToAssistant({
       message,
-      event: { type: "subagent_progress", toolUseId: "toolu_1", content: "Step 2" },
+      event: {
+        type: "subagent_progress",
+        toolUseId: "toolu_1",
+        content: "Step 2",
+      },
     });
     const part = message.parts[0] as import("@/types/chat").ToolUsePart;
     expect(part.progressMessages).toEqual(["Step 1", "Step 2"]);
@@ -769,7 +1022,13 @@ describe("subagent progress integration", () => {
   test("degrades to system_event when no Agent tool_use exists", () => {
     const message = createMessage({
       parts: [
-        { type: "tool_use", toolUseId: "toolu_bash", toolName: "Bash", input: "ls", state: "input-streaming" },
+        {
+          type: "tool_use",
+          toolUseId: "toolu_bash",
+          toolName: "Bash",
+          input: "ls",
+          state: "input-streaming",
+        },
       ],
     });
     const updated = appendProviderEventToAssistant({
@@ -786,12 +1045,21 @@ describe("subagent progress integration", () => {
   test("migrates legacy 'Subagent progress:' system events into Agent tool parts", () => {
     const message = createMessage({
       parts: [
-        { type: "tool_use", toolUseId: "toolu_1", toolName: "agent", input: "{}", state: "input-streaming" },
+        {
+          type: "tool_use",
+          toolUseId: "toolu_1",
+          toolName: "agent",
+          input: "{}",
+          state: "input-streaming",
+        },
       ],
     });
     const updated = appendProviderEventToAssistant({
       message,
-      event: { type: "system", content: "Subagent progress: Reading CONVENTIONS.md" },
+      event: {
+        type: "system",
+        content: "Subagent progress: Reading CONVENTIONS.md",
+      },
     });
     const part = updated.parts[0] as import("@/types/chat").ToolUsePart;
     expect(part.progressMessages).toEqual(["Reading CONVENTIONS.md"]);

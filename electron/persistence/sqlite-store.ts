@@ -1087,6 +1087,37 @@ export class SqliteStore {
     return rows.map((row) => this.mapTaskMessageRow({ ...args, row }));
   }
 
+  truncateTaskMessagesAfter(args: {
+    workspaceId: string;
+    taskId: string;
+    messageId: string;
+  }) {
+    const persistedMessageId = `${args.workspaceId}:${args.taskId}:${args.messageId}`;
+    const target = this.db
+      .prepare(
+        `
+        SELECT rowid
+        FROM messages
+        WHERE id = ? AND workspace_id = ? AND task_id = ?
+      `,
+      )
+      .get(persistedMessageId, args.workspaceId, args.taskId) as
+      { rowid: number } | undefined;
+    if (!target) {
+      return { ok: false, removedCount: 0 };
+    }
+
+    const result = this.db
+      .prepare(
+        `
+        DELETE FROM messages
+        WHERE workspace_id = ? AND task_id = ? AND rowid > ?
+      `,
+      )
+      .run(args.workspaceId, args.taskId, target.rowid);
+    return { ok: true, removedCount: result.changes };
+  }
+
   listWorkspaceSummaries(): PersistenceWorkspaceSummary[] {
     const rows = this.db
       .prepare(
@@ -1814,9 +1845,7 @@ export class SqliteStore {
       );
   }
 
-  getRunAggregate(
-    args: Parameters<RunLedgerStore["getAggregate"]>[0],
-  ) {
+  getRunAggregate(args: Parameters<RunLedgerStore["getAggregate"]>[0]) {
     return this.runLedger.getAggregate(args);
   }
 
@@ -1824,15 +1853,11 @@ export class SqliteStore {
     return this.runLedger.claimStep(args);
   }
 
-  markRunStepWaiting(
-    args: Parameters<RunLedgerStore["markStepWaiting"]>[0],
-  ) {
+  markRunStepWaiting(args: Parameters<RunLedgerStore["markStepWaiting"]>[0]) {
     return this.runLedger.markStepWaiting(args);
   }
 
-  completeRunStep(
-    args: Parameters<RunLedgerStore["completeStep"]>[0],
-  ) {
+  completeRunStep(args: Parameters<RunLedgerStore["completeStep"]>[0]) {
     return this.runLedger.completeStep(args);
   }
 
@@ -1840,15 +1865,11 @@ export class SqliteStore {
     return this.runLedger.failStep(args);
   }
 
-  cancelRunStep(
-    args: Parameters<RunLedgerStore["cancelStep"]>[0],
-  ) {
+  cancelRunStep(args: Parameters<RunLedgerStore["cancelStep"]>[0]) {
     return this.runLedger.cancelStep(args);
   }
 
-  listRunReceipts(
-    args: Parameters<RunLedgerStore["listReceipts"]>[0],
-  ) {
+  listRunReceipts(args: Parameters<RunLedgerStore["listReceipts"]>[0]) {
     return this.runLedger.listReceipts(args);
   }
 
@@ -2404,9 +2425,7 @@ export class SqliteStore {
     turnId?: string;
   }): PersistenceTurnSummary[] {
     const turnId = args.turnId?.trim() || null;
-    const limit = turnId
-      ? 1
-      : Math.max(1, Math.min(20, args.limit ?? 5));
+    const limit = turnId ? 1 : Math.max(1, Math.min(20, args.limit ?? 5));
     const rows = this.db
       .prepare(
         `

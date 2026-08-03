@@ -16,6 +16,7 @@ import type {
   ProviderId,
 } from "@/lib/providers/provider.types";
 import type { PrMergeMethod } from "@/lib/pr-status";
+import type { ComposerControlPlacements } from "@/lib/composer-controls";
 import type { ModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
 import type { AppShortcutKeys } from "@/lib/app-shortcuts";
 import { DEFAULT_APP_SHORTCUT_KEYS } from "@/lib/app-shortcuts";
@@ -63,6 +64,7 @@ import {
   listProviderIds,
 } from "@/lib/providers/model-catalog";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
+import type { UtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import type { WorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import type {
   CustomThemeDefinition,
@@ -137,10 +139,17 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * default.
    */
   turnActivityExpandedByDefault: boolean;
-  codexFastModeVisible: boolean;
+  /**
+   * Where each prompt-input control renders: the toolbar, the `⋯` tray, or
+   * nowhere. Sparse — an absent entry means "toolbar", so controls added later
+   * are visible by default without a migration.
+   */
+  composerControlPlacements: ComposerControlPlacements;
   modelClaude: string;
   modelCodex: string;
   modelRuntimePreferences: ModelRuntimePreferences;
+  /** Provider preference for isolated task-name, routing, and commit utilities. */
+  utilityInferenceProvider: UtilityInferenceProvider;
   autoRoutingEnabled: boolean;
   autoRoutingUseClassifier: boolean;
   autoRoutingObjective: number;
@@ -234,6 +243,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeAllowDangerouslySkipPermissions: boolean;
   claudeSandboxEnabled: boolean;
   claudeAllowUnsandboxedCommands: boolean;
+  /** Comma/newline-delimited credential file paths denied by Claude sandbox. */
+  claudeSandboxCredentialFiles: string;
+  /** Comma/newline-delimited credential env names denied by Claude sandbox. */
+  claudeSandboxCredentialEnvVars: string;
   claudeTaskBudgetTokens: number;
   /** Optional isolated read-only preflight used before normal user turns. */
   advisorTarget: AdvisorTarget | null;
@@ -260,7 +273,9 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   codexBinaryPath: string;
   codexReasoningEffort:
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-  codexWebSearch: "disabled" | "cached" | "live";
+  codexWebSearch: "disabled" | "cached" | "live" | "indexed";
+  codexAppToolApprovalMode:
+    "inherit" | "auto" | "prompt" | "writes" | "approve";
   codexShowRawReasoning: boolean;
   codexReasoningSummary: "auto" | "concise" | "detailed" | "none";
   codexReasoningSummarySupport: "auto" | "enabled" | "disabled";
@@ -372,10 +387,11 @@ export const defaultSettings: AppSettings = {
   reasoningExpansionMode: "manual",
   showInterimMessages: false,
   turnActivityExpandedByDefault: true,
-  codexFastModeVisible: true,
+  composerControlPlacements: {},
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
   modelRuntimePreferences: {},
+  utilityInferenceProvider: "auto",
   autoRoutingEnabled: false,
   autoRoutingUseClassifier: false,
   autoRoutingObjective: 0.5,
@@ -440,6 +456,8 @@ export const defaultSettings: AppSettings = {
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: false,
   claudeAllowUnsandboxedCommands: true,
+  claudeSandboxCredentialFiles: "",
+  claudeSandboxCredentialEnvVars: "",
   claudeTaskBudgetTokens: 0,
   advisorTarget: null,
   craneConnector: {
@@ -469,6 +487,7 @@ export const defaultSettings: AppSettings = {
   // the default model family (GPT-5.6).
   codexReasoningEffort: "xhigh",
   codexWebSearch: "live",
+  codexAppToolApprovalMode: "inherit",
   codexShowRawReasoning: false,
   codexReasoningSummary: "auto",
   codexReasoningSummarySupport: "auto",

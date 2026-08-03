@@ -35,6 +35,7 @@ import {
   fetchScmBranch,
   fetchGitHubPrStatus,
   fetchRepoMergeSettings,
+  getScmCommitDetails,
   getScmCommitDiff,
   getScmCommitFiles,
   getScmGraph,
@@ -78,6 +79,7 @@ import {
   compactCodexThread,
   forkCodexThread,
   getCodexAppServerSnapshot,
+  getCodexMcpRuntimeStatus,
   getCodexModelCatalog,
   getCodexPluginDetail,
   importCodexExternalConfig,
@@ -96,15 +98,22 @@ import {
 } from "./providers/codex-app-server-runtime";
 import { getRateLimitsSnapshot } from "./providers/rate-limits/rate-limits-snapshot";
 import {
+  forkClaudeSession,
   getClaudeContextUsage,
+  getClaudeMcpStatus,
   prewarmClaudeSdk,
+  renameClaudeSession,
   reloadClaudePlugins,
+  rewindClaudeFiles,
   reviewClaudeWorktreeDiff,
-  classifyClaudeRoute,
-  suggestClaudeCommitMessage,
   suggestClaudePRDescription,
-  suggestClaudeTaskName,
+  startClaudeMcpOauthLogin,
 } from "./providers/claude-sdk-runtime";
+import {
+  classifyUtilityRoute,
+  suggestUtilityCommitMessage,
+  suggestUtilityTaskName,
+} from "./providers/utility-inference";
 import {
   normalizePrePrReviewProvider,
   PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS,
@@ -134,6 +143,11 @@ import {
   cancelSecondaryProviderRun,
   executeSecondaryProviderRun,
 } from "./providers/secondary-run-executor";
+import {
+  applyMcpServerConfigMutation,
+  listMcpServerConfigs,
+  previewMcpServerConfigMutation,
+} from "./providers/mcp-config-management";
 
 type HostServiceOutboundMessage =
   | AnyHostServiceResponseEnvelope
@@ -769,7 +783,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
   } as const;
 }
 
-async function suggestProviderCommitMessage(args: { cwd?: string }) {
+async function suggestProviderCommitMessage(
+  args: import("./host-service/protocol").HostProviderSuggestCommitMessageArgs,
+) {
   const cwd = args.cwd;
   const [diffResult, statusResult] = await Promise.all([
     runCommandArgs({ command: "git", commandArgs: ["diff", "HEAD"], cwd }),
@@ -782,7 +798,7 @@ async function suggestProviderCommitMessage(args: { cwd?: string }) {
 
   const diff = diffResult.ok ? diffResult.stdout.trim() : "";
   const fileList = statusResult.ok ? statusResult.stdout.trim() : "";
-  return suggestClaudeCommitMessage({ diff, fileList });
+  return suggestUtilityCommitMessage({ ...args, diff, fileList });
 }
 
 async function collectProviderPullRequestContext(args: {
@@ -1103,6 +1119,59 @@ async function shutdown() {
   resetHostServicePersistence();
 }
 
+async function loadMergedCodexMcpStatus(args: {
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}) {
+  const checkedAt = Date.now();
+  const [configured, runtime] = await Promise.all([
+    getCodexMcpStatus({
+      codexBinaryPath: args.runtimeOptions?.codexBinaryPath,
+    }),
+    getCodexMcpRuntimeStatus(args),
+  ]);
+  const runtimeByName = new Map(
+    runtime.servers.map((server) => [server.name, server]),
+  );
+  const servers = configured.servers.map((server) => {
+    const live = runtimeByName.get(server.name);
+    runtimeByName.delete(server.name);
+    if (!live) {
+      return {
+        ...server,
+        connectionStatus: server.enabled ? "unknown" : "disabled",
+        statusUpdatedAt: server.statusUpdatedAt ?? checkedAt,
+      } as const;
+    }
+    return {
+      ...server,
+      ...live,
+      enabled: server.enabled,
+      disabledReason: server.disabledReason,
+      connectionStatus: server.enabled
+        ? live.connectionStatus
+        : ("disabled" as const),
+      statusUpdatedAt:
+        live.statusUpdatedAt ?? server.statusUpdatedAt ?? checkedAt,
+      transportType:
+        server.transportType !== "unknown"
+          ? server.transportType
+          : live.transportType,
+      url: server.url ?? live.url,
+      bearerTokenEnvVar: server.bearerTokenEnvVar ?? live.bearerTokenEnvVar,
+      authStatus: live.authStatus ?? server.authStatus,
+      startupTimeoutSec: server.startupTimeoutSec ?? live.startupTimeoutSec,
+      toolTimeoutSec: server.toolTimeoutSec ?? live.toolTimeoutSec,
+    };
+  });
+  servers.push(...runtimeByName.values());
+
+  return {
+    ok: configured.ok || runtime.ok,
+    detail: [configured.detail, runtime.detail].filter(Boolean).join(" "),
+    servers,
+  };
+}
+
 async function handleRequest(request: AnyHostServiceRequestEnvelope) {
   switch (request.method) {
     case "service.shutdown":
@@ -1245,6 +1314,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "provider.abort-turn":
       await respond(request.id, providerRuntime.abortTurn(request.params));
       return;
+    case "provider.skip-advisor":
+      await respond(request.id, providerRuntime.skipAdvisor(request.params));
+      return;
     case "provider.cleanup-task":
       await respond(request.id, providerRuntime.cleanupTask(request.params));
       return;
@@ -1287,15 +1359,37 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "provider.get-claude-context-usage":
       await respond(request.id, await getClaudeContextUsage(request.params));
       return;
+    case "provider.fork-claude-session":
+      await respond(request.id, await forkClaudeSession(request.params));
+      return;
+    case "provider.rewind-claude-files":
+      await respond(request.id, await rewindClaudeFiles(request.params));
+      return;
+    case "provider.rename-claude-session":
+      await respond(request.id, await renameClaudeSession(request.params));
+      return;
     case "provider.reload-claude-plugins":
       await respond(request.id, await reloadClaudePlugins(request.params));
       return;
+    case "provider.get-claude-mcp-status":
+      await respond(request.id, await getClaudeMcpStatus(request.params));
+      return;
     case "provider.get-codex-mcp-status":
+      await respond(request.id, await loadMergedCodexMcpStatus(request.params));
+      return;
+    case "provider.list-mcp-server-configs":
+      await respond(request.id, await listMcpServerConfigs(request.params));
+      return;
+    case "provider.preview-mcp-server-config-mutation":
       await respond(
         request.id,
-        await getCodexMcpStatus({
-          codexBinaryPath: request.params.runtimeOptions?.codexBinaryPath,
-        }),
+        await previewMcpServerConfigMutation(request.params),
+      );
+      return;
+    case "provider.apply-mcp-server-config-mutation":
+      await respond(
+        request.id,
+        await applyMcpServerConfigMutation(request.params),
       );
       return;
     case "provider.get-codex-model-catalog":
@@ -1327,6 +1421,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.start-codex-mcp-oauth-login":
       await respond(request.id, await startCodexMcpOauthLogin(request.params));
+      return;
+    case "provider.start-claude-mcp-oauth-login":
+      await respond(request.id, await startClaudeMcpOauthLogin(request.params));
       return;
     case "provider.read-codex-mcp-resource":
       await respond(request.id, await readCodexMcpResource(request.params));
@@ -1365,10 +1462,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await batchWriteCodexConfig(request.params));
       return;
     case "provider.suggest-task-name":
-      await respond(request.id, await suggestClaudeTaskName(request.params));
+      await respond(request.id, await suggestUtilityTaskName(request.params));
       return;
     case "provider.classify-route":
-      await respond(request.id, await classifyClaudeRoute(request.params));
+      await respond(request.id, await classifyUtilityRoute(request.params));
       return;
     case "provider.suggest-commit-message":
       await respond(
@@ -1427,6 +1524,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "scm.graph":
       await respond(request.id, await getScmGraph(request.params));
       return;
+    case "scm.commit-details":
+      await respond(request.id, await getScmCommitDetails(request.params));
+      return;
     case "scm.commit-files":
       await respond(request.id, await getScmCommitFiles(request.params));
       return;
@@ -1449,7 +1549,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await checkoutScmBranch(request.params));
       return;
     case "scm.checkout-default-branch-detached":
-      await respond(request.id, await checkoutDefaultBranchDetached(request.params));
+      await respond(
+        request.id,
+        await checkoutDefaultBranchDetached(request.params),
+      );
       return;
     case "scm.pull-branch":
       await respond(request.id, await pullScmBranch(request.params));

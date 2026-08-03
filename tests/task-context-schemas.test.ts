@@ -82,14 +82,16 @@ describe("task-context workspace schemas", () => {
       payload: {
         ...createWorkspaceBase(),
         activeTaskId: "task-1",
-        tasks: [{
-          id: "task-1",
-          title: "Keep this title",
-          titleManuallySet: true,
-          provider: "codex",
-          updatedAt: "2026-07-23T00:00:00.000Z",
-          unread: false,
-        }],
+        tasks: [
+          {
+            id: "task-1",
+            title: "Keep this title",
+            titleManuallySet: true,
+            provider: "codex",
+            updatedAt: "2026-07-23T00:00:00.000Z",
+            unread: false,
+          },
+        ],
         messageCountByTask: { "task-1": 0 },
       },
     });
@@ -102,19 +104,23 @@ describe("task-context workspace schemas", () => {
       payload: {
         ...createWorkspaceBase(),
         activeTaskId: "task-crane",
-        tasks: [{
-          id: "task-crane",
-          title: "Crane ATL-1",
-          provider: "codex",
-          updatedAt: "2026-07-26T00:00:00.000Z",
-          unread: false,
-          sourceContexts: [{
-            type: "retrieved_context",
-            sourceId: "crane:ATL-1",
+        tasks: [
+          {
+            id: "task-crane",
             title: "Crane ATL-1",
-            content: "Untrusted issue material.",
-          }],
-        }],
+            provider: "codex",
+            updatedAt: "2026-07-26T00:00:00.000Z",
+            unread: false,
+            sourceContexts: [
+              {
+                type: "retrieved_context",
+                sourceId: "crane:ATL-1",
+                title: "Crane ATL-1",
+                content: "Untrusted issue material.",
+              },
+            ],
+          },
+        ],
         messageCountByTask: { "task-crane": 1 },
       },
     });
@@ -188,6 +194,33 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.messagesByTask["task-1"]?.[0]).toMatchObject({
       steeredIntoTurnId: "turn-1",
       steerDeliveryState: "accepted",
+    });
+  });
+
+  test("preserves native provider turn metadata in workspace snapshots", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        messagesByTask: {
+          "task-1": [
+            {
+              id: "assistant-1",
+              role: "assistant",
+              model: "gpt-5.6-terra",
+              providerId: "codex",
+              nativeProviderSessionId: "thread-1",
+              nativeProviderTurnId: "turn-1",
+              content: "Done.",
+              parts: [{ type: "text", text: "Done." }],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(parsed?.messagesByTask["task-1"]?.[0]).toMatchObject({
+      nativeProviderSessionId: "thread-1",
+      nativeProviderTurnId: "turn-1",
     });
   });
 
@@ -393,7 +426,7 @@ describe("task-context workspace schemas", () => {
         editorTabs: [
           {
             id: "git-graph",
-            filePath: "Git Graph",
+            filePath: "Commit graph",
             kind: "git-graph",
             language: "",
             content: "",

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildAdvisorOutcomeEvent,
+  buildAdvisorStartedEvent,
   createAdvisorUsageMerger,
   formatAdvisorSystemTrace,
   mergeAdvisorUsage,
@@ -283,5 +285,213 @@ describe("Advisor usage and trace helpers", () => {
     expect(trace).not.toContain("\n");
     expect(trace.length).toBeLessThan(400);
     expect(trace).toContain("The primary turn continued.");
+  });
+});
+
+describe("advisor effort", () => {
+  test("an unpinned target runs at the model's provider default", async () => {
+    let claudeEffort: string | undefined;
+    let codexEffort: string | undefined;
+    const runners = {
+      runClaude: async (args) => {
+        claudeEffort = args.effort;
+        return { ok: true, text: "advice" };
+      },
+      runCodex: async (args) => {
+        codexEffort = args.runtimeOptions?.codexReasoningEffort;
+        return { ok: true, text: "advice" };
+      },
+    } satisfies AdvisorRunnerDependencies;
+
+    await runAdvisorPreflight({
+      turn: createTurn({ providerId: "claude-code", model: "claude-fable-5" }),
+      registerAbort: () => {},
+      runners,
+    });
+    await runAdvisorPreflight({
+      turn: createTurn({ providerId: "codex", model: "gpt-5.6-sol" }),
+      registerAbort: () => {},
+      runners,
+    });
+
+    expect(claudeEffort).toBe("xhigh");
+    expect(codexEffort).toBe("xhigh");
+  });
+
+  test("a pinned tier is what the runner is actually asked for", async () => {
+    let codexEffort: string | undefined;
+    const runners = {
+      runClaude: createUnusedRunner("Claude runner must not be called."),
+      runCodex: async (args) => {
+        codexEffort = args.runtimeOptions?.codexReasoningEffort;
+        return { ok: true, text: "advice" };
+      },
+    } satisfies AdvisorRunnerDependencies;
+
+    await runAdvisorPreflight({
+      turn: createTurn({
+        providerId: "codex",
+        model: "gpt-5.6-sol",
+        effort: "low",
+      }),
+      registerAbort: () => {},
+      runners,
+    });
+
+    expect(codexEffort).toBe("low");
+  });
+
+  test("a tier above the model's scale is clamped before the call, not rejected by it", async () => {
+    let codexEffort: string | undefined;
+    const runners = {
+      runClaude: createUnusedRunner("Claude runner must not be called."),
+      runCodex: async (args) => {
+        codexEffort = args.runtimeOptions?.codexReasoningEffort;
+        return { ok: true, text: "advice" };
+      },
+    } satisfies AdvisorRunnerDependencies;
+
+    await runAdvisorPreflight({
+      turn: createTurn({
+        providerId: "codex",
+        model: "gpt-5.6-luna",
+        effort: "ultra",
+      }),
+      registerAbort: () => {},
+      runners,
+    });
+
+    // Luna caps at "max"; sending "ultra" would make the whole preflight fail.
+    expect(codexEffort).toBe("max");
+  });
+});
+
+describe("advisor lifecycle events report the effort that ran", () => {
+  const primary = { primaryProviderId: "claude-code" as const, at: 1_000 };
+
+  test("started and outcome both carry the resolved tier", () => {
+    const target = {
+      providerId: "codex" as const,
+      model: "gpt-5.6-sol",
+      effort: "low" as const,
+    };
+    expect(buildAdvisorStartedEvent({ ...primary, target })).toMatchObject({
+      advisorEffort: "low",
+    });
+    expect(
+      buildAdvisorOutcomeEvent({
+        primaryProviderId: "claude-code",
+        at: 2_000,
+        result: {
+          status: "completed",
+          target,
+          advice: "advice",
+          durationMs: 1_000,
+          shouldTrace: true,
+        },
+      }),
+    ).toMatchObject({ advisorEffort: "low" });
+  });
+
+  test("the reported tier is the clamped one, never the pinned one", () => {
+    // The overlay claims "the Advisor ran at this tier". Reporting the pin
+    // would make it claim a tier the call never used, the same mistake
+    // deriving `isolation` from the provider id would be.
+    expect(
+      buildAdvisorStartedEvent({
+        ...primary,
+        target: {
+          providerId: "codex",
+          model: "gpt-5.6-luna",
+          effort: "ultra",
+        },
+      }),
+    ).toMatchObject({ advisorEffort: "max" });
+  });
+
+  test("an unresolved target reports no tier rather than a guessed one", () => {
+    expect(
+      buildAdvisorStartedEvent({ ...primary, target: null }),
+    ).not.toHaveProperty("advisorEffort");
+  });
+});
+
+describe("advisor usage that lands after cancellation", () => {
+  test("reports tokens the runner already spent when the advisor is skipped", async () => {
+    // The expensive case: the advisor generated, then a skip or timeout landed.
+    // Dropping this usage made the exchange monitor report "no advisor usage"
+    // for precisely the turn that cost the most.
+    let settleRunner: (result: {
+      ok: boolean;
+      aborted: boolean;
+      detail: string;
+      usage: UsageEvent;
+    }) => void = () => {};
+    const runners = {
+      runClaude: createUnusedRunner("Claude runner must not be called."),
+      runCodex: async () =>
+        new Promise<{
+          ok: boolean;
+          aborted: boolean;
+          detail: string;
+          usage: UsageEvent;
+        }>((resolve) => {
+          settleRunner = resolve;
+        }),
+    } satisfies AdvisorRunnerDependencies;
+
+    let skip = () => {};
+    const lateUsage: UsageEvent[] = [];
+    const pending = runAdvisorPreflight({
+      turn: createTurn({ providerId: "codex", model: "gpt-5.6-terra" }),
+      registerAbort: () => {},
+      registerSkip: (registeredSkip) => {
+        skip = registeredSkip;
+      },
+      reportLateUsage: (usage) => {
+        lateUsage.push(usage);
+      },
+      runners,
+    });
+    await Promise.resolve();
+    skip();
+
+    const result = await pending;
+    expect(result.status).toBe("skipped");
+    // The preflight must not have waited for the abandoned runner.
+    expect(lateUsage).toHaveLength(0);
+
+    settleRunner({
+      ok: false,
+      aborted: true,
+      detail: "skipped",
+      usage: { type: "usage", inputTokens: 900, outputTokens: 120 },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(lateUsage).toEqual([
+      { type: "usage", inputTokens: 900, outputTokens: 120 },
+    ]);
+  });
+
+  test("the usage merger reads late usage instead of pinning undefined at construction", () => {
+    let harvested: UsageEvent | undefined;
+    // Constructed before the advisor reports, exactly as the turn does.
+    const map = createAdvisorUsageMerger(() => harvested);
+
+    expect(map({ type: "usage", inputTokens: 10, outputTokens: 5 })).toEqual([
+      { type: "usage", inputTokens: 10, outputTokens: 5 },
+    ]);
+
+    harvested = { type: "usage", inputTokens: 900, outputTokens: 120 };
+    expect(map({ type: "usage", inputTokens: 10, outputTokens: 5 })).toEqual([
+      { type: "usage", inputTokens: 910, outputTokens: 125 },
+    ]);
+    // Still folded exactly once.
+    expect(map({ type: "usage", inputTokens: 10, outputTokens: 5 })).toEqual([
+      { type: "usage", inputTokens: 10, outputTokens: 5 },
+    ]);
+    expect(map.flush()).toEqual([]);
   });
 });

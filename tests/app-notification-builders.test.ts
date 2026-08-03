@@ -2,7 +2,12 @@ import { describe, expect, mock, test } from "bun:test";
 import { isValidElement } from "react";
 import { toast } from "sonner";
 import type { AppNotification } from "@/lib/notifications/notification.types";
-import { showNotificationToast } from "@/store/app-notification-builders";
+import {
+  buildTaskTurnCompletedNotificationInput,
+  showNotificationToast,
+} from "@/store/app-notification-builders";
+import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
+import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 
 function buildCompletedNotification(): AppNotification {
   return {
@@ -28,6 +33,98 @@ function buildCompletedNotification(): AppNotification {
 }
 
 describe("showNotificationToast", () => {
+  test("embeds the shared execution summary in completed notifications", () => {
+    const session: WorkspaceSessionState = {
+      activeTaskId: "task-summary",
+      tasks: [
+        {
+          id: "task-summary",
+          title: "Summarize work",
+          provider: "codex",
+          updatedAt: "2026-07-31T00:00:00.000Z",
+          unread: false,
+          controlMode: "interactive",
+          controlOwner: "stave",
+        },
+      ],
+      messagesByTask: {
+        "task-summary": [
+          {
+            id: "assistant-summary",
+            role: "assistant",
+            model: "gpt-5.6",
+            providerId: "codex",
+            content: "Updated the task.",
+            usage: { inputTokens: 50, outputTokens: 10 },
+            parts: [
+              {
+                type: "code_diff",
+                filePath: "src/summary.ts",
+                oldContent: "",
+                newContent: "export const done = true;\n",
+                status: "accepted",
+              },
+            ],
+          },
+        ],
+      },
+      messageCountByTask: { "task-summary": 1 },
+      promptDraftByTask: {},
+      workspaceInformation: createEmptyWorkspaceInformation(),
+      editorTabs: [],
+      activeEditorTabId: null,
+      terminalTabs: [],
+      activeTerminalTabId: null,
+      terminalDocked: false,
+      cliSessionTabs: [],
+      activeCliSessionTabId: null,
+      activeSurface: { kind: "task", taskId: "task-summary" },
+      openTaskTabIds: ["task-summary"],
+      lensTabs: [],
+      paneTabMeta: {},
+      dockLayout: null,
+      activeTurnIdsByTask: {},
+      providerSessionByTask: {},
+      providerGoalByTask: {},
+      nativeSessionReadyByTask: {},
+    };
+    const notification = buildTaskTurnCompletedNotificationInput({
+      state: {
+        projectPath: "/tmp/stave",
+        projectName: "stave",
+        workspaces: [
+          {
+            id: "workspace-summary",
+            name: "summary",
+            updatedAt: "2026-07-31T00:00:00.000Z",
+          },
+        ],
+        recentProjects: [],
+      },
+      session,
+      workspaceId: "workspace-summary",
+      taskId: "task-summary",
+      turnId: "turn-summary",
+      provider: "codex",
+      events: [{ type: "done", stop_reason: "end_turn" }],
+    });
+
+    expect(notification?.body).toContain("1 changed file");
+    expect(notification?.payload.reviewArtifact).toMatchObject({
+      facts: expect.arrayContaining([
+        expect.stringContaining("1 changed file"),
+        expect.stringContaining("60 tokens"),
+      ]),
+      cautions: expect.arrayContaining(["Verification was not reported."]),
+    });
+    expect(notification?.payload.executionSummaryProvenance).toMatchObject({
+      changes: "derived",
+      usage: "reported",
+      verification: "unavailable",
+      contextHeadroom: "unavailable",
+    });
+  });
+
   test("makes the completed notification toast open its task", () => {
     const onOpen = mock(() => {});
     const toastId = showNotificationToast(buildCompletedNotification(), {

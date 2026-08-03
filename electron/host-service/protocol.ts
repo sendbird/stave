@@ -11,6 +11,11 @@ import type {
   CodexThreadForkResponse,
   CodexThreadReadResponse,
   ClaudeContextUsageResponse,
+  ClaudeFileRewindResponse,
+  ClaudeMcpOauthLoginResponse,
+  ClaudeMcpStatusResponse,
+  ClaudeSessionForkResponse,
+  ProviderMutationResponse,
   ClaudePluginReloadResponse,
   CodexMcpStatusResponse,
   CodexMutationResponse,
@@ -18,9 +23,15 @@ import type {
   CodexPluginInstallResponse,
   CodexReviewStartResponse,
   ProviderRuntimeOptions,
+  ProviderAvailabilityResponse,
   ProviderSteerTurnResponse,
   RateLimitsSnapshotResponse,
 } from "../../src/lib/providers/provider.types";
+import type {
+  RouteClassification,
+  UtilityInferenceContext,
+  UtilityInferenceMetadata,
+} from "../../src/lib/providers/utility-inference";
 import type {
   ConnectedToolStatusRequest,
   ConnectedToolStatusResponse,
@@ -50,7 +61,11 @@ import type {
   PrePrReviewFinding,
   PrePrReviewProviderId,
 } from "../../src/lib/source-control-review";
-import type { CommandResult, DetachedCheckoutResult, SourceControlStatusItem } from "../main/types";
+import type {
+  CommandResult,
+  DetachedCheckoutResult,
+  SourceControlStatusItem,
+} from "../main/types";
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 import type {
   SecondaryProviderCancelRequest,
@@ -58,6 +73,19 @@ import type {
   SecondaryProviderExecutionResult,
 } from "../../src/lib/runs/secondary-run";
 import type { LocalMcpTaskTurnUpdate } from "../../src/lib/local-mcp/task-turn-update";
+import type {
+  GraphCommitDetailsResult,
+  GraphFileChange,
+  GraphResult,
+} from "../../src/lib/git-graph/types";
+import type {
+  McpServerConfigListRequest,
+  McpServerConfigListResponse,
+  McpServerConfigMutationApplyRequest,
+  McpServerConfigMutationPreviewResponse,
+  McpServerConfigMutationRequest,
+  McpServerConfigMutationResponse,
+} from "../../src/lib/providers/mcp-config.types";
 
 export interface HostWorkspaceScriptRunEntryArgs {
   workspaceId: string;
@@ -225,7 +253,7 @@ export interface HostProviderMutationResult {
   message?: string;
 }
 
-export interface HostProviderSuggestTaskNameArgs {
+export interface HostProviderSuggestTaskNameArgs extends UtilityInferenceContext {
   prompt: string;
   history?: Array<{ role: string; content: string }>;
 }
@@ -233,9 +261,10 @@ export interface HostProviderSuggestTaskNameArgs {
 export interface HostProviderSuggestTaskNameResult {
   ok: boolean;
   title?: string;
+  utility: UtilityInferenceMetadata;
 }
 
-export interface HostProviderClassifyRouteArgs {
+export interface HostProviderClassifyRouteArgs extends UtilityInferenceContext {
   prompt: string;
   history?: Array<{
     role: "user" | "assistant";
@@ -248,30 +277,16 @@ export interface HostProviderClassifyRouteArgs {
 
 export interface HostProviderClassifyRouteResult {
   ok: boolean;
-  classification?: {
-    taskType:
-      | "quick_edit"
-      | "plan"
-      | "implementation"
-      | "debug"
-      | "review"
-      | "general"
-      | "safety";
-    complexity: "low" | "medium" | "high";
-    recommendedTier: "light" | "standard" | "heavy" | "frontier";
-    confidence: number;
-    rationale?: string;
-    stick?: boolean;
-  };
+  classification?: RouteClassification;
+  utility: UtilityInferenceMetadata;
 }
 
-export interface HostProviderSuggestCommitMessageArgs {
-  cwd?: string;
-}
+export interface HostProviderSuggestCommitMessageArgs extends UtilityInferenceContext {}
 
 export interface HostProviderSuggestCommitMessageResult {
   ok: boolean;
   message?: string;
+  utility: UtilityInferenceMetadata;
 }
 
 export interface HostProviderSuggestPRDescriptionArgs {
@@ -350,13 +365,8 @@ export interface HostScmHistoryResult {
   stderr: string;
 }
 
-export interface HostScmGraphResult {
-  ok: boolean;
-  commits: import("../../src/lib/git-graph/types").GraphCommit[];
-  head: string | null;
-  hasMore: boolean;
-  stderr: string;
-}
+export type HostScmGraphResult = GraphResult;
+export type HostScmCommitDetailsResult = GraphCommitDetailsResult;
 
 export interface HostScmListBranchesResult {
   ok: boolean;
@@ -526,6 +536,9 @@ export interface HostServiceRequestMap {
   "provider.abort-turn": {
     turnId: string;
   };
+  "provider.skip-advisor": {
+    turnId: string;
+  };
   "provider.cleanup-task": {
     taskId: string;
   };
@@ -560,7 +573,29 @@ export interface HostServiceRequestMap {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.fork-claude-session": {
+    sessionId: string;
+    upToMessageId: string;
+    title?: string;
+    cwd?: string;
+  };
+  "provider.rewind-claude-files": {
+    sessionId: string;
+    userMessageId: string;
+    dryRun: boolean;
+    cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
+  "provider.rename-claude-session": {
+    sessionId: string;
+    title: string;
+    cwd?: string;
+  };
   "provider.reload-claude-plugins": {
+    cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
+  "provider.get-claude-mcp-status": {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
@@ -568,6 +603,9 @@ export interface HostServiceRequestMap {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.list-mcp-server-configs": McpServerConfigListRequest;
+  "provider.preview-mcp-server-config-mutation": McpServerConfigMutationRequest;
+  "provider.apply-mcp-server-config-mutation": McpServerConfigMutationApplyRequest;
   "provider.get-codex-model-catalog": {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -604,6 +642,12 @@ export interface HostServiceRequestMap {
     timeoutSecs?: number;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.start-claude-mcp-oauth-login": {
+    name: string;
+    cwd?: string;
+    timeoutSecs?: number;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
   "provider.read-codex-mcp-resource": {
     threadId: string;
     server: string;
@@ -621,6 +665,8 @@ export interface HostServiceRequestMap {
   };
   "provider.fork-codex-thread": {
     threadId: string;
+    lastTurnId?: string;
+    beforeTurnId?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.archive-codex-thread": {
@@ -718,6 +764,12 @@ export interface HostServiceRequestMap {
     limit?: number;
     skip?: number;
     scope?: "current" | "all" | string;
+    refs?: string[];
+    includeRepositoryState?: boolean;
+  };
+  "scm.commit-details": {
+    hash: string;
+    cwd?: string;
   };
   "scm.commit-files": {
     hash: string;
@@ -880,20 +932,24 @@ export interface HostServiceResponseMap {
   "provider.read-stream-turn": HostProviderReadStreamResult;
   "provider.ack-stream-turn": HostProviderMutationResult;
   "provider.abort-turn": HostProviderMutationResult;
+  "provider.skip-advisor": HostProviderMutationResult;
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;
   "provider.steer-turn": ProviderSteerTurnResponse;
-  "provider.check-availability": {
-    ok: boolean;
-    available: boolean;
-    detail: string;
-  };
+  "provider.check-availability": ProviderAvailabilityResponse;
   "provider.get-command-catalog": ProviderCommandCatalogResult;
   "provider.get-connected-tool-status": ConnectedToolStatusResponse;
   "provider.get-claude-context-usage": ClaudeContextUsageResponse;
+  "provider.fork-claude-session": ClaudeSessionForkResponse;
+  "provider.rewind-claude-files": ClaudeFileRewindResponse;
+  "provider.rename-claude-session": ProviderMutationResponse;
   "provider.reload-claude-plugins": ClaudePluginReloadResponse;
+  "provider.get-claude-mcp-status": ClaudeMcpStatusResponse;
   "provider.get-codex-mcp-status": CodexMcpStatusResponse;
+  "provider.list-mcp-server-configs": McpServerConfigListResponse;
+  "provider.preview-mcp-server-config-mutation": McpServerConfigMutationPreviewResponse;
+  "provider.apply-mcp-server-config-mutation": McpServerConfigMutationResponse;
   "provider.get-codex-model-catalog": CodexModelCatalogResponse;
   "provider.get-codex-app-server-snapshot": CodexAppServerSnapshotResponse;
   "provider.get-rate-limits-snapshot": RateLimitsSnapshotResponse;
@@ -902,6 +958,7 @@ export interface HostServiceResponseMap {
   "provider.uninstall-codex-plugin": CodexMutationResponse;
   "provider.set-codex-experimental-feature-enablement": CodexMutationResponse;
   "provider.start-codex-mcp-oauth-login": CodexMcpOauthLoginResponse;
+  "provider.start-claude-mcp-oauth-login": ClaudeMcpOauthLoginResponse;
   "provider.read-codex-mcp-resource": CodexMcpResourceReadResponse;
   "provider.rename-codex-thread": CodexMutationResponse;
   "provider.read-codex-thread": CodexThreadReadResponse;
@@ -937,9 +994,10 @@ export interface HostServiceResponseMap {
   "scm.discard-file": CommandResult;
   "scm.diff": HostScmDiffResult;
   "scm.graph": HostScmGraphResult;
+  "scm.commit-details": HostScmCommitDetailsResult;
   "scm.commit-files": {
     ok: boolean;
-    files: Array<{ path: string; status: string }>;
+    files: GraphFileChange[];
     stderr: string;
   };
   "scm.commit-diff": {

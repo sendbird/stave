@@ -5,6 +5,7 @@ import {
   type TaskProviderSessionState,
 } from "@/lib/db/workspaces.db";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
+import { toProviderSessionTitle } from "@/lib/providers/thread-actions";
 import {
   isTaskArchived,
   isTaskManaged,
@@ -41,6 +42,7 @@ type TaskCoreActionKey =
   | "renameTask"
   | "restoreTask"
   | "duplicateTask"
+  | "rewindClaudeFilesFromMessage"
   | "reorderTasks";
 
 type TaskCoreActions = Pick<AppState, TaskCoreActionKey>;
@@ -560,6 +562,14 @@ export function createTaskCoreActions(args: {
       if (!nextTitle) {
         return;
       }
+      const stateBefore = get();
+      const targetBefore = findTaskById(stateBefore, taskId);
+      if (
+        isTaskManaged(targetBefore) ||
+        (source === "auto" && targetBefore?.titleManuallySet)
+      ) {
+        return;
+      }
       set((state) => {
         if (isTaskManaged(findTaskById(state, taskId))) {
           return state;
@@ -585,6 +595,74 @@ export function createTaskCoreActions(args: {
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });
+      if (source !== "manual") {
+        return;
+      }
+
+      const providerSession = stateBefore.providerSessionByTask[taskId];
+      const nativeSessionTitle = toProviderSessionTitle(nextTitle);
+      const workspaceId =
+        stateBefore.taskWorkspaceIdById[taskId] ??
+        stateBefore.activeWorkspaceId;
+      const cwd =
+        stateBefore.workspacePathById[workspaceId] ??
+        stateBefore.projectPath ??
+        undefined;
+      const renameRequests: Array<Promise<{ ok: boolean; detail: string }>> =
+        [];
+      const claudeSessionId = getProviderSessionId({
+        sessions: providerSession,
+        providerId: "claude-code",
+      });
+      const renameClaudeSession = window.api?.provider?.renameClaudeSession;
+      if (claudeSessionId && renameClaudeSession) {
+        renameRequests.push(
+          renameClaudeSession({
+            sessionId: claudeSessionId,
+            title: nativeSessionTitle,
+            ...(cwd ? { cwd } : {}),
+          }),
+        );
+      }
+      const codexThreadId = getProviderSessionId({
+        sessions: providerSession,
+        providerId: "codex",
+      });
+      const renameCodexThread = window.api?.provider?.renameCodexThread;
+      if (codexThreadId && renameCodexThread) {
+        renameRequests.push(
+          renameCodexThread({
+            threadId: codexThreadId,
+            name: nativeSessionTitle,
+            ...(stateBefore.settings.codexBinaryPath
+              ? {
+                  runtimeOptions: {
+                    codexBinaryPath: stateBefore.settings.codexBinaryPath,
+                  },
+                }
+              : {}),
+          }),
+        );
+      }
+      if (renameRequests.length > 0) {
+        void Promise.all(renameRequests)
+          .then((results) => {
+            for (const result of results) {
+              if (!result.ok) {
+                console.warn("[task-rename] Native session rename failed", {
+                  taskId,
+                  detail: result.detail,
+                });
+              }
+            }
+          })
+          .catch((error) => {
+            console.warn("[task-rename] Native session rename failed", {
+              taskId,
+              detail: error instanceof Error ? error.message : String(error),
+            });
+          });
+      }
     },
     restoreTask: ({ taskId }) => {
       const stateBefore = get();
@@ -699,6 +777,74 @@ export function createTaskCoreActions(args: {
           },
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
+      });
+    },
+    rewindClaudeFilesFromMessage: async ({ taskId, messageId, dryRun }) => {
+      const state = get();
+      if (state.activeTurnIdsByTask[taskId]) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "Wait for the active turn to finish before rewinding files.",
+        };
+      }
+      if (
+        !state.providerRuntimeCapabilities["claude-code"].history.rewind.files
+      ) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "The selected Claude runtime does not support file rewind.",
+        };
+      }
+      const message = state.messagesByTask[taskId]?.find(
+        (candidate) => candidate.id === messageId,
+      );
+      const boundary = message?.providerBoundary;
+      if (
+        !message ||
+        message.role !== "user" ||
+        boundary?.providerId !== "claude-code" ||
+        boundary.kind !== "message"
+      ) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "This message is not a Claude file-rewind checkpoint.",
+        };
+      }
+      const sessionId = getProviderSessionId({
+        sessions: state.providerSessionByTask[taskId],
+        providerId: "claude-code",
+      });
+      if (!sessionId) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "The Claude session is unavailable.",
+        };
+      }
+      const rewindClaudeFiles = window.api?.provider?.rewindClaudeFiles;
+      if (!rewindClaudeFiles) {
+        return {
+          ok: false,
+          canRewind: false,
+          detail: "Claude file rewind is unavailable in this build.",
+        };
+      }
+      const workspaceId =
+        state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId;
+      const cwd = workspaceId
+        ? state.workspacePathById[workspaceId]
+        : (state.projectPath ?? undefined);
+      return rewindClaudeFiles({
+        sessionId,
+        userMessageId: boundary.nativeId,
+        dryRun,
+        cwd,
+        runtimeOptions: {
+          claudeBinaryPath: state.settings.claudeBinaryPath || undefined,
+        },
       });
     },
     reorderTasks: ({ activeTaskId, overTaskId, filter }) => {

@@ -1,6 +1,7 @@
 import type { IDockviewPanelHeaderProps } from "dockview-react";
 import {
   FileCode2,
+  GitGraph,
   Globe,
   LoaderCircle,
   Pin,
@@ -19,12 +20,10 @@ import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
 import { Badge, WaveIndicator } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
+import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
-import {
-  getRespondingProviderId,
-  isTaskManaged,
-} from "@/lib/tasks";
+import { getRespondingProviderId, isTaskManaged } from "@/lib/tasks";
 import {
   buildPanePanelId,
   parsePanePanelId,
@@ -32,11 +31,12 @@ import {
 } from "@/lib/panes/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMessage, EditorTab } from "@/types/chat";
 import {
   PANE_RENAME_REQUEST_EVENT,
   closePaneSurface,
 } from "@/components/panes/pane-surface-actions";
+import { isGitGraphEditorTab } from "@/components/panes/editor-tab-presentation";
 import {
   useLensTabState,
   type LensTabState,
@@ -106,12 +106,34 @@ function PaneChipIcon(args: {
         <Globe className="size-4 text-muted-foreground" />
       );
     case "editor":
-      return <FileCode2 className="size-4 text-muted-foreground" />;
+      return <EditorPaneChipIcon editorTabId={surface.editorTabId} />;
     case "compare-run":
       return <SplitSquareHorizontal className="size-4 text-muted-foreground" />;
     default:
       return null;
   }
+}
+
+export function EditorPaneChipGlyph(args: { kind: EditorTab["kind"] }) {
+  return isGitGraphEditorTab(args) ? (
+    <GitGraph
+      data-pane-tab-icon="git-graph"
+      className="size-4 text-muted-foreground"
+    />
+  ) : (
+    <FileCode2
+      data-pane-tab-icon="file"
+      className="size-4 text-muted-foreground"
+    />
+  );
+}
+
+function EditorPaneChipIcon(args: { editorTabId: string }) {
+  const kind = useAppStore(
+    (state) =>
+      state.editorTabs.find((tab) => tab.id === args.editorTabId)?.kind,
+  );
+  return <EditorPaneChipGlyph kind={kind} />;
 }
 
 function CliSessionChipIcon(args: { cliSessionTabId: string }) {
@@ -188,10 +210,12 @@ function usePaneChipTitle(
           (tab) => tab.id === surface.editorTabId,
         );
         return editorTab
-          ? resolvePathBaseName({
-              path: editorTab.filePath,
-              fallback: "Editor",
-            })
+          ? isGitGraphEditorTab(editorTab)
+            ? COMMIT_GRAPH_TITLE
+            : resolvePathBaseName({
+                path: editorTab.filePath,
+                fallback: "Editor",
+              })
           : "Editor";
       }
       case "lens":

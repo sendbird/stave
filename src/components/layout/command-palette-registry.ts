@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
+import { OPEN_COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   formatAppShortcutLabel,
@@ -180,6 +181,12 @@ export interface CommandPaletteAction {
   group: CommandPaletteGroup;
   run: () => Promise<void> | void;
   icon?: LucideIcon;
+  /**
+   * Renders the provider's vendor mark instead of `icon`. A provider id rather
+   * than a component because this registry is plain `.ts` and cannot hold JSX;
+   * the palette renderer owns the mapping to `ModelIcon`.
+   */
+  providerIcon?: ProviderId;
   keywords?: string[];
   shortcut?: string;
   source?: "core" | "dynamic" | "contributed";
@@ -206,6 +213,7 @@ interface CommandPaletteCoreCommandDefinition {
   group: CommandPaletteGroup;
   build: (args: CommandPaletteRuntimeContext) => CommandPaletteAction | null;
   icon?: LucideIcon;
+  providerIcon?: ProviderId;
   keywords?: string[];
   shortcut?:
     | string
@@ -692,7 +700,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "view.open-git-graph",
-    title: "Open Git Graph",
+    title: OPEN_COMMIT_GRAPH_TITLE,
     description: "Open the commit graph for the active workspace.",
     group: "view",
     icon: GitGraph,
@@ -702,7 +710,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.workspaces.some((workspace) => workspace.isActive)
         ? {
             id: "view.open-git-graph",
-            title: "Open Git Graph",
+            title: OPEN_COMMIT_GRAPH_TITLE,
             subtitle: "Open the commit graph in an editor tab.",
             group: "view",
             icon: GitGraph,
@@ -821,7 +829,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     title: "Set Provider: Claude",
     description: "Switch the active task to Claude Code.",
     group: "provider",
-    icon: Bot,
+    providerIcon: "claude-code",
     keywords: ["provider", "claude", "model"],
     build: (args) =>
       args.activeTaskId
@@ -830,7 +838,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
             title: "Set Provider: Claude",
             subtitle: "Switch the active task to Claude Code.",
             group: "provider",
-            icon: Bot,
+            providerIcon: "claude-code",
             keywords: ["provider", "claude", "model"],
             run: () =>
               args.commands.setTaskProvider(args.activeTaskId, "claude-code"),
@@ -843,7 +851,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     title: "Set Provider: Codex",
     description: "Switch the active task to Codex.",
     group: "provider",
-    icon: Bot,
+    providerIcon: "codex",
     keywords: ["provider", "codex", "model"],
     build: (args) =>
       args.activeTaskId
@@ -852,7 +860,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
             title: "Set Provider: Codex",
             subtitle: "Switch the active task to Codex.",
             group: "provider",
-            icon: Bot,
+            providerIcon: "codex",
             keywords: ["provider", "codex", "model"],
             run: () =>
               args.commands.setTaskProvider(args.activeTaskId, "codex"),

@@ -446,7 +446,7 @@ function SourceControlRow(args: {
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          onClick={() => args.onOpenDiff(args.item.item.path)}
+          onClick={() => args.onOpenDiff(args.item.pathLabel)}
         >
           <WorkspaceFileIcon
             fileName={args.item.fileName}
@@ -527,7 +527,7 @@ function SourceControlRow(args: {
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem onSelect={() => args.onOpenDiff(args.item.item.path)}>
+        <ContextMenuItem onSelect={() => args.onOpenDiff(args.item.pathLabel)}>
           <File className="size-4" />
           Open Changes
         </ContextMenuItem>

@@ -60,6 +60,7 @@ import {
   copyEditorTabPath,
   copyEditorTabRelativePath,
 } from "@/components/panes/editor-tab-actions";
+import { shouldShowEditorFileActions } from "@/components/panes/editor-tab-presentation";
 import { clearLensTabState } from "@/components/panes/lens-tab-state";
 import {
   PANE_CUSTOM_ICON_OPTIONS,
@@ -79,17 +80,12 @@ const STAVE_DOCKVIEW_THEME: DockviewTheme = {
 function syncLensSplitBoundaryMarkers(api: DockviewApi) {
   for (const group of api.groups) {
     const view = group.element.parentElement;
-    if (
-      !(view instanceof HTMLElement) ||
-      !view.classList.contains("dv-view")
-    ) {
+    if (!(view instanceof HTMLElement) || !view.classList.contains("dv-view")) {
       continue;
     }
     view.toggleAttribute(
       "data-lens-split-boundary",
-      group.panels.some(
-        (panel) => parsePanePanelId(panel.id)?.kind === "lens",
-      ),
+      group.panels.some((panel) => parsePanePanelId(panel.id)?.kind === "lens"),
     );
   }
 }
@@ -467,7 +463,7 @@ function buildTabContextMenuItems(
 
   const items: (BuiltInContextMenuItem | ReactContextMenuItemConfig)[] = [
     {
-      label: "Rename",
+      label: surface.kind === "task" ? "Rename task" : "Rename",
       disabled: isManagedTask,
       action: () => dispatchPaneRenameRequest({ panelId }),
     },
@@ -563,9 +559,9 @@ function buildTabContextMenuItems(
       }
     };
 
-    items.push("separator");
-    if (editorTab) {
+    if (shouldShowEditorFileActions(editorTab)) {
       items.push(
+        "separator",
         {
           label: "Copy Path",
           action: () =>

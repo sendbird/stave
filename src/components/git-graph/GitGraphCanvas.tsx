@@ -1,245 +1,618 @@
-import * as React from "react";
-import type { GraphCommit, GraphEdge, GraphNode } from "@/lib/git-graph/types";
-import { buildGraphLayout } from "@/lib/git-graph/graph-layout";
 import {
-  buildEdgePath,
-  buildUnresolvedEdgePath,
-} from "@/lib/git-graph/edge-path";
-import { GitGraphRow, ROW_HEIGHT, LANE_WIDTH } from "./GitGraphRow";
-import type { GraphRef } from "@/lib/git-graph/types";
+  forwardRef,
+  memo,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { LoaderCircle } from "lucide-react";
+import { buildGraphBranchPaths, graphLaneX } from "@/lib/git-graph/edge-path";
+import { buildGraphLayout } from "@/lib/git-graph/graph-layout";
+import type {
+  GraphBranch,
+  GraphCommit,
+  GraphNode,
+  GraphRef,
+  GraphWorkingTreeSummary,
+} from "@/lib/git-graph/types";
+import {
+  GitGraphRow,
+  GitGraphWorkingTreeRow,
+  LANE_WIDTH,
+  ROW_HEIGHT,
+  graphGridTemplate,
+  type GitGraphColumnWidths,
+} from "./GitGraphRow";
+import type { GitGraphColumnVisibility } from "./GitGraphToolbar";
+import {
+  WORKING_TREE_SELECTION,
+  type GitGraphSelection,
+} from "./useGitGraphData";
 
-// ---------------------------------------------------------------------------
-// Theme-derived lane palette
-// ---------------------------------------------------------------------------
-// The default theme's --chart-1…5 are all hue ~130 (green family), which
-// makes adjacent lanes look identical.  We mix the chart tokens with semantic
-// colour tokens that carry distinct hues across ALL built-in themes:
-//
-//   var(--chart-1)   → primary data colour (green in default, varies by theme)
-//   var(--destructive) → red/orange   (hue ~27 in all themes)
-//   var(--warning)   → amber/yellow   (hue ~84 in all themes)
-//   var(--success)   → teal-green     (hue ~156 in all themes — distinct from
-//                                      chart-1's ~130)
-//   var(--chart-2)   → second chart colour (distinct in all non-default themes;
-//                      slightly lighter green in default — acceptable as 5th lane)
-//
-// Referencing CSS variables (not hex) ensures the palette adapts to
-// light/dark/custom themes at render time.
-const LANE_PALETTE: readonly string[] = [
-  "var(--chart-1)",
-  "var(--destructive)",
-  "var(--warning)",
-  "var(--success)",
-  "var(--chart-2)",
-];
+// Stave-authored colours balanced for light and dark editor surfaces.
+export const GIT_GRAPH_LANE_PALETTE = [
+  "#2B6FE8",
+  "#D43F82",
+  "#258A52",
+  "#C45A22",
+  "#8662D6",
+  "#D94848",
+  "#16869E",
+  "#B457C4",
+  "#5F8D2B",
+  "#A87412",
+  "#596ED9",
+  "#1D8572",
+] as const;
+const OVERSCAN_ROWS = 10;
+const WORKING_TREE_LAYOUT_HASH = "__stave_working_tree__";
 
 function laneColor(colorIndex: number): string {
-  return LANE_PALETTE[colorIndex % LANE_PALETTE.length] ?? LANE_PALETTE[0] ?? "var(--primary)";
+  return (
+    GIT_GRAPH_LANE_PALETTE[colorIndex % GIT_GRAPH_LANE_PALETTE.length] ??
+    GIT_GRAPH_LANE_PALETTE[0]
+  );
 }
 
-// ---------------------------------------------------------------------------
-// SVG edge renderer — resolves parent nodes by edge.toHash
-// ---------------------------------------------------------------------------
+function hasWorkingTreeChanges(summary: GraphWorkingTreeSummary): boolean {
+  return (
+    summary.staged + summary.unstaged + summary.untracked + summary.conflicts >
+    0
+  );
+}
 
-interface SvgLayerProps {
-  edges: GraphEdge[];
+interface GraphSvgProps {
+  branches: GraphBranch[];
   nodes: GraphNode[];
-  /** hash → GraphNode look-up built from layout.nodes */
-  nodeByHash: ReadonlyMap<string, GraphNode>;
-  /** hash → GraphCommit look-up for ref/HEAD detection */
-  commitByHash: ReadonlyMap<string, GraphCommit>;
+  commits: GraphCommit[];
   laneCount: number;
-  totalRows: number;
+  graphWidth: number;
+  workingTreeVisible: boolean;
+  workingTreeSelected: boolean;
+  selectedHash: string | null;
+  searchMatches: ReadonlySet<string>;
+  headHash: string | null;
 }
 
-function SvgLayer({
-  edges,
+const GraphSvg = memo(function GraphSvg({
+  branches,
   nodes,
-  nodeByHash,
-  commitByHash,
+  commits,
   laneCount,
-  totalRows,
-}: SvgLayerProps) {
-  const svgWidth = laneCount * LANE_WIDTH;
-  const svgHeight = totalRows * ROW_HEIGHT;
-
-  // Group path strings by color for batched <path> elements.
-  const pathsByColor = React.useMemo(() => {
-    const map = new Map<string, string[]>();
-
-    for (const edge of edges) {
-      const parentNode = nodeByHash.get(edge.toHash);
-      const pathD = parentNode
-        ? buildEdgePath({
-            fromLane: edge.fromLane,
-            fromRow: edge.fromRow,
-            travelLane: edge.toLane,
-            toLane: parentNode.lane,
-            toRow: parentNode.row,
-            laneWidth: LANE_WIDTH,
-            rowHeight: ROW_HEIGHT,
-          })
-        : buildUnresolvedEdgePath({
-            fromLane: edge.fromLane,
-            fromRow: edge.fromRow,
-            travelLane: edge.toLane,
-            bottomY: svgHeight,
-            laneWidth: LANE_WIDTH,
-            rowHeight: ROW_HEIGHT,
-          });
-      const colorStr = laneColor(edge.color);
-      const existing = map.get(colorStr);
-      if (existing) {
-        existing.push(pathD);
-      } else {
-        map.set(colorStr, [pathD]);
-      }
-    }
-
-    return map;
-  }, [edges, nodeByHash, svgHeight]);
-
-  const NODE_RADIUS = 4;
+  graphWidth,
+  workingTreeVisible,
+  workingTreeSelected,
+  selectedHash,
+  searchMatches,
+  headHash,
+}: GraphSvgProps) {
+  const commitByHash = useMemo(
+    () => new Map(commits.map((commit) => [commit.hash, commit])),
+    [commits],
+  );
+  const totalHeight = nodes.length * ROW_HEIGHT;
+  const branchPaths = useMemo(
+    () =>
+      branches.map((branch) => ({
+        branch,
+        paths: buildGraphBranchPaths(branch.segments, {
+          laneWidth: LANE_WIDTH,
+          rowHeight: ROW_HEIGHT,
+        }),
+      })),
+    [branches],
+  );
+  const nodeRadius = 4;
 
   return (
     <svg
       aria-hidden="true"
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: svgWidth,
-        height: svgHeight,
-        overflow: "visible",
-        pointerEvents: "none",
-      }}
+      className="pointer-events-none absolute left-0 top-0 z-[2] overflow-visible"
+      width={Math.max(graphWidth, (laneCount + 1) * LANE_WIDTH)}
+      height={totalHeight}
     >
-      {/* Edges */}
-      {Array.from(pathsByColor.entries()).map(([color, paths]) => (
-        <g key={color}>
-          {paths.map((d, i) => (
-            <path
-              key={i}
-              d={d}
-              stroke={color}
-              strokeWidth={1.5}
-              fill="none"
-              strokeLinecap="round"
-              opacity={0.85}
-            />
-          ))}
-        </g>
-      ))}
+      {branchPaths.flatMap(({ branch, paths }) =>
+        paths.map((path, pathIndex) => {
+          const stroke = path.isCommitted ? laneColor(branch.color) : "#808080";
+          return (
+            <g key={`${branch.id}:${pathIndex}`}>
+              <path
+                d={path.d}
+                stroke="var(--editor)"
+                strokeWidth={4}
+                strokeOpacity={0.75}
+                fill="none"
+              />
+              <path d={path.d} stroke={stroke} strokeWidth={2} fill="none" />
+            </g>
+          );
+        }),
+      )}
 
-      {/* Nodes (circles), rendered on top of edges */}
       {nodes.map((node) => {
-        const cx = node.lane * LANE_WIDTH + LANE_WIDTH / 2;
-        const cy = node.row * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const color = laneColor(node.color);
-        // HEAD node: detected via refs containing isHead===true, NOT by row index
-        const commit = commitByHash.get(node.hash);
-        const isHead = commit?.refs.some((r) => r.isHead) ?? false;
-        return (
-          <g key={node.hash}>
-            {isHead && (
+        if (node.hash === WORKING_TREE_LAYOUT_HASH) {
+          if (!workingTreeVisible) {
+            return null;
+          }
+          const cx = graphLaneX(node.lane, LANE_WIDTH);
+          const cy = node.row * ROW_HEIGHT + ROW_HEIGHT / 2;
+          return (
+            <g key={node.hash}>
+              {workingTreeSelected ? (
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={nodeRadius + 3}
+                  fill="var(--editor)"
+                  stroke="var(--ring)"
+                  strokeWidth={2}
+                />
+              ) : null}
               <circle
                 cx={cx}
                 cy={cy}
-                r={NODE_RADIUS + 2}
-                fill="none"
-                stroke={color}
-                strokeWidth={1.5}
-                opacity={0.7}
+                r={nodeRadius}
+                fill="var(--editor)"
+                stroke="#808080"
+                strokeWidth={2}
               />
-            )}
-            <circle cx={cx} cy={cy} r={NODE_RADIUS} fill={color} />
+            </g>
+          );
+        }
+
+        const cx = graphLaneX(node.lane, LANE_WIDTH);
+        const cy = node.row * ROW_HEIGHT + ROW_HEIGHT / 2;
+        const color = laneColor(node.color);
+        const commit = commitByHash.get(node.hash);
+        const isHead =
+          !workingTreeVisible &&
+          (node.hash === headHash ||
+            (commit?.refs.some((graphRef) => graphRef.isHead) ?? false));
+        const selected = selectedHash === node.hash;
+        const searchMatch = searchMatches.has(node.hash);
+        return (
+          <g key={node.hash}>
+            {selected || searchMatch ? (
+              <circle
+                cx={cx}
+                cy={cy}
+                r={nodeRadius + (selected ? 3 : 2)}
+                fill="var(--editor)"
+                stroke={selected ? "var(--ring)" : "var(--warning)"}
+                strokeWidth={selected ? 2 : 1.5}
+              />
+            ) : null}
+            <circle
+              cx={cx}
+              cy={cy}
+              r={nodeRadius}
+              fill={isHead ? "var(--editor)" : color}
+              stroke={isHead ? color : "var(--editor)"}
+              strokeWidth={isHead ? 2 : 1}
+              strokeOpacity={isHead ? 1 : 0.75}
+            />
           </g>
         );
       })}
     </svg>
   );
+});
+
+function useVirtualRows(args: {
+  scrollElement: HTMLDivElement | null;
+  rowCount: number;
+}) {
+  const [viewport, setViewport] = useState({
+    height: 0,
+    width: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+  });
+
+  useLayoutEffect(() => {
+    const element = args.scrollElement;
+    if (!element) {
+      return;
+    }
+    const update = () =>
+      setViewport({
+        height: element.clientHeight,
+        width: element.clientWidth,
+        scrollLeft: element.scrollLeft,
+        scrollTop: element.scrollTop,
+      });
+    update();
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(element);
+    element.addEventListener("scroll", update, { passive: true });
+    return () => {
+      observer?.disconnect();
+      element.removeEventListener("scroll", update);
+    };
+  }, [args.scrollElement]);
+
+  const start = Math.max(
+    0,
+    Math.floor(viewport.scrollTop / ROW_HEIGHT) - OVERSCAN_ROWS,
+  );
+  const visibleRows = Math.ceil(viewport.height / ROW_HEIGHT);
+  const end = Math.min(args.rowCount, start + visibleRows + OVERSCAN_ROWS * 2);
+  return {
+    start,
+    end,
+    viewportWidth: viewport.width,
+    scrollLeft: viewport.scrollLeft,
+  };
 }
 
-// ---------------------------------------------------------------------------
-// GitGraphCanvas — public component
-// ---------------------------------------------------------------------------
+function ResizeHandle({
+  column,
+  width,
+  onWidthChange,
+}: {
+  column: keyof GitGraphColumnWidths;
+  width: number;
+  onWidthChange: (column: keyof GitGraphColumnWidths, width: number) => void;
+}) {
+  const cleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => cleanupRef.current?.(), []);
+
+  const onPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLSpanElement>) => {
+      event.preventDefault();
+      const startX = event.clientX;
+      const minWidth = column === "hash" ? 68 : 88;
+      const maxWidth = column === "hash" ? 180 : 320;
+      const onMove = (moveEvent: PointerEvent) => {
+        const next = Math.min(
+          maxWidth,
+          Math.max(minWidth, width + moveEvent.clientX - startX),
+        );
+        onWidthChange(column, next);
+      };
+      const cleanup = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", cleanup);
+        cleanupRef.current = null;
+      };
+      cleanupRef.current?.();
+      cleanupRef.current = cleanup;
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", cleanup, { once: true });
+    },
+    [column, onWidthChange, width],
+  );
+
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${column} column`}
+      className="absolute -left-1 top-0 h-full w-2 cursor-col-resize touch-none hover:bg-primary/30"
+      onPointerDown={onPointerDown}
+    />
+  );
+}
+
+export interface GitGraphCanvasHandle {
+  scrollToHash: (hash: string) => void;
+  scrollToWorkingTree: () => void;
+  focus: () => void;
+}
 
 export interface GitGraphCanvasProps {
   commits: GraphCommit[];
-  selectedHash?: string | null;
-  onSelect: (hash: string) => void;
-  onCommitContextMenu: (e: React.MouseEvent, hash: string) => void;
-  onRefContextMenu: (e: React.MouseEvent, hash: string, ref: GraphRef) => void;
+  headHash: string | null;
+  workingTree: GraphWorkingTreeSummary;
+  selection: GitGraphSelection;
+  searchMatches: ReadonlySet<string>;
+  searchQuery: string;
+  columns: GitGraphColumnVisibility;
+  columnWidths: GitGraphColumnWidths;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onSelectCommit: (hash: string) => void;
+  onSelectWorkingTree: () => void;
+  onCommitContextMenu: (event: MouseEvent, hash: string) => void;
+  onRefContextMenu: (
+    event: MouseEvent,
+    hash: string,
+    graphRef: GraphRef,
+  ) => void;
+  onRefDoubleClick: (graphRef: GraphRef) => void;
+  onColumnWidthChange: (
+    column: keyof GitGraphColumnWidths,
+    width: number,
+  ) => void;
+  onEndReached: () => void;
 }
 
-export function GitGraphCanvas({
-  commits,
-  selectedHash,
-  onSelect,
-  onCommitContextMenu,
-  onRefContextMenu,
-}: GitGraphCanvasProps) {
-  const layout = React.useMemo(() => buildGraphLayout(commits), [commits]);
+export const GitGraphCanvas = forwardRef<
+  GitGraphCanvasHandle,
+  GitGraphCanvasProps
+>(function GitGraphCanvas(
+  {
+    commits,
+    headHash,
+    workingTree,
+    selection,
+    searchMatches,
+    searchQuery,
+    columns,
+    columnWidths,
+    hasMore,
+    loadingMore,
+    onSelectCommit,
+    onSelectWorkingTree,
+    onCommitContextMenu,
+    onRefContextMenu,
+    onRefDoubleClick,
+    onColumnWidthChange,
+    onEndReached,
+  },
+  forwardedRef,
+) {
+  const workingTreeVisible = hasWorkingTreeChanges(workingTree);
+  const layoutCommits = useMemo<GraphCommit[]>(
+    () =>
+      workingTreeVisible
+        ? [
+            {
+              hash: WORKING_TREE_LAYOUT_HASH,
+              parents: headHash ? [headHash] : [],
+              author: "",
+              authorEmail: "",
+              authorDate: "",
+              committerDate: "",
+              subject: "Uncommitted changes",
+              refs: [],
+            },
+            ...commits,
+          ]
+        : commits,
+    [commits, headHash, workingTreeVisible],
+  );
+  const layout = useMemo(
+    () =>
+      buildGraphLayout(layoutCommits, {
+        uncommittedHash: workingTreeVisible
+          ? WORKING_TREE_LAYOUT_HASH
+          : undefined,
+      }),
+    [layoutCommits, workingTreeVisible],
+  );
+  const rowOffset = workingTreeVisible ? 1 : 0;
+  const rowCount = layoutCommits.length;
+  const graphWidth = Math.max(32, (layout.laneCount + 1) * LANE_WIDTH);
+  const longestRefLength = commits.reduce(
+    (longest, commit) =>
+      Math.max(longest, ...commit.refs.map((graphRef) => graphRef.name.length)),
+    0,
+  );
+  const visibleColumnsWidth =
+    (columns.author ? columnWidths.author : 0) +
+    (columns.date ? columnWidths.date : 0) +
+    (columns.hash ? columnWidths.hash : 0);
+  const minWidth =
+    Math.max(440, graphWidth + 260 + Math.min(420, longestRefLength * 7)) +
+    visibleColumnsWidth;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
+    null,
+  );
+  const virtualRows = useVirtualRows({ scrollElement, rowCount });
 
-  // Build a hash → node map so SvgLayer can resolve parent rows
-  const nodeByHash = React.useMemo(() => {
-    const m = new Map<string, GraphNode>();
-    for (const node of layout.nodes) {
-      m.set(node.hash, node);
+  const setScrollRef = useCallback((element: HTMLDivElement | null) => {
+    scrollRef.current = element;
+    setScrollElement(element);
+  }, []);
+
+  const scrollToRow = useCallback((row: number) => {
+    const element = scrollRef.current;
+    if (!element) {
+      return;
     }
-    return m;
-  }, [layout.nodes]);
-
-  // Build a hash → commit map so SvgLayer can detect HEAD via refs.isHead
-  const commitByHash = React.useMemo(() => {
-    const m = new Map<string, GraphCommit>();
-    for (const commit of commits) {
-      m.set(commit.hash, commit);
+    const top = row * ROW_HEIGHT;
+    const bottom = top + ROW_HEIGHT;
+    if (
+      top < element.scrollTop ||
+      bottom > element.scrollTop + element.clientHeight
+    ) {
+      element.scrollTo({
+        top: Math.max(0, top - element.clientHeight / 2 + ROW_HEIGHT / 2),
+        behavior: "smooth",
+      });
     }
-    return m;
-  }, [commits]);
+  }, []);
 
-  const totalRows = commits.length;
-  const totalHeight = totalRows * ROW_HEIGHT;
+  useImperativeHandle(
+    forwardedRef,
+    () => ({
+      scrollToHash(hash) {
+        const index = commits.findIndex((commit) => commit.hash === hash);
+        if (index !== -1) {
+          scrollToRow(index + rowOffset);
+        }
+      },
+      scrollToWorkingTree() {
+        if (workingTreeVisible) {
+          scrollToRow(0);
+        }
+      },
+      focus() {
+        scrollRef.current?.focus();
+      },
+    }),
+    [commits, rowOffset, scrollToRow, workingTreeVisible],
+  );
+
+  useEffect(() => {
+    if (
+      hasMore &&
+      !loadingMore &&
+      virtualRows.end >= Math.max(0, rowCount - 12)
+    ) {
+      onEndReached();
+    }
+  }, [hasMore, loadingMore, onEndReached, rowCount, virtualRows.end]);
+
+  const selectedHash = selection?.kind === "commit" ? selection.hash : null;
+  const visibleIndexes = [];
+  for (let index = virtualRows.start; index < virtualRows.end; index += 1) {
+    visibleIndexes.push(index);
+  }
 
   return (
     <div
       role="grid"
-      aria-label="Git graph"
-      style={{ position: "relative", width: "100%", height: totalHeight }}
+      aria-label="Commit graph"
+      aria-rowcount={rowCount + 1}
+      className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor"
     >
-      {/* Absolutely-positioned SVG behind the rows */}
-      <SvgLayer
-        edges={layout.edges}
-        nodes={layout.nodes}
-        nodeByHash={nodeByHash}
-        commitByHash={commitByHash}
-        laneCount={layout.laneCount}
-        totalRows={totalRows}
-      />
-
-      {/* Rows — positioned over the SVG */}
-      {commits.map((commit, idx) => (
+      <div className="h-8 shrink-0 overflow-hidden border-b border-border/65 bg-editor-muted/45">
         <div
-          key={commit.hash}
+          role="row"
+          className="grid h-full items-center text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground"
           style={{
-            position: "absolute",
-            top: idx * ROW_HEIGHT,
-            left: 0,
-            right: 0,
-            height: ROW_HEIGHT,
+            width: Math.max(minWidth, virtualRows.viewportWidth),
+            transform: `translateX(${-virtualRows.scrollLeft}px)`,
+            gridTemplateColumns: graphGridTemplate({
+              columns,
+              widths: columnWidths,
+            }),
           }}
         >
-          <GitGraphRow
-            commit={commit}
-            laneCount={layout.laneCount}
-            isSelected={commit.hash === selectedHash}
-            onClick={onSelect}
-            onContextMenu={onCommitContextMenu}
-            onRefContextMenu={onRefContextMenu}
-          />
+          <div role="columnheader" className="px-3">
+            Graph / Description
+          </div>
+          {columns.author ? (
+            <div
+              role="columnheader"
+              className="relative h-full border-l border-border/40 px-2.5 py-2"
+            >
+              <ResizeHandle
+                column="author"
+                width={columnWidths.author}
+                onWidthChange={onColumnWidthChange}
+              />
+              Author
+            </div>
+          ) : null}
+          {columns.date ? (
+            <div
+              role="columnheader"
+              className="relative h-full border-l border-border/40 px-2.5 py-2"
+            >
+              <ResizeHandle
+                column="date"
+                width={columnWidths.date}
+                onWidthChange={onColumnWidthChange}
+              />
+              Date
+            </div>
+          ) : null}
+          {columns.hash ? (
+            <div
+              role="columnheader"
+              className="relative h-full border-l border-border/40 px-2.5 py-2"
+            >
+              <ResizeHandle
+                column="hash"
+                width={columnWidths.hash}
+                onWidthChange={onColumnWidthChange}
+              />
+              Commit
+            </div>
+          ) : null}
         </div>
-      ))}
+      </div>
+
+      <div
+        ref={setScrollRef}
+        tabIndex={0}
+        className="relative min-h-0 flex-1 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40"
+      >
+        <div
+          className="relative w-full"
+          style={{ height: rowCount * ROW_HEIGHT, minWidth }}
+        >
+          <GraphSvg
+            branches={layout.branches}
+            nodes={layout.nodes}
+            commits={commits}
+            laneCount={layout.laneCount}
+            graphWidth={graphWidth}
+            workingTreeVisible={workingTreeVisible}
+            workingTreeSelected={selection?.kind === WORKING_TREE_SELECTION}
+            selectedHash={selectedHash}
+            searchMatches={searchMatches}
+            headHash={headHash}
+          />
+
+          {visibleIndexes.map((rowIndex) => {
+            if (workingTreeVisible && rowIndex === 0) {
+              return (
+                <div
+                  key={WORKING_TREE_SELECTION}
+                  className="absolute left-0 right-0"
+                  style={{ top: 0, height: ROW_HEIGHT }}
+                >
+                  <GitGraphWorkingTreeRow
+                    summary={workingTree}
+                    graphWidth={graphWidth}
+                    columns={columns}
+                    columnWidths={columnWidths}
+                    isSelected={selection?.kind === WORKING_TREE_SELECTION}
+                    onClick={onSelectWorkingTree}
+                  />
+                </div>
+              );
+            }
+            const commitIndex = rowIndex - rowOffset;
+            const commit = commits[commitIndex];
+            if (!commit) {
+              return null;
+            }
+            return (
+              <div
+                key={commit.hash}
+                className="absolute left-0 right-0"
+                style={{
+                  top: rowIndex * ROW_HEIGHT,
+                  height: ROW_HEIGHT,
+                }}
+              >
+                <GitGraphRow
+                  commit={commit}
+                  graphWidth={graphWidth}
+                  columns={columns}
+                  columnWidths={columnWidths}
+                  isSelected={selectedHash === commit.hash}
+                  isSearchMatch={searchMatches.has(commit.hash)}
+                  searchQuery={searchQuery}
+                  onClick={onSelectCommit}
+                  onContextMenu={onCommitContextMenu}
+                  onRefContextMenu={onRefContextMenu}
+                  onRefDoubleClick={onRefDoubleClick}
+                />
+              </div>
+            );
+          })}
+        </div>
+        {loadingMore ? (
+          <div className="sticky bottom-2 ml-auto mr-2 flex w-max items-center gap-1.5 rounded-md border border-border/70 bg-popover/95 px-2 py-1 text-[10px] text-muted-foreground shadow-sm">
+            <LoaderCircle className="size-3 animate-spin" />
+            Loading more commits…
+          </div>
+        ) : null}
+      </div>
     </div>
   );
-}
+});

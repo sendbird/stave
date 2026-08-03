@@ -28,7 +28,6 @@ import {
 import type {
   ClaudeContextUsageSnapshot,
   ClaudePluginReloadSnapshot,
-  CodexMcpServerStatusSnapshot,
 } from "@/lib/providers/provider.types";
 import {
   DEFAULT_LOCAL_MCP_PORT,
@@ -81,35 +80,8 @@ interface LocalMcpRequestLogViewState {
   hasMore: boolean;
 }
 
-interface CodexMcpViewState {
-  status: "loading" | "ready" | "error";
-  servers: CodexMcpServerStatusSnapshot[];
-  detail: string;
-  busy: boolean;
-}
-
 const LOCAL_MCP_REQUEST_LOG_PAGE_SIZE = 25;
 const LOCAL_MCP_REQUEST_LOG_AUTO_REFRESH_MS = 5000;
-
-function formatCodexMcpAuthStatus(value: string | null) {
-  switch (value) {
-    case "bearer_token":
-      return "Bearer token";
-    case "unsupported":
-      return "Unsupported";
-    default:
-      return value ?? "Unknown";
-  }
-}
-
-function formatCodexMcpEnabledState(server: CodexMcpServerStatusSnapshot) {
-  if (server.enabled) {
-    return "enabled";
-  }
-  return server.disabledReason
-    ? `disabled (${server.disabledReason})`
-    : "disabled";
-}
 
 function formatClaudeCodeRegistrationState(
   status: StaveLocalMcpStatus["claudeCodeRegistration"],
@@ -218,7 +190,8 @@ export function CodexBinaryPathCard() {
         </p>
         <p className="mt-1">
           Stave targets the Codex App Server path in local `codex` CLI
-          `0.142.0`. If your installed CLI is older, update it or point this
+          `0.145.0`. Older binaries may work for existing features, but newly
+          adopted controls must be capability-gated. Update Codex or point this
           field at the version you want Stave to use.
         </p>
       </div>
@@ -510,159 +483,6 @@ export function ClaudeRuntimeToolsCard() {
         <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
           {claudePluginReloadDetail}
         </p>
-      ) : null}
-    </SettingsCard>
-  );
-}
-
-export function CodexMcpStatusCard() {
-  const codexBinaryPath = useAppStore(
-    (state) => state.settings.codexBinaryPath,
-  );
-  const [state, setState] = useState<CodexMcpViewState>({
-    status: "loading",
-    servers: [],
-    detail: "Loading Codex MCP status...",
-    busy: false,
-  });
-
-  async function refreshStatus() {
-    const getCodexMcpStatus = window.api?.provider?.getCodexMcpStatus;
-    if (!getCodexMcpStatus) {
-      setState({
-        status: "error",
-        servers: [],
-        detail: "Codex MCP status API unavailable.",
-        busy: false,
-      });
-      return;
-    }
-
-    setState((current) => ({
-      ...current,
-      busy: true,
-      status: current.servers.length > 0 ? current.status : "loading",
-      detail:
-        current.servers.length > 0
-          ? current.detail
-          : "Loading Codex MCP status...",
-    }));
-
-    try {
-      const result = await getCodexMcpStatus({
-        runtimeOptions: codexBinaryPath.trim()
-          ? { codexBinaryPath }
-          : undefined,
-      });
-      setState({
-        status: result.ok ? "ready" : "error",
-        servers: result.servers,
-        detail: result.detail,
-        busy: false,
-      });
-    } catch (error) {
-      setState({
-        status: "error",
-        servers: [],
-        detail:
-          error instanceof Error
-            ? error.message
-            : "Failed to load Codex MCP status.",
-        busy: false,
-      });
-    }
-  }
-
-  useEffect(() => {
-    void refreshStatus();
-  }, [codexBinaryPath]);
-
-  const enabledCount = state.servers.filter((server) => server.enabled).length;
-  const tokenAuthCount = state.servers.filter(
-    (server) => server.authStatus === "bearer_token",
-  ).length;
-
-  return (
-    <SettingsCard
-      title="Codex Native Runtime"
-      description="Inspect the provider-native MCP surface exposed by the current Codex CLI."
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-2 sm:grid-cols-3">
-          <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
-            <p className="text-muted-foreground">Servers</p>
-            <p className="font-mono text-foreground">{state.servers.length}</p>
-          </div>
-          <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
-            <p className="text-muted-foreground">Enabled</p>
-            <p className="font-mono text-foreground">{enabledCount}</p>
-          </div>
-          <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
-            <p className="text-muted-foreground">Bearer Token</p>
-            <p className="font-mono text-foreground">{tokenAuthCount}</p>
-          </div>
-        </div>
-        <Button
-          className="h-9"
-          size="sm"
-          variant="outline"
-          disabled={state.busy}
-          onClick={() => void refreshStatus()}
-        >
-          {state.busy ? "Refreshing..." : "Refresh MCP Status"}
-        </Button>
-      </div>
-
-      {state.servers.length > 0 ? (
-        <div className="space-y-2 rounded-md border border-border/80 bg-background px-3 py-2">
-          {state.servers.map((server) => (
-            <div
-              key={server.name}
-              className="space-y-1 rounded-md border border-border/70 bg-muted/15 px-3 py-2"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">
-                    {server.name}
-                  </span>
-                  <Badge variant={server.enabled ? "success" : "outline"}>
-                    {formatCodexMcpEnabledState(server)}
-                  </Badge>
-                  <Badge variant="outline">
-                    {formatCodexMcpAuthStatus(server.authStatus)}
-                  </Badge>
-                </div>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {server.transportType}
-                </span>
-              </div>
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <div className="flex items-center justify-between gap-3">
-                  <span>URL</span>
-                  <span className="font-mono text-foreground">
-                    {server.url ?? "-"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span>Bearer token env</span>
-                  <span className="font-mono text-foreground">
-                    {server.bearerTokenEnvVar ?? "-"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {state.detail ? (
-        <div className="space-y-2 rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
-          <p>{state.detail}</p>
-          <p>
-            Stave mirrors the Codex-native MCP surface here and forwards slash
-            commands to Codex unchanged.
-          </p>
-        </div>
       ) : null}
     </SettingsCard>
   );

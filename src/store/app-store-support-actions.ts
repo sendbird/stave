@@ -12,6 +12,10 @@ import {
 } from "@/lib/pr-status";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import {
+  createDefaultProviderRuntimeCapabilities,
+  createEmptyProviderRuntimeCapabilities,
+} from "@/lib/providers/runtime-capabilities";
+import {
   buildReviewFeedbackFileContexts,
   formatReviewFeedbackPrompt,
 } from "@/lib/review-feedback";
@@ -481,17 +485,26 @@ export function createSupportActions(args: {
               ...(codexBinaryPath ? { codexBinaryPath } : {}),
             },
           });
-          return [providerId, result.ok && result.available] as const;
+          return [
+            providerId,
+            result.ok && result.available,
+            result.capabilities,
+          ] as const;
         }),
       );
 
       const providerAvailability = createDefaultProviderAvailability();
-      availabilityEntries.forEach(([providerId, available]) => {
+      const providerRuntimeCapabilities =
+        createDefaultProviderRuntimeCapabilities();
+      availabilityEntries.forEach(([providerId, available, capabilities]) => {
         providerAvailability[providerId] = available;
+        providerRuntimeCapabilities[providerId] =
+          capabilities ?? createEmptyProviderRuntimeCapabilities();
       });
 
       set(() => ({
         providerAvailability,
+        providerRuntimeCapabilities,
       }));
     },
     refreshSkillCatalog: async (args = {}) => {
@@ -745,6 +758,7 @@ export function createSupportActions(args: {
       const result = await get().sendUserMessage({
         taskId: normalizedTaskId,
         content,
+        turnOrigin: "conversation",
         fileContexts: buildReviewFeedbackFileContexts({
           comments,
           editorTabs: state.editorTabs,
@@ -766,7 +780,11 @@ export function createSupportActions(args: {
       if (!content.trim()) {
         return { status: "blocked" } satisfies SendUserMessageResult;
       }
-      return get().sendUserMessage({ taskId: result.taskId, content });
+      return get().sendUserMessage({
+        taskId: result.taskId,
+        content,
+        turnOrigin: "conversation",
+      });
     },
   };
 }

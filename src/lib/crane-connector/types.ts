@@ -184,7 +184,7 @@ const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
       ]),
       // Part of the autonomy preset for the same reason as the Claude flags
       // above: without it "Manual" would not actually disable web search.
-      codexWebSearch: z.enum(["disabled", "cached", "live"]),
+      codexWebSearch: z.enum(["disabled", "cached", "live", "indexed"]),
       // Required for the same reason as `claudeEffort`. "minimal" is legacy
       // input only; resolveCodexAppServerReasoningEffort maps it to "low".
       codexReasoningEffort: z.enum([
@@ -261,9 +261,7 @@ export const CraneDispatchJobUpdateSchema = z
 export type CraneConnectorSettings = z.infer<
   typeof CraneConnectorSettingsSchema
 >;
-export type CraneProjectMapping = z.infer<
-  typeof CraneProjectMappingSchema
->;
+export type CraneProjectMapping = z.infer<typeof CraneProjectMappingSchema>;
 export type CraneTeamRuntimeMemory = z.infer<
   typeof CraneTeamRuntimeMemorySchema
 >;

@@ -1,5 +1,6 @@
 import {
   buildClaudeEnv,
+  cleanupClaudeMcpOauthFlows,
   cleanupClaudeTask,
   getClaudeCommandCatalog,
   resolveClaudeExecutablePath,
@@ -30,18 +31,32 @@ import {
 import { randomUUID } from "node:crypto";
 import { probeExecutableVersion } from "./runtime-shared";
 import {
+  createEmptyProviderRuntimeCapabilities,
+  extractRuntimeVersion,
+  resolveProviderRuntimeCapabilities,
+} from "../../src/lib/providers/runtime-capabilities";
+import {
   PROVIDER_STEER_ACK_TIMEOUT_MS,
   waitForSteerDelivery,
 } from "../../src/lib/providers/steer-delivery";
 import {
   appendAdvisorAdvice,
+  normalizeAdvisorTarget,
   withoutAdvisorTarget,
 } from "../../src/lib/providers/advisor";
 import {
+  buildAdvisorOutcomeEvent,
+  buildAdvisorStartedEvent,
   createAdvisorUsageMerger,
   formatAdvisorSystemTrace,
+  resolveAdvisorIsolationMode,
   runAdvisorPreflight,
+  shouldContinuePrimaryTurn,
 } from "./advisor-runtime";
+import {
+  createProviderTurnLifecycle,
+  type ProviderTurnLifecycleSnapshot,
+} from "./provider-turn-lifecycle";
 
 const sdkTurnTimeoutMs = Number(
   process.env.STAVE_PROVIDER_TIMEOUT_MS ?? 300000,
@@ -78,6 +93,12 @@ type ActiveRuntimeSession = {
     text: string;
     clientMessageId?: string;
   }) => Promise<ProviderResponderResult>;
+  /**
+   * Drops the advisor preflight while keeping the primary turn. Separate from
+   * `abort` so escaping a slow advisor never costs the user their whole turn.
+   * Returns `false` once the preflight is no longer running.
+   */
+  skipAdvisor?: () => boolean;
   timeoutController?: TurnTimeoutController;
 };
 
@@ -98,6 +119,16 @@ const activeStreams = new Map<string, ActiveStreamSession>();
  * SQLite being closed → "database connection is not open".
  */
 const activeTurnPromises = new Map<string, Promise<void>>();
+let lastCompletedLifecycleSnapshot: ProviderTurnLifecycleSnapshot | null = null;
+
+export function getProviderRuntimeLifecycleSnapshot() {
+  return {
+    activeSessionCount: activeSessions.size,
+    activeStreamCount: activeStreams.size,
+    activeTurnPromiseCount: activeTurnPromises.size,
+    lastCompleted: lastCompletedLifecycleSnapshot,
+  };
+}
 function upsertActiveSession(args: {
   turnId: string;
   providerId: StreamTurnArgs["providerId"];
@@ -107,6 +138,7 @@ function upsertActiveSession(args: {
   respondApproval?: ActiveRuntimeSession["respondApproval"];
   respondUserInput?: ActiveRuntimeSession["respondUserInput"];
   steer?: ActiveRuntimeSession["steer"];
+  skipAdvisor?: ActiveRuntimeSession["skipAdvisor"];
   timeoutController?: TurnTimeoutController;
 }) {
   const current = activeSessions.get(args.turnId);
@@ -119,6 +151,7 @@ function upsertActiveSession(args: {
     respondApproval: args.respondApproval ?? current?.respondApproval,
     respondUserInput: args.respondUserInput ?? current?.respondUserInput,
     steer: args.steer ?? current?.steer,
+    skipAdvisor: args.skipAdvisor ?? current?.skipAdvisor,
     timeoutController: args.timeoutController ?? current?.timeoutController,
   });
 }
@@ -150,6 +183,11 @@ function abortActive(args: { turnId: string }) {
 
 function clearActiveTurnState(args: { turnId: string }) {
   activeSessions.delete(args.turnId);
+}
+
+function skipAdvisorForTurn(args: { turnId: string }) {
+  const skip = activeSessions.get(args.turnId)?.skipAdvisor;
+  return skip ? skip() : false;
 }
 
 function summarizeActiveTurns() {
@@ -357,6 +395,7 @@ function describeClaudeAvailability(
       available: false,
       detail:
         "Claude CLI not found from runtime override, STAVE_CLAUDE_CLI_PATH, CLAUDE_CODE_PATH, login-shell PATH, or home-bin candidates.",
+      capabilities: createEmptyProviderRuntimeCapabilities(),
     };
   }
 
@@ -365,6 +404,7 @@ function describeClaudeAvailability(
     env: buildClaudeEnv({ executablePath }),
   });
   const available = versionProbe.status === 0;
+  const version = extractRuntimeVersion(versionProbe.text);
   const detail = available
     ? `Resolved Claude CLI: ${executablePath}`
     : [
@@ -374,7 +414,16 @@ function describeClaudeAvailability(
       ]
         .filter(Boolean)
         .join("\n");
-  return { available, detail };
+  return {
+    available,
+    detail,
+    ...(version ? { version } : {}),
+    capabilities: resolveProviderRuntimeCapabilities({
+      providerId: "claude-code",
+      versionText: versionProbe.text,
+      available,
+    }),
+  };
 }
 
 function describeCodexAvailability(
@@ -388,6 +437,7 @@ function describeCodexAvailability(
       available: false,
       detail:
         "Codex executable not found from runtime override, env vars, login-shell PATH, or home-bin candidates.",
+      capabilities: createEmptyProviderRuntimeCapabilities(),
     };
   }
 
@@ -396,6 +446,7 @@ function describeCodexAvailability(
     env: buildCodexCliEnv({ executablePath }),
   });
   const available = versionProbe.status === 0;
+  const version = extractRuntimeVersion(versionProbe.text);
   const detail = available
     ? `Resolved Codex executable: ${executablePath}`
     : [
@@ -405,7 +456,16 @@ function describeCodexAvailability(
       ]
         .filter(Boolean)
         .join("\n");
-  return { available, detail };
+  return {
+    available,
+    detail,
+    ...(version ? { version } : {}),
+    capabilities: resolveProviderRuntimeCapabilities({
+      providerId: "codex",
+      versionText: versionProbe.text,
+      available,
+    }),
+  };
 }
 
 async function withTimeout<T>(args: {
@@ -529,6 +589,25 @@ export function createTurnTimeoutController(args: {
 async function runProviderTurn(
   args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
 ) {
+  const lifecycle = createProviderTurnLifecycle({
+    onEvent: args.onEvent,
+  });
+  /**
+   * Set once the advisor usage mapper exists. Terminal `done` events synthesised
+   * here bypass the per-event mapper, so without this flush the advisor's tokens
+   * were billed but never reported whenever the turn timed out or aborted.
+   */
+  let flushAdvisorUsage: (() => BridgeEvent[]) | null = null;
+  const finishLifecycle = (
+    reason: "completed" | "runtime_failure" | "user_abort",
+  ) => {
+    for (const event of flushAdvisorUsage?.() ?? []) {
+      lifecycle.emit(event);
+    }
+    lifecycle.finish(reason);
+    lastCompletedLifecycleSnapshot = lifecycle.snapshot();
+    return lifecycle.events();
+  };
   const turnId = args.turnId ?? randomUUID();
   let abortRequested = false;
   let activePhaseAborter: (() => void) | null = null;
@@ -543,6 +622,40 @@ async function runProviderTurn(
     activePhaseAborter = aborter;
     if (abortRequested) {
       aborter();
+    }
+  };
+  let advisorSkipRequested = false;
+  let advisorPhaseActive = false;
+  let advisorSkipHandler: (() => void) | null = null;
+  /**
+   * Published to the active session *before* the preflight starts, because the
+   * preflight's eligibility phase can itself take seconds — the Codex catalog
+   * sweep is a paginated network call. Registering only once the runner exists
+   * left a window where `skipAdvisor` answered "no Advisor is running" while
+   * the UI was visibly blocked on one, and the request was dropped.
+   */
+  const publishAdvisorSkip = () => {
+    upsertActiveSession({
+      turnId,
+      providerId: args.providerId,
+      taskId: args.taskId,
+      skipAdvisor: () => {
+        // Reports whether a skip was actually possible. Once the preflight has
+        // resolved there is nothing left to skip, and answering "skipped" then
+        // would tell the user their still-running primary turn lost its advice.
+        if (!advisorPhaseActive) {
+          return false;
+        }
+        advisorSkipRequested = true;
+        advisorSkipHandler?.();
+        return true;
+      },
+    });
+  };
+  const registerAdvisorSkip = (skip: () => void) => {
+    advisorSkipHandler = skip;
+    if (advisorSkipRequested) {
+      skip();
     }
   };
   const updateActiveSession = (
@@ -612,18 +725,56 @@ async function runProviderTurn(
       downstream?.(event);
     };
 
-  const advisorEvents: BridgeEvent[] = [];
   let effectiveArgs: typeof args = {
     ...args,
     runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
   };
   let advisorUsage: Extract<BridgeEvent, { type: "usage" }> | undefined;
+  // Usage from an advisor that was skipped or timed out, harvested after the
+  // preflight already returned. Read lazily by the usage merger below.
+  let lateAdvisorUsage: Extract<BridgeEvent, { type: "usage" }> | undefined;
+  let advisorRan = false;
   if (args.runtimeOptions?.advisorTarget) {
-    const advisorResult = await runAdvisorPreflight({
-      turn: args,
-      registerAbort: registerPhaseAborter,
-    });
-    if (advisorResult.status === "aborted" || abortRequested) {
+    advisorRan = true;
+    const advisorTarget = normalizeAdvisorTarget(
+      args.runtimeOptions.advisorTarget,
+    );
+    lifecycle.emit(
+      buildAdvisorStartedEvent({
+        primaryProviderId: args.providerId,
+        primaryModel: args.runtimeOptions?.model,
+        target: advisorTarget,
+        at: Date.now(),
+      }),
+    );
+    advisorPhaseActive = true;
+    publishAdvisorSkip();
+    // The advisor is another model's latency, not the primary provider's
+    // generation budget. Without this pause a 90s advisor could consume the
+    // whole `providerTimeoutMs` and kill the turn before the primary ever ran.
+    timeoutController.pauseForDecision();
+    let advisorResult: Awaited<ReturnType<typeof runAdvisorPreflight>>;
+    try {
+      advisorResult = await runAdvisorPreflight({
+        turn: args,
+        registerAbort: registerPhaseAborter,
+        registerSkip: registerAdvisorSkip,
+        reportLateUsage: (usage) => {
+          lateAdvisorUsage = usage;
+        },
+      });
+    } finally {
+      advisorPhaseActive = false;
+      timeoutController.resumeAfterDecision();
+    }
+    lifecycle.emit(
+      buildAdvisorOutcomeEvent({
+        primaryProviderId: args.providerId,
+        result: advisorResult,
+        at: Date.now(),
+      }),
+    );
+    if (!shouldContinuePrimaryTurn(advisorResult) || abortRequested) {
       const terminalEvents: BridgeEvent[] = timeoutController.timedOut
         ? [
             {
@@ -642,42 +793,74 @@ async function runProviderTurn(
               stop_reason: "user_abort",
             },
           ];
-      const mapUsage = createAdvisorUsageMerger(advisorResult.usage);
+      const mapUsage = createAdvisorUsageMerger(
+        () => advisorResult.usage ?? lateAdvisorUsage,
+      );
       const mappedTerminalEvents = terminalEvents.flatMap((event) =>
         mapUsage(event),
       );
-      mappedTerminalEvents.forEach((event) => args.onEvent?.(event));
+      mappedTerminalEvents.forEach((event) => lifecycle.emit(event));
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
-      return mappedTerminalEvents;
+      lastCompletedLifecycleSnapshot = lifecycle.snapshot();
+      return lifecycle.events();
     }
     if (advisorResult.shouldTrace) {
-      const trace: BridgeEvent = {
+      // The structured event above drives the live UI; this durable transcript
+      // receipt is what survives a restart.
+      lifecycle.emit({
         type: "system",
         content: formatAdvisorSystemTrace(advisorResult),
-      };
-      advisorEvents.push(trace);
-      args.onEvent?.(trace);
+      });
     }
     advisorUsage = advisorResult.usage;
     if (advisorResult.status === "completed" && effectiveArgs.conversation) {
+      const injection = appendAdvisorAdvice({
+        conversation: effectiveArgs.conversation,
+        target: advisorResult.target,
+        advice: advisorResult.advice,
+      });
       effectiveArgs = {
         ...effectiveArgs,
-        conversation: appendAdvisorAdvice({
-          conversation: effectiveArgs.conversation,
-          target: advisorResult.target,
-          advice: advisorResult.advice,
-        }),
+        conversation: injection.conversation,
       };
+      // `applied` is emitted only from the real injection site. Advice produced
+      // but never injected is a distinct, previously invisible failure mode.
+      if (injection.injectedPartIndex !== null) {
+        lifecycle.emit({
+          type: "advisor_activity",
+          phase: "applied",
+          primaryProviderId: args.providerId,
+          advisorProviderId: advisorResult.target.providerId,
+          advisorModel: advisorResult.target.model,
+          isolation: resolveAdvisorIsolationMode(
+            advisorResult.target.providerId,
+          ),
+          at: Date.now(),
+          injectedChars: injection.injectedChars,
+          injectedPartIndex: injection.injectedPartIndex,
+        });
+      }
     }
   }
 
-  const mapUsageForDownstream = createAdvisorUsageMerger(advisorUsage);
+  const mapUsageForDownstream = createAdvisorUsageMerger(
+    () => advisorUsage ?? lateAdvisorUsage,
+  );
+  flushAdvisorUsage = mapUsageForDownstream.flush;
+  if (advisorRan) {
+    lifecycle.emit({
+      type: "advisor_activity",
+      phase: "primary_started",
+      primaryProviderId: args.providerId,
+      at: Date.now(),
+    });
+  }
   const emittedPrimaryEvents: BridgeEvent[] = [];
   const emitPrimaryEvent = (event: BridgeEvent) => {
     emittedPrimaryEvents.push(event);
     for (const mappedEvent of mapUsageForDownstream(event)) {
-      args.onEvent?.(mappedEvent);
+      lifecycle.emit(mappedEvent);
     }
   };
   const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
@@ -696,11 +879,6 @@ async function runProviderTurn(
       emitPrimaryEvent(event);
     }
   };
-  const mapReturnedEvents = (events: BridgeEvent[]) => {
-    const mapUsage = createAdvisorUsageMerger(advisorUsage);
-    return [...advisorEvents, ...events.flatMap((event) => mapUsage(event))];
-  };
-
   if (effectiveArgs.providerId === "claude-code") {
     try {
       const events = await runStreamWithPausableTimeout(
@@ -721,13 +899,43 @@ async function runProviderTurn(
       );
       if (events && events.length > 0) {
         emitMissingReturnedEvents(events);
-        return mapReturnedEvents(events);
+        return finishLifecycle(
+          abortRequested
+            ? timeoutController.timedOut
+              ? "runtime_failure"
+              : "user_abort"
+            : "completed",
+        );
+      }
+      if (abortRequested) {
+        if (timeoutController.timedOut) {
+          emitPrimaryEvent({
+            type: "error",
+            message: `Provider turn timed out. timeout=${turnTimeoutMs}ms`,
+            recoverable: true,
+          });
+          return finishLifecycle("runtime_failure");
+        }
+        return finishLifecycle("user_abort");
       }
       const fallback = toClaudeErrorEvents({
         message: `Claude SDK unavailable/timeout. Check claude login and SDK environment. timeout=${turnTimeoutMs}ms`,
       });
       fallback.forEach((event) => emitPrimaryEvent(event));
-      return mapReturnedEvents(fallback);
+      lastCompletedLifecycleSnapshot = lifecycle.snapshot();
+      return lifecycle.events();
+    } catch (error) {
+      if (abortRequested && !timeoutController.timedOut) {
+        return finishLifecycle("user_abort");
+      }
+      emitPrimaryEvent({
+        type: "error",
+        message: timeoutController.timedOut
+          ? `Provider turn timed out. timeout=${turnTimeoutMs}ms`
+          : `Claude provider stream failed: ${String(error)}`,
+        recoverable: true,
+      });
+      return finishLifecycle("runtime_failure");
     } finally {
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
@@ -753,13 +961,43 @@ async function runProviderTurn(
     );
     if (events && events.length > 0) {
       emitMissingReturnedEvents(events);
-      return mapReturnedEvents(events);
+      return finishLifecycle(
+        abortRequested
+          ? timeoutController.timedOut
+            ? "runtime_failure"
+            : "user_abort"
+          : "completed",
+      );
+    }
+    if (abortRequested) {
+      if (timeoutController.timedOut) {
+        emitPrimaryEvent({
+          type: "error",
+          message: `Provider turn timed out. timeout=${turnTimeoutMs}ms`,
+          recoverable: true,
+        });
+        return finishLifecycle("runtime_failure");
+      }
+      return finishLifecycle("user_abort");
     }
     const fallback = toCodexErrorEvents({
       message: `Codex unavailable/timeout. Check codex auth and runtime environment. timeout=${turnTimeoutMs}ms`,
     });
     fallback.forEach((event) => emitPrimaryEvent(event));
-    return mapReturnedEvents(fallback);
+    lastCompletedLifecycleSnapshot = lifecycle.snapshot();
+    return lifecycle.events();
+  } catch (error) {
+    if (abortRequested && !timeoutController.timedOut) {
+      return finishLifecycle("user_abort");
+    }
+    emitPrimaryEvent({
+      type: "error",
+      message: timeoutController.timedOut
+        ? `Provider turn timed out. timeout=${turnTimeoutMs}ms`
+        : `Codex provider stream failed: ${String(error)}`,
+      recoverable: true,
+    });
+    return finishLifecycle("runtime_failure");
   } finally {
     timeoutController.dispose();
     clearActiveTurnState({ turnId });
@@ -781,6 +1019,15 @@ export const providerRuntime: ProviderRuntime = {
       retainedBytes: 0,
     };
     activeStreams.set(streamId, session);
+    const deliveryLifecycle = createProviderTurnLifecycle({
+      onEvent: (event) => {
+        if (shouldBufferForPolling) {
+          appendStreamEvent(session, event);
+        }
+        session.updatedAt = Date.now();
+        options?.onEvent?.(event);
+      },
+    });
     upsertActiveSession({
       turnId,
       providerId: args.providerId,
@@ -792,11 +1039,7 @@ export const providerRuntime: ProviderRuntime = {
         ...args,
         turnId,
         onEvent: (event) => {
-          if (shouldBufferForPolling) {
-            appendStreamEvent(session, event);
-          }
-          session.updatedAt = Date.now();
-          options?.onEvent?.(event);
+          deliveryLifecycle.emit(event);
         },
       })
         .catch((error) => {
@@ -805,20 +1048,13 @@ export const providerRuntime: ProviderRuntime = {
             message: `Provider stream failed: ${String(error)}`,
             recoverable: true,
           };
-          if (shouldBufferForPolling) {
-            appendStreamEvent(session, errorEvent);
-          }
-          options?.onEvent?.(errorEvent);
-          const doneEvent: BridgeEvent = {
-            type: "done",
-            stop_reason: "runtime_failure",
-          };
-          if (shouldBufferForPolling) {
-            appendStreamEvent(session, doneEvent);
-          }
-          options?.onEvent?.(doneEvent);
+          deliveryLifecycle.emit(errorEvent);
+          deliveryLifecycle.finish("runtime_failure");
         })
         .finally(() => {
+          if (!deliveryLifecycle.terminal) {
+            deliveryLifecycle.finish("runtime_failure");
+          }
           session.done = true;
           session.updatedAt = Date.now();
           clearActiveTurnState({ turnId });
@@ -901,6 +1137,13 @@ export const providerRuntime: ProviderRuntime = {
     }
     return { ok: true, message: "Provider turn aborted." };
   },
+  skipAdvisor: ({ turnId }) => {
+    const ok = skipAdvisorForTurn({ turnId });
+    if (!ok) {
+      return { ok: false, message: "No Advisor preflight is running." };
+    }
+    return { ok: true, message: "Advisor preflight skipped." };
+  },
   cleanupTask: ({ taskId }) => {
     clearActiveTaskSessions({ taskId });
     cleanupProviderTaskState(taskId);
@@ -972,6 +1215,7 @@ export const providerRuntime: ProviderRuntime = {
       ok: false,
       available: false,
       detail: `Unsupported provider: ${providerId}`,
+      capabilities: createEmptyProviderRuntimeCapabilities(),
     };
   },
   getCommandCatalog: async ({ providerId, cwd, runtimeOptions }) => {
@@ -999,6 +1243,7 @@ export const providerRuntime: ProviderRuntime = {
   },
   getConnectedToolStatus: async (args) => getProviderConnectedToolStatus(args),
   shutdown: async () => {
+    cleanupClaudeMcpOauthFlows();
     const taskIds = new Set<string>();
     for (const session of activeSessions.values()) {
       session.abort?.();

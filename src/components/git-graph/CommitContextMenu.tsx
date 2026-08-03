@@ -249,6 +249,7 @@ export function CommitContextMenu({
       >
         {/* Zero-sized invisible anchor div positioned at mouse coords */}
         <DropdownMenuTrigger
+          nativeButton={false}
           render={
             <div
               ref={triggerRef}

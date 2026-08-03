@@ -4,7 +4,11 @@ This guide explains how a packaged Stave desktop user can expose the built-in lo
 
 ![Settings dialog showing the Local MCP server and request log cards](../screenshots/mcp-settings.png)
 
-This rendered example shows the `Settings > MCP` view with the Local MCP Server card, the request log, and Codex native runtime status in one place.
+This screenshot captures the Local MCP controls in `Settings > MCP`. The
+current view also places a shared Claude and Codex connection manager above
+the Local MCP Server and request log cards. See
+[MCP Server Management](./mcp-server-management.md) for adding, editing, and
+removing external provider servers.
 
 ## Who This Is For
 

@@ -63,6 +63,7 @@ import {
   type EditorBulkCloseKind,
   type EditorBulkClosePlan,
 } from "@/components/panes/editor-tab-actions";
+import { isGitGraphEditorTab } from "@/components/panes/editor-tab-presentation";
 import { EditorSurfaceToolbar } from "@/components/panes/surfaces/editor-surface-toolbar";
 import {
   Empty,
@@ -247,7 +248,7 @@ function syncLanguageIntelligenceLifecycle(monaco: Monaco | null) {
 
 /**
  * Dockview panel wrapper for an editor file tab: a single-file Monaco surface
- * (text / diff / markdown preview / image / git graph) bound to the panel's
+ * (text / diff / markdown preview / image / commit graph) bound to the panel's
  * editorTabId.
  */
 export function EditorSurfacePanel(props: IDockviewPanelProps) {
@@ -332,15 +333,15 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
 
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
-  const diffEditorRef =
-    useRef<MonacoEditorApi.IStandaloneDiffEditor | null>(null);
+  const diffEditorRef = useRef<MonacoEditorApi.IStandaloneDiffEditor | null>(
+    null,
+  );
   const diffReviewActionDisposableRef = useRef<MonacoDisposable | null>(null);
 
   const isActiveEditorTab = activeEditorTabId === editorTabId;
   const tabContentTooLarge = tab?.contentState === "too-large";
   const tabContentPending = Boolean(
-    tab &&
-      (tab.contentState === "deferred" || tab.contentState === "loading"),
+    tab && (tab.contentState === "deferred" || tab.contentState === "loading"),
   );
   const tabContentUnavailable = tabContentPending || tabContentTooLarge;
   const tabIsImage = Boolean(
@@ -354,7 +355,10 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
   // source-control diff keeps rendering as a diff in a background split.
   const diffMode = isActiveEditorTab ? editorDiffMode : isDiffEditorTab(tab);
   const showMarkdownPreview = Boolean(
-    tabIsMarkdown && isActiveEditorTab && editorMarkdownPreviewMode && !diffMode,
+    tabIsMarkdown &&
+    isActiveEditorTab &&
+    editorMarkdownPreviewMode &&
+    !diffMode,
   );
   const monacoTheme = isDarkMode ? "vs-dark" : "vs";
   const modelPath = tab ? toMonacoModelPath(tab.filePath) : undefined;
@@ -364,11 +368,11 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
   const diffSessionKey = showDiffDisplayControls && tab ? tab.id : null;
   const showCodeEditor = Boolean(
     tab &&
-      tab.kind !== "git-graph" &&
-      !tabContentUnavailable &&
-      !tabIsImage &&
-      !showMarkdownPreview &&
-      !(diffMode && tab.originalContent),
+    tab.kind !== "git-graph" &&
+    !tabContentUnavailable &&
+    !tabIsImage &&
+    !showMarkdownPreview &&
+    !(diffMode && tab.originalContent),
   );
   const absolutePath = tab
     ? resolveEditorTabAbsolutePath({
@@ -398,9 +402,9 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     }) || tabContentUnavailable;
   const shouldLoadWorkspaceSupport = Boolean(
     workspaceRootPath &&
-      tab &&
-      !tabIsImage &&
-      supportsWorkspaceTypeLibraries(tab.language),
+    tab &&
+    !tabIsImage &&
+    supportsWorkspaceTypeLibraries(tab.language),
   );
   const workspaceSupportEntryFilePath = shouldLoadWorkspaceSupport
     ? tab?.filePath
@@ -802,44 +806,46 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
       data-testid="editor-surface"
       className="flex h-full min-h-0 min-w-0 w-full flex-col bg-card"
     >
-      <EditorSurfaceToolbar
-        tab={tab}
-        absolutePath={absolutePath}
-        tabIsImage={tabIsImage}
-        tabIsMarkdown={tabIsMarkdown}
-        sendToAgentDisabled={sendToAgentDisabled}
-        diffMode={diffMode}
-        markdownPreviewMode={showMarkdownPreview}
-        diffViewMode={diffViewMode}
-        showDiffDisplayControls={showDiffDisplayControls}
-        reviewCommentCount={reviewCommentsForActiveTask.length}
-        canAddReviewComment={canAddReviewComment}
-        canSubmitReviewFeedback={canSubmitReviewFeedback}
-        onSave={performSave}
-        onToggleDiffMode={handleToggleDiffMode}
-        onToggleMarkdownPreviewMode={handleToggleMarkdownPreviewMode}
-        onChangeDiffViewMode={(mode) =>
-          useAppStore.getState().updateSettings({
-            patch: { diffViewMode: mode },
-          })
-        }
-        onAddReviewComment={() => startReviewCommentDraft()}
-        onSubmitReviewFeedback={submitActiveTaskReviewFeedback}
-        onSendToAgent={handleSendToAgent}
-        onBulkClose={handleBulkClose}
-        onCopyPath={() =>
-          void copyEditorTabPath({
-            filePath: tab.filePath,
-            workspaceRootPath,
-          })
-        }
-        onCopyRelativePath={() =>
-          void copyEditorTabRelativePath({ filePath: tab.filePath })
-        }
-        onCopyBreadcrumbsPath={() =>
-          void copyEditorTabBreadcrumbsPath({ filePath: tab.filePath })
-        }
-      />
+      {!isGitGraphEditorTab(tab) ? (
+        <EditorSurfaceToolbar
+          tab={tab}
+          absolutePath={absolutePath}
+          tabIsImage={tabIsImage}
+          tabIsMarkdown={tabIsMarkdown}
+          sendToAgentDisabled={sendToAgentDisabled}
+          diffMode={diffMode}
+          markdownPreviewMode={showMarkdownPreview}
+          diffViewMode={diffViewMode}
+          showDiffDisplayControls={showDiffDisplayControls}
+          reviewCommentCount={reviewCommentsForActiveTask.length}
+          canAddReviewComment={canAddReviewComment}
+          canSubmitReviewFeedback={canSubmitReviewFeedback}
+          onSave={performSave}
+          onToggleDiffMode={handleToggleDiffMode}
+          onToggleMarkdownPreviewMode={handleToggleMarkdownPreviewMode}
+          onChangeDiffViewMode={(mode) =>
+            useAppStore.getState().updateSettings({
+              patch: { diffViewMode: mode },
+            })
+          }
+          onAddReviewComment={() => startReviewCommentDraft()}
+          onSubmitReviewFeedback={submitActiveTaskReviewFeedback}
+          onSendToAgent={handleSendToAgent}
+          onBulkClose={handleBulkClose}
+          onCopyPath={() =>
+            void copyEditorTabPath({
+              filePath: tab.filePath,
+              workspaceRootPath,
+            })
+          }
+          onCopyRelativePath={() =>
+            void copyEditorTabRelativePath({ filePath: tab.filePath })
+          }
+          onCopyBreadcrumbsPath={() =>
+            void copyEditorTabBreadcrumbsPath({ filePath: tab.filePath })
+          }
+        />
+      ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-editor-foreground">
         {showDiffDisplayControls ? (
@@ -867,7 +873,10 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
 
         <div className="min-h-0 flex-1 overflow-hidden">
           {tab.kind === "git-graph" ? (
-            <GitGraphView workspaceCwd={workspaceRootPath || undefined} />
+            <GitGraphView
+              key={workspaceRootPath || "git-graph:no-workspace"}
+              workspaceCwd={workspaceRootPath || undefined}
+            />
           ) : tabContentTooLarge ? (
             <div className="flex h-full items-center justify-center bg-editor p-6">
               <Empty className="border-none bg-transparent p-0">
@@ -907,8 +916,8 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
                       Loading tab…
                     </EmptyTitle>
                     <EmptyDescription className="max-w-md text-sm">
-                      Restoring this editor tab without blocking the rest of
-                      the workspace.
+                      Restoring this editor tab without blocking the rest of the
+                      workspace.
                     </EmptyDescription>
                   </div>
                 </EmptyHeader>

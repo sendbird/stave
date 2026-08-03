@@ -1,0 +1,765 @@
+import { useEffect, useId, useMemo, useState } from "react";
+import {
+  Badge,
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  Textarea,
+} from "@/components/ui";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type {
+  McpConfigProvider,
+  McpConfigScope,
+  McpConfigTransport,
+  McpServerConfigMutationPreview,
+  McpServerConfigMutationRequest,
+  McpServerConfigSnapshot,
+} from "@/lib/providers/mcp-config.types";
+import {
+  buildMcpConfigDraft,
+  createInitialMcpConfigForm,
+  validateMcpConfigForm,
+} from "@/lib/providers/mcp-config-form";
+import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
+
+type McpEditorRuntimeOptions = {
+  claude: ProviderRuntimeOptions;
+  codex: ProviderRuntimeOptions;
+};
+
+function getRuntimeOptions(
+  provider: McpConfigProvider,
+  options: McpEditorRuntimeOptions,
+) {
+  return provider === "claude-code"
+    ? { claudeBinaryPath: options.claude.claudeBinaryPath }
+    : { codexBinaryPath: options.codex.codexBinaryPath };
+}
+
+function FormField(props: {
+  label: string;
+  htmlFor: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={props.htmlFor} className="text-sm font-medium">
+        {props.label}
+      </label>
+      {props.children}
+      {props.description ? (
+        <p className="text-xs leading-5 text-muted-foreground">
+          {props.description}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function ReviewPanel(props: { preview: McpServerConfigMutationPreview }) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border/75 bg-muted/20 p-4">
+        <p className="text-sm font-medium">{props.preview.title}</p>
+        <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+          {props.preview.changes.map((change) => (
+            <li key={change}>• {change}</li>
+          ))}
+        </ul>
+      </div>
+      {props.preview.warnings.length ? (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+          <p className="font-medium text-warning-foreground">
+            Before you apply
+          </p>
+          <ul className="mt-2 space-y-1 text-muted-foreground">
+            {props.preview.warnings.map((warning) => (
+              <li key={warning}>• {warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <p className="text-xs leading-5 text-muted-foreground">
+        Stave will verify that the provider configuration has not changed since
+        this preview before writing it.
+      </p>
+    </div>
+  );
+}
+
+export function McpServerConfigEditorDialog(props: {
+  open: boolean;
+  snapshot?: McpServerConfigSnapshot;
+  workspaceCwd?: string;
+  runtimeOptions: McpEditorRuntimeOptions;
+  onOpenChange: (open: boolean) => void;
+  onApplied: (detail: string) => void;
+}) {
+  const editing = Boolean(props.snapshot);
+  const baseId = useId();
+  const [form, setForm] = useState(() =>
+    createInitialMcpConfigForm(props.snapshot),
+  );
+  const [preview, setPreview] = useState<McpServerConfigMutationPreview | null>(
+    null,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!props.open) return;
+    setForm(createInitialMcpConfigForm(props.snapshot));
+    setPreview(null);
+    setBusy(false);
+    setError("");
+  }, [props.open, props.snapshot]);
+
+  const mutationRequest = useMemo(() => {
+    try {
+      validateMcpConfigForm({
+        form,
+        editing,
+        workspaceCwd: props.workspaceCwd,
+      });
+      const draft = buildMcpConfigDraft({ form, editing });
+      const common = {
+        cwd: props.workspaceCwd,
+        runtimeOptions: getRuntimeOptions(form.provider, props.runtimeOptions),
+      };
+      return editing && props.snapshot
+        ? ({
+            ...common,
+            operation: "update",
+            target: {
+              provider: props.snapshot.provider,
+              scope: props.snapshot.scope,
+              name: props.snapshot.name,
+            },
+            draft,
+          } satisfies McpServerConfigMutationRequest)
+        : ({
+            ...common,
+            operation: "create",
+            draft,
+          } satisfies McpServerConfigMutationRequest);
+    } catch {
+      return null;
+    }
+  }, [editing, form, props.runtimeOptions, props.snapshot, props.workspaceCwd]);
+
+  async function previewChange() {
+    setError("");
+    try {
+      validateMcpConfigForm({
+        form,
+        editing,
+        workspaceCwd: props.workspaceCwd,
+      });
+      const request = mutationRequest;
+      if (!request) throw new Error("MCP configuration form is incomplete.");
+      const api = window.api?.provider?.previewMcpServerConfigMutation;
+      if (!api)
+        throw new Error("MCP configuration preview API is unavailable.");
+      setBusy(true);
+      const result = await api(request);
+      if (!result.ok || !result.preview) {
+        throw new Error(result.detail);
+      }
+      setPreview(result.preview);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyChange() {
+    if (!preview || !mutationRequest) return;
+    const api = window.api?.provider?.applyMcpServerConfigMutation;
+    if (!api) {
+      setError("MCP configuration apply API is unavailable.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api({
+        ...mutationRequest,
+        expectedRevision: preview.revision,
+      });
+      if (!result.ok) throw new Error(result.detail);
+      props.onApplied(result.detail);
+      props.onOpenChange(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+      setPreview(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const setProvider = (provider: McpConfigProvider) => {
+    setForm((current) => ({
+      ...current,
+      provider,
+      scope: provider === "codex" ? "user" : current.scope,
+      transport:
+        provider === "codex" && current.transport === "sse"
+          ? "http"
+          : current.transport,
+    }));
+  };
+
+  return (
+    <Dialog
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!busy) props.onOpenChange(open);
+      }}
+    >
+      <DialogContent className="flex max-h-[88vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b border-border/70 px-6 py-5 pr-14">
+          <DialogTitle className="text-base">
+            {editing ? "Edit MCP server" : "Add MCP server"}
+          </DialogTitle>
+          <DialogDescription className="leading-5">
+            Credentials stay outside Stave: bind authentication through
+            environment-variable names, then review the native provider change
+            before applying it.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {preview ? (
+            <ReviewPanel preview={preview} />
+          ) : (
+            <form
+              id={`${baseId}-form`}
+              className="space-y-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void previewChange();
+              }}
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Provider" htmlFor={`${baseId}-provider`}>
+                  <Select
+                    value={form.provider}
+                    disabled={editing}
+                    onValueChange={(value) =>
+                      setProvider(value as McpConfigProvider)
+                    }
+                  >
+                    <SelectTrigger id={`${baseId}-provider`} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="claude-code">Claude</SelectItem>
+                      <SelectItem value="codex">Codex</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormField>
+                <FormField
+                  label="Scope"
+                  htmlFor={`${baseId}-scope`}
+                  description={
+                    form.provider === "codex"
+                      ? "Codex App Server currently supports safe writes to user scope."
+                      : "Project is shared in .mcp.json; local stays private to this workspace."
+                  }
+                >
+                  <Select
+                    value={form.scope}
+                    disabled={editing || form.provider === "codex"}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        scope: value as McpConfigScope,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id={`${baseId}-scope`} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      {form.provider === "claude-code" ? (
+                        <>
+                          <SelectItem
+                            value="project"
+                            disabled={!props.workspaceCwd}
+                          >
+                            Project
+                          </SelectItem>
+                          <SelectItem
+                            value="local"
+                            disabled={!props.workspaceCwd}
+                          >
+                            Local project
+                          </SelectItem>
+                        </>
+                      ) : null}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Server name" htmlFor={`${baseId}-name`}>
+                  <Input
+                    id={`${baseId}-name`}
+                    autoFocus
+                    value={form.name}
+                    placeholder="github"
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                  />
+                </FormField>
+                <FormField label="Transport" htmlFor={`${baseId}-transport`}>
+                  <Select
+                    value={form.transport}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        transport: value as McpConfigTransport,
+                      }))
+                    }
+                  >
+                    <SelectTrigger
+                      id={`${baseId}-transport`}
+                      className="w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="stdio">stdio</SelectItem>
+                      <SelectItem value="http">HTTP</SelectItem>
+                      {form.provider === "claude-code" ? (
+                        <SelectItem value="sse">SSE (legacy)</SelectItem>
+                      ) : null}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              </div>
+
+              {form.transport === "stdio" ? (
+                <>
+                  <FormField label="Command" htmlFor={`${baseId}-command`}>
+                    <Input
+                      id={`${baseId}-command`}
+                      value={form.command}
+                      placeholder="npx"
+                      spellCheck={false}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          command: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  {editing && props.snapshot?.argumentCount ? (
+                    <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 p-3">
+                      <div>
+                        <p className="text-sm font-medium">
+                          Replace command arguments
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {props.snapshot.argumentCount === 1
+                            ? "1 existing argument is hidden"
+                            : `${props.snapshot.argumentCount} existing arguments are hidden`}{" "}
+                          Leave this off to preserve them.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={form.replaceArgs}
+                        onCheckedChange={(checked) =>
+                          setForm((current) => ({
+                            ...current,
+                            replaceArgs: checked,
+                          }))
+                        }
+                        aria-label="Replace existing MCP command arguments"
+                      />
+                    </div>
+                  ) : null}
+                  {!editing || form.replaceArgs ? (
+                    <FormField
+                      label="Arguments"
+                      htmlFor={`${baseId}-args`}
+                      description="One argument per line. Empty lines are ignored."
+                    >
+                      <Textarea
+                        id={`${baseId}-args`}
+                        value={form.argsText}
+                        placeholder={"--yes\n@modelcontextprotocol/server"}
+                        spellCheck={false}
+                        className="min-h-24 font-mono text-xs"
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            argsText: event.target.value,
+                          }))
+                        }
+                      />
+                    </FormField>
+                  ) : null}
+                  <FormField
+                    label="Inherited environment variables"
+                    htmlFor={`${baseId}-env-vars`}
+                    description="One variable name per line. Stave writes references only, never values."
+                  >
+                    <Textarea
+                      id={`${baseId}-env-vars`}
+                      value={form.envVarsText}
+                      placeholder={"GITHUB_TOKEN\nWORKSPACE_ID"}
+                      spellCheck={false}
+                      className="min-h-20 font-mono text-xs"
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          envVarsText: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                </>
+              ) : (
+                <>
+                  {editing && props.snapshot?.urlRedacted ? (
+                    <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 p-3">
+                      <div>
+                        <p className="text-sm font-medium">
+                          Replace remote URL
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          Credentials or query details are hidden. Leave this
+                          off to preserve the complete URL.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={form.replaceUrl}
+                        onCheckedChange={(checked) =>
+                          setForm((current) => ({
+                            ...current,
+                            replaceUrl: checked,
+                          }))
+                        }
+                        aria-label="Replace redacted MCP URL"
+                      />
+                    </div>
+                  ) : null}
+                  {!editing || form.replaceUrl ? (
+                    <FormField label="URL" htmlFor={`${baseId}-url`}>
+                      <Input
+                        id={`${baseId}-url`}
+                        type="url"
+                        value={form.url}
+                        placeholder="https://mcp.example.com/mcp"
+                        spellCheck={false}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            url: event.target.value,
+                          }))
+                        }
+                      />
+                    </FormField>
+                  ) : null}
+                  <FormField
+                    label="Bearer token environment variable"
+                    htmlFor={`${baseId}-bearer`}
+                    description="Optional. Enter the variable name, not the token."
+                  >
+                    <Input
+                      id={`${baseId}-bearer`}
+                      value={form.bearerTokenEnvVar}
+                      placeholder="MCP_ACCESS_TOKEN"
+                      spellCheck={false}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          bearerTokenEnvVar: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  <FormField
+                    label="Header environment bindings"
+                    htmlFor={`${baseId}-headers`}
+                    description="One Header-Name=ENV_VAR binding per line."
+                  >
+                    <Textarea
+                      id={`${baseId}-headers`}
+                      value={form.headerBindingsText}
+                      placeholder={"X-Workspace=WORKSPACE_ID"}
+                      spellCheck={false}
+                      className="min-h-20 font-mono text-xs"
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          headerBindingsText: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                </>
+              )}
+
+              {form.provider === "codex" ? (
+                <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 p-3">
+                  <div>
+                    <p className="text-sm font-medium">Enabled</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Disabled servers stay in Codex configuration without
+                      connecting.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={form.enabled}
+                    onCheckedChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        enabled: checked,
+                      }))
+                    }
+                    aria-label="Enable Codex MCP server"
+                  />
+                </div>
+              ) : null}
+
+              {editing && props.snapshot?.hiddenValueCount ? (
+                <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+                  <span className="font-medium text-warning-foreground">
+                    Protected existing values.
+                  </span>{" "}
+                  {props.snapshot.hiddenValueCount === 1
+                    ? "1 sensitive or opaque value is hidden"
+                    : `${props.snapshot.hiddenValueCount} sensitive or opaque values are hidden`}{" "}
+                  from this dialog and preserved when the transport remains
+                  compatible.
+                </div>
+              ) : null}
+            </form>
+          )}
+
+          {error ? (
+            <p
+              className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
+              role="alert"
+            >
+              {error}
+            </p>
+          ) : null}
+          <p className="sr-only" aria-live="polite" role="status">
+            {busy
+              ? preview
+                ? "Applying MCP configuration"
+                : "Preparing MCP configuration preview"
+              : ""}
+          </p>
+        </div>
+
+        <DialogFooter className="border-t border-border/70 bg-muted/15 px-6 py-4">
+          {preview ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                setPreview(null);
+                setError("");
+              }}
+            >
+              Back
+            </Button>
+          ) : (
+            <DialogClose render={<Button type="button" variant="outline" />}>
+              Cancel
+            </DialogClose>
+          )}
+          <Button
+            type={preview ? "button" : "submit"}
+            form={preview ? undefined : `${baseId}-form`}
+            disabled={busy}
+            onClick={preview ? () => void applyChange() : undefined}
+          >
+            {busy
+              ? preview
+                ? "Applying…"
+                : "Preparing…"
+              : preview
+                ? "Apply change"
+                : "Review change"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function McpServerConfigDeleteDialog(props: {
+  open: boolean;
+  snapshot?: McpServerConfigSnapshot;
+  workspaceCwd?: string;
+  runtimeOptions: McpEditorRuntimeOptions;
+  onOpenChange: (open: boolean) => void;
+  onApplied: (detail: string) => void;
+}) {
+  const [preview, setPreview] = useState<McpServerConfigMutationPreview | null>(
+    null,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!props.open || !props.snapshot) return;
+    let cancelled = false;
+    const snapshot = props.snapshot;
+    const load = async () => {
+      setBusy(true);
+      setPreview(null);
+      setError("");
+      try {
+        const api = window.api?.provider?.previewMcpServerConfigMutation;
+        if (!api)
+          throw new Error("MCP configuration preview API is unavailable.");
+        const result = await api({
+          operation: "delete",
+          target: {
+            provider: snapshot.provider,
+            scope: snapshot.scope,
+            name: snapshot.name,
+          },
+          cwd: props.workspaceCwd,
+          runtimeOptions: getRuntimeOptions(
+            snapshot.provider,
+            props.runtimeOptions,
+          ),
+        });
+        if (!result.ok || !result.preview) throw new Error(result.detail);
+        if (!cancelled) setPreview(result.preview);
+      } catch (caught) {
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : String(caught));
+        }
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [props.open, props.runtimeOptions, props.snapshot, props.workspaceCwd]);
+
+  async function confirmDelete() {
+    if (!preview || !props.snapshot) return;
+    const api = window.api?.provider?.applyMcpServerConfigMutation;
+    if (!api) {
+      setError("MCP configuration apply API is unavailable.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api({
+        operation: "delete",
+        target: {
+          provider: props.snapshot.provider,
+          scope: props.snapshot.scope,
+          name: props.snapshot.name,
+        },
+        cwd: props.workspaceCwd,
+        runtimeOptions: getRuntimeOptions(
+          props.snapshot.provider,
+          props.runtimeOptions,
+        ),
+        expectedRevision: preview.revision,
+      });
+      if (!result.ok) throw new Error(result.detail);
+      props.onApplied(result.detail);
+      props.onOpenChange(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!busy) props.onOpenChange(open);
+      }}
+    >
+      <DialogContent showCloseButton={false} className="max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <DialogTitle className="text-destructive">
+              Delete MCP server?
+            </DialogTitle>
+            {props.snapshot ? (
+              <Badge variant="outline">{props.snapshot.sourceLabel}</Badge>
+            ) : null}
+          </div>
+          <DialogDescription>
+            {props.snapshot
+              ? `This removes ${props.snapshot.name} from ${props.snapshot.sourceLabel} configuration. This cannot be undone from Stave.`
+              : "This removes the selected MCP server configuration."}
+          </DialogDescription>
+        </DialogHeader>
+        {busy && !preview ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            Checking the latest provider configuration…
+          </p>
+        ) : null}
+        {preview?.warnings.length ? (
+          <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+            {preview.warnings.join(" ")}
+          </div>
+        ) : null}
+        {error ? (
+          <p
+            className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            Cancel
+          </DialogClose>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={busy || !preview}
+            onClick={() => void confirmDelete()}
+          >
+            {busy ? "Deleting…" : "Delete server"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

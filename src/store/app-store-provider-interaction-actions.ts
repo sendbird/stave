@@ -20,12 +20,22 @@ import {
   findLatestPendingUserInputPart,
   interruptPendingToolInteractionsInMessages,
 } from "@/store/provider-message.utils";
+import { clearAdvisorExchange } from "@/lib/providers/advisor-activity";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
-import type { ChatMessage, Task } from "@/types/chat";
+import type {
+  ApprovalPart,
+  ChatMessage,
+  Task,
+  UserInputPart,
+} from "@/types/chat";
 
 type ProviderInteractionActionKey =
-  "abortTaskTurn" | "resolveApproval" | "resolveUserInput";
+  | "abortTaskTurn"
+  | "skipTaskAdvisor"
+  | "dismissAdvisorExchange"
+  | "resolveApproval"
+  | "resolveUserInput";
 
 type ProviderInteractionActions = Pick<AppState, ProviderInteractionActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
@@ -71,10 +81,46 @@ export function createProviderInteractionActions(args: {
   } = args;
 
   return {
+    skipTaskAdvisor: ({ taskId }) => {
+      const state = get();
+      const activeTurnId = resolveTaskRuntimeTarget({ state, taskId })?.session
+        .activeTurnIdsByTask[taskId];
+      if (!activeTurnId) {
+        return;
+      }
+      // Deliberately does not touch turn state: the runtime answers with an
+      // `advisor_activity` `skipped` phase and the primary turn continues, so
+      // the store must not pre-empt that with a local guess.
+      void window.api?.provider?.skipAdvisor?.({ turnId: activeTurnId });
+    },
+    dismissAdvisorExchange: ({ taskId }) => {
+      set((state) => {
+        const advisorExchangeByTask = clearAdvisorExchange({
+          exchangeByTask: state.advisorExchangeByTask,
+          taskId,
+        });
+        return advisorExchangeByTask === state.advisorExchangeByTask
+          ? state
+          : { advisorExchangeByTask };
+      });
+    },
     abortTaskTurn: ({ taskId }) => {
       const stateBefore = get();
-      if (isTaskManaged(findTaskById(stateBefore, taskId))) {
-        const activeTurnId = stateBefore.activeTurnIdsByTask[taskId];
+      const runtimeTarget = resolveTaskRuntimeTarget({
+        state: stateBefore,
+        taskId,
+      });
+      const activeTurnId =
+        runtimeTarget?.session.activeTurnIdsByTask[taskId];
+      const workspaceId =
+        runtimeTarget?.workspaceId ??
+        stateBefore.taskWorkspaceIdById[taskId] ??
+        stateBefore.activeWorkspaceId;
+      if (
+        isTaskManaged(
+          runtimeTarget?.task ?? findTaskById(stateBefore, taskId),
+        )
+      ) {
         void requestManagedTaskStop({ taskId, state: stateBefore }).then(
           (stopped) => {
             if (!stopped) {
@@ -86,14 +132,17 @@ export function createProviderInteractionActions(args: {
             );
             attentionSync.syncTaskInteractions({
               taskId,
-              messages: get().messagesByTask[taskId] ?? [],
+              messages:
+                (workspaceId === get().activeWorkspaceId
+                  ? get().messagesByTask
+                  : get().workspaceRuntimeCacheById[workspaceId]
+                      ?.messagesByTask)?.[taskId] ?? [],
               endedTurnId: activeTurnId,
             });
           },
         );
         return;
       }
-      const activeTurnId = stateBefore.activeTurnIdsByTask[taskId];
       clearProviderTurnStallTimer(taskId);
       if (activeTurnId) {
         const abortTurn = window.api?.provider?.abortTurn;
@@ -109,7 +158,19 @@ export function createProviderInteractionActions(args: {
       }
 
       set((state) => {
-        const current = state.messagesByTask[taskId] ?? [];
+        const cachedSession =
+          workspaceId && workspaceId !== state.activeWorkspaceId
+            ? (state.workspaceRuntimeCacheById[workspaceId] ?? null)
+            : null;
+        const messagesByTask =
+          cachedSession?.messagesByTask ?? state.messagesByTask;
+        const activeTurnIdsByTask =
+          cachedSession?.activeTurnIdsByTask ?? state.activeTurnIdsByTask;
+        const providerSessionByTask =
+          cachedSession?.providerSessionByTask ?? state.providerSessionByTask;
+        const providerGoalByTask =
+          cachedSession?.providerGoalByTask ?? state.providerGoalByTask;
+        const current = messagesByTask[taskId] ?? [];
         const interruptedMessages = interruptPendingToolInteractionsInMessages({
           messages: current,
         });
@@ -117,65 +178,61 @@ export function createProviderInteractionActions(args: {
         // Clear persisted provider session so stale thread IDs are not
         // carried across to subsequent turns or workspace reloads.
         const { [taskId]: _dropped, ...restProviderSession } =
-          state.providerSessionByTask;
+          providerSessionByTask;
         const { [taskId]: _droppedGoal, ...restProviderGoal } =
-          state.providerGoalByTask;
-        if (!target || target.role !== "assistant" || !target.isStreaming) {
-          return {
-            messagesByTask:
-              interruptedMessages === current
-                ? state.messagesByTask
-                : {
-                    ...state.messagesByTask,
-                    [taskId]: interruptedMessages,
-                  },
-            activeTurnIdsByTask: {
-              ...state.activeTurnIdsByTask,
-              [taskId]: undefined,
-            },
-            providerTurnActivityByTask: clearProviderTurnActivity({
-              activityByTask: state.providerTurnActivityByTask,
-              taskId,
-            }),
-            providerSessionByTask: restProviderSession,
-            providerGoalByTask: restProviderGoal,
-            ...(interruptedMessages === current
-              ? {}
+          providerGoalByTask;
+        const nextMessages =
+          !target || target.role !== "assistant" || !target.isStreaming
+            ? interruptedMessages
+            : [
+                ...interruptedMessages.slice(0, -1),
+                {
+                  ...target,
+                  completedAt: buildRecentTimestamp(),
+                  isStreaming: false,
+                  parts: [
+                    ...target.parts,
+                    {
+                      type: "system_event" as const,
+                      content: LOCAL_ABORT_SYSTEM_EVENT_CONTENT,
+                    },
+                  ],
+                },
+              ];
+        const sessionPatch = {
+          messagesByTask:
+            nextMessages === current
+              ? messagesByTask
               : {
-                  workspaceSnapshotVersion:
-                    incrementWorkspaceSnapshotVersion(state),
-                }),
-          };
-        }
-
-        const aborted: ChatMessage = {
-          ...target,
-          completedAt: buildRecentTimestamp(),
-          isStreaming: false,
-          parts: [
-            ...target.parts,
-            {
-              type: "system_event",
-              content: LOCAL_ABORT_SYSTEM_EVENT_CONTENT,
-            },
-          ],
-        };
-
-        return {
-          messagesByTask: {
-            ...state.messagesByTask,
-            [taskId]: [...interruptedMessages.slice(0, -1), aborted],
-          },
+                  ...messagesByTask,
+                  [taskId]: nextMessages,
+                },
           activeTurnIdsByTask: {
-            ...state.activeTurnIdsByTask,
+            ...activeTurnIdsByTask,
             [taskId]: undefined,
           },
-          providerTurnActivityByTask: clearProviderTurnActivity({
-            activityByTask: state.providerTurnActivityByTask,
-            taskId,
-          }),
-          providerSessionByTask: restProviderSession,
-          providerGoalByTask: restProviderGoal,
+            providerSessionByTask: restProviderSession,
+            providerGoalByTask: restProviderGoal,
+        };
+        const providerTurnActivityByTask = clearProviderTurnActivity({
+          activityByTask: state.providerTurnActivityByTask,
+          taskId,
+        });
+        if (cachedSession && workspaceId) {
+          return {
+            workspaceRuntimeCacheById: {
+              ...state.workspaceRuntimeCacheById,
+              [workspaceId]: {
+                ...cachedSession,
+                ...sessionPatch,
+              },
+            },
+            providerTurnActivityByTask,
+          };
+        }
+        return {
+          ...sessionPatch,
+          providerTurnActivityByTask,
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });
@@ -183,11 +240,16 @@ export function createProviderInteractionActions(args: {
       // notifications must stop asking for an answer too.
       attentionSync.syncTaskInteractions({
         taskId,
-        messages: get().messagesByTask[taskId] ?? [],
+        messages:
+          (workspaceId === get().activeWorkspaceId
+            ? get().messagesByTask
+            : get().workspaceRuntimeCacheById[workspaceId]?.messagesByTask)?.[
+            taskId
+          ] ?? [],
         endedTurnId: activeTurnId,
       });
     },
-    resolveApproval: ({ taskId, messageId, approved }) => {
+    resolveApproval: ({ taskId, messageId, requestId, approved }) => {
       const stateBefore = get();
       const task = findTaskById(stateBefore, taskId);
       const runtimeTarget = resolveTaskRuntimeTarget({
@@ -209,7 +271,14 @@ export function createProviderInteractionActions(args: {
       const message = (targetSession?.messagesByTask[taskId] ?? []).find(
         (item) => item.id === messageId,
       );
-      const approvalPart = findLatestPendingApprovalPart({ message });
+      const approvalPart = requestId
+        ? message?.parts.find(
+            (part): part is ApprovalPart =>
+              part.type === "approval" &&
+              part.requestId === requestId &&
+              part.state === "approval-requested",
+          )
+        : findLatestPendingApprovalPart({ message });
 
       const appendApprovalFailure = (failureText: string) => {
         set((state) => {
@@ -412,7 +481,13 @@ export function createProviderInteractionActions(args: {
         return;
       }
     },
-    resolveUserInput: ({ taskId, messageId, answers, denied }) => {
+    resolveUserInput: ({
+      taskId,
+      messageId,
+      requestId,
+      answers,
+      denied,
+    }) => {
       const stateBefore = get();
       const task = findTaskById(stateBefore, taskId);
       const runtimeTarget = resolveTaskRuntimeTarget({
@@ -434,7 +509,14 @@ export function createProviderInteractionActions(args: {
       const message = (targetSession?.messagesByTask[taskId] ?? []).find(
         (item) => item.id === messageId,
       );
-      const userInputPart = findLatestPendingUserInputPart({ message });
+      const userInputPart = requestId
+        ? message?.parts.find(
+            (part): part is UserInputPart =>
+              part.type === "user_input" &&
+              part.requestId === requestId &&
+              part.state === "input-requested",
+          )
+        : findLatestPendingUserInputPart({ message });
 
       const appendUserInputFailure = (failureText: string) => {
         set((state) => {

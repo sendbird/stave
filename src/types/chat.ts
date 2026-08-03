@@ -1,4 +1,7 @@
 import type { LensAnnotation } from "@/lib/lens/lens.types";
+// Type-only, and `provider.types` imports this module the same way, so the
+// cycle is erased at compile time rather than existing at runtime.
+import type { AdvisorTarget } from "@/lib/providers/provider.types";
 import type { WorkspaceInformationReference } from "@/lib/workspace-information-references";
 
 export type MessageRole = "user" | "assistant";
@@ -85,6 +88,18 @@ export interface PromptDraftRuntimeOverrides {
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
   autoRouting?: boolean;
   model?: string;
+  /**
+   * Per-task Advisor arming. Absent inherits the Settings default (a configured
+   * `settings.advisorTarget` means "armed by default"). `false` disarms only
+   * this task and deliberately keeps `advisorTarget`, so re-arming restores the
+   * previous pick instead of silently falling back to the global one.
+   */
+  advisorEnabled?: boolean;
+  /**
+   * Per-task Advisor target. Kept task-local so arming one task never changes
+   * which model advises another task.
+   */
+  advisorTarget?: AdvisorTarget;
   /**
    * Ids of vault secrets bound to this task for env injection. Persists in the
    * workspace snapshot so a binding survives restart. Ids only — never values.
@@ -267,6 +282,18 @@ export interface ChatMessage {
   role: MessageRole;
   model: string;
   providerId: "claude-code" | "codex" | "user";
+  /**
+   * Native provider session/thread that produced this assistant response.
+   * Kept on the message so point-in-time actions cannot accidentally target a
+   * newer session after a task has switched or reset providers.
+   */
+  nativeProviderSessionId?: string;
+  /**
+   * Native provider turn/message identifier used for point-in-time fork and
+   * rollback actions. For Claude this is SDKAssistantMessage.uuid; for Codex
+   * it is the App Server turn id.
+   */
+  nativeProviderTurnId?: string;
   modelInfo?: TurnModelInfo;
   content: string;
   displayContent?: string;
@@ -284,6 +311,12 @@ export interface ChatMessage {
     ttftMs?: number;
   };
   promptSuggestions?: string[];
+  /** Provider-native history boundary used for branch and rewind actions. */
+  providerBoundary?: {
+    providerId: "claude-code" | "codex";
+    kind: "thread" | "turn" | "message";
+    nativeId: string;
+  };
   parts: MessagePart[];
   displayParts?: MessagePart[];
   /**

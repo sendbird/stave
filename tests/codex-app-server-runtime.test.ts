@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  applyCodexRuntimeCapabilityDowngrades,
   buildCodexConfigOverrides,
   buildCodexMcpDisableConfigOverrides,
   buildCodexSecondaryServerRequestDenial,
@@ -16,6 +17,7 @@ import {
   isCodexCompactSlashCommand,
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
+  mapCodexHookNotificationToBridgeEvent,
   parseCodexGoalSlashCommand,
   resolveCodexApprovalDecisionTimeoutMs,
   resolveCodexChatgptAuthTokensRefreshResponse,
@@ -25,11 +27,18 @@ import {
   summarizeCodexAppServerDebugMessage,
   toCodexConfigLayerDisplayValue,
 } from "../electron/providers/codex-app-server-runtime";
+import {
+  parseCodexMcpRuntimeNotification,
+  resolveCodexMcpOauthAuthorizationUrl,
+} from "../electron/providers/codex-mcp-management";
+import { resolveProviderRuntimeCapabilities } from "../src/lib/providers/runtime-capabilities";
 import { buildCodexTurnSteerParams } from "../electron/providers/codex-app-server-steer";
+import { mapCodexThreadForkResponse } from "../electron/providers/codex-thread-actions";
 import {
   buildCodexDeveloperInstructions,
   CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS,
 } from "../electron/providers/codex-runtime-config";
+import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
 
 function encodeJwtPayload(payload: Record<string, unknown>) {
   const encoded = Buffer.from(JSON.stringify(payload))
@@ -40,8 +49,70 @@ function encodeJwtPayload(payload: Record<string, unknown>) {
   return `header.${encoded}.signature`;
 }
 
-// Derived from `codex app-server generate-json-schema --out <dir>` for
-// Codex CLI/App Server 0.142.0.
+describe("Codex MCP runtime status", () => {
+  test("accepts the App Server snake_case OAuth URL", () => {
+    expect(
+      resolveCodexMcpOauthAuthorizationUrl({
+        authorization_url: "https://auth.example.test",
+      }),
+    ).toBe("https://auth.example.test");
+  });
+
+  test("maps startup failures that require OAuth again", () => {
+    expect(
+      parseCodexMcpRuntimeNotification({
+        method: "mcpServer/startupStatus/updated",
+        params: {
+          name: "github",
+          status: "failed",
+          failureReason: "reauthenticationRequired",
+          error: { message: "Token expired." },
+        },
+      }),
+    ).toMatchObject({
+      name: "github",
+      connectionStatus: "needs-auth",
+      failureReason: "reauthenticationRequired",
+      lastError: "Token expired.",
+    });
+  });
+
+  test("keeps a completed OAuth login in startup until the server is ready", () => {
+    expect(
+      parseCodexMcpRuntimeNotification({
+        method: "mcpServer/oauthLogin/completed",
+        params: { name: "github", success: true },
+      }),
+    ).toMatchObject({
+      name: "github",
+      connectionStatus: "starting",
+    });
+  });
+
+  test("clears a stale authentication failure when startup recovers", () => {
+    expect(
+      parseCodexMcpRuntimeNotification({
+        method: "mcpServer/startupStatus/updated",
+        params: {
+          name: "github",
+          status: "ready",
+          failureReason: null,
+          error: null,
+        },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        name: "github",
+        connectionStatus: "connected",
+        failureReason: undefined,
+      }),
+    );
+  });
+});
+
+// Stave's allowed request subset, validated against
+// `codex app-server generate-json-schema --experimental --out <dir>` for
+// Codex CLI/App Server 0.145.0.
 const GENERATED_CODEX_APP_SERVER_V2_TURN_START_PARAM_KEYS: Set<string> =
   new Set([
     "approvalPolicy",
@@ -93,6 +164,24 @@ const GENERATED_CODEX_APP_SERVER_V2_THREAD_RESUME_PARAM_KEYS: Set<string> =
     "serviceTier",
     "threadId",
   ] as const);
+
+describe("Codex thread actions", () => {
+  test("maps the forked thread id and copied native turn ids", () => {
+    expect(
+      mapCodexThreadForkResponse({
+        thread: {
+          id: "thread-fork",
+          turns: [{ id: "turn-1" }, { id: "turn-2" }],
+        },
+      }),
+    ).toEqual({
+      ok: true,
+      detail: "Forked Codex thread.",
+      threadId: "thread-fork",
+      turnIds: ["turn-1", "turn-2"],
+    });
+  });
+});
 
 function expectGeneratedTurnStartParamKeys(value: object) {
   const unexpectedKeys = Object.keys(value).filter(
@@ -585,6 +674,20 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     });
   });
 
+  test("forwards indexed search and writes approval through current config keys", () => {
+    const config = buildCodexConfigOverrides({
+      runtimeOptions: {
+        codexWebSearch: "indexed",
+        codexAppToolApprovalMode: "writes",
+      },
+    });
+
+    expect(config).toMatchObject({
+      web_search: "indexed",
+      "apps._default.default_tools_approval_mode": "writes",
+    });
+  });
+
   test("always appends Stave browser tooling guidance to developer instructions", () => {
     const withoutBasePrompt = buildCodexDeveloperInstructions({});
     expect(withoutBasePrompt).toBe(CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS);
@@ -702,6 +805,112 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
         'mcp_servers."slack".enabled': false,
       },
     });
+  });
+});
+
+describe("Codex H1 runtime capability guards", () => {
+  test("downgrades unsupported indexed search and strips app approval modes", () => {
+    const runtimeOptions = {
+      codexWebSearch: "indexed" as const,
+      codexAppToolApprovalMode: "writes" as const,
+    };
+    const legacy = applyCodexRuntimeCapabilityDowngrades({
+      capabilities: resolveProviderRuntimeCapabilities({
+        providerId: "codex",
+        versionText: "0.141.0",
+      }),
+      runtimeOptions,
+    });
+    const current = applyCodexRuntimeCapabilityDowngrades({
+      capabilities: resolveProviderRuntimeCapabilities({
+        providerId: "codex",
+        versionText: "0.145.0",
+      }),
+      runtimeOptions,
+    });
+
+    expect(legacy).toMatchObject({ codexWebSearch: "cached" });
+    expect(legacy?.codexAppToolApprovalMode).toBeUndefined();
+    expect(current).toMatchObject(runtimeOptions);
+  });
+
+  test("normalizes hook lifecycle without exposing hook commands or output", () => {
+    const event = mapCodexHookNotificationToBridgeEvent({
+      threadId: "thread-1",
+      turnId: "turn-1",
+      run: {
+        id: "hook-1",
+        eventName: "user_prompt_submit",
+        handlerType: "command",
+        sourcePath: "/tmp/hooks.json",
+        status: "completed",
+        command: "secret-command --token hidden",
+        entries: [{ output: "sensitive hook output" }],
+      },
+    });
+
+    expect(event).toEqual({
+      type: "hook_activity",
+      hookId: "hook-1",
+      hookName: "command: /tmp/hooks.json",
+      hookEvent: "user_prompt_submit",
+      status: "completed",
+    });
+    expect(JSON.stringify(event)).not.toContain("secret-command");
+    expect(JSON.stringify(event)).not.toContain("sensitive hook output");
+    expect(
+      mapCodexHookNotificationToBridgeEvent({ run: { status: "running" } }),
+    ).toBeNull();
+    expect(
+      mapCodexHookNotificationToBridgeEvent({
+        run: {
+          id: "hook-2",
+          eventName: "stop",
+          handlerType: "command",
+          status: "stopped",
+        },
+      }),
+    ).toMatchObject({ status: "cancelled" });
+  });
+
+  test("maps a read-only hook inventory without returning commands", () => {
+    const groups = mapCodexHookCatalogGroups(
+      [
+        {
+          cwd: "/tmp/project",
+          hooks: [
+            {
+              key: "prompt-audit",
+              eventName: "user_prompt_submit",
+              handlerType: "command",
+              enabled: true,
+              source: "project",
+              sourcePath: "/tmp/project/hooks.json",
+              trustStatus: "trusted",
+              isManaged: false,
+              statusMessage: null,
+              command: "must-not-surface --token hidden",
+            },
+          ],
+          errors: [],
+          warnings: ["Review local hooks before running them."],
+        },
+      ],
+      "/tmp/fallback",
+    );
+
+    expect(groups[0]?.hooks[0]).toEqual({
+      key: "prompt-audit",
+      eventName: "user_prompt_submit",
+      handlerType: "command",
+      enabled: true,
+      source: "project",
+      sourcePath: "/tmp/project/hooks.json",
+      trustStatus: "trusted",
+      isManaged: false,
+      statusMessage: null,
+    });
+    expect(JSON.stringify(groups)).not.toContain("must-not-surface");
   });
 });
 

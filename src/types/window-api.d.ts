@@ -7,6 +7,11 @@ import type {
   CodexThreadReadResponse,
   CanonicalConversationRequest,
   ClaudeContextUsageResponse,
+  ClaudeFileRewindResponse,
+  ClaudeMcpOauthLoginResponse,
+  ClaudeMcpStatusResponse,
+  ClaudeSessionForkResponse,
+  ProviderMutationResponse,
   CodexMcpStatusResponse,
   McpDiscoveryResponse,
   ClaudePluginReloadResponse,
@@ -14,12 +19,26 @@ import type {
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
   ProviderId,
+  ProviderAvailabilityResponse,
   ProviderRuntimeOptions,
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
   CodexReviewStartResponse,
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
+import type {
+  RouteClassification,
+  UtilityInferenceContext,
+  UtilityInferenceMetadata,
+} from "@/lib/providers/utility-inference";
+import type {
+  McpServerConfigListRequest,
+  McpServerConfigListResponse,
+  McpServerConfigMutationApplyRequest,
+  McpServerConfigMutationPreviewResponse,
+  McpServerConfigMutationRequest,
+  McpServerConfigMutationResponse,
+} from "@/lib/providers/mcp-config.types";
 import type {
   ConnectedToolId,
   ConnectedToolStatusResponse,
@@ -102,7 +121,11 @@ import type {
   WorkspaceScriptStatusEntry,
 } from "@/lib/workspace-scripts/types";
 import type { PersistenceBootstrapStatus } from "@/lib/persistence/bootstrap-status";
-import type { GraphCommit } from "@/lib/git-graph/types";
+import type {
+  GraphCommitDetailsResult,
+  GraphFileChange,
+  GraphResult,
+} from "@/lib/git-graph/types";
 import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.types";
 import type {
   SecondaryRunAggregate,
@@ -196,6 +219,10 @@ interface WindowProviderApi {
   abortTurn?: (args: {
     turnId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
+  /** Cancels only the Advisor preflight; the primary turn keeps running. */
+  skipAdvisor?: (args: {
+    turnId: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   steerTurn?: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;
@@ -222,11 +249,7 @@ interface WindowProviderApi {
   checkAvailability?: (args: {
     providerId: ProviderId;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
-  }) => Promise<{
-    ok: boolean;
-    available: boolean;
-    detail: string;
-  }>;
+  }) => Promise<ProviderAvailabilityResponse>;
   getCommandCatalog?: (args: {
     providerId: ProviderId;
     cwd?: string;
@@ -247,10 +270,32 @@ interface WindowProviderApi {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<ClaudeContextUsageResponse>;
+  forkClaudeSession?: (args: {
+    sessionId: string;
+    upToMessageId: string;
+    title?: string;
+    cwd?: string;
+  }) => Promise<ClaudeSessionForkResponse>;
+  rewindClaudeFiles?: (args: {
+    sessionId: string;
+    userMessageId: string;
+    dryRun: boolean;
+    cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+  }) => Promise<ClaudeFileRewindResponse>;
+  renameClaudeSession?: (args: {
+    sessionId: string;
+    title: string;
+    cwd?: string;
+  }) => Promise<ProviderMutationResponse>;
   reloadClaudePlugins?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<ClaudePluginReloadResponse>;
+  getClaudeMcpStatus?: (args: {
+    cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+  }) => Promise<ClaudeMcpStatusResponse>;
   getCodexMcpStatus?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
@@ -258,6 +303,15 @@ interface WindowProviderApi {
   discoverMcpServers?: (args: {
     cwd?: string;
   }) => Promise<McpDiscoveryResponse>;
+  listMcpServerConfigs?: (
+    args: McpServerConfigListRequest,
+  ) => Promise<McpServerConfigListResponse>;
+  previewMcpServerConfigMutation?: (
+    args: McpServerConfigMutationRequest,
+  ) => Promise<McpServerConfigMutationPreviewResponse>;
+  applyMcpServerConfigMutation?: (
+    args: McpServerConfigMutationApplyRequest,
+  ) => Promise<McpServerConfigMutationResponse>;
   getCodexModelCatalog?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
@@ -294,6 +348,12 @@ interface WindowProviderApi {
     timeoutSecs?: number;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexMcpOauthLoginResponse>;
+  startClaudeMcpOauthLogin?: (args: {
+    name: string;
+    cwd?: string;
+    timeoutSecs?: number;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+  }) => Promise<ClaudeMcpOauthLoginResponse>;
   readCodexMcpResource?: (args: {
     threadId: string;
     server: string;
@@ -311,6 +371,8 @@ interface WindowProviderApi {
   }) => Promise<CodexThreadReadResponse>;
   forkCodexThread?: (args: {
     threadId: string;
+    lastTurnId?: string;
+    beforeTurnId?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexThreadForkResponse>;
   archiveCodexThread?: (args: {
@@ -359,45 +421,39 @@ interface WindowProviderApi {
     }>;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexMutationResponse>;
-  /** Generates a short task title from the given prompt and optional
-   *  conversation history using a lightweight single-turn Claude query
-   *  isolated from the main task conversation. */
-  suggestTaskName?: (args: {
-    prompt: string;
-    history?: Array<{ role: string; content: string }>;
-  }) => Promise<{ ok: boolean; title?: string }>;
-  classifyRoute?: (args: {
-    prompt: string;
-    history?: Array<{
-      role: "user" | "assistant";
-      content: string;
-      providerId?: ProviderId;
-      model?: string;
-    }>;
-    fileContextCount?: number;
-  }) => Promise<{
+  /** Generates a short task title in an isolated, read-only utility turn. */
+  suggestTaskName?: (
+    args: UtilityInferenceContext & {
+      prompt: string;
+      history?: Array<{ role: string; content: string }>;
+    },
+  ) => Promise<{
     ok: boolean;
-    classification?: {
-      taskType:
-        | "quick_edit"
-        | "plan"
-        | "implementation"
-        | "debug"
-        | "review"
-        | "general"
-        | "safety";
-      complexity: "low" | "medium" | "high";
-      recommendedTier: "light" | "standard" | "heavy" | "frontier";
-      confidence: number;
-      rationale?: string;
-      stick?: boolean;
-    };
+    title?: string;
+    utility: UtilityInferenceMetadata;
   }>;
-  /** Generates a conventional commit message from the current git diff in the
-   *  given working directory using a lightweight single-turn Claude query. */
-  suggestCommitMessage?: (args: {
-    cwd?: string;
-  }) => Promise<{ ok: boolean; message?: string }>;
+  classifyRoute?: (
+    args: UtilityInferenceContext & {
+      prompt: string;
+      history?: Array<{
+        role: "user" | "assistant";
+        content: string;
+        providerId?: ProviderId;
+        model?: string;
+      }>;
+      fileContextCount?: number;
+    },
+  ) => Promise<{
+    ok: boolean;
+    classification?: RouteClassification;
+    utility: UtilityInferenceMetadata;
+  }>;
+  /** Generates a conventional commit message in a read-only utility turn. */
+  suggestCommitMessage?: (args: UtilityInferenceContext) => Promise<{
+    ok: boolean;
+    message?: string;
+    utility: UtilityInferenceMetadata;
+  }>;
   /** Generates a PR title and description from the branch diff and commit log
    *  using a read-only single-turn query from the active task provider. */
   suggestPRDescription?: (args: {
@@ -1066,6 +1122,7 @@ interface WindowScriptsApi {
 interface SourceControlStatusItem {
   code: string;
   path: string;
+  oldPath?: string;
   indexStatus?: string;
   workingTreeStatus?: string;
 }
@@ -1078,13 +1135,7 @@ interface SourceControlStatusResult {
   stderr: string;
 }
 
-interface SourceControlGraphResult {
-  ok: boolean;
-  commits: GraphCommit[];
-  head: string | null;
-  hasMore: boolean;
-  stderr: string;
-}
+type SourceControlGraphResult = GraphResult;
 
 interface SourceControlCommandResult {
   ok: boolean;
@@ -1136,10 +1187,16 @@ interface WindowSourceControlApi {
     limit?: number;
     skip?: number;
     scope?: "current" | "all" | string;
+    refs?: string[];
+    includeRepositoryState?: boolean;
   }) => Promise<SourceControlGraphResult>;
+  getCommitDetails?: (args: {
+    hash: string;
+    cwd?: string;
+  }) => Promise<GraphCommitDetailsResult>;
   getCommitFiles?: (args: { hash: string; cwd?: string }) => Promise<{
     ok: boolean;
-    files: Array<{ path: string; status: string; oldPath?: string }>;
+    files: GraphFileChange[];
     stderr: string;
   }>;
   getCommitDiff?: (args: {
@@ -1311,7 +1368,7 @@ interface WindowPersistenceApi {
       editorTabs?: Array<{
         id: string;
         filePath: string;
-        kind?: "text" | "image";
+        kind?: "text" | "image" | "git-graph";
         language: string;
         content?: string;
         contentState?: "ready" | "deferred" | "loading" | "too-large";
@@ -1354,7 +1411,7 @@ interface WindowPersistenceApi {
       editorTabs?: Array<{
         id: string;
         filePath: string;
-        kind?: "text" | "image";
+        kind?: "text" | "image" | "git-graph";
         language: string;
         content?: string;
         contentState?: "ready" | "deferred" | "loading" | "too-large";
@@ -1457,7 +1514,7 @@ interface WindowPersistenceApi {
       editorTabs?: Array<{
         id: string;
         filePath: string;
-        kind?: "text" | "image";
+        kind?: "text" | "image" | "git-graph";
         language: string;
         content: string;
         contentState?: "ready" | "deferred" | "loading" | "too-large";
@@ -1512,6 +1569,14 @@ interface WindowPersistenceApi {
       offset: number;
       hasMoreOlder: boolean;
     } | null;
+  }>;
+  truncateTaskMessagesAfter?: (args: {
+    workspaceId: string;
+    taskId: string;
+    messageId: string;
+  }) => Promise<{
+    ok: boolean;
+    removedCount: number;
   }>;
   loadWorkspaceEditorTabBodies?: (args: {
     workspaceId: string;
@@ -1570,7 +1635,7 @@ interface WindowPersistenceApi {
       editorTabs?: Array<{
         id: string;
         filePath: string;
-        kind?: "text" | "image";
+        kind?: "text" | "image" | "git-graph";
         language: string;
         content: string;
         contentState?: "ready" | "deferred" | "loading" | "too-large";
@@ -2011,9 +2076,7 @@ interface WindowSecretsApi {
     secret?: SecretMetadata;
     message?: string;
   }>;
-  delete?: (args: {
-    id: string;
-  }) => Promise<{ ok: boolean; message?: string }>;
+  delete?: (args: { id: string }) => Promise<{ ok: boolean; message?: string }>;
   reveal?: (args: {
     id: string;
   }) => Promise<{ ok: boolean; value?: string; message?: string }>;

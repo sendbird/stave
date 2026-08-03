@@ -25,11 +25,14 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { ComposerControlPlacementList } from "@/components/ai-elements/prompt-input-control-menu";
 import {
   buildModelSelectorOptions,
   buildModelSelectorValue,
   buildRecommendedModelSelectorOptions,
   ModelSelector,
+  type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
@@ -1861,6 +1864,7 @@ function ModelsSection() {
     claudeEffort,
     codexReasoningEffort,
     codexBinaryPath,
+    utilityInferenceProvider,
     autoRoutingEnabled,
     autoRoutingUseClassifier,
     autoRoutingObjective,
@@ -1877,6 +1881,7 @@ function ModelsSection() {
           state.settings.claudeEffort,
           state.settings.codexReasoningEffort,
           state.settings.codexBinaryPath,
+          state.settings.utilityInferenceProvider,
           state.settings.autoRoutingEnabled,
           state.settings.autoRoutingUseClassifier,
           state.settings.autoRoutingObjective,
@@ -2111,6 +2116,36 @@ function ModelsSection() {
               </SelectContent>
             </Select>
           </LabeledField>
+          <LabeledField
+            title="Utility AI"
+            description="Provider used for task names, low-confidence route classification, and commit messages. Auto prefers the active task provider and falls back safely."
+          >
+            <Select
+              value={utilityInferenceProvider}
+              onValueChange={(value) =>
+                updateSettings({
+                  patch: {
+                    utilityInferenceProvider: value as
+                      | "auto"
+                      | "claude-code"
+                      | "codex",
+                  },
+                })
+              }
+            >
+              <SelectTrigger
+                className="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
+                aria-label="Utility AI provider"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="claude-code">Claude</SelectItem>
+                <SelectItem value="codex">Codex</SelectItem>
+              </SelectContent>
+            </Select>
+          </LabeledField>
           <div className="space-y-3 border-t border-border/70 pt-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
@@ -2159,7 +2194,7 @@ function ModelsSection() {
             <div className="grid gap-3 md:grid-cols-3">
               <SwitchField
                 title="Classifier"
-                description="Use the Claude classifier for low-confidence prompts."
+                description="Use the selected Utility AI for low-confidence prompts."
                 checked={autoRoutingUseClassifier}
                 onCheckedChange={(checked) =>
                   updateSettings({
@@ -2234,7 +2269,7 @@ function ChatSection() {
     reasoningExpansionMode,
     showInterimMessages,
     turnActivityExpandedByDefault,
-    codexFastModeVisible,
+    composerControlPlacements,
     steerQueueEnterAction,
     midTurnSteeringEnabled,
   ] = useAppStore(
@@ -2251,7 +2286,7 @@ function ChatSection() {
           state.settings.reasoningExpansionMode,
           state.settings.showInterimMessages,
           state.settings.turnActivityExpandedByDefault,
-          state.settings.codexFastModeVisible,
+          state.settings.composerControlPlacements,
           state.settings.steerQueueEnterAction,
           state.settings.midTurnSteeringEnabled,
         ] as const,
@@ -2429,12 +2464,15 @@ function ChatSection() {
               })
             }
           />
-          <SwitchField
-            title="Show Fast Mode Toggle (Codex)"
-            description="Show the Fast mode toggle button when Codex is the active provider."
-            checked={codexFastModeVisible}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { codexFastModeVisible: checked } })
+        </SettingsCard>
+        <SettingsCard
+          title="Composer Controls"
+          description="Choose where each prompt input control lives: pinned to the toolbar, tucked into the ⋯ tray, or off. You can also right-click the toolbar to edit this in place."
+        >
+          <ComposerControlPlacementList
+            placements={composerControlPlacements}
+            onChange={(next) =>
+              updateSettings({ patch: { composerControlPlacements: next } })
             }
           />
         </SettingsCard>
@@ -2796,6 +2834,31 @@ function SkillsSection() {
         </SettingsCard>
       </SectionStack>
     </>
+  );
+}
+
+/**
+ * Row for one `Alt+1..0` slot option.
+ *
+ * This is the one model list in Settings that is genuinely mixed — a single flat
+ * dropdown spanning both providers — so the mark is doing identification work
+ * here, not decoration. Base UI's `SelectValue` replays the selected item's
+ * children, so the collapsed trigger gets the mark for free.
+ */
+function ModelShortcutOptionLabel(args: { option: ModelSelectorOption }) {
+  const { option } = args;
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <ModelIcon
+        providerId={option.providerId}
+        model={option.model}
+        className="size-3.5"
+      />
+      <span className="truncate">
+        {getProviderLabel({ providerId: option.providerId, variant: "full" })} ·{" "}
+        {option.label}
+      </span>
+    </span>
   );
 }
 
@@ -3346,11 +3409,7 @@ function CommandPaletteSection() {
                             <SelectLabel>Recommended</SelectLabel>
                             {recommendedModelShortcutOptions.map((option) => (
                               <SelectItem key={option.key} value={option.key}>
-                                {getProviderLabel({
-                                  providerId: option.providerId,
-                                  variant: "full",
-                                })}{" "}
-                                · {option.label}
+                                <ModelShortcutOptionLabel option={option} />
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -3359,11 +3418,7 @@ function CommandPaletteSection() {
                             <SelectLabel>All Models</SelectLabel>
                             {additionalModelShortcutOptions.map((option) => (
                               <SelectItem key={option.key} value={option.key}>
-                                {getProviderLabel({
-                                  providerId: option.providerId,
-                                  variant: "full",
-                                })}{" "}
-                                · {option.label}
+                                <ModelShortcutOptionLabel option={option} />
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -3976,11 +4031,15 @@ function PromptsSection() {
                   value: "claude-code",
                   label: "Claude",
                   description: "Uses the configured Claude model.",
+                  icon: (
+                    <ModelIcon providerId="claude-code" className="size-3.5" />
+                  ),
                 },
                 {
                   value: "codex",
                   label: "Codex",
                   description: "Uses the configured Codex model.",
+                  icon: <ModelIcon providerId="codex" className="size-3.5" />,
                 },
               ]}
             />

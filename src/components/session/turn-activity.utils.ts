@@ -9,7 +9,7 @@ export type TurnActivityRowStatus =
 
 /** Icon slot for a row; the renderer maps these onto lucide components. */
 export type TurnActivityIconKey =
-  "alert" | "pause" | "plan" | "subagent" | "tool" | "todo";
+  "alert" | "pause" | "plan" | "subagent" | "tool" | "hook" | "todo";
 
 export interface TurnActivityWorkItemLike {
   status: TurnActivityRowStatus;
@@ -188,7 +188,12 @@ export function buildTurnActivityItems(args: {
       ...(item.elapsedSeconds != null
         ? { elapsedSeconds: item.elapsedSeconds }
         : {}),
-      iconKey: item.kind === "subagent" ? "subagent" : "tool",
+      iconKey:
+        item.kind === "subagent"
+          ? "subagent"
+          : item.kind === "hook"
+            ? "hook"
+            : "tool",
     });
   }
   args.todos.forEach((todo, index) => {

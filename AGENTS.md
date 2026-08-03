@@ -86,10 +86,11 @@ Rules:
 - When a provider payload changes, verify the full renderer -> preload -> IPC schema -> main -> runtime path.
 - If a change is provider-specific, say so explicitly. Otherwise, check the sibling provider adapter for symmetry.
 - For Codex runtime upgrades, review `docs/providers/codex-upgrade-checklist.md`.
+- Treat Claude Agent SDK and Codex CLI/App Server support-version changes as documentation changes in the same commit. Review behavior and capability descriptions in `docs/providers/provider-runtimes.md`; for Codex, also update `docs/providers/codex-upgrade-checklist.md`, Settings baseline copy, and generated-schema provenance comments/tests. Verify against the exact adopted version, then search the repository for the previous version before finishing.
 
 ## Secret Injection Guardrails
 
-Vault secrets may be bound to a task and injected into the agent shell as environment variables. The value must reach the shell **without ever entering the model's text channel, the renderer, or logs.**
+Vault secrets may be bound to a task and injected into the provider runtime as environment variables for shell commands and supported MCP authentication. The value must reach the runtime **without ever entering the model's text channel, the renderer, or logs.**
 
 Required check files:
 
@@ -105,7 +106,7 @@ Rules:
 - Only secret **ids** travel in `runtimeOptions.boundSecretIds`; values are resolved to env **only in the main process** at spawn/thread-start. Never expose the resolver via `preload.ts`.
 - Enforce the reserved-key denylist at resolve time so a bound secret can never override `PATH`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, the Stave MCP token, or `ELECTRON_*`.
 - Inject secrets for the **primary user turn only** — never for introspection, aux, or secondary read-only analysis queries.
-- Claude injects at the `options.env` layer (kept out of `buildClaudeDiagnostics`); Codex injects via per-thread `shell_environment_policy.set.<KEY>` overrides, forwarded on **both** `thread/start` and `thread/resume`.
+- Claude injects at the `options.env` layer (kept out of `buildClaudeDiagnostics`); Codex injects shell variables via per-thread `shell_environment_policy.set.<KEY>` overrides, forwarded on **both** `thread/start` and `thread/resume`. Secret-bound primary Codex turns use a disposable App Server process with the same environment so `bearer_token_env_var` MCP authentication works without exposing values to shared clients.
 - Never write a secret value to `console.*`, a `BridgeEvent`, a transcript, or the thread key. Log only counts, env-var names, and skip reasons.
 - This is an *automatic-leak* guarantee, not a sandbox: a deliberate `echo $NAME` can still surface a bound value. Keep the Settings > Secrets copy honest about this.
 
@@ -121,9 +122,11 @@ Required check files:
 - `src/components/layout/TerminalTabSurface.tsx`
 - `src/components/layout/pty-session-surface.utils.ts`
 - `src/components/layout/terminal-surface-styles.ts`
-- `src/components/layout/TerminalDock.tsx`
 - `src/components/layout/CliSessionPanel.tsx`
 - `src/components/layout/app-shell.shortcuts.ts`
+- `src/components/panes/WorkspacePaneHost.tsx`
+- `src/components/panes/surfaces/TerminalSurfacePanel.tsx`
+- `src/components/panes/terminal-pane-group.ts`
 - `src/lib/terminal/types.ts`
 - `src/store/workspace-session-state.ts`
 - `src/store/app.store.ts`
@@ -131,7 +134,10 @@ Required check files:
 - `electron/host-service/terminal-runtime.ts`
 - `src/types/window-api.d.ts`
 - `tests/pty-session-surface.utils.test.ts`
-- `tests/terminal-dock.utils.test.ts`
+- `tests/terminal-pane-group.test.ts`
+- `tests/terminal-tab-manager.test.ts`
+- `tests/terminal-instance.test.ts`
+- `tests/terminal-runtime.test.ts`
 - `tests/terminal-session-slot-registry.test.ts`
 
 Rules:

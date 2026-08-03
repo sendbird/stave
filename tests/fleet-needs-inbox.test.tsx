@@ -30,7 +30,7 @@ function renderInbox(items: FleetNeedItem[]) {
       selectedNeedId: null,
       busyNeedId: null,
       onOpen: () => {},
-      onResolveApproval: () => {},
+      onOpenTask: () => {},
       onMarkRead: () => {},
       onDismiss: () => {},
       onOpenPr: () => {},

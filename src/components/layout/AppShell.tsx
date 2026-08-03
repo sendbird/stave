@@ -66,6 +66,11 @@ import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import { buildPanePanelId } from "@/lib/panes/types";
+import {
+  UTILITY_INFERENCE_NOTICE_EVENT,
+  type UtilityInferenceNoticeDetail,
+} from "@/lib/providers/utility-inference-notice";
+import { getProviderLabel } from "@/lib/providers/model-catalog";
 
 const EditorPanel = lazy(() =>
   import("@/components/layout/EditorPanel").then((module) => ({
@@ -434,6 +439,46 @@ export function AppShell() {
     }, 5000);
 
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const featureLabels: Record<
+      UtilityInferenceNoticeDetail["feature"],
+      string
+    > = {
+      "task-name": "Task naming",
+      "route-classification": "Route classification",
+      "commit-message": "Commit message generation",
+    };
+    const onUtilityInferenceNotice = (event: Event) => {
+      const { feature, ok, utility } = (
+        event as CustomEvent<UtilityInferenceNoticeDetail>
+      ).detail;
+      const title = featureLabels[feature];
+      if (ok && utility.providerId) {
+        toast.info(`${title} used a fallback provider`, {
+          id: `utility-inference:${feature}`,
+          description: `${getProviderLabel({ providerId: utility.providerId })} · ${utility.model ?? "default model"}`,
+        });
+        return;
+      }
+      toast.warning(`${title} is unavailable`, {
+        id: `utility-inference:${feature}`,
+        description:
+          utility.detail ||
+          "Neither configured provider could complete the read-only utility request.",
+      });
+    };
+    window.addEventListener(
+      UTILITY_INFERENCE_NOTICE_EVENT,
+      onUtilityInferenceNotice,
+    );
+    return () => {
+      window.removeEventListener(
+        UTILITY_INFERENCE_NOTICE_EVENT,
+        onUtilityInferenceNotice,
+      );
+    };
   }, []);
 
   useEffect(() => {

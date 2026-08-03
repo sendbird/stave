@@ -27,8 +27,13 @@ import {
 } from "../../src/types/chat";
 import type {
   ClaudeContextUsageResponse,
+  ClaudeFileRewindResponse,
+  ClaudeMcpOauthLoginResponse,
   ClaudeMcpServerStatusSnapshot,
+  ClaudeMcpStatusResponse,
   ClaudePluginReloadResponse,
+  ClaudeSessionForkResponse,
+  ProviderMutationResponse,
 } from "../../src/lib/providers/provider.types";
 import type {
   CanUseTool,
@@ -41,6 +46,11 @@ import type {
   Query,
   SDKMessage,
   SDKAssistantMessage,
+  SDKHookProgressMessage,
+  SDKHookResponseMessage,
+  SDKHookStartedMessage,
+  SDKInformationalMessage,
+  SDKPermissionDeniedMessage,
   SDKControlGetContextUsageResponse,
   SDKControlReloadPluginsResponse,
   SDKSystemMessage,
@@ -87,6 +97,7 @@ import {
   resolveClaudeMcpServers,
   type ClaudeMcpConfigDiagnostic,
 } from "./claude-mcp-config";
+import { sanitizeMcpDiagnosticText } from "./mcp-config-management-shared";
 
 /**
  * Cache boundary marker for the claude-agent-sdk systemPrompt string[] API.
@@ -1876,6 +1887,41 @@ export function buildClaudeQueryOptions(args: {
       value: process.env.STAVE_CLAUDE_ALLOW_UNSANDBOXED_COMMANDS,
       fallback: true,
     });
+  const credentialFiles = Array.from(
+    new Set(
+      (args.runtimeOptions?.claudeSandboxCredentialFiles ?? [])
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    ),
+  );
+  const credentialEnvVars = Array.from(
+    new Set(
+      (args.runtimeOptions?.claudeSandboxCredentialEnvVars ?? [])
+        .map((entry) => entry.trim())
+        .filter((entry) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(entry)),
+    ),
+  );
+  const sandboxCredentials =
+    credentialFiles.length > 0 || credentialEnvVars.length > 0
+      ? {
+          ...(credentialFiles.length > 0
+            ? {
+                files: credentialFiles.map((credentialPath) => ({
+                  path: credentialPath,
+                  mode: "deny" as const,
+                })),
+              }
+            : {}),
+          ...(credentialEnvVars.length > 0
+            ? {
+                envVars: credentialEnvVars.map((name) => ({
+                  name,
+                  mode: "deny" as const,
+                })),
+              }
+            : {}),
+        }
+      : undefined;
   const thinking = toClaudeThinkingConfig(
     args.runtimeOptions?.claudeThinkingMode,
   );
@@ -1928,10 +1974,12 @@ export function buildClaudeQueryOptions(args: {
         filesystem: {
           denyWrite: [path.parse(args.cwd).root],
         },
+        ...(sandboxCredentials ? { credentials: sandboxCredentials } : {}),
       }
     : {
         enabled: claudeSandboxEnabled,
         allowUnsandboxedCommands: claudeAllowUnsandboxedCommands,
+        ...(sandboxCredentials ? { credentials: sandboxCredentials } : {}),
       };
 
   return {
@@ -2028,15 +2076,15 @@ export function buildClaudeQueryOptions(args: {
       : {}),
     ...(settings ? { settings } : {}),
     sandbox,
-    // Bound-secret env is spread LAST so a secret can never override a Stave
-    // runtime var; the resolver's reserved-key denylist already blocks those
-    // names, so this is defence in depth, not the primary guard.
+    // Runtime-owned env is spread last so a bound secret can never override a
+    // Stave runtime var. The resolver's reserved-key denylist remains the
+    // primary guard; this ordering is defence in depth.
     env: {
+      ...(args.secretEnv ?? {}),
       ...buildClaudeEnv({
         executablePath: args.claudeExecutablePath,
         cwd: args.cwd,
       }),
-      ...(args.secretEnv ?? {}),
     },
     ...(args.claudeExecutablePath.length > 0
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
@@ -2044,13 +2092,77 @@ export function buildClaudeQueryOptions(args: {
   };
 }
 
+type ClaudeMcpRecentError = {
+  message: string;
+  occurredAt: number;
+};
+
+const claudeMcpRecentErrorByServer = new Map<string, ClaudeMcpRecentError>();
+
+function toClaudeMcpRecentErrorKey(args: {
+  scopeKey: string;
+  serverName: string;
+}) {
+  return `${args.scopeKey}\u0000${args.serverName}`;
+}
+
+function rememberClaudeMcpError(args: {
+  scopeKey: string;
+  serverName: string;
+  error: string;
+}) {
+  const message = sanitizeTextField({
+    value: sanitizeMcpDiagnosticText(args.error),
+    label: "Claude MCP error",
+    maxChars: 2_000,
+  });
+  if (!message) {
+    return;
+  }
+  claudeMcpRecentErrorByServer.set(toClaudeMcpRecentErrorKey(args), {
+    message,
+    occurredAt: Date.now(),
+  });
+}
+
 function toClaudeMcpServerStatusSnapshot(
   status: McpServerStatus,
+  options?: { scopeKey?: string; checkedAt?: number },
 ): ClaudeMcpServerStatusSnapshot {
+  const error = status.error
+    ? sanitizeTextField({
+        value: sanitizeMcpDiagnosticText(status.error),
+        label: "Claude MCP error",
+        maxChars: 2_000,
+      })
+    : undefined;
+  if (options?.scopeKey && error) {
+    rememberClaudeMcpError({
+      scopeKey: options.scopeKey,
+      serverName: status.name,
+      error,
+    });
+  }
+  const recentError = options?.scopeKey
+    ? claudeMcpRecentErrorByServer.get(
+        toClaudeMcpRecentErrorKey({
+          scopeKey: options.scopeKey,
+          serverName: status.name,
+        }),
+      )
+    : undefined;
+
   return {
     name: status.name,
     status: status.status,
-    ...(status.error ? { error: status.error } : {}),
+    ...(error ? { error } : {}),
+    ...(recentError
+      ? {
+          lastError: recentError.message,
+          lastErrorAt: recentError.occurredAt,
+        }
+      : {}),
+    ...(options?.checkedAt ? { statusUpdatedAt: options.checkedAt } : {}),
     ...(status.scope ? { scope: status.scope } : {}),
     ...(Array.isArray(status.tools) ? { toolCount: status.tools.length } : {}),
   };
@@ -2192,7 +2304,7 @@ export class SubagentProgressTracker {
    * the mapping so future task_progress events can be resolved.
    */
   processRawMessage(message: Record<string, unknown>): void {
-    const type = message.type;
+    const type = message.subtype ?? message.type;
     if (
       type !== "hook_started" &&
       type !== "hook_response" &&
@@ -2497,6 +2609,76 @@ export function mapClaudeMessageToEvents(args: {
       content?: string;
       summary?: string;
     };
+    if (sysMsg.subtype === "permission_denied") {
+      const denied = message as SDKPermissionDeniedMessage;
+      return [
+        {
+          type: "permission_denial",
+          toolName: denied.tool_name,
+          message: denied.message,
+          ...(denied.decision_reason_type
+            ? { reasonType: denied.decision_reason_type }
+            : {}),
+          ...(denied.decision_reason ? { reason: denied.decision_reason } : {}),
+        },
+      ];
+    }
+    if (sysMsg.subtype === "hook_started") {
+      const hook = message as SDKHookStartedMessage;
+      return [
+        {
+          type: "hook_activity",
+          hookId: hook.hook_id,
+          hookName: hook.hook_name,
+          hookEvent: hook.hook_event,
+          status: "running",
+        },
+      ];
+    }
+    if (sysMsg.subtype === "hook_progress") {
+      const hook = message as SDKHookProgressMessage;
+      return [
+        {
+          type: "hook_activity",
+          hookId: hook.hook_id,
+          hookName: hook.hook_name,
+          hookEvent: hook.hook_event,
+          status: "running",
+        },
+      ];
+    }
+    if (sysMsg.subtype === "hook_response") {
+      const hook = message as SDKHookResponseMessage;
+      return [
+        {
+          type: "hook_activity",
+          hookId: hook.hook_id,
+          hookName: hook.hook_name,
+          hookEvent: hook.hook_event,
+          status:
+            hook.outcome === "success"
+              ? "completed"
+              : hook.outcome === "cancelled"
+                ? "cancelled"
+                : "failed",
+        },
+      ];
+    }
+    if (sysMsg.subtype === "informational") {
+      const informational = message as SDKInformationalMessage;
+      if (informational.prevent_continuation && informational.content.trim()) {
+        return [
+          {
+            type: "hook_activity",
+            hookId: `hook-feedback:${informational.uuid}`,
+            hookName: "Hook feedback",
+            hookEvent: "unknown",
+            status: "blocked",
+          },
+          { type: "system", content: informational.content },
+        ];
+      }
+    }
     if (
       sysMsg.subtype === "local_command_output" &&
       typeof sysMsg.content === "string" &&
@@ -2561,10 +2743,23 @@ export function mapClaudeMessageToEvents(args: {
 
   if (message.type === "assistant") {
     const assistantMsg = message as SDKAssistantMessage;
+    const historyEvents: BridgeEvent[] =
+      assistantMsg.parent_tool_use_id === null && assistantMsg.uuid
+        ? [
+            {
+              type: "history_boundary",
+              providerId: "claude-code",
+              boundaryKind: "message",
+              nativeId: assistantMsg.uuid,
+              targetRole: "assistant",
+            },
+          ]
+        : [];
 
     if (assistantMsg.error) {
       if (assistantMsg.error === "authentication_failed") {
         return [
+          ...historyEvents,
           {
             type: "error",
             message:
@@ -2575,6 +2770,7 @@ export function mapClaudeMessageToEvents(args: {
       }
       if (assistantMsg.error === "billing_error") {
         return [
+          ...historyEvents,
           {
             type: "error",
             message:
@@ -2585,13 +2781,30 @@ export function mapClaudeMessageToEvents(args: {
       }
     }
 
+    const nativeSessionId =
+      typeof assistantMsg.session_id === "string"
+        ? assistantMsg.session_id.trim()
+        : "";
+    const nativeTurnId =
+      typeof assistantMsg.uuid === "string" ? assistantMsg.uuid.trim() : "";
+    const events: BridgeEvent[] =
+      nativeSessionId && nativeTurnId
+        ? [
+            {
+              type: "provider_turn",
+              providerId: "claude-code",
+              nativeSessionId,
+              nativeTurnId,
+            },
+          ]
+        : [];
+
     // content is on the nested BetaMessage, not at the top level
     const contentBlocks = assistantMsg.message?.content;
     if (!Array.isArray(contentBlocks)) {
-      return [];
+      return [...historyEvents, ...events];
     }
 
-    const events: BridgeEvent[] = [];
     for (const block of contentBlocks) {
       const b = block as {
         type?: string;
@@ -2642,7 +2855,7 @@ export function mapClaudeMessageToEvents(args: {
         continue;
       }
     }
-    return events;
+    return [...historyEvents, ...events];
   }
 
   if (message.type === "stream_event") {
@@ -2708,8 +2921,38 @@ export function mapClaudeMessageToEvents(args: {
     const userMsg = message as {
       type: string;
       message?: { content?: unknown };
+      parent_tool_use_id?: string | null;
+      isSynthetic?: boolean;
+      origin?: { kind?: string };
+      uuid?: string;
     };
     const userContent = userMsg.message?.content;
+    const containsToolResult =
+      Array.isArray(userContent) &&
+      userContent.some(
+        (block) =>
+          Boolean(block) &&
+          typeof block === "object" &&
+          (block as { type?: string }).type === "tool_result",
+      );
+    const historyEvents: BridgeEvent[] =
+      message.type === "user" &&
+      typeof userMsg.uuid === "string" &&
+      userMsg.uuid.length > 0 &&
+      userMsg.parent_tool_use_id == null &&
+      userMsg.isSynthetic !== true &&
+      (!userMsg.origin || userMsg.origin.kind === "human") &&
+      !containsToolResult
+        ? [
+            {
+              type: "history_boundary",
+              providerId: "claude-code",
+              boundaryKind: "message",
+              nativeId: userMsg.uuid,
+              targetRole: "user",
+            },
+          ]
+        : [];
     if (Array.isArray(userContent)) {
       const toolResultEvents: BridgeEvent[] = [];
       for (const block of userContent) {
@@ -2746,9 +2989,9 @@ export function mapClaudeMessageToEvents(args: {
           output,
         });
       }
-      return toolResultEvents;
+      return [...historyEvents, ...toolResultEvents];
     }
-    return [];
+    return historyEvents;
   }
 
   if (message.type === "prompt_suggestion") {
@@ -2883,9 +3126,7 @@ export function mapClaudeMessageToEvents(args: {
     message.type === "task_started" ||
     message.type === "task_progress" ||
     message.type === "files_persisted" ||
-    message.type === "hook_started" ||
-    message.type === "hook_progress" ||
-    message.type === "hook_response"
+    message.type === "session_state_changed"
   ) {
     if (claudeDebugStream) {
       console.debug("[claude-sdk-runtime] meta", message.type, message);
@@ -2977,6 +3218,12 @@ export async function runClaudeReadOnlyPrompt(args: {
   >;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   signal?: AbortSignal;
+  /**
+   * Caller-facing name used in failure text. This helper is shared by the
+   * Advisor, commit-message generation, task naming, and route classification,
+   * so hardcoding "Advisor" leaked advisor wording into unrelated toasts.
+   */
+  label?: string;
 }): Promise<{
   ok: boolean;
   text?: string;
@@ -2986,10 +3233,11 @@ export async function runClaudeReadOnlyPrompt(args: {
 }> {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  const label = args.label?.trim() || DEFAULT_READ_ONLY_PROMPT_LABEL;
   const abortController = new AbortController();
   const abort = () => abortController.abort();
   if (args.signal?.aborted) {
-    return { ok: false, aborted: true, detail: "Advisor was aborted." };
+    return { ok: false, aborted: true, detail: `${label} was aborted.` };
   }
   args.signal?.addEventListener("abort", abort, { once: true });
 
@@ -3033,9 +3281,9 @@ export async function runClaudeReadOnlyPrompt(args: {
           usage,
           detail:
             result.subtype === "success"
-              ? "Claude Advisor returned an error result."
+              ? `Claude ${label} returned an error result.`
               : result.errors.join("\n") ||
-                "Claude Advisor failed during execution.",
+                `Claude ${label} failed during execution.`,
         };
       }
       return {
@@ -3046,22 +3294,120 @@ export async function runClaudeReadOnlyPrompt(args: {
     }
     return {
       ok: false,
-      detail: "Claude Advisor ended without a result.",
+      detail: `Claude ${label} ended without a result.`,
     };
   } catch (error) {
     if (
       abortController.signal.aborted ||
       (error instanceof Error && error.name === "AbortError")
     ) {
-      return { ok: false, aborted: true, detail: "Advisor was aborted." };
+      return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
     return {
       ok: false,
-      detail: `Claude Advisor failed: ${toText(error)}`,
+      detail: `Claude ${label} failed: ${toText(error)}`,
     };
   } finally {
     args.signal?.removeEventListener("abort", abort);
     stream?.close();
+  }
+}
+
+export async function forkClaudeSession(args: {
+  sessionId: string;
+  upToMessageId: string;
+  title?: string;
+  cwd?: string;
+}): Promise<ClaudeSessionForkResponse> {
+  try {
+    const mod = await getPrewarmedSdkModule();
+    if (!mod.forkSession) {
+      return {
+        ok: false,
+        detail: "Claude SDK forkSession() is unavailable.",
+      };
+    }
+
+    const dir = args.cwd && path.isAbsolute(args.cwd) ? args.cwd : undefined;
+    const sourceMessages = mod.getSessionMessages
+      ? await mod
+          .getSessionMessages(args.sessionId, {
+            ...(dir ? { dir } : {}),
+          })
+          .catch(() => [])
+      : [];
+    const result = await mod.forkSession(args.sessionId, {
+      ...(dir ? { dir } : {}),
+      upToMessageId: args.upToMessageId,
+      ...(args.title?.trim() ? { title: args.title.trim() } : {}),
+    });
+    const forkedMessages = mod.getSessionMessages
+      ? await mod
+          .getSessionMessages(result.sessionId, {
+            ...(dir ? { dir } : {}),
+          })
+          .catch(() => [])
+      : [];
+    const targetIndex = sourceMessages.findIndex(
+      (message) => message.uuid === args.upToMessageId,
+    );
+    const sourceThroughTarget =
+      targetIndex >= 0 ? sourceMessages.slice(0, targetIndex + 1) : [];
+    const messageIdMap = Object.fromEntries(
+      sourceThroughTarget.flatMap((message, index) => {
+        const forkedMessage = forkedMessages[index];
+        return forkedMessage &&
+          message.type === "assistant" &&
+          forkedMessage.type === message.type
+          ? [[message.uuid, forkedMessage.uuid] as const]
+          : [];
+      }),
+    );
+    const lastAssistantMessageId = forkedMessages
+      .filter((message) => message.type === "assistant")
+      .at(-1)?.uuid;
+
+    return {
+      ok: true,
+      detail: "Forked Claude session.",
+      sessionId: result.sessionId,
+      ...(lastAssistantMessageId ? { lastAssistantMessageId } : {}),
+      ...(Object.keys(messageIdMap).length > 0 ? { messageIdMap } : {}),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Claude session fork failed: ${toText(error)}`,
+    };
+  }
+}
+
+export async function renameClaudeSession(args: {
+  sessionId: string;
+  title: string;
+  cwd?: string;
+}): Promise<ProviderMutationResponse> {
+  try {
+    const mod = await getPrewarmedSdkModule();
+    if (!mod.renameSession) {
+      return {
+        ok: false,
+        detail: "Claude SDK renameSession() is unavailable.",
+      };
+    }
+    const dir = args.cwd && path.isAbsolute(args.cwd) ? args.cwd : undefined;
+    await mod.renameSession(args.sessionId, args.title, {
+      ...(dir ? { dir } : {}),
+    });
+    return {
+      ok: true,
+      detail: "Renamed Claude session.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Claude session rename failed: ${toText(error)}`,
+    };
   }
 }
 
@@ -3188,6 +3534,70 @@ export async function getClaudeContextUsage(args: {
     return {
       ok: false,
       detail: `Claude context usage unavailable: ${toText(error)}`,
+    };
+  } finally {
+    stream?.close();
+  }
+}
+
+export async function rewindClaudeFiles(args: {
+  sessionId: string;
+  userMessageId: string;
+  dryRun: boolean;
+  cwd?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<ClaudeFileRewindResponse> {
+  let stream: Query | null = null;
+  try {
+    const runtimeCwd =
+      args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+    const mod = await getPrewarmedSdkModule();
+    const queryFn = (
+      mod as { query?: typeof import("@anthropic-ai/claude-agent-sdk").query }
+    ).query;
+    if (!queryFn) {
+      return {
+        ok: false,
+        canRewind: false,
+        detail: "Claude SDK query() is unavailable.",
+      };
+    }
+    const claudeExecutablePath = resolveClaudeRuntimeExecutablePath({
+      runtimeOptions: args.runtimeOptions,
+    });
+    stream = queryFn({
+      prompt: "",
+      options: buildClaudeQueryOptions({
+        cwd: runtimeCwd,
+        claudeExecutablePath,
+        runtimeOptions: {
+          ...args.runtimeOptions,
+          claudeEnableFileCheckpointing: true,
+        },
+        resume: args.sessionId,
+        promptSuggestions: false,
+      }),
+    }) as Query;
+    const result = await stream.rewindFiles(args.userMessageId, {
+      dryRun: args.dryRun,
+    });
+    return {
+      ok: true,
+      canRewind: result.canRewind,
+      detail:
+        result.error ??
+        (args.dryRun
+          ? "Loaded the Claude file rewind preview."
+          : "Rewound files to the selected Claude message."),
+      ...(result.filesChanged ? { filesChanged: result.filesChanged } : {}),
+      ...(result.insertions != null ? { insertions: result.insertions } : {}),
+      ...(result.deletions != null ? { deletions: result.deletions } : {}),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      canRewind: false,
+      detail: `Claude file rewind failed: ${toText(error)}`,
     };
   } finally {
     stream?.close();
@@ -3338,6 +3748,305 @@ class SteerableUserMessageQueue implements AsyncIterable<SDKUserMessage> {
       },
     };
   }
+}
+
+type ClaudeMcpAuthenticateResult = {
+  authUrl?: unknown;
+  authorizationUrl?: unknown;
+  requiresUserAction?: unknown;
+  callbackExpected?: unknown;
+};
+
+export function resolveClaudeMcpOauthLoginResult(response: unknown) {
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    return {
+      requiresUserAction: false,
+      callbackExpected: false,
+    };
+  }
+  const record = response as Record<string, unknown>;
+  const authorizationUrl =
+    typeof record.authUrl === "string" && record.authUrl.trim()
+      ? record.authUrl.trim()
+      : typeof record.authorizationUrl === "string" &&
+          record.authorizationUrl.trim()
+        ? record.authorizationUrl.trim()
+        : undefined;
+
+  return {
+    ...(authorizationUrl ? { authorizationUrl } : {}),
+    requiresUserAction: record.requiresUserAction === true,
+    callbackExpected: record.callbackExpected === true,
+  };
+}
+
+// The SDK runtime exposes this control method even though its public Query
+// declaration currently omits it. Keep the narrow compatibility adapter here.
+type ClaudeMcpControlQuery = Query & {
+  mcpAuthenticate: (
+    serverName: string,
+    redirectUri?: string,
+  ) => Promise<ClaudeMcpAuthenticateResult>;
+};
+
+type ActiveClaudeMcpOauthFlow = {
+  key: string;
+  scopeKey: string;
+  serverName: string;
+  stream: ClaudeMcpControlQuery;
+  input: SteerableUserMessageQueue;
+  cancelled: boolean;
+};
+
+const CLAUDE_MCP_OAUTH_DEFAULT_TIMEOUT_SECS = 10 * 60;
+const CLAUDE_MCP_OAUTH_POLL_INTERVAL_MS = 1_500;
+const activeClaudeMcpOauthFlowByKey = new Map<
+  string,
+  ActiveClaudeMcpOauthFlow
+>();
+
+async function createClaudeMcpControlQuery(args: {
+  cwd?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  prompt: "" | AsyncIterable<SDKUserMessage>;
+}) {
+  const runtimeCwd =
+    args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  const mod = await getPrewarmedSdkModule();
+  const queryFn = (
+    mod as { query?: typeof import("@anthropic-ai/claude-agent-sdk").query }
+  ).query;
+
+  if (!queryFn) {
+    throw new Error("query() is unavailable from the Claude SDK import.");
+  }
+
+  const claudeExecutablePath = resolveClaudeRuntimeExecutablePath({
+    runtimeOptions: args.runtimeOptions,
+  });
+  const { mcpServers } = await resolveClaudeMcpServersForQuery({
+    cwd: runtimeCwd,
+    claudeExecutablePath,
+    runtimeOptions: args.runtimeOptions,
+  });
+  const stream = queryFn({
+    prompt: args.prompt,
+    options: buildClaudeQueryOptions({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+      systemPrompt: args.runtimeOptions?.claudeSystemPrompt,
+      promptSuggestions: false,
+      mcpServers,
+    }),
+  }) as ClaudeMcpControlQuery;
+
+  return {
+    runtimeCwd,
+    scopeKey: `${claudeExecutablePath}\u0000${runtimeCwd}`,
+    stream,
+  };
+}
+
+function closeClaudeMcpOauthFlow(flow: ActiveClaudeMcpOauthFlow) {
+  flow.cancelled = true;
+  flow.input.close();
+  flow.stream.close();
+  if (activeClaudeMcpOauthFlowByKey.get(flow.key) === flow) {
+    activeClaudeMcpOauthFlowByKey.delete(flow.key);
+  }
+}
+
+function waitForClaudeMcpOauthPoll() {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, CLAUDE_MCP_OAUTH_POLL_INTERVAL_MS);
+  });
+}
+
+async function monitorClaudeMcpOauthFlow(args: {
+  flow: ActiveClaudeMcpOauthFlow;
+  timeoutSecs: number;
+}) {
+  const expiresAt = Date.now() + args.timeoutSecs * 1_000;
+  try {
+    while (!args.flow.cancelled && Date.now() < expiresAt) {
+      await waitForClaudeMcpOauthPoll();
+      if (args.flow.cancelled) {
+        return;
+      }
+
+      const statuses = await args.flow.stream.mcpServerStatus();
+      const target = statuses.find(
+        (status) => status.name === args.flow.serverName,
+      );
+      if (!target) {
+        continue;
+      }
+      toClaudeMcpServerStatusSnapshot(target, {
+        scopeKey: args.flow.scopeKey,
+        checkedAt: Date.now(),
+      });
+      if (target.status === "connected") {
+        closeClaudeMcpOauthFlow(args.flow);
+        return;
+      }
+      if (target.status === "failed") {
+        closeClaudeMcpOauthFlow(args.flow);
+        return;
+      }
+    }
+
+    if (!args.flow.cancelled) {
+      rememberClaudeMcpError({
+        scopeKey: args.flow.scopeKey,
+        serverName: args.flow.serverName,
+        error:
+          "OAuth login timed out before Claude reported a connected MCP server.",
+      });
+      closeClaudeMcpOauthFlow(args.flow);
+    }
+  } catch (error) {
+    if (!args.flow.cancelled) {
+      rememberClaudeMcpError({
+        scopeKey: args.flow.scopeKey,
+        serverName: args.flow.serverName,
+        error: `OAuth status check failed: ${sanitizeMcpDiagnosticText(toText(error))}`,
+      });
+      closeClaudeMcpOauthFlow(args.flow);
+    }
+  }
+}
+
+export async function getClaudeMcpStatus(args: {
+  cwd?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<ClaudeMcpStatusResponse> {
+  const checkedAt = Date.now();
+  let stream: ClaudeMcpControlQuery | null = null;
+  try {
+    const control = await createClaudeMcpControlQuery({
+      cwd: args.cwd,
+      runtimeOptions: args.runtimeOptions,
+      prompt: "",
+    });
+    stream = control.stream;
+    const statuses = await stream.mcpServerStatus();
+    return {
+      ok: true,
+      detail:
+        statuses.length > 0
+          ? `Loaded ${statuses.length} Claude MCP server status${statuses.length === 1 ? "" : "es"} for ${control.runtimeCwd}.`
+          : `No Claude MCP servers are configured for ${control.runtimeCwd}.`,
+      servers: statuses.map((status) =>
+        toClaudeMcpServerStatusSnapshot(status, {
+          scopeKey: control.scopeKey,
+          checkedAt,
+        }),
+      ),
+      checkedAt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Claude MCP status unavailable: ${sanitizeMcpDiagnosticText(toText(error))}`,
+      servers: [],
+      checkedAt,
+    };
+  } finally {
+    stream?.close();
+  }
+}
+
+export async function startClaudeMcpOauthLogin(args: {
+  name: string;
+  cwd?: string;
+  timeoutSecs?: number;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<ClaudeMcpOauthLoginResponse> {
+  const serverName = args.name.trim();
+  if (!serverName) {
+    return {
+      ok: false,
+      detail: "Claude MCP OAuth login requires a server name.",
+    };
+  }
+
+  const input = new SteerableUserMessageQueue();
+  let stream: ClaudeMcpControlQuery | null = null;
+  try {
+    const control = await createClaudeMcpControlQuery({
+      cwd: args.cwd,
+      runtimeOptions: args.runtimeOptions,
+      prompt: input,
+    });
+    stream = control.stream;
+    const flowKey = `${control.scopeKey}\u0000${serverName}`;
+    const existingFlow = activeClaudeMcpOauthFlowByKey.get(flowKey);
+    if (existingFlow) {
+      closeClaudeMcpOauthFlow(existingFlow);
+    }
+
+    const response = resolveClaudeMcpOauthLoginResult(
+      await stream.mcpAuthenticate(serverName),
+    );
+    const { authorizationUrl, requiresUserAction, callbackExpected } = response;
+
+    if ((requiresUserAction || callbackExpected) && !authorizationUrl) {
+      return {
+        ok: false,
+        detail:
+          `Claude MCP OAuth login for ${serverName} requires browser action, ` +
+          "but the SDK did not return an authorization URL.",
+        requiresUserAction,
+        callbackExpected,
+      };
+    }
+
+    if (authorizationUrl || requiresUserAction || callbackExpected) {
+      const flow: ActiveClaudeMcpOauthFlow = {
+        key: flowKey,
+        scopeKey: control.scopeKey,
+        serverName,
+        stream,
+        input,
+        cancelled: false,
+      };
+      activeClaudeMcpOauthFlowByKey.set(flowKey, flow);
+      stream = null;
+      void monitorClaudeMcpOauthFlow({
+        flow,
+        timeoutSecs: args.timeoutSecs ?? CLAUDE_MCP_OAUTH_DEFAULT_TIMEOUT_SECS,
+      });
+    }
+
+    return {
+      ok: true,
+      detail: authorizationUrl
+        ? `Started Claude MCP OAuth login for ${serverName}.`
+        : `Claude MCP server ${serverName} did not require browser authorization.`,
+      ...(authorizationUrl ? { authorizationUrl } : {}),
+      requiresUserAction,
+      callbackExpected,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Claude MCP OAuth login failed: ${sanitizeMcpDiagnosticText(toText(error))}`,
+    };
+  } finally {
+    if (stream) {
+      input.close();
+      stream.close();
+    }
+  }
+}
+
+export function cleanupClaudeMcpOauthFlows() {
+  for (const flow of activeClaudeMcpOauthFlowByKey.values()) {
+    closeClaudeMcpOauthFlow(flow);
+  }
+  activeClaudeMcpOauthFlowByKey.clear();
+  claudeMcpRecentErrorByServer.clear();
 }
 
 /**

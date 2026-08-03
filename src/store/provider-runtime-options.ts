@@ -4,7 +4,10 @@ import {
   resolveEffectiveCodexFileAccessMode,
 } from "@/lib/providers/codex-runtime-options";
 import { resolveDefaultClaudeFallbackModel } from "@/lib/providers/model-catalog";
-import { normalizeAdvisorTarget } from "@/lib/providers/advisor";
+import {
+  type AdvisorArmOverrides,
+  resolveAdvisorArmState,
+} from "@/lib/providers/advisor";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import {
   normalizeTrustedToolEntries,
@@ -15,6 +18,7 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
+import type { UtilityInferenceContext } from "@/lib/providers/utility-inference";
 import type { AppSettings } from "@/store/app.store";
 
 const DEFAULT_CODEX_APPROVAL_POLICY = "untrusted";
@@ -36,6 +40,8 @@ type RuntimeSettings = Pick<
   | "claudeAllowDangerouslySkipPermissions"
   | "claudeSandboxEnabled"
   | "claudeAllowUnsandboxedCommands"
+  | "claudeSandboxCredentialFiles"
+  | "claudeSandboxCredentialEnvVars"
   | "claudeTaskBudgetTokens"
   | "advisorTarget"
   | "claudeSettingSources"
@@ -60,12 +66,12 @@ type RuntimeSettings = Pick<
   | "codexBinaryPath"
   | "codexReasoningEffort"
   | "codexWebSearch"
+  | "codexAppToolApprovalMode"
   | "codexShowRawReasoning"
   | "codexReasoningSummary"
   | "codexReasoningSummarySupport"
   | "codexFastMode"
   | "codexPlanMode"
-  | "codexFastModeVisible"
   | "promptResponseStyle"
   | "promptPrDescription"
   | "promptInlineCompletion"
@@ -155,6 +161,11 @@ export function buildProviderRuntimeOptions(args: {
   providerSession?: TaskProviderSessionState | null;
   includeAdvisor?: boolean;
   /**
+   * The task's per-turn Advisor arming, when the caller has a prompt draft.
+   * Omitted for utility turns, which never opt into the Advisor anyway.
+   */
+  advisorRuntimeOverrides?: AdvisorArmOverrides | null;
+  /**
    * Ids of vault secrets the user bound to this task. Carried through to the
    * runtime so the main process can resolve them to env vars. Ids only.
    */
@@ -169,7 +180,10 @@ export function buildProviderRuntimeOptions(args: {
     value: settings.claudeTaskBudgetTokens,
   });
   const advisorTarget = args.includeAdvisor
-    ? normalizeAdvisorTarget(settings.advisorTarget)
+    ? resolveAdvisorArmState({
+        overrides: args.advisorRuntimeOverrides,
+        settingsTarget: settings.advisorTarget,
+      }).effectiveTarget
     : null;
   const trustedTools = normalizeTrustedToolEntries(settings.trustedTools);
   const claudeAllowedTools =
@@ -210,6 +224,22 @@ export function buildProviderRuntimeOptions(args: {
       settings.claudeAllowDangerouslySkipPermissions,
     claudeSandboxEnabled: settings.claudeSandboxEnabled,
     claudeAllowUnsandboxedCommands: settings.claudeAllowUnsandboxedCommands,
+    ...(normalizeDelimitedSettingList(settings.claudeSandboxCredentialFiles)
+      .length > 0
+      ? {
+          claudeSandboxCredentialFiles: normalizeDelimitedSettingList(
+            settings.claudeSandboxCredentialFiles,
+          ),
+        }
+      : {}),
+    ...(normalizeDelimitedSettingList(settings.claudeSandboxCredentialEnvVars)
+      .length > 0
+      ? {
+          claudeSandboxCredentialEnvVars: normalizeDelimitedSettingList(
+            settings.claudeSandboxCredentialEnvVars,
+          ),
+        }
+      : {}),
     claudeSettingSources: normalizeClaudeSettingSources({
       value: settings.claudeSettingSources,
     }),
@@ -261,6 +291,7 @@ export function buildProviderRuntimeOptions(args: {
     codexBinaryPath: settings.codexBinaryPath || undefined,
     codexReasoningEffort: settings.codexReasoningEffort,
     codexWebSearch: settings.codexWebSearch,
+    codexAppToolApprovalMode: settings.codexAppToolApprovalMode,
     codexShowRawReasoning: settings.codexShowRawReasoning,
     codexReasoningSummary: settings.codexReasoningSummary,
     codexReasoningSummarySupport: settings.codexReasoningSummarySupport,
@@ -273,5 +304,23 @@ export function buildProviderRuntimeOptions(args: {
     promptPrDescription: settings.promptPrDescription || undefined,
     promptInlineCompletion: settings.promptInlineCompletion || undefined,
     ...(boundSecretIds ? { boundSecretIds } : {}),
+  };
+}
+
+export function buildUtilityInferenceContext(args: {
+  cwd?: string;
+  provider: ProviderId;
+  model: string;
+  settings: RuntimeSettings & Pick<AppSettings, "utilityInferenceProvider">;
+}): UtilityInferenceContext {
+  return {
+    cwd: args.cwd,
+    utilityProviderId: args.settings.utilityInferenceProvider,
+    activeProviderId: args.provider,
+    runtimeOptions: buildProviderRuntimeOptions({
+      provider: args.provider,
+      model: args.model,
+      settings: args.settings,
+    }),
   };
 }

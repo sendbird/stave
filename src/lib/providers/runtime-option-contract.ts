@@ -118,9 +118,20 @@ export function listCodexEffortOptionsForModel(args: {
 export const CODEX_WEB_SEARCH_OPTIONS = [
   { value: "cached", label: "Cached" },
   { value: "disabled", label: "Disabled" },
+  { value: "indexed", label: "Indexed" },
   { value: "live", label: "Live" },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["codexWebSearch"]>
+>[];
+
+export const CODEX_APP_TOOL_APPROVAL_MODE_OPTIONS = [
+  { value: "inherit", label: "Inherit" },
+  { value: "auto", label: "Auto" },
+  { value: "prompt", label: "Prompt" },
+  { value: "writes", label: "Writes" },
+  { value: "approve", label: "Approve" },
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["codexAppToolApprovalMode"]>
 >[];
 
 export const CODEX_REASONING_SUMMARY_OPTIONS = [
@@ -151,6 +162,8 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudeAllowDangerouslySkipPermissions",
   "claudeSandboxEnabled",
   "claudeAllowUnsandboxedCommands",
+  "claudeSandboxCredentialFiles",
+  "claudeSandboxCredentialEnvVars",
   "claudeSystemPrompt",
   "claudeMaxTurns",
   "claudeMaxBudgetUsd",
@@ -181,6 +194,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "codexBinaryPath",
   "codexReasoningEffort",
   "codexWebSearch",
+  "codexAppToolApprovalMode",
   "codexShowRawReasoning",
   "codexReasoningSummary",
   "codexReasoningSummarySupport",
@@ -207,9 +221,14 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "thinking",
   "text",
   "provider_session",
+  "provider_turn",
   "goal_status",
   "usage",
   "prompt_suggestions",
+  "advisor_activity",
+  "history_boundary",
+  "permission_denial",
+  "hook_activity",
   "tool",
   "tool_progress",
   "tool_result",

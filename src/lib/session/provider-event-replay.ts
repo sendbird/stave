@@ -51,15 +51,15 @@ function providerGoalsEqual(
     return false;
   }
   return (
-    left.providerId === right.providerId
-    && left.nativeSessionId === right.nativeSessionId
-    && left.objective === right.objective
-    && left.status === right.status
-    && left.tokenBudget === right.tokenBudget
-    && left.tokensUsed === right.tokensUsed
-    && left.timeUsedSeconds === right.timeUsedSeconds
-    && left.createdAt === right.createdAt
-    && left.updatedAt === right.updatedAt
+    left.providerId === right.providerId &&
+    left.nativeSessionId === right.nativeSessionId &&
+    left.objective === right.objective &&
+    left.status === right.status &&
+    left.tokenBudget === right.tokenBudget &&
+    left.tokensUsed === right.tokensUsed &&
+    left.timeUsedSeconds === right.timeUsedSeconds &&
+    left.createdAt === right.createdAt &&
+    left.updatedAt === right.updatedAt
   );
 }
 
@@ -71,7 +71,10 @@ function createTextPart(args: { text: string; segmentId?: string }): TextPart {
   });
 }
 
-function createThinkingPart(args: { text: string; isStreaming: boolean }): ThinkingPart {
+function createThinkingPart(args: {
+  text: string;
+  isStreaming: boolean;
+}): ThinkingPart {
   const timestamp = buildRecentTimestamp();
   return sanitizeMessagePartPayload({
     type: "thinking",
@@ -146,10 +149,15 @@ function createUserInputPart(args: {
 }
 
 function isAgentToolPart(part: MessagePart): part is ToolUsePart {
-  return part.type === "tool_use" && part.toolName.trim().toLowerCase() === "agent";
+  return (
+    part.type === "tool_use" && part.toolName.trim().toLowerCase() === "agent"
+  );
 }
 
-function finalizeTrailingThinkingPart(args: { parts: MessagePart[]; completedAt?: string }): MessagePart[] {
+function finalizeTrailingThinkingPart(args: {
+  parts: MessagePart[];
+  completedAt?: string;
+}): MessagePart[] {
   const lastPart = args.parts.at(-1);
   if (lastPart?.type !== "thinking" || !lastPart.isStreaming) {
     return args.parts;
@@ -172,7 +180,11 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "usage":
     case "prompt_suggestions":
     case "provider_session":
+    case "provider_turn":
     case "goal_status":
+    case "history_boundary":
+    case "hook_activity":
+    case "advisor_activity":
     case "model_resolved":
     case "done":
       return false;
@@ -210,8 +222,8 @@ function appendSubagentProgressToPart(args: {
     for (let i = parts.length - 1; i >= 0; i -= 1) {
       const p = parts[i]!;
       if (
-        isAgentToolPart(p)
-        && (p.state === "input-streaming" || p.state === "input-available")
+        isAgentToolPart(p) &&
+        (p.state === "input-streaming" || p.state === "input-available")
       ) {
         targetIndex = i;
         break;
@@ -231,7 +243,13 @@ function appendSubagentProgressToPart(args: {
 
   if (targetIndex === -1) {
     // No Agent tool_use found — degrade to a standalone system_event part.
-    return [...parts, { type: "system_event" as const, content: `Subagent progress: ${content}` }];
+    return [
+      ...parts,
+      {
+        type: "system_event" as const,
+        content: `Subagent progress: ${content}`,
+      },
+    ];
   }
 
   const target = parts[targetIndex] as ToolUsePart;
@@ -248,13 +266,14 @@ function resolvePendingToolInteractionMessage(args: {
   message: ChatMessage;
   event: NormalizedProviderEvent;
 }) {
-  const requestId = args.event.type === "tool"
-    ? args.event.toolUseId
-    : args.event.type === "tool_progress"
+  const requestId =
+    args.event.type === "tool"
       ? args.event.toolUseId
-      : args.event.type === "tool_result"
-        ? args.event.tool_use_id
-        : undefined;
+      : args.event.type === "tool_progress"
+        ? args.event.toolUseId
+        : args.event.type === "tool_result"
+          ? args.event.tool_use_id
+          : undefined;
 
   const resolvedParts = resolvePendingToolInteractionPartsByRequestId({
     parts: args.message.parts,
@@ -269,17 +288,37 @@ function resolvePendingToolInteractionMessage(args: {
       };
 }
 
-function normalizeEventToPart(args: { event: NormalizedProviderEvent }): MessagePart | null {
+function normalizeEventToPart(args: {
+  event: NormalizedProviderEvent;
+}): MessagePart | null {
   const { event } = args;
 
   switch (event.type) {
     case "thinking":
-      return createThinkingPart({ text: event.text, isStreaming: event.isStreaming ?? false });
+      return createThinkingPart({
+        text: event.text,
+        isStreaming: event.isStreaming ?? false,
+      });
     case "text":
       return createTextPart({ text: event.text, segmentId: event.segmentId });
     case "provider_session":
+    case "provider_turn":
     case "goal_status":
+    case "history_boundary":
+    case "hook_activity":
+    // Advisor lifecycle lives in its own store slice, never in the transcript:
+    // the advice text must not become a persisted assistant response.
+    case "advisor_activity":
       return null;
+    case "permission_denial": {
+      const reason = event.reason?.trim() || event.message.trim();
+      return sanitizeMessagePartPayload({
+        type: "system_event",
+        content: reason
+          ? `Permission denied for ${event.toolName}: ${reason}`
+          : `Permission denied for ${event.toolName}.`,
+      });
+    }
     case "tool":
       return createToolPart({
         toolUseId: event.toolUseId,
@@ -428,7 +467,10 @@ function stripTextSegmentFromMessage(args: {
     return args.message;
   }
 
-  const content = parts.reduce((acc, part) => part.type === "text" ? `${acc}${part.text}` : acc, "");
+  const content = parts.reduce(
+    (acc, part) => (part.type === "text" ? `${acc}${part.text}` : acc),
+    "",
+  );
   return {
     ...args.message,
     content,
@@ -469,10 +511,17 @@ function finalizeAssistantMessage(args: {
   const completedAt = args.completedAt ?? buildRecentTimestamp();
   const finalizedParts = args.message.parts.map((part) => {
     if (part.type === "thinking" && part.isStreaming) {
-      return { ...part, isStreaming: false, completedAt: part.completedAt ?? completedAt };
+      return {
+        ...part,
+        isStreaming: false,
+        completedAt: part.completedAt ?? completedAt,
+      };
     }
     if (part.type === "tool_use") {
-      if (part.state === "input-available" || part.state === "input-streaming") {
+      if (
+        part.state === "input-available" ||
+        part.state === "input-streaming"
+      ) {
         return { ...part, state: "output-available" as const };
       }
       return part;
@@ -499,9 +548,15 @@ export function appendProviderEventToAssistant(args: {
         ...args.message.usage,
         inputTokens: args.event.inputTokens,
         outputTokens: args.event.outputTokens,
-        ...(args.event.cacheReadTokens != null ? { cacheReadTokens: args.event.cacheReadTokens } : {}),
-        ...(args.event.cacheCreationTokens != null ? { cacheCreationTokens: args.event.cacheCreationTokens } : {}),
-        ...(args.event.totalCostUsd != null ? { totalCostUsd: args.event.totalCostUsd } : {}),
+        ...(args.event.cacheReadTokens != null
+          ? { cacheReadTokens: args.event.cacheReadTokens }
+          : {}),
+        ...(args.event.cacheCreationTokens != null
+          ? { cacheCreationTokens: args.event.cacheCreationTokens }
+          : {}),
+        ...(args.event.totalCostUsd != null
+          ? { totalCostUsd: args.event.totalCostUsd }
+          : {}),
         ...(args.event.ttftMs != null ? { ttftMs: args.event.ttftMs } : {}),
       },
     };
@@ -519,7 +574,9 @@ export function appendProviderEventToAssistant(args: {
 
   let message = args.message;
   if (shouldFinalizeThinkingBeforeEvent(args.event)) {
-    const finalizedParts = finalizeTrailingThinkingPart({ parts: message.parts });
+    const finalizedParts = finalizeTrailingThinkingPart({
+      parts: message.parts,
+    });
     if (finalizedParts !== message.parts) {
       message = { ...message, parts: finalizedParts };
     }
@@ -543,10 +600,13 @@ export function appendProviderEventToAssistant(args: {
   // Legacy: system events carrying "Subagent progress:" prefix from older stored
   // events are back-compat migrated into the matching Agent tool part.
   if (
-    args.event.type === "system"
-    && args.event.content.trimStart().startsWith("Subagent progress:")
+    args.event.type === "system" &&
+    args.event.content.trimStart().startsWith("Subagent progress:")
   ) {
-    const stripped = args.event.content.trimStart().slice("Subagent progress:".length).trim();
+    const stripped = args.event.content
+      .trimStart()
+      .slice("Subagent progress:".length)
+      .trim();
     if (stripped) {
       const updatedParts = appendSubagentProgressToPart({
         parts: message.parts,
@@ -570,25 +630,28 @@ export function appendProviderEventToAssistant(args: {
 
   if (args.event.type === "tool_result") {
     const toolResultEvent = args.event;
-    let updatedParts = message.parts.map((part) => mergeToolResultIntoPart({
-      part,
-      event: toolResultEvent,
-    }));
+    let updatedParts = message.parts.map((part) =>
+      mergeToolResultIntoPart({
+        part,
+        event: toolResultEvent,
+      }),
+    );
 
     // Fallback: if no part was updated by exact toolUseId match (e.g. the
     // tool_use part was created from a partial message without an id), find
     // the first tool_use part still waiting for output and adopt the result.
     const merged = updatedParts.some(
-      (p) => p.type === "tool_use" && p.toolUseId === toolResultEvent.tool_use_id,
+      (p) =>
+        p.type === "tool_use" && p.toolUseId === toolResultEvent.tool_use_id,
     );
     if (!merged) {
       let adopted = false;
       updatedParts = updatedParts.map((part) => {
         if (
-          adopted
-          || part.type !== "tool_use"
-          || part.toolUseId != null
-          || (part.state !== "input-available" && part.state !== "input-streaming")
+          adopted ||
+          part.type !== "tool_use" ||
+          part.toolUseId != null ||
+          (part.state !== "input-available" && part.state !== "input-streaming")
         ) {
           return part;
         }
@@ -629,6 +692,14 @@ export function appendProviderEventToAssistant(args: {
     return message;
   }
 
+  if (args.event.type === "provider_turn") {
+    return {
+      ...message,
+      nativeProviderSessionId: args.event.nativeSessionId,
+      nativeProviderTurnId: args.event.nativeTurnId,
+    };
+  }
+
   if (args.event.type === "done") {
     const completedAt = buildRecentTimestamp();
     const partsWithTruncationNotice = appendProviderOutputTruncationNotice({
@@ -640,7 +711,9 @@ export function appendProviderEventToAssistant(args: {
         ? message
         : { ...message, parts: partsWithTruncationNotice };
 
-    if (!hasRenderableAssistantContent({ message: messageWithTruncationNotice })) {
+    if (
+      !hasRenderableAssistantContent({ message: messageWithTruncationNotice })
+    ) {
       return {
         ...messageWithTruncationNotice,
         content: "No response returned.",
@@ -690,12 +763,10 @@ export function appendProviderEventToAssistant(args: {
   // in-place TodoWrite update. Only merge when the provider preserved the same
   // logical text segment boundary.
   const canMergeTextParts =
-    part.type === "text"
-    && lastPart?.type === "text"
-    && (
-      (part.segmentId == null && lastPart.segmentId == null)
-      || part.segmentId === lastPart.segmentId
-    );
+    part.type === "text" &&
+    lastPart?.type === "text" &&
+    ((part.segmentId == null && lastPart.segmentId == null) ||
+      part.segmentId === lastPart.segmentId);
 
   if (canMergeTextParts) {
     nextParts[nextParts.length - 1] = {
@@ -707,17 +778,22 @@ export function appendProviderEventToAssistant(args: {
       ...lastPart,
       text: `${lastPart.text}${part.text}`,
       isStreaming: part.isStreaming,
-      ...(part.isStreaming ? {} : { completedAt: lastPart.completedAt ?? buildRecentTimestamp() }),
+      ...(part.isStreaming
+        ? {}
+        : { completedAt: lastPart.completedAt ?? buildRecentTimestamp() }),
     };
   } else if (
-    part.type === "tool_use"
-    && part.toolName.trim().toLowerCase() === "todowrite"
+    part.type === "tool_use" &&
+    part.toolName.trim().toLowerCase() === "todowrite"
   ) {
     // Replace the last TodoWrite part in-place so the list updates in-place.
     let existingIdx = -1;
     for (let index = nextParts.length - 1; index >= 0; index -= 1) {
       const candidate = nextParts[index];
-      if (candidate?.type === "tool_use" && candidate.toolName.trim().toLowerCase() === "todowrite") {
+      if (
+        candidate?.type === "tool_use" &&
+        candidate.toolName.trim().toLowerCase() === "todowrite"
+      ) {
         existingIdx = index;
         break;
       }
@@ -735,7 +811,10 @@ export function appendProviderEventToAssistant(args: {
     let existingIdx = -1;
     for (let index = nextParts.length - 1; index >= 0; index -= 1) {
       const candidate = nextParts[index];
-      if (candidate?.type === "tool_use" && candidate.toolUseId === part.toolUseId) {
+      if (
+        candidate?.type === "tool_use" &&
+        candidate.toolUseId === part.toolUseId
+      ) {
         existingIdx = index;
         break;
       }
@@ -752,7 +831,10 @@ export function appendProviderEventToAssistant(args: {
     let existingIdx = -1;
     for (let index = nextParts.length - 1; index >= 0; index -= 1) {
       const candidate = nextParts[index];
-      if (candidate?.type === "code_diff" && candidate.filePath === part.filePath) {
+      if (
+        candidate?.type === "code_diff" &&
+        candidate.filePath === part.filePath
+      ) {
         existingIdx = index;
         break;
       }
@@ -766,16 +848,16 @@ export function appendProviderEventToAssistant(args: {
     // When the compact-boundary checkpoint arrives, remove the in-progress
     // "Compacting conversation context…" spinner — it is superseded by the
     // completed checkpoint and should no longer render a loading indicator.
-    if (
-      part.type === "system_event" &&
-      part.compactBoundary != null
-    ) {
+    if (part.type === "system_event" && part.compactBoundary != null) {
       let compactingIdx = -1;
       for (let index = nextParts.length - 1; index >= 0; index -= 1) {
         const candidate = nextParts[index];
         if (
           candidate?.type === "system_event" &&
-          candidate.content.trim().toLowerCase().startsWith("compacting conversation context")
+          candidate.content
+            .trim()
+            .toLowerCase()
+            .startsWith("compacting conversation context")
         ) {
           compactingIdx = index;
           break;
@@ -855,6 +937,52 @@ export function replayProviderEventsToTaskState(args: {
       continue;
     }
 
+    if (event.type === "hook_activity" || event.type === "advisor_activity") {
+      continue;
+    }
+
+    if (event.type === "history_boundary") {
+      let targetIndex = -1;
+      for (let index = current.length - 1; index >= 0; index -= 1) {
+        if (current[index]?.role === event.targetRole) {
+          targetIndex = index;
+          break;
+        }
+      }
+      if (targetIndex === -1 && event.targetRole === "assistant") {
+        const assistant = createStreamingAssistantMessage({
+          taskId: args.taskId,
+          count: current.length + messageIndexOffset,
+          provider: args.provider,
+          model: args.model,
+        });
+        current = [...current, assistant];
+        targetIndex = current.length - 1;
+      }
+      const boundaryTarget = current[targetIndex];
+      if (boundaryTarget) {
+        const nextBoundary = {
+          providerId: event.providerId,
+          kind: event.boundaryKind,
+          nativeId: event.nativeId,
+        } as const;
+        if (
+          boundaryTarget.providerBoundary?.providerId !==
+            nextBoundary.providerId ||
+          boundaryTarget.providerBoundary.kind !== nextBoundary.kind ||
+          boundaryTarget.providerBoundary.nativeId !== nextBoundary.nativeId
+        ) {
+          current = current.map((message, index) =>
+            index === targetIndex
+              ? { ...message, providerBoundary: nextBoundary }
+              : message,
+          );
+          changed = true;
+        }
+      }
+      continue;
+    }
+
     let target = current[current.length - 1];
     if (!target || target.role !== "assistant") {
       target = createStreamingAssistantMessage({
@@ -874,13 +1002,15 @@ export function replayProviderEventsToTaskState(args: {
 
       // Strip raw <proposed_plan> tags that leaked into the streaming
       // message so the prior assistant bubble isn't garbled.
-      const cleanedTarget = stripPlanTagsFromMessage(stripTextSegmentFromMessage({
-        message: target,
-        segmentId: event.sourceSegmentId,
-      }));
+      const cleanedTarget = stripPlanTagsFromMessage(
+        stripTextSegmentFromMessage({
+          message: target,
+          segmentId: event.sourceSegmentId,
+        }),
+      );
       const shouldAppendSeparatePlanMessage =
-        !cleanedTarget.isPlanResponse
-        && hasRenderableAssistantContent({ message: cleanedTarget });
+        !cleanedTarget.isPlanResponse &&
+        hasRenderableAssistantContent({ message: cleanedTarget });
 
       if (shouldAppendSeparatePlanMessage) {
         const finalizedTarget = finalizeAssistantMessage({
@@ -915,10 +1045,10 @@ export function replayProviderEventsToTaskState(args: {
     changed = true;
 
     if (
-      event.type !== "system"
-      && event.type !== "error"
-      && event.type !== "done"
-      && !nextNativeSessionReady
+      event.type !== "system" &&
+      event.type !== "error" &&
+      event.type !== "done" &&
+      !nextNativeSessionReady
     ) {
       nextNativeSessionReady = true;
     }
@@ -933,8 +1063,8 @@ export function replayProviderEventsToTaskState(args: {
           syncedThroughMessageId: updated.id,
         });
         if (
-          advancedSession
-          && advancedSession !== nextProviderSession?.[args.provider]
+          advancedSession &&
+          advancedSession !== nextProviderSession?.[args.provider]
         ) {
           nextProviderSession = {
             ...nextProviderSession,

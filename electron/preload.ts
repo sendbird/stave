@@ -8,6 +8,11 @@ import type {
   CodexThreadReadResponse,
   CanonicalConversationRequest,
   ClaudeContextUsageResponse,
+  ClaudeFileRewindResponse,
+  ClaudeMcpOauthLoginResponse,
+  ClaudeMcpStatusResponse,
+  ClaudeSessionForkResponse,
+  ProviderMutationResponse,
   CodexMcpStatusResponse,
   McpDiscoveryResponse,
   ClaudePluginReloadResponse,
@@ -15,12 +20,26 @@ import type {
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
   ProviderId,
+  ProviderAvailabilityResponse,
   ProviderRuntimeOptions,
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
   CodexReviewStartResponse,
   RateLimitsSnapshotResponse,
 } from "../src/lib/providers/provider.types";
+import type {
+  RouteClassification,
+  UtilityInferenceContext,
+  UtilityInferenceMetadata,
+} from "../src/lib/providers/utility-inference";
+import type {
+  McpServerConfigListRequest,
+  McpServerConfigListResponse,
+  McpServerConfigMutationApplyRequest,
+  McpServerConfigMutationPreviewResponse,
+  McpServerConfigMutationRequest,
+  McpServerConfigMutationResponse,
+} from "../src/lib/providers/mcp-config.types";
 import type {
   ConnectedToolId,
   ConnectedToolStatusResponse,
@@ -686,30 +705,11 @@ ipcRenderer.on(
 ipcRenderer.on(
   "lens:console-entry",
   (_event, payload: BrowserConsoleEventPayload) => {
+    if (lensConsoleEventSubscribers.size === 0) {
+      return;
+    }
     for (const subscriber of lensConsoleEventSubscribers) {
       subscriber(payload);
-    }
-
-    const prefix = `[Lens:${payload.workspaceId}]`;
-    const message = payload.entry.source
-      ? `${prefix} ${payload.entry.text} (${payload.entry.source})`
-      : `${prefix} ${payload.entry.text}`;
-    switch (payload.entry.level) {
-      case "debug":
-        console.debug(message);
-        break;
-      case "info":
-        console.info(message);
-        break;
-      case "warn":
-        console.warn(message);
-        break;
-      case "error":
-        console.error(message);
-        break;
-      default:
-        console.log(message);
-        break;
     }
   },
 );
@@ -775,6 +775,8 @@ contextBridge.exposeInMainWorld("api", {
     },
     abortTurn: (args: { turnId: string }) =>
       ipcRenderer.invoke("provider:abort-turn", args),
+    skipAdvisor: (args: { turnId: string }) =>
+      ipcRenderer.invoke("provider:skip-advisor", args),
     steerTurn: (
       args: ProviderSteerTurnRequest,
     ): Promise<ProviderSteerTurnResponse> =>
@@ -795,7 +797,11 @@ contextBridge.exposeInMainWorld("api", {
     checkAvailability: (args: {
       providerId: ProviderId;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-    }) => ipcRenderer.invoke("provider:check-availability", args),
+    }) =>
+      ipcRenderer.invoke(
+        "provider:check-availability",
+        args,
+      ) as Promise<ProviderAvailabilityResponse>,
     getCommandCatalog: (args: {
       providerId: ProviderId;
       cwd?: string;
@@ -825,6 +831,36 @@ contextBridge.exposeInMainWorld("api", {
         "provider:get-claude-context-usage",
         args,
       ) as Promise<ClaudeContextUsageResponse>,
+    forkClaudeSession: (args: {
+      sessionId: string;
+      upToMessageId: string;
+      title?: string;
+      cwd?: string;
+    }) =>
+      ipcRenderer.invoke(
+        "provider:fork-claude-session",
+        args,
+      ) as Promise<ClaudeSessionForkResponse>,
+    rewindClaudeFiles: (args: {
+      sessionId: string;
+      userMessageId: string;
+      dryRun: boolean;
+      cwd?: string;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:rewind-claude-files",
+        args,
+      ) as Promise<ClaudeFileRewindResponse>,
+    renameClaudeSession: (args: {
+      sessionId: string;
+      title: string;
+      cwd?: string;
+    }) =>
+      ipcRenderer.invoke(
+        "provider:rename-claude-session",
+        args,
+      ) as Promise<ProviderMutationResponse>,
     reloadClaudePlugins: (args: {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -833,6 +869,14 @@ contextBridge.exposeInMainWorld("api", {
         "provider:reload-claude-plugins",
         args,
       ) as Promise<ClaudePluginReloadResponse>,
+    getClaudeMcpStatus: (args: {
+      cwd?: string;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:get-claude-mcp-status",
+        args,
+      ) as Promise<ClaudeMcpStatusResponse>,
     getCodexMcpStatus: (args: {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -846,6 +890,21 @@ contextBridge.exposeInMainWorld("api", {
         "provider:discover-mcp-servers",
         args,
       ) as Promise<McpDiscoveryResponse>,
+    listMcpServerConfigs: (args: McpServerConfigListRequest) =>
+      ipcRenderer.invoke(
+        "provider:list-mcp-server-configs",
+        args,
+      ) as Promise<McpServerConfigListResponse>,
+    previewMcpServerConfigMutation: (args: McpServerConfigMutationRequest) =>
+      ipcRenderer.invoke(
+        "provider:preview-mcp-server-config-mutation",
+        args,
+      ) as Promise<McpServerConfigMutationPreviewResponse>,
+    applyMcpServerConfigMutation: (args: McpServerConfigMutationApplyRequest) =>
+      ipcRenderer.invoke(
+        "provider:apply-mcp-server-config-mutation",
+        args,
+      ) as Promise<McpServerConfigMutationResponse>,
     getCodexModelCatalog: (args: {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -914,6 +973,16 @@ contextBridge.exposeInMainWorld("api", {
         "provider:start-codex-mcp-oauth-login",
         args,
       ) as Promise<CodexMcpOauthLoginResponse>,
+    startClaudeMcpOauthLogin: (args: {
+      name: string;
+      cwd?: string;
+      timeoutSecs?: number;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:start-claude-mcp-oauth-login",
+        args,
+      ) as Promise<ClaudeMcpOauthLoginResponse>,
     readCodexMcpResource: (args: {
       threadId: string;
       server: string;
@@ -943,6 +1012,8 @@ contextBridge.exposeInMainWorld("api", {
       ) as Promise<CodexThreadReadResponse>,
     forkCodexThread: (args: {
       threadId: string;
+      lastTurnId?: string;
+      beforeTurnId?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     }) =>
       ipcRenderer.invoke(
@@ -1023,46 +1094,39 @@ contextBridge.exposeInMainWorld("api", {
         "provider:batch-write-codex-config",
         args,
       ) as Promise<CodexMutationResponse>,
-    suggestTaskName: (args: {
-      prompt: string;
-      history?: Array<{ role: string; content: string }>;
-    }) =>
+    suggestTaskName: (
+      args: UtilityInferenceContext & {
+        prompt: string;
+        history?: Array<{ role: string; content: string }>;
+      },
+    ) =>
       ipcRenderer.invoke("provider:suggest-task-name", args) as Promise<{
         ok: boolean;
         title?: string;
+        utility: UtilityInferenceMetadata;
       }>,
-    classifyRoute: (args: {
-      prompt: string;
-      history?: Array<{
-        role: "user" | "assistant";
-        content: string;
-        providerId?: ProviderId;
-        model?: string;
-      }>;
-      fileContextCount?: number;
-    }) =>
+    classifyRoute: (
+      args: UtilityInferenceContext & {
+        prompt: string;
+        history?: Array<{
+          role: "user" | "assistant";
+          content: string;
+          providerId?: ProviderId;
+          model?: string;
+        }>;
+        fileContextCount?: number;
+      },
+    ) =>
       ipcRenderer.invoke("provider:classify-route", args) as Promise<{
         ok: boolean;
-        classification?: {
-          taskType:
-            | "quick_edit"
-            | "plan"
-            | "implementation"
-            | "debug"
-            | "review"
-            | "general"
-            | "safety";
-          complexity: "low" | "medium" | "high";
-          recommendedTier: "light" | "standard" | "heavy" | "frontier";
-          confidence: number;
-          rationale?: string;
-          stick?: boolean;
-        };
+        classification?: RouteClassification;
+        utility: UtilityInferenceMetadata;
       }>,
-    suggestCommitMessage: (args: { cwd?: string }) =>
+    suggestCommitMessage: (args: UtilityInferenceContext) =>
       ipcRenderer.invoke("provider:suggest-commit-message", args) as Promise<{
         ok: boolean;
         message?: string;
+        utility: UtilityInferenceMetadata;
       }>,
     suggestPRDescription: (args: {
       cwd?: string;
@@ -1130,6 +1194,18 @@ contextBridge.exposeInMainWorld("api", {
       limit?: number;
       offset?: number;
     }) => ipcRenderer.invoke("persistence:load-task-messages", args),
+    truncateTaskMessagesAfter: (args: {
+      workspaceId: string;
+      taskId: string;
+      messageId: string;
+    }) =>
+      ipcRenderer.invoke(
+        "persistence:truncate-task-messages-after",
+        args,
+      ) as Promise<{
+        ok: boolean;
+        removedCount: number;
+      }>,
     loadWorkspaceEditorTabBodies: (args: {
       workspaceId: string;
       tabIds: string[];
@@ -1718,7 +1794,11 @@ contextBridge.exposeInMainWorld("api", {
       limit?: number;
       skip?: number;
       scope?: string;
+      refs?: string[];
+      includeRepositoryState?: boolean;
     }) => ipcRenderer.invoke("scm:graph", args),
+    getCommitDetails: (args: { hash: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:commit-details", args),
     getCommitFiles: (args: { hash: string; cwd?: string }) =>
       ipcRenderer.invoke("scm:commit-files", args),
     getCommitDiff: (args: {

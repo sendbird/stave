@@ -2,6 +2,10 @@ import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import {
+  mergeWorkspaceActivityStamps,
+  pruneWorkspaceActivityStamps,
+} from "@/lib/fleet/workspace-activity";
+import {
   normalizeNotificationSoundMode,
   normalizeNotificationSoundPreset,
   normalizeNotificationSoundVolume,
@@ -14,6 +18,7 @@ import {
   normalizeModelShortcutKeys,
 } from "@/lib/providers/model-shortcuts";
 import { normalizeResponseStylePrompt } from "@/lib/providers/prompt-defaults";
+import { normalizeUtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import { upgradeSettingsScopedClaudeModel } from "@/lib/providers/model-catalog";
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
@@ -35,6 +40,7 @@ import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
   normalizeVisualCommentShortcut,
 } from "@/lib/visual-comment-shortcuts";
+import { normalizeComposerControlPlacements } from "@/lib/composer-controls";
 import { normalizeWorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import {
@@ -96,11 +102,13 @@ export function createAppStorePersistenceOptions() {
         workspaceBranchById: state.workspaceBranchById,
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
+        workspaceLastActiveAtById: state.workspaceLastActiveAtById,
       }),
       defaultBranch: state.defaultBranch,
       workspaceBranchById: state.workspaceBranchById,
       workspacePathById: state.workspacePathById,
       workspaceDefaultById: state.workspaceDefaultById,
+      workspaceLastActiveAtById: state.workspaceLastActiveAtById,
       taskCheckpointById: state.taskCheckpointById,
       compareRunsById: state.compareRunsById,
       isDarkMode: state.isDarkMode,
@@ -236,6 +244,8 @@ export function createAppStorePersistenceOptions() {
       state.settings.autoRoutingObjective = normalizeAutoRoutingObjective(
         raw.autoRoutingObjective,
       );
+      state.settings.utilityInferenceProvider =
+        normalizeUtilityInferenceProvider(raw.utilityInferenceProvider);
       state.settings.autoRoutingEligibleClaudeModels =
         normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleClaudeModels);
       state.settings.autoRoutingEligibleCodexModels =
@@ -308,9 +318,32 @@ export function createAppStorePersistenceOptions() {
         raw.messageCodeFontSize =
           _legacyFontSizeMap[raw.messageCodeFontSize] ?? 14;
       }
-      if (typeof raw.fastModeVisible === "boolean") {
-        state.settings.codexFastModeVisible ??= raw.fastModeVisible;
-        delete raw.fastModeVisible;
+      // Both legacy fast-mode visibility booleans fold into the composer
+      // control map, so "which prompt-input controls render" has exactly one
+      // mechanism instead of a per-control flag.
+      const legacyFastModeVisible =
+        typeof raw.codexFastModeVisible === "boolean"
+          ? (raw.codexFastModeVisible as boolean)
+          : typeof raw.fastModeVisible === "boolean"
+            ? (raw.fastModeVisible as boolean)
+            : undefined;
+      delete raw.fastModeVisible;
+      delete raw.codexFastModeVisible;
+      state.settings.composerControlPlacements =
+        normalizeComposerControlPlacements(raw.composerControlPlacements);
+      // Keyed off whether the user ever wrote the new format, not off whether
+      // `fast` survived normalization: an explicit `fast: "toolbar"` is sparse
+      // (it is the default), so reading the resolved map would let the stale
+      // legacy flag re-hide it on every single rehydrate.
+      const hasComposerControlPlacements = Object.prototype.hasOwnProperty.call(
+        persistedSettings ?? {},
+        "composerControlPlacements",
+      );
+      if (legacyFastModeVisible === false && !hasComposerControlPlacements) {
+        state.settings.composerControlPlacements = {
+          ...state.settings.composerControlPlacements,
+          fast: "hidden",
+        };
       }
       if (
         typeof raw.reasoningDefaultExpanded === "boolean" &&
@@ -433,6 +466,7 @@ export function createAppStorePersistenceOptions() {
         workspaceBranchById: state.workspaceBranchById,
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
+        workspaceLastActiveAtById: state.workspaceLastActiveAtById,
         recentProjects: state.recentProjects,
       });
       if (state.projectPath && normalizedCurrentProject) {
@@ -449,6 +483,10 @@ export function createAppStorePersistenceOptions() {
         state.workspacePathById = normalizedCurrentProject.workspacePathById;
         state.workspaceDefaultById =
           normalizedCurrentProject.workspaceDefaultById;
+        state.workspaceLastActiveAtById = mergeWorkspaceActivityStamps(
+          state.workspaceLastActiveAtById,
+          normalizedCurrentProject.workspaceLastActiveAtById,
+        );
       } else if (state.projectPath) {
         state.workspaces = [];
         state.activeWorkspaceId = "";
@@ -456,6 +494,25 @@ export function createAppStorePersistenceOptions() {
         state.workspacePathById = {};
         state.workspaceDefaultById = {};
       }
+      // Remembered projects carry their own stamps; fold them in so a Fleet
+      // board opened before the first workspace switch still ranks correctly.
+      // Then drop stamps for workspaces nothing remembers any more: workspace
+      // ids are derived from paths, so a project removed and later re-added
+      // would otherwise inherit its own year-old activity and look current.
+      state.workspaceLastActiveAtById = pruneWorkspaceActivityStamps({
+        current: mergeWorkspaceActivityStamps(
+          state.workspaceLastActiveAtById,
+          ...state.recentProjects.map(
+            (project) => project.workspaceLastActiveAtById,
+          ),
+        ),
+        knownWorkspaceIds: new Set([
+          ...state.workspaces.map((workspace) => workspace.id),
+          ...state.recentProjects.flatMap((project) =>
+            project.workspaces.map((workspace) => workspace.id),
+          ),
+        ]),
+      });
       if (legacyProjectInitCommand) {
         state.recentProjects = state.recentProjects.map((project) => ({
           ...cloneRecentProjectState(project),
