@@ -177,6 +177,7 @@ Use the smallest relevant check set for the change, then escalate when the scope
 
 Common commands:
 
+- `bun run check:licenses`
 - `bun run typecheck`
 - `bun test`
 - `bun run build`
