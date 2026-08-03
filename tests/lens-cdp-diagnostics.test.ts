@@ -130,6 +130,21 @@ afterEach(() => {
 });
 
 describe("Lens CDP diagnostics", () => {
+  test("caps simultaneous full diagnostics captures", async () => {
+    const harnesses = Array.from({ length: 5 }, () => createHarness());
+    const states = [];
+    for (const harness of harnesses) {
+      states.push(await harness.start());
+    }
+
+    expect(states.slice(0, 4).every((state) => state.enabled)).toBe(true);
+    expect(states[4]).toEqual({
+      enabled: false,
+      message:
+        "Full diagnostics is already active in too many Lens sessions. Stop one and try again.",
+    });
+  });
+
   test("clears diagnostics when the owned WebContents is destroyed unexpectedly", async () => {
     const harness = createHarness();
     await harness.start();

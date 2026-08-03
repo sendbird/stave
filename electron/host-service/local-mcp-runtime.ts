@@ -71,6 +71,7 @@ import {
 } from "../../src/store/project.utils";
 import {
   buildWorkspaceSessionState,
+  buildWorkspaceSessionStateFromShell,
   createEmptyWorkspaceState,
   createWorkspaceSnapshot,
   defaultWorkspaceName,
@@ -409,11 +410,11 @@ async function ensureProjectRegistryEntry(args: {
         workspaceDefaultById: existingProject.workspaceDefaultById,
       })
     : buildProjectDefaultWorkspaceId({ projectPath });
-  const existingSnapshot = store.loadWorkspaceSnapshot({
+  const existingShell = store.loadWorkspaceShell({
     workspaceId: defaultWorkspaceId,
   });
 
-  if (!existingSnapshot) {
+  if (!existingShell) {
     store.upsertWorkspace({
       id: defaultWorkspaceId,
       name: defaultWorkspaceName,
@@ -503,19 +504,47 @@ async function loadWorkspaceSession(workspaceId: string) {
   }
 
   const store = ensureHostServicePersistenceReady();
-  const snapshot = store.loadWorkspaceSnapshot({ workspaceId });
-  if (!snapshot) {
+  const shell = store.loadWorkspaceShell({ workspaceId });
+  if (!shell) {
     throw new Error(`Workspace not found: ${workspaceId}`);
   }
   const latestTurns = store.listActiveTurnsForWorkspace({
     workspaceId,
     limit: 200,
   });
-  const session = buildWorkspaceSessionState({
-    snapshot: snapshot as never,
+  const session = buildWorkspaceSessionStateFromShell({
+    shell: shell as never,
     latestTurns: latestTurns as never,
   });
   return cacheWorkspaceSession(workspaceId, session);
+}
+
+function hydrateCompleteTaskMessages(args: {
+  workspaceId: string;
+  taskId: string;
+  session: WorkspaceSessionState;
+}) {
+  const loadedMessages = args.session.messagesByTask[args.taskId] ?? [];
+  const totalCount =
+    args.session.messageCountByTask[args.taskId] ?? loadedMessages.length;
+  if (loadedMessages.length >= totalCount) {
+    return args.session;
+  }
+  const messages = ensureHostServicePersistenceReady().loadAllTaskMessages({
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+  });
+  return cacheWorkspaceSession(args.workspaceId, {
+    ...args.session,
+    messagesByTask: {
+      ...args.session.messagesByTask,
+      [args.taskId]: messages,
+    },
+    messageCountByTask: {
+      ...args.session.messageCountByTask,
+      [args.taskId]: messages.length,
+    },
+  });
 }
 
 function cacheWorkspaceSession(
@@ -539,7 +568,7 @@ function refreshWorkspaceInformationFromPersistence(args: {
   session: WorkspaceSessionState;
 }) {
   const persistedWorkspaceInformation =
-    ensureHostServicePersistenceReady().loadWorkspaceSnapshot({
+    ensureHostServicePersistenceReady().loadWorkspaceShell({
       workspaceId: args.workspaceId,
     })?.workspaceInformation;
   if (!persistedWorkspaceInformation) {
@@ -1618,13 +1647,18 @@ async function handleProviderEvent(args: {
   event: BridgeEvent;
 }) {
   const store = ensureHostServicePersistenceReady();
-  const session = await loadWorkspaceSession(args.workspaceId);
+  let session = await loadWorkspaceSession(args.workspaceId);
   if (session.activeTurnIdsByTask[args.taskId] !== args.turnId) {
     if (args.event.type === "done") {
       store.completeTurn({ id: args.turnId });
     }
     return;
   }
+  session = hydrateCompleteTaskMessages({
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+    session,
+  });
   localMcpTurnJournal.append({
     turnId: args.turnId,
     sequence: args.sequence,
@@ -2114,6 +2148,12 @@ export async function runTask(args: {
     throw new Error(`Task already has an active turn: ${task.id}`);
   }
 
+  session = hydrateCompleteTaskMessages({
+    workspaceId: args.workspaceId,
+    taskId: task.id,
+    session,
+  });
+
   const turnId = randomUUID();
   const existingHistory = session.messagesByTask[task.id] ?? [];
   const providerSession = session.providerSessionByTask[task.id];
@@ -2328,7 +2368,12 @@ export async function getTaskStatus(args: {
           events: store.getStreamEvents({ turnId: latestTurn.id }),
         })
       : null;
-  const messages = session.messagesByTask[args.taskId] ?? [];
+  const messages =
+    store.loadTaskMessagesPage({
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      limit: 120,
+    })?.messages ?? [];
   const latestAssistantText =
     [...messages]
       .reverse()

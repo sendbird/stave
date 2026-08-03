@@ -13,7 +13,7 @@ import type { BridgeEvent } from "../providers/types";
  * multi-MB rows. (Offloading large payloads to the `artifacts` table via the
  * existing `payload_artifact_id` column is a future enhancement.)
  */
-export const TURN_EVENT_PAYLOAD_INLINE_MAX_BYTES = 256 * 1024;
+export const TURN_EVENT_PAYLOAD_INLINE_MAX_BYTES = 64 * 1024;
 
 export interface PreparedTurnEventPayload {
   eventType: string;

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   appendCommandOutput,
   createCommandOutputCollector,
+  runCommandArgs,
 } from "../electron/main/utils/command";
 
 describe("appendCommandOutput", () => {
@@ -44,5 +45,17 @@ describe("appendCommandOutput", () => {
 
     expect(collector.finish()).toBe("cdef");
     expect(collector.wasTruncated()).toBe(true);
+  });
+
+  test("terminates commands that exceed their deadline", async () => {
+    const result = await runCommandArgs({
+      command: process.execPath,
+      commandArgs: ["-e", "setTimeout(() => {}, 10000)"],
+      timeoutMs: 20,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe(-1);
+    expect(result.stderr).toContain("timed out after 20ms");
   });
 });

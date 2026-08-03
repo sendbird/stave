@@ -78,6 +78,8 @@ interface GraphSvgProps {
   selectedHash: string | null;
   searchMatches: ReadonlySet<string>;
   headHash: string | null;
+  visibleStart: number;
+  visibleEnd: number;
 }
 
 const GraphSvg = memo(function GraphSvg({
@@ -91,22 +93,40 @@ const GraphSvg = memo(function GraphSvg({
   selectedHash,
   searchMatches,
   headHash,
+  visibleStart,
+  visibleEnd,
 }: GraphSvgProps) {
   const commitByHash = useMemo(
     () => new Map(commits.map((commit) => [commit.hash, commit])),
     [commits],
   );
   const totalHeight = nodes.length * ROW_HEIGHT;
+  const renderStart = Math.max(0, visibleStart - 1);
+  const renderEnd = Math.min(nodes.length, visibleEnd + 1);
+  const visibleNodes = useMemo(
+    () =>
+      nodes.filter((node) => node.row >= renderStart && node.row < renderEnd),
+    [nodes, renderEnd, renderStart],
+  );
   const branchPaths = useMemo(
     () =>
-      branches.map((branch) => ({
-        branch,
-        paths: buildGraphBranchPaths(branch.segments, {
-          laneWidth: LANE_WIDTH,
-          rowHeight: ROW_HEIGHT,
-        }),
-      })),
-    [branches],
+      branches
+        .map((branch) => ({
+          branch,
+          paths: buildGraphBranchPaths(
+            branch.segments.filter(
+              (segment) =>
+                Math.max(segment.fromRow, segment.toRow) >= renderStart &&
+                Math.min(segment.fromRow, segment.toRow) < renderEnd,
+            ),
+            {
+              laneWidth: LANE_WIDTH,
+              rowHeight: ROW_HEIGHT,
+            },
+          ),
+        }))
+        .filter(({ paths }) => paths.some((path) => path.d)),
+    [branches, renderEnd, renderStart],
   );
   const nodeRadius = 4;
 
@@ -135,7 +155,7 @@ const GraphSvg = memo(function GraphSvg({
         }),
       )}
 
-      {nodes.map((node) => {
+      {visibleNodes.map((node) => {
         if (node.hash === WORKING_TREE_LAYOUT_HASH) {
           if (!workingTreeVisible) {
             return null;
@@ -554,6 +574,8 @@ export const GitGraphCanvas = forwardRef<
             selectedHash={selectedHash}
             searchMatches={searchMatches}
             headHash={headHash}
+            visibleStart={virtualRows.start}
+            visibleEnd={virtualRows.end}
           />
 
           {visibleIndexes.map((rowIndex) => {

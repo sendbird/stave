@@ -21,6 +21,9 @@ export type GitGraphSelection =
 const INITIAL_PAGE_SIZE = 300;
 const NEXT_PAGE_SIZE = 100;
 const FILTER_RELOAD_DEBOUNCE_MS = 150;
+export const MAX_GRAPH_LOADED_COMMITS = 2_000;
+const GRAPH_CACHE_LIMIT = 8;
+const DETAILS_CACHE_LIMIT = 100;
 
 export type GitGraphRequestOwner = symbol;
 
@@ -76,6 +79,33 @@ interface CachedGraphView {
 
 const graphCache = new Map<string, CachedGraphView>();
 const detailsCache = new Map<string, GraphCommitDetails>();
+
+function readLruCache<K, V>(cache: Map<K, V>, key: K): V | undefined {
+  const value = cache.get(key);
+  if (value === undefined) {
+    return undefined;
+  }
+  cache.delete(key);
+  cache.set(key, value);
+  return value;
+}
+
+function writeLruCache<K, V>(
+  cache: Map<K, V>,
+  key: K,
+  value: V,
+  limit: number,
+) {
+  cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > limit) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey === undefined) {
+      break;
+    }
+    cache.delete(oldestKey);
+  }
+}
 const WORKING_TREE_CONFLICT_CODES = new Set([
   "DD",
   "AU",
@@ -180,7 +210,9 @@ export function resolveGitGraphReloadEffects(args: {
 }
 
 export function useGitGraphData(workspaceCwd: string | undefined) {
-  const cached = workspaceCwd ? graphCache.get(workspaceCwd) : undefined;
+  const cached = workspaceCwd
+    ? readLruCache(graphCache, workspaceCwd)
+    : undefined;
   const [selectedRefs, setSelectedRefsState] = useState<string[]>(() =>
     cached ? cached.queryKey.split("\0").filter(Boolean) : [],
   );
@@ -194,7 +226,12 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
     if (!workspaceCwd || cached?.selection?.kind !== "commit") {
       return null;
     }
-    return detailsCache.get(`${workspaceCwd}:${cached.selection.hash}`) ?? null;
+    return (
+      readLruCache(
+        detailsCache,
+        `${workspaceCwd}:${cached.selection.hash}`,
+      ) ?? null
+    );
   });
   const [workingTreeFiles, setWorkingTreeFiles] = useState<GraphFileChange[]>(
     [],
@@ -220,11 +257,16 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
       if (!workspaceCwd) {
         return;
       }
-      graphCache.set(workspaceCwd, {
-        queryKey: selectedRefKey,
-        graph: nextGraph,
-        selection: nextSelection,
-      });
+      writeLruCache(
+        graphCache,
+        workspaceCwd,
+        {
+          queryKey: selectedRefKey,
+          graph: nextGraph,
+          selection: nextSelection,
+        },
+        GRAPH_CACHE_LIMIT,
+      );
     },
     [selectedRefKey, workspaceCwd],
   );
@@ -360,6 +402,8 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
   }, [reload]);
 
   const loadMore = useCallback(async () => {
+    const remainingCommitCapacity =
+      MAX_GRAPH_LOADED_COMMITS - graph.commits.length;
     if (
       !workspaceCwd ||
       loading ||
@@ -368,6 +412,10 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
       loadMoreBlockedRef.current ||
       graphRequestOwnerRef.current
     ) {
+      return;
+    }
+    if (remainingCommitCapacity <= 0) {
+      setGraph((current) => ({ ...current, hasMore: false }));
       return;
     }
     const requestOwner = claimGitGraphRequest(graphRequestOwnerRef);
@@ -380,7 +428,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
       const result = await loadGraph(workspaceCwd, {
         refs: selectedRefs,
         skip: graph.commits.length,
-        limit: NEXT_PAGE_SIZE,
+        limit: Math.min(NEXT_PAGE_SIZE, remainingCommitCapacity),
         includeRepositoryState: false,
       });
       if (
@@ -395,9 +443,9 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
         return;
       }
       const knownHashes = new Set(graph.commits.map((commit) => commit.hash));
-      const appended = result.commits.filter(
-        (commit) => !knownHashes.has(commit.hash),
-      );
+      const appended = result.commits
+        .filter((commit) => !knownHashes.has(commit.hash))
+        .slice(0, remainingCommitCapacity);
       if (appended.length === 0 && result.hasMore) {
         loadMoreBlockedRef.current = true;
         setError(
@@ -408,7 +456,11 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
         const next = {
           ...current,
           commits: [...current.commits, ...appended],
-          hasMore: result.hasMore && appended.length > 0,
+          hasMore:
+            result.hasMore &&
+            appended.length > 0 &&
+            current.commits.length + appended.length <
+              MAX_GRAPH_LOADED_COMMITS,
           availableRefs:
             result.availableRefs.length > 0
               ? result.availableRefs
@@ -455,7 +507,7 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
       cacheCurrent(graph, nextSelection);
 
       const cacheKey = `${workspaceCwd}:${hash}`;
-      const cachedDetails = detailsCache.get(cacheKey);
+      const cachedDetails = readLruCache(detailsCache, cacheKey);
       setDetails(cachedDetails ?? null);
       const requestId = ++detailsRequestRef.current;
       setDetailsLoading(!cachedDetails);
@@ -471,7 +523,12 @@ export function useGitGraphData(workspaceCwd: string | undefined) {
           }
           return;
         }
-        detailsCache.set(cacheKey, result.details);
+        writeLruCache(
+          detailsCache,
+          cacheKey,
+          result.details,
+          DETAILS_CACHE_LIMIT,
+        );
         setDetails(result.details);
       } catch (requestFailure) {
         if (requestId === detailsRequestRef.current) {

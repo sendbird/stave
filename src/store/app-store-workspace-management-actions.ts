@@ -1,5 +1,5 @@
 import type { StoreApi } from "zustand";
-import { loadWorkspaceSnapshot } from "@/lib/db/workspaces.db";
+import { loadWorkspaceShell } from "@/lib/db/workspaces.db";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
@@ -795,34 +795,34 @@ export function createWorkspaceManagementActions(args: {
         };
       });
 
-      const snapshot = await loadWorkspaceSnapshot({
+      const shell = await loadWorkspaceShell({
         workspaceId: normalizedWorkspaceId,
       });
-      if (snapshot) {
+      if (shell) {
         await persistWorkspaceSnapshot({
           workspaceId: normalizedWorkspaceId,
           workspaceName: normalizedName,
-          activeTaskId: snapshot.activeTaskId,
-          tasks: snapshot.tasks,
-          messagesByTask: snapshot.messagesByTask,
-          promptDraftByTask: snapshot.promptDraftByTask,
-          workspaceInformation: snapshot.workspaceInformation,
-          editorTabs: snapshot.editorTabs ?? [],
-          activeEditorTabId: snapshot.activeEditorTabId ?? null,
-          terminalTabs: snapshot.terminalTabs ?? [],
-          activeTerminalTabId: snapshot.activeTerminalTabId ?? null,
-          terminalDocked: snapshot.terminalDocked ?? false,
-          cliSessionTabs: snapshot.cliSessionTabs ?? [],
-          activeCliSessionTabId: snapshot.activeCliSessionTabId ?? null,
-          activeSurface: snapshot.activeSurface ?? {
+          activeTaskId: shell.activeTaskId,
+          tasks: shell.tasks,
+          messagesByTask: {},
+          promptDraftByTask: shell.promptDraftByTask,
+          workspaceInformation: shell.workspaceInformation,
+          editorTabs: shell.editorTabs ?? [],
+          activeEditorTabId: shell.activeEditorTabId ?? null,
+          terminalTabs: shell.terminalTabs ?? [],
+          activeTerminalTabId: shell.activeTerminalTabId ?? null,
+          terminalDocked: shell.terminalDocked ?? false,
+          cliSessionTabs: shell.cliSessionTabs ?? [],
+          activeCliSessionTabId: shell.activeCliSessionTabId ?? null,
+          activeSurface: shell.activeSurface ?? {
             kind: "task",
-            taskId: snapshot.activeTaskId,
+            taskId: shell.activeTaskId,
           },
-          openTaskTabIds: snapshot.openTaskTabIds,
-          lensTabs: snapshot.lensTabs,
-          paneTabMeta: snapshot.paneTabMeta,
-          dockLayout: snapshot.dockLayout,
-          providerSessionByTask: snapshot.providerSessionByTask,
+          openTaskTabIds: shell.openTaskTabIds,
+          lensTabs: shell.lensTabs,
+          paneTabMeta: shell.paneTabMeta,
+          dockLayout: shell.dockLayout,
+          providerSessionByTask: shell.providerSessionByTask,
         });
       }
       await get().flushProjectRegistry();

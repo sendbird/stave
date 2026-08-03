@@ -1745,6 +1745,27 @@ function LensSessionSurface(args: {
     }
 
     let cancelled = false;
+    let pendingConsoleEntries: BrowserConsoleEntry[] = [];
+    let consoleFrame: number | null = null;
+    const flushConsoleEntries = () => {
+      consoleFrame = null;
+      const entries = pendingConsoleEntries;
+      pendingConsoleEntries = [];
+      if (cancelled || entries.length === 0) {
+        return;
+      }
+      if (consolePausedRef.current) {
+        consolePausedBufferRef.current = entries.reduce(
+          (buffer, entry) => appendLimited(buffer, entry),
+          consolePausedBufferRef.current,
+        );
+        setConsoleBufferedCount(consolePausedBufferRef.current.length);
+        return;
+      }
+      setConsoleEntries((current) =>
+        upsertConsoleEntriesLimited(current, entries),
+      );
+    };
     void window.api?.lens
       ?.getConsoleLog?.({ workspaceId, lensSessionId, limit: LENS_LOG_LIMIT })
       .then((result) => {
@@ -1775,22 +1796,18 @@ function LensSessionSurface(args: {
         if (payload.entry.text.startsWith("Navigation failed:")) {
           setLastLoadError(payload.entry.text);
         }
-        if (consolePausedRef.current) {
-          consolePausedBufferRef.current = appendLimited(
-            consolePausedBufferRef.current,
-            payload.entry,
-          );
-          setConsoleBufferedCount(consolePausedBufferRef.current.length);
-          return;
+        pendingConsoleEntries.push(payload.entry);
+        if (consoleFrame === null) {
+          consoleFrame = requestAnimationFrame(flushConsoleEntries);
         }
-        setConsoleEntries((current) =>
-          upsertConsoleEntriesLimited(current, [payload.entry]),
-        );
       },
     );
 
     return () => {
       cancelled = true;
+      if (consoleFrame !== null) {
+        cancelAnimationFrame(consoleFrame);
+      }
       unsubscribe?.();
     };
   }, [hasLensApi, lensSessionId, workspaceId]);
@@ -1807,6 +1824,27 @@ function LensSessionSurface(args: {
     }
 
     let cancelled = false;
+    let pendingNetworkEntries: BrowserNetworkEntry[] = [];
+    let networkFrame: number | null = null;
+    const flushNetworkEntries = () => {
+      networkFrame = null;
+      const entries = pendingNetworkEntries;
+      pendingNetworkEntries = [];
+      if (cancelled || entries.length === 0) {
+        return;
+      }
+      if (networkPausedRef.current) {
+        networkPausedBufferRef.current = upsertNetworkEntriesLimited(
+          networkPausedBufferRef.current,
+          entries,
+        );
+        setNetworkBufferedCount(networkPausedBufferRef.current.length);
+        return;
+      }
+      setNetworkEntries((current) =>
+        upsertNetworkEntriesLimited(current, entries),
+      );
+    };
     void window.api?.lens
       ?.getNetworkLog?.({ workspaceId, lensSessionId, limit: LENS_LOG_LIMIT })
       .then((result) => {
@@ -1823,22 +1861,18 @@ function LensSessionSurface(args: {
         if (!matchesSession(payload, workspaceId, lensSessionId)) {
           return;
         }
-        if (networkPausedRef.current) {
-          networkPausedBufferRef.current = upsertNetworkEntriesLimited(
-            networkPausedBufferRef.current,
-            [payload.entry],
-          );
-          setNetworkBufferedCount(networkPausedBufferRef.current.length);
-          return;
+        pendingNetworkEntries.push(...(payload.entries ?? [payload.entry]));
+        if (networkFrame === null) {
+          networkFrame = requestAnimationFrame(flushNetworkEntries);
         }
-        setNetworkEntries((current) =>
-          upsertNetworkEntriesLimited(current, [payload.entry]),
-        );
       },
     );
 
     return () => {
       cancelled = true;
+      if (networkFrame !== null) {
+        cancelAnimationFrame(networkFrame);
+      }
       unsubscribe?.();
     };
   }, [hasLensApi, lensSessionId, workspaceId]);

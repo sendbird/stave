@@ -615,6 +615,28 @@ export async function loadTaskMessagesPage(args: {
   };
 }
 
+export async function loadAllTaskMessages(args: {
+  workspaceId: string;
+  taskId: string;
+}): Promise<ChatMessage[]> {
+  const pageSize = 500;
+  let offset = 0;
+  const pages: ChatMessage[][] = [];
+
+  while (true) {
+    const page = await loadTaskMessagesPage({
+      ...args,
+      limit: pageSize,
+      offset,
+    });
+    pages.push(page.messages);
+    if (!page.hasMoreOlder || page.messages.length === 0) {
+      return pages.reverse().flat();
+    }
+    offset += page.messages.length;
+  }
+}
+
 export async function truncateTaskMessagesAfter(args: {
   workspaceId: string;
   taskId: string;

@@ -1,7 +1,7 @@
 import type { StoreApi } from "zustand";
 import {
+  loadAllTaskMessages,
   loadWorkspaceShellForRestore,
-  loadWorkspaceSnapshot,
   type TaskProviderSessionState,
 } from "@/lib/db/workspaces.db";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
@@ -724,10 +724,7 @@ export function createTaskCoreActions(args: {
       })();
       const completeSourceMessages =
         sourceMessages ??
-        (await loadWorkspaceSnapshot({ workspaceId }))?.messagesByTask[
-          taskId
-        ] ??
-        [];
+        (await loadAllTaskMessages({ workspaceId, taskId }));
 
       set((state) => {
         const nextTaskId = crypto.randomUUID();

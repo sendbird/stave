@@ -1,5 +1,5 @@
 import type { StoreApi } from "zustand";
-import { loadWorkspaceSnapshot } from "@/lib/db/workspaces.db";
+import { loadAllTaskMessages } from "@/lib/db/workspaces.db";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { buildPanePanelId } from "@/lib/panes/types";
 import {
@@ -97,9 +97,7 @@ export function createTaskLifecycleActions(args: {
       const messages =
         loadedMessages && loadedMessages.length >= totalCount
           ? loadedMessages
-          : ((await loadWorkspaceSnapshot({ workspaceId }))?.messagesByTask[
-              taskId
-            ] ?? []);
+          : await loadAllTaskMessages({ workspaceId, taskId });
       const payload = {
         exportedAt: new Date().toISOString(),
         task,
