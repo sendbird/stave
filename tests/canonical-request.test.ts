@@ -8,6 +8,7 @@ import {
   buildLegacyPromptFromCanonicalRequest,
 } from "@/lib/providers/canonical-request";
 import type { ChatMessage } from "@/types/chat";
+import { StreamTurnArgsSchema } from "../electron/main/ipc/schemas";
 
 const history: ChatMessage[] = [
   {
@@ -81,6 +82,39 @@ describe("canonical request builder", () => {
     expect(request.resume).toEqual({
       nativeSessionId: "thread_123",
     });
+  });
+
+  test("drops unknown legacy message parts before IPC validation", () => {
+    const legacyPart = {
+      type: "stave_processing",
+      strategy: "direct",
+      reason: "General task",
+    } as never;
+    const request = buildCanonicalConversationRequest({
+      providerId: "codex",
+      model: "gpt-5.4",
+      history: [{
+        id: "assistant-legacy-part",
+        role: "assistant",
+        model: "gpt-5.4",
+        providerId: "codex",
+        content: "Done.",
+        parts: [legacyPart, { type: "text", text: "Done." }],
+      }],
+      userInput: "Continue.",
+    });
+
+    expect(request.history[0]?.parts).toEqual([
+      { type: "text", text: "Done." },
+    ]);
+    expect(
+      StreamTurnArgsSchema.safeParse({
+        providerId: "codex",
+        prompt: "Continue.",
+        conversation: request,
+        runtimeOptions: {},
+      }).success,
+    ).toBe(true);
   });
 
   test("carries the provider session cursor only with a native session id", () => {

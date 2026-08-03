@@ -18,7 +18,7 @@ import type {
   ProviderId,
 } from "./provider.types";
 
-function cloneMessagePart(part: MessagePart): MessagePart {
+function cloneMessagePart(part: MessagePart): MessagePart | undefined {
   switch (part.type) {
     case "text":
       return {
@@ -101,6 +101,11 @@ function cloneMessagePart(part: MessagePart): MessagePart {
         content: part.content,
       };
   }
+
+  // Persisted snapshots can contain part types from older builds that are no
+  // longer part of the provider IPC contract. Omit those parts instead of
+  // returning undefined from the mapper and sending an invalid history item.
+  return undefined;
 }
 
 function cloneContextPart(
@@ -151,7 +156,10 @@ export function toCanonicalConversationMessage(args: {
     providerId: sanitizedMessage.providerId,
     model: sanitizedMessage.model,
     content: deriveCanonicalMessageContent(sanitizedMessage),
-    parts: sanitizedMessage.parts.map((part) => cloneMessagePart(part)),
+    parts: sanitizedMessage.parts.flatMap((part) => {
+      const clonedPart = cloneMessagePart(part);
+      return clonedPart ? [clonedPart] : [];
+    }),
     isPlanResponse: sanitizedMessage.isPlanResponse,
     planText: sanitizedMessage.planText,
   };
