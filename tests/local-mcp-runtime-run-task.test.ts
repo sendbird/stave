@@ -370,6 +370,7 @@ describe("local MCP runtime runTask", () => {
       sequence: number;
       eventType: string;
       done: boolean;
+      activityEvents?: Array<{ type: string }>;
     }> = [];
     runtime.setLocalMcpEventListener((event) => {
       if (event.type === "task-turn-updated") {
@@ -408,6 +409,22 @@ describe("local MCP runtime runTask", () => {
         sequence: 1,
         eventType: "text",
         done: false,
+      });
+
+      startTurnStreamHandlers.at(-1)?.onEvent?.({
+        type: "advisor_activity",
+        phase: "started",
+        primaryProviderId: "codex",
+        advisorProviderId: "claude-code",
+        at: 1_700_000_000_000,
+      });
+      for (let attempt = 0; attempt < 20 && updates.length < 3; attempt += 1) {
+        await Bun.sleep(0);
+      }
+      expect(updates.at(-1)).toMatchObject({
+        sequence: 2,
+        eventType: "advisor_activity",
+        activityEvents: [{ type: "advisor_activity", phase: "started" }],
       });
       expect(
         lastUpsertSnapshotByWorkspaceId

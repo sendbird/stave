@@ -5,10 +5,15 @@ import {
 } from "@/lib/db/workspaces.db";
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import {
+  applyProviderTurnActivityEvents,
   clearProviderTurnActivity,
   startProviderTurnActivity,
   type ProviderTurnActivitySnapshot,
 } from "@/lib/providers/turn-status";
+import {
+  applyAdvisorActivityEvents,
+  type AdvisorExchangeByTask,
+} from "@/lib/providers/advisor-activity";
 import {
   createWorkspaceSessionStateFromAppState,
   type WorkspaceRuntimeStatePatch,
@@ -33,6 +38,7 @@ type HostTaskTurnStoreState = Parameters<
     string,
     ProviderTurnActivitySnapshot | undefined
   >;
+  advisorExchangeByTask: AdvisorExchangeByTask;
 };
 
 interface LoadedHostTaskTurn {
@@ -75,8 +81,7 @@ export async function loadHostTaskTurn(
   });
   return {
     persistedSession,
-    persistedActiveTurnId:
-      persistedSession.activeTurnIdsByTask[update.taskId],
+    persistedActiveTurnId: persistedSession.activeTurnIdsByTask[update.taskId],
     messages: trimLoadedTaskMessages({
       messages: page.messages,
     }),
@@ -158,30 +163,50 @@ export function applyHostTaskTurnSync(args: {
     loaded: args.loaded,
     update: args.update,
   });
-  const providerTurnActivityByTask =
-    args.loaded.persistedActiveTurnId === args.update.turnId
-      ? startProviderTurnActivity({
-          activityByTask: args.state.providerTurnActivityByTask,
-          taskId: args.update.taskId,
-          turnId: args.update.turnId,
-          providerId: args.update.providerId,
-          pendingInteraction:
-            args.update.eventType === "approval"
-              ? "approval"
-              : args.update.eventType === "user_input"
-                ? "user_input"
-                : undefined,
-        })
+  const active = args.loaded.persistedActiveTurnId === args.update.turnId;
+  const startedActivityByTask = active
+    ? startProviderTurnActivity({
+        activityByTask: args.state.providerTurnActivityByTask,
+        taskId: args.update.taskId,
+        turnId: args.update.turnId,
+        providerId: args.update.providerId,
+        pendingInteraction:
+          args.update.eventType === "approval"
+            ? "approval"
+            : args.update.eventType === "user_input"
+              ? "user_input"
+              : undefined,
+      })
+    : args.state.providerTurnActivityByTask;
+  const providerTurnActivityByTask = args.update.activityEvents?.length
+    ? applyProviderTurnActivityEvents({
+        activityByTask: startedActivityByTask,
+        taskId: args.update.taskId,
+        turnId: args.update.turnId,
+        providerId: args.update.providerId,
+        events: args.update.activityEvents,
+      })
+    : active
+      ? startedActivityByTask
       : clearProviderTurnActivity({
           activityByTask: args.state.providerTurnActivityByTask,
           taskId: args.update.taskId,
         });
+  const advisorExchangeByTask = args.update.activityEvents?.length
+    ? applyAdvisorActivityEvents({
+        exchangeByTask: args.state.advisorExchangeByTask,
+        taskId: args.update.taskId,
+        turnId: args.update.turnId,
+        events: args.update.activityEvents,
+      })
+    : args.state.advisorExchangeByTask;
   const sharedPatch = {
     hostOwnedTurnIdsByTask: {
       ...args.state.hostOwnedTurnIdsByTask,
       [args.update.taskId]: args.loaded.persistedActiveTurnId,
     },
     providerTurnActivityByTask,
+    advisorExchangeByTask,
     taskWorkspaceIdById: {
       ...args.state.taskWorkspaceIdById,
       [args.update.taskId]: args.update.workspaceId,
@@ -201,8 +226,7 @@ export function applyHostTaskTurnSync(args: {
           activeTurnIdsByTask: merged.session.activeTurnIdsByTask,
           providerSessionByTask: merged.session.providerSessionByTask,
           providerGoalByTask: merged.session.providerGoalByTask,
-          nativeSessionReadyByTask:
-            merged.session.nativeSessionReadyByTask,
+          nativeSessionReadyByTask: merged.session.nativeSessionReadyByTask,
         }
       : sharedPatch;
 
@@ -214,9 +238,10 @@ export function applyHostTaskTurnSync(args: {
         string,
         ProviderTurnActivitySnapshot | undefined
       >;
+      advisorExchangeByTask: AdvisorExchangeByTask;
     },
     syncedSession: merged.session,
     turnSettled: merged.turnSettled,
-    active: args.loaded.persistedActiveTurnId === args.update.turnId,
+    active,
   };
 }

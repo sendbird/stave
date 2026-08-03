@@ -12,6 +12,7 @@ import {
   setCraneConnectorClientStatus,
 } from "@/lib/crane-connector/client-state";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
+import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
 
 function buildLensSecurityConfig(): LensSecurityConfig {
   const settings = useAppStore.getState().settings;
@@ -39,9 +40,7 @@ export default function App() {
 
     const pendingByTaskTurn = new Map<
       string,
-      Parameters<
-        ReturnType<typeof useAppStore.getState>["syncHostTaskTurn"]
-      >[0]
+      Parameters<ReturnType<typeof useAppStore.getState>["syncHostTaskTurn"]>[0]
     >();
     const timerByTaskTurn = new Map<string, number>();
     const runningTaskTurns = new Set<string>();
@@ -81,7 +80,10 @@ export default function App() {
 
     const unsubscribe = subscribeTaskTurnUpdates((update) => {
       const key = `${update.workspaceId}:${update.taskId}:${update.turnId}`;
-      pendingByTaskTurn.set(key, update);
+      pendingByTaskTurn.set(
+        key,
+        mergeLocalMcpTaskTurnUpdates(pendingByTaskTurn.get(key), update),
+      );
       const existingTimer = timerByTaskTurn.get(key);
       if (existingTimer !== undefined) {
         if (!update.done && update.eventType !== "started") {
@@ -93,8 +95,7 @@ export default function App() {
       if (runningTaskTurns.has(key)) {
         return;
       }
-      const delay =
-        update.done || update.eventType === "started" ? 0 : 50;
+      const delay = update.done || update.eventType === "started" ? 0 : 50;
       const timer = window.setTimeout(() => {
         timerByTaskTurn.delete(key);
         void flush(key);
@@ -121,10 +122,9 @@ export default function App() {
     const unsubscribeStatus = connectorApi.subscribeStatus?.(
       setCraneConnectorClientStatus,
     );
-    const unsubscribeApproval =
-      connectorApi.subscribeApprovalRequests?.(
-        enqueueCraneDispatchApproval,
-      );
+    const unsubscribeApproval = connectorApi.subscribeApprovalRequests?.(
+      enqueueCraneDispatchApproval,
+    );
     const unsubscribeJobUpdate = connectorApi.subscribeJobUpdates?.(
       (update) => {
         applyCraneDispatchJobUpdate(update);
