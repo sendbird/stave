@@ -326,16 +326,128 @@ describe("saving a commit graph diff tab", () => {
       revision: COMMIT_GRAPH_WORKING_TREE_REVISION,
       filePath,
     });
+    // The modified side of a working tree diff opens as the file on disk; the
+    // edit the user then types in the editor is what a save has to land.
     await useAppStore.getState().openDiffInEditor({
       editorTabId: tabId,
       filePath,
       oldContent: "head revision\n",
-      newContent: "edited in editor\n",
+      newContent: "on disk\n",
     });
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId, content: "edited in editor\n" });
 
     const result = await useAppStore.getState().saveActiveEditorTab();
 
     expect(result.ok).toBe(true);
     expect(await readFile(fullPath, "utf8")).toBe("edited in editor\n");
+  });
+});
+
+describe("anchoring a live diff tab to disk", () => {
+  test("pairs the revision with the content of the same read", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-anchor-race-"));
+    const filePath = "note.txt";
+    const fullPath = path.join(rootPath, filePath);
+    // The file as it stands after something else wrote to it between the git
+    // diff request and the tab opening.
+    await writeFile(fullPath, "newer on disk\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    const { COMMIT_GRAPH_WORKING_TREE_REVISION, commitGraphDiffTabId } =
+      await import("../src/lib/git-graph/presentation");
+    const tabId = commitGraphDiffTabId({
+      revision: COMMIT_GRAPH_WORKING_TREE_REVISION,
+      filePath,
+    });
+    // `newContent` is what the earlier git diff request observed, so it is
+    // already stale. Anchoring it to the revision of a later read would make the
+    // conflict poll treat the tab as current and let the first save pass the
+    // revision check, dropping the update the tab never showed.
+    await useAppStore.getState().openDiffInEditor({
+      editorTabId: tabId,
+      filePath,
+      oldContent: "head revision\n",
+      newContent: "stale from git\n",
+    });
+
+    const opened = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === tabId);
+    expect(opened?.content).toBe("newer on disk\n");
+    expect(opened?.isDirty).toBe(false);
+
+    await useAppStore.getState().checkOpenTabConflicts();
+    const polled = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === tabId);
+    expect(polled?.content).toBe("newer on disk\n");
+    expect(polled?.hasConflict).toBe(false);
+
+    await useAppStore.getState().saveActiveEditorTab();
+    expect(await readFile(fullPath, "utf8")).toBe("newer on disk\n");
+  });
+});
+
+describe("a diff open that a newer request superseded", () => {
+  test("leaves the store to the newer selection", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-stale-open-"));
+    const filePath = "note.txt";
+    await writeFile(path.join(rootPath, filePath), "on disk\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    const { COMMIT_GRAPH_WORKING_TREE_REVISION, commitGraphDiffTabId } =
+      await import("../src/lib/git-graph/presentation");
+    // Opening reads from disk, so a second selection can land while the first is
+    // still in flight. The superseded open must not activate its own tab.
+    await useAppStore.getState().openDiffInEditor({
+      editorTabId: commitGraphDiffTabId({
+        revision: COMMIT_GRAPH_WORKING_TREE_REVISION,
+        filePath,
+      }),
+      filePath,
+      oldContent: "head revision\n",
+      newContent: "on disk\n",
+      isStale: () => true,
+    });
+
+    expect(useAppStore.getState().editorTabs).toEqual([]);
+    expect(useAppStore.getState().activeEditorTabId).toBe(null);
+  });
+});
+
+describe("editing a snapshot diff tab", () => {
+  test("ignores content updates so the tab can never go dirty", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-snapshot-edit-"));
+    const filePath = "note.txt";
+    const fullPath = path.join(rootPath, filePath);
+    await writeFile(fullPath, "current working tree\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    const { chatDiffTabId } = await import(
+      "../src/lib/editor/snapshot-diff-tabs"
+    );
+    const tabId = chatDiffTabId({ messageId: "msg-1", index: 0, filePath });
+    // An added file has an empty original side, which renders as a single
+    // editor rather than a diff. A save is refused there, so accepting edits
+    // would strand the user with a dirty tab they cannot write or close
+    // cleanly.
+    await useAppStore.getState().openDiffInEditor({
+      editorTabId: tabId,
+      filePath,
+      oldContent: "",
+      newContent: "added by the agent\n",
+    });
+
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId, content: "typed by the user\n" });
+
+    const tab = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === tabId);
+    expect(tab?.content).toBe("added by the agent\n");
+    expect(tab?.isDirty).toBe(false);
   });
 });

@@ -260,6 +260,11 @@ describe("editor save/conflict behavior", () => {
       newContent: "after\n",
     });
 
+    // The modified side of an SCM diff is the file on disk, so a reopen that
+    // reports new content only happens after the file itself changed. Leaving
+    // the old bytes on disk would ask the tab to show content the file does not
+    // have, which is the stale anchor this suite guards against elsewhere.
+    await writeFile(path.join(rootPath, filePath), "after again\n", "utf8");
     await useAppStore.getState().openDiffInEditor({
       editorTabId: "scm-diff:note.txt",
       filePath,

@@ -75,19 +75,27 @@ function incrementWorkspaceSnapshotVersion(
 }
 
 /**
- * Revision to anchor a freshly opened diff tab to.
+ * Disk anchor for a freshly opened live diff tab: the modified side's content
+ * together with the revision of the very read that produced it.
  *
  * The anchor is what gives the tab's first save the same stale-write protection
  * a file tab has, and it is what lets the conflict poll tell "unchanged on disk"
- * apart from "never anchored". A snapshot diff has no anchor to take: neither
- * side is the file on disk, and the tab is neither refreshed nor saved. A read
- * failure degrades to `null` so a missing anchor never blocks the diff from
- * opening.
+ * apart from "never anchored". Content and revision have to come from one read.
+ * The caller's `newContent` was produced by an earlier `git diff` request, so
+ * pairing it with a revision read afterwards can anchor already-stale content to
+ * a newer revision — the poll then treats the tab as current and the first save
+ * passes the revision check, dropping the update the tab never showed. For a
+ * live diff the modified side IS the file on disk, so when the two reads
+ * disagree this one wins for both fields.
+ *
+ * A snapshot diff has no anchor to take: neither side is the file on disk, and
+ * the tab is neither refreshed nor saved. A failed or oversized read degrades to
+ * `null` so a missing anchor never blocks the diff from opening.
  */
-async function readDiffTabBaseRevision(args: {
+async function readDiffTabDiskAnchor(args: {
   editorTabId: string;
   filePath: string;
-}): Promise<string | null> {
+}): Promise<{ content: string; revision: string } | null> {
   if (isSnapshotDiffEditorTab({ id: args.editorTabId })) {
     return null;
   }
@@ -95,7 +103,10 @@ async function readDiffTabBaseRevision(args: {
     const disk = await workspaceFsAdapter.readFile({
       filePath: args.filePath,
     });
-    return disk?.revision ?? null;
+    if (!disk || disk.tooLarge || !disk.revision) {
+      return null;
+    }
+    return { content: disk.content, revision: disk.revision };
   } catch {
     return null;
   }
@@ -275,11 +286,20 @@ export function createEditorActions(args: {
       filePath,
       oldContent,
       newContent,
+      isStale,
     }) => {
-      const diskRevision = await readDiffTabBaseRevision({
+      const diskAnchor = await readDiffTabDiskAnchor({
         editorTabId,
         filePath,
       });
+      // Reading the anchor suspends this action, so a newer request can have
+      // taken over the surface that asked for this diff. Committing anyway would
+      // make the superseded file active again.
+      if (isStale?.()) {
+        return;
+      }
+      const modifiedContent = diskAnchor?.content ?? newContent;
+      const diskRevision = diskAnchor?.revision ?? null;
 
       set((state) => {
         const existing = state.editorTabs.find((tab) => tab.id === editorTabId);
@@ -292,8 +312,8 @@ export function createEditorActions(args: {
             (existing.filePath !== filePath ||
               existing.language !== nextLanguage ||
               existing.originalContent !== oldContent ||
-              existing.content !== newContent ||
-              existing.savedContent !== newContent ||
+              existing.content !== modifiedContent ||
+              existing.savedContent !== modifiedContent ||
               existing.baseRevision !== nextBaseRevision);
 
           return {
@@ -304,10 +324,10 @@ export function createEditorActions(args: {
                         ...tab,
                         filePath,
                         language: nextLanguage,
-                        content: newContent,
+                        content: modifiedContent,
                         contentState: "ready",
                         originalContent: oldContent,
-                        savedContent: newContent,
+                        savedContent: modifiedContent,
                         baseRevision: nextBaseRevision,
                         hasConflict: false,
                         isDirty: false,
@@ -333,10 +353,10 @@ export function createEditorActions(args: {
           filePath,
           kind: "text",
           language: nextLanguage,
-          content: newContent,
+          content: modifiedContent,
           contentState: "ready",
           originalContent: oldContent,
-          savedContent: newContent,
+          savedContent: modifiedContent,
           baseRevision: diskRevision,
           hasConflict: false,
           isDirty: false,
@@ -640,6 +660,13 @@ export function createEditorActions(args: {
     clearPendingCloseEditorTab: () => set({ pendingCloseEditorTabId: null }),
     clearPendingEditorSelection: () => set({ pendingEditorSelection: null }),
     updateEditorContent: ({ tabId, content }) => {
+      // A snapshot diff is a record of a past state, so a save is refused for
+      // it. Accepting edits would leave a dirty tab that can never be written
+      // and prompts on close, so the store drops them regardless of which
+      // editor surface produced them.
+      if (isSnapshotDiffEditorTab({ id: tabId })) {
+        return;
+      }
       set((state) => {
         let changed = false;
         const nextTabs = state.editorTabs.map((tab) => {

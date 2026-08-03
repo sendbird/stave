@@ -576,6 +576,13 @@ export interface AppState
     filePath: string;
     oldContent: string;
     newContent: string;
+    /**
+     * Called after the action's own disk read, right before it touches the
+     * store. Callers that guard against out-of-order responses pass their own
+     * staleness check here so this action's read cannot let a superseded
+     * selection reopen and activate its tab.
+     */
+    isStale?: () => boolean;
   }) => Promise<void>;
   openGitGraph: () => void;
   openFileFromTree: (args: {
