@@ -7,6 +7,7 @@ import {
   resolveExecutablePath,
   resolveLoginShellCommandPath,
   resolveLoginShellEnvVarValue,
+  resolveLoginShellEnvVarValues,
 } from "./executable-path";
 import {
   buildRuntimeProcessEnv,
@@ -18,6 +19,11 @@ import { isClaudeCliAutoModeSupportedVersion } from "./claude-cli-compat";
 import { readPrimaryStaveLocalMcpManifestSync } from "../main/stave-local-mcp-manifest";
 import { CODEX_STAVE_MCP_TOKEN_ENV_VAR } from "../main/codex-mcp";
 import { buildProjectShellEnv } from "../shared/project-node-env";
+import {
+  getClaudeMcpConfigPaths,
+  getCodexMcpConfigPathGroups,
+} from "./mcp-config-refresh";
+import { readMcpEnvVarNames, type McpEnvProvider } from "./mcp-env";
 
 const CLAUDE_LOOKUP_PATHS = [
   `${homedir()}/.claude/local`,
@@ -86,6 +92,39 @@ export function applyLoginShellEnvOverrides(args: {
     const fallbackValue = resolveValue({ key })?.trim();
     if (fallbackValue) {
       args.env[key] = fallbackValue;
+    }
+  }
+}
+
+export function applyConfiguredMcpEnvOverrides(args: {
+  env: Record<string, string | undefined>;
+  provider: McpEnvProvider;
+  configPaths: readonly string[];
+  cwd?: string;
+  resolver?: (args: { key: string }) => string | null;
+}) {
+  const envVarNames = readMcpEnvVarNames({
+    provider: args.provider,
+    paths: args.configPaths,
+    cwd: args.cwd,
+  });
+  const missingNames = envVarNames.filter((key) => !args.env[key]?.trim());
+  const resolvedValues = args.resolver
+    ? null
+    : resolveLoginShellEnvVarValues({
+        keys: missingNames,
+      });
+
+  for (const key of envVarNames) {
+    if (args.env[key]?.trim()) {
+      continue;
+    }
+    const value = (args.resolver
+      ? args.resolver({ key })
+      : resolvedValues?.[key]
+    )?.trim();
+    if (value) {
+      args.env[key] = value;
     }
   }
 }
@@ -216,6 +255,7 @@ export function resolveClaudeCliExecutablePath(
 export function buildClaudeCliEnv(args: {
   executablePath: string;
   cwd?: string;
+  mcpConfigPaths?: readonly string[];
   resolver?: (args: { key: string }) => string | null;
 }) {
   let env = buildRuntimeProcessEnv({
@@ -230,6 +270,20 @@ export function buildClaudeCliEnv(args: {
     resolver: args.resolver,
   });
 
+  const mcpConfigPaths =
+    args.mcpConfigPaths ??
+    getClaudeMcpConfigPaths({
+      cwd: args.cwd ?? process.cwd(),
+      claudeConfigDir: env.CLAUDE_CONFIG_DIR,
+    });
+  applyConfiguredMcpEnvOverrides({
+    env,
+    provider: "claude",
+    configPaths: mcpConfigPaths,
+    cwd: args.cwd,
+    resolver: args.resolver,
+  });
+
   if (args.cwd) {
     env = buildProjectShellEnv({ cwd: args.cwd, baseEnv: env });
   }
@@ -237,7 +291,12 @@ export function buildClaudeCliEnv(args: {
 }
 
 export function buildCodexCliEnv(
-  args: { executablePath?: string; cwd?: string } = {},
+  args: {
+    executablePath?: string;
+    cwd?: string;
+    mcpConfigPaths?: readonly string[];
+    resolver?: (args: { key: string }) => string | null;
+  } = {},
 ) {
   let env = buildRuntimeProcessEnv({
     executablePath: args.executablePath,
@@ -251,6 +310,22 @@ export function buildCodexCliEnv(
     env,
     preferredKeys: CODEX_LOGIN_SHELL_ENV_PREFERRED_KEYS,
     fallbackKeys: CODEX_LOGIN_SHELL_ENV_FALLBACK_KEYS,
+    resolver: args.resolver,
+  });
+
+  const mcpConfigPathGroups = getCodexMcpConfigPathGroups({
+    cwd: args.cwd ?? process.cwd(),
+    codexHome: env.CODEX_HOME,
+  });
+  applyConfiguredMcpEnvOverrides({
+    env,
+    provider: "codex",
+    configPaths:
+      args.mcpConfigPaths ?? [
+        ...mcpConfigPathGroups.globalPaths,
+        ...mcpConfigPathGroups.projectPaths,
+      ],
+    resolver: args.resolver,
   });
   if (args.cwd) {
     env = buildProjectShellEnv({ cwd: args.cwd, baseEnv: env });

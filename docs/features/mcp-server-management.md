@@ -46,6 +46,10 @@ The editor accepts references rather than values:
 - Codex stdio inheritance uses `env_vars`.
 - Codex remote authentication uses `bearer_token_env_var` and
   `env_http_headers`.
+- When a configured MCP references an environment variable that is missing from
+  the GUI-launched process, Stave resolves only that variable from the user's
+  login shell. An inherited process value always takes precedence, and the
+  resolved value is passed only to the provider runtime.
 
 Existing literal environment values, headers, URL query details, and command
 arguments are not returned to the renderer. The UI reports only how many

@@ -160,7 +160,7 @@ function sanitizeEnvVarName(args: { value: string }) {
   if (!trimmed) {
     return null;
   }
-  if (!/^[A-Z0-9_]+$/.test(trimmed)) {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
     return null;
   }
   return trimmed;
@@ -229,47 +229,111 @@ function resolveLoginShellPath(args: { baseEnv?: NodeJS.ProcessEnv } = {}) {
   return null;
 }
 
-export function resolveLoginShellEnvVarValue(args: { key: string }) {
+export function resolveLoginShellEnvVarValue(args: {
+  key: string;
+  cache?: boolean;
+}) {
   const safeKey = sanitizeEnvVarName({ value: args.key });
   if (!safeKey) {
     return null;
   }
-  if (cachedLoginShellEnvVarValues.has(safeKey)) {
-    return cachedLoginShellEnvVarValues.get(safeKey) ?? null;
-  }
-  if (process.platform === "win32") {
-    cachedLoginShellEnvVarValues.set(safeKey, null);
-    return null;
+  return resolveLoginShellEnvVarValues({
+    keys: [safeKey],
+    cache: args.cache,
+  })[safeKey] ?? null;
+}
+
+export function resolveLoginShellEnvVarValues(args: {
+  keys: readonly string[];
+  cache?: boolean;
+}) {
+  const shouldCache = args.cache !== false;
+  const safeKeys = [
+    ...new Set(
+      args.keys
+        .map((key) => sanitizeEnvVarName({ value: key }))
+        .filter((key): key is string => Boolean(key)),
+    ),
+  ];
+  const values = new Map<string, string | null>();
+  const unresolvedKeys: string[] = [];
+
+  for (const key of safeKeys) {
+    if (shouldCache && cachedLoginShellEnvVarValues.has(key)) {
+      values.set(key, cachedLoginShellEnvVarValues.get(key) ?? null);
+      continue;
+    }
+    unresolvedKeys.push(key);
   }
 
-  const marker = `${LOGIN_SHELL_ENV_MARKER_PREFIX}${safeKey}__`;
+  if (unresolvedKeys.length === 0) {
+    return Object.fromEntries(values);
+  }
+
+  if (process.platform === "win32") {
+    for (const key of unresolvedKeys) {
+      values.set(key, null);
+      if (shouldCache) {
+        cachedLoginShellEnvVarValues.set(key, null);
+      }
+    }
+    return Object.fromEntries(values);
+  }
+
+  let pendingKeys = unresolvedKeys;
   for (const shell of getLoginShellCandidates()) {
-    const result = spawnSync(
-      shell,
-      ["-ilc", `printf '${marker}%s${marker}' "\${${safeKey}:-}"`],
-      {
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          TERM: process.env.TERM || "dumb",
-        },
-        timeout: LOGIN_SHELL_PROBE_TIMEOUT_MS,
-        maxBuffer: 1024 * 1024,
-      },
+    if (pendingKeys.length === 0) {
+      break;
+    }
+
+    const markers = new Map(
+      pendingKeys.map((key) => [
+        key,
+        `${LOGIN_SHELL_ENV_MARKER_PREFIX}${key}__`,
+      ]),
     );
-    const parsed = parseMarkedProbeOutput({
-      stdout: result.stdout,
-      stderr: result.stderr,
-      marker,
+    const command = pendingKeys
+      .map((key) => {
+        const marker = markers.get(key)!;
+        return `printf '${marker}%s${marker}' "\${${key}:-}"`;
+      })
+      .join(";");
+    const result = spawnSync(shell, ["-ilc", command], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        TERM: process.env.TERM || "dumb",
+      },
+      timeout: LOGIN_SHELL_PROBE_TIMEOUT_MS,
+      maxBuffer: 1024 * 1024,
     });
-    if (parsed) {
-      cachedLoginShellEnvVarValues.set(safeKey, parsed);
-      return parsed;
+    const nextPendingKeys: string[] = [];
+    for (const key of pendingKeys) {
+      const parsed = parseMarkedProbeOutput({
+        stdout: result.stdout,
+        stderr: result.stderr,
+        marker: markers.get(key)!,
+      });
+      if (parsed) {
+        values.set(key, parsed);
+        if (shouldCache) {
+          cachedLoginShellEnvVarValues.set(key, parsed);
+        }
+      } else {
+        nextPendingKeys.push(key);
+      }
+    }
+    pendingKeys = nextPendingKeys;
+  }
+
+  for (const key of pendingKeys) {
+    values.set(key, null);
+    if (shouldCache) {
+      cachedLoginShellEnvVarValues.set(key, null);
     }
   }
 
-  cachedLoginShellEnvVarValues.set(safeKey, null);
-  return null;
+  return Object.fromEntries(values);
 }
 
 function safeReadDir(args: { path: string }) {
