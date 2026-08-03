@@ -3,6 +3,8 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { Brain, Check, ChevronDown, Circle, LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getRandomCompletionPhrase, getSeededCompletionPhrase } from "@/lib/completion-phrases";
+import { useAgentStyle } from "./agent-style-context";
+import { ThinkingOrb } from "./thinking-orb";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
 
 /* ─── Data type (used by the `steps` prop shorthand) ─────────────── */
@@ -37,6 +39,8 @@ interface ChainOfThoughtProps extends HTMLAttributes<HTMLDivElement> {
    *  When provided, the trigger phrase stays consistent across
    *  Virtuoso unmount/remount cycles (e.g. message ID). */
   seed?: string;
+  /** Completed turn duration, appended to the collapsed completion phrase. */
+  durationSeconds?: number;
 }
 
 interface ChainOfThoughtStepProps extends HTMLAttributes<HTMLDivElement> {
@@ -47,6 +51,8 @@ interface ChainOfThoughtStepProps extends HTMLAttributes<HTMLDivElement> {
   description?: ReactNode;
   /** Inline summary chip displayed next to the title. */
   summary?: ReactNode;
+  /** Slot after the summary — status badge, elapsed time, and similar meta. */
+  trailing?: ReactNode;
   status?: ChainOfThoughtStep["status"];
   kind?: ChainOfThoughtStep["kind"];
   /** Custom icon element to replace the default status icon. */
@@ -55,6 +61,8 @@ interface ChainOfThoughtStepProps extends HTMLAttributes<HTMLDivElement> {
   variant?: "default" | "bullet";
   defaultOpen?: boolean;
   openWhen?: boolean;
+  /** Close once when this flips true (beui `collapseOnComplete`). */
+  collapseWhen?: boolean;
 }
 
 /* ─── Context ────────────────────────────────────────────────────── */
@@ -65,6 +73,7 @@ interface ChainOfThoughtContextValue {
   setOpen: (next: boolean) => void;
   summaryItems: TraceSummaryItem[];
   seed?: string;
+  durationSeconds?: number;
 }
 
 const ChainOfThoughtContext = createContext<ChainOfThoughtContextValue | null>(null);
@@ -158,6 +167,7 @@ export function ChainOfThought({
   steps,
   summaryItems = [],
   seed,
+  durationSeconds,
   children,
   ...props
 }: ChainOfThoughtProps) {
@@ -184,8 +194,8 @@ export function ChainOfThought({
   }, [collapseWhen]);
 
   const contextValue = useMemo(
-    () => ({ isStreaming, open, setOpen, summaryItems, seed }),
-    [isStreaming, open, summaryItems, seed],
+    () => ({ isStreaming, open, setOpen, summaryItems, seed, durationSeconds }),
+    [isStreaming, open, summaryItems, seed, durationSeconds],
   );
 
   const resolvedChildren = children ?? (
@@ -216,8 +226,20 @@ export function ChainOfThought({
 
 /* ─── Trigger ─────────────────────────────────────────────────────── */
 
+function formatTriggerDuration(seconds: number): string {
+  const total = Math.max(1, Math.round(seconds));
+  if (total < 60) {
+    return `${total}s`;
+  }
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
+  return remainder === 0 ? `${minutes}m` : `${minutes}m ${remainder}s`;
+}
+
 export function ChainOfThoughtTrigger(args: ButtonHTMLAttributes<HTMLButtonElement>) {
-  const { isStreaming, open, setOpen, summaryItems, seed } = useChainOfThoughtContext();
+  const { isStreaming, open, setOpen, summaryItems, seed, durationSeconds } =
+    useChainOfThoughtContext();
+  const agentStyle = useAgentStyle();
   const showSummary = !open && !isStreaming && summaryItems.length > 0;
 
   /* Pick a completion phrase that is stable across Virtuoso unmount/remount
@@ -229,31 +251,46 @@ export function ChainOfThoughtTrigger(args: ButtonHTMLAttributes<HTMLButtonEleme
     [seed],
   );
 
+  const showDuration = !open && !isStreaming && durationSeconds != null && durationSeconds > 0;
+
   return (
     <button
       type="button"
       className={cn(
-        "flex w-full items-center gap-[0.5em] text-[0.875em] text-muted-foreground transition-colors hover:text-foreground",
+        /* Wraps rather than squeezing: the completion phrase and the summary
+           chips both stay on one line each, and the chip row drops below the
+           phrase in narrow columns instead of collapsing into a word column. */
+        "flex w-full flex-wrap items-center gap-x-[0.5em] gap-y-[0.3em] text-[0.875em] text-muted-foreground transition-colors hover:text-foreground",
         args.className,
       )}
       onClick={() => setOpen(!open)}
       {...args}
     >
       {isStreaming ? (
-        <span className="inline-flex items-center gap-[0.5em] font-medium">
-          <Brain className="size-[1.15em]" />
+        <span className="inline-flex min-w-0 items-center gap-[0.5em] font-medium">
+          {agentStyle === "legacy" ? (
+            /* TODO(agent-style-legacy): remove with the legacy trace visual. */
+            <Brain className="size-[1.15em] shrink-0" />
+          ) : (
+            <ThinkingOrb className="shrink-0" />
+          )}
           <ThinkingPhraseLabel active={isStreaming} />
         </span>
       ) : (
         <>
-          <Brain className="size-[1.15em]" />
-          <span className="font-medium">{completionPhrase}</span>
+          <Brain className="size-[1.15em] shrink-0" />
+          <span className="shrink-0 whitespace-nowrap font-medium">{completionPhrase}</span>
+          {showDuration ? (
+            <span className="shrink-0 text-[0.9em] tabular-nums text-muted-foreground/70">
+              for {formatTriggerDuration(durationSeconds)}
+            </span>
+          ) : null}
         </>
       )}
 
       {/* Collapsed summary — inline after the label */}
       {showSummary ? (
-        <span className="ml-auto flex items-center gap-x-[0.6em] text-[0.75em] text-muted-foreground/70 motion-safe:animate-cot-step-in">
+        <span className="ml-auto flex shrink-0 items-center gap-x-[0.6em] whitespace-nowrap text-[0.75em] text-muted-foreground/70 motion-safe:animate-cot-step-in">
           {summaryItems.map((item, index) => (
             <span key={item.label} className="inline-flex items-center gap-[0.3em]">
               {index > 0 ? <span className="text-border" aria-hidden="true">·</span> : null}
@@ -277,14 +314,61 @@ export function ChainOfThoughtTrigger(args: ButtonHTMLAttributes<HTMLButtonEleme
 
 /* ─── Content container ───────────────────────────────────────────── */
 
+/*
+ * Unmounts when closed rather than animating a collapse. Keeping long trace
+ * subtrees out of the render tree matters more than a close transition here —
+ * see docs/architecture/chat-message-rendering.md.
+ */
 export function ChainOfThoughtContent(args: HTMLAttributes<HTMLDivElement>) {
   const { open } = useChainOfThoughtContext();
+  const agentStyle = useAgentStyle();
   if (!open) return null;
+
+  /*
+   * No height cap here. Capping the whole trace pushed the *step rows*
+   * themselves off the top, so a long streaming thought faded out its own
+   * "Thinking" header and read as if the step had vanished. The cap now lives
+   * on the reasoning body alone (see `StreamingThoughtViewport`), which keeps
+   * every step header pinned and only glides the prose that is actually long.
+   */
   return (
     <div
       className={cn(
         "mt-[0.75em] [&>*:last-child_.cot-connector]:hidden",
-        "motion-safe:animate-cot-content-in",
+        agentStyle === "legacy"
+          /* TODO(agent-style-legacy): remove with the legacy trace visual. */
+          ? "motion-safe:animate-cot-content-in"
+          : "motion-safe:animate-trace-reveal",
+        args.className,
+      )}
+      {...args}
+    />
+  );
+}
+
+/* ─── Streaming thought viewport ──────────────────────────────────── */
+
+/**
+ * Bottom-anchored, height-capped viewport for a single streaming thought.
+ *
+ * `justify-end` on a clipped column pushes overflow off the *top* while pinning
+ * the newest line to the bottom — the stream-glide with no ResizeObserver, no
+ * measured height, and no transform.
+ *
+ * The mask is a fixed-size layer anchored to the bottom rather than a plain
+ * box-relative gradient. A box-relative gradient fades the *whole* body while
+ * it is still short (a 2em box lies entirely inside a 3em fade); anchoring a
+ * `CAP`-tall mask to the bottom means short content always lands in the mask's
+ * opaque tail and the fade only appears once the box grows into the gradient
+ * band. The `em` cap tracks `messageFontSize`.
+ */
+export function StreamingThoughtViewport(args: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "flex max-h-[14em] flex-col justify-end overflow-hidden [&>*]:shrink-0",
+        "[mask-image:linear-gradient(to_bottom,transparent_0,black_2.5em)]",
+        "[mask-size:100%_14em] [mask-position:bottom] [mask-repeat:no-repeat]",
         args.className,
       )}
       {...args}
@@ -299,17 +383,21 @@ export function ChainOfThoughtStep({
   titleContent,
   description,
   summary,
+  trailing,
   status = "pending",
   kind,
   icon,
   variant = "default",
   defaultOpen = false,
   openWhen = false,
+  collapseWhen = false,
   className,
   children,
   ...props
 }: ChainOfThoughtStepProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const collapseSeenRef = useRef(false);
+  const agentStyle = useAgentStyle();
 
   useEffect(() => {
     setOpen(defaultOpen);
@@ -319,8 +407,27 @@ export function ChainOfThoughtStep({
     if (openWhen) setOpen(true);
   }, [openWhen]);
 
+  /* Fires once per completion so a manual re-open is not stolen back. */
+  useEffect(() => {
+    if (collapseWhen && !collapseSeenRef.current) {
+      collapseSeenRef.current = true;
+      setOpen(false);
+      return;
+    }
+    if (!collapseWhen) {
+      collapseSeenRef.current = false;
+    }
+  }, [collapseWhen]);
+
   const hasContent = children != null;
   const resolvedTitle = titleContent ?? title;
+  /* TODO(agent-style-legacy): collapse to the `beui` classes once signed off. */
+  const rowMotionClass = agentStyle === "legacy"
+    ? "motion-safe:animate-cot-step-in"
+    : "motion-safe:animate-trace-row-in";
+  const revealMotionClass = agentStyle === "legacy"
+    ? "motion-safe:animate-cot-step-in"
+    : "motion-safe:animate-trace-reveal";
 
   return (
     <div
@@ -329,7 +436,7 @@ export function ChainOfThoughtStep({
         status === "active" && "text-foreground",
         status === "done" && "text-muted-foreground",
         status === "pending" && "text-muted-foreground/50",
-        "motion-safe:animate-cot-step-in",
+        rowMotionClass,
         className,
       )}
       {...props}
@@ -350,6 +457,7 @@ export function ChainOfThoughtStep({
           >
             <span>{resolvedTitle}</span>
             {summary}
+            {trailing}
             <ChevronDown
               className={cn(
                 "size-[0.85em] shrink-0 text-muted-foreground/70 transition-transform",
@@ -361,6 +469,7 @@ export function ChainOfThoughtStep({
           <div className="flex items-center gap-[0.35em]">
             <span>{resolvedTitle}</span>
             {summary}
+            {trailing}
           </div>
         )}
 
@@ -369,7 +478,7 @@ export function ChainOfThoughtStep({
         ) : null}
 
         {hasContent && open ? (
-          <div className="mt-[0.5em] motion-safe:animate-cot-step-in">{children}</div>
+          <div className={cn("mt-[0.5em]", revealMotionClass)}>{children}</div>
         ) : null}
       </div>
     </div>

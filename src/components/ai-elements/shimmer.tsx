@@ -1,12 +1,20 @@
-import type { CSSProperties, ElementType, HTMLAttributes } from "react";
+import type { CSSProperties, ElementType, HTMLAttributes, ReactNode } from "react";
 import { memo, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 export interface ShimmerProps extends Omit<HTMLAttributes<HTMLElement>, "children"> {
-  children: string;
+  /**
+   * Text to shimmer. Non-string children are supported for callers that need to
+   * split the phrase into per-character nodes (the gradient still clips across
+   * the whole phrase); those callers must pass `textLength` so the highlight
+   * spread stays proportional to the visible text.
+   */
+  children: ReactNode;
   as?: ElementType;
   duration?: number;
   spread?: number;
+  /** Character count used to size the highlight when `children` is not a string. */
+  textLength?: number;
 }
 
 function ShimmerComponent({
@@ -15,12 +23,16 @@ function ShimmerComponent({
   className,
   duration = 2,
   spread = 2,
+  textLength,
   style,
   ...props
 }: ShimmerProps) {
   const resolvedSpread = useMemo(
-    () => `${Math.max(children.length, 1) * spread}px`,
-    [children, spread],
+    () => {
+      const length = textLength ?? (typeof children === "string" ? children.length : 1);
+      return `${Math.max(length, 1) * spread}px`;
+    },
+    [children, spread, textLength],
   );
 
   const shimmerStyle = useMemo<CSSProperties>(

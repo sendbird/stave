@@ -25,12 +25,19 @@ export {
 } from "./code-block";
 export { Snippet } from "./snippet";
 export { Shimmer } from "./shimmer";
-export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning";
+export { ReasoningText, type ReasoningTextVariant } from "./reasoning-text";
+export { ThinkingOrb } from "./thinking-orb";
+export {
+  AgentStyleProvider,
+  useAgentStyle,
+  type AgentStyle,
+} from "./agent-style-context";
 export {
   ChainOfThought,
   ChainOfThoughtContent,
   ChainOfThoughtStep,
   ChainOfThoughtTrigger,
+  StreamingThoughtViewport,
   type ChainOfThoughtStep as ChainOfThoughtStepData,
   type TraceSummaryItem,
 } from "./chain-of-thought";
@@ -44,6 +51,14 @@ export {
   ToolInput,
   ToolOutput,
 } from "./tool";
+export {
+  ToolResult,
+  ToolResultOutput,
+  ToolResultStatusIcon,
+  toToolResultStatus,
+  type ToolResultKind,
+  type ToolResultStatus,
+} from "./tool-result";
 export { TruncationWarningBanner } from "./truncation-warning";
 export { ConfirmationCompact } from "./confirmation";
 export {
