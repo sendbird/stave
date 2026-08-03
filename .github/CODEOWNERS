@@ -1,0 +1,9 @@
+# Code owners for sendbird/stave
+#
+# The Frontend team owns this repository, so every pull request automatically
+# requests a review from @sendbird/frontend.
+#
+# Syntax reference:
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @sendbird/frontend
