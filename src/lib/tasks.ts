@@ -261,14 +261,23 @@ export function getTaskCounts(args: {
  * arbitrary task. Such a task is therefore rendered by no surface at all, so
  * leaving it out of history makes a workspace full of real work look empty.
  *
- * `openTaskTabIds: null` means the pane state for that workspace has not been
- * loaded; nothing is assumed to be open.
+ * `openTaskTabIds: null` means the pane state is unknown — a shell summary or
+ * snapshot that predates the field. `normalizePaneState` resolves that same
+ * absence to "every non-archived task open", so this follows suit instead of
+ * assuming nothing is open; otherwise a legacy workspace would report all of
+ * its live tasks as closed until its summary is written again.
  */
 export function selectTaskHistoryEntries(args: {
   tasks: Task[];
   openTaskTabIds: readonly string[] | null;
 }): Task[] {
-  const openTaskIds = new Set(args.openTaskTabIds ?? []);
+  const openTaskIds = args.openTaskTabIds
+    ? new Set(args.openTaskTabIds)
+    : new Set(
+        args.tasks
+          .filter((task) => !isTaskArchived(task))
+          .map((task) => task.id),
+      );
   return args.tasks
     .filter(
       (task) =>

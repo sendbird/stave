@@ -119,6 +119,9 @@ export function TaskHistoryDrawer(args: {
 
   const useLiveState = isActiveWorkspace || hasRuntimeCache;
   const tasks = useLiveState ? liveTasks : (fetchedShell?.tasks ?? EMPTY_TASKS);
+  // A summary that predates `openTaskTabIds` yields `null`, which
+  // `selectTaskHistoryEntries` reads as "unknown" and resolves the same way
+  // hydration does — not as "every tab closed".
   const openTaskTabIds = useLiveState
     ? liveOpenTaskTabIds
     : (fetchedShell?.openTaskTabIds ?? null);

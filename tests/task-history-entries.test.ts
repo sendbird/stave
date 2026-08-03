@@ -72,14 +72,30 @@ describe("selectTaskHistoryEntries", () => {
     ).toEqual([]);
   });
 
-  test("treats unknown pane state as nothing open", () => {
-    const closed = buildTask({ id: "closed" });
+  test("treats unknown pane state as every live task open", () => {
+    // Mirrors `normalizePaneState`: a shell summary that predates
+    // `openTaskTabIds` means "all non-archived tasks open", so an unknown pane
+    // state must not report live tasks as closed.
+    const live = buildTask({ id: "live" });
 
     expect(
-      selectTaskHistoryEntries({ tasks: [closed], openTaskTabIds: null }).map(
-        (task) => task.id,
-      ),
-    ).toEqual(["closed"]);
+      selectTaskHistoryEntries({ tasks: [live], openTaskTabIds: null }),
+    ).toEqual([]);
+  });
+
+  test("keeps archived tasks when the pane state is unknown", () => {
+    const archived = buildTask({
+      id: "archived",
+      archivedAt: "2026-03-09T00:00:00.000Z",
+    });
+    const live = buildTask({ id: "live" });
+
+    expect(
+      selectTaskHistoryEntries({
+        tasks: [archived, live],
+        openTaskTabIds: null,
+      }).map((task) => task.id),
+    ).toEqual(["archived"]);
   });
 
   test("orders entries most recently updated first", () => {
