@@ -2,6 +2,7 @@ import type {
   NormalizedProviderEvent,
   ProviderId,
 } from "@/lib/providers/provider.types";
+import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
 
 /**
  * How long a turn can be silent (no events) before it is marked stalled in the
@@ -348,8 +349,14 @@ function isSubagentToolName(toolName: string) {
   );
 }
 
-/** `mcp__server__do_thing` / `collaboration.spawn_agent` → `do thing`. */
+/** `mcp__server__do_thing` / `collaboration.spawn_agent` → action-oriented copy. */
 function formatToolDisplayName(toolName: string) {
+  if (!toolName.trim()) {
+    return undefined;
+  }
+  if (isStaveToolName(toolName)) {
+    return truncateWorkText(toStaveToolDisplayName(toolName));
+  }
   const segments = toolName.trim().split(/__|\./).filter(Boolean);
   const lastSegment = segments.at(-1) ?? toolName;
   return truncateWorkText(lastSegment.replace(/_/g, " "));

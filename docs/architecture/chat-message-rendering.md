@@ -10,6 +10,10 @@ This document defines the renderer contract for assistant messages in Stave.
 - Show the final assistant response below that Chain of Thought.
 - Avoid depending on persisted turn inspection data for normal message rendering.
 
+The dev-only [Agent Message UX Catalog](agent-message-ux-catalog.md) records the
+current Preview baseline and maps every normalized provider event to its visible
+surface, persisted message part, or task-level state.
+
 ## Core Model
 
 Assistant messages are rendered in two layers:
@@ -127,7 +131,8 @@ agents, and file changes. Each category shows an icon and count, separated by do
 - Code fences that include file metadata (for example `path=src/App.tsx`) pass that file reference to the block renderer so headers can surface a file chip.
 - File chips with `L<line>` (and optional `C<column>`) open the editor tab and reveal that exact location.
 - Plain `http`, `https`, and `mailto` URLs in settled assistant message text, reasoning/tool/subagent/system step text, and other non-markdown plain-text surfaces render as external links.
-- Labeled `http` and `https` markdown links render as compact link chips with a site cue and external-link affordance; raw URL autolinks remain plain so long addresses stay readable and selectable.
+- Labeled `http` and `https` markdown links render as compact link chips with a site cue and external-link affordance; raw URL autolinks outside tables remain plain so long addresses stay readable and selectable.
+- Raw `http` and `https` URLs in markdown table body cells render as link chips so link-valued columns remain easy to scan.
 - Terminal output recognizes URL-looking text through the xterm web-links flow and opens it only on `Cmd+Click` (macOS) or `Ctrl+Click` (other platforms).
 - Markdown bold uses `font-semibold` (600) instead of the browser default bold (700).
 

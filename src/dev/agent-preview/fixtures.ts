@@ -62,6 +62,23 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
     },
     {
       type: "tool_use",
+      toolUseId: "tool-stave-lens-evaluate",
+      toolName: "stave-local:stave_lens_evaluate",
+      input: JSON.stringify({ expression: "document.querySelector('main')?.getBoundingClientRect().height" }),
+      output: "main: 720px",
+      state: "output-available",
+      elapsedSeconds: 1,
+    },
+    {
+      type: "tool_use",
+      toolUseId: "tool-stave-workspace-context",
+      toolName: "mcp__stave-local-mcp__stave_get_workspace_information",
+      input: JSON.stringify({ include: "summary" }),
+      output: "Workspace context loaded.",
+      state: "output-available",
+    },
+    {
+      type: "tool_use",
       toolUseId: "tool-bash",
       toolName: "Bash",
       input: JSON.stringify({ command: "bun run typecheck" }),
@@ -119,6 +136,18 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
     {
       type: "system_event",
       content: "Context window at 62% — compaction not required.",
+    },
+    {
+      type: "system_event",
+      content: "Approaching rate limit (72% used). Consider pacing requests.",
+    },
+    {
+      type: "system_event",
+      content: "Plugin installed: image-tools",
+    },
+    {
+      type: "system_event",
+      content: "Provider warning\nThe provider returned a recoverable warning with additional detail.",
     },
   ];
 }

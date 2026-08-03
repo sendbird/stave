@@ -1,8 +1,10 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ChevronDown, CircleAlert, CircleCheck, LoaderCircle, Wrench } from "lucide-react";
+import { StaveIcon } from "@/components/brand-icons";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import { TruncationWarningBanner } from "@/components/ai-elements/truncation-warning";
+import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +61,9 @@ function displayToolName(args: { type?: string; title?: string }) {
   }
   if (!args.type) {
     return "Tool";
+  }
+  if (isStaveToolName(args.type)) {
+    return toStaveToolDisplayName(args.type);
   }
   return args.type.replace(/^tool[-_:]?/i, "").replaceAll(/[_-]+/g, " ");
 }
@@ -147,7 +152,7 @@ export function ToolHeader({ className, type, state, title, elapsedSeconds, ...p
       {...props}
     >
       <span className="inline-flex items-center gap-1.5">
-        <Wrench className="size-3.5" />
+        {type && isStaveToolName(type) ? <StaveIcon className="size-3.5" /> : <Wrench className="size-3.5" />}
         {displayToolName({ type, title })}
       </span>
       <span className="inline-flex items-center gap-2">

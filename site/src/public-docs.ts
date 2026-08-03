@@ -153,6 +153,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         previewImage: "screenshots/mcp-settings.png",
       },
       {
+        routePath: "mcp-server-management",
+        sourcePath: "docs/features/mcp-server-management.md",
+        title: "MCP Server Management",
+        description:
+          "Configure native Claude and Codex MCP servers with reviewable, conflict-safe changes and protected credentials.",
+      },
+      {
         routePath: "crane-connector",
         sourcePath: "docs/features/crane-connector.md",
         title: "Crane Connector",

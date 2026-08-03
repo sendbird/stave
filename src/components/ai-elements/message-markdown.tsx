@@ -1,5 +1,11 @@
 import type { HTMLAttributes, MouseEvent, ReactNode } from "react";
-import { isValidElement, useMemo, useRef } from "react";
+import {
+  createContext,
+  isValidElement,
+  useContext,
+  useMemo,
+  useRef,
+} from "react";
 import { ExternalLink, Globe2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -68,6 +74,8 @@ interface MarkdownCodeNodeLike {
   };
   properties?: Record<string, unknown>;
 }
+
+const MarkdownTableCellContext = createContext(false);
 
 function extractPlainText(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
@@ -413,7 +421,14 @@ export function MarkdownMessage({
         );
       },
       pre: ({ children }: { children?: ReactNode }) => <>{children}</>,
-      a: ({ href, children }: { href?: string; children?: ReactNode }) => {
+      a: function MarkdownLink({
+        href,
+        children,
+      }: {
+        href?: string;
+        children?: ReactNode;
+      }) {
+        const isInTableCell = useContext(MarkdownTableCellContext);
         const resolvedFileLink =
           resolveFileLinkRef.current?.({ href }) ??
           (href && href.includes("/")
@@ -457,7 +472,7 @@ export function MarkdownMessage({
         if (
           href &&
           childText &&
-          childText !== href &&
+          (childText !== href || isInTableCell) &&
           isHttpExternalLink(href)
         ) {
           return (
@@ -504,9 +519,11 @@ export function MarkdownMessage({
         </TableHead>
       ),
       td: ({ children }: { children?: ReactNode }) => (
-        <TableCell className="border-r border-border/70 px-3 py-2 align-top whitespace-normal break-words [overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-all last:border-r-0">
-          {children}
-        </TableCell>
+        <MarkdownTableCellContext.Provider value>
+          <TableCell className="border-r border-border/70 px-3 py-2 align-top whitespace-normal break-words [overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-all last:border-r-0">
+            {children}
+          </TableCell>
+        </MarkdownTableCellContext.Provider>
       ),
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }),

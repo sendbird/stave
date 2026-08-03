@@ -18,6 +18,7 @@ import {
   UserRound,
   Wrench,
 } from "lucide-react";
+import { StaveIcon } from "@/components/brand-icons";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -45,9 +46,10 @@ import {
   ImageAttachmentBlock,
   ReferencedFilesBlock,
 } from "@/components/session/chat-panel-file-blocks";
-import { MessagePartRenderer, toToolDisplayName } from "@/components/session/chat-panel-message-parts";
+import { MessagePartRenderer } from "@/components/session/chat-panel-message-parts";
 import { parseFileChangeToolInput, summarizeDiffLineChanges } from "@/components/session/chat-panel.utils";
 import { cn } from "@/lib/utils";
+import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
 import type { ChatMessage, CodeDiffPart, MessagePart, ThinkingPart } from "@/types/chat";
 import {
   deriveTodoTraceItems,
@@ -92,6 +94,10 @@ function toStepStatus(args: { entry: AssistantTraceEntry; isStreaming: boolean }
 /* ─── Step icon mapping ──────────────────────────────────────────── */
 
 function getToolIcon(toolName: string): ReactNode {
+  if (isStaveToolName(toolName)) {
+    return <StaveIcon className="size-[1.15em]" />;
+  }
+
   switch (normalizeTraceToolName(toolName)) {
     case "bash": return <Terminal />;
     case "read": return <FileText />;
@@ -103,6 +109,10 @@ function getToolIcon(toolName: string): ReactNode {
     case "webfetch": return <Globe />;
     default: return <Wrench />;
   }
+}
+
+function getToolTitle(toolName: string): string {
+  return isStaveToolName(toolName) ? toStaveToolDisplayName(toolName) : toolName;
 }
 
 function getEntryIcon(entry: AssistantTraceEntry): ReactNode | undefined {
@@ -516,7 +526,7 @@ function ReasoningStepView(args: {
           active={entry.isStreaming}
           replayWhileActive={entry.isStreaming}
           settleOnStop
-          className="font-medium leading-none"
+          className="relative top-[0.08em] font-medium leading-none"
         />
       )}
       status={status}
@@ -595,7 +605,7 @@ function AssistantTraceEntryView(args: {
         : deriveTraceToolSummary({ toolName: entry.part.toolName, input: entry.part.input });
       return (
         <ChainOfThoughtStep
-          title={toToolDisplayName(entry.part.toolName)}
+          title={getToolTitle(entry.part.toolName)}
           status={status}
           icon={icon}
           summary={summary}
@@ -679,7 +689,7 @@ function AssistantTraceEntryView(args: {
     case "approval":
       return (
         <ChainOfThoughtStep
-          title={`Approval: ${entry.part.toolName}`}
+          title={`Approval: ${getToolTitle(entry.part.toolName)}`}
           status={status}
           icon={icon}
           defaultOpen
@@ -700,7 +710,7 @@ function AssistantTraceEntryView(args: {
     case "user_input":
       return (
         <ChainOfThoughtStep
-          title={`Input: ${entry.part.toolName}`}
+          title={`Input: ${getToolTitle(entry.part.toolName)}`}
           status={status}
           icon={icon}
           defaultOpen
