@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   CLAUDE_CLI_AUTO_MODE_MIN_VERSION,
   isClaudeCliAutoModeSupportedVersion,
 } from "../electron/providers/claude-cli-compat";
 import {
+  applyConfiguredMcpEnvOverrides,
   applyLoginShellEnvOverrides,
   buildClaudeCliEnv,
 } from "../electron/providers/cli-path-env";
@@ -78,6 +82,74 @@ describe("applyLoginShellEnvOverrides", () => {
 
     expect(env.SLACK_OAUTH_TOKEN).toBe("existing-token");
     expect(env.CODEX_HOME).toBe("/shell/codex");
+  });
+});
+
+describe("applyConfiguredMcpEnvOverrides", () => {
+  test("fills only missing variables referenced by configured MCPs", () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "stave-mcp-env-"));
+    const configPath = path.join(directory, "config.toml");
+    writeFileSync(
+      configPath,
+      '[mcp_servers.remote]\nbearer_token_env_var = "MCP_TOKEN"\nenv_vars = ["OTHER_TOKEN"]\n',
+      "utf8",
+    );
+    const env: Record<string, string | undefined> = {
+      EXISTING_TOKEN: "inherited-token",
+    };
+    const resolvedKeys: string[] = [];
+
+    try {
+      applyConfiguredMcpEnvOverrides({
+        env,
+        provider: "codex",
+        configPaths: [configPath],
+        resolver: ({ key }) => {
+          resolvedKeys.push(key);
+          return "shell-token";
+        },
+      });
+
+      expect(env).toMatchObject({
+        EXISTING_TOKEN: "inherited-token",
+        MCP_TOKEN: "shell-token",
+        OTHER_TOKEN: "shell-token",
+      });
+      expect(resolvedKeys).toEqual(["MCP_TOKEN", "OTHER_TOKEN"]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  test("does not overwrite an inherited MCP credential", () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "stave-mcp-env-"));
+    const configPath = path.join(directory, "config.toml");
+    writeFileSync(
+      configPath,
+      '[mcp_servers.remote]\nbearer_token_env_var = "MCP_TOKEN"\n',
+      "utf8",
+    );
+    const env: Record<string, string | undefined> = {
+      MCP_TOKEN: "inherited-token",
+    };
+    const resolvedKeys: string[] = [];
+
+    try {
+      applyConfiguredMcpEnvOverrides({
+        env,
+        provider: "codex",
+        configPaths: [configPath],
+        resolver: ({ key }) => {
+          resolvedKeys.push(key);
+          return "shell-token";
+        },
+      });
+
+      expect(env.MCP_TOKEN).toBe("inherited-token");
+      expect(resolvedKeys).toEqual([]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });
 
