@@ -153,6 +153,10 @@ interface LocalMcpRequestLogRow {
 
 const MAX_LOCAL_MCP_REQUEST_LOGS = 500;
 const LEGACY_TURN_JOURNAL_PURGE_KEY = "legacy_turn_journal_purged_v1";
+const PERSISTENCE_COMPACTION_KEY = "persistence_compaction_v1";
+export const MAX_ACTIVE_TURN_EVENTS = 2_000;
+const EXPIRED_TURN_EVENT_COMPACTION_INTERVAL_MS = 24 * 60 * 60 * 1_000;
+const PERSISTENCE_COMPACTION_BATCH_SIZE = 2_000;
 const ORPHAN_NOTIFICATION_DELETE_CHUNK_SIZE = 400;
 
 function normalizeNotificationWorkspaceIds(workspaceIds: string[]) {
@@ -178,6 +182,8 @@ export class SqliteStore {
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
   private _closed = false;
+  private readonly runMaintenance: boolean;
+  private maintenanceStart: NodeJS.Immediate | null = null;
   private onBootstrapStatusChange?: (
     status: PersistenceBootstrapStatus,
   ) => void;
@@ -189,17 +195,33 @@ export class SqliteStore {
   constructor(args: {
     dbPath: string;
     onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
+    runMaintenance?: boolean;
   }) {
     const dbPath = path.resolve(args.dbPath);
     mkdirSync(path.dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
     this.artifactRootDir = path.join(path.dirname(dbPath), "artifacts");
     this.onBootstrapStatusChange = args.onBootstrapStatusChange;
+    this.runMaintenance = args.runMaintenance !== false;
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("synchronous = NORMAL");
+    this.db.pragma("busy_timeout = 5000");
+    this.db.pragma("wal_autocheckpoint = 1000");
     this.bootstrap();
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
+    if (this.runMaintenance) {
+      this.maintenanceStart = setImmediate(() => {
+        this.maintenanceStart = null;
+        if (this._closed) {
+          return;
+        }
+        void this.compactOversizedPersistence().catch((error) => {
+          console.warn("[persistence] background compaction failed", error);
+        });
+      });
+      this.maintenanceStart.unref?.();
+    }
   }
 
   private emitBootstrapStatus(status: PersistenceBootstrapStatus) {
@@ -401,7 +423,124 @@ export class SqliteStore {
     `,
       )
       .run();
-    this.purgeLegacyTurnJournal();
+    if (this.runMaintenance) {
+      this.purgeLegacyTurnJournal();
+    }
+  }
+
+  private async compactOversizedPersistence() {
+    if (this._closed) {
+      return;
+    }
+    const alreadyCompacted = this.db
+      .prepare("SELECT value_json FROM app_state WHERE key = ?")
+      .get(PERSISTENCE_COMPACTION_KEY) as JsonValueRow | undefined;
+    let lastCompactedAt = Number.NaN;
+    try {
+      const marker = alreadyCompacted
+        ? (JSON.parse(alreadyCompacted.value_json) as {
+            compactedAt?: unknown;
+          })
+        : null;
+      lastCompactedAt =
+        typeof marker?.compactedAt === "string"
+          ? Date.parse(marker.compactedAt)
+          : Number.NaN;
+    } catch {
+      // An invalid marker is repaired by the compaction below.
+    }
+    if (
+      alreadyCompacted &&
+      Number.isFinite(lastCompactedAt) &&
+      Date.now() - lastCompactedAt < EXPIRED_TURN_EVENT_COMPACTION_INTERVAL_MS
+    ) {
+      return;
+    }
+
+    this.emitBootstrapStatus({
+      phase: "purging-legacy-turn-journal",
+      message: alreadyCompacted
+        ? "Removing expired conversation diagnostics."
+        : "Compacting oversized conversation diagnostics from a previous version. This only runs once.",
+    });
+
+    try {
+      const now = new Date().toISOString();
+      while (!this._closed) {
+        const removed = this.db
+          .prepare(
+            `
+          DELETE FROM turn_events
+          WHERE rowid IN (
+            SELECT event.rowid
+            FROM turn_events AS event
+            JOIN turns AS turn ON turn.id = event.turn_id
+            WHERE turn.completed_at IS NOT NULL
+              AND julianday(turn.completed_at) < julianday('now', '-1 hour')
+              AND event.event_type NOT IN (
+                'error',
+                'done',
+                'provider_turn',
+                'provider_session',
+                'goal_status',
+                'plan_ready'
+              )
+            LIMIT ?
+          )
+        `,
+          )
+          .run(PERSISTENCE_COMPACTION_BATCH_SIZE).changes;
+        if (removed < PERSISTENCE_COMPACTION_BATCH_SIZE) {
+          break;
+        }
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      if (!alreadyCompacted) {
+        while (!this._closed) {
+          const updated = this.db
+            .prepare(
+              `
+            UPDATE messages
+            SET parts_json = '[]'
+            WHERE rowid IN (
+              SELECT rowid
+              FROM messages
+              WHERE message_json IS NOT NULL AND parts_json <> '[]'
+              LIMIT ?
+            )
+          `,
+            )
+            .run(PERSISTENCE_COMPACTION_BATCH_SIZE).changes;
+          if (updated < PERSISTENCE_COMPACTION_BATCH_SIZE) {
+            break;
+          }
+          await new Promise<void>((resolve) => setImmediate(resolve));
+        }
+      }
+      if (this._closed) {
+        return;
+      }
+      const tx = this.db.transaction(() => {
+        this.db
+          .prepare(
+            `
+          INSERT INTO app_state (key, value_json, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET
+            value_json = excluded.value_json,
+            updated_at = excluded.updated_at
+        `,
+          )
+          .run(
+            PERSISTENCE_COMPACTION_KEY,
+            JSON.stringify({ compactedAt: now }),
+            now,
+          );
+      });
+      tx();
+    } finally {
+      this.emitBootstrapStatus(IDLE_PERSISTENCE_BOOTSTRAP_STATUS);
+    }
   }
 
   private purgeLegacyTurnJournal() {
@@ -1067,13 +1206,13 @@ export class SqliteStore {
           message.providerId,
           message.content,
           message.isStreaming ? 1 : 0,
-          JSON.stringify(message.parts ?? []),
+          "[]",
           JSON.stringify(message),
         );
     }
   }
 
-  private loadAllTaskMessages(args: { workspaceId: string; taskId: string }) {
+  loadAllTaskMessages(args: { workspaceId: string; taskId: string }) {
     const rows = this.db
       .prepare(
         `
@@ -2301,15 +2440,93 @@ export class SqliteStore {
       return;
     }
     const completedAt = args.completedAt ?? new Date().toISOString();
+    const tx = this.db.transaction(() => {
+      this.db
+        .prepare(
+          `
+        UPDATE turns
+        SET completed_at = ?
+        WHERE id = ?
+      `,
+        )
+        .run(completedAt, args.id);
+      this.compactSupersededCompletedTurnEvents(args.id);
+    });
+    tx();
+  }
+
+  private compactSupersededCompletedTurnEvents(turnId: string) {
     this.db
       .prepare(
         `
-      UPDATE turns
-      SET completed_at = ?
-      WHERE id = ?
+      DELETE FROM turn_events
+      WHERE rowid IN (
+        SELECT event.rowid
+        FROM turns AS current
+        JOIN turns AS previous
+          ON previous.workspace_id = current.workspace_id
+         AND previous.task_id = current.task_id
+         AND previous.id <> current.id
+         AND previous.completed_at IS NOT NULL
+        JOIN turn_events AS event ON event.turn_id = previous.id
+        WHERE current.id = ?
+          AND event.event_type NOT IN (
+            'error',
+            'done',
+            'provider_turn',
+            'provider_session',
+            'goal_status',
+            'plan_ready'
+          )
+        LIMIT ?
+      )
     `,
       )
-      .run(completedAt, args.id);
+      .run(turnId, PERSISTENCE_COMPACTION_BATCH_SIZE);
+  }
+
+  private pruneActiveTurnEvents(turnId: string) {
+    this.db
+      .prepare(
+        `
+      DELETE FROM turn_events
+      WHERE rowid IN (
+        SELECT rowid
+        FROM turn_events
+        WHERE turn_id = ?
+          AND event_type NOT IN (
+            'error',
+            'done',
+            'provider_turn',
+            'provider_session',
+            'goal_status',
+            'plan_ready'
+          )
+          AND sequence <= COALESCE((
+            SELECT sequence
+            FROM turn_events
+            WHERE turn_id = ?
+              AND event_type NOT IN (
+                'error',
+                'done',
+                'provider_turn',
+                'provider_session',
+                'goal_status',
+                'plan_ready'
+              )
+            ORDER BY sequence DESC
+            LIMIT 1 OFFSET ?
+          ), -1)
+        LIMIT ?
+      )
+    `,
+      )
+      .run(
+        turnId,
+        turnId,
+        MAX_ACTIVE_TURN_EVENTS,
+        PERSISTENCE_COMPACTION_BATCH_SIZE,
+      );
   }
 
   /**
@@ -2328,6 +2545,7 @@ export class SqliteStore {
       return;
     }
     this.insertTurnEventRow(args);
+    this.pruneActiveTurnEvents(args.turnId);
   }
 
   /**
@@ -2352,6 +2570,7 @@ export class SqliteStore {
             createdAt: args.createdAt,
           });
         }
+        this.pruneActiveTurnEvents(args.turnId);
       },
     );
     tx(args.events);
@@ -2559,6 +2778,10 @@ export class SqliteStore {
 
   close() {
     this._closed = true;
+    if (this.maintenanceStart) {
+      clearImmediate(this.maintenanceStart);
+      this.maintenanceStart = null;
+    }
     this.db.close();
   }
 }

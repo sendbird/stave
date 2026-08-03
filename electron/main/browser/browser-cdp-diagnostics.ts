@@ -49,6 +49,8 @@ const MAX_OBJECT_PROPERTIES = 100;
 const MAX_TEXT_VALUE_LENGTH = 8_192;
 const MAX_PENDING_NETWORK_REQUESTS = 500;
 const MAX_BODY_STORE_BYTES = 8 * 1_024 * 1_024;
+const MAX_ACTIVE_DIAGNOSTICS_CAPTURES = 4;
+const MAX_CONCURRENT_RESPONSE_BODY_LOADS = 4;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -129,6 +131,7 @@ interface DiagnosticsCapture {
   bodyStore: BoundedBodyStore;
   recentConsole: Map<string, number>;
   executionContexts: Map<number, ExecutionContextDetail>;
+  activeResponseBodyLoads: number;
 }
 
 class BoundedBodyStore {
@@ -1059,6 +1062,21 @@ async function loadingFinished(
   const generation = capture.generation;
   request.responseSize = asNumber(params.encodedDataLength);
   if (request.timing) request.timing.finishedTimestamp = finishedTimestamp;
+  if (capture.activeResponseBodyLoads >= MAX_CONCURRENT_RESPONSE_BODY_LOADS) {
+    const responseBody = sanitizeLensNetworkBody({
+      mimeType: request.mimeType,
+      size: request.responseSize,
+      unavailableReason:
+        "Response body preview was skipped while diagnostics were busy.",
+    });
+    capture.bodyStore.set(bodyKey(request.entryId, "response"), responseBody);
+    request.responseBody = bodyMetadata(responseBody);
+    syncNetworkDetail(capture, request);
+    capture.onNetworkEntry(networkSummary(request, finishedTimestamp));
+    retireNetworkRequest(capture, request, true);
+    return;
+  }
+  capture.activeResponseBodyLoads += 1;
   let responseBody: BrowserNetworkBody;
 
   try {
@@ -1108,6 +1126,11 @@ async function loadingFinished(
       unavailableReason:
         "Chromium no longer has the response body in its diagnostics buffer.",
     });
+  } finally {
+    capture.activeResponseBodyLoads = Math.max(
+      0,
+      capture.activeResponseBodyLoads - 1,
+    );
   }
   capture.bodyStore.set(bodyKey(request.entryId, "response"), responseBody);
   request.responseBody = bodyMetadata(responseBody);
@@ -1338,6 +1361,16 @@ export async function startLensCdpDiagnostics(args: {
   if (current?.enabled) {
     return { enabled: true, host: current.host };
   }
+  if (
+    [...captures.values()].filter((capture) => capture.enabled).length >=
+    MAX_ACTIVE_DIAGNOSTICS_CAPTURES
+  ) {
+    return {
+      enabled: false,
+      message:
+        "Full diagnostics is already active in too many Lens sessions. Stop one and try again.",
+    };
+  }
   let host: string;
   try {
     const parsed = new URL(args.url);
@@ -1381,6 +1414,7 @@ export async function startLensCdpDiagnostics(args: {
   capture.bodyStore = new BoundedBodyStore();
   capture.recentConsole = new Map();
   capture.executionContexts = new Map();
+  capture.activeResponseBodyLoads = 0;
   capture.unsubscribeMessage = subscribeCdpMessages(
     args.webContentsId,
     (method, params) => handleCdpMessage(capture, method, params),

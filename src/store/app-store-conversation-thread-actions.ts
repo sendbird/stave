@@ -1,6 +1,6 @@
 import type { StoreApi } from "zustand";
 import {
-  loadWorkspaceSnapshot,
+  loadAllTaskMessages,
   truncateTaskMessagesAfter,
 } from "@/lib/db/workspaces.db";
 import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
@@ -51,10 +51,10 @@ async function loadCompleteTaskMessages(args: {
   if (loadedMessages && loadedMessages.length >= totalCount) {
     return loadedMessages;
   }
-  return (
-    (await loadWorkspaceSnapshot({ workspaceId: args.workspaceId }))
-      ?.messagesByTask[args.taskId] ?? []
-  );
+  return loadAllTaskMessages({
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+  });
 }
 
 function cloneForkMessages(args: {

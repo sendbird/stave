@@ -138,6 +138,7 @@ export function resetMainProcessState() {
   clearTerminalSessionSlotRegistry({ registry: terminalSessionSlotRegistry });
   void disposeAllLspSessions();
   destroyAllBrowserSessions();
+  sqliteStore?.close();
   sqliteStore = null;
   persistenceBootstrapStatus = IDLE_PERSISTENCE_BOOTSTRAP_STATUS;
 }

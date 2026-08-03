@@ -23,6 +23,7 @@ export function ensureHostServicePersistenceReady(
 
   sqliteStore = new SqliteStore({
     dbPath: path.join(resolveHostServiceUserDataPath(env), "stave.sqlite"),
+    runMaintenance: false,
   });
   return sqliteStore;
 }

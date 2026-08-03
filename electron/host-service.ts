@@ -62,6 +62,10 @@ import {
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { createRoutineRuntime } from "./host-service/routine-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
+import {
+  parseExpectedHostParentPid,
+  startHostParentWatchdog,
+} from "./host-service/parent-watchdog";
 import type {
   AnyHostServiceRequestEnvelope,
   AnyHostServiceResponseEnvelope,
@@ -1656,6 +1660,16 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
 }
 
 async function main() {
+  startHostParentWatchdog({
+    expectedParentPid: parseExpectedHostParentPid(
+      process.env.STAVE_HOST_PARENT_PID,
+    ),
+    onParentMissing: () => {
+      triggerFatalHostServiceError(
+        new Error("parent process exited; stopping orphaned host service"),
+      );
+    },
+  });
   prewarmClaudeSdk();
   routineRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({

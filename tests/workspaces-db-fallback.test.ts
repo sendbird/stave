@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  loadAllTaskMessages,
   loadTaskMessagesPage,
   upsertWorkspace,
   type WorkspaceSnapshot,
@@ -123,4 +124,37 @@ test("browser fallback preserves omitted message pages for retained tasks", asyn
     offset: 0,
   });
   expect(explicitlyCleared.messages).toEqual([]);
+});
+
+test("loads complete task history in chronological pages", async () => {
+  const localStorage = createMemoryStorage();
+  const task = buildTask("task-paged");
+  const messages = Array.from({ length: 1_205 }, (_, index) =>
+    buildMessage(`message-${String(index).padStart(4, "0")}`),
+  );
+  localStorage.setItem(
+    "stave:workspace-fallback:v1",
+    JSON.stringify([
+      {
+        id: "ws-paged",
+        name: "Paged",
+        updatedAt: "2026-07-31T00:00:00.000Z",
+        snapshot: buildSnapshot({
+          tasks: [task],
+          messagesByTask: { [task.id]: messages },
+        }),
+      },
+    ]),
+  );
+  (globalThis as { window: unknown }).window = { localStorage };
+
+  const loaded = await loadAllTaskMessages({
+    workspaceId: "ws-paged",
+    taskId: task.id,
+  });
+
+  expect(loaded).toHaveLength(messages.length);
+  expect(loaded.map((message) => message.id)).toEqual(
+    messages.map((message) => message.id),
+  );
 });

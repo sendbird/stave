@@ -69,8 +69,41 @@ const persistedTurnEventsById = new Map<
 const persistedNotifications: unknown[] = [];
 const lastUpsertSnapshotByWorkspaceId = new Map<
   string,
-  { tasks?: Array<{ id: string; archivedAt?: string | null }> }
+  {
+    tasks?: Array<{ id: string; archivedAt?: string | null }>;
+    messagesByTask?: Record<string, Array<{ id: string }>>;
+  }
 >();
+
+function loadFakeWorkspaceSnapshot(workspaceId: string) {
+  return workspaceId === RELEASE_WORKSPACE_ID
+    ? {
+        activeTaskId: RELEASE_TASK_ID,
+        tasks: [
+          {
+            id: RELEASE_TASK_ID,
+            title: "Completed Crane task",
+            provider: "codex",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+            unread: false,
+            archivedAt: null,
+            controlMode: "managed",
+            controlOwner: "stave",
+          },
+        ],
+        messagesByTask: { [RELEASE_TASK_ID]: [] },
+        activeTurnIdsByTask: {},
+        workspaceInformation:
+          persistedWorkspaceInformationById.get(workspaceId),
+      }
+    : {
+        activeTaskId: "",
+        tasks: [],
+        messagesByTask: {},
+        workspaceInformation:
+          persistedWorkspaceInformationById.get(workspaceId),
+      };
+}
 
 const fakeStore = {
   loadProjectRegistry: () => [
@@ -117,32 +150,50 @@ const fakeStore = {
     },
   ],
   loadWorkspaceSnapshot: ({ workspaceId }: { workspaceId: string }) =>
-    workspaceId === RELEASE_WORKSPACE_ID
-      ? {
-          activeTaskId: RELEASE_TASK_ID,
-          tasks: [
-            {
-              id: RELEASE_TASK_ID,
-              title: "Completed Crane task",
-              provider: "codex",
-              updatedAt: "2026-01-01T00:00:00.000Z",
-              unread: false,
-              archivedAt: null,
-              controlMode: "managed",
-              controlOwner: "stave",
-            },
-          ],
-          messagesByTask: { [RELEASE_TASK_ID]: [] },
-          activeTurnIdsByTask: {},
-          workspaceInformation:
-            persistedWorkspaceInformationById.get(workspaceId),
-        }
-      : {
-          tasks: [],
-          messagesByTask: {},
-          workspaceInformation:
-            persistedWorkspaceInformationById.get(workspaceId),
-        },
+    loadFakeWorkspaceSnapshot(workspaceId),
+  loadWorkspaceShell: ({ workspaceId }: { workspaceId: string }) => {
+    const snapshot = loadFakeWorkspaceSnapshot(workspaceId);
+    return {
+      ...snapshot,
+      promptDraftByTask: {},
+      providerSessionByTask: {},
+      messageCountByTask: Object.fromEntries(
+        Object.entries(snapshot.messagesByTask).map(([taskId, messages]) => [
+          taskId,
+          messages.length,
+        ]),
+      ),
+    };
+  },
+  loadAllTaskMessages: ({
+    workspaceId,
+    taskId,
+  }: {
+    workspaceId: string;
+    taskId: string;
+  }) =>
+    lastUpsertSnapshotByWorkspaceId.get(workspaceId)?.messagesByTask?.[
+      taskId
+    ] ?? loadFakeWorkspaceSnapshot(workspaceId).messagesByTask[taskId] ?? [],
+  loadTaskMessagesPage: ({
+    workspaceId,
+    taskId,
+  }: {
+    workspaceId: string;
+    taskId: string;
+  }) => {
+    const messages =
+      lastUpsertSnapshotByWorkspaceId.get(workspaceId)?.messagesByTask?.[
+        taskId
+      ] ?? loadFakeWorkspaceSnapshot(workspaceId).messagesByTask[taskId] ?? [];
+    return {
+      messages,
+      totalCount: messages.length,
+      limit: 120,
+      offset: 0,
+      hasMoreOlder: false,
+    };
+  },
   // Mirrors the real store's `tasks` table: the authoritative task lifecycle
   // (archived_at) written by the renderer. persistWorkspaceSession re-reads this
   // before writing so a stale host session cannot revive an archived task.
@@ -225,6 +276,7 @@ const fakeStore = {
     snapshot: {
       workspaceInformation?: unknown;
       tasks?: Array<Partial<PersistedTaskRow> & { id: string }>;
+      messagesByTask?: Record<string, Array<{ id: string }>>;
     };
   }) => {
     if (snapshot.workspaceInformation) {

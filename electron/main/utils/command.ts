@@ -86,6 +86,7 @@ export function runCommand(args: {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   maxOutputChars?: number;
+  timeoutMs?: number;
 }): Promise<CommandResult> {
   return new Promise<CommandResult>((resolve) => {
     const cwd = resolveCommandCwd({ cwd: args.cwd });
@@ -104,6 +105,30 @@ export function runCommand(args: {
     const stdout = createCommandOutputCollector(args.maxOutputChars);
     const stderr = createCommandOutputCollector(args.maxOutputChars);
     let settled = false;
+    const timeout =
+      args.timeoutMs && args.timeoutMs > 0
+        ? setTimeout(() => {
+            if (settled) {
+              return;
+            }
+            settled = true;
+            child.kill("SIGTERM");
+            resolve({
+              ok: false,
+              code: -1,
+              stdout: stdout.finish(),
+              stderr: `${stderr.finish()}\nCommand timed out after ${args.timeoutMs}ms.`.trim(),
+              stdoutTruncated: stdout.wasTruncated(),
+              stderrTruncated: stderr.wasTruncated(),
+            });
+          }, args.timeoutMs)
+        : null;
+    timeout?.unref?.();
+    const clearCommandTimeout = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
     child.stdout.on("data", (chunk: Buffer) => {
       stdout.append(chunk);
     });
@@ -115,6 +140,7 @@ export function runCommand(args: {
         return;
       }
       settled = true;
+      clearCommandTimeout();
       resolve({
         ok: false,
         code: -1,
@@ -129,6 +155,7 @@ export function runCommand(args: {
         return;
       }
       settled = true;
+      clearCommandTimeout();
       resolve({
         ok: code === 0,
         code: code ?? -1,
@@ -147,6 +174,7 @@ export function runCommandArgs(args: {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   maxOutputChars?: number;
+  timeoutMs?: number;
 }): Promise<CommandResult> {
   return new Promise<CommandResult>((resolve) => {
     const cwd = resolveCommandCwd({ cwd: args.cwd });
@@ -165,6 +193,30 @@ export function runCommandArgs(args: {
     const stdout = createCommandOutputCollector(args.maxOutputChars);
     const stderr = createCommandOutputCollector(args.maxOutputChars);
     let settled = false;
+    const timeout =
+      args.timeoutMs && args.timeoutMs > 0
+        ? setTimeout(() => {
+            if (settled) {
+              return;
+            }
+            settled = true;
+            child.kill("SIGTERM");
+            resolve({
+              ok: false,
+              code: -1,
+              stdout: stdout.finish(),
+              stderr: `${stderr.finish()}\nCommand timed out after ${args.timeoutMs}ms.`.trim(),
+              stdoutTruncated: stdout.wasTruncated(),
+              stderrTruncated: stderr.wasTruncated(),
+            });
+          }, args.timeoutMs)
+        : null;
+    timeout?.unref?.();
+    const clearCommandTimeout = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
     child.stdout.on("data", (chunk: Buffer) => {
       stdout.append(chunk);
     });
@@ -176,6 +228,7 @@ export function runCommandArgs(args: {
         return;
       }
       settled = true;
+      clearCommandTimeout();
       resolve({
         ok: false,
         code: -1,
@@ -190,6 +243,7 @@ export function runCommandArgs(args: {
         return;
       }
       settled = true;
+      clearCommandTimeout();
       resolve({
         ok: code === 0,
         code: code ?? -1,

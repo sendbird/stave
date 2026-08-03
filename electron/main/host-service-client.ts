@@ -307,6 +307,7 @@ class HostServiceClient {
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: "1",
+        STAVE_HOST_PARENT_PID: String(process.pid),
       },
       stdio: ["pipe", "pipe", "pipe"],
     });

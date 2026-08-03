@@ -318,6 +318,9 @@ export interface BrowserNetworkEventPayload {
   workspaceId: string;
   /** Absent only in payloads from pre-multi-session builds; treat as "default". */
   lensSessionId?: string;
+  /** Batched updates; absent in payloads from older builds. */
+  entries?: BrowserNetworkEntry[];
+  /** Latest update, retained for backwards-compatible consumers. */
   entry: BrowserNetworkEntry;
 }
 

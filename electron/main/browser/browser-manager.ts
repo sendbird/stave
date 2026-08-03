@@ -176,9 +176,85 @@ const networkRequestMetadata = new Map<
   }
 >();
 const MAX_NETWORK_REQUEST_METADATA = NETWORK_BUFFER_SIZE * 5;
+const NETWORK_IPC_BATCH_INTERVAL_MS = 50;
+const NETWORK_IPC_BATCH_SIZE = 64;
+const networkIpcBatchBySessionKey = new Map<
+  string,
+  {
+    workspaceId: string;
+    lensSessionId: string;
+    entries: Map<string, BrowserNetworkEntry>;
+    latestEntry: BrowserNetworkEntry;
+    timer: ReturnType<typeof setTimeout> | null;
+  }
+>();
 
 function sessionKey(workspaceId: string, lensSessionId: string): string {
   return `${workspaceId}\u0000${lensSessionId}`;
+}
+
+function flushNetworkIpcBatch(key: string) {
+  const batch = networkIpcBatchBySessionKey.get(key);
+  if (!batch) {
+    return;
+  }
+  if (batch.timer) {
+    clearTimeout(batch.timer);
+  }
+  networkIpcBatchBySessionKey.delete(key);
+  const entries = [...batch.entries.values()];
+  const entry = batch.latestEntry;
+  const renderer = getMainWindow()?.webContents;
+  if (!entry || !renderer || renderer.isDestroyed()) {
+    return;
+  }
+  renderer.send("lens:network-entry", {
+    workspaceId: batch.workspaceId,
+    lensSessionId: batch.lensSessionId,
+    entries,
+    entry,
+  } satisfies BrowserNetworkEventPayload);
+}
+
+function clearNetworkIpcBatch(workspaceId: string, lensSessionId: string) {
+  const key = sessionKey(workspaceId, lensSessionId);
+  const batch = networkIpcBatchBySessionKey.get(key);
+  if (batch?.timer) {
+    clearTimeout(batch.timer);
+  }
+  networkIpcBatchBySessionKey.delete(key);
+}
+
+function queueNetworkIpcEntry(args: {
+  workspaceId: string;
+  lensSessionId: string;
+  entry: BrowserNetworkEntry;
+}) {
+  const key = sessionKey(args.workspaceId, args.lensSessionId);
+  let batch = networkIpcBatchBySessionKey.get(key);
+  if (!batch) {
+    batch = {
+      workspaceId: args.workspaceId,
+      lensSessionId: args.lensSessionId,
+      entries: new Map(),
+      latestEntry: args.entry,
+      timer: null,
+    };
+    networkIpcBatchBySessionKey.set(key, batch);
+  }
+  batch.entries.set(args.entry.entryId, args.entry);
+  batch.latestEntry = args.entry;
+  if (batch.entries.size >= NETWORK_IPC_BATCH_SIZE) {
+    flushNetworkIpcBatch(key);
+    return;
+  }
+  if (!batch.timer) {
+    batch.timer = setTimeout(
+      () => flushNetworkIpcBatch(key),
+      NETWORK_IPC_BATCH_INTERVAL_MS,
+    );
+    batch.timer.unref?.();
+  }
 }
 
 function normalizeLensSessionId(lensSessionId?: string | null): string {
@@ -823,6 +899,7 @@ export async function clearBrowserSessionData(
   for (const session of matchingSessions) {
     session.consoleLog.clear();
     session.networkLog.clear();
+    clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
     session.downloadLog.clear();
     const wc = session.view.webContents;
     if (!wc.isDestroyed() && wc.getURL() !== "about:blank") {
@@ -880,6 +957,7 @@ export function clearBrowserSessionLog(
     session.consoleLog.clear();
   } else {
     session.networkLog.clear();
+    clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
   }
   clearLensCdpDiagnostics(session.webContentsId, kind);
   return true;
@@ -982,6 +1060,7 @@ export function destroyBrowserSession(
   // Tombstone routing before any teardown work so late console/network events
   // cannot enqueue more renderer IPC while the view is closing.
   sessions.delete(sessionKey(session.workspaceId, session.lensSessionId));
+  clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
   if (webContentsSessionIndex.get(session.webContentsId) === session) {
     webContentsSessionIndex.delete(session.webContentsId);
   }
@@ -1201,14 +1280,9 @@ export function pushNetworkEntry(
     normalizedEntry,
   );
 
-  const renderer = getMainWindow()?.webContents;
-  if (!renderer || renderer.isDestroyed()) {
-    return;
-  }
-
-  renderer.send("lens:network-entry", {
+  queueNetworkIpcEntry({
     workspaceId,
     lensSessionId: session.lensSessionId,
     entry: normalizedEntry,
-  } satisfies BrowserNetworkEventPayload);
+  });
 }

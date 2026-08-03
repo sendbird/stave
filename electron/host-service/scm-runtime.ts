@@ -503,6 +503,7 @@ const GRAPH_COMMIT_METADATA_FIELDS = [
 ] as const;
 const GRAPH_COMMIT_METADATA_FORMAT = `${GRAPH_COMMIT_METADATA_FIELDS.join("%x00")}%x00`;
 const SCM_STRUCTURED_OUTPUT_LIMIT = 512 * 1024;
+export const SCM_READ_TIMEOUT_MS = 30_000;
 const SCM_COMMIT_DIFF_OUTPUT_LIMIT = 512 * 1024;
 const SCM_SERIALIZED_RESULT_LIMIT = 1_500_000;
 const GRAPH_REF_CONTROL_CHAR_PATTERN = /[\x00-\x1f\x7f]/;
@@ -641,6 +642,7 @@ export async function getScmGraph(
   const commandOptions = {
     cwd: args.cwd,
     maxOutputChars: SCM_STRUCTURED_OUTPUT_LIMIT,
+    timeoutMs: SCM_READ_TIMEOUT_MS,
   };
   const skippedRepositoryStateResult = {
     ok: false,
@@ -857,6 +859,7 @@ export async function getScmCommitDetails(
   const commandOptions = {
     cwd: args.cwd,
     maxOutputChars: SCM_STRUCTURED_OUTPUT_LIMIT,
+    timeoutMs: SCM_READ_TIMEOUT_MS,
   };
   const commandPlan = buildGraphCommitDetailCommandPlan(hash);
   const runPlannedCommand = (commandArgs: string[]) =>
@@ -921,6 +924,7 @@ export async function getScmCommitFiles(
   const commandOptions = {
     cwd: args.cwd,
     maxOutputChars: SCM_STRUCTURED_OUTPUT_LIMIT,
+    timeoutMs: SCM_READ_TIMEOUT_MS,
   };
   const commandPlan = buildGraphCommitFileCommandPlan(hash);
   const runPlannedCommand = (commandArgs: string[]) =>
@@ -992,6 +996,7 @@ export async function getScmCommitDiff(
   const commandOptions = {
     cwd: args.cwd,
     maxOutputChars: SCM_COMMIT_DIFF_OUTPUT_LIMIT,
+    timeoutMs: SCM_READ_TIMEOUT_MS,
   };
   const [newResult, oldResult] = await Promise.all([
     runCommand({
@@ -1050,6 +1055,7 @@ export async function getScmHistory(args: { cwd?: string; limit?: number }) {
       "--date=relative",
     ],
     cwd: args.cwd,
+    timeoutMs: SCM_READ_TIMEOUT_MS,
   });
   const items = result.ok
     ? result.stdout
