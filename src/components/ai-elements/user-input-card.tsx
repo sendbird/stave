@@ -256,7 +256,8 @@ export function UserInputCard(args: UserInputCardProps) {
         "text-sm",
         presentation === "inline" &&
           "rounded-lg border border-border/70 bg-background/80 p-3",
-        presentation === "composer" && "p-4 sm:p-5",
+        presentation === "composer" &&
+          "flex max-h-[min(60vh,34rem)] flex-col p-4 sm:p-5",
       )}
       onSubmit={(event) => {
         event.preventDefault();
@@ -265,7 +266,7 @@ export function UserInputCard(args: UserInputCardProps) {
         }
       }}
     >
-      <header className="flex items-start gap-3">
+      <header className="flex shrink-0 items-start gap-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <CircleHelp className="size-4" aria-hidden />
         </span>
@@ -283,7 +284,15 @@ export function UserInputCard(args: UserInputCardProps) {
       </header>
 
       {questions.length > 0 ? (
-        <div className="mt-4">
+        <div
+          className={cn(
+            "mt-4",
+            // The composer is height-capped, so long question sets have to scroll
+            // here instead of pushing the footer actions out of the viewport.
+            presentation === "composer" &&
+              "-mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1",
+          )}
+        >
           {questions.map((question, questionIndex) => {
             const questionKey = getQuestionKey(question);
             const selection = selectionByQuestion[questionKey] ?? {
@@ -535,7 +544,7 @@ export function UserInputCard(args: UserInputCardProps) {
         </div>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
+      <div className="mt-4 flex shrink-0 flex-wrap items-center gap-2 border-t border-border/60 pt-4">
         <Button type="submit" size="sm" disabled={disabled || !isReady}>
           Continue
         </Button>

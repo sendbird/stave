@@ -278,8 +278,7 @@ export const ConversationTurnRail = forwardRef<
         aria-label="Conversation turns"
         aria-orientation="vertical"
         className={cn(
-          UI_ELEVATION_CLASS.surface,
-          "h-full overflow-y-auto overscroll-contain rounded-full border border-border/65 bg-background/78 py-2 backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          "h-full overflow-y-auto overscroll-contain rounded-full bg-background/60 py-2 backdrop-blur-md [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         )}
         onScroll={updatePreviewPosition}
       >
