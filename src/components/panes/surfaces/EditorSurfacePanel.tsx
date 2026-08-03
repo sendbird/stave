@@ -72,6 +72,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui";
+import { isSnapshotDiffEditorTab } from "@/lib/editor/snapshot-diff-tabs";
 import { formatFileSize } from "@/lib/fs/file-preview-limits";
 import { buildPanePanelId, parsePanePanelId } from "@/lib/panes/types";
 import { resolvePathBaseName } from "@/lib/path-utils";
@@ -366,6 +367,12 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     diffMode && tab?.originalContent != null && !tabIsImage,
   );
   const diffSessionKey = showDiffDisplayControls && tab ? tab.id : null;
+  // A snapshot diff shows two frozen sides, so there is nothing to edit or
+  // save. Keeping it writable would let Cmd+S drop a stale snapshot on top of
+  // the working tree file. This has to hold in the single-editor branch too: an
+  // added file has an empty original side and renders there, and "Back to Edit"
+  // leaves the diff for it as well.
+  const tabIsReadOnly = isSnapshotDiffEditorTab(tab);
   const showCodeEditor = Boolean(
     tab &&
     tab.kind !== "git-graph" &&
@@ -968,7 +975,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
               })}
               theme={monacoTheme}
               options={{
-                readOnly: false,
+                readOnly: tabIsReadOnly,
                 renderSideBySide: diffViewMode === "split",
                 fixedOverflowWidgets: true,
                 minimap: { enabled: editorMinimap },
@@ -1053,6 +1060,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
               }
               theme={monacoTheme}
               options={{
+                readOnly: tabIsReadOnly,
                 fixedOverflowWidgets: true,
                 minimap: { enabled: editorMinimap },
                 fontSize: editorFontSize,

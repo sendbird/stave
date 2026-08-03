@@ -189,7 +189,7 @@ describe("editor save/conflict behavior", () => {
     expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(true);
     expect(useAppStore.getState().layout.editorDiffMode).toBe(false);
 
-    useAppStore.getState().openDiffInEditor({
+    await useAppStore.getState().openDiffInEditor({
       editorTabId: "scm-diff:README.md",
       filePath,
       oldContent: "# Before\n",
@@ -203,15 +203,17 @@ describe("editor save/conflict behavior", () => {
     expect(useAppStore.getState().layout.editorDiffMode).toBe(false);
   });
 
-  test("keeps chat-opened diff tabs clean until the modified side actually changes", async () => {
+  // Uses `scm-diff:`, an editable diff scheme. A `chat-diff:` tab is a frozen
+  // snapshot and renders read-only, so it can never reach an edited state.
+  test("keeps an editable diff tab clean until the modified side actually changes", async () => {
     const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
     const filePath = "note.txt";
     const fullPath = path.join(rootPath, filePath);
     await writeFile(fullPath, "after\n", "utf8");
 
     const { useAppStore } = await setupStore({ rootPath, filePath });
-    useAppStore.getState().openDiffInEditor({
-      editorTabId: "chat-diff:msg-1:0:note.txt",
+    await useAppStore.getState().openDiffInEditor({
+      editorTabId: "scm-diff:note.txt",
       filePath,
       oldContent: "before\n",
       newContent: "after\n",
@@ -219,29 +221,29 @@ describe("editor save/conflict behavior", () => {
 
     let tab = useAppStore
       .getState()
-      .editorTabs.find((item) => item.id === "chat-diff:msg-1:0:note.txt");
+      .editorTabs.find((item) => item.id === "scm-diff:note.txt");
     expect(tab?.isDirty).toBe(false);
 
     useAppStore
       .getState()
       .updateEditorContent({
-        tabId: "chat-diff:msg-1:0:note.txt",
+        tabId: "scm-diff:note.txt",
         content: "after\n",
       });
     tab = useAppStore
       .getState()
-      .editorTabs.find((item) => item.id === "chat-diff:msg-1:0:note.txt");
+      .editorTabs.find((item) => item.id === "scm-diff:note.txt");
     expect(tab?.isDirty).toBe(false);
 
     useAppStore
       .getState()
       .updateEditorContent({
-        tabId: "chat-diff:msg-1:0:note.txt",
+        tabId: "scm-diff:note.txt",
         content: "after plus edit\n",
       });
     tab = useAppStore
       .getState()
-      .editorTabs.find((item) => item.id === "chat-diff:msg-1:0:note.txt");
+      .editorTabs.find((item) => item.id === "scm-diff:note.txt");
     expect(tab?.isDirty).toBe(true);
   });
 
@@ -251,14 +253,19 @@ describe("editor save/conflict behavior", () => {
     await writeFile(path.join(rootPath, filePath), "after\n", "utf8");
 
     const { useAppStore } = await setupStore({ rootPath, filePath });
-    useAppStore.getState().openDiffInEditor({
+    await useAppStore.getState().openDiffInEditor({
       editorTabId: "scm-diff:note.txt",
       filePath,
       oldContent: "before\n",
       newContent: "after\n",
     });
 
-    useAppStore.getState().openDiffInEditor({
+    // The modified side of an SCM diff is the file on disk, so a reopen that
+    // reports new content only happens after the file itself changed. Leaving
+    // the old bytes on disk would ask the tab to show content the file does not
+    // have, which is the stale anchor this suite guards against elsewhere.
+    await writeFile(path.join(rootPath, filePath), "after again\n", "utf8");
+    await useAppStore.getState().openDiffInEditor({
       editorTabId: "scm-diff:note.txt",
       filePath,
       oldContent: "before again\n",
@@ -280,7 +287,7 @@ describe("editor save/conflict behavior", () => {
     await writeFile(path.join(rootPath, filePath), "after\n", "utf8");
 
     const { useAppStore } = await setupStore({ rootPath, filePath });
-    useAppStore.getState().openDiffInEditor({
+    await useAppStore.getState().openDiffInEditor({
       editorTabId: "scm-diff:note.txt",
       filePath,
       oldContent: "before\n",
@@ -291,7 +298,7 @@ describe("editor save/conflict behavior", () => {
       content: "after with local edit\n",
     });
 
-    useAppStore.getState().openDiffInEditor({
+    await useAppStore.getState().openDiffInEditor({
       editorTabId: "scm-diff:note.txt",
       filePath,
       oldContent: "before again\n",
@@ -334,6 +341,76 @@ describe("editor save/conflict behavior", () => {
     expect(tab?.hasConflict).toBe(true);
     expect(tab?.isDirty).toBe(true);
     expect(tab?.content).toBe("local change\n");
+  });
+
+  test("anchors a diff tab to the on-disk revision so a stale save conflicts", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "note.txt";
+    const fullPath = path.join(rootPath, filePath);
+    await writeFile(fullPath, "on disk\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    await useAppStore.getState().openDiffInEditor({
+      editorTabId: "scm-diff:note.txt",
+      filePath,
+      oldContent: "head revision\n",
+      newContent: "on disk\n",
+    });
+
+    const opened = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === "scm-diff:note.txt");
+    expect(opened).toBeDefined();
+    expect(opened?.baseRevision).toBeString();
+
+    useAppStore
+      .getState()
+      .updateEditorContent({
+        tabId: "scm-diff:note.txt",
+        content: "editor change\n",
+      });
+    await Bun.sleep(5);
+    await writeFile(fullPath, "external change\n", "utf8");
+
+    const saved = await useAppStore.getState().saveActiveEditorTab();
+    expect(saved.ok).toBe(false);
+    expect(saved.conflict).toBe(true);
+    expect(await readFile(fullPath, "utf8")).toBe("external change\n");
+
+    const tab = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === "scm-diff:note.txt");
+    expect(tab?.hasConflict).toBe(true);
+    expect(tab?.content).toBe("editor change\n");
+  });
+
+  test("leaves a dirty diff tab unflagged while the file on disk is unchanged", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "note.txt";
+    await writeFile(path.join(rootPath, filePath), "on disk\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    await useAppStore.getState().openDiffInEditor({
+      editorTabId: "scm-diff:note.txt",
+      filePath,
+      oldContent: "head revision\n",
+      newContent: "on disk\n",
+    });
+    useAppStore
+      .getState()
+      .updateEditorContent({
+        tabId: "scm-diff:note.txt",
+        content: "editor change\n",
+      });
+
+    await useAppStore.getState().checkOpenTabConflicts();
+
+    const tab = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === "scm-diff:note.txt");
+    expect(tab?.hasConflict).toBe(false);
+    expect(tab?.isDirty).toBe(true);
+    expect(tab?.content).toBe("editor change\n");
   });
 
   test("normalizes workspace absolute file paths before opening editor tabs", async () => {

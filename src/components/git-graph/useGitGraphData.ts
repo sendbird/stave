@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { COMMIT_GRAPH_WORKING_TREE_REVISION } from "@/lib/git-graph/presentation";
 import type {
   GraphCommitDetails,
   GraphFileChange,
@@ -11,7 +12,11 @@ import {
   loadWorkingTree,
 } from "./git-graph-actions";
 
-export const WORKING_TREE_SELECTION = "working-tree" as const;
+/**
+ * Shares the commit graph's working-tree revision token so selection state and
+ * diff editor-tab ids cannot drift apart.
+ */
+export const WORKING_TREE_SELECTION = COMMIT_GRAPH_WORKING_TREE_REVISION;
 
 export type GitGraphSelection =
   | { kind: "commit"; hash: string }

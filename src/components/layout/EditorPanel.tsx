@@ -588,11 +588,15 @@ export function EditorPanel(props: EditorPanelProps) {
           newContent: result.newContent,
         }
       : parseUnifiedDiffToBuffers({ patch: result.content });
-    openDiffInEditor({
+    await openDiffInEditor({
       editorTabId: `scm-diff:${args.path}`,
       filePath: args.path,
       oldContent: parsed.oldContent,
       newContent: parsed.newContent,
+      // Opening reads the file again, so this request can still lose the race to
+      // a later selection. Without re-checking, the slower file would reopen and
+      // become active on top of the one the user actually picked last.
+      isStale: () => selectedDiffRequestIdRef.current !== requestId,
     });
     if (!result.ok && result.stderr) {
       setSourceError(result.stderr);
