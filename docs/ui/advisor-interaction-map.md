@@ -149,8 +149,8 @@ testable without the browser.
    `src/components/session/advisor-exchange.utils.ts` that converts an
    `AdvisorExchangeSnapshot` into node states, relationship states, labels, and
    detail rows.
-2. Add `src/components/session/AdvisorInteractionMap.tsx` for the graph, node
-   controls, relationship labels, and detail rail.
+2. Add a new `AdvisorInteractionMap` component beside the existing session
+   monitor for the graph, node controls, relationship labels, and detail rail.
 3. Add the Interaction map trigger and open state to
    `src/components/session/AdvisorExchangeMonitor.tsx`. Keep open state scoped
    to the current exchange and reset it when `turnId` changes.
