@@ -1,12 +1,18 @@
 import { getTodoProgress, type TodoItem } from "@/components/ai-elements/todo";
 import type { ToolUsePart } from "@/types/chat";
 
-export type TraceToolSummary =
-  | { kind: "command"; text: string }
-  | { kind: "file"; text: string }
-  | { kind: "search"; text: string }
-  | { kind: "web"; text: string }
-  | { kind: "text"; text: string };
+export type TraceToolSummaryKind = "command" | "file" | "search" | "web" | "text";
+
+export interface TraceToolSummary {
+  kind: TraceToolSummaryKind;
+  text: string;
+  /**
+   * Input key the chip text came from, when it came from a parsed JSON field.
+   * The expanded step strips this key so the same value is not rendered twice —
+   * once as the header chip and again as raw JSON.
+   */
+  sourceKey?: string;
+}
 
 const TRACE_SUMMARY_MAX_LENGTH = 160;
 const TRACE_COMMAND_SUMMARY_MAX_LENGTH = 200;
@@ -33,26 +39,34 @@ function parseToolInputRecord(input: string): Record<string, unknown> | null {
   }
 }
 
-function getStringField(record: Record<string, unknown> | null, keys: string[]): string | null {
+interface MatchedField {
+  key: string;
+  value: string;
+}
+
+function matchStringField(
+  record: Record<string, unknown> | null,
+  keys: string[],
+): MatchedField | null {
   if (!record) {
     return null;
   }
   for (const key of keys) {
     const value = record[key];
     if (typeof value === "string" && value.trim()) {
-      return value;
+      return { key, value };
     }
   }
   return null;
 }
 
-function getFirstStringField(record: Record<string, unknown> | null): string | null {
+function matchFirstStringField(record: Record<string, unknown> | null): MatchedField | null {
   if (!record) {
     return null;
   }
-  for (const value of Object.values(record)) {
+  for (const [key, value] of Object.entries(record)) {
     if (typeof value === "string" && value.trim()) {
-      return value;
+      return { key, value };
     }
   }
   return null;
@@ -78,73 +92,120 @@ export function deriveTraceToolSummary(args: {
   const normalizedToolName = normalizeTraceToolName(args.toolName);
   const parsed = parseToolInputRecord(args.input);
 
+  /*
+   * `sourceKey` is only set when the chip text is the *whole* field value.
+   * A truncated preview keeps `sourceKey` undefined so the expanded step still
+   * shows the full value instead of silently dropping the tail.
+   */
+  function fromField(
+    kind: TraceToolSummaryKind,
+    match: MatchedField | null,
+    maxLength: number,
+  ): TraceToolSummary | null {
+    const raw = match?.value ?? args.input;
+    const text = getTrimmedPreview(raw, maxLength);
+    if (!text) {
+      return null;
+    }
+    return { kind, text, sourceKey: match && text === raw.trim() ? match.key : undefined };
+  }
+
+  /*
+   * File chips show the basename for scannability, so the directory is only
+   * recoverable from the expanded step. `sourceKey` is therefore withheld
+   * unless the path *is* its own basename — otherwise de-duplicating would
+   * throw the directory away, not just the repetition.
+   */
+  function fromFileField(match: MatchedField | null): TraceToolSummary | null {
+    if (!match) {
+      return null;
+    }
+    const name = extractFileName(match.value);
+    return {
+      kind: "file",
+      text: name,
+      sourceKey: name === match.value.trim() ? match.key : undefined,
+    };
+  }
+
   switch (normalizedToolName) {
-    case "bash": {
-      const command = getTrimmedPreview(
-        getStringField(parsed, ["command"]) ?? args.input,
+    case "bash":
+      return fromField(
+        "command",
+        matchStringField(parsed, ["command"]),
         TRACE_COMMAND_SUMMARY_MAX_LENGTH,
       );
-      return command ? { kind: "command", text: command } : null;
-    }
     case "read":
     case "write":
-    case "edit": {
-      const filePath = getStringField(parsed, ["file_path", "path"]);
-      return filePath ? { kind: "file", text: extractFileName(filePath) } : null;
-    }
+    case "edit":
+      return fromFileField(matchStringField(parsed, ["file_path", "path"]));
     case "glob":
-    case "grep": {
-      const pattern = getTrimmedPreview(
-        getStringField(parsed, ["pattern"]) ?? args.input,
-        TRACE_SUMMARY_MAX_LENGTH,
-      );
-      return pattern ? { kind: "search", text: pattern } : null;
-    }
-    case "websearch": {
-      const query = getTrimmedPreview(
-        getStringField(parsed, ["query", "q"]) ?? args.input,
-        TRACE_SUMMARY_MAX_LENGTH,
-      );
-      return query ? { kind: "web", text: query } : null;
-    }
-    case "webfetch": {
-      const url = getTrimmedPreview(
-        getStringField(parsed, ["url", "ref_id"]) ?? args.input,
-        TRACE_SUMMARY_MAX_LENGTH,
-      );
-      return url ? { kind: "web", text: url } : null;
-    }
+    case "grep":
+      return fromField("search", matchStringField(parsed, ["pattern"]), TRACE_SUMMARY_MAX_LENGTH);
+    case "websearch":
+      return fromField("web", matchStringField(parsed, ["query", "q"]), TRACE_SUMMARY_MAX_LENGTH);
+    case "webfetch":
+      return fromField("web", matchStringField(parsed, ["url", "ref_id"]), TRACE_SUMMARY_MAX_LENGTH);
     default: {
-      const filePath = getStringField(parsed, ["file_path", "path"]);
-      if (filePath) {
-        return { kind: "file", text: extractFileName(filePath) };
+      const fileSummary = fromFileField(matchStringField(parsed, ["file_path", "path"]));
+      if (fileSummary) {
+        return fileSummary;
       }
 
-      const patternValue = getStringField(parsed, ["pattern"]);
-      const pattern = patternValue ? getTrimmedPreview(patternValue, TRACE_SUMMARY_MAX_LENGTH) : null;
-      if (pattern) {
-        return { kind: "search", text: pattern };
+      const patternMatch = matchStringField(parsed, ["pattern"]);
+      if (patternMatch) {
+        const pattern = fromField("search", patternMatch, TRACE_SUMMARY_MAX_LENGTH);
+        if (pattern) {
+          return pattern;
+        }
       }
 
-      const queryValue = getStringField(parsed, ["query", "q"]);
-      const query = queryValue ? getTrimmedPreview(queryValue, TRACE_SUMMARY_MAX_LENGTH) : null;
-      if (query) {
-        return { kind: "web", text: query };
+      const queryMatch = matchStringField(parsed, ["query", "q"]);
+      if (queryMatch) {
+        const query = fromField("web", queryMatch, TRACE_SUMMARY_MAX_LENGTH);
+        if (query) {
+          return query;
+        }
       }
 
-      const urlValue = getStringField(parsed, ["url", "ref_id"]);
-      const url = urlValue ? getTrimmedPreview(urlValue, TRACE_SUMMARY_MAX_LENGTH) : null;
-      if (url) {
-        return { kind: "web", text: url };
+      const urlMatch = matchStringField(parsed, ["url", "ref_id"]);
+      if (urlMatch) {
+        const url = fromField("web", urlMatch, TRACE_SUMMARY_MAX_LENGTH);
+        if (url) {
+          return url;
+        }
       }
 
-      const description = getTrimmedPreview(
-        getStringField(parsed, ["description", "prompt", "command"]) ?? getFirstStringField(parsed) ?? args.input,
-        TRACE_SUMMARY_MAX_LENGTH,
-      );
-      return description ? { kind: "text", text: description } : null;
+      const descriptionMatch =
+        matchStringField(parsed, ["description", "prompt", "command"]) ?? matchFirstStringField(parsed);
+      return fromField("text", descriptionMatch, TRACE_SUMMARY_MAX_LENGTH);
     }
   }
+}
+
+/**
+ * Input JSON with the chip's field removed, or `null` when nothing is left to
+ * show. Single-argument tools (`Bash`, `Read`, `Grep`) therefore render no
+ * INPUT panel at all — the header chip already carries the whole input.
+ */
+export function getResidualToolInput(args: {
+  input: string;
+  summary: TraceToolSummary | null;
+}): string | null {
+  const sourceKey = args.summary?.sourceKey;
+  if (!sourceKey) {
+    return args.input.trim() || null;
+  }
+
+  const parsed = parseToolInputRecord(args.input);
+  if (!parsed || !(sourceKey in parsed)) {
+    return args.input.trim() || null;
+  }
+
+  const residual = Object.fromEntries(
+    Object.entries(parsed).filter(([key]) => key !== sourceKey),
+  );
+  return Object.keys(residual).length > 0 ? JSON.stringify(residual, null, 2) : null;
 }
 
 export function deriveTodoTraceStatus(args: {

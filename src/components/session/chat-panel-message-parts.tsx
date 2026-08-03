@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import {
-  type ChainOfThoughtStepData as ChainOfThoughtStep,
   CompactingIndicator,
   ConfirmationCompact,
   ContextCompactedCheckpoint,
@@ -21,7 +20,6 @@ import {
 } from "@/components/ai-elements";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import {
-  isSubagentProgressSystemEvent,
   isSubagentToolPart,
   isTodoToolPart,
   shouldAutoOpenToolPart,
@@ -298,57 +296,4 @@ export function MessagePartRenderer(args: {
     case "thinking":
       return null;
   }
-}
-
-export function buildChainOfThoughtSteps(
-  parts: MessagePart[],
-): ChainOfThoughtStep[] {
-  const steps: ChainOfThoughtStep[] = [];
-  parts.forEach((part, index) => {
-    if (part.type === "tool_use") {
-      const isSubagent = isSubagentToolPart({ toolName: part.toolName });
-      if (!isSubagent) {
-        return;
-      }
-      const subagentInput = isSubagent
-        ? parseSubagentToolInput({ input: part.input })
-        : null;
-      // Use the latest progress message as the CoT detail when the agent is active.
-      const latestProgress = part.progressMessages?.at(-1);
-      steps.push({
-        id: `tool-${index}`,
-        label: isSubagent
-          ? (subagentInput?.description ??
-            subagentInput?.subagentType ??
-            "Subagent")
-          : part.toolName,
-        detail:
-          latestProgress ??
-          (isSubagent
-            ? (subagentInput?.prompt ?? part.input ?? part.output)
-            : part.input || part.output),
-        status:
-          part.state === "input-streaming"
-            ? "active"
-            : part.state === "output-available"
-              ? "done"
-              : "pending",
-        kind: isSubagent ? "agent" : "tool",
-      });
-      return;
-    }
-    if (part.type === "system_event") {
-      // Skip subagent progress events — they are already shown inside the SubagentCard.
-      if (isSubagentProgressSystemEvent(part.content)) {
-        return;
-      }
-      steps.push({
-        id: `system-${index}`,
-        label: part.content,
-        status: "done",
-        kind: "system",
-      });
-    }
-  });
-  return steps;
 }

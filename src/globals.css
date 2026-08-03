@@ -152,6 +152,14 @@
   --tt-out-ease: ease-out;
   --pulse-dur: 1000ms;
   --pulse-min: 0.5;
+  /*
+   * Agent trace motion easings. Deliberately plain CSS variables rather than
+   * `@theme inline` entries: they are motion tokens, so they must stay out of
+   * the color-token surface that `src/lib/themes/presets.ts` and the built-in
+   * themes have to mirror.
+   */
+  --ease-agent-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-agent-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .dark {
@@ -647,48 +655,88 @@
   }
 }
 
+/*
+ * Custom animation utilities MUST be declared with `@utility`, not as plain
+ * `.animate-*` rules inside `@layer utilities`. Tailwind v4 only generates
+ * variant forms (`motion-safe:`, `hover:`, …) for utilities it knows about, so a
+ * hand-written class in `@layer utilities` silently produces *nothing* when
+ * prefixed — `motion-safe:animate-cascade-char` would never be emitted and the
+ * animation would appear to be missing entirely.
+ */
+
+@utility animate-dropdown-in {
+  animation: dropdown-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top center;
+}
+
+@utility animate-message-wave {
+  animation: message-wave 900ms ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+@utility animate-cot-step-in {
+  animation: cot-step-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top;
+}
+
+@utility animate-cot-content-in {
+  animation: cot-content-in 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top;
+}
+
+/* ── Agent trace motion ────────────────────────────────────────────── */
+
+@utility animate-trace-reveal {
+  animation: trace-reveal 220ms var(--ease-agent-out);
+  transform-origin: top;
+}
+
+@utility animate-trace-row-in {
+  animation: trace-row-in 260ms var(--ease-agent-spring);
+  transform-origin: top;
+}
+
+@utility animate-cascade-char {
+  animation: cascade-char 320ms var(--ease-agent-out) backwards;
+  animation-delay: calc(var(--cascade-i, 0) * 25ms);
+}
+
+/* Thinking orb — halo bloom, core breath, and the glint sweeping the rim. */
+
+@utility animate-thinking-orb-halo {
+  animation: thinking-orb-halo 2.4s ease-in-out infinite;
+}
+
+@utility animate-thinking-orb-core {
+  animation: thinking-orb-core 2.4s ease-in-out infinite;
+}
+
+@utility animate-thinking-orb-spin {
+  animation: thinking-orb-spin 1.8s linear infinite;
+}
+
+@utility animate-text-shimmer {
+  animation: text-shimmer 2s linear infinite;
+}
+
+@utility animate-thinking-shimmer {
+  animation: thinking-shimmer 2s ease-in-out infinite;
+}
+
+@utility animate-thinking-phrase-soft {
+  animation: thinking-phrase-soft 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@utility animate-thinking-label-settle {
+  animation: thinking-label-settle 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: left center;
+}
+
+@utility animate-terminal-caret {
+  animation: terminal-caret 1.05s steps(1, end) infinite;
+}
+
 @layer utilities {
-  .animate-dropdown-in {
-    animation: dropdown-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    transform-origin: top center;
-  }
-
-  .animate-message-wave {
-    animation: message-wave 900ms ease-in-out infinite;
-    transform-origin: bottom;
-  }
-
-  .animate-cot-step-in {
-    animation: cot-step-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    transform-origin: top;
-  }
-
-  .animate-cot-content-in {
-    animation: cot-content-in 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    transform-origin: top;
-  }
-
-  .animate-text-shimmer {
-    animation: text-shimmer 2s linear infinite;
-  }
-
-  .animate-thinking-shimmer {
-    animation: thinking-shimmer 2s ease-in-out infinite;
-  }
-
-  .animate-thinking-phrase-soft {
-    animation: thinking-phrase-soft 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .animate-thinking-label-settle {
-    animation: thinking-label-settle 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    transform-origin: left center;
-  }
-
-  .animate-terminal-caret {
-    animation: terminal-caret 1.05s steps(1, end) infinite;
-  }
-
   .t-dropdown {
     transform-origin: var(--transform-origin, top left);
     opacity: 1;
@@ -989,6 +1037,85 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/*
+ * Agent trace keyframes. `trace-reveal` wipes content in from the top with a
+ * clip-path rather than a height transition so it never needs a measured
+ * height; `trace-row-in` overshoots slightly for the springy row entrance.
+ */
+@keyframes trace-reveal {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes trace-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cascade-char {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes thinking-orb-halo {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(0.88);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes thinking-orb-core {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes thinking-orb-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
   }
 }
 

@@ -1,11 +1,15 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { useRotatingThinkingPhrase } from "@/lib/thinking-phrases";
-import { Shimmer } from "./shimmer";
+import { useAgentPhraseVariant, useAgentStyle } from "./agent-style-context";
+import { ReasoningText, type ReasoningTextVariant } from "./reasoning-text";
 
 interface ThinkingPhraseLabelProps {
   active: boolean;
   className?: string;
+  /** Overrides the style-derived variant (used by the dev preview controls). */
+  variant?: ReasoningTextVariant;
 }
 
 interface ThinkingAnimatedTextProps {
@@ -15,34 +19,24 @@ interface ThinkingAnimatedTextProps {
   active?: boolean;
   replayWhileActive?: boolean;
   settleOnStop?: boolean;
+  variant?: ReasoningTextVariant;
 }
 
 const ACTIVE_REPLAY_INTERVAL_MS = 2200;
 const SETTLE_DURATION_MS = 220;
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
-function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
-    const syncPreference = () => setPrefersReducedMotion(mediaQuery.matches);
-    syncPreference();
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", syncPreference);
-      return () => mediaQuery.removeEventListener("change", syncPreference);
-    }
-
-    mediaQuery.addListener(syncPreference);
-    return () => mediaQuery.removeListener(syncPreference);
-  }, []);
-
-  return prefersReducedMotion;
+/** `legacy` keeps the previous single-span fade; `beui` cascades per character. */
+function useStyleVariant(explicit?: ReasoningTextVariant): ReasoningTextVariant {
+  const style = useAgentStyle();
+  const previewVariant = useAgentPhraseVariant();
+  if (explicit) {
+    return explicit;
+  }
+  /* TODO(agent-style-legacy): drop once the new trace visual is signed off. */
+  if (style === "legacy") {
+    return "swap";
+  }
+  return previewVariant ?? "cascade";
 }
 
 function ThinkingAnimatedTextComponent({
@@ -52,8 +46,10 @@ function ThinkingAnimatedTextComponent({
   active = false,
   replayWhileActive = false,
   settleOnStop = false,
+  variant,
 }: ThinkingAnimatedTextProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
+  const resolvedVariant = useStyleVariant(variant);
   const wasActiveRef = useRef(active);
   const [replayTick, setReplayTick] = useState(0);
   const [isSettling, setIsSettling] = useState(false);
@@ -86,36 +82,38 @@ function ThinkingAnimatedTextComponent({
     wasActiveRef.current = active;
   }, [active, prefersReducedMotion, settleOnStop]);
 
-  const content = shimmer ? (
-    <Shimmer
-      as="span"
-      className="leading-none [--shimmer-base-color:var(--color-muted-foreground)]"
-    >
-      {text}
-    </Shimmer>
-  ) : text;
-
   return (
-    <span
+    <ReasoningText
       key={`${text}:${active && replayWhileActive ? replayTick : "static"}`}
+      text={text}
+      variant={resolvedVariant}
+      active={active}
+      shimmer={shimmer}
       className={cn(
-        "inline-flex",
-        !prefersReducedMotion && "motion-safe:animate-thinking-phrase-soft",
         isSettling && "motion-safe:animate-thinking-label-settle",
         className,
       )}
-    >
-      {content}
-    </span>
+    />
   );
 }
 
 function ThinkingPhraseLabelComponent({
   active,
   className,
+  variant,
 }: ThinkingPhraseLabelProps) {
   const phrase = useRotatingThinkingPhrase(active);
-  return <ThinkingAnimatedText text={phrase} shimmer active={active} className={className} />;
+  const resolvedVariant = useStyleVariant(variant);
+  return (
+    <ReasoningText
+      key={phrase}
+      text={phrase}
+      variant={resolvedVariant}
+      active={active}
+      shimmer
+      className={className}
+    />
+  );
 }
 
 export const ThinkingAnimatedText = memo(ThinkingAnimatedTextComponent);

@@ -26,11 +26,16 @@ import {
   getTodoProgress,
   MessageResponse,
   Shimmer,
+  StreamingThoughtViewport,
   ThinkingAnimatedText,
   ToolInput,
-  ToolOutput,
+  ToolResult,
+  ToolResultOutput,
+  ToolResultStatusIcon,
+  toToolResultStatus,
   parseSubagentToolInput,
 } from "@/components/ai-elements";
+import { useAgentStyle } from "@/components/ai-elements/agent-style-context";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import { MESSAGE_BODY_LINE_HEIGHT } from "@/components/ai-elements/message-styles";
 import type { TraceSummaryItem } from "@/components/ai-elements/chain-of-thought";
@@ -41,13 +46,14 @@ import {
   ReferencedFilesBlock,
 } from "@/components/session/chat-panel-file-blocks";
 import { MessagePartRenderer, toToolDisplayName } from "@/components/session/chat-panel-message-parts";
-import { parseFileChangeToolInput } from "@/components/session/chat-panel.utils";
+import { parseFileChangeToolInput, summarizeDiffLineChanges } from "@/components/session/chat-panel.utils";
 import { cn } from "@/lib/utils";
 import type { ChatMessage, CodeDiffPart, MessagePart, ThinkingPart } from "@/types/chat";
 import {
   deriveTodoTraceItems,
   deriveTodoTraceStatus,
   deriveTraceToolSummary,
+  getResidualToolInput,
   normalizeTraceToolName,
   type TraceToolSummary,
 } from "./assistant-trace.utils";
@@ -115,31 +121,35 @@ function getEntryIcon(entry: AssistantTraceEntry): ReactNode | undefined {
 
 /* ─── Step summary chips ─────────────────────────────────────────── */
 
+/**
+ * Shared "target" chip — the file, command, pattern, or URL a step acted on.
+ * One mono treatment for every kind so a trace column reads as a single list of
+ * targets instead of four competing chip styles.
+ */
+const TRACE_TARGET_CHIP_CLASS =
+  "ml-1 inline-flex max-w-2xl items-center gap-1 truncate rounded-lg bg-muted/80 px-2.5 py-1 font-mono text-[0.85em] leading-none text-muted-foreground";
+
 function renderTraceToolSummaryChip(summary: TraceToolSummary): ReactNode {
   switch (summary.kind) {
     case "command":
-      return (
-        <span className="ml-1 inline-flex max-w-2xl items-center truncate rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[0.85em] leading-none text-muted-foreground">
-          {summary.text}
-        </span>
-      );
+      return <span className={TRACE_TARGET_CHIP_CLASS}>{summary.text}</span>;
     case "file":
       return (
-        <span className="ml-1 inline-flex max-w-2xl items-center gap-1 truncate rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 text-[0.85em] leading-none text-muted-foreground">
+        <span className={TRACE_TARGET_CHIP_CLASS}>
           <FileText className="size-[0.85em] shrink-0" />
           {summary.text}
         </span>
       );
     case "search":
       return (
-        <span className="ml-1 inline-flex max-w-2xl items-center gap-1 truncate rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[0.85em] leading-none text-muted-foreground">
+        <span className={TRACE_TARGET_CHIP_CLASS}>
           <Search className="size-[0.85em] shrink-0" />
           {summary.text}
         </span>
       );
     case "web":
       return (
-        <span className="ml-1 inline-flex max-w-2xl items-center gap-1 truncate rounded bg-muted/60 px-1.5 py-0.5 text-[0.85em] leading-none text-muted-foreground">
+        <span className={TRACE_TARGET_CHIP_CLASS}>
           <Globe className="size-[0.85em] shrink-0" />
           {summary.text}
         </span>
@@ -157,7 +167,7 @@ function getToolSummary(toolName: string, input: string): ReactNode {
   if (normalizeTraceToolName(toolName) === "file_change") {
     const rows = parseFileChangeToolInput(input);
     return rows.length > 0 ? (
-      <span className="ml-1 inline-flex max-w-2xl items-center gap-1 truncate rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 text-[0.85em] leading-none text-muted-foreground">
+      <span className={TRACE_TARGET_CHIP_CLASS}>
         <FileCode2 className="size-[0.85em] shrink-0" />
         {rows.length} {rows.length === 1 ? "file" : "files"}
       </span>
@@ -188,10 +198,39 @@ function getEntrySummary(entry: AssistantTraceEntry): ReactNode {
         </span>
       ) : null;
     }
-    case "diff":
-      return entry.parts.length > 1 ? (
-        <span className="ml-1 text-[0.75em] text-muted-foreground/70">{entry.parts.length} files</span>
-      ) : null;
+    case "diff": {
+      /* `+N / -N` uses the semantic success / destructive tokens so the counts
+         stay legible in every built-in theme (no new colour tokens). */
+      const totals = entry.parts.reduce(
+        (accumulator, part) => {
+          const changes = summarizeDiffLineChanges({
+            oldContent: part.oldContent,
+            newContent: part.newContent,
+          });
+          return {
+            added: accumulator.added + changes.added,
+            removed: accumulator.removed + changes.removed,
+          };
+        },
+        { added: 0, removed: 0 },
+      );
+      if (entry.parts.length <= 1 && totals.added === 0 && totals.removed === 0) {
+        return null;
+      }
+      return (
+        <span className="ml-1 inline-flex items-center gap-1.5 text-[0.8em] leading-none">
+          {entry.parts.length > 1 ? (
+            <span className="text-muted-foreground/70">{entry.parts.length} files</span>
+          ) : null}
+          {totals.added > 0 ? (
+            <span className="font-medium tabular-nums text-success">+{totals.added}</span>
+          ) : null}
+          {totals.removed > 0 ? (
+            <span className="font-medium tabular-nums text-destructive">-{totals.removed}</span>
+          ) : null}
+        </span>
+      );
+    }
     default:
       return null;
   }
@@ -267,23 +306,78 @@ function buildTraceSummary(entries: AssistantTraceEntry[]): TraceSummaryItem[] {
 
 /* ─── Step detail components (expanded content) ───────────────────── */
 
+/**
+ * Row meta — elapsed time plus a failure badge.
+ *
+ * Only `error` and `cancelled` get a badge. The rail icon already spins while
+ * running and mutes when done, so a success check on every row would be a green
+ * carpet that adds no signal; a failure, by contrast, is currently invisible in
+ * the collapsed row. The expanded body still carries the full status label.
+ */
+function ToolStepMeta(args: { part: { state?: string; elapsedSeconds?: number } }) {
+  const { state, elapsedSeconds } = args.part;
+  const showBadge = state === "output-error";
+  const showElapsed = elapsedSeconds != null && elapsedSeconds >= 1;
+  if (!showBadge && !showElapsed) {
+    return null;
+  }
+  return (
+    <span className="ml-1 inline-flex items-center gap-[0.35em]">
+      {showElapsed ? (
+        <span className="text-[0.75em] tabular-nums text-muted-foreground/70">
+          {formatTraceElapsed(elapsedSeconds)}
+        </span>
+      ) : null}
+      {showBadge ? <ToolResultStatusIcon status="error" /> : null}
+    </span>
+  );
+}
+
+function formatTraceElapsed(seconds: number): string {
+  const total = Math.round(seconds);
+  if (total < 60) {
+    return `${total}s`;
+  }
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
+  return remainder === 0 ? `${minutes}m` : `${minutes}m ${remainder}s`;
+}
+
 function ToolStepDetail(args: {
   input: string;
   output?: string;
+  summary: TraceToolSummary | null;
   state?: "input-streaming" | "input-available" | "output-available" | "output-error";
 }) {
+  /*
+   * The header chip already renders the command / file / pattern / URL, so the
+   * raw INPUT panel is dropped unless the call carries arguments the chip does
+   * not cover. Single-argument tools (Bash, Read, Grep, …) therefore show the
+   * output only, instead of repeating the same string as JSON one row below it.
+   */
+  const residualInput = useMemo(
+    () => getResidualToolInput({ input: args.input, summary: args.summary }),
+    [args.input, args.summary],
+  );
+  const isStreamingInput = args.state === "input-streaming";
+  const showOutput = !isStreamingInput || Boolean(args.output?.trim());
+
   return (
-    <div className="space-y-2">
-      <ToolInput input={args.input} />
-      {(args.state !== "input-streaming" || args.output?.trim()) ? (
-        <ToolOutput
-          label={args.state === "input-streaming" ? "Live output" : undefined}
-          outputText={args.output}
+    <ToolResult
+      headless
+      status={toToolResultStatus(args.state)}
+      copyText={args.output?.trim() ? args.output : undefined}
+    >
+      {residualInput ? <ToolInput input={residualInput} /> : null}
+      {showOutput ? (
+        <ToolResultOutput
+          label={isStreamingInput ? "Live output" : undefined}
+          text={args.output}
           errorText={args.state === "output-error" ? (args.output ?? "Tool failed.") : undefined}
-          linkifyOutputText={args.state !== "input-streaming"}
+          linkify={!isStreamingInput}
         />
       ) : null}
-    </div>
+    </ToolResult>
   );
 }
 
@@ -295,7 +389,11 @@ function SubagentStepDetail(args: {
 }) {
   const parsed = useMemo(() => parseSubagentToolInput({ input: args.input }), [args.input]);
   return (
-    <div className="space-y-2">
+    <ToolResult
+      headless
+      status={toToolResultStatus(args.state)}
+      copyText={args.output?.trim() ? args.output : undefined}
+    >
       {args.progressMessages?.length ? (
         <ul className="space-y-1">
           {args.progressMessages.map((message, index) => (
@@ -306,14 +404,16 @@ function SubagentStepDetail(args: {
           ))}
         </ul>
       ) : null}
+      {/* The subagent chip carries only the type, so the prompt is still new
+          information and stays visible. */}
       <ToolInput input={parsed.prompt ?? parsed.raw} />
       {args.state !== "input-streaming" ? (
-        <ToolOutput
-          outputText={args.output}
+        <ToolResultOutput
+          text={args.output}
           errorText={args.state === "output-error" ? (args.output ?? "Subagent failed.") : undefined}
         />
       ) : null}
-    </div>
+    </ToolResult>
   );
 }
 
@@ -427,9 +527,16 @@ function ReasoningStepView(args: {
       openWhen={entry.isStreaming}
     >
       {entry.isStreaming ? (
-        <p className="whitespace-pre-wrap text-muted-foreground" style={{ lineHeight: MESSAGE_BODY_LINE_HEIGHT }}>
-          {reasoningText || "Thinking..."}
-        </p>
+        /*
+         * Cap the *thought*, not the trace. The step row above stays pinned, so
+         * the "Thinking" label and its icon never fade out; only the prose
+         * glides under the top fade once it outgrows the cap.
+         */
+        <StreamingThoughtViewport>
+          <p className="whitespace-pre-wrap text-muted-foreground" style={{ lineHeight: MESSAGE_BODY_LINE_HEIGHT }}>
+            {reasoningText || "Thinking..."}
+          </p>
+        </StreamingThoughtViewport>
       ) : (
         <LinkifiedText
           as="p"
@@ -451,9 +558,14 @@ function AssistantTraceEntryView(args: {
   messageId: string;
 }) {
   const { entry, isStreaming, taskId, messageId } = args;
+  const agentStyle = useAgentStyle();
   const status = toStepStatus({ entry, isStreaming });
   const icon = getEntryIcon(entry);
   const summary = getEntrySummary(entry);
+  /* TODO(agent-style-legacy): collapse to `animate-trace-row-in` once signed off. */
+  const rowMotionClass = agentStyle === "legacy"
+    ? "motion-safe:animate-cot-step-in"
+    : "motion-safe:animate-trace-row-in";
 
   switch (entry.kind) {
     case "reasoning":
@@ -462,7 +574,7 @@ function AssistantTraceEntryView(args: {
     /* Assistant text — bullet point, content always visible (no accordion). */
     case "assistant_text":
       return (
-        <div className="flex gap-[0.7em] text-[0.875em] text-muted-foreground motion-safe:animate-cot-step-in">
+        <div className={cn("flex gap-[0.7em] text-[0.875em] text-muted-foreground", rowMotionClass)}>
           <div className="relative mt-[0.265em] flex flex-col items-center">
             <span className="flex size-[1.15em] items-center justify-center" aria-hidden="true">
               <span className="size-[0.35em] rounded-full bg-muted-foreground/50" />
@@ -477,19 +589,31 @@ function AssistantTraceEntryView(args: {
         </div>
       );
 
-    case "tool":
+    case "tool": {
+      const toolSummary = normalizeTraceToolName(entry.part.toolName) === "file_change"
+        ? null
+        : deriveTraceToolSummary({ toolName: entry.part.toolName, input: entry.part.input });
       return (
         <ChainOfThoughtStep
           title={toToolDisplayName(entry.part.toolName)}
           status={status}
           icon={icon}
           summary={summary}
+          trailing={<ToolStepMeta part={entry.part} />}
           defaultOpen={entry.part.state === "input-streaming"}
           openWhen={entry.part.state === "input-streaming"}
+          /* Errors stay expanded — auto-collapse only hides a clean result. */
+          collapseWhen={entry.part.state === "output-available"}
         >
-          <ToolStepDetail input={entry.part.input} output={entry.part.output} state={entry.part.state} />
+          <ToolStepDetail
+            input={entry.part.input}
+            output={entry.part.output}
+            summary={toolSummary}
+            state={entry.part.state}
+          />
         </ChainOfThoughtStep>
       );
+    }
 
     case "subagent": {
       const parsed = parseSubagentToolInput({ input: entry.part.input });
@@ -510,8 +634,10 @@ function AssistantTraceEntryView(args: {
           kind="agent"
           icon={icon}
           summary={summary}
+          trailing={<ToolStepMeta part={entry.part} />}
           defaultOpen={entry.part.state === "input-streaming"}
           openWhen={entry.part.state === "input-streaming"}
+          collapseWhen={entry.part.state === "output-available"}
         >
           <SubagentStepDetail
             input={entry.part.input}
@@ -677,6 +803,20 @@ export function AssistantMessageBody(args: {
   const trace = useMemo(() => buildAssistantTrace({ message }), [message]);
 
   const summaryItems = useMemo(() => buildTraceSummary(trace.entries), [trace.entries]);
+  /* Total reasoning time for the turn, shown next to the collapsed completion
+     phrase ("Thought for 12s"). Only meaningful once the turn has finished. */
+  const traceDurationSeconds = useMemo(() => {
+    if (isStreaming) {
+      return undefined;
+    }
+    const total = trace.entries.reduce(
+      (sum, entry) => (
+        entry.kind === "reasoning" ? sum + (getReasoningDurationSeconds(entry.parts) ?? 0) : sum
+      ),
+      0,
+    );
+    return total > 0 ? total : undefined;
+  }, [isStreaming, trace.entries]);
   const allDiffParts = useMemo<CodeDiffPart[]>(
     () => trace.entries.flatMap((entry) => entry.kind === "diff" ? entry.parts : []),
     [trace.entries],
@@ -731,6 +871,7 @@ export function AssistantMessageBody(args: {
           collapseWhen={shouldAutoExpandTrace && !isStreaming}
           summaryItems={summaryItems}
           seed={messageId}
+          durationSeconds={traceDurationSeconds}
         >
           <ChainOfThoughtTrigger />
           {trace.entries.length > 0 ? (
