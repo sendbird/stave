@@ -1,6 +1,20 @@
 const GHOSTTY_ICON_URL = `${import.meta.env.BASE_URL}ghostty-icon.png`;
 const VSCODE_ICON_URL = `${import.meta.env.BASE_URL}vscode.svg`;
 const AMPLIFY_ICON_URL = `${import.meta.env.BASE_URL}amplify-logo.svg`;
+const STAVE_ICON_URL = `${import.meta.env.BASE_URL}stave-logo.svg`;
+
+export function StaveIcon(props: { className?: string }) {
+  return (
+    <img
+      src={STAVE_ICON_URL}
+      alt=""
+      aria-hidden
+      className={props.className ?? "size-4"}
+      loading="lazy"
+      draggable={false}
+    />
+  );
+}
 
 export function GhosttyIcon(props: { className?: string }) {
   return (

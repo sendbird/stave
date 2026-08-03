@@ -19,7 +19,7 @@ import {
 
 const STYLES: { style: AgentStyle; title: string; note: string }[] = [
   { style: "legacy", title: "Legacy", note: "Brain icon · fade rows · uncapped viewport" },
-  { style: "beui", title: "Current", note: "Progress grid · spring rows · capped glide" },
+  { style: "beui", title: "Current", note: "Thinking orb · spring rows · capped glide" },
 ];
 
 const PHRASE_VARIANTS: ReasoningTextVariant[] = ["cascade", "swap", "scramble"];

@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { StaveIcon } from "@/components/brand-icons";
+import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
 
 interface ConfirmationCompactProps {
   toolName: string;
@@ -45,12 +47,16 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
     comfortableActions = false,
   } = args;
   const decisionText = getApprovalDecisionText(state);
+  const isStaveTool = isStaveToolName(toolName);
 
   return (
     <div className="rounded-lg border border-border/70 bg-background/80 p-2.5 text-[0.8125rem]">
       <div className="flex items-start gap-2">
+        {isStaveTool ? <StaveIcon className="mt-0.5 size-4 shrink-0" /> : null}
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground">{toolName}</p>
+          <p className="font-medium text-foreground">
+            {isStaveTool ? toStaveToolDisplayName(toolName) : toolName}
+          </p>
           <p
             className={
               truncateDescription

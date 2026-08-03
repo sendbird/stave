@@ -1,9 +1,12 @@
 import { memo } from "react";
+import { ThinkingOrb as CanvasThinkingOrb, type OrbState } from "thinking-orbs";
 import { cn } from "@/lib/utils";
 
 export interface ThinkingOrbProps {
   /** Elapsed turn time. Rendered as a `tabular-nums` readout when provided. */
   elapsedSeconds?: number;
+  /** Animation state from the shared thinking-orbs renderer. */
+  state?: OrbState;
   className?: string;
 }
 
@@ -18,38 +21,20 @@ function formatElapsed(seconds: number): string {
 }
 
 /**
- * Streaming indicator for the trace trigger — a soft orb with a breathing halo
- * and an orbiting glint.
+ * Trace-friendly adapter around the shared canvas orb.
  *
- * Every layer paints from `currentColor` (the glint mixes toward white) so the
- * orb inherits the trigger's text colour and needs no theme tokens of its own.
- * Sized in `em` so it scales with `messageFontSize` like the rest of the trace.
- *
- * The core is fully opaque at rest, so `prefers-reduced-motion` leaves a legible
- * static dot rather than a blank slot.
+ * The state controls the animation vocabulary while the wrapper keeps the
+ * existing inline layout and optional elapsed-time readout used by AI Elements.
  */
-function ThinkingOrbComponent({ elapsedSeconds, className }: ThinkingOrbProps) {
+function ThinkingOrbComponent({ elapsedSeconds, state = "working", className }: ThinkingOrbProps) {
   return (
     <span className={cn("inline-flex items-center gap-[0.4em]", className)}>
-      <span aria-hidden="true" className="relative inline-block size-[1.15em] shrink-0">
-        {/* Halo — blurred bloom that breathes outward. */}
-        <span className="absolute inset-0 rounded-full bg-current opacity-30 blur-[0.14em] motion-safe:animate-thinking-orb-halo" />
-        {/* Core — the orb body. */}
-        <span className="absolute inset-[0.16em] rounded-full bg-current motion-safe:animate-thinking-orb-core" />
-        {/*
-         * Glint — a bright arc sweeping around the rim. The radial mask keeps it
-         * on the outer ring so it reads as light travelling over a sphere rather
-         * than a pie slice rotating.
-         */}
-        <span
-          className={cn(
-            "absolute inset-0 rounded-full motion-safe:animate-thinking-orb-spin",
-            "bg-[conic-gradient(from_0deg,transparent_0deg,color-mix(in_srgb,currentColor,white_75%)_55deg,transparent_110deg)]",
-            "[mask-image:radial-gradient(closest-side,transparent_48%,black_62%)]",
-            "motion-reduce:hidden",
-          )}
-        />
-      </span>
+      <CanvasThinkingOrb
+        state={state}
+        size={20}
+        theme="auto"
+        aria-hidden="true"
+      />
       {elapsedSeconds != null ? (
         <span className="text-[0.85em] tabular-nums text-muted-foreground/70">
           {formatElapsed(elapsedSeconds)}

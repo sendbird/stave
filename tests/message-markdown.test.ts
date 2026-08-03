@@ -277,6 +277,27 @@ describe("MarkdownMessage", () => {
     expect(html).not.toContain('data-message-external-link-chip="true"');
   });
 
+  test("promotes raw URLs in table cells to compact link chips", () => {
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content: [
+          "| Name | Link |",
+          "| --- | --- |",
+          "| OpenAI | https://openai.com/ |",
+        ].join("\n"),
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+      }),
+    );
+
+    expect(html).toContain("<td");
+    expect(html).toContain('href="https://openai.com/"');
+    expect(html).toContain('data-message-external-link-chip="true"');
+    expect(html).toContain(
+      'aria-label="Open https://openai.com/ on openai.com"',
+    );
+  });
+
   test("keeps slash-delimited non-file markdown links as anchors", () => {
     const knownFilePaths = new Set(["src/components/session/ChatPanel.tsx"]);
     const html = renderToStaticMarkup(

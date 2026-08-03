@@ -39,6 +39,8 @@ import {
   ImageAttachmentBlock,
 } from "./chat-panel-file-blocks";
 
+export { toToolDisplayName } from "@/lib/tool-display-name";
+
 export function toProviderStartCase(args: {
   providerId: "claude-code" | "codex";
 }) {
@@ -82,15 +84,6 @@ export function CopyButton({ text }: { text: string }) {
         <Copy className="size-3.5" />
       )}
     </MessageAction>
-  );
-}
-
-export function toToolDisplayName(toolName: string) {
-  return (
-    toolName
-      .trim()
-      .replace(/^tool[-_:]?/i, "")
-      .replaceAll(/[_-]+/g, " ") || "Tool"
   );
 }
 

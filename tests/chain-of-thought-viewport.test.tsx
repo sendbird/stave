@@ -74,25 +74,16 @@ describe("ChainOfThoughtContent", () => {
 });
 
 describe("ChainOfThoughtTrigger", () => {
-  test("renders the thinking orb while streaming and drops it when complete", () => {
+  test("renders the solving orb while streaming and drops it when complete", () => {
     const streaming = renderTrace({ isStreaming: true });
-    expect(streaming).toContain("motion-safe:animate-thinking-orb-halo");
-    expect(streaming).toContain("motion-safe:animate-thinking-orb-core");
-    expect(streaming).toContain("motion-safe:animate-thinking-orb-spin");
+    expect(streaming).toContain('aria-label="Solving…"');
 
-    expect(renderTrace({ isStreaming: false })).not.toContain("animate-thinking-orb");
-  });
-
-  test("keeps the orb legible under reduced motion", () => {
-    const streaming = renderTrace({ isStreaming: true });
-    /* The core paints at full opacity at rest, and only the glint — which
-       reads as noise when frozen mid-sweep — is hidden. */
-    expect(streaming).toContain("motion-reduce:hidden");
+    expect(renderTrace({ isStreaming: false })).not.toContain('aria-label="Solving…"');
   });
 
   test("keeps the legacy brain indicator while streaming under the legacy style", () => {
     const legacy = renderTrace({ isStreaming: true, style: "legacy" });
-    expect(legacy).not.toContain("animate-thinking-orb");
+    expect(legacy).not.toContain('aria-label="Solving…"');
   });
 
   test("appends the duration to the collapsed completion phrase", () => {

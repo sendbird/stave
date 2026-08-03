@@ -701,20 +701,6 @@
   animation-delay: calc(var(--cascade-i, 0) * 25ms);
 }
 
-/* Thinking orb — halo bloom, core breath, and the glint sweeping the rim. */
-
-@utility animate-thinking-orb-halo {
-  animation: thinking-orb-halo 2.4s ease-in-out infinite;
-}
-
-@utility animate-thinking-orb-core {
-  animation: thinking-orb-core 2.4s ease-in-out infinite;
-}
-
-@utility animate-thinking-orb-spin {
-  animation: thinking-orb-spin 1.8s linear infinite;
-}
-
 @utility animate-text-shimmer {
   animation: text-shimmer 2s linear infinite;
 }
@@ -1080,42 +1066,6 @@
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes thinking-orb-halo {
-  0%,
-  100% {
-    opacity: 0.18;
-    transform: scale(0.88);
-  }
-
-  50% {
-    opacity: 0.45;
-    transform: scale(1.18);
-  }
-}
-
-@keyframes thinking-orb-core {
-  0%,
-  100% {
-    opacity: 0.62;
-    transform: scale(0.9);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes thinking-orb-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
   }
 }
 

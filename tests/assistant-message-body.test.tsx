@@ -166,6 +166,63 @@ describe("AssistantMessageBody", () => {
     expect(html.match(/<button/g)?.length ?? 0).toBe(1);
   });
 
+  test("does not repeat other one-line provider notices inside their accordions", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const notices = [
+      "Compacting conversation context…",
+      "Approaching rate limit (72% used). Consider pacing requests.",
+      "Plugin installed: image-tools",
+    ];
+
+    for (const notice of notices) {
+      const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+        message: createAssistantMessage({
+          isStreaming: true,
+          parts: [{ type: "system_event", content: notice }],
+        }),
+        taskId: "task-1",
+        messageId: "message-1",
+        streamingEnabled: true,
+      }));
+
+      expect(html.split(notice).length - 1).toBe(1);
+    }
+  });
+
+  test("uses Stave-specific copy and icon without rewriting external MCP names", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        isStreaming: true,
+        parts: [
+          {
+            type: "tool_use",
+            toolName: "stave-local:stave_lens_evaluate",
+            input: JSON.stringify({ expression: "document.title" }),
+            output: "Agent trace preview",
+            state: "output-available",
+          },
+          {
+            type: "tool_use",
+            toolName: "mcp__github__get_file_contents",
+            input: JSON.stringify({ owner: "sendbird", repo: "stave" }),
+            output: "file contents",
+            state: "output-available",
+          },
+        ],
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html).toContain("Check page state");
+    expect(html).not.toContain("stave-local:stave_lens_evaluate");
+    expect(html).toContain("stave-logo.svg");
+    expect(html).toContain("mcp__github__get_file_contents");
+    expect(html).not.toContain("Get file contents");
+  });
+
   test("keeps streaming reasoning text plain for hot-path performance", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {

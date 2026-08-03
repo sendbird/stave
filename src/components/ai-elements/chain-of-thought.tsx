@@ -272,7 +272,7 @@ export function ChainOfThoughtTrigger(args: ButtonHTMLAttributes<HTMLButtonEleme
             /* TODO(agent-style-legacy): remove with the legacy trace visual. */
             <Brain className="size-[1.15em] shrink-0" />
           ) : (
-            <ThinkingOrb className="shrink-0" />
+            <ThinkingOrb state="solving" className="shrink-0" />
           )}
           <ThinkingPhraseLabel active={isStreaming} />
         </span>
