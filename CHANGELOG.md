@@ -1,3 +1,24 @@
+## [0.13.5](https://github.com/sendbird/stave/compare/v0.13.4...v0.13.5) (2026-08-03)
+
+### Features
+
+* Expand Fleet and composer workflows with workspace cards, a persistent attention rail, provider-neutral task controls, Advisor exchanges, and configurable composer controls.
+* Add provider-native conversation history actions and capability-aware Claude/Codex runtime parity, including fork, rollback, rename, and safe fallbacks.
+* Rebuild Commit graph as a persistent editor surface with filtering, search, paging, commit details, and readable branch and tag labels.
+* Add reviewed MCP server management for Claude and Codex, including configuration CRUD, OAuth recovery, and per-server connection diagnostics.
+
+### Bug Fixes
+
+* Harden Lens tab teardown and diagnostics against stale traffic, WebContents lifecycle failures, and unbounded console/CDP overload; also preserve open task-pane messages and keep local change review dialogs scrollable.
+* Make task-bound secrets available to Codex MCP servers through scoped primary-turn processes while keeping shared and secondary read-only processes secret-free.
+
+### Refactors / Chores
+
+* Add a production dependency license-compliance gate and refresh agent/provider guardrails, path checks, and runtime baseline documentation.
+
+### References
+
+* [#284](https://github.com/sendbird/stave/pull/284), [#285](https://github.com/sendbird/stave/pull/285), [#286](https://github.com/sendbird/stave/pull/286), [#287](https://github.com/sendbird/stave/pull/287), [#288](https://github.com/sendbird/stave/pull/288), [#289](https://github.com/sendbird/stave/pull/289), [#290](https://github.com/sendbird/stave/pull/290), [#291](https://github.com/sendbird/stave/pull/291), [#292](https://github.com/sendbird/stave/pull/292), [#293](https://github.com/sendbird/stave/pull/293), [#294](https://github.com/sendbird/stave/pull/294), [#295](https://github.com/sendbird/stave/pull/295), [#296](https://github.com/sendbird/stave/pull/296), [#297](https://github.com/sendbird/stave/pull/297), [#298](https://github.com/sendbird/stave/pull/298)
 ## [0.13.4](https://github.com/sendbird/stave/compare/v0.13.3...v0.13.4) (2026-07-31)
 
 ### Features
