@@ -2,10 +2,13 @@ import type { StoreApi } from "zustand";
 import { createNotification as createPersistedNotification } from "@/lib/db/notifications.db";
 import { mergeNotificationIntoList } from "@/lib/notifications/notification-state";
 import {
+  playCustomAttentionNotificationSound,
   playCustomNotificationSound,
+  playAttentionNotificationSound,
   playNotificationSound,
 } from "@/lib/notifications/notification-sound";
 import type { AppNotificationCreateInput } from "@/lib/notifications/notification.types";
+import { isNotificationAttentionKind } from "@/lib/notifications/notification.types";
 import { showNotificationToast } from "@/store/app-notification-builders";
 import type { AppState } from "@/store/app-store.types";
 import { createNotificationAttentionSync } from "@/store/notification-attention-sync";
@@ -64,12 +67,37 @@ export function createAppStoreNotificationRuntime(args: {
         notificationSoundPreset,
         notificationSoundMode,
         notificationSoundCustomAudioData,
+        attentionNotificationSoundEnabled,
+        attentionNotificationSoundVolume,
+        attentionNotificationSoundPreset,
+        attentionNotificationSoundMode,
+        attentionNotificationSoundCustomAudioData,
       } = get().settings;
-      if (
-        notificationSoundEnabled &&
-        (result.notification.kind === "task.turn_completed" ||
-          result.notification.kind === "task.turn_failed")
-      ) {
+      const isAttentionKind = isNotificationAttentionKind(
+        result.notification.kind,
+      );
+      const isCompletionKind =
+        result.notification.kind === "task.turn_completed" ||
+        result.notification.kind === "task.turn_failed";
+      if (isAttentionKind && attentionNotificationSoundEnabled) {
+        // "AI needs you" cue: question (user_input) or approval request. Uses a
+        // dedicated player instance so its cooldown is independent from the
+        // completion sound's.
+        if (
+          attentionNotificationSoundMode === "custom" &&
+          attentionNotificationSoundCustomAudioData
+        ) {
+          playCustomAttentionNotificationSound({
+            dataUrl: attentionNotificationSoundCustomAudioData,
+            volume: attentionNotificationSoundVolume,
+          });
+        } else {
+          playAttentionNotificationSound({
+            preset: attentionNotificationSoundPreset,
+            volume: attentionNotificationSoundVolume,
+          });
+        }
+      } else if (isCompletionKind && notificationSoundEnabled) {
         if (
           notificationSoundMode === "custom" &&
           notificationSoundCustomAudioData

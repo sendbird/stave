@@ -53,7 +53,9 @@ import {
   CUSTOM_AUDIO_ACCEPTED_TYPES,
   CUSTOM_AUDIO_MAX_SIZE_BYTES,
   NOTIFICATION_SOUND_PRESETS,
+  playCustomAttentionNotificationSound,
   playCustomNotificationSound,
+  playAttentionNotificationSound,
   playNotificationSound,
   readFileAsDataUrl,
   validateCustomAudioFile,
@@ -205,6 +207,231 @@ const NOTIFICATION_SOUND_PRESET_OPTIONS: Array<{
   value: preset,
   label: formatNotificationSoundPresetLabel(preset),
 }));
+
+interface NotificationSoundControlsValue {
+  enabled: boolean;
+  mode: "preset" | "custom";
+  preset: NotificationSoundPreset;
+  volume: number;
+  customAudioData: string | null;
+  customAudioName: string | null;
+}
+
+interface NotificationSoundControlsCopy {
+  /** Label for the on/off toggle. */
+  enableTitle: string;
+  enableDescription: string;
+  presetDescription: string;
+  volumeDescription: string;
+  /** aria-label for the volume slider — must be unique per card. */
+  volumeAriaLabel: string;
+}
+
+/**
+ * Shared editor for a single notification-sound configuration (enable / source
+ * / preset / custom upload / volume / preview). Rendered once for the task
+ * completion sound and once for the attention (question / approval) sound so
+ * both behave identically. Stateless w.r.t. persistence — the parent supplies
+ * the current values via `value`, applies changes via `onPatch`, and provides a
+ * `previewPlayers` pair so each card previews through its own player instance.
+ */
+function NotificationSoundControls({
+  value,
+  copy,
+  onPatch,
+  previewPlayers,
+}: {
+  value: NotificationSoundControlsValue;
+  copy: NotificationSoundControlsCopy;
+  onPatch: (patch: Partial<NotificationSoundControlsValue>) => void;
+  previewPlayers: {
+    playPreset: (options: {
+      preset: NotificationSoundPreset;
+      volume: number;
+    }) => void;
+    playCustom: (options: { dataUrl: string; volume: number }) => void;
+  };
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const volumePercent = Math.round(value.volume * 100);
+
+  const handleCustomAudioUpload = async (file: File) => {
+    setUploadError(null);
+    const error = validateCustomAudioFile(file);
+    if (error) {
+      setUploadError(error);
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      onPatch({
+        mode: "custom",
+        customAudioData: dataUrl,
+        customAudioName: file.name,
+      });
+    } catch {
+      setUploadError("Failed to read the audio file.");
+    }
+  };
+
+  const handleRemoveCustomAudio = () => {
+    setUploadError(null);
+    onPatch({
+      mode: "preset",
+      customAudioData: null,
+      customAudioName: null,
+    });
+  };
+
+  const handleTestSound = () => {
+    if (value.mode === "custom" && value.customAudioData) {
+      previewPlayers.playCustom({
+        dataUrl: value.customAudioData,
+        volume: value.volume,
+      });
+    } else {
+      previewPlayers.playPreset({
+        preset: value.preset,
+        volume: value.volume,
+      });
+    }
+  };
+
+  return (
+    <>
+      <SwitchField
+        title={copy.enableTitle}
+        description={copy.enableDescription}
+        checked={value.enabled}
+        onCheckedChange={(checked) => onPatch({ enabled: checked })}
+      />
+      {value.enabled ? (
+        <>
+          <LabeledField
+            title="Source"
+            description="Use a built-in preset or upload your own audio file."
+          >
+            <ChoiceButtons
+              value={value.mode}
+              onChange={(next) =>
+                onPatch({ mode: next as "preset" | "custom" })
+              }
+              options={[
+                { value: "preset", label: "Preset" },
+                { value: "custom", label: "Custom" },
+              ]}
+            />
+          </LabeledField>
+          {value.mode === "preset" ? (
+            <LabeledField title="Preset" description={copy.presetDescription}>
+              <ChoiceButtons
+                value={value.preset}
+                onChange={(next) =>
+                  onPatch({ preset: next as NotificationSoundPreset })
+                }
+                options={NOTIFICATION_SOUND_PRESET_OPTIONS}
+              />
+            </LabeledField>
+          ) : (
+            <LabeledField
+              title="Custom Audio"
+              description={`Upload an audio file (MP3, WAV, OGG, M4A, WebM). Max ${CUSTOM_AUDIO_MAX_SIZE_BYTES / 1024} KB.`}
+            >
+              <div className="flex flex-col gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={CUSTOM_AUDIO_ACCEPTED_TYPES.join(",")}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      void handleCustomAudioUpload(file);
+                    }
+                    // Reset so the same file can be re-selected
+                    e.target.value = "";
+                  }}
+                />
+                {value.customAudioName ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-md border border-border/80 bg-muted/50 px-3 py-2 text-sm flex-1 min-w-0">
+                      <FileAudio className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{value.customAudioName}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-3.5 w-3.5 mr-1" />
+                      Replace
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleRemoveCustomAudio}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-3.5 w-3.5 mr-1" />
+                    Upload Audio File
+                  </Button>
+                )}
+                {uploadError ? (
+                  <p className="text-sm text-destructive">{uploadError}</p>
+                ) : null}
+              </div>
+            </LabeledField>
+          )}
+          <LabeledField title="Volume" description={copy.volumeDescription}>
+            <div className="flex items-center gap-3">
+              <Slider
+                aria-label={copy.volumeAriaLabel}
+                className="flex-1"
+                value={volumePercent}
+                min={0}
+                max={100}
+                step={1}
+                onValueChange={(nextValue) => {
+                  onPatch({ volume: nextValue / 100 });
+                }}
+              />
+              <Badge variant="outline" className="min-w-14 justify-center">
+                {volumePercent}%
+              </Badge>
+            </div>
+          </LabeledField>
+          <LabeledField
+            title="Preview"
+            description={
+              value.mode === "custom"
+                ? "Play the uploaded audio once with the current volume."
+                : "Play the current preset once with the current volume."
+            }
+          >
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleTestSound}
+              disabled={value.mode === "custom" && !value.customAudioData}
+            >
+              Test Sound
+            </Button>
+          </LabeledField>
+        </>
+      ) : null}
+    </>
+  );
+}
 
 const PROMPT_MODEL_PROVIDER_IDS = ["claude-code", "codex"] as const;
 const MODEL_SHORTCUT_PROVIDER_IDS = PROMPT_MODEL_PROVIDER_IDS;
@@ -897,6 +1124,12 @@ function GeneralSection() {
     notificationSoundMode,
     notificationSoundCustomAudioData,
     notificationSoundCustomAudioName,
+    attentionNotificationSoundEnabled,
+    attentionNotificationSoundPreset,
+    attentionNotificationSoundVolume,
+    attentionNotificationSoundMode,
+    attentionNotificationSoundCustomAudioData,
+    attentionNotificationSoundCustomAudioName,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -909,64 +1142,16 @@ function GeneralSection() {
           state.settings.notificationSoundMode,
           state.settings.notificationSoundCustomAudioData,
           state.settings.notificationSoundCustomAudioName,
+          state.settings.attentionNotificationSoundEnabled,
+          state.settings.attentionNotificationSoundPreset,
+          state.settings.attentionNotificationSoundVolume,
+          state.settings.attentionNotificationSoundMode,
+          state.settings.attentionNotificationSoundCustomAudioData,
+          state.settings.attentionNotificationSoundCustomAudioName,
         ] as const,
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const notificationSoundVolumePercent = Math.round(
-    notificationSoundVolume * 100,
-  );
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  const handleCustomAudioUpload = async (file: File) => {
-    setUploadError(null);
-    const error = validateCustomAudioFile(file);
-    if (error) {
-      setUploadError(error);
-      return;
-    }
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      updateSettings({
-        patch: {
-          notificationSoundMode: "custom",
-          notificationSoundCustomAudioData: dataUrl,
-          notificationSoundCustomAudioName: file.name,
-        },
-      });
-    } catch {
-      setUploadError("Failed to read the audio file.");
-    }
-  };
-
-  const handleRemoveCustomAudio = () => {
-    setUploadError(null);
-    updateSettings({
-      patch: {
-        notificationSoundMode: "preset",
-        notificationSoundCustomAudioData: null,
-        notificationSoundCustomAudioName: null,
-      },
-    });
-  };
-
-  const handleTestSound = () => {
-    if (
-      notificationSoundMode === "custom" &&
-      notificationSoundCustomAudioData
-    ) {
-      playCustomNotificationSound({
-        dataUrl: notificationSoundCustomAudioData,
-        volume: notificationSoundVolume,
-      });
-    } else {
-      playNotificationSound({
-        preset: notificationSoundPreset,
-        volume: notificationSoundVolume,
-      });
-    }
-  };
 
   return (
     <>
@@ -988,156 +1173,116 @@ function GeneralSection() {
           title="Notification Sound"
           description="Customize the success sound played when a task turn finishes."
         >
-          <SwitchField
-            title="Sound"
-            description="Enable or mute the task completion sound."
-            checked={notificationSoundEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { notificationSoundEnabled: checked } })
+          <NotificationSoundControls
+            value={{
+              enabled: notificationSoundEnabled,
+              mode: notificationSoundMode,
+              preset: notificationSoundPreset,
+              volume: notificationSoundVolume,
+              customAudioData: notificationSoundCustomAudioData,
+              customAudioName: notificationSoundCustomAudioName,
+            }}
+            copy={{
+              enableTitle: "Sound",
+              enableDescription: "Enable or mute the task completion sound.",
+              presetDescription:
+                "Choose the synthesized tone used for task completion.",
+              volumeDescription:
+                "Adjust playback level for the task completion sound.",
+              volumeAriaLabel: "Notification sound volume",
+            }}
+            previewPlayers={{
+              playPreset: playNotificationSound,
+              playCustom: playCustomNotificationSound,
+            }}
+            onPatch={(patch) =>
+              updateSettings({
+                patch: {
+                  ...(patch.enabled === undefined
+                    ? {}
+                    : { notificationSoundEnabled: patch.enabled }),
+                  ...(patch.mode === undefined
+                    ? {}
+                    : { notificationSoundMode: patch.mode }),
+                  ...(patch.preset === undefined
+                    ? {}
+                    : { notificationSoundPreset: patch.preset }),
+                  ...(patch.volume === undefined
+                    ? {}
+                    : { notificationSoundVolume: patch.volume }),
+                  ...(patch.customAudioData === undefined
+                    ? {}
+                    : {
+                        notificationSoundCustomAudioData: patch.customAudioData,
+                      }),
+                  ...(patch.customAudioName === undefined
+                    ? {}
+                    : {
+                        notificationSoundCustomAudioName: patch.customAudioName,
+                      }),
+                },
+              })
             }
           />
-          {notificationSoundEnabled ? (
-            <>
-              <LabeledField
-                title="Source"
-                description="Use a built-in preset or upload your own audio file."
-              >
-                <ChoiceButtons
-                  value={notificationSoundMode}
-                  onChange={(value) =>
-                    updateSettings({
-                      patch: {
-                        notificationSoundMode: value as "preset" | "custom",
-                      },
-                    })
-                  }
-                  options={[
-                    { value: "preset", label: "Preset" },
-                    { value: "custom", label: "Custom" },
-                  ]}
-                />
-              </LabeledField>
-              {notificationSoundMode === "preset" ? (
-                <LabeledField
-                  title="Preset"
-                  description="Choose the synthesized tone used for task completion."
-                >
-                  <ChoiceButtons
-                    value={notificationSoundPreset}
-                    onChange={(value) =>
-                      updateSettings({
-                        patch: { notificationSoundPreset: value },
-                      })
-                    }
-                    options={NOTIFICATION_SOUND_PRESET_OPTIONS}
-                  />
-                </LabeledField>
-              ) : (
-                <LabeledField
-                  title="Custom Audio"
-                  description={`Upload an audio file (MP3, WAV, OGG, M4A, WebM). Max ${CUSTOM_AUDIO_MAX_SIZE_BYTES / 1024} KB.`}
-                >
-                  <div className="flex flex-col gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept={CUSTOM_AUDIO_ACCEPTED_TYPES.join(",")}
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          void handleCustomAudioUpload(file);
-                        }
-                        // Reset so the same file can be re-selected
-                        e.target.value = "";
-                      }}
-                    />
-                    {notificationSoundCustomAudioName ? (
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2 rounded-md border border-border/80 bg-muted/50 px-3 py-2 text-sm flex-1 min-w-0">
-                          <FileAudio className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="truncate">
-                            {notificationSoundCustomAudioName}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <Upload className="h-3.5 w-3.5 mr-1" />
-                          Replace
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleRemoveCustomAudio}
-                        >
-                          <X className="h-3.5 w-3.5 mr-1" />
-                          Remove
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload className="h-3.5 w-3.5 mr-1" />
-                        Upload Audio File
-                      </Button>
-                    )}
-                    {uploadError ? (
-                      <p className="text-sm text-destructive">{uploadError}</p>
-                    ) : null}
-                  </div>
-                </LabeledField>
-              )}
-              <LabeledField
-                title="Volume"
-                description="Adjust playback level for the task completion sound."
-              >
-                <div className="flex items-center gap-3">
-                  <Slider
-                    aria-label="Notification sound volume"
-                    className="flex-1"
-                    value={notificationSoundVolumePercent}
-                    min={0}
-                    max={100}
-                    step={1}
-                    onValueChange={(nextValue) => {
-                      updateSettings({
-                        patch: { notificationSoundVolume: nextValue / 100 },
-                      });
-                    }}
-                  />
-                  <Badge variant="outline" className="min-w-14 justify-center">
-                    {notificationSoundVolumePercent}%
-                  </Badge>
-                </div>
-              </LabeledField>
-              <LabeledField
-                title="Preview"
-                description={
-                  notificationSoundMode === "custom"
-                    ? "Play the uploaded audio once with the current volume."
-                    : "Play the current preset once with the current volume."
-                }
-              >
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleTestSound}
-                  disabled={
-                    notificationSoundMode === "custom" &&
-                    !notificationSoundCustomAudioData
-                  }
-                >
-                  Test Sound
-                </Button>
-              </LabeledField>
-            </>
-          ) : null}
+        </SettingsCard>
+        <SettingsCard
+          title="Attention Sound"
+          description="Customize the sound played when the AI asks you a question or requests permission and is waiting on you."
+        >
+          <NotificationSoundControls
+            value={{
+              enabled: attentionNotificationSoundEnabled,
+              mode: attentionNotificationSoundMode,
+              preset: attentionNotificationSoundPreset,
+              volume: attentionNotificationSoundVolume,
+              customAudioData: attentionNotificationSoundCustomAudioData,
+              customAudioName: attentionNotificationSoundCustomAudioName,
+            }}
+            copy={{
+              enableTitle: "Sound",
+              enableDescription:
+                "Play a sound when the AI needs your input or approval.",
+              presetDescription:
+                "Choose the synthesized tone used when the AI needs you.",
+              volumeDescription:
+                "Adjust playback level for the attention sound.",
+              volumeAriaLabel: "Attention sound volume",
+            }}
+            previewPlayers={{
+              playPreset: playAttentionNotificationSound,
+              playCustom: playCustomAttentionNotificationSound,
+            }}
+            onPatch={(patch) =>
+              updateSettings({
+                patch: {
+                  ...(patch.enabled === undefined
+                    ? {}
+                    : { attentionNotificationSoundEnabled: patch.enabled }),
+                  ...(patch.mode === undefined
+                    ? {}
+                    : { attentionNotificationSoundMode: patch.mode }),
+                  ...(patch.preset === undefined
+                    ? {}
+                    : { attentionNotificationSoundPreset: patch.preset }),
+                  ...(patch.volume === undefined
+                    ? {}
+                    : { attentionNotificationSoundVolume: patch.volume }),
+                  ...(patch.customAudioData === undefined
+                    ? {}
+                    : {
+                        attentionNotificationSoundCustomAudioData:
+                          patch.customAudioData,
+                      }),
+                  ...(patch.customAudioName === undefined
+                    ? {}
+                    : {
+                        attentionNotificationSoundCustomAudioName:
+                          patch.customAudioName,
+                      }),
+                },
+              })
+            }
+          />
         </SettingsCard>
         <SettingsCard
           title="Desktop Notifications"

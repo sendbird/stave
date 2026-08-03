@@ -53,6 +53,7 @@ import {
   DEFAULT_TERMINAL_FONT_SIZE,
 } from "@/lib/terminal/defaults";
 import {
+  DEFAULT_ATTENTION_NOTIFICATION_SOUND_PRESET,
   DEFAULT_NOTIFICATION_SOUND_PRESET,
   DEFAULT_NOTIFICATION_SOUND_MODE,
   DEFAULT_NOTIFICATION_SOUND_VOLUME,
@@ -232,6 +233,20 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   notificationSoundCustomAudioData: string | null;
   /** Original file name of the uploaded custom audio, for display purposes. */
   notificationSoundCustomAudioName: string | null;
+  /**
+   * Whether a sound plays when a task needs the user's attention — i.e. the AI
+   * asks a question / requests input (`task.user_input_requested`) or requests a
+   * tool permission/approval (`task.approval_requested`). Independent from the
+   * completion sound so the two can be distinguished by ear.
+   */
+  attentionNotificationSoundEnabled: boolean;
+  attentionNotificationSoundVolume: number;
+  attentionNotificationSoundPreset: NotificationSoundPreset;
+  attentionNotificationSoundMode: NotificationSoundMode;
+  /** Base64 data URL of the user-uploaded custom attention audio file. */
+  attentionNotificationSoundCustomAudioData: string | null;
+  /** Original file name of the uploaded custom attention audio, for display. */
+  attentionNotificationSoundCustomAudioName: string | null;
   providerDebugStream: boolean;
   providerTimeoutMs: number;
   claudeBinaryPath: string;
@@ -447,6 +462,14 @@ export const defaultSettings: AppSettings = {
   notificationSoundMode: DEFAULT_NOTIFICATION_SOUND_MODE,
   notificationSoundCustomAudioData: null,
   notificationSoundCustomAudioName: null,
+  attentionNotificationSoundEnabled: true,
+  attentionNotificationSoundVolume: DEFAULT_NOTIFICATION_SOUND_VOLUME,
+  // Default to a distinct preset from the completion sound (`chime`) so the
+  // "AI needs you" cue is audibly different out of the box.
+  attentionNotificationSoundPreset: DEFAULT_ATTENTION_NOTIFICATION_SOUND_PRESET,
+  attentionNotificationSoundMode: DEFAULT_NOTIFICATION_SOUND_MODE,
+  attentionNotificationSoundCustomAudioData: null,
+  attentionNotificationSoundCustomAudioName: null,
   providerDebugStream: false,
   providerTimeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
   claudeBinaryPath: "",
