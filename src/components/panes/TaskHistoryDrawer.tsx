@@ -12,11 +12,14 @@ import {
   DrawerTitle,
   Input,
 } from "@/components/ui";
-import { loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
+import {
+  loadWorkspaceShellSummary,
+  type WorkspaceShellSummary,
+} from "@/lib/db/workspaces.db";
 import {
   filterTasksByName,
-  isLegacyBranchTask,
   isTaskArchived,
+  selectTaskHistoryEntries,
 } from "@/lib/tasks";
 import type { Task } from "@/types/chat";
 import { useAppStore } from "@/store/app.store";
@@ -24,14 +27,19 @@ import { useAppStore } from "@/store/app.store";
 const EMPTY_TASKS: Task[] = [];
 
 /**
- * Archived-task browser (ported from the removed WorkspaceTaskTabs strip).
- * Restoring a task re-opens it as a pane tab via `restoreTask`.
+ * Past-task browser (ported from the removed WorkspaceTaskTabs strip).
+ *
+ * "Past" means archived *or* closed-but-still-live: `closeTaskTab` closes a
+ * pane without archiving, and hydration keeps an empty `openTaskTabIds` as-is,
+ * so an archived-only list would leave those tasks reachable from nowhere.
+ * Archived entries come back through `restoreTask`; merely closed ones only
+ * need `selectTask`, which re-adds the pane tab.
  *
  * `workspaceId`/`projectPath` let this be opened for a workspace other than
  * the active one (e.g. from the LNB kebab menu) without switching first —
  * browsing reads live store state when the workspace has runtime cache, or
- * falls back to an async persistence fetch. Only "Restore" needs to switch
- * into the target workspace, since restoring opens a pane tab there.
+ * falls back to an async persistence fetch. Only reopening needs to switch into
+ * the target workspace, since it opens a pane tab there.
  */
 export function TaskHistoryDrawer(args: {
   open: boolean;
@@ -40,9 +48,10 @@ export function TaskHistoryDrawer(args: {
   projectPath?: string | null;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeWorkspaceId, restoreTask] = useAppStore(
+  const [activeWorkspaceId, restoreTask, selectTask] = useAppStore(
     useShallow(
-      (state) => [state.activeWorkspaceId, state.restoreTask] as const,
+      (state) =>
+        [state.activeWorkspaceId, state.restoreTask, state.selectTask] as const,
     ),
   );
   const targetWorkspaceId = args.workspaceId ?? activeWorkspaceId;
@@ -50,22 +59,26 @@ export function TaskHistoryDrawer(args: {
     targetWorkspaceId && targetWorkspaceId === activeWorkspaceId,
   );
 
-  const [liveTasks, hasRuntimeCache] = useAppStore(
+  const [liveTasks, liveOpenTaskTabIds, hasRuntimeCache] = useAppStore(
     useShallow((state) => {
       if (isActiveWorkspace) {
-        return [state.tasks, true] as const;
+        return [state.tasks, state.openTaskTabIds, true] as const;
       }
       const runtimeState = targetWorkspaceId
         ? state.workspaceRuntimeCacheById[targetWorkspaceId]
         : undefined;
       return [
         runtimeState?.tasks ?? EMPTY_TASKS,
+        runtimeState?.openTaskTabIds ?? null,
         Boolean(runtimeState),
       ] as const;
     }),
   );
 
-  const [fetchedTasks, setFetchedTasks] = useState<Task[] | null>(null);
+  const [fetchedShell, setFetchedShell] = useState<Pick<
+    WorkspaceShellSummary,
+    "tasks" | "openTaskTabIds"
+  > | null>(null);
   const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
@@ -75,7 +88,7 @@ export function TaskHistoryDrawer(args: {
       hasRuntimeCache ||
       !targetWorkspaceId
     ) {
-      setFetchedTasks(null);
+      setFetchedShell(null);
       return;
     }
     let cancelled = false;
@@ -83,12 +96,15 @@ export function TaskHistoryDrawer(args: {
     void loadWorkspaceShellSummary({ workspaceId: targetWorkspaceId })
       .then((shell) => {
         if (!cancelled) {
-          setFetchedTasks(shell?.tasks ?? []);
+          setFetchedShell({
+            tasks: shell?.tasks ?? [],
+            openTaskTabIds: shell?.openTaskTabIds,
+          });
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setFetchedTasks([]);
+          setFetchedShell({ tasks: [], openTaskTabIds: undefined });
         }
       })
       .finally(() => {
@@ -101,13 +117,15 @@ export function TaskHistoryDrawer(args: {
     };
   }, [args.open, isActiveWorkspace, hasRuntimeCache, targetWorkspaceId]);
 
-  const tasks =
-    isActiveWorkspace || hasRuntimeCache
-      ? liveTasks
-      : (fetchedTasks ?? EMPTY_TASKS);
-  const archivedTasks = tasks.filter(
-    (task) => !isLegacyBranchTask(task) && isTaskArchived(task),
-  );
+  const useLiveState = isActiveWorkspace || hasRuntimeCache;
+  const tasks = useLiveState ? liveTasks : (fetchedShell?.tasks ?? EMPTY_TASKS);
+  // A summary that predates `openTaskTabIds` yields `null`, which
+  // `selectTaskHistoryEntries` reads as "unknown" and resolves the same way
+  // hydration does — not as "every tab closed".
+  const openTaskTabIds = useLiveState
+    ? liveOpenTaskTabIds
+    : (fetchedShell?.openTaskTabIds ?? null);
+  const historyTasks = selectTaskHistoryEntries({ tasks, openTaskTabIds });
   function handleOpenChange(open: boolean) {
     if (!open) {
       setSearchQuery("");
@@ -116,11 +134,11 @@ export function TaskHistoryDrawer(args: {
   }
 
   const filteredTasks = filterTasksByName({
-    tasks: archivedTasks,
+    tasks: historyTasks,
     query: searchQuery,
   });
 
-  async function handleRestore(taskId: string) {
+  async function handleReopen(task: Task) {
     if (!isActiveWorkspace && targetWorkspaceId) {
       const store = useAppStore.getState();
       if (args.projectPath && args.projectPath !== store.projectPath) {
@@ -130,7 +148,13 @@ export function TaskHistoryDrawer(args: {
         workspaceId: targetWorkspaceId,
       });
     }
-    restoreTask({ taskId });
+    // `restoreTask` is a no-op on a task that was never archived, so a merely
+    // closed tab has to go through `selectTask` to get its pane back.
+    if (isTaskArchived(task)) {
+      restoreTask({ taskId: task.id });
+    } else {
+      selectTask({ taskId: task.id });
+    }
     args.onOpenChange(false);
   }
 
@@ -145,8 +169,8 @@ export function TaskHistoryDrawer(args: {
           <DrawerTitle>Task History</DrawerTitle>
           <DrawerDescription>
             {isActiveWorkspace
-              ? "Archived tasks for the current workspace."
-              : "Archived tasks for this workspace."}
+              ? "Closed and archived tasks for the current workspace."
+              : "Closed and archived tasks for this workspace."}
           </DrawerDescription>
           <Input
             className="mt-3 h-9 rounded-sm border-border/80 bg-background"
@@ -160,9 +184,9 @@ export function TaskHistoryDrawer(args: {
             <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
               Loading tasks...
             </div>
-          ) : archivedTasks.length === 0 ? (
+          ) : historyTasks.length === 0 ? (
             <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
-              No archived tasks yet.
+              No past tasks yet.
             </div>
           ) : filteredTasks.length === 0 ? (
             <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
@@ -182,15 +206,20 @@ export function TaskHistoryDrawer(args: {
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">
                     {task.title}
                   </span>
+                  {isTaskArchived(task) ? (
+                    <span className="shrink-0 rounded-sm border border-border/70 px-1.5 py-0.5 text-[0.6875rem] text-muted-foreground">
+                      Archived
+                    </span>
+                  ) : null}
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-8 shrink-0"
                     onClick={() => {
-                      void handleRestore(task.id);
+                      void handleReopen(task);
                     }}
                   >
-                    Restore
+                    {isTaskArchived(task) ? "Restore" : "Open"}
                   </Button>
                 </div>
               ))}
