@@ -715,16 +715,26 @@ function AssistantTraceEntryView(args: {
       );
 
     case "system":
-      return (
-        <ChainOfThoughtStep
-          title={entry.part.content.split("\n").find(Boolean)?.trim() || "System"}
-          status={status}
-          icon={icon}
-          defaultOpen={entry.part.compactBoundary != null}
-        >
-          <MessagePartRenderer part={entry.part} taskId={taskId} messageId={messageId} />
-        </ChainOfThoughtStep>
-      );
+      {
+        const systemTitle =
+          entry.part.content.split("\n").find((line) => line.trim())?.trim() || "System";
+        const systemContent = entry.part.content.trim();
+        const hasDistinctSystemContent =
+          entry.part.compactBoundary != null || systemContent !== systemTitle;
+
+        return (
+          <ChainOfThoughtStep
+            title={systemTitle}
+            status={status}
+            icon={icon}
+            defaultOpen={entry.part.compactBoundary != null}
+          >
+            {hasDistinctSystemContent ? (
+              <MessagePartRenderer part={entry.part} taskId={taskId} messageId={messageId} />
+            ) : null}
+          </ChainOfThoughtStep>
+        );
+      }
 
   }
 }

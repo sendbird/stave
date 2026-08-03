@@ -149,6 +149,23 @@ describe("AssistantMessageBody", () => {
     expect(html.match(/<button/g)?.length ?? 0).toBe(2);
   });
 
+  test("does not repeat a one-line system event inside its accordion", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const contextWindowNotice = "Context window at 62% — compaction not required.";
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        isStreaming: true,
+        parts: [{ type: "system_event", content: contextWindowNotice }],
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html.match(/Context window at 62%/g)?.length ?? 0).toBe(1);
+    expect(html.match(/<button/g)?.length ?? 0).toBe(1);
+  });
+
   test("keeps streaming reasoning text plain for hot-path performance", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
