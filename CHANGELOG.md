@@ -1,3 +1,25 @@
+## [0.13.7](https://github.com/sendbird/stave/compare/v0.13.6...v0.13.7) (2026-08-03)
+
+### Features
+
+* Refine assistant trace and tool presentation with calmer state-aware rendering, Stave-specific MCP identity, readable link chips, and an explicit provider-event UX catalog; suppress duplicate one-line system trace content.
+* Add independently configurable attention sounds for AI questions and approvals, separate from task-completion sounds.
+* Surface host-owned Advisor exchanges and primary tool activity live alongside renderer-started turns.
+
+### Bug Fixes
+
+* Keep snapshot diff tabs read-only and independent from working-tree polling, while adding revision-based conflict protection to live diff tabs.
+* Resolve configured MCP credential environment variables from the login shell for Claude and Codex without exposing values to the renderer, model, transcript, or logs.
+* Harden provider turns by dropping legacy persisted parts before strict IPC validation and restoring Claude automatic task-title inference.
+
+### Refactors / Chores
+
+* Add frontend CODEOWNERS and publish Advisor Interaction Map and Agent Message UX documentation and reference assets, including Pages deployment improvements.
+
+### References
+
+* [#304](https://github.com/sendbird/stave/pull/304), [#306](https://github.com/sendbird/stave/pull/306), [#307](https://github.com/sendbird/stave/pull/307), [#308](https://github.com/sendbird/stave/pull/308), [#309](https://github.com/sendbird/stave/pull/309), [#310](https://github.com/sendbird/stave/pull/310), [#311](https://github.com/sendbird/stave/pull/311), [#312](https://github.com/sendbird/stave/pull/312), [#313](https://github.com/sendbird/stave/pull/313), [#314](https://github.com/sendbird/stave/pull/314)
+
 ## [0.13.6](https://github.com/sendbird/stave/compare/v0.13.5...v0.13.6) (2026-08-03)
 
 ### Features
