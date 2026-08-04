@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import {
+  buildHostServiceSpawnArgs,
   forwardHostServiceStderr,
   measureSerializedHostServiceRequestBytes,
   resolveHostServiceScriptPath,
@@ -102,6 +103,16 @@ describe("resolveHostServiceRequestTimeoutMs", () => {
         override: 1_500,
       }),
     ).toBe(1_500);
+  });
+});
+
+describe("buildHostServiceSpawnArgs", () => {
+  test("opts into the OS certificate store before the entry script", () => {
+    expect(
+      buildHostServiceSpawnArgs({
+        scriptPath: "/tmp/stave/out/main/host-service.js",
+      }),
+    ).toEqual(["--use-system-ca", "/tmp/stave/out/main/host-service.js"]);
   });
 });
 
