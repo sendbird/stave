@@ -3,6 +3,7 @@ import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
 } from "@/lib/providers/turn-status";
+import type { OrbState } from "thinking-orbs";
 
 export type TurnActivityRowStatus =
   "pending" | "running" | "waiting" | "completed" | "failed";
@@ -74,6 +75,42 @@ export function resolveTurnActivityVisibility(args: {
   return Boolean(
     args.hasRetainedFailure || (args.isTurnActive && !args.isPlanPending),
   );
+}
+
+/**
+ * Map the turn-level lifecycle to the orb's visual vocabulary. Keep this
+ * separate from the surface so the state mapping stays deterministic and
+ * testable as provider activity grows.
+ */
+export function resolveTurnActivityOrbState(args: {
+  activity: Pick<ProviderTurnActivitySnapshot, "pendingInteraction"> | null;
+  isPlanPreparing: boolean;
+  isStalled: boolean;
+  workItems: Pick<ProviderTurnWorkItem, "kind" | "status">[];
+}): OrbState {
+  if (!args.activity) {
+    return "connecting";
+  }
+  if (args.activity.pendingInteraction) {
+    return "listening";
+  }
+  if (args.isStalled) {
+    return "breathing";
+  }
+  if (args.isPlanPreparing) {
+    return "shaping";
+  }
+
+  const runningWorkItems = args.workItems.filter(
+    (item) => item.status === "running",
+  );
+  if (runningWorkItems.length > 1) {
+    return "weaving";
+  }
+  if (runningWorkItems.some((item) => item.kind === "subagent")) {
+    return "searching";
+  }
+  return "working";
 }
 
 export function promoteFirstPendingTodoForActiveTurn(

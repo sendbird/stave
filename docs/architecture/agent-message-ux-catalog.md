@@ -150,3 +150,20 @@ lost when the renderer changes:
 When adding a new event or changing an event payload, update this catalog,
 `NormalizedProviderEvent`, its schema, replay behavior, and the corresponding
 Preview fixture in the same change.
+
+## Turn Activity Orb
+
+The composer-level turn activity shelf uses the 20px inline orb. The 64px orb
+remains reserved for full loading and kickoff surfaces, while the message-level
+Chain of Thought trigger keeps its own `solving` state. The turn shelf resolves
+its state in this order so the animation reflects the most specific lifecycle:
+
+| Turn condition | Orb state | Meaning |
+| --- | --- | --- |
+| Activity snapshot has not arrived | `connecting` | The provider turn is starting |
+| Approval or user input is pending | `listening` | The agent is waiting for a response |
+| Activity is stalled | `breathing` | The turn is alive but has stopped producing progress |
+| A plan is being prepared | `shaping` | The agent is forming a plan |
+| More than one work item is running | `weaving` | Multiple strands are active in parallel |
+| A running subagent is present | `searching` | The agent is exploring through delegated work |
+| Any other active work | `working` | The turn is processing normally |
