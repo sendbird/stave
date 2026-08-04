@@ -1,4 +1,14 @@
 import { app, ipcMain } from "electron";
+import {
+  getBrowserResourceMetrics,
+  type BrowserResourceMetrics,
+} from "../browser/browser-manager";
+import {
+  getRendererHealthMetrics,
+  type RendererHealthMetrics,
+} from "../runtime-health-metrics";
+import { getPersistenceStorageMetrics } from "../state";
+import type { SqliteStorageMetrics } from "../../persistence/sqlite-maintenance-policy";
 
 export interface AppMetricsResult {
   processes: Array<{
@@ -19,6 +29,9 @@ export interface AppMetricsResult {
     external: number;
     arrayBuffers: number;
   };
+  lens: BrowserResourceMetrics;
+  renderer: RendererHealthMetrics;
+  persistence: SqliteStorageMetrics | null;
   uptimeSeconds: number;
 }
 
@@ -46,6 +59,9 @@ export function registerMetricsHandlers() {
         external: mainMemory.external,
         arrayBuffers: mainMemory.arrayBuffers,
       },
+      lens: getBrowserResourceMetrics(),
+      renderer: getRendererHealthMetrics(),
+      persistence: getPersistenceStorageMetrics(),
       uptimeSeconds: process.uptime(),
     };
   });

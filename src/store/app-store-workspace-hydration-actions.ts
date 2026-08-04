@@ -1142,30 +1142,29 @@ export function createWorkspaceHydrationActions(args: {
         return;
       }
 
-      const snapshot = createWorkspaceSnapshot({
-        activeTaskId: state.activeTaskId,
-        tasks: state.tasks,
-        messagesByTask: state.messagesByTask,
-        promptDraftByTask: state.promptDraftByTask,
-        workspaceInformation: state.workspaceInformation,
-        editorTabs: state.editorTabs,
-        activeEditorTabId: state.activeEditorTabId,
-        terminalTabs: state.terminalTabs,
-        activeTerminalTabId: state.activeTerminalTabId,
-        terminalDocked: state.layout.terminalDocked,
-        cliSessionTabs: state.cliSessionTabs,
-        activeCliSessionTabId: state.activeCliSessionTabId,
-        activeSurface: state.activeSurface,
-        openTaskTabIds: state.openTaskTabIds,
-        lensTabs: state.lensTabs,
-        paneTabMeta: state.paneTabMeta,
-        dockLayout: state.dockLayout,
-        providerSessionByTask: state.providerSessionByTask,
-      });
-
       if (sync) {
         const upsertSync = window.api?.persistence?.upsertWorkspaceSync;
         if (upsertSync) {
+          const snapshot = createWorkspaceSnapshot({
+            activeTaskId: state.activeTaskId,
+            tasks: state.tasks,
+            messagesByTask: state.messagesByTask,
+            promptDraftByTask: state.promptDraftByTask,
+            workspaceInformation: state.workspaceInformation,
+            editorTabs: state.editorTabs,
+            activeEditorTabId: state.activeEditorTabId,
+            terminalTabs: state.terminalTabs,
+            activeTerminalTabId: state.activeTerminalTabId,
+            terminalDocked: state.layout.terminalDocked,
+            cliSessionTabs: state.cliSessionTabs,
+            activeCliSessionTabId: state.activeCliSessionTabId,
+            activeSurface: state.activeSurface,
+            openTaskTabIds: state.openTaskTabIds,
+            lensTabs: state.lensTabs,
+            paneTabMeta: state.paneTabMeta,
+            dockLayout: state.dockLayout,
+            providerSessionByTask: state.providerSessionByTask,
+          });
           upsertSync({
             id: workspaceId,
             name: workspace.name,

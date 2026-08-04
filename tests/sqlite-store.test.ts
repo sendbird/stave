@@ -363,6 +363,54 @@ describe("SqliteStore", () => {
   );
 
   nativeSqliteTest(
+    "compacts completed turn diagnostics while preserving terminal events and messages",
+    async () => {
+      const SqliteStore = await loadSqliteStore();
+      const store = new SqliteStore({ dbPath, runMaintenance: false });
+      const snapshot = createSnapshot();
+      store.upsertWorkspace({
+        id: "ws-1",
+        name: "Workspace One",
+        snapshot,
+      });
+      store.beginTurn({
+        id: "turn-complete",
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        providerId: "codex",
+      });
+      store.saveStreamEvents({
+        turnId: "turn-complete",
+        events: [
+          { sequence: 1, event: { type: "text", text: "transient" } },
+          {
+            sequence: 2,
+            event: { type: "error", message: "kept", recoverable: false },
+          },
+          { sequence: 3, event: { type: "done", stop_reason: "end_turn" } },
+        ],
+      });
+
+      store.completeTurn({ id: "turn-complete" });
+
+      expect(
+        store
+          .getStreamEvents({ turnId: "turn-complete" })
+          .map((entry) => entry.eventType),
+      ).toEqual(["error", "done"]);
+      expect(
+        store.loadTaskMessagesPage({
+          workspaceId: "ws-1",
+          taskId: "task-1",
+        })?.messages,
+      ).toEqual(snapshot.messagesByTask["task-1"]);
+      expect(store.getStorageMetrics().autoVacuum).toBe(2);
+
+      store.close();
+    },
+  );
+
+  nativeSqliteTest(
     "lists the latest turn for each task in a workspace",
     async () => {
       const SqliteStore = await loadSqliteStore();

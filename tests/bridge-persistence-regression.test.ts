@@ -7341,6 +7341,14 @@ describe("workspace store hydration ordering", () => {
 
   test("switchWorkspace resolves after shell hydrate and backfills messages asynchronously for uncached workspaces", async () => {
     const localStorage = createMemoryStorage();
+    let resolveOutgoingShell:
+      ((value: { ok: true; shell: null }) => void) | null = null;
+    let targetShellLoadStarted = false;
+    const outgoingShellPromise = new Promise<{ ok: true; shell: null }>(
+      (resolve) => {
+        resolveOutgoingShell = resolve;
+      },
+    );
     let resolveTaskMessages:
       | ((value: {
           ok: boolean;
@@ -7393,40 +7401,46 @@ describe("workspace store hydration ordering", () => {
             workspaceId,
           }: {
             workspaceId: string;
-          }) => ({
-            ok: true,
-            shell:
-              workspaceId === "ws-beta-cold"
-                ? {
-                    activeTaskId: "task-beta-cold",
-                    tasks: [
-                      {
-                        id: "task-beta-cold",
-                        title: "Beta Cold Task",
-                        provider: "codex",
-                        updatedAt: "2026-03-10T00:01:00.000Z",
-                        unread: false,
+          }) => {
+            if (workspaceId === "ws-alpha-cold") {
+              return outgoingShellPromise;
+            }
+            targetShellLoadStarted = true;
+            return {
+              ok: true,
+              shell:
+                workspaceId === "ws-beta-cold"
+                  ? {
+                      activeTaskId: "task-beta-cold",
+                      tasks: [
+                        {
+                          id: "task-beta-cold",
+                          title: "Beta Cold Task",
+                          provider: "codex",
+                          updatedAt: "2026-03-10T00:01:00.000Z",
+                          unread: false,
+                        },
+                      ],
+                      promptDraftByTask: {},
+                      providerSessionByTask: {},
+                      messageCountByTask: { "task-beta-cold": 1 },
+                      workspaceInformation: {
+                        jiraIssues: [],
+                        confluencePages: [],
+                        figmaResources: [],
+                        storybookResources: [],
+                        linkedPullRequests: [],
+                        slackThreads: [],
+                        notes: "",
+                        todos: [],
+                        customFields: [],
                       },
-                    ],
-                    promptDraftByTask: {},
-                    providerSessionByTask: {},
-                    messageCountByTask: { "task-beta-cold": 1 },
-                    workspaceInformation: {
-                      jiraIssues: [],
-                      confluencePages: [],
-                      figmaResources: [],
-                      storybookResources: [],
-                      linkedPullRequests: [],
-                      slackThreads: [],
-                      notes: "",
-                      todos: [],
-                      customFields: [],
-                    },
-                    editorTabs: [],
-                    activeEditorTabId: null,
-                  }
-                : null,
-          }),
+                      editorTabs: [],
+                      activeEditorTabId: null,
+                    }
+                  : null,
+            };
+          },
           listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
           loadTaskMessages: async () => taskMessagesPromise,
         },
@@ -7483,6 +7497,7 @@ describe("workspace store hydration ordering", () => {
       messagesByTask: { "task-alpha-cold": [] },
       messageCountByTask: { "task-alpha-cold": 0 },
       projectFiles: ["alpha.ts"],
+      hasHydratedWorkspaces: true,
     });
 
     let switchResolved = false;
@@ -7493,6 +7508,11 @@ describe("workspace store hydration ordering", () => {
         switchResolved = true;
       });
 
+    await Bun.sleep(0);
+
+    expect(targetShellLoadStarted).toBe(true);
+    expect(switchResolved).toBe(false);
+    resolveOutgoingShell?.({ ok: true, shell: null });
     await Bun.sleep(0);
 
     expect(switchResolved).toBe(true);

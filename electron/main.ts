@@ -48,7 +48,7 @@ function runBeforeQuitCleanup() {
       }
     }
 
-    resetMainProcessState();
+    await resetMainProcessState({ compactPersistence: true });
   })();
 
   return beforeQuitCleanupPromise;

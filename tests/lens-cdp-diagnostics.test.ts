@@ -182,9 +182,12 @@ describe("Lens CDP diagnostics", () => {
       ),
     );
 
-    diagnostics.disposeLensCdpDiagnostics(harness.webContentsId);
-    expect(harness.webContents.debugger.isAttached()).toBe(false);
+    const disposing = diagnostics.disposeLensCdpDiagnostics(
+      harness.webContentsId,
+    );
+    expect(harness.webContents.debugger.isAttached()).toBe(true);
     finishRuntimeEnable?.();
+    expect(await disposing).toBe("drained");
 
     expect(await starting).toEqual({
       enabled: false,
@@ -379,7 +382,7 @@ describe("Lens CDP diagnostics", () => {
     ).toEqual({ enabled: false });
   });
 
-  test("force-detaches overload capture when console discard never settles", async () => {
+  test("keeps a stalled native discard attached while disabling its capture", async () => {
     const harness = createHarness();
     harness.webContents.debugger.results.set(
       "Runtime.discardConsoleEntries",
@@ -396,7 +399,7 @@ describe("Lens CDP diagnostics", () => {
       args: [{ type: "object", objectId: "stalled-overload-object" }],
     });
 
-    expect(harness.webContents.debugger.isAttached()).toBe(false);
+    expect(harness.webContents.debugger.isAttached()).toBe(true);
     expect(
       harness.webContents.debugger.commands.filter(
         ({ method }) => method === "Runtime.discardConsoleEntries",
@@ -1313,12 +1316,14 @@ describe("Lens CDP diagnostics", () => {
       (command) => command.method === "Runtime.releaseObject",
     ).length;
 
-    diagnostics.disposeLensCdpDiagnostics(harness.webContentsId);
+    expect(
+      await diagnostics.disposeLensCdpDiagnostics(harness.webContentsId),
+    ).toBe("drained");
 
     expect(
       diagnostics.getLensCdpDiagnosticsState(harness.webContentsId),
     ).toEqual({ enabled: false });
-    expect(harness.webContents.debugger.isAttached()).toBe(false);
+    expect(harness.webContents.debugger.isAttached()).toBe(true);
     expect(
       harness.webContents.debugger.commands.filter(
         (command) => command.method === "Runtime.releaseObject",

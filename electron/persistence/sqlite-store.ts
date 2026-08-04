@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync, statfsSync } from "node:fs";
 import Database from "better-sqlite3";
 import {
   deletePersistedWorkspaceShellArtifacts,
@@ -49,6 +49,10 @@ import {
   CraneJobBindingStore,
   type LocalCraneJobBinding,
 } from "./crane-job-binding-store";
+import {
+  shouldRunFullVacuumMigration,
+  type SqliteStorageMetrics,
+} from "./sqlite-maintenance-policy";
 
 interface WorkspaceMetaRow {
   id: string;
@@ -153,11 +157,12 @@ interface LocalMcpRequestLogRow {
 
 const MAX_LOCAL_MCP_REQUEST_LOGS = 500;
 const LEGACY_TURN_JOURNAL_PURGE_KEY = "legacy_turn_journal_purged_v1";
-const PERSISTENCE_COMPACTION_KEY = "persistence_compaction_v1";
+const PERSISTENCE_COMPACTION_KEY = "persistence_compaction_v2";
 export const MAX_ACTIVE_TURN_EVENTS = 2_000;
 const EXPIRED_TURN_EVENT_COMPACTION_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 const PERSISTENCE_COMPACTION_BATCH_SIZE = 2_000;
 const ORPHAN_NOTIFICATION_DELETE_CHUNK_SIZE = 400;
+const INCREMENTAL_VACUUM_PAGES_PER_MAINTENANCE = 4_096;
 
 function normalizeNotificationWorkspaceIds(workspaceIds: string[]) {
   return Array.from(
@@ -178,6 +183,7 @@ function normalizePersistedProviderId(
 
 export class SqliteStore {
   private db: Database.Database;
+  private readonly dbPath: string;
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
@@ -198,11 +204,22 @@ export class SqliteStore {
     runMaintenance?: boolean;
   }) {
     const dbPath = path.resolve(args.dbPath);
+    this.dbPath = dbPath;
     mkdirSync(path.dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
     this.artifactRootDir = path.join(path.dirname(dbPath), "artifacts");
     this.onBootstrapStatusChange = args.onBootstrapStatusChange;
     this.runMaintenance = args.runMaintenance !== false;
+    const hasExistingSchema = (
+      this.db
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table'",
+        )
+        .get() as { count: number }
+    ).count;
+    if (hasExistingSchema === 0) {
+      this.db.pragma("auto_vacuum = INCREMENTAL");
+    }
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("synchronous = NORMAL");
     this.db.pragma("busy_timeout = 5000");
@@ -476,7 +493,6 @@ export class SqliteStore {
             FROM turn_events AS event
             JOIN turns AS turn ON turn.id = event.turn_id
             WHERE turn.completed_at IS NOT NULL
-              AND julianday(turn.completed_at) < julianday('now', '-1 hour')
               AND event.event_type NOT IN (
                 'error',
                 'done',
@@ -517,6 +533,61 @@ export class SqliteStore {
           await new Promise<void>((resolve) => setImmediate(resolve));
         }
       }
+      while (!this._closed) {
+        const removed = this.db
+          .prepare(
+            `
+          DELETE FROM turn_events
+          WHERE rowid IN (
+            SELECT event.rowid
+            FROM turn_events AS event
+            JOIN turns AS turn ON turn.id = event.turn_id
+            LEFT JOIN tasks AS task
+              ON task.id = turn.workspace_id || ':' || turn.task_id
+            WHERE task.id IS NULL AND turn.completed_at IS NOT NULL
+            LIMIT ?
+          )
+        `,
+          )
+          .run(PERSISTENCE_COMPACTION_BATCH_SIZE).changes;
+        if (removed < PERSISTENCE_COMPACTION_BATCH_SIZE) {
+          break;
+        }
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      this.db
+        .prepare(
+          `
+        DELETE FROM turns
+        WHERE completed_at IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM tasks
+            WHERE tasks.id = turns.workspace_id || ':' || turns.task_id
+          )
+      `,
+        )
+        .run();
+      const orphanedArtifacts = this.db
+        .prepare(
+          `
+        SELECT id, relative_path
+        FROM artifacts AS artifact
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM workspaces
+          WHERE json_extract(snapshot_json, '$.editorTabsArtifactId') = artifact.id
+        )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM turn_events
+            WHERE payload_artifact_id = artifact.id
+          )
+      `,
+        )
+        .all() as Array<{ id: string; relative_path: string }>;
+      this.deleteArtifactRows({
+        artifactIds: orphanedArtifacts.map((artifact) => artifact.id),
+      });
       if (this._closed) {
         return;
       }
@@ -538,6 +609,16 @@ export class SqliteStore {
           );
       });
       tx();
+      if (Number(this.db.pragma("auto_vacuum", { simple: true })) === 2) {
+        this.db.pragma(
+          `incremental_vacuum(${INCREMENTAL_VACUUM_PAGES_PER_MAINTENANCE})`,
+        );
+      }
+      this.removeArtifactFiles({
+        relativePaths: orphanedArtifacts.map(
+          (artifact) => artifact.relative_path,
+        ),
+      });
     } finally {
       this.emitBootstrapStatus(IDLE_PERSISTENCE_BOOTSTRAP_STATUS);
     }
@@ -2452,27 +2533,21 @@ export class SqliteStore {
       `,
         )
         .run(completedAt, args.id);
-      this.compactSupersededCompletedTurnEvents(args.id);
+      this.compactCompletedTurnEvents(args.id);
     });
     tx();
   }
 
-  private compactSupersededCompletedTurnEvents(turnId: string) {
+  private compactCompletedTurnEvents(turnId: string) {
     this.db
       .prepare(
         `
       DELETE FROM turn_events
       WHERE rowid IN (
-        SELECT event.rowid
-        FROM turns AS current
-        JOIN turns AS previous
-          ON previous.workspace_id = current.workspace_id
-         AND previous.task_id = current.task_id
-         AND previous.id <> current.id
-         AND previous.completed_at IS NOT NULL
-        JOIN turn_events AS event ON event.turn_id = previous.id
-        WHERE current.id = ?
-          AND event.event_type NOT IN (
+        SELECT rowid
+        FROM turn_events
+        WHERE turn_id = ?
+          AND event_type NOT IN (
             'error',
             'done',
             'provider_turn',
@@ -2778,12 +2853,74 @@ export class SqliteStore {
     return this.craneJobBindings.pruneTerminalBefore(cutoff);
   }
 
-  close() {
-    this._closed = true;
+  getStorageMetrics(): SqliteStorageMetrics {
+    const pageSizeBytes = Number(this.db.pragma("page_size", { simple: true }));
+    const pageCount = Number(this.db.pragma("page_count", { simple: true }));
+    const freePages = Number(
+      this.db.pragma("freelist_count", { simple: true }),
+    );
+    return {
+      pageSizeBytes,
+      pageCount,
+      freePages,
+      usedBytes: Math.max(0, pageCount - freePages) * pageSizeBytes,
+      fileBytes: pageCount * pageSizeBytes,
+      autoVacuum: Number(this.db.pragma("auto_vacuum", { simple: true })),
+    };
+  }
+
+  /**
+   * Rebuild a materially bloated legacy database only after active runtimes
+   * have stopped. New databases use incremental auto-vacuum from creation, so
+   * the blocking full rebuild is a one-time compatibility migration.
+   */
+  compactStorageForShutdown(): boolean {
+    if (this._closed) {
+      return false;
+    }
+    const metrics = this.getStorageMetrics();
+    if (metrics.autoVacuum === 2) {
+      this.db.pragma("wal_checkpoint(TRUNCATE)");
+      this.db.pragma("incremental_vacuum");
+      this.db.pragma("wal_checkpoint(TRUNCATE)");
+      return metrics.freePages > 0;
+    }
+
+    let availableBytes = 0;
+    try {
+      const stats = statfsSync(path.dirname(this.dbPath));
+      availableBytes = stats.bavail * stats.bsize;
+    } catch {
+      return false;
+    }
+    if (!shouldRunFullVacuumMigration({ metrics, availableBytes })) {
+      return false;
+    }
+
+    try {
+      this.db.pragma("wal_checkpoint(TRUNCATE)");
+      this.db.pragma("auto_vacuum = INCREMENTAL");
+      this.db.exec("VACUUM");
+      this.db.pragma("wal_checkpoint(TRUNCATE)");
+      return true;
+    } catch (error) {
+      console.warn("[persistence] shutdown vacuum migration failed", error);
+      return false;
+    }
+  }
+
+  close(options?: { compactStorage?: boolean }) {
+    if (this._closed) {
+      return;
+    }
     if (this.maintenanceStart) {
       clearImmediate(this.maintenanceStart);
       this.maintenanceStart = null;
     }
+    if (options?.compactStorage) {
+      this.compactStorageForShutdown();
+    }
+    this._closed = true;
     this.db.close();
   }
 }
