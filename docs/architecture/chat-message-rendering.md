@@ -112,6 +112,9 @@ The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as p
 - **Step status colors**: `active → text-foreground`, `done → text-muted-foreground`, `pending → text-muted-foreground/50`.
 - **Expandable detail**: Steps with children show a subtle chevron next to the title; click to toggle.
   Expanded content animates in with `cot-step-in`.
+- **System-event detail**: The first non-empty line of a generic system event is the row title.
+  A single-line event has no nested body, and a multi-line event renders only the lines after that
+  title when expanded. Compaction checkpoints retain their specialized recovery surface.
 - **Assistant text steps**: Always visible (no accordion); rendered inline with a bullet-point dot
   instead of an icon.
 - **No status chips**: No `Done`, `Running`, `Pending`, `toolUseId`, or item-number chips.

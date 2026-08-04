@@ -55,6 +55,7 @@ async function loadAssistantMessageBodies() {
   const standardModule = await import("@/components/session/message/assistant-trace");
   return {
     AssistantMessageBody: standardModule.AssistantMessageBody,
+    splitSystemEventContent: standardModule.splitSystemEventContent,
   };
 }
 
@@ -187,6 +188,16 @@ describe("AssistantMessageBody", () => {
 
       expect(html.split(notice).length - 1).toBe(1);
     }
+  });
+
+  test("keeps the heading out of a multi-line provider notice body", async () => {
+    const { splitSystemEventContent } = await loadAssistantMessageBodies();
+    expect(splitSystemEventContent(
+      "Provider warning\nThe provider returned a recoverable warning. Expand for the detailed reason.",
+    )).toEqual({
+      title: "Provider warning",
+      detail: "The provider returned a recoverable warning. Expand for the detailed reason.",
+    });
   });
 
   test("uses Stave-specific copy and icon without rewriting external MCP names", async () => {
