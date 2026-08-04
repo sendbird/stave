@@ -125,6 +125,30 @@ describe("parseClaudeUsagePanelText", () => {
     expect(weekly?.resetsAt).not.toBeNull();
   });
 
+  test("parses the current panel's absolute reset labels", () => {
+    // Current CLI builds render "Resets <date/time>" rather than the older
+    // relative "Resets in 2h 10m", which used to leave resetsAt null and show
+    // a permanent "resets unknown" in the popover.
+    const raw = [
+      "Current session",
+      "12% used",
+      "Resets 11:59pm",
+      "",
+      "Current week (all models)",
+      "34% used",
+      "Resets Dec 31, 12:00pm",
+    ].join("\n");
+
+    const { session, weekly } = parseClaudeUsagePanelText(raw);
+
+    expect(session?.usedPercent).toBe(12);
+    expect(session?.resetsAt).not.toBeNull();
+    expect(session?.resetsAt).toBeGreaterThan(Math.floor(Date.now() / 1000));
+
+    expect(weekly?.usedPercent).toBe(34);
+    expect(weekly?.resetsAt).not.toBeNull();
+  });
+
   test("parses used/consumed-style wording and newer weekly labels", () => {
     const raw = [
       "Current session",
@@ -176,9 +200,7 @@ describe("parseClaudeUsagePanelText", () => {
   });
 
   test("does not confuse a session-only panel with a weekly window", () => {
-    const raw = ["Current session", "10% remaining", "Resets in 1h"].join(
-      "\n",
-    );
+    const raw = ["Current session", "10% remaining", "Resets in 1h"].join("\n");
     const { session, weekly } = parseClaudeUsagePanelText(raw);
     expect(session?.usedPercent).toBe(90);
     expect(weekly).toBeNull();

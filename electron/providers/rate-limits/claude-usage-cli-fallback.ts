@@ -37,7 +37,11 @@ export function stripAnsiEscapes(text: string): string {
 }
 
 const PERCENT_RE = /(\d{1,3})%\s*(remaining|left|used|consumed)/i;
-const RESET_RE = /resets?\s+in\s+([0-9dhm\s]+)/i;
+// Older CLI builds rendered a relative "resets in 2h 30m"; current builds
+// render an absolute "Resets Aug 10, 12:00pm" (or "Resets 5:20pm"). Parse both
+// so the popover stops showing a permanent "resets unknown".
+const RELATIVE_RESET_RE = /resets?\s+in\s+([0-9dhm\s]+)/i;
+const ABSOLUTE_RESET_RE = /resets?\s+([^\r\n│┃|]+)/i;
 const SESSION_LABEL_RE = /current session/i;
 const WEEKLY_LABEL_RE =
   /(current week|weekly limits|weekly usage|weekly rate limit|7-day)/i;
@@ -58,6 +62,117 @@ function parseRelativeDurationToSeconds(text: string): number | null {
   );
 }
 
+const MONTH_NAMES = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+];
+
+/**
+ * `Date.parse` can't handle the panel's compact "Dec 31, 12:00pm" wording, so
+ * the clock time is destructured explicitly rather than handed to the engine.
+ */
+function parseClockTime(
+  raw: string | undefined,
+): { hours: number; minutes: number } | null {
+  if (!raw) {
+    return null;
+  }
+  const match = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i.exec(raw.trim());
+  if (!match) {
+    return null;
+  }
+  let hours = Number(match[1]);
+  const minutes = Number(match[2] ?? 0);
+  const meridiem = match[3]?.toLowerCase();
+  if (meridiem === "pm" && hours < 12) {
+    hours += 12;
+  } else if (meridiem === "am" && hours === 12) {
+    hours = 0;
+  }
+  if (hours > 23 || minutes > 59) {
+    return null;
+  }
+  return { hours, minutes };
+}
+
+/**
+ * Parses the absolute reset label the current CLI panel renders — e.g.
+ * "Resets Aug 10, 12:00pm", "Resets Mon 9:00am", or a time-only
+ * "Resets 5:20pm" (today, or tomorrow if that time already passed).
+ *
+ * Labels omit the year, so a month/day in the past is rolled to next year
+ * rather than reported as a reset that already happened.
+ */
+export function parseAbsoluteResetToEpochSeconds(
+  label: string,
+  now: number = Date.now(),
+): number | null {
+  const trimmed = label.trim().replace(/\s+/g, " ").replace(/[.,]$/, "");
+  if (!trimmed) {
+    return null;
+  }
+
+  const timeOnly = parseClockTime(trimmed);
+  if (timeOnly) {
+    const candidate = new Date(now);
+    candidate.setHours(timeOnly.hours, timeOnly.minutes, 0, 0);
+    if (candidate.getTime() <= now) {
+      candidate.setDate(candidate.getDate() + 1);
+    }
+    return Math.floor(candidate.getTime() / 1000);
+  }
+
+  const dated =
+    /^(?:[A-Za-z]{3,9},?\s+)?([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s+(\d{4}))?(?:,?\s+(.+))?$/.exec(
+      trimmed,
+    );
+  if (!dated) {
+    return null;
+  }
+  const month = MONTH_NAMES.indexOf(dated[1].slice(0, 3).toLowerCase());
+  const day = Number(dated[2]);
+  if (month < 0 || day < 1 || day > 31) {
+    return null;
+  }
+  const time = parseClockTime(dated[4]) ?? { hours: 0, minutes: 0 };
+  const explicitYear = dated[3] ? Number(dated[3]) : null;
+  const reference = new Date(now);
+  const build = (year: number) =>
+    new Date(year, month, day, time.hours, time.minutes, 0, 0).getTime();
+
+  if (explicitYear !== null) {
+    return Math.floor(build(explicitYear) / 1000);
+  }
+  const thisYear = build(reference.getFullYear());
+  return Math.floor(
+    (thisYear < now ? build(reference.getFullYear() + 1) : thisYear) / 1000,
+  );
+}
+
+function parseResetsAt(block: string, now: number): number | null {
+  const relativeMatch = block.match(RELATIVE_RESET_RE);
+  if (relativeMatch) {
+    const deltaSeconds = parseRelativeDurationToSeconds(relativeMatch[1]);
+    if (deltaSeconds !== null) {
+      return Math.floor(now / 1000) + deltaSeconds;
+    }
+  }
+  const absoluteMatch = block.match(ABSOLUTE_RESET_RE);
+  return absoluteMatch
+    ? parseAbsoluteResetToEpochSeconds(absoluteMatch[1], now)
+    : null;
+}
+
 function parseUsageWindow(block: string): ClaudeUsageWindow | null {
   const percentMatch = block.match(PERCENT_RE);
   if (!percentMatch) {
@@ -70,16 +185,10 @@ function parseUsageWindow(block: string): ClaudeUsageWindow | null {
       ? 100 - rawPercent
       : rawPercent;
 
-  const resetMatch = block.match(RESET_RE);
-  const deltaSeconds = resetMatch
-    ? parseRelativeDurationToSeconds(resetMatch[1])
-    : null;
-  const resetsAt =
-    deltaSeconds !== null
-      ? Math.floor(Date.now() / 1000) + deltaSeconds
-      : null;
-
-  return { usedPercent, resetsAt };
+  return {
+    usedPercent: Math.min(100, Math.max(0, usedPercent)),
+    resetsAt: parseResetsAt(block, Date.now()),
+  };
 }
 
 /**
@@ -308,8 +417,7 @@ export async function fetchClaudeUsageViaCli(): Promise<ClaudeUsageSnapshot> {
 
   try {
     const rawText = await captureClaudeUsagePanelText(executablePath);
-    const { session, weekly, fableWeekly } =
-      parseClaudeUsagePanelText(rawText);
+    const { session, weekly, fableWeekly } = parseClaudeUsagePanelText(rawText);
     if (!session && !weekly && !fableWeekly) {
       return {
         source: "unavailable",
