@@ -103,6 +103,8 @@ export function arePromptDraftQueuedTurnsEqual(
         other?.id === item.id &&
         other.queuedAt === item.queuedAt &&
         other.sourceTurnId === item.sourceTurnId &&
+        other.providerId === item.providerId &&
+        other.model === item.model &&
         other.content === item.content &&
         other.attachedFilePaths.length === item.attachedFilePaths.length &&
         other.attachedFilePaths.every(

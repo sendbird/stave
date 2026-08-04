@@ -4516,6 +4516,201 @@ describe("workspace store hydration ordering", () => {
     ).toEqual(["Third prompt"]);
   });
 
+  test("queued turns pin the provider/model selected at queue time and a mid-turn switch never aborts the live turn", async () => {
+    const localStorage = createMemoryStorage();
+    const startedRequests: Array<{
+      providerId?: string;
+      prompt?: string;
+      runtimeOptions?: { model?: string };
+    }> = [];
+    const abortCalls: string[] = [];
+    const cleanupCalls: string[] = [];
+    let streamListener:
+      | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
+      | null = null;
+
+    (globalThis as { window: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async (args: (typeof startedRequests)[number]) => {
+            const sequence = startedRequests.length + 1;
+            startedRequests.push(args);
+            return {
+              ok: true,
+              streamId: `stream-${sequence}`,
+              turnId: `turn-${sequence}`,
+            };
+          },
+          subscribeStreamEvents: (listener: typeof streamListener) => {
+            streamListener = listener;
+            return () => {
+              if (streamListener === listener) {
+                streamListener = null;
+              }
+            };
+          },
+          abortTurn: async ({ turnId }: { turnId: string }) => {
+            abortCalls.push(turnId);
+            return { ok: true, message: "aborted" };
+          },
+          cleanupTask: async ({ taskId }: { taskId: string }) => {
+            cleanupCalls.push(taskId);
+            return { ok: true };
+          },
+        },
+        fs: {
+          readFile: async () => ({
+            ok: false,
+            content: "",
+            revision: "",
+            stderr: "not found",
+          }),
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-04-09T00:00:00.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      projectPath: "/tmp/stave-project",
+      workspacePathById: { "ws-main": "/tmp/stave-project" },
+      workspaceBranchById: { "ws-main": "main" },
+      workspaceDefaultById: { "ws-main": true },
+      draftProvider: "claude-code",
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "claude-code",
+          updatedAt: "2026-04-09T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-main": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {
+        "task-main": {
+          text: "",
+          attachedFilePaths: [],
+          attachments: [],
+          runtimeOverrides: { autoRouting: false, model: "claude-opus-4-6" },
+        },
+      },
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+    });
+
+    // Turn 1 starts on the Claude selection.
+    const started = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "First prompt",
+    });
+    expect(started).toMatchObject({ status: "started" });
+    expect(startedRequests[0]).toMatchObject({
+      providerId: "claude-code",
+      prompt: "First prompt",
+      runtimeOptions: { model: "claude-opus-4-6" },
+    });
+
+    // Queue 1 while Claude is still the composer selection.
+    const queuedFirst = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Second prompt",
+    });
+    expect(queuedFirst).toMatchObject({ status: "queued" });
+
+    // Mid-turn switch to Codex — exactly what the model selector does.
+    useAppStore
+      .getState()
+      .setTaskProvider({ taskId: "task-main", provider: "codex" });
+    useAppStore.getState().updatePromptDraft({
+      taskId: "task-main",
+      patch: {
+        runtimeOverrides: { autoRouting: false, model: "gpt-5.4" },
+      },
+    });
+
+    // The live Claude turn keeps streaming: nothing aborted, nothing cleaned.
+    expect(useAppStore.getState().activeTurnIdsByTask["task-main"]).toBe(
+      started.turnId,
+    );
+    expect(abortCalls).toEqual([]);
+    expect(cleanupCalls).toEqual([]);
+
+    // Queue 2 after the switch: captured with the Codex selection.
+    const queuedSecond = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Third prompt",
+    });
+    expect(queuedSecond).toMatchObject({ status: "queued" });
+    expect(
+      useAppStore
+        .getState()
+        .promptDraftByTask["task-main"]?.queuedTurns?.map((item) => ({
+          content: item.content,
+          providerId: item.providerId,
+          model: item.model,
+        })),
+    ).toEqual([
+      {
+        content: "Second prompt",
+        providerId: "claude-code",
+        model: "claude-opus-4-6",
+      },
+      { content: "Third prompt", providerId: "codex", model: "gpt-5.4" },
+    ]);
+
+    // Turn 1 completes → queue item 1 auto-dispatches on the provider/model
+    // captured at queue time, not the composer's current Codex selection.
+    streamListener?.({
+      streamId: "stream-1",
+      event: { type: "done" },
+      done: true,
+    });
+    await Bun.sleep(25);
+
+    expect(startedRequests[1]).toMatchObject({
+      providerId: "claude-code",
+      prompt: "Second prompt",
+      runtimeOptions: { model: "claude-opus-4-6" },
+    });
+    // The task-level selection the user made stays Codex.
+    expect(
+      useAppStore.getState().tasks.find((task) => task.id === "task-main")
+        ?.provider,
+    ).toBe("codex");
+
+    // Turn 2 completes → queue item 2 runs on its own pinned Codex selection.
+    streamListener?.({
+      streamId: "stream-2",
+      event: { type: "done" },
+      done: true,
+    });
+    await Bun.sleep(25);
+
+    expect(startedRequests[2]).toMatchObject({
+      providerId: "codex",
+      prompt: "Third prompt",
+      runtimeOptions: { model: "gpt-5.4" },
+    });
+    expect(
+      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns,
+    ).toBeUndefined();
+    expect(abortCalls).toEqual([]);
+    expect(cleanupCalls).toEqual([]);
+  });
+
   test("keeps queued auto-dispatch scoped to its workspace when the active workspace changes", async () => {
     const localStorage = createMemoryStorage();
     const startedPrompts: string[] = [];

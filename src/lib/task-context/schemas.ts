@@ -345,6 +345,14 @@ const PromptDraftQueuedTurnSchema = z
     content: z.string(),
     attachedFilePaths: z.array(z.string()).optional().default([]),
     attachments: z.array(AttachmentSchema).optional().default([]),
+    // Queue-time provider/model pin. `.catch(undefined)` so an unknown
+    // provider id from a newer build degrades to "follow the task provider"
+    // instead of rejecting the entire workspace snapshot.
+    providerId: z
+      .union([z.literal("claude-code"), z.literal("codex")])
+      .optional()
+      .catch(undefined),
+    model: z.string().optional().catch(undefined),
   })
   .strict();
 

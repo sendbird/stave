@@ -1,4 +1,5 @@
 import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-annotation-attachment";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import { extractWorkspaceInformationReferencesFromText } from "@/lib/workspace-information-references";
 import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import { resolveLanguage } from "@/store/editor.utils";
@@ -66,6 +67,8 @@ export function buildQueuedTurnFromDraft(args: {
   draft: PromptDraft;
   sourceTurnId?: string;
   content?: string;
+  providerId?: PromptDraftQueuedTurn["providerId"];
+  model?: string;
 }): PromptDraftQueuedTurn {
   return {
     id:
@@ -77,7 +80,65 @@ export function buildQueuedTurnFromDraft(args: {
     content: args.content ?? buildPromptDraftContentForSend(args.draft),
     attachedFilePaths: getPromptDraftAttachedFilePaths(args.draft),
     attachments: getPromptDraftAttachments(args.draft),
+    // Pin the composer selection at queue time so dispatch can honor it even
+    // if the user switches provider/model before this turn runs.
+    ...(args.providerId ? { providerId: args.providerId } : {}),
+    ...(args.model ? { model: args.model } : {}),
   };
+}
+
+function parseCodexGoalSetObjective(content: string): string | null {
+  const match = content.trim().match(/^\/goal(?:\s+([\s\S]*))?$/i);
+  if (!match) {
+    return null;
+  }
+
+  const argument = (match[1] ?? "").trim();
+  if (!argument) {
+    return null;
+  }
+
+  const normalizedArgument = argument.toLowerCase();
+  if (
+    normalizedArgument === "clear" ||
+    normalizedArgument === "pause" ||
+    normalizedArgument === "resume"
+  ) {
+    return null;
+  }
+
+  return argument;
+}
+
+/**
+ * A Codex `/goal <objective>` send stages the objective itself as the next
+ * queued turn. Goal continuations are Codex-specific, so the staged turn pins
+ * `providerId: "codex"` — switching the composer to Claude mid-goal must not
+ * retarget the continuation.
+ */
+export function buildCodexGoalQueuedTurns(args: {
+  provider: ProviderId;
+  content: string;
+  turnId: string;
+}): PromptDraft["queuedTurns"] {
+  const objective =
+    args.provider === "codex"
+      ? parseCodexGoalSetObjective(args.content)
+      : null;
+  if (!objective) {
+    return undefined;
+  }
+  return [
+    {
+      id: `codex-goal-${args.turnId}`,
+      queuedAt: buildRecentTimestamp(),
+      sourceTurnId: args.turnId,
+      content: objective,
+      attachedFilePaths: [],
+      attachments: [],
+      providerId: "codex",
+    },
+  ];
 }
 
 export function getDraftImageContexts(args: {
