@@ -40,7 +40,8 @@ The current column exercises these visible cases in one trace:
 - Todo progress
 - changed-file diff summary
 - single-line system notices, rate-limit guidance, plugin installation, and a
-  multi-line provider warning
+  multi-line provider warning whose expanded body contains detail without
+  repeating the row title
 - the final assistant response
 
 The source of truth for the Preview is
@@ -91,7 +92,7 @@ become a second visible assistant message.
 | `approval` | `approval` part | Keep an explicit confirmation card open and actionable; approval, rejection, interruption, and denial remain distinguishable | Not yet |
 | `user_input` | `user_input` part | Keep the question card open until answered or denied; support text, choice, multi-select, numeric, boolean, and URL-notice flows | Not yet |
 | `plan_ready` | Separate or updated plan assistant response | Remove transient plan markup from the normal response and show the durable plan in the plan viewer without duplicating it in the chat bubble | Not yet |
-| `system` | `system_event` part | Use specialized UX for compacting, compacted checkpoints, truncation warnings, and generic notices; a single-line notice is rendered once, while distinct detail can expand | Partially covered |
+| `system` | `system_event` part | Use specialized UX for compacting, compacted checkpoints, truncation warnings, and generic notices; the first non-empty line becomes the row title, a single-line notice has no repeated body, and expanded generic detail starts after that title | Partially covered |
 | `subagent_progress` | Appends to the matching Agent `tool_use.progressMessages` | Show progress bullets inside the subagent row; if no Agent can be matched, degrade to one system event rather than dropping the signal | Covered |
 | `model_resolved` | Updates message provider and model metadata | Keep the footer and status copy truthful when routing resolves to a different provider or model; no transcript row | Metadata only |
 | `error` | Error system event plus turn error state | Keep recoverable errors distinguishable from terminal failures; preserve subsequent recovery and explain a terminal stop | Not yet |
@@ -114,7 +115,9 @@ construction even though they are not separate `NormalizedProviderEvent` types.
   clean completed turn. Errors and pending interactions remain inspectable.
 - A row is an accordion only when its body contains new information. A title
   such as `Context window at 62%` must not repeat the same sentence inside a
-  nested body; multi-line warnings and compact checkpoints may expand.
+  nested body. For a multi-line generic system notice, the first non-empty line
+  is the title and only the remaining lines belong in the expanded body;
+  compact checkpoints keep their specialized recovery surface.
 - Tool results update the existing tool row by id. A result must never create a
   second row that repeats the header or input.
 - Stave-owned MCP tools use the Stave icon and an action-oriented title. Other

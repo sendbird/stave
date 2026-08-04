@@ -147,7 +147,9 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
     },
     {
       type: "system_event",
-      content: "Provider warning\nThe provider returned a recoverable warning with additional detail.",
+      /* Deliberately multi-line: the first line is the row title and only the
+         following detail should appear when the row is expanded. */
+      content: "Provider warning\nThe provider returned a recoverable warning. Expand for the detailed reason.",
     },
   ];
 }

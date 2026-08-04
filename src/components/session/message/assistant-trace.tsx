@@ -502,6 +502,28 @@ function getReasoningDurationSeconds(parts: ThinkingPart[]): number | null {
   return Math.max(1, Math.round((completedAt - startedAt) / 1000));
 }
 
+/**
+ * System-event rows use the first non-empty line as their accordion title.
+ * Keep the title out of the expanded body so a multi-line notice does not
+ * render its heading twice. Checkpoint events are handled separately because
+ * their body needs the original content to recover the compact boundary.
+ */
+export function splitSystemEventContent(content: string): {
+  title: string;
+  detail: string;
+} {
+  const lines = content.trim().split(/\r?\n/);
+  const titleIndex = lines.findIndex((line) => line.trim());
+  if (titleIndex === -1) {
+    return { title: "System", detail: "" };
+  }
+
+  return {
+    title: lines[titleIndex]?.trim() || "System",
+    detail: lines.slice(titleIndex + 1).join("\n").trim(),
+  };
+}
+
 function ReasoningStepView(args: {
   entry: Extract<AssistantTraceEntry, { kind: "reasoning" }>;
   status: "active" | "done" | "pending";
@@ -726,11 +748,19 @@ function AssistantTraceEntryView(args: {
 
     case "system":
       {
-        const systemTitle =
-          entry.part.content.split("\n").find((line) => line.trim())?.trim() || "System";
+        const { title: systemTitle, detail: systemDetail } = splitSystemEventContent(
+          entry.part.content,
+        );
         const systemContent = entry.part.content.trim();
         const hasDistinctSystemContent =
-          entry.part.compactBoundary != null || systemContent !== systemTitle;
+          entry.part.compactBoundary != null || systemDetail.length > 0;
+        const isCompactionCheckpoint = systemContent
+          .toLowerCase()
+          .startsWith("context compacted");
+        const systemBodyPart =
+          entry.part.compactBoundary != null || isCompactionCheckpoint
+            ? entry.part
+            : { ...entry.part, content: systemDetail };
 
         return (
           <ChainOfThoughtStep
@@ -740,7 +770,7 @@ function AssistantTraceEntryView(args: {
             defaultOpen={entry.part.compactBoundary != null}
           >
             {hasDistinctSystemContent ? (
-              <MessagePartRenderer part={entry.part} taskId={taskId} messageId={messageId} />
+              <MessagePartRenderer part={systemBodyPart} taskId={taskId} messageId={messageId} />
             ) : null}
           </ChainOfThoughtStep>
         );
