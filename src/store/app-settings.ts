@@ -134,6 +134,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   infoPanelSectionVisibility: WorkspaceInformationSectionVisibility;
   reasoningExpansionMode: "auto" | "manual";
   showInterimMessages: boolean;
+  /** Show the conversation turn rail beside eligible task histories. */
+  showConversationTurnRail: boolean;
   /**
    * Open the turn activity shelf (above the prompt input) expanded by default
    * so every tracked activity is visible without a click. Users can still
@@ -413,6 +415,7 @@ export const defaultSettings: AppSettings = {
   infoPanelSectionVisibility: {},
   reasoningExpansionMode: "manual",
   showInterimMessages: false,
+  showConversationTurnRail: true,
   turnActivityExpandedByDefault: true,
   composerControlPlacements: {},
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),

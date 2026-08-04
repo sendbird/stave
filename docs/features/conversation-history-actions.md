@@ -31,6 +31,8 @@ Stave lets you branch or rewind a provider conversation from an earlier assistan
 
 - The conversation rail appears on the right side of eligible task histories.
 - The same actions remain available on assistant-message hover or keyboard focus.
+- Use `Settings > Chat > Show Conversation Turn Rail` to hide the navigator when
+  you prefer a wider conversation surface.
 - The task tab context menu exposes `Rename task`.
 - The existing provider thread inspector remains available for advanced inspection.
 

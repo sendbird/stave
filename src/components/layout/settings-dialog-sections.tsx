@@ -2413,6 +2413,7 @@ function ChatSection() {
     infoPanelScale,
     reasoningExpansionMode,
     showInterimMessages,
+    showConversationTurnRail,
     turnActivityExpandedByDefault,
     composerControlPlacements,
     steerQueueEnterAction,
@@ -2430,6 +2431,7 @@ function ChatSection() {
           state.settings.infoPanelScale,
           state.settings.reasoningExpansionMode,
           state.settings.showInterimMessages,
+          state.settings.showConversationTurnRail,
           state.settings.turnActivityExpandedByDefault,
           state.settings.composerControlPlacements,
           state.settings.steerQueueEnterAction,
@@ -2597,6 +2599,16 @@ function ChatSection() {
             checked={showInterimMessages}
             onCheckedChange={(checked) =>
               updateSettings({ patch: { showInterimMessages: checked } })
+            }
+          />
+          <SwitchField
+            title="Show Conversation Turn Rail"
+            description="Show the turn navigator on the right side of conversations with multiple eligible responses."
+            checked={showConversationTurnRail}
+            onCheckedChange={(checked) =>
+              updateSettings({
+                patch: { showConversationTurnRail: checked },
+              })
             }
           />
           <SwitchField

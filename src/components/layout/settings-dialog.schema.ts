@@ -81,6 +81,8 @@ export const settingsSections = [
       "mid-turn",
       "reasoning",
       "interim",
+      "conversation",
+      "turn rail",
       "fast mode",
     ],
   },

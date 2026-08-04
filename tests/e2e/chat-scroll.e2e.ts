@@ -384,6 +384,40 @@ test("conversation turn rail previews, navigates, and explains provider capabili
   expect(reducedMotionTransitions).toEqual(["none", "none"]);
 });
 
+test("conversation turn rail visibility is configurable in Chat settings", async ({
+  page,
+}) => {
+  await installChatScrollHarness(page, { withThreadActionMetadata: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await expect(page.getByTestId("conversation-turn-rail")).toBeVisible();
+
+  await page.locator('button[aria-label="open-settings"]').click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByRole("button", { name: "Chat", exact: true }).click();
+
+  const railToggle = settings.getByRole("switch", {
+    name: "Show Conversation Turn Rail",
+  });
+  await expect(railToggle).toHaveAttribute("aria-checked", "true");
+  await railToggle.click();
+  await expect(railToggle).toHaveAttribute("aria-checked", "false");
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const persisted = JSON.parse(
+          window.localStorage.getItem("stave-store") ?? "{}",
+        ) as { state?: { settings?: { showConversationTurnRail?: boolean } } };
+        return persisted.state?.settings?.showConversationTurnRail;
+      }),
+    )
+    .toBe(false);
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("conversation-turn-rail")).toHaveCount(0);
+});
+
 test("submitting a new prompt restores the latest conversation position", async ({
   page,
 }) => {
